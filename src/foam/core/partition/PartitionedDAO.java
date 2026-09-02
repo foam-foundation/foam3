@@ -25,9 +25,12 @@ public class PartitionedDAO
 
   protected final static String NO_PART = "".intern();
 
-  // Doesn't need to be concurrent since the getDelgate() method is synchronized
-  // protected final ConcurrentHashMap<String, DAO> delegates_ = new ConcurrentHashMap<String, DAO>();
+  // Doesn't need to be concurrent since the getDelgate() method synchronizes on it explicitly
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
+
+  // Partitions currently mid-replay in getDelegate(). Concurrent so peeks
+  // (isLoading, publishQueued) never wait on a partition lock during a load.
+  protected final java.util.Set<String> loading_ = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
   public PartitionedDAO(X x) {
     setX(x);
@@ -40,23 +43,74 @@ public class PartitionedDAO
     setPartitionProperty(partitionProperty);
   }
 
-  public synchronized DAO getDelegate(String part) {
+  public DAO getDelegate(String part) {
     if ( part == null ) part = NO_PART;
 
+    // Sync on the part name instead of using a global lock to improve concurrency
+    // This might become a problem in the future if we try to load too many at once.
+    // A simpler and safer but maybe slower solution would be to just synchronize the
+    // whole method.
     synchronized ( part.intern() ) {
-      SoftReference<DAO> ref = delegates_.get(part);
+      SoftReference<DAO> ref;
+      synchronized ( delegates_ ) {
+        ref = delegates_.get(part);
+      }
 
       DAO dao = ref != null ? ref.get() : null;
 
       if ( dao == null ) {
         if ( ref != null )
           Loggers.logger(getX(), this).info("This DAO Partition was garbage collected. A new DAO will be created and cached:", part);
-        dao = createDAO(part);
-        delegates_.put(part, new SoftReference<>(dao));
+        loadingStarted(part);
+        try {
+          dao = createDAO(part);
+          synchronized ( delegates_ ) {
+            delegates_.put(part, new SoftReference<>(dao));
+          }
+        } finally {
+          loadingEnded(part);
+        }
       }
 
       return dao;
     }
+  }
+
+  public void loadingStarted(String part) {
+    loading_.add(part);
+  }
+
+  public void loadingEnded(String part) {
+    loading_.remove(part);
+  }
+
+  /** True while createDAO() (journal replay) is running for this partition. */
+  public boolean isLoading(String part) {
+    return loading_.contains(part);
+  }
+
+  /** Manual quiesce-then-unload only: an in-flight writer holding an old
+      delegate reference plus a new reader racing getDelegate() to recreate
+      it can briefly double-append to one journal file. Routine/automated
+      eviction needs draining semantics first -- follow-up ticket. */
+  public void unload() {
+    Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
+    synchronized ( delegates_ ) {
+      delegates_.clear();
+    }
+  }
+
+  /** Cheap cache peek: true when a live (non-garbage-collected) delegate is
+      already cached for this partition. No creation; guarded by the
+      delegates_ monitor, same as getDelegate(), so it never waits on a
+      partition lock while another thread replays. */
+  public boolean isLoaded(String part) {
+    if ( part == null ) part = NO_PART;
+    SoftReference<DAO> ref;
+    synchronized ( delegates_ ) {
+      ref = delegates_.get(part);
+    }
+    return ref != null && ref.get() != null;
   }
 
   public String getID(FObject o) {
@@ -87,18 +141,22 @@ public class PartitionedDAO
     return a[getDepth()-1];
   }
 
-  public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
-
-    // The '_' escape is for the FILENAME only — the id prefix below keeps the
-    // raw partition value so getPartition_(id) round-trips to the same key
-    // getDelegate() caches on.
-    String rawPart = part;
+  /** Filename-escaped journal name for a raw partition value, exactly as
+      createDAO builds it for the JDAO -- the '_' escape is for the FILENAME
+      only; callers needing the id-prefix / cache key should keep using the
+      raw, unescaped part (see getPartition_'s round-trip). */
+  protected String journalNameFor(String part) {
     if ( part.startsWith("_") || part.equals("") ) {
       part = "_" + part;
     }
+    return getDirName() + part;
+  }
 
-    String journalName = getDirName() + part;
+  public DAO createDAO(String part) {
+    Loggers.logger(getX(), this).info("Creating partiion " + part);
+
+    String rawPart     = part;
+    String journalName = journalNameFor(part);
 
     // TODO: directory creation would be better done by JDAO itself
     // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the
@@ -111,25 +169,38 @@ public class PartitionedDAO
       throw new RuntimeException("Failed to create directory " + parent);
     }
 
-    JDAO jdao = new JDAO(getX(), getOf(), journalName);
+    PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
+    try {
+      reporter.start(journalSize(journalName));
+      X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
 
-    // When the model's id is a String, assign composite <partition>~<seqNo>
-    // ids per partition so find can route by the id prefix (see getPartition_).
-    // Long-id models stay flat (no prefix), preserving non-composite usage.
-    // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
-    // String, so wrapping a Long-id model throws ClassCastException on every put_.
-    foam.lang.PropertyInfo idProp = getIdProperty();
-    if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
-      return new foam.core.partition.PartitionedSequenceNumberDAO.Builder(getX())
-        .setPrefix(rawPart + SEPARATOR)
-        .setProperty("id")
-        .setDelegate(jdao)
-        .build();
+      // When the model's id is a String, assign composite <partition>~<seqNo>
+      // ids per partition so find can route by the id prefix (see getPartition_).
+      // Long-id models stay flat (no prefix), preserving non-composite usage.
+      // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
+      // String, so wrapping a Long-id model throws ClassCastException on every put_.
+      foam.lang.PropertyInfo idProp = getIdProperty();
+      if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
+        // The sequence wrapper sits INSIDE the JDAO: journal replay flows
+        // through SequenceNumberDAO.put_, which advances the counter past
+        // every already-stamped id, so the sequence resumes correctly after
+        // an unload/reload or restart with no rescan. Writes stay correct
+        // because the journal formats the object AFTER the delegate stamps
+        // it (AbstractF3FileJournal.put executes dao.put_ under lock first).
+        DAO seq = new foam.core.partition.PartitionedSequenceNumberDAO.Builder(loadX)
+          .setPrefix(rawPart + SEPARATOR)
+          .setProperty("id")
+          .setDelegate(new foam.dao.MDAO(getOf()))
+          .build();
+        return new JDAO(loadX, seq, journalName);
+      }
+
+      JDAO jdao = new JDAO(loadX, getOf(), journalName);
+      addIndices(jdao);
+      return jdao;
+    } finally {
+      reporter.done();
     }
-
-    addIndices(jdao);
-
-    return jdao;
   }
 
   protected DAO getDelegate(X x, FObject obj) {
@@ -160,11 +231,18 @@ public class PartitionedDAO
       // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
-    return getDelegate(part).put_(x, obj);
+    FObject ret = getDelegate(part).put_(x, obj);
+    // Listeners registered via listen_ live on this DAO, not on the
+    // soft-referenced partition delegates (they would be lost on unload), so
+    // fire them here. Same as NotPartitionedDAO.
+    if ( ret != null ) onPut(ret);
+    return ret;
   }
 
   public FObject remove_(X x, FObject obj) {
-    return getDelegate(x, obj).remove_(x, obj);
+    FObject ret = getDelegate(x, obj).remove_(x, obj);
+    if ( ret != null ) onRemove(ret);
+    return ret;
   }
 
   public FObject find_(X x, Object id) {

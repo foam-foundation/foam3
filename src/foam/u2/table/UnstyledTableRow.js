@@ -121,11 +121,38 @@ foam.CLASS({
   name: 'UnstyledTableRowComponent',
   extends: 'foam.u2.table.TableComponentView',
 
+  requires: ['foam.u2.util.CopyButton'],
+
   imports: [
     'colWidthUpdated',
     'props',
     'selectedColumnsWidth?'
   ],
+
+  css: `
+    ^copyable-cell {
+      align-items: center;
+      display: flex;
+      gap: 4px;
+    }
+    ^copyable-cell > span {
+      /* min-width 0 lets the flex item shrink below its content width,
+         so the ellipsis engages and the button stays inside the cell. */
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    ^copy-button {
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    /* Only hide the copy button behind hover on devices that can hover;
+       on touch devices it stays visible. */
+    @media (hover: hover) {
+      ^copy-button { opacity: 0; }
+      ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+    }
+  `,
 
   properties: [
     {
@@ -146,7 +173,9 @@ foam.CLASS({
     function render() {
       var self = this;
       this.propName = this.columnHandler.propertyNamesForColumnArray(this.col);
-      [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
+      // var keeps these per-cell: without it they leak to globals shared by
+      // every cell, and the copy-button click handler reads them after render.
+      var [prop, objReturned] = this.getCellData(this.data, this.col, this.nestedPropertiesObjsMap);
 
       // Added to maintain support for ScrollTableView that does not support resizable columns
       if ( this.colWidthUpdated$ && this.selectedColumnsWidth$ ) {
@@ -159,17 +188,46 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
+        .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;
           })
         })
         .call(function() {
+          if ( ! prop.copyable ) {
+            prop.tableCellFormatter.format(
+              this,
+              prop.f ? prop.f(objReturned) : null,
+              objReturned,
+              prop
+            );
+            return;
+          }
+          // When the column is copyable, format into a span inside a flex
+          // wrapper so the copy button can read back exactly the displayed
+          // cell text and sit at the far right of the cell.
+          var wrapper = this.start('div').addClass(self.myClass('copyable-cell'));
+          var cell = wrapper.start('span');
           prop.tableCellFormatter.format(
-            this,
+            cell,
             prop.f ? prop.f(objReturned) : null,
             objReturned,
             prop
           );
+          cell.end();
+          wrapper.start(self.CopyButton, {
+            label: prop.columnLabel || prop.label || prop.name,
+            textProvider: function() {
+              if ( foam.Function.isInstance(prop.copyable) ) {
+                return prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned);
+              }
+              var node = cell.el_();
+              return node ? node.innerText.trim() : '';
+            }
+          })
+            .addClass(self.myClass('copy-button'))
+          .end();
+          wrapper.end();
         })
         .endContext();
     }

@@ -93,6 +93,15 @@ foam.CLASS({
     ^hint { color: $textSecondary; font-style: italic; }
     ^block-row { cursor: pointer; }
     ^block-row:hover { background: $grey50; }
+    /* Nesting: one rail per level in the name cell, and the block's detail tables
+       indented to the same level so they read as belonging to the row above.
+       Detail rules are qualified past '^hot-detailrow > td' to win on specificity. */
+    ^rail { display: inline-block; width: 22px; height: 1.1em; vertical-align: -0.2em; border-left: 1px solid $borderLight; }
+    ^inside { margin-left: 8px; font-size: 11px; font-weight: $font-regular; color: $textTertiary; }
+    ^hot-detailrow > td^d1 { padding-left: 44px; }
+    ^hot-detailrow > td^d2 { padding-left: 66px; }
+    ^hot-detailrow > td^d3 { padding-left: 88px; }
+    ^hot-detailrow > td^d4 { padding-left: 110px; }
     ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
     ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
     ^hot-detailrow > td { padding: 4px 0 8px 22px; }
@@ -103,7 +112,8 @@ foam.CLASS({
   `,
 
   constants: {
-    SAMPLE_INTERVAL_MS: 10   // JS Self-Profiling sampleInterval; each sample ≈ this many ms of CPU
+    SAMPLE_INTERVAL_MS: 10,  // JS Self-Profiling sampleInterval; each sample ≈ this many ms of CPU
+    HOT_MIN_MS:         20   // own time a block needs before its hottest functions mean anything
   },
 
   properties: [
@@ -122,8 +132,10 @@ foam.CLASS({
     { class: 'Float', name: 'longTaskTotalMs_', hidden: true, transient: true },
     { class: 'Float', name: 'longestTaskMs_',   hidden: true, transient: true },
     { class: 'Int',   name: 'warnCount_',       hidden: true, transient: true },
+    { name: 'capture_',   hidden: true, transient: true },
     { name: 'observer_',  hidden: true, transient: true },
     { name: 'netCalls_',  hidden: true, transient: true },
+    { name: 'bodyReads_', hidden: true, transient: true },
     { name: 'origFetch_', hidden: true, transient: true },
     { name: 'origWarn_',  hidden: true, transient: true },
     { name: 'profiler_',  hidden: true, transient: true }
@@ -139,8 +151,8 @@ foam.CLASS({
       this.add(this.dynamic(function(report$elapsedMs) {
         var r = self.report;
         if ( ! r || ! r.endSnapshot ) return;
-        // Recommended-action count = service-call groups with identical re-fetches.
-        var actions = ( r.serviceCalls || [] ).filter(function(c) { return ( c.count - ( c.distinct || c.count ) ) > 0; }).length;
+        // Recommended-action count = service-call groups with avoidable re-fetches.
+        var actions = ( r.serviceCalls || [] ).filter(function(c) { return c.avoidable() > 0; }).length;
         var svcLabel   = 'Services' + ( actions ? ' · ' + actions + ' to fix' : '' );
         var issueLabel = 'Issues' + ( ( r.issues || [] ).length ? ' (' + r.issues.length + ')' : '' );
         // Issues first => default selected tab (the summary).
@@ -244,8 +256,8 @@ foam.CLASS({
       row(self.LONGEST_LABEL, r.durStr(r.longestTaskMs), 'longestTaskMs');
       row(self.HEAP_LABEL, r.byteStr(r.heapDeltaBytes), 'heapDeltaBytes');
       row(self.DOM_LABEL, r.numStr(r.domNodeDelta, 0) + ( r.tableCellDelta > 0 ? ' (' + r.numStr(r.tableCellDelta, 0) + ' cells)' : '' ), 'domNodeDelta');
-      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' identical)', 'repeatedRequestCount');
-      row(self.LARGEST_LABEL, r.byteStr(r.largestRequestBytes), 'largestRequestBytes');
+      row(self.NETWORK_LABEL, r.numStr(r.networkCallCount, 0) + ' (' + r.numStr(r.repeatedRequestCount, 0) + ' repeated reads)', 'repeatedRequestCount');
+      row(self.LARGEST_LABEL, r.sizeStr(r.largestRequestBytes), 'largestRequestBytes');
       row(self.WARN_LABEL, r.numStr(r.warnCount, 0), 'warnRate');
       el2.end();
       card.end();
@@ -255,8 +267,8 @@ foam.CLASS({
       var self  = this;
       var calls = r.serviceCalls || [];
       if ( ! calls.length ) return;
-      // identical re-fetches (cache candidates) = total calls - distinct request bodies.
-      var repeatedOf = function(c) { return c.count - ( c.distinct || c.count ); };
+      // identical re-fetches a cache would remove - reads only (PerfServiceCall.avoidable).
+      var repeatedOf = function(c) { return c.avoidable(); };
       // Only the repeated calls are an issue - heat those; sizes are shown plain.
       var maxRepeated = 0;
       calls.forEach(function(c) { var rep = repeatedOf(c); if ( rep > maxRepeated ) maxRepeated = rep; });
@@ -333,13 +345,17 @@ foam.CLASS({
       var self   = this;
       var blocks = r.blockProfile || [];
       if ( ! blocks.length ) return;
-      // Column maxes for relative heat (each column shaded against its own worst).
-      var maxMs = 0, maxDom = 0, maxHeap = 0;
-      blocks.forEach(function(b) {
-        if ( b.ms > maxMs )            maxMs   = b.ms;
-        if ( b.domDelta > maxDom )     maxDom  = b.domDelta;
-        if ( b.heapDelta > maxHeap )   maxHeap = b.heapDelta;
-      });
+      // Column maxes for relative heat, taken over the whole tree so a hot child reads
+      // hot beside its parent (each column shaded against its own worst).
+      var max = { ms: 0, dom: 0, heap: 0 };
+      ( function scan(list) {
+        list.forEach(function(b) {
+          if ( b.ms > max.ms )          max.ms   = b.ms;
+          if ( b.domDelta > max.dom )   max.dom  = b.domDelta;
+          if ( b.heapDelta > max.heap ) max.heap = b.heapDelta;
+          scan(b.children || []);
+        });
+      } )(blocks);
       var card = self.card_(el);
       var t = card.start('table');
       t.start('tr')
@@ -348,28 +364,59 @@ foam.CLASS({
         .start('td').add('Elements added').end()
         .start('td').add('Memory change').end()
       .end();
+      self.blockRows_(t, r, blocks, 0, null, max);
+      t.end();
+      if ( ! r.profilingSupported ) {
+        card.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
+      }
+      card.end();
+    },
+
+    function blockRows_(t, r, blocks, depth, vis$, max) {
+      /** One level of block rows, each followed by its detail tables and the blocks that
+          ran inside it, indented. A row shows only while every ancestor is open, so
+          expanding a parent reveals one level at a time. **/
+      var self = this;
       blocks.forEach(function(b) {
         var hot        = b.hot || [];
         var bCalls     = b.calls || [];
-        var expandable = hot.length > 0 || bCalls.length > 0;
+        var kids       = b.children || [];
+        var expandable = hot.length > 0 || bCalls.length > 0 || kids.length > 0;
         var open$      = foam.lang.SimpleSlot.create({ value: false });
+        var inner$     = vis$ ? self.bothSlot_(vis$, open$) : open$;
+        var dCls       = self.myClass('d' + Math.min(depth, 4));
+        // A wrapper's time is its children's; say what it spent on its own so the rows
+        // that actually cost something stand out from the ones that only hold them.
+        var ownTime    = kids.length ? ' · self ' + r.durStr(b.selfMs) : '';
 
         var tr = t.start('tr').addClass(self.myClass('block-row'));
+        if ( vis$ ) tr.show(vis$);
         if ( expandable ) tr.on('click', function() { open$.set( ! open$.get() ); });
         var th = tr.start('th');
+        // One rail per level of nesting: the guides survive the detail tables that sit
+        // between a block and the blocks it contains.
+        for ( var i = 0 ; i < depth ; i++ ) th.start('span').addClass(self.myClass('rail')).end();
         th.start('span').addClass(self.myClass('twisty'))
           .add( expandable ? open$.map(function(o) { return o ? '▾' : '▸'; }) : '' )
         .end();
-        th.add(b.flowName).end();
-        self.heatCell_(tr.start('td'), r.durStr(b.ms), self.heatLevel_(b.ms, maxMs));
-        self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0),    self.heatLevel_(b.domDelta, maxDom));
-        self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),     self.heatLevel_(b.heapDelta, maxHeap));
+        th.add(b.flowName);
+        var sub = b.subtitle();
+        if ( sub ) th.start('span').addClass(self.myClass('inside')).add(sub).end();
+        if ( kids.length ) {
+          th.start('span').addClass(self.myClass('inside'))
+            .add(kids.length + ( kids.length === 1 ? ' block inside' : ' blocks inside' ))
+          .end();
+        }
+        th.end();
+        self.heatCell_(tr.start('td'), r.durStr(b.ms) + ownTime, self.heatLevel_(b.ms, max.ms));
+        self.heatCell_(tr.start('td'), r.numStr(b.domDelta, 0), self.heatLevel_(b.domDelta, max.dom));
+        self.heatCell_(tr.start('td'), r.byteStr(b.heapDelta),  self.heatLevel_(b.heapDelta, max.heap));
         tr.end();
 
         // Expandable detail: hottest functions and the server calls this block made.
         if ( hot.length ) {
-          var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
-            .start('td').attrs({ colspan: 4 })
+          var ht = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
+            .start('td').addClass(dCls).attrs({ colspan: 4 })
               .start('div').addClass(self.myClass('detail-title')).add('Hottest functions').end()
               .start('table').addClass(self.myClass('hot-table'));
           ht.start('tr')
@@ -387,8 +434,8 @@ foam.CLASS({
           ht.end().end().end();
         }
         if ( bCalls.length ) {
-          var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(open$)
-            .start('td').attrs({ colspan: 4 })
+          var ct = t.start('tr').addClass(self.myClass('hot-detailrow')).show(inner$)
+            .start('td').addClass(dCls).attrs({ colspan: 4 })
               .start('div').addClass(self.myClass('detail-title')).add('Server calls').end()
               .start('table').addClass(self.myClass('hot-table'));
           ct.start('tr')
@@ -409,12 +456,16 @@ foam.CLASS({
           });
           ct.end().end().end();
         }
+        if ( kids.length ) self.blockRows_(t, r, kids, depth + 1, inner$, max);
       });
-      t.end();
-      if ( ! r.profilingSupported ) {
-        card.start().addClass(self.myClass('hint')).add(self.DEVTOOLS_HINT).end();
-      }
-      card.end();
+    },
+
+    function bothSlot_(a$, b$) {
+      /** True only while both are - chains a row's visibility down the block tree. **/
+      return foam.lang.ExpressionSlot.create({
+        args: [ a$, b$ ],
+        code: function(a, b) { return !! ( a && b ); }
+      });
     },
 
     function renderEnv_(el, r) {
@@ -464,8 +515,10 @@ foam.CLASS({
       this.wrapFetch_();
       this.wrapWarn_();
 
-      // Buffer the Console's per-block load loop writes into (Console.includeScript).
-      if ( this.window ) this.window.__perfCapture__ = [];
+      // Buffer for the Console's per-block load loop. The loadPerf command hands it
+      // to the Console that runs the load (Console.perfCapture_); nothing else can
+      // reach it, so a stale perf block detaching mid-load cannot disturb it.
+      this.capture_ = [];
 
       // JS Self-Profiling API: sample the call stack so we can name the hottest
       // functions ourselves, no DevTools. Throws unless the js-profiling document
@@ -482,6 +535,7 @@ foam.CLASS({
     async function finishCapture_() {
       /** End the capture window and compute the report. Callable headlessly.
           Async because the JS Self-Profiling API resolves its trace on stop(). **/
+      await this.settleBodies_();
       this.resolveResponseSizes_(this.netCalls_ || []);
       var net    = this.summarizeNetwork_(this.netCalls_ || []);
       var prof   = await this.stopProfile_();          // {supported, trace} - need trace for per-block hot
@@ -508,26 +562,70 @@ foam.CLASS({
     },
 
     function summarizeBlocks_(trace) {
-      /** Drain the per-block capture buffer into PerfBlockCost rows, worst first, each
-          carrying its hottest functions and the server calls it made (both bucketed into
-          the block's [start,end] window). Trivial blocks are dropped; top 12 kept. **/
+      /** Drain the per-block capture buffer into a PerfBlockCost tree. **/
+      var raw = Array.isArray(this.capture_) ? this.capture_ : [];
+      this.capture_ = null;
+      return this.blockCosts_(raw, trace);
+    },
+
+    function blockCosts_(rows, trace) {
+      /** One level of the block tree as PerfBlockCost rows, worst first, each carrying the
+          blocks that ran inside it plus the functions and server calls of its OWN time -
+          a nested block's work belongs to that block, so a wrapper that only holds
+          children reports no functions and no calls instead of repeating theirs.
+          Trivial blocks are dropped; top 12 kept per level. **/
       var self     = this;
       var netCalls = this.netCalls_ || [];
-      var raw = ( this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : [];
-      if ( this.window ) this.window.__perfCapture__ = null;
-      return raw
+      return ( rows || [] )
         .filter(function(b) { return b.ms >= 1 || b.domDelta >= 50 || b.heapDelta >= 1048576; })
         .sort(function(a, b) { return b.ms - a.ms; })
         .slice(0, 12)
         .map(function(b) {
-          var inWindow = b.start == null ? [] :
-            netCalls.filter(function(c) { return c.t >= b.start && c.t < b.end; });
+          var kids = self.blockCosts_(b.children, trace);
+          // Only the children that survived the filter own their window; a dropped
+          // child's work rolls up here, where it is still visible.
+          var kept   = self.keptWindows_(b.children, kids);
+          var selfMs = Math.max(0, b.ms - kept.reduce(function(s, w) { return s + ( w[1] - w[0] ); }, 0));
+          var mine   = b.start == null ? [] : netCalls.filter(function(c) {
+            return c.t >= b.start && c.t < b.end && ! self.inAny_(kept, c.t);
+          });
           return foam.core.reflow.perf.PerfBlockCost.create({
-            flowName: b.flowName, cmd: b.cmd, ms: b.ms, domDelta: b.domDelta, heapDelta: b.heapDelta,
-            hot:   ( trace && b.start != null ) ? self.framesInWindow_(trace, b.start, b.end, b.ms) : [],
-            calls: self.groupServiceCalls_(inWindow)
+            flowName: b.flowName, cmd: b.cmd, ms: b.ms, selfMs: selfMs,
+            domDelta: b.domDelta, heapDelta: b.heapDelta,
+            // Below HOT_MIN_MS a block's own time is a couple of profiler samples, and
+            // "100% 2ms setAttribute" reads as a finding when it is noise.
+            hot:      ( trace && b.start != null && selfMs >= self.HOT_MIN_MS ) ?
+              self.framesInWindow_(trace, b.start, b.end, selfMs, kept) : [],
+            calls:    self.groupServiceCalls_(mine),
+            children: kids
           });
         });
+    },
+
+    function keptWindows_(rawChildren, kids) {
+      /** [start,end] of each recorded child that made it into the report, matched by name
+          and start so a filtered-out child keeps rolling up into its parent. **/
+      var byKey = {};
+      kids.forEach(function(k) { byKey[k.flowName] = true; });
+      return ( rawChildren || [] )
+        .filter(function(c) { return byKey[c.flowName] && c.start != null; })
+        .map(function(c) { return [ c.start, c.end ]; });
+    },
+
+    function inAny_(windows, t) {
+      for ( var i = 0 ; i < windows.length ; i++ )
+        if ( t >= windows[i][0] && t < windows[i][1] ) return true;
+      return false;
+    },
+
+    async function settleBodies_() {
+      /** Wait for the request-body reads wrapFetch_ started. Each reads a clone of an
+          in-memory body and resolves promptly, but in a later microtask - without this
+          the last calls of a load are summarized before their body is parsed and land
+          with a blank operation and zero bytes sent. **/
+      var reads = this.bodyReads_ || [];
+      this.bodyReads_ = [];
+      if ( reads.length ) await Promise.all(reads);
     },
 
     function flushLongTasks_() {
@@ -555,18 +653,21 @@ foam.CLASS({
       }
     },
 
-    function framesInWindow_(trace, start, end, blockMs) {
-      /** Hottest leaf frames among samples whose timestamp falls in [start,end).
+    function framesInWindow_(trace, start, end, blockMs, opt_exclude) {
+      /** Hottest leaf frames among samples whose timestamp falls in [start,end) and outside
+          every excluded window (a nested block's samples belong to that block).
           Returns top 5 (>=5% of the window), with % within the window and CPU ms.
           ms is the frame's SHARE of the block's wall time (not samples × nominal
           interval - Chrome samples faster than the 10ms hint, which over-counts).
           Drops this tool's own measurement frames. **/
       if ( ! trace || ! trace.samples || ! trace.stacks || ! trace.frames ) return [];
       var self = this;
+      var excl = opt_exclude || [];
       var NOISE = { 'Profiler': true, 'querySelectorAll': true, 'now': true, 'takeRecords': true };
       var counts = {}, total = 0;
       trace.samples.forEach(function(s) {
         if ( s.timestamp < start || s.timestamp >= end ) return;
+        if ( self.inAny_(excl, s.timestamp) ) return;
         var stack = trace.stacks[s.stackId];
         if ( ! stack ) return;
         counts[stack.frameId] = ( counts[stack.frameId] || 0 ) + 1;
@@ -599,7 +700,7 @@ foam.CLASS({
       // Discard a still-running profiler (e.g. view detached mid-capture).
       if ( this.profiler_ ) { try { this.profiler_.stop(); } catch (e) {} this.profiler_ = null; }
       // Drop the per-block buffer if capture aborted before summarizeBlocks_ drained it.
-      if ( this.window && this.window.__perfCapture__ ) this.window.__perfCapture__ = null;
+      this.capture_ = null;
     },
 
     function wrapFetch_() {
@@ -607,6 +708,7 @@ foam.CLASS({
       var self = this, w = this.window;
       if ( ! w || ! w.fetch ) return;
       this.netCalls_  = [];
+      this.bodyReads_ = [];
       this.origFetch_ = w.fetch;
       var orig = this.origFetch_;
       w.fetch = function(input, init) {
@@ -627,7 +729,9 @@ foam.CLASS({
             self.recordBody_(call, inlineBody);
           } else if ( input && typeof input.clone === 'function' ) {
             // Request body is a stream; clone + read it without disturbing the real call.
-            input.clone().text().then(function(t) { self.recordBody_(call, t || ''); }, function() {});
+            // Tracked so the capture can settle these before it summarizes (settleBodies_).
+            self.bodyReads_.push(
+              input.clone().text().then(function(t) { self.recordBody_(call, t || ''); }, function() {}));
           }
         } catch (e) { /* never break the real request */ }
         var p = orig.apply(this, arguments);
@@ -676,10 +780,17 @@ foam.CLASS({
         var msg = foam.json.parse(node, null, this.__context__);
         var op  = ( msg && msg.name ) || node.name;
         if ( op.endsWith && op.endsWith('_') ) op = op.slice(0, -1);   // 'select_' -> 'select'
-        call.op = op;
         var args = ( msg && msg.args ) || [];
+        // 'cmd' alone says nothing: name the command that was sent, so a purge reads
+        // apart from a reset instead of every control message sharing one row.
+        if ( op === 'cmd' ) op += ' · ' + this.cmdName_(args[1]);
+        call.op = op;
         for ( var i = 0 ; i < args.length ; i++ ) {
-          if ( foam.dao.Sink.isInstance(args[i]) ) { call.sink = args[i].cls_.name; break; }
+          if ( foam.dao.Sink.isInstance(args[i]) ) {
+            call.sink      = args[i].cls_.name;
+            call.sinkProps = this.sinkProps_(args[i]);
+            break;
+          }
         }
         // Query descriptor for the expand view: the predicate if any (select_ arg 5),
         // else the id being fetched/written - so two calls can be compared by what they ask for.
@@ -695,6 +806,49 @@ foam.CLASS({
         var q = parts.join('  ·  ');
         call.query = q.length > 160 ? q.substring(0, 157) + '…' : q;
       } catch (e) { /* unparseable - leave op/sink blank */ }
+    },
+
+    function sinkProps_(sink) {
+      /** The sink's set properties as short strings. Groups key on the sink CLASS, so two
+          calls that ask the same question of differently configured sinks land in one
+          group; these are what tagVariants_ uses to tell their rows apart. **/
+      var out = {}, inst = ( sink && sink.instance_ ) || {};
+      Object.keys(inst).forEach(function(k) {
+        if ( k.endsWith('_') ) return;
+        var v = inst[k];
+        if ( v == null || foam.dao.Sink.isInstance(v) ) return;
+        var s = foam.lang.FObject.isInstance(v) ? ( v.name || v.cls_.name ) : String(v);
+        if ( s && s.length <= 40 ) out[k] = s;
+      });
+      return out;
+    },
+
+    function tagVariants_(variants) {
+      /** Append the sink settings that DIFFER across a group's variants to each variant's
+          query text. Without it two calls with the same predicate but different sink
+          configuration print as the same line while counting as distinct requests. **/
+      if ( variants.length < 2 ) return;
+      var keys = {};
+      variants.forEach(function(v) { Object.keys(v.sinkProps || {}).forEach(function(k) { keys[k] = true; }); });
+      var differing = Object.keys(keys).filter(function(k) {
+        var first = ( variants[0].sinkProps || {} )[k];
+        return variants.some(function(v) { return ( v.sinkProps || {} )[k] !== first; });
+      });
+      if ( ! differing.length ) return;
+      variants.forEach(function(v) {
+        var props = v.sinkProps || {};
+        var txt = differing.map(function(k) { return k + '=' + ( props[k] == null ? '—' : props[k] ); }).join(' ');
+        v.query = v.query ? v.query + '  ·  ' + txt : txt;
+      });
+    },
+
+    function cmdName_(cmd) {
+      /** Readable name for a DAO cmd payload: the constant for a string command
+          (PURGE_CMD, RESET_CMD, LAST_CMD), the class name for an object one. **/
+      if ( cmd == null ) return '?';
+      if ( foam.String.isInstance(cmd) )      return cmd;
+      if ( foam.lang.FObject.isInstance(cmd) ) return cmd.cls_.name;
+      return String(cmd);
     },
 
     function prettyOrder_(o) {
@@ -726,6 +880,7 @@ foam.CLASS({
     function groupServiceCalls_(calls) {
       /** Group calls by service+operation+sink into PerfServiceCall[] (with per-body
           variants), most-called first. Shared by the global table and per-block attribution. **/
+      var self = this;
       var byService = {};
       calls.forEach(function(c) {
         var key = ( c.service || '?' ) + '|' + ( c.op || '' ) + '|' + ( c.sink || '' );
@@ -733,16 +888,22 @@ foam.CLASS({
         g.count++;
         g.requestBytes  += c.reqBytes || 0;
         g.responseBytes += c.respBytes || 0;
-        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '' } );
+        var v = g.variants_[c.hash] || ( g.variants_[c.hash] = { count: 0, requestBytes: 0, responseBytes: 0, query: c.query || '', sinkProps: c.sinkProps || {} } );
         v.count++;
         v.requestBytes  += c.reqBytes || 0;
         v.responseBytes += c.respBytes || 0;
       });
       return Object.keys(byService).map(function(k) {
         var g = byService[k];
-        var variants = Object.keys(g.variants_).map(function(h) {
-          return foam.core.reflow.perf.PerfRequestVariant.create(g.variants_[h]);
-        }).sort(function(a, b) { return b.count - a.count; });
+        // Label before the models are built: tagVariants_ compares the whole set.
+        var rows = Object.keys(g.variants_).map(function(h) { return g.variants_[h]; })
+          .sort(function(a, b) { return b.count - a.count; });
+        self.tagVariants_(rows);
+        var variants = rows.map(function(v) {
+          return foam.core.reflow.perf.PerfRequestVariant.create({
+            count: v.count, requestBytes: v.requestBytes, responseBytes: v.responseBytes, query: v.query
+          });
+        });
         g.distinct = variants.length;
         g.variants = variants;
         delete g.variants_;
@@ -811,9 +972,13 @@ foam.CLASS({
 
     function summarizeNetwork_(calls) {
       /** Totals, largest, exact-dup repeats by (url,body) hash, and the grouped service table. **/
+      var CACHEABLE = foam.core.reflow.perf.PerfServiceCall.CACHEABLE_OPS;
       var byHash = {}, largest = 0;
       calls.forEach(function(c) {
         if ( c.reqBytes > largest ) largest = c.reqBytes;
+        // Only a repeated READ is data loaded twice; a repeated control message or write
+        // is work the caller asked for. Same rule the service table recommends on.
+        if ( ! CACHEABLE[c.op] ) return;
         var h = byHash[c.hash] || ( byHash[c.hash] = { url: c.url, count: 0, requestBytes: c.reqBytes } );
         h.count++;
       });

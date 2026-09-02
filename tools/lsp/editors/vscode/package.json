@@ -28,6 +28,77 @@
           "type": "string",
           "default": "",
           "description": "Absolute path to the Node binary that launches the language server. Leave empty to use the Node bundled with VS Code — this avoids 'spawn node ENOENT' when VS Code is launched from the GUI without a shell PATH (e.g. Node installed via nvm)."
+        },
+        "foam.features.diagnostics.java": {
+          "type": "boolean",
+          "default": true,
+          "description": "Diagnostics for Java import/code block errors. Takes effect after a server restart."
+        },
+        "foam.features.diagnostics.i18n": {
+          "type": "boolean",
+          "default": true,
+          "description": "Diagnostics for hardcoded display strings passed to .add(). Missing translations are a separate flag: foam.features.hints.i18nMissingLanguage. Takes effect after a server restart."
+        },
+        "foam.features.hints.i18nMissingLanguage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offers to machine-translate: hint diagnostics, quick fixes, and the CodeLens for message: entries missing a configured target language. Turning this off withdraws all three. Takes effect after a server restart."
+        },
+        "foam.features.completion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Autocomplete. Takes effect after a server restart."
+        },
+        "foam.features.hover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hover documentation for classes, properties, and methods. Takes effect after a server restart."
+        },
+        "foam.features.semanticTokens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Semantic highlighting for resolved class references and typed variables. Takes effect after a server restart."
+        },
+        "foam.features.signatureHelp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Parameter hints inside method call parentheses. Takes effect after a server restart."
+        },
+        "foam.features.folding": {
+          "type": "boolean",
+          "default": true,
+          "description": "Code folding for properties:/methods:/requires:/etc. arrays. Takes effect after a server restart."
+        },
+        "foam.features.codeLens.i18n": {
+          "type": "boolean",
+          "default": true,
+          "description": "CodeLens naming how many translations a messages: entry is missing. Also requires foam.features.hints.i18nMissingLanguage, since clicking the lens translates. Takes effect after a server restart."
+        },
+        "foam.features.codeLens.hierarchy": {
+          "type": "boolean",
+          "default": false,
+          "description": "CodeLens annotations for class hierarchy (subclass/implementor counts). Takes effect after a server restart."
+        },
+        "foam.i18n.languages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Target language codes for i18n translation. Empty: derive from every distinct locale in journals/locales.jrl."
+        },
+        "foam.i18n.endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI-compatible chat endpoint for i18n translation (Ollama, LM Studio, llama.cpp, vLLM). Empty: fall back to the OLLAMA_HOST environment variable."
+        },
+        "foam.i18n.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model name to request from the i18n translation endpoint. Empty: fall back to the OLLAMA_TRANSLATION_MODEL environment variable."
+        },
+        "foam.i18n.sourceLanguage": {
+          "type": "string",
+          "default": "en",
+          "description": "Language the bare message: value is written in."
         }
       }
     },
@@ -84,6 +155,18 @@
       {
         "command": "foam.toggleFlag",
         "title": "FOAM: Toggle Flag"
+      },
+      {
+        "command": "foam.restartServer",
+        "title": "FOAM: Restart Language Server"
+      },
+      {
+        "command": "foam.newClass",
+        "title": "FOAM: New Class"
+      },
+      {
+        "command": "foam.showStatusMenu",
+        "title": "FOAM: Language Server Status"
       }
     ],
     "menus": {
@@ -92,6 +175,16 @@
           "command": "foam.analyzeWorkspace",
           "when": "view == foamAnalysis",
           "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "foam.newClass",
+          "when": "foam.isFoamWorkspace"
+        },
+        {
+          "command": "foam.showStatusMenu",
+          "when": "foam.isFoamWorkspace"
         }
       ]
     }

@@ -8,7 +8,12 @@
   - [Application Structure](#application-structure)
   - [FOAM Model - Recipe.js](#foam-model---recipejs)
     - [Understanding FOAM Models](#understanding-foam-models)
+      - [Context (the `X` object)](#context-the-x-object)
+      - [`requires` — classes this model will instantiate](#requires--classes-this-model-will-instantiate)
+      - [`imports` — services/values pulled *from* the context](#imports--servicesvalues-pulled-from-the-context)
+      - [`requires` vs `imports` at a glance](#requires-vs-imports-at-a-glance)
   - [FOAM Journals](#foam-journals)
+    - [What's in the `journals/` Directory](#whats-in-the-journals-directory)
     - [FOAM DAO Service](#foam-dao-service)
     - [Menu Navigation](#menu-navigation)
 - [Running Application](#running-application)
@@ -52,10 +57,6 @@
   - [CSS Scoping with `^`](#css-scoping-with-%5E)
   - [View vs Controller](#view-vs-controller)
   - [Reactive Slots](#reactive-slots)
-    - [Property Slots](#property-slots)
-    - [Two-Way Binding](#two-way-binding)
-    - [Subscribing to Changes](#subscribing-to-changes)
-    - [Computed Slots](#computed-slots)
   - [Creating a Recipe Detail View](#creating-a-recipe-detail-view)
   - [Faceted Views and Menu Configuration](#faceted-views-and-menu-configuration)
   - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
@@ -126,8 +127,7 @@ This tutorial will guide you through creating of a new project using FOAM. FOAM 
 The tutorial will cover the initial setup and an application creation by creating a cooking recipe database. The tutorial assumes that you 
 already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. This tutorial also assumes that if you are using a Windows device, you are using WSL.
 
-> [!IMPORTANT]
-> Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
+> **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
 By following this tutorial you will learn to:
 1. Initialize a new FOAM application 
@@ -392,6 +392,110 @@ foam.CLASS({
 | `listeners` | Methods pre-bound to `this`; safe to use as callbacks |
 | `actions` | User-triggered operations with UI integration |
 
+Three of these sections — `requires`, `imports`, and `exports` — only make sense once you understand **context**, so we'll cover that next before returning to the rest.
+
+#### Context (the `X` object)
+
+In FOAM, every object lives in a **context** — conventionally called `X` (and reachable on any object as `this.__context__`). Think of it as a scoped registry / dependency-injection container that travels with the object. It holds:
+
+- registered services and singletons (DAOs, the current user, etc.),
+- a class lookup, so names like `'foam.dao.ArraySink'` can be resolved to actual classes,
+- and it's *hierarchical* — a child object's context inherits from its parent's, and can add to or override it.
+
+So context answers two questions at once: **"where do I look up classes"** and **"where do I get shared services from."** `requires`, `imports`, and `exports` are all just declarations about how a class interacts with that context.
+
+#### `requires` — classes this model will instantiate
+
+`requires` declares the **classes** you intend to create instances of. It does two things:
+
+1. Resolves each fully-qualified name against the context's class registry.
+2. Gives you a short alias on `this`, so you can construct it *context-aware* — the new instance automatically inherits your context.
+
+```javascript
+requires: ['foam.dao.ArraySink', 'com.foamdev.cook.RecipeStep'],
+methods: [
+  function foo() {
+    var sink = this.ArraySink.create();        // short name, created in this.__context__
+    var step = this.RecipeStep.create({ ... }); // inherits this object's context automatically
+  }
+]
+```
+
+Without `requires` you'd have to reference the full path and wire the context in by hand. So: **`requires` = "classes I will `.create()`."**
+
+#### `imports` — services/values pulled *from* the context
+
+`imports` declares **existing values or services** you expect to already be present in the context, injected by whoever created you. You don't construct them — you consume them.
+
+```javascript
+imports: ['recipeDAO', 'currentUser'],
+methods: [
+  function bar() {
+    this.recipeDAO.select(...);    // a DAO someone exported into the context
+    var u = this.currentUser;      // a value provided by an ancestor
+  }
+]
+```
+
+So: **`imports` = "services/values I expect to be handed to me via context."** Its counterpart is `exports` — a parent puts things *into* the context (`exports: ['selectedRecipe']`) so its children can `import` them. `exports` is the supply side; `imports` is the demand side of the same context.
+
+#### `requires` vs `imports` at a glance
+
+| | `requires` | `imports` |
+|---|---|---|
+| What it names | Classes | Instances / values / services |
+| What you do with it | `.create()` new instances | Use what already exists |
+| Direction | You build it | It's injected into you |
+| Analogy | Import a *type* so you can `new` it | Constructor-injected dependency |
+
+A quick mental model: `requires` is like importing a *type* so you can instantiate it; `imports` is like receiving a *dependency* someone else already built and placed in your context.
+
+<details markdown="1">
+<summary><b>Coming from Node.js / React?</b> A quick bridge for these three sections.</summary>
+
+<br>
+
+**`requires` ≈ Node's `require`.** Both take a name, resolve it, and hand you a local
+binding you can use by a short name. The difference is *what* they resolve against and
+*what the binding does*:
+
+|  | Node `require('x')` | FOAM `requires: ['...X']` |
+|---|---|---|
+| Resolves against | The module cache, keyed by file path | The **context's** class registry, keyed by name |
+| You get back | The module's exports (a static value) | An alias on `this` whose `.create()` makes **context-aware** instances |
+| Overridable? | No — one module per path, globally | Yes — a context can override/refine what a name resolves to |
+
+So `this.RecipeStep.create()` isn't just "the required class" — each instance it builds
+automatically inherits your object's context, which plain `require` has no notion of.
+
+**`imports` / `exports` ≈ React Context.** This is the closer analogy, and the one worth
+internalizing:
+
+- `exports: ['selectedRecipe']` is a `<RecipeContext.Provider value={selectedRecipe}>` —
+  a parent supplying a value down the tree.
+- `imports: ['selectedRecipe']` is `const selectedRecipe = useContext(RecipeContext)` —
+  a descendant consuming what an ancestor provided. You don't build it; it's injected.
+
+Supply-side vs. demand-side of the same tree — exactly like `<Provider>` vs. `useContext`.
+
+One caveat so the analogy doesn't mislead: React has *many* separate `Context` objects,
+each with its own `useContext(X)`. FOAM has **one** unified context container holding
+everything — services, singletons, and the class registry — keyed by name. Think "a single
+React context whose value is a big service registry" rather than React's many-small-contexts
+style. (And the class-registry half has no React equivalent at all — that part is the Node
+`require` side of the analogy.)
+
+</details>
+
+> **Note:** **The theory behind context.** What FOAM calls *context* is a first-class form of
+> **dynamic scoping**: a name like `recipeDAO` is resolved by walking the runtime chain of
+> *who created whom*, not by where the code is written (that latter, textual rule is
+> *lexical* scoping — what `let`/`const`/closures use). This is a sixty-year-old idea that
+> traces back to early Lisp. If you enjoy connecting framework features to the computer
+> science they grow from, see
+> [**Context & Dynamic Scoping**](../foundations/01-context-and-dynamic-scoping.md) in the
+> [FOAM Foundations](../foundations/README.md) series.
+
 We will explore each of these concepts in detail as we develop our Recipe application. For a comprehensive reference, see [FOAM Model Reference](#foam-model-reference) in the Appendix.
 
 ## FOAM Journals
@@ -420,31 +524,41 @@ The advantages of journal files are that they can be updated quickly, no old dat
 they are human readable, they provide an audit trail of who and when changes were made, they're very fault tolerant, don't require external
 database hosting or configuration, and provide excellent performance for many use-cases.
 
-For our example, groups, menus, permissions, and services journals are under <code>journals</code> directory. 
+### What's in the `journals/` Directory
 
+When you generated the project, the setup script didn't just create your `Recipe` model — it
+also wrote a small set of journal files under <code>journals/</code> that bootstrap a
+complete, working application: who can log in, what they're allowed to do, what appears in
+the navigation, and which back-end services exist. Every one of these is an ordinary
+append-only journal of the `c()`/`p()`/`r()` form we just described; they simply hold
+*configuration* records instead of business data.
+
+We'll explore these configuration journals in more detail as we go; the important idea for
+now is that **an entire application's configuration is just data in journals** — versioned,
+human-readable, and edited the same way you'd edit any other record.
 
 ### FOAM DAO Service
 
-We'll gain more understanding on the content of the generated journal files as we go. For now, let's focus on the journal file <code>journals/services.jrl</code> that sets up one of the key FOAM services, DAO:
+The <code>journals/services.jrl</code> file is where an application declares its back-end **services** — each record is a recipe for wiring up one service at boot time, and FOAM registers it into the application's context so the rest of the system can look it up by name. Let's focus on the entry that sets up one of the most important FOAM services, the DAO:
 
 ```
 p({
-  "class": "foam.core.boot.CSpec",
-  "name": "recipeDAO",
-  "description": "",
-  "serve": true,
-  "authenticate": true,
-  "keywords": [ "recipe" ],
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(com.foamdev.cook.Recipe.getOwnClassInfo())
-      .setPm(true)
-      .setSeqNo(true)
-      .setAuthorize(false)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .build();
+  "class": "foam.core.boot.CSpec",                          // this record is a Component Specification — a boot-time service definition
+  "name": "recipeDAO",                                      // the name the service is registered under; other code looks it up by this key
+  "description": "",                                        // human-readable description (optional)
+  "serve": true,                                            // expose this service over the network so clients (e.g. the browser) can reach it
+  "authenticate": true,                                     // require the caller to be logged in before the service will respond
+  "keywords": [ "recipe" ],                                 // search terms that make this service findable in the admin UI
+  "serviceScript": """                                      // server-side script that builds and returns the service instance ("""...""" is a multi-line string)
+    return new foam.dao.EasyDAO.Builder(x)                  // EasyDAO assembles a DAO from a stack of decorators; x is the boot context
+      .setOf(com.foamdev.cook.Recipe.getOwnClassInfo())     // the model this DAO stores — Recipe objects
+      .setPm(true)                                          // enable Performance Measurements (timing/metrics) on operations
+      .setSeqNo(true)                                       // auto-assign sequential ids to new records (drives Recipe's autogenerated id)
+      .setAuthorize(false)                                  // skip per-object authorization checks inside the DAO itself
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)  // persist to one append-only journal file on disk
+      .build();                                             // construct the configured DAO and return it as the service
   """,
-  "client": `{"of":"com.foamdev.cook.Recipe"}`
+  "client": `{"of":"com.foamdev.cook.Recipe"}`              // config the client uses to build a matching client-side proxy DAO
 })
 ```
 The FOAM core comes with a number of out-of-the-box services, with DAO service being one of them, that you'll become more 
@@ -454,32 +568,31 @@ A DAO, or Data Access Object, is an object which provides access to a collection
 
 ```
 interface DAO {
-  FObject  put(obj)
-  FObject  find(id)
-  FObject  remove(obj)
-  void     removeAll()
-  Sink     select(sink)
-  void     listen(sink)
-  void     unlisten(sink)
-  DAO      where(predicate)
-  DAO      limit(count)
-  DAO      skip(count)
-  DAO      orderBy(...comparators)
-  DAO      inX(x)
+  FObject  put(obj)                 // insert obj, or update it if one with the same id already exists
+  FObject  find(id)                 // look up a single object by its id (returns null if not found)
+  FObject  remove(obj)              // delete the object with obj's id
+  void     removeAll()              // delete every object in the DAO
+  Sink     select(sink)             // stream all matching objects into sink; without one, collects them for you
+  void     listen(sink)             // subscribe: sink is notified of every future put/remove as it happens
+  void     unlisten(sink)           // cancel a previous listen()
+  DAO      where(predicate)         // return a filtered DAO exposing only objects matching predicate
+  DAO      limit(count)             // return a DAO exposing at most count objects
+  DAO      skip(count)              // return a DAO that skips the first count objects (for paging)
+  DAO      orderBy(...comparators)  // return a DAO whose objects are sorted by the given comparators
+  DAO      inX(x)                   // return the same DAO bound to context x (see Context earlier)
 }
 ```
 
-> [!IMPORTANT]
-> DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
+> **Important:** DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
 
 A Sink is a destination object that receives and processes query results from `select()`. Here is the Sink interface:
 
 ```
 interface Sink {
-  void  put(obj, sub)
-  void  remove(obj, sub)
-  void  eof()
-  void  reset(sub)
+  void  put(obj, sub)     // receive one object — called once per matching object as it streams in
+  void  remove(obj, sub)  // signals obj is now gone — only sent to a live listen() subscriber, never during a plain select()
+  void  eof()             // "end of file" — the source is done sending; no more put/remove calls will come
+  void  reset(sub)        // discard anything received so far and start over (the source is resending from scratch)
 }
 ```
 
@@ -503,20 +616,65 @@ visible in FOAM. Upon initial creation the file should have the following conten
 
 ```
 p({
-  "class":"foam.core.menu.Menu",
-  "id":"recipes.recipe",
-  "label":"Recipe",
-  "authenticate":true,
-  "keywords":[""],
-  "handler":{
-    "class":"foam.core.menu.DAOMenu2",
+  "class":"foam.core.menu.Menu",                         // this record defines one navigation menu entry
+  "id":"recipes.recipe",                                 // unique menu id; also the URL hash (#recipes.recipe) used to navigate here
+  "label":"Recipe",                                      // the text shown for this entry in the navigation
+  "authenticate":true,                                   // only show/allow this menu for logged-in users
+  "keywords":[""],                                       // search terms that make this menu findable in the search bar
+  "handler":{                                            // what happens when the menu is opened
+    "class":"foam.core.menu.DAOMenu2",                   // one of several handler types — this one renders a full browse/CRUD screen for a DAO
     "config":{
-      "class":"foam.comics.v2.DAOControllerConfig",
-      "daoKey":"recipeDAO"
+      "class":"foam.comics.v2.DAOControllerConfig",      // configuration for that DAO screen (columns, actions, etc.)
+      "daoKey":"recipeDAO"                               // which service to display — looked up by name in the context (our recipeDAO)
     }
   }
 })
 ```
+
+The <code>handler</code> is what makes a menu *do* something, and <code>DAOMenu2</code> is
+just one of many. Depending on the handler you choose, the same menu machinery can open all
+sorts of destinations. A few you'll commonly encounter:
+
+| Handler | Opens |
+|---------|-------|
+| <code>foam.core.menu.DAOMenu2</code> | A full browse/CRUD screen for a DAO (what we use here) |
+| <code>foam.core.menu.ViewMenu</code> | An arbitrary custom view — handy for dashboards or landing pages |
+| <code>foam.core.menu.SubMenu</code> | A group of child menu items, i.e. an expandable parent entry |
+| <code>foam.core.menu.LinkMenu</code> | An external URL in a new tab |
+| <code>foam.core.menu.DocumentMenu</code> | An embedded document (e.g. help or terms content) |
+| <code>foam.core.menu.ScriptMenu</code> | Runs a script when selected |
+| <code>foam.core.menu.PredicatedMenu</code> | *Another* handler, chosen at runtime — see below |
+
+The last one is worth a closer look because it's not a destination at all — it's a
+**conditional dispatcher**. A <code>PredicatedMenu</code> holds a list of <code>options</code>,
+each pairing a **predicate** with a handler. When the menu is opened it evaluates each
+option's predicate against the current context <code>X</code>, in order, and the **first one
+that passes** provides the real handler (the final option acts as an unconditional fallback).
+This lets a single menu entry resolve to different screens depending on runtime state — the
+user's group or permissions, a feature flag, or any value carried in the context:
+
+```
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"recipes.recipe",
+  "label":"Recipe",
+  "handler":{
+    "class":"foam.core.menu.PredicatedMenu",
+    "options":[
+      { "predicate":<is-admin-predicate>, "handler":{ /* full admin DAO screen */ } },
+      { "handler":{ /* read-only screen for everyone else */ } }   // fallback, no predicate
+    ]
+  }
+})
+```
+
+The predicates here are FOAM **mLang** expressions — the same query language DAOs use for
+<code>where()</code> — evaluated against the context rather than a database record. We'll
+meet mLang properly later; for now the takeaway is that menu routing itself can be data-driven
+and context-aware.
+
+Once we start building custom views later in the tutorial, a handler like
+<code>ViewMenu</code> is how you'd surface one of them from the navigation.
 
 # Running Application
 
@@ -559,8 +717,7 @@ available if you run the application with the option <code>-Jdemo</code>. The `-
 You can create your own journals that you can use this way, by going to the runtime journals directory under /opt and lifting the entries into
 a different file, then including it at startup with the <code>-J</code> option. For more info see the chapter on [Journal Merging](#Journal-Merging).
 
-> [!IMPORTANT]
-> To stop the FOAM server, type in <code>CTRL</code>+C twice.
+> **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
 
 # Testing
 
@@ -1312,8 +1469,7 @@ this.add(someViewInstance);             // Adds a view
 - **Action constants** (e.g., `this.SOME_ACTION`) render as buttons with the action's label, and automatically handle enablement and availability based on the action's `isEnabled` and `isAvailable` declarations.
 - **View instances** and **ViewSpecs** are added as child components, fully integrated into the FOAM lifecycle.
 
-> [!NOTE]
-> **Two terms worth pinning down**, since they show up throughout U2/U3:
+> **Note:** **Two terms worth pinning down**, since they show up throughout U2/U3:
 >
 > - **View** — a FOAM component that displays or edits data; any class extending `foam.u2.View`, such as `foam.u2.TextField`.
 > - **View instance** — a view you have already created, e.g. `foam.u2.TextField.create({ data$: this.name$ })`.
@@ -1436,8 +1592,7 @@ When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancell
 this.onDetach(this.name$.sub(this.onNameChange));
 ```
 
-> [!NOTE]
-> This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
+> **Note:** This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
 
 ## Creating a Recipe Detail View
 

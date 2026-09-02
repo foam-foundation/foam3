@@ -97,17 +97,14 @@ foam.CLASS({
       class: 'String',
       name: 'changedObjPrefix',
       documentation: 'Prefix used to describe changedObjName. (e.g. objPrefix == Case && ObjName == SWAM-1 will render as: "Case SWAM-1")',
-      hidden: true
+      hidden: true // Shown by changedObjDesc
     },
     {
       class: 'String',
       name: 'changedObjName',
       label: 'Object',
       documentation: 'Name / description of the object that whose field was changed',
-      tableCellFormatter: function(value, obj) {
-        this.start().addClass(foam.String.cssClassize(obj.cls_.id) + '-supportingLabel').add(obj.changedObjPrefix).end();
-        this.start().addClass(foam.String.cssClassize(obj.cls_.id) + '-label').add(value).end();
-      }
+      hidden: true // Shown by changedObjDesc
     },
     {
       // Overload spid to display their name as that is more meaningful
@@ -132,12 +129,10 @@ foam.CLASS({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
         this.__context__.userDAO.find(value).then((result) => {
-          if ( value == 0 ) {
-            this.add(this.data.SYSTEM_USER_MSG);
-          } else if ( ! result ) {
+          if ( ! result ) {
             this.add(this.data.UNKNOWN_USER_MSG);
           } else {
-            this.add(result.firstName[0] + ". " + result.lastName);
+            this.add(result.firstName == "system" ? this.data.SYSTEM_USER_MSG : result.firstName[0] + ". " + result.lastName);
           }
         });
       }
@@ -163,6 +158,34 @@ foam.CLASS({
         var parts  = ( value || '' ).split(' · ');
         this.start().addClass(cls + '-label').add(parts[0] || '').end();
         this.start().addClass(cls + '-supportingLabel').add(parts[1] || '').end();
+      }
+    },
+    {
+      class: 'String',
+      name: 'changedObjDesc',
+      label: 'Object',
+      storageTransient: true,
+      documentation: `
+        Previously, the changedObjName field displayed both the changedObjName
+        and the changedObjPrefix values. However, because the tablecellformatter
+        uses a projection, not the actual model, the changedObjPrefix displayed
+        as an empty string when a default value was not provided.
+
+        To fix this, we use changedObjDesc which properly displays both changedObj
+        fields even when default values are not provided. This is the same fix used
+        by changeDesc, above.
+      `,
+      expression: function(changedObjPrefix, changedObjName) {
+        return changedObjPrefix + ' · ' + changedObjName;
+      },
+      javaGetter: `
+        return getChangedObjPrefix() + " · " + getChangedObjName();
+      `,
+      tableCellFormatter: function(value, obj) {
+        var cls   = foam.String.cssClassize(obj.cls_.id);
+        var parts = ( value || '' ).split(' · ');
+        this.start().addClass(cls + '-supportingLabel').add(parts[0] || '').end();
+        this.start().addClass(cls + '-label').add(parts[1] || '').end();
       }
     }
   ]

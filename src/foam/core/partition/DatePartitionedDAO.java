@@ -13,9 +13,11 @@ import foam.mlang.Expr;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 public class DatePartitionedDAO
   extends PartitionedDAO
@@ -80,60 +82,32 @@ public class DatePartitionedDAO
   }
 
   public String getPartition(FObject o) {
-    Date     d  = (Date) getPartitionProperty().f(o);
+    Date     d   = (Date) getPartitionProperty().f(o);
     Calendar cal = Calendar.getInstance();
     cal.setTime(d);
 
-    if ( this.scheme_ == DatePartitioningScheme.YYYYMM ) {
-      int year  = cal.get(Calendar.YEAR);
-      int month = cal.get(Calendar.MONTH);
-
-      // 'month' starts at 0, so move to base 1 to be easier for humans
-      return year + "/" + (month+1);
-    }
-
-    if ( this.scheme_ == DatePartitioningScheme.YYYYWW ) {
-      int year = cal.get(Calendar.YEAR);
-      int week = cal.get(Calendar.WEEK_OF_YEAR);
-
-      return year + "/" + week;
-    }
-
-    if ( this.scheme_ == DatePartitioningScheme.YYYYDDD ) {
-      int year = cal.get(Calendar.YEAR);
-      int day  = cal.get(Calendar.DAY_OF_YEAR);
-
-      return year + "/" + day;
-    }
-
-    // YYYYMMDD
-    int year  = cal.get(Calendar.YEAR);
-    int month = cal.get(Calendar.MONTH);
-    int day   = cal.get(Calendar.DAY_OF_MONTH);
-
-    return year + "/" + (month+1) + "/" + day;
+    return scheme_.getPartition(cal);
   }
 
   public String[] getPartitions(Date[] range) {
-    Calendar c1 = Calendar.getInstance();
-    c1.setTime(range[0]);
-    int y1 = c1.get(Calendar.YEAR);
-    int m1 = c1.get(Calendar.MONTH);
+    Calendar cal = Calendar.getInstance();
+    cal.setTime(range[0]);
+    Calendar end = Calendar.getInstance();
+    end.setTime(range[1]);
 
-    Calendar c2 = Calendar.getInstance();
-    c2.setTime(range[1]);
-    int y2 = c2.get(Calendar.YEAR);
-    int m2 = c2.get(Calendar.MONTH);
-
-    String[] parts = new String[(y2-y1) * 12 + m2 - m1 + 1];
-
-    for ( int i = 0, y = y1, m = m1 ; i < parts.length ; i++ ) {
-      parts[i] = getPartition(y + "/" + m);
-      m++;
-      if ( m == 12 ) { m = 0; y++; }
+    String       last  = scheme_.getPartition(end);
+    List<String> parts = new ArrayList<>();
+    while ( true ) {
+      String p = scheme_.getPartition(cal);
+      parts.add(p);
+      // Equality with the range-end partition is the normal exit; the
+      // calendar check bounds a contradictory (inverted) range, which
+      // otherwise never reaches equality.
+      if ( p.equals(last) || cal.after(end) ) break;
+      scheme_.step(cal);
     }
 
-    return parts;
+    return parts.toArray(new String[0]);
   }
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
@@ -147,16 +121,69 @@ public class DatePartitionedDAO
     Sink           s2 = decorateSink(null, sink, skip, limit, order, predicate);
     DetachableSink s3 = new DetachableSink(s2);
 
-    for ( int i = 0 ; i < parts.length ; i++ ) {
-      DAO dao = getDelegate(parts[i]);
+    List<String> queuedIds = publishQueued(x, parts);
+    try {
+      for ( int i = 0 ; i < parts.length ; i++ ) {
+        DAO dao = getDelegate(parts[i]);
 
-      dao.select(s3);
-      if ( s3.isDetached() ) break;
+        dao.select(s3);
+        if ( s3.isDetached() ) break;
+      }
+
+      s2.eof();
+    } finally {
+      clearQueued(x, queuedIds);
     }
 
-    s2.eof();
-
     return sink;
+  }
+
+  /** Publish a queued status row for each not-yet-loaded partition this
+      select is about to iterate, so PartitionLoadToastStack can show
+      "N of M" before the (synchronous, per-partition) load actually reaches
+      them. Returns the ids published so the caller can clean up stragglers. */
+  protected List<String> publishQueued(X x, String[] parts) {
+    DAO status = (DAO) x.get("partitionLoadStatusDAO");
+    if ( status == null ) return new ArrayList<>();
+
+    List<String> ids = new ArrayList<>();
+    for ( String part : parts ) {
+      // A partition another caller is replaying right now already has a live
+      // progress row -- re-marking it queued would clobber that row and our
+      // clearQueued would then remove it mid-load.
+      if ( isLoaded(part) || isLoading(part) ) continue;
+
+      String journalName = journalNameFor(part);
+      PartitionLoadStatus s = new PartitionLoadStatus();
+      s.setId(journalName);
+      s.setServiceName(getServiceName());
+      s.setPartition(part);
+      s.setTotalBytes(journalSize(journalName));
+      s.setQueued(true);
+      status.put(s);
+      ids.add(journalName);
+    }
+    return ids;
+  }
+
+  /** Remove queued rows this select published but never reached (early
+      detach, or another caller loaded the partition first). A row a real
+      load has since taken over (queued == false) is left alone -- its own
+      PartitionLoadReporter.done() removes it. */
+  protected void clearQueued(X x, List<String> ids) {
+    if ( ids.isEmpty() ) return;
+
+    DAO status = (DAO) x.get("partitionLoadStatusDAO");
+    if ( status == null ) return;
+
+    for ( String id : ids ) {
+      PartitionLoadStatus existing = (PartitionLoadStatus) status.find(id);
+      if ( existing != null && existing.getQueued() ) {
+        PartitionLoadStatus s = new PartitionLoadStatus();
+        s.setId(id);
+        status.remove(s);
+      }
+    }
   }
 
   public Date[] extractPredicateRange(Predicate predicate) {

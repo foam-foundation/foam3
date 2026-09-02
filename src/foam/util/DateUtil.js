@@ -50,6 +50,28 @@ foam.CLASS({
 
   static: [
     {
+      name: 'isNullDateLong',
+      documentation: `Whether a long-backed date holds no value. Callers that
+        must not allocate (serializers reading the backing field) need the test
+        without longToNullableDate's Date, so the reserved value is defined here
+        once and nowhere else.`,
+      args: 'long l',
+      type: 'Boolean',
+      javaCode: 'return l == Long.MIN_VALUE;'
+    },
+    {
+      name: 'nullableDateToLong',
+      args: 'Date d',
+      type: 'long',
+      javaCode: 'return d == null ? Long.MIN_VALUE : d.getTime();'
+    },
+    {
+      name: 'longToNullableDate',
+      args: 'long l',
+      type: 'Date',
+      javaCode: 'return isNullDateLong(l) ? null : new Date(l);'
+    },
+    {
       name: 'parseDateTime',
       args: 'String d, String opt_name, Boolean strict',
       type: 'Date',

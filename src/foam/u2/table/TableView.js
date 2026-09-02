@@ -114,8 +114,57 @@
       margin-left: 8px;
     }
 
-    ^th:hover {
+    /* Anchor for the resize grip, which is taken out of flow below. The
+       right padding is the grip's own width, kept clear so the strip never
+       covers the tail of the label and steals its clicks. Scoped to
+       ^resizableTh rather than ^th: the multi-select and edit-columns cells
+       are ^th too, and reserving grip width in a cell that has no grip just
+       narrows it - those two are sized in fixed px, so the 8px comes out of
+       a 42px and a 60px box. */
+    ^resizableTh {
+      padding-right: 8px;
+      position: relative;
+    }
+
+    /* Sort affordance. The sorted column keeps its arrow on screen; an
+       unsorted column reveals the resting arrow on hover or keyboard focus.
+       Opacity rather than display so the header never reflows, and the
+       hiding is confined to hover-capable pointers - a touch device has no
+       hover, so there the arrow stays visible. */
+    ^sortable {
       cursor: pointer;
+      border-radius: 4px;
+      /* Padding keeps the focus ring off the glyphs. The negative side
+         margin gives it back, so a sortable label starts at the same x as a
+         non-sortable one instead of sitting 0.2em further into the column. */
+      margin: 0 -0.2em;
+      padding: 0.2em;
+    }
+
+    /* The header is focusable, so it needs a visible focus state. Inset the
+       outline: ^th clips its overflow, so a ring drawn outside the box would
+       be cut off. :focus-visible so a mouse click leaves no ring behind. */
+    ^sortable:focus-visible {
+      outline: 2px solid $borderBrand;
+      outline-offset: -2px;
+    }
+
+    ^sortIcon {
+      align-items: center;
+      display: flex;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      ^sortIcon {
+        opacity: 0;
+        transition: opacity 0.1s ease;
+      }
+
+      ^sortable:hover ^sortIcon,
+      ^sortable:focus-within ^sortIcon,
+      ^sortIconActive {
+        opacity: 1;
+      }
     }
 
     /**
@@ -166,19 +215,58 @@
       transform: rotate(0deg);
     }
 
-    ^resizeButton {
-      padding: 4px;
-      position: sticky;
-      right: 4px;
+    /* An in-flow handle keeps its box even at opacity 0, so every column
+       spent ~22px on a control that is invisible almost all of the time -
+       and ^th clips with an ellipsis, so that width came straight out of
+       the label. Absolute costs the column nothing and puts the grip on the
+       boundary it actually drags, rather than sticking it to the right of
+       the viewport. Qualified with ^resizableTh so it outranks Button's own
+       ^iconOnly^small padding whichever stylesheet installs first. */
+    ^resizableTh ^resizeButton.foam-u2-ActionView {
+      border: none;
+      bottom: 0;
+      padding: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      touch-action: none;
+      width: 8px;
+    }
+
+    /* The strip is 8px wide because a 2px pointer target is not reliably
+       hittable; the line drawn inside it is 2px so it reads as a column
+       divider once revealed - it inherits the button's opacity, so like the
+       rest of the grip it only shows on hover or keyboard focus. The
+       col-resize cursor is the affordance, so no icon. */
+    ^resizeButton.foam-u2-ActionView::after {
+      background: $borderDefault;
+      bottom: 25%;
+      content: '';
+      position: absolute;
+      right: 3px;
+      top: 25%;
+      width: 2px;
     }
 
     ^resizeButton.foam-u2-ActionView:hover:not(:disabled), ^resizeCursor {
       cursor: col-resize;
     }
 
-    ^resizeButton.foam-u2-ActionView svg{
-      width: 0.8em;
-      height: 0.8em;
+    /* Full-viewport overlay mounted on body for a drag's duration: it wins
+       the cursor by hit-test (pointer capture still routes events to the
+       handle), needs no per-rule specificity overrides, and covers areas
+       outside the table that a captured drag can roam over. */
+    ^drag-overlay {
+      cursor: col-resize;
+      inset: 0;
+      position: fixed;
+      z-index: 1000;
+    }
+
+    /* Hidden via opacity, not display, so the handle stays in the tab
+       order and can be revealed by keyboard focus. */
+    ^resizeHidden {
+      opacity: 0;
     }
 
     /* PAGINATION */

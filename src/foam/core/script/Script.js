@@ -118,9 +118,28 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
       value: 200
     },
     {
-      javaType: 'X[]',
-      name: 'X_HOLDER',
-      javaValue: 'new X[1]'
+      // Per-run bridge for handing an X context into a JShell session. JShell
+      // snippets can only reach host objects through static state referenced by
+      // fully-qualified name, so each run publishes its X under a unique token
+      // and the session reads back exactly that token. Keyed registry (not a
+      // single shared slot) so concurrent JShell runs never clobber each other,
+      // and each run removes its own entry on completion (no leak).
+      javaType: 'java.util.concurrent.ConcurrentHashMap<Long, X>',
+      name: 'X_REGISTRY',
+      javaValue: 'new java.util.concurrent.ConcurrentHashMap<>()'
+    },
+    {
+      // Reverse lookup so runScript can find a JShell session's registry token
+      // for cleanup without threading the token through createInterpreter's
+      // return value.
+      javaType: 'java.util.concurrent.ConcurrentHashMap<jdk.jshell.JShell, Long>',
+      name: 'X_TOKENS',
+      javaValue: 'new java.util.concurrent.ConcurrentHashMap<>()'
+    },
+    {
+      javaType: 'java.util.concurrent.atomic.AtomicLong',
+      name: 'X_SEQ',
+      javaValue: 'new java.util.concurrent.atomic.AtomicLong()'
     }
   ],
 
@@ -409,12 +428,14 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         }
         if ( l == foam.core.script.Language.JSHELL ) {
           JShell jShell = new JShellExecutor().createJShell(ps);
-          Script.X_HOLDER[0] = x.put("out",  ps)
+          long token = Script.X_SEQ.incrementAndGet();
+          Script.X_REGISTRY.put(token, x.put("out",  ps)
             .put("currentScript", this)
-            .put("scriptParameter", sp);
+            .put("scriptParameter", sp));
+          Script.X_TOKENS.put(jShell, token);
 // p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targetId:"script.read.*"})
           jShell.eval("import foam.lang.X;");
-          jShell.eval("X x = foam.core.script.Script.X_HOLDER[0];");
+          jShell.eval("X x = foam.core.script.Script.X_REGISTRY.get(" + token + "L);");
           jShell.eval("void print(Object o) { ((java.io.PrintStream) x.get(\\\"out\\\")).println(String.valueOf(o));  }");
           return jShell;
         } else if ( l == foam.core.script.Language.BEANSHELL ) {
@@ -463,6 +484,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         ByteArrayOutputStream baos   = new ByteArrayOutputStream();
         PrintStream           ps     = new PrintStream(baos);
         PM                    pm     = new PM(this.getClass(), getId());
+        JShell                jShell = null;
 
         try {
           Thread.currentThread().setPriority(getPriority());
@@ -476,7 +498,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
             shell.setOut(ps);
             shell.eval(getCode());
           } else if ( l == foam.core.script.Language.JSHELL ) {
-            JShell jShell = (JShell) createInterpreter(x,ps);
+            jShell = (JShell) createInterpreter(x,ps);
             new JShellExecutor().execute(x, jShell, getCode(), true);
           } else {
             throw new RuntimeException("Script language not supported");
@@ -497,6 +519,16 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           er(x, t.getMessage(), LogLevel.ERROR, t);
           throw thrown;
         } finally {
+          // Release the JShell session and drop this run's registry entry so the
+          // run's X context is not pinned for the life of the JVM. JShell holds a
+          // heavyweight execution engine; the per-run token keeps cleanup scoped
+          // to this run only, so a concurrent JShell run is never affected.
+          if ( jShell != null ) {
+            Long token = Script.X_TOKENS.remove(jShell);
+            if ( token != null ) Script.X_REGISTRY.remove(token);
+            try { jShell.close(); } catch ( Throwable ignored ) {}
+          }
+
           setLastDuration(pm.getTime());
           ps.flush();
           setOutput(baos.toString());
@@ -526,54 +558,57 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
     },
     {
       name: 'poll',
+      documentation: 'Returns a promise which resolves when the script reaches a terminal status, so callers (the run action) can signal completion.',
       code: function() {
         var delay = Math.min(4000, Math.max(500, this.lastDuration));
         var self  = this;
-        function check() {
-          var dao = self.__context__[self.daoKey];
-          dao.cmd(foam.dao.DAO.PURGE_CMD); // In case DAO is decorated with a TTLCachingDAO (which it is)
-          dao.find(self.id).then(function(script) {
-            // console.log('***************** POLL', script.status, delay);
-            if ( script.status === self.ScriptStatus.UNSCHEDULED || script.status === self.ScriptStatus.ERROR ) {
-              self.copyFrom(script);
+        return new Promise(function(resolve) {
+          function check() {
+            var dao = self.__context__[self.daoKey];
+            dao.cmd(foam.dao.DAO.PURGE_CMD); // In case DAO is decorated with a TTLCachingDAO (which it is)
+            dao.find(self.id).then(function(script) {
+              // console.log('***************** POLL', script.status, delay);
+              if ( script.status === self.ScriptStatus.UNSCHEDULED || script.status === self.ScriptStatus.ERROR ) {
+                self.copyFrom(script);
 
-              if ( self.notify ) {
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targetId:"scriptparameter.create"})
-                // create notification
-                var notification = self.ScriptRunNotification.create({
-                  userId: self.subject && self.subject.realUser ?
-                    self.subject.realUser.id : self.user.id,
-                  scriptId: script.id,
-                  notificationType: 'Script Execution',
-                  body: `Status: ${script.status}
-                    Script Output: ${script.length > self.MAX_NOTIFICATION_OUTPUT_CHARS ?
-                      script.output.substring(0, self.MAX_NOTIFICATION_OUTPUT_CHARS) + '...' :
-                      script.output }
-                    LastDuration: ${script.lastDuration}`
-                });
-                self.notificationDAO.put(notification);
-              }
-              var notification = self.Notification.create();
-              notification.userId = self.subject && self.subject.realUser ?
-                self.subject.realUser.id : self.user.id;
-              notification.severity = foam.log.LogLevel.INFO;
-              if ( script.status === self.ScriptStatus.UNSCHEDULED ) {
-                notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_COMPLETED;
+                if ( self.notify ) {
+                  // create notification
+                  var notification = self.ScriptRunNotification.create({
+                    userId: self.subject && self.subject.realUser ?
+                      self.subject.realUser.id : self.user.id,
+                    scriptId: script.id,
+                    notificationType: 'Script Execution',
+                    body: `Status: ${script.status}
+                      Script Output: ${script.length > self.MAX_NOTIFICATION_OUTPUT_CHARS ?
+                        script.output.substring(0, self.MAX_NOTIFICATION_OUTPUT_CHARS) + '...' :
+                        script.output }
+                      LastDuration: ${script.lastDuration}`
+                  });
+                  self.notificationDAO.put(notification);
+                }
+                var notification = self.Notification.create();
+                notification.userId = self.subject && self.subject.realUser ?
+                  self.subject.realUser.id : self.user.id;
+                notification.severity = foam.log.LogLevel.INFO;
+                if ( script.status === self.ScriptStatus.UNSCHEDULED ) {
+                  notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_COMPLETED;
+                } else {
+                  notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_FAILED;
+                  notification.severity = foam.log.LogLevel.WARN;
+                }
+                notification.toastState = self.ToastState.REQUESTED;
+                notification.transient = true;
+                self.__subContext__.myNotificationDAO.put(notification);
+                resolve();
               } else {
-                notification.toastMessage = self.cls_.name + ' ' + self.EXECUTION_FAILED;
-                notification.severity = foam.log.LogLevel.WARN;
+                delay = Math.min(4000, delay * 1.5);
+                self.setTimeout(check, delay);
               }
-              notification.toastState = self.ToastState.REQUESTED;
-              notification.transient = true;
-              self.__subContext__.myNotificationDAO.put(notification);
-            } else {
-              delay = Math.min(4000, delay * 1.5);
-              self.setTimeout(check, delay);
-            }
-          });
-        }
+            });
+          }
 
-        self.setTimeout(check, delay);
+          self.setTimeout(check, delay);
+        });
       }
     },
     {
@@ -653,10 +688,13 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
           notification.severity = foam.log.LogLevel.INFO;
           notification.transient = true;
           self.__subContext__.myNotificationDAO.put(notification);
-          this.__context__[this.daoKey].put(this).then(function(script) {
+          // Return the promise chain so Action.call() only publishes the
+          // 'action' topic once the run completes, which is what triggers
+          // detail views to reload the record.
+          return this.__context__[this.daoKey].put(this).then(function(script) {
             self.copyFrom(script);
             if ( script.status === self.ScriptStatus.SCHEDULED || script.status === self.ScriptStatus.RUNNING ) {
-              self.poll();
+              return self.poll();
             }
           }).catch(function(e) {
             var notification = self.Notification.create();
@@ -680,10 +718,10 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
           this.__subContext__.myNotificationDAO.put(notification);
 
           this.status = this.ScriptStatus.RUNNING;
-          this.runScript().then(
+          return this.runScript().then(
             () => {
               this.status = this.ScriptStatus.UNSCHEDULED;
-              this.__context__[this.daoKey].put(this);
+              var saved = this.__context__[this.daoKey].put(this);
               var notification = this.Notification.create();
               notification.userId = this.subject && this.subject.realUser ?
                 this.subject.realUser.id : this.subject.user.id;
@@ -692,6 +730,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
               notification.severity = foam.log.LogLevel.INFO;
               notification.transient = true;
               this.__subContext__.myNotificationDAO.put(notification);
+              return saved;
            },
             (e) => {
               var notification = this.Notification.create();
@@ -707,7 +746,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"nbp-fraud-ops",targe
               this.output += '\n' + e.stack;
               console.log(e);
               this.status = this.ScriptStatus.ERROR;
-              this.__context__[this.daoKey].put(this);
+              return this.__context__[this.daoKey].put(this);
             }
           );
         }

@@ -278,6 +278,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
               continue;
             }
           } else if ( "border".equals(property) ) {
+            // A bare 0 is the standard border reset, not a hardcoded colour.
+            // Matched exactly rather than with contains(), so a hex value such
+            // as #000000 still fails.
+            if ( "0".equals(value.trim()) ) {
+              logger.info("ignoring", property, value);
+              continue;
+            }
             if ( value.contains("none") ||
                  value.contains("dashed") ||
                  value.contains("inherit") ||

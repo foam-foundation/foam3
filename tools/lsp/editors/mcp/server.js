@@ -67,6 +67,50 @@ function relPath(uri, projectRoot) {
   return p;
 }
 
+// --- Disk-apply helper (foam_i18n_translate / foam_i18n_apply) -----------
+
+// Writes a WorkspaceEdit (`{ changes: { uri: [ { range, newText } ] } }`)
+// straight to disk — these two tools apply their own edits rather than
+// asking an editor client (there may not be one; this runs headless from an
+// MCP host). Edits within one file are applied in DESCENDING start-offset
+// order so an earlier edit's offsets are never invalidated by inserting text
+// at a later one first. Safe to merge multiple messages: entries' edits into
+// one file's list precisely because each is a single non-overlapping
+// insertion (see I18nHandler.translateMessages / applyTranslations) — sorting
+// descending here is a second layer of safety on top of that, not a
+// substitute for it.
+function applyWorkspaceEdit(edit) {
+  const changed = [];
+  const changes = ( edit && edit.changes ) || {};
+  for ( const uri of Object.keys(changes) ) {
+    const p = uriToPath(uri);
+    let text = fs.readFileSync(p, 'utf8');
+    const offs = changes[uri].map(function(e) {
+      return { start: posToOffset(text, e.range.start), end: posToOffset(text, e.range.end), newText: e.newText };
+    }).sort(function(a, b) { return b.start - a.start; });
+    for ( const e of offs ) text = text.slice(0, e.start) + e.newText + text.slice(e.end);
+    fs.writeFileSync(p, text);
+    changed.push(p);
+  }
+  return changed;
+}
+// A position past the end of the document clamps to the end of the document
+// rather than throwing: `lines[i].length` on an out-of-range line is a
+// TypeError on undefined, which would take down a whole foam_i18n_apply over
+// one stale range (an edit built against text that has since shrunk). Per
+// the LSP spec, a character past the end of a (non-final) line clamps to
+// that LINE's end, not the document's — otherwise an oversized character on
+// an early line would swallow every line after it.
+function posToOffset(text, pos) {
+  const lines = text.split('\n');
+  const line  = Math.max(pos.line, 0);
+  if ( line >= lines.length ) return text.length;   // past the last line → end of document
+  let off = 0;
+  for ( let i = 0 ; i < line ; i++ ) off += lines[i].length + 1;
+  const lineEnd = off + lines[line].length;
+  return Math.min(off + Math.max(pos.character, 0), lineEnd);
+}
+
 // --- LSP SymbolKind names (compact output) -------------------------------
 
 const KIND_NAMES = {
@@ -269,6 +313,31 @@ function toolSchemas() {
           line: { type: 'integer', description: 'Optional 0-based line — only return actions for diagnostics touching this line' }
         }
       }
+    },
+    {
+      name:        'foam_i18n_translate',
+      description: 'Translate FOAM messages: entries missing configured languages. With a local model running (Ollama/LM Studio), translates and applies the edit directly. Without one, returns a needs-translations payload — translate the strings yourself (preserve ${...}, {0}, HTML tags exactly) and call foam_i18n_apply.',
+      inputSchema: {
+        type:     'object',
+        required: ['file'],
+        properties: {
+          file:        { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          messageName: { type: 'string', description: 'Optional — translate only this messages: entry name. Omit to translate every entry in the file missing a configured language.' },
+          languages:   { type: 'array', items: { type: 'string' }, description: 'Optional — target language codes (e.g. ["fr","de"]). Omit to use the workspace-configured target languages.' }
+        }
+      }
+    },
+    {
+      name:        'foam_i18n_apply',
+      description: "Apply translations produced after a needs-translations response from foam_i18n_translate. Input: { file, translations: { MESSAGE_NAME: { fr: '...' } } }. Validates placeholder survival; rejects the whole call listing offending strings if any placeholder was lost.",
+      inputSchema: {
+        type:     'object',
+        required: ['file', 'translations'],
+        properties: {
+          file:         { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          translations: { type: 'object', description: 'Map of message name -> { languageCode: translatedText }, e.g. { UPLOAD_COMPLETE_MSG: { fr: "Envoi terminé" } }' }
+        }
+      }
     }
   ];
 }
@@ -280,19 +349,48 @@ class FoamLSPClient {
     this.projectRoot       = projectRoot;
     this.nextId            = 1;
     this.pending           = new Map();       // id -> { resolve, reject }
-    this.openedUris        = new Set();
+    this.openedUris        = new Map();       // uri -> { mtimeMs, version }
     this.diagnosticsByUri  = new Map();       // uri -> diagnostics[]
     this.buffer            = Buffer.alloc(0);
     this.isReady           = false;
-    this._whenReady        = new Promise(function(resolve, reject) {
+    this.child             = null;
+    this.lastUsed          = Date.now();
+    this._resetReady();
+
+    // Idle reaper: the LSP holds the whole FOAM registry in memory, which is
+    // wasted on a session that stopped calling foam tools. Kill the child
+    // after FOAM_LSP_IDLE_MS without use (default 30 min); the exit handler
+    // resets state so the next tool call boots a fresh one.
+    const idleMs = Number(process.env.FOAM_LSP_IDLE_MS) || 30 * 60 * 1000;
+    setInterval(function() {
+      if ( this.child && this.isReady && this.pending.size === 0 &&
+           Date.now() - this.lastUsed > idleMs ) {
+        log('LSP idle for ' + Math.round(idleMs / 60000) + 'min — stopping (next call reboots it)');
+        this.child.kill();
+      }
+    }.bind(this), Math.min(60000, idleMs)).unref();
+  }
+
+  _resetReady() {
+    this._whenReady = new Promise(function(resolve, reject) {
       this._resolveReady = resolve;
       this._rejectReady  = reject;
     }.bind(this));
+    // Silence unhandledRejection when a boot fails with no awaiter;
+    // awaiters still observe the rejection.
+    this._whenReady.catch(function() {});
   }
 
-  whenReady() { return this._whenReady; }
+  // Lazy boot: the LSP costs ~10-15s and a large registry to start, and many
+  // MCP sessions never call a foam tool. Spawn on first use, not at startup.
+  whenReady() {
+    this.lastUsed = Date.now();
+    if ( ! this.child ) this.start();
+    return this._whenReady;
+  }
 
   start() {
+    if ( this.child ) return;
     const entry = path.join(this.projectRoot, 'foam3/tools/lsp-start.js');
     if ( ! fs.existsSync(entry) ) {
       this._rejectReady(new Error('FOAM LSP entry not found at ' + entry));
@@ -300,12 +398,26 @@ class FoamLSPClient {
     }
     log('spawning LSP:', 'node', entry, '(cwd=' + this.projectRoot + ')');
 
+    // When the child dies mid-boot, the exit handler rejects the ready
+    // promise and swaps in a fresh one for the NEXT boot — and only then
+    // does the initialize .catch below fire. Settle the promise THIS boot
+    // owns, not whatever is current at that point.
+    const rejectBoot = this._rejectReady;
+
     this.child = spawn('node', [entry], {
       cwd:   this.projectRoot,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      // Stale-index guard: the LSP exits when git HEAD changes (branch
+      // switch); our exit handler resets state and the next tool call
+      // boots a fresh index. Safe for us — we have no restart UX cost.
+      env:   Object.assign({}, process.env, { FOAM_LSP_EXIT_ON_HEAD_CHANGE: '1' })
     });
 
     this.child.stdout.on('data', this._onStdout.bind(this));
+    // A write can race the child's death (idle reap, crash): stdin then
+    // emits a stream 'error' which, unhandled, would crash the wrapper.
+    // The 'exit' handler already rejects the in-flight requests.
+    this.child.stdin.on('error', function() {});
     this.child.stderr.on('data', function(chunk) {
       // Forward LSP stderr to our stderr with a prefix; never touch stdout.
       const text = chunk.toString('utf8');
@@ -318,6 +430,18 @@ class FoamLSPClient {
       if ( ! this.isReady ) {
         this._rejectReady(new Error('LSP exited during init (code=' + code + ')'));
       }
+      // Reset to the pre-boot state so the next tool call respawns a fresh
+      // LSP (idle reap, crash, or kill — all recover the same way).
+      this.child   = null;
+      this.isReady = false;
+      this.buffer  = Buffer.alloc(0);
+      this.openedUris.clear();
+      this.diagnosticsByUri.clear();
+      for ( const p of this.pending.values() ) {
+        p.reject(new Error('LSP exited (code=' + code + ', signal=' + signal + ')'));
+      }
+      this.pending.clear();
+      this._resetReady();
     }.bind(this));
 
     // Kick off initialize.
@@ -341,7 +465,10 @@ class FoamLSPClient {
       this._resolveReady(initResult);
     }.bind(this)).catch(function(e) {
       log('LSP initialize failed:', e.message);
-      this._rejectReady(e);
+      rejectBoot(e);
+      // Reap the half-booted child; its exit handler resets state so a
+      // later tool call can retry from scratch.
+      if ( this.child && ! this.child.killed ) this.child.kill();
     }.bind(this));
   }
 
@@ -387,6 +514,7 @@ class FoamLSPClient {
   }
 
   _sendRaw(message) {
+    if ( ! this.child ) throw new Error('LSP not running');
     const body   = JSON.stringify(message);
     const buf    = Buffer.from(body, 'utf8');
     const header = 'Content-Length: ' + buf.length + '\r\n\r\n';
@@ -414,20 +542,57 @@ class FoamLSPClient {
 
   async ensureOpen(uri) {
     await this.whenReady();
-    if ( this.openedUris.has(uri) ) return;
     const fsPath = uriToPath(uri);
+    let st;
+    try { st = fs.statSync(fsPath); }
+    catch (e) {
+      // File gone from disk (deleted, or branch switched away): close our
+      // copy so the server drops its document and a later recreate starts
+      // from a clean didOpen.
+      if ( this.openedUris.has(uri) ) {
+        this.openedUris.delete(uri);
+        this._notify('textDocument/didClose', { textDocument: { uri: uri } });
+      }
+      throw new Error('file not found: ' + fsPath);
+    }
+
+    const entry = this.openedUris.get(uri);
+    if ( entry && entry.mtimeMs === st.mtimeMs ) return;
+
+    // The document is about to (re)load — open, refresh, or reopen after a
+    // delete (the server answers didClose with an empty publish, so the map
+    // re-fills even after a delete there). Drop the cached list here, the one
+    // spot all three paths pass, so getDiagnostics waits for the list the
+    // server publishes for the NEW text.
+    this.diagnosticsByUri.delete(uri);
+
     let text;
     try { text = fs.readFileSync(fsPath, 'utf8'); }
     catch (e) { throw new Error('file not found: ' + fsPath); }
-    this._notify('textDocument/didOpen', {
-      textDocument: {
-        uri:        uri,
-        languageId: 'javascript',
-        version:    1,
-        text:       text
-      }
+
+    if ( ! entry ) {
+      this._notify('textDocument/didOpen', {
+        textDocument: {
+          uri:        uri,
+          languageId: 'javascript',
+          version:    1,
+          text:       text
+        }
+      });
+      this.openedUris.set(uri, { mtimeMs: st.mtimeMs, version: 1 });
+      return;
+    }
+
+    // File changed on disk since we opened it (git checkout, pull, editor
+    // save) — refresh the server's copy, then didSave so it re-registers the
+    // file's classes in the live FOAM registry, not just the text cache.
+    entry.version++;
+    entry.mtimeMs = st.mtimeMs;
+    this._notify('textDocument/didChange', {
+      textDocument:   { uri: uri, version: entry.version },
+      contentChanges: [{ text: text }]
     });
-    this.openedUris.add(uri);
+    this._notify('textDocument/didSave', { textDocument: { uri: uri } });
   }
 
   async getDiagnostics(uri) {
@@ -599,6 +764,76 @@ async function callTool(lsp, projectRoot, name, args) {
       });
       return shapeCodeActions(res);
     }
+    case 'foam_i18n_translate': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const status = await lsp.request('foam/i18nStatus', {});
+      if ( ! status || ! status.available ) {
+        // No local model reachable — hand the agent the source strings and
+        // let IT translate (any coding agent already speaks translation),
+        // then come back through foam_i18n_apply. dryRun:true skips the
+        // provider round trip entirely on the LSP side.
+        const dry = await lsp.request('foam/i18nTranslate', {
+          uri: uri, messageName: args.messageName, languages: args.languages, dryRun: true
+        });
+        const strings = ( dry && dry.strings ) || {};
+        // Nothing needs translating (every target language is already
+        // present — messageName pinned to an already-complete entry, or a
+        // scan that found nothing missing): an empty needs-translations
+        // payload with the full instructions text reads as "go translate
+        // nothing", which is not actionable. Say so plainly instead.
+        if ( Object.keys(strings).length === 0 ) {
+          return JSON.stringify({ status: 'nothing-to-translate' });
+        }
+        return JSON.stringify({
+          status:          'needs-translations',
+          strings:         strings,
+          targetLanguages: ( dry && dry.targetLanguages ) ||
+            ( status && status.targetLanguages ) || [],
+          instructions: 'Translate each string into each target language, preserving ${...} ' +
+            'placeholders, {0} tokens, and HTML tags EXACTLY. Then call foam_i18n_apply with ' +
+            '{ file, translations: { NAME: { fr: "..." } } }.'
+        });
+      }
+      const res = await lsp.request('foam/i18nTranslate', {
+        uri: uri, messageName: args.messageName, languages: args.languages
+      });
+      // Count EDITS actually produced, not Object.keys(res.translated) — a
+      // message whose requested languages were all already present gets no
+      // edit (buildMessageMapEdit returns null for it), and "N messages
+      // translated" should mean N messages whose file content changed.
+      // Zero edits also skips the disk write entirely — same contract as
+      // foam_i18n_apply below — instead of rewriting identical bytes and
+      // bumping the file's mtime.
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      const langs = ( args.languages && args.languages.length ) ? args.languages : ( status.targetLanguages || [] );
+      const warn  = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to write — requested languages already ' +
+          'present or dropped by validation. Warnings: ' + warn;
+      }
+      applyWorkspaceEdit(res.edit);
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' messages translated to ' +
+        langs.join(', ') + ' via ' + status.model + '. Warnings: ' + warn;
+    }
+    case 'foam_i18n_apply': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const res = await lsp.request('foam/i18nApply', { uri: uri, translations: args.translations || {} });
+      // applyTranslations legally produces zero edits — every requested
+      // language was already present for every message name in the payload
+      // (buildMessageMapEdit's no-op contract). Reporting "applied" then
+      // would be a false success claim (and there is nothing to write to
+      // disk, so skip applyWorkspaceEdit entirely rather than write nothing
+      // and call it done).
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to apply — all languages already present.';
+      }
+      applyWorkspaceEdit(res.edit);
+      const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' entries updated. Warnings: ' + warn;
+    }
     default:
       throw new Error('Unknown tool: ' + name);
   }
@@ -622,9 +857,8 @@ function main() {
   const projectRoot = process.env.FOAM_PROJECT_ROOT || process.cwd();
   log('project root:', projectRoot);
 
+  // No eager boot — whenReady() spawns the LSP on the first foam tool call.
   const lsp = new FoamLSPClient(projectRoot);
-  lsp.start();                              // fire-and-forget; tool calls await whenReady()
-  lsp.whenReady().catch(function() {});     // prevent unhandled rejection
 
   const tools = toolSchemas();
 
@@ -653,10 +887,11 @@ function main() {
           instructions:
             'foam_* tools answer FOAM structure questions from the live registry: ' +
             'hierarchy (subclasses/implementors), definitions (even when filename != ' +
-            'class name), substring symbol search, hover docs/types. Blind spots — ' +
-            'grep instead for: .jrl string references, javaImports/javaCode usages, ' +
-            'property-usage sweeps, refined property types, exact member call-site ' +
-            'lines. Name-addressable: symbol: "DetailView", a class id, or ' +
+            'class name), substring symbol search, hover docs/types, javaCode usages, ' +
+            'member call-site lines. Blind spots — ' +
+            'grep instead for: .jrl string references, ' +
+            'property-usage sweeps, refined property types. ' +
+            'Name-addressable: symbol: "DetailView", a class id, or ' +
             '"Class.member". First call boots the LSP (~10-15s). Index reflects the ' +
             'checkout, not uncommitted edits — read changed files directly.'
         });
@@ -689,9 +924,19 @@ function main() {
 
   rl.on('close', function() {
     log('stdin closed, shutting down');
+    shutdown();
+  });
+
+  // stdin 'close' only covers a graceful client exit. When the MCP host
+  // terminates us with a signal, reap the LSP child too — otherwise it's
+  // orphaned and lives forever.
+  function shutdown() {
     if ( lsp.child && ! lsp.child.killed ) lsp.child.kill();
     process.exit(0);
-  });
+  }
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT',  shutdown);
+  process.on('SIGHUP',  shutdown);
 }
 
 // --- exports (for tests) + entrypoint guard ------------------------------
@@ -700,7 +945,8 @@ module.exports = {
   normalizeUri, uriToPath, relPath, kindName, severityName,
   shapeLocations, shapeHover, shapeDocumentSymbols, shapeWorkspaceSymbols,
   shapeDiagnostics, shapeItems, shapeCodeActions,
-  toolSchemas, resolvePos, callTool, FoamLSPClient
+  toolSchemas, resolvePos, callTool, FoamLSPClient,
+  applyWorkspaceEdit, posToOffset
 };
 
 if ( require.main === module ) main();

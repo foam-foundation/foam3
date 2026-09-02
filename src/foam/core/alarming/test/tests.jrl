@@ -2,3 +2,7 @@ p({
   class:"foam.core.alarming.test.CandlestickAlarmTest",
   id:"CandlestickAlarmTest"
 })
+p({
+  class:"foam.core.alarming.test.OMAlarmTest",
+  id:"OMAlarmTest"
+})

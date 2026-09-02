@@ -15,163 +15,6 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Flowable',
-
-  topics: [ 'flowUpdated' ],
-
-  imports: [ 'softSelected' ],
-
-  css: `
-    ^dependent {
-      border: 1px solid orange !important;
-    }
-    ^error {
-      color: $textDestructive;
-    }
-  `,
-
-  properties: [
-    {
-      name: 'flowParent',
-      hidden: true,
-      transient: true
-    },
-    {
-      class: 'String',
-      name: 'flowName',
-    },
-    {
-      class: 'String',
-      name: 'error',
-      reactive: false,
-      transient: true,
-      hidden: true,
-      visibility: 'RO',
-      expression: function(value$reactionError_) {
-        // console.log('************** Flowable error:', value$reactionError_);
-        return value$reactionError_;
-      },
-      visibility: function(error) {
-        return error ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RO;
-      }
-    },
-    {
-      class: 'Array',
-      name: 'flowChildren',
-      hidden: true
-    },
-    { name: 'value', hidden: true },
-    {
-      name: 'treeRowRenderer',
-      hidden: true,
-      value: function(e) {
-        e.parentNode.enableClass('locked', this.locked$);
-        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
-
-        let dependent$ = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1);
-
-        e.enableClass(this.myClass('error'), this.error$);
-        e.parentNode.enableClass(this.myClass('dependent'), dependent$);
-        e.tooltip$ = this.error$;
-        e.add(this.flowName$);
-      }
-    },
-    {
-      name: 'childType',
-      hidden: true,
-      transient: true,
-      documentation: 'Default child type for this flowable',
-      factory: function() { return this.cls_; }
-    },
-    {
-      class: 'StringArray',
-      name: 'dependencies',
-      transient: true
-    },
-    {
-      class: 'Boolean',
-      name: 'locked',
-      transient: true,
-      expression: function(dependencies) {
-        return dependencies.length != 0;
-      }
-    }
-  ],
-
-  methods: [
-    function detachFlowChild(c) {
-      // Helper function to properly detach a flow child
-      // Detach the block's value first (e.g., Script, etc.)
-      if ( c.value && c.value.detach ) {
-        c.value.detach();
-      }
-      // Then detach the block wrapper itself
-      if ( c.detach ) {
-        c.detach();
-      }
-    },
-
-    function toSummary() {
-      return this.flowName;
-    },
-
-    function createFlowChildName(prefix) {
-      for ( var i = 1, name = prefix ; ; ) {
-        name = prefix + i++;
-        if ( ! this.findFlowChildByName(name) ) return name;
-      }
-    },
-
-    function findFlowChildByName(n) {
-      let findEl = inputArr => {
-        if ( ! inputArr?.length ) return;
-        for ( v of inputArr ) {
-          if ( ! v ) continue;
-          if ( v.flowName === n ) {
-            return v;
-          }
-          let ret = findEl(v.flowChildren);
-          if ( ret ) return ret;
-        }
-      };
-      return findEl(this.flowChildren);
-    },
-
-    function addFlowChild(f) {
-      if ( f.deleted_ ) return;
-      f.flowParent = this;
-      this.flowChildren$push(f);
-      this?.addFlowChild_(f);
-    },
-
-    function removeFlowChild(f) {
-      var index = this.flowChildren.indexOf(f);
-      this.flowChildren = this.flowChildren.filter(c => c != f);
-      this?.removeFlowChild_(f);
-
-      if ( this.selected === f ) {
-        if ( this.flowChildren.length > 0 ) {
-          var newIndex = Math.max(0, index - 1);
-          this.selected = this.flowChildren[newIndex];
-        } else {
-          this.selected = null;
-        }
-      }
-    },
-
-    function removeAllFlowChildren() {
-      this.flowChildren.forEach(c => {
-        this.removeFlowChild_(c);
-        this.detachFlowChild(c);
-      });
-      this.flowChildren = [];
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'ReflowHeader',
   extends: 'foam.u2.View',
 
@@ -235,6 +78,8 @@ foam.CLASS({
       margin: 0 8px;
     }
 
+    ^name { width: 230px; }
+
     ^name::placeholder {
       font-style: italic;
     }
@@ -267,6 +112,7 @@ foam.CLASS({
               .start({
                 class: 'foam.u2.TextField',
                 data$: this.data.value.name$,
+                displayWidth: 70,
                 placeholder: 'Unnamed',
                 onKey: false
               })
@@ -1016,6 +862,7 @@ foam.CLASS({
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
+    'perfCapture_',
     'save',
     'scope',
     'scrollToBottom',
@@ -1228,6 +1075,15 @@ foam.CLASS({
       value: 0
     },
     {
+      name: 'perfCapture_',
+      hidden: true,
+      transient: true,
+      documentation: `Per-block cost rows for the load in progress: the loadPerf command
+        points this at the capturing Perf's buffer, and onScriptChange drops it when the
+        load ends. Held per Console rather than on window so a perf block detaching
+        mid-load (clearFlow) cannot reach another capture's buffer.`
+    },
+    {
       class: 'Int',
       name: 'loadingPercentage_',
       hidden: true,
@@ -1328,7 +1184,7 @@ foam.CLASS({
       await this.eval_('loadPerf("' + this.value.name + '")');
     },
 
-    async function includeScript(script, parent, skipParse) {
+    async function includeScript(script, parent, skipParse, perfParent) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
@@ -1348,15 +1204,22 @@ foam.CLASS({
         this.loadingProgress_++;
         this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
 
-        // Per-block attribution for the reflow Perf block: when a capture set
-        // window.__perfCapture__ to an array, record each TOP-LEVEL block's cost.
+        // Per-block attribution for the reflow Perf block: when a capture pointed
+        // perfCapture_ at its buffer, record this block's cost. A nested call writes
+        // into the row of the block it ran inside, so the report keeps the block tree.
         // No-op (single array check) when not capturing.
-        var perfCap_ = ( ! parent && this.window && Array.isArray(this.window.__perfCapture__) ) ? this.window.__perfCapture__ : null;
-        var perfT_, perfDom_, perfHeap_;
-        if ( perfCap_ ) {
+        var perfSink_ = perfParent ? perfParent.children :
+          ( Array.isArray(this.perfCapture_) ? this.perfCapture_ : null );
+        var perfRow_ = null, perfT_, perfDom_, perfHeap_;
+        if ( perfSink_ ) {
           perfT_    = this.window.performance.now();
           perfDom_  = this.window.document.querySelectorAll('*').length;
           perfHeap_ = ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0;
+          // Pushed before the block runs so children have a row to attach to; the
+          // costs land on it once the block and its children are done.
+          // flowName from the script (reliable) since currentBlock may become a child.
+          perfRow_ = { flowName: c.flowName || c.cmd, cmd: c.cmd, start: perfT_, children: [] };
+          perfSink_.push(perfRow_);
         }
 
         await ctx.eval_(c.cmd, undefined, undefined, parent);
@@ -1395,23 +1258,17 @@ foam.CLASS({
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
         }
 
         // Measure AFTER onLoad + children: that is where a block's real work runs
         // (script autoRun, DAO select, DOM render). eval_ alone only creates the block.
-        // flowName from the script (reliable) since currentBlock may now be a child.
-        if ( perfCap_ ) {
+        if ( perfRow_ ) {
           var perfEnd_ = this.window.performance.now();
-          perfCap_.push({
-            flowName:  c.flowName || c.cmd,
-            cmd:       c.cmd,
-            start:     perfT_,        // absolute timestamps so the Perf block can bucket
-            end:       perfEnd_,      // profiler samples into this block's window
-            ms:        perfEnd_ - perfT_,
-            domDelta:  this.window.document.querySelectorAll('*').length - perfDom_,
-            heapDelta: ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_
-          });
+          perfRow_.end       = perfEnd_;   // absolute timestamps so the Perf block can
+          perfRow_.ms        = perfEnd_ - perfT_;   // bucket profiler samples per block
+          perfRow_.domDelta  = this.window.document.querySelectorAll('*').length - perfDom_;
+          perfRow_.heapDelta = ( ( this.window.performance.memory && this.window.performance.memory.usedJSHeapSize ) || 0 ) - perfHeap_;
         }
       }
     },
@@ -2204,6 +2061,10 @@ foam.CLASS({
         } finally {
           this.feedback_ = false;
           this.isLoading_ = false;
+
+          // A capture collects the load it armed and no more: dropping the buffer
+          // here bounds it to one load even when includeScript throws.
+          this.perfCapture_ = null;
 
           // Reset progress counters
           this.loadingProgress_ = 0;

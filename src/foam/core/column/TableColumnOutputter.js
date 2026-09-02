@@ -49,13 +49,11 @@ foam.CLASS({
             }
             return stringArr.join(' ');
           }
-          if ( foam.lang.UnitValue.isInstance(prop) ) {
-            if ( unitPropName ) {
-              if ( prop.unitPropValueToString ) {
-                return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
-              }
-              return val.toString();
-            }
+          if ( prop.unitPropValueToString && unitPropName ) {
+            // 'Add Units' unchecked: bare spreadsheet-parseable number
+            if ( ! addUnitPropValueToStr && prop.unitPropValueToPlainString )
+              return await prop.unitPropValueToPlainString(x, val, unitPropName);
+            return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
           }
           if ( foam.lang.DateTime.isInstance(prop) ) {
             return this.dateTimeToString(val);
@@ -66,17 +64,28 @@ foam.CLASS({
           if ( foam.lang.Time.isInstance(prop) ) {
             return this.timeToString(val);
           }
-          return await this.valueToString(val);
+          return await this.valueToString(val, addUnitPropValueToStr);
         }
         return '';
       }
     },
 
-    async function valueToString(val) {
+    async function valueToString(val, opt_addUnits) {
       // JS RefSummary.f() returns a Promise resolving to { id, summary }.
       if ( val && typeof val.then === 'function' ) {
         val = await val;
         if ( val == null ) return '';
+      }
+      // Export with 'Add Units' unchecked: a reference column (e.g. a CurrencyCode
+      // like transactionCurrency) carries a { id, summary } RefSummary map. The
+      // summary is a display label ("USD - US Dollar"); the id is the bare,
+      // spreadsheet-parseable code ("USD"). Emit the id in plain mode, mirroring
+      // how DoubleUnitValue drops its unit. Only when addUnits is explicitly false
+      // (opt_addUnits === false) — the flag is absent on other call paths, which
+      // keep the summary so existing exports are unchanged.
+      if ( opt_addUnits === false && foam.Object.isInstance(val) &&
+           val.id !== undefined && val.summary !== undefined ) {
+        return val.id == null ? '' : val.id.toString();
       }
       if ( val.toSummary ) {
         if ( val.toSummary() instanceof Promise )
@@ -109,14 +118,18 @@ foam.CLASS({
         for ( var value of values ) {
           var stringArrayForValue = [];
           for ( var i = 0 ; i < lengthOfPrimaryPropsRequested ; i++ ) {
-            if ( foam.lang.UnitValue.isInstance(props[i]) ) {
+            if ( props[i].unitPropValueToString ) {
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
-                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], value[indexOfUnitProp], addUnitPropValueToStr));
+                var unitPropValue = value[indexOfUnitProp];
+                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary
+                // {id, summary} maps, not code strings; currencyDAO.find needs the id
+                if ( unitPropValue && typeof unitPropValue === 'object' ) unitPropValue = unitPropValue.id;
+                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], unitPropValue, addUnitPropValueToStr));
                 continue;
               }
             }
-            stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i]));
+            stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], undefined, addUnitPropValueToStr));
           }
           stringValues.push(stringArrayForValue);
         }
@@ -133,9 +146,9 @@ foam.CLASS({
     },
     {
       name: 'objectToTable',
-      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested) {
+      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested, addUnitPropValueToStr) {
         var values = await this.objToArrayOfStringValues(x, of, propNames, obj);
-        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested);
+        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr);
       }
     },
     {

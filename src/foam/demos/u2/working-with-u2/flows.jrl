@@ -3,7 +3,7 @@ p({
 "name":"PropertyBorder",
 "category":"demos",
 "label":"Property Border Demo",
-"version":23,
+"version":24,
 "script":
 """[
 	{
@@ -27,7 +27,7 @@ p({
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "## PropertyBorder\\u000a`foam.u2.PropertyBorder` wraps a single property's input view with its label, supporting label, validation message, units, and optional-toggle. It is what `SectionView` renders for every property in a `DetailView` — but you can also use it directly for fine-grained control over individual fields.\\u000a\\u000a### Demo setup — predefined models\\u000a  \\u000aSo the examples can focus on `PropertyBorder` instead of on modelling, this flow **predefines two FOAM models in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render:\\u000a\\u000a- **`foam.u2.demos.DemoAddress`** — a small address model (`type`, `street`, `city`, `country`) used to illustrate nested and array fields.\\u000a- **`foam.u2.demos.DemoContact`** — a richer contact model with three sections (Identity, Contact Info, Preferences) that exercises `gridColumns`, `visibility`, `labelFormatter`, `optionalBorder`, units, validation, and an `FObjectArray` of `DemoAddress`.\\u000a\\u000a> 💡 To read the full model definitions, select that first block and turn off Preview (edit mode). Every example below refers to these two models.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.u2.AbstractPropertyBorder  (abstract view: Provides all basic functionality)\\u000a  └── foam.u2.PropertyBorder    (default: renders a set of labels above and validation below the view)\\u000a  └── foam.u2.DetailView.PropertyBorder    (specific in foam.u2.DetailView: offers a single line propertyBorder)\\u000a```\\u000a\\u000a`AbstractPropertyBorder` does all the logic (visibility, error slots, labelFormatter). `PropertyBorder` provides the default vertical layout and CSS.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `prop` | Property axiom | **Required.** The axiom to render (e.g. `MyModel.MY_PROP`). |\\u000a| `data` | FObject | The model instance. Bound to the inner view. |\\u000a| `config` | Map | Override any property attribute for this render only. Does **not** mutate the original property. |\\u000a| `viewArgs` | Map | Extra args forwarded directly to the underlying property view. |\\u000a\\u000a### Context Export\\u000a\\u000a`AbstractPropertyBorder` declares:\\u000a\\u000a```javascript\\u000aexports: [ 'data as objData' ]\\u000a```\\u000aChild views that need the parent FObject (e.g. `CurrencyView` resolving the currency sibling) receive it automatically as `objData`. In custom property views **outside** a PropertyBorder or if you choose to write your own view you must provide this yourself.\\u000a\\u000a##### NOTE:\\u000aThroughout this  demo you will see \\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000aThis is required when you use PropertyBorders without any data in the context. In most FOAM applications this is rarely the case but if you have data linking issues with your properties, this might be the cause.\\u000a"
+			"markdown": "## PropertyBorder\\u000a`foam.u2.PropertyBorder` wraps a single property's input view with its label, supporting label, validation message, units, and optional-toggle. It is what `SectionView` renders for every property in a `DetailView` — but you can also use it directly for fine-grained control over individual fields.\\u000a\\u000a### Demo setup — predefined models\\u000a  \\u000aSo the examples can focus on `PropertyBorder` instead of on modelling, this flow **predefines two FOAM models in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render:\\u000a\\u000a- **`foam.u2.demos.DemoAddress`** — a small address model (`type`, `street`, `city`, `country`) used to illustrate nested and array fields.\\u000a- **`foam.u2.demos.DemoContact`** — a richer contact model with three sections (Identity, Contact Info, Preferences) that exercises `gridColumns`, `visibility`, `labelFormatter`, `optionalBorder`, units, validation, and an `FObjectArray` of `DemoAddress`.\\u000a\\u000a> 💡 To read the full model definitions, select that first block and turn off Preview (edit mode). Every example below refers to these two models.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.u2.AbstractPropertyBorder  (abstract view: Provides all basic functionality)\\u000a  └── foam.u2.PropertyBorder    (default: renders a set of labels above and validation below the view)\\u000a  └── foam.u2.DetailView.PropertyBorder    (specific in foam.u2.DetailView: offers a single line propertyBorder)\\u000a```\\u000a\\u000a`AbstractPropertyBorder` does all the logic (visibility, error slots, labelFormatter). `PropertyBorder` provides the default vertical layout and CSS.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `prop` | Property axiom | **Required.** The axiom to render (e.g. `MyModel.MY_PROP`). |\\u000a| `data` | FObject | The model instance. Bound to the inner view. |\\u000a| `config` | Map | Override any property attribute for this render only. Does **not** mutate the original property. |\\u000a| `viewArgs` | Map | Extra args forwarded directly to the underlying property view. |\\u000a\\u000a### Context Export\\u000a\\u000a`AbstractPropertyBorder` declares:\\u000a\\u000a```javascript\\u000aexports: [ 'data as objData' ]\\u000a```\\u000aChild views that need the parent FObject (e.g. `CurrencyView` resolving the currency sibling) receive it automatically as `objData`. In custom property views **outside** a PropertyBorder or if you choose to write your own view you must provide this yourself.\\u000a\\u000a##### NOTE:\\u000aThroughout this  demo you will see \\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000aWhy the startContext? Property placeholders `(Model.PROP.__)` and actions read their data from the context. These examples render those axioms standalone, so startContext({ data: obj }) supplies it. The other examples don't need it: a full view gets data passed in directly as a parameter (data: obj), and inside a DAOController the view inherits data from the controller's context. Standalone axioms are the only case that has no other source — so a missing  startContext there is the usual reason a property or action doesn't bind to the expected record.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -261,17 +261,19 @@ p({
 		"padding_st": "0 16px"
 	}
 ]""",
-"lastModified":"2026-08-03T19:33:39.140Z"
+"lastModified":"2026-09-02T13:56:16.365Z"
 })
+
 
 p({
 "class":"foam.core.reflow.Flow",
 "name":"SectionedDetailView",
-"category": "demos",
-"version":37,
-"script":"""[
+"category":"demos",
+"version":38,
+"script":
+"""[
 	{
-
+		
 		"flowName": "script1",
 		"cmd": "script",
 		"value": {
@@ -286,12 +288,12 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "intro",
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "## Sectioned Detail Views\\u000a\\u000aA **detail view** turns a model instance into a form. The `foam.u2.detail.*DetailView` family goes one step further: it groups a model's properties into named, ordered **sections** and renders each section as its own bordered card. This is FOAM's standard form view — the same machinery behind DAO browsers, wizards, and detail panels — so learning it once covers most data-entry UI in the app.\\u000a\\u000aRendering happens in two layers:\\u000a\\u000a- A **model-level** view — `SectionedDetailView`, `VerticalDetailView`, or `TabbedDetailView` — reads the FObject, discovers its sections, orders them, and lays them out.\\u000a- For each section, that view delegates to a **section-level** view — `SectionView` or a subclass — which renders that section's individual properties.\\u000a\\u000aEverything below is a subclass or a configuration of these two layers.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000aIndividual section views:\\u000afoam.u2.detail.SectionView                  (renders a single section's properties)\\u000a  └── foam.u2.detail.TabularSectionView     (one property per row, via tableCellFormatter)\\u000a\\u000aModel-level section views:\\u000afoam.u2.detail.AbstractSectionedDetailView  (abstract base; holds the common logic)\\u000a  ├── foam.u2.detail.SectionedDetailView    (one card per section, in a grid/list)\\u000a  ├── foam.u2.detail.VerticalDetailView     (sections stacked vertically, no cards)\\u000a  └── foam.u2.detail.TabbedDetailView       (sections rendered as tabs)\\u000a```\\u000a\\u000a`AbstractSectionedDetailView` auto-discovers sections from the model, sorts them by `order`, filters out hidden ones, and wires up reactivity. The concrete subclasses differ only in how they lay the sections out.\\u000a\\u000a### Shared Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | Model instance being rendered. |\\u000a| `of` | Class | Model class; inferred from `data` if omitted. |\\u000a| `useSections` | StringArray | Whitelist of section names to render, in that order. |\\u000a| `showTitle` | Boolean | Show/hide section title headers (default `true`). |\\u000a| `hideActions` | Boolean | Show/hide the model's actions. |\\u000a| `propertyWhitelist` | Map/Array | Limit which properties appear and override their attributes. |\\u000a| `sections` | Array | The sections defined on the model; override when the defaults don't fit. |\\u000a\\u000a#### Why use these instead of a custom view?\\u000a\\u000aWith `PropertyBorder`s it is easy to hand-build a layout for one model, so why reach for a generic view? A few reasons:\\u000a\\u000a- **Rapid prototyping.** A generic view for every FObject lets you ship a working form with no layout code, while the UX is refined separately.\\u000a- **Responsive by default.** The `*DetailView`s adapt to any screen size out of the box — behaviour a custom view usually needs a lot of CSS for, and that is easy to forget. Resize your window during this demo to see it.\\u000a- **Cheaper than it looks.** As the rest of this document shows, these views are so configurable that a custom view is usually more work — worth it only for your most important models.\\u000a\\u000a##### NOTE:\\u000aThroughout this demo you will see\\u000a\\u000a```javascript\\u000a.startContext({ data: <someValue> }).....endContext()\\u000a```\\u000a\\u000aThis is required when you use these views without any data already in the context.\\u000a"
+			"markdown": "## Sectioned Detail Views\\u000a\\u000aA **detail view** turns a model instance into a form. The `foam.u2.detail.*DetailView` family goes one step further: it groups a model's properties into named, ordered **sections** and renders each section as its own bordered card. This is FOAM's standard form view — the same machinery behind DAO browsers, wizards, and detail panels — so learning it once covers most data-entry UI in the app.\\u000a\\u000aRendering happens in two layers:\\u000a\\u000a- A **model-level** view — `SectionedDetailView`, `VerticalDetailView`, or `TabbedDetailView` — reads the FObject, discovers its sections, orders them, and lays them out.\\u000a- For each section, that view delegates to a **section-level** view — `SectionView` or a subclass — which renders that section's individual properties.\\u000a\\u000aEverything below is a subclass or a configuration of these two layers.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000aIndividual section views:\\u000afoam.u2.detail.SectionView                  (renders a single section's properties)\\u000a  └── foam.u2.detail.TabularSectionView     (one property per row, via tableCellFormatter)\\u000a\\u000aModel-level section views:\\u000afoam.u2.detail.AbstractSectionedDetailView  (abstract base; holds the common logic)\\u000a  ├── foam.u2.detail.SectionedDetailView    (one card per section, in a grid/list)\\u000a  ├── foam.u2.detail.VerticalDetailView     (sections stacked vertically, no cards)\\u000a  └── foam.u2.detail.TabbedDetailView       (sections rendered as tabs)\\u000a```\\u000a\\u000a`AbstractSectionedDetailView` auto-discovers sections from the model, sorts them by `order`, filters out hidden ones, and wires up reactivity. The concrete subclasses differ only in how they lay the sections out.\\u000a\\u000a### Shared Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | Model instance being rendered. |\\u000a| `of` | Class | Model class; inferred from `data` if omitted. |\\u000a| `useSections` | StringArray | Whitelist of section names to render, in that order. |\\u000a| `showTitle` | Boolean | Show/hide section title headers (default `true`). |\\u000a| `hideActions` | Boolean | Show/hide the model's actions. |\\u000a| `propertyWhitelist` | Map/Array | Limit which properties appear and override their attributes. |\\u000a| `sections` | Array | The sections defined on the model; override when the defaults don't fit. |\\u000a\\u000a#### Why use these instead of a custom view?\\u000a\\u000aWith `PropertyBorder`s it is easy to hand-build a layout for one model, so why reach for a generic view? A few reasons:\\u000a\\u000a- **Rapid prototyping.** A generic view for every FObject lets you ship a working form with no layout code, while the UX is refined separately.\\u000a- **Responsive by default.** The `*DetailView`s adapt to any screen size out of the box — behaviour a custom view usually needs a lot of CSS for, and that is easy to forget. Resize your window during this demo to see it.\\u000a- **Cheaper than it looks.** As the rest of this document shows, these views are so configurable that a custom view is usually more work — worth it only for your most important models.\\u000a\\u000a### Demo setup — predefined models\\u000a\\u000a So the examples can focus on the feature being demonstrated instead of on modelling, this flow **predefines the FOAM models it needs in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render — but every example below refers to the models it defines.\\u000a\\u000a  > 💡 To read the full model definitions, select that first block and turn off Preview (edit mode).\\u000a\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -299,7 +301,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionAxiomDoc",
 		"cmd": "markdown",
 		"value": {
@@ -312,12 +314,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionAxiomExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "// DemoContact has 3 sections: identity, contactInfo, preferences\\u000a// Properties are assigned to sections via section: 'sectionName'\\u000a// SectionedDetailView auto-discovers and renders them as cards\\u000avar DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000astart().startContext({ data: contact })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: contact })\\u000a.endContext().end();"
+			"code": "// DemoContact has 3 sections: identity, contactInfo, preferences\\u000a// Properties are assigned to sections via section: 'sectionName'\\u000a// SectionedDetailView auto-discovers and renders them as cards\\u000avar DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000astart()\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: contact })\\u000a.end()",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"title": "Live example: DemoContact in a SectionedDetailView",
@@ -326,7 +330,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionedDetailViewDoc",
 		"cmd": "markdown",
 		"value": {
@@ -339,12 +343,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionedDetailViewExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// Full SectionedDetailView — 3 section cards in a grid\\u000astart().startContext({ data: contact })\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      data: contact,\\u000a      showTitle: true,  // flip to false to hide all section headings\\u000a      borders: {\\u000a          identity: {\\u000a              class: 'foam.u2.borders.BackgroundCard',\\u000a              padding: '2rem',\\u000a              backgroundColor: '#ccc'\\u000a          }\\u000a      }\\u000a  })\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a// Full SectionedDetailView — 3 section cards in a grid\\u000astart()\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      data: contact,\\u000a      showTitle: true,  // flip to false to hide all section headings\\u000a      borders: {\\u000a          identity: {\\u000a              class: 'foam.u2.borders.BackgroundCard',\\u000a              padding: '2rem',\\u000a              backgroundColor: '#ccc'\\u000a          }\\u000a      }\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -352,7 +358,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "verticalDetailViewDoc",
 		"cmd": "markdown",
 		"value": {
@@ -365,12 +371,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "verticalDetailViewExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a\\u000a// Compare: SectionedDetailView (cards) vs VerticalDetailView (stacked)\\u000a\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-semiBold').add('SectionedDetailView').end()\\u000a    .startContext({ data: contact })\\u000a      .tag({ class: 'foam.u2.detail.SectionedDetailView', data: contact })\\u000a    .endContext()\\u000a  .end()\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-semiBold').add('VerticalDetailView').end()\\u000a    .startContext({ data: contact })\\u000a      .tag({ \\u000a          class: 'foam.u2.detail.VerticalDetailView',\\u000a          data: contact,\\u000a          config: {\\u000a              email: { gridColumns: 12 },\\u000a              phone: { supportingLabel: 'Enter your personal phone #' }\\u000a          }\\u000a      })\\u000a    .endContext()\\u000a  .end()\\u000a.end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000a\\u000a// Compare: SectionedDetailView (cards) vs VerticalDetailView (stacked)\\u000a\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-semiBold').add('SectionedDetailView').end()\\u000a         .tag({ class: 'foam.u2.detail.SectionedDetailView', data: contact })\\u000a  .end()\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-semiBold').add('VerticalDetailView').end()\\u000a      .tag({ \\u000a          class: 'foam.u2.detail.VerticalDetailView',\\u000a          data: contact,\\u000a          config: {\\u000a              email: { gridColumns: 12 },\\u000a              phone: { supportingLabel: 'Enter your personal phone #' }\\u000a          }\\u000a      })\\u000a  .end()\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -378,7 +386,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "sectionVisibilityDoc",
 		"cmd": "markdown",
 		"value": {
@@ -391,12 +399,18 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionVisibilityExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "// DemoVisibility has 2 sections:\\u000a// 'Always Visible' is always shown\\u000a// 'Business Only' appears only when contactType === 'BUSINESS'\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoVisibility',\\u000a\\u000a  sections: [\\u000a    { name: 'always',      title: 'Always Visible', order: 1 },\\u000a    {\\u000a      name: 'conditional',\\u000a      title: 'Business Only',\\u000a      order: 2,\\u000a      isAvailable: function(contactType) { return contactType === 'BUSINESS'; }\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'always',\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'orgName', label: 'Organization', section: 'conditional' }\\u000a  ]\\u000a});\\u000a\\u000a// Switch the dropdown from Personal -> Business to reveal the hidden section\\u000avar instance = foam.u2.demos.DemoVisibility.create({ contactType: 'PERSONAL' });\\u000astart().startContext({ data: instance })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.endContext().end();"
+			"code": "// DemoVisibility has 2 sections:\\u000a// 'Always Visible' is always shown\\u000a// 'Business Only' appears only when contactType === 'BUSINESS'\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoVisibility',\\u000a\\u000a  sections: [\\u000a    { name: 'always',      title: 'Always Visible', order: 1 },\\u000a    {\\u000a      name: 'conditional',\\u000a      title: 'Business Only',\\u000a      order: 2,\\u000a      isAvailable: function(contactType) { return contactType === 'BUSINESS'; }\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'always',\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'orgName', label: 'Organization', section: 'conditional' }\\u000a  ]\\u000a});\\u000a\\u000a// Switch the dropdown from Personal -> Business to reveal the hidden section\\u000avar instance = foam.u2.demos.DemoVisibility.create({ contactType: 'PERSONAL' });\\u000astart().startContext({ data: instance })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.endContext().end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack"
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -404,7 +418,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "filteringDoc",
 		"cmd": "markdown",
 		"value": {
@@ -417,12 +431,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "filteringExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-label').add('useSections: identity + preferences only').end()\\u000a    .startContext({ data: contact })\\u000a      .tag({\\u000a        class: 'foam.u2.detail.SectionedDetailView',\\u000a        data: contact,\\u000a        useSections: ['identity', 'preferences']\\u000a      })\\u000a    .endContext()\\u000a  .end()\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-label').add('propertyWhitelist: name and email only').end()\\u000a    .startContext({ data: contact })\\u000a      .tag({\\u000a        class: 'foam.u2.detail.VerticalDetailView',\\u000a        data: contact,\\u000a        propertyWhitelist: {\\u000a          'name':  { gridColumns: 12 },\\u000a          'email': { gridColumns: 12, label: 'Work Email' },\\u000a          'phone': {} // no overrides\\u000a        }\\u000a      })\\u000a    .endContext()\\u000a  .end()\\u000a.end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp',\\u000a  age: 32,\\u000a  active: true\\u000a});\\u000astart('div').style({ display: 'flex', gap: '2rem' })\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-label').add('useSections: identity + preferences only').end()\\u000a      .tag({\\u000a        class: 'foam.u2.detail.SectionedDetailView',\\u000a        data: contact,\\u000a        useSections: ['identity', 'preferences']\\u000a      })\\u000a  .end()\\u000a  .start('div').style({ flex: 1 })\\u000a    .start('p').addClass('p-label').add('propertyWhitelist: name and email only').end()\\u000a      .tag({\\u000a        class: 'foam.u2.detail.VerticalDetailView',\\u000a        data: contact,\\u000a        propertyWhitelist: {\\u000a          'name':  { gridColumns: 12 },\\u000a          'email': { gridColumns: 12, label: 'Work Email' },\\u000a          'phone': {} // no overrides\\u000a        }\\u000a      })\\u000a  .end()\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -430,7 +446,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "reactiveTitleDoc",
 		"cmd": "markdown",
 		"value": {
@@ -443,12 +459,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "reactiveTitleExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "// DemoReactiveTitle has a section whose title maps over the 'name' property.\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoReactiveTitle',\\u000a\\u000a  sections: [\\u000a    {\\u000a      name: 'main',\\u000a      order: 1,\\u000a      title: function(name) { return name ? 'Profile — ' + name : 'Profile'; },\\u000a      subTitle: 'Edit your contact details'\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  label: 'Full Name', section: 'main', gridColumns: 6, onKey: true },\\u000a    { class: 'String', name: 'email', label: 'Email',     section: 'main', gridColumns: 6 }\\u000a  ]\\u000a});\\u000a\\u000a// Edit the Full Name field and watch the section title update live.\\u000avar instance = foam.u2.demos.DemoReactiveTitle.create({ name: 'Jane Doe', email: 'jane@example.com' });\\u000astart().startContext({ data: instance })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.endContext().end();"
+			"code": "// DemoReactiveTitle has a section whose title maps over the 'name' property.\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoReactiveTitle',\\u000a\\u000a  sections: [\\u000a    {\\u000a      name: 'main',\\u000a      order: 1,\\u000a      title: function(name) { return name ? 'Profile — ' + name : 'Profile'; },\\u000a      subTitle: 'Edit your contact details'\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  label: 'Full Name', section: 'main', gridColumns: 6, onKey: true },\\u000a    { class: 'String', name: 'email', label: 'Email',     section: 'main', gridColumns: 6 }\\u000a  ]\\u000a});\\u000a\\u000a// Edit the Full Name field and watch the section title update live.\\u000avar instance = foam.u2.demos.DemoReactiveTitle.create({ name: 'Jane Doe', email: 'jane@example.com' });\\u000astart()\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -456,7 +474,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "collapsibleDoc",
 		"cmd": "markdown",
 		"value": {
@@ -469,12 +487,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "collapsibleExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "// DemoCollapsible has two sections:\\u000a// 'Basic Info' is always visible\\u000a// 'Advanced' is collapsable and has help text — click the chevron to collapse it\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoCollapsible',\\u000a\\u000a  sections: [\\u000a    { name: 'basic',    title: 'Basic Info', order: 1 },\\u000a    {\\u000a      name: 'advanced',\\u000a      title: 'Advanced',\\u000a      order: 2,\\u000a      collapsable: true,\\u000a      help: 'These settings are optional'\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  label: 'Name',  section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'email', label: 'Email', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'notes', label: 'Notes', section: 'advanced', gridColumns: 12 },\\u000a    { class: 'Int',    name: 'age',   label: 'Age',   section: 'advanced', gridColumns: 4 }\\u000a  ]\\u000a});\\u000a\\u000avar instance = foam.u2.demos.DemoCollapsible.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  age: 32,\\u000a  notes: 'Prefers email contact.'\\u000a});\\u000astart().startContext({ data: instance })\\u000a  .tag({ class: 'foam.u2.detail.VerticalDetailView', data: instance })\\u000a.endContext().end();"
+			"code": "// DemoCollapsible has two sections:\\u000a// 'Basic Info' is always visible\\u000a// 'Advanced' is collapsable and has help text — click the chevron to collapse it\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoCollapsible',\\u000a\\u000a  sections: [\\u000a    { name: 'basic',    title: 'Basic Info', order: 1 },\\u000a    {\\u000a      name: 'advanced',\\u000a      title: 'Advanced',\\u000a      order: 2,\\u000a      collapsable: true,\\u000a      help: 'These settings are optional'\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  label: 'Name',  section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'email', label: 'Email', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'notes', label: 'Notes', section: 'advanced', gridColumns: 12 },\\u000a    { class: 'Int',    name: 'age',   label: 'Age',   section: 'advanced', gridColumns: 4 }\\u000a  ]\\u000a});\\u000a\\u000avar instance = foam.u2.demos.DemoCollapsible.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  age: 32,\\u000a  notes: 'Prefers email contact.'\\u000a});\\u000astart()\\u000a  .tag({ class: 'foam.u2.detail.VerticalDetailView', data: instance })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -482,12 +502,12 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "sectionViewDoc",
 		"cmd": "markdown",
 		"value": {
 			"class": "foam.core.reflow.Markdown",
-			"markdown": "### SectionView\\u000a\\u000a`foam.u2.detail.SectionView` renders **one section's properties** directly. Use it when you want full control over wrapping in a custom layout.\\u000a\\u000a```javascript\\u000a.tag({\\u000a  class: 'foam.u2.detail.SectionView',\\u000a  data: myInstance,\\u000a  of: MyModel,\\u000a  sectionName: 'identity',\\u000a  showTitle: false\\u000a})\\u000a```\\u000a\\u000a#### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `sectionName` | String | Name of the section to render. |\\u000a| `section` | Section | Direct Section object (alternative to `sectionName`). |\\u000a| `showTitle` | Boolean | Show section title and subtitle (default `true`). |\\u000a| `config` | Map | Per-property attribute overrides for this render. |\\u000a| `hideActions` | Boolean | Suppress action buttons. |\\u000a\\u000a`SectionView` is what `<Some>DetailView` uses internally for each card.\\u000a\\u000a#### TabularSectionView\\u000a`SectionView` has an alternative view called `TabularSectionView`. Try replacing the class in the view to see what it looks like.\\u000aThe TabularSectionView also uses TableCellFormatters to render the property values in order to use views that would typically be more compatible with the single row style it uses.\\u000a"
+			"markdown": "### SectionView\\u000a\\u000a`foam.u2.detail.SectionView` renders **one section's properties** directly. Use it when you want full control over wrapping in a custom layout.\\u000a\\u000a```javascript\\u000a.tag({\\u000a  class: 'foam.u2.detail.SectionView',\\u000a  data: myInstance,\\u000a  of: MyModel,\\u000a  sectionName: 'identity',\\u000a  showTitle: false\\u000a})\\u000a```\\u000a\\u000a#### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `sectionName` | String | Name of the section to render. |\\u000a| `section` | Section | Direct Section object (alternative to `sectionName`). |\\u000a| `showTitle` | Boolean | Show section title and subtitle (default `true`). |\\u000a| `config` | Map | Per-property attribute overrides for this render. |\\u000a| `hideActions` | Boolean | Suppress action buttons. |\\u000a\\u000a`SectionView` is what `<Some>DetailView` uses internally for each card.\\u000a\\u000a#### TabularSectionView\\u000a`SectionView` has an alternative view called `TabularSectionView`. Try replacing the class in the view to see what it looks like.\\u000aThe TabularSectionView also uses TableCellFormatters to render the property values in order to use views that would typically be more compatible with the single row style it uses.\\u000a\\u000a##### NOTE:\\u000a\\u000aThis example wraps the view in\\u000a  \\u000a```javascript\\u000a .startContext({ controllerMode: 'VIEW' }) … .endContext()\\u000a  ```\\u000a to set the view mode. TabularSectionView renders a single section on its own, with no DetailView or DAOController around it — and that parent is normally what supplies controllerMode through the context to tell the section whether to render read-only or editable. Since there's no parent here, we set  it ourselves: controllerMode: 'VIEW' is what makes the section render in view mode.\\u000a"
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -495,12 +515,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "sectionViewExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp'\\u000a});\\u000a// Render only the 'identity' section directly via SectionView\\u000astart().startContext({ data: contact, controllerMode: 'VIEW' })\\u000a  .tag({\\u000a    class: 'foam.u2.detail.TabularSectionView',\\u000a    data: contact,\\u000a    of: DC,\\u000a    sectionName: 'identity',\\u000a    showTitle: true\\u000a  })\\u000a.endContext().end();"
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar contact = DC.create({\\u000a  name: 'Jane Doe',\\u000a  contactType: 'BUSINESS',\\u000a  organization: 'Acme Corp'\\u000a});\\u000a// Render only the 'identity' section directly via SectionView\\u000astart().startContext({ controllerMode: 'VIEW' })\\u000a  .tag({\\u000a    class: 'foam.u2.detail.TabularSectionView',\\u000a    data: contact,\\u000a    of: DC,\\u000a    sectionName: 'identity',\\u000a    showTitle: true\\u000a  })\\u000a.endContext().end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -508,7 +530,7 @@ p({
 		"padding_st": "0 16px"
 	},
 	{
-
+		
 		"flowName": "AdvancedSectionsDoc",
 		"cmd": "markdown",
 		"value": {
@@ -521,12 +543,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "AdvancedSectionsExample",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "/* \\u000aNote that the section for contact details specifies its own properties.\\u000aThese properties can belong to another section without conflicting.\\u000aIt is the responsibility of the user configuring the view to make sure \\u000athe properties are visible only once\\u000a*/\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoOverloading',\\u000a\\u000a  sections: [\\u000a    { name: 'basic',    title: 'Basic Info' },\\u000a    {\\u000a      name: 'contactDetails',\\u000a      properties: [\\u000a        // You can use propName if you dont need overrides\\u000a        'email', \\u000a        // Or use a map if you need overrides\\u000a        { name: 'phone', label: '####', supportingLabel: 'This label is different from the one in the other section' },\\u000a        // Or use a nested property on an FObjectProperty\\u000a        { name: 'address.city' }\\u000a      ]\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'email', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'PhoneNumber', name: 'phone', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'Int',    name: 'age',   section: 'basic', gridColumns: 4 },\\u000a    {\\u000a      class: 'FObjectProperty',\\u000a      of: 'foam.u2.demos.DemoAddress',\\u000a      name: 'address',\\u000a      section: 'basic',\\u000a      gridColumns: 12,\\u000a      factory: function() { return foam.u2.demos.DemoAddress.create({ city: 'Toronto' }) }\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000avar instance = foam.u2.demos.DemoOverloading.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart().startContext({ data: instance })\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.endContext().end();"
+			"code": "/* \\u000aNote that the section for contact details specifies its own properties.\\u000aThese properties can belong to another section without conflicting.\\u000aIt is the responsibility of the user configuring the view to make sure \\u000athe properties are visible only once\\u000a*/\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoOverloading',\\u000a\\u000a  sections: [\\u000a    { name: 'basic',    title: 'Basic Info' },\\u000a    {\\u000a      name: 'contactDetails',\\u000a      properties: [\\u000a        // You can use propName if you dont need overrides\\u000a        'email', \\u000a        // Or use a map if you need overrides\\u000a        { name: 'phone', label: '####', supportingLabel: 'This label is different from the one in the other section' },\\u000a        // Or use a nested property on an FObjectProperty\\u000a        { name: 'address.city' }\\u000a      ]\\u000a    }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'String', name: 'name',  section: 'basic',    gridColumns: 6 },\\u000a    { class: 'String', name: 'email', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'PhoneNumber', name: 'phone', section: 'basic',    gridColumns: 6 },\\u000a    { class: 'Int',    name: 'age',   section: 'basic', gridColumns: 4 },\\u000a    {\\u000a      class: 'FObjectProperty',\\u000a      of: 'foam.u2.demos.DemoAddress',\\u000a      name: 'address',\\u000a      section: 'basic',\\u000a      gridColumns: 12,\\u000a      factory: function() { return foam.u2.demos.DemoAddress.create({ city: 'Toronto' }) }\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000avar instance = foam.u2.demos.DemoOverloading.create({\\u000a  name: 'Jane Doe',\\u000a  email: 'jane@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart()\\u000a  .tag({ class: 'foam.u2.detail.SectionedDetailView', data: instance })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -534,7 +558,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "markdown1",
 		"cmd": "markdown",
 		"value": {
@@ -547,12 +571,14 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "example1",
 		"cmd": "example",
 		"value": {
 			"class": "foam.core.reflow.example.Example",
-			"code": "/* \\u000afoam.u2.demos.DemoContact has the following properties that already belong to \\u000adifferent sections: \\u000a- name: identity section\\u000a- email: contactInfo section\\u000a- active: preferences section\\u000a\\u000aIt is reasonable to expect a management screen to maybe show these three properties in a section so that a user can manage contacts at a glance.\\u000a*/\\u000avar instance = foam.u2.demos.DemoContact.create({\\u000a  name: 'John Doe',\\u000a  email: 'john@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart()\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      // When defining your own sections, `of` must be provided\\u000a      of: 'foam.u2.demos.DemoContact',\\u000a      data: instance,\\u000a      sections: [\\u000a         /* \\u000a         Define your own set of sections that are only used for this view\\u000a         This is the same sectionAxiom that we define on models so all the same\\u000a         features are available here\\u000a        */\\u000a        {\\u000a          name: 'myCustomManagementSection_',\\u000a          properties: ['name', 'email', 'active'],\\u000a          title: function(name) { return 'Manage Contact - ' + name; }\\u000a        }    \\u000a      ]\\u000a  }).end();"
+			"code": "/* \\u000afoam.u2.demos.DemoContact has the following properties that already belong to \\u000adifferent sections: \\u000a- name: identity section\\u000a- email: contactInfo section\\u000a- active: preferences section\\u000a\\u000aIt is reasonable to expect a management screen to maybe show these three properties in a section so that a user can manage contacts at a glance.\\u000a*/\\u000avar instance = foam.u2.demos.DemoContact.create({\\u000a  name: 'John Doe',\\u000a  email: 'john@example.com',\\u000a  age: 32,\\u000a  phone: '123456'\\u000a});\\u000astart()\\u000a  .tag({\\u000a      class: 'foam.u2.detail.SectionedDetailView',\\u000a      // When defining your own sections, `of` must be provided\\u000a      of: 'foam.u2.demos.DemoContact',\\u000a      data: instance,\\u000a      sections: [\\u000a         /* \\u000a         Define your own set of sections that are only used for this view\\u000a         This is the same sectionAxiom that we define on models so all the same\\u000a         features are available here\\u000a        */\\u000a        {\\u000a          name: 'myCustomManagementSection_',\\u000a          properties: ['name', 'email', 'active'],\\u000a          title: function(name) { return 'Manage Contact - ' + name; }\\u000a        }    \\u000a      ]\\u000a  }).end();",
+			"stack_": "",
+			"breadcrumbs_": ""
 		},
 		"border": {
 			"oldTitleStyle_": "h300"
@@ -560,7 +586,7 @@ p({
 		"padding_st": "16px"
 	},
 	{
-
+		
 		"flowName": "markdown2",
 		"cmd": "markdown",
 		"value": {
@@ -573,27 +599,374 @@ p({
 		"padding_st": "16px"
 	}
 ]""",
-"lastModified":"2026-04-30T14:35:54.274Z"
+"lastModified":"2026-09-02T12:38:57.688Z"
 })
+
 
 p({
 "class":"foam.core.reflow.Flow",
 "name":"ComicsV3DAOControllerFinal",
-"label":"Comics V3 — DAOController & Config",
-"version":1,
-"category": "demos",
+"category":"demos",
+"label":"Comics V3 \u2014 DAOController & Config",
+"version":2,
 "script":
-"""\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"script1\",\u000a\u0009\u0009\"cmd\": \"script\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Script\",\u000a\u0009\u0009\u0009\"code\": \"foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true },\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType', 'active'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(ct) {\\u000a          return ct === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000aglobalThis.comicsV3DemoDAO = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContact,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000a\\u000avar DC = foam.u2.demos.DemoContact;\\u000a[\\u000a  { name: 'Alice Chen',   email: 'alice@example.com',  contactType: 'BUSINESS', organization: 'Acme Corp', age: 34, active: true  },\\u000a  { name: 'Bob Smith',    email: 'bob@example.com',    contactType: 'PERSONAL',                             age: 28, active: true  },\\u000a  { name: 'Carol White',  email: 'carol@example.com',  contactType: 'BUSINESS', organization: 'Globex',    age: 45, active: false },\\u000a  { name: 'Dave Torres',  email: 'dave@example.com',   contactType: 'PERSONAL',                             age: 31, active: true  }\\u000a].forEach(function(d) { globalThis.comicsV3DemoDAO.put(DC.create(d)); });\\u000a\",\u000a\u0009\u0009\u0009\"autoRun\": true\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"shown\": false,\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"intro\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"## foam.comics.v3 — DAOController\\u000a`foam.comics.v3.DAOController` is FOAM's built-in list-browse-create-edit controller. It manages navigation between three views based on a `route` property.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.comics.v3.DAOController   (route orchestrator; exports daoController)\\u000a├── foam.comics.v3.DAOView → foam.comics.v2.DAOBrowserView  (table + search + export)\\u000a├── foam.comics.v3.CreateView    (new object form + SAVE action)\\u000a└── foam.comics.v3.DetailView    (existing object form + EDIT/SAVE/DELETE/COPY actions)\\u000a```\\u000a\\u000a### Routing\\u000a\\u000a| `route` value | View rendered |\\u000a|--------------|---------------|\\u000a| `''` (empty) | `DAOView` — browse/list |\\u000a| `'create'` | `CreateView` — new object form |\\u000a| Any ID | `DetailView` — single object |\\u000a\\u000a**Key point:** You configure everything through `DAOControllerConfig`. You rarely touch the sub-views directly.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | DAO | The data source to browse |\\u000a| `config` | DAOControllerConfig | All configuration (optional — defaults work) |\\u000a| `click` | Function | Override default row-click handler |\\u000a| `route` | String | Current navigation state (memorable — reflected in URL) |\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"setupDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Minimal Setup\\u000a\\u000aThe only required property is `data` — a DAO. `DAOControllerConfig` is auto-created from the DAO's `of` class:\\u000a\\u000a```javascript\\u000a// Minimal — config auto-derived from DAO\\u000atag({ class: 'foam.comics.v3.DAOController', data: myDAO })\\u000a\\u000a// With explicit config\\u000atag({\\u000a  class: 'foam.comics.v3.DAOController',\\u000a  data: myDAO,\\u000a  config: foam.comics.v2.DAOControllerConfig.create({\\u000a    browseTitle: 'My Records',\\u000a    tableColumns: ['name', 'email']\\u000a  })\\u000a})\\u000a```\\u000a\\u000aIn the example below, `globalThis.comicsV3DemoDAO` is a seeded in-memory EasyDAO set up by the hidden script block above. Click a row to open its DetailView, or use the Create button to add a record.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"basicExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"// Minimal DAOController — just a DAO, no extra config\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({ class: 'foam.comics.v3.DAOController', data: globalThis.comicsV3DemoDAO })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": {\u000a\u0009\u0009\u0009\u0009\"class\": \"foam.core.u2.navigation.Stack\",\u000a\u0009\u0009\u0009\u0009\"pos\": 0\u000a\u0009\u0009\u0009},\u000a\u0009\u0009\u0009\"breadcrumbs_\": {\u000a\u0009\u0009\u0009\u0009\"class\": \"foam.u2.stack.BreadcrumbManager\"\u000a\u0009\u0009\u0009}\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"configDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### DAOControllerConfig\\u000a\\u000a`foam.comics.v2.DAOControllerConfig` is the single configuration object that controls all aspects of the controller. Pass it as the `config` property.\\u000a\\u000a#### Display\\u000a\\u000a| Property | Default | Description |\\u000a|----------|---------|-------------|\\u000a| `browseTitle` | model plural | Page/breadcrumb title |\\u000a| `tableColumns` | all non-hidden | Columns shown in the table |\\u000a| `searchColumns` | tableColumns | Properties searched by the query bar |\\u000a| `searchMode` | `FULL` | `NONE`, `SIMPLE`, or `FULL` filter UI |\\u000a| `minHeight` | `424` | Table minimum height in px |\\u000a\\u000a#### Views\\u000a\\u000a| Property | Default | Description |\\u000a|----------|---------|-------------|\\u000a| `summaryView` | `TableView` | The table/list component |\\u000a| `detailView` | `TabbedDetailView` | Form rendered by DetailView |\\u000a| `createView` | `SectionedDetailView` | Form rendered by CreateView |\\u000a| `browseBorder` | `CardBorder` | Border wrapping the browse table |\\u000a| `viewBorder` | `NullBorder` | Border wrapping the detail form |\\u000a| `createMenu` | — | Menu ID to push instead of the built-in CreateView |\\u000a\\u000aIn the example below, try changing `searchMode` to `'NONE'` or `'SIMPLE'` and `tableColumns` to different subsets.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"tableColumnsExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"// Custom tableColumns, browseTitle, and searchMode\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000aof: 'foam.u2.demos.DemoContact',\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      browseTitle: 'My Contacts',\\u000a      tableColumns: ['name', 'contactType', 'active'],\\u000a      searchColumns: ['name', 'email']\\u000a    }\\u000a  })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"predicatesDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### CRUD Predicates\\u000a\\u000aFive predicate properties control button visibility and availability. Each is a `foam.mlang.predicate.Predicate` that evaluates against the current record (or returns a constant).\\u000a\\u000a| Property | Default | Controls |\\u000a|----------|---------|----------|\\u000a| `createPredicate` | `True` | CREATE button in browse view |\\u000a| `editPredicate` | `True` | EDIT button in detail view |\\u000a| `deletePredicate` | `True` | DELETE option in detail view overflow menu |\\u000a| `copyPredicate` | `createPredicate` | COPY option in detail view overflow menu |\\u000a| `refreshPredicate` | `True` | REFRESH button in browse view |\\u000a\\u000a```javascript\\u000a// Disable delete entirely:\\u000aconfig.deletePredicate = foam.mlang.predicate.False.create();\\u000a\\u000a// Disable edit for inactive records:\\u000aconfig.editPredicate = foam.mlang.predicate.EqExpr.create({\\u000a  arg1: { class: '__Property__', forClass_: 'foam.u2.demos.DemoContact', name: 'active' },\\u000a  arg2: { class: 'foam.mlang.Constant', value: true }\\u000a});\\u000a```\\u000a\\u000aIn the example below, delete is disabled and edit is only available for active contacts (try clicking an inactive one like Carol White).\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"predicatesExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"var DC = foam.u2.demos.DemoContact;\\u000avar editActiveOnly = foam.mlang.predicate.Eq.create({\\u000a  arg1: { class: '__Property__', forClass_: 'foam.u2.demos.DemoContact', name: 'active' },\\u000a  arg2: { class: 'foam.mlang.Constant', value: true }\\u000a});\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      // DELETE is disabled entirely (no delete option in overflow menu)\\u000a      deletePredicate: foam.mlang.predicate.False.create(),\\u000a      // EDIT only available for active: true records\\u000a      editPredicate: editActiveOnly\\u000a    }\\u000a  })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"cannedQueriesDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Canned Queries\\u000a\\u000aCanned queries appear as filter tabs above the browse table. They are pre-defined predicates that users can switch between with one click.\\u000a\\u000aDeclare them on the model using the `CannedQuery` axiom:\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  axioms: [\\u000a    foam.comics.v2.CannedQuery.create({\\u000a      label: 'Active',\\u000a      predicateFactory: function(e) {\\u000a        return e.EQ(MyModel.ACTIVE, true);\\u000a      }\\u000a    })\\u000a  ]\\u000a});\\u000a```\\u000a\\u000aOr override them per-view on the config:\\u000a\\u000a```javascript\\u000aconfig.cannedQueries = [\\u000a  foam.comics.v2.CannedQuery.create({\\u000a    label: 'Business',\\u000a    predicateFactory: function(e) {\\u000a      return e.EQ(foam.u2.demos.DemoContact.CONTACT_TYPE, 'BUSINESS');\\u000a    }\\u000a  })\\u000a];\\u000a```\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"cannedQueriesExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"var DC = foam.u2.demos.DemoContact;\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      cannedQueries: [\\u000a        foam.comics.v2.CannedQuery.create({\\u000a          label: 'Active',\\u000a          predicateFactory: function(e) {\\u000a            return e.EQ(DC.ACTIVE, true);\\u000a          }\\u000a        }),\\u000a        foam.comics.v2.CannedQuery.create({\\u000a          label: 'Business',\\u000a          predicateFactory: function(e) {\\u000a            return e.EQ(DC.CONTACT_TYPE, 'BUSINESS');\\u000a          }\\u000a        })\\u000a      ]\\u000a    }\\u000a  })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"customViewsDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Custom Detail and Create Views\\u000a\\u000a`config.detailView` and `config.createView` are `ViewSpec` properties — any view that accepts `data` works.\\u000a\\u000a```javascript\\u000a// Default detail view — tabs per section:\\u000adetailView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a\\u000a// All sections as cards in a responsive grid:\\u000adetailView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a\\u000a// Flat vertical layout — sections stacked without cards:\\u000adetailView: { class: 'foam.u2.detail.VerticalDetailView' }\\u000a\\u000a// Only show specific sections:\\u000adetailView: {\\u000a  class: 'foam.u2.detail.SectionedDetailView',\\u000a  useSections: ['identity', 'preferences']\\u000a}\\u000a```\\u000a\\u000aSee the **SectionedDetailView** demo for deeper documentation on these views.\\u000a\\u000a#### Other Config Options\\u000a\\u000a- **`selectMode`**: Set `true` to enable multi-row checkbox selection (for M2M relationship pickers)\\u000a- **`CRUDEnabledActionsAuth`**: Permission-based CRUD — ties create/edit/delete/copy buttons to auth permissions\\u000a- **`click`**: Override the row-click handler — receives `(obj, id)` and can push any view\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"customViewsExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"// SectionedDetailView instead of TabbedDetailView — click a row to compare\\u000astart('div').style({ height: '550px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000a      dao: globalThis.comicsV3DemoDAO,\\u000a      browseTitle: 'Contacts (SectionedDetailView)',\\u000a      // All sections as cards in a grid when viewing a record\\u000a      detailView: { class: 'foam.u2.detail.SectionedDetailView' },\\u000a      // Only show identity + preferences when creating\\u000a      createView: {\\u000a        class: 'foam.u2.detail.SectionedDetailView',\\u000a        useSections: ['identity', 'preferences']\\u000a      }\\u000a    }\\u000a  })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"finalNotes\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Final Notes\\u000a\\u000a#### References\\u000a\\u000a- [DAOController](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DAOController.js)\\u000a- [DAOView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DAOView.js)\\u000a- [DetailView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DetailView.js)\\u000a- [CreateView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/CreateView.js)\\u000a- [DAOControllerConfig](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v2/DAOControllerConfig.js)\\u000a- [ComicsAction](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/ComicsAction.js)\\u000a\\u000aSee the **DetailView** demo in this series for deeper documentation on customizing the detail form and overriding CRUD actions.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009}\u000a]""",
-"lastModified":"2026-04-30T20:11:07.201Z"
+"""[
+	{
+		
+		"flowName": "script1",
+		"cmd": "script",
+		"value": {
+			"class": "foam.core.reflow.Script",
+			"code": "foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true },\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType', 'active'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(ct) {\\u000a          return ct === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000aglobalThis.comicsV3DemoDAO = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContact,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000a\\u000avar DC = foam.u2.demos.DemoContact;\\u000a[\\u000a  { name: 'Alice Chen',   email: 'alice@example.com',  contactType: 'BUSINESS', organization: 'Acme Corp', age: 34, active: true  },\\u000a  { name: 'Bob Smith',    email: 'bob@example.com',    contactType: 'PERSONAL',                             age: 28, active: true  },\\u000a  { name: 'Carol White',  email: 'carol@example.com',  contactType: 'BUSINESS', organization: 'Globex',    age: 45, active: false },\\u000a  { name: 'Dave Torres',  email: 'dave@example.com',   contactType: 'PERSONAL',                             age: 31, active: true  }\\u000a].forEach(function(d) { globalThis.comicsV3DemoDAO.put(DC.create(d)); });\\u000a",
+			"autoRun": true
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"shown": false,
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "intro",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "## foam.comics.v3 — DAOController\\u000a`foam.comics.v3.DAOController` is FOAM's built-in list-browse-create-edit controller. It manages navigation between three views based on a `route` property.\\u000a\\u000a### Class Hierarchy\\u000a\\u000a```\\u000afoam.comics.v3.DAOController   (route orchestrator; exports daoController)\\u000a├── foam.comics.v3.DAOView → foam.comics.v2.DAOBrowserView  (table + search + export)\\u000a├── foam.comics.v3.CreateView    (new object form + SAVE action)\\u000a└── foam.comics.v3.DetailView    (existing object form + EDIT/SAVE/DELETE/COPY actions)\\u000a```\\u000a\\u000a### Routing\\u000a\\u000a| `route` value | View rendered |\\u000a|--------------|---------------|\\u000a| `''` (empty) | `DAOView` — browse/list |\\u000a| `'create'` | `CreateView` — new object form |\\u000a| Any ID | `DetailView` — single object |\\u000a\\u000a**Key point:** You configure everything through `DAOControllerConfig`. You rarely touch the sub-views directly.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | DAO | The data source to browse |\\u000a| `config` | DAOControllerConfig | All configuration (optional — defaults work) |\\u000a| `click` | Function | Override default row-click handler |\\u000a| `route` | String | Current navigation state (memorable — reflected in URL) |\\u000a\\u000a### Demo setup — predefined models\\u000a\\u000a So the examples can focus on the feature being demonstrated instead of on modelling, this flow **predefines the FOAM models it needs in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render — but every example below refers to the models it defines.\\u000a\\u000a  > 💡 To read the full model definitions, select that first block and turn off Preview (edit mode).\\u000a\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "setupDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Minimal Setup\\u000a\\u000aThe only required property is `data` — a DAO. `DAOControllerConfig` is auto-created from the DAO's `of` class:\\u000a\\u000a```javascript\\u000a// Minimal — config auto-derived from DAO\\u000atag({ class: 'foam.comics.v3.DAOController', data: myDAO })\\u000a\\u000a// With explicit config\\u000atag({\\u000a  class: 'foam.comics.v3.DAOController',\\u000a  data: myDAO,\\u000a  config: foam.comics.v2.DAOControllerConfig.create({\\u000a    browseTitle: 'My Records',\\u000a    tableColumns: ['name', 'email']\\u000a  })\\u000a})\\u000a```\\u000a\\u000aIn the example below, `globalThis.comicsV3DemoDAO` is a seeded in-memory EasyDAO set up by the hidden script block above. Click a row to open its DetailView, or use the Create button to add a record.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "basicExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "// Minimal DAOController — just a DAO, no extra config\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({ class: 'foam.comics.v3.DAOController', data: globalThis.comicsV3DemoDAO })\\u000a.end();",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack",
+				"pos": 0
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "configDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### DAOControllerConfig\\u000a\\u000a`foam.comics.v2.DAOControllerConfig` is the single configuration object that controls all aspects of the controller. Pass it as the `config` property.\\u000a\\u000a#### Display\\u000a\\u000a| Property | Default | Description |\\u000a|----------|---------|-------------|\\u000a| `browseTitle` | model plural | Page/breadcrumb title |\\u000a| `tableColumns` | all non-hidden | Columns shown in the table |\\u000a| `searchColumns` | tableColumns | Properties searched by the query bar |\\u000a| `searchMode` | `FULL` | `NONE`, `SIMPLE`, or `FULL` filter UI |\\u000a| `minHeight` | `424` | Table minimum height in px |\\u000a\\u000a#### Views\\u000a\\u000a| Property | Default | Description |\\u000a|----------|---------|-------------|\\u000a| `summaryView` | `TableView` | The table/list component |\\u000a| `detailView` | `TabbedDetailView` | Form rendered by DetailView |\\u000a| `createView` | `SectionedDetailView` | Form rendered by CreateView |\\u000a| `browseBorder` | `CardBorder` | Border wrapping the browse table |\\u000a| `viewBorder` | `NullBorder` | Border wrapping the detail form |\\u000a| `createMenu` | — | Menu ID to push instead of the built-in CreateView |\\u000a\\u000aIn the example below, try changing `searchMode` to `'NONE'` or `'SIMPLE'` and `tableColumns` to different subsets.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "tableColumnsExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "// Custom tableColumns, browseTitle, and searchMode\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000aof: 'foam.u2.demos.DemoContact',\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      browseTitle: 'My Contacts',\\u000a      tableColumns: ['name', 'contactType', 'active'],\\u000a      searchColumns: ['name', 'email']\\u000a    }\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "predicatesDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### CRUD Predicates\\u000a\\u000aFive predicate properties control button visibility and availability. Each is a `foam.mlang.predicate.Predicate` that evaluates against the current record (or returns a constant).\\u000a\\u000a| Property | Default | Controls |\\u000a|----------|---------|----------|\\u000a| `createPredicate` | `True` | CREATE button in browse view |\\u000a| `editPredicate` | `True` | EDIT button in detail view |\\u000a| `deletePredicate` | `True` | DELETE option in detail view overflow menu |\\u000a| `copyPredicate` | `createPredicate` | COPY option in detail view overflow menu |\\u000a| `refreshPredicate` | `True` | REFRESH button in browse view |\\u000a\\u000a```javascript\\u000a// Disable delete entirely:\\u000aconfig.deletePredicate = foam.mlang.predicate.False.create();\\u000a\\u000a// Disable edit for inactive records:\\u000aconfig.editPredicate = foam.mlang.predicate.EqExpr.create({\\u000a  arg1: { class: '__Property__', forClass_: 'foam.u2.demos.DemoContact', name: 'active' },\\u000a  arg2: { class: 'foam.mlang.Constant', value: true }\\u000a});\\u000a```\\u000a\\u000aIn the example below, delete is disabled and edit is only available for active contacts (try clicking an inactive one like Carol White).\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "predicatesExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000avar editActiveOnly = foam.mlang.predicate.Eq.create({\\u000a  arg1: { class: '__Property__', forClass_: 'foam.u2.demos.DemoContact', name: 'active' },\\u000a  arg2: { class: 'foam.mlang.Constant', value: true }\\u000a});\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      // DELETE is disabled entirely (no delete option in overflow menu)\\u000a      deletePredicate: foam.mlang.predicate.False.create(),\\u000a      // EDIT only available for active: true records\\u000a      editPredicate: editActiveOnly\\u000a    }\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "cannedQueriesDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Canned Queries\\u000a\\u000aCanned queries appear as filter tabs above the browse table. They are pre-defined predicates that users can switch between with one click.\\u000a\\u000aDeclare them on the model using the `CannedQuery` axiom:\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  axioms: [\\u000a    foam.comics.v2.CannedQuery.create({\\u000a      label: 'Active',\\u000a      predicateFactory: function(e) {\\u000a        return e.EQ(MyModel.ACTIVE, true);\\u000a      }\\u000a    })\\u000a  ]\\u000a});\\u000a```\\u000a\\u000aOr override them per-view on the config:\\u000a\\u000a```javascript\\u000aconfig.cannedQueries = [\\u000a  foam.comics.v2.CannedQuery.create({\\u000a    label: 'Business',\\u000a    predicateFactory: function(e) {\\u000a      return e.EQ(foam.u2.demos.DemoContact.CONTACT_TYPE, 'BUSINESS');\\u000a    }\\u000a  })\\u000a];\\u000a```\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "cannedQueriesExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "var DC = foam.u2.demos.DemoContact;\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000adao: globalThis.comicsV3DemoDAO,\\u000a      cannedQueries: [\\u000a        foam.comics.v2.CannedQuery.create({\\u000a          label: 'Active',\\u000a          predicateFactory: function(e) {\\u000a            return e.EQ(DC.ACTIVE, true);\\u000a          }\\u000a        }),\\u000a        foam.comics.v2.CannedQuery.create({\\u000a          label: 'Business',\\u000a          predicateFactory: function(e) {\\u000a            return e.EQ(DC.CONTACT_TYPE, 'BUSINESS');\\u000a          }\\u000a        })\\u000a      ]\\u000a    }\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "customViewsDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Custom Detail and Create Views\\u000a\\u000a`config.detailView` and `config.createView` are `ViewSpec` properties — any view that accepts `data` works.\\u000a\\u000a```javascript\\u000a// Default detail view — tabs per section:\\u000adetailView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a\\u000a// All sections as cards in a responsive grid:\\u000adetailView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a\\u000a// Flat vertical layout — sections stacked without cards:\\u000adetailView: { class: 'foam.u2.detail.VerticalDetailView' }\\u000a\\u000a// Only show specific sections:\\u000adetailView: {\\u000a  class: 'foam.u2.detail.SectionedDetailView',\\u000a  useSections: ['identity', 'preferences']\\u000a}\\u000a```\\u000a\\u000aSee the **SectionedDetailView** demo for deeper documentation on these views.\\u000a\\u000a#### Other Config Options\\u000a\\u000a- **`selectMode`**: Set `true` to enable multi-row checkbox selection (for M2M relationship pickers)\\u000a- **`CRUDEnabledActionsAuth`**: Permission-based CRUD — ties create/edit/delete/copy buttons to auth permissions\\u000a- **`click`**: Override the row-click handler — receives `(obj, id)` and can push any view\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "customViewsExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "// SectionedDetailView instead of TabbedDetailView — click a row to compare\\u000astart('div').style({ height: '550px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000adata: globalThis.comicsV3DemoDAO,\\u000a    config: {\\u000a      dao: globalThis.comicsV3DemoDAO,\\u000a      browseTitle: 'Contacts (SectionedDetailView)',\\u000a      // All sections as cards in a grid when viewing a record\\u000a      detailView: { class: 'foam.u2.detail.SectionedDetailView' },\\u000a      // Only show identity + preferences when creating\\u000a      createView: {\\u000a        class: 'foam.u2.detail.SectionedDetailView',\\u000a        useSections: ['identity', 'preferences']\\u000a      }\\u000a    }\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "finalNotes",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Final Notes\\u000a\\u000a#### References\\u000a\\u000a- [DAOController](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DAOController.js)\\u000a- [DAOView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DAOView.js)\\u000a- [DetailView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DetailView.js)\\u000a- [CreateView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/CreateView.js)\\u000a- [DAOControllerConfig](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v2/DAOControllerConfig.js)\\u000a- [ComicsAction](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/ComicsAction.js)\\u000a\\u000aSee the **DetailView** demo in this series for deeper documentation on customizing the detail form and overriding CRUD actions.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	}
+]""",
+"lastModified":"2026-09-02T12:40:01.490Z"
 })
 
 p({
 "class":"foam.core.reflow.Flow",
 "name":"ComicsV3DetailViewFinal",
-"label":"Comics V3 — DetailView",
-"version":1,
-"category": "demos",
+"category":"demos",
+"label":"Comics V3 \u2014 DetailView",
+"version":2,
 "script":
-"""[\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"script1\",\u000a\u0009\u0009\"cmd\": \"script\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Script\",\u000a\u0009\u0009\u0009\"code\": \"foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true },\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType', 'active'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(ct) {\\u000a          return ct === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000aglobalThis.comicsV3DetailDAO = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContact,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000a\\u000avar DC = foam.u2.demos.DemoContact;\\u000a[\\u000a  { name: 'Alice Chen',   email: 'alice@example.com',  contactType: 'BUSINESS', organization: 'Acme Corp', age: 34, active: true  },\\u000a  { name: 'Bob Smith',    email: 'bob@example.com',    contactType: 'PERSONAL',                             age: 28, active: true  },\\u000a  { name: 'Carol White',  email: 'carol@example.com',  contactType: 'BUSINESS', organization: 'Globex',    age: 45, active: false },\\u000a  { name: 'Dave Torres',  email: 'dave@example.com',   contactType: 'PERSONAL',                             age: 31, active: true  }\\u000a].forEach(function(d) { globalThis.comicsV3DetailDAO.put(DC.create(d)); });\\u000a\",\u000a\u0009\u0009\u0009\"autoRun\": true\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"shown\": false,\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"intro\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"## foam.comics.v3 — DetailView\\u000a`foam.comics.v3.DetailView` is the view `DAOController` renders when a row is selected. It loads a single record from the DAO and displays it with CRUD actions.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | The loaded record (from DAO, authoritative copy) |\\u000a| `workingData` | FObject | Clone of `data` for EDIT mode (discarded on cancel) |\\u000a| `controllerMode` | ControllerMode | `VIEW` or `EDIT` |\\u000a| `viewView` | ViewSpec | The form to render (TabbedDetailView by default) |\\u000a| `config` | DAOControllerConfig | Access to DAO, predicates, and action config |\\u000a| `idOfRecord` | Any | The ID to load — `DAOController` sets this automatically |\\u000a\\u000a### Data Flow\\u000a\\u000a```\\u000aDAOController sets idOfRecord\\u000a  → loadData() fetches record from config.dao\\u000a  → data = fetched record\\u000a  → workingData = data.clone()\\u000a\\u000aVIEW mode:  currentData_ = data      (read-only form)\\u000aEDIT mode:  currentData_ = workingData (editable form)\\u000a\\u000aSAVE → config.dao.put(workingData)\\u000a       → on success: data = saved, return to VIEW\\u000aCANCEL → workingData = data.clone(), return to VIEW\\u000aDELETE → DeleteModal → on confirm: navigate back to list\\u000a```\\u000a\\u000a### Default CRUD Actions\\u000a\\u000a| Action | When visible | What it does |\\u000a|--------|-------------|---------------|\\u000a| EDIT | VIEW mode, editPredicate passes | Switches to EDIT mode |\\u000a| SAVE | EDIT mode, no validation errors | Puts `workingData` to DAO |\\u000a| CANCEL | EDIT mode | Reverts changes, returns to VIEW |\\u000a| COPY | VIEW mode, copyPredicate passes | Clones record, opens CreateView |\\u000a| DELETE | VIEW mode, deletePredicate passes | Opens confirm modal, removes record |\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"lifecycleDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Using DetailView Standalone\\u000a\\u000aDetailView is normally used inside `DAOController`, but you can render it directly. You need:\\u000a1. `data` — the object to display (pre-loaded)\\u000a2. `config` — a `DAOControllerConfig` with a `dao` pointing to the DAO (needed for SAVE/DELETE)\\u000a\\u000a```javascript\\u000avar dao = myDAO;\\u000adao.find(recordId).then(function(rec) {\\u000a  start('div').style({ height: '600px' })\\u000a    .tag({\\u000a      class: 'foam.comics.v3.DetailView',\\u000a      data: rec,\\u000a      config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a    })\\u000a  .end();\\u000a});\\u000a```\\u000a\\u000a**Note:** Without a `DAOController` parent providing the `daoController` context, DELETE will not navigate back to a list. Use `DAOController` in real apps.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"basicDetailExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"var dao = globalThis.comicsV3DetailDAO;\\u000a// Find first record and render DetailView for it\\u000adao.skip(0).limit(1).select().then(function(sink) {\\u000a  var rec = sink.array[0];\\u000a  start('div').style({ height: '600px', position: 'relative', overflow: 'hidden' })\\u000a    .tag({\\u000a      class: 'foam.comics.v3.DetailView',\\u000a      data: rec,\\u000a      config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a    })\\u000a  .end();\\u000a});\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"controllerModeDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### VIEW vs EDIT Mode\\u000a\\u000a`DetailView` exports `controllerMode` to its sub-context. Child views — including every PropertyBorder and SectionView — read this to switch between read-only and editable rendering automatically.\\u000a\\u000a```\\u000aVIEW mode  →  controllerMode = 'VIEW'  →  PropertyBorder renders read-only ValueView\\u000aEDIT mode  →  controllerMode = 'EDIT'  →  PropertyBorder renders editable input view\\u000a```\\u000a\\u000aThe `controllerMode` is also **memorable** (short name `mode`), so the URL reflects it:\\u000a\\u000a```\\u000a/contacts/42        → VIEW mode\\u000a/contacts/42?mode=EDIT  → EDIT mode (back-button / refresh restores it)\\u000a```\\u000a\\u000a#### Starting in EDIT Mode\\u000a\\u000aYou can start DetailView in EDIT mode by setting `controllerMode: 'EDIT'`:\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.comics.v3.DetailView',\\u000a  data: rec,\\u000a  controllerMode: 'EDIT',\\u000a  config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a})\\u000a```\\u000a\\u000aThis is useful for wizard steps or inline forms.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"viewViewDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Customising the Form (viewView)\\u000a\\u000a`viewView` is the form component rendered inside DetailView. It defaults to `config.detailView`, which itself defaults to `TabbedDetailView` with `hideActions: true`.\\u000a\\u000aCommon options:\\u000a\\u000a```javascript\\u000a// Default — one tab per section:\\u000aviewView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a\\u000a// All sections as cards in a responsive grid:\\u000aviewView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a\\u000a// Flat vertical layout — no section cards:\\u000aviewView: { class: 'foam.u2.detail.VerticalDetailView' }\\u000a\\u000a// Tabular (row-per-property) layout for a specific section:\\u000aviewView: {\\u000a  class: 'foam.u2.detail.TabbedDetailView',\\u000a  sections: [{\\u000a    name: 'identity',\\u000a    view: { class: 'foam.u2.detail.TabularSectionView' }\\u000a  }]\\u000a}\\u000a```\\u000a\\u000aIn practice, set `config.detailView` to apply globally across `DAOController`, or set `viewView` directly on a standalone `DetailView`.\\u000a\\u000aSee the **SectionedDetailView** demo for deeper documentation on these form layouts.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"viewViewExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"// Compare TabbedDetailView (default) vs SectionedDetailView\\u000a// Both are wired to the same record — changes in one update the other\\u000avar dao = globalThis.comicsV3DetailDAO;\\u000adao.skip(0).limit(1).select().then(function(sink) {\\u000a  var rec = sink.array[0];\\u000a  var config = foam.comics.v2.DAOControllerConfig.create({ dao: dao });\\u000a  start('div').style({ display: 'flex', gap: '1rem', height: '650px' })\\u000a    .start('div').style({ flex: 1, position: 'relative', overflow: 'hidden' })\\u000a      .start('p').addClass('p-semiBold').add('TabbedDetailView (default)').end()\\u000a      .tag({\\u000a        class: 'foam.comics.v3.DetailView',\\u000a        data: rec,\\u000a        config: config,\\u000a        viewView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a      })\\u000a    .end()\\u000a    .start('div').style({ flex: 1, position: 'relative', overflow: 'hidden' })\\u000a      .start('p').addClass('p-semiBold').add('SectionedDetailView').end()\\u000a      .tag({\\u000a        class: 'foam.comics.v3.DetailView',\\u000a        data: rec,\\u000a        config: config,\\u000a        viewView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a      })\\u000a    .end()\\u000a  .end();\\u000a});\",\u000a\u0009\u0009\u0009\"stack_\": {\u000a\u0009\u0009\u0009\u0009\"class\": \"foam.core.u2.navigation.Stack\"\u000a\u0009\u0009\u0009},\u000a\u0009\u0009\u0009\"breadcrumbs_\": {\u000a\u0009\u0009\u0009\u0009\"class\": \"foam.u2.stack.BreadcrumbManager\"\u000a\u0009\u0009\u0009}\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"comicsActionDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Overriding CRUD Actions (ComicsAction)\\u000a\\u000a`foam.comics.v3.ComicsAction` extends `foam.lang.Action` with two extra slots:\\u000a- `internalIsEnabled(config, data, ...)` — internal method for permission/availability check before the base `isEnabled`\\u000a- `internalIsAvailable(config, controllerMode, data, ...)` — same for visibility\\u000aWARN: Do not override these two methods in your custom action definition, these are used by the detail view to maintain a default behaviour, define your COMICS actions as any other action.\\u000a\\u000aTo override a default CRUD action, declare a `ComicsAction` with the same `name` as the action you want to replace (`edit`, `save`, `delete`, `copy`) as an action on the model. `DetailView.getActionsOverrides()` finds it and merges it.\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  actions: [\\u000a    {\\u000a        class: 'foam.comics.v3.ComicsAction',\\u000a        name: 'edit',\\u000a        isEnabled: function(...) {\\u000a            // Some custom is enabled check\\u000a        }\\u000a    }\\u000a  ]\\u000a});\\u000a```\\u000a\\u000a#### Adding Custom Actions\\u000a\\u000aAny regular `foam.lang.Action` on the model (not a ComicsAction) is rendered in the trailing action bar when in VIEW mode:\\u000a\\u000a```javascript\\u000aactions: [{\\u000a  name: 'archive',\\u000a  label: 'Archive',\\u000a  isAvailable: function(active) { return active; },\\u000a  code: function() {\\u000a    this.active = false;\\u000a    // Note: this sets it on data but won't save without a DAO put\\u000a  }\\u000a}]\\u000a```\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"comicsActionExample\",\u000a\u0009\u0009\"cmd\": \"example\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.example.Example\",\u000a\u0009\u0009\u0009\"code\": \"// DemoContactV2: ComicsAction to hide delete for active contacts +\\u000a// a regular Action that appears in the trailing bar\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContactV2',\\u000a  extends: 'foam.u2.demos.DemoContact',\\u000a\\u000a  actions: [\\u000a    {\\u000a       class: 'foam.comics.v3.ComicsAction',\\u000a       name: 'delete',\\u000a       isAvailable: function(active) {\\u000a          return ! active;\\u000a       }\\u000a    },\\u000a    {\\u000a      name: 'deactivate',\\u000a      label: 'Deactivate',\\u000a      isAvailable: function(active) { return active; },\\u000a      code: function() {\\u000a        this.active = false;\\u000a      }\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000a// Create a DAO of DemoContactV2\\u000avar dao2 = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContactV2,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000avar DC2 = foam.u2.demos.DemoContactV2;\\u000a[\\u000a  { name: 'Alice Chen',  contactType: 'BUSINESS', organization: 'Acme', active: true  },\\u000a  { name: 'Carol White', contactType: 'BUSINESS', organization: 'Globex', active: false }\\u000a].forEach(function(d) { dao2.put(DC2.create(d)); });\\u000a\\u000a// Click Alice (active) — no Delete in overflow, Deactivate in action bar\\u000a// Click Carol (inactive) — Delete appears in overflow\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000a    config: { dao: dao2 }\\u000a  })\\u000a.end();\",\u000a\u0009\u0009\u0009\"stack_\": \"\",\u000a\u0009\u0009\u0009\"breadcrumbs_\": \"\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"0 16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"viewBorderDoc\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### viewBorder\\u000a\\u000a`config.viewBorder` wraps the entire detail form. Default is `NullBorder` (no wrapping). Common options:\\u000a\\u000a```javascript\\u000a// No border (default):\\u000aviewBorder: { class: 'foam.u2.borders.NullBorder' }\\u000a\\u000a// Card border — adds shadow and rounded corners:\\u000aviewBorder: { class: 'foam.u2.borders.CardBorder' }\\u000a\\u000a// Background card — adds background colour:\\u000aviewBorder: {\\u000a  class: 'foam.u2.borders.BackgroundCard',\\u000a  backgroundColor: '$grey50'\\u000a}\\u000a```\\u000a\\u000aThe browse view's border is controlled separately by `browseBorder` (defaults to `CardBorder`).\\u000a\\u000a#### finished Topic\\u000a\\u000a`DetailView` publishes a `finished` topic after a successful SAVE or DELETE. `DAOController` listens to it and reloads the data from the DAO, keeping the detail view in sync after external changes.\\u000a\\u000aYou can subscribe to `finished` in custom code:\\u000a\\u000a```javascript\\u000avar dv = this.DetailView.create({ ... });\\u000adv.finished.sub(function() {\\u000a  console.log('Record was saved or deleted');\\u000a});\\u000a```\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009},\u000a\u0009{\u000a\u0009\u0009\u000a\u0009\u0009\"flowName\": \"finalNotes\",\u000a\u0009\u0009\"cmd\": \"markdown\",\u000a\u0009\u0009\"value\": {\u000a\u0009\u0009\u0009\"class\": \"foam.core.reflow.Markdown\",\u000a\u0009\u0009\u0009\"markdown\": \"### Final Notes\\u000a\\u000a#### References\\u000a\\u000a- [DetailView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DetailView.js)\\u000a- [ComicsAction](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/ComicsAction.js)\\u000a- [DAOControllerConfig](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v2/DAOControllerConfig.js)\\u000a- [CreateView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/CreateView.js) — sibling to DetailView for the create flow\\u000a\\u000aSee the **DAOController** demo in this series for the complete picture of how DetailView fits into the browsing system.\\u000a\"\u000a\u0009\u0009},\u000a\u0009\u0009\"border\": {\u000a\u0009\u0009\u0009\"oldTitleStyle_\": \"h300\"\u000a\u0009\u0009},\u000a\u0009\u0009\"padding_st\": \"16px\"\u000a\u0009}\u000a]""",
-"lastModified":"2026-04-30T20:11:07.202Z"
+"""[
+	{
+		
+		"flowName": "script1",
+		"cmd": "script",
+		"value": {
+			"class": "foam.core.reflow.Script",
+			"code": "foam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoAddress',\\u000a  label: 'Address',\\u000a  properties: [\\u000a    {\\u000a      class: 'String',\\u000a      name: 'type',\\u000a      label: 'Type',\\u000a      gridColumns: 4,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['HOME', 'Home'], ['WORK', 'Work'], ['OTHER', 'Other']]\\u000a      }\\u000a    },\\u000a    { class: 'String', name: 'street' },\\u000a    { class: 'String', name: 'city', onKey: true },\\u000a    { class: 'String', name: 'country' }\\u000a  ]\\u000a});\\u000a\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContact',\\u000a\\u000a  tableColumns: ['name', 'email', 'contactType', 'active'],\\u000a\\u000a  sections: [\\u000a    { name: 'identity',    title: 'Identity',     order: 1 },\\u000a    { name: 'contactInfo', title: 'Contact Info', order: 2 },\\u000a    { name: 'preferences', title: 'Preferences',  order: 3 }\\u000a  ],\\u000a\\u000a  properties: [\\u000a    { class: 'Long', name: 'id', hidden: true },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'name',\\u000a      label: 'Full Name',\\u000a      placeholder: 'Enter full name',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      required: true,\\u000a      minLength: 3\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'contactType',\\u000a      label: 'Type',\\u000a      section: 'identity',\\u000a      gridColumns: 6,\\u000a      view: {\\u000a        class: 'foam.u2.view.ChoiceView',\\u000a        choices: [['PERSONAL', 'Personal'], ['BUSINESS', 'Business']]\\u000a      }\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'organization',\\u000a      section: 'identity',\\u000a      gridColumns: 8,\\u000a      labelFormatter: function(data) {\\u000a        this.add(data.contactType$.map(function(ct) {\\u000a          return ct === 'BUSINESS' ? 'Organization Name' : 'Employer';\\u000a        }));\\u000a      },\\u000a      visibility: function(contactType) {\\u000a        return contactType\\u000a          ? foam.u2.DisplayMode.RW\\u000a          : foam.u2.DisplayMode.HIDDEN;\\u000a      }\\u000a    },\\u000a\\u000a    {\\u000a      class: 'String',\\u000a      name: 'email',\\u000a      label: 'Email',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6,\\u000a      supportingLabel: 'Used for login and notifications'\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'phone',\\u000a      label: 'Phone',\\u000a      section: 'contactInfo',\\u000a      gridColumns: 6\\u000a    },\\u000a\\u000a    {\\u000a      class: 'Int',\\u000a      name: 'age',\\u000a      label: 'Age',\\u000a      units: 'years',\\u000a      section: 'preferences',\\u000a      gridColumns: 4\\u000a    },\\u000a    {\\u000a      class: 'String',\\u000a      name: 'notes',\\u000a      label: 'Notes',\\u000a      section: 'preferences',\\u000a      gridColumns: 12,\\u000a      view: { class: 'foam.u2.tag.TextArea', rows: 3 }\\u000a    },\\u000a    {\\u000a      class: 'Boolean',\\u000a      name: 'active',\\u000a      label: 'Active',\\u000a      section: 'preferences',\\u000a      gridColumns: 4,\\u000a      value: true\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000aglobalThis.comicsV3DetailDAO = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContact,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000a\\u000avar DC = foam.u2.demos.DemoContact;\\u000a[\\u000a  { name: 'Alice Chen',   email: 'alice@example.com',  contactType: 'BUSINESS', organization: 'Acme Corp', age: 34, active: true  },\\u000a  { name: 'Bob Smith',    email: 'bob@example.com',    contactType: 'PERSONAL',                             age: 28, active: true  },\\u000a  { name: 'Carol White',  email: 'carol@example.com',  contactType: 'BUSINESS', organization: 'Globex',    age: 45, active: false },\\u000a  { name: 'Dave Torres',  email: 'dave@example.com',   contactType: 'PERSONAL',                             age: 31, active: true  }\\u000a].forEach(function(d) { globalThis.comicsV3DetailDAO.put(DC.create(d)); });\\u000a",
+			"autoRun": true
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"shown": false,
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "intro",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "## foam.comics.v3 — DetailView\\u000a`foam.comics.v3.DetailView` is the view `DAOController` renders when a row is selected. It loads a single record from the DAO and displays it with CRUD actions.\\u000a\\u000a### Key Properties\\u000a\\u000a| Property | Type | Description |\\u000a|----------|------|-------------|\\u000a| `data` | FObject | The loaded record (from DAO, authoritative copy) |\\u000a| `workingData` | FObject | Clone of `data` for EDIT mode (discarded on cancel) |\\u000a| `controllerMode` | ControllerMode | `VIEW` or `EDIT` |\\u000a| `viewView` | ViewSpec | The form to render (TabbedDetailView by default) |\\u000a| `config` | DAOControllerConfig | Access to DAO, predicates, and action config |\\u000a| `idOfRecord` | Any | The ID to load — `DAOController` sets this automatically |\\u000a\\u000a### Data Flow\\u000a\\u000a```\\u000aDAOController sets idOfRecord\\u000a  → loadData() fetches record from config.dao\\u000a  → data = fetched record\\u000a  → workingData = data.clone()\\u000a\\u000aVIEW mode:  currentData_ = data      (read-only form)\\u000aEDIT mode:  currentData_ = workingData (editable form)\\u000a\\u000aSAVE → config.dao.put(workingData)\\u000a       → on success: data = saved, return to VIEW\\u000aCANCEL → workingData = data.clone(), return to VIEW\\u000aDELETE → DeleteModal → on confirm: navigate back to list\\u000a```\\u000a\\u000a### Default CRUD Actions\\u000a\\u000a| Action | When visible | What it does |\\u000a|--------|-------------|---------------|\\u000a| EDIT | VIEW mode, editPredicate passes | Switches to EDIT mode |\\u000a| SAVE | EDIT mode, no validation errors | Puts `workingData` to DAO |\\u000a| CANCEL | EDIT mode | Reverts changes, returns to VIEW |\\u000a| COPY | VIEW mode, copyPredicate passes | Clones record, opens CreateView |\\u000a| DELETE | VIEW mode, deletePredicate passes | Opens confirm modal, removes record |\\u000a\\u000a### Demo setup — predefined models\\u000a\\u000a So the examples can focus on the feature being demonstrated instead of on modelling, this flow **predefines the FOAM models it needs in the script block at the very top of the flow**. That block runs automatically (`autoRun`) and is hidden in preview, so you won't see it render — but every example below refers to the models it defines.\\u000a\\u000a  > 💡 To read the full model definitions, select that first block and turn off Preview (edit mode).\\u000a\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "lifecycleDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Using DetailView Standalone\\u000a\\u000aDetailView is normally used inside `DAOController`, but you can render it directly. You need:\\u000a1. `data` — the object to display (pre-loaded)\\u000a2. `config` — a `DAOControllerConfig` with a `dao` pointing to the DAO (needed for SAVE/DELETE)\\u000a\\u000a```javascript\\u000avar dao = myDAO;\\u000adao.find(recordId).then(function(rec) {\\u000a  start('div').style({ height: '600px' })\\u000a    .tag({\\u000a      class: 'foam.comics.v3.DetailView',\\u000a      data: rec,\\u000a      config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a    })\\u000a  .end();\\u000a});\\u000a```\\u000a\\u000a**Note:** Without a `DAOController` parent providing the `daoController` context, DELETE will not navigate back to a list. Use `DAOController` in real apps.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "basicDetailExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "var dao = globalThis.comicsV3DetailDAO;\\u000a// Find first record and render DetailView for it\\u000adao.skip(0).limit(1).select().then(function(sink) {\\u000a  var rec = sink.array[0];\\u000a  start('div').style({ height: '600px', position: 'relative', overflow: 'hidden' })\\u000a    .tag({\\u000a      class: 'foam.comics.v3.DetailView',\\u000a      data: rec,\\u000a      config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a    })\\u000a  .end();\\u000a});",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "controllerModeDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### VIEW vs EDIT Mode\\u000a\\u000a`DetailView` exports `controllerMode` to its sub-context. Child views — including every PropertyBorder and SectionView — read this to switch between read-only and editable rendering automatically.\\u000a\\u000a```\\u000aVIEW mode  →  controllerMode = 'VIEW'  →  PropertyBorder renders read-only ValueView\\u000aEDIT mode  →  controllerMode = 'EDIT'  →  PropertyBorder renders editable input view\\u000a```\\u000a\\u000aThe `controllerMode` is also **memorable** (short name `mode`), so the URL reflects it:\\u000a\\u000a```\\u000a/contacts/42        → VIEW mode\\u000a/contacts/42?mode=EDIT  → EDIT mode (back-button / refresh restores it)\\u000a```\\u000a\\u000a#### Starting in EDIT Mode\\u000a\\u000aYou can start DetailView in EDIT mode by setting `controllerMode: 'EDIT'`:\\u000a\\u000a```javascript\\u000atag({\\u000a  class: 'foam.comics.v3.DetailView',\\u000a  data: rec,\\u000a  controllerMode: 'EDIT',\\u000a  config: foam.comics.v2.DAOControllerConfig.create({ dao: dao })\\u000a})\\u000a```\\u000a\\u000aThis is useful for wizard steps or inline forms.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "viewViewDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Customising the Form (viewView)\\u000a\\u000a`viewView` is the form component rendered inside DetailView. It defaults to `config.detailView`, which itself defaults to `TabbedDetailView` with `hideActions: true`.\\u000a\\u000aCommon options:\\u000a\\u000a```javascript\\u000a// Default — one tab per section:\\u000aviewView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a\\u000a// All sections as cards in a responsive grid:\\u000aviewView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a\\u000a// Flat vertical layout — no section cards:\\u000aviewView: { class: 'foam.u2.detail.VerticalDetailView' }\\u000a\\u000a// Tabular (row-per-property) layout for a specific section:\\u000aviewView: {\\u000a  class: 'foam.u2.detail.TabbedDetailView',\\u000a  sections: [{\\u000a    name: 'identity',\\u000a    view: { class: 'foam.u2.detail.TabularSectionView' }\\u000a  }]\\u000a}\\u000a```\\u000a\\u000aIn practice, set `config.detailView` to apply globally across `DAOController`, or set `viewView` directly on a standalone `DetailView`.\\u000a\\u000aSee the **SectionedDetailView** demo for deeper documentation on these form layouts.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "viewViewExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "// Compare TabbedDetailView (default) vs SectionedDetailView\\u000a// Both are wired to the same record — changes in one update the other\\u000avar dao = globalThis.comicsV3DetailDAO;\\u000adao.skip(0).limit(1).select().then(function(sink) {\\u000a  var rec = sink.array[0];\\u000a  var config = foam.comics.v2.DAOControllerConfig.create({ dao: dao });\\u000a  start('div').style({ display: 'flex', gap: '1rem', height: '650px' })\\u000a    .start('div').style({ flex: 1, position: 'relative', overflow: 'hidden' })\\u000a      .start('p').addClass('p-semiBold').add('TabbedDetailView (default)').end()\\u000a      .tag({\\u000a        class: 'foam.comics.v3.DetailView',\\u000a        data: rec,\\u000a        config: config,\\u000a        viewView: { class: 'foam.u2.detail.TabbedDetailView', hideActions: true }\\u000a      })\\u000a    .end()\\u000a    .start('div').style({ flex: 1, position: 'relative', overflow: 'hidden' })\\u000a      .start('p').addClass('p-semiBold').add('SectionedDetailView').end()\\u000a      .tag({\\u000a        class: 'foam.comics.v3.DetailView',\\u000a        data: rec,\\u000a        config: config,\\u000a        viewView: { class: 'foam.u2.detail.SectionedDetailView' }\\u000a      })\\u000a    .end()\\u000a  .end();\\u000a});",
+			"stack_": {
+				"class": "foam.core.u2.navigation.Stack",
+				"pos": 0
+			},
+			"breadcrumbs_": {
+				"class": "foam.u2.stack.BreadcrumbManager"
+			}
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "comicsActionDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Overriding CRUD Actions (ComicsAction)\\u000a\\u000a`foam.comics.v3.ComicsAction` extends `foam.lang.Action` with two extra slots:\\u000a- `internalIsEnabled(config, data, ...)` — internal method for permission/availability check before the base `isEnabled`\\u000a- `internalIsAvailable(config, controllerMode, data, ...)` — same for visibility\\u000aWARN: Do not override these two methods in your custom action definition, these are used by the detail view to maintain a default behaviour, define your COMICS actions as any other action.\\u000a\\u000aTo override a default CRUD action, declare a `ComicsAction` with the same `name` as the action you want to replace (`edit`, `save`, `delete`, `copy`) as an action on the model. `DetailView.getActionsOverrides()` finds it and merges it.\\u000a\\u000a```javascript\\u000afoam.CLASS({\\u000a  name: 'MyModel',\\u000a  actions: [\\u000a    {\\u000a        class: 'foam.comics.v3.ComicsAction',\\u000a        name: 'edit',\\u000a        isEnabled: function(...) {\\u000a            // Some custom is enabled check\\u000a        }\\u000a    }\\u000a  ]\\u000a});\\u000a```\\u000a\\u000a#### Adding Custom Actions\\u000a\\u000aAny regular `foam.lang.Action` on the model (not a ComicsAction) is rendered in the trailing action bar when in VIEW mode:\\u000a\\u000a```javascript\\u000aactions: [{\\u000a  name: 'archive',\\u000a  label: 'Archive',\\u000a  isAvailable: function(active) { return active; },\\u000a  code: function() {\\u000a    this.active = false;\\u000a    // Note: this sets it on data but won't save without a DAO put\\u000a  }\\u000a}]\\u000a```\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "comicsActionExample",
+		"cmd": "example",
+		"value": {
+			"class": "foam.core.reflow.example.Example",
+			"code": "// DemoContactV2: ComicsAction to hide delete for active contacts +\\u000a// a regular Action that appears in the trailing bar\\u000afoam.CLASS({\\u000a  package: 'foam.u2.demos',\\u000a  name: 'DemoContactV2',\\u000a  extends: 'foam.u2.demos.DemoContact',\\u000a\\u000a  actions: [\\u000a    {\\u000a       class: 'foam.comics.v3.ComicsAction',\\u000a       name: 'delete',\\u000a       isAvailable: function(active) {\\u000a          return ! active;\\u000a       }\\u000a    },\\u000a    {\\u000a      name: 'deactivate',\\u000a      label: 'Deactivate',\\u000a      isAvailable: function(active) { return active; },\\u000a      code: function() {\\u000a        this.active = false;\\u000a      }\\u000a    }\\u000a  ]\\u000a});\\u000a\\u000a// Create a DAO of DemoContactV2\\u000avar dao2 = foam.dao.EasyDAO.create({\\u000a  of: foam.u2.demos.DemoContactV2,\\u000a  seqNo: true,\\u000a  daoType: 'MDAO'\\u000a});\\u000avar DC2 = foam.u2.demos.DemoContactV2;\\u000a[\\u000a  { name: 'Alice Chen',  contactType: 'BUSINESS', organization: 'Acme', active: true  },\\u000a  { name: 'Carol White', contactType: 'BUSINESS', organization: 'Globex', active: false }\\u000a].forEach(function(d) { dao2.put(DC2.create(d)); });\\u000a\\u000a// Click Alice (active) — no Delete in overflow, Deactivate in action bar\\u000a// Click Carol (inactive) — Delete appears in overflow\\u000astart('div').style({ height: '500px', position: 'relative', overflow: 'hidden' })\\u000a  .tag({\\u000a    class: 'foam.comics.v3.DAOController',\\u000a    data: dao2\\u000a  })\\u000a.end();",
+			"stack_": "",
+			"breadcrumbs_": ""
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "0 16px"
+	},
+	{
+		
+		"flowName": "viewBorderDoc",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### viewBorder\\u000a\\u000a`config.viewBorder` wraps the entire detail form. Default is `NullBorder` (no wrapping). Common options:\\u000a\\u000a```javascript\\u000a// No border (default):\\u000aviewBorder: { class: 'foam.u2.borders.NullBorder' }\\u000a\\u000a// Card border — adds shadow and rounded corners:\\u000aviewBorder: { class: 'foam.u2.borders.CardBorder' }\\u000a\\u000a// Background card — adds background colour:\\u000aviewBorder: {\\u000a  class: 'foam.u2.borders.BackgroundCard',\\u000a  backgroundColor: '$grey50'\\u000a}\\u000a```\\u000a\\u000aThe browse view's border is controlled separately by `browseBorder` (defaults to `CardBorder`).\\u000a\\u000a#### finished Topic\\u000a\\u000a`DetailView` publishes a `finished` topic after a successful SAVE or DELETE. `DAOController` listens to it and reloads the data from the DAO, keeping the detail view in sync after external changes.\\u000a\\u000aYou can subscribe to `finished` in custom code:\\u000a\\u000a```javascript\\u000avar dv = this.DetailView.create({ ... });\\u000adv.finished.sub(function() {\\u000a  console.log('Record was saved or deleted');\\u000a});\\u000a```\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	},
+	{
+		
+		"flowName": "finalNotes",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown": "### Final Notes\\u000a\\u000a#### References\\u000a\\u000a- [DetailView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/DetailView.js)\\u000a- [ComicsAction](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/ComicsAction.js)\\u000a- [DAOControllerConfig](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v2/DAOControllerConfig.js)\\u000a- [CreateView](https://github.com/kgrgreer/foam3/blob/development/src/foam/comics/v3/CreateView.js) — sibling to DetailView for the create flow\\u000a\\u000aSee the **DAOController** demo in this series for the complete picture of how DetailView fits into the browsing system.\\u000a"
+		},
+		"border": {
+			"oldTitleStyle_": "h300"
+		},
+		"padding_st": "16px"
+	}
+]""",
+"lastModified":"2026-09-02T12:36:34.427Z"
 })
+
+

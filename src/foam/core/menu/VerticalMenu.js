@@ -28,8 +28,7 @@ foam.CLASS({
     'foam.core.menu.Menu',
     'foam.core.menu.VerticalMenu',
     'foam.dao.ArraySink',
-    'foam.u2.SearchField',
-    'foam.u2.borders.ClearableSearchBorder'
+    'foam.u2.ClearableSearchField'
   ],
 
   messages: [
@@ -44,6 +43,7 @@ foam.CLASS({
 
   cssTokens: [
     {
+      class: 'foam.u2.ColorToken',
       name: 'menuBackground',
       value: '$backgroundDefault'
     },
@@ -120,10 +120,10 @@ foam.CLASS({
       class: 'String',
       name: 'menuSearch',
       view: {
-        class: 'foam.u2.SearchField',
+        class: 'foam.u2.ClearableSearchField',
         onKey: true,
         ariaLabel: 'Menu Search',
-        autocomplete: false
+        autocomplete: 'off'
       },
       value: ''
     },
@@ -170,28 +170,17 @@ foam.CLASS({
     },
 
     function renderSearch(parentEl) {
-      // Menu search wrapped in ClearableSearchBorder. Kept as its own method
-      // so subclasses reuse it instead of copying the block.
-      var self = this;
-      var searchField = this.SearchField.create({
-        data$: this.menuSearch$,
-        onKey: true,
-        ariaLabel: this.MENU_SEARCH_LABEL,
-        autocomplete: false
-      }).attrs({ name: 'menuSearch' });
+      // Kept as its own method so subclasses reuse it instead of copying the block.
       parentEl
         .start()
         .show(this.searchShown_$)
         .addClass(this.myClass('search'))
-          .start(this.ClearableSearchBorder, {
-            textSlot: this.menuSearch$,
-            onClear: function() {
-              self.menuSearch = '';
-              searchField.focus();
-            }
+          .tag(this.ClearableSearchField, {
+            data$:        this.menuSearch$,
+            ariaLabel:    this.MENU_SEARCH_LABEL,
+            autocomplete: 'off',
+            inputName:    'menuSearch'
           })
-            .add(searchField)
-          .end()
         .end();
     },
 

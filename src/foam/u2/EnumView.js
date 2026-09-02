@@ -51,11 +51,12 @@ foam.CLASS({
   ],
 
   methods: [
-    function render() {
-      this.SUPER();
+    async function render() {
       if ( this.permissioned && this.auth ) {
+        await this.permissionedResults;
         this.permissionedChoices();
       }
+      this.SUPER();
     },
 
     function fromProperty(p) {

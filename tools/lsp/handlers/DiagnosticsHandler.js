@@ -64,6 +64,16 @@ foam.CLASS({
       name: 'cssTokenResolver'
     },
     {
+      class: 'FObjectProperty',
+      of: 'foam.parse.lsp.handlers.I18nHandler',
+      name: 'i18nHandler',
+      documentation: 'Optional (no factory — null unless wired by server.js). When set, handle() emits an i18n-missing-language HINT for every messageMap gap scanMissingLanguages() finds; null-safe no-op otherwise.'
+    },
+    {
+      name: 'featureConfig',
+      documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -78,6 +88,11 @@ foam.CLASS({
   ],
 
   methods: [
+    function featureOn_(flag) {
+      /** True when `flag` is enabled, or when no featureConfig is wired at all. */
+      return ! this.featureConfig || this.featureConfig.enabled(flag);
+    },
+
     function handle(text, opt_uri) {
       if ( ! this.analyzer.isFoamFile(text) ) return [];
 
@@ -91,7 +106,12 @@ foam.CLASS({
         var m = models[i];
         var modelKey = (this.cache.getClassId(m)) + '_' + (m.sourceLine_ || 0);
 
-        // Incremental: reuse previous diagnostics if model hasn't changed
+        // Incremental: reuse previous diagnostics if model hasn't changed.
+        // The key is (model, text) only — NOT featureConfig. Safe today
+        // because the config is restart-scoped (loaded once at initialize and
+        // never mutated after); if a didChangeConfiguration reload is ever
+        // added, this cache must be cleared on it or a toggled-off check will
+        // keep reporting from cached results.
         if ( prev && prev.modelKeys && prev.modelKeys[modelKey] && prev.text === text ) {
           var cached = prev.modelKeys[modelKey];
           for ( var j = 0 ; j < cached.length ; j++ ) diagnostics.push(cached[j]);
@@ -107,6 +127,28 @@ foam.CLASS({
       // Hardcoded display strings in .add() — scanned once over the whole file
       // (not per model) so multi-class files locate each occurrence natively.
       this.validateAddStrings_(text, diagnostics);
+
+      // Missing-language messageMap gaps — same whole-file scoping as
+      // validateAddStrings_. i18nHandler is optional/null-safe (server.js
+      // wires it; tests that don't need it just skip this block).
+      //
+      // No isI18nExemptUri_ check here: I18nHandler.scanMissingLanguages
+      // applies the same exemption itself, so every consumer of that scan
+      // (this handler, CodeActionHandler, CodeLensHandler) inherits one
+      // answer. The local copy below still guards validateAddStrings_, which
+      // is a different scan that never goes through I18nHandler.
+      if ( this.i18nHandler && this.featureOn_('hints.i18nMissingLanguage') ) {
+        var miss = this.i18nHandler.scanMissingLanguages(this.uri_, text);
+        for ( var mi = 0 ; mi < miss.length ; mi++ ) {
+          diagnostics.push(this.Diagnostic.create({
+            range:    miss[mi].range,
+            severity: this.Diagnostic.HINT,
+            code:     'i18n-missing-language',
+            message:  'Message "' + miss[mi].name + '" has no ' + miss[mi].missing.join(', ') +
+                      ' translation in its messageMap.'
+          }));
+        }
+      }
 
       // Parser-emitted diagnostics — single grammar pass covers all class-ref
       // and property-type positions (extends/requires/of/implements and
@@ -151,18 +193,25 @@ foam.CLASS({
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 3,
               "Unknown property type: '" + matched + "'");
           }
-        } else if ( r.msg && r.msg.type === 'columnName' ) {
-          // Cross-reference with the enclosing model's property set.
+        } else if ( r.msg && ( r.msg.type === 'tableColumnName' ||
+                               r.msg.type === 'searchColumnName' ) ) {
+          // Cross-reference with the enclosing model's axioms. tableColumns
+          // entries may also name actions — rendered as row buttons
+          // (foam.u2.table.UnstyledTableView filters getAxiomsByClass(Action)
+          // against tableColumns). searchColumns filters properties only.
           var pos = this.analyzer.offsetToPosition(text, r.startPos);
           var model = this.cache.getModelAt('', text, pos.line);
           if ( ! model ) continue;
           var propSet = this.collectPropNames_(model);
           // Column names can be dot paths ('owner.name') — check first segment
           var baseName = matched.split('.')[0];
-          if ( ! propSet[baseName] ) {
+          var isTable = r.msg.type === 'tableColumnName';
+          if ( ! propSet[baseName] &&
+               ! ( isTable && this.collectActionNames_(model)[baseName] ) ) {
             var classId = this.cache.getClassId(model);
             this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
-              "Property '" + matched + "' does not exist on " + classId);
+              ( isTable ? "Property or action '" : "Property '" ) + matched +
+                "' does not exist on " + classId);
           }
         }
       }
@@ -239,6 +288,27 @@ foam.CLASS({
       return propNames;
     },
 
+    function collectActionNames_(model) {
+      /** Action-name set for a model: registry actions + own raw actions.
+       *  Mirrors collectPropNames_ — parent fallback covers mid-edit models
+       *  not yet in the registry. */
+      var actionNames = {};
+      var classId = this.cache.getClassId(model);
+      var actions = this.index.getActions(classId);
+      for ( var i = 0 ; i < actions.length ; i++ ) actionNames[actions[i].name] = true;
+      if ( actions.length === 0 && model.extends ) {
+        var parentActions = this.index.getActions(model.extends);
+        for ( var i = 0 ; i < parentActions.length ; i++ ) actionNames[parentActions[i].name] = true;
+      }
+      var ownActions = model.actions || [];
+      for ( var i = 0 ; i < ownActions.length ; i++ ) {
+        var a = ownActions[i];
+        var name = typeof a === 'function' ? a.name : a && a.name;
+        if ( name ) actionNames[name] = true;
+      }
+      return actionNames;
+    },
+
     function toLSPDiagnostics_(diagnostics) {
       /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
       if ( ! diagnostics ) return diagnostics;
@@ -260,7 +330,9 @@ foam.CLASS({
       // diagnostics come from collectGrammarDiagnostics_ — not repeated here.
 
       // Validate Java blocks
-      this.javaValidator.validateModel(m, classId, diagnostics, text);
+      if ( this.featureOn_('diagnostics.java') ) {
+        this.javaValidator.validateModel(m, classId, diagnostics, text);
+      }
 
       // Validate CSS token references
       this.validateCSS_(m, text, diagnostics);
@@ -295,27 +367,66 @@ foam.CLASS({
        * comments are skipped so commented-out .add() calls aren't flagged.
        *
        * Intentionally NOT matched: .start('tag') (structural, not display text)
-       * and .translate('...') (already on the translation-service path).
+       * and .translate('...') (already on the translation-service path — its
+       * literals sit one nesting level down, so the top-level scan skips them).
        */
+      if ( ! this.featureOn_('diagnostics.i18n') ) return;  // feature turned off
       if ( this.isI18nExemptUri_(this.uri_) ) return;       // test/demo/mock files exempt
 
       var skip = this.nonCodeRanges_(text);
-      var re = /\.add\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+      var re = /\.add\(/g;
       var match;
       while ( ( match = re.exec(text) ) !== null ) {
-        var quote = match[1];
-        var content = match[2];
-        if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
-        if ( ! this.isUserFacingText_(content) ) continue;
         if ( this.offsetInRanges_(skip, match.index) ) continue;   // comment / Java / string block → skip
         if ( this.isCollectionAddReceiver_(text, match.index) ) continue; // Set/Map .add(), not u2 display
-        var inner = match.index + match[0].indexOf(quote) + 1;       // past the opening quote
-        if ( this.lineHasI18nIgnore_(text, inner) ) continue;        // per-line suppression
-        this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
-          'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
-            '(in-body .add() text is not auto-extracted for i18n).',
-          'i18n-hardcoded-display-string');
+        // Every literal at the TOP nesting level of the argument list —
+        // direct (.add('x')), ternary arms, and '+' concatenation pieces all
+        // sit at that level (issue #5135: conditional args escaped the old
+        // literal-must-follow-the-paren regex). Literals inside nested
+        // calls/objects (.create({label:'x'}), .translate('k','v')) don't.
+        var lits = this.addArgLiterals_(text, skip, match.index + match[0].length);
+        for ( var li = 0 ; li < lits.length ; li++ ) {
+          var quote = text[lits[li][0]];
+          var inner = lits[li][0] + 1;                               // past the opening quote
+          var content = text.substring(inner, lits[li][1] - 1);
+          if ( quote === '`' && /\$\{/.test(content) ) continue;     // interpolated → dynamic
+          if ( ! this.isUserFacingText_(content) ) continue;
+          if ( this.lineHasI18nIgnore_(text, inner) ) continue;      // per-line suppression
+          this.addDiag_(diagnostics, text, inner, content.length, this.Diagnostic.WARNING,
+            'Hardcoded display string "' + content + '" — define it as a messages: entry ' +
+              '(in-body .add() text is not auto-extracted for i18n).',
+            'i18n-hardcoded-display-string');
+        }
       }
+    },
+
+    function addArgLiterals_(text, ranges, argStart) {
+      /**
+       * Collect [start,end) spans of the string literals sitting at the top
+       * nesting level of an argument list whose opening '(' immediately
+       * precedes argStart. `ranges` is nonCodeRanges_ output (sorted): its
+       * string entries at depth 1 ARE the literals; comment entries are
+       * jumped over so brackets inside comments don't skew the depth. Stops
+       * at the matching ')' or end of text (unterminated — mid-edit).
+       */
+      var out = [];
+      var depth = 1;
+      var i = argStart, n = text.length, ri = 0;
+      while ( i < n && depth > 0 ) {
+        while ( ri < ranges.length && ranges[ri][1] <= i ) ri++;
+        if ( ri < ranges.length && ranges[ri][0] === i ) {
+          var r = ranges[ri];
+          var q = text[r[0]];
+          if ( depth === 1 && ( q === "'" || q === '"' || q === '`' ) ) out.push(r);
+          i = r[1];
+          continue;
+        }
+        var c = text[i];
+        if ( c === '(' || c === '{' || c === '[' ) depth++;
+        else if ( c === ')' || c === '}' || c === ']' ) depth--;
+        i++;
+      }
+      return out;
     },
 
     function isCollectionAddReceiver_(text, dotOffset) {
@@ -416,229 +527,6 @@ foam.CLASS({
       var end = text.indexOf('\n', offset);
       if ( end === -1 ) end = text.length;
       return text.substring(start, end).indexOf('i18n-ignore') !== -1;
-    },
-
-    function constantizeMessageName_(s, opt_taken) {
-      /** 'Upload Complete' -> 'UPLOAD_COMPLETE_MSG'; safe, unique FOAM message
-       *  constant. The _MSG suffix keeps the generated constant out of the
-       *  property/action namespace — a 'fileName' property already installs a
-       *  FILE_NAME constant, so extracting the label 'File Name' to a bare
-       *  FILE_NAME would clash. opt_taken is the set of names already defined on
-       *  the model; on any remaining clash a numeric suffix is appended until
-       *  free (FILE_NAME_MSG, FILE_NAME_MSG2, ...). */
-      var up = String(s).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-      if ( ! up ) up = 'MESSAGE';
-      if ( /^[0-9]/.test(up) ) up = 'M_' + up;     // an identifier can't start with a digit
-      var base = up + '_MSG';
-      if ( ! opt_taken ) return base;
-      var name = base, n = 2;
-      while ( opt_taken[name] ) name = base + (n++);
-      return name;
-    },
-
-    function collectAxiomConstants_(text, uri) {
-      /** Names already defined as constant-style members on the file's single
-       *  model, so an extracted message name can dodge them. Holds the CONSTANT
-       *  form of every own + inherited property and action (FOAM installs a
-       *  FILE_NAME constant for a 'fileName' property) plus existing message /
-       *  constant names (already constant-cased). */
-      var taken = {};
-      var models = this.cache.getModels(uri || '', text);
-      if ( ! models || ! models.length ) return taken;
-      var model = models[0];
-      var nameOf   = function(x) { return typeof x === 'string' ? x : ( x && x.name ); };
-      var addConst = function(nm) { if ( nm ) taken[foam.String.constantize(nm)] = true; };
-      var addRaw   = function(nm) { if ( nm ) taken[nm] = true; };
-
-      var props = model.properties || [];
-      for ( var i = 0 ; i < props.length ; i++ ) addConst(nameOf(props[i]));
-      var acts = model.actions || [];
-      for ( var i = 0 ; i < acts.length ; i++ ) addConst(nameOf(acts[i]));
-      var msgs = model.messages || [];
-      for ( var i = 0 ; i < msgs.length ; i++ ) addRaw(nameOf(msgs[i]));
-
-      var consts = model.constants;
-      if ( Array.isArray(consts) ) {
-        for ( var i = 0 ; i < consts.length ; i++ ) addRaw(nameOf(consts[i]));
-      } else if ( consts && typeof consts === 'object' ) {
-        for ( var k in consts ) if ( Object.prototype.hasOwnProperty.call(consts, k) ) addRaw(k);
-      }
-
-      // Inherited properties — best effort; getProperties returns [] when the
-      // class isn't registered (incomplete file mid-edit).
-      var inherited = this.index.getProperties(this.cache.getClassId(model));
-      if ( inherited ) {
-        for ( var i = 0 ; i < inherited.length ; i++ ) addConst(inherited[i].name);
-      }
-      return taken;
-    },
-
-    function findAddLiteral_(text, messageText) {
-      /** Locate `.add('messageText')` and return the {start,end} span of the
-       *  quoted literal (quotes included), or null. */
-      var re = new RegExp("\\.add\\(\\s*(['\"`])" + this.escapeRegex_(messageText) + "\\1");
-      var m = re.exec(text);
-      if ( ! m ) return null;
-      var quoteRel = m[0].indexOf(m[1]);          // opening quote within the match
-      var litStart = m.index + quoteRel;
-      var litEnd = litStart + 1 + messageText.length + 1;  // open + text + close
-      return { start: litStart, end: litEnd };
-    },
-
-    function literalSpanFromRange_(text, range) {
-      /** {start, end, content} of the quoted literal for the occurrence the diagnostic
-       *  range points at. The range covers the inner text (no quotes): the opening quote
-       *  is one char before range.start and the closing quote is at range.end. Reading
-       *  content straight from source (range as the source of truth) is robust to
-       *  embedded quotes — unlike re-deriving length from a (possibly message-truncated)
-       *  string. Returns null if the quotes don't line up. */
-      if ( ! range || ! range.start || ! range.end ) return null;
-      var innerStart = this.analyzer.positionToOffset(text, range.start);
-      var innerEnd   = this.analyzer.positionToOffset(text, range.end);
-      var open = innerStart - 1;
-      if ( open < 0 || innerEnd <= innerStart || innerEnd >= text.length ) return null;
-      var q = text[open];
-      if ( q !== "'" && q !== '"' && q !== '`' ) return null;   // not a quoted literal here
-      if ( text[innerEnd] !== q ) return null;                  // closing quote must match
-      return { start: open, end: innerEnd + 1, content: text.substring(innerStart, innerEnd) };
-    },
-
-    function buildAddExtractEdit(text, messageText, uri, opt_range) {
-      /**
-       * Build the "extract to messages: entry" WorkspaceEdit for a hardcoded
-       * .add('<messageText>') string: rewrite the usage to `this.<NAME>` and add
-       * a `{ name, message }` entry (into an existing messages: array, or a new
-       * one). Returns { changes: { [uri]: [edits] } } or null.
-       *
-       * opt_range (the triggering diagnostic's LSP range) pins the rewrite to the
-       * exact occurrence — without it, a repeated identical string would rewrite the
-       * first match. Falls back to the first .add() match only when no range is given.
-       *
-       * Scope safety: bail (null) unless there is exactly one top-level model and an
-       * unambiguous single insertion target. Multiple `foam.CLASS(`, inline `classes:`,
-       * or more than one `properties:`/`messages:` block → ambiguous → no autofix.
-       *
-       * Limitations:
-       * - Diagnostics can appear in multi-model files, but the extract code action is
-       *   intentionally disabled there; inserting `messages:` into the right model
-       *   requires model-boundary parsing, not whole-file regexes.
-       * - Inline inner `classes:` are skipped for the same reason: `messages:` or
-       *   `properties:` could belong to either the outer model or an inner class.
-       * - If the diagnostic range no longer lines up with the quoted literal, no edit is
-       *   returned rather than risking a rewrite at the wrong occurrence.
-       */
-      var classMatches = text.match(/foam\.CLASS\s*\(/g);
-      if ( ! classMatches || classMatches.length !== 1 ) return null;
-      // Ambiguous nesting → the "first" messages:/properties: may belong to an inner class.
-      if ( /\bclasses\s*:\s*\[/.test(text) ) return null;
-      if ( ( text.match(/\bproperties\s*:\s*\[/g) || [] ).length > 1 ) return null;
-      if ( ( text.match(/\bmessages\s*:\s*\[/g)   || [] ).length > 1 ) return null;
-
-      // With a range, read the literal (and its content) straight from source — the
-      // range is authoritative and handles embedded quotes; the passed messageText may
-      // be truncated by the caller's message-reparse. Without a range, fall back to the
-      // first .add() match of messageText.
-      var usage, content;
-      if ( opt_range ) {
-        usage = this.literalSpanFromRange_(text, opt_range);
-        if ( ! usage ) return null;
-        content = usage.content;
-      } else {
-        usage = this.findAddLiteral_(text, messageText);
-        if ( ! usage ) return null;
-        content = messageText;
-      }
-
-      var name = this.constantizeMessageName_(content, this.collectAxiomConstants_(text, uri));
-      var edits = [];
-
-      // Rewrite the usage: 'messageText' -> this.NAME
-      edits.push({
-        range: {
-          start: this.analyzer.offsetToPosition(text, usage.start),
-          end:   this.analyzer.offsetToPosition(text, usage.end)
-        },
-        newText: 'this.' + name
-      });
-
-      // Add the messages entry. Reuse the verbatim source literal (quotes + already-
-      // valid escaping) for the message: value — re-escaping the raw captured content
-      // would double-escape an existing `\'` and produce invalid JS.
-      var rawLiteral = text.substring(usage.start, usage.end);
-      var entry = "{ name: '" + name + "', message: " + rawLiteral + " }";
-      var msgArr = /messages\s*:\s*\[/.exec(text);
-      if ( msgArr ) {
-        var insAt = msgArr.index + msgArr[0].length;          // just after '['
-        var p = this.analyzer.offsetToPosition(text, insAt);
-        edits.push({ range: { start: p, end: p }, newText: '\n    ' + entry + ',' });
-      } else {
-        var ins = this.findNewMessagesInsertion_(text, entry);
-        if ( ! ins ) return null;
-        var p2 = this.analyzer.offsetToPosition(text, ins.offset);
-        edits.push({ range: { start: p2, end: p2 }, newText: ins.newText });
-      }
-
-      var changes = {};
-      changes[uri] = edits;
-      return { changes: changes };
-    },
-
-    function findNewMessagesInsertion_(text, entry) {
-      /**
-       * Pick where to insert a brand-new `messages: [...]` block. Preference:
-       *   1. Right before the FIRST top-level block — properties:/methods:/listeners:/
-       *      actions:. This sits after the declarative header (package/name/extends/
-       *      requires/imports) and before any body, so it never lands inside a method
-       *      body object literal.
-       *   2. Else after the last header key — requires/imports (arrays) or
-       *      package/name/extends (strings).
-       *   3. Else right after `foam.CLASS({`.
-       * Returns { offset, newText } for a zero-width insert, or null.
-       */
-      // 1. Before the first properties:/methods:/listeners:/actions: block.
-      // First match (not last) → the top-level block, never a body-nested key.
-      var pm = /(^|\n)([ \t]*)(?:properties|methods|listeners|actions)\s*:/.exec(text);
-      if ( pm ) {
-        var indent = pm[2];
-        var lineStart = pm.index + pm[1].length;   // start of that line's indent
-        return {
-          offset: lineStart,
-          newText: indent + 'messages: [\n' + indent + '  ' + entry + '\n' + indent + '],\n'
-        };
-      }
-
-      // 2. After the last header key
-      var endOff = -1, endIndent = '  ';
-      var strRe = /(^|\n)([ \t]*)(package|name|extends)\s*:\s*'[^']*'\s*,?/g, sm;
-      while ( ( sm = strRe.exec(text) ) !== null ) {
-        var e = sm.index + sm[0].length;
-        if ( e > endOff ) { endOff = e; endIndent = sm[2]; }
-      }
-      var arrKeys = ['requires', 'imports'];
-      for ( var k = 0 ; k < arrKeys.length ; k++ ) {
-        var am = new RegExp('(^|\\n)([ \\t]*)' + arrKeys[k] + '\\s*:\\s*\\[').exec(text);
-        if ( ! am ) continue;
-        var i = am.index + am[0].length - 1;       // at the '['
-        var depth = 0;
-        for ( ; i < text.length ; i++ ) {
-          if ( text[i] === '[' ) depth++;
-          else if ( text[i] === ']' ) { depth--; if ( depth === 0 ) { i++; break; } }
-        }
-        if ( text[i] === ',' ) i++;                // include trailing comma
-        if ( i > endOff ) { endOff = i; endIndent = am[2]; }
-      }
-      if ( endOff !== -1 ) {
-        return {
-          offset: endOff,
-          newText: '\n' + endIndent + 'messages: [\n' + endIndent + '  ' + entry + '\n' + endIndent + '],'
-        };
-      }
-
-      // 3. After foam.CLASS({
-      var clsOpen = /foam\.CLASS\s*\(\s*\{/.exec(text);
-      if ( ! clsOpen ) return null;
-      var o = clsOpen.index + clsOpen[0].length;
-      return { offset: o, newText: '\n  messages: [\n    ' + entry + '\n  ],' };
     },
 
     function validateCSS_(model, text, diagnostics) {
@@ -800,15 +688,17 @@ foam.CLASS({
       if ( baseOffset === -1 ) return;
 
       // Collect ^name tokens that look like class selectors (letter-start).
+      // Keep EVERY occurrence per name: an unused class is flagged at each
+      // selector it appears in — ^foo, ^foo:hover, ^foo p — not just the
+      // first (issue #5092: pseudo-selector occurrences escaped the warning).
       var defs = {};
       var order = [];
       var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
       var dm;
       while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
         var n = dm[1];
-        if ( defs[n] ) continue;
-        defs[n] = { offset: baseOffset + dm.index, len: dm[0].length };
-        order.push(n);
+        if ( ! defs[n] ) { defs[n] = []; order.push(n); }
+        defs[n].push({ offset: baseOffset + dm.index, len: dm[0].length });
       }
       if ( order.length === 0 ) return;
 
@@ -838,8 +728,10 @@ foam.CLASS({
         var name = order[i];
         var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
         if ( re.test(hay) ) continue;
-        this.addDiag_(diagnostics, text, defs[name].offset, defs[name].len, 2,
-          "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        for ( var j = 0 ; j < defs[name].length ; j++ ) {
+          this.addDiag_(diagnostics, text, defs[name][j].offset, defs[name][j].len, 2,
+            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+        }
       }
     },
 

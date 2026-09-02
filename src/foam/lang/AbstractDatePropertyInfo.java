@@ -79,6 +79,17 @@ public abstract class AbstractDatePropertyInfo
   }
 
   protected abstract java.util.Date get_(Object o);
+
+  /**
+     Raw backing value, for callers that must not allocate a Date (comparisons,
+     serialization). Generated PropertyInfos for long-backed date properties
+     override this to read the field directly. It cannot be abstract: PropertyInfo
+     classes synthesized outside that path (a multi-part id, for one) extend this
+     class without going through it, so they need a working default.
+  */
+  protected long get__(Object o) {
+    return foam.util.DateUtil.nullableDateToLong(get_(o));
+  }
   protected abstract java.util.Date cast(Object key);
 
 //  public foam.lib.parse.Parser jsonParser() {
@@ -86,11 +97,11 @@ public abstract class AbstractDatePropertyInfo
 //  }
 
   public int compare(Object o1, Object o2) {
-    return foam.util.SafetyUtil.compare(get_(o1), get_(o2));
+    return foam.util.SafetyUtil.compare(get__(o1), get__(o2));
   }
 
   public int comparePropertyToObject(Object key, Object o) {
-    return foam.util.SafetyUtil.compare(cast(key), get_(o));
+    return foam.util.SafetyUtil.compare(cast(key).getTime(), get__(o));
   }
 
   public int comparePropertyToValue(Object key, Object value) {
@@ -110,7 +121,7 @@ public abstract class AbstractDatePropertyInfo
   }
 
   public boolean isDefaultValue(Object o) {
-    return foam.util.SafetyUtil.compare(get_(o), null) == 0;
+    return get__(o) == Long.MIN_VALUE;
   }
 
   public void format(foam.lib.formatter.FObjectFormatter formatter, foam.lang.FObject obj) {

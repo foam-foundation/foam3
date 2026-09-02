@@ -114,6 +114,8 @@ foam.CLASS({
 
   methods: [
     {
+      // A Template method which can be overridden in a sub-class or refined from another
+      // package that uses FOAM.
       name: 'configure',
       args: [
         {

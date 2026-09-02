@@ -13,10 +13,19 @@ foam.CLASS({
   properties: [
     { name: 'index' },
     { name: 'cssTokenResolver' },
-    { name: 'i18nHandler' }
+    { name: 'i18nHandler' },
+    {
+      name: 'featureConfig',
+      documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Null means "every action offered" — an absent config must never remove an action.'
+    }
   ],
 
   methods: [
+    function featureOn_(flag) {
+      /** True when `flag` is enabled, or when no featureConfig is wired at all. */
+      return ! this.featureConfig || this.featureConfig.enabled(flag);
+    },
+
     function handle(text, range, context, uri) {
       var actions = [];
       if ( ! context || ! context.diagnostics ) return actions;
@@ -108,7 +117,12 @@ foam.CLASS({
             // async, so the edit is built when the command runs
             // (I18nHandler.executeCommand), re-anchored against the file's
             // text as it is at that moment.
-            if ( i18nEditB && this.i18nHandler.translationReady &&
+            // The `hints.i18nMissingLanguage` flag also gates C: turning the
+            // missing-language hints off is how a user says "stop offering me
+            // machine translation", and C is a translation offer like D — the
+            // only difference is which diagnostic it hangs off.
+            if ( i18nEditB && this.featureOn_('hints.i18nMissingLanguage') &&
+                 this.i18nHandler.translationReady &&
                  ( this.i18nHandler.targetLanguages || [] ).length ) {
               var langsC = this.i18nHandler.targetLanguages;
               // Title text: re-derive the FULL literal from the diagnostic
@@ -146,7 +160,8 @@ foam.CLASS({
         // message text, not from targetLanguages, so nothing else would stop
         // it (foam3#5283 review finding G2 — the doc claimed this gate
         // already existed; it didn't).
-        if ( diag.code === 'i18n-missing-language' && this.i18nHandler && this.i18nHandler.translationReady &&
+        if ( diag.code === 'i18n-missing-language' && this.i18nHandler &&
+             this.featureOn_('hints.i18nMissingLanguage') && this.i18nHandler.translationReady &&
              ( this.i18nHandler.targetLanguages || [] ).length ) {
           var nameM = diag.message.match(/Message "([^"]+)" has no ([^ ]+(?:, [^ ]+)*) translation/);
           if ( nameM ) {

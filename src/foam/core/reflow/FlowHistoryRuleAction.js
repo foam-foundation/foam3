@@ -9,8 +9,8 @@ foam.CLASS({
   name: 'FlowHistoryRuleAction',
 
   documentation: `Runs after each flowDAO put and appends a FlowHistoryRecord
-    to flowHistoryDAO listing the storage properties that changed. A put that
-    changed nothing writes no record.`,
+    to localFlowHistoryDAO listing the storage properties that changed. A put
+    that changed nothing writes no record.`,
 
   implements: [ 'foam.core.ruler.RuleAction' ],
 
@@ -54,7 +54,7 @@ foam.CLASS({
         agency.submit(x, new ContextAgent() {
           @Override
           public void execute(X x) {
-            ((DAO) x.get("flowHistoryDAO")).put_(x, record);
+            ((DAO) x.get("localFlowHistoryDAO")).put_(x, record);
           }
         }, "Recording flow history");
       `

@@ -19,17 +19,35 @@ p({
 
 p({
   "class":"foam.core.boot.CSpec",
-  "name":"flowHistoryDAO",
-  "description": "Flow edit history. One journal per flow under flowHistory/, replayed the first time that flow's history is queried.",
-  "serve":true,
-  "authenticate":false,
+  "name":"localFlowHistoryDAO",
+  "description": "Flow edit history storage. One journal per flow under flowHistory/, replayed the first time that flow's history is queried. Written by the flowDAO history rule.",
   "serviceScript":
   """
-    return new foam.core.partition.PartitionedDAO(
+    foam.core.partition.PartitionedDAO dao = new foam.core.partition.PartitionedDAO(
       x,
       foam.core.reflow.FlowHistoryRecord.getOwnClassInfo(),
       "flowHistory/",
       foam.core.reflow.FlowHistoryRecord.OBJECT_ID);
+    // Load-progress rows are keyed by the served name the client queries.
+    dao.setServiceName("flowHistoryDAO");
+    return dao;
+  """
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"flowHistoryDAO",
+  "description": "Flow edit history as served to clients; a record is readable by whoever can read its flow.",
+  "serve":true,
+  "authenticate":false,
+  "serviceScript":
+  """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setOf(foam.core.reflow.FlowHistoryRecord.getOwnClassInfo())
+      .setInnerDAO(x.get("localFlowHistoryDAO"))
+      .setRuler(false)
+      .build();
   """,
   "client":"""{"of":"foam.core.reflow.FlowHistoryRecord"}"""
 })

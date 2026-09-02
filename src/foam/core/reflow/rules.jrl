@@ -4,7 +4,6 @@ p({
   "name": "Record flow history",
   "priority": 100,
   "documentation": "Append a FlowHistoryRecord to flowHistoryDAO for every flow create or update.",
-  "ruleGroup": "Reflow",
   "daoKey": "flowDAO",
   "operation": 3,
   "after": true,

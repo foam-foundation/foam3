@@ -10,10 +10,12 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `FlowHistoryRuleAction writes one FlowHistoryRecord per changed
-    put into a PartitionedDAO keyed by flow name, and a fresh DAO over the same
-    files replays only the partition a history query names.`,
+    put into a PartitionedDAO keyed by flow name, a fresh DAO over the same
+    files replays only the partition a history query names, and a record is
+    readable exactly when its flow is.`,
 
   javaImports: [
+    'foam.core.auth.AuthorizationException',
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
     'foam.core.partition.PartitionedDAO',
@@ -21,6 +23,7 @@ foam.CLASS({
     'foam.core.reflow.FlowHistoryRecord',
     'foam.core.reflow.FlowHistoryRuleAction',
     'foam.dao.ArraySink',
+    'foam.dao.MDAO',
     'foam.lang.DirectAgency',
     'foam.lang.X',
     'java.io.File',
@@ -34,7 +37,7 @@ foam.CLASS({
         X      tx  = newStorageContext(x);
         String dir = "flowHistoryTest_" + System.nanoTime() + "/";
         PartitionedDAO history = new PartitionedDAO(tx, FlowHistoryRecord.getOwnClassInfo(), dir, FlowHistoryRecord.OBJECT_ID);
-        X ax = tx.put("flowHistoryDAO", history);
+        X ax = tx.put("localFlowHistoryDAO", history);
 
         FlowHistoryRuleAction action = new FlowHistoryRuleAction();
         DirectAgency          agency = new DirectAgency();
@@ -81,6 +84,30 @@ foam.CLASS({
           .select(new ArraySink());
         test(again.getArray().size() == 2, "replayed partition holds both Recon A records, got " + again.getArray().size());
         test(fresh.isLoaded("Recon A") && ! fresh.isLoaded("Recon B"), "only the queried flow's partition is loaded");
+
+        // A record is readable exactly when its flow is findable through flowDAO in the caller's context.
+        MDAO flows = new MDAO(Flow.getOwnClassInfo());
+        flows.put(a2);
+        X rx = tx.put("flowDAO", flows);
+        FlowHistoryRecord ofB = (FlowHistoryRecord) history.find("Recon B~1");
+        test(canRead(rx, edit), "record readable when its flow is");
+        test(! canRead(rx, ofB), "record hidden when its flow is not");
+        boolean createDenied = false;
+        try { edit.authorizeOnCreate(rx); } catch ( AuthorizationException e ) { createDenied = true; }
+        test(createDenied, "clients cannot create history records");
+      `
+    },
+    {
+      name: 'canRead',
+      args: 'X x, FlowHistoryRecord record',
+      type: 'boolean',
+      javaCode: `
+        try {
+          record.authorizeOnRead(x);
+          return true;
+        } catch ( AuthorizationException e ) {
+          return false;
+        }
       `
     },
     {

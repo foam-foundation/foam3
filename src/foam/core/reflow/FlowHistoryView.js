@@ -51,7 +51,7 @@ foam.CLASS({
       align-items: baseline;
     }
     ^timestamp {
-      font-weight: 600;
+      font-weight: $font-medium;
     }
     ^user {
       color: $textSecondary;
@@ -87,7 +87,7 @@ foam.CLASS({
       border-bottom: none;
     }
     ^propName {
-      font-weight: 600;
+      font-weight: $font-medium;
       word-break: break-word;
     }
     ^cell {

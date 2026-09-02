@@ -181,7 +181,8 @@ foam.CLASS({
           // unsure what is still used.
           // if ( ! this.resetByCode ) this.pushMenu('sign-in');
 
-          // TODO: close popup
+          X.closeDialog(); // Close the pop-up
+
         } catch(err) {
           var e = err;
           var msg = this.ERROR_MSG;

@@ -186,7 +186,7 @@ foam.CLASS({
       hidden: true,
       onKey: true,
       expression: function(dao) {
-        return dao.of.model_.plural;
+        return foam.String.localizeLabel(dao.of.model_.plural);
       },
       displayWidth: 60
     },

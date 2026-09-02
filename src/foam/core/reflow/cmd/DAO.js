@@ -24,7 +24,7 @@ foam.CLASS({
     function execute(dao, opt_label) {
       let args  = {dao: dao, label: opt_label};
       let p     = this.DAOPrompt.create(args);
-      let label = p.dao.of.model_.plural;
+      let label = foam.String.localizeLabel(p.dao.of.model_.plural);
 
       p.addToE(this.out);
       this.currentBlock.flowName = opt_label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());
@@ -68,7 +68,7 @@ foam.CLASS({
       }
       if ( ! args ) args = {dao: dao, label: opt_label};
       let p     = this.DAOPrompt.create(args);
-      let label = p.dao.of.model_.plural;
+      let label = foam.String.localizeLabel(p.dao.of.model_.plural);
 
       p.addToE(this.out);
       this.currentBlock.flowName = opt_label || args.label || this.createFlowChildName(label.replaceAll(' ', '').toLowerCase());

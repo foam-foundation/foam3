@@ -581,6 +581,28 @@ foam.LIB({
       })
     },
     {
+      // Coerce a model label / plural to a plain String. FOAM i18n permits these
+      // to be objects keyed by locale ({ en: '...', fr: '...' }); consumers that
+      // string-manipulate them (e.g. reflow's replaceAll on model_.plural) need a
+      // String. Resolve to the current foam.locale, then its language prefix,
+      // then English, then the first available value. Not memoized: the input can
+      // be an object (unstable as a memoize key).
+      name: 'localizeLabel',
+      code: function(v) {
+        if ( typeof v === 'string' ) return v;
+        if ( v == null ) return '';
+        if ( typeof v === 'object' ) {
+          var loc = foam.locale || 'en';
+          return v[loc] ||
+                 v[loc.split('-')[0]] ||
+                 v.en ||
+                 Object.values(v)[0] ||
+                 '';
+        }
+        return '' + v;
+      }
+    },
+    {
       /**
        * Takes a key and creates a slot name for it.  Generally key -> key + '$'.
        *

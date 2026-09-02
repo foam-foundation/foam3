@@ -69,7 +69,7 @@ foam.CLASS({
       class: 'String',
       name: 'label',
       factory: function() {
-        return this.dao ? this.dao.of.model_.plural + ' Filter' : 'DAO Filter';
+        return this.dao ? foam.String.localizeLabel(this.dao.of.model_.plural) + ' Filter' : 'DAO Filter';
       }
     },
     {

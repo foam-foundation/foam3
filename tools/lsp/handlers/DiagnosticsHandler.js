@@ -70,6 +70,10 @@ foam.CLASS({
       documentation: 'Optional (no factory — null unless wired by server.js). When set, handle() emits an i18n-missing-language HINT for every messageMap gap scanMissingLanguages() finds; null-safe no-op otherwise.'
     },
     {
+      name: 'featureConfig',
+      documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -84,6 +88,11 @@ foam.CLASS({
   ],
 
   methods: [
+    function featureOn_(flag) {
+      /** True when `flag` is enabled, or when no featureConfig is wired at all. */
+      return ! this.featureConfig || this.featureConfig.enabled(flag);
+    },
+
     function handle(text, opt_uri) {
       if ( ! this.analyzer.isFoamFile(text) ) return [];
 
@@ -97,7 +106,12 @@ foam.CLASS({
         var m = models[i];
         var modelKey = (this.cache.getClassId(m)) + '_' + (m.sourceLine_ || 0);
 
-        // Incremental: reuse previous diagnostics if model hasn't changed
+        // Incremental: reuse previous diagnostics if model hasn't changed.
+        // The key is (model, text) only — NOT featureConfig. Safe today
+        // because the config is restart-scoped (loaded once at initialize and
+        // never mutated after); if a didChangeConfiguration reload is ever
+        // added, this cache must be cleared on it or a toggled-off check will
+        // keep reporting from cached results.
         if ( prev && prev.modelKeys && prev.modelKeys[modelKey] && prev.text === text ) {
           var cached = prev.modelKeys[modelKey];
           for ( var j = 0 ; j < cached.length ; j++ ) diagnostics.push(cached[j]);
@@ -117,7 +131,13 @@ foam.CLASS({
       // Missing-language messageMap gaps — same whole-file scoping as
       // validateAddStrings_. i18nHandler is optional/null-safe (server.js
       // wires it; tests that don't need it just skip this block).
-      if ( this.i18nHandler && ! this.isI18nExemptUri_(this.uri_) ) {
+      //
+      // No isI18nExemptUri_ check here: I18nHandler.scanMissingLanguages
+      // applies the same exemption itself, so every consumer of that scan
+      // (this handler, CodeActionHandler, CodeLensHandler) inherits one
+      // answer. The local copy below still guards validateAddStrings_, which
+      // is a different scan that never goes through I18nHandler.
+      if ( this.i18nHandler && this.featureOn_('hints.i18nMissingLanguage') ) {
         var miss = this.i18nHandler.scanMissingLanguages(this.uri_, text);
         for ( var mi = 0 ; mi < miss.length ; mi++ ) {
           diagnostics.push(this.Diagnostic.create({
@@ -310,7 +330,9 @@ foam.CLASS({
       // diagnostics come from collectGrammarDiagnostics_ — not repeated here.
 
       // Validate Java blocks
-      this.javaValidator.validateModel(m, classId, diagnostics, text);
+      if ( this.featureOn_('diagnostics.java') ) {
+        this.javaValidator.validateModel(m, classId, diagnostics, text);
+      }
 
       // Validate CSS token references
       this.validateCSS_(m, text, diagnostics);
@@ -348,6 +370,7 @@ foam.CLASS({
        * and .translate('...') (already on the translation-service path — its
        * literals sit one nesting level down, so the top-level scan skips them).
        */
+      if ( ! this.featureOn_('diagnostics.i18n') ) return;  // feature turned off
       if ( this.isI18nExemptUri_(this.uri_) ) return;       // test/demo/mock files exempt
 
       var skip = this.nonCodeRanges_(text);

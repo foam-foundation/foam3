@@ -65,6 +65,24 @@ function section(name) {
   console.error('\n\x1b[1m=== ' + name + ' ===\x1b[0m');
 }
 
+// Serializes the "server lane" test blocks — the ones that boot server.js
+// in-process and talk to it over real JSON-RPC framing. Such a block owns two
+// process-wide singletons for its duration: the process.stdin 'data' listener
+// (which is how messages reach the server) and the process.stdout.write patch
+// (which is how replies are captured). Two lanes running concurrently would
+// cross-talk — each server would see the OTHER lane's messages — and their
+// finally-blocks would restore each other's stdout patch instead of the real
+// write. Categories run their lane through here so only one is ever live.
+var laneQueue_ = Promise.resolve();
+
+function withServerLane(fn) {
+  var run = laneQueue_.then(function() { return fn(); });
+  // Chain on a settled-either-way copy: one lane's failure must not skip the
+  // lanes queued behind it.
+  laneQueue_ = run.then(function() {}, function() {});
+  return run;
+}
+
 // Shared sample files used by several categories (grammar parse, real-file
 // coverage, workspace analyzer).
 var TEST_FILES = [
@@ -100,6 +118,7 @@ module.exports = {
   counters:          counters,
   test:              test,
   section:           section,
+  withServerLane:    withServerLane,
   path:              path,
   fs:                fs,
   Q:                 String.fromCharCode(39),

@@ -216,6 +216,53 @@ foam.CLASS({
       x.test(this.isValid('spid != someProvider', 'NEQ(foam.core.auth.User.spid, "someProvider")'), "Reference Test2: String-ID reference with != operator");
       x.test(this.isValid('spid : provider', 'CONTAINS_IC(foam.core.auth.User.spid, "provider")'), "Reference Test3: String-ID reference with CONTAINS operator (fallthrough preserved)");
 
+      // Nested FObjectProperty (2 levels) tests — foam.parse.test.NestedQueryTestRoot
+      let Root = foam.parse.test.NestedQueryTestRoot;
+
+      // Predicate generation: full Dot chain Dot{Dot{mid,leaf},value}
+      x.test(this.isValidFor(Root, "mid.leaf.value = hello",
+        'EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.value, "hello")'),
+        "Nested Test1: 2-level FObjectProperty path produces full Dot chain");
+
+      // Evaluation end-to-end through .f()
+      let leaf = foam.parse.test.NestedQueryTestLeaf.create({value: 'hello'});
+      let mid  = foam.parse.test.NestedQueryTestMid.create({leaf: leaf});
+      let root = Root.create({mid: mid});
+      x.test(this.evaluateFor(Root, "mid.leaf.value = hello", root) === true,
+        "Nested Test2: 2-level path evaluates true for matching object");
+      x.test(this.evaluateFor(Root, "mid.leaf.value = other", root) === false,
+        "Nested Test3: 2-level path evaluates false for non-matching object");
+
+      // Suggestions: after typing "mid.leaf." the leaf fields are offered
+      let sugs = this.collectSuggestions(Root, "mid.leaf.");
+      x.test(sugs.indexOf('value') >= 0 && sugs.indexOf('code') >= 0,
+        "Nested Test4: suggestions after 'mid.leaf.' include leaf fields (got: " + sugs.join(',') + ")");
+
+      // Int leaf via the same chain — exercises the number compare path nested
+      x.test(this.isValidFor(Root, "mid.leaf.code = 7",
+        'EQ(foam.parse.test.NestedQueryTestRoot.mid.foam.parse.test.NestedQueryTestMid.leaf.foam.parse.test.NestedQueryTestLeaf.code, 7)'),
+        "Nested Test5: nested Int leaf produces EQ with full Dot chain");
+      let leaf2 = foam.parse.test.NestedQueryTestLeaf.create({value: 'x', code: 7});
+      let root2 = Root.create({mid: foam.parse.test.NestedQueryTestMid.create({leaf: leaf2})});
+      x.test(this.evaluateFor(Root, "mid.leaf.code = 7", root2) === true,
+        "Nested Test6: nested Int leaf evaluates true");
+
+      // Intermediate folder navigation: after 'mid.' the inner FObjectProperty folder 'leaf'
+      // must surface as a navigation step (so you can drill into it), not just leak at the root.
+      // Suggestion text is the current segment only (relative), so the suggestor appends it to
+      // what's typed instead of duplicating the prefix: at 'mid.' the folder shows as 'leaf.'.
+      let midSugs = this.collectSuggestions(Root, "mid.");
+      x.test(midSugs.indexOf('tag') >= 0,
+        "Nested Test7a: 'mid.' offers the scalar sibling 'tag' (got: " + midSugs.join(',') + ")");
+      x.test(midSugs.indexOf('leaf.') >= 0,
+        "Nested Test7b: 'mid.' offers the inner folder as the bare segment 'leaf.' (got: " + midSugs.join(',') + ")");
+
+      // A folder is navigation-only — never a valid standalone query (must drill to a scalar leaf).
+      x.test(this.buildPredicateFor(Root, "mid") == null,
+        "Nested Test8: a folder ('mid') alone is not a valid query");
+      x.test(this.buildPredicateFor(Root, "mid.leaf") == null,
+        "Nested Test9: a nested folder ('mid.leaf') alone is not a valid query");
+
     },
 
     function buildPredicate(query) {
@@ -255,6 +302,48 @@ foam.CLASS({
       if ( predicate == null ) return false;
       // Assuming predicate.f(user) evaluates the predicate against the user
       return predicate.f ? predicate.f(user) : false;
+    }
+    ,
+    function buildPredicateFor(of, query) {
+      let parser    = this.SimpleQueryParser.create({of: of});
+      let predicate = parser.parseString(query);
+      return predicate || null;
+    },
+
+    function isValidFor(of, query, statement) {
+      let result = this.buildPredicateFor(of, query);
+      if ( result == null ) return false;
+      result = result.partialEval ? result.partialEval() : result;
+      console.log("Result: " + result.toString() + ", Expected: " + statement);
+      return statement.trim().toLowerCase() === result.toString().trim().toLowerCase();
+    },
+
+    function evaluateFor(of, query, obj) {
+      let predicate = this.buildPredicateFor(of, query);
+      if ( predicate == null ) return false;
+      return predicate.f ? predicate.f(obj) : false;
+    },
+
+    function collectSuggestions(of, query) {
+      // Mirror SmartView's apply callback: collect suggestion text at the
+      // furthest parse position reached for a partial query.
+      let parser      = this.SimpleQueryParser.create({of: of});
+      let suggestions = {};
+      let maxPos      = 0;
+      let apply = function(p, grammar) {
+        try {
+          if ( p.suggest && this.pos >= maxPos ) {
+            let s = p.suggest();
+            if ( s && s.text ) {
+              if ( this.pos > maxPos ) { suggestions = {}; maxPos = this.pos; }
+              suggestions[s.text] = s;
+            }
+          }
+        } catch (e) {}
+        return p.parse(this, grammar);
+      };
+      parser.parseString(query, undefined, apply);
+      return Object.keys(suggestions);
     }
   ]
 });

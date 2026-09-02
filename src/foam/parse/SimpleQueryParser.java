@@ -429,7 +429,8 @@ public class SimpleQueryParser
 
     // Process each property
     for ( PropertyInfo prop : properties ) {
-      processProperty(g, prop, propertyParser(g, prop), propPredicates, rangePropPredicates);
+      processProperty(g, prop, propertyParser(g, prop), prop, new ArrayList<String>(),
+        new HashSet<String>(), propPredicates, rangePropPredicates);
     }
 
     // Register propPredicates and rangePropPredicates as grammar symbols
@@ -484,18 +485,25 @@ public class SimpleQueryParser
   }
 
   /**
-   * Create a parser for inner property access (dot notation).
-   * E.g., "address.longitude" → DOT(User.address, Address.longitude)
+   * Create a parser for nested property access (dot notation) at any depth.
+   * prefixNames is the full path of names to the parent FObject prop
+   * (e.g. ["mid","leaf"]); expr is the pre-built Dot chain this path yields.
+   * E.g., "mid.leaf.value" → DOT(DOT(Root.mid, Mid.leaf), Leaf.value)
    */
-  private Parser innerPropertyParser(foam.lib.parse.Grammar g, PropertyInfo outerProp, PropertyInfo innerProp) {
-    foam.mlang.expr.Dot dotExpr = new foam.mlang.expr.Dot();
-    dotExpr.setArg1(outerProp);
-    dotExpr.setArg2(innerProp);
+  private Parser innerPropertyParser(foam.lib.parse.Grammar g, List<String> prefixNames,
+    PropertyInfo innerProp, Expr expr) {
+    List<Parser> prefix = new ArrayList<>();
+    for ( int i = 0 ; i < prefixNames.size() ; i++ ) {
+      if ( i > 0 ) prefix.add(Literal.create("."));
+      prefix.add(new LiteralIC(prefixNames.get(i)));
+    }
+    prefix.add(Literal.create("."));
+    Parser prefixParser = new Seq1(0, prefix.toArray(new Parser[0]));
 
     return new Seq1(2,
       g.sym("ws"),
-      new Seq1(0, new LiteralIC(outerProp.getName()), Literal.create(".")),
-      new LiteralIC(innerProp.getName(), dotExpr)
+      prefixParser,
+      new LiteralIC(innerProp.getName(), expr)
     );
   }
 
@@ -503,7 +511,8 @@ public class SimpleQueryParser
    * Process a property and add its predicate parsers to the appropriate list.
    */
   private void processProperty(foam.lib.parse.Grammar g, PropertyInfo prop,
-    Parser propertyParser, List<Parser> propPredicates, List<Parser> rangePropPredicates) {
+    Parser propertyParser, Expr accExpr, List<String> prefixNames, Set<String> visited,
+    List<Parser> propPredicates, List<Parser> rangePropPredicates) {
 
     PropertyInfo type = prop;
 
@@ -514,12 +523,20 @@ public class SimpleQueryParser
       AbstractFObjectPropertyInfo foProp = (AbstractFObjectPropertyInfo) prop;
       ClassInfo innerClassInfo = foProp.of();
       if ( innerClassInfo != null && innerClassInfo.getObjClass() != null ) {
+        String cid = innerClassInfo.getId();
+        if ( visited.contains(cid) ) return; // cycle guard for self-referential graphs
+        Set<String> nextVisited = new HashSet<>(visited);
+        nextVisited.add(cid);
+        List<String> nextPrefix = new ArrayList<>(prefixNames);
+        nextPrefix.add(prop.getName());
         List<PropertyInfo> innerProps = innerClassInfo.getAxiomsByClass(PropertyInfo.class);
         for ( PropertyInfo innerProp : innerProps ) {
-          // Skip language and next to prevent infinite recursion
           if ( "language".equals(innerProp.getName()) || "next".equals(innerProp.getName()) ) continue;
-          processProperty(g, innerProp, innerPropertyParser(g, prop, innerProp),
-            propPredicates, rangePropPredicates);
+          foam.mlang.expr.Dot childExpr = new foam.mlang.expr.Dot();
+          childExpr.setArg1(accExpr);
+          childExpr.setArg2(innerProp);
+          processProperty(g, innerProp, innerPropertyParser(g, nextPrefix, innerProp, childExpr),
+            childExpr, nextPrefix, nextVisited, propPredicates, rangePropPredicates);
         }
       }
       return;

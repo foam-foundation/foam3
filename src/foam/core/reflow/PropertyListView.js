@@ -13,64 +13,111 @@ foam.CLASS({
 
   css: `
     ^ {
-      padding: 16px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      min-width: 500px;
+      gap: 16px;
+      min-width: 520px;
     }
     ^columns {
       display: flex;
       align-items: stretch;
+      gap: 4px;
     }
     ^col {
       flex: 1;
       display: flex;
       flex-direction: column;
-      border: 1px solid $borderDefault;
-      border-radius: 4px;
+      border: 1px solid $borderLight;
+      border-radius: 8px;
       overflow: hidden;
+      background: $backgroundDefault;
     }
     ^col-header {
-      padding: 6px 10px;
-      border-bottom: 1px solid $borderDefault;
+      padding: 8px 12px;
+      background: $backgroundSecondary;
+      border-bottom: 1px solid $borderLight;
     }
     ^col-body {
       flex: 1;
       overflow-y: auto;
       max-height: 50vh;
-      padding: 4px;
+      padding: 6px;
     }
     ^item {
-      padding: 4px 8px;
+      padding: 6px 10px;
       cursor: pointer;
-      border-radius: 4px;
+      border-radius: 6px;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
     ^item:hover {
-      background: $blue50;
+      background: $backgroundHover;
+      color: $textBrand;
+    }
+    ^item-draggable {
+      cursor: grab;
+      display: flex;
+      align-items: center;
+    }
+    ^item-draggable:active {
+      cursor: grabbing;
+    }
+    ^item-draggable::before {
+      content: '⠿';
+      color: $textTertiary;
+      margin-right: 8px;
+    }
+    ^item-drop-before {
+      box-shadow: inset 0 2px 0 0 $primary500;
+    }
+    ^item-drop-after {
+      box-shadow: inset 0 -2px 0 0 $primary500;
     }
     ^middle {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       padding: 0 8px;
     }
     ^arrow {
       cursor: pointer;
-      padding: 4px 10px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       border: 1px solid $borderDefault;
-      border-radius: 4px;
-      background: none;
+      border-radius: 50%;
+      background: $backgroundDefault;
+      color: $textSecondary;
       font-size: 1.1em;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     ^arrow:hover {
-      background: $blue50;
+      background: $backgroundBrandSecondary;
+      border-color: $borderBrand;
+      color: $textBrand;
     }
     ^actions {
       display: flex;
       justify-content: flex-end;
+      padding-top: 12px;
+      border-top: 1px solid $borderLight;
+    }
+    ^actions button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      background: $primary500;
+      color: $textOnBrand;
+      font-weight: $font-medium;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    ^actions button:hover {
+      background: $primary600;
     }
   `,
 
@@ -128,15 +175,51 @@ foam.CLASS({
             .end()
             .start().addClass(self.myClass('col-body'))
               .add(self.dynamic(function(selected) {
+                var BEFORE = self.myClass('item-drop-before');
+                var AFTER  = self.myClass('item-drop-after');
+                var dropPosition = e => {
+                  var rect = e.currentTarget.getBoundingClientRect();
+                  return (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+                };
+                var clearDropClasses = e => e.currentTarget.classList.remove(BEFORE, AFTER);
+
                 this.start()
-                  .forEach(selected, function(name) {
+                  .forEach(selected, function(name, i) {
                     var prop = props.find(p => p.name === name);
                     if ( ! prop ) return;
-                    this.start().addClass(self.myClass('item'))
+                    this.start()
+                      .addClass(self.myClass('item'))
+                      .addClass(self.myClass('item-draggable'))
+                      .attrs({ draggable: 'true' })
+                      .on('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', i);
+                        e.dataTransfer.effectAllowed = 'move';
+                      })
+                      .on('dragenter', e => e.preventDefault())
+                      .on('dragover', e => {
+                        e.preventDefault();
+                        var before = dropPosition(e) === 'before';
+                        e.currentTarget.classList.toggle(BEFORE, before);
+                        e.currentTarget.classList.toggle(AFTER, ! before);
+                      })
+                      .on('dragleave', clearDropClasses)
+                      .on('drop', e => {
+                        e.preventDefault();
+                        var position = dropPosition(e);
+                        clearDropClasses(e);
+                        var from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        if ( isNaN(from) || from === i ) return;
+                        var arr = self.selected.slice();
+                        var moved = arr.splice(from, 1)[0];
+                        var targetIdx = arr.indexOf(name);
+                        var insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+                        arr.splice(insertIdx, 0, moved);
+                        self.selected = arr;
+                      })
                       .add(prop.columnLabel)
                       .on('click', () => {
-                        var i = self.selected.indexOf(name);
-                        if ( i !== -1 ) self.selected$splice(i, 1);
+                        var idx = self.selected.indexOf(name);
+                        if ( idx !== -1 ) self.selected$splice(idx, 1);
                       })
                     .end();
                   })
@@ -193,14 +276,19 @@ foam.CLASS({
     }
     ^picker-btn {
       cursor: pointer;
-      padding: 4px 8px;
+      padding: 6px 12px;
       border: 1px solid $borderDefault;
-      border-radius: 4px;
-      background: none;
+      border-radius: 6px;
+      background: $backgroundDefault;
+      color: $textSecondary;
+      font-weight: $font-medium;
       white-space: nowrap;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     ^picker-btn:hover {
-      background: $blue50;
+      background: $backgroundBrandSecondary;
+      border-color: $borderBrand;
+      color: $textBrand;
     }
   `,
 

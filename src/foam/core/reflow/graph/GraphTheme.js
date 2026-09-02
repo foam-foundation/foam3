@@ -88,7 +88,7 @@ foam.CLASS({
           script:    this.token_('$orange400'),
           input:     this.token_('$success400'),
           doc:       this.token_('$grey500'),
-          other:     this.token_('$grey500'),
+          block:     this.token_('$grey500'),
           layout:    this.token_('$grey500')
         },
 

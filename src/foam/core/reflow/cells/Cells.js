@@ -155,6 +155,8 @@ foam.CLASS({
   name: 'Cells',
   extends: 'foam.u2.Element',
 
+  constants: { BLOCK_KIND: 'transform' },
+
   requires: [
     'foam.core.reflow.cells.CellParser',
     'foam.u2.tag.Input'
@@ -275,6 +277,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.rows + ' × ' + this.columns; },
+
     function init() {
       this.SUPER();
 

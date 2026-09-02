@@ -8,6 +8,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Markdown',
 
+  constants: { BLOCK_KIND: 'doc' },
+
   properties: [
     {
       class: 'Boolean',
@@ -24,6 +26,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      return ( this.markdown.split('\n').find(l => l.trim()) || '' ).trim();
+    },
+
     function addToE(e) {
       let self = this;
       e.add(this.dynamic(function (editable) {

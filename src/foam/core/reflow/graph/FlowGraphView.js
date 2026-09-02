@@ -639,102 +639,28 @@ foam.CLASS({
     },
 
     function kindOf(node) {
-      var cls = node.cls || '';
-      var DAO = [
-        'foam.core.reflow.DAOPrompt', 'foam.core.reflow.DAOFilterPrompt',
-        'foam.core.reflow.DAOCreate', 'foam.core.reflow.Upload', 'foam.core.reflow.Mapping'
-      ];
-      var SCRIPT = [
-        'foam.core.reflow.Script', 'foam.core.reflow.BadBlock', 'foam.core.reflow.float.Test'
-      ];
-      var INPUT = [
-        'foam.core.reflow.Prompt',
-        'foam.core.reflow.cmd.Button.FlowAction',
-        'foam.core.reflow.cmd.Buttons.FlowActionArrayHolder'
-      ];
-      var DOC = [
-        'foam.core.reflow.Markdown', 'foam.core.reflow.Header',
-        'foam.core.reflow.Image', 'foam.core.reflow.Link', 'foam.core.reflow.Doc'
-      ];
-      var TRANSFORM = [
-        'foam.core.reflow.Pivot', 'foam.core.reflow.GridBy', 'foam.core.reflow.cells.Cells'
-      ];
-
-      if ( DAO.indexOf(cls) !== -1 ) return 'dao';
-      if ( SCRIPT.indexOf(cls) !== -1 ) return 'script';
-      if ( INPUT.indexOf(cls) !== -1 ) return 'input';
-      if ( DOC.indexOf(cls) !== -1 ) return 'doc';
-      if ( TRANSFORM.indexOf(cls) !== -1 ) return 'transform';
-
-      var shortName = cls.split('.').pop() || '';
-      if ( /Transform$/.test(shortName) ) return 'transform';
-      if ( /Holder$/.test(shortName) && cls.indexOf('foam.lang.') === 0 ) return 'doc';
-
-      return 'other';
+      /** A value class names the kind of block it makes in its BLOCK_KIND
+          constant, which a subclass inherits. Anything else is a plain block. */
+      var cls = node.cls && foam.maybeLookup(node.cls);
+      return ( cls && cls.BLOCK_KIND ) || 'block';
     },
 
     function summaryOf(node) {
-      /** node: one entry of graph.nodes ({name,cmd,cls,parent,depth,block}). Never throws. */
+      /** node: one entry of graph.nodes ({name,cmd,cls,parent,depth,block}).
+          The command text, then whatever the block's value says about itself
+          through toSummary(). Never throws. */
       function trunc(s) {
         s = String(s == null ? '' : s);
         return s.length > 60 ? s.slice(0, 59) + '…' : s;
       }
-      function firstLine(s) {
-        var lines = String(s || '').split('\n');
-        for ( var i = 0 ; i < lines.length ; i++ ) {
-          if ( lines[i].trim() ) return lines[i].trim();
-        }
-        return '';
-      }
 
-      var block = node.block;
-      if ( ! block ) return [ trunc(node.cmd) ];
-
-      var lines = [];
+      var lines = [ trunc(node.cmd) ];
       try {
-        var value = block.value;
-        var cls = value && value.cls_ && value.cls_.id;
+        var value = node.block && node.block.value;
+        if ( foam.lang.FObject.isInstance(value) ) lines.push(trunc(value.toSummary()));
+      } catch (e) {}
 
-        if ( cls === 'foam.core.reflow.DAOPrompt' ) {
-          lines.push(trunc(block.cmd));
-          if ( value.aql ) {
-            lines.push(trunc(value.aql));
-          } else if ( value.where ) {
-            lines.push(trunc(value.where));
-          }
-          if ( value.filters && value.filters.length ) lines.push(value.filters.length + ' filters');
-          if ( value.select ) {
-            var selName = ( value.select.cls_ && value.select.cls_.name ) || '';
-            lines.push(trunc(selName + ( value.limit ? ' limit ' + value.limit : '' )));
-          }
-        } else if ( value && value.cls_ && value.cls_.getAxiomByName && value.cls_.getAxiomByName('daoKey') ) {
-          if ( value.daoKey ) lines.push(trunc(value.daoKey));
-          if ( value.calculations ) lines.push(value.calculations.length + ' calcs');
-          if ( value.joins ) lines.push(value.joins.length + ' joins');
-        } else if ( cls === 'foam.core.reflow.Script' ) {
-          lines.push(trunc(firstLine(value.code) + ( value.autoRun ? ' · auto' : '' )));
-        } else if ( cls === 'foam.core.reflow.Prompt' ) {
-          lines.push(trunc(( value.label || '' ) + ': ' + ( value.value != null ? value.value : '' )));
-          if ( value.type ) lines.push(trunc(value.type));
-        } else if ( cls === 'foam.core.reflow.Markdown' ) {
-          lines.push(trunc(firstLine(value.markdown)));
-        } else if ( cls === 'foam.core.reflow.Header' ) {
-          lines.push(trunc(( value.type || '' ) + ' ' + ( value.text || '' )));
-        } else if ( cls === 'foam.core.reflow.cmd.Button.FlowAction' ) {
-          lines.push(trunc(value.label));
-          lines.push(trunc(firstLine(value.script)));
-        } else if ( cls === 'foam.core.reflow.cmd.Buttons.FlowActionArrayHolder' ) {
-          lines.push(( value.actions || [] ).length + ' buttons');
-        } else if ( block.flowChildren && block.flowChildren.length ) {
-          lines.push(block.flowChildren.length + ' blocks');
-        } else {
-          lines.push(trunc(block.cmd));
-        }
-      } catch (e) {
-        lines = [ trunc(block.cmd) ];
-      }
-
-      return lines.filter(function(l) { return !! l; }).slice(0, 4);
+      return lines.filter(function(l) { return !! l; });
     },
 
     function fitToNodes_() {

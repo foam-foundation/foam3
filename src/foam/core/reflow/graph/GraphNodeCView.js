@@ -43,7 +43,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'kind',
-      documentation: 'One of dao|transform|script|input|doc|other.'
+      documentation: 'The value class\'s BLOCK_KIND, or "block" when it has none. Picks the GraphTheme.kinds colour; a kind the theme does not name takes the block colour.'
     },
     {
       class: 'StringArray',
@@ -117,7 +117,7 @@ foam.CLASS({
       ctx.save();
       this.roundRect(ctx, 0, 0, w, h, 6);
       ctx.clip();
-      ctx.fillStyle = ( t.kinds && ( t.kinds[this.kind] || t.kinds.other ) ) || t.nodeBorder;
+      ctx.fillStyle = ( t.kinds && ( t.kinds[this.kind] || t.kinds.block ) ) || t.nodeBorder;
       ctx.fillRect(0, 0, w, this.BAR_H);
       ctx.restore();
 
@@ -136,7 +136,7 @@ foam.CLASS({
       }
 
       // Header badges, right-aligned, drawn right-to-left.
-      var badges = [ this.kindLabel_().toUpperCase() ];
+      var badges = [ this.kind.toUpperCase() ];
       if ( this.hidden ) badges.push(this.HIDDEN.toUpperCase());
       if ( ! this.renders && ! this.hidden ) badges.push(this.SILENT.toUpperCase());
       if ( this.locked ) badges.push(this.LOCKED.toUpperCase());
@@ -187,17 +187,6 @@ foam.CLASS({
       ctx.restore();
     },
 
-    function kindLabel_() {
-      switch ( this.kind ) {
-        case 'dao':       return this.KIND_DAO;
-        case 'transform': return this.KIND_TRANSFORM;
-        case 'script':    return this.KIND_SCRIPT;
-        case 'input':     return this.KIND_INPUT;
-        case 'doc':       return this.KIND_DOC;
-        default:          return this.KIND_OTHER;
-      }
-    },
-
     function tooltipAt(p) {
       var dotX = this.PAD + this.DOT_R;
       var dotY = this.BAR_H + this.HEADER_H / 2;
@@ -216,12 +205,6 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'KIND_DAO',       message: 'Data' },
-    { name: 'KIND_TRANSFORM', message: 'Transform' },
-    { name: 'KIND_SCRIPT',    message: 'Script' },
-    { name: 'KIND_INPUT',     message: 'Input' },
-    { name: 'KIND_DOC',       message: 'Doc' },
-    { name: 'KIND_OTHER',     message: 'Block' },
     { name: 'HIDDEN',         message: 'Hidden' },
     { name: 'SILENT',         message: 'No output' },
     { name: 'LOCKED',         message: 'Locked' },

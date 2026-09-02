@@ -94,6 +94,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'DAOPrompt',
 
+  constants: { BLOCK_KIND: 'dao' },
+
   mixins: [ 'foam.core.reflow.DAOResolverMixin' ],
 
   /*
@@ -470,6 +472,14 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      return [
+        this.aql || this.where,
+        this.filters.length && this.filters.length + ' filters',
+        this.select && this.select.cls_ && this.select.cls_.name + ( this.limit ? ' limit ' + this.limit : '' )
+      ].filter(s => s).join(' · ');
+    },
+
     function getColumnNamesFromStorage(json) {
       if ( ! json ) return null;
       return JSON.parse(json)?.map(a => a[0]).join(',');

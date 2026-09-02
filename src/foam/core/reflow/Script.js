@@ -8,6 +8,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Script',
 
+  constants: { BLOCK_KIND: 'script' },
+
   imports: [
     'data as block',
     'eval_',
@@ -48,6 +50,11 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      var line = this.code.split('\n').find(l => l.trim()) || '';
+      return line.trim() + ( this.autoRun ? ' · auto' : '' );
+    },
+
     function onLoad() {
       if ( this.autoRun ) return this.run();
     },

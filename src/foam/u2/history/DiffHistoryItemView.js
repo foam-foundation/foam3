@@ -13,16 +13,15 @@ foam.CLASS({
     'foam.u2.Accordion',
     'foam.u2.Tab',
     'foam.u2.Tabs',
-    'foam.u2.borders.CopyBorder',
-    'foam.u2.dialog.StyledModal'
+    'foam.u2.borders.CopyBorder'
   ],
 
   documentation: `Renders a history record (anything with timestamp, user and
     a PropertyUpdate[] updates) as an Accordion: the title carries when and
     who, the body one row per updated property with old and new values. A
-    multi-line value renders as a line diff with unchanged runs collapsed and
-    expands into a modal with Diff, Old and New tabs. Rows are built the first
-    time a record is expanded.`,
+    multi-line value gets a Values | Diff tab pair; the diff collapses
+    unchanged runs, each expanding on click. Rows are built the first time a
+    record is expanded.`,
 
   constants: [
     {
@@ -32,7 +31,7 @@ foam.CLASS({
     },
     {
       name: 'MAX_DIFF_CELLS',
-      documentation: 'oldLines * newLines above which a value falls back to side-by-side.',
+      documentation: 'oldLines * newLines above which a value gets no Diff tab.',
       value: 4000000
     }
   ],
@@ -46,10 +45,8 @@ foam.CLASS({
     { name: 'WORDS',           message: 'words' },
     { name: 'CHARS',           message: 'chars' },
     { name: 'UNCHANGED_LINES', message: 'unchanged lines' },
-    { name: 'EXPAND',          message: 'Expand' },
+    { name: 'TAB_VALUES',      message: 'Values' },
     { name: 'TAB_DIFF',        message: 'Diff' },
-    { name: 'TAB_OLD',         message: 'Old' },
-    { name: 'TAB_NEW',         message: 'New' },
     { name: 'OLD_VALUE',       message: 'old value' },
     { name: 'NEW_VALUE',       message: 'new value' }
   ],
@@ -102,14 +99,18 @@ foam.CLASS({
       top: 4px;
       right: 4px;
     }
-    ^oldValue, ^newValue, ^lines, ^full {
+    ^values {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    ^oldValue, ^newValue, ^lines {
       border-radius: 4px;
       font-family: monospace;
       font-size: 11px;
       white-space: pre-wrap;
       word-break: break-all;
       overflow: auto;
-      margin: 0;
     }
     ^oldValue, ^newValue {
       padding: 6px 8px;
@@ -123,15 +124,9 @@ foam.CLASS({
       background: $success50;
       color: $success700;
     }
-    ^lines, ^full {
+    ^lines {
       border: 1px solid $borderLight;
-      max-height: 320px;
-    }
-    ^modalTabs ^lines, ^modalTabs ^full {
-      max-height: 70vh;
-    }
-    ^full {
-      padding: 6px 8px;
+      max-height: 60vh;
     }
     ^line {
       padding: 0 8px;
@@ -152,6 +147,7 @@ foam.CLASS({
       font-style: italic;
       text-align: center;
       background: $backgroundHover;
+      cursor: pointer;
     }
     ^count {
       margin-top: 2px;
@@ -159,20 +155,6 @@ foam.CLASS({
       color: $textSecondary;
       text-align: right;
       font-family: monospace;
-    }
-    ^footer {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 8px;
-    }
-    ^footerBtn {
-      background: $backgroundDefault;
-      border: 1px solid $borderDefault;
-      border-radius: 3px;
-      padding: 1px 6px;
-      font-size: 10px;
-      cursor: pointer;
     }
   `,
 
@@ -219,22 +201,27 @@ foam.CLASS({
 
       if ( lines ) {
         row.start('div').addClass(this.myClass('wide'))
-          .call(function() { self.renderLineDiff(this, lines, self.CONTEXT_LINES); })
-          .start('div').addClass(this.myClass('footer'))
-            .start('span').addClass(this.myClass('count'))
-              .add(self.countSummary(oldText) + ' → ' + self.countSummary(newText))
+          .start(this.Tabs)
+            .start(this.Tab, { label: this.TAB_VALUES, selected: true })
+              .start('div').addClass(this.myClass('values'))
+                .call(function() { self.renderValues(this, oldText, newText); })
+              .end()
             .end()
-            .start('button').addClass(this.myClass('footerBtn')).add(self.EXPAND)
-              .on('click', function(e) { e.stopPropagation(); self.openDiffModal(pu.name, oldText, newText, lines); })
+            .start(this.Tab, { label: this.TAB_DIFF })
+              .call(function() { self.renderLineDiff(this, lines); })
             .end()
           .end()
         .end();
       } else {
-        this.renderValue(row, 'oldValue', oldText, this.OLD_VALUE);
-        this.renderValue(row, 'newValue', newText, this.NEW_VALUE);
+        this.renderValues(row, oldText, newText);
       }
 
       row.end();
+    },
+
+    function renderValues(parent, oldText, newText) {
+      this.renderValue(parent, 'oldValue', oldText, this.OLD_VALUE);
+      this.renderValue(parent, 'newValue', newText, this.NEW_VALUE);
     },
 
     function renderValue(parent, valueClass, text, label) {
@@ -246,9 +233,9 @@ foam.CLASS({
       .end();
     },
 
-    function renderLineDiff(parent, lines, context) {
-      /* context = unchanged lines kept around each change; Infinity keeps them all. */
-      var box = parent.start('div').addClass(this.myClass('lines'));
+    function renderLineDiff(parent, lines) {
+      var self = this;
+      var box  = parent.start('div').addClass(this.myClass('lines'));
 
       var i = 0;
       while ( i < lines.length ) {
@@ -261,16 +248,14 @@ foam.CLASS({
         var j = i;
         while ( j < lines.length && lines[j].type === ' ' ) j++;
         var run  = j - i;
-        var head = i === 0 ? 0 : context;
-        var tail = j === lines.length ? 0 : context;
+        var head = i === 0 ? 0 : this.CONTEXT_LINES;
+        var tail = j === lines.length ? 0 : this.CONTEXT_LINES;
 
-        if ( ! isFinite(context) || run <= head + tail + 1 ) {
+        if ( run <= head + tail + 1 ) {
           for ( var k = i ; k < j ; k++ ) this.renderLine(box, lines[k]);
         } else {
           for ( var k = i ; k < i + head ; k++ ) this.renderLine(box, lines[k]);
-          box.start('div').addClass(this.myClass('line')).addClass(this.myClass('lineSkip'))
-            .add('… ' + (run - head - tail) + ' ' + this.UNCHANGED_LINES + ' …')
-          .end();
+          this.renderCollapsed(box, lines.slice(i + head, j - tail));
           for ( var k = j - tail ; k < j ; k++ ) this.renderLine(box, lines[k]);
         }
         i = j;
@@ -279,35 +264,25 @@ foam.CLASS({
       box.end();
     },
 
+    function renderCollapsed(parent, hidden) {
+      /* A run of unchanged lines shown as one marker until clicked. */
+      var self = this;
+      var open = foam.lang.SimpleSlot.create({ value: false });
+      parent
+        .start('div').addClass(this.myClass('line')).addClass(this.myClass('lineSkip'))
+          .hide(open)
+          .on('click', function() { open.set(true); })
+          .add('… ' + hidden.length + ' ' + this.UNCHANGED_LINES + ' …')
+        .end()
+        .start('div').show(open)
+          .call(function() { hidden.forEach(function(line) { self.renderLine(this, line); }, this); })
+        .end();
+    },
+
     function renderLine(parent, line) {
       var cls = line.type === '-' ? 'lineDel' : line.type === '+' ? 'lineAdd' : 'lineCtx';
       parent.start('div').addClass(this.myClass('line')).addClass(this.myClass(cls))
         .add(line.type + ' ' + line.text)
-      .end();
-    },
-
-    function openDiffModal(name, oldText, newText, lines) {
-      var self  = this;
-      var modal = this.StyledModal.create({ title: name, maxWidth: '90vw', maxHeight: '90vh' }, this);
-
-      modal.start(this.Tabs).addClass(this.myClass('modalTabs'))
-        .start(this.Tab, { label: this.TAB_DIFF, selected: true })
-          .call(function() { self.renderLineDiff(this, lines, Infinity); })
-        .end()
-        .start(this.Tab, { label: this.TAB_OLD })
-          .call(function() { self.renderFull(this, oldText, self.OLD_VALUE); })
-        .end()
-        .start(this.Tab, { label: this.TAB_NEW })
-          .call(function() { self.renderFull(this, newText, self.NEW_VALUE); })
-        .end()
-      .end();
-
-      modal.open();
-    },
-
-    function renderFull(parent, text, label) {
-      parent.start(this.CopyBorder, { copyText: text, label: label }).addClass(this.myClass('copy'))
-        .start('pre').addClass(this.myClass('full')).add(text).end()
       .end();
     },
 

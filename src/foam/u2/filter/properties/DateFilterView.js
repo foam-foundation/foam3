@@ -123,7 +123,7 @@ foam.CLASS({
         if ( ! qualifier || qualifier === 'True' ) return this.TRUE;
 
         if ( qualifier.startsWith('Ls') ) { // If qualifier is a "Last N days/months"
-          var amt = Number(qualifier.substring(2)); // Get N
+          var amt = Number(qualifier.slice(2, -1)); // Get N
           var today = new Date();
           var lastDate = new Date(today);
 
@@ -177,16 +177,16 @@ foam.CLASS({
         .start(this.ChoiceView, {
               data$: this.qualifier$,
               choices: [
-                ['True', this.LABEL_ALL],
-                ['Eq',   this.LABEL_EQUAL],
-                ['Gt',   this.LABEL_AFTER],
-                ['Lt',   this.LABEL_BEFORE],
-                ['Bt',   this.LABEL_BETWEEN],
-                ['Ls7',  this.LABEL_LAST_7_DAYS],
-                ['Ls30', this.LABEL_LAST_30_DAYS],
-                ['Ls3',  this.LABEL_LAST_3_MONTHS],
-                ['Ls6',  this.LABEL_LAST_6_MONTHS],
-                ['Ls12', this.LABEL_LAST_12_MONTHS]
+                ['True',  this.LABEL_ALL],
+                ['Eq',    this.LABEL_EQUAL],
+                ['Gt',    this.LABEL_AFTER],
+                ['Lt',    this.LABEL_BEFORE],
+                ['Bt',    this.LABEL_BETWEEN],
+                ['Ls7d',  this.LABEL_LAST_7_DAYS],
+                ['Ls30d', this.LABEL_LAST_30_DAYS],
+                ['Ls3m',  this.LABEL_LAST_3_MONTHS],
+                ['Ls6m',  this.LABEL_LAST_6_MONTHS],
+                ['Ls12m', this.LABEL_LAST_12_MONTHS]
               ],
               defaultValue: 'True'
             })
@@ -228,11 +228,11 @@ foam.CLASS({
           var days  = Math.round((end - start) / this.MILLIS_PER_DAY);
 
           // nearest matching option
-          if      ( days <= 15 )  this.qualifier = 'Ls7';
-          else if ( days <= 60 )  this.qualifier = 'Ls30';
-          else if ( days <= 135 ) this.qualifier = 'Ls3';
-          else if ( days <= 270 ) this.qualifier = 'Ls6';
-          else                    this.qualifier = 'Ls12';
+          if      ( days <= 15 )  this.qualifier = 'Ls7d';
+          else if ( days <= 60 )  this.qualifier = 'Ls30d';
+          else if ( days <= 135 ) this.qualifier = 'Ls3m';
+          else if ( days <= 270 ) this.qualifier = 'Ls6m';
+          else                    this.qualifier = 'Ls12m';
           return;
         }
 

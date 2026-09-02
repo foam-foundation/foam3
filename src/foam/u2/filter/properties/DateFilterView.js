@@ -20,12 +20,17 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'LABEL_ALL',       message: 'All Time' },
-    { name: 'LABEL_EQUAL',     message: 'Equal' },
-    { name: 'LABEL_AFTER',     message: 'After' },
-    { name: 'LABEL_BEFORE',    message: 'Before' },
-    { name: 'LABEL_BETWEEN',   message: 'Between' },
-    { name: 'LABEL_INCLUSIVE',  message: 'Inclusive' }
+    { name: 'LABEL_ALL',                message: 'All Time'       },
+    { name: 'LABEL_EQUAL',              message: 'Equal'          },
+    { name: 'LABEL_AFTER',              message: 'After'          },
+    { name: 'LABEL_BEFORE',             message: 'Before'         },
+    { name: 'LABEL_BETWEEN',            message: 'Between'        },
+    { name: 'LABEL_INCLUSIVE',          message: 'Inclusive'      },
+    { name: 'LABEL_LAST_7_DAYS',        message: 'Last 7 days'    },
+    { name: 'LABEL_LAST_30_DAYS',       message: 'Last 30 days'   },
+    { name: 'LABEL_LAST_3_MONTHS',      message: 'Last 3 months'  },
+    { name: 'LABEL_LAST_6_MONTHS',      message: 'Last 6 months'  },
+    { name: 'LABEL_LAST_12_MONTHS',     message: 'Last 12 months' }
   ],
 
   css: `
@@ -58,6 +63,14 @@ foam.CLASS({
       margin-top: 16px;
     }
   `,
+
+  constants: [
+    {
+      class: 'Long',
+      name: 'MILLIS_PER_DAY',
+      value: 1000 * 60 * 60 * 24
+    }
+  ],
 
   properties: [
     {
@@ -107,7 +120,24 @@ foam.CLASS({
         other Search Views.
       `,
       expression: function(qualifier, date1, date2, inclusive) {
-        if ( ! qualifier || ! date1 || isNaN(date1.valueOf()) ) return this.TRUE;
+        if ( ! qualifier || qualifier === 'True' ) return this.TRUE;
+
+        if ( qualifier.startsWith('Ls') ) { // If qualifier is a "Last N days/months"
+          var amt = Number(qualifier.substring(2)); // Get N
+          var today = new Date();
+          var lastDate = new Date(today);
+
+          if ( amt == 7 || amt == 30 ) { // Figure out if it's days or months
+            lastDate.setDate(lastDate.getDate() - amt);
+          } else {
+            lastDate.setMonth(lastDate.getMonth() - amt);
+          }
+
+          // Results should be >= lastDate but <= today
+          return this.AND(this.GTE(this.property, lastDate), this.LTE(this.property, today));
+        }
+
+        if ( ! date1 || isNaN(date1.valueOf()) ) return this.TRUE;
 
         if ( qualifier !== 'Bt' ) {
           return foam.mlang.predicate[qualifier].create({
@@ -151,14 +181,19 @@ foam.CLASS({
                 ['Eq',   this.LABEL_EQUAL],
                 ['Gt',   this.LABEL_AFTER],
                 ['Lt',   this.LABEL_BEFORE],
-                ['Bt',   this.LABEL_BETWEEN]
+                ['Bt',   this.LABEL_BETWEEN],
+                ['Ls7',  this.LABEL_LAST_7_DAYS],
+                ['Ls30', this.LABEL_LAST_30_DAYS],
+                ['Ls3',  this.LABEL_LAST_3_MONTHS],
+                ['Ls6',  this.LABEL_LAST_6_MONTHS],
+                ['Ls12', this.LABEL_LAST_12_MONTHS]
               ],
               defaultValue: 'True'
             })
           .start('div').addClass(this.myClass('carrot')).end()
         .end()
         .add(this.onDetach(this.slot(function(qualifier) {
-          if ( ! qualifier || qualifier === 'True' ) return this.E();
+          if ( ! qualifier || qualifier === 'True' || qualifier.startsWith('Ls') ) return this.E();
           return qualifier === 'Bt' ?
             this.E()
               .add(self.DATE1)
@@ -186,6 +221,21 @@ foam.CLASS({
       var qualifier = predicate.cls_.name;
 
       if ( qualifier == 'And' ) {
+        // Check for a "Last N days/months" predicate
+        if ( predicate.args[1].cls_.name === 'Lte' ) {
+          var start = predicate.args[0].arg2.value;
+          var end   = predicate.args[1].arg2.value;
+          var days  = Math.round((end - start) / this.MILLIS_PER_DAY);
+
+          // nearest matching option
+          if      ( days <= 15 )  this.qualifier = 'Ls7';
+          else if ( days <= 60 )  this.qualifier = 'Ls30';
+          else if ( days <= 135 ) this.qualifier = 'Ls3';
+          else if ( days <= 270 ) this.qualifier = 'Ls6';
+          else                    this.qualifier = 'Ls12';
+          return;
+        }
+
         // Check if it's inclusive (Gte) or exclusive (Gt) based on first predicate
         this.inclusive = predicate.args[0].cls_.name === 'Gte';
         this.qualifier = 'Bt';

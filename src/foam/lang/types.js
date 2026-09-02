@@ -1732,12 +1732,14 @@ foam.CLASS({
       }
     }
   ]
-})
+});
+
 
 foam.CLASS({
   package: 'foam.lang',
   name: 'TimeUnitValue',
   extends: 'Int',
+
   properties: [
     {
       class: 'String',

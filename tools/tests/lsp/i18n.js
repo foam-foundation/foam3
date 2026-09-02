@@ -1262,7 +1262,10 @@ var laneMock = http.createServer(function(req, res) {
   });
 });
 
-var laneDone = (async function() {
+// Runs through the harness's server-lane mutex: the config category boots a
+// server the same way, and two lanes live at once would cross-talk over the
+// shared stdin/stdout singletons (see _harness.withServerLane).
+var laneDone = h.withServerLane(async function() {
   var origWrite = process.stdout.write;
   var laneTmp   = null;
   try {
@@ -1388,7 +1391,7 @@ var laneDone = (async function() {
     if ( laneMock.listening ) laneMock.close();
     if ( laneTmp ) { try { h.fs.unlinkSync(laneTmp); } catch (e) {} }
   }
-})();
+});
 
 
 // === PR #5318 round-1 review: per-entry missing languages + placeholder gate ===

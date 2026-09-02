@@ -231,11 +231,18 @@ public class PartitionedDAO
       // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
-    return getDelegate(part).put_(x, obj);
+    FObject ret = getDelegate(part).put_(x, obj);
+    // Listeners registered via listen_ live on this DAO, not on the
+    // soft-referenced partition delegates (they would be lost on unload), so
+    // fire them here. Same as NotPartitionedDAO.
+    if ( ret != null ) onPut(ret);
+    return ret;
   }
 
   public FObject remove_(X x, FObject obj) {
-    return getDelegate(x, obj).remove_(x, obj);
+    FObject ret = getDelegate(x, obj).remove_(x, obj);
+    if ( ret != null ) onRemove(ret);
+    return ret;
   }
 
   public FObject find_(X x, Object id) {

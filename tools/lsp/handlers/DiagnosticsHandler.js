@@ -74,6 +74,10 @@ foam.CLASS({
       documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
     },
     {
+      name: 'pomValidator',
+      documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -94,6 +98,16 @@ foam.CLASS({
     },
 
     function handle(text, opt_uri) {
+      // The line-anchored foam.POM( test routes to the pom lane FIRST.
+      // Both lanes' gates are text sniffs: isFoamFile trips on a pom whose
+      // comment merely mentions a foam call (a real downstream pom does,
+      // via foam.FSM(), and would sniff as a class file and get no pom
+      // validation), while the anchored test can't false-positive on a
+      // "// foam.POM(" comment — the anchored test is the reliable one,
+      // so it outranks.
+      if ( /^\s*foam\.POM\(/m.test(text) ) {
+        return this.pomDiagnostics_(text, opt_uri);
+      }
       if ( ! this.analyzer.isFoamFile(text) ) return [];
 
       var uri = opt_uri || '';
@@ -307,6 +321,36 @@ foam.CLASS({
         if ( name ) actionNames[name] = true;
       }
       return actionNames;
+    },
+
+    function pomDiagnostics_(text, uri) {
+      /** Entry-level pom.js diagnostics (PomValidator.validateEntries),
+       *  behind the diagnostics.pom flag. Offsets from the validator are
+       *  mapped to line/char here; file-existence checks only run when the
+       *  uri resolves to a disk path. */
+      if ( ! this.pomValidator || ! this.featureOn_('diagnostics.pom') ) return [];
+
+      var fsPath = null;
+      if ( uri && uri.indexOf('file://') === 0 ) {
+        try { fsPath = decodeURIComponent(uri.substring(7)); } catch (e) {}
+      }
+
+      var issues = this.pomValidator.validateEntries(text, fsPath);
+      var out    = [];
+      for ( var i = 0 ; i < issues.length ; i++ ) {
+        var is = issues[i];
+        out.push({
+          range: {
+            start: this.analyzer.offsetToPosition(text, is.start),
+            end:   this.analyzer.offsetToPosition(text, is.end)
+          },
+          severity: is.severity,
+          code:     is.code,
+          source:   'foam-lsp',
+          message:  is.message
+        });
+      }
+      return out;
     },
 
     function toLSPDiagnostics_(diagnostics) {

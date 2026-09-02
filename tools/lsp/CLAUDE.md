@@ -50,7 +50,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `ImplementationHandler.js` | `textDocument/implementation` | Concrete implementors of a FOAM interface |
 | `TypeDefinitionHandler.js` | `textDocument/typeDefinition` | For a property usage, jump to the property's class (e.g. `foam.lang.Long`) |
 | `CallHierarchyHandler.js` | `textDocument/prepareCallHierarchy` + `callHierarchy/{incomingCalls,outgoingCalls}` | Who calls / who's called for any FOAM method |
-| `PomValidator.js` | `foam/validatePoms` | Orphan files, missing POM entries, duplicate registrations |
+| `PomValidator.js` | `foam/validatePoms` (+ called by Diagnostics on pom.js files) | Orphan files, missing POM entries, duplicate registrations; `validateEntries(text, pomPath)` adds entry-level checks — whitespace in name/flags values (`pom-name-whitespace`/`pom-flag-whitespace` ERROR), unknown flag tokens (`pom-flag-unknown` WARNING, vocabulary drifts), entries pointing at missing files (`pom-file-missing` ERROR). Positions come from the grammar harvest (`pomFileName`/`pomJavaFileName`/`pomFlagValue` kinds), never regex; `validate()` rolls them up as `entryIssues` |
 | `CodeLensHandler.js` | `textDocument/codeLens` | Two independent, feature-toggled lenses: `codeLens.i18n` (missing-translation counts, delegates to `I18nHandler.scanMissingLanguages` — so it inherits that entry point's `translationReady` gate AND its test/demo/mock URI exemption; also requires `hints.i18nMissingLanguage`, since clicking translates) and `codeLens.hierarchy` (subclass counts, informational — anchored on the advertised no-op command `foam.lens.info`; a click is answered with null). Both bail on a multi-model file. |
 | `ScaffoldHandler.js` | `workspace/executeCommand` `foam.scaffold.newClass` | Builds a `WorkspaceEdit` (new class file + pom.js `files:` append) from `{ dir, name }`. Nothing written to disk server-side — the client applies the edit. No `featureConfig` — the command only runs when explicitly invoked. Containment: `wsRoot` and the target dir are both `fs.realpathSync`'d before comparison (a lexical compare let `ln -s / <ws>/escape` target `/etc`), and with `requireWsRoot` set and no `rootUri` from the client it refuses outright rather than inheriting `process.cwd()`. The derived package is validated as a dotted identifier path — a folder named `it's` is refused, not emitted into `package: '…'`. |
 
@@ -210,6 +210,7 @@ all (`server.js:613-635`).
 |---|---|---|
 | `diagnostics.java` | `true` | Java-block validation diagnostics |
 | `diagnostics.i18n` | `true` | Hardcoded-display-string diagnostic |
+| `diagnostics.pom` | `true` | Entry-level pom.js diagnostics (`PomValidator.validateEntries` via `DiagnosticsHandler.pomDiagnostics_`) |
 | `hints.i18nMissingLanguage` | `true` | Every unsolicited offer to machine-translate: the missing-translation HINT, code actions C/D, AND the `codeLens.i18n` lens (clicking it translates) |
 | `completion` | `true` | `completionProvider` capability |
 | `hover` | `true` | `hoverProvider` capability |

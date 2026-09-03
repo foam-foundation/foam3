@@ -560,7 +560,7 @@ foam.CLASS({
        * Framework and product views are NOT exempt.
        */
       if ( ! uri ) return false;
-      if ( /(?:^|\/)(?:test|tests|demos|mock|mocks)\//i.test(uri) ) return true;
+      if ( /(?:^|\/)(?:test|tests|demo|demos|mock|mocks)\//i.test(uri) ) return true;
       if ( /Test\.js$/.test(uri) ) return true;
       if ( /Mock[^\/]*\.js$/.test(uri) ) return true;
       return false;

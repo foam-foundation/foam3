@@ -97,7 +97,7 @@ foam.CLASS({
       validateObj: function(flowName) {
         if ( ! flowName ) return;
         var root = this.flowRoot();
-        if ( root.flattenFlow(root.flowChildren).filter(b => b.flowName === flowName).length > 1 )
+        if ( root.flattenFlow().filter(b => b.flowName === flowName).length > 1 )
           return 'Already used by another block.';
       }
     },

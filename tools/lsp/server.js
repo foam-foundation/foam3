@@ -42,7 +42,8 @@ function start() {
   // arrives (the client's options are message-scoped, not available here).
   var provider = foam.parse.lsp.HttpChatProvider.create();
   i18nHandler.provider = provider;
-  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
+  var fileClassifier = foam.parse.lsp.FileClassifier.create();
+  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ cache: fileModelCache });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker });
 
@@ -418,15 +419,16 @@ function start() {
     // state didn't change relative to them.
     for ( var ouri in documents ) {
       var otext = documents[ouri].text;
+      var rkind = fileClassifier.classify(ouri, otext);
       if ( ouri === uri ) {
         fileModelCache.invalidate(ouri);
-        if ( isJrlFile(ouri) ) pushJrlDiagnostics(ouri, otext);
-        else if ( isFoamFile(otext) || isPomFile(ouri) ) pushDiagnostics(ouri, otext);
+        if ( rkind === 'jrl' ) pushJrlDiagnostics(ouri, otext);
+        else if ( rkind === 'class' || rkind === 'pom' ) pushDiagnostics(ouri, otext);
         continue;
       }
-      if ( isJrlFile(ouri) ) {
+      if ( rkind === 'jrl' ) {
         pushJrlDiagnostics(ouri, otext);
-      } else if ( isFoamFile(otext) ) {
+      } else if ( rkind === 'class' ) {
         // Only re-diagnose if this file's path is in the affected set.
         var opath = uriToPath_(ouri);
         if ( opath && affectedPathsSet[opath] ) {
@@ -746,8 +748,9 @@ function start() {
         var tdoc = params.textDocument;
         console.error('[LSP] didOpen: ' + tdoc.uri + ' lang=' + tdoc.languageId);
         documents[tdoc.uri] = { text: tdoc.text, version: tdoc.version || 0 };
-        if ( isFoamFile(tdoc.text) || isPomFile(tdoc.uri) ) pushDiagnostics(tdoc.uri, tdoc.text);
-        if ( isJrlFile(tdoc.uri) ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
+        var okind = fileClassifier.classify(tdoc.uri, tdoc.text);
+        if ( okind === 'class' || okind === 'pom' ) pushDiagnostics(tdoc.uri, tdoc.text);
+        if ( okind === 'jrl' ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
         break;
 
       case 'textDocument/didChange':
@@ -755,8 +758,9 @@ function start() {
         if ( params.contentChanges.length > 0 ) {
           documents[uri] = { text: params.contentChanges[0].text, version: params.textDocument.version || 0 };
           fileModelCache.invalidate(uri);
-          if ( isFoamFile(documents[uri].text) || isPomFile(uri) ) pushDiagnostics(uri, documents[uri].text);
-          if ( isJrlFile(uri) ) pushJrlDiagnostics(uri, documents[uri].text);
+          var ckind = fileClassifier.classify(uri, documents[uri].text);
+          if ( ckind === 'class' || ckind === 'pom' ) pushDiagnostics(uri, documents[uri].text);
+          if ( ckind === 'jrl' ) pushJrlDiagnostics(uri, documents[uri].text);
         }
         break;
 

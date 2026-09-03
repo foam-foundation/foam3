@@ -78,6 +78,13 @@ foam.CLASS({
       documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
     },
     {
+      name: 'fileClassifier',
+      documentation: `Routes handle() by file kind. server.js wires its own
+        shared instance so dispatch and handler can never disagree; the
+        factory keeps handler-direct tests working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -98,17 +105,14 @@ foam.CLASS({
     },
 
     function handle(text, opt_uri) {
-      // The line-anchored foam.POM( test routes to the pom lane FIRST.
-      // Both lanes' gates are text sniffs: isFoamFile trips on a pom whose
-      // comment merely mentions a foam call (a real downstream pom does,
-      // via foam.FSM(), and would sniff as a class file and get no pom
-      // validation), while the anchored test can't false-positive on a
-      // "// foam.POM(" comment — the anchored test is the reliable one,
-      // so it outranks.
-      if ( /^\s*foam\.POM\(/m.test(text) ) {
-        return this.pomDiagnostics_(text, opt_uri);
-      }
-      if ( ! this.analyzer.isFoamFile(text) ) return [];
+      // One classifier, shared with the server dispatch, decides the lane —
+      // never a local sniff (a local regex here and a different one in
+      // dispatch is exactly how the pom lane shipped unreachable). The
+      // classifier parses, so foam.POM( in a comment or string can't
+      // misroute; the first significant foam call wins.
+      var kind = this.fileClassifier.classify(opt_uri || '', text);
+      if ( kind === 'pom' ) return this.pomDiagnostics_(text, opt_uri);
+      if ( kind !== 'class' ) return [];
 
       var uri = opt_uri || '';
       this.uri_ = uri;

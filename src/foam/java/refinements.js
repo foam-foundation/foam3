@@ -237,6 +237,24 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'javaValueExpr_',
+      documentation: 'Java expression, inside the owning class, for the stored value when it is not a plain x_ field (javaSparse). Empty when the value lives in its own field.'
+    },
+    {
+      class: 'String',
+      name: 'javaHashExpr_',
+      documentation: 'Java expression the generated hashCode() folds in for this property when the value is not a plain x_ field (javaSparse). Empty when the value lives in its own field.'
+    },
+    {
+      class: 'Boolean',
+      name: 'javaSparse',
+      value: true,
+      documentation: `Whether this property may live in the class's sparse store when the model sets
+        javaSparse. Primitive property types keep a field (boxing would cost more than the slot
+        saves), as do types that generate their own accessors; those refinements declare false.`
+    },
+    {
+      class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
       value: 'foam.lib.json.AnyParser.instance()'
@@ -466,10 +484,12 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       // set value
       // Don't include oldVal if not used
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
-        setter += `${this.javaType} oldVal = ${this.name}_;\n`;
+        setter += this.javaValueExpr_
+          ? `${this.javaType} oldVal = ${this.javaIsSetRead_} ? ${this.javaValueExpr_} : ${this.javaValue};\n`
+          : `${this.javaType} oldVal = ${this.name}_;\n`;
       }
       setter += this.javaInnerSetter + '\n';
-      setter += ( this.javaIsSetTrue_ || `${this.name}IsSet_ = true;` ) + '\n';
+      setter += ( this.javaIsSetTrue_ != null ? this.javaIsSetTrue_ : `${this.name}IsSet_ = true;` ) + '\n';
 
       // add post-set function
       if ( this.javaPostSet ) {
@@ -495,10 +515,29 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
 
-      // How this property records "set": its own boolean field, or one bit of the class's
-      // long[] when the model opted into javaPackIsSet. The expressions carry that choice
-      // into the getter, the setter, clear and the PropertyInfo.
-      if ( cls.packIsSet ) {
+      // javaSparse: a property that declares itself sparse-capable and generates no accessor of
+      // its own lives in the class's values array at the slot its shape assigns, and "set"
+      // means "present in the shape". Everything else keeps a field.
+      var sparse = cls.sparse && this.javaSparse && ! this.javaGetter && ! this.javaSetter;
+
+      // How this property records "set": present in the sparse shape, one bit of the class's
+      // long[] when the model opted into javaPackIsSet, or its own boolean field. The
+      // expressions carry that choice into the getter, the setter, clear and the PropertyInfo.
+      if ( sparse ) {
+        var ord = cls.sparseOrdinals_++;
+        var sh  = cls.sparseShapeField_, vs = cls.sparseValuesField_;
+        var slot = sh + '.slotOf(' + ord + ')';
+        this.javaIsSetRead_   = '( ' + slot + ' >= 0 )';
+        this.javaIsSetTrue_   = '';   // the inner setter records presence
+        this.javaIsSetFalse_  = '{ int i = ' + slot + '; if ( i >= 0 ) { ' + vs + ' = foam.lang.SparseShape.removeAt(' + vs + ', i); ' +
+          sh + ' = ' + sh + '.without(' + ord + '); } }';
+        this.javaIsSetReadOn_ = function(obj) { return '( ' + obj + '.' + slot + ' >= 0 )'; };
+        this.javaValueExpr_   = '((' + this.javaType + ') ' + vs + '[' + slot + '])';
+        this.javaHashExpr_    = '( ' + this.javaIsSetRead_ + ' ? ' + this.javaValueExpr_ + ' : null )';
+        this.javaInnerGetter  = 'return ' + this.javaValueExpr_ + ';';
+        this.javaInnerSetter  = '{ int i = ' + slot + '; if ( i < 0 ) { ' + sh + ' = ' + sh + '.with(' + ord + '); ' +
+          vs + ' = foam.lang.SparseShape.insertAt(' + vs + ', ' + slot + ', val); } else ' + vs + '[i] = val; }';
+      } else if ( cls.packIsSet ) {
         var bit  = cls.isSetBits_++;
         var word = cls.isSetField_ + '[' + ( bit >> 6 ) + ']';
         var mask = '(1L << ' + ( bit & 63 ) + ')';
@@ -513,12 +552,14 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         this.javaIsSetReadOn_ = function(obj) { return obj + '.' + isSet; };
       }
 
-      cls.field({
-        name: privateName,
-        type: this.javaFieldType,
-        visibility: 'protected'
-      });
-      if ( ! cls.packIsSet ) {
+      if ( ! sparse ) {
+        cls.field({
+          name: privateName,
+          type: this.javaFieldType,
+          visibility: 'protected'
+        });
+      }
+      if ( ! sparse && ! cls.packIsSet ) {
         cls.field({
           name: isSet,
           type: 'boolean',
@@ -682,6 +723,13 @@ foam.LIB({
       cls.isSetBits_  = 0;
       cls.isSetField_ = 'isSet' + this.model_.name + '_';
 
+      // javaSparse: reference-typed properties take an ordinal each as they build; the shared
+      // root shape and the two instance fields are added once the count is known.
+      cls.sparse             = !! this.model_.javaSparse;
+      cls.sparseOrdinals_    = 0;
+      cls.sparseShapeField_  = 'shape' + this.model_.name + '_';
+      cls.sparseValuesField_ = 'values' + this.model_.name + '_';
+
       cls.fields.push(foam.java.ClassInfo.create({ id: this.id }));
 
       cls.method({
@@ -717,6 +765,30 @@ foam.LIB({
         });
       }
 
+      if ( cls.sparse && cls.sparseOrdinals_ > 0 ) {
+        var rootName = 'SHAPE_ROOT_' + this.model_.name + '_';
+        cls.field({
+          name: rootName,
+          type: 'foam.lang.SparseShape',
+          visibility: 'private',
+          static: true,
+          final: true,
+          initializer: 'foam.lang.SparseShape.root(' + cls.sparseOrdinals_ + ');'
+        });
+        cls.field({
+          name: cls.sparseShapeField_,
+          type: 'foam.lang.SparseShape',
+          visibility: 'protected',
+          initializer: rootName + ';'
+        });
+        cls.field({
+          name: cls.sparseValuesField_,
+          type: 'Object[]',
+          visibility: 'protected',
+          initializer: 'foam.lang.SparseShape.EMPTY;'
+        });
+      }
+
       // TODO: instead of doing this here, we should walk all Axioms
       // and introduce a new buildJavaAncestorClass() method
       var flagFilter = foam.util.flagFilter(['java']);
@@ -726,7 +798,7 @@ foam.LIB({
         .filter(p => !! p.javaType && p.javaInfoType && p.generateJava);
 
       cls.allProperties = properties
-        .map(p => foam.java.Field.create({ name: p.name, type: p.javaType, includeInHash: p.includeInHash }));
+        .map(p => foam.java.Field.create({ name: p.name, type: p.javaType, includeInHash: p.includeInHash, hashExpr: p.javaHashExpr_ }));
 
       var javaFactoryProperties = properties.filter(p => p.javaFactory);
 
@@ -889,7 +961,7 @@ return sb.toString();`
           body:
             ['int hash = 1'].concat(props.filter(function(p) {
               return p.includeInHash; }).map(function(f) {
-              return 'hash = hash * 31 + foam.util.SafetyUtil.hashCode(' + f.name + '_)';
+              return 'hash = hash * 31 + foam.util.SafetyUtil.hashCode(' + ( f.hashExpr || f.name + '_' ) + ')';
             })).join(';\n') + ';\n'
             +'return hash;\n'
         });
@@ -1394,6 +1466,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',     'int'],
+    ['javaSparse',   false],
     ['javaInfoType', 'foam.lang.AbstractIntPropertyInfo']
   ]
 });
@@ -1408,6 +1481,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',       'byte'],
+    ['javaSparse',     false],
     ['javaInfoType',   'foam.lang.AbstractBytePropertyInfo']
   ]
 });
@@ -1422,6 +1496,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',       'short'],
+    ['javaSparse',     false],
     ['javaInfoType',   'foam.lang.AbstractShortPropertyInfo']
   ]
 });
@@ -1436,6 +1511,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',     'long'],
+    ['javaSparse',   false],
     ['javaInfoType', 'foam.lang.AbstractLongPropertyInfo']
   ]
 });
@@ -1450,6 +1526,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',     'double'],
+    ['javaSparse',   false],
     ['javaInfoType', 'foam.lang.AbstractDoublePropertyInfo']
   ]
 });
@@ -1464,6 +1541,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',     'float'],
+    ['javaSparse',   false],
     ['javaInfoType', 'foam.lang.AbstractFloatPropertyInfo']
   ]
 });
@@ -1774,6 +1852,7 @@ foam.CLASS({
   properties: [
     ['javaType',        'java.util.Date' ],
     ['javaFieldType',   'long' ],
+    ['javaSparse',      false ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1815,6 +1894,7 @@ foam.CLASS({
   properties: [
     ['javaType',        'java.util.Date' ],
     ['javaFieldType',   'long' ],
+    ['javaSparse',      false ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -2013,6 +2093,7 @@ foam.CLASS({
   `,
 
   properties: [
+    ['javaSparse', false],
     {
       name: 'javaSetter',
       factory: function() {
@@ -2391,6 +2472,7 @@ foam.CLASS({
 //  // flags: ['java'],
   properties: [
     ['javaType',       'boolean'],
+    ['javaSparse',     false],
     ['javaInfoType',   'foam.lang.AbstractBooleanPropertyInfo'],
     ['javaCompare',    ''],
     ['javaJSONParser',  'foam.lib.json.BooleanParser.instance()']
@@ -2578,6 +2660,7 @@ foam.CLASS({
   refines: 'foam.lang.IDAlias',
   // flags: ['java'],
   properties: [
+    ['javaSparse', false],
     { name: 'type',            factory: function() { return this.targetProperty.type; } },
     { name: 'javaType',        factory: function() { return this.targetProperty.javaType; } },
     { name: 'javaJSONParser',  factory: function() { return this.targetProperty.javaJSONParser; } },
@@ -2607,6 +2690,7 @@ foam.CLASS({
 
   properties: [
     ['javaJSONParser', 'foam.lib.json.ExprParser.instance()'],
+    ['javaSparse',     false],
     {
       name: 'javaGetter',
       factory: function() {
@@ -2679,6 +2763,16 @@ foam.CLASS({
         (PropertyInfo.isSet, clearX(), getters and setters); only the storage differs, so
         hand-written javaCode on an opted-in model must not read the xIsSet_ fields, which no
         longer exist.`
+    },
+    {
+      class: 'Boolean',
+      name: 'javaSparse',
+      documentation: `Store this class's reference-typed properties in one Object[] sized to the
+        properties actually set, plus a reference to a foam.lang.SparseShape shared by every
+        instance with the same set, instead of one field per declared property. Primitive
+        properties, and properties with their own javaGetter, javaSetter or inner accessors,
+        keep a field. The property API is unchanged; hand-written javaCode on an opted-in model
+        must not read the x_ or xIsSet_ fields, which no longer exist for sparse properties.`
     },
     {
       class: 'AxiomArray',

@@ -528,6 +528,8 @@ function start() {
       run: function(doc, p) { return implementationHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/foldingRange':         { list: true, anyDoc: true,
       run: function(doc)    { return foldingRangeHandler.handle(doc.text); } },
+    'textDocument/codeAction':           { list: true, anyDoc: true,
+      run: function(doc, p) { return codeActionHandler.handle(doc.text, p.range, p.context, p.textDocument.uri); } },
     'textDocument/documentHighlight':    { list: true, anyDoc: true,
       run: function(doc, p) { return documentHighlightHandler.handle(doc.text, p.position); } },
     'textDocument/signatureHelp':        {
@@ -1072,17 +1074,6 @@ function start() {
           respond(id, workspaceSymbolHandler.handle(params.query));
         } catch (e) {
           console.error('[LSP] workspace/symbol error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/codeAction':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] codeAction error:', e.message);
           respond(id, []);
         }
         break;

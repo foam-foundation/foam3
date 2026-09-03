@@ -189,7 +189,7 @@ module.exports.done = (async function() {
   var PLAIN_URI = 'file://' + path.join(root, 'plain.js');
   send('textDocument/didOpen', { textDocument: {
     uri: PLAIN_URI, languageId: 'javascript', version: 1,
-    text: 'var alpha = 1;\nmodule.exports = alpha;\n' } });
+    text: 'var alpha = 1;\nvar config = {\n  methods: [\n    "one",\n    "two"\n  ]\n};\nmodule.exports = alpha;\n' } });
   var hoverPlain = await request('textDocument/hover', {
     textDocument: { uri: PLAIN_URI }, position: { line: 0, character: 5 } });
   test(hoverPlain.result === null,
@@ -231,6 +231,7 @@ module.exports.done = (async function() {
     { m: 'textDocument/implementation',       list: true },
     { m: 'textDocument/foldingRange',         list: true, anyDoc: true },
     { m: 'textDocument/documentHighlight',    list: true, anyDoc: true },
+    { m: 'textDocument/codeAction',           list: true, anyDoc: true },
     { m: 'textDocument/signatureHelp'  },
     { m: 'textDocument/prepareRename'  },
     { m: 'textDocument/rename'         },
@@ -239,9 +240,22 @@ module.exports.done = (async function() {
     { m: 'textDocument/prepareCallHierarchy' }
   ];
 
+  // The context carries a real diagnostic because codeAction is diagnostic-
+  // driven end to end (CodeActionHandler.handle returns [] the moment
+  // context.diagnostics is empty). Without one it answers [] on every
+  // document, which would make its anyDoc guard untestable — the same blind
+  // spot that let foldingRange's flag go unchecked. Every other route ignores
+  // context, so one shared params shape stays fine.
+  var QUOTE_DIAG = {
+    message: "Use single quotes for FOAM class references: 'foam.u2.View'",
+    range:   { start: { line: 0, character: 0 }, end: { line: 0, character: 9 } },
+    severity: 2
+  };
+
   function routeParams(uri) {
     return { textDocument: { uri: uri }, position: { line: 2, character: 4 },
-             newName: 'Renamed', context: { diagnostics: [] } };
+             newName: 'Renamed', range: QUOTE_DIAG.range,
+             context: { diagnostics: [ QUOTE_DIAG ] } };
   }
 
   for ( var ri = 0 ; ri < ROUTED.length ; ri++ ) {
@@ -250,12 +264,18 @@ module.exports.done = (async function() {
     test(! onClass.error && onClass.result !== undefined,
       route.m + ' answers a class doc without an error');
 
-    // The guard assertion below only proves the route is WIRED, not that the
-    // right handler got the right arguments — an empty answer and a handler
-    // that quietly found nothing look identical over the wire. The three
-    // checks after the loop are the ones that can tell those apart.
+    // The plain-doc answer is where the guard is actually pinned, and the two
+    // guards need OPPOSITE assertions. A class-gated route must answer empty.
+    // An anyDoc route must answer NON-empty — skipping the check for those (an
+    // earlier version of this file did) let a row silently lose its anyDoc
+    // flag, because "guard refused" and "handler ran and found nothing" are
+    // the same empty answer over the wire. So the plain fixture is built to
+    // give every anyDoc route something real to find.
     var onPlain = await request(route.m, routeParams(PLAIN_URI));
-    if ( ! route.anyDoc ) {
+    if ( route.anyDoc ) {
+      test(Array.isArray(onPlain.result) && onPlain.result.length > 0,
+        route.m + ' RAN on a non-class doc, proving its anyDoc guard');
+    } else {
       test(route.list ? ( Array.isArray(onPlain.result) && onPlain.result.length === 0 )
                       : onPlain.result === null,
         route.m + ' answers the empty ' + ( route.list ? '[]' : 'null' ) + ' on a non-class doc');

@@ -495,16 +495,20 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
 
-      // How this property records "set": its own boolean field, or one bit of the class's
-      // long[] when the model opted into javaPackIsSet. The expressions carry that choice
-      // into the getter, the setter, clear and the PropertyInfo.
+      // How this property records "set": its own boolean field, or one bit of one of the
+      // class's long words when the model opted into javaPackIsSet. The expressions carry
+      // that choice into the getter, the setter, clear and the PropertyInfo.
+      //
+      // Per-property booleans are independent fields, so setters on different properties
+      // never interact. A shared word makes |= a read-modify-write, so the write takes the
+      // object's monitor; reads stay plain, as they are for the booleans.
       if ( cls.packIsSet ) {
         var bit  = cls.isSetBits_++;
-        var word = cls.isSetField_ + '[' + ( bit >> 6 ) + ']';
+        var word = cls.isSetField_ + ( bit >> 6 );
         var mask = '(1L << ' + ( bit & 63 ) + ')';
         this.javaIsSetRead_   = '( ( ' + word + ' & ' + mask + ' ) != 0 )';
-        this.javaIsSetTrue_   = word + ' |= ' + mask + ';';
-        this.javaIsSetFalse_  = word + ' &= ~' + mask + ';';
+        this.javaIsSetTrue_   = 'synchronized ( this ) { ' + word + ' |= ' + mask + '; }';
+        this.javaIsSetFalse_  = 'synchronized ( this ) { ' + word + ' &= ~' + mask + '; }';
         this.javaIsSetReadOn_ = function(obj) { return '( ( ' + obj + '.' + word + ' & ' + mask + ' ) != 0 )'; };
       } else {
         this.javaIsSetRead_   = isSet;
@@ -676,8 +680,9 @@ foam.LIB({
       if ( this.model_.javaExtends )
         cls.extends = this.model_.javaExtends;
 
-      // javaPackIsSet: the properties allocate one bit each as they build; the long[] that
-      // holds them is sized and added once they are all in (below the axiom loop).
+      // javaPackIsSet: the properties allocate one bit each as they build; the long words
+      // that hold them, one per 64 properties, are added once they are all in (below the
+      // axiom loop).
       cls.packIsSet   = !! this.model_.javaPackIsSet;
       cls.isSetBits_  = 0;
       cls.isSetField_ = 'isSet' + this.model_.name + '_';
@@ -708,12 +713,11 @@ foam.LIB({
         axioms[i].buildJavaClass && axioms[i].buildJavaClass(cls, this);
       }
 
-      if ( cls.packIsSet && cls.isSetBits_ > 0 ) {
+      for ( var w = 0 ; cls.packIsSet && w * 64 < cls.isSetBits_ ; w++ ) {
         cls.field({
-          name: cls.isSetField_,
-          type: 'long[]',
-          visibility: 'protected',
-          initializer: 'new long[' + Math.ceil(cls.isSetBits_ / 64) + '];'
+          name: cls.isSetField_ + w,
+          type: 'long',
+          visibility: 'protected'
         });
       }
 
@@ -2673,12 +2677,14 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'javaPackIsSet',
-      documentation: `Keep this class's per-property set flags in one long[] bitset instead of a
-        boolean field per property. Saves a byte per declared property per instance, which on a
-        wide model is most of what an empty column costs. The isSet API is unchanged
-        (PropertyInfo.isSet, clearX(), getters and setters); only the storage differs, so
-        hand-written javaCode on an opted-in model must not read the xIsSet_ fields, which no
-        longer exist.`
+      documentation: `Keep this class's per-property set flags in long fields, one bit per
+        property and one field per 64 properties, instead of a boolean field per property.
+        Saves a byte per declared property per instance, which on a wide model is most of what
+        an empty column costs. The isSet API is unchanged (PropertyInfo.isSet, clearX(), getters
+        and setters); only the storage differs, so hand-written javaCode on an opted-in model
+        must not read the xIsSet_ fields, which no longer exist. The flag write is synchronized
+        on the object, so setters on different properties keep the independence the separate
+        boolean fields gave them.`
     },
     {
       class: 'AxiomArray',

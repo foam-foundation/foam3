@@ -77,7 +77,7 @@ foam.CLASS({
         test(f4 != null && script.equals(f4.getScript()), "formatter round-trip preserves script text");
 
         // Outputter round-trip (the DIG path): same structured emit via the
-        // property's toJSON, and re-parse back to the same script text.
+        // property's objToJSON, and re-parse back to the same script text.
         foam.lib.json.Outputter jout = new foam.lib.json.Outputter(x);
         jout.setMultiLine(true);
         String jsonOut = jout.stringify(f1);

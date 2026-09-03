@@ -1330,6 +1330,7 @@ foam.POM({
     { name: "foam/lang/AbstractDoublePropertyInfo" },
     { name: "foam/lang/AbstractFObjectArrayPropertyInfo" },
     { name: "foam/lang/FObject" },
+    { name: "foam/lang/SparseShape" },
     { name: "foam/lang/XFactory" },
     { name: "foam/lang/OrX" },
     { name: "foam/lang/ProxyAgency" },

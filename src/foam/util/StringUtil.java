@@ -128,6 +128,15 @@ public class StringUtil {
     return s + suffix;
   }
 
+  public static String join(Object[] array, String separator) {
+    StringBuilder sb = new StringBuilder();
+    for ( int i = 0 ; i < array.length ; i++ ) {
+      if ( i > 0 ) sb.append(separator);
+      sb.append(array[i]);
+    }
+    return sb.toString();
+  }
+
   public static String toQueryString(String... data) {
     if ( data.length % 2 == 1 )
       throw new RuntimeException("Invalid query string data");

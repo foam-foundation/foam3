@@ -21,6 +21,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `filterByClass()` |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
 | `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
+| `FileClassifier.js` | The ONE answer to "what kind of file is this" — `'pom'`/`'class'`/`'jrl'`/`'other'` | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -164,6 +165,34 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 - `collectRanges(text)` → `{comment, documentation}` spans (`P.msg({kind:'comment'|'documentation'})`). Drives comment/doc suppression in `HoverHandler` (no hover inside) and `SemanticTokenHandler` (no non-comment tokens inside).
 - `collectInstantiations(text)` → grouped `X.create({…})` / `.tag(this.X,{…})` calls with receiver class + key/value spans (`instCall`/`instCreateReceiver`/`instTagClass`/`instKey`/`instValue` kinds). The receiver chain uses `P.not` negative lookahead so only real create/tag calls match — generic `foo.bar(...)` emits nothing. Drives enum value completion (`MemberCompletionHandler`) and value diagnostics (`DiagnosticsHandler`).
 - `FoamIndex.getRelationships(classId)` (relationship hover, #5091) and `FoamIndex.getPropertyInfo(classId, prop)` (enum/primitive value resolution, #5093) back the index-side lookups.
+
+## Dispatch: a table for the uniform requests, a switch for the rest
+
+`handleMessage` consults `DOC_REQUESTS` before it reaches its `switch`. That
+table holds the twelve document-scoped requests that are all answered the same
+way — look up the open document, answer an empty value if the request does not
+apply to it, call one handler inside a try, answer the empty value again on a
+throw. Only three things differ per request, so a row declares only those:
+
+| Field | Meaning |
+|---|---|
+| `run(doc, params)` | the handler call, the only required field |
+| `list: true` | the empty answer is a fresh `[]`; absent means `null` |
+| `anyDoc: true` | any open document will do; the default requires a FOAM class file |
+
+`answerDocRequest_` holds the shape itself, once. **Adding a request of this
+kind is one row, not a new case** — and a case that needs anything else
+(feature-flag gating, a `.jrl` branch, disk reads, multi-step commands) stays
+a real case in the switch, which is why `initialize`, `workspace/executeCommand`,
+the `foam/i18n*` methods and the pull-diagnostic endpoint are still written out.
+
+The routing is pinned over the wire in the `dispatch` test category, against a
+spawned server: each routed method is asked once on a class document and once
+on a plain one. Note that the guard assertions only prove a route is WIRED —
+an empty answer and a handler that ran and found nothing look identical over
+the wire. Three cases (`documentSymbol`, `foldingRange`, `documentHighlight`)
+assert a NON-empty answer on the fixture, and those are the ones that catch a
+row calling the wrong handler or losing its `anyDoc` flag.
 
 ## Feature toggles (FeatureConfig)
 

@@ -29,7 +29,8 @@ var BAD_POM     = "foam.POM({\n  name: 'd',\n  files: [\n" +
   "    { name: 'A', flags: 'js |java' }\n  ]\n});\n";
 var CLEAN_POM   = BAD_POM.replace('js |java', 'js|java');
 var MISSING_POM = BAD_POM.replace("'A', flags: 'js |java'", "'C', flags: 'js|java'");
-var CLASS_SRC   = "foam.CLASS({\n  package: 'd',\n  name: 'B',\n  properties: [ 'p' ]\n});\n";
+var CLASS_SRC   = "foam.CLASS({\n  package: 'd',\n  name: 'B',\n  properties: [\n" +
+  "    'alpha',\n    'beta'\n  ],\n  methods: [\n    function go() { return this.alpha; }\n  ]\n});\n";
 var CREATED_SRC = "foam.CLASS({\n  package: 'd',\n  name: 'C'\n});\n";
 fs.writeFileSync(path.join(root, 'pom.js'), BAD_POM);
 
@@ -188,7 +189,7 @@ module.exports.done = (async function() {
   var PLAIN_URI = 'file://' + path.join(root, 'plain.js');
   send('textDocument/didOpen', { textDocument: {
     uri: PLAIN_URI, languageId: 'javascript', version: 1,
-    text: 'var x = 1;\nmodule.exports = x;\n' } });
+    text: 'var alpha = 1;\nmodule.exports = alpha;\n' } });
   var hoverPlain = await request('textDocument/hover', {
     textDocument: { uri: PLAIN_URI }, position: { line: 0, character: 5 } });
   test(hoverPlain.result === null,
@@ -216,6 +217,68 @@ module.exports.done = (async function() {
   var dSave = await diagsFor(POM_URI, 'the didSave(pom.js) reindex re-push');
   test(Array.isArray(dSave) && dSave.length === 0,
     'didSave(pom.js) re-pushes through the reindex lane');
+
+  // ---- Every table-driven document request, over the wire ----------------
+  // server.js answers twelve requests from one DOC_REQUESTS row each. A wrong
+  // handler or argument in a row is invisible to the handler unit tests (they
+  // call the handler directly) and to a green suite, because nothing else
+  // sends these methods. This list is deliberately a SECOND copy of the
+  // routing intent: if it drifts from the table, one of the two is wrong.
+  var ROUTED = [
+    { m: 'textDocument/documentSymbol',       list: true },
+    { m: 'textDocument/references',           list: true },
+    { m: 'textDocument/codeLens',             list: true },
+    { m: 'textDocument/implementation',       list: true },
+    { m: 'textDocument/foldingRange',         list: true, anyDoc: true },
+    { m: 'textDocument/documentHighlight',    list: true, anyDoc: true },
+    { m: 'textDocument/signatureHelp'  },
+    { m: 'textDocument/prepareRename'  },
+    { m: 'textDocument/rename'         },
+    { m: 'textDocument/prepareTypeHierarchy' },
+    { m: 'textDocument/typeDefinition' },
+    { m: 'textDocument/prepareCallHierarchy' }
+  ];
+
+  function routeParams(uri) {
+    return { textDocument: { uri: uri }, position: { line: 2, character: 4 },
+             newName: 'Renamed', context: { diagnostics: [] } };
+  }
+
+  for ( var ri = 0 ; ri < ROUTED.length ; ri++ ) {
+    var route = ROUTED[ri];
+    var onClass = await request(route.m, routeParams(CLASS_URI));
+    test(! onClass.error && onClass.result !== undefined,
+      route.m + ' answers a class doc without an error');
+
+    // The guard assertion below only proves the route is WIRED, not that the
+    // right handler got the right arguments — an empty answer and a handler
+    // that quietly found nothing look identical over the wire. The three
+    // checks after the loop are the ones that can tell those apart.
+    var onPlain = await request(route.m, routeParams(PLAIN_URI));
+    if ( ! route.anyDoc ) {
+      test(route.list ? ( Array.isArray(onPlain.result) && onPlain.result.length === 0 )
+                      : onPlain.result === null,
+        route.m + ' answers the empty ' + ( route.list ? '[]' : 'null' ) + ' on a non-class doc');
+    }
+  }
+
+  // Three routes whose answer on this fixture is NON-empty, so each one
+  // separates "the row is right" from "the handler ran and found nothing".
+  var syms = await request('textDocument/documentSymbol', routeParams(CLASS_URI));
+  test(Array.isArray(syms.result) && syms.result.length > 0,
+    'documentSymbol returns real symbols, so its row passes text and uri');
+
+  var folds = await request('textDocument/foldingRange', routeParams(CLASS_URI));
+  test(Array.isArray(folds.result) && folds.result.length > 0,
+    'foldingRange returns real ranges for the multi-line properties array');
+
+  // documentHighlight is the anyDoc proof: the plain doc names `alpha` twice,
+  // and the position below sits on the first one. A row that lost anyDoc
+  // would answer the empty [] here instead.
+  var hl = await request('textDocument/documentHighlight',
+    { textDocument: { uri: PLAIN_URI }, position: { line: 0, character: 5 } });
+  test(Array.isArray(hl.result) && hl.result.length > 1,
+    'documentHighlight runs on a NON-class doc and finds both uses of alpha');
 
   // pom-file-missing is a DISK check, so the save that clears it is the save
   // creating the named file — a file the pom's own axiom state knows nothing

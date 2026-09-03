@@ -962,6 +962,8 @@ foam.POM({
     { name: "foam/lang/FObjectTest",                                  flags: "js&test|java&test" },
     { name: "foam/lang/PackIsSetTestModel",                           flags: "js&test|java&test" },
     { name: "foam/lang/PackIsSetTest",                                flags: "js&test|java&test" },
+    { name: "foam/lang/SparseTestModel",                              flags: "js&test|java&test" },
+    { name: "foam/lang/SparseTest",                                   flags: "js&test|java&test" },
     { name: "foam/flow/Document",                                     flags: "js|java" },
     { name: "foam/flow/DocumentMenu",                                 flags: "js|java" },
     { name: "foam/flow/MarkupEditor",                                 flags: "js" },

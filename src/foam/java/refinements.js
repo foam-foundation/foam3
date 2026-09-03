@@ -526,19 +526,17 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       // field. The expressions carry that choice into the getter, the setter, clear and the
       // PropertyInfo.
       if ( sparse ) {
+        // The class generates isSparseSet_(ord), sparse_(ord), setSparse_(ord, val) and
+        // clearSparse_(ord) over its shape and values fields (buildSparseStore_ on the FObject LIB).
         var ord = cls.sparseOrdinals_++;
-        var sh  = cls.sparseShapeField_, vs = cls.sparseValuesField_;
-        var slot = sh + '.slotOf(' + ord + ')';
-        this.javaIsSetRead_   = '( ' + slot + ' >= 0 )';
-        this.javaIsSetTrue_   = '';   // the inner setter records presence
-        this.javaIsSetFalse_  = '{ int i = ' + slot + '; if ( i >= 0 ) { ' + vs + ' = foam.lang.SparseShape.removeAt(' + vs + ', i); ' +
-          sh + ' = ' + sh + '.without(' + ord + '); } }';
-        this.javaIsSetReadOn_ = function(obj) { return '( ' + obj + '.' + slot + ' >= 0 )'; };
-        this.javaValueExpr_   = '((' + this.javaType + ') ' + vs + '[' + slot + '])';
+        this.javaIsSetRead_   = 'isSparseSet_(' + ord + ')';
+        this.javaIsSetTrue_   = '';   // setSparse_ records presence
+        this.javaIsSetFalse_  = 'clearSparse_(' + ord + ');';
+        this.javaIsSetReadOn_ = function(obj) { return obj + '.isSparseSet_(' + ord + ')'; };
+        this.javaValueExpr_   = '((' + this.javaType + ') sparse_(' + ord + '))';
         this.javaHashExpr_    = '( ' + this.javaIsSetRead_ + ' ? ' + this.javaValueExpr_ + ' : null )';
         this.javaInnerGetter  = 'return ' + this.javaValueExpr_ + ';';
-        this.javaInnerSetter  = '{ int i = ' + slot + '; if ( i < 0 ) { ' + sh + ' = ' + sh + '.with(' + ord + '); ' +
-          vs + ' = foam.lang.SparseShape.insertAt(' + vs + ', ' + slot + ', val); } else ' + vs + '[i] = val; }';
+        this.javaInnerSetter  = 'setSparse_(' + ord + ', val);';
       } else if ( cls.packIsSet ) {
         var bit = cls.isSetBits_++;
         this.javaIsSetRead_   = 'isSet_(' + bit + ')';
@@ -698,6 +696,75 @@ foam.CLASS({
 foam.LIB({
   name: 'foam.lang.FObject',
   methods: [
+    function buildSparseStore_(cls, modelName) {
+      // javaSparse storage: the shared shape, the values array, and four helpers over them.
+      // A set or clear replaces both fields, so the writers take the object's monitor; the
+      // readers stay plain, as field reads are for every other property. The writers order
+      // their two stores so a plain reader never indexes past the values array: a set grows
+      // values before it publishes the shape, a clear shrinks the shape before the values.
+      var rootName = 'SHAPE_ROOT_' + modelName + '_';
+      var sh = cls.sparseShapeField_, vs = cls.sparseValuesField_;
+
+      cls.
+        field({
+          name: rootName,
+          type: 'foam.lang.SparseShape',
+          visibility: 'private',
+          static: true,
+          final: true,
+          initializer: 'foam.lang.SparseShape.root(' + cls.sparseOrdinals_ + ');'
+        }).
+        field({
+          name: sh,
+          type: 'foam.lang.SparseShape',
+          visibility: 'protected',
+          initializer: rootName + ';'
+        }).
+        field({
+          name: vs,
+          type: 'Object[]',
+          visibility: 'protected',
+          initializer: 'foam.lang.SparseShape.EMPTY;'
+        }).
+        method({
+          name: 'isSparseSet_',
+          type: 'boolean',
+          visibility: 'protected',
+          args: [ { name: 'ord', type: 'int' } ],
+          body: 'return ' + sh + '.slotOf(ord) >= 0;'
+        }).
+        method({
+          name: 'sparse_',
+          type: 'Object',
+          visibility: 'protected',
+          args: [ { name: 'ord', type: 'int' } ],
+          body: 'return ' + vs + '[' + sh + '.slotOf(ord)];'
+        }).
+        method({
+          name: 'setSparse_',
+          type: 'void',
+          visibility: 'protected',
+          synchronized: true,
+          args: [ { name: 'ord', type: 'int' }, { name: 'val', type: 'Object' } ],
+          body: 'int i = ' + sh + '.slotOf(ord);\n' +
+            'if ( i >= 0 ) { ' + vs + '[i] = val; return; }\n' +
+            'foam.lang.SparseShape s = ' + sh + '.with(ord);\n' +
+            vs + ' = foam.lang.SparseShape.insertAt(' + vs + ', s.slotOf(ord), val);\n' +
+            sh + ' = s;'
+        }).
+        method({
+          name: 'clearSparse_',
+          type: 'void',
+          visibility: 'protected',
+          synchronized: true,
+          args: [ { name: 'ord', type: 'int' } ],
+          body: 'int i = ' + sh + '.slotOf(ord);\n' +
+            'if ( i < 0 ) return;\n' +
+            sh + ' = ' + sh + '.without(ord);\n' +
+            vs + ' = foam.lang.SparseShape.removeAt(' + vs + ', i);'
+        });
+    },
+
     function buildPackedIsSet_(cls) {
       // javaPackIsSet storage: one long per 64 properties, and three helpers over them. Per-
       // property booleans are independent fields, so setters on different properties never
@@ -808,29 +875,7 @@ foam.LIB({
 
       if ( cls.packIsSet && cls.isSetBits_ > 0 ) this.buildPackedIsSet_(cls);
 
-      if ( cls.sparse && cls.sparseOrdinals_ > 0 ) {
-        var rootName = 'SHAPE_ROOT_' + this.model_.name + '_';
-        cls.field({
-          name: rootName,
-          type: 'foam.lang.SparseShape',
-          visibility: 'private',
-          static: true,
-          final: true,
-          initializer: 'foam.lang.SparseShape.root(' + cls.sparseOrdinals_ + ');'
-        });
-        cls.field({
-          name: cls.sparseShapeField_,
-          type: 'foam.lang.SparseShape',
-          visibility: 'protected',
-          initializer: rootName + ';'
-        });
-        cls.field({
-          name: cls.sparseValuesField_,
-          type: 'Object[]',
-          visibility: 'protected',
-          initializer: 'foam.lang.SparseShape.EMPTY;'
-        });
-      }
+      if ( cls.sparse && cls.sparseOrdinals_ > 0 ) this.buildSparseStore_(cls, this.model_.name);
 
       // TODO: instead of doing this here, we should walk all Axioms
       // and introduce a new buildJavaAncestorClass() method
@@ -2818,7 +2863,10 @@ foam.CLASS({
         instance with the same set, instead of one field per declared property. Primitive
         properties, and properties with their own javaGetter, javaSetter or inner accessors,
         keep a field. The property API is unchanged; hand-written javaCode on an opted-in model
-        must not read the x_ or xIsSet_ fields, which no longer exist for sparse properties.`
+        must not read the x_ or xIsSet_ fields, which no longer exist for sparse properties; the
+        class's isSparseSet_(ord), sparse_(ord), setSparse_(ord, val) and clearSparse_(ord)
+        helpers are the store's only readers and writers, and the writers are synchronized on the
+        object so setters on different properties never interfere.`
     },
     {
       class: 'AxiomArray',

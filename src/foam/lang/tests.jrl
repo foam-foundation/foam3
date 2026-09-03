@@ -9,3 +9,4 @@ p({"class":"foam.lang.test.SlotlessValidationTest","id":"SlotlessValidationTest"
 p({"class":"foam.lang.test.DatePropertyBench","id":"DatePropertyBench","description":"Per-operation heap/CPU benchmark for date-typed properties"})
 p({"class":"foam.lang.test.DatePropertyOpsTest","id":"DatePropertyOpsTest","description":"Date property behaviour across GROUP_BY, range, ordering, clone, JSON and the unset path"})
 p({"class":"foam.lang.PackIsSetTest","id":"PackIsSetTest","description":"javaPackIsSet flag storage and isSet API"})
+p({"class":"foam.lang.SparseTest","id":"SparseTest","description":"javaSparse shared-shape storage and property API"})

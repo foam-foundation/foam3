@@ -28,6 +28,7 @@ foam.CLASS({
     every positive classification comes from the parse.`,
 
   constants: {
+    CACHE_MAX:  256,
     UPPER:      'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
     UPPER_REST: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
   },
@@ -46,11 +47,33 @@ foam.CLASS({
         var lineComment  = P.seq(P.literal('//'), P.repeat0(P.notChars('\n\r')));
         var blockComment = P.seq(P.literal('/*'), P.until(P.literal('*/')));
 
+        // An escape swallows the backslash AND whatever follows it, whatever
+        // that is. Pairing the backslash only with the closing quote read the
+        // "\\" in `var a = "\\";` as an escaped quote, so the skip ran past
+        // the real terminator and ate the first foam call behind it.
+        var escape = P.seq(P.literal('\\'), P.anyChar());
+
+        // Single- and double-quoted strings are LINE-BOUNDED, because JS says
+        // they are: an unterminated quote is a syntax error, not a string that
+        // runs on to the next quote three functions away.
+        //
+        // That bound is also what contains the one shape this scanner cannot
+        // recognise — a regex literal. The apostrophe in /don't/ is not a
+        // quote, but nothing here can tell it from one without tracking the
+        // previous significant token to separate regex from division. Bounded
+        // to its line, that mis-read ends at the newline; unbounded, it flipped
+        // quote parity for the whole rest of the file, which is how a
+        // `foam.CLASS(` sitting safely inside a test fixture string came to be
+        // read as this file's own definition call.
         function quotedString(qChar) {
           return P.seq(P.literal(qChar),
-            P.repeat0(P.alt(P.literal('\\' + qChar), P.notChars(qChar))),
+            P.repeat0(P.alt(escape, P.notChars(qChar + '\n\r'))),
             P.literal(qChar));
         }
+
+        // Template literals genuinely do span lines, so theirs is not bounded.
+        var templateString = P.seq(P.literal('`'),
+          P.repeat0(P.alt(escape, P.notChars('`'))), P.literal('`'));
 
         return {
           skips: [
@@ -58,7 +81,7 @@ foam.CLASS({
             lineComment,
             quotedString("'"),
             quotedString('"'),
-            quotedString('`')
+            templateString
           ],
           callName: P.seq1(1, P.literal('foam.'),
             P.str(P.seq(P.chars(this.UPPER),
@@ -67,18 +90,60 @@ foam.CLASS({
             P.literal('('))
         };
       }
+    },
+    {
+      name: 'cache_',
+      documentation: `Last answer per URI, keyed by the exact text it was
+        computed from. One edit asks this question at least twice (the server
+        dispatch, then DiagnosticsHandler), and every guarded request asks it
+        again; without a cache each ask re-scans. Scans are cheap when a file
+        IS a class — the call is at the top — but a file that classifies
+        'other' is scanned to EOF, which measured 1.1ms on this repo's own
+        server.js and rises with file size, on a path semanticTokens re-walks
+        on every keystroke. Entries are dropped wholesale past CACHE_MAX rather
+        than tracked with an LRU: the working set is the open editor tabs, and
+        a rebuild costs one scan.`,
+      factory: function() { return {}; }
     }
   ],
 
   methods: [
     function classify(uri, text) {
-      /** 'jrl' (by extension) | 'pom' | 'class' | 'other'. */
-      if ( uri && uri.endsWith('.jrl') ) return 'jrl';
+      /**
+       * 'jrl' | 'pom' | 'class' | 'other'.
+       *
+       * Two kinds are decided by FILENAME before the text is read at all, and
+       * both are naming conventions the build itself relies on: a '.jrl'
+       * extension, and a file named 'pom.js'. The pom rule is what keeps this
+       * the single answer to the question — server.js used to ask the URI in
+       * one place and the text in another, and the two split on a pom.js whose
+       * foam.POM( was broken mid-edit: the pom cache got invalidated and the
+       * diagnostics did not. A half-typed pom is still a pom.
+       */
+      if ( this.isJrlUri_(uri) ) return 'jrl';
+      if ( this.isPomUri_(uri) ) return 'pom';
       if ( ! text || text.indexOf('foam.') === -1 ) return 'other';
 
+      var hit = this.cache_[uri];
+      if ( hit && hit.text === text ) return hit.kind;
+
       var name = this.firstSignificantCall_(text);
-      if ( name === null )  return 'other';
-      return name === 'POM' ? 'pom' : 'class';
+      var kind = name === null ? 'other' : ( name === 'POM' ? 'pom' : 'class' );
+
+      if ( uri ) {
+        if ( Object.keys(this.cache_).length >= this.CACHE_MAX ) this.cache_ = {};
+        this.cache_[uri] = { text: text, kind: kind };
+      }
+      return kind;
+    },
+
+    function isJrlUri_(uri) {
+      return !! uri && uri.endsWith('.jrl');
+    },
+
+    function isPomUri_(uri) {
+      /** 'pom.js', anywhere — the build's own name for a pom. */
+      return !! uri && ( uri === 'pom.js' || uri.endsWith('/pom.js') );
     },
 
     function firstSignificantCall_(text) {

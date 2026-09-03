@@ -325,10 +325,6 @@ function start() {
     return uri && uri.endsWith('.jrl');
   }
 
-  function isPomFile(uri) {
-    return uri && /pom\.js$/.test(uri);
-  }
-
   function pushDiagnostics(uri, text) {
     notify('textDocument/publishDiagnostics', {
       uri: uri,
@@ -370,16 +366,20 @@ function start() {
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
 
-    // POM saves don't go through the foam.CLASS reindex path (POM is excluded
-    // from FOAM_CALL_REGEX). Drop the cached entry positions for this pom so
-    // class→pom navigation reflects the edit on the next request.
-    if ( isPomFile(uri) && typeof index.invalidatePomCache === 'function' ) {
+    // POM saves don't go through the foam.CLASS reindex path. Drop the cached
+    // entry positions for this pom so class→pom navigation reflects the edit
+    // on the next request. Asked of the classifier, like every other kind
+    // question here — asking the URI here and the classifier below split on a
+    // pom.js whose foam.POM( was broken mid-edit, invalidating the cache but
+    // never re-pushing the diagnostics.
+    var savedKind = fileClassifier.classify(uri, doc.text);
+    if ( savedKind === 'pom' && typeof index.invalidatePomCache === 'function' ) {
       var pomPath = uriToPath_(uri);
       if ( pomPath ) index.invalidatePomCache(pomPath);
     }
 
     var changedClassIds = [];
-    if ( fileClassifier.classify(uri, doc.text) === 'class' ) {
+    if ( savedKind === 'class' ) {
       var models = fileModelCache.getModels(uri, doc.text);
 
       // Re-register the classes via real foam.CLASS. Wrap each model block

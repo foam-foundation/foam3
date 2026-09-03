@@ -17,13 +17,15 @@ public class GroupByPlan
   protected Object  state_;
   protected long    cost_;
   protected Index   tail_;
+  protected Indexer indexer_;
   protected boolean reverseSort_ = false;
   protected boolean needGroupBy  = true;
 
   public GroupByPlan(Object state, Sink sink, Predicate predicate, Indexer indexer, Index tail) {
-    state_ = state;
-    cost_  = calculateCost(indexer);
-    tail_  = tail;
+    state_   = state;
+    cost_    = calculateCost(indexer);
+    tail_    = tail;
+    indexer_ = indexer;
   }
 
   public long calculateCost(Indexer indexer) {
@@ -39,7 +41,7 @@ public class GroupByPlan
 
   public void select(Object unused, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     if ( state_ == null ) return;
-    ((TreeNode) state_).groupBy((TreeNode) state_, sink, tail_);
+    ((TreeNode) state_).groupBy((TreeNode) state_, sink, tail_, indexer_);
   }
 
   public SelectPlan restate(Object state) {

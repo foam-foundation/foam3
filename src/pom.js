@@ -372,6 +372,9 @@ foam.POM({
     { name: "foam/dao/index/MDAOAndOrderTest",                        flags: "js&test|java&test" },
     { name: "foam/dao/index/TreeIndexInTest",                         flags: "js&test|java&test" },
     { name: "foam/dao/index/TreeIndexInJsTest",                       flags: "js&test|java&test" },
+    { name: "foam/dao/index/test/IndexKeyRecord",                     flags: "js&test|java&test" },
+    { name: "foam/dao/index/test/MDAOIndexKeyTest",                   flags: "js&test|java&test" },
+    { name: "foam/dao/index/test/TreeNodeBench",                      flags: "js&test|java&test" },
     { name: "foam/dao/MDAO",                                          flags: "js" },
     { name: "foam/dao/ArrayDAO",                                      flags: "js|java" },
     { name: "foam/dao/CopyOnWriteDAO",                                flags: "js|java" },
@@ -1536,6 +1539,7 @@ foam.POM({
     { name: "foam/dao/test/tests",                                    flags: "test" },
     { name: "foam/dao/history/test/tests",                            flags: "test" },
     { name: "foam/dao/index/tests",                                   flags: "test" },
+    { name: "foam/dao/index/test/tests",                              flags: "test" },
     { name: "foam/lang/tests",                                        flags: "test" },
     { name: "foam/lib/formatter/test/tests",                          flags: "test" },
     { name: "foam/lib/json/tests",                                    flags: "test" }

@@ -110,7 +110,11 @@ foam.CLASS({
     },
 
     function hitTest(p) {
-      var r2 = 36; // 6px radius, squared
+      // p arrives in scene units (GraphScene scales it by its zoom first), so
+      // the target widens as the scene shrinks: 6 screen px either side.
+      var scene = this.parent && this.parent.parent;
+      var r     = 6 / ( ( scene && scene.scaleX ) || 1 );
+      var r2    = r * r;
       for ( var i = 0 ; i <= 24 ; i++ ) {
         var pt = this.pointAt(i / 24);
         var dx = pt.x - p.x, dy = pt.y - p.y;

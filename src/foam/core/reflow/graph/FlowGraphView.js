@@ -32,7 +32,6 @@ foam.CLASS({
     'foam.graph.Graph',
     'foam.graph.GraphNode',
     'foam.graph.map2d.LayeredGridPlacementStrategy',
-    'foam.u2.dialog.ConfirmationModal',
     'foam.core.reflow.graph.GraphScene',
     'foam.core.reflow.graph.GraphTheme',
     'foam.core.reflow.graph.GraphNodeCView',
@@ -74,13 +73,9 @@ foam.CLASS({
 
   messages: [
     { name: 'ZOOM_HINT', message: 'Scroll to zoom · Shift-drag to select · Drag to pan' },
-    { name: 'DELETE_LOCKED_TITLE', message: 'Delete blocks with dependents?' },
-    { name: 'DELETE_LOCKED_BODY', message: 'The following blocks are referenced elsewhere in the flow. Deleting them may break those blocks: ' },
     { name: 'UNLINKED_LABEL', message: 'Not linked to other blocks' },
     { name: 'FOCUS_PREFIX', message: 'Focused on ' },
-    { name: 'PREVIEW_LABEL', message: 'Preview' },
-    { name: 'DELETE_CONFIRM', message: 'Delete' },
-    { name: 'DELETE_CANCEL', message: 'Cancel' }
+    { name: 'PREVIEW_LABEL', message: 'Preview' }
   ],
 
   css: `
@@ -1114,7 +1109,7 @@ foam.CLASS({
       code: async function() {
         var self = this;
         try {
-          var text = await this.paste();
+          var text = await this.paste(false);
           var names = await this.pasteBlocks(text);
           var sel = {};
           names.forEach(function(n) {
@@ -1159,34 +1154,10 @@ foam.CLASS({
       keyboardShortcuts: [ 'delete', 'backspace' ],
       isAvailable: function(flowMode) { return ! flowMode.isLimitedEditMode; },
       code: function() {
-        var self = this;
         var roots = this.selectedRoots_();
         if ( ! roots.length ) return false;
-
-        var doDelete = function() {
-          roots.forEach(function(n) { if ( n.block ) n.block.del(); });
-        };
-
-        var lockedRoots = roots.filter(function(n) { return n.block && n.block.locked; });
-        if ( lockedRoots.length ) {
-          var body = this.DELETE_LOCKED_BODY + lockedRoots.map(function(n) {
-            return n.name + ' (' + ( n.block.dependencies || [] ).join(', ') + ')';
-          }).join('; ');
-
-          // Keyboard shortcuts bypass ActionView, so the confirmation is raised here.
-          this.ctrl.add(this.ConfirmationModal.create({
-            title: this.DELETE_LOCKED_TITLE,
-            modalStyle: 'DESTRUCTIVE',
-            primaryAction: foam.lang.Action.create({
-              name: 'confirm', label: this.DELETE_CONFIRM, code: function() { doDelete(); }
-            }),
-            secondaryAction: foam.lang.Action.create({
-              name: 'cancel', label: this.DELETE_CANCEL, code: function() {}
-            })
-          }).add(body));
-        } else {
-          doDelete();
-        }
+        // Block.del asks about dependents itself (Console.deleteFlowChild).
+        roots.forEach(function(n) { if ( n.block ) n.block.del(); });
         return true;
       }
     },

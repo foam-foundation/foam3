@@ -211,6 +211,30 @@ foam.CLASS({
         return this.javaType
       }
     },
+    // How the generated class records that this property is set. buildJavaClass fills these
+    // once it knows whether the owning model packs its flags (javaPackIsSet): either the
+    // property's own boolean field, or one bit of the class's long[]. The getter, setter,
+    // clearX() and the PropertyInfo all read them, so the choice lives in one place.
+    {
+      class: 'String',
+      name: 'javaIsSetRead_',
+      documentation: 'Java boolean expression, valid inside the owning class, true when the property is set.'
+    },
+    {
+      class: 'String',
+      name: 'javaIsSetTrue_',
+      documentation: 'Java statement, inside the owning class, that marks the property set.'
+    },
+    {
+      class: 'String',
+      name: 'javaIsSetFalse_',
+      documentation: 'Java statement, inside the owning class, that marks the property unset.'
+    },
+    {
+      class: 'Function',
+      name: 'javaIsSetReadOn_',
+      documentation: 'Given a Java expression for an instance of the owning class, returns the boolean expression true when the property is set on it. Used by the PropertyInfo, which reads another object.'
+    },
     {
       class: 'String',
       name: 'javaJSONParser',

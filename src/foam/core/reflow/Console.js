@@ -1867,7 +1867,7 @@ foam.CLASS({
           Name the blocks that reference it, and offer to rewrite them with it. */
       if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
 
-      var live = this.flattenFlow(this.flowChildren);
+      var live = this.flattenFlow();
 
       // Two blocks of one name collapse in the flow scope, which binds the last of
       // them and leaves the other unreachable. Bounce the rename instead of landing it.

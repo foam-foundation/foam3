@@ -113,10 +113,10 @@ foam.CLASS({
       return f;
     },
 
-    function flattenFlow(list) {
-      /** Every block in document order, parent before its children. */
+    function flattenFlow() {
+      /** Every block below this one in document order, parent before its children. */
       var out = [];
-      ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(list);
+      ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(this.flowChildren);
       return out;
     },
 

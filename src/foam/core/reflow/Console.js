@@ -1845,11 +1845,6 @@ foam.CLASS({
           name: 'deleteAll',
           label: 'Delete all ' + doomed.length,
           code: remove
-        }),
-        secondaryAction: foam.lang.Action.create({
-          name: 'cancel',
-          label: 'Cancel',
-          code: function() {}
         })
       });
 

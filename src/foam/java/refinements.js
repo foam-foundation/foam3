@@ -521,8 +521,10 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var sparse = cls.sparse && this.javaSparse && ! this.javaGetter && ! this.javaSetter;
 
       // How this property records "set": present in the sparse shape, one bit of the class's
-      // long[] when the model opted into javaPackIsSet, or its own boolean field. The
-      // expressions carry that choice into the getter, the setter, clear and the PropertyInfo.
+      // long words when the model opted into javaPackIsSet (reached through the isSet_(bit),
+      // setIsSet_(bit) and clearIsSet_(bit) helpers from buildPackedIsSet_), or its own boolean
+      // field. The expressions carry that choice into the getter, the setter, clear and the
+      // PropertyInfo.
       if ( sparse ) {
         var ord = cls.sparseOrdinals_++;
         var sh  = cls.sparseShapeField_, vs = cls.sparseValuesField_;
@@ -538,13 +540,11 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         this.javaInnerSetter  = '{ int i = ' + slot + '; if ( i < 0 ) { ' + sh + ' = ' + sh + '.with(' + ord + '); ' +
           vs + ' = foam.lang.SparseShape.insertAt(' + vs + ', ' + slot + ', val); } else ' + vs + '[i] = val; }';
       } else if ( cls.packIsSet ) {
-        var bit  = cls.isSetBits_++;
-        var word = cls.isSetField_ + '[' + ( bit >> 6 ) + ']';
-        var mask = '(1L << ' + ( bit & 63 ) + ')';
-        this.javaIsSetRead_   = '( ( ' + word + ' & ' + mask + ' ) != 0 )';
-        this.javaIsSetTrue_   = word + ' |= ' + mask + ';';
-        this.javaIsSetFalse_  = word + ' &= ~' + mask + ';';
-        this.javaIsSetReadOn_ = function(obj) { return '( ( ' + obj + '.' + word + ' & ' + mask + ' ) != 0 )'; };
+        var bit = cls.isSetBits_++;
+        this.javaIsSetRead_   = 'isSet_(' + bit + ')';
+        this.javaIsSetTrue_   = 'setIsSet_(' + bit + ');';
+        this.javaIsSetFalse_  = 'clearIsSet_(' + bit + ');';
+        this.javaIsSetReadOn_ = function(obj) { return obj + '.isSet_(' + bit + ')'; };
       } else {
         this.javaIsSetRead_   = isSet;
         this.javaIsSetTrue_   = isSet + ' = true;';
@@ -698,6 +698,55 @@ foam.CLASS({
 foam.LIB({
   name: 'foam.lang.FObject',
   methods: [
+    function buildPackedIsSet_(cls) {
+      // javaPackIsSet storage: one long per 64 properties, and three helpers over them. Per-
+      // property booleans are independent fields, so setters on different properties never
+      // interact; a shared word makes |= a read-modify-write, so the writers take the object's
+      // monitor. Reads stay plain, as they are for the booleans. Java masks a shift distance to
+      // 0..63, so 1L << bit selects within the word without a mask of its own.
+      var words = Math.ceil(cls.isSetBits_ / 64);
+      var word  = function(w) { return cls.isSetField_ + w; };
+
+      for ( var w = 0 ; w < words ; w++ ) {
+        cls.field({ name: word(w), type: 'long', visibility: 'protected' });
+      }
+
+      // One statement per word, dispatched on bit >> 6; a single word needs no switch.
+      var perWord = function(stmt) {
+        if ( words == 1 ) return stmt(word(0));
+        var body = 'switch ( bit >> 6 ) {\n';
+        for ( var w = 0 ; w < words ; w++ ) {
+          body += ( w == words - 1 ? '  default: ' : '  case ' + w + ': ' ) + stmt(word(w)) + '\n';
+        }
+        return body + '}';
+      };
+
+      cls.
+        method({
+          name: 'isSet_',
+          type: 'boolean',
+          visibility: 'protected',
+          args: [ { name: 'bit', type: 'int' } ],
+          body: perWord(function(f) { return 'return ( ' + f + ' & (1L << bit) ) != 0;'; })
+        }).
+        method({
+          name: 'setIsSet_',
+          type: 'void',
+          visibility: 'protected',
+          synchronized: true,
+          args: [ { name: 'bit', type: 'int' } ],
+          body: perWord(function(f) { return f + ' |= (1L << bit);' + ( words == 1 ? '' : ' break;' ); })
+        }).
+        method({
+          name: 'clearIsSet_',
+          type: 'void',
+          visibility: 'protected',
+          synchronized: true,
+          args: [ { name: 'bit', type: 'int' } ],
+          body: perWord(function(f) { return f + ' &= ~(1L << bit);' + ( words == 1 ? '' : ' break;' ); })
+        });
+    },
+
     function buildJavaClass(cls) {
       // TODO Generate getX() and setX() if contextAware
       cls = cls || foam.java.Class.create();
@@ -717,8 +766,9 @@ foam.LIB({
       if ( this.model_.javaExtends )
         cls.extends = this.model_.javaExtends;
 
-      // javaPackIsSet: the properties allocate one bit each as they build; the long[] that
-      // holds them is sized and added once they are all in (below the axiom loop).
+      // javaPackIsSet: the properties allocate one bit each as they build; the long words
+      // that hold them, one per 64 properties, and the helpers that read and write a bit are
+      // added once they are all in (below the axiom loop).
       cls.packIsSet   = !! this.model_.javaPackIsSet;
       cls.isSetBits_  = 0;
       cls.isSetField_ = 'isSet' + this.model_.name + '_';
@@ -756,14 +806,7 @@ foam.LIB({
         axioms[i].buildJavaClass && axioms[i].buildJavaClass(cls, this);
       }
 
-      if ( cls.packIsSet && cls.isSetBits_ > 0 ) {
-        cls.field({
-          name: cls.isSetField_,
-          type: 'long[]',
-          visibility: 'protected',
-          initializer: 'new long[' + Math.ceil(cls.isSetBits_ / 64) + '];'
-        });
-      }
+      if ( cls.packIsSet && cls.isSetBits_ > 0 ) this.buildPackedIsSet_(cls);
 
       if ( cls.sparse && cls.sparseOrdinals_ > 0 ) {
         var rootName = 'SHAPE_ROOT_' + this.model_.name + '_';
@@ -2757,12 +2800,15 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'javaPackIsSet',
-      documentation: `Keep this class's per-property set flags in one long[] bitset instead of a
-        boolean field per property. Saves a byte per declared property per instance, which on a
-        wide model is most of what an empty column costs. The isSet API is unchanged
-        (PropertyInfo.isSet, clearX(), getters and setters); only the storage differs, so
-        hand-written javaCode on an opted-in model must not read the xIsSet_ fields, which no
-        longer exist.`
+      documentation: `Keep this class's per-property set flags in long fields, one bit per
+        property and one field per 64 properties, instead of a boolean field per property.
+        Saves a byte per declared property per instance, which on a wide model is most of what
+        an empty column costs. The isSet API is unchanged (PropertyInfo.isSet, clearX(), getters
+        and setters); only the storage differs, so hand-written javaCode on an opted-in model
+        must not read the xIsSet_ fields, which no longer exist; the class's isSet_(bit),
+        setIsSet_(bit) and clearIsSet_(bit) helpers are the storage's only readers and writers.
+        The writers are synchronized on the object, so setters on different properties keep the
+        independence the separate boolean fields gave them.`
     },
     {
       class: 'Boolean',

@@ -27,6 +27,7 @@ foam.POM({
     { name: 'Clock',                   flags: 'js' },
     { name: 'Flowable',                flags: 'js' },
     { name: 'Console',                 flags: 'js' },
+    { name: 'DependencyScanner',       flags: 'js' },
     { name: 'Block',                   flags: 'js' },
     { name: 'ConsoleZACClient',        flags: 'js' },
     { name: 'DAOCreate',               flags: 'js' },

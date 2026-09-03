@@ -3,3 +3,9 @@ p({
   "id": "ColumnParserTest",
   "language": 0
 })
+
+p({
+  "class": "foam.core.reflow.test.DependencyScannerTest",
+  "id": "DependencyScannerTest",
+  "language": 0
+})

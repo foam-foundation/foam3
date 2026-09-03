@@ -131,6 +131,7 @@ running under the user's context`,
       args: 'foam.core.app.AppConfig from',
       type: 'foam.core.app.AppConfig',
       javaCode: `
+        if ( from == null) return this;
         setPrivacy(from.getPrivacy());
         setPrivacyUrl(from.getPrivacyUrl());
         setCopyright(from.getCopyright());
@@ -142,6 +143,7 @@ running under the user's context`,
         return this;
       `,
       code: function(from) {
+        if ( ! from ) return this;
         this.privacy = from.privacy;
         this.privacyUrl = from.privacyUrl;
         this.copyright = from.copyright;

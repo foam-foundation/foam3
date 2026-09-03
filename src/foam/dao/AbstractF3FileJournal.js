@@ -84,6 +84,7 @@ foam.CLASS({
     protected JSONFObjectFormatter getFormatter(X x) {
       JSONFObjectFormatter f = formatter.get();
       f.setX(x);
+      f.setMultiLine(getMultiLineOutput());
       return f;
     }
 

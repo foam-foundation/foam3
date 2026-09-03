@@ -97,6 +97,15 @@ foam.CLASS({
       var table = this.table;
       table.write();
       table.selection$.sub(function() { console.log('selection: ', arguments, table.selection); });
+
+      // CopyBorder: wrap arbitrary content with a copy button. No copyText set
+      // copies the rendered text; copyText / copyText$ copies an explicit value.
+      foam.u2.Element.create().
+        add('CopyBorder demo — reference: ').
+        start(foam.u2.borders.CopyBorder, { label: 'reference' }).
+          add('REF-74837455000').
+        end().
+        write();
     }
   ]
 });

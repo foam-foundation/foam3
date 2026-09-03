@@ -15,163 +15,6 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Flowable',
-
-  topics: [ 'flowUpdated' ],
-
-  imports: [ 'softSelected' ],
-
-  css: `
-    ^dependent {
-      border: 1px solid orange !important;
-    }
-    ^error {
-      color: $textDestructive;
-    }
-  `,
-
-  properties: [
-    {
-      name: 'flowParent',
-      hidden: true,
-      transient: true
-    },
-    {
-      class: 'String',
-      name: 'flowName',
-    },
-    {
-      class: 'String',
-      name: 'error',
-      reactive: false,
-      transient: true,
-      hidden: true,
-      visibility: 'RO',
-      expression: function(value$reactionError_) {
-        // console.log('************** Flowable error:', value$reactionError_);
-        return value$reactionError_;
-      },
-      visibility: function(error) {
-        return error ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RO;
-      }
-    },
-    {
-      class: 'Array',
-      name: 'flowChildren',
-      hidden: true
-    },
-    { name: 'value', hidden: true },
-    {
-      name: 'treeRowRenderer',
-      hidden: true,
-      value: function(e) {
-        e.parentNode.enableClass('locked', this.locked$);
-        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
-
-        let dependent$ = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1);
-
-        e.enableClass(this.myClass('error'), this.error$);
-        e.parentNode.enableClass(this.myClass('dependent'), dependent$);
-        e.tooltip$ = this.error$;
-        e.add(this.flowName$);
-      }
-    },
-    {
-      name: 'childType',
-      hidden: true,
-      transient: true,
-      documentation: 'Default child type for this flowable',
-      factory: function() { return this.cls_; }
-    },
-    {
-      class: 'StringArray',
-      name: 'dependencies',
-      transient: true
-    },
-    {
-      class: 'Boolean',
-      name: 'locked',
-      transient: true,
-      expression: function(dependencies) {
-        return dependencies.length != 0;
-      }
-    }
-  ],
-
-  methods: [
-    function detachFlowChild(c) {
-      // Helper function to properly detach a flow child
-      // Detach the block's value first (e.g., Script, etc.)
-      if ( c.value && c.value.detach ) {
-        c.value.detach();
-      }
-      // Then detach the block wrapper itself
-      if ( c.detach ) {
-        c.detach();
-      }
-    },
-
-    function toSummary() {
-      return this.flowName;
-    },
-
-    function createFlowChildName(prefix) {
-      for ( var i = 1, name = prefix ; ; ) {
-        name = prefix + i++;
-        if ( ! this.findFlowChildByName(name) ) return name;
-      }
-    },
-
-    function findFlowChildByName(n) {
-      let findEl = inputArr => {
-        if ( ! inputArr?.length ) return;
-        for ( v of inputArr ) {
-          if ( ! v ) continue;
-          if ( v.flowName === n ) {
-            return v;
-          }
-          let ret = findEl(v.flowChildren);
-          if ( ret ) return ret;
-        }
-      };
-      return findEl(this.flowChildren);
-    },
-
-    function addFlowChild(f) {
-      if ( f.deleted_ ) return;
-      f.flowParent = this;
-      this.flowChildren$push(f);
-      this?.addFlowChild_(f);
-    },
-
-    function removeFlowChild(f) {
-      var index = this.flowChildren.indexOf(f);
-      this.flowChildren = this.flowChildren.filter(c => c != f);
-      this?.removeFlowChild_(f);
-
-      if ( this.selected === f ) {
-        if ( this.flowChildren.length > 0 ) {
-          var newIndex = Math.max(0, index - 1);
-          this.selected = this.flowChildren[newIndex];
-        } else {
-          this.selected = null;
-        }
-      }
-    },
-
-    function removeAllFlowChildren() {
-      this.flowChildren.forEach(c => {
-        this.removeFlowChild_(c);
-        this.detachFlowChild(c);
-      });
-      this.flowChildren = [];
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'ReflowHeader',
   extends: 'foam.u2.View',
 
@@ -235,6 +78,8 @@ foam.CLASS({
       margin: 0 8px;
     }
 
+    ^name { width: 230px; }
+
     ^name::placeholder {
       font-style: italic;
     }
@@ -267,6 +112,7 @@ foam.CLASS({
               .start({
                 class: 'foam.u2.TextField',
                 data$: this.data.value.name$,
+                displayWidth: 70,
                 placeholder: 'Unnamed',
                 onKey: false
               })
@@ -286,7 +132,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.EXPORT_TO_PDF, this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -415,6 +261,20 @@ foam.CLASS({
           return;
         }
         await this.data.benchmarkFlow_();
+      }
+    },
+    {
+      name: 'exportToPDF',
+      label: 'Export to PDF',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'download',
+      code: async function() {
+        try {
+          await this.data.exportToPDF_();
+        } catch ( e ) {
+          this.notify(e.message, '', this.LogLevel.ERROR, true);
+        }
       }
     },
     {
@@ -1336,6 +1196,40 @@ foam.CLASS({
         try { await daos[i].cmd(foam.dao.DAO.PURGE_CMD); } catch (e) { /* not a caching dao */ }
       }
       await this.eval_('loadPerf("' + this.value.name + '")');
+    },
+
+    async function exportToPDF_() {
+      /** Render each top-level Block onto its own landscape page.
+          html2pdf is loaded from the CDN on demand; its URL is already whitelisted
+          in src/cspdirectives.jrl under the 'foam-url' script-src key. **/
+      await foam.u2.JsLib.create({
+        src: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js'
+      }).installLib();
+
+      // installLib() resolves even when the script fails to load, so check the global.
+      var html2pdf = this.window.html2pdf;
+      if ( ! html2pdf ) throw new Error('The PDF library could not be loaded.');
+
+      var out    = this.out?.element_;
+      var blocks = out ? out.querySelectorAll(':scope > .block') : [];
+      if ( ! blocks.length ) throw new Error('There is nothing to export.');
+
+      var worker = html2pdf().set({
+        margin:      0.5,
+        filename:    ( this.value.name || 'flow' ) + '.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'in', format: 'a4', orientation: 'landscape' }
+      }).from(blocks[0]).toContainer().toCanvas().toImg().toPdf();
+
+      for ( var i = 1 ; i < blocks.length ; i++ ) {
+        worker = worker.
+          get('pdf').
+          then(function(pdf) { pdf.addPage('a4', 'landscape'); }).
+          from(blocks[i]).toContainer().toCanvas().toImg().toPdf();
+      }
+
+      await worker.save();
     },
 
     async function includeScript(script, parent, skipParse, perfParent) {

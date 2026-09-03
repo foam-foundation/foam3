@@ -2006,6 +2006,29 @@ foam.CLASS({
       this.stringUsageIndex_ = { byName: byName };
     },
 
+    function getIndexedDirs() {
+      /**
+       * Unique directories containing indexed source files. Used by
+       * JournalEntryIndex to discover journal (.jrl) files alongside
+       * sources — the same walk buildStringUsageIndex_ does for
+       * services.jrl, exposed as an interface.
+       */
+      var path_ = require('path');
+      var fileIndex = this.fileIndex_ || {};
+      var seen = {};
+      var dirs = [];
+      for ( var id in fileIndex ) {
+        var entry = fileIndex[id];
+        var p = typeof entry === 'string' ? entry : entry.path;
+        if ( ! p ) continue;
+        var dir = path_.dirname(p);
+        if ( seen[dir] ) continue;
+        seen[dir] = true;
+        dirs.push(dir);
+      }
+      return dirs;
+    },
+
     // ----- Java usage index -----------------------------------------------
     //
     // FOAM captures every javaCode / javaPostSet / javaFactory / etc. block

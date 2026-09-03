@@ -22,10 +22,11 @@ Don't: `{ class: 'Array', name: 'ids', value: [] }`
 Do:    `{ class: 'Array', name: 'ids' }` (Array already has the factory), or `factory: function() { return []; }`
 Review asked: "Should never do value: [] otherwise all instances will share the same array" (PR #3821)
 
-### Never return `undefined` from a factory, expression, or slot function
-The framework warns, `isSet` lies, and downstream slots see a hole.
-Don't: `factory: function() { if ( ! this.x ) return; ... }`
-Do:    return the type's empty value, or move the computation to a `postSet` on the property it depends on
+### Return `null`, never `undefined`, from a factory or expression
+`undefined` means "not computed yet" to the getter, so an expression that returns it is re-run, and re-subscribed, on every read.
+Don't: `expression: function(x) { if ( ! x ) return; ... }`
+Do:    `return (some expression) || null;` — `null` is a real value and is cached
+Review asked: "'undefined' has a special meaning for factory and expression values that means they need to be computed. Returning undefined will cause them to be repeatedly calculated." (PR #5393)
 
 ### A server-created object never runs a JS hook
 `postSet` in JS runs in the browser; an object built by a Java rule never passes through it, and `find().then()` resolves after the read.

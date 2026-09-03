@@ -106,6 +106,13 @@ foam.CLASS({
       return this.flowName;
     },
 
+    function flowRoot() {
+      /** The Console at the top of the flowParent chain. */
+      var f = this;
+      while ( f.flowParent ) f = f.flowParent;
+      return f;
+    },
+
     function createFlowChildName(prefix) {
       for ( var i = 1, name = prefix ; ; ) {
         name = prefix + i++;

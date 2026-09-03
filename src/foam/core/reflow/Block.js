@@ -81,7 +81,24 @@ foam.CLASS({
       name: 'flowName',
       reactive: false,
       label: 'Block Name',
-      supportingLabel: 'Used to as the name for this block and as the variable name in the scope'
+      supportingLabel: 'Used to as the name for this block and as the variable name in the scope',
+      // A validated property defaults its input to onKey (foam.u2.tag.Input.fromProperty),
+      // which would commit a name per keystroke and fire postSet mid-word. Names are
+      // committed whole.
+      onKey: false,
+      postSet: function(o, n) {
+        // A block still being built has no Console above it yet.
+        var root = this.flowRoot();
+        if ( root.onBlockRenamed ) root.onBlockRenamed(this, o, n);
+      },
+      validateObj: function(flowName) {
+        if ( ! flowName ) return;
+        var used = 0;
+        ( function walk(l) {
+          l.forEach(b => { if ( b.flowName === flowName ) used++; walk(b.flowChildren); });
+        } )(this.flowRoot().flowChildren);
+        if ( used > 1 ) return 'Already used by another block.';
+      }
     },
     {
       class: 'String',

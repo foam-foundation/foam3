@@ -836,6 +836,7 @@ foam.CLASS({
     'foam.core.reflow.ToolbarControl',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
+    'foam.log.LogLevel',
     'foam.u2.Link',
     'foam.u2.dialog.ConfirmationModal'
   ],
@@ -843,6 +844,7 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'notify',
     'params',
     'setTimeout',
     'toolbarControlDAO',
@@ -1129,7 +1131,14 @@ foam.CLASS({
         return value$label || 'Flow';
       }
     },
-    'flowErrors_'
+    'flowErrors_',
+    {
+      class: 'Boolean',
+      name: 'renaming_',
+      transient: true,
+      hidden: true,
+      documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    }
   ],
 
   methods: [
@@ -1850,6 +1859,61 @@ foam.CLASS({
       } finally {
         this.feedback_ = prev;
       }
+    },
+
+    function renameBack_(block, name) {
+      /** Put a name back without the write re-entering onBlockRenamed. */
+      this.renaming_ = true;
+      try { block.flowName = name; } finally { this.renaming_ = false; }
+    },
+
+    function onBlockRenamed(block, oldName, newName) {
+      /** A rename changes the block's own name and nothing else -- every reference to
+          it elsewhere still spells the old one, so the flow breaks on the next load.
+          Name the blocks that reference it, and offer to rewrite them with it. */
+      if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
+
+      var live = [];
+      ( function walk(l) { l.forEach(b => { live.push(b); walk(b.flowChildren || []); }); } )(this.flowChildren);
+
+      // Two blocks of one name collapse in the flow scope, which binds the last of
+      // them and leaves the other unreachable. Bounce the rename instead of landing it.
+      if ( live.filter(f => f.flowName === newName).length > 1 ) {
+        this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
+        this.renameBack_(block, oldName);
+        return;
+      }
+
+      // `dependencies` was last refreshed while the block still carried its old
+      // name, so it still lists the blocks that spell it.
+      var dependents = block.dependencies;
+      if ( ! dependents.length ) return;
+
+      // Put the old name back while the question is open: a confirmed rename then
+      // lands as one script write, name and references together, so undo takes it
+      // back in one step, and Cancel has nothing left to undo.
+      this.renameBack_(block, oldName);
+
+      var self  = this;
+      var modal = this.ConfirmationModal.create({
+        title: 'Renaming "' + oldName + '" to "' + newName + '"',
+        modalStyle: 'WARN',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'renameAndUpdate',
+          label: 'Rename and Update References',
+          code: function() {
+            var blocks = JSON.parse(self.generateScriptString());
+            self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
+            self.value.script = JSON.stringify(blocks);
+          }
+        })
+      });
+
+      modal.add(dependents.length + ( dependents.length == 1 ? ' other block refers' : ' other blocks refer' ) +
+        ' to this name: ' + dependents.join(', ') + '. Update ' + ( dependents.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
     },
 
     async function checkForAutosavedScript(scriptName) {

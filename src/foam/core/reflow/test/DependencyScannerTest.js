@@ -215,7 +215,66 @@ foam.CLASS({
       );
 
       // ============================================
-      // 9. Duplicate flowNames -- positional ids
+      // 7. rewrite
+      // ============================================
+      var blocks7 = [
+        {
+          flowName: 'dao1',
+          cmd: 'dao(dao1.filteredDAO)',
+          value: {
+            reactions_: { aql: 'dao1.count + dao10.count' },
+            daoKey: 'transaction.x',
+            code: 'this.dao1; transactionDAO$block'
+          },
+          border: { title: 'dao1 report' },
+          flowChildren: [
+            { flowName: 'dao1' }
+          ]
+        }
+      ];
+      scanner.rewrite(blocks7, { dao1: 'dao2', transactionDAO: 'transaction1DAO' });
+      var b7 = blocks7[0];
+      x.test(b7.cmd === 'dao(dao2.filteredDAO)', 'rewrite: cmd rewritten to dao(dao2.filteredDAO)');
+      x.test(
+        b7.value.reactions_.aql === 'dao2.count + dao10.count',
+        'rewrite: reactions_ expression rewritten to dao2.count + dao10.count'
+      );
+      x.test(b7.value.daoKey === 'transaction1.x', 'rewrite: daoKey rewritten to transaction1.x');
+      x.test(
+        b7.value.code === 'this.dao1; transaction1DAO$block',
+        'rewrite: code rewritten to "this.dao1; transaction1DAO$block" (this.dao1 untouched, preceded by dot)'
+      );
+      x.test(b7.border.title === 'dao1 report', 'rewrite: border.title left unchanged (not a scanned field)');
+      x.test(
+        b7.flowChildren[0].flowName === 'dao2',
+        'rewrite: nested flowChildren[0].flowName renamed to dao2'
+      );
+      x.test(b7.flowName === 'dao2', 'rewrite: top-level flowName renamed to dao2');
+
+      // A DAO short form yields to a block that owns the exact name, as in scan().
+      var blocks7b = [
+        { flowName: 'usersDAO', cmd: 'FROM userDAO' },
+        { flowName: 'users',    cmd: 'script' },
+        { flowName: 'r1',       cmd: 'dao(users.filteredDAO)' },
+        { flowName: 'r2',       cmd: 'dao(usersDAO.filteredDAO)' }
+      ];
+      scanner.rewrite(blocks7b, { usersDAO: 'peopleDAO' });
+      x.test(
+        blocks7b[2].cmd === 'dao(users.filteredDAO)',
+        'rewrite: "users" names its own block, so renaming usersDAO leaves it alone'
+      );
+      x.test(blocks7b[3].cmd === 'dao(peopleDAO.filteredDAO)', 'rewrite: usersDAO -> peopleDAO in full');
+
+      // The short form follows a rename onto a name without the DAO suffix, in full.
+      var blocks7c = [
+        { flowName: 'usersDAO', cmd: 'FROM userDAO' },
+        { flowName: 'r1',       cmd: 'dao(users.filteredDAO)' }
+      ];
+      scanner.rewrite(blocks7c, { usersDAO: 'people' });
+      x.test(blocks7c[1].cmd === 'dao(people.filteredDAO)', 'rewrite: short form users -> people after usersDAO -> people');
+
+      // ============================================
+      // 8. Duplicate flowNames -- positional ids
       // ============================================
       var blocks9 = [
         { flowName: 'a', cmd: 'x' },

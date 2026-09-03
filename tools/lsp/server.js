@@ -314,8 +314,11 @@ function start() {
     }
   }
 
-  function isFoamFile(text) {
-    return foam.parse.lsp.CursorAnalyzer.FOAM_CALL_REGEX.test(text);
+  function isClassDoc(uri, doc) {
+    // Request-guard predicate: the doc exists and classifies as a FOAM
+    // class file — through the same shared classifier the push lanes use,
+    // so guards and lanes cannot drift apart.
+    return !! doc && fileClassifier.classify(uri, doc.text) === 'class';
   }
 
   function isJrlFile(uri) {
@@ -376,7 +379,7 @@ function start() {
     }
 
     var changedClassIds = [];
-    if ( isFoamFile(doc.text) ) {
+    if ( fileClassifier.classify(uri, doc.text) === 'class' ) {
       var models = fileModelCache.getModels(uri, doc.text);
 
       // Re-register the classes via real foam.CLASS. Wrap each model block
@@ -789,7 +792,7 @@ function start() {
           }
           break;
         }
-        if ( ! doc || ! isFoamFile(doc.text) ) {
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) {
           respond(id, { isIncomplete: false, items: [] });
           break;
         }
@@ -827,7 +830,7 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           var result = hoverHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] hover: success');
@@ -852,10 +855,11 @@ function start() {
           }
           break;
         }
-        // pom.js doesn't match FOAM_CALL_REGEX (POM is excluded), but the
-        // DefinitionHandler has a dedicated pom→class branch that needs to
-        // run. Let pom.js through; other non-FOAM .js files still bail.
-        if ( ! isFoamFile(doc.text) && ! isPomFile(params.textDocument.uri) ) {
+        // The DefinitionHandler has a dedicated pom->class branch, so pom
+        // docs are allowed through alongside class docs; everything else
+        // still bails.
+        var defKind = fileClassifier.classify(params.textDocument.uri, doc.text);
+        if ( defKind !== 'class' && defKind !== 'pom' ) {
           respond(id, null); break;
         }
         try {
@@ -870,7 +874,7 @@ function start() {
 
       case 'textDocument/documentSymbol':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
         try {
           var result = symbolHandler.handle(doc.text, params.textDocument.uri);
           console.error('[LSP] documentSymbol: success');
@@ -883,7 +887,7 @@ function start() {
 
       case 'textDocument/signatureHelp':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
@@ -1039,7 +1043,7 @@ function start() {
 
       case 'textDocument/codeLens':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
         try {
           respond(id, codeLensHandler.handle(doc.text, params.textDocument.uri));
         } catch (e) {
@@ -1161,7 +1165,7 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, { data: [] }); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, { data: [] }); break; }
         try {
           var result = semanticTokenHandler.handle(doc.text, params.textDocument.uri);
           console.error('[LSP] semanticTokens: ' + (result.data.length / 5) + ' tokens');
@@ -1174,7 +1178,7 @@ function start() {
 
       case 'textDocument/references':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
         try {
           var result = referencesHandler.handle(doc.text, params.position, params.textDocument.uri);
           respond(id, result);
@@ -1197,7 +1201,7 @@ function start() {
 
       case 'textDocument/prepareRename':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, renameHandler.prepare(doc.text, params.position));
         } catch (e) {
@@ -1208,7 +1212,7 @@ function start() {
 
       case 'textDocument/rename':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, renameHandler.handle(doc.text, params.position, params.newName, params.textDocument.uri));
         } catch (e) {
@@ -1219,7 +1223,7 @@ function start() {
 
       case 'textDocument/prepareTypeHierarchy':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
@@ -1248,7 +1252,7 @@ function start() {
 
       case 'textDocument/implementation':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
         try {
           respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
@@ -1259,7 +1263,7 @@ function start() {
 
       case 'textDocument/typeDefinition':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
         } catch (e) {
@@ -1286,9 +1290,12 @@ function start() {
           }
           if ( ! dText ) { respond(id, { kind: 'full', items: [] }); break; }
           var items;
-          if ( isJrlFile(dUri) ) {
+          var dKind = fileClassifier.classify(dUri, dText);
+          if ( dKind === 'jrl' ) {
             items = jrlHandler.handleDiagnostics(dText, dUri);
-          } else if ( isFoamFile(dText) ) {
+          } else if ( dKind === 'class' || dKind === 'pom' ) {
+            // 'pom' included: the pull path used to share the push lanes'
+            // unreachable-pom bug (isFoamFile excludes POM by design).
             items = diagnosticsHandler.handle(dText, dUri);
           } else {
             items = [];
@@ -1302,7 +1309,7 @@ function start() {
 
       case 'textDocument/prepareCallHierarchy':
         var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
         } catch (e) {

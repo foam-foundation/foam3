@@ -30,6 +30,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.lang.X',
+    'java.util.Date',
     'java.util.concurrent.Callable',
     'java.util.concurrent.CountDownLatch',
     'java.util.concurrent.FutureTask',
@@ -94,6 +95,9 @@ foam.CLASS({
         stored.setStatus(ScriptStatus.INTERRUPTED);
         stored.setDaoKey("scriptInterruptTestDAO");
         stored.setThreadExecution(task);
+        // A bare MDAO has no LastModifiedAware decorator to stamp this, and the
+        // run's finally block compares it against the stored script's.
+        stored.setLastModified(new Date());
         mdao.put_(sx, stored);
 
         // What the run action sends: same id, SCHEDULED, no Future.
@@ -101,6 +105,7 @@ foam.CLASS({
         incoming.setStatus(ScriptStatus.SCHEDULED);
         incoming.setDaoKey("scriptInterruptTestDAO");
         incoming.setCode("");
+        incoming.setLastModified(new Date());
         try {
           runner.put_(sx, incoming);
         } catch ( Throwable t ) {

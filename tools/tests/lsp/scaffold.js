@@ -760,4 +760,38 @@ var laneDone = h.withServerLane(async function() {
   }
 });
 
+// =========================================================================
+section('ScaffoldHandler — URI special chars + rel-empty package derivation');
+
+// A workspace path with a space and '#' — both are URI syntax when naively
+// concatenated ('#' starts a fragment). They sit ABOVE src so the package
+// stays legal ('demo'); the FILE PATH still carries them, so the handler's
+// pathToFileURL-built edit URIs must round-trip through fileURLToPath.
+// (A special char BELOW src is a different case: it lands in the package,
+// which derivePackage_ rightly refuses — see assertPackageWritable_.)
+var url    = require('url');
+var uRoot  = path.join(tmpRoot(), 'we bx#1');
+var uDir   = mkdir(path.join(uRoot, 'src', 'demo'));
+write(path.join(uRoot, 'src', 'pom.js'), POM_ONE);
+var uR     = handler.newClass({ dir: uDir, name: 'Spaced' });
+var uCreate = uR.edit.documentChanges.filter(function(dc) { return dc.kind === 'create'; })[0];
+test(!! uCreate && url.fileURLToPath(uCreate.uri) === path.join(uDir, 'Spaced.js'),
+  'create URI for a space/# dir round-trips through fileURLToPath');
+var uDoc = uR.edit.documentChanges.filter(function(dc) {
+  return ! dc.kind && dc.textDocument &&
+         url.fileURLToPath(dc.textDocument.uri) === path.join(uDir, 'Spaced.js');
+})[0];
+test(!! uDoc, 'content-edit URI for the special-char file decodes to the same path');
+
+// dir === pom dir: path.relative gives '' (falsy), so the pom-relative
+// branch is skipped and the package falls back to the folder's own name.
+// Characterization — pin the fallback chain's last step.
+var eRoot = tmpRoot();
+var eDir  = mkdir(path.join(eRoot, 'proj'));
+write(path.join(eDir, 'pom.js'), POM_ONE);
+var eR    = handler.newClass({ dir: eDir, name: 'AtPomRoot' });
+var eText = contentOf(eR, path.join(eDir, 'AtPomRoot.js'));
+test(!! eText && eText.indexOf('package: ' + Q + 'proj' + Q) !== -1,
+  'dir == pom dir (rel="") falls back to the folder-name package');
+
 module.exports = { done: laneDone };

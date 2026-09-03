@@ -530,4 +530,55 @@ var bootDone = h.withServerLane(async function() {
   }
 });
 
+// ---- i18n null passthrough (characterization, review follow-up L16):
+// applyI18n skips only `undefined` — an explicit null IS carried through to
+// server.js/providers, which must therefore null-check every i18n value.
+// Pinned so a future "skip null too" change is a conscious one.
+(function() {
+  var FeatureConfig = require('../../lsp/FeatureConfig');
+  var fcNull = FeatureConfig.load({ initOptions: { i18n: { languages: null } } });
+  h.section('FeatureConfig — i18n null vs undefined');
+  h.test(fcNull.i18n && fcNull.i18n.languages === null &&
+    fcNull.warnings.length === 0,
+    'explicit null i18n value passes through unwarned (providers must null-check)');
+  var fcUndef = FeatureConfig.load({ initOptions: { i18n: { languages: undefined } } });
+  h.test(fcUndef.i18n && ! ( 'languages' in fcUndef.i18n ),
+    'undefined i18n value is skipped entirely');
+})();
+
+// ---- settings contract: the VS Code manifest and FeatureConfig.DEFAULTS
+// must declare the SAME flag set. The extension derives its forwarding
+// from manifest keys and the server validates against DEFAULTS — a flag
+// present on one side only is either invisible in the settings UI or an
+// "unknown flag" warning for every user. (Review follow-up M10.)
+(function() {
+  var section = h.section, test = h.test;
+  section('FeatureConfig <-> VS Code manifest contract');
+
+  var FeatureConfig = require('../../lsp/FeatureConfig');
+  var manifest = JSON.parse(require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'lsp', 'editors', 'vscode', 'package.json'), 'utf8'));
+  var props = ( manifest.contributes &&
+                manifest.contributes.configuration &&
+                manifest.contributes.configuration.properties ) || {};
+
+  var manifestFlags = Object.keys(props)
+    .filter(function(k) { return k.indexOf('foam.features.') === 0; })
+    .map(function(k) { return k.substring('foam.features.'.length); })
+    .sort();
+  var defaultFlags = Object.keys(FeatureConfig.DEFAULTS).sort();
+
+  test(manifestFlags.join(',') === defaultFlags.join(','),
+    'manifest foam.features.* keys == FeatureConfig.DEFAULTS keys — got [' +
+    manifestFlags + '] vs [' + defaultFlags + ']');
+
+  manifestFlags.forEach(function(flag) {
+    var p = props['foam.features.' + flag];
+    test(p.type === 'boolean' && p.default === FeatureConfig.DEFAULTS[flag],
+      'manifest default for ' + flag + ' matches DEFAULTS');
+    test(/Takes effect after a server restart\.$/.test(p.description || ''),
+      'description for ' + flag + ' carries the restart note');
+  });
+})();
+
 module.exports = { done: bootDone };

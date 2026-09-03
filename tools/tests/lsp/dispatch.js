@@ -143,7 +143,8 @@ module.exports.done = (async function() {
   send('initialized', {});
 
   // didOpen of a pom.js must produce a diagnostics PUSH — this is the exact
-  // path that was dead (isFoamFile excludes foam.POM by design).
+  // path that was dead (the isFoamFile gate this branch replaces excluded
+  // foam.POM by design).
   send('textDocument/didOpen', { textDocument: {
     uri: POM_URI, languageId: 'javascript', version: 1, text: BAD_POM } });
   var d1 = await diagsFor(POM_URI, 'the didOpen(pom.js) diagnostics push');
@@ -164,6 +165,57 @@ module.exports.done = (async function() {
     uri: CLASS_URI, languageId: 'javascript', version: 1, text: CLASS_SRC } });
   var d3 = await diagsFor(CLASS_URI, 'the didOpen(foam.CLASS) diagnostics push');
   test(Array.isArray(d3), 'didOpen(foam.CLASS file) still pushes on the class lane');
+
+  // ---- T1 characterization: pin today's dispatch behavior so the route-
+  // table / classifyFile refactors diff against reality, not intention. ----
+
+  function request(method, params) {
+    var id = send(method, params, true);
+    return waitFor(function(m) { return m.id === id; });
+  }
+
+  // jrl lane: a .jrl didOpen produces its own push (pushJrlDiagnostics).
+  var JRL_URI = 'file://' + path.join(root, 'seed.jrl');
+  send('textDocument/didOpen', { textDocument: {
+    uri: JRL_URI, languageId: 'javascript', version: 1,
+    text: 'p({"class":"d.B","p":"x"})\n' } });
+  var dj = await diagsFor(JRL_URI, 'the didOpen(.jrl) diagnostics push');
+  test(Array.isArray(dj), 'didOpen(.jrl) pushes on the jrl lane');
+
+  // Plain JS gets NO push. Absence is proven by ordering: stdin is one
+  // ordered pipe, so once the hover REQUEST on the plain doc answers, its
+  // didOpen was fully processed — any push would already sit in backlog.
+  var PLAIN_URI = 'file://' + path.join(root, 'plain.js');
+  send('textDocument/didOpen', { textDocument: {
+    uri: PLAIN_URI, languageId: 'javascript', version: 1,
+    text: 'var x = 1;\nmodule.exports = x;\n' } });
+  var hoverPlain = await request('textDocument/hover', {
+    textDocument: { uri: PLAIN_URI }, position: { line: 0, character: 5 } });
+  test(hoverPlain.result === null,
+    'hover on a non-FOAM doc answers null (guard characterization)');
+  test(! backlog.some(function(m) {
+      return m.method === 'textDocument/publishDiagnostics' && m.params.uri === PLAIN_URI;
+    }),
+    'plain JS didOpen produced no diagnostics push');
+
+  // Guard on the pom doc: hover answers null — pom files are not class
+  // docs, and today every doc-kind guard falls back to the empty answer.
+  var hoverPom = await request('textDocument/hover', {
+    textDocument: { uri: POM_URI }, position: { line: 0, character: 2 } });
+  test(hoverPom.result === null, 'hover on a pom doc answers null');
+
+  // Unknown method: -32601, the JSON-RPC method-not-found contract.
+  var unknown = await request('foam/noSuchMethod', {});
+  test(!! unknown.error && unknown.error.code === -32601,
+    'unknown request method answers -32601');
+
+  // didSave re-push lane (reindex loop): the saved pom re-pushes its
+  // diagnostics — the doc holds the CLEAN text from the didChange above,
+  // so the re-push is an empty set.
+  send('textDocument/didSave', { textDocument: { uri: POM_URI } });
+  var dSave = await diagsFor(POM_URI, 'the didSave(pom.js) reindex re-push');
+  test(Array.isArray(dSave) && dSave.length === 0,
+    'didSave(pom.js) re-pushes through the reindex lane');
 
   // pom-file-missing is a DISK check, so the save that clears it is the save
   // creating the named file — a file the pom's own axiom state knows nothing

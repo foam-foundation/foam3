@@ -546,6 +546,8 @@ test(anyI18nDiags(notIgnored).length === 1, 'Without i18n-ignore the string is s
 var exSrc = "foam.CLASS({\n  package:'test', name:'EX',\n  methods:[ function render(){ this.add('First Name'); } ]\n})";
 test(anyI18nDiags(exSrc, 'file:///app/src/foo/FooTest.js').length === 0, 'Test file (uri) is exempt');
 test(anyI18nDiags(exSrc, 'file:///app/src/foo/demos/Foo.js').length === 0, 'Demos file (uri) is exempt');
+test(anyI18nDiags(exSrc, 'file:///app/src/foo/demo/Foo.js').length === 0,
+  'Singular demo/ dir is exempt too (was a gap: demos matched, demo did not)');
 test(anyI18nDiags(exSrc, 'file:///app/src/foo/Foo.js').length === 1, 'Non-test file still flagged (control)');
 
 // === Step 5: WorkspaceAnalyzer groups i18n diagnostics by code ===

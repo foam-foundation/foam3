@@ -36,6 +36,7 @@ foam.CLASS({
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
     'foam.dao.ArraySink',
+    'foam.dao.BulkLoadDAO',
     'foam.dao.F3FileJournal',
     'foam.dao.MDAO',
     'foam.dao.ReadOnlyF3FileJournal',
@@ -106,10 +107,10 @@ foam.CLASS({
         perRow = null;
 
         long h2 = settleHeap();
-        MDAO bulk = fresh();
+        MDAO        bulk    = fresh();
+        BulkLoadDAO staging = new BulkLoadDAO(jx, IndexKeyRecord.getOwnClassInfo());
         startPhase();
-        bulk.beginBulkLoad();
-        replay(jx, name, bulk);
+        replay(jx, name, staging);
         endPhase("replayBulkStageSized", "records=" + n);
 
         // What staging costs while it is open: the rows plus the map holding
@@ -120,8 +121,9 @@ foam.CLASS({
           + " bytesPerRecord=" + ( ( hStaged - h2 ) / n ));
 
         startPhase();
-        bulk.endBulkLoad();
+        bulk.bulkLoad(staging.rows());
         endPhase("replayBulkBuildSized", "records=" + n);
+        staging = null;
         long h3 = settleHeap();
         System.out.println("BENCH phase=heapBulk heapMB=" + ( ( h3 - h2 ) / 1048576 )
           + " bytesPerRecord=" + ( ( h3 - h2 ) / n ));
@@ -148,15 +150,15 @@ foam.CLASS({
           replay(jx, name, perRowRound);
           endPhase("replayPerRow", "iter=" + i + " records=" + n);
 
-          MDAO bulkRound = fresh();
+          MDAO        bulkRound    = fresh();
+          BulkLoadDAO stagingRound = new BulkLoadDAO(jx, IndexKeyRecord.getOwnClassInfo());
           settleHeap();
           startPhase();
-          bulkRound.beginBulkLoad();
-          replay(jx, name, bulkRound);
+          replay(jx, name, stagingRound);
           endPhase("replayBulkStage", "iter=" + i + " records=" + n);
 
           startPhase();
-          bulkRound.endBulkLoad();
+          bulkRound.bulkLoad(stagingRound.rows());
           endPhase("replayBulkBuild", "iter=" + i + " records=" + n);
         }
       `
@@ -194,7 +196,7 @@ foam.CLASS({
 
     {
       name: 'replay',
-      args: 'X jx, String name, foam.dao.MDAO into',
+      args: 'X jx, String name, foam.dao.DAO into',
       documentation: 'A read-only journal, so replaying opens no writer.',
       javaCode: `
         new ReadOnlyF3FileJournal.Builder(jx).setFilename(name).build().replay(jx, into);

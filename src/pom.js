@@ -1285,6 +1285,7 @@ foam.POM({
     { name: "foam/dao/LimitedDAO" },
     { name: "foam/dao/MDAO" },
     { name: "foam/dao/MapDAO" },
+    { name: "foam/dao/BulkLoadDAO" },
     { name: "foam/dao/index/Index" },
     { name: "foam/dao/index/OrPlan" },
     { name: "foam/dao/index/GroupByPlan" },

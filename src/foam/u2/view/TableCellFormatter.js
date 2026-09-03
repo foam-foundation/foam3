@@ -93,12 +93,16 @@ foam.CLASS({
       name: 'tableWidth'
     },
     {
-      documentation: `When truthy, table cells for this column render a copy-to-clipboard
-        button. true copies the displayed cell text; a function(value, obj) returning a
-        string copies its result instead — use for cells that render icons or objects.
-        The function only sees properties the table queried for its visible columns
-        (projection), so reading another property returns its unset default unless that
-        property is also a column.`,
+      documentation: `When truthy, table cells for this column and the property's
+        read-only detail-view rows render a copy-to-clipboard button. true copies the
+        displayed text; a function(value, obj) returning a string copies its result
+        instead — use for cells that render icons or objects.
+        In tables the function only sees properties the table queried for its visible
+        columns (projection), so reading another property returns its unset default
+        unless that property is also a column; in detail views it sees the full object.
+        In detail views, true reads the read-only view's rendered text — a property
+        whose explicit view stays an input in read-only mode (e.g. foam.u2.TextField)
+        renders no text to read, so use the function form there.`,
       name: 'copyable'
     },
     {

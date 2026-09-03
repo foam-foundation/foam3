@@ -175,12 +175,128 @@ File text ──► FileModelCache.parseFileModels()
 - Highlights typed variables (assigned from `.create()`) as class tokens
 - VS Code renders these with theme-aware colors for better readability
 
+### i18n Translation
+- Hardcoded `.add('...')` display strings get an "Extract to messages:" code action (plain, or with a seeded `messageMap`)
+- With a reachable translation model, extraction can also translate on the spot, and a HINT flags `messages:` entries missing a configured language with a one-click translate fix
+- See **i18n Translation** below for setup and configuration
+
+### CodeLens
+- **Missing translations**: a `messages:` entry short of a configured language gets a "N translations missing" lens; clicking it translates (`codeLens.i18n`, on by default — also needs `hints.i18nMissingLanguage`, since clicking is a translate)
+- **Subclass counts**: each class gets a "N subclasses" lens (`codeLens.hierarchy`, off by default — informational only, nothing to click yet)
+
+### New Class
+- `foam.scaffold.newClass` builds a new FOAM class file plus its `pom.js` `files:` entry as a single WorkspaceEdit — one undo step, nothing written server-side
+- The license header is copied verbatim from a sibling `.js` in the same folder, and the package is derived from the path below `src/` (or below the nearest `pom.js`)
+- Refuses to scaffold outside the workspace root the client opened
+
+### Feature toggles
+- Every noisy feature above can be turned off: diagnostics, hints, completion, hover, semantic tokens, signature help, folding, and each CodeLens
+- Three layers, lowest precedence first: built-in defaults, a `foam-lsp.json` at the workspace root (team defaults, checked in), then the client's own `initializationOptions.foam` (one developer's editor settings)
+- Read once at `initialize` — changing a flag takes effect on the next server restart
+- See **Feature toggles** in `CLAUDE.md` for the full flag table
+
 ### Additional LSP Features
 - **Workspace Symbols** (`Cmd+T`): search all FOAM classes by name
 - **Folding Ranges**: fold properties/methods/requires/etc. blocks
 - **Code Actions**: "Did you mean X?" for unknown classes, fix wrong imports
 - **TextMate Grammar**: Java syntax highlighting in `javaCode` blocks
 - **Document Symbols**: outline of properties/methods/actions
+
+## Feature toggles
+
+Team defaults live in a `foam-lsp.json` at the workspace root — checked in, so
+everyone on the project starts from the same settings:
+
+```json
+{
+  "features": {
+    "codeLens.hierarchy": true,
+    "diagnostics.java": false
+  },
+  "i18n": {
+    "languages": ["fr", "de"],
+    "model": "translategemma:4b"
+  }
+}
+```
+
+An individual developer overrides any of it from their own editor
+(`initializationOptions.foam` — VS Code settings under `foam.features.*` /
+`foam.i18n.*`, Zed's `lsp.foam-lsp.initialization_options`). Unknown flag
+names and unknown `i18n` keys are reported on stderr and ignored rather than
+silently accepted, so a typo is visible instead of merely inert.
+
+Flags are read once, at `initialize`. Editing `foam-lsp.json` or an editor
+setting does nothing until the language server restarts (in VS Code: the FOAM
+status bar item → **Restart FOAM LSP**).
+
+## i18n Translation
+
+Two i18n surfaces in the LSP can call out to a local translation model:
+extracting a hardcoded display string to a `messages:` entry, and filling in
+a `messageMap` translation that's missing for a configured language. Both are
+optional — with no model reachable, the LSP still offers the non-translating
+extract actions; it just won't offer the translate-while-extracting or
+translate-missing actions.
+
+### Setup
+
+Run any OpenAI-compatible chat server locally and have `translategemma:4b`
+(or another translation-capable model) loaded. The LSP probes
+`http://127.0.0.1:11434` (Ollama's default) then `http://127.0.0.1:1234`
+(LM Studio's default), in order, and uses the first one that lists the
+configured model.
+
+```bash
+# Ollama
+ollama pull translategemma:4b
+ollama serve   # listens on 127.0.0.1:11434
+
+# LM Studio: load a translation-capable chat model in the app, then
+# start its local server (Developer tab) — default 127.0.0.1:1234
+```
+
+Any other OpenAI-compatible server (llama.cpp, vLLM, ...) works too — just
+point `endpoint` at it.
+
+### Configuration
+
+Passed via LSP `initializationOptions.foam.i18n` (all optional):
+
+| Key | Default | Notes |
+|---|---|---|
+| `languages` | every distinct `locale` in `journals/locales.jrl`, excluding `sourceLanguage` | Target language codes, e.g. `['fr', 'de']` |
+| `sourceLanguage` | `'en'` | Language the bare `message:` value is written in |
+| `endpoint` | `http://127.0.0.1:11434`, `http://127.0.0.1:1234` | Also settable via the `OLLAMA_HOST` env var |
+| `model` | `translategemma:4b` | Also settable via the `OLLAMA_TRANSLATION_MODEL` env var |
+
+### Code actions
+
+| Action | Offered when | What it does |
+|---|---|---|
+| Extract `'<text>'` to a messages: entry | Always (on the hardcoded-string diagnostic) | Rewrites the usage to `this.<NAME>`, adds a plain `{ name, message }` entry |
+| Extract `'<text>'` to messages: with messageMap | Always | Same, plus an empty `messageMap` seeded with the source-language key |
+| Extract `'<text>'` + translate to `<langs>` via `<model>` | Model reachable AND target languages configured | Extracts and translates into every configured language in one edit |
+| Translate `'<name>'` to `<lang>` via `<model>` (one per missing language, plus an "all missing languages" variant) | Model reachable AND target languages configured | Fills in the missing `messageMap[lang]` entries for a `messages:` entry the `i18n-missing-language` HINT flagged |
+
+### Troubleshooting
+
+**The translate/extract-and-translate actions never show up.** They're gated
+on a confirmed-reachable model — check `foam/i18nStatus` (any MCP-connected
+agent can call it, or use `foam_i18n_translate`, which surfaces the same
+status) or probe the endpoint directly:
+
+```bash
+curl http://127.0.0.1:11434/v1/models   # or :1234 for LM Studio
+```
+
+If the model isn't in that list, `translationReady` stays `false` and only
+the plain (non-translating) extract actions are offered. Also confirm target
+languages are actually configured — an empty `languages` list with nothing
+in `journals/locales.jrl` closes the gate even with a live model.
+
+**Flag toggle / model swap not picked up.** Same as changing `foam.flags` —
+restart the LSP (kill the MCP server or restart the agent) to re-probe.
 
 ## VS Code Extension
 

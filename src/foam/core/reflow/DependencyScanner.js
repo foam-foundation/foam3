@@ -200,15 +200,25 @@ foam.CLASS({
        */
       renames = renames || {};
 
+      var declared = {};
+      this.names(blocks).forEach(function(n) { declared[n] = true; });
+
       var aliasMap = {};
       for ( var oldName in renames ) {
         if ( ! Object.prototype.hasOwnProperty.call(renames, oldName) ) continue;
         var newName = renames[oldName];
         aliasMap[oldName] = newName;
         aliasMap[oldName + '$block'] = newName + '$block';
-        if ( oldName.length > 3 && oldName.slice(-3) === 'DAO' &&
-             newName.length > 3 && newName.slice(-3) === 'DAO' ) {
-          aliasMap[oldName.slice(0, -3)] = newName.slice(0, -3);
+        // "xDAO" is also addressable as "x" unless a block is named "x" (the
+        // rule scan() applies). The short form follows the new name: "yDAO"
+        // keeps one, any other name is spelled in full.
+        if ( oldName.length > 3 && oldName.slice(-3) === 'DAO' ) {
+          var short = oldName.slice(0, -3);
+          if ( ! declared[short] ) {
+            aliasMap[short] = newName.length > 3 && newName.slice(-3) === 'DAO' ?
+              newName.slice(0, -3) :
+              newName;
+          }
         }
       }
 

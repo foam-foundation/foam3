@@ -15,163 +15,6 @@
 
 foam.CLASS({
   package: 'foam.core.reflow',
-  name: 'Flowable',
-
-  topics: [ 'flowUpdated' ],
-
-  imports: [ 'softSelected' ],
-
-  css: `
-    ^dependent {
-      border: 1px solid orange !important;
-    }
-    ^error {
-      color: $textDestructive;
-    }
-  `,
-
-  properties: [
-    {
-      name: 'flowParent',
-      hidden: true,
-      transient: true
-    },
-    {
-      class: 'String',
-      name: 'flowName',
-    },
-    {
-      class: 'String',
-      name: 'error',
-      reactive: false,
-      transient: true,
-      hidden: true,
-      visibility: 'RO',
-      expression: function(value$reactionError_) {
-        // console.log('************** Flowable error:', value$reactionError_);
-        return value$reactionError_;
-      },
-      visibility: function(error) {
-        return error ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RO;
-      }
-    },
-    {
-      class: 'Array',
-      name: 'flowChildren',
-      hidden: true
-    },
-    { name: 'value', hidden: true },
-    {
-      name: 'treeRowRenderer',
-      hidden: true,
-      value: function(e) {
-        e.parentNode.enableClass('locked', this.locked$);
-        e.parentNode.tooltip$ = this.dependencies$.map(d => d.length ? 'Dependents: ' + d.join(',') : '');
-
-        let dependent$ = this.softSelected$.map(s => s && s.dependencies.indexOf(this.flowName) != -1);
-
-        e.enableClass(this.myClass('error'), this.error$);
-        e.parentNode.enableClass(this.myClass('dependent'), dependent$);
-        e.tooltip$ = this.error$;
-        e.add(this.flowName$);
-      }
-    },
-    {
-      name: 'childType',
-      hidden: true,
-      transient: true,
-      documentation: 'Default child type for this flowable',
-      factory: function() { return this.cls_; }
-    },
-    {
-      class: 'StringArray',
-      name: 'dependencies',
-      transient: true
-    },
-    {
-      class: 'Boolean',
-      name: 'locked',
-      transient: true,
-      expression: function(dependencies) {
-        return dependencies.length != 0;
-      }
-    }
-  ],
-
-  methods: [
-    function detachFlowChild(c) {
-      // Helper function to properly detach a flow child
-      // Detach the block's value first (e.g., Script, etc.)
-      if ( c.value && c.value.detach ) {
-        c.value.detach();
-      }
-      // Then detach the block wrapper itself
-      if ( c.detach ) {
-        c.detach();
-      }
-    },
-
-    function toSummary() {
-      return this.flowName;
-    },
-
-    function createFlowChildName(prefix) {
-      for ( var i = 1, name = prefix ; ; ) {
-        name = prefix + i++;
-        if ( ! this.findFlowChildByName(name) ) return name;
-      }
-    },
-
-    function findFlowChildByName(n) {
-      let findEl = inputArr => {
-        if ( ! inputArr?.length ) return;
-        for ( v of inputArr ) {
-          if ( ! v ) continue;
-          if ( v.flowName === n ) {
-            return v;
-          }
-          let ret = findEl(v.flowChildren);
-          if ( ret ) return ret;
-        }
-      };
-      return findEl(this.flowChildren);
-    },
-
-    function addFlowChild(f) {
-      if ( f.deleted_ ) return;
-      f.flowParent = this;
-      this.flowChildren$push(f);
-      this?.addFlowChild_(f);
-    },
-
-    function removeFlowChild(f) {
-      var index = this.flowChildren.indexOf(f);
-      this.flowChildren = this.flowChildren.filter(c => c != f);
-      this?.removeFlowChild_(f);
-
-      if ( this.selected === f ) {
-        if ( this.flowChildren.length > 0 ) {
-          var newIndex = Math.max(0, index - 1);
-          this.selected = this.flowChildren[newIndex];
-        } else {
-          this.selected = null;
-        }
-      }
-    },
-
-    function removeAllFlowChildren() {
-      this.flowChildren.forEach(c => {
-        this.removeFlowChild_(c);
-        this.detachFlowChild(c);
-      });
-      this.flowChildren = [];
-    }
-  ]
-});
-
-
-foam.CLASS({
-  package: 'foam.core.reflow',
   name: 'ReflowHeader',
   extends: 'foam.u2.View',
 
@@ -235,6 +78,8 @@ foam.CLASS({
       margin: 0 8px;
     }
 
+    ^name { width: 230px; }
+
     ^name::placeholder {
       font-style: italic;
     }
@@ -267,6 +112,7 @@ foam.CLASS({
               .start({
                 class: 'foam.u2.TextField',
                 data$: this.data.value.name$,
+                displayWidth: 70,
                 placeholder: 'Unnamed',
                 onKey: false
               })
@@ -992,6 +838,7 @@ foam.CLASS({
     'foam.core.reflow.graph.FlowGraphView',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
+    'foam.log.LogLevel',
     'foam.u2.Link',
     'foam.u2.dialog.ConfirmationModal'
   ],
@@ -1000,6 +847,7 @@ foam.CLASS({
     'auth?',
     'commandDAO',
     'flowDAO',
+    'notify',
     'params',
     'setTimeout',
     'toolbarControlDAO',
@@ -1345,6 +1193,13 @@ foam.CLASS({
       documentation: 'DependencyScanner output for the loaded flow; refreshed by generateScriptString().',
       transient: true,
       hidden: true
+    },
+    {
+      class: 'Boolean',
+      name: 'renaming_',
+      transient: true,
+      hidden: true,
+      documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
     }
   ],
 
@@ -2126,6 +1981,102 @@ foam.CLASS({
       } finally {
         this.feedback_ = prev;
       }
+    },
+
+    function deleteFlowChild(block) {
+      /** A block's `dependencies` names the blocks that read it. Walk them
+          breadth-first to the whole group that breaks with it, and offer to
+          remove the group in one step. Each block goes out through its parent;
+          the merged onFlowChildrenChange then writes the script once, so undo
+          brings the whole group back together. */
+      var doomed = [ block ];
+      var via    = {};
+      for ( var i = 0 ; i < doomed.length ; i++ ) {
+        doomed[i].dependencies.forEach(name => {
+          var d = this.findFlowChildByName(name);
+          if ( d && doomed.indexOf(d) == -1 ) { via[name] = doomed[i].flowName; doomed.push(d); }
+        });
+      }
+
+      var remove = () => doomed.forEach(b => {
+        b.deleted_ = true;
+        b.flowParent.removeFlowChild(b);
+      });
+
+      if ( doomed.length == 1 ) { remove(); return; }
+
+      var others = doomed.slice(1);
+      var modal  = this.ConfirmationModal.create({
+        title: 'Deleting "' + block.flowName + '"',
+        modalStyle: 'DESTRUCTIVE',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'deleteAll',
+          label: 'Delete all ' + doomed.length,
+          code: remove
+        })
+      });
+
+      modal.add(others.length + ( others.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+        ' on it: ' +
+        others.map(b => b.flowName + ( via[b.flowName] === block.flowName ? '' : ' (via ' + via[b.flowName] + ')' )).join(', ') +
+        '. Remove ' + ( others.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
+    },
+
+    function renameBack_(block, name) {
+      /** Put a name back without the write re-entering onBlockRenamed. */
+      this.renaming_ = true;
+      try { block.flowName = name; } finally { this.renaming_ = false; }
+    },
+
+    function onBlockRenamed(block, oldName, newName) {
+      /** A rename changes the block's own name and nothing else -- every reference to
+          it elsewhere still spells the old one, so the flow breaks on the next load.
+          Name the blocks that reference it, and offer to rewrite them with it. */
+      if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
+
+      var live = this.flattenFlow(this.flowChildren);
+
+      // Two blocks of one name collapse in the flow scope, which binds the last of
+      // them and leaves the other unreachable. Bounce the rename instead of landing it.
+      if ( live.filter(f => f.flowName === newName).length > 1 ) {
+        this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
+        this.renameBack_(block, oldName);
+        return;
+      }
+
+      // `dependencies` was last refreshed while the block still carried its old
+      // name, so it still lists the blocks that spell it.
+      var dependents = block.dependencies;
+      if ( ! dependents.length ) return;
+
+      // Put the old name back while the question is open: a confirmed rename then
+      // lands as one script write, name and references together, so undo takes it
+      // back in one step, and Cancel has nothing left to undo.
+      this.renameBack_(block, oldName);
+
+      var self  = this;
+      var modal = this.ConfirmationModal.create({
+        title: 'Renaming "' + oldName + '" to "' + newName + '"',
+        modalStyle: 'WARN',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'renameAndUpdate',
+          label: 'Rename and Update References',
+          code: function() {
+            var blocks = JSON.parse(self.generateScriptString());
+            self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
+            self.value.script = JSON.stringify(blocks);
+          }
+        })
+      });
+
+      modal.add(dependents.length + ( dependents.length == 1 ? ' other block refers' : ' other blocks refer' ) +
+        ' to this name: ' + dependents.join(', ') + '. Update ' + ( dependents.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
     },
 
     async function checkForAutosavedScript(scriptName) {

@@ -82,7 +82,8 @@ foam.CLASS({
       var self = this;
       var map = {
         message:     {}, value:    {}, property: {}, method:  {},
-        pomFileName: {}, classRef: {}, comment:  {}, documentation: {},
+        pomFileName: {}, pomFlagValue: {}, pomJavaFileName: {},
+        classRef: {}, comment:  {}, documentation: {},
         instCall: {}, instCreateReceiver: {}, instTagClass: {}, instClassRef: {},
         instKey: {}, instValue: {}, memberRef: {}
       };
@@ -93,7 +94,10 @@ foam.CLASS({
       // so collect every position.
       var MULTI = { classRef: true, comment: true, documentation: true,
         instCall: true, instCreateReceiver: true, instTagClass: true,
-        instClassRef: true, instKey: true, instValue: true, memberRef: true };
+        instClassRef: true, instKey: true, instValue: true, memberRef: true,
+        // pom scalar values repeat across entries ('js' in ten files:
+        // rows), so unlike pomFileName these keep every span.
+        pomFlagValue: true, pomJavaFileName: true };
 
       // Line-start offsets, computed once (O(n)), so each msg match resolves
       // line/col by binary search (O(log n)). Scanning text from offset 0 per
@@ -753,9 +757,9 @@ foam.CLASS({
         // value parser from running past its closing quote into the next
         // entry. Adding a new POM scalar value is a one-liner now.
         pomFileName:     stringValueRule({ category: 'pomFileName',     hint: 'file name',          msgKind: 'pomFileName' }),
-        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name' }),
+        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name',     msgKind: 'pomJavaFileName' }),
         pomProjectPath:  stringValueRule({ category: 'pomProjectPath',  hint: 'subproject path' }),
-        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination' }),
+        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination',   msgKind: 'pomFlagValue' }),
         pomJavaDep:      stringValueRule({ category: 'pomJavaDep',      hint: 'Java dependency' }),
 
         // Skip one character — catch-all that lets START consume the whole file
@@ -959,28 +963,40 @@ foam.CLASS({
         // Real suggestions come from the model (this class's properties).
         tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('tableColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
         searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('searchColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Context marker: the sug here always fails (matches \u0002 which
         // doesn't appear in source) so it fires during suggestion collection.
         // The id-shaped fallback is msg-wrapped so validation can flag
-        // unknown column names (property names not on the class).
-        columnName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
-          })),
+        // unknown column names. tableColumns and searchColumns emit distinct
+        // msg types because tableColumns also accepts action names (rendered
+        // as row buttons — see foam.u2.table.UnstyledTableView) while
+        // searchColumns filters on properties only.
+        columnNameMarker: P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+          text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
+        })),
+        tableColumnName: P.alt(
+          P.sym('columnNameMarker'),
           P.msg(
-            P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
-            { type: 'columnName' }
+            P.sym('columnNameIdent'),
+            { type: 'tableColumnName' }
           )
         ),
+        searchColumnName: P.alt(
+          P.sym('columnNameMarker'),
+          P.msg(
+            P.sym('columnNameIdent'),
+            { type: 'searchColumnName' }
+          )
+        ),
+        columnNameIdent: P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
 
         importsEntry: P.seq(key('imports', topHint('imports')), wsc, P.literal(':'), wsc, P.sym('array')),
 

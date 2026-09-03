@@ -32,6 +32,22 @@ buildlib.error = function() { /* suppress fatal errors during boot */ };
 var pomPath = path.resolve(process.cwd(), 'pom');
 pmake.bind(buildlib, '-makers=LSP -pom=' + pomPath)();
 
+// The LSP maker's end() hook (LSPMaker.js) calls server.js's start() as a
+// side effect of loading the LSP source files for class registration —
+// start() wires process.stdin.on('end', ...) -> process.exit(0), correct
+// for a real LSP process (exit when the client's pipe closes) but fatal
+// here: this harness's stdin is never an attached client, so it hits EOF
+// on the very first event-loop turn once anything yields to it (an
+// `await`), and process.exit(0) fires before the awaited work — e.g. a
+// fetch in the i18n category's mock-server tests — gets a chance to
+// finish. Every purely-synchronous category finishes (and calls its own
+// process.exit via testFoamLSP.js) before the loop ever turns, so this
+// went unnoticed until an async category existed. Strip the listeners
+// server.js installed so this process's stdin is inert.
+process.stdin.removeAllListeners('data');
+process.stdin.removeAllListeners('end');
+process.stdin.pause();
+
 // Test counters + helpers
 var counters = { passes: 0, failures: 0 };
 
@@ -47,6 +63,24 @@ function test(condition, message) {
 
 function section(name) {
   console.error('\n\x1b[1m=== ' + name + ' ===\x1b[0m');
+}
+
+// Serializes the "server lane" test blocks — the ones that boot server.js
+// in-process and talk to it over real JSON-RPC framing. Such a block owns two
+// process-wide singletons for its duration: the process.stdin 'data' listener
+// (which is how messages reach the server) and the process.stdout.write patch
+// (which is how replies are captured). Two lanes running concurrently would
+// cross-talk — each server would see the OTHER lane's messages — and their
+// finally-blocks would restore each other's stdout patch instead of the real
+// write. Categories run their lane through here so only one is ever live.
+var laneQueue_ = Promise.resolve();
+
+function withServerLane(fn) {
+  var run = laneQueue_.then(function() { return fn(); });
+  // Chain on a settled-either-way copy: one lane's failure must not skip the
+  // lanes queued behind it.
+  laneQueue_ = run.then(function() {}, function() {});
+  return run;
 }
 
 // Shared sample files used by several categories (grammar parse, real-file
@@ -76,6 +110,7 @@ var cssTokenResolver  = foam.parse.lsp.CSSTokenResolver.create();
 cssTokenResolver.loadFromRegistry();
 var hoverHandler      = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
 var diagHandler       = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+var i18nHandler       = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
 var defHandler        = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
 var semanticHandler   = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: cache, typeTracker: typeTracker });
 
@@ -83,6 +118,7 @@ module.exports = {
   counters:          counters,
   test:              test,
   section:           section,
+  withServerLane:    withServerLane,
   path:              path,
   fs:                fs,
   Q:                 String.fromCharCode(39),
@@ -97,6 +133,7 @@ module.exports = {
   cssTokenResolver:  cssTokenResolver,
   hoverHandler:      hoverHandler,
   diagHandler:       diagHandler,
+  i18nHandler:       i18nHandler,
   defHandler:        defHandler,
   semanticHandler:   semanticHandler,
 

@@ -251,6 +251,28 @@ foam.CLASS({
       );
       x.test(b7.flowName === 'dao2', 'rewrite: top-level flowName renamed to dao2');
 
+      // A DAO short form yields to a block that owns the exact name, as in scan().
+      var blocks7b = [
+        { flowName: 'usersDAO', cmd: 'FROM userDAO' },
+        { flowName: 'users',    cmd: 'script' },
+        { flowName: 'r1',       cmd: 'dao(users.filteredDAO)' },
+        { flowName: 'r2',       cmd: 'dao(usersDAO.filteredDAO)' }
+      ];
+      scanner.rewrite(blocks7b, { usersDAO: 'peopleDAO' });
+      x.test(
+        blocks7b[2].cmd === 'dao(users.filteredDAO)',
+        'rewrite: "users" names its own block, so renaming usersDAO leaves it alone'
+      );
+      x.test(blocks7b[3].cmd === 'dao(peopleDAO.filteredDAO)', 'rewrite: usersDAO -> peopleDAO in full');
+
+      // The short form follows a rename onto a name without the DAO suffix, in full.
+      var blocks7c = [
+        { flowName: 'usersDAO', cmd: 'FROM userDAO' },
+        { flowName: 'r1',       cmd: 'dao(users.filteredDAO)' }
+      ];
+      scanner.rewrite(blocks7c, { usersDAO: 'people' });
+      x.test(blocks7c[1].cmd === 'dao(people.filteredDAO)', 'rewrite: short form users -> people after usersDAO -> people');
+
       // ============================================
       // 8. freeName
       // ============================================

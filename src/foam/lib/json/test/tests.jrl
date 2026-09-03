@@ -1,2 +1,7 @@
 p({"class":"foam.lib.json.test.FObjectParserJavaTest", "id":"FObjectParserJavaTest"})
 p({"class":"foam.lib.json.test.ParserOptimizationTest", "id":"ParserOptimizationTest"})
+p({
+  class:"foam.lib.json.test.JSONDateParserTest",
+  id:"JSONDateParserTest",
+  description:"foam.lib.json.DateParser branches and 1-9 digit fraction-of-a-second scaling"
+})

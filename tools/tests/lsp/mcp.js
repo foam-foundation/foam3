@@ -102,10 +102,17 @@ section('MCP — tool schemas');
 
 var tools = mcp.toolSchemas();
 var names = tools.map(function(t) { return t.name; });
-test(tools.length === 11, 'toolSchemas: 11 tools — 7 original + 4 trace (got ' + tools.length + ')');
+test(tools.length === 13, 'toolSchemas: 13 tools — 7 original + 4 trace + 2 i18n (got ' + tools.length + ')');
 ['foam_implementation','foam_type_definition','foam_type_hierarchy','foam_call_hierarchy'].forEach(function(n) {
   test(names.indexOf(n) !== -1, 'toolSchemas: includes new trace tool ' + n);
 });
+['foam_i18n_translate','foam_i18n_apply'].forEach(function(n) {
+  test(names.indexOf(n) !== -1, 'toolSchemas: includes i18n tool ' + n);
+});
+var i18nApplyTool = tools.find(function(t) { return t.name === 'foam_i18n_apply'; });
+test(i18nApplyTool && i18nApplyTool.inputSchema.required.indexOf('file') !== -1 &&
+  i18nApplyTool.inputSchema.required.indexOf('translations') !== -1,
+  'toolSchemas: foam_i18n_apply requires file + translations');
 var hover = tools.find(function(t) { return t.name === 'foam_hover'; });
 test(hover && hover.inputSchema.properties.symbol && hover.inputSchema.properties.uri,
   'toolSchemas: nav tools accept both symbol and uri (name-addressing)');
@@ -126,3 +133,53 @@ test(pos && pos.line === 3 && pos.character === 5,
 var threw = false;
 try { mcp.resolvePos(ROOT, {}); } catch ( e ) { threw = true; }
 test(threw, 'resolvePos: throws when neither symbol nor uri is provided');
+
+section('MCP — applyWorkspaceEdit / posToOffset (i18n disk-apply helper)');
+
+var fsMod = h.fs, osMod = require('os'), pathMod = h.path;
+
+test(mcp.posToOffset('abc\ndef\nghi', { line: 1, character: 2 }) === 6,
+  'posToOffset: line 1 char 2 lands past the first line + its newline');
+test(mcp.posToOffset('abc\ndef', { line: 0, character: 0 }) === 0,
+  'posToOffset: line 0 char 0 is offset 0');
+
+// Out-of-range positions clamp to the end of the document instead of throwing
+// on `lines[i].length` of undefined — one stale range (an edit built against
+// text that has since shrunk) must not take down a whole apply.
+var oorThrew = false, oorOff = -1;
+try { oorOff = mcp.posToOffset('abc\ndef', { line: 99, character: 0 }); } catch ( e ) { oorThrew = true; }
+test(! oorThrew && oorOff === 'abc\ndef'.length,
+  'posToOffset: a line past the end of the document clamps to the document end, no throw');
+// A non-final line, so the wrong-axis bug (clamping to the DOCUMENT end
+// instead of the LINE end) is distinguishable: 'abc' ends at offset 3, well
+// short of the document's end.
+test(mcp.posToOffset('abc\ndef\nghi', { line: 0, character: 99 }) === 3,
+  'posToOffset: a character past the end of a non-final line clamps to that LINE\'s end, not the document end');
+test(mcp.posToOffset('abc\ndef', { line: -1, character: 0 }) === 0,
+  'posToOffset: a negative line clamps to the start of the document');
+
+// pid-suffixed so a concurrent run (or a leftover from a prior crashed run)
+// never collides on the same tmp path.
+var awTmp = pathMod.join(osMod.tmpdir(), 'mcp-applyWorkspaceEdit-target-' + process.pid + '.js');
+try {
+  fsMod.writeFileSync(awTmp, "line0\nline1 TARGET line1\nline2\n");
+  var awUri = 'file://' + awTmp;
+  // Two non-overlapping edits on the SAME line, given in ASCENDING start
+  // order — applyWorkspaceEdit must sort them descending internally so the
+  // earlier edit's offset survives the later one being applied first.
+  var awEdit = { changes: {} };
+  awEdit.changes[awUri] = [
+    { range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } }, newText: '[A]' },
+    { range: { start: { line: 1, character: 6 }, end: { line: 1, character: 12 } }, newText: '[REPLACED]' }
+  ];
+  var changedPaths = mcp.applyWorkspaceEdit(awEdit);
+  test(changedPaths.length === 1 && changedPaths[0] === awTmp,
+    'applyWorkspaceEdit: returns the changed file path');
+  var awResult = fsMod.readFileSync(awTmp, 'utf8');
+  test(awResult.indexOf('[A]line1 [REPLACED] line1') !== -1,
+    'applyWorkspaceEdit: both edits land correctly despite ascending input order (descending apply)');
+} finally {
+  fsMod.unlinkSync(awTmp);
+}
+
+test(mcp.applyWorkspaceEdit({}).length === 0, 'applyWorkspaceEdit: no changes → no-op, empty result');

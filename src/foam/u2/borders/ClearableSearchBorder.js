@@ -10,16 +10,18 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   documentation: `
-    Wraps a search field and renders an accessible clear (X) button over its
-    right edge. The native WebKit ::-webkit-search-cancel-button is suppressed
-    because it is non-standard (Chrome/Safari only), absent from the
-    accessibility tree and unreachable by keyboard; the real <button> rendered
-    here replaces it.
+    Renders an accessible clear (X) button over a search field's right edge. The
+    native ::-webkit-search-cancel-button is suppressed: Chrome/Safari only,
+    absent from the accessibility tree, unreachable by keyboard.
+
+    Low-level primitive. To wrap a plain SearchField use
+    foam.u2.ClearableSearchField - same pairing, already assembled, with the
+    property-view plumbing. Use this directly when the field is not a SearchField
+    or its visible text is not data, as in TextSearchView (SmartView's preview).
 
     Callers supply:
       textSlot - slot of the visible text; the button shows only when non-empty
-      onClear  - called when the button is activated; must clear the text and
-                 return focus to the field
+      onClear  - clears the text and returns focus to the field
   `,
 
   messages: [

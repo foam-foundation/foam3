@@ -84,7 +84,22 @@ foam.CLASS({
       name: 'flowName',
       reactive: false,
       label: 'Block Name',
-      supportingLabel: 'Used to as the name for this block and as the variable name in the scope'
+      supportingLabel: 'Used to as the name for this block and as the variable name in the scope',
+      // A validated property defaults its input to onKey (foam.u2.tag.Input.fromProperty),
+      // which would commit a name per keystroke and fire postSet mid-word. Names are
+      // committed whole.
+      onKey: false,
+      postSet: function(o, n) {
+        // A block still being built has no Console above it yet.
+        var root = this.flowRoot();
+        if ( root.onBlockRenamed ) root.onBlockRenamed(this, o, n);
+      },
+      validateObj: function(flowName) {
+        if ( ! flowName ) return;
+        var root = this.flowRoot();
+        if ( root.flattenFlow(root.flowChildren).filter(b => b.flowName === flowName).length > 1 )
+          return 'Already used by another block.';
+      }
     },
     {
       class: 'String',
@@ -275,10 +290,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() {
-        this.deleted_ = true;
-        this.flowParent && this.flowParent.removeFlowChild(this);
-      }
+      code: function() { this.flowRoot().deleteFlowChild(this); }
     }
   ],
 

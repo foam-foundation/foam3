@@ -124,7 +124,7 @@ foam.CLASS({
       `
     },
     {
-      documentation: `AppConfig is copyied for theme overrides,
+      documentation: `AppConfig is copied for theme overrides,
 only copy properties relevant to the client or to the system when
 running under the user's context`,
       name: 'copyFrom',

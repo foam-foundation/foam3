@@ -132,7 +132,7 @@ foam.CLASS({
               .tag(this.SAVE)
               .tag(this.OverlayActionListView, {
                 label: 'More',
-                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.RESET, this.CANCEL, this.CLEAR],
+                data: isLimitedEditConsole ? [this.CANCEL] : [this.BENCHMARK, this.EXPORT_TO_PDF, this.RESET, this.CANCEL, this.CLEAR],
                 obj: this,
                 buttonStyle: 'SECONDARY',
                 size: 'SMALL',
@@ -261,6 +261,20 @@ foam.CLASS({
           return;
         }
         await this.data.benchmarkFlow_();
+      }
+    },
+    {
+      name: 'exportToPDF',
+      label: 'Export to PDF',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      size: 'SMALL',
+      themeIcon: 'download',
+      code: async function() {
+        try {
+          await this.data.exportToPDF_();
+        } catch ( e ) {
+          this.notify(e.message, '', this.LogLevel.ERROR, true);
+        }
       }
     },
     {
@@ -1182,6 +1196,40 @@ foam.CLASS({
         try { await daos[i].cmd(foam.dao.DAO.PURGE_CMD); } catch (e) { /* not a caching dao */ }
       }
       await this.eval_('loadPerf("' + this.value.name + '")');
+    },
+
+    async function exportToPDF_() {
+      /** Render each top-level Block onto its own landscape page.
+          html2pdf is loaded from the CDN on demand; its URL is already whitelisted
+          in src/cspdirectives.jrl under the 'foam-url' script-src key. **/
+      await foam.u2.JsLib.create({
+        src: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js'
+      }).installLib();
+
+      // installLib() resolves even when the script fails to load, so check the global.
+      var html2pdf = this.window.html2pdf;
+      if ( ! html2pdf ) throw new Error('The PDF library could not be loaded.');
+
+      var out    = this.out?.element_;
+      var blocks = out ? out.querySelectorAll(':scope > .block') : [];
+      if ( ! blocks.length ) throw new Error('There is nothing to export.');
+
+      var worker = html2pdf().set({
+        margin:      0.5,
+        filename:    ( this.value.name || 'flow' ) + '.pdf',
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF:       { unit: 'in', format: 'a4', orientation: 'landscape' }
+      }).from(blocks[0]).toContainer().toCanvas().toImg().toPdf();
+
+      for ( var i = 1 ; i < blocks.length ; i++ ) {
+        worker = worker.
+          get('pdf').
+          then(function(pdf) { pdf.addPage('a4', 'landscape'); }).
+          from(blocks[i]).toContainer().toCanvas().toImg().toPdf();
+      }
+
+      await worker.save();
     },
 
     async function includeScript(script, parent, skipParse, perfParent) {

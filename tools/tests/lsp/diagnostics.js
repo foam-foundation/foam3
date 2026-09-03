@@ -83,13 +83,20 @@ test(implementors.length > 0, 'getImplementors finds classes implementing Create
 // === Per-class cssTokens loaded into the resolver (issue #5032) ===
 section('CSSTokenResolver — per-class cssTokens (issue #5032)');
 
-// Tabs.js defines its own ColorToken cssTokens — they should be in the
-// resolver's map and report Tabs as their source.
+// Tabs.js declares `tabActiveColor` in BOTH sibling classes (Tabs and
+// SegmentedTabs, deliberately different defaults since 088b7d9d6a) — legal
+// per-class FOAM tokens sharing a name. The flat map's `source` is the
+// last installer under the deterministic sort (foam.u2.Tabs), and
+// `sources` must record every declaring class.
 test(cssTokenResolver.tokenExists('tabActiveColor'),
   'Per-class token `tabActiveColor` (Tabs.js) is loaded');
 var tabInfo = cssTokenResolver.getTokenInfo('tabActiveColor');
 test(tabInfo && tabInfo.source === 'foam.u2.Tabs',
-  'Per-class token `tabActiveColor` source is foam.u2.Tabs');
+  'Per-class token `tabActiveColor` flat-map source is foam.u2.Tabs (deterministic sort)');
+test(tabInfo && Array.isArray(tabInfo.sources) &&
+  tabInfo.sources.indexOf('foam.u2.Tabs') !== -1 &&
+  tabInfo.sources.indexOf('foam.u2.SegmentedTabs') !== -1,
+  'sources records BOTH sibling declaring classes');
 test(tabInfo && tabInfo.type === 'ColorToken',
   'Per-class token `tabActiveColor` type is ColorToken');
 

@@ -431,6 +431,14 @@ function start() {
       }
       if ( rkind === 'jrl' ) {
         pushJrlDiagnostics(ouri, otext);
+      } else if ( rkind === 'pom' ) {
+        // An open pom is re-pushed on EVERY save, not gated on the affected
+        // set: its diagnostics are disk checks (pom-file-missing resolves each
+        // entry with existsSync), and the save that clears one is the save
+        // CREATING a file the pom names — a file whose class the pom's own
+        // axiom state knows nothing about, so getAffectedFiles can never
+        // report it. Cost is one text parse plus one existsSync per entry.
+        pushDiagnostics(ouri, otext);
       } else if ( rkind === 'class' ) {
         // Only re-diagnose if this file's path is in the affected set.
         var opath = uriToPath_(ouri);

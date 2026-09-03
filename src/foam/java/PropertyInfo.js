@@ -214,7 +214,9 @@ foam.CLASS({
             visibility: 'public',
             type: 'boolean',
             args: [{ name: 'o', type: 'Object' }],
-            body: `return ((${fullName}) o).${this.propName}IsSet_;`
+            body: 'return ' + ( this.property.javaIsSetReadOn_
+              ? this.property.javaIsSetReadOn_('((' + fullName + ') o)')
+              : '((' + fullName + ') o).' + this.propName + 'IsSet_' ) + ';'
           }
         ];
 

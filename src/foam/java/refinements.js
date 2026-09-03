@@ -445,7 +445,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         setter += `${this.javaType} oldVal = ${this.name}_;\n`;
       }
       setter += this.javaInnerSetter + '\n';
-      setter += `${this.name}IsSet_ = true;\n`;
+      setter += ( this.javaIsSetTrue_ || `${this.name}IsSet_ = true;` ) + '\n';
 
       // add post-set function
       if ( this.javaPostSet ) {
@@ -471,25 +471,46 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       var isSet       = this.name + 'IsSet_';
       var factoryName = capitalized + 'Factory_';
 
-      cls.
-        field({
-          name: privateName,
-          type: this.javaFieldType,
-          visibility: 'protected'
-        }).
-        field({
+      // How this property records "set": its own boolean field, or one bit of the class's
+      // long[] when the model opted into javaPackIsSet. The expressions carry that choice
+      // into the getter, the setter, clear and the PropertyInfo.
+      if ( cls.packIsSet ) {
+        var bit  = cls.isSetBits_++;
+        var word = cls.isSetField_ + '[' + ( bit >> 6 ) + ']';
+        var mask = '(1L << ' + ( bit & 63 ) + ')';
+        this.javaIsSetRead_   = '( ( ' + word + ' & ' + mask + ' ) != 0 )';
+        this.javaIsSetTrue_   = word + ' |= ' + mask + ';';
+        this.javaIsSetFalse_  = word + ' &= ~' + mask + ';';
+        this.javaIsSetReadOn_ = function(obj) { return '( ( ' + obj + '.' + word + ' & ' + mask + ' ) != 0 )'; };
+      } else {
+        this.javaIsSetRead_   = isSet;
+        this.javaIsSetTrue_   = isSet + ' = true;';
+        this.javaIsSetFalse_  = isSet + ' = false;';
+        this.javaIsSetReadOn_ = function(obj) { return obj + '.' + isSet; };
+      }
+
+      cls.field({
+        name: privateName,
+        type: this.javaFieldType,
+        visibility: 'protected'
+      });
+      if ( ! cls.packIsSet ) {
+        cls.field({
           name: isSet,
           type: 'boolean',
           visibility: 'protected',
           initializer: 'false;'
-        }).
+        });
+      }
+
+      cls.
         method({
           name: 'get' + capitalized,
           type: this.javaType,
           visibility: 'public',
           synchronized: this.synchronized,
           forceJavaOutputter: true,
-          body: this.javaGetter || ('if ( ! ' + isSet + ' ) {\n' +
+          body: this.javaGetter || ('if ( ! ' + this.javaIsSetRead_ + ' ) {\n' +
             ( this.javaFactory ?
                 '  set' + capitalized + '(' + factoryName + '());\n' :
                 ' return ' + this.javaValue + ';\n' ) + '}\n' + this.javaInnerGetter )
@@ -517,7 +538,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           type: 'void',
           forceJavaOutputter: true,
           body: `assertNotFrozen();
-${isSet} = false;`
+${this.javaIsSetFalse_}`
         });
 
       if ( this.javaFactory ) {
@@ -631,6 +652,12 @@ foam.LIB({
       if ( this.model_.javaExtends )
         cls.extends = this.model_.javaExtends;
 
+      // javaPackIsSet: the properties allocate one bit each as they build; the long[] that
+      // holds them is sized and added once they are all in (below the axiom loop).
+      cls.packIsSet   = !! this.model_.javaPackIsSet;
+      cls.isSetBits_  = 0;
+      cls.isSetField_ = 'isSet' + this.model_.name + '_';
+
       cls.fields.push(foam.java.ClassInfo.create({ id: this.id }));
 
       cls.method({
@@ -655,6 +682,15 @@ foam.LIB({
 
       for ( var i = 0 ; i < axioms.length ; i++ ) {
         axioms[i].buildJavaClass && axioms[i].buildJavaClass(cls, this);
+      }
+
+      if ( cls.packIsSet && cls.isSetBits_ > 0 ) {
+        cls.field({
+          name: cls.isSetField_,
+          type: 'long[]',
+          visibility: 'protected',
+          initializer: 'new long[' + Math.ceil(cls.isSetBits_ / 64) + '];'
+        });
       }
 
       // TODO: instead of doing this here, we should walk all Axioms
@@ -2609,6 +2645,16 @@ foam.CLASS({
       class: 'Boolean',
       name: 'javaGenerateConvenienceConstructor',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'javaPackIsSet',
+      documentation: `Keep this class's per-property set flags in one long[] bitset instead of a
+        boolean field per property. Saves a byte per declared property per instance, which on a
+        wide model is most of what an empty column costs. The isSet API is unchanged
+        (PropertyInfo.isSet, clearX(), getters and setters); only the storage differs, so
+        hand-written javaCode on an opted-in model must not read the xIsSet_ fields, which no
+        longer exist.`
     },
     {
       class: 'AxiomArray',

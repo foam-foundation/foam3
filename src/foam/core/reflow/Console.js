@@ -1841,6 +1841,11 @@ foam.CLASS({
       var dependents = block.dependencies;
       if ( ! dependents.length ) return;
 
+      // Put the old name back while the question is open: a confirmed rename then
+      // lands as one script write, name and references together, so undo takes it
+      // back in one step, and Cancel has nothing left to undo.
+      this.renameBack_(block, oldName);
+
       var self  = this;
       var modal = this.ConfirmationModal.create({
         title: 'Renaming "' + oldName + '" to "' + newName + '"',
@@ -1855,11 +1860,6 @@ foam.CLASS({
             self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
             self.value.script = JSON.stringify(blocks);
           }
-        }),
-        secondaryAction: foam.lang.Action.create({
-          name: 'cancel',
-          label: 'Cancel',
-          code: function() { self.renameBack_(block, oldName); }
         })
       });
 

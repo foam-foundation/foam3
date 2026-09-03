@@ -530,4 +530,39 @@ var bootDone = h.withServerLane(async function() {
   }
 });
 
+// ---- settings contract: the VS Code manifest and FeatureConfig.DEFAULTS
+// must declare the SAME flag set. The extension derives its forwarding
+// from manifest keys and the server validates against DEFAULTS — a flag
+// present on one side only is either invisible in the settings UI or an
+// "unknown flag" warning for every user. (Review follow-up M10.)
+(function() {
+  var section = h.section, test = h.test;
+  section('FeatureConfig <-> VS Code manifest contract');
+
+  var FeatureConfig = require('../../lsp/FeatureConfig');
+  var manifest = JSON.parse(require('fs').readFileSync(
+    require('path').join(__dirname, '..', '..', 'lsp', 'editors', 'vscode', 'package.json'), 'utf8'));
+  var props = ( manifest.contributes &&
+                manifest.contributes.configuration &&
+                manifest.contributes.configuration.properties ) || {};
+
+  var manifestFlags = Object.keys(props)
+    .filter(function(k) { return k.indexOf('foam.features.') === 0; })
+    .map(function(k) { return k.substring('foam.features.'.length); })
+    .sort();
+  var defaultFlags = Object.keys(FeatureConfig.DEFAULTS).sort();
+
+  test(manifestFlags.join(',') === defaultFlags.join(','),
+    'manifest foam.features.* keys == FeatureConfig.DEFAULTS keys — got [' +
+    manifestFlags + '] vs [' + defaultFlags + ']');
+
+  manifestFlags.forEach(function(flag) {
+    var p = props['foam.features.' + flag];
+    test(p.type === 'boolean' && p.default === FeatureConfig.DEFAULTS[flag],
+      'manifest default for ' + flag + ' matches DEFAULTS');
+    test(/Takes effect after a server restart\.$/.test(p.description || ''),
+      'description for ' + flag + ' carries the restart note');
+  });
+})();
+
 module.exports = { done: bootDone };

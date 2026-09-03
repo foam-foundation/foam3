@@ -530,6 +530,22 @@ var bootDone = h.withServerLane(async function() {
   }
 });
 
+// ---- i18n null passthrough (characterization, review follow-up L16):
+// applyI18n skips only `undefined` — an explicit null IS carried through to
+// server.js/providers, which must therefore null-check every i18n value.
+// Pinned so a future "skip null too" change is a conscious one.
+(function() {
+  var FeatureConfig = require('../../lsp/FeatureConfig');
+  var fcNull = FeatureConfig.load({ initOptions: { i18n: { languages: null } } });
+  h.section('FeatureConfig — i18n null vs undefined');
+  h.test(fcNull.i18n && fcNull.i18n.languages === null &&
+    fcNull.warnings.length === 0,
+    'explicit null i18n value passes through unwarned (providers must null-check)');
+  var fcUndef = FeatureConfig.load({ initOptions: { i18n: { languages: undefined } } });
+  h.test(fcUndef.i18n && ! ( 'languages' in fcUndef.i18n ),
+    'undefined i18n value is skipped entirely');
+})();
+
 // ---- settings contract: the VS Code manifest and FeatureConfig.DEFAULTS
 // must declare the SAME flag set. The extension derives its forwarding
 // from manifest keys and the server validates against DEFAULTS — a flag

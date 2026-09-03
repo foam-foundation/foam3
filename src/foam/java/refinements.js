@@ -206,6 +206,12 @@ foam.CLASS({
       }
     },
     {
+      name: 'javaFieldType',
+      factory: function() {
+        return this.javaType
+      }
+    },
+    {
       class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
@@ -351,8 +357,21 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
     },
     {
       class: 'String',
-      name: 'javaToJSON',
+      name: 'javaObjToJSON',
+      documentation: `Body of PropertyInfo.objToJSON, the Outputter counterpart
+        of javaFormatJSON. Both are handed the object rather than a value, so a
+        property can serialize itself without the caller materializing it.`,
       value: null
+    },
+    {
+      class: 'String',
+      name: 'javaInnerGetter',
+      factory: function() { return `return ${this.name}_;`; }
+    },
+    {
+      class: 'String',
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = val;`; }
     }
   ],
 
@@ -425,7 +444,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       if ( this.javaPostSet && this.javaPostSet.indexOf('oldVal') != -1 ) {
         setter += `${this.javaType} oldVal = ${this.name}_;\n`;
       }
-      setter += `${this.name}_ = val;\n`;
+      setter += this.javaInnerSetter + '\n';
       setter += `${this.name}IsSet_ = true;\n`;
 
       // add post-set function
@@ -455,7 +474,7 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
       cls.
         field({
           name: privateName,
-          type: this.javaType,
+          type: this.javaFieldType,
           visibility: 'protected'
         }).
         field({
@@ -473,9 +492,8 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
           body: this.javaGetter || ('if ( ! ' + isSet + ' ) {\n' +
             ( this.javaFactory ?
                 '  set' + capitalized + '(' + factoryName + '());\n' :
-                ' return ' + this.javaValue + ';\n' ) +
-            '}\n' +
-            'return ' + privateName + ';')
+                ' return ' + this.javaValue + ';\n' ) + '}\n' + this.javaInnerGetter )
+
         }).
         method({
           name: 'set' + capitalized,
@@ -1695,6 +1713,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1704,6 +1723,7 @@ foam.CLASS({
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
       var m = info.getMethod('cast');
       m.body = `
         try {
@@ -1716,7 +1736,8 @@ foam.CLASS({
           return (java.util.Date) o;
         } catch ( Throwable t ) {
           throw new RuntimeException(t);
-        }`;
+        }
+      `;
 
       return info;
     }
@@ -1733,6 +1754,7 @@ foam.CLASS({
 
   properties: [
     ['javaType',        'java.util.Date' ],
+    ['javaFieldType',   'long' ],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -1751,17 +1773,54 @@ foam.CLASS({
         }
       }
      `
-    ]
+    ],
+    ['javaFormatJSON', `
+      if ( isSet(obj) && ! foam.util.DateUtil.isNullDateLong(get__(obj)) ) {
+        formatter.output(get__(obj));
+        return;
+      }
+      formatter.output(get_(obj))
+    `],
+    ['javaObjToJSON', `
+      if ( ! isSet(obj) ) {
+        toJSON(outputter, get(obj));
+        return;
+      }
+      long millis = get__(obj);
+      if ( foam.util.DateUtil.isNullDateLong(millis) ) {
+        outputter.output(null);
+        return;
+      }
+      outputter.outputDateValue(millis)
+    `],
+    {
+      name: 'javaInnerGetter',
+      factory: function() { return `return foam.util.DateUtil.longToNullableDate(${this.name}_);`; }
+    },
+    {
+      name: 'javaInnerSetter',
+      factory: function() { return `${this.name}_ = foam.util.DateUtil.nullableDateToLong(val);`; }
+    },
   ],
 
   methods: [
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
+
+      info.method({
+        name: 'get__',
+        type: 'long',
+        visibility: 'public',
+        args: [{ name: 'o', type: 'Object' }],
+        body: 'return ((' + cls.id + ') o).' + this.name + '_;'
+      });
+
       // TODO: cast isn't called on setter
       var m = info.getMethod('cast');
       m.body = `
         return foam.util.DateUtil.adapt(o);
       `;
+
 
       return info;
     }

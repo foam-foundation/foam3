@@ -471,25 +471,35 @@ This will also keep the foam application running for inspection from the GUI.
       BrowserAgent agent = new BrowserAgent(x, getPath(), params) {
         public void waitTerminate(X x) {
           logger.info("BrowserAgent,terminate,wait");
-          long timeout = Duration.of(getTimeout(), ChronoUnit.SECONDS).toMillis();
-          long startTime = System.currentTimeMillis();
-          long processTime = 0L;
-          while ( processTime <= timeout ) {
+          // The deadline measures silence, not total runtime: the browser reports the
+          // run after every test, so a suite that is still finishing tests keeps the
+          // wait alive however long it takes, and only a stalled one expires.
+          long idleTimeout  = Duration.of(getTimeout(), ChronoUnit.SECONDS).toMillis();
+          long lastProgress = System.currentTimeMillis();
+          TestRun previous  = null;
+          while ( true ) {
             try {
               TestRun tr = (TestRun) dao.find(id);
               if ( tr.getCompleted() ) {
                 logger.info("BrowserAgent,terminate,exit");
                 return;
               }
-              logger.info("BrowserAgent,terminate,wait,5s,timeout in",Duration.of(processTime - timeout, ChronoUnit.MILLIS));
+              long now = System.currentTimeMillis();
+              if ( tr.advancedFrom(previous) ) lastProgress = now;
+              previous = tr;
+
+              long idle = now - lastProgress;
+              if ( idle > idleTimeout ) {
+                logger.warning("BrowserAgent,terminate,exit,idle", Duration.of(idle, ChronoUnit.MILLIS), "tests reported", tr.getTests());
+                return;
+              }
+              logger.info("BrowserAgent,terminate,wait,5s,idle timeout in", Duration.of(idleTimeout - idle, ChronoUnit.MILLIS), "tests reported", tr.getTests());
               Thread.currentThread().sleep(5000);
             } catch (InterruptedException e) {
               logger.warning("BrowserAgent,terminate,exit,interrupted");
               return;
             }
-            processTime = System.currentTimeMillis() - startTime;
           }
-          logger.warning("BrowserAgent,terminate,exit,timeout");
         }
       };
       agent.setHeadless( ! Boolean.getBoolean(SYSTEM_TEST_HEADED) );
@@ -501,7 +511,7 @@ This will also keep the foam application running for inspection from the GUI.
         result.setFailed(result.getFailed() + 1);
         result.setTests(result.getTests() + 1);
         List<String> failures = result.getFailures() != null ? new ArrayList<>((List<String>) result.getFailures()) : new ArrayList<>();
-        failures.add("FAILURE: Client tests timed out after " + agent.getTimeout() + " seconds. Tests may still be running in the browser.");
+        failures.add("FAILURE: Client tests made no progress for " + agent.getTimeout() + " seconds after " + result.getTests() + " results. Tests may still be running in the browser.");
         result.setFailures(failures);
         result = (TestRun) dao.put(result);
       }

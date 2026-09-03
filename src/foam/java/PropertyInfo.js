@@ -161,7 +161,7 @@ foam.CLASS({
     { name: 'toCSVLabel',          factory: function() { return this.property.javaToCSVLabel; } },
     { name: 'fromCSVLabelMapping', factory: function() { return this.property.javaFromCSVLabelMapping; } },
     { name: 'formatJSON',          factory: function() { return this.property.javaFormatJSON; } },
-    { name: 'toJSON',              factory: function() { return this.property.javaToJSON; } },
+    { name: 'objToJSON',           factory: function() { return this.property.javaObjToJSON; } },
     {
       name: 'propClassName',
       expression: function (propType) {
@@ -558,6 +558,25 @@ foam.CLASS({
             body: 'return ' + this.sheetsOutput + ';'
           });
 
+        if ( this.objToJSON != null ) {
+          m.push({
+            name: 'objToJSON',
+            type: 'void',
+            visibility: 'public',
+            args: [
+              {
+                name: 'outputter',
+                type: 'foam.lib.json.Outputter'
+              },
+              {
+                name: 'obj',
+                type: 'foam.lang.FObject'
+              }
+            ],
+            body: this.objToJSON + ';'
+          });
+        }
+
         if ( this.formatJSON != null ) {
           m.push({
             name: 'formatJSON',
@@ -574,25 +593,6 @@ foam.CLASS({
               }
             ],
             body: this.formatJSON + ';'
-          });
-        }
-
-        if ( this.toJSON != null ) {
-          m.push({
-            name: 'toJSON',
-            type: 'void',
-            visibility: 'public',
-            args: [
-              {
-                name: 'outputter',
-                type: 'foam.lib.json.Outputter'
-              },
-              {
-                name: 'value',
-                type: 'Object'
-              }
-            ],
-            body: this.toJSON + ';'
           });
         }
         m.push({

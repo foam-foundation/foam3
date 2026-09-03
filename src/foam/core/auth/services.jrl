@@ -547,6 +547,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "loginAttemptDAO",
   "serve": true,
+  "authenticate": true,
   "description": "Keep track of login attempts made by users.",
   "serviceScript":
   """

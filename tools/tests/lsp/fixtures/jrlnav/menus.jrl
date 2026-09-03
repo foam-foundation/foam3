@@ -1,0 +1,17 @@
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"cookbook",
+  "label":"Cook Book"
+})
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"cookbook.recipe",
+  "parent":"cookbook",
+  "handler":{
+    "class":"foam.core.menu.DAOMenu2",
+    "config":{
+      "class":"foam.comics.v2.DAOControllerConfig",
+      "daoKey":"recipeDAO"
+    }
+  }
+})

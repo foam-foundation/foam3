@@ -222,9 +222,10 @@ foam.CLASS({
         Object v = foam.core.reflow.ScriptParser.parseData(get_(obj));
         if ( v == null ) formatter.output(get_(obj)); else formatter.output(v)
       `,
-      javaToJSON: `
-        Object v = value instanceof String ? foam.core.reflow.ScriptParser.parseData((String) value) : null;
-        if ( v == null ) outputter.output(value); else outputter.output(v)
+      javaObjToJSON: `
+        String s = get_(obj);
+        Object v = foam.core.reflow.ScriptParser.parseData(s);
+        if ( v == null ) outputter.output(s); else outputter.output(v)
       `
     }
   ],

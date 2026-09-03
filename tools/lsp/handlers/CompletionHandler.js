@@ -274,6 +274,30 @@ foam.CLASS({
               sortText: '!' + name.toLowerCase()
             });
           }
+
+          // tableColumns also accepts action names — rendered as row buttons
+          // (foam.u2.table.UnstyledTableView filters actions against
+          // tableColumns). Not offered for searchColumns (properties only).
+          if ( lineContext.lastIndexOf('tableColumns') >
+               lineContext.lastIndexOf('searchColumns') ) {
+            var actionNames = {};
+            var actions = this.index.getActions(classId);
+            for ( var ai = 0 ; ai < actions.length ; ai++ ) actionNames[actions[ai].name] = true;
+            (model.actions || []).forEach(function(a) {
+              var name = typeof a === 'function' ? a.name : a && a.name;
+              if ( name ) actionNames[name] = true;
+            });
+            for ( var name in actionNames ) {
+              if ( propNames[name] ) continue;
+              if ( partial && name.toLowerCase().indexOf(partial) === -1 ) continue;
+              items.push({
+                label: name, kind: 3,
+                detail: 'Action',
+                textEdit: { range: replaceRange, newText: name },
+                sortText: '!' + name.toLowerCase()
+              });
+            }
+          }
           return items;
         }
       }

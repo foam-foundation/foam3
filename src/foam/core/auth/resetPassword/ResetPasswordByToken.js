@@ -24,9 +24,27 @@
   ],
 
   messages: [
-    { name: 'INVALID_TOKEN', message: 'Invalid token' },
-    { name: 'TOKEN_ALREADY_USED', message: 'Token already used' },
-    { name: 'TOKEN_EXPIRED', message: 'Token expired' }
+    {
+      name: 'INVALID_TOKEN',
+      messageMap: {
+        en: 'Invalid token',
+        fr: 'Jeton invalide'
+      }
+    },
+    {
+      name: 'TOKEN_ALREADY_USED',
+      messageMap: {
+        en: 'Token already used',
+        fr: 'Jeton déjà utilisé'
+      }
+    },
+    {
+      name: 'TOKEN_EXPIRED',
+      messageMap: {
+        en: 'Token expired',
+        fr: 'Jeton expiré'
+      }
+    }
   ],
 
   properties: [
@@ -53,7 +71,7 @@
   actions: [
     {
       name: 'resetPassword',
-      label: 'Confirm',
+      label: { en: 'Confirm', fr: 'Confirmer' },
       buttonStyle: 'PRIMARY',
       section: 'resetPasswordSection',
       isEnabled: function(errors_) {

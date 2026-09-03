@@ -13,6 +13,7 @@ foam.CLASS({
   imports: [
     'ctrl',
     'loginView?',
+    'notify',
     'pushMenu',
     'resetPasswordService',
     'resetPasswordToken',
@@ -22,6 +23,10 @@ foam.CLASS({
 
   requires: [
     'foam.log.LogLevel',
+    'foam.comics.v2.userfeedback.UserFeedbackAlertType',
+    'foam.comics.v2.userfeedback.UserFeedbackAware',
+    'foam.comics.v2.userfeedback.UserFeedbackException',
+    'foam.comics.v2.userfeedback.UserFeedbackStatus',
     'foam.core.auth.DuplicateEmailException',
     'foam.core.auth.User',
     'foam.core.auth.UserNotFoundException',
@@ -29,22 +34,69 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'TITLE', message: 'Forgot Password?' },
-    { name: 'INSTRUCTION', message: 'Enter the email you used to create your account in order to reset your password.' },
-    { name: 'TOKEN_INSTRUC_TITLE',      message: 'Password Reset Instructions Sent' },
-    { name: 'TOKEN_INSTRUC',            message: 'Please check your inbox to continue' },
-    { name: 'CODE_INSTRUC_TITLE',       message: 'Verification code sent' },
-    { name: 'CODE_INSTRUC',             message: 'Please check your inbox to reset your password' },
-    { name: 'REDIRECTION_TO',           message: 'Back to Sign in' },
-    { name: 'DUPLICATE_ERROR_MSG',      message: 'This account requires username' },
-    { name: 'ERROR_MSG',                message: 'Issue resetting your password. Please try again' },
-    { name: 'USER_NOT_FOUND_ERROR_MSG', message: 'Unable to find user with email: '},
-    { name: 'USER_NOT_FOUND_ERROR_TITLE', message: 'Invalid Email'}
+    {
+      name: 'TOKEN_INSTRUC_TITLE',
+      messageMap: {
+        en: 'Password Reset Instructions Sent',
+        fr: 'Réinitialisation du mot de passe instructions envoyées'
+      }
+    },
+    {
+      name: 'TOKEN_INSTRUC',
+      messageMap: {
+        en: 'Please check your inbox to continue',
+        fr: 'Veuillez vérifier votre boîte mail pour continuer'
+      }
+    },
+    {
+      name: 'CODE_INSTRUC_TITLE',
+      messageMap: {
+        en: 'Verification code sent',
+        fr: 'Code de vérification envoyé'
+      }
+    },
+    {
+      name: 'CODE_INSTRUC',
+      messageMap: {
+        en: 'Please check your inbox to reset your password',
+        fr: 'Veuillez vérifier votre boîte de réception pour réinitialiser votre mot de passe'
+      }
+    },
+    {
+      name: 'DUPLICATE_ERROR_MSG',
+      messageMap: {
+        en: 'This account requires username',
+        fr: 'Ce compte nécessite un nom d\'utilisateur'
+      }
+    },
+    {
+      name: 'ERROR_MSG',
+      messageMap: {
+        en: 'Issue resetting your password. Please try again',
+        fr: 'Problème pour réinitialiser votre mot de passe. Veuillez réessayer'
+      }
+    },
+    {
+      name: 'USER_NOT_FOUND_ERROR_MSG',
+      messageMap: {
+        en: 'Unable to find user with email: ',
+        fr: 'Impossible de trouver un utilisateur avec un e-mail'
+      }
+    },
+    {
+      name: 'USER_NOT_FOUND_ERROR_TITLE',
+      messageMap: {
+        en: 'Invalid Email',
+        fr: 'Email invalide'
+      }
+    }
   ],
 
   sections: [
     {
       name: 'resetPasswordSection',
+      title: { en: 'Reset Password', fr: 'Réinitialiser le mot de passe'},
+      view: { class: 'foam.u2.dialog.PopupSectionView' },
       help: 'Enter your account email and we will send you an email with a link to create a new one.'
     },
     {
@@ -102,7 +154,7 @@ foam.CLASS({
   actions: [
     {
       name: 'sendEmail',
-      label: 'Submit',
+      label: { en: 'Submit', fr: 'Présenté' },
       buttonStyle: 'PRIMARY',
       section: 'resetPasswordSection',
       isEnabled: function(errors_) {
@@ -122,30 +174,39 @@ foam.CLASS({
             instruction = this.TOKEN_INSTRUC;
           }
 
-          this.ctrl.add(this.NotificationMessage.create({
-            message: instructionTitle,
-            description: instruction,
-            type: this.LogLevel.INFO,
-            transient: true
-          }));
-          if ( ! this.resetByCode ) this.pushMenu('sign-in');
+          this.notify(instructionTitle, instruction, this.LogLevel.INFO, true);
+          // REVIEW: this is undesirable for token reset for the
+          // test scenario I have to work with - Joel
+          // There appears to be a lot of legacy password reset logic,
+          // unsure what is still used.
+          // if ( ! this.resetByCode ) this.pushMenu('sign-in');
+
+          X.closeDialog(); // Close the pop-up
+
         } catch(err) {
+          var e = err;
           var msg = this.ERROR_MSG;
-          if ( this.UserNotFoundException.isInstance(err.data.exception) ) {
-            msg = err.data.message =  this.USER_NOT_FOUND_ERROR_MSG + this.email;
-            err.data.title = this.USER_NOT_FOUND_ERROR_TITLE;
-          }
-          if ( this.DuplicateEmailException.isInstance(err.data.exception) ) {
+          var logLevel = this.LogLevel.ERROR;
+          var subMsg;
+          if ( foam.box.RPCErrorMessage.isInstance(e) )
+            e = e.data;
+          if ( this.UserFeedbackException.isInstance(e.exception) )
+            e = e.exception;
+          if ( e && this.UserFeedbackAware.isInstance(e) && e.userFeedback &&
+               e.alertType == this.UserFeedbackAlertType.NOTIFICATION ) {
+            var uf = e.userFeedback;
+            msg = e.message = uf.message;
+            subMsg = uf.subMessage;
+            logLevel = uf.status == this.UserFeedbackStatus.ERROR ? this.LogLevel.ERROR : this.LogLevel.INFO;
+          } else if ( this.UserNotFoundException.isInstance(e.exception) ) {
+            msg = e.message = this.USER_NOT_FOUND_ERROR_MSG + this.email;
+          } else if ( this.DuplicateEmailException.isInstance(e.exception) ) {
             this.usernameRequired = true;
-            msg =  err.data.message = this.DUPLICATE_ERROR_MSG;
+            msg = e.message = this.DUPLICATE_ERROR_MSG;
+          } else if ( e.message && e.message.contains("Invalid") ) {
+            msg = e.message = this.USER_NOT_FOUND_ERROR_TITLE;
           }
-          if ( ! X.wizardController?.status == 'IN_PROGRESS' ) {
-            this.ctrl.add(this.NotificationMessage.create({
-              message: msg,
-              type: this.LogLevel.ERROR,
-              transient: true
-            }));
-          }
+          this.notify(msg, subMsg, logLevel, true);
           throw err;
         }
       }

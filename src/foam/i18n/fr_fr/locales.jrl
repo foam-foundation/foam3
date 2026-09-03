@@ -89,3 +89,7 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.DeleteModal.FAIL_M
 
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.filter.FilterView.LABEL_FILTER", target: "Filtres" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.u2.filter.FilterView.NO_FILTER", target: "Non Filtres" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.units.days", target: "jours" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.units.years", target: "années" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.units.seconds", target: "secondes" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.units.bytes", target: "octets" })

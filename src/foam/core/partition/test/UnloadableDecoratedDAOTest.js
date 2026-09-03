@@ -97,7 +97,10 @@ foam.CLASS({
         dr.setId(1);
         dr.setData(new String("dedup-data"));
         FObject putDr = dedupDao.put(dr);
-        test( UnloadableDecoratedRecord.DATA.get(putDr) == "dedup-data",
+        // dedup canonicalizes equal values to ONE instance; the canonical is the
+        // interner's, not the JVM literal pool's, so prove it with a second
+        // independently built copy rather than == against a literal.
+        test( UnloadableDecoratedRecord.DATA.get(putDr) == foam.util.StringInterner.intern(new String("dedup-data")),
           "dedup interns the data string on the initial put" );
 
         Object dedupUnloadResult = dedupDao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
@@ -105,7 +108,7 @@ foam.CLASS({
           "dedup EasyDAO now also gets the NotPartitionedDAO wrapper (unloadable no longer excludes dedup)" );
 
         FObject reloadedDr = dedupDao.find_(tx, 1L);
-        test( reloadedDr != null && UnloadableDecoratedRecord.DATA.get(reloadedDr) == "dedup-data",
+        test( reloadedDr != null && UnloadableDecoratedRecord.DATA.get(reloadedDr) == foam.util.StringInterner.intern(new String("dedup-data")),
           "rebuilt chain still dedups after reload: journal replay ran back through DeDupDAO" );
 
         test( dedupEasyDao.getMdao() != null && dedupEasyDao.getMdao().find_(tx, 1L) != null,

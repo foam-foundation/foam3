@@ -118,9 +118,28 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
       value: 200
     },
     {
-      javaType: 'X[]',
-      name: 'X_HOLDER',
-      javaValue: 'new X[1]'
+      // Per-run bridge for handing an X context into a JShell session. JShell
+      // snippets can only reach host objects through static state referenced by
+      // fully-qualified name, so each run publishes its X under a unique token
+      // and the session reads back exactly that token. Keyed registry (not a
+      // single shared slot) so concurrent JShell runs never clobber each other,
+      // and each run removes its own entry on completion (no leak).
+      javaType: 'java.util.concurrent.ConcurrentHashMap<Long, X>',
+      name: 'X_REGISTRY',
+      javaValue: 'new java.util.concurrent.ConcurrentHashMap<>()'
+    },
+    {
+      // Reverse lookup so runScript can find a JShell session's registry token
+      // for cleanup without threading the token through createInterpreter's
+      // return value.
+      javaType: 'java.util.concurrent.ConcurrentHashMap<jdk.jshell.JShell, Long>',
+      name: 'X_TOKENS',
+      javaValue: 'new java.util.concurrent.ConcurrentHashMap<>()'
+    },
+    {
+      javaType: 'java.util.concurrent.atomic.AtomicLong',
+      name: 'X_SEQ',
+      javaValue: 'new java.util.concurrent.atomic.AtomicLong()'
     }
   ],
 
@@ -409,12 +428,14 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         }
         if ( l == foam.core.script.Language.JSHELL ) {
           JShell jShell = new JShellExecutor().createJShell(ps);
-          Script.X_HOLDER[0] = x.put("out",  ps)
+          long token = Script.X_SEQ.incrementAndGet();
+          Script.X_REGISTRY.put(token, x.put("out",  ps)
             .put("currentScript", this)
-            .put("scriptParameter", sp);
+            .put("scriptParameter", sp));
+          Script.X_TOKENS.put(jShell, token);
 // p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targetId:"script.read.*"})
           jShell.eval("import foam.lang.X;");
-          jShell.eval("X x = foam.core.script.Script.X_HOLDER[0];");
+          jShell.eval("X x = foam.core.script.Script.X_REGISTRY.get(" + token + "L);");
           jShell.eval("void print(Object o) { ((java.io.PrintStream) x.get(\\\"out\\\")).println(String.valueOf(o));  }");
           return jShell;
         } else if ( l == foam.core.script.Language.BEANSHELL ) {
@@ -463,6 +484,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         ByteArrayOutputStream baos   = new ByteArrayOutputStream();
         PrintStream           ps     = new PrintStream(baos);
         PM                    pm     = new PM(this.getClass(), getId());
+        JShell                jShell = null;
 
         try {
           Thread.currentThread().setPriority(getPriority());
@@ -476,7 +498,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
             shell.setOut(ps);
             shell.eval(getCode());
           } else if ( l == foam.core.script.Language.JSHELL ) {
-            JShell jShell = (JShell) createInterpreter(x,ps);
+            jShell = (JShell) createInterpreter(x,ps);
             new JShellExecutor().execute(x, jShell, getCode(), true);
           } else {
             throw new RuntimeException("Script language not supported");
@@ -497,6 +519,16 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           er(x, t.getMessage(), LogLevel.ERROR, t);
           throw thrown;
         } finally {
+          // Release the JShell session and drop this run's registry entry so the
+          // run's X context is not pinned for the life of the JVM. JShell holds a
+          // heavyweight execution engine; the per-run token keeps cleanup scoped
+          // to this run only, so a concurrent JShell run is never affected.
+          if ( jShell != null ) {
+            Long token = Script.X_TOKENS.remove(jShell);
+            if ( token != null ) Script.X_REGISTRY.remove(token);
+            try { jShell.close(); } catch ( Throwable ignored ) {}
+          }
+
           setLastDuration(pm.getTime());
           ps.flush();
           setOutput(baos.toString());
@@ -641,7 +673,8 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         return enabled
          &&
           ( status == this.ScriptStatus.UNSCHEDULED ||
-            status == this.ScriptStatus.ERROR );
+            status == this.ScriptStatus.ERROR ||
+            status == this.ScriptStatus.INTERRUPTED );
       },
       code: function() {
         var self = this;

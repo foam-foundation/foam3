@@ -89,11 +89,15 @@ foam.CLASS({
       try {
         var jsUses = this.index.getJsUsages(classId);
         for ( var i = 0 ; i < jsUses.length ; i++ ) add(jsUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getJsUsages failed for ' + classId + ': ' + e.message);
+      }
       try {
         var javaUses = this.index.getJavaUsages(classId);
         for ( var i = 0 ; i < javaUses.length ; i++ ) add(javaUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getJavaUsages failed for ' + classId + ': ' + e.message);
+      }
       // Class-name strings ARE valid context keys too (e.g. CSpec id matches
       // the dotted class id of its result type) — pick those up via the
       // string-reference index keyed on either the short name or the full id.
@@ -103,7 +107,9 @@ foam.CLASS({
         for ( var i = 0 ; i < strUses.length ; i++ ) {
           if ( strUses[i].sourceClassId ) add(strUses[i].sourceClassId);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getStringUsages failed for ' + classId + ': ' + e.message);
+      }
       // Classes that reference the target ONLY inside a view spec
       // (`view: { class: 'X' }`, searchView, rowView, defaultNewItem, …)
       // declare no requires/of for it — the view-spec index is the only edge
@@ -111,12 +117,23 @@ foam.CLASS({
       try {
         var viewUses = this.index.getViewSpecUsers(classId);
         for ( var i = 0 ; i < viewUses.length ; i++ ) add(viewUses[i].sourceClassId);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[foam-lsp] getViewSpecUsers failed for ' + classId + ': ' + e.message);
+      }
 
+      // Dedup by position: a file defining several classes is scanned once
+      // per class, so identical rows repeat without this. Order-preserving.
       var locations = [];
+      var seenLoc   = {};
       for ( var i = 0 ; i < refs.length ; i++ ) {
         var locs = this.buildLocations_(refs[i], classId);
-        for ( var j = 0 ; j < locs.length ; j++ ) locations.push(locs[j]);
+        for ( var j = 0 ; j < locs.length ; j++ ) {
+          var loc = locs[j];
+          var key = loc.uri + ':' + loc.range.start.line + ':' + loc.range.start.character;
+          if ( seenLoc[key] ) continue;
+          seenLoc[key] = true;
+          locations.push(loc);
+        }
       }
       return locations;
     },
@@ -138,8 +155,34 @@ foam.CLASS({
       var classId = this.cache.getClassId(model);
       if ( ! classId ) return null;
 
-      // Collect files to scan: the defining class + every subclass (they
-      // inherit the property and commonly reference it).
+      return this.memberScanLocations_(classId, word);
+    },
+
+    function memberReferencesForClassId(classId, memberName) {
+      /**
+       * By-id member references — the name-addressed (foam/byName) twin of
+       * propertyReferences_/axiomReferences_. Returns call-site Locations
+       * when memberName is an own property, message, or constant of classId;
+       * null otherwise so the caller falls back to class references
+       * (methods stay on callHierarchy, which already has call sites).
+       */
+      var cls = typeof this.index.getClass === 'function' ?
+        this.index.getClass(classId) : null;
+      var model = cls && cls.model_;
+      if ( ! model ) return null;
+      if ( ! ( this.isOwnPropertyName_(model, memberName) ||
+               this.isOwnMessageName_(model, memberName)  ||
+               this.isOwnConstantName_(model, memberName) ) ) return null;
+      return this.memberScanLocations_(classId, memberName);
+    },
+
+    function memberScanLocations_(classId, word) {
+      /**
+       * Collect files to scan — the defining class + every subclass (they
+       * inherit the member and commonly reference it) + classes that REQUIRE
+       * or have `of: classId` (they access it through a typed variable) —
+       * then emit every call-site Location for `word` across that set.
+       */
       var seen = {};
       var filesToScan = [];
       function addFile(id) {
@@ -150,9 +193,6 @@ foam.CLASS({
       addFile(classId);
       var subs = this.transitiveSubclasses_(classId);
       for ( var i = 0 ; i < subs.length ; i++ ) addFile(subs[i]);
-
-      // Also include classes that REQUIRE or have `of: classId` — they likely
-      // access the property through a typed variable.
       var reqs = this.index.getRequirers(classId);
       var ofs  = this.index.getOfUsers(classId);
       for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
@@ -192,25 +232,7 @@ foam.CLASS({
 
       // Same scoping as property references — own class + transitive
       // subclasses + requirers + of-users.
-      var seen = {};
-      var files = [];
-      function addFile(id) {
-        if ( ! id || seen[id] ) return;
-        seen[id] = true; files.push(id);
-      }
-      addFile(classId);
-      var subs = this.transitiveSubclasses_(classId);
-      for ( var i = 0 ; i < subs.length ; i++ ) addFile(subs[i]);
-      var reqs = this.index.getRequirers(classId);
-      var ofs  = this.index.getOfUsers(classId);
-      for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
-      for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
-
-      var locations = [];
-      for ( var i = 0 ; i < files.length ; i++ ) {
-        this.scanPropertyRefs_(files[i], word, locations);
-      }
-      return locations;
+      return this.memberScanLocations_(classId, word);
     },
 
     function isOwnMessageName_(model, word) {
@@ -567,9 +589,11 @@ foam.CLASS({
         }
         if ( path === targetClassId && alias ) out[alias] = true;
       }
-      var ji = cls.model_.javaImports || [];
+      // Normalized by FoamIndex.javaImportPaths — never unwrap shapes here.
+      var ji = typeof this.index.javaImportPaths === 'function' ?
+        this.index.javaImportPaths(cls) : [];
       for ( var i = 0 ; i < ji.length ; i++ ) {
-        var imp = typeof ji[i] === 'string' ? ji[i] : ( ji[i] && ji[i].path );
+        var imp = ji[i];
         if ( imp === targetClassId ) {
           var sh = imp.split('.').pop();
           if ( sh ) out[sh] = true;

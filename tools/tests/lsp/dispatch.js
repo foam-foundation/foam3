@@ -4,11 +4,12 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Server DISPATCH tests: spawn the real server.js and speak LSP over stdio.
-// Handler-level tests walk in the back door (call handle() directly); these
-// prove the front door routes there too. Exists because the pom-validation
-// lane shipped fully unit-tested yet unreachable — didOpen's isFoamFile
-// gate never sent a pom.js to the handler at all.
+// Server DISPATCH tests: spawn the real entry point as a child process and
+// speak LSP over its stdio pipes. Handler-level tests walk in the back door
+// (call handle() directly); these prove the front door routes there too.
+// Exists because the pom-validation lane shipped fully unit-tested yet
+// unreachable — didOpen's isFoamFile gate never sent a pom.js to the handler
+// at all.
 
 var h = require('./_harness');
 var test = h.test, section = h.section;
@@ -31,10 +32,22 @@ var CLASS_SRC = "foam.CLASS({\n  package: 'd',\n  name: 'B',\n  properties: [ 'p
 fs.writeFileSync(path.join(root, 'pom.js'), BAD_POM);
 
 // The real entry point is lsp-start.js (server.js only exports start()) —
-// same script the VS Code extension spawns, with the same [pomPath] arg:
-// the boot pmake-loads FOAM through that pom, so it must be the repo's own
-// pom (a bare fixture pom can't bootstrap foam.CLASS). One full server
-// boot (~15-30s) is this category's price for testing the real wire.
+// the same script the VS Code, Zed, Emacs and MCP clients all spawn, with the
+// same [pomPath] arg: the boot pmake-loads FOAM through that pom, so it must
+// be the repo's own pom (a bare fixture pom can't bootstrap foam.CLASS).
+//
+// Why a child process rather than h.withServerLane, the in-process lane
+// config.js and i18n.js use: that lane boots server.js and does its own
+// didOpen -> publishDiagnostics round trips, so it covers server.js dispatch
+// and would catch the pom bug below just as well. What it cannot cover is
+// lsp-start.js itself — its arg handling, pom resolution and console/global
+// setup — and this is the suite's only test that loads that file (mcp.js
+// deliberately stops short of spawning it). A break there leaves every
+// in-process test green and every real editor dead: the same
+// unreachable-lane failure this file exists for, one level up. The child also
+// frames over real OS pipes instead of process.stdin.emit('data').
+// Measured marginal cost of the second boot: 2.5s (config alone 4.0s,
+// config,dispatch 6.6s).
 var repoRoot   = path.join(__dirname, '..', '..', '..');
 var serverPath = path.join(repoRoot, 'tools', 'lsp-start.js');
 var child = cp.spawn(process.execPath, [ serverPath, path.join(repoRoot, 'pom') ], {

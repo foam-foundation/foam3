@@ -117,20 +117,41 @@ foam.CLASS({
       // A Template method which can be overridden in a sub-class or refined from another
       // package that uses FOAM.
       name: 'configure',
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        },
-        {
-          name: 'url',
-          type: 'String'
-        }
-      ],
+      args: 'Context x, String url',
       type: 'foam.core.app.AppConfig',
       javaCode: `
       return this;
       `
+    },
+    {
+      documentation: `AppConfig is copyied for theme overrides,
+only copy properties relevant to the client or to the system when
+running under the user's context`,
+      name: 'copyFrom',
+      args: 'foam.core.app.AppConfig from',
+      type: 'foam.core.app.AppConfig',
+      javaCode: `
+        setPrivacy(from.getPrivacy());
+        setPrivacyUrl(from.getPrivacyUrl());
+        setCopyright(from.getCopyright());
+        setUrl(from.getUrl());
+        setUrlLabel(from.getUrlLabel());
+        setTermsAndCondLabel(from.getTermsAndCondLabel());
+        setTermsAndCondLink(from.getTermsAndCondLink());
+        setExternalUrl(from.getExternalUrl());
+        return this;
+      `,
+      code: function(from) {
+        this.privacy = from.privacy;
+        this.privacyUrl = from.privacyUrl;
+        this.copyright = from.copyright;
+        this.url = from.url;
+        this.urlLabel = from.urlLabel;
+        this.termsAndCondLabel = from.termsAndCondLabel;
+        this.termsAndCondLink = from.termsAndCondLink;
+        this.externalUrl = from.externalUrl;
+        return this;
+      }
     }
   ]
 });

@@ -5,6 +5,11 @@
  */
 foam.POM({
   name: "app",
+
+  projects: [
+    { name: 'test/pom',                             flags: "test"}
+  ],
+
   files: [
     { name: "AppBadgeView",                         flags: "web" },
     { name: "AppConfig",                            flags: "js|java" },

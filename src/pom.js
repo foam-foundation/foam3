@@ -490,6 +490,7 @@ foam.POM({
     { name: "foam/net/CIDR",                                          flags: "js|java" },
     { name: "foam/net/test/CIDRTest",                                 flags: "js&test|java&test" },
     { name: "foam/core/script/test/ScriptInterpreterLifecycleTest",   flags: "js&test|java&test" },
+    { name: "foam/core/script/test/ScriptInterruptTest",              flags: "js&test|java&test" },
     { name: "foam/net/Host",                                          flags: "js|java" },
     { name: "foam/net/Port",                                          flags: "js|java" },
     { name: "foam/net/NetworkException",                              flags: "js" },

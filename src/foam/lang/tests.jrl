@@ -8,3 +8,4 @@ p({"class":"foam.lang.test.JSONEscapeTest","id":"JSONEscapeTest","description":"
 p({"class":"foam.lang.test.SlotlessValidationTest","id":"SlotlessValidationTest","description":"getErrors() slotless validation matches reactive errors_ and preserves reactivity", language: 0})
 p({"class":"foam.lang.test.DatePropertyBench","id":"DatePropertyBench","description":"Per-operation heap/CPU benchmark for date-typed properties"})
 p({"class":"foam.lang.test.DatePropertyOpsTest","id":"DatePropertyOpsTest","description":"Date property behaviour across GROUP_BY, range, ordering, clone, JSON and the unset path"})
+p({"class":"foam.lang.PackIsSetTest","id":"PackIsSetTest","description":"javaPackIsSet flag storage and isSet API"})

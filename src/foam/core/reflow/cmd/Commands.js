@@ -848,6 +848,8 @@ foam.CLASS({
     {
       name: 'FlowAction',
       extends: 'foam.lang.Action',
+
+      constants: { BLOCK_KIND: 'input' },
       documentation: 'Small inner class to set up some basic view and configuration settings to make actions easier to use in console, might want to move this out if we ever want to use them outside these commands',
       // the import has to be defined here, since we call the code in the action ?
       imports: [ 'scope?' ],
@@ -901,6 +903,11 @@ foam.CLASS({
         ['label', 'Button'],
       ],
       methods: [
+        function toSummary() {
+          var line = this.script.split('\n').find(l => l.trim()) || '';
+          return this.label + ( line ? ' · ' + line.trim() : '' );
+        },
+
         function toE(args, X) {
           var view = foam.u2.ViewSpec.createView(this.view, {
             ...(args || {}),
@@ -950,6 +957,13 @@ foam.CLASS({
     classes: [
     {
       name: 'FlowActionArrayHolder',
+
+      constants: { BLOCK_KIND: 'input' },
+
+      methods: [
+        function toSummary() { return this.actions.length + ' buttons'; }
+      ],
+
       properties: [
         {
           class: 'FObjectArray',

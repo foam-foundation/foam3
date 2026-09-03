@@ -9,6 +9,8 @@ foam.CLASS({
   name: 'DAOCreate',
   extends: 'foam.u2.Controller',
 
+  constants: { BLOCK_KIND: 'dao' },
+
   implements: [
     'foam.mlang.Expressions'
   ],
@@ -48,6 +50,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.daoKey; },
+
     async function render() {
       this.SUPER();
 

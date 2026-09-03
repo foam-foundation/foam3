@@ -225,6 +225,8 @@ foam.CLASS({
   package: 'foam.core.reflow.float',
   name: 'Test',
 
+  constants: { BLOCK_KIND: 'script' },
+
   tableColumns: [
     'description', 'status'
   ],

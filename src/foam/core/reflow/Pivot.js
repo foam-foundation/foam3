@@ -9,6 +9,8 @@ foam.CLASS({
   name: 'Pivot',
   extends: 'foam.dao.AbstractSink',
 
+  constants: { BLOCK_KIND: 'transform' },
+
   documentation: 'A Pivot Table',
 
   implements: [

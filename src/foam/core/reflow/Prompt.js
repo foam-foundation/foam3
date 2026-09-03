@@ -12,6 +12,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Prompt',
 
+  constants: { BLOCK_KIND: 'input' },
+
   imports: [ 'params' ],
 
   sections: [
@@ -100,6 +102,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      return this.label + ': ' + ( this.value != null ? this.value : '' ) + ( this.type ? ' · ' + this.type : '' );
+    },
+
     function toString() {
       return this.value.toString();
     },

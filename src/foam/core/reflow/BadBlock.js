@@ -8,6 +8,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'BadBlock',
 
+  constants: { BLOCK_KIND: 'script' },
+
   imports: [
     'flow'
   ],

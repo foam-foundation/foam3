@@ -156,6 +156,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Upload',
 
+  constants: { BLOCK_KIND: 'dao' },
+
   implements: [ 'foam.mlang.Expressions' ],
 
   documentation: `

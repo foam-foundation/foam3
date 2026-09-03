@@ -143,6 +143,7 @@ foam.CLASS({
               })
               .start('span').addClass(this.myClass('separator')).end()
               .tag(this.FULL_SCREEN, { themeIcon$: self.data.flowMode$.map(c => c.fullscreenIcon) })
+              .tag(this.GRAPH_MODE)
             .endContext()
             // callIf(this.data.showPrompts$, function() {
             //   this.start().addClass(self.myClass('save-text'))
@@ -344,6 +345,20 @@ foam.CLASS({
         if ( target ) {
           this.data.flowMode = target;
         }
+      }
+    },
+    {
+      name: 'graphMode',
+      toolTip: 'Toggle Graph View',
+      label: '',
+      themeIcon: 'flow',
+      buttonStyle: foam.u2.ButtonStyle.SECONDARY,
+      availablePermissions: [ 'reflow.graph' ],
+      isAvailable: function(showPrompts) {
+        return !! showPrompts;
+      },
+      code: function() {
+        this.data.graphMode = ! this.data.graphMode;
       }
     }
   ]
@@ -834,6 +849,7 @@ foam.CLASS({
     'foam.core.reflow.ReflowHeader',
     'foam.core.reflow.ReflowToolBar',
     'foam.core.reflow.ToolbarControl',
+    'foam.core.reflow.graph.FlowGraphView',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
     'foam.log.LogLevel',
@@ -842,6 +858,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'auth?',
     'commandDAO',
     'flowDAO',
     'notify',
@@ -871,6 +888,8 @@ foam.CLASS({
     'eval_',
     'findFlowChildByName',
     'flowChildren',
+    'graphFocus',
+    'graphMode',
     'history_',
     'llmService',
     'localScope',
@@ -879,12 +898,14 @@ foam.CLASS({
     'moveFlowChild',
     'moveFlowChildAfter',
     'out',
+    'pasteBlocks',
     'perfCapture_',
     'save',
     'scope',
     'scrollToBottom',
     'selected',
     'selectFromTree',
+    'serializeBlocks',
     'softSelected',
     'showPrompts',
     'value as flow'
@@ -950,6 +971,19 @@ foam.CLASS({
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
       color: $orange500 !important;
     }
+    ^graph {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    ^previewing {
+      flex: 0 0 40%;
+      min-height: 0;
+      overflow: auto;
+      border-top: 1px solid $borderLight;
+    }
+    ^previewing .block:not(.preview-path) { display: none; }
+    ^previewing .block.preview-path { display: block !important; }
   `,
 
   properties: [
@@ -977,6 +1011,25 @@ foam.CLASS({
       name: 'flowMode',
       value: 'CONSOLE',
       memorable: true
+    },
+    {
+      class: 'Boolean',
+      name: 'graphMode',
+      documentation: 'Show the flow as a dependency graph instead of the document.',
+      memorable: true
+    },
+    {
+      class: 'String',
+      name: 'graphFocus',
+      documentation: 'flowName the graph is focused on (only its dependency chain is shown); empty for the whole flow.',
+      transient: true,
+      hidden: true
+    },
+    {
+      class: 'Boolean',
+      name: 'graphPreview',
+      documentation: 'In graph mode, show the selected block\'s rendered output in a drawer under the canvas.',
+      value: true
     },
     {
       class: 'String',
@@ -1027,6 +1080,23 @@ foam.CLASS({
       },
       preSet: function(_, n) { return n === 'false' ? '' : n; },
 //      memorable: true // use flowMode
+    },
+    {
+      class: 'Boolean',
+      name: 'graphAllowed_',
+      documentation: 'reflow.graph permission check result; gates the graph even when graphMode arrives from the URL.',
+      transient: true,
+      hidden: true
+    },
+    {
+      class: 'Boolean',
+      name: 'graphVisible_',
+      documentation: 'The graph only replaces the document while editing; presentation modes always show the document.',
+      transient: true,
+      hidden: true,
+      expression: function(showPrompts, graphMode, graphAllowed_) {
+        return !! showPrompts && graphMode && graphAllowed_;
+      }
     },
     {
       class: 'StringArray',
@@ -1133,6 +1203,12 @@ foam.CLASS({
     },
     'flowErrors_',
     {
+      name: 'flowGraph_',
+      documentation: 'DependencyScanner output for the loaded flow; refreshed by generateScriptString().',
+      transient: true,
+      hidden: true
+    },
+    {
       class: 'Boolean',
       name: 'renaming_',
       transient: true,
@@ -1179,6 +1255,36 @@ foam.CLASS({
         await this.eval_(c.cmd);
         this.currentBlock.value.copyFrom(c.value);
       }
+    },
+
+    async function pasteBlocks(text, opt_parent) {
+      /** Add blocks from their serialized form (see serializeBlocks()). Names that
+          collide with blocks already in the flow are renamed, and references among
+          the pasted blocks follow the rename so the group stays wired. Returns the
+          names of the pasted top-level blocks. */
+      var blocks;
+      try { blocks = JSON.parse(text); } catch (e) {}
+      if ( ! Array.isArray(blocks) || ! blocks.length ||
+           ! blocks.every(b => b && foam.String.isInstance(b.flowName) && foam.String.isInstance(b.cmd)) ) {
+        throw new Error('Clipboard does not contain flow blocks');
+      }
+
+      var scanner = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) });
+      var names   = scanner.names(blocks);
+      var used    = new Set(names);
+      var isTaken = n => used.has(n) || !! this.findFlowChildByName(n);
+      var renames = {};
+
+      names.forEach(n => {
+        if ( ! this.findFlowChildByName(n) ) return;
+        renames[n] = scanner.freeName(n, isTaken);
+        used.add(renames[n]);
+      });
+      scanner.rewrite(blocks, renames);
+
+      await this.includeScript(JSON.stringify(blocks), opt_parent);
+
+      return blocks.map(b => b.flowName);
     },
 
     async function includeFlow(name) {
@@ -1382,6 +1488,12 @@ foam.CLASS({
 
       this.flowErrors_$.follow(this.value.errors_$);
 
+      if ( this.auth ) {
+        this.auth.check(null, 'reflow.graph').then(ok => this.graphAllowed_ = ok);
+      } else {
+        this.graphAllowed_ = true;
+      }
+
       globalThis.shell = this; // for debugging
 
       // Add commands to localScope
@@ -1415,7 +1527,7 @@ foam.CLASS({
         return layout.myClass(m.toString().toLowerCase());
       }));
 
-      layout.showLeft$   = this.showPrompts$;
+      layout.showLeft$   = this.slot(function(showPrompts, graphVisible_) { return !! showPrompts && ! graphVisible_; });
       layout.showRight$  = this.showPrompts$;
       layout.showHeader$ = this.flowMode$.map(m => m.showsHeader);
       layout.middle.call(this.renderSelf, [this]);
@@ -1455,8 +1567,19 @@ foam.CLASS({
     function renderSelf(self) {
       this.
         addClass(self.myClass()).
+        start('div')
+          .addClass(self.myClass('graph'))
+          .show(self.graphVisible_$)
+          .call(function() { self.mountGraph_(this); }).
+        end().
+        // In graph mode the document doubles as a preview drawer: only the
+        // selected block (with its ancestors and children) stays visible.
         start('div', null, self.out$)
-          .addClass(self.myClass('output')).
+          .addClass(self.myClass('output'))
+          .enableClass(self.myClass('previewing'), self.graphVisible_$)
+          .show(self.slot(function(graphVisible_, graphPreview, selected) {
+            return ! graphVisible_ || ( graphPreview && selected !== self && !! selected?.flowName );
+          })).
         end().
         // Add loading indicator overlay
         add(self.dynamic(function(isLoading_, isLoadingMinimized_) {
@@ -1510,6 +1633,31 @@ foam.CLASS({
         this.onDetach(() => observer.disconnect());
         this.setTimeout(this.focusInput.bind(this), 500)
         */
+    },
+
+    function mountGraph_(pane) {
+      // Mounted on first use so flows that never open the graph pay nothing for it.
+      var mount = () => pane.tag(this.FlowGraphView, {
+        data: this,
+        graph$: this.flowGraph_$,
+        selected$: this.selected$,
+        softSelected$: this.softSelected$,
+        flowMode$: this.flowMode$,
+        visible$: this.graphVisible_$,
+        preview$: this.graphPreview$,
+        focusRoot_$: this.graphFocus$
+      });
+
+      if ( this.graphVisible_ ) {
+        mount();
+        return;
+      }
+
+      var sub = this.graphVisible_$.sub(() => {
+        if ( ! this.graphVisible_ ) return;
+        sub.detach();
+        mount();
+      });
     },
 
     function log(...args) {
@@ -1800,32 +1948,8 @@ foam.CLASS({
       }
     },
 
-    function updateDependencies(blocks) {
-      /** blocks: the parsed script JSON. The scanner's edges run from a referenced
-          block to the block referencing it, so a block's `dependencies` holds its
-          dependents -- Flowable.treeRowRenderer reads them as "Dependents:".
-
-          flowChildren is flattened in the same document order the scanner walks
-          the JSON, so the two sides line up by flowName. */
-      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
-
-      var idToName = {};
-      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
-
-      var dependents = {};
-      graph.edges.forEach(e => {
-        var source = idToName[e.source];
-        ( dependents[source] || ( dependents[source] = [] ) ).push(idToName[e.target]);
-      });
-
-      var flat    = [];
-      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
-      flatten(this.flowChildren);
-
-      flat.forEach(f => { f.dependencies = [...new Set(dependents[f.flowName] || [])]; });
-    },
-
-    function generateScriptString() {
+    function serializeBlocks(blocks) {
+      /** The flow script format: also used for copy/paste of block sub-sets. */
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,
@@ -1835,7 +1959,53 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      var script = json.stringify(this.flowChildren);
+      return json.stringify(blocks);
+    },
+
+    function updateDependencies(blocks) {
+      /** blocks: the parsed script JSON. Edges point from a referenced block to the
+          block referencing it, so a block's `dependencies` lists its dependents
+          (flowNames, since Flowable.dependencies is name-based -- see its
+          treeRowRenderer tooltip/highlight use).
+
+          Node identity is positional (see DependencyScanner): flowChildren is
+          flattened here in the same document order the scanner walks the JSON,
+          then zipped index-for-index against graph.nodes so a duplicate
+          flowName binds each node to its own block instance instead of
+          collapsing them onto one. */
+      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
+
+      var flat    = [];
+      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
+      flatten(this.flowChildren);
+
+      var firstByName = {};
+      flat.forEach(f => { if ( ! (f.flowName in firstByName) ) firstByName[f.flowName] = f; });
+
+      var idToName = {};
+      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
+
+      var dependents = {};
+      graph.edges.forEach(e => {
+        var sourceName = idToName[e.source];
+        var targetName = idToName[e.target];
+        (dependents[sourceName] || (dependents[sourceName] = [])).push(targetName);
+      });
+
+      flat.forEach(block => {
+        block.dependencies = [...new Set(dependents[block.flowName] || [])];
+      });
+
+      graph.nodes.forEach((n, i) => {
+        var block = flat[i];
+        n.block = ( block && block.flowName === n.name ) ? block : firstByName[n.name];
+      });
+
+      this.flowGraph_ = graph;
+    },
+
+    function generateScriptString() {
+      var script = this.serializeBlocks(this.flowChildren);
 
       try {
         this.updateDependencies(JSON.parse(script));

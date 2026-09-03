@@ -41,6 +41,8 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Header',
 
+  constants: { BLOCK_KIND: 'doc' },
+
   sections: [
     {
       name: 'general',
@@ -73,6 +75,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return ( this.type + ' ' + this.text ).trim(); },
+
     function addToE(e) {
       e.tag(foam.core.reflow.HeaderView, {data: this});
     }

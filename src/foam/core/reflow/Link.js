@@ -9,6 +9,8 @@ foam.CLASS({
   name: 'Link',
   extends: 'foam.u2.Element',
 
+  constants: { BLOCK_KIND: 'doc' },
+
   documentation: 'Add behaviour to the "a" anchor tag so that it can load FLOWS better.',
 
   imports: [
@@ -25,6 +27,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.href; },
+
     function render() {
       let self = this;
 

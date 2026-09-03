@@ -1861,6 +1861,48 @@ foam.CLASS({
       }
     },
 
+    function deleteFlowChild(block) {
+      /** A block's `dependencies` names the blocks that read it. Walk them
+          breadth-first to the whole group that breaks with it, and offer to
+          remove the group in one step. Each block goes out through its parent;
+          the merged onFlowChildrenChange then writes the script once, so undo
+          brings the whole group back together. */
+      var doomed = [ block ];
+      var via    = {};
+      for ( var i = 0 ; i < doomed.length ; i++ ) {
+        doomed[i].dependencies.forEach(name => {
+          var d = this.findFlowChildByName(name);
+          if ( d && doomed.indexOf(d) == -1 ) { via[name] = doomed[i].flowName; doomed.push(d); }
+        });
+      }
+
+      var remove = () => doomed.forEach(b => {
+        b.deleted_ = true;
+        b.flowParent.removeFlowChild(b);
+      });
+
+      if ( doomed.length == 1 ) { remove(); return; }
+
+      var others = doomed.slice(1);
+      var modal  = this.ConfirmationModal.create({
+        title: 'Deleting "' + block.flowName + '"',
+        modalStyle: 'DESTRUCTIVE',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'deleteAll',
+          label: 'Delete all ' + doomed.length,
+          code: remove
+        })
+      });
+
+      modal.add(others.length + ( others.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+        ' on it: ' +
+        others.map(b => b.flowName + ( via[b.flowName] === block.flowName ? '' : ' (via ' + via[b.flowName] + ')' )).join(', ') +
+        '. Remove ' + ( others.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
+    },
+
     function renameBack_(block, name) {
       /** Put a name back without the write re-entering onBlockRenamed. */
       this.renaming_ = true;
@@ -1873,8 +1915,7 @@ foam.CLASS({
           Name the blocks that reference it, and offer to rewrite them with it. */
       if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
 
-      var live = [];
-      ( function walk(l) { l.forEach(b => { live.push(b); walk(b.flowChildren || []); }); } )(this.flowChildren);
+      var live = this.flattenFlow();
 
       // Two blocks of one name collapse in the flow scope, which binds the last of
       // them and leaves the other unreachable. Bounce the rename instead of landing it.

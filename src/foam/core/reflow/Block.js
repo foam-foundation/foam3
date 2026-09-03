@@ -93,11 +93,9 @@ foam.CLASS({
       },
       validateObj: function(flowName) {
         if ( ! flowName ) return;
-        var used = 0;
-        ( function walk(l) {
-          l.forEach(b => { if ( b.flowName === flowName ) used++; walk(b.flowChildren); });
-        } )(this.flowRoot().flowChildren);
-        if ( used > 1 ) return 'Already used by another block.';
+        var root = this.flowRoot();
+        if ( root.flattenFlow().filter(b => b.flowName === flowName).length > 1 )
+          return 'Already used by another block.';
       }
     },
     {
@@ -234,10 +232,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() {
-        this.deleted_ = true;
-        this.flowParent && this.flowParent.removeFlowChild(this);
-      }
+      code: function() { this.flowRoot().deleteFlowChild(this); }
     }
   ],
 

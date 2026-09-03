@@ -113,6 +113,13 @@ foam.CLASS({
       return f;
     },
 
+    function flattenFlow() {
+      /** Every block below this one in document order, parent before its children. */
+      var out = [];
+      ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(this.flowChildren);
+      return out;
+    },
+
     function createFlowChildName(prefix) {
       for ( var i = 1, name = prefix ; ; ) {
         name = prefix + i++;

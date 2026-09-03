@@ -43,7 +43,7 @@ var CATEGORIES = [
   'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
   'i18n', 'codelens', 'scaffold', 'pom',
   'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
-  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp'
+  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp', 'dispatch'
 ];
 
 // Resolve the category list BEFORE booting the harness so an unknown name fails

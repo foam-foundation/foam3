@@ -421,11 +421,19 @@ function start() {
       if ( ouri === uri ) {
         fileModelCache.invalidate(ouri);
         if ( isJrlFile(ouri) ) pushJrlDiagnostics(ouri, otext);
-        else if ( isFoamFile(otext) ) pushDiagnostics(ouri, otext);
+        else if ( isFoamFile(otext) || isPomFile(ouri) ) pushDiagnostics(ouri, otext);
         continue;
       }
       if ( isJrlFile(ouri) ) {
         pushJrlDiagnostics(ouri, otext);
+      } else if ( isPomFile(ouri) ) {
+        // An open pom is re-pushed on EVERY save, not gated on the affected
+        // set: its diagnostics are disk checks (pom-file-missing resolves each
+        // entry with existsSync), and the save that clears one is the save
+        // CREATING a file the pom names — a file whose class the pom's own
+        // axiom state knows nothing about, so getAffectedFiles can never
+        // report it. Cost is one text parse plus one existsSync per entry.
+        pushDiagnostics(ouri, otext);
       } else if ( isFoamFile(otext) ) {
         // Only re-diagnose if this file's path is in the affected set.
         var opath = uriToPath_(ouri);
@@ -746,7 +754,7 @@ function start() {
         var tdoc = params.textDocument;
         console.error('[LSP] didOpen: ' + tdoc.uri + ' lang=' + tdoc.languageId);
         documents[tdoc.uri] = { text: tdoc.text, version: tdoc.version || 0 };
-        if ( isFoamFile(tdoc.text) ) pushDiagnostics(tdoc.uri, tdoc.text);
+        if ( isFoamFile(tdoc.text) || isPomFile(tdoc.uri) ) pushDiagnostics(tdoc.uri, tdoc.text);
         if ( isJrlFile(tdoc.uri) ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
         break;
 
@@ -755,7 +763,7 @@ function start() {
         if ( params.contentChanges.length > 0 ) {
           documents[uri] = { text: params.contentChanges[0].text, version: params.textDocument.version || 0 };
           fileModelCache.invalidate(uri);
-          if ( isFoamFile(documents[uri].text) ) pushDiagnostics(uri, documents[uri].text);
+          if ( isFoamFile(documents[uri].text) || isPomFile(uri) ) pushDiagnostics(uri, documents[uri].text);
           if ( isJrlFile(uri) ) pushJrlDiagnostics(uri, documents[uri].text);
         }
         break;

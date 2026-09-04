@@ -142,29 +142,41 @@ foam.CLASS({
     async function install() {
       /** Register the tools, if this browser has WebMCP. Returns whether they
         registered, so the command can say so. */
-      if ( ! this.modelContext )        return false;
+      if ( ! this.modelContext )      return false;
       if ( ! this.localScope['mcp'] ) return false;
 
       this.onDetach(() => this.controller_.abort());
 
       var opts = { signal: this.controller_.signal };
 
-      try {
-        await this.register_(opts);
-      } catch (e) {
-        // registerTool rejects with NotAllowedError where the tools permission
-        // is disabled for this origin. The Console carries on without an agent
-        // surface; the 'mcp' command reports what a browser actually exposes.
-        return false;
+      var tools = this.tools_();
+      var registered = 0;
+
+      for ( var i = 0 ; i < tools.length ; i++ ) {
+        try {
+          await this.modelContext.registerTool({
+            name:        tools[i].name,
+            description: await this.description_(tools[i]),
+            inputSchema: tools[i].inputSchema,
+            execute:     tools[i].execute
+          }, opts);
+          registered++;
+        } catch (e) {
+          // One tool the browser will not take must not cost the others, and
+          // must not fail silently: registerTool rejects with NotAllowedError
+          // where the origin disables tools, and on a schema it rejects.
+          console.error('ReflowWebMCP: ' + tools[i].name + ' not registered', e);
+        }
       }
 
-      return true;
+      return registered > 0;
     },
 
-    async function register_(opts) {
-      await this.modelContext.registerTool({
-        name:        'reflow_run',
-        description: await this.description_('reflow_run'),
+    function tools_() {
+      return [ {
+        name: 'reflow_run',
+        description: `Run one REFLOW command line against the open Console.
+          Proposes it for the user to accept unless execute is set.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -181,11 +193,10 @@ foam.CLASS({
           required: [ 'cmd' ]
         },
         execute: args => this.run_(args)
-      }, opts);
-
-      await this.modelContext.registerTool({
-        name:        'reflow_block',
-        description: await this.description_('reflow_block'),
+      }, {
+        name: 'reflow_block',
+        description: `Read a block's configuration, or change it. Charts are
+          blocks whose select agent groups rows, so they are built here.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -202,29 +213,31 @@ foam.CLASS({
           required: [ 'name' ]
         },
         execute: args => this.block_(args)
-      }, opts);
-
-      await this.modelContext.registerTool({
-        name:        'reflow_state',
-        description: await this.description_('reflow_state'),
+      }, {
+        name: 'reflow_state',
+        description: 'The flow open in the Console, and the blocks in it.',
         inputSchema: { type: 'object', properties: {} },
         execute: () => this.state_()
-      }, opts);
+      } ];
     },
 
-    async function description_(name) {
-      /** The tool's own doc flow, and for reflow_run the agent's system prompt
-        as well: an external agent should know the command language as well as
-        the one inside the Console does. */
+    async function description_(tool) {
+      /** The tool's doc flow, and for reflow_run the agent's system prompt as
+        well: an external agent should know the command language as well as the
+        one inside the Console does. The flow is documentation, not the
+        contract -- a browser rejects a tool with no description, so the
+        descriptor's own line stands when no flow is loaded. */
       var parts = [];
-      var doc   = await this.flowDAO.find(this.TOOL_DOC_FLOWS[name]);
+      var doc   = await this.flowDAO.find(this.TOOL_DOC_FLOWS[tool.name]);
 
       if ( doc ) parts.push(doc.markdown());
 
-      if ( name === 'reflow_run' )
+      if ( tool.name === 'reflow_run' )
         parts.push(await this.Flow.systemPrompt(this.__context__));
 
-      return parts.filter(p => p).join('\n\n');
+      parts = parts.filter(p => p);
+
+      return parts.length ? parts.join('\n\n') : tool.description;
     },
 
     async function run_(args) {

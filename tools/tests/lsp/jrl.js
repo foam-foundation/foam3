@@ -1321,3 +1321,60 @@ var dId = navHandler.handleDefinition(
   menusText2, valuePos(menusText2, '"id":"cookbook.recipe"'),
   'file://' + path.join(jrlnavDir, 'menus.jrl'));
 test(dId === null, 'nav: dotted menu id is not a class ref -> null');
+
+// === JrlLoader: a journal is not one JavaScript program ===
+section('JrlLoader entry slicing');
+
+var jrlLoader = foam.parse.lsp.JrlLoader.create();
+
+// FOAM writes long values as triple-quoted strings. No JS engine accepts
+// those, so evaluating a whole journal as one function body throws at
+// CONSTRUCTION and collects nothing at all — not "whatever came before".
+var tripleJrl = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeAlphaDAO",',
+  '  "serviceScript":"""',
+  '    x = 1;',
+  '  """',
+  '})',
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeBetaDAO"',
+  '})'
+].join('\n');
+
+var tripleLoaded = jrlLoader.loadString(tripleJrl);
+test(tripleLoaded.length === 2,
+  'JrlLoader: a triple-quoted value no longer costs the whole file'
+  + ' (got ' + tripleLoaded.length + ' entries)');
+test(tripleLoaded.some(function(o) { return o.name === 'probeAlphaDAO'; }) &&
+     tripleLoaded.some(function(o) { return o.name === 'probeBetaDAO'; }),
+  'JrlLoader: both entries survive, the triple-quoted one included');
+
+// One unparseable entry drops itself and nothing else.
+var brokenJrl = [
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodOne" })',
+  'p({ "class":"foam.core.boot.CSpec", "name": })',
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodTwo" })'
+].join('\n');
+var brokenLoaded = jrlLoader.loadString(brokenJrl);
+test(brokenLoaded.length === 2 &&
+     brokenLoaded.map(function(o) { return o.name; }).join(',') === 'probeGoodOne,probeGoodTwo',
+  'JrlLoader: a malformed entry costs only itself'
+  + ' (got ' + brokenLoaded.map(function(o) { return o.name; }).join(',') + ')');
+
+// Lines come back with the entries — a services.jrl row is worth pointing at.
+var withLines = jrlLoader.loadStringWithLines(tripleJrl);
+test(withLines.length === 2 && withLines[0].line === 0 && withLines[1].line === 7,
+  'JrlLoader: loadStringWithLines reports each entry\'s start line'
+  + ' (got ' + withLines.map(function(e) { return e.line; }).join(',') + ')');
+
+// Not a fixture: the repo's own journal, which is the file the old loader
+// silently returned nothing for.
+var realServices = path.resolve(__dirname, '../../../src/services.jrl');
+if ( fs.existsSync(realServices) ) {
+  var realLoaded = jrlLoader.loadFile(realServices);
+  test(realLoaded.length > 0 && realLoaded.some(function(o) { return o.name === 'cSpecDAO'; }),
+    'JrlLoader: src/services.jrl loads (' + realLoaded.length + ' entries) and contains cSpecDAO');
+}

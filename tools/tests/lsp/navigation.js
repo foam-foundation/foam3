@@ -744,3 +744,33 @@ var ownLoc = defHandler.resolveMemberOnClass_('foam.lang.Property', 'name');
 test(ownLoc && ownLoc.uri.indexOf('Property.js') !== -1,
   'resolveMemberOnClass_: a property in the class\'s own file still resolves there'
   + ' (got ' + ( ownLoc ? ownLoc.uri.split('/').pop() : 'null' ) + ')');
+
+// === A service name in a .js model navigates to services.jrl ===
+// JrlHandler has had this rule, but it only fires with the cursor inside a
+// .jrl file. In a model, daoKey: 'localUserDAO' resolved to nothing.
+var svcDefHandler = foam.parse.lsp.handlers.DefinitionHandler.create({
+  index: index,
+  journalEntryIndex: foam.parse.lsp.JournalEntryIndex.create({ index: index })
+});
+var daoKeyText = [
+  "foam.CLASS({",
+  "  package: 'probe',",
+  "  name: 'DaoKeyProbe',",
+  "  properties: [",
+  "    { class: 'String', name: 'x', daoKey: 'localUserDAO' }",
+  "  ]",
+  "});"
+].join('\n');
+var daoKeyLoc = svcDefHandler.handle(daoKeyText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');
+test(daoKeyLoc && ! Array.isArray(daoKeyLoc) && daoKeyLoc.uri.endsWith('services.jrl'),
+  'service jump: daoKey value in a .js model resolves to a services.jrl'
+  + ' (got ' + ( daoKeyLoc ? ( Array.isArray(daoKeyLoc) ? daoKeyLoc.length + ' locs' : daoKeyLoc.uri.split('/').pop() ) : 'null' ) + ')');
+test(daoKeyLoc && ! Array.isArray(daoKeyLoc) && daoKeyLoc.range.start.line > 0,
+  'service jump: and at the registering row, not the top of the file'
+  + ' (got line ' + ( daoKeyLoc && ! Array.isArray(daoKeyLoc) ? daoKeyLoc.range.start.line : '?' ) + ')');
+
+// A string that is NOT a registered service must not be hijacked.
+var plainText = daoKeyText.replace('localUserDAO', 'notARegisteredServiceName');
+var plainLoc = svcDefHandler.handle(plainText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');
+test(plainLoc === null,
+  'service jump: an ordinary string is left alone (got ' + JSON.stringify(plainLoc) + ')');

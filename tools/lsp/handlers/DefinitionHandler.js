@@ -32,6 +32,14 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      name: 'journalEntryIndex',
+      documentation: `Optional. Supplies services.jrl lookups so a service
+        name written in a .js model navigates to the row that registers it.
+        Absent (tests constructing this handler bare) simply skips that
+        branch — no service jump, everything else unchanged.`,
+      value: null
     }
   ],
 
@@ -157,7 +165,41 @@ foam.CLASS({
         }
       }
 
+
+      // Last resort: a string literal that names a REGISTERED SERVICE jumps to
+      // the services.jrl row registering it. `daoKey: 'localUserDAO'` in a .js
+      // model resolved to nothing at all — JrlHandler had the rule, but only
+      // fires when the cursor is inside a .jrl file.
+      //
+      // Schema-blind on purpose, the way JrlHandler's own service rule is:
+      // nothing in a model declares that daoKey points at a journal. The
+      // evidence is the lookup itself — only services.jrl is read, and only a
+      // string that IS a registered name returns anything, so this is reached
+      // after every schema-driven branch has declined.
+      var svcJump = this.serviceNameJump_(text, position);
+      if ( svcJump ) return svcJump;
+
       return null;
+    },
+
+    function serviceNameJump_(text, position) {
+      /**
+       * A quoted string whose whole content names a registered service ->
+       * its services.jrl row. Null when there is no journal index wired, the
+       * cursor is not inside a string, or the name is not registered.
+       */
+      if ( ! this.journalEntryIndex ) return null;
+      var value = this.analyzer.getEnclosingStringContent(text, position);
+      if ( ! value ) return null;
+      var locs = this.journalEntryIndex.getServiceLocations(value);
+      if ( ! locs || ! locs.length ) return null;
+      var out = locs.map(function(l) {
+        return {
+          uri: 'file://' + l.file,
+          range: { start: { line: l.line, character: 0 }, end: { line: l.line, character: 0 } }
+        };
+      });
+      return out.length === 1 ? out[0] : out;
     },
 
     function isPomFile_(uri) {

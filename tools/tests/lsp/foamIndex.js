@@ -407,3 +407,30 @@ var ownFile = index.getSymbolPosition('foam.lang.Property', 'name', 7);
 test(ownFile && ownFile.uri.split('/').pop() === 'Property.js',
   'a member in the class\'s own file still resolves there, not to a refinement'
   + ' (got ' + ( ownFile ? ownFile.uri.split('/').pop() : 'null' ) + ')');
+
+// === Registered services are workspace symbols ===
+section('FoamIndex service symbols');
+
+// A service name is not an axiom of any class, so nothing in the class walk
+// finds it. src/foam/core/auth/services.jrl registers localUserDAO.
+var svcHits = (index.searchSymbols('localUserDAO', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'localUserDAO'; });
+test(svcHits.length > 0 && svcHits[0].kind === 13 && svcHits[0].filePath.endsWith('services.jrl'),
+  'service symbols: localUserDAO is findable, kind 13, in a services.jrl'
+  + ' (got ' + ( svcHits.length ? svcHits[0].kind + ' ' + svcHits[0].filePath.split('/').pop() : 'no hit' ) + ')');
+test(svcHits.length > 0 && svcHits[0].line > 0,
+  'service symbols: the entry carries its own line, having no class to resolve one from'
+  + ' (got line ' + ( svcHits.length ? svcHits[0].line : '?' ) + ')');
+
+// A package filter cannot match something with no class id, and must not
+// throw on the empty string either.
+var filtered = index.searchSymbols('localUserDAO', { limit: 20, packagePrefix: 'foam.u2.' }) || [];
+test(filtered.every(function(s) { return s.name !== 'localUserDAO'; }),
+  'service symbols: a package filter excludes them rather than crashing');
+
+// The CSpec identity is `name`, not `id` — requiring id skipped every row.
+var cspecUses = (index.getStringUsages('localUserDAO') || [])
+  .filter(function(u) { return u.kind === 'cspec'; });
+test(cspecUses.length > 0 && cspecUses[0].file.endsWith('services.jrl') && cspecUses[0].line > 0,
+  'cspec records: localUserDAO is recorded with its file and line'
+  + ' (got ' + ( cspecUses.length ? cspecUses[0].file.split('/').pop() + ':' + cspecUses[0].line : 'none' ) + ')');

@@ -35,7 +35,10 @@ function start() {
 
   var completionHandler  = foam.parse.lsp.handlers.CompletionHandler.create({ index: index, grammar: grammar, cache: fileModelCache, cssTokenResolver: cssTokenResolver });
   var hoverHandler       = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker, cssTokenResolver: cssTokenResolver });
-  var definitionHandler  = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
+  // Created before definitionHandler because that handler takes it: a `var`
+  // declared further down is hoisted but still undefined here.
+  var journalEntryIndex  = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  var definitionHandler  = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index, journalEntryIndex: journalEntryIndex });
   var i18nHandler        = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: fileModelCache });
   // Translation provider: created here (server-start scope) so `provider` is
   // reachable from the 'initialize' case below, where config actually
@@ -51,7 +54,6 @@ function start() {
   var referencesHandler = foam.parse.lsp.handlers.ReferencesHandler.create({ index: index });
   var documentHighlightHandler = foam.parse.lsp.handlers.DocumentHighlightHandler.create();
   var renameHandler = foam.parse.lsp.handlers.RenameHandler.create({ index: index });
-  var journalEntryIndex = foam.parse.lsp.JournalEntryIndex.create({ index: index });
   var jrlHandler = foam.parse.lsp.handlers.JrlHandler.create({
     index: index,
     journalEntryIndex: journalEntryIndex

@@ -18,7 +18,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
 | `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
-| `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `filterByClass()` |
+| `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `loadStringWithLines()`, `sliceEntries()`, `filterByClass()`. **A journal is not valid JavaScript** — FOAM's triple-quoted values are a syntax error, so the content is cut into entries on the grammar's entry starts and each is evaluated alone with its triple-quoted spans blanked. Evaluating the whole file as one body threw at construction and returned nothing: 68 of 78 `services.jrl` and 119 of 365 journals were silently empty |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
 | `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
 | `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
@@ -169,6 +169,33 @@ Known residue (not this machinery): members whose refining file never reaches
 the grammar's whole-file parse. Concentrated in `Element2.js`,
 `java/refinements.js`, `u2/view/TableCellFormatter.js` and
 `swift/refines/Method.js`.
+
+### Services are symbols too
+
+A registered service (`services.jrl` CSpec row) is not an axiom of any class, so
+the class walk that builds `symbolIndex_` cannot see one. `localUserDAO` returned
+no symbol at all while `src/foam/core/auth/services.jrl:409` registered it.
+`pushServiceSymbols_` appends them as kind 13 (Variable — a name in the context,
+not a type), each carrying its own file and line because there is no class to
+resolve a position from. `searchSymbols` passes that `line` through and
+`WorkspaceSymbolHandler` prefers it when present.
+
+Two things had to be true first:
+
+- `JrlLoader` had to return anything at all (see its row above).
+- A CSpec's identity is its `name`, not its `id`. The index required `id` and
+  skipped every row in the repo. `cspecRecords` went 0 → 272, and 190 of those
+  names had no other record anywhere in the string-usage index.
+
+Cost: `buildStringUsageIndex_` 294ms → 370ms, one-time and lazy.
+
+`DefinitionHandler` gained the mirror of `JrlHandler`'s service rule: a string
+literal whose whole content names a registered service jumps to the row
+registering it. Schema-blind on purpose — nothing in a model declares that
+`daoKey` points at a journal — and safe because only `services.jrl` is read and
+only a registered name returns anything. It runs after every schema-driven
+branch has declined. `SERVICE_KEY_NAMES` lives on `JournalEntryIndex` so the two
+handlers share one copy of the convention.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods

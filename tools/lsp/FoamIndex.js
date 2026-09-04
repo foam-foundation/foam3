@@ -1557,8 +1557,48 @@ foam.CLASS({
         }
       }
 
+      this.pushServiceSymbols_(out);
+
       this.symbolIndex_ = out;
       return out;
+    },
+
+    function pushServiceSymbols_(out) {
+      /**
+       * Registered services (`services.jrl` CSpec rows) as workspace symbols.
+       *
+       * A service name is not an axiom of any class, so nothing above finds
+       * it: searching `localUserDAO` returned no symbol at all while
+       * `services.jrl` registered it on line 409. They are the names an
+       * `imports:` entry is written against, which makes them exactly the
+       * kind of thing a symbol search is for.
+       *
+       * Kind 13 (Variable) — a service is a name in the context, not a type.
+       * The entry carries its own file and line because there is no class to
+       * resolve a position from.
+       */
+      var byName;
+      try {
+        if ( ! this.stringUsageIndex_ ) this.buildStringUsageIndex_();
+        byName = this.stringUsageIndex_ && this.stringUsageIndex_.byName;
+      } catch ( e ) { return; }
+      if ( ! byName ) return;
+
+      for ( var name in byName ) {
+        var recs = byName[name];
+        for ( var i = 0 ; i < recs.length ; i++ ) {
+          var r = recs[i];
+          if ( r.kind !== 'cspec' || ! r.file ) continue;
+          out.push({
+            name:          name,
+            kind:          13,
+            classId:       '',
+            containerName: 'services.jrl',
+            filePath:      r.file,
+            line:          r.line || 0
+          });
+        }
+      }
     },
 
     function searchSymbols(query, opts) {
@@ -1587,7 +1627,9 @@ foam.CLASS({
         var s = symbols[i];
         if ( ! s.filePath )                                      continue;
         if ( kindFilter    && s.kind !== kindFilter )            continue;
-        if ( packagePrefix && s.classId.indexOf(packagePrefix) !== 0 ) continue;
+        // A service symbol has no class id, so a package filter cannot match
+        // it — it is filtered out rather than crashing on an empty string.
+        if ( packagePrefix && ( ! s.classId || s.classId.indexOf(packagePrefix) !== 0 ) ) continue;
 
         if ( ! q ) {
           scored.push({ s: s, score: 1 });
@@ -1617,6 +1659,9 @@ foam.CLASS({
           classId:       e.s.classId,
           containerName: e.s.containerName,
           filePath:      e.s.filePath,
+          // Carried through only when the entry brought one — a services.jrl
+          // row has no class to resolve a position from later.
+          line:          e.s.line,
           score:         e.score
         };
       });
@@ -2061,15 +2106,25 @@ foam.CLASS({
         }
         for ( var s = 0 ; s < services.length ; s++ ) {
           try {
-            var entries = jrlLoader.loadFile(services[s]);
+            // With lines, because a CSpec row is worth pointing AT: it is the
+            // one place the service is registered.
+            var entries = jrlLoader.loadStringWithLines(
+              fs_.readFileSync(services[s], 'utf8'));
             for ( var e = 0 ; e < entries.length ; e++ ) {
-              var ent = entries[e];
-              if ( ! ent || typeof ent.id !== 'string' ) continue;
-              record(ent.id, {
+              var ent = entries[e].obj;
+              if ( ! ent ) continue;
+              // A CSpec's identity is its `name`, not `id` — that is what an
+              // import key is matched against. Requiring `id` skipped every
+              // row in every services.jrl in the repo.
+              var entId = typeof ent.id === 'string' ? ent.id
+                        : ( typeof ent.name === 'string' ? ent.name : null );
+              if ( ! entId ) continue;
+              record(entId, {
                 sourceClassId: null,
                 axiomName:     'services.jrl',
                 kind:          'cspec',
-                file:          services[s]
+                file:          services[s],
+                line:          entries[e].line
               });
             }
           } catch (e) {}

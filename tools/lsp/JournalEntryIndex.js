@@ -30,6 +30,15 @@ foam.CLASS({
 
   requires: [ 'foam.parse.lsp.JrlGrammar' ],
 
+  constants: {
+    // Keys whose VALUE names a registered service rather than describing one.
+    // Schema-blind by nature: nothing in the model says `daoKey` points at a
+    // services.jrl row, it is a convention. Lives here because both the
+    // journal handler and the JS definition handler navigate on it, and two
+    // copies of a convention list drift.
+    SERVICE_KEY_NAMES: [ 'daoKey' ]
+  },
+
   properties: [
     {
       name: 'index',

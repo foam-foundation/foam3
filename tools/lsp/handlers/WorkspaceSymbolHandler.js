@@ -35,7 +35,11 @@ foam.CLASS({
         // side. Keeping h.filePath and taking only the line pairs a number
         // with a file that has no such line.
         var uri = 'file://' + h.filePath, line = 0, character = 0;
-        if ( h.kind === 5 || h.kind === 11 || h.kind === 10 ) {
+        if ( h.line !== undefined ) {
+          // The entry brought its own position — a services.jrl row has no
+          // class to resolve one from.
+          line = h.line;
+        } else if ( h.kind === 5 || h.kind === 11 || h.kind === 10 ) {
           line = this.index.getClassLine(h.classId);
         } else {
           var pos = this.index.getSymbolPosition(h.classId, h.name, h.kind);

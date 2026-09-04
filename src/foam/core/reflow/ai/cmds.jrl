@@ -46,3 +46,8 @@ p({
   "description": "Propose a command for execution",
   "script": "addValue(foam.core.reflow.ai.Propose.create({command: args.join(' ')}, this));"
 })
+p({
+  "class":"foam.core.reflow.ai.mcp.MCPCommand",
+  "id": "mcp",
+  "permissionRequired": true
+})

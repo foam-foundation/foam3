@@ -833,6 +833,7 @@ foam.CLASS({
     'foam.core.reflow.ReflowHeader',
     'foam.core.reflow.ReflowToolBar',
     'foam.core.reflow.ToolbarControl',
+    'foam.core.reflow.ai.mcp.ReflowWebMCP',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
     'foam.u2.Link',
@@ -1387,6 +1388,10 @@ foam.CLASS({
           return await cmd.execute.apply(cmd, args);
         }
       });
+
+      // Offer the same command line to an external agent. Registers only for a
+      // user whose commands include 'mcp', and no-ops without WebMCP.
+      this.onDetach(this.ReflowWebMCP.create({}, this)).install();
 
       // If this.value.script changes
       //   update this.flowChildren

@@ -104,6 +104,14 @@ foam.CLASS({
         than tracked with an LRU: the working set is the open editor tabs, and
         a rebuild costs one scan.`,
       factory: function() { return {}; }
+    },
+    {
+      name: 'callsMemo_',
+      documentation: `The last significantCalls() answer and the text it came
+        from. A caller asking where the models in a file start asks once per
+        model, and the scan is over the whole file; one entry covers that loop
+        because a file is processed start to finish before the next one.`,
+      value: null
     }
   ],
 
@@ -146,22 +154,59 @@ foam.CLASS({
       return !! uri && ( uri === 'pom.js' || uri.endsWith('/pom.js') );
     },
 
-    function firstSignificantCall_(text) {
+    function significantCalls(text) {
       /**
-       * Scan for the first foam.NAME( call outside comments and strings;
-       * NAME back, or null. The cursor only stops at characters that can
-       * open something interesting — '/', a quote, or 'f' — everything
-       * else advances without a parser attempt, which is what keeps this
-       * near the substring scan's cost instead of the full parse's.
+       * Every foam.NAME( call in `text` that sits outside comments and string
+       * literals, in source order: { name, offset, line }.
+       *
+       * This is the same walk classify() runs, just not stopped at the first
+       * hit. Anything that needs to know where a file's models START or END
+       * asks here, so no caller has to re-scan the source with a regex of its
+       * own — a regex sees the `foam.CLASS(` in a doc comment and in a test
+       * fixture string exactly as it sees the file's own call.
+       */
+      if ( ! text ) return [];
+      if ( this.callsMemo_ && this.callsMemo_.text === text ) return this.callsMemo_.calls;
+
+      var calls = this.scanCalls_(text, false);
+
+      // Line numbers in one pass over the text, not one pass per call.
+      var line = 0;
+      var ci   = 0;
+      for ( var i = 0 ; i < text.length && ci < calls.length ; i++ ) {
+        while ( ci < calls.length && calls[ci].offset === i ) calls[ci++].line = line;
+        if ( text.charCodeAt(i) === 10 ) line++;
+      }
+      while ( ci < calls.length ) calls[ci++].line = line;
+
+      this.callsMemo_ = { text: text, calls: calls };
+      return calls;
+    },
+
+    function firstSignificantCall_(text) {
+      /** Name of the first significant foam.NAME( call, or null. */
+      var calls = this.scanCalls_(text, true);
+      return calls.length ? calls[0].name : null;
+    },
+
+    function scanCalls_(text, stopAtFirst) {
+      /**
+       * Walk `text` collecting { name, offset } for each foam.NAME( call
+       * outside comments and strings. The cursor only stops at characters
+       * that can open something interesting — '/', a quote, or 'f' —
+       * everything else advances without a parser attempt, which is what
+       * keeps this near the substring scan's cost instead of the full
+       * parse's. `line` is filled in by significantCalls().
        */
       var skips    = this.parsers_.skips;
       var callName = this.parsers_.callName;
       var len      = text.length;
       var pos      = 0;
+      var calls    = [];
 
       while ( pos < len ) {
         var c = text.charCodeAt(pos);
-        if ( c === 47 /* / */ || c === 39 /* ' */ || c === 34 /* " */ || c === 96 /* \` */ ) {
+        if ( c === 47 /* / */ || c === 39 /* ' */ || c === 34 /* " */ || c === 96 /* ` */ ) {
           var advanced = false;
           for ( var i = 0 ; i < skips.length ; i++ ) {
             var ps = skips[i].parse(this.streamAt_(text, pos));
@@ -172,11 +217,16 @@ foam.CLASS({
         }
         if ( c === 102 /* f */ && text.startsWith('foam.', pos) ) {
           var res = callName.parse(this.streamAt_(text, pos));
-          if ( res && res.value ) return res.value;
+          if ( res && res.value ) {
+            calls.push({ name: res.value, offset: pos, line: 0 });
+            if ( stopAtFirst ) return calls;
+            pos = res.pos;
+            continue;
+          }
         }
         pos++;
       }
-      return null;
+      return calls;
     },
 
     function streamAt_(text, pos) {

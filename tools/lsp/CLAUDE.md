@@ -13,7 +13,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 ### Core
 | File | Purpose | Key Functions |
 |---|---|---|
-| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()` |
+| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()`. `sourceLine_` on each model comes from `FileClassifier.significantCalls()` |
 | `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `getClassLine()`, `getSymbolPosition()`, `resolveSymbol()`, `buildFileIndex()` |
 | `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
 | `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
@@ -21,6 +21,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `filterByClass()` |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
 | `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
+| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -30,7 +31,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 |---|---|---|
 | `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values |
 | `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports |
-| `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info |
+| `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info. A property's type carries its `of:` target — `` `Enum<ButtonStyle>` `` — except the primitive `of:` an array class already implies (`StringArray of: 'String'`) |
 | `DefinitionHandler.js` | `textDocument/definition` | File index lookup for class → file path |
 | `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models |
 | `JavaBlockValidator.js` | (called by Diagnostics) | Java import validation, getter/setter validation via model fields |
@@ -91,6 +92,83 @@ so the LSP's reindexFile on save keeps them coherent.
 3. `eval(text)` with this context — JS executes the file, calls our overrides
 4. SyntaxError fallback: bracket-matching extracts individual blocks, evals each separately
 5. Returns array of raw model objects with all fields: `package`, `name`, `extends`, `requires`, `properties`, `javaImports`, etc.
+
+### Model positions: one scan, never a second regex
+
+A file's models are located by `FileClassifier.significantCalls(text)` — every
+`foam.<X>(` written outside comments and string literals, with its offset and
+line. Two things read it:
+
+- `FileModelCache` sets each model's `sourceLine_` from it (where the model STARTS).
+- `DiagnosticsHandler.validateExpressions_` takes the next call's offset as
+  where the model ENDS.
+
+A third reads it too: `FileModelCache`'s SyntaxError fallback, which
+bracket-matches and evals one block at a time when the file does not parse.
+
+All three used to run their own `foam\.[A-Z]...\(` regex over the source, and a
+regex cannot tell a real call from one written in a doc comment or a test
+fixture string. `src/foam/lang/Proxy.js` has 4 real calls and 6 regex matches;
+`Enum.js` has 6 and 9. The failure was silent in the worst way: a model whose
+text was cut short at a comment simply stopped being validated, so a genuinely
+wrong `expression:` argument produced no diagnostic at all rather than a
+degraded one.
+
+Two details worth keeping straight:
+
+- A model's start offset is the start of its CALL, not of its line. Taking the
+  line start made an indented `foam.CLASS(` match as its own next model, and the
+  model's text became the indentation — 93 files under `src/` have their first
+  foam call at a column other than 0.
+- The fallback path sets `sourceLine_` from the call it is evaluating
+  (`evalState.forcedLine`), not from a running count. A block that fails to eval
+  must not shift the line of the next one.
+
+If you need to know where something is in a model file, ask this scan. Adding
+another regex re-opens the same hole.
+
+### Refinements declare members, and they live in another file
+
+A refined class keeps its OWN file as its definition site — `fileIndex_` only
+falls back to a refining file when nothing else claims the id. So a member that
+only a refinement declares has no entry in the class's own position map, and
+`getSymbolPosition` used to fall back to the class's declaration line: every one
+of them landed at the top of the wrong file.
+
+`refinementIndex_` (built next to `fileIndex_`) maps a refined class id to every
+file refining it, each with the refining model's own `[line, endLine)` range.
+`refinementMemberPosition_` walks those files' position maps and accepts a hit
+only inside the range. Two things make the range necessary:
+
+- A refinement usually shares a file with the class that motivated it, and both
+  can declare the same member name.
+- `collectAxiomPositions` keeps ONE record per name per file for
+  single-occurrence kinds. `FromCsvRefines.js` declares `fromCSV` six times, for
+  six classes. The record now carries `also` — the later sightings — so a caller
+  that knows which model it means can pick. Readers wanting just a position see
+  the same first record as before.
+
+A refinement's `name:` is optional; the index's name guard runs AFTER the
+`refines` branch for that reason.
+
+`getSymbolPosition` returns a `uri` along with the line, and that uri is
+authoritative — a member's declaration is not always in its class's file. Every
+caller must use it. `WorkspaceSymbolHandler` and `CallHierarchyHandler` used to
+keep the class's own path and take only the line, which put a line number in a
+file that had no such line: 34 workspace symbols pointed past the end of the
+file they named, 21 of them through the Java path long before refinements were
+indexed. `DefinitionHandler.buildLocationAtProperty` takes the class id for the
+same reason — when the class's own file does not declare the property, it asks
+the index instead of landing on line 0.
+
+Cost: a lookup that misses parses each refining file once, mtime-cached.
+`foam.lang.Property` is the worst case in this repo at 26 refining files —
+181ms cold, 0ms warm, 0.11ms per warm hit.
+
+Known residue (not this machinery): members whose refining file never reaches
+the grammar's whole-file parse. Concentrated in `Element2.js`,
+`java/refinements.js`, `u2/view/TableCellFormatter.js` and
+`swift/refines/Method.js`.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods
@@ -164,6 +242,34 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 - `collectRanges(text)` → `{comment, documentation}` spans (`P.msg({kind:'comment'|'documentation'})`). Drives comment/doc suppression in `HoverHandler` (no hover inside) and `SemanticTokenHandler` (no non-comment tokens inside).
 - `collectInstantiations(text)` → grouped `X.create({…})` / `.tag(this.X,{…})` calls with receiver class + key/value spans (`instCall`/`instCreateReceiver`/`instTagClass`/`instKey`/`instValue` kinds). The receiver chain uses `P.not` negative lookahead so only real create/tag calls match — generic `foo.bar(...)` emits nothing. Drives enum value completion (`MemberCompletionHandler`) and value diagnostics (`DiagnosticsHandler`).
 - `FoamIndex.getRelationships(classId)` (relationship hover, #5091) and `FoamIndex.getPropertyInfo(classId, prop)` (enum/primitive value resolution, #5093) back the index-side lookups.
+
+## Dispatch: a table for the uniform requests, a switch for the rest
+
+`handleMessage` consults `DOC_REQUESTS` before it reaches its `switch`. That
+table holds the twelve document-scoped requests that are all answered the same
+way — look up the open document, answer an empty value if the request does not
+apply to it, call one handler inside a try, answer the empty value again on a
+throw. Only three things differ per request, so a row declares only those:
+
+| Field | Meaning |
+|---|---|
+| `run(doc, params)` | the handler call, the only required field |
+| `list: true` | the empty answer is a fresh `[]`; absent means `null` |
+| `anyDoc: true` | any open document will do; the default requires a FOAM class file |
+
+`answerDocRequest_` holds the shape itself, once. **Adding a request of this
+kind is one row, not a new case** — and a case that needs anything else
+(feature-flag gating, a `.jrl` branch, disk reads, multi-step commands) stays
+a real case in the switch, which is why `initialize`, `workspace/executeCommand`,
+the `foam/i18n*` methods and the pull-diagnostic endpoint are still written out.
+
+The routing is pinned over the wire in the `dispatch` test category, against a
+spawned server: each routed method is asked once on a class document and once
+on a plain one. Note that the guard assertions only prove a route is WIRED —
+an empty answer and a handler that ran and found nothing look identical over
+the wire. Three cases (`documentSymbol`, `foldingRange`, `documentHighlight`)
+assert a NON-empty answer on the fixture, and those are the ones that catch a
+row calling the wrong handler or losing its `anyDoc` flag.
 
 ## Feature toggles (FeatureConfig)
 

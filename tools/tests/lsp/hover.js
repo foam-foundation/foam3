@@ -125,6 +125,47 @@ foam.CLASS({
 var singleImplHover = hoverHandler.buildClassHover('foam.parse.lsp.test.SingleImplTest');
 test(singleImplHover && singleImplHover.contents.value.indexOf('implements foam.parse.lsp.test.IFoo') !== -1, 'Sig format: single implement inline');
 
+// ========== Property types carry their of: target ==========
+section('Hover Property Of');
+
+foam.ENUM({
+  package: 'foam.parse.lsp.test',
+  name: 'OfEnum',
+  values: [ { name: 'ONE' }, { name: 'TWO' } ]
+});
+foam.CLASS({ package: 'foam.parse.lsp.test', name: 'OfTarget' });
+foam.CLASS({
+  package: 'foam.parse.lsp.test',
+  name: 'OfCarrier',
+  properties: [
+    { class: 'Enum', of: 'foam.parse.lsp.test.OfEnum', name: 'mood' },
+    { class: 'FObjectProperty', of: 'foam.parse.lsp.test.OfTarget', name: 'target' },
+    { class: 'StringArray', name: 'tags' },
+    { class: 'String', name: 'label' }
+  ]
+});
+
+var ofHover = hoverHandler.buildClassHover('foam.parse.lsp.test.OfCarrier');
+var ofMd = ofHover ? ofHover.contents.value : '';
+
+test(ofMd.indexOf('Enum<OfEnum>') !== -1,
+  'Hover: an Enum property names the enum it is of, not just "Enum"');
+test(ofMd.indexOf('FObjectProperty<OfTarget>') !== -1,
+  'Hover: an FObjectProperty names the class it holds');
+test(ofMd.indexOf('StringArray<String>') === -1 && ofMd.indexOf('`StringArray`') !== -1,
+  'Hover: StringArray drops its redundant of: String');
+test(ofMd.indexOf('`String`') !== -1,
+  'Hover: a property with no of: still prints its bare type');
+
+// The case the bench asks about: buttonStyle is declared in a refinement in
+// ActionView.js as `class: 'Enum', of: 'foam.u2.ButtonStyle'`.
+if ( index.classExists('foam.lang.Action') ) {
+  var actionHover = hoverHandler.buildClassHover('foam.lang.Action');
+  var actionMd = actionHover ? actionHover.contents.value : '';
+  test(actionMd.indexOf('Enum<ButtonStyle>') !== -1,
+    'Hover: Action.buttonStyle reads Enum<ButtonStyle>, the refinement\'s of:');
+}
+
 // === JRL LOADER ===
 
 

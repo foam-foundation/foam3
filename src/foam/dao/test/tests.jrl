@@ -32,3 +32,4 @@ p({
   id:"MDAOIndexDedupTest",
   description:"An index covered by an existing one must not be added"
 })
+p({"class":"foam.dao.test.BulkLoadCommandTest","id":"BulkLoadCommandTest","description":"a bulk load sent down cmd_ numbers its rows and stores them as the same puts would"})

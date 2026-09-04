@@ -126,6 +126,10 @@ foam.CLASS({
         languageDAO.setDelegate(new foam.dao.MDAO(foam.core.auth.Language.getOwnClassInfo()));
         x = x.put("languageDAO", new ProxyDAO.Builder(x).setDelegate(languageDAO).build());
 
+        // Assert against a known comment window rather than whatever this build
+        // configures, so the counts below mean the same thing everywhere.
+        ((AbstractF3FileJournal) languageDAO.getJournal()).setCommentWindowMs(0);
+
         Language language = new Language(x);
         language.setCode("aaCode");
         language.setVariant("aaVariant");
@@ -174,13 +178,14 @@ foam.CLASS({
         language.setVariant("bbVariant");
         language = (Language) languageDAO.put_(y, language).fclone();
         language.setName("bbName");
-        try {
-          // AbstractF3FileJournal.writeComment suppresses comment for
-          // calls in the same millisecond
-          Thread.currentThread().sleep(100L);
-        } catch (InterruptedException e) {
-          // nop
-        }
+
+        // At a window of zero the two puts only need different milliseconds.
+        // Waiting for the clock to move says that exactly, where sleeping does
+        // not: a pending interrupt makes Thread.sleep return at once.
+        Thread.interrupted();
+        long mark = System.currentTimeMillis();
+        while ( System.currentTimeMillis() == mark ) { }
+
         language = (Language) languageDAO.put_(y, language).fclone();
 
         info = (Map<String, Integer>) find(x, "languageJournal", language.getCode(), language.getName());

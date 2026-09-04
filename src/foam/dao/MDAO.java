@@ -69,10 +69,6 @@ public class MDAO
     }
   }
 
-  // Safe mode clones objects in objIn(), which is safer but slower.
-  // When doing an initial bulk load, JDAO sets safeMode to false to speed up
-  // loading.
-  protected boolean  safeMode_  = true;
   protected AltIndex index_;
   protected Object   state_     = null;
   protected Object   writeLock_ = new Object();
@@ -111,14 +107,6 @@ public class MDAO
     index_ = new AltIndex(new TreeIndex((Indexer) this.of_.getAxiomByName("id"), true));
   }
 
-  public boolean getSafeMode() {
-    return safeMode_;
-  }
-
-  public void setSafeMode(boolean mode) {
-    safeMode_ = mode;
-  }
-
   public void addIndex(Index index) {
     synchronized ( writeLock_ ) {
       setState(index_.addIndex(state_, index));
@@ -153,6 +141,45 @@ public class MDAO
     addIndex(idx);
   }
 
+  /**
+   * Build the index from every row at once, rather than one put at a time.
+   *
+   * The rows arrive already collected - see JDAO, which replays a journal into
+   * a BulkLoadDAO and hands the result here. The index is built from scratch,
+   * so this only applies to a DAO that is still empty, and it is only safe
+   * where nothing else is reading or writing it for the duration.
+   *
+   * The array is consumed: each row is frozen in place. No copy, unlike a
+   * put: the rows were collected for this load and nothing else holds them.
+   **/
+  public void bulkLoad(FObject[] a) {
+    synchronized ( writeLock_ ) {
+      if ( state_ != null ) {
+        // A bulk load that quietly did nothing would look exactly like one that
+        // worked, and the difference only shows up as a slow startup. This runs
+        // while a DAO is still being built, so the context may not reach a
+        // logger yet; having nowhere to say it is not a reason to fail.
+        try {
+          foam.lang.X x = foam.lang.XLocator.get();
+          Logger logger = x == null ? null : (Logger) x.get("logger");
+          if ( logger != null )
+            logger.info("Bulk load skipped, the DAO already holds rows", getOf().getId());
+        } catch ( Throwable t ) {
+          // No logger reachable yet.
+        }
+        return;
+      }
+
+      // A journal with nothing in it leaves the DAO exactly as it was, rather
+      // than replacing a null state with an array of empty index states.
+      if ( a.length == 0 ) return;
+
+      for ( int i = 0 ; i < a.length ; i++ ) a[i] = a[i].freeze();
+
+      setState(index_.bulkLoad(a, 0, a.length-1));
+    }
+  }
+
   synchronized Object getState() {
     return state_;
   }
@@ -162,7 +189,7 @@ public class MDAO
   }
 
   public FObject objIn(FObject obj) {
-    return getSafeMode() ? obj.fclone().freeze() : obj.freeze();
+    return obj.fclone().freeze();
   }
 
   public FObject objOut(FObject obj) {

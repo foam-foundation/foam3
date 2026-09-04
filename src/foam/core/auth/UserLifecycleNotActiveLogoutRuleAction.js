@@ -43,17 +43,17 @@ The rule based approach is more flexible.`,
           // log out by deleting session
           try {
             AuthService auth = (AuthService) x.get("auth");
-              ((DAO) x.get("sessionDAO")).where(
-                OR(
-                  EQ(Session.USER_ID, user.getId()),
-                  EQ(Session.AGENT_ID, user.getId())
-                )
-              ).select(new AbstractSink() {
-                public void put(Object obj, Detachable sub) {
-                  Session session = (Session) obj;
-                  auth.logout(session.getContext());
-                }
-              });
+            ((DAO) x.get("sessionDAO")).where(
+              OR(
+                EQ(Session.USER_ID, user.getId()),
+                EQ(Session.AGENT_ID, user.getId())
+              )
+            ).select(new AbstractSink() {
+              public void put(Object obj, Detachable sub) {
+                Session session = (Session) obj;
+                auth.logout(session.getContext());
+              }
+            });
           } catch (Throwable t) {
             logger.error("Failed to logout", "user", user.getId(), t);
           }

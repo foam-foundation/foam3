@@ -411,6 +411,62 @@ test(boundaryMultiDiags.filter(function(d) {
 }).length === 0, 'Boundary: propA NOT flagged when a mention shifts model start lines');
 
 
+// --- The two paths a review round found still reading raw text ---
+
+// A file with a syntax error never executes, so models come from the
+// bracket-matching fallback. That fallback found its blocks with a regex of its
+// own, so a commented-out call became a real model and took the first line off
+// the list — the models behind it all answered with the line in front.
+var fallbackText = [
+  "// foam.CLASS({ package: 'ghost', name: 'Phantom' })",
+  "foam.CLASS({",
+  "  package: 'real',",
+  "  name: 'Real',",
+  "  properties: [",
+  "    { class: 'String', name: 'title' },",
+  "    { name: 'computed', expression: function(title) { return title; } },",
+  "    { name: 'bad', expression: function(nonExistent) { return 1; } }",
+  "  ]",
+  "});",
+  "var broken = ;"
+].join('\n');
+
+var fallbackModels = foam.parse.lsp.FileModelCache.create().parseFileModels(fallbackText);
+test(fallbackModels.length === 1 && fallbackModels[0].name === 'Real' && fallbackModels[0].sourceLine_ === 1,
+  'SyntaxError fallback: a commented-out call is not a model, and Real keeps line 1'
+  + ' (got ' + fallbackModels.map(function(m) { return m.name + '@' + m.sourceLine_; }).join(',') + ')');
+
+var fallbackDiags = diagHandler.handle(fallbackText, 'file:///boundary/fallback.js')
+  .filter(function(d) { return d.message.indexOf('does not exist') !== -1; });
+test(fallbackDiags.length === 1 && fallbackDiags[0].message.indexOf('nonExistent') !== -1
+  && fallbackDiags[0].message.indexOf('real.Real') !== -1,
+  'SyntaxError fallback: one diagnostic, naming the real class'
+  + ' (got ' + fallbackDiags.map(function(d) { return d.message; }).join(' / ') + ')');
+test(fallbackDiags.every(function(d) { return d.message.indexOf('Phantom') === -1; }),
+  'SyntaxError fallback: no diagnostic names a class that only exists in a comment');
+
+// A model's start offset is the start of its CALL, not of its line. One space
+// of indentation used to make the model match as its own next model, leaving
+// its text as the indentation and every expression in it unchecked.
+var indentBody = [
+  "foam.CLASS({",
+  "  package: 'ind',",
+  "  name: 'Indented',",
+  "  properties: [",
+  "    { class: 'String', name: 'title' },",
+  "    { name: 'bad', expression: function(nonExistent) { return 1; } }",
+  "  ]",
+  "})"
+].join('\n');
+
+[ 1, 2, 4 ].forEach(function(pad) {
+  var indented = new Array(pad + 1).join(' ') + indentBody;
+  var flagged = diagHandler.handle(indented, 'file:///boundary/indent' + pad + '.js')
+    .filter(function(d) { return d.message.indexOf('nonExistent') !== -1; });
+  test(flagged.length > 0,
+    'Indented model: expressions are still checked with the call at column ' + pad);
+});
+
 // === POM COMPLETIONS ===
 
 

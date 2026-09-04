@@ -825,17 +825,30 @@ foam.CLASS({
        * enclosing scope and validates against that scope's properties.
        */
       var classId = this.cache.getClassId(m);
-      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Determine end of this model's text: the next significant foam call,
-      // from the same scan that decides what kind of file this is. A raw regex
-      // here matched the `foam.CLASS(` in a doc comment, cut the model off at
-      // that line, and every expression below it stopped being checked at all
-      // — the diagnostic did not degrade, it disappeared.
+      // Where this model's text starts and ends, both taken from the same scan
+      // that decides what kind of file this is. Two things used a raw regex
+      // over the source here, and a regex cannot tell a real call from one
+      // written in a comment: the end came from re-scanning, so a
+      // `// see foam.CLASS( for the pattern` cut the model off at that line and
+      // every expression below it stopped being checked at all.
+      //
+      // The start used to be the start of the model's LINE, which is not the
+      // same as the start of its call. One space of indentation put the model's
+      // own call after its start offset, so the model matched as its own next
+      // model and its text became the indentation. Matching the call by line
+      // gives the offset directly. No call on the model's line — which should
+      // not happen — falls back to the whole file: a noisy diagnostic rather
+      // than a silently missing one.
       var calls = this.fileClassifier.significantCalls(text);
-      var modelEnd = text.length;
+      var modelOffset = 0;
+      var modelEnd    = text.length;
       for ( var ci = 0 ; ci < calls.length ; ci++ ) {
-        if ( calls[ci].offset > modelOffset ) { modelEnd = calls[ci].offset; break; }
+        if ( calls[ci].line === m.sourceLine_ ) {
+          modelOffset = calls[ci].offset;
+          modelEnd    = ci + 1 < calls.length ? calls[ci + 1].offset : text.length;
+          break;
+        }
       }
       var modelText = text.substring(modelOffset, modelEnd);
 

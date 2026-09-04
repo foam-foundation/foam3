@@ -103,13 +103,26 @@ line. Two things read it:
 - `DiagnosticsHandler.validateExpressions_` takes the next call's offset as
   where the model ENDS.
 
-Both used to run their own `foam\.[A-Z]...\(` regex over the source, and a
+A third reads it too: `FileModelCache`'s SyntaxError fallback, which
+bracket-matches and evals one block at a time when the file does not parse.
+
+All three used to run their own `foam\.[A-Z]...\(` regex over the source, and a
 regex cannot tell a real call from one written in a doc comment or a test
 fixture string. `src/foam/lang/Proxy.js` has 4 real calls and 6 regex matches;
 `Enum.js` has 6 and 9. The failure was silent in the worst way: a model whose
 text was cut short at a comment simply stopped being validated, so a genuinely
 wrong `expression:` argument produced no diagnostic at all rather than a
 degraded one.
+
+Two details worth keeping straight:
+
+- A model's start offset is the start of its CALL, not of its line. Taking the
+  line start made an indented `foam.CLASS(` match as its own next model, and the
+  model's text became the indentation — 93 files under `src/` have their first
+  foam call at a column other than 0.
+- The fallback path sets `sourceLine_` from the call it is evaluating
+  (`evalState.forcedLine`), not from a running count. A block that fails to eval
+  must not shift the line of the next one.
 
 If you need to know where something is in a model file, ask this scan. Adding
 another regex re-opens the same hole.

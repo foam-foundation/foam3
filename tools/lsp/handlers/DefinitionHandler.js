@@ -172,10 +172,11 @@ foam.CLASS({
       // fires when the cursor is inside a .jrl file.
       //
       // Schema-blind on purpose, the way JrlHandler's own service rule is:
-      // nothing in a model declares that daoKey points at a journal. The
-      // evidence is the lookup itself — only services.jrl is read, and only a
-      // string that IS a registered name returns anything, so this is reached
-      // after every schema-driven branch has declined.
+      // nothing in a model declares that daoKey points at a journal. What
+      // bounds it is the same thing that bounds JrlHandler's rule — the KEY
+      // must be one of SERVICE_KEY_NAMES. The lookup alone does not bound it:
+      // `file` and `blobStore` are registered service names that also occur
+      // as ordinary string values all over the tree.
       var svcJump = this.serviceNameJump_(text, position);
       if ( svcJump ) return svcJump;
 
@@ -184,11 +185,19 @@ foam.CLASS({
 
     function serviceNameJump_(text, position) {
       /**
-       * A quoted string whose whole content names a registered service ->
-       * its services.jrl row. Null when there is no journal index wired, the
-       * cursor is not inside a string, or the name is not registered.
+       * A SERVICE-KEY value whose whole content names a registered service
+       * -> its services.jrl row. Null when there is no journal index wired,
+       * the cursor is not inside a string, the string is not the value of a
+       * key in SERVICE_KEY_NAMES, or the name is not registered.
        */
       if ( ! this.journalEntryIndex ) return null;
+      // Gated on the key, exactly as JrlHandler's rule is. Without it the
+      // rule is not "a service key's value" but "any quoted word that spells
+      // a service name": `attrs({ type: 'file' })` in BlobView.js jumped to
+      // the `file` CSpec in src/services.jrl, and so did an array element.
+      var key = this.analyzer.getEnclosingKey(text, position);
+      if ( ! key ) return null;
+      if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(key) === -1 ) return null;
       var value = this.analyzer.getEnclosingStringContent(text, position);
       if ( ! value ) return null;
       var locs = this.journalEntryIndex.getServiceLocations(value);

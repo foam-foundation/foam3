@@ -774,3 +774,64 @@ var plainText = daoKeyText.replace('localUserDAO', 'notARegisteredServiceName');
 var plainLoc = svcDefHandler.handle(plainText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');
 test(plainLoc === null,
   'service jump: an ordinary string is left alone (got ' + JSON.stringify(plainLoc) + ')');
+
+// The rule is "a SERVICE KEY's value", not "any quoted word". `file` and
+// `blobStore` are registered CSpecs in src/services.jrl and also ordinary
+// string values all over the tree, so the negative case has to be a
+// REGISTERED name in a non-service position — an unregistered name passes
+// with or without the gate and proves nothing.
+var svcNegatives = [
+  { what: 'an attribute value',
+    src: "foam.CLASS({ package: 'p', name: 'N', methods: [ function render() {\n" +
+         "  this.start('input').attrs({ type: 'file' }).end();\n} ] });",
+    line: 1, find: "'file'" },
+  { what: 'an array element',
+    src: "foam.CLASS({ package: 'p', name: 'N',\n" +
+         "  properties: [ { class: 'StringArray', name: 'xs', value: [ 'file' ] } ] });",
+    line: 1, find: "'file'" },
+  { what: 'a non-service key',
+    src: "foam.CLASS({ package: 'p', name: 'N',\n" +
+         "  properties: [ { class: 'String', name: 'x', label: 'blobStore' } ] });",
+    line: 1, find: "'blobStore'" }
+];
+svcNegatives.forEach(function(c) {
+  var col = c.src.split('\n')[c.line].indexOf(c.find) + 2;
+  var got = svcDefHandler.handle(c.src, { line: c.line, character: col }, 'file:///probe/N.js');
+  test(got === null,
+    'service jump: ' + c.what + ' spelling a registered service is left alone'
+    + ' (got ' + JSON.stringify(got && got.uri ? got.uri.split('/').pop() + ':' + got.range.start.line : got) + ')');
+});
+
+// Not a fixture: the file the review named. BlobView really does write
+// attrs({ type: 'file' }), and `file` really is a CSpec in src/services.jrl.
+var blobPath = path.resolve(__dirname, '../../../src/foam/u2/view/BlobView.js');
+if ( fs.existsSync(blobPath) ) {
+  var blobText  = fs.readFileSync(blobPath, 'utf8');
+  var blobLines = blobText.split('\n');
+  var blobLine  = -1;
+  for ( var bi = 0 ; bi < blobLines.length ; bi++ ) {
+    if ( blobLines[bi].indexOf("type: 'file'") !== -1 ) { blobLine = bi; break; }
+  }
+  test(blobLine !== -1, 'service jump: BlobView.js still writes attrs({ type: ' + Q + 'file' + Q + ' })');
+  if ( blobLine !== -1 ) {
+    var blobCol = blobLines[blobLine].indexOf("type: 'file'") + "type: '".length + 1;
+    var blobGot = svcDefHandler.handle(blobText, { line: blobLine, character: blobCol },
+      'file://' + blobPath);
+    test(blobGot === null,
+      'service jump: cmd-click on BlobView.js attrs({ type: ' + Q + 'file' + Q + ' }) does not enter services.jrl'
+      + ' (got ' + JSON.stringify(blobGot && blobGot.uri ? blobGot.uri.split('/').pop() + ':' + blobGot.range.start.line : blobGot) + ')');
+  }
+}
+
+// getEnclosingKey itself, since the gate is only as good as it is.
+// h.analyzer, not `analyzer` — line 703 rebinds that name to a
+// WorkspaceAnalyzer for the rest of the file.
+var cursorAnalyzer = h.analyzer;
+test(cursorAnalyzer.getEnclosingKey("  daoKey: 'localUserDAO'", { line: 0, character: 14 }) === 'daoKey',
+  'getEnclosingKey: reads the key of the string the cursor is in');
+test(cursorAnalyzer.getEnclosingKey('  "daoKey": "localUserDAO"', { line: 0, character: 16 }) === 'daoKey',
+  'getEnclosingKey: a quoted key reads the same');
+test(cursorAnalyzer.getEnclosingKey("  value: [ 'localUserDAO' ]", { line: 0, character: 14 }) === null,
+  'getEnclosingKey: an array element has no key of its own');
+test(cursorAnalyzer.getEnclosingKey("  daoKey: 'localUserDAO'", { line: 0, character: 3 }) === null,
+  'getEnclosingKey: the cursor on the key itself is not inside the value');

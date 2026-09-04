@@ -505,6 +505,64 @@ function start() {
   var LSP_TIMING_MIN_MS = process.env.LSP_TIMING_MS !== undefined ?
     Number(process.env.LSP_TIMING_MS) : 5;
 
+  // Document-scoped requests, as data rather than as twelve near-identical
+  // cases. Each one is answered the same way: look up the open document,
+  // answer the empty value if it is not a document this request applies to,
+  // call one handler inside a try, and answer the empty value again on a
+  // throw. Only three things actually differ between them — which handler to
+  // call, whether the empty answer is [] or null, and whether the request
+  // needs a FOAM class file or merely any open document — so only those three
+  // are written per request. The shape itself is written once, in
+  // answerDocRequest_. Adding a request of this kind is one row.
+  //
+  //   list:   true  -> the empty answer is a fresh [], otherwise null
+  //   anyDoc: true  -> any open document will do; the default demands a class
+  var DOC_REQUESTS = {
+    'textDocument/documentSymbol':       { list: true,
+      run: function(doc, p) { return symbolHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/references':           { list: true,
+      run: function(doc, p) { return referencesHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/codeLens':             { list: true,
+      run: function(doc, p) { return codeLensHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/implementation':       { list: true,
+      run: function(doc, p) { return implementationHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/foldingRange':         { list: true, anyDoc: true,
+      run: function(doc)    { return foldingRangeHandler.handle(doc.text); } },
+    'textDocument/codeAction':           { list: true, anyDoc: true,
+      run: function(doc, p) { return codeActionHandler.handle(doc.text, p.range, p.context, p.textDocument.uri); } },
+    'textDocument/documentHighlight':    { list: true, anyDoc: true,
+      run: function(doc, p) { return documentHighlightHandler.handle(doc.text, p.position); } },
+    'textDocument/signatureHelp':        {
+      run: function(doc, p) { return signatureHelpHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/prepareRename':        {
+      run: function(doc, p) { return renameHandler.prepare(doc.text, p.position); } },
+    'textDocument/rename':               {
+      run: function(doc, p) { return renameHandler.handle(doc.text, p.position, p.newName, p.textDocument.uri); } },
+    'textDocument/prepareTypeHierarchy': {
+      run: function(doc, p) { return typeHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/typeDefinition':       {
+      run: function(doc, p) { return typeDefinitionHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/prepareCallHierarchy': {
+      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } }
+  };
+
+  function answerDocRequest_(method, route, params, id) {
+    var uri = params.textDocument.uri;
+    var doc = documents[uri];
+    // A fresh [] per call: the answer is handed to respond() and serialised,
+    // but one shared array reachable from twelve routes is a mutation waiting
+    // to happen.
+    var empty = route.list ? [] : null;
+
+    if ( ! ( route.anyDoc ? !! doc : isClassDoc(uri, doc) ) ) { respond(id, empty); return; }
+    try {
+      respond(id, route.run(doc, params));
+    } catch (e) {
+      console.error('[LSP] ' + method.split('/').pop() + ' error:', e.message);
+      respond(id, empty);
+    }
+  }
+
   function handleMessage(msg) {
     var method = msg.method;
     var params = msg.params;
@@ -524,6 +582,12 @@ function start() {
 
     var timerStart = process.hrtime.bigint();
     try {
+    // Table first, switch second: everything DOC_REQUESTS covers is answered
+    // identically, so those methods never reach the switch below. What is left
+    // in the switch is the set of methods that genuinely differ.
+    var docRequest = DOC_REQUESTS[method];
+    if ( docRequest ) { answerDocRequest_(method, docRequest, params, id); return; }
+
     switch ( method ) {
       case 'initialize':
         watchClientProcess(params && params.processId);
@@ -880,30 +944,6 @@ function start() {
         }
         break;
 
-      case 'textDocument/documentSymbol':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
-        try {
-          var result = symbolHandler.handle(doc.text, params.textDocument.uri);
-          console.error('[LSP] documentSymbol: success');
-          respond(id, result);
-        } catch (e) {
-          console.error('[LSP] documentSymbol error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/signatureHelp':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] signatureHelp error:', e.message);
-          respond(id, null);
-        }
-        break;
-
       case 'foam/validatePoms':
         // Custom request: returns { orphans, missing, duplicates } for the
         // POM membership audit. Surfaced via foam/analyzeWorkspace too;
@@ -1038,39 +1078,6 @@ function start() {
         }
         break;
 
-      case 'textDocument/foldingRange':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, foldingRangeHandler.handle(doc.text));
-        } catch (e) {
-          console.error('[LSP] foldingRange error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/codeLens':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
-        try {
-          respond(id, codeLensHandler.handle(doc.text, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] codeLens error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/codeAction':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] codeAction error:', e.message);
-          respond(id, []);
-        }
-        break;
-
       // The promise-aware case. Two commands ride it:
       //   foam.i18n.*          — translating is a network round trip, so the
       //                          edit can't be built inside this synchronous
@@ -1184,62 +1191,6 @@ function start() {
         }
         break;
 
-      case 'textDocument/references':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
-        try {
-          var result = referencesHandler.handle(doc.text, params.position, params.textDocument.uri);
-          respond(id, result);
-        } catch (e) {
-          console.error('[LSP] references error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/documentHighlight':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, documentHighlightHandler.handle(doc.text, params.position));
-        } catch (e) {
-          console.error('[LSP] documentHighlight error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/prepareRename':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, renameHandler.prepare(doc.text, params.position));
-        } catch (e) {
-          console.error('[LSP] prepareRename error:', e.message);
-          respond(id, null);
-        }
-        break;
-
-      case 'textDocument/rename':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, renameHandler.handle(doc.text, params.position, params.newName, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] rename error:', e.message);
-          respond(id, null);
-        }
-        break;
-
-      case 'textDocument/prepareTypeHierarchy':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] prepareTypeHierarchy error:', e.message);
-          respond(id, null);
-        }
-        break;
-
       case 'typeHierarchy/supertypes':
         try {
           respond(id, typeHierarchyHandler.supertypes(params.item));
@@ -1255,28 +1206,6 @@ function start() {
         } catch (e) {
           console.error('[LSP] typeHierarchy/subtypes error:', e.message);
           respond(id, []);
-        }
-        break;
-
-      case 'textDocument/implementation':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, []); break; }
-        try {
-          respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] implementation error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/typeDefinition':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] typeDefinition error:', e.message);
-          respond(id, null);
         }
         break;
 
@@ -1312,17 +1241,6 @@ function start() {
         } catch (e) {
           console.error('[LSP] textDocument/diagnostic error:', e.message);
           respond(id, { kind: 'full', items: [] });
-        }
-        break;
-
-      case 'textDocument/prepareCallHierarchy':
-        var doc = documents[params.textDocument.uri];
-        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
-        try {
-          respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] prepareCallHierarchy error:', e.message);
-          respond(id, null);
         }
         break;
 

@@ -84,3 +84,34 @@ test(c.classify(CACHED_URI, t1) === 'other' && c.classify(CACHED_URI, t1) === 'o
   'the same uri+text answers the same twice (cache hit path)');
 test(c.classify(CACHED_URI, 'foam.CLASS({ name: "New" });') === 'class',
   'new text for a cached uri is re-classified, not served stale');
+
+// === significantCalls: every call, in order, with its line ===
+// classify() only needs the first call. Model-position lookups need them all,
+// which is why this is one scan and not a second regex somewhere else.
+
+var callsText = [
+  "// a header that mentions foam.CLASS( in prose",
+  "foam.CLASS({",
+  "  name: 'First',",
+  "  properties: [ { name: 'sample', value: 'foam.ENUM(' } ]",
+  "});",
+  "",
+  "/* foam.INTERFACE( inside a block comment */",
+  "foam.ENUM({ name: 'Second' });",
+  "",
+  "foam.LIB({ name: 'third' });"
+].join('\n');
+
+var cc = foam.parse.lsp.FileClassifier.create();
+var found = cc.significantCalls(callsText);
+
+test(found.length === 3, 'significantCalls skips the comment and string mentions (3 real calls)');
+test(found.map(function(x) { return x.name; }).join(',') === 'CLASS,ENUM,LIB',
+  'significantCalls returns names in source order');
+test(found[0].line === 1 && found[1].line === 7 && found[2].line === 9,
+  'significantCalls reports the line each call is written on');
+test(callsText.substring(found[1].offset).indexOf('foam.ENUM(') === 0,
+  'the reported offset points at the call itself');
+test(cc.significantCalls('') .length === 0, 'significantCalls on empty text is empty');
+test(cc.significantCalls(callsText) === found,
+  'the same text is answered from the memo, not re-scanned');

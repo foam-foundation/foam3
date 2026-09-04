@@ -149,8 +149,8 @@ public class MDAO
    * so this only applies to a DAO that is still empty, and it is only safe
    * where nothing else is reading or writing it for the duration.
    *
-   * The array is consumed: each row is put through objIn() in place, so the
-   * rows the index holds are frozen like any other.
+   * The array is consumed: each row is frozen in place. No copy, unlike a
+   * put: the rows were collected for this load and nothing else holds them.
    **/
   public void bulkLoad(FObject[] a) {
     synchronized ( writeLock_ ) {
@@ -174,7 +174,7 @@ public class MDAO
       // than replacing a null state with an array of empty index states.
       if ( a.length == 0 ) return;
 
-      for ( int i = 0 ; i < a.length ; i++ ) a[i] = objIn(a[i]);
+      for ( int i = 0 ; i < a.length ; i++ ) a[i] = a[i].freeze();
 
       setState(index_.bulkLoad(a, 0, a.length-1));
     }
@@ -189,7 +189,7 @@ public class MDAO
   }
 
   public FObject objIn(FObject obj) {
-    return obj.freeze();
+    return obj.fclone().freeze();
   }
 
   public FObject objOut(FObject obj) {
@@ -197,7 +197,7 @@ public class MDAO
   }
 
   public FObject put_(X x, FObject obj) {
-    // Freeze outside of lock to minimize time spent under lock
+    // Clone and freeze outside of lock to minimize time spent under lock
     obj = objIn(obj);
 
     synchronized ( writeLock_ ) {

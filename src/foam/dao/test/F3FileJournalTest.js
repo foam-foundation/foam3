@@ -133,7 +133,7 @@ foam.CLASS({
         Language language = new Language(x);
         language.setCode("aaCode");
         language.setVariant("aaVariant");
-        language = (Language) languageDAO.put(language).fclone();
+        language = (Language) languageDAO.put(language);
 
         info = (Map<String, Integer>) find(x, "languageJournal", language.getCode());
         count = info.get(AbstractF3FileJournal.OPEN_VERSION);

@@ -67,7 +67,6 @@ public class RulerCacheEvictionTest extends Test {
       "[op-narrow] sanity: CREATE_OR_UPDATE fires on both CREATE and UPDATE; got=" + count.get());
 
     count.set(0);
-    r = (Rule) r.fclone();
     r.setOperation(Operation.CREATE);
     localRuleDAO.put_(x, r);
 
@@ -100,7 +99,6 @@ public class RulerCacheEvictionTest extends Test {
       "[after-toggle] sanity: before-rule fires once on UPDATE; got=" + count.get());
 
     count.set(0);
-    r = (Rule) r.fclone();
     r.setAfter(true);
     localRuleDAO.put_(x, r);
 
@@ -134,7 +132,6 @@ public class RulerCacheEvictionTest extends Test {
       "[group-change] sanity: rule fires once under group A; got=" + count.get());
 
     count.set(0);
-    r = (Rule) r.fclone();
     r.setRuleGroup("group-change-B");
     localRuleDAO.put_(x, r);
 
@@ -168,7 +165,6 @@ public class RulerCacheEvictionTest extends Test {
       "[lc-deleted] sanity: ACTIVE rule fires; got=" + count.get());
 
     count.set(0);
-    r = (Rule) r.fclone();
     r.setLifecycleState(LifecycleState.DELETED);
     localRuleDAO.put_(x, r);
 

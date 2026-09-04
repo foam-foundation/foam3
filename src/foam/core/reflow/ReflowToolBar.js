@@ -56,9 +56,9 @@ foam.CLASS({
     {
       class: 'String',
       name: 'promptMode',
-      postSet: function(o, n) { localStorage.promptMode = n; },
+      postSet: function(o, n) { localStorage.promptMode2 = n; },
       factory: function() {
-        return 'Auto';
+        return localStorage.promptMode2 || foam.core.reflow.ToolbarControl.TOOLBAR.value;
       },
       view: function(_, X) {
         return {
@@ -131,7 +131,7 @@ foam.CLASS({
           const modes = Array.from(
             new Set(
               result.array
-                .map(c => c.toolbar || 'Auto')
+                .map(c => c.toolbar || foam.core.reflow.ToolbarControl.TOOLBAR.value)
                 .filter(Boolean)
             )
           ).sort();

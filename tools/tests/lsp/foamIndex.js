@@ -434,3 +434,30 @@ var cspecUses = (index.getStringUsages('localUserDAO') || [])
 test(cspecUses.length > 0 && cspecUses[0].file.endsWith('services.jrl') && cspecUses[0].line > 0,
   'cspec records: localUserDAO is recorded with its file and line'
   + ' (got ' + ( cspecUses.length ? cspecUses[0].file.split('/').pop() + ':' + cspecUses[0].line : 'none' ) + ')');
+
+// The services.jrl walk must ask getJournalDirs, not getIndexedDirs:
+// src/services.jrl is 38 registrations in a directory holding no class file
+// at all, so a walk of indexed sources alone never opens it.
+var jDirs = index.getJournalDirs();
+var iDirs = index.getIndexedDirs();
+test(jDirs.length > iDirs.length,
+  'getJournalDirs is a superset of getIndexedDirs (pom locations added)'
+  + ' (' + jDirs.length + ' vs ' + iDirs.length + ')');
+
+var srcRoot = path.resolve(__dirname, '../../../src');
+test(iDirs.indexOf(srcRoot) === -1 && jDirs.indexOf(srcRoot) !== -1,
+  'getJournalDirs reaches src/, which holds services.jrl and no class file');
+
+// The registrations themselves, by name, in the string-usage index.
+var fileCspec = (index.getStringUsages('file') || [])
+  .filter(function(u) { return u.kind === 'cspec' && /[\/\\]src[\/\\]services\.jrl$/.test(u.file); });
+test(fileCspec.length > 0 && fileCspec[0].line > 0,
+  'src/services.jrl registrations are recorded (file CSpec at line '
+  + ( fileCspec.length ? fileCspec[0].line : '?' ) + ')');
+
+var srcSvcSymbols = (index.searchSymbols('blobStore', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'blobStore' && s.kind === 13 &&
+    /[\/\\]src[\/\\]services\.jrl$/.test(s.filePath); });
+test(srcSvcSymbols.length > 0 && srcSvcSymbols[0].line > 0,
+  'and they are workspace symbols — blobStore is findable in src/services.jrl'
+  + ' (line ' + ( srcSvcSymbols.length ? srcSvcSymbols[0].line : '?' ) + ')');

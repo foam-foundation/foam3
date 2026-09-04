@@ -2091,17 +2091,14 @@ foam.CLASS({
         var jrlLoader = foam.parse.lsp.JrlLoader.create();
         var fs_       = require('fs');
         var path_     = require('path');
-        var fileIndex = this.fileIndex_ || {};
-        var seenDirs  = {};
-        var services  = [];
-        for ( var id in fileIndex ) {
-          var entry = fileIndex[id];
-          var p     = typeof entry === 'string' ? entry : entry.path;
-          if ( ! p ) continue;
-          var dir = path_.dirname(p);
-          if ( seenDirs[dir] ) continue;
-          seenDirs[dir] = true;
-          var svc = path_.join(dir, 'services.jrl');
+        // getJournalDirs, not getIndexedDirs: src/services.jrl — 38 rows,
+        // `file`, `blobStore`, `httpServer` among them — sits in a directory
+        // holding no class file at all, so a walk of indexed sources never
+        // reaches it. The pom locations do.
+        var services = [];
+        var svcDirs  = this.getJournalDirs();
+        for ( var d = 0 ; d < svcDirs.length ; d++ ) {
+          var svc = path_.join(svcDirs[d], 'services.jrl');
           if ( fs_.existsSync(svc) ) services.push(svc);
         }
         for ( var s = 0 ; s < services.length ; s++ ) {
@@ -2132,6 +2129,35 @@ foam.CLASS({
       } catch (e) {}
 
       this.stringUsageIndex_ = { byName: byName };
+    },
+
+    function getJournalDirs() {
+      /**
+       * Every directory a .jrl may live in: the pom locations plus the
+       * directories of indexed sources. THE one answer to that question —
+       * JournalEntryIndex asks it for journal discovery and
+       * buildStringUsageIndex_ asks it for services.jrl, and when those two
+       * were separate walks they disagreed: the index missed the 38
+       * registrations in src/services.jrl that the journal lookup found.
+       *
+       * Not cached: foam.poms is mutable at runtime.
+       */
+      var seen = {};
+      var dirs = [];
+      var poms = ( typeof foam !== 'undefined' && foam.poms ) || [];
+      for ( var p = 0 ; p < poms.length ; p++ ) {
+        var loc = poms[p] && poms[p].location;
+        if ( ! loc || seen[loc] ) continue;
+        seen[loc] = true;
+        dirs.push(loc);
+      }
+      var indexed = this.getIndexedDirs();
+      for ( var i = 0 ; i < indexed.length ; i++ ) {
+        if ( seen[indexed[i]] ) continue;
+        seen[indexed[i]] = true;
+        dirs.push(indexed[i]);
+      }
+      return dirs;
     },
 
     function getIndexedDirs() {

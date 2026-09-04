@@ -76,9 +76,8 @@ toRun.forEach(function(c){
   try {
     mod = require('./lsp/' + c);
   } catch ( e ) {
-    h.counters.failures++;
-    console.error('  \x1b[31m✘ FAIL:\x1b[0m category ' + c +
-      ' threw while loading — ' + ( e && e.stack ? e.stack : e ));
+    h.test(false, 'category ' + c + ' threw while loading — ' +
+      ( e && e.stack ? e.stack : e ));
     return;
   }
   if ( mod && mod.done && typeof mod.done.then === 'function' ) pending.push(mod.done);

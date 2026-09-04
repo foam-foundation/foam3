@@ -17,24 +17,15 @@ console.warn = function() { console.error.apply(console, arguments); };
 globalThis.SILENT = false; globalThis.VERBOSE = false;
 globalThis.DRY_RUN = false; globalThis.HELP = false; globalThis.NOP = '';
 
-// Test counters. Declared above the uncaughtException handler because that
-// handler records into them.
-var counters = { passes: 0, failures: 0 };
-
 process.on('unhandledRejection', function(e) {});
 process.on('uncaughtException', function(e) {
-  // FileModelCache evaluates arbitrary workspace .js files to capture their
-  // foam.CLASS calls, so browser-global and syntax errors from that eval are
-  // expected noise and stay swallowed.
-  if ( e.message && ( e.message.includes('document') || e.message.includes('window') ) ) return;
-  if ( e instanceof SyntaxError ) return;
-  // Anything else is a real defect. Installing a listener at all suppresses
-  // node's default crash, so without this an escaping error left no trace:
-  // the run carried on with whatever work was already scheduled and could
-  // still finish 0.
-  counters.failures++;
-  console.error('  \x1b[31m✘ FAIL:\x1b[0m uncaught exception — ' +
-    ( e && e.stack ? e.stack : e ));
+  // Installing a listener at all suppresses node's default crash, so an error
+  // that escapes to here leaves no trace of its own. Set the exit code before
+  // anything else: a throw out of this module's own load never reaches
+  // testFoamLSP.js's summary, so the FAIL line below would otherwise be
+  // printed by a process that still exits 0.
+  process.exitCode = 1;
+  test(false, 'uncaught exception — ' + ( e && e.stack ? e.stack : e ));
 });
 
 var path = require('path');
@@ -62,8 +53,9 @@ process.stdin.removeAllListeners('data');
 process.stdin.removeAllListeners('end');
 process.stdin.pause();
 
-// Test helpers. `counters` is declared at the top of the file, above the
-// uncaughtException handler that writes to it.
+// Test counters + helpers
+var counters = { passes: 0, failures: 0 };
+
 function test(condition, message) {
   if ( condition ) {
     counters.passes++;

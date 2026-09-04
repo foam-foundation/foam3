@@ -1628,7 +1628,17 @@ foam.CLASS({
             r = arg ? r(arg) : r();
           }
           if ( r instanceof Promise ) {
-            r = await r;
+            try {
+              r = await r;
+            } catch (x) {
+              // An async command that rejects gets the error block a synchronous
+              // one gets. Without this the rejection leaves eval_ before the
+              // block joins the flow, so the failure has nowhere to show.
+              var msg = x?.message || String(x);
+              block.value = this.BadBlock.create({block: block, error: msg});
+              block.error = msg;
+              r = undefined;
+            }
           }
         }}}
       } finally {

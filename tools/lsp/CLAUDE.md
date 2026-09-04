@@ -13,7 +13,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 ### Core
 | File | Purpose | Key Functions |
 |---|---|---|
-| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()` |
+| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()`. `sourceLine_` on each model comes from `FileClassifier.significantCalls()` |
 | `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `getClassLine()`, `getSymbolPosition()`, `resolveSymbol()`, `buildFileIndex()` |
 | `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
 | `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
@@ -21,7 +21,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `filterByClass()` |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
 | `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
-| `FileClassifier.js` | The ONE answer to "what kind of file is this" — `'pom'`/`'class'`/`'jrl'`/`'other'` | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective |
+| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -92,6 +92,27 @@ so the LSP's reindexFile on save keeps them coherent.
 3. `eval(text)` with this context — JS executes the file, calls our overrides
 4. SyntaxError fallback: bracket-matching extracts individual blocks, evals each separately
 5. Returns array of raw model objects with all fields: `package`, `name`, `extends`, `requires`, `properties`, `javaImports`, etc.
+
+### Model positions: one scan, never a second regex
+
+A file's models are located by `FileClassifier.significantCalls(text)` — every
+`foam.<X>(` written outside comments and string literals, with its offset and
+line. Two things read it:
+
+- `FileModelCache` sets each model's `sourceLine_` from it (where the model STARTS).
+- `DiagnosticsHandler.validateExpressions_` takes the next call's offset as
+  where the model ENDS.
+
+Both used to run their own `foam\.[A-Z]...\(` regex over the source, and a
+regex cannot tell a real call from one written in a doc comment or a test
+fixture string. `src/foam/lang/Proxy.js` has 4 real calls and 6 regex matches;
+`Enum.js` has 6 and 9. The failure was silent in the worst way: a model whose
+text was cut short at a comment simply stopped being validated, so a genuinely
+wrong `expression:` argument produced no diagnostic at all rather than a
+degraded one.
+
+If you need to know where something is in a model file, ask this scan. Adding
+another regex re-opens the same hole.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods

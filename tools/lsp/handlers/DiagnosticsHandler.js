@@ -827,11 +827,16 @@ foam.CLASS({
       var classId = this.cache.getClassId(m);
       var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Determine end of this model's text
-      var nextModelRegex = new RegExp(this.analyzer.FOAM_CALL_REGEX.source, 'g');
-      nextModelRegex.lastIndex = modelOffset + 1;
-      var nextMatch = nextModelRegex.exec(text);
-      var modelEnd = nextMatch ? nextMatch.index : text.length;
+      // Determine end of this model's text: the next significant foam call,
+      // from the same scan that decides what kind of file this is. A raw regex
+      // here matched the `foam.CLASS(` in a doc comment, cut the model off at
+      // that line, and every expression below it stopped being checked at all
+      // — the diagnostic did not degrade, it disappeared.
+      var calls = this.fileClassifier.significantCalls(text);
+      var modelEnd = text.length;
+      for ( var ci = 0 ; ci < calls.length ; ci++ ) {
+        if ( calls[ci].offset > modelOffset ) { modelEnd = calls[ci].offset; break; }
+      }
       var modelText = text.substring(modelOffset, modelEnd);
 
       // Build property scopes: outer model + each inner class

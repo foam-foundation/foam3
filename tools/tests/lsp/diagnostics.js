@@ -340,6 +340,77 @@ var propBOnA = multiWarns.filter(function(d) { return d.message.indexOf('propB')
 test(propAOnB.length === 0, 'Expression: propA NOT flagged against ModelB (multi-model scoping)');
 test(propBOnA.length === 0, 'Expression: propB NOT flagged against ModelA (multi-model scoping)');
 
+
+// --- Model boundaries: a foam.CLASS( mention must not end the model ---
+// "Where does this model's text end?" used to be answered by re-scanning the
+// source with a raw regex, so a foam.CLASS( written inside a comment or a
+// string cut the model short there and every check below the mention silently
+// stopped running. The mention is common: doc comments explain the pattern.
+
+var boundaryCommentText = [
+  "foam.CLASS({",
+  "  package: 'foam.parse.lsp.test',",
+  "  name: 'ExprParent',",
+  "  properties: [",
+  "    { class: 'String', name: 'title' },",
+  "    // see foam.CLASS( for the pattern",
+  "    { name: 'computed', expression: function(title, nonExistent) { return title; } }",
+  "  ]",
+  "})"
+].join('\n');
+var boundaryCommentDiags = diagHandler.handle(boundaryCommentText);
+test(boundaryCommentDiags.some(function(d) {
+  return d.message.indexOf('nonExistent') !== -1 && d.message.indexOf('does not exist') !== -1;
+}), 'Boundary: bad expression param still flagged below a foam.CLASS( in a comment');
+
+var boundaryStringText = [
+  "foam.CLASS({",
+  "  package: 'foam.parse.lsp.test',",
+  "  name: 'ExprParent',",
+  "  properties: [",
+  "    { class: 'String', name: 'title', value: 'foam.CLASS(' },",
+  "    { name: 'computed', expression: function(title, nonExistent) { return title; } }",
+  "  ]",
+  "})"
+].join('\n');
+var boundaryStringDiags = diagHandler.handle(boundaryStringText);
+test(boundaryStringDiags.some(function(d) {
+  return d.message.indexOf('nonExistent') !== -1 && d.message.indexOf('does not exist') !== -1;
+}), 'Boundary: bad expression param still flagged below a foam.CLASS( in a string');
+
+// A mention inside the FIRST model also used to shift every later model's
+// recorded start line onto the mention, because that line came from counting
+// raw foam.<X>( matches. ModelB then received ModelA's tail as its own text
+// and was never validated at all.
+var boundaryMultiText = [
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ModelA',",
+  "  properties: [",
+  "    { class: 'String', name: 'propA' },",
+  "    // built like foam.CLASS( is",
+  "    { name: 'computed', expression: function(propA) { return propA; } }",
+  "  ]",
+  "})",
+  "",
+  "foam.CLASS({",
+  "  package: 'test',",
+  "  name: 'ModelB',",
+  "  properties: [",
+  "    { class: 'String', name: 'propB' },",
+  "    { name: 'computed', expression: function(bogusB) { return bogusB; } }",
+  "  ]",
+  "})"
+].join('\n');
+var boundaryMultiDiags = diagHandler.handle(boundaryMultiText);
+test(boundaryMultiDiags.some(function(d) {
+  return d.message.indexOf('bogusB') !== -1 && d.message.indexOf('does not exist') !== -1;
+}), 'Boundary: second model still validated when the first mentions foam.CLASS(');
+test(boundaryMultiDiags.filter(function(d) {
+  return d.message.indexOf('propA') !== -1 && d.message.indexOf('does not exist') !== -1;
+}).length === 0, 'Boundary: propA NOT flagged when a mention shifts model start lines');
+
+
 // === POM COMPLETIONS ===
 
 

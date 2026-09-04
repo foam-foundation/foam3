@@ -743,8 +743,39 @@ foam.CLASS({
     },
 
     function propTypeName_(p) {
-      /** Short, readable property type name. */
-      return p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+      /**
+       * Short, readable property type name, carrying the `of:` target when the
+       * property has one: `Enum<ButtonStyle>`, `FObjectProperty<Glyph>`,
+       * `Reference<User>`.
+       *
+       * The bare class name alone is the one thing about such a property
+       * nobody needs told — every enum property reads `Enum`, and which enum
+       * it is was the actual question. Rendered inside a code span because
+       * `<Name>` in a markdown table cell is read as an HTML tag and dropped.
+       */
+      var name = p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+      var of   = this.ofName_(p);
+      return '`' + ( of ? name + '<' + of + '>' : name ) + '`';
+    },
+
+    function ofName_(p) {
+      /**
+       * Short name of a property's `of:` target, or '' when there is nothing
+       * worth printing.
+       *
+       * `of` arrives either as a resolved class (an object with an id) or as
+       * the raw string from the model. The raw strings are of two kinds: a
+       * class id, and a primitive — `StringArray` carries `of: 'String'` and
+       * `IntegerArray` carries `of: 'Int'`, which say nothing the type name
+       * has not already said. A dot is what separates the two (185 of the
+       * repo's `of:` strings are the primitive kind, and all of them are
+       * undotted).
+       */
+      var of = p.of;
+      if ( ! of ) return '';
+      if ( typeof of !== 'string' ) return of.id ? of.id.split('.').pop() : '';
+      if ( of.indexOf('.') === -1 ) return '';
+      return of.split('.').pop();
     },
 
     function briefDoc_(doc) {

@@ -20,7 +20,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `loadStringWithLines()`, `sliceEntries()`, `filterByClass()`. **A journal is not valid JavaScript** — FOAM's triple-quoted values are a syntax error, so the content is cut into entries on the grammar's entry starts and each is evaluated alone with its triple-quoted spans blanked. Evaluating the whole file as one body threw at construction and returned nothing: 68 of 78 `services.jrl` and 119 of 365 journals were silently empty |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
-| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
+| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
 | `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Both the server dispatch and `DiagnosticsHandler` route through one shared instance, which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
@@ -62,7 +62,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 |---|---|---|
 | `getJsUsages(classId)` | classes whose JS code references the class: `this.<Short>` via requires, `.create()` receivers, `.tag(X, {})` args, `{ class: 'dotted.Id' }` spec strings | Grammar `collectAxiomPositions` per source file (memberRef / instCreateReceiver / instTagClass / instClassRef); registry `fn.toString()` scan only for file-less (runtime-registered) classes |
 | `getJavaUsages(classId)` | classes whose javaCode / javaPostSet / etc. reference the type | Same axiom walk, `javaImports` resolves short→full |
-| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `JrlLoader.loadFile(...services.jrl)` |
+| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `loadStringWithLines()` over the `services.jrl` in every `getJournalDirs()` directory |
 | `getMemberUsages(classId, memberName)` | per-class `this.X` usages of an own / inherited property or method | Reuses `scanFunctions_` axiom walk |
 
 All four indexes share the same invalidation hook (`invalidateSymbolIndex_`)
@@ -189,13 +189,22 @@ Two things had to be true first:
 
 Cost: `buildStringUsageIndex_` 294ms → 370ms, one-time and lazy.
 
-`DefinitionHandler` gained the mirror of `JrlHandler`'s service rule: a string
-literal whose whole content names a registered service jumps to the row
-registering it. Schema-blind on purpose — nothing in a model declares that
-`daoKey` points at a journal — and safe because only `services.jrl` is read and
-only a registered name returns anything. It runs after every schema-driven
+`DefinitionHandler` gained the mirror of `JrlHandler`'s service rule: the value
+of a **service key** — `CursorAnalyzer.getEnclosingKey()` must name one of
+`SERVICE_KEY_NAMES` — whose whole content is a registered service jumps to the
+row registering it. Schema-blind on purpose (nothing in a model declares that
+`daoKey` points at a journal), and the key is what bounds it: the lookup alone
+does not, since `file` and `blobStore` are registered services that also occur
+as ordinary string values across the tree. It runs after every schema-driven
 branch has declined. `SERVICE_KEY_NAMES` lives on `JournalEntryIndex` so the two
 handlers share one copy of the convention.
+
+The `services.jrl` walk asks `FoamIndex.getJournalDirs()` — pom locations ∪
+indexed-source directories — the same set `JournalEntryIndex.findJournalFiles_`
+reads. A walk of indexed sources alone misses `src/services.jrl`, whose
+directory holds no class file. A `.jrl` save invalidates both indexes:
+`journalEntryIndex.invalidate()` and `index.invalidateSymbolIndex_()`, since
+`reindexFile` only reaches the latter for a file that classifies as a class.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods

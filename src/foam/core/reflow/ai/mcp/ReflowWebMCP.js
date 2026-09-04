@@ -271,12 +271,10 @@ foam.CLASS({
 
       if ( args.config && block.value ) {
         try {
-          Object.keys(args.config).forEach(k => {
-            var v = args.config[k];
-            // FOAM JSON: anything carrying a class -- an agent, a sink, a
-            // __Property__ -- is hydrated; everything else is set as given.
-            block.value[k] = ( v && v.class ) ? foam.json.parse(v, null, block) : v;
-          });
+          // parse hydrates every nested value carrying a class -- an agent, a
+          // sink, a __Property__ -- and builds each in the block's context,
+          // which is what a chart agent expects as its parent.
+          block.value.copyFrom(foam.json.parse(args.config, null, block.__subContext__));
           if ( block.value.run ) block.value.run();
         } catch (e) {
           return this.result_({ error: String(e && e.message || e) });

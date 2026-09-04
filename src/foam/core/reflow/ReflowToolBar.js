@@ -98,15 +98,13 @@ foam.CLASS({
                   });
               });
           })).
-        end();
-        // NOTE: The below code lets the user select which promptMode they want
-        // to use. Uncomment if/when we decide to support multiple promptModes.
-        // startContext({ data: this }).
-        //   start().
-        //     show(this.promptModes$.map(modes => modes && modes.length > 1)).
-        //     add(this.PROMPT_MODE).
-        //   end().
-        // endContext();
+        end().
+        startContext({ data: this }).
+          start().
+            show(this.promptModes$.map(modes => modes && modes.length > 1)).
+            add(this.PROMPT_MODE).
+          end().
+        endContext();
     }
   ],
 
@@ -133,7 +131,7 @@ foam.CLASS({
           const modes = Array.from(
             new Set(
               result.array
-                .map(c => c.toolbar || 'Standard')
+                .map(c => c.toolbar || 'Auto')
                 .filter(Boolean)
             )
           ).sort();

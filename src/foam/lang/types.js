@@ -1403,7 +1403,8 @@ foam.CLASS({
     },
     {
       class: 'I18NString',
-      name: 'plural'
+      name: 'plural',
+      expression: function(label) { return foam.String.pluralize(label); }
     },
     { class: 'Boolean', name: 'abstract' }
   ]

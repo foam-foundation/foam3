@@ -93,6 +93,49 @@ so the LSP's reindexFile on save keeps them coherent.
 4. SyntaxError fallback: bracket-matching extracts individual blocks, evals each separately
 5. Returns array of raw model objects with all fields: `package`, `name`, `extends`, `requires`, `properties`, `javaImports`, etc.
 
+### Refinements declare members, and they live in another file
+
+A refined class keeps its OWN file as its definition site — `fileIndex_` only
+falls back to a refining file when nothing else claims the id. So a member that
+only a refinement declares has no entry in the class's own position map, and
+`getSymbolPosition` used to fall back to the class's declaration line: every one
+of them landed at the top of the wrong file.
+
+`refinementIndex_` (built next to `fileIndex_`) maps a refined class id to every
+file refining it, each with the refining model's own `[line, endLine)` range.
+`refinementMemberPosition_` walks those files' position maps and accepts a hit
+only inside the range. Two things make the range necessary:
+
+- A refinement usually shares a file with the class that motivated it, and both
+  can declare the same member name.
+- `collectAxiomPositions` keeps ONE record per name per file for
+  single-occurrence kinds. `FromCsvRefines.js` declares `fromCSV` six times, for
+  six classes. The record now carries `also` — the later sightings — so a caller
+  that knows which model it means can pick. Readers wanting just a position see
+  the same first record as before.
+
+A refinement's `name:` is optional; the index's name guard runs AFTER the
+`refines` branch for that reason.
+
+`getSymbolPosition` returns a `uri` along with the line, and that uri is
+authoritative — a member's declaration is not always in its class's file. Every
+caller must use it. `WorkspaceSymbolHandler` and `CallHierarchyHandler` used to
+keep the class's own path and take only the line, which put a line number in a
+file that had no such line: 34 workspace symbols pointed past the end of the
+file they named, 21 of them through the Java path long before refinements were
+indexed. `DefinitionHandler.buildLocationAtProperty` takes the class id for the
+same reason — when the class's own file does not declare the property, it asks
+the index instead of landing on line 0.
+
+Cost: a lookup that misses parses each refining file once, mtime-cached.
+`foam.lang.Property` is the worst case in this repo at 26 refining files —
+181ms cold, 0ms warm, 0.11ms per warm hit.
+
+Known residue (not this machinery): members whose refining file never reaches
+the grammar's whole-file parse. Concentrated in `Element2.js`,
+`java/refinements.js`, `u2/view/TableCellFormatter.js` and
+`swift/refines/Method.js`.
+
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods
 - Implementing classes get interface properties ONLY if explicitly declared in JS

@@ -35,6 +35,10 @@ foam.CLASS({
     {
       name: 'filePosCache_',
       documentation: 'filePath → grammar.collectAxiomPositions(content) map. Lazy, per-file; lets getSymbolPosition resolve a member line with one parse per file. Dropped on reindex via invalidateSymbolIndex_.'
+    },
+    {
+      name: 'refinementIndex_',
+      documentation: 'Refined class ID → array of { path, line, endLine } — every file that refines that class, with the refining model\'s own line range. Built alongside fileIndex_. A refined class keeps its own file as its definition site, so without this a member DECLARED in a refinement resolves back to the refined class\'s declaration line instead of to the line that declares it.'
     }
   ],
 
@@ -744,6 +748,7 @@ foam.CLASS({
        */
       this.fileIndex_ = {};
       this.libIndex_ = {};
+      this.refinementIndex_ = {};
       var path_ = require('path');
       var fs_ = require('fs');
 
@@ -795,11 +800,12 @@ foam.CLASS({
         var content = fs_.readFileSync(filePath, 'utf8');
         if ( ! this.libIndex_ ) this.libIndex_ = {};
         var models = foam.parse.lsp.FileModelCache.create().parseFileModels(content);
+        if ( ! this.refinementIndex_ ) this.refinementIndex_ = {};
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
-          if ( ! m.name ) continue;
 
           if ( m.type_ === 'LIB' ) {
+            if ( ! m.name ) continue;
             this.libIndex_[m.name] = {
               path:      filePath,
               line:      m.sourceLine_ || 0,
@@ -809,9 +815,35 @@ foam.CLASS({
             continue;
           }
 
-          // Index the model's own identity (package + name). Refinements also
-          // index under their target class so lookups of the refined type find
-          // the refining file.
+          // A refinement's own `name:` is optional — `foam.CLASS({ refines:
+          // 'x.Y', properties: [...] })` is legal, and the name guard used to
+          // run before this, so a nameless one was dropped along with every
+          // member it declares. Rare (two files across foam3 and the app repo)
+          // but the guard was in the wrong place, not doing a job.
+          if ( m.refines ) {
+            var next    = models[i + 1];
+            var endLine = next && typeof next.sourceLine_ === 'number'
+              ? next.sourceLine_ : Infinity;
+            var refs = this.refinementIndex_[m.refines];
+            if ( ! refs ) refs = this.refinementIndex_[m.refines] = [];
+            refs.push({ path: filePath, line: m.sourceLine_ || 0, endLine: endLine });
+
+            // The refined class keeps its own file as its definition site;
+            // this only fills in when nothing else claims the id.
+            if ( ! this.fileIndex_[m.refines] ) {
+              this.fileIndex_[m.refines] = {
+                path:         filePath,
+                line:         m.sourceLine_ || 0,
+                flags:        fileFlags,
+                pomFile:      pomFile,
+                pomEntryName: pomEntryName
+              };
+            }
+          }
+
+          if ( ! m.name ) continue;
+
+          // Index the model's own identity (package + name).
           var ownId = m.package ? m.package + '.' + m.name : m.name;
           if ( ownId ) this.fileIndex_[ownId] = {
             path:         filePath,
@@ -820,15 +852,6 @@ foam.CLASS({
             pomFile:      pomFile,
             pomEntryName: pomEntryName
           };
-          if ( m.refines && ! this.fileIndex_[m.refines] ) {
-            this.fileIndex_[m.refines] = {
-              path:         filePath,
-              line:         m.sourceLine_ || 0,
-              flags:        fileFlags,
-              pomFile:      pomFile,
-              pomEntryName: pomEntryName
-            };
-          }
         }
       } catch ( e ) {}
     },
@@ -1089,27 +1112,77 @@ foam.CLASS({
       var character = 0;
 
       if ( memberName && filePath ) {
-        var posMap = this.getFilePosMap_(filePath);
-        var rec = null;
-        if ( posMap ) {
-          // 7=Property, 6=Method, 22=EnumMember, 24=Action/Listener (method-ish).
-          var bucket =
-            kind === 7  ? posMap.property :
-            kind === 22 ? posMap.value    :
-            posMap.method;
-          rec = bucket && bucket[memberName];
-          // 24 (Action/Listener) is not msg-tagged; fall back to method bucket.
-          if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
-        }
+        var rec = this.memberBucket_(this.getFilePosMap_(filePath), memberName, kind);
         if ( rec ) {
           line = rec.line; character = rec.col || 0;
-        } else if ( kind === 6 ) {
-          // Method absent from the .js model — resolve to its Java impl.
-          var jp = this.getJavaMemberPosition_(classId, memberName);
-          if ( jp ) return jp;
+        } else {
+          // Not in the class's own file. A member is just as often declared in
+          // a refinement of the class, living in another file entirely —
+          // User.twoFactorEnabled is declared in UserRefinements.js, not in
+          // User.js. Falling back to the class line sent every one of those to
+          // the top of the wrong file.
+          var refPos = this.refinementMemberPosition_(classId, memberName, kind);
+          if ( refPos ) return refPos;
+
+          if ( kind === 6 ) {
+            // Method absent from the .js model — resolve to its Java impl.
+            var jp = this.getJavaMemberPosition_(classId, memberName);
+            if ( jp ) return jp;
+          }
         }
       }
       return { uri: uri, line: line, character: character };
+    },
+
+    function memberBucket_(posMap, memberName, kind) {
+      /**
+       * The position-map record for a member, or null. Bucket by LSP symbol
+       * kind: 7=Property, 6=Method, 22=EnumMember, 24=Action/Listener — 24 is
+       * not msg-tagged by the grammar, so it reads the method bucket.
+       */
+      if ( ! posMap ) return null;
+      var bucket =
+        kind === 7  ? posMap.property :
+        kind === 22 ? posMap.value    :
+        posMap.method;
+      var rec = bucket && bucket[memberName];
+      if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
+      return rec || null;
+    },
+
+    function refinementMemberPosition_(classId, memberName, kind) {
+      /**
+       * { uri, line, character } of a member declared in a REFINEMENT of
+       * `classId`, or null. Refinements are indexed by target at file-index
+       * build time; each carries the line range of its own model.
+       *
+       * The range matters. A position map covers a whole file, and a
+       * refinement usually shares its file with the class that motivated it —
+       * ActionView.js holds both `ActionEnumRefinement` (refining
+       * foam.lang.Action) and `ActionView` itself, and both declare
+       * `buttonStyle`. Without the range check the first name-match in the
+       * file wins, which is how you get an answer that is in the right file
+       * and on the wrong line.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var refs = this.refinementIndex_ && this.refinementIndex_[classId];
+      if ( ! refs || ! refs.length ) return null;
+
+      for ( var i = 0 ; i < refs.length ; i++ ) {
+        var r   = refs[i];
+        var rec = this.memberBucket_(this.getFilePosMap_(r.path), memberName, kind);
+        if ( ! rec ) continue;
+        // A name declared once per refinement in the same file yields one
+        // record plus its `also` siblings; only one of them is in this
+        // refinement's range.
+        var sightings = rec.also ? [ rec ].concat(rec.also) : [ rec ];
+        for ( var s = 0 ; s < sightings.length ; s++ ) {
+          var sr = sightings[s];
+          if ( sr.line < r.line || sr.line >= r.endLine ) continue;
+          return { uri: 'file://' + r.path, line: sr.line, character: sr.col || 0 };
+        }
+      }
+      return null;
     },
 
     function getJavaMemberPosition_(classId, memberName) {

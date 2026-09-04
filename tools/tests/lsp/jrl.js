@@ -1321,3 +1321,219 @@ var dId = navHandler.handleDefinition(
   menusText2, valuePos(menusText2, '"id":"cookbook.recipe"'),
   'file://' + path.join(jrlnavDir, 'menus.jrl'));
 test(dId === null, 'nav: dotted menu id is not a class ref -> null');
+
+// === JrlLoader: a journal is not one JavaScript program ===
+section('JrlLoader entry slicing');
+
+var jrlLoader = foam.parse.lsp.JrlLoader.create();
+
+// FOAM writes long values as triple-quoted strings. No JS engine accepts
+// those, so evaluating a whole journal as one function body throws at
+// CONSTRUCTION and collects nothing at all — not "whatever came before".
+var tripleJrl = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeAlphaDAO",',
+  '  "serviceScript":"""',
+  '    x = 1;',
+  '  """',
+  '})',
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeBetaDAO"',
+  '})'
+].join('\n');
+
+var tripleLoaded = jrlLoader.loadString(tripleJrl);
+test(tripleLoaded.length === 2,
+  'JrlLoader: a triple-quoted value no longer costs the whole file'
+  + ' (got ' + tripleLoaded.length + ' entries)');
+test(tripleLoaded.some(function(o) { return o.name === 'probeAlphaDAO'; }) &&
+     tripleLoaded.some(function(o) { return o.name === 'probeBetaDAO'; }),
+  'JrlLoader: both entries survive, the triple-quoted one included');
+
+// One unparseable entry drops itself and nothing else.
+var brokenJrl = [
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodOne" })',
+  'p({ "class":"foam.core.boot.CSpec", "name": })',
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodTwo" })'
+].join('\n');
+var brokenLoaded = jrlLoader.loadString(brokenJrl);
+test(brokenLoaded.length === 2 &&
+     brokenLoaded.map(function(o) { return o.name; }).join(',') === 'probeGoodOne,probeGoodTwo',
+  'JrlLoader: a malformed entry costs only itself'
+  + ' (got ' + brokenLoaded.map(function(o) { return o.name; }).join(',') + ')');
+
+// Lines come back with the entries — a services.jrl row is worth pointing at.
+var withLines = jrlLoader.loadStringWithLines(tripleJrl);
+test(withLines.length === 2 && withLines[0].line === 0 && withLines[1].line === 7,
+  'JrlLoader: loadStringWithLines reports each entry\'s start line'
+  + ' (got ' + withLines.map(function(e) { return e.line; }).join(',') + ')');
+
+// Not a fixture: the repo's own journal, which is the file the old loader
+// silently returned nothing for.
+var realServices = path.resolve(__dirname, '../../../src/services.jrl');
+if ( fs.existsSync(realServices) ) {
+  var realLoaded = jrlLoader.loadFile(realServices);
+  test(realLoaded.length > 0 && realLoaded.some(function(o) { return o.name === 'cSpecDAO'; }),
+    'JrlLoader: src/services.jrl loads (' + realLoaded.length + ' entries) and contains cSpecDAO');
+}
+
+// === One slice-and-blank step, shared ===
+section('JournalEntryIndex / JrlLoader share sliceEntries');
+
+// The two used to compute the same spans from the same grammar output. The
+// invariant that keeps them honest: on a journal whose triple-quoted block
+// CONTAINS a fake entry start, both must cut it in the same places, because
+// both now ask JrlLoader.sliceEntries.
+var sharedJrl = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"sharedAlpha",',
+  '  "serviceScript":"""',
+  '    p({ "class":"foam.core.boot.CSpec", "name":"notAnEntry" })',
+  '  """',
+  '})',
+  '',
+  'p({"class":"foam.core.boot.CSpec","name":"sharedBeta"})'
+].join('\n');
+
+var sharedLoader = foam.parse.lsp.JrlLoader.create();
+var sharedSlices = sharedLoader.sliceEntries(sharedJrl);
+test(sharedSlices.length === 2 && sharedSlices[0].line === 0 && sharedSlices[1].line === 8,
+  'sliceEntries: the fake entry head inside """...""" does not start a slice'
+  + ' (got ' + sharedSlices.length + ' slices at lines '
+  + sharedSlices.map(function(s) { return s.line; }).join(',') + ')');
+
+// Named services.jrl in its own dir: getServiceLocations only ever reads a
+// file with that basename.
+var sharedDir  = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lsp-jrl-shared-'));
+var sharedFile = path.join(sharedDir, 'services.jrl');
+fs.writeFileSync(sharedFile, sharedJrl);
+var sharedJei = foam.parse.lsp.JournalEntryIndex.create({
+  index: index, journalFiles: [ sharedFile ] });
+var sharedRecs = sharedJei.parseFile_(sharedJrl);
+test(sharedRecs.length === sharedSlices.length &&
+     sharedRecs.map(function(r) { return r.line; }).join(',') ===
+     sharedSlices.map(function(s) { return s.line; }).join(','),
+  'JournalEntryIndex cuts the same journal in the same places as JrlLoader'
+  + ' (got ' + sharedRecs.map(function(r) { return r.key + '@' + r.line; }).join(',') + ')');
+test(sharedJei.getServiceLocations('sharedAlpha') !== null &&
+     sharedJei.getServiceLocations('notAnEntry') === null,
+  'and the name inside the blanked block registers nothing');
+try { fs.rmSync(sharedDir, { recursive: true, force: true }); } catch ( e ) {}
+
+// === Saving a .jrl refreshes the SYMBOL index too, over the wire ===
+// reindexFile only reaches index.invalidate for a file that classifies as a
+// class, so before this the didSave(.jrl) branch refreshed JournalEntryIndex
+// and left symbolIndex_ (which now carries the services.jrl rows) stale: a
+// renamed service kept answering workspace/symbol under its old name.
+// Driven through the real server because the bug IS the wiring — the handler
+// and the index were both already correct.
+var os = require('os');
+var jrlSaveDone = h.withServerLane(async function() {
+  var origWrite = process.stdout.write;
+  var wsDir = null;
+  var pomPushed = false;
+  try {
+    var frames = [];
+    var inBuf  = Buffer.alloc(0);
+    function drain() {
+      while ( true ) {
+        var headerEnd = inBuf.indexOf('\r\n\r\n');
+        if ( headerEnd === -1 ) return;
+        var m = /Content-Length:\s*(\d+)/i.exec(inBuf.slice(0, headerEnd).toString('utf8'));
+        if ( ! m ) { inBuf = inBuf.slice(headerEnd + 4); continue; }
+        var len = parseInt(m[1], 10), bodyStart = headerEnd + 4;
+        if ( inBuf.length < bodyStart + len ) return;
+        var body = inBuf.slice(bodyStart, bodyStart + len).toString('utf8');
+        inBuf = inBuf.slice(bodyStart + len);
+        try { frames.push(JSON.parse(body)); } catch ( e ) {}
+      }
+    }
+    process.stdout.write = function(chunk) {
+      inBuf = Buffer.concat([ inBuf, Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8') ]);
+      drain();
+      return true;
+    };
+
+    var nextId = 1;
+    function send(method, params, wantId) {
+      var msg = { jsonrpc: '2.0', method: method, params: params };
+      if ( wantId ) msg.id = nextId++;
+      var json = JSON.stringify(msg);
+      process.stdin.emit('data', Buffer.from(
+        'Content-Length: ' + Buffer.byteLength(json) + '\r\n\r\n' + json, 'utf8'));
+      return msg.id;
+    }
+    function waitFor(pred, what) {
+      return new Promise(function(resolve, reject) {
+        var deadline = Date.now() + 20000;
+        (function poll() {
+          for ( var i = 0 ; i < frames.length ; i++ ) if ( pred(frames[i]) ) return resolve(frames[i]);
+          if ( Date.now() > deadline ) return reject(new Error('timed out waiting for ' + what));
+          setTimeout(poll, 10);
+        })();
+      });
+    }
+    function request(method, params, what) {
+      var id = send(method, params, true);
+      return waitFor(function(m) { return m.id === id; }, what);
+    }
+
+    // A journal directory the server's index will discover: getJournalDirs
+    // reads foam.poms at call time, so pushing it before the first query is
+    // enough — no class file needs to live there.
+    wsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lsp-jrlsave-'));
+    var svcPath = path.join(wsDir, 'services.jrl');
+    var svcUri  = 'file://' + svcPath;
+    fs.writeFileSync(svcPath,
+      'p({"class":"foam.core.boot.CSpec","name":"lspSaveProbeAlpha","serve":true})\n');
+    foam.poms = foam.poms || [];
+    foam.poms.push({ location: wsDir });
+    pomPushed = true;
+
+    process.stdin.removeAllListeners('data');
+    require('../../lsp/server').start();
+    process.stdin.removeAllListeners('end');
+    frames = [];
+    inBuf  = Buffer.alloc(0);
+
+    await request('initialize', { rootUri: 'file://' + wsDir, capabilities: {} },
+      'the initialize response');
+
+    function names(res) {
+      return ((res && res.result) || []).map(function(s) { return s.name; });
+    }
+
+    var before = await request('workspace/symbol', { query: 'lspSaveProbe' },
+      'the first workspace/symbol answer');
+    test(names(before).indexOf('lspSaveProbeAlpha') !== -1,
+      'jrl save: the registered service answers workspace/symbol before the edit'
+      + ' (got ' + JSON.stringify(names(before)) + ')');
+
+    // Rename on disk, then save. Nothing else changes — no .js is touched,
+    // which is exactly the case that used to leave the old name answering.
+    fs.writeFileSync(svcPath,
+      'p({"class":"foam.core.boot.CSpec","name":"lspSaveProbeBeta","serve":true})\n');
+    send('textDocument/didSave', { textDocument: { uri: svcUri } });
+
+    var after = await request('workspace/symbol', { query: 'lspSaveProbe' },
+      'the workspace/symbol answer after the save');
+    test(names(after).indexOf('lspSaveProbeBeta') !== -1,
+      'jrl save: the renamed service is findable under its new name'
+      + ' (got ' + JSON.stringify(names(after)) + ')');
+    test(names(after).indexOf('lspSaveProbeAlpha') === -1,
+      'jrl save: and no longer under the old one'
+      + ' (got ' + JSON.stringify(names(after)) + ')');
+  } finally {
+    process.stdout.write = origWrite;
+    process.stdin.removeAllListeners('data');
+    if ( pomPushed ) foam.poms.pop();
+    if ( wsDir ) { try { fs.rmSync(wsDir, { recursive: true, force: true }); } catch ( e ) {} }
+  }
+});
+
+module.exports = { done: jrlSaveDone.catch(function(e) {
+  test(false, 'jrl save lane failed — ' + ( e && e.message ? e.message : e ));
+}) };

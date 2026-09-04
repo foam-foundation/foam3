@@ -13,7 +13,7 @@ foam.CLASS({
     per-model entry id. Backs JrlHandler's cross-reference
     go-to-definition (daoKey -> services.jrl, parent -> menu entry).
 
-    Positions come from JrlGrammar (parser combinators); entry
+    Positions come from JrlGrammar via JrlLoader.sliceEntries(); entry
     SEMANTICS come from evaluating each entry with p/c/r interceptors
     (JrlLoader's pattern). Each entry is evaluated ALONE, sliced on
     the grammar's entry starts, so a malformed entry costs only
@@ -28,12 +28,21 @@ foam.CLASS({
     invalidate() (wired to .jrl saves in server.js) drops the caches
     so the next query re-reads from disk.`,
 
-  requires: [ 'foam.parse.lsp.JrlGrammar' ],
+  requires: [ 'foam.parse.lsp.JrlLoader' ],
+
+  constants: {
+    // Keys whose VALUE names a registered service rather than describing one.
+    // Schema-blind by nature: nothing in the model says `daoKey` points at a
+    // services.jrl row, it is a convention. Lives here because both the
+    // journal handler and the JS definition handler navigate on it, and two
+    // copies of a convention list drift.
+    SERVICE_KEY_NAMES: [ 'daoKey' ]
+  },
 
   properties: [
     {
       name: 'index',
-      documentation: 'FoamIndex; supplies getIndexedDirs() for journal discovery.'
+      documentation: 'FoamIndex; supplies getJournalDirs() for journal discovery.'
     },
     {
       class: 'StringArray',
@@ -41,8 +50,13 @@ foam.CLASS({
       documentation: 'Explicit journal list (tests). Empty -> discover via index.'
     },
     {
-      name: 'grammar',
-      factory: function() { return this.JrlGrammar.create(); }
+      name: 'loader',
+      documentation: `Supplies sliceEntries() — the cut-on-entry-starts,
+        blank-the-triple-quotes step. Shared rather than repeated: the two
+        copies computed the same spans from the same grammar output, so a
+        change to one silently made the journal lookup and the journal
+        loader read the same file differently.`,
+      factory: function() { return this.JrlLoader.create(); }
     },
     {
       class: 'Int',
@@ -98,27 +112,9 @@ foam.CLASS({
       var fs_ = require('fs');
       var path_ = require('path');
       var files = [];
-      var seen = {};
-      var dirs = [];
-
-      // Collect directories from foam.poms locations
-      var poms = ( typeof foam !== 'undefined' && foam.poms ) || [];
-      for ( var p = 0 ; p < poms.length ; p++ ) {
-        var pomDir = poms[p] && poms[p].location;
-        if ( pomDir && ! seen[pomDir] ) {
-          seen[pomDir] = true;
-          dirs.push(pomDir);
-        }
-      }
-
-      // Collect directories from indexed source files
-      var indexDirs = ( this.index && this.index.getIndexedDirs() ) || [];
-      for ( var d = 0 ; d < indexDirs.length ; d++ ) {
-        if ( ! seen[indexDirs[d]] ) {
-          seen[indexDirs[d]] = true;
-          dirs.push(indexDirs[d]);
-        }
-      }
+      // The pom locations + indexed source dirs union lives on FoamIndex, so
+      // this and buildStringUsageIndex_'s services.jrl walk cannot drift.
+      var dirs = ( this.index && this.index.getJournalDirs() ) || [];
 
       // Read .jrl files from each directory
       for ( var i = 0 ; i < dirs.length ; i++ ) {
@@ -190,28 +186,20 @@ foam.CLASS({
 
     function parseFile_(content) {
       /**
-       * Grammar positions -> per-entry eval. Slicing each entry on the
+       * JrlLoader.sliceEntries -> per-entry eval. Slicing each entry on the
        * grammar's own entry starts isolates syntax errors: ops[0] of a
        * slice IS that slice's entry, and a slice that fails to compile
        * drops only its own entry.
+       *
+       * The slicing itself is the loader's — this class only differs in what
+       * it does with a slice (ordered ops and a per-entry key, rather than a
+       * deduped object list), so it keeps parseEntriesOrdered_ and nothing
+       * else.
        */
       var recs = [];
-      var pos = this.grammar.collectJrlPositions(content);
-      for ( var i = 0 ; i < pos.entries.length ; i++ ) {
-        var start = pos.entries[i].startPos;
-        var end   = i + 1 < pos.entries.length ?
-          pos.entries[i + 1].startPos : content.length;
-
-        var spans = [];
-        for ( var t = 0 ; t < pos.tripleStrings.length ; t++ ) {
-          var s = pos.tripleStrings[t];
-          if ( s.startPos >= start && s.endPos <= end ) {
-            spans.push({ startPos: s.startPos - start, endPos: s.endPos - start });
-          }
-        }
-
-        var ops = this.parseEntriesOrdered_(
-          this.sanitizeContent_(content.substring(start, end), spans));
+      var slices = this.loader.sliceEntries(content);
+      for ( var i = 0 ; i < slices.length ; i++ ) {
+        var ops = this.parseEntriesOrdered_(slices[i].text);
         if ( ! ops.length || ops[0].op === 'r' ) continue;
         var obj = ops[0].obj;
         if ( ! obj || typeof obj !== 'object' ) continue;
@@ -220,26 +208,9 @@ foam.CLASS({
         var key = this.entryKey_(clsId, obj);
         if ( key === null ) continue;
 
-        recs.push({ clsId: clsId, key: key, line: pos.entries[i].line });
+        recs.push({ clsId: clsId, key: key, line: slices[i].line });
       }
       return recs;
-    },
-
-    function sanitizeContent_(content, tripleSpans) {
-      /**
-       * Replace """...""" spans (positions from JrlGrammar) with an
-       * empty JS string so the content becomes evaluable. Pure
-       * position-based string surgery — no pattern matching.
-       */
-      var out = '';
-      var last = 0;
-      for ( var i = 0 ; i < tripleSpans.length ; i++ ) {
-        var s = tripleSpans[i];
-        if ( s.startPos < last ) continue;
-        out += content.substring(last, s.startPos) + '""';
-        last = s.endPos;
-      }
-      return out + content.substring(last);
     },
 
     function parseEntriesOrdered_(content) {

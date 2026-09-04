@@ -1557,8 +1557,48 @@ foam.CLASS({
         }
       }
 
+      this.pushServiceSymbols_(out);
+
       this.symbolIndex_ = out;
       return out;
+    },
+
+    function pushServiceSymbols_(out) {
+      /**
+       * Registered services (`services.jrl` CSpec rows) as workspace symbols.
+       *
+       * A service name is not an axiom of any class, so nothing above finds
+       * it: searching `localUserDAO` returned no symbol at all while
+       * `services.jrl` registered it on line 409. They are the names an
+       * `imports:` entry is written against, which makes them exactly the
+       * kind of thing a symbol search is for.
+       *
+       * Kind 13 (Variable) — a service is a name in the context, not a type.
+       * The entry carries its own file and line because there is no class to
+       * resolve a position from.
+       */
+      var byName;
+      try {
+        if ( ! this.stringUsageIndex_ ) this.buildStringUsageIndex_();
+        byName = this.stringUsageIndex_ && this.stringUsageIndex_.byName;
+      } catch ( e ) { return; }
+      if ( ! byName ) return;
+
+      for ( var name in byName ) {
+        var recs = byName[name];
+        for ( var i = 0 ; i < recs.length ; i++ ) {
+          var r = recs[i];
+          if ( r.kind !== 'cspec' || ! r.file ) continue;
+          out.push({
+            name:          name,
+            kind:          13,
+            classId:       '',
+            containerName: 'services.jrl',
+            filePath:      r.file,
+            line:          r.line || 0
+          });
+        }
+      }
     },
 
     function searchSymbols(query, opts) {
@@ -1587,7 +1627,9 @@ foam.CLASS({
         var s = symbols[i];
         if ( ! s.filePath )                                      continue;
         if ( kindFilter    && s.kind !== kindFilter )            continue;
-        if ( packagePrefix && s.classId.indexOf(packagePrefix) !== 0 ) continue;
+        // A service symbol has no class id, so a package filter cannot match
+        // it — it is filtered out rather than crashing on an empty string.
+        if ( packagePrefix && ( ! s.classId || s.classId.indexOf(packagePrefix) !== 0 ) ) continue;
 
         if ( ! q ) {
           scored.push({ s: s, score: 1 });
@@ -1617,6 +1659,9 @@ foam.CLASS({
           classId:       e.s.classId,
           containerName: e.s.containerName,
           filePath:      e.s.filePath,
+          // Carried through only when the entry brought one — a services.jrl
+          // row has no class to resolve a position from later.
+          line:          e.s.line,
           score:         e.score
         };
       });
@@ -2046,30 +2091,37 @@ foam.CLASS({
         var jrlLoader = foam.parse.lsp.JrlLoader.create();
         var fs_       = require('fs');
         var path_     = require('path');
-        var fileIndex = this.fileIndex_ || {};
-        var seenDirs  = {};
-        var services  = [];
-        for ( var id in fileIndex ) {
-          var entry = fileIndex[id];
-          var p     = typeof entry === 'string' ? entry : entry.path;
-          if ( ! p ) continue;
-          var dir = path_.dirname(p);
-          if ( seenDirs[dir] ) continue;
-          seenDirs[dir] = true;
-          var svc = path_.join(dir, 'services.jrl');
+        // getJournalDirs, not getIndexedDirs: src/services.jrl — 38 rows,
+        // `file`, `blobStore`, `httpServer` among them — sits in a directory
+        // holding no class file at all, so a walk of indexed sources never
+        // reaches it. The pom locations do.
+        var services = [];
+        var svcDirs  = this.getJournalDirs();
+        for ( var d = 0 ; d < svcDirs.length ; d++ ) {
+          var svc = path_.join(svcDirs[d], 'services.jrl');
           if ( fs_.existsSync(svc) ) services.push(svc);
         }
         for ( var s = 0 ; s < services.length ; s++ ) {
           try {
-            var entries = jrlLoader.loadFile(services[s]);
+            // With lines, because a CSpec row is worth pointing AT: it is the
+            // one place the service is registered.
+            var entries = jrlLoader.loadStringWithLines(
+              fs_.readFileSync(services[s], 'utf8'));
             for ( var e = 0 ; e < entries.length ; e++ ) {
-              var ent = entries[e];
-              if ( ! ent || typeof ent.id !== 'string' ) continue;
-              record(ent.id, {
+              var ent = entries[e].obj;
+              if ( ! ent ) continue;
+              // A CSpec's identity is its `name`, not `id` — that is what an
+              // import key is matched against. Requiring `id` skipped every
+              // row in every services.jrl in the repo.
+              var entId = typeof ent.id === 'string' ? ent.id
+                        : ( typeof ent.name === 'string' ? ent.name : null );
+              if ( ! entId ) continue;
+              record(entId, {
                 sourceClassId: null,
                 axiomName:     'services.jrl',
                 kind:          'cspec',
-                file:          services[s]
+                file:          services[s],
+                line:          entries[e].line
               });
             }
           } catch (e) {}
@@ -2077,6 +2129,35 @@ foam.CLASS({
       } catch (e) {}
 
       this.stringUsageIndex_ = { byName: byName };
+    },
+
+    function getJournalDirs() {
+      /**
+       * Every directory a .jrl may live in: the pom locations plus the
+       * directories of indexed sources. THE one answer to that question —
+       * JournalEntryIndex asks it for journal discovery and
+       * buildStringUsageIndex_ asks it for services.jrl, and when those two
+       * were separate walks they disagreed: the index missed the 38
+       * registrations in src/services.jrl that the journal lookup found.
+       *
+       * Not cached: foam.poms is mutable at runtime.
+       */
+      var seen = {};
+      var dirs = [];
+      var poms = ( typeof foam !== 'undefined' && foam.poms ) || [];
+      for ( var p = 0 ; p < poms.length ; p++ ) {
+        var loc = poms[p] && poms[p].location;
+        if ( ! loc || seen[loc] ) continue;
+        seen[loc] = true;
+        dirs.push(loc);
+      }
+      var indexed = this.getIndexedDirs();
+      for ( var i = 0 ; i < indexed.length ; i++ ) {
+        if ( seen[indexed[i]] ) continue;
+        seen[indexed[i]] = true;
+        dirs.push(indexed[i]);
+      }
+      return dirs;
     },
 
     function getIndexedDirs() {

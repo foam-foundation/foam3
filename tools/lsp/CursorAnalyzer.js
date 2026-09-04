@@ -101,6 +101,48 @@ foam.CLASS({
       return null;
     },
 
+    function getEnclosingKey(text, position) {
+      /**
+       * The object key whose VALUE is the string literal under the cursor —
+       * `daoKey` for `daoKey: 'localUserDAO'` — or null when the cursor is
+       * not in a string, or the string is not a key's value (an argument, an
+       * array element, a nested call). Line-local, like
+       * getEnclosingStringContent, whose scan this repeats to find the same
+       * string's opening quote.
+       *
+       * Callers navigate on a CONVENTION about the key (see
+       * JournalEntryIndex.SERVICE_KEY_NAMES); without the key there is
+       * nothing holding the convention, and every quoted word that happens
+       * to spell a registered name would qualify.
+       */
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var ch = position.character;
+      var quotes = "'\"`";
+      var i = 0;
+      while ( i < line.length ) {
+        if ( quotes.indexOf(line[i]) !== -1 ) {
+          var q = line[i];
+          var open = i;
+          var start = i + 1;
+          var j = start;
+          while ( j < line.length && line[j] !== q ) {
+            if ( line[j] === '\\' ) j++;
+            j++;
+          }
+          if ( ch > start - 1 && ch <= j ) {
+            var before = line.substring(0, open);
+            var m = /(?:^|[\s{,([])['"`]?([A-Za-z_$][A-Za-z0-9_$]*)['"`]?\s*:\s*$/.exec(before);
+            return m ? m[1] : null;
+          }
+          i = j + 1;
+        } else {
+          i++;
+        }
+      }
+      return null;
+    },
+
     function getSegmentAtPosition(text, position) {
       /**
        * Get just the single identifier segment under the cursor (stops at dots).

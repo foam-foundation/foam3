@@ -131,6 +131,15 @@ p({
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
+  "id": "function",
+  "description": "Script an editable JavaScript block whose return value is the block's value",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.function.Function.create(code ? {code: code, autoRun: true} : {}, this), true);
+  """
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
   "id": "fetchFile",
   "description": "Fetch a file from a URL",
   "script": """

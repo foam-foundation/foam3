@@ -31,7 +31,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 |---|---|---|
 | `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values |
 | `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports |
-| `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info |
+| `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info. A property's type carries its `of:` target — `` `Enum<ButtonStyle>` `` — except the primitive `of:` an array class already implies (`StringArray of: 'String'`) |
 | `DefinitionHandler.js` | `textDocument/definition` | File index lookup for class → file path |
 | `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models |
 | `JavaBlockValidator.js` | (called by Diagnostics) | Java import validation, getter/setter validation via model fields |

@@ -30,18 +30,22 @@ foam.CLASS({
         // Class-level hits (Class/Interface/Enum) sit at the foam.CLASS call;
         // member hits resolve to their axiom line via the grammar position map
         // (one parse per file, cached in FoamIndex.getFilePosMap_).
-        var line = 0, character = 0;
+        // The position's own uri is authoritative: a member can be declared
+        // in another file entirely — a refinement of the class, or its Java
+        // side. Keeping h.filePath and taking only the line pairs a number
+        // with a file that has no such line.
+        var uri = 'file://' + h.filePath, line = 0, character = 0;
         if ( h.kind === 5 || h.kind === 11 || h.kind === 10 ) {
           line = this.index.getClassLine(h.classId);
         } else {
           var pos = this.index.getSymbolPosition(h.classId, h.name, h.kind);
-          line = pos.line; character = pos.character;
+          uri = pos.uri || uri; line = pos.line; character = pos.character;
         }
         out.push({
           name:          h.name,
           kind:          h.kind,
           location: {
-            uri:   'file://' + h.filePath,
+            uri:   uri,
             range: { start: { line: line, character: character }, end: { line: line, character: character } }
           },
           containerName: h.containerName

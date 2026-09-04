@@ -117,6 +117,16 @@ only inside the range. Two things make the range necessary:
 A refinement's `name:` is optional; the index's name guard runs AFTER the
 `refines` branch for that reason.
 
+`getSymbolPosition` returns a `uri` along with the line, and that uri is
+authoritative — a member's declaration is not always in its class's file. Every
+caller must use it. `WorkspaceSymbolHandler` and `CallHierarchyHandler` used to
+keep the class's own path and take only the line, which put a line number in a
+file that had no such line: 34 workspace symbols pointed past the end of the
+file they named, 21 of them through the Java path long before refinements were
+indexed. `DefinitionHandler.buildLocationAtProperty` takes the class id for the
+same reason — when the class's own file does not declare the property, it asks
+the index instead of landing on line 0.
+
 Cost: a lookup that misses parses each refining file once, mtime-cached.
 `foam.lang.Property` is the worst case in this repo at 26 refining files —
 181ms cold, 0ms warm, 0.11ms per warm hit.

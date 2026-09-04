@@ -728,3 +728,19 @@ if ( index.classExists('foam.u2.view.ReferenceArrayView') && index.classExists('
   test(vsLocs.some(function(l) { return l.uri.indexOf('Group.js') !== -1; }),
     'references: view-spec-only user (Group.js) included via view-spec index');
 }
+
+// === A property declared in a refinement, from the cursor-driven path ===
+// resolveMemberOnClass_ resolves the definer to User, because the refinement
+// installs the axiom there — but User.js does not declare the property, so the
+// grammar lookup found nothing and it fell to User.js line 0.
+var refMemberLoc = defHandler.resolveMemberOnClass_('foam.core.auth.User', 'twoFactorEnabled');
+test(refMemberLoc && refMemberLoc.uri.indexOf('UserRefinements.js') !== -1
+  && refMemberLoc.range.start.line === 14,
+  'resolveMemberOnClass_: User.twoFactorEnabled lands in UserRefinements.js:14'
+  + ' (got ' + ( refMemberLoc ? refMemberLoc.uri.split('/').pop() + ':' + refMemberLoc.range.start.line : 'null' ) + ')');
+
+// Non-regression: a property the class declares itself is untouched.
+var ownLoc = defHandler.resolveMemberOnClass_('foam.lang.Property', 'name');
+test(ownLoc && ownLoc.uri.indexOf('Property.js') !== -1,
+  'resolveMemberOnClass_: a property in the class\'s own file still resolves there'
+  + ' (got ' + ( ownLoc ? ownLoc.uri.split('/').pop() : 'null' ) + ')');

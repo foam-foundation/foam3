@@ -137,7 +137,7 @@ foam.CLASS({
               var defClass = this.findPropertyDefiner_(cls, segment);
               if ( defClass ) {
                 filePath = this.index.getFilePath(defClass);
-                if ( filePath ) return this.buildLocationAtProperty(filePath, segment);
+                if ( filePath ) return this.buildLocationAtProperty(filePath, segment, defClass);
               }
             }
             // Check if it's a message axiom — `this.LABEL_X`
@@ -346,7 +346,7 @@ foam.CLASS({
         var defClass = this.findPropertyDefiner_(cls, name);
         if ( defClass ) {
           var filePath = this.index.getFilePath(defClass);
-          if ( filePath ) return this.buildLocationAtProperty(filePath, name);
+          if ( filePath ) return this.buildLocationAtProperty(filePath, name, defClass);
         }
       }
 
@@ -479,7 +479,7 @@ foam.CLASS({
       return this.grammarInstance_;
     },
 
-    function buildLocationAtProperty(filePath, propName) {
+    function buildLocationAtProperty(filePath, propName, opt_classId) {
       /**
        * Jump to a property definition within a file. Uses the grammar's
        * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
@@ -505,6 +505,23 @@ foam.CLASS({
           };
         }
       } catch ( e ) {}
+      // The class's own file may not declare the property at all — a
+      // refinement in another file can, and the index knows where those are.
+      // Without this, User.twoFactorEnabled navigated to User.js line 0 while
+      // the same member looked up through the index answered
+      // UserRefinements.js:14.
+      if ( opt_classId ) {
+        var idxPos = this.index.getSymbolPosition(opt_classId, propName, 7);
+        if ( idxPos && idxPos.uri && idxPos.uri !== 'file://' + filePath ) {
+          return {
+            uri: idxPos.uri,
+            range: {
+              start: { line: idxPos.line, character: idxPos.character },
+              end:   { line: idxPos.line, character: idxPos.character + propName.length }
+            }
+          };
+        }
+      }
       return this.buildLocation(filePath);
     },
 
@@ -551,7 +568,7 @@ foam.CLASS({
                 var defClass = this.findPropertyDefiner_(cls, propName);
                 if ( defClass ) {
                   var filePath = this.index.getFilePath(defClass);
-                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName);
+                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName, defClass);
                 }
               }
             }

@@ -151,8 +151,11 @@ public class MDAO
    *
    * The array is consumed: each row is frozen in place. No copy, unlike a
    * put: the rows were collected for this load and nothing else holds them.
+   *
+   * Answers false when the DAO already holds rows, so a caller that cannot know
+   * whether it does can put them one at a time instead.
    **/
-  public void bulkLoad(FObject[] a) {
+  public boolean bulkLoad(FObject[] a) {
     synchronized ( writeLock_ ) {
       if ( state_ != null ) {
         // A bulk load that quietly did nothing would look exactly like one that
@@ -167,16 +170,17 @@ public class MDAO
         } catch ( Throwable t ) {
           // No logger reachable yet.
         }
-        return;
+        return false;
       }
 
       // A journal with nothing in it leaves the DAO exactly as it was, rather
       // than replacing a null state with an array of empty index states.
-      if ( a.length == 0 ) return;
+      if ( a.length == 0 ) return true;
 
       for ( int i = 0 ; i < a.length ; i++ ) a[i] = a[i].freeze();
 
       setState(index_.bulkLoad(a, 0, a.length-1));
+      return true;
     }
   }
 
@@ -325,6 +329,9 @@ public class MDAO
         return when(state);
       }
       return this;
+    }
+    if ( cmd instanceof BulkLoadCommand ) {
+      return bulkLoad(((BulkLoadCommand) cmd).getRows());
     }
     if ( cmd instanceof AddIndexCommand ) {
       AddIndexCommand indexCmd = (AddIndexCommand) cmd;

@@ -17,7 +17,6 @@ foam.CLASS({
   ],
 
   imports: [
-    'ctrl?',
     'window',
     'table?'
   ],
@@ -115,21 +114,15 @@ foam.CLASS({
       var self = this;
 
       this.overlay_.add(this.dynamic(function(refreshIdx) {
-          this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
-              .addClass(self.myClass('container'))
-            .end();
-        }));
-      this.ctrl ? this.ctrl.add(this.overlay_) : this.overlay_.write();
+        this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
+          .addClass(self.myClass('container'))
+        .end();
+      }));
+      this.overlay_.write();
       this.onDetach(() => self.overlay_.remove());
     }
   ],
-  listeners: [
-    function refresh() { this.refreshIdx++; },
-    function updatePosition() {
-      if ( this.selectColumnsExpanded )
-        this.openDropDown();
-    }
-  ],
+
   actions: [
     {
       name: 'closeButton',
@@ -139,6 +132,14 @@ foam.CLASS({
         this.columnConfigPropView?.onClose?.();
         this.selectColumnsExpanded = false;
       }
+    }
+  ],
+
+  listeners: [
+    function refresh() { this.refreshIdx++; },
+    function updatePosition() {
+      if ( this.selectColumnsExpanded )
+        this.openDropDown();
     }
   ]
 });

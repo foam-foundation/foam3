@@ -181,14 +181,10 @@ In this current implementation setDelegate must be called last.`,
               .build();
 
             if ( getWaitReplay() ) {
-              // Speedup replay to MDAOs by disabling safe mode which clones
-              // the incoming object for safety, but isn't needed here.
-              try { ((MDAO) delegate).setSafeMode(false); } catch (Throwable t) {}
-
-              // And replay into a plain map rather than the MDAO, so the index
-              // is built from every row at once instead of one put per row.
-              // Only on this branch: it runs before the DAO is published, so
-              // nothing else can read or write it while the rows are collected.
+              // Replay into a plain map rather than the MDAO, so the index is
+              // built from every row at once instead of one put per row. Only
+              // on this branch: it runs before the DAO is published, so nothing
+              // else can read or write it while the rows are collected.
               MDAO        mdao    = delegate instanceof MDAO ? (MDAO) delegate : null;
               BulkLoadDAO staging = mdao == null ? null : new BulkLoadDAO(getX(), getOf());
 
@@ -205,7 +201,6 @@ In this current implementation setDelegate must be called last.`,
                 // Whatever was collected before a replay threw is what the DAO
                 // would have held had each row been put as it was read.
                 if ( staging != null ) mdao.bulkLoad(staging.rows());
-                try { ((MDAO) delegate).setSafeMode(true); } catch (Throwable t) {}
               }
             } else {
               final String name = getFilename();

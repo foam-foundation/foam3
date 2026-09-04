@@ -369,6 +369,7 @@ public class RulerDAOTest extends Test {
     test(user1.getEmail().equals("action1core@core.net"), "one rule action changed user email as expected: "+ user1.getEmail());
 
     //test array of 2 actions
+    rule10  = (Rule) rule10.fclone();
     actions = new RuleAction[2];
     actions[0] = r1;
     actions[1] = (x12, obj, oldObj, ruler, rule10, agent) -> {

@@ -206,11 +206,9 @@ foam.CLASS({
     {
       name: 'fresh',
       type: 'foam.dao.MDAO',
-      documentation: 'An MDAO configured the way JDAO configures one for replay.',
+      documentation: 'The DAO both lanes replay into, keyed by id like any other.',
       javaCode: `
-        MDAO m = new MDAO(IndexKeyRecord.getOwnClassInfo());
-        m.setSafeMode(false);
-        return m;
+        return new MDAO(IndexKeyRecord.getOwnClassInfo());
       `
     },
 

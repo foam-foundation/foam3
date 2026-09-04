@@ -75,7 +75,7 @@ foam.CLASS({
         }
         test(! threw, "Admin user can remove serviceProvider");
 
-        serviceProvider = (ServiceProvider) serviceProviderDAO.inX(x).put(serviceProvider);
+        serviceProvider = (ServiceProvider) serviceProviderDAO.inX(x).put((ServiceProvider) serviceProvider.fclone());
 
         threw = false;
         try {

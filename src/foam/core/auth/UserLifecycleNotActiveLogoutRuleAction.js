@@ -9,7 +9,8 @@ foam.CLASS({
   name: 'UserLifecycleNotActiveLogoutRuleAction',
 
   documentation: `On transition from Active, logout user.
-Transition to DELETED is handled by UserLifecycleDeletedRuleAction`,
+Transition to DELETED is handled by UserLifecycleDeletedRuleAction.
+Compatible with UserLifecycleTicket system, as Disable action also removes session.`,
 
   implements: [
     'foam.core.ruler.RuleAction'

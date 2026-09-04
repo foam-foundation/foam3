@@ -58,7 +58,7 @@ foam.CLASS({
       name: 'promptMode',
       postSet: function(o, n) { localStorage.promptMode = n; },
       factory: function() {
-        return localStorage.promptMode || 'Standard';
+        return 'Auto';
       },
       view: function(_, X) {
         return {
@@ -98,13 +98,15 @@ foam.CLASS({
                   });
               });
           })).
-        end().
-        startContext({ data: this }).
-          start().
-            show(this.promptModes$.map(modes => modes && modes.length > 1)).
-            add(this.PROMPT_MODE).
-          end().
-        endContext();
+        end();
+        // NOTE: The below code lets the user select which promptMode they want
+        // to use. Uncomment if/when we decide to support multiple promptModes.
+        // startContext({ data: this }).
+        //   start().
+        //     show(this.promptModes$.map(modes => modes && modes.length > 1)).
+        //     add(this.PROMPT_MODE).
+        //   end().
+        // endContext();
     }
   ],
 

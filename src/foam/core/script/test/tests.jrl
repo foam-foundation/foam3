@@ -1,1 +1,2 @@
 p({"class":"foam.core.script.test.ScriptInterpreterLifecycleTest","id":"ScriptInterpreterLifecycleTest","description":"Proves BeanShell releases its namespace (no leak) and JShell pins the X context in a static (leak)"})
+p({"class":"foam.core.script.test.ScriptInterruptTest","id":"ScriptInterruptTest","description":"Proves an interrupt cancels the thread via the stored script's Future, and a re-run does not orphan a live one"})

@@ -106,5 +106,8 @@ foam.POM({
     { name: 'cells/Cells',             flags: 'js' },
     { name: 'cells/CellsDAOAgent',     flags: 'js' },
     { name: 'cells/CellsSink',         flags: 'js|java' }
+  ],
+  javaFiles: [
+    { name: 'ScriptParser' }
   ]
 });

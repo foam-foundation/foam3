@@ -82,18 +82,30 @@ foam.CLASS({
       var self = this;
       var map = {
         message:     {}, value:    {}, property: {}, method:  {},
-        pomFileName: {}, classRef: {}, comment:  {}, documentation: {},
+        pomFileName: {}, pomFlagValue: {}, pomJavaFileName: {},
+        classRef: {}, comment:  {}, documentation: {},
         instCall: {}, instCreateReceiver: {}, instTagClass: {}, instClassRef: {},
         instKey: {}, instValue: {}, memberRef: {}
       };
       // Kinds that allow multiple occurrences per name. Single-occurrence
       // kinds (message, value, property, method, pomFileName) keep their
-      // first sighting only — a model defines each name once. Class
+      // first sighting as the record — a model defines each name once. Class
       // references DO repeat (requires + extends + ofs + raw strings + …),
       // so collect every position.
+      //
+      // "Once" is true per MODEL, and this map covers a FILE. A file of
+      // refinements declares the same member once per refinement:
+      // src/foam/core/reflow/FromCsvRefines.js declares `fromCSV` six times,
+      // for six different classes. So a single-occurrence record also carries
+      // `also` — the later sightings — which a caller that knows which model
+      // it is asking about can pick from. Readers that just want a position
+      // see the same first record they always did.
       var MULTI = { classRef: true, comment: true, documentation: true,
         instCall: true, instCreateReceiver: true, instTagClass: true,
-        instClassRef: true, instKey: true, instValue: true, memberRef: true };
+        instClassRef: true, instKey: true, instValue: true, memberRef: true,
+        // pom scalar values repeat across entries ('js' in ten files:
+        // rows), so unlike pomFileName these keep every span.
+        pomFlagValue: true, pomJavaFileName: true };
 
       // Line-start offsets, computed once (O(n)), so each msg match resolves
       // line/col by binary search (O(log n)). Scanning text from offset 0 per
@@ -129,8 +141,20 @@ foam.CLASS({
               if ( MULTI[m.kind] ) {
                 var arr = map[m.kind][name] || (map[m.kind][name] = []);
                 arr.push(rec);
-              } else if ( ! map[m.kind][name] ) {
-                map[m.kind][name] = rec;
+              } else {
+                var first = map[m.kind][name];
+                if ( ! first ) {
+                  map[m.kind][name] = rec;
+                } else if ( first.startPos !== startPos ) {
+                  // Backtracking re-runs apply at the same offset, so the same
+                  // sighting can arrive more than once — dedupe on startPos.
+                  if ( ! first.also ) first.also = [];
+                  var dup = false;
+                  for ( var a = 0 ; a < first.also.length ; a++ ) {
+                    if ( first.also[a].startPos === startPos ) { dup = true; break; }
+                  }
+                  if ( ! dup ) first.also.push(rec);
+                }
               }
             }
           }
@@ -753,9 +777,9 @@ foam.CLASS({
         // value parser from running past its closing quote into the next
         // entry. Adding a new POM scalar value is a one-liner now.
         pomFileName:     stringValueRule({ category: 'pomFileName',     hint: 'file name',          msgKind: 'pomFileName' }),
-        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name' }),
+        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name',     msgKind: 'pomJavaFileName' }),
         pomProjectPath:  stringValueRule({ category: 'pomProjectPath',  hint: 'subproject path' }),
-        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination' }),
+        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination',   msgKind: 'pomFlagValue' }),
         pomJavaDep:      stringValueRule({ category: 'pomJavaDep',      hint: 'Java dependency' }),
 
         // Skip one character — catch-all that lets START consume the whole file

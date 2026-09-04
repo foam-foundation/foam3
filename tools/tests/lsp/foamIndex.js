@@ -355,3 +355,55 @@ if ( index.classExists(JAVA_CLASS) && index.getFilePath(JAVA_CLASS) ) {
 } else {
   test(true, 'Java-only method tests skipped (FObject not in file index)');
 }
+
+// === Members declared in a refinement ===
+section('FoamIndex refinement members');
+
+// A refined class keeps its own file as its definition site, so a member that
+// only a refinement declares used to resolve to the top of the wrong file.
+// Every assertion below names a real declaration in this repo; lines are
+// 0-based, one less than what an editor shows.
+
+function refPos(classId, member) {
+  var p = index.getSymbolPosition(classId, member, 7);
+  return p ? { file: p.uri.split('/').pop(), line: p.line } : null;
+}
+
+var twoFactor = refPos('foam.core.auth.User', 'twoFactorEnabled');
+test(twoFactor && twoFactor.file === 'UserRefinements.js' && twoFactor.line === 14,
+  'refinement member: User.twoFactorEnabled resolves to UserRefinements.js:14, not User.js'
+  + ' (got ' + ( twoFactor ? twoFactor.file + ':' + twoFactor.line : 'null' ) + ')');
+
+// A refinement must not hijack a member the class declares itself.
+// foam.lang.Action declares buttonStyle at Action.js:46 and ActionView.js
+// refines it to an Enum — the declaration site is still Action.js.
+var buttonStyle = refPos('foam.lang.Action', 'buttonStyle');
+test(buttonStyle && buttonStyle.file === 'Action.js' && buttonStyle.line === 46,
+  'own declaration wins: Action.buttonStyle stays at Action.js:46 though ActionView.js refines it'
+  + ' (got ' + ( buttonStyle ? buttonStyle.file + ':' + buttonStyle.line : 'null' ) + ')');
+
+// FromCsvRefines.js declares `fromCSV` six times, once per refined class, and
+// the file's position map recorded only the first (line 14, the
+// foam.lang.Property refinement). Both assertions below would land on 14
+// without the per-refinement line range.
+var intFromCSV   = refPos('foam.lang.Int', 'fromCSV');
+var floatFromCSV = refPos('foam.lang.Float', 'fromCSV');
+test(intFromCSV && intFromCSV.file === 'FromCsvRefines.js' && intFromCSV.line === 32,
+  'repeated member: Int.fromCSV resolves to FromCsvRefines.js:32'
+  + ' (got ' + ( intFromCSV ? intFromCSV.file + ':' + intFromCSV.line : 'null' ) + ')');
+test(floatFromCSV && floatFromCSV.file === 'FromCsvRefines.js' && floatFromCSV.line === 69,
+  'repeated member: Float.fromCSV resolves to its OWN line 69 in the same file'
+  + ' (got ' + ( floatFromCSV ? floatFromCSV.file + ':' + floatFromCSV.line : 'null' ) + ')');
+
+// A refinement needs no `name:` of its own. EndBoot.js has the repo's only
+// nameless one; the name guard used to drop it before its target was recorded.
+var modelProps = refPos('foam.lang.Model', 'properties');
+test(modelProps && modelProps.file === 'EndBoot.js' && modelProps.line === 42,
+  'nameless refinement: Model.properties resolves to EndBoot.js:42'
+  + ' (got ' + ( modelProps ? modelProps.file + ':' + modelProps.line : 'null' ) + ')');
+
+// Non-regression: a member declared in the class's own file still wins.
+var ownFile = index.getSymbolPosition('foam.lang.Property', 'name', 7);
+test(ownFile && ownFile.uri.split('/').pop() === 'Property.js',
+  'a member in the class\'s own file still resolves there, not to a refinement'
+  + ' (got ' + ( ownFile ? ownFile.uri.split('/').pop() : 'null' ) + ')');

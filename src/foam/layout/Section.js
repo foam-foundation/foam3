@@ -65,12 +65,10 @@ foam.CLASS({
       name: 'name'
     },
     {
-      class: 'I18NString',
       // Accepts function and string
       name: 'title'
     },
     {
-      class: 'I18NString',
       // Accepts function and string
       name: 'subTitle'
     },
@@ -82,9 +80,8 @@ foam.CLASS({
       }
     },
     {
-      class: 'I18NString',
-      documentation: 'function and string',
-      name: 'help'
+      name: 'help',
+      documentation: 'function and string'
     },
     {
       class: 'foam.u2.ViewSpec',

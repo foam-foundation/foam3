@@ -515,22 +515,54 @@ foam.CLASS({
       return "'" + lang + "'";
     },
 
+    function isI18nExemptUri_(uri) {
+      /**
+       * True for files where UNSOLICITED i18n offers are noise: test, demo and
+       * mock sources. Framework and product code is NOT exempt.
+       *
+       * Lives here, on the gated entry point, rather than in each consumer —
+       * DiagnosticsHandler carries its own copy for the hardcoded-string
+       * WARNING (a different scan with the same exemption), and
+       * CodeLensHandler previously had none at all, so a demo file got no
+       * missing-language HINT but did get a clickable "1 translation missing"
+       * lens that really translated it. One check at the source is what makes
+       * every consumer inherit the same answer.
+       */
+      if ( ! uri ) return false;
+      if ( /(?:^|\/)(?:test|tests|demo|demos|mock|mocks)\//i.test(uri) ) return true;
+      if ( /Test\.js$/.test(uri) ) return true;
+      if ( /Mock[^\/]*\.js$/.test(uri) ) return true;
+      return false;
+    },
+
     function scanMissingLanguages(uri, text) {
       /**
-       * DiagnosticsHandler/CodeActionHandler entry point — same as
-       * scanMissingLanguages_ below, PLUS gated on translationReady: with no
-       * provider confirmed reachable (Task 5), an unsolicited HINT diagnostic
-       * or code action would be noise the user can't act on yet. Returns
-       * [{ name, missing: [lang, ...], range }] — never null.
+       * The entry point for the two DIRECT consumers — DiagnosticsHandler
+       * (the i18n-missing-language HINT) and CodeLensHandler (the
+       * "N translations missing" lens). CodeActionHandler is NOT one of them:
+       * actions C/D are diagnostic-driven, offered off the HINT this scan
+       * produced, so they inherit both gates below at one remove rather than
+       * calling here themselves.
+       *
+       * Same as scanMissingLanguages_ below, PLUS two gates every unsolicited
+       * consumer must inherit:
+       *   - translationReady: with no provider confirmed reachable (Task 5),
+       *     an unsolicited HINT or lens would be noise the user can't act on
+       *     yet (and no HINT means no action C/D either).
+       *   - isI18nExemptUri_: test/demo/mock sources are not translated, so
+       *     offering to translate them is pure noise there.
+       * Returns [{ name, missing: [lang, ...], range }] — never null.
        *
        * foam/i18nTranslate's dryRun path (resolveTranslateTargets_) does NOT
-       * go through this gate — it calls scanMissingLanguages_ directly. An
+       * go through these gates — it calls scanMissingLanguages_ directly. An
        * explicit tool call asking "what needs translating" is not the
-       * unsolicited noise this gate exists to suppress; translationReady
-       * being false is exactly the situation dryRun exists to handle (no
-       * local model — hand the agent the strings itself).
+       * unsolicited noise they exist to suppress (and an agent asked to
+       * translate a demo file has been asked, not guessed at);
+       * translationReady being false is exactly the situation dryRun exists
+       * to handle (no local model — hand the agent the strings itself).
        */
       if ( ! this.translationReady ) return [];
+      if ( this.isI18nExemptUri_(uri) ) return [];
       return this.scanMissingLanguages_(uri, text);
     },
 

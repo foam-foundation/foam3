@@ -65,6 +65,7 @@ p({
       .setNdiff(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("flows")
+      .setMultiLineOutput(true)
       .setOf(foam.core.reflow.Flow.getOwnClassInfo())
       .setRuler(true)
       .build();

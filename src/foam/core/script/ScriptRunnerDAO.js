@@ -45,6 +45,10 @@ foam.CLASS({
         Script script = (Script) obj;
         if ( script.getStatus() == ScriptStatus.SCHEDULED ) {
           if ( script.canRun(x) ) {
+            // A run scheduled over an interrupted script must not leave the
+            // previous execution behind, since setThreadExecution() below
+            // replaces the only reference to its Future.
+            cancelThreadExecution(x, script);
             script.setStatus(ScriptStatus.RUNNING);
             script = (Script) getDelegate().put_(x, script);
             script = runScript(x, (Script) script.fclone());
@@ -53,12 +57,27 @@ foam.CLASS({
             script = (Script) getDelegate().put_(x, script);
           }
         } else {
-          if ( script.getStatus() == ScriptStatus.INTERRUPTED && script.getThreadExecution() != null ) {
-            script.getThreadExecution().cancel(true);
+          if ( script.getStatus() == ScriptStatus.INTERRUPTED ) {
+            cancelThreadExecution(x, script);
           }
           script = (Script) getDelegate().put_(x, script);
         }
         return script;
+      `
+    },
+    {
+      name: 'cancelThreadExecution',
+      documentation: `Interrupts the thread running script, if one is still running.
+
+        threadExecution is transient, so the script handed to put_ never carries
+        the Future: a client cannot hold one, and it is not marshalled. Only the
+        stored script has it, so take it from there.`,
+      args: 'Context x, foam.core.script.Script script',
+      javaCode: `
+        Script current = (Script) getDelegate().find_(x, script.getId());
+        if ( current != null && current.getThreadExecution() != null ) {
+          current.getThreadExecution().cancel(true);
+        }
       `
     },
     {

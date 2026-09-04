@@ -102,6 +102,11 @@ In this current implementation setDelegate must be called last.`,
       name: 'writeVersionOnFirstPut'
     },
     {
+      documentation: 'Write the runtime journal multi-line. Set before delegate; passed to the journal at creation.',
+      class: 'Boolean',
+      name: 'multiLineOutput'
+    },
+    {
       name: 'delegate',
       javaFactory: 'return new MDAO(getOf());',
       javaPostSet: `
@@ -124,6 +129,7 @@ In this current implementation setDelegate must be called last.`,
                   .setDao(delegate)
                   .setFilename(getFilename())
                   .setCreateFile(false)
+                  .setMultiLineOutput(getMultiLineOutput())
                   .build());
               }
             }

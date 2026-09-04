@@ -70,6 +70,21 @@ foam.CLASS({
       documentation: 'Optional (no factory — null unless wired by server.js). When set, handle() emits an i18n-missing-language HINT for every messageMap gap scanMissingLanguages() finds; null-safe no-op otherwise.'
     },
     {
+      name: 'featureConfig',
+      documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
+    },
+    {
+      name: 'pomValidator',
+      documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
+    },
+    {
+      name: 'fileClassifier',
+      documentation: `Routes handle() by file kind. server.js wires its own
+        shared instance so dispatch and handler can never disagree; the
+        factory keeps handler-direct tests working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       name: 'validTypes_',
       factory: function() {
         var types = {};
@@ -84,8 +99,20 @@ foam.CLASS({
   ],
 
   methods: [
+    function featureOn_(flag) {
+      /** True when `flag` is enabled, or when no featureConfig is wired at all. */
+      return ! this.featureConfig || this.featureConfig.enabled(flag);
+    },
+
     function handle(text, opt_uri) {
-      if ( ! this.analyzer.isFoamFile(text) ) return [];
+      // One classifier, shared with the server dispatch, decides the lane —
+      // never a local sniff (a local regex here and a different one in
+      // dispatch is exactly how the pom lane shipped unreachable). The
+      // classifier parses, so foam.POM( in a comment or string can't
+      // misroute; the first significant foam call wins.
+      var kind = this.fileClassifier.classify(opt_uri || '', text);
+      if ( kind === 'pom' ) return this.pomDiagnostics_(text, opt_uri);
+      if ( kind !== 'class' ) return [];
 
       var uri = opt_uri || '';
       this.uri_ = uri;
@@ -97,7 +124,12 @@ foam.CLASS({
         var m = models[i];
         var modelKey = (this.cache.getClassId(m)) + '_' + (m.sourceLine_ || 0);
 
-        // Incremental: reuse previous diagnostics if model hasn't changed
+        // Incremental: reuse previous diagnostics if model hasn't changed.
+        // The key is (model, text) only — NOT featureConfig. Safe today
+        // because the config is restart-scoped (loaded once at initialize and
+        // never mutated after); if a didChangeConfiguration reload is ever
+        // added, this cache must be cleared on it or a toggled-off check will
+        // keep reporting from cached results.
         if ( prev && prev.modelKeys && prev.modelKeys[modelKey] && prev.text === text ) {
           var cached = prev.modelKeys[modelKey];
           for ( var j = 0 ; j < cached.length ; j++ ) diagnostics.push(cached[j]);
@@ -117,7 +149,13 @@ foam.CLASS({
       // Missing-language messageMap gaps — same whole-file scoping as
       // validateAddStrings_. i18nHandler is optional/null-safe (server.js
       // wires it; tests that don't need it just skip this block).
-      if ( this.i18nHandler && ! this.isI18nExemptUri_(this.uri_) ) {
+      //
+      // No isI18nExemptUri_ check here: I18nHandler.scanMissingLanguages
+      // applies the same exemption itself, so every consumer of that scan
+      // (this handler, CodeActionHandler, CodeLensHandler) inherits one
+      // answer. The local copy below still guards validateAddStrings_, which
+      // is a different scan that never goes through I18nHandler.
+      if ( this.i18nHandler && this.featureOn_('hints.i18nMissingLanguage') ) {
         var miss = this.i18nHandler.scanMissingLanguages(this.uri_, text);
         for ( var mi = 0 ; mi < miss.length ; mi++ ) {
           diagnostics.push(this.Diagnostic.create({
@@ -289,6 +327,36 @@ foam.CLASS({
       return actionNames;
     },
 
+    function pomDiagnostics_(text, uri) {
+      /** Entry-level pom.js diagnostics (PomValidator.validateEntries),
+       *  behind the diagnostics.pom flag. Offsets from the validator are
+       *  mapped to line/char here; file-existence checks only run when the
+       *  uri resolves to a disk path. */
+      if ( ! this.pomValidator || ! this.featureOn_('diagnostics.pom') ) return [];
+
+      var fsPath = null;
+      if ( uri && uri.indexOf('file://') === 0 ) {
+        try { fsPath = decodeURIComponent(uri.substring(7)); } catch (e) {}
+      }
+
+      var issues = this.pomValidator.validateEntries(text, fsPath);
+      var out    = [];
+      for ( var i = 0 ; i < issues.length ; i++ ) {
+        var is = issues[i];
+        out.push({
+          range: {
+            start: this.analyzer.offsetToPosition(text, is.start),
+            end:   this.analyzer.offsetToPosition(text, is.end)
+          },
+          severity: is.severity,
+          code:     is.code,
+          source:   'foam-lsp',
+          message:  is.message
+        });
+      }
+      return out;
+    },
+
     function toLSPDiagnostics_(diagnostics) {
       /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
       if ( ! diagnostics ) return diagnostics;
@@ -310,7 +378,9 @@ foam.CLASS({
       // diagnostics come from collectGrammarDiagnostics_ — not repeated here.
 
       // Validate Java blocks
-      this.javaValidator.validateModel(m, classId, diagnostics, text);
+      if ( this.featureOn_('diagnostics.java') ) {
+        this.javaValidator.validateModel(m, classId, diagnostics, text);
+      }
 
       // Validate CSS token references
       this.validateCSS_(m, text, diagnostics);
@@ -348,6 +418,7 @@ foam.CLASS({
        * and .translate('...') (already on the translation-service path — its
        * literals sit one nesting level down, so the top-level scan skips them).
        */
+      if ( ! this.featureOn_('diagnostics.i18n') ) return;  // feature turned off
       if ( this.isI18nExemptUri_(this.uri_) ) return;       // test/demo/mock files exempt
 
       var skip = this.nonCodeRanges_(text);
@@ -489,7 +560,7 @@ foam.CLASS({
        * Framework and product views are NOT exempt.
        */
       if ( ! uri ) return false;
-      if ( /(?:^|\/)(?:test|tests|demos|mock|mocks)\//i.test(uri) ) return true;
+      if ( /(?:^|\/)(?:test|tests|demo|demos|mock|mocks)\//i.test(uri) ) return true;
       if ( /Test\.js$/.test(uri) ) return true;
       if ( /Mock[^\/]*\.js$/.test(uri) ) return true;
       return false;
@@ -754,13 +825,31 @@ foam.CLASS({
        * enclosing scope and validates against that scope's properties.
        */
       var classId = this.cache.getClassId(m);
-      var modelOffset = m.sourceLine_ ? this.analyzer.positionToOffset(text, { line: m.sourceLine_, character: 0 }) : 0;
 
-      // Determine end of this model's text
-      var nextModelRegex = new RegExp(this.analyzer.FOAM_CALL_REGEX.source, 'g');
-      nextModelRegex.lastIndex = modelOffset + 1;
-      var nextMatch = nextModelRegex.exec(text);
-      var modelEnd = nextMatch ? nextMatch.index : text.length;
+      // Where this model's text starts and ends, both taken from the same scan
+      // that decides what kind of file this is. Two things used a raw regex
+      // over the source here, and a regex cannot tell a real call from one
+      // written in a comment: the end came from re-scanning, so a
+      // `// see foam.CLASS( for the pattern` cut the model off at that line and
+      // every expression below it stopped being checked at all.
+      //
+      // The start used to be the start of the model's LINE, which is not the
+      // same as the start of its call. One space of indentation put the model's
+      // own call after its start offset, so the model matched as its own next
+      // model and its text became the indentation. Matching the call by line
+      // gives the offset directly. No call on the model's line — which should
+      // not happen — falls back to the whole file: a noisy diagnostic rather
+      // than a silently missing one.
+      var calls = this.fileClassifier.significantCalls(text);
+      var modelOffset = 0;
+      var modelEnd    = text.length;
+      for ( var ci = 0 ; ci < calls.length ; ci++ ) {
+        if ( calls[ci].line === m.sourceLine_ ) {
+          modelOffset = calls[ci].offset;
+          modelEnd    = ci + 1 < calls.length ? calls[ci + 1].offset : text.length;
+          break;
+        }
+      }
       var modelText = text.substring(modelOffset, modelEnd);
 
       // Build property scopes: outer model + each inner class

@@ -7,3 +7,8 @@ p({
   "class": "foam.core.reflow.test.FlowHistoryRuleActionTest",
   "id": "FlowHistoryRuleActionTest"
 })
+p({
+  "class": "foam.core.reflow.test.FlowScriptShapeTest",
+  "id": "FlowScriptShapeTest",
+  "description": "Flow.script parses from escaped-string, triple-quoted and JSON-structure shapes"
+})

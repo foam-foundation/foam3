@@ -20,6 +20,7 @@ foam.CLASS({
     explicitly set to null.`,
 
   javaImports: [
+    'foam.lang.PropertyInfo',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.MDAO',
@@ -199,6 +200,49 @@ foam.CLASS({
         empty.clearRegularDate();
         test(empty.getRegularDate() == null && ! empty.regularDateIsSet_,
           "clear() returned the date property to unset");
+
+        // ---- comparePropertyToObject ----
+        // Compares a key against the object holding the value, without
+        // materializing that value. A null key must not throw, and it has to
+        // equal an unset property.
+        PropertyInfo prop  = DateTimeTestModel.REGULAR_DATE;
+        DateTimeTestModel unset = new DateTimeTestModel();
+        DateTimeTestModel set   = model(1, JAN_15);
+
+        test(prop.comparePropertyToObject(null, unset) == 0,
+          "A null key equals an unset date property");
+        test(prop.comparePropertyToObject(new Date(JAN_15), set) == 0,
+          "A key equals the same date on the object");
+        test(prop.comparePropertyToObject(null, set) < 0,
+          "A null key sorts before a set date");
+        test(prop.comparePropertyToObject(new Date(JAN_15), unset) > 0,
+          "A set key sorts after an unset date property");
+
+        // Explicitly null is the same as never set, as it is through the getter.
+        DateTimeTestModel nulled = new DateTimeTestModel();
+        nulled.setRegularDate(null);
+        test(prop.comparePropertyToObject(null, nulled) == 0,
+          "A null key equals a date property explicitly set to null");
+
+        // Ordering agrees with the value-to-value comparison it stands in for.
+        test(prop.comparePropertyToObject(new Date(JAN_15), set)
+             == prop.comparePropertyToValue(new Date(JAN_15), prop.f(set)),
+          "comparePropertyToObject agrees with comparePropertyToValue");
+
+        // ---- the unset backing field ----
+        // The long behind a date property starts at the value reserved for
+        // absence, so the readers that go straight to the field agree with the
+        // getter about an unset property instead of reading it as the epoch.
+        // An index built through one comparison and searched through the other
+        // would otherwise put unset rows where the search never looks.
+        test(prop.isDefaultValue(unset),
+          "An unset date property is its default value");
+        test(prop.compare(unset, set) < 0,
+          "An unset date property sorts before a set one");
+        test(prop.compare(unset, nulled) == 0,
+          "compare treats unset and explicitly null as the same date");
+        test(prop.compare(unset, set) == prop.comparePropertyToObject(null, set),
+          "compare and comparePropertyToObject order an unset date the same way");
       `
     }
   ]

@@ -12,6 +12,16 @@ function start() {
   var origLog = console.log;
   console.log = function() { console.error.apply(console, arguments); };
 
+  // Feature toggles. The real merge needs the client's initializationOptions
+  // and the workspace root, neither of which exists until 'initialize' — so
+  // handlers are built against an all-defaults config here and re-pointed at
+  // the merged one there. By protocol the client sends 'initialize' first and
+  // waits for the response, so the placeholder is normally never consulted;
+  // it exists so a client that skips or reorders it fails OPEN (every feature
+  // on) instead of dereferencing null.
+  var FeatureConfig = require('./FeatureConfig');
+  var featureConfig = FeatureConfig.load({});
+
   var index = globalThis.__foamLSPIndex__ || foam.parse.lsp.FoamIndex.create();
   if ( ! globalThis.__foamLSPIndex__ ) index.buildFileIndex();
   var grammar = foam.parse.lsp.FoamClassGrammar.create({ index: index });
@@ -29,10 +39,11 @@ function start() {
   var i18nHandler        = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: fileModelCache });
   // Translation provider: created here (server-start scope) so `provider` is
   // reachable from the 'initialize' case below, where config actually
-  // arrives (initOpts is message-scoped, not available yet at this point).
+  // arrives (the client's options are message-scoped, not available here).
   var provider = foam.parse.lsp.HttpChatProvider.create();
   i18nHandler.provider = provider;
-  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
+  var fileClassifier = foam.parse.lsp.FileClassifier.create();
+  var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ cache: fileModelCache });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker });
 
@@ -50,13 +61,19 @@ function start() {
 
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
-  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
+  var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
+  var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ index: index, cache: fileModelCache, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
   var typeDefinitionHandler  = foam.parse.lsp.handlers.TypeDefinitionHandler.create({ index: index, cache: fileModelCache });
   var callHierarchyHandler   = foam.parse.lsp.handlers.CallHierarchyHandler.create({ index: index, cache: fileModelCache });
   var pomValidator           = foam.parse.lsp.handlers.PomValidator.create({ index: index });
+  diagnosticsHandler.pomValidator = pomValidator;
+  // No featureConfig: scaffolding has no toggle. It only ever runs because
+  // the user explicitly invoked the command, so there is nothing to suppress
+  // — unlike the lenses/diagnostics, which the server offers unasked.
+  var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -198,6 +215,18 @@ function start() {
     });
   }
 
+  function throwIfDeclined_(applyResult) {
+    // The client answers an applyEdit it declined with applied:false rather
+    // than an error response, so a refusal has to be checked for explicitly —
+    // otherwise it reads as success and the user is told nothing while the
+    // file stayed unchanged. Shared by every executeCommand that applies an
+    // edit, so all of them report a refusal the same way.
+    if ( applyResult && applyResult.applied === false ) {
+      throw new Error('the editor did not apply the edit' +
+        ( applyResult.failureReason ? ' (' + applyResult.failureReason + ')' : '' ));
+    }
+  }
+
   function byNameResult(info, op) {
     // Name-addressed lookup by resolved class id (not cursor position) — the
     // engine behind foam/byName. info = { classId, memberName?, uri, line,
@@ -285,16 +314,15 @@ function start() {
     }
   }
 
-  function isFoamFile(text) {
-    return foam.parse.lsp.CursorAnalyzer.FOAM_CALL_REGEX.test(text);
+  function isClassDoc(uri, doc) {
+    // Request-guard predicate: the doc exists and classifies as a FOAM
+    // class file — through the same shared classifier the push lanes use,
+    // so guards and lanes cannot drift apart.
+    return !! doc && fileClassifier.classify(uri, doc.text) === 'class';
   }
 
   function isJrlFile(uri) {
     return uri && uri.endsWith('.jrl');
-  }
-
-  function isPomFile(uri) {
-    return uri && /pom\.js$/.test(uri);
   }
 
   function pushDiagnostics(uri, text) {
@@ -338,16 +366,20 @@ function start() {
     if ( ! doc ) return;
     fileModelCache.invalidate(uri);
 
-    // POM saves don't go through the foam.CLASS reindex path (POM is excluded
-    // from FOAM_CALL_REGEX). Drop the cached entry positions for this pom so
-    // class→pom navigation reflects the edit on the next request.
-    if ( isPomFile(uri) && typeof index.invalidatePomCache === 'function' ) {
+    // POM saves don't go through the foam.CLASS reindex path. Drop the cached
+    // entry positions for this pom so class→pom navigation reflects the edit
+    // on the next request. Asked of the classifier, like every other kind
+    // question here — asking the URI here and the classifier below split on a
+    // pom.js whose foam.POM( was broken mid-edit, invalidating the cache but
+    // never re-pushing the diagnostics.
+    var savedKind = fileClassifier.classify(uri, doc.text);
+    if ( savedKind === 'pom' && typeof index.invalidatePomCache === 'function' ) {
       var pomPath = uriToPath_(uri);
       if ( pomPath ) index.invalidatePomCache(pomPath);
     }
 
     var changedClassIds = [];
-    if ( isFoamFile(doc.text) ) {
+    if ( savedKind === 'class' ) {
       var models = fileModelCache.getModels(uri, doc.text);
 
       // Re-register the classes via real foam.CLASS. Wrap each model block
@@ -390,15 +422,24 @@ function start() {
     // state didn't change relative to them.
     for ( var ouri in documents ) {
       var otext = documents[ouri].text;
+      var rkind = fileClassifier.classify(ouri, otext);
       if ( ouri === uri ) {
         fileModelCache.invalidate(ouri);
-        if ( isJrlFile(ouri) ) pushJrlDiagnostics(ouri, otext);
-        else if ( isFoamFile(otext) ) pushDiagnostics(ouri, otext);
+        if ( rkind === 'jrl' ) pushJrlDiagnostics(ouri, otext);
+        else if ( rkind === 'class' || rkind === 'pom' ) pushDiagnostics(ouri, otext);
         continue;
       }
-      if ( isJrlFile(ouri) ) {
+      if ( rkind === 'jrl' ) {
         pushJrlDiagnostics(ouri, otext);
-      } else if ( isFoamFile(otext) ) {
+      } else if ( rkind === 'pom' ) {
+        // An open pom is re-pushed on EVERY save, not gated on the affected
+        // set: its diagnostics are disk checks (pom-file-missing resolves each
+        // entry with existsSync), and the save that clears one is the save
+        // CREATING a file the pom names — a file whose class the pom's own
+        // axiom state knows nothing about, so getAffectedFiles can never
+        // report it. Cost is one text parse plus one existsSync per entry.
+        pushDiagnostics(ouri, otext);
+      } else if ( rkind === 'class' ) {
         // Only re-diagnose if this file's path is in the affected set.
         var opath = uriToPath_(ouri);
         if ( opath && affectedPathsSet[opath] ) {
@@ -464,6 +505,64 @@ function start() {
   var LSP_TIMING_MIN_MS = process.env.LSP_TIMING_MS !== undefined ?
     Number(process.env.LSP_TIMING_MS) : 5;
 
+  // Document-scoped requests, as data rather than as twelve near-identical
+  // cases. Each one is answered the same way: look up the open document,
+  // answer the empty value if it is not a document this request applies to,
+  // call one handler inside a try, and answer the empty value again on a
+  // throw. Only three things actually differ between them — which handler to
+  // call, whether the empty answer is [] or null, and whether the request
+  // needs a FOAM class file or merely any open document — so only those three
+  // are written per request. The shape itself is written once, in
+  // answerDocRequest_. Adding a request of this kind is one row.
+  //
+  //   list:   true  -> the empty answer is a fresh [], otherwise null
+  //   anyDoc: true  -> any open document will do; the default demands a class
+  var DOC_REQUESTS = {
+    'textDocument/documentSymbol':       { list: true,
+      run: function(doc, p) { return symbolHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/references':           { list: true,
+      run: function(doc, p) { return referencesHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/codeLens':             { list: true,
+      run: function(doc, p) { return codeLensHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/implementation':       { list: true,
+      run: function(doc, p) { return implementationHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/foldingRange':         { list: true, anyDoc: true,
+      run: function(doc)    { return foldingRangeHandler.handle(doc.text); } },
+    'textDocument/codeAction':           { list: true, anyDoc: true,
+      run: function(doc, p) { return codeActionHandler.handle(doc.text, p.range, p.context, p.textDocument.uri); } },
+    'textDocument/documentHighlight':    { list: true, anyDoc: true,
+      run: function(doc, p) { return documentHighlightHandler.handle(doc.text, p.position); } },
+    'textDocument/signatureHelp':        {
+      run: function(doc, p) { return signatureHelpHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/prepareRename':        {
+      run: function(doc, p) { return renameHandler.prepare(doc.text, p.position); } },
+    'textDocument/rename':               {
+      run: function(doc, p) { return renameHandler.handle(doc.text, p.position, p.newName, p.textDocument.uri); } },
+    'textDocument/prepareTypeHierarchy': {
+      run: function(doc, p) { return typeHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/typeDefinition':       {
+      run: function(doc, p) { return typeDefinitionHandler.handle(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/prepareCallHierarchy': {
+      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } }
+  };
+
+  function answerDocRequest_(method, route, params, id) {
+    var uri = params.textDocument.uri;
+    var doc = documents[uri];
+    // A fresh [] per call: the answer is handed to respond() and serialised,
+    // but one shared array reachable from twelve routes is a mutation waiting
+    // to happen.
+    var empty = route.list ? [] : null;
+
+    if ( ! ( route.anyDoc ? !! doc : isClassDoc(uri, doc) ) ) { respond(id, empty); return; }
+    try {
+      respond(id, route.run(doc, params));
+    } catch (e) {
+      console.error('[LSP] ' + method.split('/').pop() + ' error:', e.message);
+      respond(id, empty);
+    }
+  }
+
   function handleMessage(msg) {
     var method = msg.method;
     var params = msg.params;
@@ -483,21 +582,72 @@ function start() {
 
     var timerStart = process.hrtime.bigint();
     try {
+    // Table first, switch second: everything DOC_REQUESTS covers is answered
+    // identically, so those methods never reach the switch below. What is left
+    // in the switch is the set of methods that genuinely differ.
+    var docRequest = DOC_REQUESTS[method];
+    if ( docRequest ) { answerDocRequest_(method, docRequest, params, id); return; }
+
     switch ( method ) {
       case 'initialize':
         watchClientProcess(params && params.processId);
-        var initOpts = ( params && params.initializationOptions && params.initializationOptions.foam &&
-                         params.initializationOptions.foam.i18n ) || {};
-        if ( initOpts.sourceLanguage ) i18nHandler.sourceLanguage = initOpts.sourceLanguage;
+        // Feature toggles: defaults < foam-lsp.json at the workspace root <
+        // this client's initializationOptions.foam. Handlers were created at
+        // start()-scope with the all-defaults config; hand them the merged one
+        // now that the client's layer has actually arrived.
+        // One workspace root for the whole case: it locates foam-lsp.json here
+        // and journals/locales.jrl further down.
+        //
+        // A client that sends no rootUri leaves this NULL rather than falling
+        // back to process.cwd(). The cwd of an editor-spawned server is an
+        // implementation detail of whoever spawned it — using it would give
+        // ScaffoldHandler an arbitrary, invisible containment boundary, and
+        // would read a foam-lsp.json belonging to some unrelated folder. Null
+        // simply means those root-relative layers contribute nothing, and
+        // scaffolding refuses outright (see scaffoldHandler.wsRoot below).
+        // uriToPath_ decodeURIComponents the uri, and a client that sends a
+        // non-percent-encoded rootUri containing a stray '%' makes that
+        // throw. Degrade to no root (root-relative layers contribute
+        // nothing) instead of failing initialize.
+        var wsRoot = null;
+        if ( params && params.rootUri ) {
+          try {
+            wsRoot = uriToPath_(params.rootUri);
+          } catch (e) {
+            console.error('[LSP] initialize: unusable rootUri "' + params.rootUri + '": ' + e.message);
+          }
+        }
+        featureConfig = FeatureConfig.load({
+          rootPath:    wsRoot,
+          initOptions: params && params.initializationOptions && params.initializationOptions.foam
+        });
+        featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
+        diagnosticsHandler.featureConfig = featureConfig;
+        codeActionHandler.featureConfig  = featureConfig;
+        codeLensHandler.featureConfig    = featureConfig;
+        // Not a feature toggle: the scaffold command WRITES, and its dir
+        // argument comes from whoever invoked it (an editor prompt, an agent
+        // over MCP). wsRoot is the boundary it refuses to scaffold outside of.
+        // requireWsRoot flips the handler from its bare-test default ("no
+        // wsRoot, no containment check") to the server's rule: inside a client
+        // session a missing root means REFUSE, never "scaffold anywhere".
+        scaffoldHandler.requireWsRoot    = true;
+        scaffoldHandler.wsRoot           = wsRoot || '';
+
+        // i18n settings ride the same merge (featureConfig.i18n), but the
+        // env-var and locales.jrl fallbacks below stay here: FeatureConfig
+        // merges the three declared layers only — it never reads the
+        // environment or the journals.
+        var i18nOpts = featureConfig.i18n;
+        if ( i18nOpts.sourceLanguage ) i18nHandler.sourceLanguage = i18nOpts.sourceLanguage;
         // An explicit-but-empty languages: [] is treated the same as unset —
         // falls through to journal derivation below — rather than as "no
         // languages wanted", so an empty config array never suppresses the
         // locales.jrl fallback.
-        if ( Array.isArray(initOpts.languages) && initOpts.languages.length ) {
-          i18nHandler.targetLanguages = initOpts.languages;
-        } else {
+        if ( Array.isArray(i18nOpts.languages) && i18nOpts.languages.length ) {
+          i18nHandler.targetLanguages = i18nOpts.languages;
+        } else if ( wsRoot ) {
           try {
-            var wsRoot = params && params.rootUri ? uriToPath_(params.rootUri) : process.cwd();
             var localesPath = require('path').join(wsRoot, 'journals', 'locales.jrl');
             if ( require('fs').existsSync(localesPath) ) {
               i18nHandler.targetLanguages = i18nHandler.deriveLanguagesFromJournals(
@@ -506,16 +656,16 @@ function start() {
           } catch (e) { console.error('[LSP] i18n language derivation failed:', e.message); }
         }
 
-        // Translation provider config: explicit initOpts wins, then env vars,
+        // Translation provider config: explicit config wins, then env vars,
         // then HttpChatProvider's own built-in defaults (untouched when
         // neither is set).
-        if ( initOpts.endpoint ) {
-          provider.endpoints = [ initOpts.endpoint ];
+        if ( i18nOpts.endpoint ) {
+          provider.endpoints = [ i18nOpts.endpoint ];
         } else if ( process.env.OLLAMA_HOST ) {
           provider.endpoints = [ process.env.OLLAMA_HOST ];
         }
-        if ( initOpts.model ) {
-          provider.model = initOpts.model;
+        if ( i18nOpts.model ) {
+          provider.model = i18nOpts.model;
         } else if ( process.env.OLLAMA_TRANSLATION_MODEL ) {
           provider.model = process.env.OLLAMA_TRANSLATION_MODEL;
         }
@@ -530,56 +680,135 @@ function start() {
           i18nHandler.refreshAvailability().catch(function() {});
         }
 
-        respond(id, {
-          capabilities: {
-            textDocumentSync: {
-              openClose: true,
-              change: 1,
-              save: { includeText: false }
-            },
-            completionProvider: {
-              triggerCharacters: ["'", '"', '.', ':', '$'],
-              resolveProvider: false
-            },
-            hoverProvider: true,
-            definitionProvider: true,
-            referencesProvider: true,
-            documentSymbolProvider: true,
-            signatureHelpProvider: {
-              triggerCharacters: ['(', ',']
-            },
-            workspaceSymbolProvider: true,
-            foldingRangeProvider: true,
-            semanticTokensProvider: {
-              legend: {
-                tokenTypes: ['type', 'class', 'variable', 'keyword', 'string', 'comment', 'number', 'operator', 'method'],
-                tokenModifiers: ['declaration', 'readonly']
-              },
-              full: true
-            },
-            codeActionProvider: true,
-            executeCommandProvider: {
-              commands: ['foam.i18n.extractAndTranslate', 'foam.i18n.translateMessage']
-            },
-            documentHighlightProvider: true,
-            renameProvider: { prepareProvider: true },
-            typeHierarchyProvider: true,
-            implementationProvider: true,
-            typeDefinitionProvider: true,
-            callHierarchyProvider: true
-            // No diagnosticProvider (pull): diagnostics are PUSHED via
-            // publishDiagnostics on open/change and from the workspace scan.
-            // Advertising pull here too made clients render every diagnostic
-            // twice (push copy + pull copy).
+        // Capabilities the client can turn off are ADDED below rather than
+        // set to false: a client that never sees the capability never sends
+        // the request, so the feature costs nothing at all — where `false`
+        // still leaves some clients probing, and leaves the dispatch case as
+        // the only thing standing between a request and the handler.
+        var caps = {
+          textDocumentSync: {
+            openClose: true,
+            change: 1,
+            save: { includeText: false }
           },
+          definitionProvider: true,
+          referencesProvider: true,
+          documentSymbolProvider: true,
+          workspaceSymbolProvider: true,
+          codeActionProvider: true,
+          executeCommandProvider: {
+            commands: [
+              'foam.i18n.extractAndTranslate',
+              'foam.i18n.translateMessage',
+              'foam.scaffold.newClass',
+              'foam.lens.info'
+            ]
+          },
+          documentHighlightProvider: true,
+          renameProvider: { prepareProvider: true },
+          typeHierarchyProvider: true,
+          implementationProvider: true,
+          typeDefinitionProvider: true,
+          callHierarchyProvider: true
+          // No diagnosticProvider (pull): diagnostics are PUSHED via
+          // publishDiagnostics on open/change and from the workspace scan.
+          // Advertising pull here too made clients render every diagnostic
+          // twice (push copy + pull copy).
+          //
+          // executeCommandProvider stays unconditional: its commands are
+          // invoked from code actions the server itself offered, and each
+          // command guards its own preconditions.
+        };
+        if ( featureConfig.enabled('completion') ) {
+          caps.completionProvider = {
+            triggerCharacters: ["'", '"', '.', ':', '$'],
+            resolveProvider: false
+          };
+        }
+        if ( featureConfig.enabled('hover') ) caps.hoverProvider = true;
+        if ( featureConfig.enabled('signatureHelp') ) {
+          caps.signatureHelpProvider = { triggerCharacters: ['(', ','] };
+        }
+        if ( featureConfig.enabled('folding') ) caps.foldingRangeProvider = true;
+        if ( featureConfig.enabled('semanticTokens') ) {
+          caps.semanticTokensProvider = {
+            legend: {
+              tokenTypes: ['type', 'class', 'variable', 'keyword', 'string', 'comment', 'number', 'operator', 'method'],
+              tokenModifiers: ['declaration', 'readonly']
+            },
+            full: true
+          };
+        }
+        // The i18n lens needs BOTH its own flag and hints.i18nMissingLanguage
+        // (see CodeLensHandler.handle — the lens is a translate offer, and the
+        // hints flag is how a user withdraws those). Mirroring that coupling
+        // here matters: advertising codeLensProvider for a config where both
+        // lenses are effectively dead buys a textDocument/codeLens round trip
+        // per open file, every one of them answered with [].
+        var i18nLensLive = featureConfig.enabled('codeLens.i18n') &&
+                           featureConfig.enabled('hints.i18nMissingLanguage');
+        if ( i18nLensLive || featureConfig.enabled('codeLens.hierarchy') ) {
+          caps.codeLensProvider = { resolveProvider: false };
+        }
+
+        respond(id, {
+          capabilities: caps,
           experimental: {
             workspaceAnalyzer: true
           },
           serverInfo: { name: 'foam-lsp', version: '0.2.0' }
         });
+
+        // Boot progress — sent AFTER the response above, never before: a
+        // client hasn't agreed to workDoneProgress until it sees that
+        // response, so notifying earlier is a protocol violation.
+        //
+        // Two gates, and both are the protocol's, not ours:
+        //   1. The client must have DECLARED window.workDoneProgress. One that
+        //      never did has nowhere to route these frames, so it gets nothing
+        //      at all — not even the create request.
+        //   2. The token only becomes ours to use once the client ACCEPTS the
+        //      create request, so every $/progress frame lives inside its
+        //      .then(). A rejected create means no frames whatsoever (the
+        //      .catch only logs) — emitting on a token the client refused is
+        //      exactly the violation the create request exists to prevent.
+        //
+        // RULING — these frames are near-instant BY DESIGN and that is not a
+        // bug to fix here. The model load and buildFileIndex() at the top of
+        // start() both complete before `initialize` is even dispatched, so by
+        // the time this runs there is no remaining boot work to report against.
+        // The report frame therefore carries the indexed class count as a boot
+        // SUMMARY, not as progress against work still to come. The real boot
+        // UX in VS Code is the extension's own status bar item
+        // ($(loading~spin) FOAM: Indexing… → $(check) FOAM: Ready), which
+        // spans the whole spawn-to-ready window this sequence cannot.
+        var clientWindowCaps = params && params.capabilities && params.capabilities.window;
+        if ( clientWindowCaps && clientWindowCaps.workDoneProgress ) {
+          var bootProgressToken = 'foam-boot';
+          var bootClassCount    = index.getAllClassIds().length;
+          request('window/workDoneProgress/create', { token: bootProgressToken })
+            .then(function() {
+              notify('$/progress', { token: bootProgressToken,
+                value: { kind: 'begin', title: 'FOAM LSP', message: 'loading models…' } });
+              notify('$/progress', { token: bootProgressToken,
+                value: { kind: 'report', message: 'indexing ' + bootClassCount + ' classes' } });
+              notify('$/progress', { token: bootProgressToken, value: { kind: 'end' } });
+            })
+            .catch(function(e) {
+              console.error('[LSP] workDoneProgress/create rejected: ' + (e && e.message));
+            });
+        }
         break;
 
       case 'initialized':
+        // Config warnings (unknown flag names, unreadable foam-lsp.json)
+        // surface to the USER here — console.error alone leaves a mistyped
+        // flag invisible to whoever typed it. Deferred to initialized
+        // because the spec forbids server->client notifications earlier.
+        if ( featureConfig && featureConfig.warnings.length ) {
+          notify('window/showMessage', { type: 2 /* Warning */,
+            message: 'FOAM LSP config: ' + featureConfig.warnings.join('; ') });
+        }
         break;
 
       case 'shutdown':
@@ -594,8 +823,9 @@ function start() {
         var tdoc = params.textDocument;
         console.error('[LSP] didOpen: ' + tdoc.uri + ' lang=' + tdoc.languageId);
         documents[tdoc.uri] = { text: tdoc.text, version: tdoc.version || 0 };
-        if ( isFoamFile(tdoc.text) ) pushDiagnostics(tdoc.uri, tdoc.text);
-        if ( isJrlFile(tdoc.uri) ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
+        var okind = fileClassifier.classify(tdoc.uri, tdoc.text);
+        if ( okind === 'class' || okind === 'pom' ) pushDiagnostics(tdoc.uri, tdoc.text);
+        if ( okind === 'jrl' ) pushJrlDiagnostics(tdoc.uri, tdoc.text);
         break;
 
       case 'textDocument/didChange':
@@ -603,8 +833,9 @@ function start() {
         if ( params.contentChanges.length > 0 ) {
           documents[uri] = { text: params.contentChanges[0].text, version: params.textDocument.version || 0 };
           fileModelCache.invalidate(uri);
-          if ( isFoamFile(documents[uri].text) ) pushDiagnostics(uri, documents[uri].text);
-          if ( isJrlFile(uri) ) pushJrlDiagnostics(uri, documents[uri].text);
+          var ckind = fileClassifier.classify(uri, documents[uri].text);
+          if ( ckind === 'class' || ckind === 'pom' ) pushDiagnostics(uri, documents[uri].text);
+          if ( ckind === 'jrl' ) pushJrlDiagnostics(uri, documents[uri].text);
         }
         break;
 
@@ -633,7 +864,7 @@ function start() {
           }
           break;
         }
-        if ( ! doc || ! isFoamFile(doc.text) ) {
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) {
           respond(id, { isIncomplete: false, items: [] });
           break;
         }
@@ -671,7 +902,7 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, null); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, null); break; }
         try {
           var result = hoverHandler.handle(doc.text, params.position, params.textDocument.uri);
           console.error('[LSP] hover: success');
@@ -696,10 +927,11 @@ function start() {
           }
           break;
         }
-        // pom.js doesn't match FOAM_CALL_REGEX (POM is excluded), but the
-        // DefinitionHandler has a dedicated pom→class branch that needs to
-        // run. Let pom.js through; other non-FOAM .js files still bail.
-        if ( ! isFoamFile(doc.text) && ! isPomFile(params.textDocument.uri) ) {
+        // The DefinitionHandler has a dedicated pom->class branch, so pom
+        // docs are allowed through alongside class docs; everything else
+        // still bails.
+        var defKind = fileClassifier.classify(params.textDocument.uri, doc.text);
+        if ( defKind !== 'class' && defKind !== 'pom' ) {
           respond(id, null); break;
         }
         try {
@@ -708,30 +940,6 @@ function start() {
           respond(id, result);
         } catch (e) {
           console.error('[LSP] definition error:', e.message);
-          respond(id, null);
-        }
-        break;
-
-      case 'textDocument/documentSymbol':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
-        try {
-          var result = symbolHandler.handle(doc.text, params.textDocument.uri);
-          console.error('[LSP] documentSymbol: success');
-          respond(id, result);
-        } catch (e) {
-          console.error('[LSP] documentSymbol error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/signatureHelp':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, signatureHelpHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] signatureHelp error:', e.message);
           respond(id, null);
         }
         break;
@@ -870,36 +1078,65 @@ function start() {
         }
         break;
 
-      case 'textDocument/foldingRange':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, foldingRangeHandler.handle(doc.text));
-        } catch (e) {
-          console.error('[LSP] foldingRange error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/codeAction':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, codeActionHandler.handle(doc.text, params.range, params.context, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] codeAction error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      // The one promise-aware case: translating is a network round trip, so
-      // the edit can't be built inside this synchronous dispatch. The command
-      // resolves with the edit, the client is asked to apply it, and only
-      // then does the request get its (unspecified, per LSP) result. Errors —
-      // provider down, anchor gone, client refused the edit — are surfaced to
-      // the user as a message, never as a silent no-op.
+      // The promise-aware case. Two commands ride it:
+      //   foam.i18n.*          — translating is a network round trip, so the
+      //                          edit can't be built inside this synchronous
+      //                          dispatch.
+      //   foam.scaffold.newClass — builds its edit synchronously, but takes
+      //                          the same applyEdit-then-answer path so the
+      //                          new file and its pom entry land through the
+      //                          client (one undo step, no server-side write).
+      // Errors — provider down, anchor gone, client refused the edit — are
+      // surfaced to the user as a message, never as a silent no-op.
       case 'workspace/executeCommand': {
         var cmdArgs = ( params.arguments && params.arguments[0] ) || {};
+
+        // The informational hierarchy lens anchors on this — a click is a
+        // deliberate no-op.
+        if ( params.command === 'foam.lens.info' ) {
+          respond(id, null);
+          break;
+        }
+
+        // Anything not in executeCommandProvider.commands is answered as an
+        // error HERE — without this, an unknown (or empty) command name
+        // falls through into the i18n branch below and dies on
+        // readFileSync(uriToPath_(undefined)).
+        if ( params.command !== 'foam.scaffold.newClass' &&
+             params.command !== 'foam.i18n.extractAndTranslate' &&
+             params.command !== 'foam.i18n.translateMessage' ) {
+          respondError(id, -32602, 'Unknown command: ' + params.command);
+          break;
+        }
+
+        if ( params.command === 'foam.scaffold.newClass' ) {
+          // Unlike the i18n commands this one carries no uri and reads no
+          // open document: everything it needs is { dir, name } plus what it
+          // reads off disk itself. On success it answers with the summary
+          // rather than null, because the caller acts on it (opens `created`,
+          // shows `warning`); on failure it answers null like the i18n path
+          // and the reason travels as a showMessage error.
+          Promise.resolve().then(function() {
+            var scaffold = scaffoldHandler.newClass(cmdArgs);
+            return request('workspace/applyEdit',
+              { label: 'FOAM: New Class', edit: scaffold.edit })
+              .then(function(applyResult) {
+                throwIfDeclined_(applyResult);
+                if ( scaffold.result.warning ) {
+                  notify('window/showMessage', { type: 2 /* Warning */,
+                    message: 'FOAM: New Class — ' + scaffold.result.warning });
+                }
+                respond(id, scaffold.result);
+              });
+          }).catch(function(e) {
+            notify('window/showMessage', { type: 1 /* Error */, message: 'FOAM: New Class: ' + e.message });
+            respond(id, null);
+          }).catch(function(e) {
+            console.error('[LSP] executeCommand reporting failed:', e.message);
+          });
+          break;
+        }
+
         // Reading the text starts inside the promise chain so a bad/deleted
         // uri (readFileSync throwing) lands in the same catch as any other
         // failure instead of leaving the request unanswered.
@@ -910,14 +1147,7 @@ function start() {
         }).then(function(r) {
           return request('workspace/applyEdit', { label: 'FOAM i18n translate', edit: r.edit })
             .then(function(applyResult) {
-              // The client answers an applyEdit it declined with applied:false
-              // rather than an error response, so a refusal has to be checked
-              // for explicitly — otherwise it reads as success and the user is
-              // told nothing while the file stayed unchanged.
-              if ( applyResult && applyResult.applied === false ) {
-                throw new Error('the editor did not apply the edit' +
-                  ( applyResult.failureReason ? ' (' + applyResult.failureReason + ')' : '' ));
-              }
+              throwIfDeclined_(applyResult);
               if ( r.warnings && r.warnings.length ) {
                 notify('window/showMessage', { type: 2 /* Warning */,
                   message: 'Translation applied with warnings: ' + r.warnings.join('; ') });
@@ -950,7 +1180,7 @@ function start() {
           }
           break;
         }
-        if ( ! isFoamFile(doc.text) ) { respond(id, { data: [] }); break; }
+        if ( ! isClassDoc(params.textDocument.uri, doc) ) { respond(id, { data: [] }); break; }
         try {
           var result = semanticTokenHandler.handle(doc.text, params.textDocument.uri);
           console.error('[LSP] semanticTokens: ' + (result.data.length / 5) + ' tokens');
@@ -958,62 +1188,6 @@ function start() {
         } catch (e) {
           console.error('[LSP] semanticTokens error:', e.message, e.stack);
           respond(id, { data: [] });
-        }
-        break;
-
-      case 'textDocument/references':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
-        try {
-          var result = referencesHandler.handle(doc.text, params.position, params.textDocument.uri);
-          respond(id, result);
-        } catch (e) {
-          console.error('[LSP] references error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/documentHighlight':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc ) { respond(id, []); break; }
-        try {
-          respond(id, documentHighlightHandler.handle(doc.text, params.position));
-        } catch (e) {
-          console.error('[LSP] documentHighlight error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/prepareRename':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, renameHandler.prepare(doc.text, params.position));
-        } catch (e) {
-          console.error('[LSP] prepareRename error:', e.message);
-          respond(id, null);
-        }
-        break;
-
-      case 'textDocument/rename':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, renameHandler.handle(doc.text, params.position, params.newName, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] rename error:', e.message);
-          respond(id, null);
-        }
-        break;
-
-      case 'textDocument/prepareTypeHierarchy':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, typeHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] prepareTypeHierarchy error:', e.message);
-          respond(id, null);
         }
         break;
 
@@ -1035,28 +1209,6 @@ function start() {
         }
         break;
 
-      case 'textDocument/implementation':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, []); break; }
-        try {
-          respond(id, implementationHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] implementation error:', e.message);
-          respond(id, []);
-        }
-        break;
-
-      case 'textDocument/typeDefinition':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, typeDefinitionHandler.handle(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] typeDefinition error:', e.message);
-          respond(id, null);
-        }
-        break;
-
       case 'textDocument/diagnostic':
         // LSP 3.17 pull-diagnostic model. Caller asks for the diagnostics
         // of an arbitrary file without first didOpen-ing it. We read the
@@ -1075,9 +1227,12 @@ function start() {
           }
           if ( ! dText ) { respond(id, { kind: 'full', items: [] }); break; }
           var items;
-          if ( isJrlFile(dUri) ) {
+          var dKind = fileClassifier.classify(dUri, dText);
+          if ( dKind === 'jrl' ) {
             items = jrlHandler.handleDiagnostics(dText, dUri);
-          } else if ( isFoamFile(dText) ) {
+          } else if ( dKind === 'class' || dKind === 'pom' ) {
+            // 'pom' included: the pull path used to share the push lanes'
+            // unreachable-pom bug (isFoamFile excludes POM by design).
             items = diagnosticsHandler.handle(dText, dUri);
           } else {
             items = [];
@@ -1086,17 +1241,6 @@ function start() {
         } catch (e) {
           console.error('[LSP] textDocument/diagnostic error:', e.message);
           respond(id, { kind: 'full', items: [] });
-        }
-        break;
-
-      case 'textDocument/prepareCallHierarchy':
-        var doc = documents[params.textDocument.uri];
-        if ( ! doc || ! isFoamFile(doc.text) ) { respond(id, null); break; }
-        try {
-          respond(id, callHierarchyHandler.prepare(doc.text, params.position, params.textDocument.uri));
-        } catch (e) {
-          console.error('[LSP] prepareCallHierarchy error:', e.message);
-          respond(id, null);
         }
         break;
 
@@ -1123,6 +1267,13 @@ function start() {
           respondError(id, -32601, 'Method not found: ' + method);
         }
     }
+    } catch (e) {
+      // A synchronous throw in any case above (a malformed uri hitting
+      // decodeURIComponent, an unexpected shape in params) would otherwise
+      // propagate through the stdin data handler and take the whole server
+      // process down. Answer the request when there is one and keep serving.
+      console.error('[LSP] ' + method + ' failed: ' + ( e && e.message ));
+      if ( id !== undefined ) respondError(id, -32603, ( e && e.message ) || 'internal error');
     } finally {
       var elapsedMs = Number(process.hrtime.bigint() - timerStart) / 1e6;
       if ( method && elapsedMs >= LSP_TIMING_MIN_MS ) {

@@ -39,10 +39,11 @@ if ( require.main === module ) {
 //   node foam3/tools/tests/testFoamLSP.js diagnostics      # just diagnostics
 //   node foam3/tools/tests/testFoamLSP.js hover,completion # comma- or space-separated
 var CATEGORIES = [
+  'config',
   'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
-  'i18n',
+  'i18n', 'codelens', 'scaffold', 'pom',
   'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
-  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp'
+  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp', 'dispatch', 'classify'
 ];
 
 // Resolve the category list BEFORE booting the harness so an unknown name fails

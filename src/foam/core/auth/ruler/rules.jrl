@@ -101,3 +101,23 @@ p({
   },
   "generateTicket": false
 })
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"foam-core-auth-UserLifecycleNotActiveLogoutRule",
+  "name":"UserLifecycleNotActiveLogoutRule",
+  "documentation":"Logout user transitioning from Active",
+  "enabled":true,
+  "saveHistory":false,
+  "ruleGroup": "auth",
+  "daoKey": "userDAO",
+  "operation": 1,
+  "after": true,
+  "lifecycleState": 1,
+  "predicate": {
+    class: "foam.core.ruler.predicate.FScriptRulePredicate",
+    query: 'o.lifecycleState == foam.core.auth.LifecycleState.ACTIVE && n.lifecycleState != foam.core.auth.LifecycleState.ACTIVE && n.lifecycleState != foam.core.auth.LifecycleState.DELETED && n.loginEnabled == true && n.type == "User"',
+  },
+  action: {
+    "class": "foam.core.auth.UserLifecycleNotActiveLogoutRuleAction"
+  }
+})

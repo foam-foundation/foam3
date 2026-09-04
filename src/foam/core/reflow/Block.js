@@ -14,7 +14,7 @@ foam.CLASS({
 
   requires: [ 'foam.u2.WrapperNode' ],
 
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
+  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
@@ -60,6 +60,9 @@ foam.CLASS({
     }
     ^hidePrompts:has(> ^content > .foam-u2-Element-hidden) {
       display: none;
+    }
+    ^element-row-icon {
+      color: $textBrand;
     }
   `,
 
@@ -144,6 +147,18 @@ foam.CLASS({
       name: 'configViewSpec',
       hidden: true,
       documentation: `Passed on to the ReactiveSectionedDetailView as config, see AbstractSectionedDetailView to learn more about configuring detail views`
+    },
+    {
+      class: 'String',
+      name: 'blockIcon',
+      hidden: true,
+      transient: true,
+      factory: function() {
+        this.commandDAO.find(this.cmd).then(c => {
+          if ( c ) this.blockIcon = c.icon;
+        });
+        return 'rectangle';
+      }
     }
   ],
 
@@ -207,6 +222,16 @@ foam.CLASS({
         this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
         this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
       ]);
+    },
+
+    function treeCellFormatter(e) {
+      // Add the command's icon
+      e.add(this.slot(function(blockIcon) {
+        return this.E().start(foam.u2.tag.Image, {
+          glyph: blockIcon,
+          embedSVG: true
+        }).addClass(this.myClass('element-row-icon')).end();
+      }));
     }
   ],
 

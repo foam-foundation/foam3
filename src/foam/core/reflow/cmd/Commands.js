@@ -25,6 +25,7 @@ foam.CLASS({
   properties: [
     { class: 'String',  name: 'id' },
     { class: 'String',  name: 'description' },
+    { class: 'String',  name: 'icon', value: 'rectangle' },
     { class: 'Code',    name: 'script' },
     { class: 'Boolean', name: 'linkable', value: true },
     { class: 'Boolean', name: 'permissionRequired' },

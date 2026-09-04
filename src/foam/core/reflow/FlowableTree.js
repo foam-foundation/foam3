@@ -68,9 +68,6 @@ foam.CLASS({
       align-items: center;
       gap: 10px;
     }
-    ^element-row-icon {
-      color: $textBrand;
-    }
     ^ table td^moveTarget {
       background: transparent;
       border: none;
@@ -211,21 +208,8 @@ foam.CLASS({
             enableClass(self.myClass('selected'), self.selected$.map(s => s === data)).
             start().
               addClass(self.myClass('element-row-content')).
-              // TODO: let the Flowable provide its own Image
-              callIfElse(data.cmd && data?.cmd?.includes('dao'), function() {
-                this.start(foam.u2.tag.Image, {
-                  glyph: 'grid',
-                  embedSVG: true
-                }).addClass(self.myClass('element-row-icon')).end()
-              }, function() {
-                this.start(foam.u2.tag.Image, {
-                  glyph: 'rectangle',
-                  embedSVG: true
-                }).addClass(self.myClass('element-row-icon')).end()
-              }).
-              call(function() {
-                data.treeRowRenderer(this);
-              }).
+              call(function() { data.treeCellFormatter(this); }).
+              call(function() { data.treeRowRenderer(this); }).
             end().
             add(data?.dynamic(function(value$loading) {
               if ( value$loading )

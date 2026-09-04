@@ -12,6 +12,10 @@ foam.CLASS({
 
   imports: [ 'softSelected' ],
 
+  implements: [ 'foam.core.reflow.TreeCellFormatter' ],
+
+  requires: [ 'foam.core.reflow.TreeCellFormatter' ],
+
   css: `
     ^dependent {
       border: 1px solid orange !important;
@@ -156,6 +160,10 @@ foam.CLASS({
         this.detachFlowChild(c);
       });
       this.flowChildren = [];
+    },
+
+    function treeCellFormatter(e) {
+      if ( this.TreeCellFormatter.isInstance(this.value) ) this.value.treeCellFormatter(e);
     }
   ]
 });

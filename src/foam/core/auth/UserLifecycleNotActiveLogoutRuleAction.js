@@ -36,7 +36,6 @@ Transition to DELETED is handled by UserLifecycleDeletedRuleAction`,
       agency.submit(x, new ContextAgent() {
         public void execute(X x) {
           User user = (User) obj;
-          // X rulerX = ruler.getX();
 
           // log out by deleting session
           try {

@@ -16,7 +16,6 @@ foam.CLASS({
   ],
 
   constants: {
-    SERVICE_KEY_NAMES: [ 'daoKey' ],
     JAVA_EMBED_KEYS_: {
       javaCode: true, javaFactory: true, javaGetter: true, javaSetter: true,
       javaPreSet: true, javaPostSet: true, javaAdapt: true, javaCompare: true,
@@ -1463,7 +1462,7 @@ foam.CLASS({
         }
 
         // (B) Convention rule: schema-blind service keys -> services.jrl.
-        if ( this.SERVICE_KEY_NAMES.indexOf(segment.key) !== -1 ) {
+        if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(segment.key) !== -1 ) {
           var svcLocs = this.journalEntryIndex.getServiceLocations(segment.rawValue);
           if ( svcLocs ) return this.toLocations_(svcLocs);
         }

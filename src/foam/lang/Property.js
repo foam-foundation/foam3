@@ -209,7 +209,7 @@ foam.CLASS({
       name: 'updatePermissionRequired',
       value: false,
       preSet: function(_, n) {
-        foam.assert(this.writePermissionRequired && n, 'Redundant updatePermissionRequired on prop', this.toString());
+        foam.assert(! ( this.writePermissionRequired && n ), 'Redundant updatePermissionRequired on prop', this.toString());
         return n;
       }
     },

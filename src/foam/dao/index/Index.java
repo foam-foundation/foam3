@@ -29,6 +29,24 @@ public interface Index {
   // Remove all objects
   public Object removeAll();
 
+  /**
+   * Build this Index's state from a[lo..hi] in one pass, replacing any state
+   * it already held.
+   *
+   * Only meaningful on an empty Index: the state is built from scratch rather
+   * than merged into what is there. The range is sorted in place, so a caller
+   * must not depend on the array's order afterwards.
+   *
+   * The default fills the Index the slow way, one put per row. An Index with
+   * no faster construction is therefore still correct, and no caller has to
+   * know which kind it holds.
+   */
+  default Object bulkLoad(FObject[] a, int lo, int hi) {
+    Object state = null;
+    for ( int i = lo ; i <= hi ; i++ ) state = put(state, a[i]);
+    return state;
+  }
+
   public FObject find(Object state, Object key);
 
   // Create a Plan for a select()
@@ -69,5 +87,4 @@ public interface Index {
 
   // Future:
   // toString()
-  // bulkLoad()
 }

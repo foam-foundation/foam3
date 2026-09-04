@@ -32,6 +32,14 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      name: 'journalEntryIndex',
+      documentation: `Optional. Supplies services.jrl lookups so a service
+        name written in a .js model navigates to the row that registers it.
+        Absent (tests constructing this handler bare) simply skips that
+        branch — no service jump, everything else unchanged.`,
+      value: null
     }
   ],
 
@@ -157,7 +165,50 @@ foam.CLASS({
         }
       }
 
+
+      // Last resort: a string literal that names a REGISTERED SERVICE jumps to
+      // the services.jrl row registering it. `daoKey: 'localUserDAO'` in a .js
+      // model resolved to nothing at all — JrlHandler had the rule, but only
+      // fires when the cursor is inside a .jrl file.
+      //
+      // Schema-blind on purpose, the way JrlHandler's own service rule is:
+      // nothing in a model declares that daoKey points at a journal. What
+      // bounds it is the same thing that bounds JrlHandler's rule — the KEY
+      // must be one of SERVICE_KEY_NAMES. The lookup alone does not bound it:
+      // `file` and `blobStore` are registered service names that also occur
+      // as ordinary string values all over the tree.
+      var svcJump = this.serviceNameJump_(text, position);
+      if ( svcJump ) return svcJump;
+
       return null;
+    },
+
+    function serviceNameJump_(text, position) {
+      /**
+       * A SERVICE-KEY value whose whole content names a registered service
+       * -> its services.jrl row. Null when there is no journal index wired,
+       * the cursor is not inside a string, the string is not the value of a
+       * key in SERVICE_KEY_NAMES, or the name is not registered.
+       */
+      if ( ! this.journalEntryIndex ) return null;
+      // Gated on the key, exactly as JrlHandler's rule is. Without it the
+      // rule is not "a service key's value" but "any quoted word that spells
+      // a service name": `attrs({ type: 'file' })` in BlobView.js jumped to
+      // the `file` CSpec in src/services.jrl, and so did an array element.
+      var key = this.analyzer.getEnclosingKey(text, position);
+      if ( ! key ) return null;
+      if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(key) === -1 ) return null;
+      var value = this.analyzer.getEnclosingStringContent(text, position);
+      if ( ! value ) return null;
+      var locs = this.journalEntryIndex.getServiceLocations(value);
+      if ( ! locs || ! locs.length ) return null;
+      var out = locs.map(function(l) {
+        return {
+          uri: 'file://' + l.file,
+          range: { start: { line: l.line, character: 0 }, end: { line: l.line, character: 0 } }
+        };
+      });
+      return out.length === 1 ? out[0] : out;
     },
 
     function isPomFile_(uri) {

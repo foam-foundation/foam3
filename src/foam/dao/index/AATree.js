@@ -462,18 +462,43 @@ foam.CLASS({
 
     function getAll()  { return; },
 
-    function bulkLoad_(a, start, end, keyExtractor) {
-      if ( end < start ) return this;
+    /**
+      Build a balanced sub-tree over the groups [lo..hi], one node per group.
 
-      var tree = this;
-      var m    = start + Math.floor((end-start+1) / 2);
-      tree = tree.putKeyValue(keyExtractor(a[m]), a[m]);
+      'starts' holds where each group of equal keys begins in 'a', with one extra
+      entry closing the last group, and 'keys' holds each group's key. The tail
+      builds the node's value out of that group's rows, so a repeated key costs
+      one node rather than one node per row.
 
-      tree.left  = tree.left.bulkLoad_(a, start, m-1, keyExtractor);
-      tree.right = tree.right.bulkLoad_(a, m+1, end, keyExtractor);
-      tree.size += tree.left.size + tree.right.size;
+      The left sub-tree is the largest perfect tree that fits rather than half the
+      range, which is what makes the levels valid AA with no rebalancing pass.
+      The midpoint cannot do this: sorted [a,b] has to be 'a' with a horizontal
+      right link to 'b', and the midpoint picks 'b' with 'a' below it on the left,
+      which breaks the rule that a left child sits exactly one level down.
 
-      return tree;
+      With n groups, level = floor(log2(n+1)) and the left sub-tree takes
+      2^(level-1) - 1 of them, which leaves the right sub-tree at level-1 or at
+      level, never two horizontal right links in a row, and never a node above
+      level 1 with one child.
+    */
+    function bulkLoad_(a, starts, keys, lo, hi) {
+      if ( hi < lo ) return this;
+
+      var level = 31 - Math.clz32(hi - lo + 2);
+      var mid   = lo + ( 1 << ( level - 1 ) ) - 1;
+
+      var sub = this.tail.createNode();
+      sub.bulkLoad(a.slice(starts[mid], starts[mid+1]));
+
+      var n = this.treeNode.create();
+      n.key   = keys[mid];
+      n.value = sub;
+      n.left  = this.bulkLoad_(a, starts, keys, lo, mid-1);
+      n.right = this.bulkLoad_(a, starts, keys, mid+1, hi);
+      n.level = level;
+      n.size  = n.left.size + n.right.size + sub.size();
+
+      return n;
     }
   ]
 });

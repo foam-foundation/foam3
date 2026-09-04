@@ -845,6 +845,12 @@ function start() {
         reindexFile(params.textDocument.uri);
         if ( params.textDocument.uri && params.textDocument.uri.endsWith('.jrl') ) {
           journalEntryIndex.invalidate();
+          // reindexFile only reaches index.invalidate for a file that
+          // classifies as a class, so a journal save left the symbol and
+          // string-usage indexes untouched — and those now carry the
+          // services.jrl rows. A renamed service kept answering workspace
+          // symbol search under its old name until an unrelated .js save.
+          index.invalidateSymbolIndex_();
         }
         break;
 

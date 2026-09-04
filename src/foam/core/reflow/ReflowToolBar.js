@@ -12,7 +12,8 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.ToolbarControl',
-    'foam.mlang.sink.Count'
+    'foam.mlang.sink.Count',
+    'foam.u2.LoadingSpinner'
   ],
 
   imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData' ],
@@ -98,6 +99,13 @@ foam.CLASS({
                   });
               });
           })).
+          // A block is only added to the flow once its command has finished, so
+          // the prompt is where a running command has to report itself.
+          start('span').
+            attrs({ role: 'status', 'aria-live': 'polite' }).
+            show(self.data.currentBlock$.dot('isLoading_')).
+            tag(this.LoadingSpinner, { size: 16 }).
+          end().
         end().
         startContext({ data: this }).
           start().

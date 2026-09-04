@@ -1576,51 +1576,59 @@ foam.CLASS({
         tag: block.out.tag.bind(block.out)
       };
 
-      // TODO: move into Block
-      with ( this.localScope ) { with ( innerScope ) { with ( this.flowScope ) {
-        let scope = { ...(this.scope || {} ), ...this.localScope };
-        var r, arg;
-        let originalCmd = cmd;
-        try {
-          r = eval(cmd);
-          if ( ! block.flowName ) {
-            // For commands like 'cells(2,3)' pickout 'cells' as the block name
-            var m = cmd.match(/^\s*([a-zA-Z][a-zA-Z0-9_\$]*)\(/);
-            block.flowName = m ? m[1] : 'a';
-            // Make sure we aren't duplicating an existing name;
-            block.flowName = this.createFlowChildName(block.flowName);
-          }
-        } catch (x) {
-          var i = cmd.indexOf(' ');
-          if ( i != -1 ) {
-            arg = cmd.substring(i+1);
-            cmd = cmd.substring(0,i);
-            r = scope[cmd];
-          } else {
-            r = scope[cmd];
-          }
-          if ( r ) {
-            block.flowName = this.createFlowChildName(cmd);
-          } else {
-            console.log(x);
-            block.flowName = this.createFlowChildName('error');
-//            block.value = foam.lang.StringHolder.create({value: x.toString() + ', ' + originalCmd});
-            block.value = this.BadBlock.create({block: block, error: x.message});
-            block.error = x.message;
-          }
-        }
+      // Every command that awaits reports itself busy, without knowing an
+      // indicator exists: the toolbar watches currentBlock.isLoading_.
+      block.isLoading_ = true;
 
-        // Name the block if it hasn't already been named
-        if ( ! block.flowName ) block.flowName = this.createFlowChildName('a');
-        if ( typeof r === 'function' ) {
-          if ( ! block.flowName.startsWith(cmd) )
-            block.flowName = this.createFlowChildName(cmd);
-          r = arg ? r(arg) : r();
-        }
-        if ( r instanceof Promise ) {
-          r = await r;
-        }
-      }}}
+      try {
+        // TODO: move into Block
+        with ( this.localScope ) { with ( innerScope ) { with ( this.flowScope ) {
+          let scope = { ...(this.scope || {} ), ...this.localScope };
+          var r, arg;
+          let originalCmd = cmd;
+          try {
+            r = eval(cmd);
+            if ( ! block.flowName ) {
+              // For commands like 'cells(2,3)' pickout 'cells' as the block name
+              var m = cmd.match(/^\s*([a-zA-Z][a-zA-Z0-9_\$]*)\(/);
+              block.flowName = m ? m[1] : 'a';
+              // Make sure we aren't duplicating an existing name;
+              block.flowName = this.createFlowChildName(block.flowName);
+            }
+          } catch (x) {
+            var i = cmd.indexOf(' ');
+            if ( i != -1 ) {
+              arg = cmd.substring(i+1);
+              cmd = cmd.substring(0,i);
+              r = scope[cmd];
+            } else {
+              r = scope[cmd];
+            }
+            if ( r ) {
+              block.flowName = this.createFlowChildName(cmd);
+            } else {
+              console.log(x);
+              block.flowName = this.createFlowChildName('error');
+  //            block.value = foam.lang.StringHolder.create({value: x.toString() + ', ' + originalCmd});
+              block.value = this.BadBlock.create({block: block, error: x.message});
+              block.error = x.message;
+            }
+          }
+
+          // Name the block if it hasn't already been named
+          if ( ! block.flowName ) block.flowName = this.createFlowChildName('a');
+          if ( typeof r === 'function' ) {
+            if ( ! block.flowName.startsWith(cmd) )
+              block.flowName = this.createFlowChildName(cmd);
+            r = arg ? r(arg) : r();
+          }
+          if ( r instanceof Promise ) {
+            r = await r;
+          }
+        }}}
+      } finally {
+        block.isLoading_ = false;
+      }
 
       flowParent.addFlowChild(block);
 

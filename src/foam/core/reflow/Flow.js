@@ -14,7 +14,8 @@ foam.CLASS({
     'foam.core.auth.CreatedByAware',
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
-    'foam.core.auth.ServiceProviderAware'
+    'foam.core.auth.ServiceProviderAware',
+    'foam.mlang.Expressions'
   ],
 
   javaImports: [
@@ -27,7 +28,9 @@ foam.CLASS({
   ],
 
 
-  imports: [ 'flowDAO' ],
+  requires: [ 'foam.core.reflow.FlowHistoryRecord' ],
+
+  imports: [ 'flowDAO', 'flowHistoryDAO?' ],
 
   ids: [ 'name' ],
 /*
@@ -62,6 +65,12 @@ foam.CLASS({
       collapsable: true,
       permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
       properties: [ 'preLoadScript', 'script' ]
+    },
+    {
+      name: 'historySection',
+      title: 'History',
+      collapsable: true,
+      properties: [ 'history' ]
     }
   ],
 
@@ -227,6 +236,27 @@ foam.CLASS({
         Object v = foam.core.reflow.ScriptParser.parseData(s);
         if ( v == null ) outputter.output(s); else outputter.output(v)
       `
+    },
+    {
+      class: 'foam.dao.DAOProperty',
+      name: 'history',
+      label: '',
+      section: 'historySection',
+      transient: true,
+      storageTransient: true,
+      networkTransient: true,
+      createVisibility: 'HIDDEN',
+      visibility: 'RO',
+      expression: function(name) {
+        var dao = this.flowHistoryDAO;
+        if ( ! dao || ! name ) return null;
+        return dao.
+          where(this.EQ(this.FlowHistoryRecord.OBJECT_ID, name)).
+          orderBy(this.DESC(this.FlowHistoryRecord.TIMESTAMP));
+      },
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.FlowHistoryView', flowName: X.data.name };
+      }
     }
   ],
 

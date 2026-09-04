@@ -46,6 +46,10 @@ foam.CLASS({
   ],
 
   constants: {
+    // Console entries kept for reflow_logs. Enough to cover a command and the
+    // rendering it triggers, few enough to hand an agent whole.
+    MAX_LOGS: 200,
+
     // Tool name -> Flow whose markdown is the tool description, the convention
     // MCPWebAgent.TOOL_DOC_FLOWS uses, so the docs stay editable in the app.
     TOOL_DOC_FLOWS: {
@@ -69,6 +73,15 @@ foam.CLASS({
                globalThis.navigator?.modelContext ||
                null;
       }
+    },
+    {
+      name: 'logs_',
+      hidden: true,
+      transient: true,
+      documentation: `Console errors and warnings, captured from the moment the
+        tools register. An external agent cannot open devtools, and a command
+        that fails inside a view reports nothing through eval_.`,
+      factory: function() { return []; }
     },
     {
       name: 'controller_',
@@ -146,6 +159,7 @@ foam.CLASS({
       if ( ! this.localScope['mcp'] ) return false;
 
       this.onDetach(() => this.controller_.abort());
+      this.captureConsole_();
 
       var opts = { signal: this.controller_.signal };
 
@@ -214,11 +228,67 @@ foam.CLASS({
         },
         execute: args => this.block_(args)
       }, {
+        name: 'reflow_logs',
+        description: `Console errors and warnings from this page, newest last.
+          A command that fails inside a view reports nothing through reflow_run,
+          and this is where that failure shows up.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            level: {
+              type: 'string',
+              enum: [ 'error', 'warn' ],
+              description: 'Only entries at this level. Omit for both.'
+            },
+            limit: {
+              type: 'integer',
+              description: 'How many of the most recent entries to return. Default 50.'
+            }
+          }
+        },
+        execute: args => this.logs_tool_(args)
+      }, {
         name: 'reflow_state',
         description: 'The flow open in the Console, and the blocks in it.',
         inputSchema: { type: 'object', properties: {} },
         execute: () => this.state_()
       } ];
+    },
+
+    function captureConsole_() {
+      /** Tee console.error and console.warn into logs_, leaving the browser's
+        own output alone. */
+      var console_ = globalThis.console;
+      if ( ! console_ ) return;
+
+      [ 'error', 'warn' ].forEach(level => {
+        var original = console_[level];
+        if ( ! original ) return;
+
+        console_[level] = (...args) => {
+          try {
+            this.logs_.push({
+              level: level,
+              time:  new Date().toISOString(),
+              text:  args.map(a => a instanceof Error ? ( a.stack || a.message ) : String(a)).join(' ')
+            });
+            if ( this.logs_.length > this.MAX_LOGS ) this.logs_.shift();
+          } catch (e) {}
+          original.apply(console_, args);
+        };
+        this.onDetach(() => { console_[level] = original; });
+      });
+    },
+
+    function logs_tool_(args) {
+      var level = args?.level;
+      var limit = args?.limit || 50;
+      var rows  = this.logs_.filter(r => ! level || r.level === level);
+
+      return this.result_({
+        entries: rows.slice(-limit),
+        total:   rows.length
+      });
     },
 
     async function description_(tool) {
@@ -250,8 +320,16 @@ foam.CLASS({
       // Proposing is the default, and the fallback: an agent that asks to
       // execute without the '!' command still gets its line in front of the
       // user rather than an error it cannot act on.
-      var block = await this.eval_(( execute && ! denied ) ? cmd : 'propose ' + cmd);
-      var out   = this.summary_(block);
+      var block;
+      try {
+        block = await this.eval_(( execute && ! denied ) ? cmd : 'propose ' + cmd);
+      } catch (e) {
+        // Whatever escapes eval_ is still the agent's answer; a tool call that
+        // fails outright tells it nothing about what went wrong.
+        return this.result_({ cmd: cmd, error: String(e?.message || e) });
+      }
+
+      var out = this.summary_(block);
 
       if ( denied )
         out.note = "Proposed rather than executed: the '!' command is not granted to this user.";

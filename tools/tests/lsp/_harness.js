@@ -17,10 +17,31 @@ console.warn = function() { console.error.apply(console, arguments); };
 globalThis.SILENT = false; globalThis.VERBOSE = false;
 globalThis.DRY_RUN = false; globalThis.HELP = false; globalThis.NOP = '';
 
+// `test` below is a hoisted function declaration, so the handlers can call it
+// from up here. `counters` is not: a `var` holds `undefined` until its
+// assignment RUNS, and an exception during the pmake boot fires the handler
+// long before that. Declared here so `test` has its counter however early the
+// throw lands — read from below the boot, the handler instead throws a
+// TypeError of its own, which node treats as fatal (exit 7) and which replaces
+// the real error in the output.
+var counters = { passes: 0, failures: 0 };
+
 process.on('unhandledRejection', function(e) {});
 process.on('uncaughtException', function(e) {
-  if ( e.message && ( e.message.includes('document') || e.message.includes('window') ) ) return;
-  if ( e instanceof SyntaxError ) return;
+  // Installing a listener at all suppresses node's default crash, so an error
+  // that escapes to here leaves no trace of its own. Set the exit code before
+  // anything else: a throw out of this module's own load never reaches
+  // testFoamLSP.js's summary, so the FAIL line below would otherwise be
+  // printed by a process that still exits 0.
+  process.exitCode = 1;
+  // ...and detach stdin in the same breath. server.js's start() installs an
+  // 'end' listener that calls process.exit(0), and a throw during the boot
+  // below lands BEFORE the detach down there ever runs. That listener then
+  // fires on the first event-loop turn and its exit(0) overrides the code set
+  // one line up, so the run reports green with the FAIL line right there in
+  // the log.
+  detachStdin_();
+  test(false, 'uncaught exception — ' + ( e && e.stack ? e.stack : e ));
 });
 
 var path = require('path');
@@ -44,13 +65,14 @@ pmake.bind(buildlib, '-makers=LSP -pom=' + pomPath)();
 // process.exit via testFoamLSP.js) before the loop ever turns, so this
 // went unnoticed until an async category existed. Strip the listeners
 // server.js installed so this process's stdin is inert.
-process.stdin.removeAllListeners('data');
-process.stdin.removeAllListeners('end');
-process.stdin.pause();
+function detachStdin_() {
+  process.stdin.removeAllListeners('data');
+  process.stdin.removeAllListeners('end');
+  process.stdin.pause();
+}
+detachStdin_();
 
-// Test counters + helpers
-var counters = { passes: 0, failures: 0 };
-
+// Test helpers
 function test(condition, message) {
   if ( condition ) {
     counters.passes++;

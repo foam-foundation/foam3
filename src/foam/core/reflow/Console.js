@@ -833,6 +833,7 @@ foam.CLASS({
     'foam.core.reflow.ReflowHeader',
     'foam.core.reflow.ReflowToolBar',
     'foam.core.reflow.ToolbarControl',
+    'foam.core.reflow.ai.mcp.ReflowWebMCP',
     'foam.dao.ArrayDAO',
     'foam.flow.Document',
     'foam.u2.Link',
@@ -1389,6 +1390,10 @@ foam.CLASS({
         }
       });
 
+      // Offer the same command line to an external agent. Registers only for a
+      // user whose commands include 'mcp', and no-ops without WebMCP.
+      this.onDetach(this.ReflowWebMCP.create({}, this)).install();
+
       // If this.value.script changes
       //   update this.flowChildren
       //   clearFlow()
@@ -1624,7 +1629,17 @@ foam.CLASS({
             r = arg ? r(arg) : r();
           }
           if ( r instanceof Promise ) {
-            r = await r;
+            try {
+              r = await r;
+            } catch (x) {
+              // An async command that rejects gets the error block a synchronous
+              // one gets. Without this the rejection leaves eval_ before the
+              // block joins the flow, so the failure has nowhere to show.
+              var msg = x?.message || String(x);
+              block.value = this.BadBlock.create({block: block, error: msg});
+              block.error = msg;
+              r = undefined;
+            }
           }
         }}}
       } finally {

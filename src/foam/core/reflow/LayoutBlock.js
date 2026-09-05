@@ -123,7 +123,14 @@ foam.CLASS({
     },
     function addFlowChild_(c) {
       this.addToScope(c);
-      this.cmdHolder.add(c);
+      // cmdHolder is the container render() builds, so a child added before the
+      // layout has rendered -- a script or an agent writing the flow, rather
+      // than someone typing into the layout's own toolbar -- arrives first.
+      if ( this.cmdHolder ) {
+        this.cmdHolder.add(c);
+        return;
+      }
+      this.cmdHolder$.sub(foam.events.oneTime(() => this.cmdHolder.add(c)));
     },
     function eval_(...args){
       if ( ! args[3] || args[3] == this.flowParent )

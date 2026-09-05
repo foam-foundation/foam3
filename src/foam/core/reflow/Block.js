@@ -101,6 +101,19 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'isLoading_',
+      hidden: true,
+      transient: true,
+      documentation: `True while the block's command is running. Set by
+        Console.eval_, so every command that awaits reports itself without
+        knowing an indicator exists; the toolbar watches it through
+        Console.currentBlock. Not rendered here: a block joins the flow only
+        after its command finishes, so it has no DOM to show a spinner in.
+        Transient -- a block's saved script and undo history describe the
+        document, not what it was doing.`
+    },
+    {
+      class: 'Boolean',
       name: 'allowLimitedEdit',
       documentation: 'When true, Block configuration remains accessible in LIMIT_EDIT_CONSOLE mode.'
     },

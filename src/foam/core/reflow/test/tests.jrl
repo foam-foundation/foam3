@@ -10,7 +10,19 @@ p({
 })
 
 p({
+  "class": "foam.core.reflow.test.BezierArrowLineTest",
+  "id": "BezierArrowLineTest",
+  "language": 0
+})
+
+p({
   "class": "foam.core.reflow.test.DependencyScannerTest",
   "id": "DependencyScannerTest",
+  "language": 0
+})
+
+p({
+  "class": "foam.core.reflow.test.FlowGraphLayoutTest",
+  "id": "FlowGraphLayoutTest",
   "language": 0
 })

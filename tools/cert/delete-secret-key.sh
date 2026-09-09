@@ -10,6 +10,7 @@ set -e
 DOMAIN=$1
 ALIAS=$2
 PASSWORD=$DOMAIN
+export KEYTOOL_STOREPASS="$PASSWORD"
 
 # Set Name variables
 DNAME="
@@ -27,7 +28,7 @@ keytool -delete \
  -v \
  -alias "$ALIAS" \
  -keystore "$DOMAIN.jks" \
- -storepass "$PASSWORD" \
+ -storepass:env KEYTOOL_STOREPASS \
  -storetype PKCS12 
 
 echo -e "Success!"

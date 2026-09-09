@@ -230,7 +230,44 @@ foam.CLASS({
     }
   ],
 
+  static: [
+    {
+      name: 'systemPrompt',
+      documentation: `Every flow named systemPrompt* concatenated, in name order: the
+        agent's knowledge base, layered global / institution / role / personal by
+        name. The naming convention belongs to Flow, so every reader of it -- the
+        agent command, the WebMCP tool descriptions -- asks here.`,
+      code: async function(x) {
+        var self  = foam.core.reflow.Flow;
+        var E     = foam.mlang.ExpressionsSingleton.create();
+        var flows = (await x.flowDAO.
+          orderBy(self.NAME).
+          where(E.STARTS_WITH(self.NAME, 'systemPrompt')).
+          select()).array;
+
+        return flows.map(f => f.markdown()).join('\n');
+      }
+    }
+  ],
+
   methods: [
+    function markdown() {
+      /** The flow's markdown blocks, concatenated. Flows carry documentation --
+        manual pages, system prompts, MCP tool descriptions -- and every reader of
+        that text used to walk the script itself. */
+      var parts = [];
+      try {
+        JSON.parse(this.script).forEach(b => {
+          var md = b?.value?.markdown;
+          if ( md ) parts.push(md);
+        });
+      } catch (e) {
+        // A hand-edited script may not parse. Documentation lookup is best
+        // effort: return what we have rather than failing the caller.
+      }
+      return parts.join('\n\n');
+    },
+
     {
       name: 'authorizeOnCreate',
       javaCode: `

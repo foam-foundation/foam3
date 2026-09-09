@@ -11,6 +11,16 @@ foam.CLASS({
 
   documentation: 'Outputter to output array of values to CSV',
 
+  constants: [
+    {
+      name: 'BOM',
+      // UTF-8 byte order mark. Excel ignores the download's charset and reads
+      // a CSV as Windows-1252 unless the file starts with one, turning 'É'
+      // into 'Ã‰' and '—' into 'â€”'.
+      value: '\uFEFF'
+    }
+  ],
+
   methods: [
     function arrayToCSV(arrayOfValues) {
       var output = [];
@@ -20,7 +30,7 @@ foam.CLASS({
         });
         output.push(row.join(','));
       }
-      return output.join('\n');
+      return this.BOM + output.join('\n');
     }
   ]
 });

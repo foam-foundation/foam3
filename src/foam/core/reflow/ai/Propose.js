@@ -28,12 +28,12 @@ foam.CLASS({
     }
     ^command input {
       width: 100%;
-      border: 1px solid #ddd;
+      border: 1px solid $grey300;
       border-radius: 4px;
       padding: 4px 8px;
       font-family: monospace;
       font-size: 13px;
-      background: #fff;
+      background: $backgroundDefault;
       outline: none;
     }
     ^command input:focus {
@@ -97,6 +97,7 @@ foam.CLASS({
     {
       name: 'accept',
       label: '✓',
+      ariaLabel: 'Accept and run the proposed command',
       code: function() {
         this.eval_(this.command);
         this.block.del();
@@ -105,6 +106,7 @@ foam.CLASS({
     {
       name: 'reject',
       label: '✕',
+      ariaLabel: 'Reject the proposed command',
       code: function() {
         this.block.del();
       }

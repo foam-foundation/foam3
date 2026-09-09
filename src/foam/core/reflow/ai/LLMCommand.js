@@ -18,8 +18,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'llmService',
-    'notify'
+    'llmService'
   ],
 
   properties: [
@@ -53,25 +52,19 @@ foam.CLASS({
 
   methods: [
     async function execute(q) {
-      try {
-        var options = this.LLMOptions.create({
-          systemPrompt: this.systemPrompt,
-          model:        this.model
-        });
+      var options = this.LLMOptions.create({
+        systemPrompt: this.systemPrompt,
+        model:        this.model
+      });
 
-        var request = this.CompletionRequest.create({
-          prompt:  q,
-          options: options
-        });
+      var request = this.CompletionRequest.create({
+        prompt:  q,
+        options: options
+      });
 
-        var result = await this.llmService.complete(null, request);
+      var result = await this.llmService.complete(null, request);
 
-        this.out.tag(this.Markdown, {markdown: result.content});
-      } catch (e) {
-        this.notify('LLM error: ' + e.message, '', this.LogLevel.ERROR);
-        //        this.response = '**Error:** ' + e.message;
-        this.out.add('**Error:** ' + e.message);
-      }
+      this.out.tag(this.Markdown, {markdown: result.content});
     }
   ]
 });

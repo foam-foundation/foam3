@@ -99,9 +99,9 @@ foam.CLASS({
         // Use when offline. TODO: make a mock llmService for when offline
         // result = { content: 'h1 done' };
       } catch (e) {
-        throw 'LLM error: ' + e;
-//        flow.insertError('LLM error: ' + e.message);
-        return;
+        // An Error, not a string: eval_ builds the BadBlock from x.message, so a
+        // thrown string renders an error block with nothing in it.
+        throw new Error('LLM error: ' + ( e.message || e ));
       }
 
       // ── 3. Parse response into command lines ──

@@ -1,1 +1,2 @@
 p({"class":"foam.core.column.test.TableColumnOutputterJSTest","id":"TableColumnOutputterJSTest","description":"DoubleUnitValue table export formatting, incl. RefSummary unit values", language: 0})
+p({"class":"foam.core.column.test.CSVTableOutputterJSTest","id":"CSVTableOutputterJSTest","description":"CSV export starts with a UTF-8 BOM and defaults to ISO 8601 24h dates", language: 0})

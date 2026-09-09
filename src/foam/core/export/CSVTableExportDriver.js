@@ -30,17 +30,23 @@ foam.CLASS({
       name: 'choices',
       hidden: true,
       factory: function() {
+        var pad  = n => ('0' + n).slice(-2);
+        var time = d => pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
         return [
+          // ISO 8601 date, 24h time. Locale-independent: every Excel locale
+          // parses it as a date, so the column sorts chronologically. The
+          // en-US locale strings this replaced ('8/27/2026 10:04:42 PM') stay
+          // text in a UK Excel for days > 12 and then sort lexically.
           [ [
-              d => d.toLocaleDateString('en-us'),
-              d => d.toLocaleTimeString('en-us')
+              d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()),
+              time
             ],
             this.SPREADSHEET
           ],
           [
             [
-              d => ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear(),
-              d => ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2)
+              d => pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(),
+              time
             ],
             this.DDMMYYYY
           ],

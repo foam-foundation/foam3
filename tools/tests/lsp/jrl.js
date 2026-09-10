@@ -688,6 +688,65 @@ try {
   foam.poms.pop();
 }
 
+// --- Service discovery reaches journals with no pom and no source ---------
+// fixtures/jrlservices/* holds services.jrl files and no class file, and no
+// pom names those directories — the shape of a per-target deployment journal.
+// The directory answer (findJournalFiles_) cannot see them; the services
+// lookup must.
+var jsvcDir  = path.join(__dirname, 'fixtures', 'jrlservices');
+var jsvcAlfa = path.join(jsvcDir, 'alpha', 'services.jrl');
+var jsvcBeta = path.join(jsvcDir, 'beta', 'services.jrl');
+var jsvcDup  = path.join(jsvcDir, 'dup', 'services.jrl');
+var jeiWide  = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+
+test(jeiWide.findJournalFiles_().indexOf(jsvcAlfa) === -1,
+  'JEI: the pom/source directory answer does NOT reach a pom-less services.jrl');
+
+var wideLocs = jeiWide.getServiceLocations('rankProbeDAO');
+test(wideLocs && wideLocs.length === 2,
+  'JEI: service lookup reaches services.jrl with no pom and no source: ' +
+    (wideLocs ? wideLocs.length : wideLocs));
+
+// Rule A is deliberately NOT widened: a Reference-property lookup must still
+// use the narrow answer, or one seed id resolves to a row in every deployment
+// target. alpha/menus.jrl sits beside a services.jrl the service lookup DOES
+// read, which is exactly the case that would regress.
+test(jeiWide.getEntryLocations('foam.core.menu.Menu', 'ruleAProbeMenu') === null,
+  'JEI: entry lookup stays on the narrow answer (menus.jrl beside it stays unseen)');
+
+// --- Nearest-first ordering ----------------------------------------------
+// Same name registered under two sibling directories. Asserted from BOTH
+// origins: a fixed discovery order can satisfy one direction by luck, never
+// both.
+var fromAlfa = jeiWide.getServiceLocations('rankProbeDAO',
+  path.join(jsvcDir, 'alpha', 'Caller.js'));
+test(fromAlfa && fromAlfa[0].file === jsvcAlfa,
+  'JEI rank: jumping from alpha/ puts alpha first');
+
+var fromBeta = jeiWide.getServiceLocations('rankProbeDAO',
+  path.join(jsvcDir, 'beta', 'Caller.js'));
+test(fromBeta && fromBeta[0].file === jsvcBeta,
+  'JEI rank: jumping from beta/ puts beta first');
+
+// The origin arrives from the handlers as a file:// uri, not a path.
+var fromUri = jeiWide.getServiceLocations('rankProbeDAO',
+  'file://' + path.join(jsvcDir, 'beta', 'Caller.js'));
+test(fromUri && fromUri[0].file === jsvcBeta,
+  'JEI rank: a file:// uri origin ranks the same as the bare path');
+
+// No origin: still a total order, so the answer does not depend on walk order.
+var noFrom = jeiWide.getServiceLocations('rankProbeDAO');
+test(noFrom && noFrom[0].file === jsvcAlfa && noFrom[1].file === jsvcBeta,
+  'JEI rank: without an origin, ordering falls back to path order');
+
+// --- Last registration wins inside one journal ---------------------------
+// Journal entries are ordered ops, so the LAST row for a name is the live one.
+var dupSvc = jeiWide.getServiceLocations('lastWinsProbeDAO');
+test(dupSvc && dupSvc.length === 2 && dupSvc[0].file === jsvcDup &&
+     dupSvc[0].line > dupSvc[1].line,
+  'JEI rank: two registrations in one journal put the LAST one first: ' +
+    (dupSvc ? dupSvc.map(function(l) { return l.line; }).join(',') : dupSvc));
+
 // client completion — delegation to nested JRL completion. The inner
 // JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
 var clientSrc = [

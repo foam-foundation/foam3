@@ -817,6 +817,27 @@ test(daoKeyLoc && ! Array.isArray(daoKeyLoc) && daoKeyLoc.range.start.line > 0,
   'service jump: and at the registering row, not the top of the file'
   + ' (got line ' + ( daoKeyLoc && ! Array.isArray(daoKeyLoc) ? daoKeyLoc.range.start.line : '?' ) + ')');
 
+// The ORIGIN uri has to reach the index, or ranking is dead wiring: the
+// handler holds it, JournalEntryIndex does the ordering, and nothing in
+// between fails loudly when the argument is dropped. rankProbeDAO is
+// registered under two sibling fixture directories, so the answer is a
+// two-element array whose FIRST element must follow the file we jumped from.
+// Both directions are asserted — one direction alone is satisfied by walk
+// order for free.
+var rankText = daoKeyText.replace('localUserDAO', 'rankProbeDAO');
+var rankFixt = path.join(__dirname, 'fixtures', 'jrlservices');
+function rankFirstFrom_(dir) {
+  var locs = svcDefHandler.handle(rankText, { line: 4, character: 48 },
+    'file://' + path.join(rankFixt, dir, 'Caller.js'));
+  return Array.isArray(locs) && locs.length === 2 ? locs[0].uri : String(locs);
+}
+test(rankFirstFrom_('alpha').indexOf(path.join('jrlservices', 'alpha')) !== -1,
+  'service jump: origin uri reaches the ranking — from alpha/, alpha row first'
+  + ' (got ' + rankFirstFrom_('alpha') + ')');
+test(rankFirstFrom_('beta').indexOf(path.join('jrlservices', 'beta')) !== -1,
+  'service jump: origin uri reaches the ranking — from beta/, beta row first'
+  + ' (got ' + rankFirstFrom_('beta') + ')');
+
 // A string that is NOT a registered service must not be hijacked.
 var plainText = daoKeyText.replace('localUserDAO', 'notARegisteredServiceName');
 var plainLoc = svcDefHandler.handle(plainText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');

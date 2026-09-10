@@ -1,0 +1,11 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"lastWinsProbeDAO",
+  "serve":false
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"lastWinsProbeDAO",
+  "serve":true
+})

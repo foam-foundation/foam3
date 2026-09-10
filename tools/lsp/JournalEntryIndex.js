@@ -73,6 +73,13 @@ foam.CLASS({
       value: null
     },
     {
+      name: 'serviceList_',
+      documentation: `Cached services.jrl discovery — the WIDE walk, separate
+        from fileList_'s directory answer. Null until the first service query,
+        so a workspace whose journals are never looked up never pays the walk.`,
+      value: null
+    },
+    {
       name: 'fileCache_',
       documentation: 'path -> { mtimeMs, size, recs } parsed-entry cache.',
       factory: function() { return {}; }
@@ -81,17 +88,23 @@ foam.CLASS({
 
   methods: [
     function invalidate() {
-      this.fileList_  = null;
-      this.fileCache_ = {};
+      this.fileList_    = null;
+      this.serviceList_ = null;
+      this.fileCache_   = {};
     },
 
-    function getServiceLocations(name) {
+    function getServiceLocations(name, opt_from) {
       // servicesOnly: only services.jrl can answer, so no other file is
       // ever read or parsed for this lookup (daoKey names appear as data
       // inside unrelated journals).
-      return this.lookup_([ name ], function(rec) {
+      var locs = this.lookup_([ name ], function(rec) {
         return rec.key === name;
       }, true);
+      // opt_from is the file the jump started from — a path or a file:// uri.
+      // A name registered in several journals is normal (per-target
+      // deployment journals redefine appConfig, http and friends), so the
+      // answer is ordered rather than trimmed: see rankLocations_.
+      return locs ? this.rankLocations_(locs, opt_from) : null;
     },
 
     function getEntryLocations(modelId, key) {
@@ -102,10 +115,90 @@ foam.CLASS({
       });
     },
 
+    function rankLocations_(locs, opt_from) {
+      /**
+       * Orders a multi-file answer nearest-first, relative to the file the
+       * jump started from.
+       *
+       * Ranked, never trimmed: which registration is live is decided at
+       * deploy time (the target directory is an argument to the deploy step,
+       * and no pom names it), so the index cannot know which row wins. What
+       * it can do is put the one you are standing next to first.
+       *
+       * Ordering, in order:
+       *   1. most leading PATH SEGMENTS shared with the origin file's
+       *      directory — same target beats a sibling target, and a row beside
+       *      your source beats both. Segment-wise, not character-wise: a
+       *      character prefix ranks .../foobar/ as close to .../foo/.
+       *   2. path, ascending — a total order, so the answer is stable across
+       *      runs and platforms rather than left to walk order.
+       *   3. line, DESCENDING, within one file — journal entries are ordered
+       *      ops (p merges, c replaces, r removes), so when a name is
+       *      registered twice in one journal the LAST row is the effective
+       *      one and belongs at the top.
+       *
+       * No directory name is special-cased. Naming deployment/ here would
+       * bake one app layout into the framework, and the segment count already
+       * produces the same answer for it.
+       */
+      var path_    = require('path');
+      var from     = this.toPath_(opt_from);
+      var fromSegs = from ? path_.dirname(from).split(path_.sep) : null;
+
+      function shared(file) {
+        if ( ! fromSegs ) return 0;
+        var segs = path_.dirname(file).split(path_.sep);
+        var n    = 0;
+        while ( n < segs.length && n < fromSegs.length && segs[n] === fromSegs[n] ) n++;
+        return n;
+      }
+
+      var scored = locs.map(function(l) {
+        return { loc: l, score: shared(l.file) };
+      });
+      scored.sort(function(a, b) {
+        if ( a.score !== b.score )         return b.score - a.score;
+        if ( a.loc.file !== b.loc.file )   return a.loc.file < b.loc.file ? -1 : 1;
+        return b.loc.line - a.loc.line;
+      });
+      return scored.map(function(e) { return e.loc; });
+    },
+
+    function toPath_(uriOrPath) {
+      /**
+       * Accepts either, because the two callers hold a uri and the ranking
+       * works in paths. Local on purpose: every uri/path conversion in
+       * tools/lsp is still hand-rolled, and adding a 53rd hand-rolled site
+       * inside the shared module would be worse than one here. The decode is
+       * wrapped because decodeURIComponent throws on a stray '%'.
+       */
+      if ( typeof uriOrPath !== 'string' || ! uriOrPath )   return null;
+      if ( uriOrPath.indexOf('file://') !== 0 )             return uriOrPath;
+      try { return decodeURIComponent(uriOrPath.substring(7)); }
+      catch ( e ) { return uriOrPath.substring(7); }
+    },
+
     function files_() {
       if ( this.journalFiles.length ) return this.journalFiles;
       if ( ! this.fileList_ ) this.fileList_ = this.findJournalFiles_();
       return this.fileList_;
+    },
+
+    function serviceFiles_() {
+      /**
+       * The file list a SERVICE lookup scans: every services.jrl in the
+       * workspace, not just the ones beside a pom or a class file.
+       *
+       * journalFiles still wins when set, so an explicit list stays an
+       * explicit list (lookup_ filters it to services.jrl as before) — the
+       * discovery difference applies only to the auto-discovered case.
+       */
+      if ( this.journalFiles.length ) return this.journalFiles;
+      if ( ! this.serviceList_ ) {
+        this.serviceList_ = ( this.index && this.index.getServiceJournalFiles &&
+                              this.index.getServiceJournalFiles() ) || [];
+      }
+      return this.serviceList_;
     },
 
     function findJournalFiles_() {
@@ -133,7 +226,7 @@ foam.CLASS({
       for ( var n = 0 ; n < needles.length ; n++ ) {
         if ( typeof needles[n] !== 'string' || ! needles[n] ) return null;
       }
-      var files = this.files_();
+      var files = servicesOnly ? this.serviceFiles_() : this.files_();
       var out = [];
       for ( var f = 0 ; f < files.length ; f++ ) {
         if ( servicesOnly && path_.basename(files[f]) !== 'services.jrl' ) {

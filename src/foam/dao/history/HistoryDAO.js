@@ -81,6 +81,32 @@ foam.CLASS({
       super(x, delegate);
       setHistoryDAO(historyDAO);
     }
+
+    /**
+     * Storage properties whose value differs between current and newValue,
+     * as PropertyUpdates. Compares the values the getters return rather than
+     * PropertyInfo.compare: for a long-backed Date, compare reads the raw
+     * field, so a Date left unset (0) and one set to null (Long.MIN_VALUE)
+     * differ while both getters return null, and a reader of the history
+     * would see an update from empty to empty.
+     */
+    public static PropertyUpdate[] diff(X x, FObject current, FObject newValue) {
+      var updates = new ArrayList<PropertyUpdate>();
+      var info    = newValue.getClassInfo();
+      var of      = info.getSimpleName().toLowerCase();
+      var props   = info.getAxiomsByClass(PropertyInfo.class);
+
+      for ( var prop : props ) {
+        if ( ! PROPERTY_PREDICATE.propertyPredicateCheck(x, of, prop) || OPTIONAL_PREDICATE.propertyPredicateCheck(x, of, prop) ) continue;
+        Object before = prop.f(current);
+        Object after  = prop.f(newValue);
+        if ( SafetyUtil.compare(before, after) != 0 ) {
+          updates.add(new PropertyUpdate(prop.getName(), before, after));
+        }
+      }
+
+      return updates.toArray(new PropertyUpdate[updates.size()]);
+    }
   `,
 
   methods: [
@@ -95,25 +121,7 @@ foam.CLASS({
       ],
       documentation: 'Returns an array of updated properties',
       javaCode: `
-        var updates = new ArrayList<PropertyUpdate>();
-        var info = newValue.getClassInfo();
-        var of = info.getSimpleName().toLowerCase();
-        var props = info.getAxiomsByClass(PropertyInfo.class);
-
-        for ( var prop : props ) {
-          if ( PROPERTY_PREDICATE.propertyPredicateCheck(x, of, prop)
-            && ! OPTIONAL_PREDICATE.propertyPredicateCheck(x, of, prop)
-            && prop.compare(currentValue, newValue) != 0
-          ) {
-            updates.add(new PropertyUpdate(
-              prop.getName(),
-              prop.f(currentValue),
-              prop.f(newValue)
-            ));
-          }
-        }
-
-        return updates.toArray(new PropertyUpdate[updates.size()]);
+        return diff(x, currentValue, newValue);
       `
     },
     {

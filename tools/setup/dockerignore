@@ -1,0 +1,7 @@
+.git
+**/.git
+build
+**/build
+node_modules
+**/node_modules
+pom.xml

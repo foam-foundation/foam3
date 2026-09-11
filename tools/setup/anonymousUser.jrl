@@ -1,0 +1,15 @@
+p({
+  "class":"foam.core.auth.User",
+  "id":{anonymousUserId},
+  "spid":"{spid}",
+  "lifecycleState":1,
+  "group":"anonymous",
+  "firstName":"Anonymous",
+  "lastName":"{App}",
+  "email":"anonymous-{spid}@{domain}",
+  "userName":"anonymous-{spid}",
+  "emailVerified":true,
+  "loginEnabled":false,
+  "compliance":2,
+  "isPublic":false
+})

@@ -101,17 +101,15 @@ public class HttpParametersWebAgent
       //
       try {
 
-        int read   = 0;
-        int count  = 0;
-        int length = req.getContentLength();
+        // Read to end of stream rather than to Content-Length, see ServiceWebAgent.
+        int read = 0;
 
         StringBuilder  builder = sb.get();
         char[] cbuffer = new char[BUFFER_SIZE];
         BufferedReader reader  = new BufferedReader(new InputStreamReader(req.getInputStream()));
 
-        while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 && count < length ) {
+        while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 ) {
           builder.append(cbuffer, 0, read);
-          count += read;
         }
         // logger.debug("reader data:", builder.toString());
         if ( ! SafetyUtil.isEmpty(builder.toString()) ) {

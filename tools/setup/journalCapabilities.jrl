@@ -1,0 +1,11 @@
+// Service provider for this application's spid. Anonymous (not logged in)
+// requests run as its anonymousUser, see users.jrl.
+p({
+  "class":"foam.core.auth.ServiceProvider",
+  "id":"{spid}",
+  "name":"{App}",
+  "description":"{App} service provider",
+  "enabled":true,
+  "anonymousUser":{anonymousUserId},
+  "permissionsGranted":["language.read.en-"]
+})

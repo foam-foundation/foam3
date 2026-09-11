@@ -83,6 +83,35 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 * visit: http:/localhost:8080 and login with admin / badpassword
 
+### Run in Docker
+
+The project also includes a `Dockerfile`. The image builds the app and runs it from the JARs, with journals, logs and documents as volumes:
+
+    docker build -t example .
+    docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
+
+### Deploy with one click
+
+Every project created this way includes a `Dockerfile.vercel` for
+[Vercel](https://vercel.com/docs/functions/container-images) and an `app.json`
+for the [Cloud Run Button](https://github.com/GoogleCloudPlatform/cloud-run-button),
+so it deploys as is. Try the live demo at https://foam3-demo.vercel.app, or
+deploy your own copy of the template repository with one click:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/foam-foundation/foam3-template&project-name=foam3-demo&repository-name=foam3-demo)
+[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run?git_repo=https://github.com/foam-foundation/foam3-template)
+
+Add your models under `src/` and push; the host rebuilds and redeploys.
+
+Vercel runs the container as a function: it scales to zero after 5 minutes
+without traffic, only `/tmp` is writable, and requests are spread over several
+instances that share no memory. FOAM keeps sessions in the JVM, so a login on
+one instance is unknown to the next. `Dockerfile.vercel` therefore sets
+`SESSION_DEFAULT_USER` to the admin, and `-Dsession.defaultUser` signs every
+new session in as that user, which suits a demo and nothing else. Cloud Run
+keeps one instance (`max-instances` in `app.json`), so sessions and logins
+work as usual there.
+
 <!--
 ## Running Application Controller
 

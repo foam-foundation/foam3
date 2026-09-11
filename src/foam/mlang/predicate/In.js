@@ -55,6 +55,24 @@ foam.CLASS({
 
         if ( ! rhs ) return false;
 
+        // A list-valued left side is a membership question, not an equality one: the
+        // paths below compare the whole array against each candidate, so a row holding
+        // [ "a", "b" ] matches neither "a" nor "b". Test the elements instead.
+        if ( foam.Array.isInstance(lhs) ) {
+          var candidates = foam.Array.isInstance(rhs) ? rhs : [ rhs ];
+          for ( var i = 0 ; i < lhs.length ; i++ ) {
+            for ( var j = 0 ; j < candidates.length ; j++ ) {
+              var l = lhs[i], r = candidates[j];
+              if ( this.upperCase_ ) {
+                if ( foam.String.isInstance(l) ) l = l.toUpperCase();
+                if ( foam.String.isInstance(r) ) r = r.toUpperCase();
+              }
+              if ( foam.util.equals(l, r) ) return true;
+            }
+          }
+          return false;
+        }
+
         // Fast path when arg2 is a Constant of Object[].
         // DO NOT drop the `+ ''`: a JS Set matches objects by REFERENCE, so an
         // IN over Date (or any object) values would never match — two Date
@@ -113,6 +131,23 @@ return false
   `
   Object lhs = getArg1().f(obj);
   Object rhs = getArg2().f(obj);
+
+  // A list-valued left side is a membership question, not an equality one: the paths
+  // below compare the whole array against each candidate, so a row holding
+  // [ "a", "b" ] matches neither "a" nor "b". Test the elements instead.
+  if ( lhs != null && lhs.getClass().isArray() ) {
+    // Reflection so an int[] or long[] property answers the same way a String[] does.
+    int      length     = java.lang.reflect.Array.getLength(lhs);
+    Object[] candidates = rhs instanceof Object[] ? (Object[]) rhs : new Object[] { rhs };
+
+    for ( int i = 0 ; i < length ; i++ ) {
+      Object value = java.lang.reflect.Array.get(lhs, i);
+      for ( Object candidate : candidates ) {
+        if ( foam.util.SafetyUtil.compare(value, candidate) == 0 ) return true;
+      }
+    }
+    return false;
+  }
 
   // Fast path when arg2 holds a constant Object[]. ArrayConstant is a sibling
   // of Constant, not a subclass, and it is what MLang.prepare() builds for an

@@ -30,5 +30,29 @@ public class MLangTest
     test(
       ! INSTANCE_OF(User.getOwnClassInfo()).f(new Group()),
       "INSTANCE_OF rejects non instance with ClassInfo");
+
+    // IN over a property whose value is a list asks whether the list holds the value.
+    User tagged = new User();
+    tagged.setDisabledTopics(new String[] { "tag1", "tag2" });
+
+    test(
+      IN(User.DISABLED_TOPICS, "tag1").f(tagged),
+      "IN matches a value the array holds");
+
+    test(
+      ! IN(User.DISABLED_TOPICS, "tag9").f(tagged),
+      "IN rejects a value the array lacks");
+
+    test(
+      IN(User.DISABLED_TOPICS, new Object[] { "tag2", "tag9" }).f(tagged),
+      "IN matches when the array holds one of the candidates");
+
+    test(
+      ! IN(User.DISABLED_TOPICS, new Object[] { "tag8", "tag9" }).f(tagged),
+      "IN rejects when the array holds none of the candidates");
+
+    test(
+      ! IN(User.DISABLED_TOPICS, "tag1").f(new User()),
+      "IN rejects an empty array");
   }
 }

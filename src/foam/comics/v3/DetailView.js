@@ -239,7 +239,7 @@ foam.CLASS({
             .startContext({ data: self })
               .tag(actionsOverrides.edit)
               .tag(actionsOverrides.save, { buttonStyle: 'PRIMARY'})
-              .tag(self.CANCEL_EDIT)
+              .tag(actionsOverrides.cancelEdit)
             .endContext()
             .call(function() {
               let el = this;
@@ -302,8 +302,10 @@ foam.CLASS({
         if ( comicsActions.length ) {
           comicsActions?.forEach(v => {actionsOverrides[v.name] = v});
         }
-        ['edit', 'delete', 'copy', 'save'].forEach(v => {
-          let defaultAction = this[v.toUpperCase()];
+        ['edit', 'delete', 'copy', 'save', 'cancelEdit'].forEach(v => {
+          // constantize (not toUpperCase): multi-word names like cancelEdit map to
+          // CANCEL_EDIT, not CANCELEDIT.
+          let defaultAction = this[foam.String.constantize(v)];
           if ( ! actionsOverrides[v] ) {
             actionsOverrides[v] = defaultAction;
             return;
@@ -496,10 +498,12 @@ foam.CLASS({
       }
     },
     {
+      // ComicsAction so a model can override edit's Cancel (e.g. cleanup).
+      class: 'foam.comics.v3.ComicsAction',
       name: 'cancelEdit',
       label: 'Cancel',
       size: 'SMALL',
-      isAvailable: function(controllerMode) {
+      internalIsAvailable: function(controllerMode) {
         return controllerMode == 'EDIT';
       },
       code: function() {

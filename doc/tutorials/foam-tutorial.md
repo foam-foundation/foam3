@@ -45,7 +45,7 @@
   - [Build and Verify](#build-and-verify)
 - [Custom Views](#custom-views)
   - [The FOAM UI Library](#the-foam-ui-library)
-  - [Layer 1: Low-Level UI Components](#layer-1-low-level-ui-components)
+  - [Layer 1: Elements](#layer-1-elements)
     - [`start()` and `end()`](#start-and-end)
     - [`tag()`](#tag)
     - [`add()`](#add)
@@ -56,10 +56,10 @@
       - [`on()`](#on)
       - [`style()`](#style)
     - [CSS Scoping with `^`](#css-scoping-with-%5E)
-  - [Layer 2: Data Binding & Reactive Slots](#layer-2-data-binding--reactive-slots)
+  - [Layer 2: Views](#layer-2-views)
     - [View vs Controller](#view-vs-controller)
     - [Reactive Slots](#reactive-slots)
-  - [Layer 3: Model-Driven Components (Comics)](#layer-3-model-driven-components-comics)
+  - [Layer 3: Controllers (Comics)](#layer-3-controllers-comics)
   - [Customizing the IngredientAmount View](#customizing-the-ingredientamount-view)
     - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
     - [A picker for `alternative`](#a-picker-for-alternative)
@@ -400,6 +400,8 @@ foam.CLASS({
 | `methods` | Instance functions; can have both `code` (JS) and `javaCode` |
 | `listeners` | Methods pre-bound to `this`; safe to use as callbacks |
 | `actions` | User-triggered operations with UI integration |
+
+Underneath, these sections share one concept: everything inside a `foam.CLASS` — every property, method, listener, action, and relationship — is an **axiom**. An axiom is a self-contained piece of class metadata that knows how to install itself on the class. So a FOAM class isn't a block of code; it's a *collection of axioms* the framework can inspect at runtime. That's what lets a single `properties` entry do so much later on: expose a reactive slot, hand you an upper-cased constant (`Recipe.NAME`), and even render its own editor — capabilities the UI layers lean on heavily. Keep the word in mind; it comes back when we bind models to the DOM.
 
 Three of these sections — `requires`, `imports`, and `exports` — only make sense once you understand **context**, so we'll cover that next before returning to the rest.
 
@@ -1399,21 +1401,25 @@ For a comprehensive reference on FOAM relationships, including advanced configur
 
 # Custom Views
 
-FOAM's automatic view generation handles many common cases, but for a specialized user experience you'll often want custom views. Our Recipe app is a good example. The default relationship view we just saw gets us started for free — no UI code required — but the Recipe is the main model of the app, and navigating between the Recipe, RecipeStep, and IngredientAmount screens to assemble one recipe quickly becomes tedious. So we'll invest in a **custom screen** that lets us see and edit all of a recipe's steps and their ingredients in place, on a single form.
+Out of the box, FOAM turns a model into a working UI — the tables, forms, and browse-create-edit screens you've already seen — so you can **browse and edit your data with no UI code at all**. That default carries most apps a long way. But the stock views are a starting point, not a ceiling: you can **customize** them field by field, **swap in your own views**, and when a screen needs to be exactly right, assemble a **fully custom screen** — all from the same building blocks.
 
-This section introduces FOAM's UI library and guides you through building that screen — and the smaller custom views it relies on — for the Recipe application.
+This section works up the FOAM UI library from the bottom — the **Elements** that build raw DOM, the data-bound **Views** that visualize your models, and the **Controllers** (Comics) that assemble whole screens — then puts them to work on the Recipe app.
 
 ## The FOAM UI Library
 
-FOAM provides a powerful UI framework called **U2** (and its successor **U3**) for building web interfaces. Before diving in, it helps to see how the framework is layered — the pieces solve very different problems, and this tutorial deliberately spends most of its time on the first two:
+FOAM provides a powerful UI framework called **U2** (and its successor **U3**) for building web interfaces. Before diving in, it helps to see how the framework is layered — the pieces solve very different problems.
 
-1. **Low-level UI components** — a fluent DSL for building raw DOM (`div`s, buttons, text, scoped CSS). These know nothing about your models or data; they're plain building blocks you could use to assemble any web page.
-2. **Data binding and reactive slots** — the layer that ties those components to your model's data, so a field edits a property and the DOM updates itself whenever the value changes.
-3. **Model-driven components** — whole screens generated from your model definition: ready to use out of the box yet still customizable. **Comics**, FOAM's DAO-driven CRUD UI, is the main one — it's what generated the automatic Recipe and RecipeStep screens we saw earlier.
+**Elements → Views → Controllers.** Each layer builds on the one before: a View *is* an Element, and a Controller is assembled from Views. Those three words are the shorthand we'll use throughout:
+
+1. **Elements** — the raw DOM building blocks: a fluent DSL for `div`s, buttons, text, and scoped CSS. Usable on their own to assemble any web page, they're also the primitives the data-bound Views build on.
+2. **Views** — Elements bound to data: the stock views that display and edit your model's data (property fields, detail views, tables), kept in sync by reactive slots. This is where most custom-view work lives.
+3. **Controllers (Comics)** — whole screens assembled from Views: browse, create, and edit wired together with navigation and actions. **Comics** (FOAM's DAO-driven CRUD engine) is what generated the automatic Recipe and RecipeStep screens we saw earlier.
 
 Whichever layer you're working in, FOAM's components share a shape you'll recognize from modern UI frameworks — self-contained, reusable pieces with encapsulated (scoped) styling and their own lifecycle. The difference is that each one is itself a **FOAM class**, so it ties straight into the rest of the framework: model-driven data binding, reactive slots, generated property views, and a set of established patterns and best practices — a lot of behavior you get for free instead of wiring it up by hand.
 
-The rest of this section works up through Layers 1 and 2, which are what you use to write custom views, then closes with a short look at Layer 3.
+## Layer 1: Elements
+
+These are the pure building blocks — DOM elements, attributes, events, and scoped CSS. Used on their own they need nothing from your models, so you could assemble a plain web page with them, and that's how we'll use them in this section. But they aren't a separate, weaker toolkit: they're the same primitives Layer 2 builds on. The very `.add()` you'll use in a moment also accepts data-bound inputs — reactive slots, property views, PropertyBorders — which is exactly where Layer 2 picks up.
 
 At its core, Layer 1 (U2/U3) is a **Fluent Internal Domain-Specific Language (DSL)** for creating DOM elements.
 
@@ -1443,10 +1449,6 @@ This creates the following DOM structure:
 </div>
 ```
 
-## Layer 1: Low-Level UI Components
-
-These are the pure building blocks — DOM elements, attributes, events, and scoped CSS. Nothing here is aware of your models; you could use any of it to assemble a plain web page. (Data binding arrives in Layer 2.)
-
 The U2/U3 DSL provides several **core methods** for building DOM structures:
 
 ### `start()` and `end()`
@@ -1461,27 +1463,27 @@ this.start('div')           // Create a <div>
 .end();                     // Close the <div>
 ```
 
-When `start()` is called without arguments, it creates a `<span>` element by default. You can also pass a **ViewSpec** — a `{ class: … }` description — to instantiate a FOAM view instead of a raw DOM tag:
+When `start()` is called without arguments, it creates a `<div>` element by default. You can also pass a **ViewSpec** — a `{ class: … }` description — to instantiate a FOAM view instead of a raw DOM tag (we'll cover this in more detail in Layer 2):
 
 ```javascript
 this.start({ class: 'foam.u2.TextField' }).end();   // instantiate a view, not a raw tag
 ```
 
-(Binding that field to data — the `data$: this.name$` part — is Layer 2; we'll add it there.)
 
 ### `tag()`
 
 The `tag()` method is a shortcut for `start().end()` — it creates an element and immediately closes it. Use this for leaf elements that don't need children:
 
 ```javascript
-this.tag('br');                              // Creates <br>
-this.tag('hr');                              // Creates <hr>
-this.tag({ class: 'foam.u2.TextField' });    // Instantiate with a ViewSpec
+this.tag('br');   // Creates <br>
+this.tag('hr');   // Creates <hr>
 ```
+
+**Rule of thumb:** `tag()` for leaves that need no attributes (`br`, `hr`) or a ViewSpec whose properties you pass as the 2nd arg; `start()…end()` whenever the element needs attributes (or children).
 
 ### `add()`
 
-The `add()` method appends content to the current element. It doesn't create a new element — it adds to the one you're already building. At this layer it handles the plain, data-free content types:
+The `add()` method appends content to the current element. It doesn't create a new element — it adds to the one you're already building:
 
 ```javascript
 this.add('Plain text');   // adds a text node
@@ -1489,18 +1491,18 @@ this.add(42);             // numbers become text too
 this.add(childElement);   // adds a child element or view instance
 ```
 
-- **Strings and numbers** are inserted as text nodes — plain DOM content.
+- **Strings, numbers, dates, and booleans** are inserted as text nodes — plain DOM content.
 - **Element and view instances** (and **ViewSpecs**) are added as children, fully integrated into the parent's lifecycle.
 
-`add()` has a more powerful, **data-bound** side too — it also accepts reactive slots (`this.name$`), property views (`this.SOME_PROPERTY`), and actions (`this.SOME_ACTION`). Those depend on data and context, so they belong to Layer 2, where we cover them.
+But `add()` is far more powerful than these vanilla cases. Beyond slots (`this.name$`), which it binds reactively, it works through one simple rule: if the thing you add has a **`toE()`** method ("to Element"), `add()` calls it and inserts whatever that returns. Property constants (`this.SOME_PROPERTY`) and action constants (`this.SOME_ACTION`) are `toE()`-able **axioms**, so adding one renders its DOM. FObjects are `toE()`-able too: `this.add(someUser)` renders a *full detail view* of that object — rarely what you want in production (you normally want control over which detail view is used and how it's configured), but handy for debugging and prototyping. These inputs all depend on `data` and context, so we cover them in Layer 2.
 
-> **Note:** **Two terms worth pinning down**, since they show up throughout U2/U3:
+> **Note:** **Three terms worth pinning down**, since they show up throughout. They're the everyday object-oriented trio — a class, an instance of it, and a description for creating one — in FOAM's UI vocabulary:
 >
-> - **View** — a FOAM component that displays or edits data; any class extending `foam.u2.View`, such as `foam.u2.TextField`.
-> - **View instance** — a view you have already created, e.g. `foam.u2.TextField.create({ data$: this.name$ })`.
-> - **ViewSpec** — a lightweight *description* of a view to create rather than the view itself, most often the `{ class: 'foam.u2.TextField' }` object literal you saw passed to `start()` and `tag()` above. Given a spec, FOAM instantiates the view for you.
+> - **View — the class (definition).** The *type*: any class extending `foam.u2.View` that displays or edits data, e.g. `foam.u2.TextField`. This is the definition; nothing is on screen yet.
+> - **View instance — instantiation.** A view you have actually created with `.create(...)`, e.g. `foam.u2.TextField.create({ data$: this.name$ })`. Now it's a live object with its own state and lifecycle.
+> - **ViewSpec — a description of the class to instantiate.** A lightweight blueprint for a view rather than the view itself, most often the `{ class: 'foam.u2.TextField' }` object literal you saw passed to `start()` and `tag()` above. Hand FOAM a spec and it runs the `.create(...)` for you.
 >
-> Either way the result becomes a child of the current element and takes part in its lifecycle — it renders with the parent and is detached (and cleaned up) when the parent is. The `foam.u2.View` class itself is covered under [View vs Controller](#view-vs-controller) below.
+> However you get there — instantiating the view yourself or letting a spec do it — the result becomes a child of the current element and takes part in its lifecycle: it renders with the parent and is detached (and cleaned up) when the parent is. We'll spend more time on the `foam.u2.View` class itself in Layer 2.
 
 ### DOM Building Methods at a Glance
 
@@ -1527,13 +1529,23 @@ this.start('div')
 
 #### `attrs()`
 
-Sets HTML attributes on the current element:
+Sets HTML attributes on the current element (`attr()` sets one, `attrs()` sets several):
 
 ```javascript
 this.start('input')
   .attrs({type: 'text', placeholder: 'Enter name', maxlength: 50})
 .end();
 ```
+
+For example, an `img` needs a `src` before it shows anything — you set it the same way:
+
+```javascript
+this.start('img')
+  .attrs({ src: '/images/pancakes.jpg', alt: 'Pancakes' })
+.end();
+```
+
+Pass a slot instead of a string (`.attr('src', this.data.photoURL$)`) and the attribute tracks it reactively — that data-bound side belongs to Layer 2.
 
 #### `on()`
 
@@ -1557,13 +1569,17 @@ this.start('div')
 .end();
 ```
 
+As with attributes, a style value can be a **slot** instead of a literal — pass `this.someColor$` and that style updates whenever the slot changes (a Layer 2 touch).
+
 Inline styles are convenient for one-off or computed values, but they don't scale — repeating them across elements is hard to maintain, and they can't express things like hover states. For anything reusable, reach for a scoped CSS class instead, which is what the next section covers.
 
 > **For the curious:** these are the methods you'll reach for constantly, but `Element` has many more — `br()`, `nbsp()`, `E()`, `removeClass()`, `enableClass()`, and so on. For a fuller, categorized rundown of the commonly used ones, see the [U2/U3 Element Method Reference](#u2u3-element-method-reference) appendix.
 
 ### CSS Scoping with `^`
 
-FOAM provides automatic CSS scoping to prevent style conflicts between components. In a view's `css` template, the `^` character is replaced with a unique class prefix for that view:
+For styles you'll reuse, FOAM gives each view its own **scoped CSS**: you write ordinary CSS in the view's `css` template, and FOAM rewrites the selectors so they can't collide with any other component. The key is the `^` character — in the template it stands in for a class name unique to that view. A lone `^` is the view's root class; `^name` is a scoped child class.
+
+For example, this view defines a root style plus two child styles, then applies them in `render()`:
 
 ```javascript
 foam.CLASS({
@@ -1595,7 +1611,9 @@ foam.CLASS({
 
 The `^` prefix ensures that `.title` in this component won't conflict with `.title` in another component. The `addClass()` method with no arguments adds the base class (matching the lone `^` in CSS), and `this.myClass('title')` generates the scoped class name for `^title`.
 
-## Layer 2: Data Binding & Reactive Slots
+> **Why `^` — and the `<<` twist:** this symbol is officially called **`CSS_SELF`**: inside a `css` block it's replaced with the view's own class name. Its real value is actually **`<<`** (`Element.CSS_SELF === '<<'`); it began life as `^`, but CSS later adopted `^` for its own *starts-with* attribute selector (e.g. `[href^="http"]`), so FOAM switched the self-symbol to `<<` to avoid the clash. U3 still accepts the old `^` for backward compatibility, and in practice nearly all code (this tutorial included) still writes `^`. The one thing to remember: if you ever need CSS's real `^` starts-with selector in a `css` block, use `<<` for the self-reference so the `^` is left for CSS. Scoped CSS isolates a view's styles; **theming** keeps them consistent across the whole app. Rather than hard-code colours and sizes, you can reference **design tokens** in a `css` block with a `$` prefix — `color: $textDefault;`, `background: $backgroundSecondary;` — resolved from a central palette (`foam.u2.CSSTokens`) that even carries dark-mode variants. The FOAM twist worth knowing now: the active theme is held in a **slot**, so switching it at runtime fires a `themeChange` that re-expands every view's CSS with the new values — the app re-themes live, no reload. Tokens and themes get their own tutorial; here we'll stick to plain CSS.
+
+## Layer 2: Views
 
 Layer 1 built inert DOM. Layer 2 is what connects those elements to your model's data so the two stay in sync. Remember the "data-bound side" of `add()` we deferred? This is where it lives — the same `add()` you already know, now handed inputs that carry data. Two of those inputs are **axioms**: the metadata objects FOAM installs on your class for each property and action, exposed as the upper-cased constant on the model (`Recipe.NAME`, `Recipe.SAVE`). Adding an axiom *renders* it — against whatever object is the `data` in the current context.
 
@@ -1605,19 +1623,21 @@ Layer 1 built inert DOM. Layer 2 is what connects those elements to your model's
 
 - **Action constants** (`this.SOME_ACTION`) are **action axioms**. Adding one renders a button (`foam.u2.ActionView`) bound to the context data: clicking runs the action's `code` against that object, and its enabled/visible state follows the action's `isEnabled` and `isAvailable` declarations.
 
-Because both resolve their target from the context `data`, rendering them outside a ready-made screen means supplying that object yourself with `startContext({ data: … })`. (FOAM can also wrap a property in a labeled, validated **border** — the form you see on every field of a generated screen — but that belongs with the model-driven components, so we'll come back to it in Layer 3.) For a side-by-side of the `this.name` / `this.name$` / `this.NAME` / `this.NAME.__` forms, see the [Property Rendering](#property-rendering) reference in the appendix.
+Because both resolve their target from the context `data`, rendering them outside a ready-made screen means supplying that object yourself with `startContext({ data: … })`. (FOAM can also wrap a property in a labeled, validated **border** — the form you see on every field of a generated screen — but that belongs with the Controllers, so we'll come back to it in Layer 3.) For a side-by-side of the `this.name` / `this.name$` / `this.NAME` / `this.NAME.__` forms, see the [Property Rendering](#property-rendering) reference in the appendix.
 
 We'll build up from here: first the two base classes a data-bound view is built on, then the slot system underneath.
 
 ### View vs Controller
 
-FOAM provides two base classes for building views:
+FOAM gives you three base classes to build on, depending on how much data-binding you need:
 
-- **`foam.u2.View`**: A basic view that renders data. It has a `data` property that holds the object being displayed.
+- **`foam.u2.Element`**: The raw Layer 1 building block. Extend it directly when you're *not* a view — you have no `data` and no properties or actions of your own to bind to the DOM.
 
-- **`foam.u2.Controller`**: Extends View but is designed for views that manage their own state. Controllers typically define their own properties rather than relying on external data.
+- **`foam.u2.View`**: An `Element` with a `data` property, for rendering or editing an existing object.
 
-Use `View` when displaying or editing an existing object. Use `Controller` when building a self-contained screen with its own state management.
+- **`foam.u2.Controller`**: Extends `View` but is designed for views that manage their own state — it typically defines its own properties rather than relying on external `data`.
+
+Use `Element` for a plain, data-free component; `View` when displaying or editing an existing object; `Controller` when building a self-contained screen with its own state management.
 
 ### Reactive Slots
 
@@ -1648,20 +1668,7 @@ this.onDetach(this.name$.sub(this.onNameChange));
 
 > **Note:** This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
 
-## Layer 3: Model-Driven Components (Comics)
-
-The third layer is **model-driven components** — whole screens generated from your model definition, ready to use out of the box yet still customizable. FOAM's main one is **Comics**.
-
-**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — exactly the automatic Recipe and RecipeStep screens we saw earlier. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
-
-This tutorial only touches Comics **lightly** — just enough to plug the custom views we're about to build into it. Two closely related, higher-level pieces are **out of scope** here as well:
-
-- The **Application Controller** — the top-level shell that ties menus, navigation, and screens together into a running app.
-- **Theme** — FOAM's theming and branding system for colors, fonts, and styling across the app.
-
-To go deeper, see the **[Comics guide](../guides/Comics.md)** and the **[Application Controller guide](../guides/ApplicationController.md)**. A dedicated tutorial focused on Comics, the Application Controller, and theming is also on the way.
-
-## Customizing the IngredientAmount View
+### Customizing the IngredientAmount View
 
 We've covered the three layers in the abstract; now let's put them to work. `IngredientAmount` is a small but revealing model — it links to two other records — which makes it the perfect place to see how FOAM renders **references**, why the defaults fall short, and how a custom property view fixes them.
 
@@ -1672,7 +1679,7 @@ Open `src/com/foamdev/cook/IngredientAmount.js`. Alongside its own `amount` and 
 
 That difference is exactly what shapes how we customize each: for `alternative` we set the view on the property itself, and for `ingredient` we set it through the relationship.
 
-### The problem with the default reference view
+#### The problem with the default reference view
 
 A `Reference` is a **foreign key**: on the object it's stored as nothing more than the target's **id**. Left to itself, then, `ingredient` is a number like `42` and `alternative` is another id — and an id is meaningless to a user (*what is ingredient 42?*). In practice a raw reference either surfaces as a bare number (for example in a table column) or gets hidden altogether.
 
@@ -1683,7 +1690,7 @@ We can do far better. Because a property's editor is simply its `view` (Layer 2)
 
 We'll build one such picker, wire it onto the `alternative` reference, then reuse the exact same pattern for `ingredient` — with a twist, because `ingredient` comes from a relationship.
 
-### A picker for `alternative`
+#### A picker for `alternative`
 
 `alternative` is declared directly on `IngredientAmount`, so we attach the custom view right on the property:
 
@@ -1797,7 +1804,7 @@ Register the view in `pom.js`:
 { name: 'AlternativePickerView', flags: 'js' }
 ```
 
-### Customizing a relationship-generated reference: `targetProperty`
+#### Customizing a relationship-generated reference: `targetProperty`
 
 The `ingredient` reference is different: we never declared it on `IngredientAmount`. It was **generated** by the relationship in `Relationships.js`:
 
@@ -1852,6 +1859,23 @@ On the **Ingredient** tab, the `ingredient` reference now renders with the same 
 ![The ingredient picker — creating a new ingredient in place][app-screen-4]
 
 With these two views in place, `IngredientAmount` goes from a form full of meaningless ids to one where every reference is a searchable dropdown you can extend on the spot — and none of it required hand-writing a dropdown or a create dialog.
+
+## Layer 3: Controllers (Comics)
+
+The third layer is **Controllers** — whole screens assembled from your model definition: browse, create, and edit wired together with navigation and actions, ready to use out of the box yet still customizable. FOAM's is **Comics**.
+
+**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — exactly the automatic Recipe and RecipeStep screens we saw earlier. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
+
+This tutorial only touches Comics **lightly** — just enough to plug the custom views we're about to build into it. Two closely related, higher-level pieces are **out of scope** here as well:
+
+- The **Application Controller** — the top-level shell that ties menus, navigation, and screens together into a running app.
+- **Theme** — FOAM's theming and branding system for colors, fonts, and styling across the app.
+
+To go deeper, see the **[Comics guide](../guides/Comics.md)** and the **[Application Controller guide](../guides/ApplicationController.md)**. A dedicated tutorial focused on Comics, the Application Controller, and theming is also on the way.
+
+## From Generated to Custom: the Recipe App
+
+The default relationship views got us a working UI for free, but the Recipe is the app's main model — and hopping between the separate Recipe, RecipeStep, and IngredientAmount screens to assemble one recipe quickly gets tedious. So we'll invest in a **custom screen** that lets us see and edit all of a recipe's steps and their ingredients in place, on a single form — assembled from the pieces above.
 
 ## The Generated CRUD Screen: Browse and Detail
 

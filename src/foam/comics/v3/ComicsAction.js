@@ -12,18 +12,18 @@ foam.CLASS({
     Creates a distinction for actions that are used by comics. Can be used to override default
     CRUD behaviour.
 
-    ComicsAction adds two properties called internalIsEnabled and internalIsAvailable in order to provide
-    permission checks for model CRUD operations
+    ComicsAction adds internalIsEnabled and internalIsAvailable — the comics controller's own
+    enable/available checks (mode + permission gating), evaluated alongside a model's
+    isEnabled/isAvailable. Both default to false (fail closed): a ComicsAction is
+    hidden/disabled unless it opts in with its own check.
 
-    Any action property not overriden explicitly will be copied over from the defaul implementation.
+    Any action property not overridden explicitly will be copied over from the default implementation.
 
     All action override functions are run in the context of the data obj so they can also be used outside comics if needed.
 
-    Any Comics actions with the following names will replace default behaviour in comics v3:
-    1. create (Default behaviour implemented in: comics/v3/DAOView)
-    2. edit (Default behaviour implemented in: comics/v3/DetailView)
-    3. delete (Default behaviour implemented in: comics/v3/DetailView)
-    4. copy (Default behaviour implemented in: comics/v3/DetailView)
+    A model overrides a comics action by declaring a ComicsAction with the same name. Which
+    names are overridable, and their defaults, are defined by the consuming controllers
+    (DAOView, DetailView, CreateView).
 
     -- How to configure actions --
     The following code changes the isEnabled and code from the default implementation for an imaginary model named 'Flight'.
@@ -73,12 +73,16 @@ foam.CLASS({
     {
       class: 'Function',
       generateJava: false,
-      name: 'internalIsEnabled'
+      name: 'internalIsEnabled',
+      // Fail closed: disabled unless an action opts in with its own check.
+      value: function() { return false; }
     },
     {
       class: 'Function',
       generateJava: false,
-      name: 'internalIsAvailable'
+      name: 'internalIsAvailable',
+      // Fail closed: hidden unless an action opts in with its own check.
+      value: function() { return false; }
     }
   ],
   methods: [

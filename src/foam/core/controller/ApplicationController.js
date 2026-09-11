@@ -55,6 +55,7 @@ foam.CLASS({
     'foam.core.u2.navigation.Stack',
     'foam.core.u2.navigation.PopupManager',
     'foam.u2.LoadingSpinner',
+    'foam.u2.ViewReloader',
     'foam.u2.crunch.CapabilityInterceptView',
     'foam.u2.crunch.CrunchController',
     'foam.u2.crunch.WizardRunner',
@@ -473,6 +474,11 @@ foam.CLASS({
         self.setPrivate_('__subContext__', { name: 'ApplicationControllerProxy', __proto__: client.__subContext__});
         self.subject = self.client.initSubject;
         self.initSubject = true;
+
+        // Source runs only (no foam-bin): pick up .js edits without a page reload.
+        if ( ! globalThis.FOAM_BIN && client.sourceChangeDAO ) {
+          self.onDetach(self.ViewReloader.create({ root: self }, self.__subContext__));
+        }
         // For testing purposes only. Do not use in code.
         globalThis.x     = self.__subContext__;
         globalThis.MLang = foam.mlang.Expressions.create();

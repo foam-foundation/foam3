@@ -1,0 +1,3 @@
+p({"class":"foam.core.fs.test.WatcherTest","id":"WatcherTest","description":"Watcher stat poller: new file handled and cleaned up, rejected file ignored, stop() ends the loop, recursive relative paths and skipDirs, rescan picks up new files"})
+p({"class":"foam.core.fs.test.SourceWatcherTest","id":"SourceWatcherTest","description":"SourceWatcher reports a changed .js under core.webroot as a SourceChange, keeps the file, and stays off without core.webroot"})
+p({"class":"foam.core.fs.test.SourceWatcherCpuTest","id":"SourceWatcherCpuTest","description":"SourceWatcher idle-vs-watching CPU over project.home, printed for CI comparison; fails above 25% of one core"})

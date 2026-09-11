@@ -35,6 +35,7 @@ public class MLangTest
     User tagged = new User();
     tagged.setDisabledTopics(new String[] { "tag1", "tag2" });
 
+    // A single value, which is what the query parser builds for `topics HAS tag1`.
     test(
       IN(User.DISABLED_TOPICS, "tag1").f(tagged),
       "IN matches a value the array holds");

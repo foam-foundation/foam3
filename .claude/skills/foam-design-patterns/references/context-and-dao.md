@@ -9,6 +9,7 @@ system context; every other rule here is the same instinct at smaller scale.
 | Inside a decorator, call the `_` methods with `x` | any bare `find(`/`put(`/`select(` on `getDelegate()`? |
 | Inside a rule, `x` reads, `ruler.getX()` writes | which context does the `put` use? |
 | Existence is `find`, count is `COUNT()` | any `ArraySink` followed by `isEmpty()` or `size()`? |
+| Filter a shared-base DAO to one class before naming a subclass property | does a predicate name a subclass property on a DAO whose `of` is a base class? |
 | Configure EasyDAO before writing a new layer | is there a `cache`, `decorator`, or `pm` switch for this? |
 
 ### Take `x` from the argument and pass it down
@@ -48,6 +49,11 @@ Review asked: "Can be done with find() or if you don't care about the result the
 A loop that compares rows in Java bypasses indices and the decorators that would have scoped it.
 Don't: `OR(EQ(p, a), EQ(p, b), ...)` built in a loop; string join keys per comparison; `List.remove` inside a merge
 Do:    `IN(p, values)`; `addPropertyIndex` on the columns the query uses; sort once and merge
+
+### Filter a shared-base DAO to one class before naming a subclass property
+A generated `PropertyInfo.get_` casts to the class that declared the property, so naming a subclass property on a sibling row throws. A predicate never shows you: `PredicatedSink.put` catches `ClassCastException` and drops the row, leaving a partial answer. The same cast at a call site does throw, so the two read as unrelated bugs while sharing one cause.
+Don't: `(Sub) dao.find(AND(EQ(Base.KEY, k), EQ(Sub.STATUS, s)))`, where `dao.of` is the base class
+Do:    build the view once, `DAO subRows = dao.where(INSTANCE_OF(Sub.class));`, and read every query through it; `FilteredDAO` composes its own predicate ahead of the caller's, so the type check runs before any subclass property is read
 
 ### Configure EasyDAO before writing a new layer
 EasyDAO already has the cache, the TTL, the decorator slot, and the PM switch.

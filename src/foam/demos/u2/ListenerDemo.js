@@ -8,6 +8,8 @@
    name: 'ListenerDemo',
    extends: 'foam.u2.Controller',
 
+   imports: [ 'window' ],
+
    properties: [
      {
        class: 'String',
@@ -31,7 +33,7 @@
        this.input = '';
        var s = 'This is a test this is only a test.';
        for ( let i = 0 ; i < s.length ; i++ ) {
-         window.setTimeout(() => this.input = s.substring(0, i), i*8);
+         this.window.setTimeout(() => this.input = s.substring(0, i), i*8);
        }
      }
    ],

@@ -10,6 +10,8 @@ foam.POM({
     { name: 'Outcome',    flags: 'web' },
     { name: 'Tier',       flags: 'web' },
     { name: 'RailTheme',  flags: 'web' },
-    { name: 'ParserIds',  flags: 'web' }
+    { name: 'ParserIds',  flags: 'web' },
+    { name: 'Track',      flags: 'web' },
+    { name: 'ParserLabels', flags: 'web' }
   ]
 });

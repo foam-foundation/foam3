@@ -62,7 +62,7 @@ foam.CLASS({
     },
 
     function outcomeColor() { return this.theme.outcomeColor(this.outcome); },
-    function glyph()        { return this.outcome.glyph; },
+    function glyph()        { return this.outcome.mark; },
     function visited()      { return this.outcome !== foam.parse.rail.Outcome.NONE; },
 
     function strokeWidth() {

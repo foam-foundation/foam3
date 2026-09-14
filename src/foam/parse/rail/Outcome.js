@@ -15,13 +15,13 @@ foam.ENUM({
   `,
 
   properties: [
-    { class: 'String', name: 'glyph', documentation: 'Corner glyph on boxes; empty for NONE.' }
+    { class: 'String', name: 'mark', documentation: 'Corner glyph on boxes; empty for NONE. (Named mark: every FOAM enum already has a glyph property.)' }
   ],
 
   values: [
-    { name: 'NONE',    label: 'not reached', glyph: '' },
-    { name: 'TRYING',  label: 'trying',      glyph: '▶' },
-    { name: 'MATCHED', label: 'matched',     glyph: '✓' },
-    { name: 'FAILED',  label: 'failed',      glyph: '✗' }
+    { name: 'NONE',    label: 'not reached', mark: '' },
+    { name: 'TRYING',  label: 'trying',      mark: '▶' },
+    { name: 'MATCHED', label: 'matched',     mark: '✓' },
+    { name: 'FAILED',  label: 'failed',      mark: '✗' }
   ]
 });

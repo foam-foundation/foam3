@@ -24,9 +24,9 @@ foam.CLASS({
       // Every Outcome resolves to a real colour, never the magenta fallback, and carries a glyph string.
       this.Outcome.VALUES.forEach(function(o) {
         x.test(t.outcomeColor(o) !== t.MISSING_COLOR, 'outcome ' + o.name + ' has a colour token');
-        x.test(typeof o.glyph === 'string',           'outcome ' + o.name + ' has a glyph');
+        x.test(typeof o.mark === 'string',           'outcome ' + o.name + ' has a glyph');
       });
-      x.test(this.Outcome.NONE.glyph === '' && this.Outcome.MATCHED.glyph === '✓', 'glyphs: none is empty, matched is a tick');
+      x.test(this.Outcome.NONE.mark === '' && this.Outcome.MATCHED.mark === '✓', 'glyphs: none is empty, matched is a tick');
 
       // Tiers carry the alpha the element expression multiplies in.
       x.test(this.Tier.LIVE.alpha === 1 && this.Tier.NEVER.alpha < this.Tier.HISTORY.alpha, 'tier alphas are ordered LIVE > HISTORY > NEVER');

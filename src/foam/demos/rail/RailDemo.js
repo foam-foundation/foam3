@@ -33,7 +33,9 @@ foam.CLASS({
     },
 
     function render() {
-      this.add(this.RailDiagramView.create({ grammar: this.toyGrammar() }));
+      var view = this.RailDiagramView.create({ grammar: this.toyGrammar() });
+      window.__rail = view;     // demo-only handle for scripted checks from the console
+      this.add(view);
     }
   ]
 });

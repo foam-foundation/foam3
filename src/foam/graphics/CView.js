@@ -754,8 +754,8 @@ foam.CLASS({
     function renderCache_(x) {
       /** Paints self + children into a fresh offscreen canvas covering cacheBounds_() at the current scale. */
       var scale = this.effectiveScale_(x) * this.scaleX;
-      var b = this.cacheBounds_();
-      b = { w: b.w + this.CACHE_PAD, h: b.h + this.CACHE_PAD };
+      var pad = this.CACHE_PAD, b = this.cacheBounds_();
+      b = { w: b.w + 2 * pad, h: b.h + 2 * pad };          // pad on every side: strokes spill past the rectangle in both directions
       var w = Math.max(1, Math.ceil(b.w * scale));
       var h = Math.max(1, Math.ceil(b.h * scale));
       var off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)
@@ -764,6 +764,7 @@ foam.CLASS({
       if ( ! off ) return false;             // no canvas at all: caller falls back to live painting
       var ctx = off.getContext('2d');
       ctx.scale(scale, scale);
+      ctx.translate(pad, pad);                              // local origin sits pad units inside the bitmap
       ctx.save();
         this.paintSelf(ctx);
       ctx.restore();
@@ -822,7 +823,7 @@ foam.CLASS({
           var scaleNow = this.effectiveScale_(x) * this.scaleX;
           var stale = ! this.cacheCanvas_ || Math.abs(scaleNow - this.cacheScale_) > this.CACHE_SCALE_TOLERANCE * this.cacheScale_;
           if ( stale && ! this.renderCache_(x) ) this.paintLive_(x);
-          else x.drawImage(this.cacheCanvas_, 0, 0, this.cacheW_, this.cacheH_);
+          else x.drawImage(this.cacheCanvas_, -this.CACHE_PAD, -this.CACHE_PAD, this.cacheW_, this.cacheH_);
         } else {
           this.paintLive_(x);
         }

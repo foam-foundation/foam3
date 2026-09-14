@@ -12,7 +12,7 @@ foam.CLASS({
 
   mixins: [ 'foam.u2.StyleConfigurator' ],
 
-  requires: [ 
+  requires: [
     'foam.u2.WrapperNode',
     'foam.core.reflow.TreeCellFormatter'
   ],
@@ -175,10 +175,11 @@ foam.CLASS({
       hidden: true,
       transient: true,
       factory: function() {
+        /* ignoreWarning */
         // Split on space or parentheses to parse commands like "dao accountBalanceDAO"
         let char = this.cmd.includes("(") ? "(" : " ";
         const cmdSplit = this.cmd.split(char)
-        
+
         this.commandDAO.find(cmdSplit[0]).then(c => {
           if ( c ) this.blockIcon = c.icon; // Get icon from the command
         });

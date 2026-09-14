@@ -145,6 +145,11 @@ foam.CLASS({
     },
 
     function setPosition() {
+      // A DOM parent the page has re-rendered is detached and reports an
+      // all-zero rect, which would move the dropdown to the top-left corner.
+      // Keep the last position until a connected parent is set. A FOAM Element
+      // parent has no isConnected and positions as before.
+      if ( this.parentEl?.isConnected === false ) return;
       var screenWidth  = this.window.innerWidth;
       var domRect      = this.parentEl.getBoundingClientRect();
       var screenHeight = this.window.innerHeight;
@@ -203,6 +208,7 @@ foam.CLASS({
       let fn = () => {
         if ( ! this.parentEl ) return;
         this.ro_ = new ResizeObserver(() => {
+          if ( this.parentEl?.isConnected === false ) return;
           if ( this.lockToParentWidth ) {
             this.dropdownE_.el_().style.width = this.parentEl.getBoundingClientRect().width;
           }

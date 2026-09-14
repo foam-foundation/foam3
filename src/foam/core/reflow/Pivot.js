@@ -24,7 +24,8 @@ foam.CLASS({
   ],
 
   requires: [
-    'foam.core.reflow.PivotTableView'
+    'foam.core.reflow.PivotTableView',
+    'foam.dao.SequenceNumberDAO'
   ],
 
   properties: [
@@ -33,7 +34,8 @@ foam.CLASS({
       of: 'foam.mlang.Expr',
       name:  'xFunc',
       label: 'X-Axis Function',
-      help:  'Sub-expression'
+      help:  'Sub-expression',
+      required: true
     },
     {
       class: 'Array',
@@ -53,15 +55,15 @@ foam.CLASS({
       name:  'rows',
       javaCloneProperty: '// noop',
       javaFactory: `
-        if ( getYFunc() == null ) return null;
+        if ( getYFunc() == null || getYFunc().length == 0 ) return null;
         var x =  getAcc();
         if ( getXFunc() != null ) {
-          for (int i = getXFunc().length - 1; i >= 0; i-- ) {
+          for ( int i = getXFunc().length - 1 ; i >= 0 ; i-- ) {
             x = GROUP_BY((foam.mlang.Expr) getXFunc()[i], x);
           }
         }
         var y = x;
-        for (int i = getYFunc().length - 1; i >= 0; i-- ) {
+        for ( int i = getYFunc().length - 1 ; i >= 0 ; i-- ) {
           y = GROUP_BY((foam.mlang.Expr) getYFunc()[i], y);
         }
         return y;
@@ -88,9 +90,9 @@ foam.CLASS({
       help:  'Columns.',
       javaCloneProperty: '// noop',
       javaFactory: `
-        if ( getXFunc() == null ) return null;
+        if ( getXFunc() == null || getXFunc().length == 0 ) return null;
         var ret = GROUP_BY((foam.mlang.Expr) getXFunc()[getXFunc().length - 1]);
-        for (int i = getXFunc().length - 2; i >= 0; i-- ) {
+        for (int i = getXFunc().length - 2 ; i >= 0 ; i-- ) {
           ret = GROUP_BY((foam.mlang.Expr) getXFunc()[i], ret);
         }
         return ret;
@@ -98,7 +100,7 @@ foam.CLASS({
       factory: function() {
         if ( ! this.xFunc ) return null;
         var ret = this.GROUP_BY(this.xFunc[this.xFunc.length - 1]);
-        for ( var i = this.xFunc.length - 2; i >= 0; i-- ) {
+        for ( var i = this.xFunc.length - 2 ; i >= 0 ; i-- ) {
           ret = this.GROUP_BY(this.xFunc[i], ret);
         }
         return ret;
@@ -153,6 +155,90 @@ foam.CLASS({
         List<String> yNames = Arrays.asList(getXFunc()).stream().map(a -> ((foam.mlang.Expr)a).toString()).collect(Collectors.toList());
         return "pivot(" + xNames + ", " + yNames + ", " + getAcc() + ")";
       `
+    },
+
+    function genModel(blockName) {
+      // Some expressions will have an 'outputType' property which could/should be used to determine the model property type
+
+      function exprToProp(e, name) {
+        let p = { name: name };
+
+        if ( foam.lang.Property.isInstance(e) ) {
+          p.name  = e.name;
+          p.class = e.cls_.id;
+          if ( e.of ) p.of = e.of;
+          if ( e.daoKey ) p.daoKey = e.daoKey;
+        } else if ( e.outputType ) {
+          p.class = e.outputType;
+        }
+
+        return p;
+      }
+
+      const model = {
+        package: 'foam.tmp',
+        name: 'Pivot' + blockName,
+        plural: 'Data',
+        ids: [ 'row' ],
+        properties: [
+          { class: 'Long', name: 'row' }
+        ]
+      };
+
+      for ( let i = 0 ; i < this.xFunc.length ; i++ )
+        model.properties.push(exprToProp(this.xFunc[i], 'row' + (i+1)));
+
+      for ( let i = 0 ; i < this.yFunc.length ; i++ )
+        model.properties.push(exprToProp(this.yFunc[i], 'col' + (i+1)));
+
+      var props = this.acc.toProperties ? this.acc.toProperties() : this.acc.VALUE ? [ this.acc.VALUE ] : [];
+      model.properties.push.apply(model.properties, props);
+
+      return model;
+    },
+
+    function asDAO(blockName) {
+      const model = this.genModel(blockName);
+      foam.CLASS(model);
+      var cls = foam.lookup('foam.tmp.' + model.name);
+
+      // So that tableColumns aren't remembered from a previous run
+      delete localStorage[cls.id];
+
+      var props = model.properties/*.slice(1)*/.map(p => cls.getAxiomByName(p.name));
+      var dao   = foam.dao.MDAO.create({of: cls});
+      var o     = cls.create({});
+
+      dao = this.SequenceNumberDAO.create({delegate: dao, property: 'row'});
+
+      this.processPivotValues(dao, o, props.slice(1), this.rows.groups, 0);
+
+      return dao;
+    },
+
+    function processPivotValues(dao, o, props, groups, i) {
+      Object.keys(groups).forEach(k => {
+        let v = groups[k];
+        props[0].set(o, k);
+        if ( foam.mlang.sink.GroupBy.isInstance(v) ) {
+          this.processPivotValues(dao, o, props.slice(1), v.groups, i+1);
+        } else if ( v.setPropertyValues ) {
+          let o2 = o.clone();
+          v.setPropertyValues(o2, v, props.slice(1));
+          o2.row = undefined;
+          dao.put(o2);
+        }
+      });
     }
+
+    /*
+    // Used for embedding, maybe not needed
+    function toProperties() {
+      let model = this.genModel();
+
+      return model.properties.slice(1);
+    },
+    */
+
   ]
 });

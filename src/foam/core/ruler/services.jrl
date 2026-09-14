@@ -2,6 +2,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "ruleThreadPool",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": false,
   "serviceScript": `
     return new foam.core.pool.ThreadPoolAgency.Builder(x)

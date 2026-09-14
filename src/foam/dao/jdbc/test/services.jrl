@@ -2,6 +2,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"JDBCConnectionSpec",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":false,
   "class":"foam.core.boot.CSpec",
   "service":{

@@ -25,9 +25,9 @@ foam.CLASS({
       const p          = this.Parsers.create();
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
-      (await this.flowDAO.select()).array.sort(comparator).map(f => {
+      (await this.flowDAO.select()).array.sort(comparator).forEach(f => {
         this.alt.args.push(p.sug(p.literalIC(f.name), {
-          text:  f.name,
+          text: f.name,
           prependSpaceOnSelect: false,
           category: 'flow'}));
       });

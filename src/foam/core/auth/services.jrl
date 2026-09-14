@@ -59,12 +59,13 @@ p({
   """
 })
 
-p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": "{\"class\":\"foam.core.auth.AgentAuthClient\",\"delegate\":{\"class\":\"foam.core.auth.ClientAgentAuthService\"}}"})
+p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "lazyOrder":-1, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": "{\"class\":\"foam.core.auth.AgentAuthClient\",\"delegate\":{\"class\":\"foam.core.auth.ClientAgentAuthService\"}}"})
 
 p({
   "class": "foam.core.boot.CSpec",
   "name": "agentJunctionDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "description": "DAO responsible for storing agent authentication permission information.",
   "serviceScript": """
@@ -237,6 +238,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"languageDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "authenticate": false,
   "serviceScript":`
@@ -257,6 +259,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"commonPasswordDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "authenticate":false,
   "serviceScript":`
@@ -512,6 +515,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "userRegistrationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "authenticate": false,
   "authNotes": "UserRegistrationDAO disables find, select and remove operations.",

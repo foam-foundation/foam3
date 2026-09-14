@@ -2,6 +2,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "socketConnectionBoxManager",
   "lazy": false,
+  "lazyOrder": -1,
   "service": {
     "class": "foam.box.socket.SocketConnectionBoxManager"
   }
@@ -11,6 +12,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "socketServer",
   "lazy": false,
+  "lazyOrder": -1,
   "service": {
     "class": "foam.box.socket.SocketServer"
   }
@@ -21,6 +23,7 @@ p({
   "name": "sslContextFactory",
   "description": "ssl context factory for creating ssl socket",
   "lazy":false,
+  "lazyOrder":-1,
   "service": {
     "class": "foam.box.socket.SslContextFactory"
   }
@@ -31,6 +34,7 @@ p({
   "name": "unsafeSslContextFactory",
   "description": "ssl context factory for creating ssl socket, without certificate verification",
   "lazy":false,
+  "lazyOrder":-1,
   "service": {
     "class": "foam.box.socket.UnsafeSslContextFactory"
   }

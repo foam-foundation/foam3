@@ -1049,6 +1049,9 @@ dao loading, which improves overall startup time.`,
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
             pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
             pdao.setEasyDAO(this);
+            // lazy:false promises the data is loaded at boot; NotPartitionedDAO
+            // defers replay to the first access, so load it now, on the boot thread.
+            if ( getCSpec() != null && ! getCSpec().getLazy() ) pdao.getDelegate();
             delegate = pdao;
           } else if ( getFixedSize() != null ) {
             // FixedSizeDAO already wraps the mdao/dedup chain above (see the

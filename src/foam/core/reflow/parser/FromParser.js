@@ -40,9 +40,11 @@ foam.CLASS({
   ],
 
   methods: [
-    async function aInit() {
-      await this.daoNameParser.aInit();
-      await this.sinkParser.aInit();
+    function aInit() {
+      return Promise.all([
+        this.daoNameParser.aInit(),
+        this.sinkParser.aInit()
+      ]);
     },
 
     function grammar(alt, eof, seq0, seq, seq1, str, sug, substring, sym, repeat, repeat0, anyChar, optional, notChars, literal, range, not, until0, literalIC) {

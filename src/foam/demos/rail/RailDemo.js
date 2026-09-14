@@ -9,39 +9,16 @@ foam.CLASS({
   name: 'RailDemo',
   extends: 'foam.u2.View',
 
-  documentation: 'Mounts the railroad viewer on a small hand-written grammar. Later PRs add a grammar picker to the viewer itself.',
+  documentation: 'Mounts the railroad viewer with typed grammar text enabled (dev only) and the toy preset loaded.',
 
-  requires: [
-    'foam.parse.Grammar',
-    'foam.parse.rail.RailDiagramView'
-  ],
+  requires: [ 'foam.parse.rail.RailDiagramView' ],
 
   methods: [
-    function toyGrammar() {
-      // A comma list with nested lists, plus an ordered-choice trap (keyword: "do" before "double").
-      // quoted / comment / upper exist to show the gate, until and badge notation.
-      var g = this.Grammar.create({ symbols: function(seq, sym, literal, plus, range, repeat, optional, alt, eof, not, anyChar, until, str) {
-        return {
-          START:   alt(seq(sym('list'), eof()), seq(sym('keyword'), eof())),
-          list:    seq(literal('['), optional(sym('ws')), repeat(sym('item'), seq(optional(sym('ws')), literal(','), optional(sym('ws')))), optional(sym('ws')), literal(']')),
-          item:    alt(sym('number'), sym('word'), sym('list'), sym('quoted')),
-          number:  plus(range('0', '9')),
-          word:    plus(range('a', 'z')),
-          ws:      plus(literal(' ')),
-          keyword: alt(literal('do'), literal('double')),
-          quoted:  seq(literal('"'), repeat(not(literal('"'), anyChar())), literal('"')),
-          comment: seq(literal('/*'), until(literal('*/'))),
-          upper:   str(plus(range('a', 'z')))
-        };
-      } });
-      g.addAction('upper', function(v) { return v.toUpperCase(); });
-      return g;
-    },
-
     function render() {
-      var view = this.RailDiagramView.create({ grammar: this.toyGrammar(), input: '[1, [ab, 22], x]' });
+      var view = this.RailDiagramView.create({ allowTypedGrammar: true });
       window.__rail = view;     // demo-only handle for scripted checks from the console
       this.add(view);
+      view.usePreset('comma list (toy)');
     }
   ]
 });

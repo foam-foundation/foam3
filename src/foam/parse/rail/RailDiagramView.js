@@ -19,6 +19,8 @@ foam.CLASS({
   `,
 
   requires: [
+    'foam.parse.Grammar',
+    'foam.parse.GrammarAxiom',
     'foam.parse.rail.DerivationPanel',
     'foam.parse.rail.Outcome',
     'foam.parse.rail.ParseTrace',
@@ -46,6 +48,9 @@ foam.CLASS({
     ^status { font: 13px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; }
     ^legend { font-size: 12px; color: #444; margin: 2px 0 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
     ^hint { color: #777; font-size: 12px; }
+    ^gram { border-bottom: 1px solid #ccc; padding: 8px; }
+    ^gram textarea { width: 100%; box-sizing: border-box; font: 12px monospace; height: 150px; }
+    ^gramTitle { font-weight: bold; color: #444; font-size: 12px; margin: 6px 0 4px; }
   `,
 
   messages: [
@@ -97,14 +102,30 @@ foam.CLASS({
     { name: 'RUN_TO_END',        message: 'Run to end' },
     { name: 'SLIDER_HINT',       message: 'slider = scrub through the recorded parse; the input box above is the text being parsed' },
     { name: 'NOT_PARSED',        message: 'input changed — press Start to parse it' },
-    { name: 'LOAD_FIRST',        message: 'load a grammar first' }
+    { name: 'LOAD_FIRST',        message: 'load a grammar first' },
+    { name: 'PRESET_PLACEHOLDER',     message: 'preset…' },
+    { name: 'REGISTERED_PLACEHOLDER', message: 'registered in this page…' },
+    { name: 'CLASS_ID_PLACEHOLDER',   message: 'class id, Enter' },
+    { name: 'TYPED_TITLE',            message: 'Grammar — body of a foam.parse symbols() function (dev only)' },
+    { name: 'LOAD_TYPED',             message: 'Load grammar' }
   ],
 
   constants: {
     ZOOM_STEP: 1.1,
     DRAG_THRESHOLD: 3,     // px of movement before a press counts as a drag, not a click
     TIP_OFFSET: 14,        // tooltip sits this far right/below the pointer (viewport px)
-    PLAY_INTERVAL_MS: 140  // auto-step pace
+    PLAY_INTERVAL_MS: 140, // auto-step pace
+    // The foam.parse.Parsers vocabulary injected into typed grammar text, by parameter name.
+    PARSER_NAMES: [ 'seq', 'seq0', 'seq1', 'alt', 'repeat', 'repeat0', 'plus', 'optional', 'sym', 'literal', 'literalIC',
+                    'range', 'chars', 'notChars', 'anyChar', 'eof', 'not', 'peek', 'until', 'until0', 'join', 'substring', 'str' ],
+    DEFAULT_PRESETS: {
+      'comma list (toy)': { input: '[1, [ab, 22], x]', grammar: "{\n  START:   alt(seq(sym('list'), eof()), seq(sym('keyword'), eof())),\n  list:    seq(literal('['), optional(sym('ws')), repeat(sym('item'), seq(optional(sym('ws')), literal(','), optional(sym('ws')))), optional(sym('ws')), literal(']')),\n  item:    alt(sym('number'), sym('word'), sym('list')),\n  number:  plus(range('0', '9')),\n  word:    plus(range('a', 'z')),\n  ws:      plus(literal(' ')),\n  keyword: alt(literal('do'), literal('double'))\n}" },
+      'key=value pairs': { input: 'name=alex;city="new york";tz=est', grammar: "{\n  START: seq(sym('pair'), repeat(seq(literal(';'), sym('pair'))), eof()),\n  pair:  seq(sym('key'), literal('='), sym('value')),\n  key:   plus(range('a', 'z')),\n  value: alt(sym('quoted'), sym('bare')),\n  quoted: seq(literal('\"'), repeat(notChars('\"')), literal('\"')),\n  bare:  plus(notChars(';'))\n}" },
+      'ordered-choice trap': { input: 'integer', grammar: "{\n  START: seq(sym('word'), eof()),\n  word:  alt(literal('in'), literal('int'), literal('integer'))\n}" },
+      'gates and badges': { input: '/* hi */"x"', grammar: "{\n  START:   seq(sym('comment'), sym('quoted'), eof()),\n  comment: seq(literal('/*'), until(literal('*/'))),\n  quoted:  seq(literal('\"'), repeat(not(literal('\"'), anyChar())), literal('\"')),\n  upper:   str(plus(range('a', 'z')))\n}" },
+      'BAD: loop over empty match': { input: 'b', grammar: "{\n  START: seq(sym('as'), eof()),\n  as:    repeat(optional(literal('a')))\n}" },
+      'BAD: left recursion': { input: '1,2', grammar: "{\n  START: seq(sym('list'), eof()),\n  list:  alt(seq(sym('list'), literal(','), sym('item')), sym('item')),\n  item:  range('0', '9')\n}" }
+    }
   },
 
   properties: [
@@ -126,7 +147,14 @@ foam.CLASS({
     { name: 'playBtn' },
     { name: 'ribbonEl' },
     { name: 'playTimer_' },
-    { name: 'drag_' }
+    { name: 'drag_' },
+    { name: 'presets', factory: function() { return this.DEFAULT_PRESETS; }, documentation: 'name -> { input, grammar: symbols() body as text }.' },
+    { class: 'Boolean', name: 'allowTypedGrammar', documentation: 'Dev only: show the textarea that compiles typed grammar text. Off by default; the demo page turns it on.' },
+    { class: 'String', name: 'grammarText' },
+    { name: 'grammarEl' },
+    { name: 'registeredEl' },
+    { name: 'classIdEl' },
+    { name: 'registered_', factory: function() { return []; }, documentation: '[{ label, load }] grammars found in the page by scanRegistered().' }
   ],
 
   methods: [
@@ -183,6 +211,24 @@ foam.CLASS({
             .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
           .end()
           .start('div').addClass(this.myClass('right'))
+            .start('div').addClass(this.myClass('gram'))
+              .start('div').addClass(this.myClass('bar'))
+                .start('select').on('change', function(e) { if ( e.target.value ) self.usePreset(e.target.value); })
+                  .start('option').attrs({ value: '' }).add(this.PRESET_PLACEHOLDER).end()
+                  .forEach(Object.keys(this.presets), function(k) { this.start('option').attrs({ value: k }).add(k).end(); })
+                .end()
+                .start('select', null, this.registeredEl$).on('change', function(e) { if ( e.target.value ) self.loadRegistered(e.target.value); })
+                  .start('option').attrs({ value: '' }).add(this.REGISTERED_PLACEHOLDER).end()
+                .end()
+                .start('input', null, this.classIdEl$).attrs({ placeholder: this.CLASS_ID_PLACEHOLDER })
+                  .on('keydown', function(e) { if ( e.key === 'Enter' ) self.loadClassId(e.target.value.trim()); }).end()
+              .end()
+              .callIf(this.allowTypedGrammar, function() {
+                this.start('div').addClass(self.myClass('gramTitle')).add(self.TYPED_TITLE).end()
+                  .start('textarea', null, self.grammarEl$).attrs({ value: self.grammarText$, spellcheck: false }).on('input', function(e) { self.grammarText = e.target.value; }).end()
+                  .start('button').add(self.LOAD_TYPED).on('click', function() { self.loadTyped(); }).end();
+              })
+            .end()
             .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).add(this.ribbon).end()
             .start('div').addClass(this.myClass('panel')).add(this.panel).end()
             .start('div').addClass(this.myClass('controls'))
@@ -232,6 +278,95 @@ foam.CLASS({
         var v = self.viewPoint(e), hit = self.scene.hitAtView(v.x, v.y);
         if ( hit && self.RailStrip.isInstance(hit) ) self.scene.centerOnStrip(hit.name);
       });
+
+      this.scanRegistered();
+    },
+
+    // ---- grammar sources -------------------------------------------------
+
+    function compileGrammar(text) {
+      /**
+       * The text is the body of a foam.parse symbols() function; the Parsers vocabulary
+       * is injected by parameter name. Grammar.SYMBOLS.adapt reads those names off
+       * fn.toString() with a single-line regex, so the parameter list stays on ONE line.
+       * Dev-only: this evaluates typed code on the user's own page.
+       */
+      var fn = new Function('return function(' + this.PARSER_NAMES.join(', ') + ') { return (' + text + '); };')();
+      return this.Grammar.create({ symbols: fn });
+    },
+
+    function loadTyped() {
+      if ( ! this.allowTypedGrammar ) return;
+      try { this.useGrammar(this.compileGrammar(this.grammarText)); }
+      catch (x) { this.status = 'grammar error: ' + ( x.message || x ); }
+    },
+
+    function usePreset(name) {
+      /** A preset swaps grammar and sample input together and loads at once. */
+      var p = this.presets[name];
+      if ( ! p ) return;
+      this.grammarText = p.grammar;
+      this.syncGrammarEl();
+      this.setInput(p.input);
+      try { this.useGrammar(this.compileGrammar(p.grammar)); }
+      catch (x) { this.status = 'preset error: ' + ( x.message || x ); }
+    },
+
+    function syncGrammarEl() {
+      var self = this;
+      if ( this.grammarEl ) this.grammarEl.el().then(function(el) { el.value = self.grammarText; });
+    },
+
+    function scanRegistered() {
+      /**
+       * Grammars already in this page: classes that extend foam.parse.Grammar or declare
+       * grammars: axioms. Built classes are inspected directly; lazy models are peeked at
+       * (extends / grammars keys) before building, because building everything is slow and
+       * floods the console with unrelated errors.
+       */
+      var self = this, found = [];
+      var consider = function(id) {
+        try {
+          var cls = foam.lookup(id, true);
+          if ( ! cls || ! cls.getAxiomsByClass ) return;
+          if ( self.Grammar.isSubClass(cls) && cls !== self.Grammar ) found.push({ label: id, load: function() { return cls.create(); } });
+          cls.getAxiomsByClass(self.GrammarAxiom).forEach(function(ax) {
+            found.push({ label: id + '.' + ax.name, load: function() { return cls.create()[ax.name]; } });
+          });
+        } catch (x) { /* a class that refuses to build is not a grammar we can show */ }
+      };
+      Object.keys(foam.USED || {}).forEach(consider);
+      Object.keys(foam.UNUSED || {}).forEach(function(id) {
+        var m = foam.UNUSED[id];
+        if ( m && ( m.extends === 'foam.parse.Grammar' || ( m.grammars && m.grammars.length ) ) ) consider(id);
+      });
+      found.sort(function(a, b) { return a.label < b.label ? -1 : 1; });
+      this.registered_ = found;
+      if ( this.registeredEl ) this.registeredEl.el().then(function(el) {
+        found.forEach(function(f, i) { var o = document.createElement('option'); o.value = String(i); o.textContent = f.label; el.appendChild(o); });
+      });
+    },
+
+    function loadRegistered(i) {
+      try {
+        var f = this.registered_[+i];
+        this.grammarText = '// loaded from ' + f.label + ' (read-only; pick a preset to type your own)';
+        this.syncGrammarEl();
+        this.useGrammar(f.load());
+      } catch (x) { this.status = 'could not load: ' + ( x.message || x ); }
+    },
+
+    function loadClassId(id) {
+      /** Third path: a class id typed by hand. Grammar subclass, or Class.axiomName for a grammars: axiom. */
+      var parts = id.split('.'), cls = foam.lookup(id, true), ax = null;
+      if ( ! cls && parts.length > 1 ) { cls = foam.lookup(parts.slice(0, -1).join('.'), true); ax = parts[parts.length - 1]; }
+      if ( ! cls ) { this.status = 'no class ' + id; return; }
+      try {
+        var obj = cls.create();
+        var g = ax ? obj[ax] : obj;
+        if ( ! this.Grammar.isInstance(g) ) { this.status = id + ' is not a grammar'; return; }
+        this.useGrammar(g);
+      } catch (x) { this.status = 'could not load ' + id + ': ' + ( x.message || x ); }
     },
 
     function useGrammar(grammar) {

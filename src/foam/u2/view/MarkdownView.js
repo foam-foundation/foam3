@@ -649,6 +649,7 @@ foam.CLASS({
           .start(this.INSERT_EXAMPLE, { label: 'Example', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_PERMISSIONED, { label: 'Perm', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_INCLUDE, { label: 'Include', size: 'SMALL' }).addClass(this.myClass('tool')).end()
+          .start(this.INSERT_HINT, { label: 'Hint', size: 'SMALL'}).addClass(this.myClass('tool')).end()
         .end()
         .endContext()
         .start(foam.u2.tag.TextArea, {
@@ -1135,6 +1136,15 @@ foam.CLASS({
       toolTip: 'Include Another Document',
       code: function() {
         this.insertTemplate('<include src="$TEXT"></include>\n', 'filename.md', 'filename.md');
+      }
+    },
+    {
+      name: 'insertHint',
+      label: 'Hint',
+      buttonStyle: 'TERTIARY',
+      toolTip: 'Insert Hint',
+      code: function() {
+        this.insertAtCursor('<hint></hint>\n');
       }
     }
   ]

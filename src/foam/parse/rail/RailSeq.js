@@ -11,8 +11,14 @@ foam.CLASS({
 
   documentation: 'Items side by side on one track, aligned on their entry rows. Draws Sequence, Sequence0 and Sequence1.',
 
+  constants: {
+    EMPHASIS_DASH: [ 2, 2 ],
+    EMPHASIS_PAD: 3
+  },
+
   properties: [
-    { name: 'items', factory: function() { return []; } }
+    { name: 'items', factory: function() { return []; } },
+    { class: 'Int', name: 'emphasis', value: -1, documentation: 'Index of the item whose value the sequence returns (Sequence1.n), or -1.' }
   ],
 
   methods: [
@@ -41,6 +47,15 @@ foam.CLASS({
         Tr.h(ctx, this.items[k].x + this.items[k].width, this.items[k + 1].x, this.entryY);
       }
       ctx.stroke();
+      if ( this.emphasis >= 0 && this.items[this.emphasis] ) {
+        // Sequence1 returns only this item's value: dashed outline plus ▸n (1-based for the reader).
+        var it = this.items[this.emphasis], T = this.theme, p = this.EMPHASIS_PAD;
+        ctx.setLineDash(this.EMPHASIS_DASH); ctx.strokeStyle = T.resolve('muted'); ctx.lineWidth = T.STROKE_BASE;
+        ctx.strokeRect(it.x - p, it.y - p, it.width + 2 * p, it.height + 2 * p);
+        ctx.setLineDash([]);
+        ctx.font = T.font('badge'); ctx.fillStyle = T.resolve('muted'); ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+        ctx.fillText('▸' + ( this.emphasis + 1 ), it.x - p, it.y - p - 1);
+      }
     }
   ]
 });

@@ -23,6 +23,7 @@ foam.POM({
     { name: 'RailOptional', flags: 'web' },
     { name: 'RailUntil', flags: 'web' },
     { name: 'RailGate', flags: 'web' },
+    { name: 'RailBadge', flags: 'web' },
     { name: 'RailSymRef', flags: 'web' },
     { name: 'RailStrip', flags: 'web' },
     { name: 'RailBuilder', flags: 'web' },

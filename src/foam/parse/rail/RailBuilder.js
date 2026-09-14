@@ -18,6 +18,7 @@ foam.CLASS({
 
   requires: [
     'foam.parse.rail.RailAlt',
+    'foam.parse.rail.RailBadge',
     'foam.parse.rail.RailGate',
     'foam.parse.rail.RailGeneric',
     'foam.parse.rail.RailOptional',
@@ -34,6 +35,7 @@ foam.CLASS({
     { name: 'grammar', documentation: 'A foam.parse.Grammar (symbols[] of PSymbol {name, parser}).' },
     { name: 'theme',   factory: function() { return this.RailTheme.create(); } },
     { name: 'measure', factory: function() { return foam.graphics.TextUtil.estimateMeasurer(7); } },
+    { name: 'warned_', factory: function() { return new Set(); }, documentation: 'Class names warned about in the current build.' },
     {
       class: 'String',
       name: 'startSymbol',
@@ -102,6 +104,7 @@ foam.CLASS({
     function buildStrips(opt_names) {
       /** One strip per rule name (default: every rule in declaration order). */
       var self = this, ids = foam.parse.rail.ParserIds;
+      this.warned_ = new Set();
       var names = opt_names || this.grammar.symbols.map(function(ps) { return ps.name; });
       return names.map(function(name) {
         var parser = self.grammar.getSymbol(name);
@@ -133,6 +136,25 @@ foam.CLASS({
       return el;
     },
 
+    function badgeRow(p) {
+      /** Tag for a value-only decorator, or null if p is not one. Order matters: Repeat0/Plus are handled earlier. */
+      var P = foam.parse;
+      if ( P.Sequence0.isInstance(p) )       return '∅';
+      if ( P.Substring.isInstance(p) )       return '«»';
+      if ( P.String.isInstance(p) || P.Join.isInstance(p) ) return '⊕';
+      if ( P.ParserWithAction.isInstance(p) ) return '⚙';
+      if ( P.Suggest.isInstance(p) || P.Msg.isInstance(p) ) return '💬';
+      if ( P.DebugParser.isInstance(p) )     return '🐞';
+      return null;
+    },
+
+    function generic(p) {
+      /** Grey box; warns once per class name per build so a new combinator is noticed without breaking the page. */
+      var name = p && p.cls_ ? p.cls_.name : '(plain object)';
+      if ( ! this.warned_.has(name) ) { this.warned_.add(name); console.warn('foam.parse.rail: no drawing for ' + name + ', drawing a generic box'); }
+      return this.make(this.RailGeneric, { text: name });
+    },
+
     function build(p, chain, path) {
       /** The mapping table. Each PR appends rows; the last row is the never-throw fallback. */
       var self = this, P = foam.parse, L = foam.parse.rail.ParserLabels;
@@ -146,8 +168,9 @@ foam.CLASS({
       var text = L.terminal(p);
       if      ( text !== null )                        el = this.make(this.RailTerminal, { text: text, badge: L.badge(p) });
       else if ( P.Alternate.isInstance(p) )            el = this.make(this.RailAlt, { items: kids(p.args) });
-      else if ( P.Sequence.isInstance(p) || P.Sequence0.isInstance(p) || P.Sequence1.isInstance(p) )
-                                                       el = this.make(this.RailSeq, { items: kids(p.args) });
+      else if ( P.Sequence.isInstance(p) )             el = this.make(this.RailSeq, { items: kids(p.args) });
+      else if ( P.Sequence1.isInstance(p) )            el = this.make(this.RailSeq, { items: kids(p.args), emphasis: p.n });
+      else if ( P.Sequence0.isInstance(p) )            el = this.make(this.RailBadge, { item: this.make(this.RailSeq, { items: kids(p.args) }), tag: '∅' });
       else if ( P.Repeat.isInstance(p) )               el = rep();
       else if ( P.Optional.isInstance(p) )             el = this.make(this.RailOptional, { item: one(p.p) });
       else if ( P.Until.isInstance(p) || P.Until0.isInstance(p) )
@@ -157,7 +180,8 @@ foam.CLASS({
       else if ( P.Not.isInstance(p) )                  el = this.make(this.RailGate, { item: one(p.p), elseItem: p.else ? one(p.else) : null, negate: true });
       else if ( P.Peek.isInstance(p) )                 el = this.make(this.RailGate, { item: one(p.p), negate: false });
       else if ( P.Symbol.isInstance(p) )               el = this.make(this.RailSymRef, { name: p.name, builder: this, chain: chain, missing: ! this.hasSymbol(p.name) });
-      else                                             el = this.make(this.RailGeneric, { text: p && p.cls_ ? p.cls_.name : '(plain object)' });
+      else if ( this.badgeRow(p) !== null && p.p )     el = this.make(this.RailBadge, { item: one(p.p), tag: this.badgeRow(p), hint: P.ParserWithAction.isInstance(p) && p.action ? String(p.action) : '' });
+      else                                             el = this.generic(p);
       el.parser  = p;
       el.pathIds = here;
       return el;

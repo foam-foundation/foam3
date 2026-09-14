@@ -79,7 +79,8 @@ foam.CLASS({
         group.add(far);
         group.cache();
         group.paint(ctx);
-        x.test(group.cacheW_ === 340 && group.cacheH_ === 140, 'a sizeless group caches the extent of its children (340 x 140)');
+        var pad = foam.graphics.CView.CACHE_PAD;
+        x.test(group.cacheW_ === 340 + pad && group.cacheH_ === 140 + pad, 'a sizeless group caches the extent of its children plus the edge padding');
         group.paint(ctx);
         x.test(far.paints === 1,            'the child inside the group bitmap is painted once, then blitted');
       } finally {

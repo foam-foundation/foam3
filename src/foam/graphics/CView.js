@@ -418,7 +418,8 @@ foam.CLASS({
   // Is listened to a foam.u2.Canvas() if one was created for
   // this CView.
   constants: {
-    CACHE_SCALE_TOLERANCE: 0.1   // re-render the cached bitmap when the effective scale drifts more than 10%
+    CACHE_SCALE_TOLERANCE: 0.1,  // re-render the cached bitmap when the effective scale drifts more than 10%
+    CACHE_PAD: 4                 // local units added around the cached extent so strokes and shadows at the edge are not cropped
   },
 
   topics: [ 'invalidated' ],
@@ -754,6 +755,7 @@ foam.CLASS({
       /** Paints self + children into a fresh offscreen canvas covering cacheBounds_() at the current scale. */
       var scale = this.effectiveScale_(x) * this.scaleX;
       var b = this.cacheBounds_();
+      b = { w: b.w + this.CACHE_PAD, h: b.h + this.CACHE_PAD };
       var w = Math.max(1, Math.ceil(b.w * scale));
       var h = Math.max(1, Math.ceil(b.h * scale));
       var off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)

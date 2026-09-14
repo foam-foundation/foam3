@@ -18,6 +18,7 @@ foam.CLASS({
 
   requires: [
     'foam.parse.rail.RailAlt',
+    'foam.parse.rail.RailGate',
     'foam.parse.rail.RailGeneric',
     'foam.parse.rail.RailOptional',
     'foam.parse.rail.RailRepeat',
@@ -153,8 +154,10 @@ foam.CLASS({
                                                        el = this.make(this.RailUntil, { terminator: one(p.p), badge: P.Until0.isInstance(p) ? '∅' : '' });
       else if ( P.UntilLiteral.isInstance(p) || P.UntilLiteral0.isInstance(p) )
                                                        el = this.make(this.RailUntil, { terminator: this.literalBox(p.s, here), badge: P.UntilLiteral0.isInstance(p) ? '∅' : '' });
+      else if ( P.Not.isInstance(p) )                  el = this.make(this.RailGate, { item: one(p.p), elseItem: p.else ? one(p.else) : null, negate: true });
+      else if ( P.Peek.isInstance(p) )                 el = this.make(this.RailGate, { item: one(p.p), negate: false });
       else if ( P.Symbol.isInstance(p) )               el = this.make(this.RailSymRef, { name: p.name, builder: this, chain: chain, missing: ! this.hasSymbol(p.name) });
-      else                                             el = this.make(this.RailGeneric, { text: p.cls_.name });
+      else                                             el = this.make(this.RailGeneric, { text: p && p.cls_ ? p.cls_.name : '(plain object)' });
       el.parser  = p;
       el.pathIds = here;
       return el;

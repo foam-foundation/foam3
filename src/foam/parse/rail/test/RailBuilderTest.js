@@ -25,11 +25,11 @@ foam.CLASS({
   methods: [
     function grammar() {
       // Parameter names ARE the Parsers vocabulary: Grammar resolves them by name.
-      return this.Grammar.create({ symbols: function(seq, sym, literal, literalIC, range, chars, notChars, anyChar, eof, not) {
+      return this.Grammar.create({ symbols: function(seq, sym, literal, literalIC, range, chars, notChars, anyChar, eof, cut) {
         return {
           START: seq(sym('item'), eof()),
           item:  seq(literal('['), sym('missingRule'), literalIC('x'), range('0', '9'), chars('ab'), notChars('"'), anyChar()),
-          weird: not(literal('a'))
+          weird: cut(literal('a'))
         };
       } });
     },
@@ -61,8 +61,8 @@ foam.CLASS({
       x.test(item[2].text === '"x"' && item[2].badge === 'aA', 'literalIC gets the aA badge');
       x.test(item[3].text === '0…9' && item[4].text === '[ab]' && item[5].text === '¬["]' && item[6].text === '•', 'other terminals labelled');
 
-      // Not is not mapped until PR 5: it must fall back to a generic box rather than throw.
-      x.test(this.RailGeneric.isInstance(strips[2].track) && strips[2].track.text === 'Not', 'unknown parser class -> RailGeneric named by class');
+      // cut() returns a plain object (no cls_): it must fall back to a generic box rather than throw.
+      x.test(this.RailGeneric.isInstance(strips[2].track) && strips[2].track.text === '(plain object)', 'unknown parser kind -> RailGeneric with a clear name');
 
       // Every element got the builder's theme and measure.
       var ok = true;

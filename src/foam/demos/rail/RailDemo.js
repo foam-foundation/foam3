@@ -19,17 +19,23 @@ foam.CLASS({
   methods: [
     function toyGrammar() {
       // A comma list with nested lists, plus an ordered-choice trap (keyword: "do" before "double").
-      return this.Grammar.create({ symbols: function(seq, sym, literal, plus, range, repeat, optional, alt, eof) {
+      // quoted / comment / upper exist to show the gate, until and badge notation.
+      var g = this.Grammar.create({ symbols: function(seq, sym, literal, plus, range, repeat, optional, alt, eof, not, anyChar, until, str) {
         return {
           START:   alt(seq(sym('list'), eof()), seq(sym('keyword'), eof())),
           list:    seq(literal('['), optional(sym('ws')), repeat(sym('item'), seq(optional(sym('ws')), literal(','), optional(sym('ws')))), optional(sym('ws')), literal(']')),
-          item:    alt(sym('number'), sym('word'), sym('list')),
+          item:    alt(sym('number'), sym('word'), sym('list'), sym('quoted')),
           number:  plus(range('0', '9')),
           word:    plus(range('a', 'z')),
           ws:      plus(literal(' ')),
-          keyword: alt(literal('do'), literal('double'))
+          keyword: alt(literal('do'), literal('double')),
+          quoted:  seq(literal('"'), repeat(not(literal('"'), anyChar())), literal('"')),
+          comment: seq(literal('/*'), until(literal('*/'))),
+          upper:   str(plus(range('a', 'z')))
         };
       } });
+      g.addAction('upper', function(v) { return v.toUpperCase(); });
+      return g;
     },
 
     function render() {

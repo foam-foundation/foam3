@@ -45,6 +45,8 @@ foam.CLASS({
     { name: 'LEGEND_GENERIC',    message: 'grey box = parser class with no drawing yet' },
     { name: 'LEGEND_UNFOLD',     message: '▾ = unfolded rule (click a blue box to unfold, its header to fold, shift-click to jump to the definition)' },
     { name: 'LEGEND_UNREACH',    message: 'muted name + (unreachable) = rule the start symbol never reaches' },
+    { name: 'LEGEND_GATE',       message: '⊘ dashed frame = must NOT match next (nothing consumed) · ⟶? = must match next' },
+    { name: 'LEGEND_BADGES',     message: '∅ no value · «» substring · ⊕ joined string · ⚙ action · 💬 suggestion/message · 🐞 debug' },
     { name: 'ALL_RULES',         message: 'all rules' },
     { name: 'UNREACHABLE_WORD', message: 'unreachable' },
     { name: 'FIT_WIDTH',         message: 'Fit width' },
@@ -96,6 +98,8 @@ foam.CLASS({
           .start('span').add(this.LEGEND_GENERIC).end()
           .start('span').add(this.LEGEND_UNFOLD).end()
           .start('span').add(this.LEGEND_UNREACH).end()
+          .start('span').add(this.LEGEND_GATE).end()
+          .start('span').add(this.LEGEND_BADGES).end()
         .end()
         .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
         .start('div').addClass(this.myClass('status')).add(this.status$).end();

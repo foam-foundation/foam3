@@ -12,20 +12,94 @@ foam.CLASS({
     Renders a body of text within a "hint" box
   `,
 
-  imports: [ 'markdownContext' ],
+  css: `
+    ^icon {
+      color: currentColor;
+      flex: 0 0 24px;
+      height: 24px;
+      margin-right: 8px;
+    }
+
+    ^icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    ^box {
+      margin: 8px;
+      padding: 8px;
+      border: 2px solid;
+      border-radius: 8px;
+      display: flex;
+    }
+
+    ^hint {
+      color: $hintText;
+      background-color: $hintBackground;
+      border-color: $hintBorder;
+    }
+
+    ^warning {
+      color: $hintWarningText;
+      background-color: $hintWarningBackground;
+      border-color: $hintWarningBorder;
+    }
+
+    ^danger {
+      color: $hintDangerText;
+      background-color: $hintDangerBackground;
+      border-color: $hintDangerBorder;
+    }
+
+    ^success {
+      color: $hintSuccessText;
+      background-color: $hintSuccessBackground;
+      border-color: $hintSuccessBorder;
+    }
+  `,
 
   properties: [
     {
+      class: 'Enum',
+      of: 'foam.u2.markdown.HintCategory',
+      name: 'category',
+      attribute: true,
+      adapt: function(old, nu) {
+        var E = foam.u2.markdown.HintCategory;
+        if ( E.isInstance(nu) ) return nu; // If we we're passed an enum we're all good!
+        if ( foam.String.isInstance(nu) ) { // If we're passed a string...
+          var v = E[nu.toUpperCase()]; // ...it needs to be converted into an enum
+          if ( v ) return v;
+        }
+        return old || E.HINT; // Default to hint if anything goes wrong
+      }
+    },
+    {
       class: 'String',
-      name: 'hint',
-      attribute: true
+      name: 'iconName',
+      expression: function(category) {
+        return category.glyphName;
+      }
     }
   ],
 
   methods: [
     function render() {
       this.SUPER();
-      this.start('h1').add('Hint').end();
+      var self = this;
+
+      this
+        .addClass()
+        .addClass(this.myClass('box')) // Box around the hint
+        .addClass(this.category$.map(function(c) { // Category -> CSS class
+          return self.myClass(c && c.cssClass ? c.cssClass : 'hint');
+        }))
+        .add(this.category$.map(function(c) { // Icon based on category
+          return foam.u2.tag.Image.create({
+            glyph: c && c.glyphName ? c.glyphName : 'documentation',
+            embedSVG: true
+          }, self).addClass(self.myClass('icon'));
+        }));
     }
   ]
 });
@@ -36,6 +110,6 @@ foam.SCRIPT({
   documentation: 'Registers hint custom elements for use in markdown',
 
   code: function() {
-    foam.__context__.registerElement(foam.u2.markdown.Hint, 'hint'); //<hint>
+    foam.__context__.registerElement(foam.u2.markdown.Hint); // <hint>
   }
 });

@@ -31,6 +31,8 @@ foam.POM({
     { name: 'RailStrip', flags: 'web' },
     { name: 'RailBuilder', flags: 'web' },
     { name: 'RailScene', flags: 'web' },
+    { name: 'RailInputRibbon', flags: 'web' },
+    { name: 'DerivationPanel', flags: 'web' },
     { name: 'RailDiagramView', flags: 'web' }
   ]
 });

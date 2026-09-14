@@ -11,6 +11,7 @@ foam.POM({
     { name: 'CViewThemeTest', flags: 'js&test|java&test' },
     { name: 'SceneTest', flags: 'js&test|java&test' },
     { name: 'HitRegionTest', flags: 'js&test|java&test' },
-    { name: 'CViewCacheTest', flags: 'js&test|java&test' }
+    { name: 'CViewCacheTest', flags: 'js&test|java&test' },
+    { name: 'TweenTest', flags: 'js&test|java&test' }
   ]
 });

@@ -166,7 +166,8 @@ foam.CLASS({
       documentation: 'Open the page with ?perf: Play reports the average scene paint cost in the status line when it stops.',
       factory: function() { return typeof location !== 'undefined' && location.search.indexOf('perf') >= 0; }
     },
-    { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' }
+    { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' },
+    { class: 'Boolean', name: 'debugHook', documentation: 'Expose window.__rail so scripted checks can drive the page deterministically.' }
   ],
 
   methods: [
@@ -302,6 +303,17 @@ foam.CLASS({
       });
 
       this.scanRegistered();
+
+      if ( this.debugHook && typeof window !== 'undefined' ) {
+        window.__rail = {
+          view:  this,
+          hit:   function(vx, vy) { var h = self.scene.hitAtView(vx, vy); return h ? { cls: h.cls_.name, tip: h.tipText ? h.tipText() : '', path: h.pathKey } : null; },
+          show:  function(n) { self.show(n); return self.status; },
+          step:  function() { return self.step; },
+          total: function() { return self.trace ? self.trace.length() : 0; },
+          strips: function() { return self.scene.strips.map(function(s) { return s.name; }); }
+        };
+      }
     },
 
     // ---- grammar sources -------------------------------------------------

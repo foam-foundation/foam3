@@ -9,14 +9,13 @@ foam.CLASS({
   name: 'RailDemo',
   extends: 'foam.u2.View',
 
-  documentation: 'Mounts the railroad viewer with typed grammar text enabled (dev only) and the toy preset loaded.',
+  documentation: 'Mounts the railroad viewer with typed grammar text enabled (dev only), the window.__rail debug hook, and the toy preset loaded.',
 
   requires: [ 'foam.parse.rail.RailDiagramView' ],
 
   methods: [
     function render() {
-      var view = this.RailDiagramView.create({ allowTypedGrammar: true });
-      window.__rail = view;     // demo-only handle for scripted checks from the console
+      var view = this.RailDiagramView.create({ allowTypedGrammar: true, debugHook: true });
       this.add(view);
       view.usePreset('comma list (toy)');
     }

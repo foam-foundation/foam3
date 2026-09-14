@@ -107,6 +107,13 @@ foam.CLASS({
       return s;
     },
 
+    function flashStrip(name) {
+      /** Centres on a strip and pulses its label so the eye finds it. */
+      var s = this.centerOnStrip(name);
+      if ( s ) this.startPulse(s);
+      return s;
+    },
+
     function sceneRectOf(el) {
       /** Element's box in scene coordinates: parents' translations summed, camera excluded. */
       var x = 0, y = 0;

@@ -94,11 +94,16 @@ foam.CLASS({
         .sort();
     },
 
-    function buildReachableStrips(showAll) {
-      /** Reachable strips first; with showAll, the unreachable ones follow, flagged, so the divider and the toggle count can show. */
-      var strips = this.buildStrips(this.reachableNames());
+    function buildReachableStrips(showAll, opt_filter) {
+      /**
+       * Reachable strips first; with showAll, the unreachable ones follow, flagged, so the
+       * divider and the toggle count can show. opt_filter keeps only names containing it
+       * (plain substring, no regex).
+       */
+      var keep = function(names) { return opt_filter ? names.filter(function(n) { return n.indexOf(opt_filter) >= 0; }) : names; };
+      var strips = this.buildStrips(keep(this.reachableNames()));
       if ( ! showAll ) return strips;
-      return strips.concat(this.buildStrips(this.unreachableNames()).map(function(s) { s.unreachable = true; return s; }));
+      return strips.concat(this.buildStrips(keep(this.unreachableNames())).map(function(s) { s.unreachable = true; return s; }));
     },
 
     function buildStrips(opt_names) {

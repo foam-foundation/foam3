@@ -107,7 +107,10 @@ foam.CLASS({
     { name: 'REGISTERED_PLACEHOLDER', message: 'registered in this page…' },
     { name: 'CLASS_ID_PLACEHOLDER',   message: 'class id, Enter' },
     { name: 'TYPED_TITLE',            message: 'Grammar — body of a foam.parse symbols() function (dev only)' },
-    { name: 'LOAD_TYPED',             message: 'Load grammar' }
+    { name: 'LOAD_TYPED',             message: 'Load grammar' },
+    { name: 'FIND_PLACEHOLDER',       message: 'find rule…' },
+    { name: 'UNFOLD_PATH',            message: 'Unfold path' },
+    { name: 'FOLD_ALL',               message: 'Fold all' }
   ],
 
   constants: {
@@ -136,6 +139,7 @@ foam.CLASS({
     { class: 'String', name: 'status' },
     { class: 'Boolean', name: 'showAll', documentation: 'Include rules unreachable from the start symbol.', postSet: function() { this.rebuildStrips(); } },
     { class: 'Int', name: 'unreachableCount' },
+    { class: 'String', name: 'findText', documentation: 'Substring filter on rule names; empty = every rule.', postSet: function() { this.rebuildStrips(); } },
     { class: 'String', name: 'input', value: '' },
     { name: 'trace', documentation: 'The recorded ParseTrace, or null before Start.' },
     { class: 'Int', name: 'step' },
@@ -169,6 +173,12 @@ foam.CLASS({
             .start('input').attrs({ type: 'checkbox' }).on('change', function(e) { self.showAll = e.target.checked; }).end()
             .add(' ', this.ALL_RULES, ' (', this.unreachableCount$, ' ', this.UNREACHABLE_WORD, ')')
           .end()
+          .start('input').attrs({ placeholder: this.FIND_PLACEHOLDER })
+            .on('input', function(e) { self.findText = e.target.value.trim(); })
+            .on('keydown', function(e) { if ( e.key === 'Enter' && self.scene.strips.length ) self.goToRule(self.scene.strips[0].name); })
+          .end()
+          .start('button').add(this.UNFOLD_PATH).on('click', function() { self.unfoldPath(); }).end()
+          .start('button').add(this.FOLD_ALL).on('click', function() { self.foldAll(); }).end()
           .start('span').add(this.HINT).end()
         .end()
         .start('div').addClass(this.myClass('legend'))
@@ -388,8 +398,43 @@ foam.CLASS({
     function rebuildStrips() {
       /** Strips follow the showAll toggle; the camera is kept (a toggle should not jump the view). */
       if ( ! this.builder ) return;
-      this.scene.setStrips(this.builder.buildReachableStrips(this.showAll));
+      this.scene.setStrips(this.builder.buildReachableStrips(this.showAll, this.findText));
       if ( this.trace ) this.show(this.step);
+    },
+
+    function goToRule(name) {
+      if ( ! this.scene.stripFor(name) ) this.findText = '';     // filtered out: show all again first
+      this.scene.flashStrip(name);
+    },
+
+    function unfoldPath() {
+      /** Open every rule reference on the derivation path, inside the start strip only, top-down; then re-light and re-fit. */
+      if ( ! this.trace ) return;
+      var self = this, snap = this.trace.at(this.step);
+      if ( ! snap.derivation ) return;
+      var startStrip = this.scene.stripFor(this.startSymbol);
+      var inStart = function(el) { for ( var p = el ; p ; p = p.parent ) if ( p === startStrip ) return true; return false; };
+      var todo = [ snap.derivation ], node;
+      while ( todo.length ) {                                    // explicit stack: a recursion staircase is deep
+        node = todo.pop();
+        if ( foam.parse.Symbol.isInstance(node.parser) ) {
+          self.scene.elementsFor(node.parser).forEach(function(el) { if ( self.RailSymRef.isInstance(el) && inStart(el) ) el.unfold(); });
+        }
+        for ( var i = node.kids.length - 1 ; i >= 0 ; i-- ) todo.push(node.kids[i]);
+      }
+      this.show(this.step);
+      this.scene.fitWidth();
+    },
+
+    function foldAll() {
+      var self = this, open;
+      do {
+        open = [];
+        this.scene.eachElement(function(el) { if ( self.RailSymRef.isInstance(el) && el.unfolded ) open.push(el); });
+        open.forEach(function(el) { el.fold(); });
+      } while ( open.length );
+      if ( this.trace ) this.show(this.step);
+      this.scene.fitWidth();
     },
 
     // ---- trace lifecycle -------------------------------------------------
@@ -494,7 +539,7 @@ foam.CLASS({
     function onHit(el, e) {
       /** Click policy. Rule reference: shift-click jumps to its definition, plain click unfolds/folds. Rule name: list its runs. */
       if ( this.RailSymRef.isInstance(el) ) {
-        if ( e.shiftKey ) { this.scene.centerOnStrip(el.name); return; }
+        if ( e.shiftKey ) { this.goToRule(el.name); return; }
         if ( el.canUnfold() || el.unfolded ) { el.toggle(); this.afterToggle(el); }
         return;
       }

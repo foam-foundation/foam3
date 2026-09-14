@@ -42,8 +42,9 @@ foam.CLASS({
         if ( c.parser ) {
           // TODO: this could be done faster if used Promise.all() somehow
           // TODO: some sub parsers like FlowNameParser are created multiple times
-//          console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
-          if ( parsers[c.parser.cls_.id] ) {
+          //          console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
+          // TODO: doesn't work
+          if ( false && parsers[c.parser.cls_.id] ) {
             parser = p.seq(parser, c.parser);
           } else {
             if ( c.parser.aInit ) await c.parser.aInit();

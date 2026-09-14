@@ -64,10 +64,10 @@
     - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
     - [A picker for `alternative`](#a-picker-for-alternative)
     - [Customizing a relationship-generated reference: `targetProperty`](#customizing-a-relationship-generated-reference-targetproperty)
-  - [The Generated CRUD Screen: Browse and Detail](#the-generated-crud-screen-browse-and-detail)
     - [Browse: the table and `tableCellFormatter`](#browse-the-table-and-tablecellformatter)
+  - [The Generated CRUD Screen: Detail and Create](#the-generated-crud-screen-detail-and-create)
     - [Detail: view and edit modes](#detail-view-and-edit-modes)
-    - [Faceted views: menus vs. naming conventions](#faceted-views-menus-vs-naming-conventions)
+    - [Configuring the DAOController from the menu](#configuring-the-daocontroller-from-the-menu)
   - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
 - [Nano Services (Coming Soon)](#nano-services-coming-soon)
 - [Notifications (Coming Soon)](#notifications-coming-soon)
@@ -136,7 +136,7 @@ This tutorial will guide you through creating of a new project using FOAM. FOAM 
 The tutorial will cover the initial setup and an application creation by creating a cooking recipe database. The tutorial assumes that you 
 already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. This tutorial also assumes that if you are using a Windows device, you are using WSL.
 
-> **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
+> 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
 By following this tutorial you will learn to:
 1. Initialize a new FOAM application 
@@ -498,7 +498,7 @@ style. (And the class-registry half has no React equivalent at all — that part
 
 </details>
 
-> **Note:** **The theory behind context.** What FOAM calls *context* is a first-class form of
+> 💡 **Note:** **The theory behind context.** What FOAM calls *context* is a first-class form of
 > **dynamic scoping**: a name like `recipeDAO` is resolved by walking the runtime chain of
 > *who created whom*, not by where the code is written (that latter, textual rule is
 > *lexical* scoping — what `let`/`const`/closures use). This is a sixty-year-old idea that
@@ -594,7 +594,7 @@ interface DAO {
 }
 ```
 
-> **Important:** DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
+> 💡 **Important:** DAO methods are asynchronous. In JavaScript, this is expressed by wrapping return values in Promises. For example, `put()` returns `Promise<FObject>`, `find()` returns `Promise<FObject>`, and `select()` returns `Promise<Sink>`. Use `.then()` or `await` to access the results.
 
 A Sink is a destination object that receives and processes query results from `select()`. Here is the Sink interface:
 
@@ -728,7 +728,7 @@ available if you run the application with the option <code>-Jdemo</code>. The `-
 You can create your own journals that you can use this way, by going to the runtime journals directory under /opt and lifting the entries into
 a different file, then including it at startup with the <code>-J</code> option. For more info see the chapter on [Journal Merging](#Journal-Merging).
 
-> **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
+> 💡 **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
 
 # Testing
 
@@ -1171,7 +1171,7 @@ foam.RELATIONSHIP({
 
 In our recipe app, the <code>alternative</code> property on <code>IngredientAmount</code> is a Reference because it's a **self-reference** (IngredientAmount pointing to another IngredientAmount), navigation is one-way, and it's optional metadata. The Recipe-to-RecipeStep link is a Relationship because we need <code>recipe.steps</code> to get all steps **and** <code>step.recipe</code> to navigate back — it's a core part of the domain structure.
 
-> **Aside — there's a simpler route.** FOAM also lets you model a recipe's steps as an <code>FObjectArray</code> of <code>RecipeStep</code>, storing them **inline on the Recipe** instead of as their own DAO records linked by a Relationship. That route skips much of the custom work this tutorial takes on — no junction handling, no saving the parent before you can link children, no custom pickers — and it's a perfectly good choice when steps are only ever created and edited as part of their recipe. The trade-off is **flexibility**: inline steps aren't independently queryable records, there's no <code>step.recipe</code> back-navigation, and the data isn't normalized (steps can't be shared or reported on on their own). We deliberately continue with the Relationship and a normalized schema throughout this tutorial: the goal here is to **demonstrate FOAM's capabilities**, not to reach the result the fastest.
+> 💡 **Aside — there's a simpler route.** FOAM also lets you model a recipe's steps as an <code>FObjectArray</code> of <code>RecipeStep</code>, storing them **inline on the Recipe** instead of as their own DAO records linked by a Relationship. That route skips much of the custom work this tutorial takes on — no junction handling, no saving the parent before you can link children, no custom pickers — and it's a perfectly good choice when steps are only ever created and edited as part of their recipe. The trade-off is **flexibility**: inline steps aren't independently queryable records, there's no <code>step.recipe</code> back-navigation, and the data isn't normalized (steps can't be shared or reported on on their own). We deliberately continue with the Relationship and a normalized schema throughout this tutorial: the goal here is to **demonstrate FOAM's capabilities**, not to reach the result the fastest.
 
 ## Defining Relationships
 
@@ -1496,7 +1496,7 @@ this.add(childElement);   // adds a child element or view instance
 
 But `add()` is far more powerful than these vanilla cases. Beyond slots (`this.name$`), which it binds reactively, it works through one simple rule: if the thing you add has a **`toE()`** method ("to Element"), `add()` calls it and inserts whatever that returns. Property constants (`this.SOME_PROPERTY`) and action constants (`this.SOME_ACTION`) are `toE()`-able **axioms**, so adding one renders its DOM. FObjects are `toE()`-able too: `this.add(someUser)` renders a *full detail view* of that object — rarely what you want in production (you normally want control over which detail view is used and how it's configured), but handy for debugging and prototyping. These inputs all depend on `data` and context, so we cover them in Layer 2.
 
-> **Note:** **Three terms worth pinning down**, since they show up throughout. They're the everyday object-oriented trio — a class, an instance of it, and a description for creating one — in FOAM's UI vocabulary:
+> 💡 **Note:** **Three terms worth pinning down**, since they show up throughout. They're the everyday object-oriented trio — a class, an instance of it, and a description for creating one — in FOAM's UI vocabulary:
 >
 > - **View — the class (definition).** The *type*: any class extending `foam.u2.View` that displays or edits data, e.g. `foam.u2.TextField`. This is the definition; nothing is on screen yet.
 > - **View instance — instantiation.** A view you have actually created with `.create(...)`, e.g. `foam.u2.TextField.create({ data$: this.name$ })`. Now it's a live object with its own state and lifecycle.
@@ -1573,7 +1573,7 @@ As with attributes, a style value can be a **slot** instead of a literal — pas
 
 Inline styles are convenient for one-off or computed values, but they don't scale — repeating them across elements is hard to maintain, and they can't express things like hover states. For anything reusable, reach for a scoped CSS class instead, which is what the next section covers.
 
-> **For the curious:** these are the methods you'll reach for constantly, but `Element` has many more — `br()`, `nbsp()`, `E()`, `removeClass()`, `enableClass()`, and so on. For a fuller, categorized rundown of the commonly used ones, see the [U2/U3 Element Method Reference](#u2u3-element-method-reference) appendix.
+> 💡 **For the curious:** these are the methods you'll reach for constantly, but `Element` has many more — `br()`, `nbsp()`, `E()`, `removeClass()`, `enableClass()`, and so on. For a fuller, categorized rundown of the commonly used ones, see the [U2/U3 Element Method Reference](#u2u3-element-method-reference) appendix.
 
 ### CSS Scoping with `^`
 
@@ -1611,7 +1611,9 @@ foam.CLASS({
 
 The `^` prefix ensures that `.title` in this component won't conflict with `.title` in another component. The `addClass()` method with no arguments adds the base class (matching the lone `^` in CSS), and `this.myClass('title')` generates the scoped class name for `^title`.
 
-> **Why `^` — and the `<<` twist:** this symbol is officially called **`CSS_SELF`**: inside a `css` block it's replaced with the view's own class name. Its real value is actually **`<<`** (`Element.CSS_SELF === '<<'`); it began life as `^`, but CSS later adopted `^` for its own *starts-with* attribute selector (e.g. `[href^="http"]`), so FOAM switched the self-symbol to `<<` to avoid the clash. U3 still accepts the old `^` for backward compatibility, and in practice nearly all code (this tutorial included) still writes `^`. The one thing to remember: if you ever need CSS's real `^` starts-with selector in a `css` block, use `<<` for the self-reference so the `^` is left for CSS. Scoped CSS isolates a view's styles; **theming** keeps them consistent across the whole app. Rather than hard-code colours and sizes, you can reference **design tokens** in a `css` block with a `$` prefix — `color: $textDefault;`, `background: $backgroundSecondary;` — resolved from a central palette (`foam.u2.CSSTokens`) that even carries dark-mode variants. The FOAM twist worth knowing now: the active theme is held in a **slot**, so switching it at runtime fires a `themeChange` that re-expands every view's CSS with the new values — the app re-themes live, no reload. Tokens and themes get their own tutorial; here we'll stick to plain CSS.
+> 💡 **Why `^` — and the `<<` twist:** this symbol is officially called **`CSS_SELF`**: inside a `css` block it's replaced with the view's own class name. Its real value is actually **`<<`** (`Element.CSS_SELF === '<<'`); it began life as `^`, but CSS later adopted `^` for its own *starts-with* attribute selector (e.g. `[href^="http"]`), so FOAM switched the self-symbol to `<<` to avoid the clash. U3 still accepts the old `^` for backward compatibility, and in practice nearly all code (this tutorial included) still writes `^`. The one thing to remember: if you ever need CSS's real `^` starts-with selector in a `css` block, use `<<` for the self-reference so the `^` is left for CSS.
+
+> 💡 **Theming (its own tutorial):** Scoped CSS isolates a view's styles; theming keeps them consistent across the whole app. Rather than hard-code colours and sizes, you can reference **design tokens** in a `css` block with a `$` prefix — `color: $textDefault;`, `background: $backgroundSecondary;` — resolved from a central palette (`foam.u2.CSSTokens`) that even carries dark-mode variants. The active theme is held in a **slot**, so switching it at runtime fires a `themeChange` that re-expands every view's CSS with the new values — the app re-themes live, no reload. Tokens and themes get their own tutorial; here we'll stick to plain CSS.
 
 ## Layer 2: Views
 
@@ -1623,21 +1625,9 @@ Layer 1 built inert DOM. Layer 2 is what connects those elements to your model's
 
 - **Action constants** (`this.SOME_ACTION`) are **action axioms**. Adding one renders a button (`foam.u2.ActionView`) bound to the context data: clicking runs the action's `code` against that object, and its enabled/visible state follows the action's `isEnabled` and `isAvailable` declarations.
 
-Because both resolve their target from the context `data`, rendering them outside a ready-made screen means supplying that object yourself with `startContext({ data: … })`. (FOAM can also wrap a property in a labeled, validated **border** — the form you see on every field of a generated screen — but that belongs with the Controllers, so we'll come back to it in Layer 3.) For a side-by-side of the `this.name` / `this.name$` / `this.NAME` / `this.NAME.__` forms, see the [Property Rendering](#property-rendering) reference in the appendix.
+Because both resolve their target from the context `data`, rendering them outside a ready-made screen means supplying that object yourself with `startContext({ data: … })`. FOAM can also wrap a rendered property in a **border** — a property wrapper that adds the field's label, validation messages, and required-marker around it, exactly what you see on every field of a generated form. For a side-by-side of the `this.name` / `this.name$` / `this.NAME` / `this.NAME.__` forms, see the [Property Rendering](#property-rendering) reference in the appendix.
 
-We'll build up from here: first the two base classes a data-bound view is built on, then the slot system underneath.
 
-### View vs Controller
-
-FOAM gives you three base classes to build on, depending on how much data-binding you need:
-
-- **`foam.u2.Element`**: The raw Layer 1 building block. Extend it directly when you're *not* a view — you have no `data` and no properties or actions of your own to bind to the DOM.
-
-- **`foam.u2.View`**: An `Element` with a `data` property, for rendering or editing an existing object.
-
-- **`foam.u2.Controller`**: Extends `View` but is designed for views that manage their own state — it typically defines its own properties rather than relying on external `data`.
-
-Use `Element` for a plain, data-free component; `View` when displaying or editing an existing object; `Controller` when building a self-contained screen with its own state management.
 
 ### Reactive Slots
 
@@ -1666,147 +1656,104 @@ When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancell
 this.onDetach(this.name$.sub(this.onNameChange));
 ```
 
-> **Note:** This is the short version — enough for the views in this tutorial. The full slot system is covered in the **[Slots guide](../guides/Slots.md)**: one- and two-way linking, deep `$`-chains that follow a value through nested objects, computed slots, the change event and subscription shape, cleanup, and the concrete slot types.
+### When the Stock UI Isn't Enough
 
-### Customizing the IngredientAmount View
+We've covered the three layers in the abstract; now let's put them to work. For most models the stock generated screens are all you need — but a recipe form runs into two problems they can't solve.
 
-We've covered the three layers in the abstract; now let's put them to work. `IngredientAmount` is a small but revealing model — it links to two other records — which makes it the perfect place to see how FOAM renders **references**, why the defaults fall short, and how a custom property view fixes them.
+#### Why the defaults fall short
 
-Open `src/com/foamdev/cook/IngredientAmount.js`. Alongside its own `amount` and `unit`, the object ends up with two references — but they're defined in different places:
+FOAM's out-of-the-box UI turns every model into a working browse/create/edit screen automatically. That carries most apps a long way. But a recipe form runs into two problems the defaults can't solve:
 
-- **`alternative`** — an optional substitute, a reference back to another `IngredientAmount`. This one is declared **directly in `IngredientAmount.js`**.
-- **`ingredient`** — which Ingredient this amount is *of*. This one is **not** in `IngredientAmount.js` at all; it's added to the model by the `Ingredient → IngredientAmount` relationship in **`Relationships.js`**.
+**Reference IDs, not names.** A `ReferenceProperty` stores a foreign key — the id of the linked record. The default view renders a plain text field for that raw id. That's technically correct, but a chef doesn't enter a foreign key for the ingredients table — they enter "2 cups flour".
 
-That difference is exactly what shapes how we customize each: for `alternative` we set the view on the property itself, and for `ingredient` we set it through the relationship.
+**No create-in-place.** When you're building a recipe from scratch, some ingredients might not exist in the system yet. With the stock view, adding "smoked paprika" that isn't there yet means leaving the recipe form, navigating to the Ingredients screen, creating it, coming back, and finding your place again. A user is entering a complete recipe in one pass — not administering a set of normalized tables.
 
-#### The problem with the default reference view
+The database is normalized for good reasons — ingredients, amounts, steps, and junctions are separate records, independently queryable and maintainable. But the user experience should feel like filling in a single recipe. Bridging that gap is what UI customization is for.
 
-A `Reference` is a **foreign key**: on the object it's stored as nothing more than the target's **id**. Left to itself, then, `ingredient` is a number like `42` and `alternative` is another id — and an id is meaningless to a user (*what is ingredient 42?*). In practice a raw reference either surfaces as a bare number (for example in a table column) or gets hidden altogether.
+#### Two options
 
-We can do far better. Because a property's editor is simply its `view` (Layer 2), we can swap the default for a custom **picker** that:
+**Option A — a fully custom screen.** Write a `foam.u2.Controller` that owns the whole form: its own properties for every draft value, explicit save logic to write records in the right order (recipe first, then steps, then ingredient amounts, then junctions), manual validation, manual permission checks. You can still use data binding and stock widgets inside it, but you are the one gluing everything together.
 
-- shows existing records by a human-readable summary instead of an id, and
-- lets you create a brand-new record **in place**, without leaving the form.
+Many FOAM newcomers take this route first. The learning curve is lower and initial velocity feels high. The downside is that code is a liability: every line you own is a line you maintain. Theming, responsive layout, routing, permissions, search, sorting — things the framework already provides — become yours to re-implement and keep in sync.
 
-We'll build one such picker, wire it onto the `alternative` reference, then reuse the exact same pattern for `ingredient` — with a twist, because `ingredient` comes from a relationship.
+**Option B — customise the built-in views.** Rather than replacing the generated screen, you target the two properties that need better UX (such as `alternative` and `ingredient`) and give each a custom `view`. The comics-generated table, form border, validation, and responsive layout all stay. You configure the view once on the property, and FOAM reaches for it everywhere that property is rendered — the generated form, the browse screen, any detail view — automatically, without touching anything else.
 
-#### A picker for `alternative`
+This tutorial follows Option B: the more challenging path, but the one that stays true to FOAM's DRY principle and pays dividends as the app grows.
 
-`alternative` is declared directly on `IngredientAmount`, so we attach the custom view right on the property:
+> 💡 **For the curious — Option A in practice:** `RecipeCreateView2.js` in the repository is a complete fully custom create screen. To wire it into the app, add this entry to `journal/menus.jrl`:
 
 ```javascript
-{
-  class: 'Reference',
-  of: 'com.foamdev.cook.IngredientAmount',
-  name: 'alternative',
-  targetDAOKey: 'ingredientAmountDAO',
-  section: 'other',
-  view: { class: 'com.foamdev.cook.AlternativePickerView' }   // ← custom picker
-}
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook.createRecipe",
+  "parent": "cookbook",
+  "label": "Fully Custom Create",
+  "order": 2,
+  "authenticate": true,
+  "keywords": ["create", "new"],
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view": { "class": "com.foamdev.cook.RecipeCreateView2" }
+  }
+})
 ```
 
-`view` is the key line: it tells FOAM to render this property with our `AlternativePickerView` instead of the stock reference view.
-
-Now the picker itself. The trick is to **not** rebuild the dropdown from scratch — we extend FOAM's stock `ReferencePropertyView` (which already gives us a searchable dropdown over the target DAO) and add only the "create in place" button on top. Here's the essence of `src/com/foamdev/cook/AlternativePickerView.js` (trimmed of CSS and comments):
+The class extends `foam.u2.Controller` — it carries its own state — and its render method coordinates steps, ingredients, and saves manually:
 
 ```javascript
 foam.CLASS({
   package: 'com.foamdev.cook',
-  name: 'AlternativePickerView',
-  extends: 'foam.u2.view.ReferencePropertyView',   // stock reference dropdown
+  name: 'RecipeCreateView2',
+  extends: 'foam.u2.Controller',
 
-  imports: [ 'ingredientAmountDAO' ],
-  requires: [
-    'com.foamdev.cook.IngredientAmount',
-    'foam.u2.dialog.Popup'
-  ],
-
-  actions: [
-    {
-      name: 'newAlternative',
-      label: 'New alternative',
-      code: function() { this.createAlternative(); }
-    }
-  ],
+  // ... imports, requires, 10+ properties to track draft state ...
 
   methods: [
     function render() {
       var self = this;
-
-      // SUPER renders the stock reference selector (the searchable dropdown).
-      this.SUPER();
-
-      // ...then we add one thing: a button to create a substitute in place,
-      // but only when the field is editable.
-      this.callIf(self.mode === foam.u2.DisplayMode.RW, function() {
-        this.startContext({ data: self })
-          .add(self.NEW_ALTERNATIVE)
-        .endContext();
-      });
-    },
-
-    function createAlternative() {
-      var self  = this;
-      var draft = this.IngredientAmount.create({}, this);
-      var popup = this.Popup.create({}, this);
-
-      popup
-        .start()
-          // Reuse IngredientAmount's OWN 'main' section as the create form —
-          // amount / unit / ingredient, with validation, for free.
-          .startContext({ data: draft })
-            .tag({
-              class: 'foam.u2.detail.VerticalDetailView',
-              data: draft,
-              useSections: [ 'main' ]
-            })
-          .endContext()
-          .start('button')
-            .add('Add')
-            .on('click', async function() {
-              if ( draft.errors_ ) return;                 // amount > 0 + ingredient required
-              var saved = await self.ingredientAmountDAO.put(draft);
-              self.data = saved.id;                        // reference the new substitute
-              popup.close();
-            })
-          .end()
-        .end();
-
-      this.add(popup);
+      this.addClass()
+        .add(this.dynamic(function(steps, stepIngredients, ingredientVersion) {
+          this.forEach(steps, function(step, index) {
+            var ingredients = stepIngredients[index] || [];
+            this.start().addClass(self.myClass('step'))
+              // ... step fields via startContext({ data: step }) ...
+              .forEach(ingredients, function(ia, iaIndex) {
+                // ... amount, unit, ingredient dropdown, new-ingredient popup ...
+              })
+            .end();
+          });
+        }))
+        // ... explicit Save that writes recipe → steps → amounts → junctions in sequence ...
     }
   ]
 });
 ```
 
-A few things worth calling out — each maps back to a layer concept:
+Two hundred and fifty lines for one create screen, and it still doesn't give you theming, responsive layout, permission checks, routing, or search. And that's just create — you still need to write separate custom reading and editing screens. This grows quickly into a surface area that is hard to keep consistent, and the gaps between hand-rolled screens are exactly where security holes and regressions hide. Option B is the right investment.
 
-- **`extends: 'foam.u2.view.ReferencePropertyView'`** — we inherit the searchable dropdown and its DAO wiring, so `render()` just calls `this.SUPER()` and appends to it. Reuse over reinvention.
-- **`callIf(self.mode === RW, …)`** — the create button appears only in read-write mode; in a read-only view there's nothing to create. (`mode` is the view's display mode — read-write vs read-only.)
-- **`startContext({ data: self })` + `add(self.NEW_ALTERNATIVE)`** — an **action axiom** rendered against the picker itself as its `data`: exactly the Layer 2 pattern, so the action's `code` runs with `this` = the picker.
-- **The create form reuses the model, not hand-built fields** — `VerticalDetailView` with `useSections: ['main']` renders IngredientAmount's own `main` section (amount / unit / ingredient), so the popup inherits the model's fields *and* its validation. No duplicated form code.
-- **`self.data = saved.id`** — a reference's `data` *is* the target **id**, so after saving we point the reference at the new record's id and the dropdown reflects it.
+### Customizing the IngredientAmount View
 
-> **Why an action instead of a hand-rolled button?** We could have written `.start('button').add('New alternative').on('click', …)` and been done. Defining a `foam.lang.Action` and rendering it with `add(self.NEW_ALTERNATIVE)` costs about the same but buys a lot more:
->
-> - **Declarative and consistent** — the label, tooltip, icon, and themed button styling all come from the action definition, so every action in the app looks and behaves the same instead of being hand-assembled at each call site.
-> - **Reactive enable / availability** — add an `isEnabled` or `isAvailable` function to the action and the button greys out or hides itself *automatically* as the data changes. With a raw button you'd have to toggle `disabled`/visibility yourself and keep it in sync.
-> - **Permission-gated** — actions can be tied to permissions, so the control simply doesn't render for users who aren't allowed to use it — no `if` checks sprinkled through the view.
-> - **Free extras** — confirmation dialogs, an async "running" state, and keyboard shortcuts are opt-in flags on the action, not per-button plumbing you re-implement.
-> - **One definition, many placements** — the same action can appear as a button here, a menu item or toolbar item elsewhere, or be invoked directly in code. The behaviour lives with the model, decoupled from where it's rendered.
+Open `src/com/foamdev/cook/IngredientAmount.js`. Alongside its own `amount` and `unit`, the object ends up with two references — but they're defined in different places:
 
-Here's the result — on the **Alternative** tab, the picker offers a searchable dropdown *and* a **New alternative** button whose popup reuses IngredientAmount's own `main` section (amount / unit / ingredient):
+- **`ingredient`** — which Ingredient this amount is *of*. This one is **not** in `IngredientAmount.js` at all; it's added to the model by the `Ingredient → IngredientAmount` relationship in **`Relationships.js`**.
+- **`alternative`** — an optional substitute, a reference back to another `IngredientAmount`. This one is declared **directly in `IngredientAmount.js`**.
 
-![Creating an alternative in place — the popup reuses the main section][app-screen-5]
+That difference is exactly what shapes how we customize each: for `ingredient` we set the view through the relationship, and for `alternative` we set it on the property itself.
 
-Register the view in `pom.js`:
+#### The problem with the default reference view
 
-```javascript
-{ name: 'AlternativePickerView', flags: 'js' }
-```
+A `Reference` is a **foreign key**: on the object it's stored as nothing more than the target's **id**. Left to itself, then, `ingredient` is a number like `42` and `alternative` is another id — and an id is meaningless to a user (*what is ingredient 42?*). In practice a raw reference either surfaces as a bare number (for example in a table column) or gets hidden altogether.
 
-#### Customizing a relationship-generated reference: `targetProperty`
+We can do far better. Because a property's editor is simply its `view`, we can swap the default for a custom **picker** that:
 
-The `ingredient` reference is different: we never declared it on `IngredientAmount`. It was **generated** by the relationship in `Relationships.js`:
+- shows existing records by a human-readable summary instead of an id, and
+- lets you create a brand-new record **in place**, without leaving the form.
+
+We'll build one such picker for `ingredient` first — its view is configured through the relationship — then apply the same pattern to `alternative`, which is declared directly on the model.
+
+#### A picker for `ingredient`: `targetProperty`
+
+The `ingredient` reference is one we never declared directly on `IngredientAmount`. It was **generated** by the relationship in `Relationships.js`:
 
 ```javascript
 foam.RELATIONSHIP({
@@ -1849,49 +1796,144 @@ foam.RELATIONSHIP({
 
 Two of these overrides answer the "foreign key is useless" problem directly:
 
-- **`view: IngredientPickerView`** — the same picker pattern as `AlternativePickerView`, but it creates a new **Ingredient** in place instead of an IngredientAmount. Every `*DetailView` that renders `ingredient` now gets the searchable, create-in-place picker automatically — configured once, on the relationship.
+- **`view: IngredientPickerView`** — a searchable dropdown over `ingredientDAO` with a create-in-place button (the same picker pattern you'll see for `alternative` below). Every `*DetailView` that renders `ingredient` now gets it automatically — configured once, on the relationship.
 - **`tableCellFormatter`** — without it, an `ingredient` table column would print the raw id; this resolves the reference and prints `ingredient.toSummary()` (its name) instead.
 
-> **Note:** `IngredientPickerView` is line-for-line the same shape as `AlternativePickerView` — extend `ReferencePropertyView`, add a create-in-place action — only its popup builds an `Ingredient` (name + category) and saves to `ingredientDAO`. Read one and you've read both. Register it in `pom.js` the same way.
+Create `src/com/foamdev/cook/IngredientPickerView.js`:
 
-On the **Ingredient** tab, the `ingredient` reference now renders with the same picker — a searchable dropdown plus a **New ingredient** button that opens a create-in-place popup, all without leaving the form:
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'IngredientPickerView',
+  extends: 'foam.u2.view.ReferencePropertyView',
+
+  imports: [
+    'ingredientDAO'
+  ],
+
+  requires: [
+    'com.foamdev.cook.Ingredient',
+    'foam.u2.dialog.Popup'
+  ],
+
+  css: `
+    ^ { display: inline-flex; align-items: center; gap: 8px; }
+    ^popup { display: flex; flex-direction: column; gap: 12px; padding: 24px; min-width: 320px; }
+    ^popup-title { font-size: 18px; font-weight: bold; }
+    ^popup input, ^popup select { width: 100%; height: 34px; box-sizing: border-box; }
+    ^actions { display: flex; gap: 8px; margin-top: 8px; }
+    ^btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+    ^btn-primary { background: #0066cc; color: white; }
+    ^btn-secondary { background: #666; color: white; }
+  `,
+
+  actions: [
+    {
+      name: 'newIngredient',
+      label: 'New ingredient',
+      toolTip: 'Create a new ingredient and use it here',
+      code: function() { this.createIngredient(); }
+    }
+  ],
+
+  methods: [
+    function fromProperty(prop) {
+      // Let ReferencePropertyView wire up the dropdown (choices, DAO) from the property.
+      this.SUPER(prop);
+    },
+
+    function render() {
+      var self = this;
+
+      // SUPER renders the stock reference selector (read or write view per mode).
+      this.SUPER();
+
+      // Add one thing on top: a button to create a new ingredient in place,
+      // but only when the picker is editable.
+      this.callIf(self.mode === foam.u2.DisplayMode.RW, function() {
+        this.startContext({ data: self })
+          .add(self.NEW_INGREDIENT)
+        .endContext();
+      });
+    },
+
+    function createIngredient() {
+      var self  = this;
+      var draft = this.Ingredient.create({}, this);
+      var popup = this.Popup.create({}, this);
+
+      popup
+        .start().addClass(this.myClass('popup'))
+          .start().addClass(this.myClass('popup-title')).add('New Ingredient').end()
+          .startContext({ data: draft })
+            .start().add(self.Ingredient.NAME.__).end()
+            .start().add(self.Ingredient.CATEGORY.__).end()
+          .endContext()
+          .start().addClass(this.myClass('actions'))
+            .start('button')
+              .addClass(this.myClass('btn')).addClass(this.myClass('btn-primary'))
+              .add('Add')
+              .on('click', async function() {
+                var name = (draft.name || '').trim();
+                if ( ! name ) { popup.close(); return; }
+                var saved = await self.ingredientDAO.put(draft);
+                self.data = saved.id;   // select the newly created ingredient
+                popup.close();
+              })
+            .end()
+            .start('button')
+              .addClass(this.myClass('btn')).addClass(this.myClass('btn-secondary'))
+              .add('Cancel')
+              .on('click', () => popup.close())
+            .end()
+          .end()
+        .end();
+
+      this.add(popup);
+    }
+  ]
+});
+```
+
+A few things worth calling out:
+
+- **`extends: 'foam.u2.view.ReferencePropertyView'`** — we inherit the searchable dropdown and its DAO wiring. `render()` just calls `this.SUPER()` and appends to it; reuse over reinvention.
+- **`fromProperty(prop)`** — called by the framework so the stock `ReferencePropertyView` can wire up its DAO and choices from the property axiom. We delegate with `this.SUPER(prop)` so all that wiring still happens.
+- **`callIf(self.mode === RW, …)`** — the create button appears only in read-write mode; in a read-only view there is nothing to create.
+- **`startContext({ data: self })` + `add(self.NEW_INGREDIENT)`** — an **action axiom** rendered against the picker itself as its `data`: exactly the Layer 2 pattern, so the action's `code` runs with `this` = the picker.
+- **`self.data = saved.id`** — a reference's `data` *is* the target **id**. After saving, we point `data` at the new ingredient's id and the dropdown reflects the selection.
+
+**How `data` context shifts inside one view.** `IngredientPickerView` is a `View`, which means it has an explicit `data` property — the ingredient id (`Long`) that the reference stores. That is the object the picker is *about*. But within a single `render()` and `createIngredient()`, what counts as "current data" changes three times:
+
+| Location in the code | `data` in context | Why |
+|---|---|---|
+| View level | ingredient id (Long) | `ReferencePropertyView` binds its dropdown to `this.data` — the foreign key being edited |
+| `startContext({ data: self })` in `render()` | the picker itself | `NEW_INGREDIENT` is an action axiom on the picker; its `code` runs with `this` = whatever object is `data` in context |
+| `startContext({ data: draft })` in `createIngredient()` | the new `Ingredient` draft | `NAME.__` and `CATEGORY.__` are property axioms — they bind to whatever object is `data` in context, which is the draft here |
+
+`startContext({ data: X })` opens a new scope: every axiom you `add()` inside it resolves its target from X instead of the outer `data`. `.endContext()` closes the scope and restores whatever was before. Each pair is a local, self-cleaning override — you can nest them as many levels deep as you need.
+
+> 💡 **Why an action instead of a hand-rolled button?** We could have written `.start('button').add('New ingredient').on('click', …)` and been done. Defining a `foam.lang.Action` and rendering it with `add(self.NEW_INGREDIENT)` costs about the same but buys a lot more:
+>
+> - **Declarative and consistent** — the label, tooltip, icon, and themed button styling all come from the action definition, so every action in the app looks and behaves the same instead of being hand-assembled at each call site.
+> - **Reactive enable / availability** — add an `isEnabled` or `isAvailable` function to the action and the button greys out or hides itself *automatically* as the data changes. With a raw button you'd have to wire that yourself.
+> - **Permission-gated** — actions can be tied to permissions, so the control simply doesn't render for users who aren't allowed to use it — no `if` checks sprinkled through the view.
+> - **Free extras** — confirmation dialogs, an async "running" state, and keyboard shortcuts are opt-in flags on the action, not per-button plumbing you re-implement.
+> - **One definition, many placements** — the same action can appear as a button here, a menu item or toolbar item elsewhere, or be invoked directly in code. The behaviour lives with the model, decoupled from where it's rendered.
+
+Register it in `pom.js`:
+
+```javascript
+{ name: 'IngredientPickerView', flags: 'js' }
+```
+
+To see it in action: open the **IngredientAmount** DAO, click the built-in **Create New Ingredient Amount** button, and on the form that opens click **New ingredient**. The in-place popup appears without leaving the screen:
 
 ![The ingredient picker — creating a new ingredient in place][app-screen-4]
 
-With these two views in place, `IngredientAmount` goes from a form full of meaningless ids to one where every reference is a searchable dropdown you can extend on the spot — and none of it required hand-writing a dropdown or a create dialog.
+Go ahead and add a few `IngredientAmount` records — pick or create an ingredient, set an amount and unit, then save. Once you have a couple of rows, close the create form and look at the browse table. Under the **Ingredient** column you'll see the ingredient's name ("Butter", "Flour", …), not a raw id. That's not magic — it's the `tableCellFormatter` we set on `targetProperty` doing its job.
 
-## Layer 3: Controllers (Comics)
-
-The third layer is **Controllers** — whole screens assembled from your model definition: browse, create, and edit wired together with navigation and actions, ready to use out of the box yet still customizable. FOAM's is **Comics**.
-
-**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — exactly the automatic Recipe and RecipeStep screens we saw earlier. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
-
-This tutorial only touches Comics **lightly** — just enough to plug the custom views we're about to build into it. Two closely related, higher-level pieces are **out of scope** here as well:
-
-- The **Application Controller** — the top-level shell that ties menus, navigation, and screens together into a running app.
-- **Theme** — FOAM's theming and branding system for colors, fonts, and styling across the app.
-
-To go deeper, see the **[Comics guide](../guides/Comics.md)** and the **[Application Controller guide](../guides/ApplicationController.md)**. A dedicated tutorial focused on Comics, the Application Controller, and theming is also on the way.
-
-## From Generated to Custom: the Recipe App
-
-The default relationship views got us a working UI for free, but the Recipe is the app's main model — and hopping between the separate Recipe, RecipeStep, and IngredientAmount screens to assemble one recipe quickly gets tedious. So we'll invest in a **custom screen** that lets us see and edit all of a recipe's steps and their ingredients in place, on a single form — assembled from the pieces above.
-
-## The Generated CRUD Screen: Browse and Detail
-
-The custom picker views we just built don't live in isolation — they show up inside the **CRUD screen FOAM generates for a DAO**. This is Layer 3 (Comics) in action: point `foam.comics.v3.DAOController` at a DAO and you get a full browse / view / edit / create UI, driven entirely by the model — no controller, table, or form code of your own.
-
-Under the hood the `DAOController` is a small state machine with a single `route` property that switches between three **micro-controllers**:
-
-| `route` | Screen |
-|---------|--------|
-| `''` (empty) | **Browse** — a searchable, sortable table (`DAOView`) |
-| a record id | **Detail** — view/edit that record (`DetailView`) |
-| `'create'`  | **Create** — an empty form (`CreateView`) |
-
-Clicking a row sets `route = id` (detail); the Create button sets `route = 'create'`. Because `route` is declared `memorable`, it's reflected in the URL, so browser back/refresh just work. Everything below is generated from `IngredientAmount`'s own declarations — its `tableColumns`, `sections`, property `view`s, and `actions`.
-
-### Browse: the table and `tableCellFormatter`
+#### Browse: the table and `tableCellFormatter`
 
 The browse table renders one column per entry in the model's `tableColumns` (falling back to all non-hidden properties). For `IngredientAmount` that's:
 
@@ -1914,7 +1956,7 @@ Three things are handed to the formatter, and together they make it flexible:
 - **`value`** — the value of *this* property for the row (e.g. the `ingredient` id).
 - **`obj`** — the whole **row object** (the `IngredientAmount`), so you can read its *other* properties. (The cell's `data` is this same row object, which is why the formatter can equivalently reach it as `this.data`.)
 
-Now the foreign-key problem comes back — in the table this time. The default formatter for `ingredient` prints `value`, which is the ingredient's **id** (a number): "what is ingredient 42?" all over again. We fixed the *form* with a picker; we fix the *table* with a custom `tableCellFormatter`, set on the same relationship `targetProperty` we configured earlier:
+Now the foreign-key problem comes back — in the table this time. The default formatter for `ingredient` prints `value`, which is the ingredient's **id** (a number): "what is ingredient 42?" all over again. We fixed the *form* with a picker; we fix the *table* with a custom `tableCellFormatter`, set on the same relationship `targetProperty` we configured above:
 
 ```javascript
 targetProperty: {
@@ -1928,6 +1970,64 @@ targetProperty: {
 ```
 
 `ingredient$find` is the async finder the `Reference` generated for us; it resolves the stored id to the actual `Ingredient`, and we render its summary into the cell. The column now reads "Butter" instead of "42". (We used `this.data` here, but since the formatter is also *handed* the row as its `obj` argument, `function(value, obj) { … obj.ingredient$find … }` does exactly the same thing.) A formatter can render anything — a status pill, an icon, a formatted date, a link — because it's just DOM-building code handed the value and the row.
+
+#### A picker for `alternative`
+
+`alternative` is declared directly on `IngredientAmount`, so we attach the custom view right on the property:
+
+```javascript
+{
+  class: 'Reference',
+  of: 'com.foamdev.cook.IngredientAmount',
+  name: 'alternative',
+  targetDAOKey: 'ingredientAmountDAO',
+  section: 'other',
+  view: { class: 'com.foamdev.cook.AlternativePickerView' }   // ← custom picker
+}
+```
+
+`view` is the key line: it tells FOAM to render this property with `AlternativePickerView` instead of the stock reference view.
+
+`AlternativePickerView` is built on the exact same pattern as `IngredientPickerView`: extend `ReferencePropertyView`, add a `newAlternative` action, and in `createAlternative()` open a popup — but instead of a simple name/category form it reuses `IngredientAmount`'s own `main` section via `VerticalDetailView` with `useSections: ['main']`, so the popup inherits the model's fields and validation for free. The file is provided in the project zip; copy `AlternativePickerView.js` into `src/com/foamdev/cook/` and register it in `pom.js`:
+
+```javascript
+{ name: 'AlternativePickerView', flags: 'js' }
+```
+
+Here's the result — on the **Alternative** tab, the picker offers a searchable dropdown *and* a **New alternative** button whose popup reuses IngredientAmount's own `main` section:
+
+![Creating an alternative in place — the popup reuses the main section][app-screen-5]
+
+With these two views in place, `IngredientAmount` goes from a form full of meaningless ids to one where every reference is a searchable dropdown you can extend on the spot — and none of it required hand-writing a dropdown or a create dialog.
+
+
+## Layer 3: Controllers (Comics)
+
+The third layer is **Controllers** — whole screens assembled from your model definition: browse, create, and edit wired together with navigation and actions, ready to use out of the box yet still customizable. FOAM's is **Comics**.
+
+**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — exactly the automatic Recipe browse and create screens we have been working with. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
+
+Two closely related pieces are out of scope for this tutorial:
+
+- The **Application Controller** — the top-level shell that ties menus, navigation, and screens together into a running app.
+- **Theme** — FOAM's theming and branding system for colors, fonts, and styling across the app.
+
+To go deeper on either, see the **[Comics guide](../guides/Comics.md)** and the **[Application Controller guide](../guides/ApplicationController.md)**.
+
+
+## The Generated CRUD Screen: Detail and Create
+
+Point `foam.comics.v3.DAOController` at any DAO and you get a complete **CRUD screen** — browse, detail, edit, and create — with no controller, table, or form code of your own. Every piece is driven by the model's own declarations: `tableColumns` for the browse table, `sections` for the form layout, property `view`s for individual fields, and `actions` for the button bar. Change the model and the screens update automatically.
+
+Under the hood the `DAOController` is a small state machine with a single `route` property that switches between three **micro-controllers**:
+
+| `route` | Screen |
+|---------|--------|
+| `''` (empty) | **Browse** — a searchable, sortable table (`DAOView`) |
+| a record id | **Detail** — view/edit that record (`DetailView`) |
+| `'create'`  | **Create** — an empty form (`CreateView`) |
+
+Clicking a row sets `route = id` (detail); the Create button sets `route = 'create'`. Because `route` is declared `memorable`, it's reflected in the URL, so browser back/refresh just work. Everything below is generated from `IngredientAmount`'s own declarations — its `tableColumns`, `sections`, property `view`s, and `actions`.
 
 ### Detail: view and edit modes
 
@@ -1957,60 +2057,205 @@ Each property opts into a section with `section: 'main'` (or `'other'`), and Com
 
 The view/edit screen (`DetailView`) defaults to the **tabbed** layout; the create screen (`CreateView`) defaults to the **sectioned** (card) layout. We override create to use the tabbed layout too, so create matches view/edit — which is why the `alternative` reference (in the `other` section) always appears under its own **Alternative** tab, create included. And because each property renders with its configured `view`, that Alternative tab is where our `AlternativePickerView` shows up, while `IngredientPickerView` renders `ingredient` on the `main` tab. The customization we did on the model flows automatically into every one of these generated screens.
 
-### Faceted views: menus vs. naming conventions
+### Configuring the DAOController from the menu
 
-So how do we tell Comics to use a *particular* form for a screen — like the tabbed create form from the previous section? There are two routes, and they suit different needs:
+We saw earlier that a menu entry's `handler` determines what happens when you open it, and `DAOMenu2` renders a full Comics CRUD screen for a DAO. The `config` object on that handler is a `DAOControllerConfig` — it tells Comics which DAO to use and lets you substitute any of the three generated screens with a view of your own:
 
-- **Explicit menu / config.** When a screen has its own menu entry, you can point that menu (or its `DAOControllerConfig`) at specific views — `createView`, `detailView`, `browseView`, and so on. This is the right tool when you want *one named screen* wired a particular way.
-- **Facets by naming convention.** Comics is **faceted**: when it needs a create or detail view for a model, it first looks for a class *named after that model* — `{Model}CreateView`, `{Model}DetailView` — and uses it automatically if it exists, falling back to the generic view otherwise. No menu, no config, no wiring: define the class and *every* create/detail screen for that model picks it up, everywhere it's used.
+| Key | Replaces |
+|-----|----------|
+| `browseView` | The browse table |
+| `detailView` | The view/edit detail screen |
+| `createView` | The inner form of the create screen |
 
-The tabbed create form is exactly this second route — and it's what gave the create screens in the screenshots earlier their **Ingredient** and **Alternative** tabs (instead of the default stacked cards). We never touched a menu — we created **`IngredientAmountCreateView.js`**, a `foam.comics.v3.CreateView` subclass that renders its form as tabs:
+Set any combination; leave the rest unset and Comics generates them from the model.
+
+By default, `createView` uses a **sectioned (card) layout** — all sections stacked on one page. You can see this by opening the **IngredientAmount** DAO directly from the Data Management screen and clicking **Create New Ingredient Amount**: both the Ingredient and Alternative sections appear together.
+
+For our Ingredients menu entry, that's not quite right. `alternative` is an optional substitute — not every ingredient amount has one. Showing it alongside the required fields on the same page makes the form feel cluttered. The tabbed layout is a better fit: the main **Ingredient** tab holds the fields a user always fills in, and the **Alternative** tab is there if needed without getting in the way.
+
+Add this entry to `journals/menus.jrl`:
 
 ```javascript
-foam.CLASS({
-  package: 'com.foamdev.cook',
-  name: 'IngredientAmountCreateView',        // ← {Model}CreateView: the facet name
-  extends: 'foam.comics.v3.CreateView',
-
-  properties: [
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'viewView',
-      factory: function() {
-        return {
-          class: 'foam.u2.view.FObjectView',
-          detailView: { class: 'foam.u2.detail.TabbedDetailView' }  // tabs, not cards
-        };
-      }
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook.ingredientAmount",
+  "parent": "cookbook",
+  "label": "Ingredients",
+  "order": 1,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {
+      "class": "foam.comics.v2.DAOControllerConfig",
+      "daoKey": "ingredientAmountDAO",
+      "createView": { "class": "foam.u2.detail.TabbedDetailView" }
     }
-  ]
-});
+  }
+})
 ```
 
-Because it's named `IngredientAmount` + `CreateView`, the comics create flow discovers and uses it automatically wherever an `IngredientAmount` is created — no reference to it anywhere. (Its sibling for the view/edit path would be `IngredientAmountDetailView`.) Register it in `pom.js` like any other file:
+Reload and open **Ingredients** from the Cook Book menu. The create form now shows **Ingredient** and **Alternative** as separate tabs. The browse table and the detail/edit screen are unchanged — only `createView` was overridden.
 
-```javascript
-{ name: 'IngredientAmountCreateView', flags: 'js' }
-```
+![Tabbed create form for Ingredient Amount — Ingredient and Alternative on separate tabs][app-screen-6]
 
-> ### 💡 Why Comics is worth leaning on
+> 💡 **Why Comics is worth leaning on**
 >
 > There's far more here than a tutorial can cover — and it's worth knowing what you get **for free**:
 >
-> - **Full-featured, for every model** — search, sorting, filtering, pagination, column selection, and import/export, all derived from the model's declarations. Not just the "important" entities — *every* model.
+> - **Full-featured, for every model** — search, sorting, filtering, pagination, column selection, and import/export, all derived from the model's declarations.
 > - **Responsive by default** — the screen adapts from desktop to phone with none of your CSS.
-> - **Everything is replaceable** — the table, the search bar, the create form, each micro-controller is a small component you can swap.
-> - **Inject once, used everywhere** — write your own version and wire it in by facet naming (as we just did), through config, or by registering the swap once in the theme/context. The **entire application uses it from that point on** — no call sites to hunt down, no forked code to maintain.
+> - **Everything is replaceable** — the table, the search bar, the create form; each micro-controller is a small component you can swap via config.
 >
-> Titles, columns, borders, CRUD-action overrides, and the rest are covered in the **[Comics guide](../guides/Comics.md)**.
+> Titles, columns, borders, and the full range of configuration options are covered in the **[Comics guide](../guides/Comics.md)**.
 
-**The takeaway:** because the table, the form, and their reference cells are all derived from the model, the two small picker views we wrote upgrade *every* generated screen at once — and a facet like `IngredientAmountCreateView` refines them further with zero wiring.
 
-## Creating a Custom Controller — RecipeCreateView
 
-// TODO: Build a RecipeCreateView as a Controller that manages its own state. Unlike RecipeDetailView (a View that displays external data), this Controller owns its own properties and orchestrates the creation of a Recipe with its steps and ingredients in a single screen.
+## The Recipe Screen: Putting It All Together
 
-For more on FOAM's UI framework, see the [FOAM DSL Guide][foam-dsl-guide], [Reactive UI Patterns][foam-reactive-ui], and [ControllerMode and Visibility][foam-visibility]. A complete method reference is available in the [U2/U3 Element Method Reference](#u2u3-element-method-reference) appendix.
+Everything we have built so far — the pickers, the browse formatter, the ingredient amounts view — was leading here. The Recipe is the app's centrepiece, and it is not a flat record: it has its own fields, a list of steps, and each step has ingredient amounts. The goal is a single screen where a user can read or edit all of that without leaving the page.
+
+Three pieces work together to make it happen: a **working-state on `Recipe`** that stages the step list during editing, **ComicsAction overrides** that persist the nested graph correctly on save and clean it up on cancel, and **`RecipeView`** — a custom view that composes everything into one form. The result is wired into the menu via `DAOControllerConfig`, exactly like the Ingredient Amounts entry we just built.
+
+### The ingredient amounts picker for a step: `RecipeStepIngredientAmountsView`
+
+Before the Recipe screen can show ingredient amounts inline on each step, there has to be a view that manages them. That is `RecipeStepIngredientAmountsView`, registered in `pom.js` and wired via the `RecipeStep → IngredientAmount` relationship in `Relationships.js`:
+
+```javascript
+foam.RELATIONSHIP({
+  sourceModel: 'com.foamdev.cook.RecipeStep',
+  targetModel: 'com.foamdev.cook.IngredientAmount',
+  forwardName: 'ingredientAmounts',
+  inverseName: 'recipeSteps',
+  cardinality: '*:*',
+  sourceProperty: {
+    label: 'Ingredients',
+    view: { class: 'com.foamdev.cook.RecipeStepIngredientAmountsView' },
+    createVisibility: 'RW',
+    updateVisibility: 'RW',
+    readVisibility: 'RO'
+  }
+});
+```
+
+The view renders a compact list of amounts linked to this step and adapts to the current controller mode: in VIEW it is read-only; in EDIT or CREATE the affordances activate — a searchable dropdown to link an existing amount, a **New ingredient amount** button to create one in place, and a **Remove** button on each row.
+
+A few things worth noting in how it works:
+
+- The searchable dropdown uses `RichChoiceView` pointed at `ingredientAmountDAO`, searching by `SUMMARY` — the `storageTransient` field the server pre-computes from `toSummary()`, so the client gets readable labels with no extra round-trip.
+- The `*:*` relationship requires the step to have an `id` before a junction can be created. The view handles this by persisting the step on first add if it is not yet saved, adopting the returned `id` in place so the surrounding create/Save flow just updates the same record.
+- Because the junction DAO does not fire events on the relationship's target DAO, there is no DAO event to bind the list re-render to. Instead the view tracks its own `invalidate` counter and bumps it after every add, remove, or edit — which causes the `slot()` rendering the list to rebuild.
+
+### Working state on `Recipe`: `editSteps` and `loadedStepIds`
+
+Comics' default Save writes the root object. For a Recipe, that is not enough: the steps are separate records linked by `recipe` id, and ingredient-amount junctions are separate records linked by `step` id. They must be persisted in the right order and only after the root has an id.
+
+Similarly, default Cancel just discards the in-memory working copy. But during editing a user may have persisted steps in place (because the ingredient-amounts picker needs a real step id). Those orphaned steps have to be deleted on Cancel.
+
+Two transient, hidden properties on `Recipe` carry the state across the editing session:
+
+```javascript
+{
+  // UI-only working set of steps while editing; the save ComicsAction persists them.
+  class: 'Array',
+  name: 'editSteps',
+  transient: true,
+  hidden: true
+},
+{
+  // Ids present when editing began; lets discardSteps keep pre-existing steps on Cancel.
+  class: 'Array',
+  name: 'loadedStepIds',
+  transient: true,
+  hidden: true
+}
+```
+
+`transient` means neither property is stored in the journal or sent over the network — they exist only in the client's in-memory object for the duration of an edit session.
+
+Two helper methods drive the cleanup logic:
+
+- **`saveSteps(x, recipeId)`** — iterates `editSteps`, sets each step's `recipe` and `rank`, and calls `recipeStepDAO.put()` in order.
+- **`discardSteps(x)`** — compares `editSteps` against `loadedStepIds`: any step with an id that was not there when editing started gets deleted along with its junctions via `removeWithJunctions`.
+
+### ComicsAction overrides on `Recipe`
+
+Three default Comics actions are overridden directly on the `Recipe` model. Because they are declared on the model, the correct logic runs everywhere a Recipe is saved — regardless of which screen triggered it.
+
+**`save`** — puts the recipe first to get an `id`, then calls `saveSteps`. After persisting, it signals the surrounding controller: in edit mode it refreshes the detail view's data and returns to VIEW; in create mode it navigates to the new record's detail screen.
+
+```javascript
+{
+  class: 'foam.comics.v3.ComicsAction',
+  name: 'save',
+  code: async function(x) {
+    var recipe = await x.config.dao.put(this);
+    await this.saveSteps(x, recipe.id);
+
+    if ( x.detailView ) {
+      x.detailView.data = recipe;
+      x.detailView.finished.pub();
+      x.config.dao.on.reset.pub();
+      x.detailView.controllerMode = 'VIEW';
+    } else if ( x.createView ) {
+      x.createView.data = recipe;
+      x.createView.finished.pub();
+      x.daoController && ( x.daoController.route = recipe.id );
+    }
+    x.notify(recipe.toSummary() + ' saved', '', foam.log.LogLevel.INFO, true);
+  }
+}
+```
+
+**`cancel`** (create flow) — calls `discardSteps` to clean up any steps created during this session, then navigates back to browse.
+
+**`cancelEdit`** (edit flow) — same step cleanup, then resets the working copy to the original data and returns to VIEW mode.
+
+### `RecipeView`
+
+`RecipeView` extends `foam.u2.View` and is registered in `pom.js`. Comics renders it as the inner form inside its own shell — the shell provides the Save/Cancel toolbar and page chrome, so `RecipeView` focuses entirely on the form layout.
+
+**`init()`** sets up two subscriptions:
+
+- Follows `controllerMode$` from the context so the view knows when to switch between VIEW and EDIT — the same mechanism `SectionView` uses.
+- Subscribes to `data$` so `loadSteps()` is called whenever the data object changes. This matters because Comics' detail view swaps between the original record and a working clone; `RecipeView` must reload the step list from whichever object is current.
+
+**`loadSteps()`** queries `data.steps` ordered by rank, writes the results into `editSteps`, and records their ids in `loadedStepIds`. A recipe with no `id` (still being created) starts with empty arrays — querying at `id = null` could return orphaned steps from the database.
+
+**`render()`** has two parts:
+
+1. The recipe's own fields, via `SectionedDetailView` with a `propertyWhitelist` that names only `NAME`, `CATEGORY`, and `DESCRIPTION`. The `steps` relationship is deliberately excluded — it would render as a raw table — and `hideActions: true` keeps the recipe's ComicsActions out of the form body (they live on the Comics shell).
+
+2. The step list — a labelled section with an **Add Step** button (edit mode only), then each step rendered via the default `SectionedDetailView`. Because `RecipeStepIngredientAmountsView` is already wired to the `ingredientAmounts` relationship, the standard step form automatically includes the ingredient amounts picker with no extra code here.
+
+**`addStep()`** creates a new `RecipeStep` with the recipe id and the next rank, and appends it to `editSteps`. The list re-renders reactively.
+
+**`removeStep(step)`** filters the step out of `editSteps`, renumbers the remaining steps' ranks, and — if the step was already persisted — immediately deletes it and its junctions from the DAO.
+
+### Wiring into the menu
+
+`RecipeView` is registered in `pom.js` and pointed to from the Recipes menu entry as both `detailView` and `createView`:
+
+```javascript
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook.recipe",
+  "parent": "cookbook",
+  "label": "Recipes",
+  "order": 0,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {
+      "class": "foam.comics.v2.DAOControllerConfig",
+      "daoKey": "recipeDAO",
+      "detailView": { "class": "com.foamdev.cook.RecipeView" },
+      "createView":  { "class": "com.foamdev.cook.RecipeView" }
+    }
+  }
+})
+```
+
+The browse table remains fully generated from `Recipe`'s `tableColumns`. Only the detail and create screens use `RecipeView`. Open **Recipes** in the app: the browse table is there, click a recipe and the detail screen shows the recipe's own fields followed by its steps — each with its ingredient amounts list, read-only. Click **Edit** and the same view becomes fully interactive: Add Step, Remove, the ingredient amounts picker, and the comics Save/Cancel all wired together and working as a single cohesive form.
 
 # Nano Services (Coming Soon)
 
@@ -2065,7 +2310,7 @@ properties: [
 ]
 ```
 
-> **Note:** Untyped properties (just a name string) work in JavaScript but won't generate Java or Swift code. Always use typed properties for cross-language models.
+> 💡 **Note:** Untyped properties (just a name string) work in JavaScript but won't generate Java or Swift code. Always use typed properties for cross-language models.
 
 #### Property Definition (Abridged from Property.js)
 
@@ -2311,7 +2556,7 @@ Properties support a rich set of features for handling default values, transform
 - `factory` - Function returning default (runs once on first access)
 - `expression` - Reactive computation (recalculates when dependencies change)
 
-> **Important:** Once you explicitly set a property's value, the dynamic default (`factory` or `expression`) is bypassed until you clear the value by setting it to `undefined`. This allows users to override computed values while preserving the ability to "reset" back to the default behavior.
+> 💡 **Important:** Once you explicitly set a property's value, the dynamic default (`factory` or `expression`) is bypassed until you clear the value by setting it to `undefined`. This allows users to override computed values while preserving the ability to "reset" back to the default behavior.
 
 ```javascript
 // Static default
@@ -2562,7 +2807,7 @@ dao.select(this.MAP(
 });
 ```
 
-> **Note:** The `foam.mlang.F` interface is fundamental to FOAM's expression system. Any object with an `f(obj)` method can be used as an expression. This includes property references (e.g., `MyModel.NAME`), built-in expressions (e.g., `ADD`, `DOT`), and custom expression objects.
+> 💡 **Note:** The `foam.mlang.F` interface is fundamental to FOAM's expression system. Any object with an `f(obj)` method can be used as an expression. This includes property references (e.g., `MyModel.NAME`), built-in expressions (e.g., `ADD`, `DOT`), and custom expression objects.
 
 ### Streaming Architecture
 
@@ -3104,6 +3349,7 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 [app-screen-3]: images/screen3.png
 [app-screen-4]: images/screen4.png
 [app-screen-5]: images/screen5.png
+[app-screen-6]: images/screen6.png
 [recipe-schema]: images/RecipeDBSchema.png
 [github-ssh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
 [foam-dao]: https://github.com/kgrgreer/foam3/blob/development/src/foam/dao/DAO.js

@@ -503,6 +503,9 @@ foam.CLASS({
       name: 'cancelEdit',
       label: 'Cancel',
       size: 'SMALL',
+      internalIsEnabled: function() {
+        return true;
+      },
       internalIsAvailable: function(controllerMode) {
         return controllerMode == 'EDIT';
       },

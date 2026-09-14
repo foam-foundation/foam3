@@ -865,6 +865,8 @@ foam.POM({
     { name: "foam/animation/Tween",                                   flags: "web" },
     { name: "foam/animation/test/pom",                                flags: "test" },
     { name: "foam/graphics/test/pom",                                 flags: "test" },
+    { name: "foam/parse/rail/pom",                                    flags: "web" },
+    { name: "foam/parse/rail/test/pom",                               flags: "test" },
     { name: "foam/graphics/TreeGraph",                                flags: "web" },
     { name: "foam/graphics/TreeNode",                                 flags: "web" },
     { name: "foam/graphics/TreeNodeConfig",                           flags: "web" },

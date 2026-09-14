@@ -21,6 +21,7 @@ foam.POM({
     { name: 'RailSymRef', flags: 'web' },
     { name: 'RailStrip', flags: 'web' },
     { name: 'RailBuilder', flags: 'web' },
-    { name: 'RailScene', flags: 'web' }
+    { name: 'RailScene', flags: 'web' },
+    { name: 'RailDiagramView', flags: 'web' }
   ]
 });

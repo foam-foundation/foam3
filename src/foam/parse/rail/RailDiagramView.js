@@ -43,6 +43,10 @@ foam.CLASS({
     { name: 'LEGEND_MIN',        message: '×1+ = minimum repeats · ∅ = may match nothing' },
     { name: 'LEGEND_BYPASS',     message: 'track over a box = optional' },
     { name: 'LEGEND_GENERIC',    message: 'grey box = parser class with no drawing yet' },
+    { name: 'LEGEND_UNFOLD',     message: '▾ = unfolded rule (click a blue box to unfold, its header to fold, shift-click to jump to the definition)' },
+    { name: 'LEGEND_UNREACH',    message: 'muted name + (unreachable) = rule the start symbol never reaches' },
+    { name: 'ALL_RULES',         message: 'all rules' },
+    { name: 'UNREACHABLE_WORD', message: 'unreachable' },
     { name: 'FIT_WIDTH',         message: 'Fit width' },
     { name: 'FIT_ALL',           message: 'Fit all' },
     { name: 'NO_GRAMMAR',        message: 'no grammar loaded' },
@@ -61,6 +65,8 @@ foam.CLASS({
     { name: 'builder' },
     { class: 'String', name: 'startSymbol' },
     { class: 'String', name: 'status' },
+    { class: 'Boolean', name: 'showAll', documentation: 'Include rules unreachable from the start symbol.', postSet: function() { this.rebuildStrips(); } },
+    { class: 'Int', name: 'unreachableCount' },
     { name: 'hostEl' },
     { name: 'drag_' }
   ],
@@ -72,6 +78,10 @@ foam.CLASS({
         .start('div').addClass(this.myClass('bar'))
           .start('button').add(this.FIT_WIDTH).on('click', function() { self.scene.fitWidth(); }).end()
           .start('button').add(this.FIT_ALL).on('click', function() { self.scene.fitAll(); }).end()
+          .start('label')
+            .start('input').attrs({ type: 'checkbox' }).on('change', function(e) { self.showAll = e.target.checked; }).end()
+            .add(' ', this.ALL_RULES, ' (', this.unreachableCount$, ' ', this.UNREACHABLE_WORD, ')')
+          .end()
           .start('span').add(this.HINT).end()
         .end()
         .start('div').addClass(this.myClass('legend'))
@@ -84,6 +94,8 @@ foam.CLASS({
           .start('span').add(this.LEGEND_MIN).end()
           .start('span').add(this.LEGEND_BYPASS).end()
           .start('span').add(this.LEGEND_GENERIC).end()
+          .start('span').add(this.LEGEND_UNFOLD).end()
+          .start('span').add(this.LEGEND_UNREACH).end()
         .end()
         .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
         .start('div').addClass(this.myClass('status')).add(this.status$).end();
@@ -106,24 +118,28 @@ foam.CLASS({
         var v = self.viewPoint(e);
         self.scene.zoomAt(v.x, v.y, e.deltaY < 0 ? self.ZOOM_STEP : 1 / self.ZOOM_STEP);
       });
-    },
-
-    function startSymbolOf(grammar) {
-      /** START if the grammar has it, else the first rule. */
-      if ( grammar.symbolMap_['START'] ) return 'START';
-      return grammar.symbols.length ? grammar.symbols[0].name : 'START';
+      canvas.on('dblclick', function(e) {
+        var v = self.viewPoint(e), hit = self.scene.hitAtView(v.x, v.y);
+        if ( hit && self.RailStrip.isInstance(hit) ) self.scene.centerOnStrip(hit.name);
+      });
     },
 
     function useGrammar(grammar) {
-      /** Rebuilds the strips for a grammar and frames them. */
+      /** Rebuilds the strips for a grammar and frames them. The builder decides the start symbol. */
       this.grammar = grammar;
       if ( ! grammar ) { this.scene.setStrips([]); this.status = this.NO_GRAMMAR; return; }
-      this.startSymbol = this.startSymbolOf(grammar);
       this.builder = this.RailBuilder.create({ grammar: grammar, theme: this.scene.theme, measure: this.scene.measure });
-      var strips = this.builder.buildStrips();
-      this.scene.setStrips(strips);
-      this.status = strips.length ? strips.length + ' rules, start = ' + this.startSymbol : this.NO_SYMBOLS;
+      this.startSymbol = this.builder.startSymbol;
+      this.unreachableCount = this.builder.unreachableNames().length;
+      this.rebuildStrips();
+      this.status = grammar.symbols.length ? grammar.symbols.length + ' rules, start = ' + this.startSymbol : this.NO_SYMBOLS;
       this.scene.fitWidth();
+    },
+
+    function rebuildStrips() {
+      /** Strips follow the showAll toggle; the camera is kept (a toggle should not jump the view). */
+      if ( ! this.builder ) return;
+      this.scene.setStrips(this.builder.buildReachableStrips(this.showAll));
     },
 
     // ---- pointer ---------------------------------------------------------
@@ -165,8 +181,16 @@ foam.CLASS({
     },
 
     function onHit(el, e) {
-      /** Click policy. Later PRs: unfold a rule reference; list a rule's runs from its strip label. */
-      if ( this.RailSymRef.isInstance(el) && el.canUnfold() ) el.toggle();
+      /** Click policy. Rule reference: shift-click jumps to its definition, plain click unfolds/folds. */
+      if ( this.RailSymRef.isInstance(el) ) {
+        if ( e.shiftKey ) { this.scene.centerOnStrip(el.name); return; }
+        if ( el.canUnfold() || el.unfolded ) { el.toggle(); this.afterToggle(el); }
+      }
+    },
+
+    function afterToggle(el) {
+      /** Hook for later PRs (re-apply trace lights to freshly built content). */
+      this.scene.hideTooltip();
     }
   ]
 });

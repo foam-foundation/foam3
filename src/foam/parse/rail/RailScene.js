@@ -80,6 +80,15 @@ foam.CLASS({
       return this.strips.find(function(s) { return s.name === name; });
     },
 
+    function centerOnStrip(name) {
+      /** Centres the viewport on a rule's strip at the current zoom; returns the strip or undefined. */
+      var s = this.stripFor(name);
+      if ( ! s ) return undefined;
+      var r = this.sceneRectOf(s);
+      this.centerOn(r.x + Math.min(r.width, this.viewWidth / this.zoom) / 2, r.y + r.height / 2, this.zoom);
+      return s;
+    },
+
     function sceneRectOf(el) {
       /** Element's box in scene coordinates: parents' translations summed, camera excluded. */
       var x = 0, y = 0;

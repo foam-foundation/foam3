@@ -24,17 +24,25 @@ foam.CLASS({
     BOX_COUNT: 12,
     BOX_W: 120, BOX_H: 44, GAP: 24,
     CORNER: 14,                 // side of the amber hit square in each box's top-right corner
-    ZOOM_STEP: 1.1
+    ZOOM_STEP: 1.1,
+    PULSE_TICKS: 60
   },
 
   properties: [
     { name: 'scene' },
     { name: 'tip' },
     { class: 'String', name: 'status', value: 'drag to pan, wheel to zoom, hover a box, click the small square' },
-    { name: 'drag_' }
+    { name: 'drag_' },
+    { class: 'Boolean', name: 'cacheBoxes', documentation: 'When true every box is cache()d; used to compare frame cost with the pulse button.' }
   ],
 
   methods: [
+    function pulse() {
+      /** Toggles one box's border 60 times at ~16 ms so a DevTools Performance recording shows the per-frame paint cost. */
+      var b = this.scene.layers[0].children[5], n = 0, on = false, self = this;
+      var t = setInterval(function() { on = ! on; b.border = on ? '#D55E00' : '#0072B2'; if ( ++n >= self.PULSE_TICKS ) clearInterval(t); }, 16);
+    },
+
     function init() {
       this.SUPER();
       var theme = this.CViewTheme.create({
@@ -66,6 +74,14 @@ foam.CLASS({
     function render() {
       var self = this, s = this.scene;
       this.start('div').add(this.status$).end();
+      this.start('div').style({ margin: '6px 0' })
+        .start('label')
+          .start('input').attrs({ type: 'checkbox' })
+            .on('change', function(e) { self.cacheBoxes = e.target.checked; s.layers[0].children.forEach(function(b) { self.cacheBoxes ? b.cache() : b.uncache(); }); })
+          .end().add(' cache boxes')
+        .end()
+        .start('button').style({ 'margin-left': '12px' }).add('pulse one box').on('click', function() { self.pulse(); }).end()
+      .end();
       this
         .start(s)   // Scene.toE() binds the canvas to viewWidth/viewHeight
           .on('pointerdown', function(e) { self.drag_ = { x: e.clientX, y: e.clientY }; })

@@ -26,7 +26,8 @@ foam.CLASS({
     { class: 'String', name: 'name' },
     { name: 'track', documentation: 'The rule body element (any RailElement).' },
     { class: 'Int', name: 'runs',    documentation: 'Finished activations of this rule in the applied trace (attempts).' },
-    { class: 'Int', name: 'matches', documentation: 'How many of those matched.' }
+    { class: 'Int', name: 'matches', documentation: 'How many of those matched.' },
+    { class: 'Boolean', name: 'unreachable', documentation: 'Not reachable from the start symbol: muted name, "(unreachable)" tag, listed after a divider.' }
   ],
 
   methods: [
@@ -52,9 +53,13 @@ foam.CLASS({
         ctx.fill();
         ctx.restore();
       }
-      ctx.fillStyle = this.pulse > 0 ? this.outcomeColor() : T.resolve('text');
+      ctx.fillStyle = this.pulse > 0 ? this.outcomeColor() : T.resolve(this.unreachable ? 'muted' : 'text');
       ctx.font = T.font('ruleName'); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
       ctx.fillText(this.name, 0, E);
+      if ( this.unreachable ) {
+        ctx.font = T.font('badge'); ctx.fillStyle = T.resolve('muted');
+        ctx.fillText('(unreachable)', 0, E + this.COUNTER_DY);
+      }
       if ( this.runs ) {
         // Attempts and matches stated separately: the derivation only ever shows matches.
         ctx.font = T.font('badge'); ctx.fillStyle = T.resolve('muted');
@@ -76,9 +81,10 @@ foam.CLASS({
     },
 
     function tipText() {
-      if ( ! this.runs ) return this.name + ' — not tried yet';
+      var tag = this.unreachable ? ' · unreachable from the start rule' : '';
+      if ( ! this.runs ) return this.name + ' — not tried yet' + tag;
       return this.name + ': tried ' + this.runs + ( this.runs === 1 ? ' time' : ' times' ) + ' so far, '
-           + this.matches + ' matched · click to list the matches';
+           + this.matches + ' matched · click to list the matches' + tag;
     }
   ]
 });

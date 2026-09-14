@@ -16,6 +16,7 @@ foam.POM({
     { name: 'RailAltTest', flags: 'js&test|java&test' },
     { name: 'RailRepeatTest', flags: 'js&test|java&test' },
     { name: 'RailOptionalTest', flags: 'js&test|java&test' },
-    { name: 'RailSymRefTest', flags: 'js&test|java&test' }
+    { name: 'RailSymRefTest', flags: 'js&test|java&test' },
+    { name: 'RailReachabilityTest', flags: 'js&test|java&test' }
   ]
 });

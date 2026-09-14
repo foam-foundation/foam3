@@ -31,7 +31,16 @@ foam.CLASS({
   properties: [
     { name: 'grammar', documentation: 'A foam.parse.Grammar (symbols[] of PSymbol {name, parser}).' },
     { name: 'theme',   factory: function() { return this.RailTheme.create(); } },
-    { name: 'measure', factory: function() { return foam.graphics.TextUtil.estimateMeasurer(7); } }
+    { name: 'measure', factory: function() { return foam.graphics.TextUtil.estimateMeasurer(7); } },
+    {
+      class: 'String',
+      name: 'startSymbol',
+      documentation: 'Root of the reachability walk: START if the grammar has it, else the first declared rule.',
+      factory: function() {
+        if ( this.hasSymbol('START') ) return 'START';
+        return this.grammar.symbols.length ? this.grammar.symbols[0].name : 'START';
+      }
+    }
   ],
 
   methods: [
@@ -47,13 +56,56 @@ foam.CLASS({
       return cls.create(args);
     },
 
-    function buildStrips() {
-      /** One strip per rule, in declaration order. */
+    function childrenOf(p) {
+      /** The parsers a parser delegates to: args (arrays), p, else, delimiter. A plain-object parser (Parsers.cut) has none. */
+      if ( ! p || ! p.cls_ ) return [];
+      var out = [];
+      if ( Array.isArray(p.args) ) out = out.concat(p.args);
+      if ( p.p )         out.push(p.p);
+      if ( p.else )      out.push(p.else);
+      if ( p.delimiter ) out.push(p.delimiter);
+      return out;
+    },
+
+    function reachableNames() {
+      /** Rule names reachable from startSymbol, in first-visit (depth-first, declaration) order. */
+      var self = this, seen = [];
+      var visit = function(name) {
+        if ( seen.indexOf(name) >= 0 || ! self.hasSymbol(name) ) return;
+        seen.push(name);
+        var walk = function(p) {
+          if ( foam.parse.Symbol.isInstance(p) ) { visit(p.name); return; }
+          self.childrenOf(p).forEach(walk);
+        };
+        walk(self.grammar.getSymbol(name));
+      };
+      visit(this.startSymbol);
+      return seen;
+    },
+
+    function unreachableNames() {
+      var reach = this.reachableNames();
+      return this.grammar.symbols.map(function(ps) { return ps.name; })
+        .filter(function(n) { return reach.indexOf(n) < 0; })
+        .sort();
+    },
+
+    function buildReachableStrips(showAll) {
+      /** Reachable strips first; with showAll, the unreachable ones follow, flagged, so the divider and the toggle count can show. */
+      var strips = this.buildStrips(this.reachableNames());
+      if ( ! showAll ) return strips;
+      return strips.concat(this.buildStrips(this.unreachableNames()).map(function(s) { s.unreachable = true; return s; }));
+    },
+
+    function buildStrips(opt_names) {
+      /** One strip per rule name (default: every rule in declaration order). */
       var self = this, ids = foam.parse.rail.ParserIds;
-      return this.grammar.symbols.map(function(ps) {
+      var names = opt_names || this.grammar.symbols.map(function(ps) { return ps.name; });
+      return names.map(function(name) {
+        var parser = self.grammar.getSymbol(name);
         return self.make(self.RailStrip, {
-          name: ps.name, parser: ps.parser, pathIds: [ ids.idOf(ps.parser) ],
-          track: self.buildSymbol(ps.name, {}, [])
+          name: name, parser: parser, pathIds: [ ids.idOf(parser) ],
+          track: self.buildSymbol(name, {}, [])
         });
       });
     },

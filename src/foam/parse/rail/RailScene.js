@@ -36,7 +36,8 @@ foam.CLASS({
       }
     },
     { name: 'strips', factory: function() { return []; } },
-    { name: 'stackSub_' }
+    { name: 'stackSub_' },
+    { class: 'Float', name: 'dividerY_', value: -1, documentation: 'Scene y of the dashed divider before the unreachable block, or -1.' }
   ],
 
   methods: [
@@ -114,13 +115,29 @@ foam.CLASS({
       this.tooltip.alpha = 1;
     },
 
-    function hideTooltip() { this.tooltip.alpha = 0; }
+    function hideTooltip() { this.tooltip.alpha = 0; },
+
+    function paintSelf(ctx) {
+      this.SUPER(ctx);                                     // background
+      if ( this.dividerY_ < 0 ) return;
+      // Dashed divider across the content width, in scene space (the camera transform is already applied).
+      var b = this.contentBounds(), T = this.theme;
+      ctx.save();
+      ctx.setLineDash([ 6, 4 ]); ctx.strokeStyle = T.resolve('muted'); ctx.lineWidth = T.STROKE_BASE;
+      ctx.beginPath(); ctx.moveTo(T.CANVAS_MARGIN, this.dividerY_); ctx.lineTo(b.width, this.dividerY_); ctx.stroke();
+      ctx.restore();
+    }
   ],
 
   listeners: [
     function stackStrips() {
-      var T = this.theme, y = T.CANVAS_MARGIN;
-      this.strips.forEach(function(s) { s.x = T.CANVAS_MARGIN; s.y = y; y += s.height + T.STRIP_GAP; });
+      var T = this.theme, y = T.CANVAS_MARGIN, divider = -1;
+      this.strips.forEach(function(s, i) {
+        // One extra gap (and a divider) where the unreachable block begins.
+        if ( s.unreachable && ( i === 0 || ! this.strips[i - 1].unreachable ) && divider < 0 ) { divider = y + T.STRIP_GAP / 2; y += T.STRIP_GAP; }
+        s.x = T.CANVAS_MARGIN; s.y = y; y += s.height + T.STRIP_GAP;
+      }, this);
+      this.dividerY_ = divider;
     }
   ]
 });

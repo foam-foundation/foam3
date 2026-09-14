@@ -857,6 +857,8 @@ foam.POM({
     { name: "foam/apploader/NoClassLoader",                           flags: "js" },
     { name: "foam/u2/FoamTagLoader",                                  flags: "web" },
     { name: "foam/graphics/CView",                                    flags: "web" },
+    { name: "foam/graphics/TextUtil",                                 flags: "web" },
+    { name: "foam/graphics/test/pom",                                 flags: "test" },
     { name: "foam/graphics/TreeGraph",                                flags: "web" },
     { name: "foam/graphics/TreeNode",                                 flags: "web" },
     { name: "foam/graphics/TreeNodeConfig",                           flags: "web" },

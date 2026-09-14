@@ -39,7 +39,7 @@ foam.CLASS({
     },
 
     function render() {
-      var view = this.RailDiagramView.create({ grammar: this.toyGrammar() });
+      var view = this.RailDiagramView.create({ grammar: this.toyGrammar(), input: '[1, [ab, 22], x]' });
       window.__rail = view;     // demo-only handle for scripted checks from the console
       this.add(view);
     }

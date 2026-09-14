@@ -735,11 +735,27 @@ foam.CLASS({
       return t ? Math.sqrt(t.a * t.a + t.b * t.b) : 1;
     },
 
+    function cacheBounds_() {
+      /**
+       * Size of the area the bitmap must cover, in local units. A node with its own width/height
+       * (a Box) uses that; a sizeless group (a SceneLayer) uses the extent of its children.
+       */
+      if ( this.width && this.height ) return { w: this.width, h: this.height };
+      var w = 0, h = 0;
+      for ( var i = 0 ; i < this.children.length ; i++ ) {
+        var c = this.children[i], cb = c.cacheBounds_ ? c.cacheBounds_() : { w: c.width, h: c.height };
+        w = Math.max(w, c.x + cb.w * ( c.scaleX || 1 ));
+        h = Math.max(h, c.y + cb.h * ( c.scaleY || 1 ));
+      }
+      return { w: w, h: h };
+    },
+
     function renderCache_(x) {
-      /** Paints self + children into a fresh offscreen canvas sized to this CView at the current scale. */
+      /** Paints self + children into a fresh offscreen canvas covering cacheBounds_() at the current scale. */
       var scale = this.effectiveScale_(x) * this.scaleX;
-      var w = Math.max(1, Math.ceil(this.width  * scale));
-      var h = Math.max(1, Math.ceil(this.height * scale));
+      var b = this.cacheBounds_();
+      var w = Math.max(1, Math.ceil(b.w * scale));
+      var h = Math.max(1, Math.ceil(b.h * scale));
       var off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)
               : typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: w, height: h })
               : null;
@@ -752,6 +768,7 @@ foam.CLASS({
       this.paintChildren(ctx);
       this.cacheCanvas_ = off;
       this.cacheScale_  = scale;
+      this.cacheW_ = b.w; this.cacheH_ = b.h;      // blit size in local units
       return true;
     },
 
@@ -803,7 +820,7 @@ foam.CLASS({
           var scaleNow = this.effectiveScale_(x) * this.scaleX;
           var stale = ! this.cacheCanvas_ || Math.abs(scaleNow - this.cacheScale_) > this.CACHE_SCALE_TOLERANCE * this.cacheScale_;
           if ( stale && ! this.renderCache_(x) ) this.paintLive_(x);
-          else x.drawImage(this.cacheCanvas_, 0, 0, this.width, this.height);
+          else x.drawImage(this.cacheCanvas_, 0, 0, this.cacheW_, this.cacheH_);
         } else {
           this.paintLive_(x);
         }

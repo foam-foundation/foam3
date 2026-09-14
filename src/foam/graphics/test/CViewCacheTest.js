@@ -72,6 +72,16 @@ foam.CLASS({
         parent.uncache();
         parent.paint(ctx); parent.paint(ctx);
         x.test(child.paints === 7,          'uncache(): live painting again');
+
+        // A sizeless group (like a SceneLayer) sizes its bitmap from its children instead of coming out 1px.
+        var group = this.Box.create({ width: 0, height: 0, border: null });
+        var far   = this.CountingBox.create({ x: 300, y: 120, width: 40, height: 20 });
+        group.add(far);
+        group.cache();
+        group.paint(ctx);
+        x.test(group.cacheW_ === 340 && group.cacheH_ === 140, 'a sizeless group caches the extent of its children (340 x 140)');
+        group.paint(ctx);
+        x.test(far.paints === 1,            'the child inside the group bitmap is painted once, then blitted');
       } finally {
         if ( hadOffscreen ) globalThis.OffscreenCanvas = saved; else delete globalThis.OffscreenCanvas;
       }

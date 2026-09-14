@@ -860,6 +860,8 @@ foam.POM({
     { name: "foam/graphics/TextUtil",                                 flags: "web" },
     { name: "foam/graphics/CViewTheme",                               flags: "web" },
     { name: "foam/graphics/Scene",                                    flags: "web" },
+    { name: "foam/graphics/HitRegion",                                flags: "web" },
+    { name: "foam/graphics/TooltipCView",                             flags: "web" },
     { name: "foam/graphics/test/pom",                                 flags: "test" },
     { name: "foam/graphics/TreeGraph",                                flags: "web" },
     { name: "foam/graphics/TreeNode",                                 flags: "web" },

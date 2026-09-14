@@ -33,28 +33,37 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { font-family: sans-serif; }
-    ^main { display: flex; align-items: stretch; }
-    ^left { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-    ^host { width: 100%; height: calc(100vh - 150px); min-height: 480px; border: 1px solid #ccc; position: relative; overflow: hidden; touch-action: none; }
+    ^ { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; overflow: hidden; background: #fff; }
+    ^bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #ccc; flex: none; }
+    ^title { font-weight: bold; margin-right: 6px; }
+    ^main { flex: 1; min-height: 0; display: flex; }
+    ^left { flex: 1; min-width: 0; position: relative; }
+    ^host { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
     ^host canvas, ^ribbon canvas { display: block; }
-    ^right { width: 420px; min-width: 0; display: flex; flex-direction: column; border: 1px solid #ccc; border-left: none; }
-    ^ribbon { border-bottom: 1px solid #ccc; overflow: hidden; }
+    ^legendPanel { position: absolute; left: 8px; bottom: 8px; max-width: 62%; max-height: 70%; overflow: auto; background: rgba(255,255,255,0.96);
+                   border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #444; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    ^legendGroup { display: flex; flex-wrap: wrap; gap: 3px 12px; align-items: baseline; margin: 2px 0 6px; }
+    ^right { width: 440px; flex: none; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid #ccc; }
+    ^section { padding: 6px 8px; border-bottom: 1px solid #e4e4e4; flex: none; }
+    ^row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    ^row select, ^row input[type=text] { min-width: 0; flex: 1; }
+    ^gram textarea { width: 100%; box-sizing: border-box; font: 12px monospace; height: 140px; margin: 6px 0 4px; }
+    ^input { width: 100%; box-sizing: border-box; font: 13px monospace; height: 30px; resize: vertical; }
+    ^transport { display: flex; gap: 4px; margin: 6px 0 4px; }
+    ^transport button { flex: 1; padding: 3px 0; white-space: nowrap; }
+    ^slider { width: 100%; margin: 0; }
+    ^ribbon { flex: none; overflow: hidden; border-bottom: 1px solid #e4e4e4; }
+    ^status { font: 12px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; padding: 4px 8px; border-bottom: 1px solid #ccc; background: #fafafa; flex: none; }
     ^panel { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; }
-    ^controls { border-top: 1px solid #ccc; padding: 8px; }
-    ^controls textarea { width: 100%; box-sizing: border-box; font: 13px monospace; height: 34px; }
-    ^bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; }
-    ^slider { width: 100%; }
-    ^status { font: 13px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; }
-    ^legend { font-size: 12px; color: #444; margin: 2px 0 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
+    ^toggle { cursor: pointer; color: #0072B2; font-size: 12px; user-select: none; }
     ^hint { color: #777; font-size: 12px; }
-    ^gram { border-bottom: 1px solid #ccc; padding: 8px; }
-    ^gram textarea { width: 100%; box-sizing: border-box; font: 12px monospace; height: 150px; }
-    ^gramTitle { font-weight: bold; color: #444; font-size: 12px; margin: 6px 0 4px; }
   `,
 
   messages: [
-    { name: 'HINT',              message: 'Drag = pan · wheel = zoom · hover = tooltip' },
+    { name: 'HINT',              message: 'drag = pan · wheel = zoom · hover = tooltip' },
+    { name: 'TITLE',             message: 'foam.parse.rail' },
+    { name: 'LEGEND_TOGGLE',     message: 'Legend' },
+    { name: 'EDIT_GRAMMAR',      message: 'edit grammar' },
     { name: 'LEGEND_NOTATION',   message: 'Notation:' },
     { name: 'LEGEND_TERMINAL',   message: 'rounded yellow box = terminal (text to match)' },
     { name: 'LEGEND_RULE_REF',   message: 'blue box = rule reference' },
@@ -92,21 +101,28 @@ foam.CLASS({
     { name: 'FIT_ALL',           message: 'Fit all' },
     { name: 'NO_GRAMMAR',        message: 'no grammar loaded' },
     { name: 'NO_SYMBOLS',        message: 'no symbols' },
-    { name: 'START',             message: 'Start' },
-    { name: 'BACK',              message: '◀ Back' },
-    { name: 'STEP_ONE',          message: 'Step ▶' },
-    { name: 'STEP_OVER',         message: 'Step over' },
-    { name: 'NEXT_RULE',         message: 'Next rule' },
-    { name: 'PLAY',              message: '▶ Play' },
-    { name: 'PAUSE',             message: '❚❚ Pause' },
-    { name: 'RUN_TO_END',        message: 'Run to end' },
-    { name: 'SLIDER_HINT',       message: 'slider = scrub through the recorded parse; the input box above is the text being parsed' },
+    { name: 'START',             message: 'Parse' },
+    { name: 'BACK',              message: '◀' },
+    { name: 'STEP_ONE',          message: '▶' },
+    { name: 'STEP_OVER',         message: '⏭ over' },
+    { name: 'NEXT_RULE',         message: '⏭ rule' },
+    { name: 'PLAY',              message: '▶▶ play' },
+    { name: 'PAUSE',             message: '❚❚ pause' },
+    { name: 'RUN_TO_END',        message: '⏭⏭ end' },
+    { name: 'TIP_PARSE',         message: 'record the parse of the input, then stand at step 0' },
+    { name: 'TIP_BACK',          message: 'one event back' },
+    { name: 'TIP_STEP',          message: 'one event forward' },
+    { name: 'TIP_OVER',          message: 'skip to the end of the attempt just started' },
+    { name: 'TIP_RULE',          message: 'skip to the next rule entry' },
+    { name: 'TIP_PLAY',          message: 'auto-step; any other button pauses' },
+    { name: 'TIP_END',           message: 'jump to the last event' },
+    { name: 'SLIDER_HINT',       message: 'scrub through the recorded parse' },
     { name: 'NOT_PARSED',        message: 'input changed — press Start to parse it' },
     { name: 'LOAD_FIRST',        message: 'load a grammar first' },
     { name: 'PRESET_PLACEHOLDER',     message: 'preset…' },
     { name: 'REGISTERED_PLACEHOLDER', message: 'registered in this page…' },
     { name: 'CLASS_ID_PLACEHOLDER',   message: 'class id, Enter' },
-    { name: 'TYPED_TITLE',            message: 'Grammar — body of a foam.parse symbols() function (dev only)' },
+    { name: 'TYPED_TITLE',            message: 'body of a foam.parse symbols() function (dev only)' },
     { name: 'LOAD_TYPED',             message: 'Load grammar' },
     { name: 'FIND_PLACEHOLDER',       message: 'find rule…' },
     { name: 'UNFOLD_PATH',            message: 'Unfold path' },
@@ -167,6 +183,8 @@ foam.CLASS({
       factory: function() { return typeof location !== 'undefined' && location.search.indexOf('perf') >= 0; }
     },
     { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' },
+    { class: 'Boolean', name: 'legendShown',  documentation: 'Legend panel over the canvas corner; off by default.' },
+    { class: 'Boolean', name: 'grammarShown', documentation: 'Typed-grammar editor unfolded (dev only).' },
     { class: 'Boolean', name: 'debugHook', documentation: 'Expose window.__rail so scripted checks can drive the page deterministically.' }
   ],
 
@@ -174,8 +192,10 @@ foam.CLASS({
     function render() {
       var self = this, T = this.scene.theme, O = this.Outcome;
       var tone = function(outcome) { return { color: T.outcomeColor(outcome) }; };
+      var legendGroup = function(e, title) { return e.start('div').addClass(self.myClass('legendGroup')).start('b').add(title).end(); };
       this.addClass(this.myClass())
         .start('div').addClass(this.myClass('bar'))
+          .start('span').addClass(this.myClass('title')).add(this.TITLE).end()
           .start('button').add(this.FIT_WIDTH).on('click', function() { self.scene.fitWidth(); }).end()
           .start('button').add(this.FIT_ALL).on('click', function() { self.scene.fitAll(); }).end()
           .start('label')
@@ -192,50 +212,58 @@ foam.CLASS({
             .start('input').attrs({ type: 'checkbox', checked: this.scene.cacheStrips }).on('change', function(e) { self.scene.cacheStrips = e.target.checked; }).end()
             .add(' ', this.CACHE_STRIPS)
           .end()
-          .start('span').add(this.HINT).end()
-        .end()
-        .start('div').addClass(this.myClass('legend'))
-          .start('b').add(this.LEGEND_NOTATION).end()
-          .start('span').add(this.LEGEND_TERMINAL).end()
-          .start('span').add(this.LEGEND_RULE_REF).end()
-          .start('span').add(this.LEGEND_END_STOP).end()
-          .start('span').add(this.LEGEND_PRIORITY).end()
-          .start('span').add(this.LEGEND_LOOP).end()
-          .start('span').add(this.LEGEND_MIN).end()
-          .start('span').add(this.LEGEND_BYPASS).end()
-          .start('span').add(this.LEGEND_GENERIC).end()
-          .start('span').add(this.LEGEND_UNFOLD).end()
-          .start('span').add(this.LEGEND_UNREACH).end()
-          .start('span').add(this.LEGEND_GATE).end()
-          .start('span').add(this.LEGEND_BADGES).end()
-        .end()
-        .start('div').addClass(this.myClass('legend'))
-          .start('b').add(this.LEGEND_TRACE).end()
-          .start('span').style(tone(O.MATCHED)).add(this.LEGEND_MATCHED).end()
-          .start('span').style(tone(O.TRYING)).add(this.LEGEND_TRYING).end()
-          .start('span').style(tone(O.FAILED)).add(this.LEGEND_FAILED).end()
-          .start('span').style({ color: T.outcomeColor(O.MATCHED), opacity: this.Tier.HISTORY.alpha }).add(this.LEGEND_HISTORY).end()
-          .start('span').style({ opacity: this.Tier.NEVER.alpha }).add(this.LEGEND_NEVER).end()
-          .start('span').add(this.LEGEND_COUNTER).end()
-          .start('span').add(this.LEGEND_SELECTED).end()
-          .start('b').add(this.LEGEND_RIBBON).end()
-          .start('span').style({ background: T.resolve('consumedBg') }).add(this.LEGEND_CONSUMED).end()
-          .start('span').style({ borderBottom: '3px solid ' + T.outcomeColor(O.TRYING) }).add(this.LEGEND_OPEN).end()
-          .start('span').style({ background: T.resolve('failBg') }).add(this.LEGEND_DIED).end()
-          .start('span').style({ border: '1px dashed ' + T.resolve('muted'), padding: '0 3px' }).add(this.LEGEND_CURRENT).end()
-          .start('span').style({ border: '2px solid ' + T.outcomeColor(O.TRYING), padding: '0 3px' }).add(this.LEGEND_UNDER_TEST).end()
-          .start('span').add(this.LEGEND_CARET).end()
-          .start('b').add(this.LEGEND_DERIV).end()
-          .start('span').style(tone(O.MATCHED)).add(this.LEGEND_DERIV_MATCHED).end()
-          .start('span').style(tone(O.TRYING)).add(this.LEGEND_DERIV_OPEN).end()
+          .start('label')
+            .start('input').attrs({ type: 'checkbox', checked: this.legendShown$ }).on('change', function(e) { self.legendShown = e.target.checked; }).end()
+            .add(' ', this.LEGEND_TOGGLE)
+          .end()
+          .start('span').addClass(this.myClass('hint')).add(this.HINT).end()
         .end()
         .start('div').addClass(this.myClass('main'))
           .start('div').addClass(this.myClass('left'))
             .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
+            .start('div').addClass(this.myClass('legendPanel')).show(this.legendShown$)
+              .call(function() {
+                legendGroup(this, self.LEGEND_NOTATION)
+                  .start('span').add(self.LEGEND_TERMINAL).end()
+                  .start('span').add(self.LEGEND_RULE_REF).end()
+                  .start('span').add(self.LEGEND_END_STOP).end()
+                  .start('span').add(self.LEGEND_PRIORITY).end()
+                  .start('span').add(self.LEGEND_LOOP).end()
+                  .start('span').add(self.LEGEND_MIN).end()
+                  .start('span').add(self.LEGEND_BYPASS).end()
+                  .start('span').add(self.LEGEND_GENERIC).end()
+                  .start('span').add(self.LEGEND_UNFOLD).end()
+                  .start('span').add(self.LEGEND_UNREACH).end()
+                  .start('span').add(self.LEGEND_GATE).end()
+                  .start('span').add(self.LEGEND_BADGES).end()
+                .end();
+                legendGroup(this, self.LEGEND_TRACE)
+                  .start('span').style(tone(O.MATCHED)).add(self.LEGEND_MATCHED).end()
+                  .start('span').style(tone(O.TRYING)).add(self.LEGEND_TRYING).end()
+                  .start('span').style(tone(O.FAILED)).add(self.LEGEND_FAILED).end()
+                  .start('span').style({ color: T.outcomeColor(O.MATCHED), opacity: self.Tier.HISTORY.alpha }).add(self.LEGEND_HISTORY).end()
+                  .start('span').style({ opacity: self.Tier.NEVER.alpha }).add(self.LEGEND_NEVER).end()
+                  .start('span').add(self.LEGEND_COUNTER).end()
+                  .start('span').add(self.LEGEND_SELECTED).end()
+                .end();
+                legendGroup(this, self.LEGEND_RIBBON)
+                  .start('span').style({ background: T.resolve('consumedBg') }).add(self.LEGEND_CONSUMED).end()
+                  .start('span').style({ borderBottom: '3px solid ' + T.outcomeColor(O.TRYING) }).add(self.LEGEND_OPEN).end()
+                  .start('span').style({ background: T.resolve('failBg') }).add(self.LEGEND_DIED).end()
+                  .start('span').style({ border: '1px dashed ' + T.resolve('muted'), padding: '0 3px' }).add(self.LEGEND_CURRENT).end()
+                  .start('span').style({ border: '2px solid ' + T.outcomeColor(O.TRYING), padding: '0 3px' }).add(self.LEGEND_UNDER_TEST).end()
+                  .start('span').add(self.LEGEND_CARET).end()
+                .end();
+                legendGroup(this, self.LEGEND_DERIV)
+                  .start('span').style(tone(O.MATCHED)).add(self.LEGEND_DERIV_MATCHED).end()
+                  .start('span').style(tone(O.TRYING)).add(self.LEGEND_DERIV_OPEN).end()
+                .end();
+              })
+            .end()
           .end()
           .start('div').addClass(this.myClass('right'))
-            .start('div').addClass(this.myClass('gram'))
-              .start('div').addClass(this.myClass('bar'))
+            .start('div').addClass(this.myClass('section')).addClass(this.myClass('gram'))
+              .start('div').addClass(this.myClass('row'))
                 .start('select').on('change', function(e) { if ( e.target.value ) self.usePreset(e.target.value); })
                   .start('option').attrs({ value: '' }).add(this.PRESET_PLACEHOLDER).end()
                   .forEach(Object.keys(this.presets), function(k) { this.start('option').attrs({ value: k }).add(k).end(); })
@@ -243,33 +271,40 @@ foam.CLASS({
                 .start('select', null, this.registeredEl$).on('change', function(e) { if ( e.target.value ) self.loadRegistered(e.target.value); })
                   .start('option').attrs({ value: '' }).add(this.REGISTERED_PLACEHOLDER).end()
                 .end()
-                .start('input', null, this.classIdEl$).attrs({ placeholder: this.CLASS_ID_PLACEHOLDER })
+                .start('input', null, this.classIdEl$).attrs({ type: 'text', placeholder: this.CLASS_ID_PLACEHOLDER })
                   .on('keydown', function(e) { if ( e.key === 'Enter' ) self.loadClassId(e.target.value.trim()); }).end()
+                .callIf(this.allowTypedGrammar, function() {
+                  this.start('span').addClass(self.myClass('toggle'))
+                    .add(self.grammarShown$.map(function(o) { return ( o ? '▾ ' : '▸ ' ) + self.EDIT_GRAMMAR; }))
+                    .on('click', function() { self.grammarShown = ! self.grammarShown; })
+                  .end();
+                })
               .end()
               .callIf(this.allowTypedGrammar, function() {
-                this.start('div').addClass(self.myClass('gramTitle')).add(self.TYPED_TITLE).end()
+                this.start('div').show(self.grammarShown$)
+                  .start('div').addClass(self.myClass('hint')).add(self.TYPED_TITLE).end()
                   .start('textarea', null, self.grammarEl$).attrs({ value: self.grammarText$, spellcheck: false }).on('input', function(e) { self.grammarText = e.target.value; }).end()
-                  .start('button').add(self.LOAD_TYPED).on('click', function() { self.loadTyped(); }).end();
+                  .start('button').add(self.LOAD_TYPED).on('click', function() { self.loadTyped(); }).end()
+                .end();
               })
             .end()
-            .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).add(this.ribbon).end()
-            .start('div').addClass(this.myClass('panel')).add(this.panel).end()
-            .start('div').addClass(this.myClass('controls'))
-              .start('textarea', null, this.inputEl$).attrs({ value: this.input$ }).on('input', function(e) { self.setInput(e.target.value); }).end()
-              .start('div').addClass(this.myClass('bar'))
-                .start('button').add(this.START).on('click', function() { self.stopPlay(); self.record(0); }).end()
-                .start('button').add(this.BACK).on('click', function() { self.stepBack(); }).end()
-                .start('button').add(this.STEP_ONE).on('click', function() { self.stepOne(); }).end()
-                .start('button').add(this.STEP_OVER).on('click', function() { self.stepOver(); }).end()
-                .start('button').add(this.NEXT_RULE).on('click', function() { self.nextRule(); }).end()
-                .start('button', null, this.playBtn$).add(this.PLAY).on('click', function() { self.togglePlay(); }).end()
-                .start('button').add(this.RUN_TO_END).on('click', function() { self.runToEnd(); }).end()
+            .start('div').addClass(this.myClass('section'))
+              .start('textarea', null, this.inputEl$).addClass(this.myClass('input')).attrs({ value: this.input$, spellcheck: false }).on('input', function(e) { self.setInput(e.target.value); }).end()
+              .start('div').addClass(this.myClass('transport'))
+                .start('button').attrs({ title: this.TIP_PARSE }).add(this.START).on('click', function() { self.stopPlay(); self.record(0); }).end()
+                .start('button').attrs({ title: this.TIP_BACK }).add(this.BACK).on('click', function() { self.stepBack(); }).end()
+                .start('button').attrs({ title: this.TIP_STEP }).add(this.STEP_ONE).on('click', function() { self.stepOne(); }).end()
+                .start('button').attrs({ title: this.TIP_OVER }).add(this.STEP_OVER).on('click', function() { self.stepOver(); }).end()
+                .start('button').attrs({ title: this.TIP_RULE }).add(this.NEXT_RULE).on('click', function() { self.nextRule(); }).end()
+                .start('button', null, this.playBtn$).attrs({ title: this.TIP_PLAY }).add(this.PLAY).on('click', function() { self.togglePlay(); }).end()
+                .start('button').attrs({ title: this.TIP_END }).add(this.RUN_TO_END).on('click', function() { self.runToEnd(); }).end()
               .end()
-              .start('input', null, this.sliderEl$).attrs({ type: 'range', min: 0, max: 0, value: 0, step: 1 }).addClass(this.myClass('slider'))
+              .start('input', null, this.sliderEl$).attrs({ type: 'range', min: 0, max: 0, value: 0, step: 1, title: this.SLIDER_HINT }).addClass(this.myClass('slider'))
                 .on('input', function(e) { self.stopPlay(); self.show(+e.target.value); }).end()
-              .start('div').addClass(this.myClass('hint')).add(this.SLIDER_HINT).end()
-              .start('div').addClass(this.myClass('status')).add(this.status$).end()
             .end()
+            .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).add(this.ribbon).end()
+            .start('div').addClass(this.myClass('status')).add(this.status$).end()
+            .start('div').addClass(this.myClass('panel')).add(this.panel).end()
           .end()
         .end();
 
@@ -481,6 +516,7 @@ foam.CLASS({
       if ( ! this.grammar ) { this.status = this.LOAD_FIRST; return; }
       this.trace = this.ParseTrace.create({ grammar: this.grammar, startSymbol: this.startSymbol, input: this.input }).record();
       this.show(opt_step === undefined ? this.trace.length() : opt_step);
+      this.scene.fitWidth();                                     // a fresh recording starts from the top; follow-pan takes over while stepping
     },
 
     function show(n) {
@@ -499,7 +535,7 @@ foam.CLASS({
     function stepOne()  { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.step + 1); },
     function stepOver() { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.trace.stepOverFrom(this.step)); },
     function nextRule() { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.trace.nextRuleFrom(this.step)); },
-    function runToEnd() { this.stopPlay(); if ( ! this.trace ) this.record(); else this.show(this.trace.length()); },
+    function runToEnd() { this.stopPlay(); if ( ! this.trace ) this.record(); else { this.show(this.trace.length()); this.scene.fitWidth(); } },
 
     function togglePlay() {
       /** Auto-step at a human pace; stops at the end or on any other navigation. Background tabs throttle timers. */

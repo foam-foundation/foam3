@@ -22,6 +22,12 @@ An unscoped class collides with `Fonts.js`; a root `height`/`width` on a reusabl
 Don't: `.row { ... }`; `^ { width: 100%; height: 300px; }` on a shared view; `!important`
 Do:    `^row { ... }` with `addClass(this.myClass('row'))`; `^pos > * { height: 100% }`; the embedder sets the footprint
 
+### A scroll pane needs `min-height: 0` on every flex ancestor with visible overflow
+A flex item will not shrink below its own content, so `flex: 1; overflow: auto` grows instead of scrolling and pushes the footer below it out of view. The pane itself is already exempt — a box whose overflow is not `visible` has an automatic minimum size of zero — so the declaration belongs on the ancestors, not on the scroll pane.
+Don't: `min-height: 0` beside `overflow-y: auto` (a no-op); a view that fills its parent via `height: 100%` when it has siblings
+Do:    `^ { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
+Review asked: "`overflow-y: auto` already makes this a scroll container, whose flex automatic minimum size is 0, so this `min-height: 0` is a no-op" (foam3 PR #5451)
+
 ### `rem` over `px`; Fonts classes over `h3`; ThemeGlyphs over a new SVG
 FOAM sets `1rem = 10px` so everything scales with font size; glyphs are already inlined.
 Don't: `width: 12px`; `<h3>` for a title; a new `icon.svg`

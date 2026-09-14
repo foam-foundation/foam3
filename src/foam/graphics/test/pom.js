@@ -8,6 +8,7 @@ foam.POM({
   name: 'test',
   files: [
     { name: 'TextUtilTest', flags: 'js&test|java&test' },
-    { name: 'CViewThemeTest', flags: 'js&test|java&test' }
+    { name: 'CViewThemeTest', flags: 'js&test|java&test' },
+    { name: 'SceneTest', flags: 'js&test|java&test' }
   ]
 });

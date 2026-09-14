@@ -1,2 +1,3 @@
 p({"class":"foam.graphics.test.TextUtilTest","id":"TextUtilTest"})
 p({"class":"foam.graphics.test.CViewThemeTest","id":"CViewThemeTest"})
+p({"class":"foam.graphics.test.SceneTest","id":"SceneTest"})

@@ -42,15 +42,17 @@ foam.CLASS({
        * Toggles one box's border 60 times at ~16 ms, timing every canvas repaint, then writes the
        * average repaint cost to the status line so caching on/off can be compared without DevTools.
        */
-      var self = this, canvas = this.scene.canvas, b = this.scene.layers[0].children[5];
-      var n = 0, on = false, paints = 0, total = 0, orig = canvas.paint;
-      canvas.paint = function() { var t0 = performance.now(); orig.apply(canvas, arguments); total += performance.now() - t0; paints++; };
+      // Time scene.paint (the CView method the Canvas listener calls each frame); canvas.paint itself is a
+      // framed listener already bound into the invalidated subscription, so wrapping it would never run.
+      var self = this, scene = this.scene, b = scene.layers[0].children[5];
+      var n = 0, on = false, paints = 0, total = 0, orig = scene.paint;
+      scene.paint = function() { var t0 = performance.now(); orig.apply(scene, arguments); total += performance.now() - t0; paints++; };
       this.status = 'pulsing…';
       var t = setInterval(function() {
         on = ! on; b.border = on ? '#D55E00' : '#0072B2';
         if ( ++n < self.PULSE_TICKS ) return;
         clearInterval(t);
-        canvas.paint = orig;
+        delete scene.paint;                      // drop the instance override, back to the prototype method
         self.status = 'pulse done: ' + paints + ' repaints, avg ' + ( paints ? ( total / paints ).toFixed(2) : '?' ) + ' ms each, cache boxes ' + ( self.cacheBoxes ? 'ON' : 'OFF' );
       }, 16);
     },

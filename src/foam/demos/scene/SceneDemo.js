@@ -38,9 +38,21 @@ foam.CLASS({
 
   methods: [
     function pulse() {
-      /** Toggles one box's border 60 times at ~16 ms so a DevTools Performance recording shows the per-frame paint cost. */
-      var b = this.scene.layers[0].children[5], n = 0, on = false, self = this;
-      var t = setInterval(function() { on = ! on; b.border = on ? '#D55E00' : '#0072B2'; if ( ++n >= self.PULSE_TICKS ) clearInterval(t); }, 16);
+      /**
+       * Toggles one box's border 60 times at ~16 ms, timing every canvas repaint, then writes the
+       * average repaint cost to the status line so caching on/off can be compared without DevTools.
+       */
+      var self = this, canvas = this.scene.canvas, b = this.scene.layers[0].children[5];
+      var n = 0, on = false, paints = 0, total = 0, orig = canvas.paint;
+      canvas.paint = function() { var t0 = performance.now(); orig.apply(canvas, arguments); total += performance.now() - t0; paints++; };
+      this.status = 'pulsing…';
+      var t = setInterval(function() {
+        on = ! on; b.border = on ? '#D55E00' : '#0072B2';
+        if ( ++n < self.PULSE_TICKS ) return;
+        clearInterval(t);
+        canvas.paint = orig;
+        self.status = 'pulse done: ' + paints + ' repaints, avg ' + ( paints ? ( total / paints ).toFixed(2) : '?' ) + ' ms each, cache boxes ' + ( self.cacheBoxes ? 'ON' : 'OFF' );
+      }, 16);
     },
 
     function init() {

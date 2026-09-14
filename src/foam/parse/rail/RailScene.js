@@ -55,7 +55,14 @@ foam.CLASS({
     { class: 'Int', name: 'panDuration', value: 220 },
     { name: 'pulses_', factory: function() { return new Map(); }, documentation: 'element -> running Tween.' },
     { name: 'panTween_' },
-    { name: 'highlighted_', factory: function() { return []; } }
+    { name: 'highlighted_', factory: function() { return []; } },
+    {
+      class: 'Boolean',
+      name: 'cacheStrips',
+      value: true,
+      documentation: 'Each strip is a cached bitmap (CView.cache): a trace step re-renders only the strips whose elements changed.',
+      postSet: function(_, on) { this.strips.forEach(on ? function(s) { s.cache(); } : function(s) { s.uncache(); }); }
+    }
   ],
 
   methods: [
@@ -72,6 +79,7 @@ foam.CLASS({
       this.strips.forEach(function(s) { self.content.remove(s); });
       this.strips = strips;
       strips.forEach(function(s) { self.content.add(s); });
+      if ( this.cacheStrips ) strips.forEach(function(s) { s.cache(); });
       if ( strips.length ) {
         this.stackSub_ = foam.lang.ArraySlot.create({ slots: strips.map(function(s) { return s.height$; }) }).sub(this.stackStrips);
       }
@@ -92,6 +100,18 @@ foam.CLASS({
       var out = [];
       this.eachElement(function(el) { if ( el.parser === parser ) out.push(el); });
       return out;
+    },
+
+    function recacheStrip(strip) {
+      /** After an unfold/fold the strip's subtree changed; the cache subscribes to the subtree at cache() time, so redo it. */
+      if ( ! this.cacheStrips ) return;
+      strip.uncache();
+      strip.cache();
+    },
+
+    function stripOf(el) {
+      for ( var p = el ; p ; p = p.parent ) if ( this.RailStrip.isInstance(p) ) return p;
+      return null;
     },
 
     function stripFor(name) {

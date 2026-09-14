@@ -110,7 +110,8 @@ foam.CLASS({
     { name: 'LOAD_TYPED',             message: 'Load grammar' },
     { name: 'FIND_PLACEHOLDER',       message: 'find rule…' },
     { name: 'UNFOLD_PATH',            message: 'Unfold path' },
-    { name: 'FOLD_ALL',               message: 'Fold all' }
+    { name: 'FOLD_ALL',               message: 'Fold all' },
+    { name: 'CACHE_STRIPS',           message: 'cache strips' }
   ],
 
   constants: {
@@ -158,7 +159,14 @@ foam.CLASS({
     { name: 'grammarEl' },
     { name: 'registeredEl' },
     { name: 'classIdEl' },
-    { name: 'registered_', factory: function() { return []; }, documentation: '[{ label, load }] grammars found in the page by scanRegistered().' }
+    { name: 'registered_', factory: function() { return []; }, documentation: '[{ label, load }] grammars found in the page by scanRegistered().' },
+    {
+      class: 'Boolean',
+      name: 'perf',
+      documentation: 'Open the page with ?perf: Play reports the average scene paint cost in the status line when it stops.',
+      factory: function() { return typeof location !== 'undefined' && location.search.indexOf('perf') >= 0; }
+    },
+    { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' }
   ],
 
   methods: [
@@ -179,6 +187,10 @@ foam.CLASS({
           .end()
           .start('button').add(this.UNFOLD_PATH).on('click', function() { self.unfoldPath(); }).end()
           .start('button').add(this.FOLD_ALL).on('click', function() { self.foldAll(); }).end()
+          .start('label')
+            .start('input').attrs({ type: 'checkbox', checked: this.scene.cacheStrips }).on('change', function(e) { self.scene.cacheStrips = e.target.checked; }).end()
+            .add(' ', this.CACHE_STRIPS)
+          .end()
           .start('span').add(this.HINT).end()
         .end()
         .start('div').addClass(this.myClass('legend'))
@@ -422,6 +434,7 @@ foam.CLASS({
         }
         for ( var i = node.kids.length - 1 ; i >= 0 ; i-- ) todo.push(node.kids[i]);
       }
+      this.scene.recacheStrip(startStrip);
       this.show(this.step);
       this.scene.fitWidth();
     },
@@ -433,6 +446,7 @@ foam.CLASS({
         this.scene.eachElement(function(el) { if ( self.RailSymRef.isInstance(el) && el.unfolded ) open.push(el); });
         open.forEach(function(el) { el.fold(); });
       } while ( open.length );
+      this.scene.strips.forEach(function(s) { self.scene.recacheStrip(s); });
       if ( this.trace ) this.show(this.step);
       this.scene.fitWidth();
     },
@@ -487,6 +501,7 @@ foam.CLASS({
         self.show(self.step + 1);
       }, this.PLAY_INTERVAL_MS);
       if ( this.playBtn ) this.playBtn.removeAllChildren().add(this.PAUSE);
+      if ( this.perf ) this.startPerf();
     },
 
     function stopPlay() {
@@ -494,6 +509,19 @@ foam.CLASS({
       clearInterval(this.playTimer_);
       this.playTimer_ = null;
       if ( this.playBtn ) this.playBtn.removeAllChildren().add(this.PLAY);
+      if ( this.perf_ ) this.stopPerf();
+    },
+
+    function startPerf() {
+      /** Times scene.paint (the CView method the Canvas listener calls each frame) for the length of one Play. */
+      var scene = this.scene, p = this.perf_ = { paints: 0, total: 0, orig: scene.paint };
+      scene.paint = function() { var t0 = performance.now(); p.orig.apply(scene, arguments); p.total += performance.now() - t0; p.paints++; };
+    },
+
+    function stopPerf() {
+      var p = this.perf_; this.perf_ = null;
+      delete this.scene.paint;                                   // drop the instance override, back to the prototype method
+      this.status = 'play: ' + p.paints + ' repaints, avg ' + ( p.paints ? ( p.total / p.paints ).toFixed(2) : '?' ) + ' ms each, cache ' + ( this.scene.cacheStrips ? 'ON' : 'OFF' ) + '\n' + this.status.split('\n')[1];
     },
 
     function highlight(parser) { this.scene.highlightParser(parser); },
@@ -552,8 +580,10 @@ foam.CLASS({
     },
 
     function afterToggle(el) {
-      /** Freshly built (or removed) content needs the current lights. */
+      /** Freshly built (or removed) content needs the strip's cache redone and the current lights. */
       this.scene.hideTooltip();
+      var strip = this.scene.stripOf(el);
+      if ( strip ) this.scene.recacheStrip(strip);
       if ( this.trace ) this.show(this.step);
     }
   ]

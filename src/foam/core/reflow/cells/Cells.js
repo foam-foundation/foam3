@@ -275,6 +275,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.rows + ' × ' + this.columns; },
+
     function init() {
       this.SUPER();
 

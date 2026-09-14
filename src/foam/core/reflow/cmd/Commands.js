@@ -25,6 +25,16 @@ foam.CLASS({
   properties: [
     { class: 'String',  name: 'id' },
     { class: 'String',  name: 'description' },
+    {
+      class: 'String',
+      name: 'category',
+      documentation: 'The family of block this command makes, e.g. dao, transform, script, input, doc. The graph badges a node with it; unset means a plain block.'
+    },
+    {
+      class: 'String',
+      name: 'color',
+      documentation: 'Colour of the graph node\'s kind bar: a CSS token ($primary400) or a literal. Unset takes the theme\'s block colour.'
+    },
     { class: 'String',  name: 'icon', value: 'rectangle' },
     { class: 'Code',    name: 'script' },
     { class: 'Boolean', name: 'linkable', value: true },
@@ -225,7 +235,9 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.cells.Cells' ],
 
   properties: [
-    [ 'description', 'Cells spreadsheet grid' ]
+    [ 'description', 'Cells spreadsheet grid' ],
+    [ 'category', 'transform' ],
+    [ 'color', '$purple400' ]
   ],
 
   methods: [
@@ -267,6 +279,8 @@ foam.CLASS({
 
   properties: [
     [ 'description', 'DAO filter for a service' ],
+    [ 'category', 'dao' ],
+    [ 'color', '$primary400' ],
     [ 'parserClass', 'foam.core.reflow.parser.DAOTargetParser' ]
   ],
 
@@ -311,6 +325,8 @@ foam.CLASS({
 
   properties: [
     [ 'description', 'Add a row to a DAO (requires a DAO name)' ],
+    [ 'category', 'dao' ],
+    [ 'color', '$primary400' ],
     {
       name: 'parser',
       factory: function() { return this.DAOTargetParser.create(); }
@@ -828,6 +844,11 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.Prompt' ],
 
+  properties: [
+    [ 'category', 'input' ],
+    [ 'color', '$success400' ]
+  ],
+
   methods: [
     function execute(prompt, type) {
       var p = this.Prompt.create({ type: type });
@@ -845,6 +866,11 @@ foam.CLASS({
   package: 'foam.core.reflow.cmd',
   name: 'Button',
   extends: 'foam.core.reflow.cmd.Command',
+
+  properties: [
+    [ 'category', 'input' ],
+    [ 'color', '$success400' ]
+  ],
 
   classes: [
     {
@@ -903,6 +929,11 @@ foam.CLASS({
         ['label', 'Button'],
       ],
       methods: [
+        function toSummary() {
+          var line = this.script.split('\n').find(l => l.trim()) || '';
+          return this.label + ( line ? ' · ' + line.trim() : '' );
+        },
+
         function toE(args, X) {
           var view = foam.u2.ViewSpec.createView(this.view, {
             ...(args || {}),
@@ -949,9 +980,19 @@ foam.CLASS({
   name: 'Buttons',
   extends: 'foam.core.reflow.cmd.Command',
 
+  properties: [
+    [ 'category', 'input' ],
+    [ 'color', '$success400' ]
+  ],
+
     classes: [
     {
       name: 'FlowActionArrayHolder',
+
+      methods: [
+        function toSummary() { return this.actions.length + ' buttons'; }
+      ],
+
       properties: [
         {
           class: 'FObjectArray',
@@ -1001,6 +1042,10 @@ foam.CLASS({
   extends: 'foam.core.reflow.cmd.Command',
 
   imports: [ 'block', 'currentBlock' ],
+
+  properties: [
+    [ 'category', 'layout' ]
+  ],
 
   methods: [
     function execute(...args) {

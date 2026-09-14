@@ -17,7 +17,10 @@ foam.CLASS({
   `,
 
   requires: [
+    'foam.parse.rail.RailAlt',
     'foam.parse.rail.RailGeneric',
+    'foam.parse.rail.RailOptional',
+    'foam.parse.rail.RailRepeat',
     'foam.parse.rail.RailSeq',
     'foam.parse.rail.RailStrip',
     'foam.parse.rail.RailSymRef',
@@ -61,16 +64,31 @@ foam.CLASS({
       return this.build(this.grammar.getSymbol(name), c, path);
     },
 
+    function badgeFor(p) {
+      /** Bounds badge for a Repeat-family parser. Repeat0 extends Repeat, so it is checked first. */
+      var P = foam.parse;
+      if ( P.Repeat0.isInstance(p) ) return '∅';
+      if ( P.Plus.isInstance(p) )    return '×1+';
+      return p.minimum ? '×' + p.minimum + '+' : '';
+    },
+
     function build(p, chain, path) {
       /** The mapping table. Each PR appends rows; the last row is the never-throw fallback. */
       var self = this, P = foam.parse, L = foam.parse.rail.ParserLabels;
       var here = path.concat(foam.parse.rail.ParserIds.idOf(p));
       var kids = function(arr) { return arr.map(function(a) { return self.build(a, chain, here); }); };
+      var one  = function(q) { return self.build(q, chain, here); };
+      var rep  = function() {
+        return self.make(self.RailRepeat, { item: one(p.p), delim: p.delimiter ? one(p.delimiter) : null, badge: self.badgeFor(p) });
+      };
       var el;
       var text = L.terminal(p);
       if      ( text !== null )                        el = this.make(this.RailTerminal, { text: text, badge: L.badge(p) });
+      else if ( P.Alternate.isInstance(p) )            el = this.make(this.RailAlt, { items: kids(p.args) });
       else if ( P.Sequence.isInstance(p) || P.Sequence0.isInstance(p) || P.Sequence1.isInstance(p) )
                                                        el = this.make(this.RailSeq, { items: kids(p.args) });
+      else if ( P.Repeat.isInstance(p) )               el = rep();
+      else if ( P.Optional.isInstance(p) )             el = this.make(this.RailOptional, { item: one(p.p) });
       else if ( P.Symbol.isInstance(p) )               el = this.make(this.RailSymRef, { name: p.name, builder: this, chain: chain, missing: ! this.hasSymbol(p.name) });
       else                                             el = this.make(this.RailGeneric, { text: p.cls_.name });
       el.parser  = p;

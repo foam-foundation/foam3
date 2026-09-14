@@ -38,6 +38,10 @@ foam.CLASS({
     { name: 'LEGEND_TERMINAL',   message: 'rounded yellow box = terminal (text to match)' },
     { name: 'LEGEND_RULE_REF',   message: 'blue box = rule reference' },
     { name: 'LEGEND_END_STOP',   message: '⊣ = end of input' },
+    { name: 'LEGEND_PRIORITY',   message: '①②③ = branch priority, first match wins' },
+    { name: 'LEGEND_LOOP',       message: '↺ = loop, greedy (never gives back)' },
+    { name: 'LEGEND_MIN',        message: '×1+ = minimum repeats · ∅ = may match nothing' },
+    { name: 'LEGEND_BYPASS',     message: 'track over a box = optional' },
     { name: 'LEGEND_GENERIC',    message: 'grey box = parser class with no drawing yet' },
     { name: 'FIT_WIDTH',         message: 'Fit width' },
     { name: 'FIT_ALL',           message: 'Fit all' },
@@ -75,6 +79,10 @@ foam.CLASS({
           .start('span').add(this.LEGEND_TERMINAL).end()
           .start('span').add(this.LEGEND_RULE_REF).end()
           .start('span').add(this.LEGEND_END_STOP).end()
+          .start('span').add(this.LEGEND_PRIORITY).end()
+          .start('span').add(this.LEGEND_LOOP).end()
+          .start('span').add(this.LEGEND_MIN).end()
+          .start('span').add(this.LEGEND_BYPASS).end()
           .start('span').add(this.LEGEND_GENERIC).end()
         .end()
         .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()

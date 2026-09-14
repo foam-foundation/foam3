@@ -21,8 +21,8 @@ foam.CLASS({
   ],
 
   constants: {
-    BOX_COUNT: 12,
-    BOX_W: 120, BOX_H: 44, GAP: 24,
+    GRID_SMALL: { count: 12,  cols: 4,  w: 120, h: 44, gap: 24 },
+    GRID_LARGE: { count: 600, cols: 30, w: 24,  h: 16, gap: 6 },   // the rail-viewer shape: many static pieces, one moving highlight
     CORNER: 14,                 // side of the amber hit square in each box's top-right corner
     ZOOM_STEP: 1.1,
     PULSE_TICKS: 60
@@ -33,7 +33,11 @@ foam.CLASS({
     { name: 'tip' },
     { class: 'String', name: 'status', value: 'drag to pan, wheel to zoom, hover a box, click the small square' },
     { name: 'drag_' },
-    { class: 'Boolean', name: 'cacheBoxes', documentation: 'When true every box is cache()d; used to compare frame cost with the pulse button.' }
+    { class: 'Boolean', name: 'cacheBoxes', documentation: 'When true the whole content layer is cache()d as one bitmap; the pulsing box lives in the overlay layer, outside it.' },
+    { class: 'Boolean', name: 'large', documentation: '600 small boxes instead of 12 big ones.' },
+    { name: 'content' },
+    { name: 'overlay' },
+    { name: 'pulseBox' }
   ],
 
   methods: [
@@ -44,7 +48,7 @@ foam.CLASS({
        */
       // Time scene.paint (the CView method the Canvas listener calls each frame); canvas.paint itself is a
       // framed listener already bound into the invalidated subscription, so wrapping it would never run.
-      var self = this, scene = this.scene, b = scene.layers[0].children[5];
+      var self = this, scene = this.scene, b = this.pulseBox;
       var n = 0, on = false, paints = 0, total = 0, orig = scene.paint;
       scene.paint = function() { var t0 = performance.now(); orig.apply(scene, arguments); total += performance.now() - t0; paints++; };
       this.status = 'pulsing…';
@@ -53,7 +57,7 @@ foam.CLASS({
         if ( ++n < self.PULSE_TICKS ) return;
         clearInterval(t);
         delete scene.paint;                      // drop the instance override, back to the prototype method
-        self.status = 'pulse done: ' + paints + ' repaints, avg ' + ( paints ? ( total / paints ).toFixed(2) : '?' ) + ' ms each, cache boxes ' + ( self.cacheBoxes ? 'ON' : 'OFF' );
+        self.status = 'pulse done: ' + paints + ' repaints, avg ' + ( paints ? ( total / paints ).toFixed(2) : '?' ) + ' ms each, ' + ( self.large ? '600' : '12' ) + ' boxes, content cache ' + ( self.cacheBoxes ? 'ON' : 'OFF' );
       }, 16);
     },
 
@@ -64,25 +68,37 @@ foam.CLASS({
         colors: { boxFill: '#eaf3fb', boxBorder: '#0072B2', region: '#E69F00', tooltipBg: '#fff8e0', tooltipBorder: '#999', tooltipText: '#222' },
         fonts:  { tooltip: '12px sans-serif' }
       });
+      this.theme_ = theme;
       this.scene = this.Scene.create({ viewWidth: 900, viewHeight: 500, theme: theme });
-      var content = this.scene.addLayer(this.SceneLayer.create());
-      var overlay = this.scene.addLayer(this.SceneLayer.create());
-
-      // A grid of boxes, each with a small hit region (and a visible amber square) in its top-right corner.
-      for ( var i = 0 ; i < this.BOX_COUNT ; i++ ) {
-        var box = this.Box.create({
-          x: ( i % 4 ) * ( this.BOX_W + this.GAP ), y: Math.floor(i / 4) * ( this.BOX_H + this.GAP ),
-          width: this.BOX_W, height: this.BOX_H, color: theme.resolve('boxFill'), border: theme.resolve('boxBorder'), cornerRadius: 6
-        });
-        var cx = this.BOX_W - this.CORNER - 4, cy = 4;
-        box.add(this.HitRegion.create({ x: cx, y: cy, width: this.CORNER, height: this.CORNER, role: 'corner-' + i }));
-        box.add(this.Box.create({ x: cx, y: cy, width: this.CORNER, height: this.CORNER, color: theme.resolve('region'), border: null }));
-        box.demoIndex = i;
-        content.add(box);
-      }
+      this.content = this.scene.addLayer(this.SceneLayer.create());
+      this.overlay = this.scene.addLayer(this.SceneLayer.create());
       this.tip = this.TooltipCView.create({ theme: theme, measure: this.scene.measure, alpha: 0 });
-      overlay.add(this.tip);
-      this.scene.panBy(this.GAP, this.GAP);      // start with a margin so the first row is not glued to the edge
+      this.buildGrid();
+      this.scene.panBy(this.GRID_SMALL.gap, this.GRID_SMALL.gap);      // start with a margin so the first row is not glued to the edge
+    },
+
+    function buildGrid() {
+      /** Fills the content layer with the chosen grid; the pulse box goes to the overlay so it sits outside any content cache. */
+      var g = this.large ? this.GRID_LARGE : this.GRID_SMALL, theme = this.theme_;
+      this.content.children.slice().forEach(function(c) { this.content.remove(c); }.bind(this));
+      this.overlay.children.slice().forEach(function(c) { this.overlay.remove(c); }.bind(this));
+      for ( var i = 0 ; i < g.count ; i++ ) {
+        var box = this.Box.create({
+          x: ( i % g.cols ) * ( g.w + g.gap ), y: Math.floor(i / g.cols) * ( g.h + g.gap ),
+          width: g.w, height: g.h, color: theme.resolve('boxFill'), border: theme.resolve('boxBorder'), cornerRadius: 4
+        });
+        if ( ! this.large ) {
+          var cx = g.w - this.CORNER - 4, cy = 4;
+          box.add(this.HitRegion.create({ x: cx, y: cy, width: this.CORNER, height: this.CORNER, role: 'corner-' + i }));
+          box.add(this.Box.create({ x: cx, y: cy, width: this.CORNER, height: this.CORNER, color: theme.resolve('region'), border: null }));
+        }
+        box.demoIndex = i;
+        // box 5 is the one that pulses: it lives in the overlay layer so a cached content layer never has to re-render for it
+        ( i === 5 ? this.overlay : this.content ).add(box);
+        if ( i === 5 ) this.pulseBox = box;
+      }
+      this.overlay.add(this.tip);
+      if ( this.cacheBoxes ) this.content.cache();
     },
 
     function render() {
@@ -91,8 +107,13 @@ foam.CLASS({
       this.start('div').style({ margin: '6px 0' })
         .start('label')
           .start('input').attrs({ type: 'checkbox' })
-            .on('change', function(e) { self.cacheBoxes = e.target.checked; s.layers[0].children.forEach(function(b) { self.cacheBoxes ? b.cache() : b.uncache(); }); })
-          .end().add(' cache boxes')
+            .on('change', function(e) { self.cacheBoxes = e.target.checked; self.cacheBoxes ? self.content.cache() : self.content.uncache(); })
+          .end().add(' cache content layer (one bitmap)')
+        .end()
+        .start('label').style({ 'margin-left': '12px' })
+          .start('input').attrs({ type: 'checkbox' })
+            .on('change', function(e) { self.large = e.target.checked; self.buildGrid(); })
+          .end().add(' 600 boxes')
         .end()
         .start('button').style({ 'margin-left': '12px' }).add('pulse one box').on('click', function() { self.pulse(); }).end()
       .end();

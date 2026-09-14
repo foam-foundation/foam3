@@ -1,0 +1,126 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+foam.CLASS({
+  package: 'foam.parse.rail',
+  name: 'RailScene',
+  extends: 'foam.graphics.Scene',
+
+  documentation: `
+    The viewer's canvas: a content layer holding the rule strips stacked
+    vertically, and an overlay layer holding the one tooltip. Camera, layers
+    and hit order come from foam.graphics.Scene; this class adds strip
+    stacking, element lookup by walking its own tree (no registry), and the
+    two fits: width (default, tall grammars scroll) and all.
+  `,
+
+  requires: [
+    'foam.graphics.SceneLayer',
+    'foam.graphics.TooltipCView',
+    'foam.parse.rail.RailTheme'
+  ],
+
+  properties: [
+    { name: 'theme', factory: function() { return this.RailTheme.create(); } },
+    { name: 'content', factory: function() { return this.addLayer(this.SceneLayer.create()); } },
+    { name: 'overlay', factory: function() { return this.addLayer(this.SceneLayer.create()); } },
+    {
+      name: 'tooltip',
+      factory: function() {
+        var t = this.TooltipCView.create({ theme: this.theme, measure: this.measure, alpha: 0 });
+        this.overlay.add(t);
+        return t;
+      }
+    },
+    { name: 'strips', factory: function() { return []; } },
+    { name: 'stackSub_' }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      // Touch the layer factories in paint order: content first, then overlay, then the tooltip inside it.
+      this.content; this.overlay; this.tooltip;
+    },
+
+    function setStrips(strips) {
+      /** Replaces the strips; they restack whenever any strip's height changes. */
+      var self = this;
+      if ( this.stackSub_ ) { this.stackSub_.detach(); this.stackSub_ = null; }
+      this.strips.forEach(function(s) { self.content.remove(s); });
+      this.strips = strips;
+      strips.forEach(function(s) { self.content.add(s); });
+      if ( strips.length ) {
+        this.stackSub_ = foam.lang.ArraySlot.create({ slots: strips.map(function(s) { return s.height$; }) }).sub(this.stackStrips);
+      }
+      this.stackStrips();
+    },
+
+    function eachElement(fn) {
+      /** Visits every RailElement in paint order: strips, then everything inside, unfolded frames included. */
+      var walk = function(el) {
+        if ( el.parser !== undefined ) fn(el);
+        el.children.forEach(walk);
+      };
+      this.strips.forEach(walk);
+    },
+
+    function elementsFor(parser) {
+      /** Every element standing for a parser object (a call site appears once per place it is drawn). */
+      var out = [];
+      this.eachElement(function(el) { if ( el.parser === parser ) out.push(el); });
+      return out;
+    },
+
+    function stripFor(name) {
+      return this.strips.find(function(s) { return s.name === name; });
+    },
+
+    function sceneRectOf(el) {
+      /** Element's box in scene coordinates: parents' translations summed, camera excluded. */
+      var x = 0, y = 0;
+      for ( var p = el ; p && p !== this ; p = p.parent ) { x += p.x; y += p.y; }
+      return { x: x, y: y, width: el.width, height: el.height };
+    },
+
+    function contentBounds() {
+      var T = this.theme, w = 0, h = 0;
+      this.strips.forEach(function(s) { w = Math.max(w, s.x + s.width); h = Math.max(h, s.y + s.height); });
+      return { x: 0, y: 0, width: w + T.CANVAS_MARGIN, height: h + T.CANVAS_MARGIN };
+    },
+
+    function fitWidth() {
+      /** Default fit: the widest strip spans the viewport; a tall grammar scrolls instead of shrinking to slivers. */
+      var b = this.contentBounds(), pad = this.DEFAULT_FIT_PAD;
+      if ( ! this.viewWidth || ! b.width ) return;
+      this.zoom = Math.max(this.minZoom, Math.min(( this.viewWidth - 2 * pad ) / b.width, this.MAX_FIT_ZOOM));
+      this.x = pad - b.x * this.zoom;
+      this.y = pad - b.y * this.zoom;
+    },
+
+    function fitAll() {
+      /** Secondary action: the whole grammar in view, however small. */
+      this.fit(this.contentBounds());
+    },
+
+    function showTooltip(text, sx, sy) {
+      /** Positions the tooltip at scene point (sx, sy) and reveals it. */
+      this.tooltip.text = text;
+      this.tooltip.layout();
+      this.tooltip.x = sx; this.tooltip.y = sy;
+      this.tooltip.alpha = 1;
+    },
+
+    function hideTooltip() { this.tooltip.alpha = 0; }
+  ],
+
+  listeners: [
+    function stackStrips() {
+      var T = this.theme, y = T.CANVAS_MARGIN;
+      this.strips.forEach(function(s) { s.x = T.CANVAS_MARGIN; s.y = y; y += s.height + T.STRIP_GAP; });
+    }
+  ]
+});

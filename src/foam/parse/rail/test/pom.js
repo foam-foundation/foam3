@@ -22,6 +22,7 @@ foam.POM({
     { name: 'RailGateTest', flags: 'js&test|java&test' },
     { name: 'RailBadgeTest', flags: 'js&test|java&test' },
     { name: 'RailNotationTest', flags: 'js&test|java&test' },
-    { name: 'ParseTraceTest', flags: 'js&test|java&test' }
+    { name: 'ParseTraceTest', flags: 'js&test|java&test' },
+    { name: 'RailTraceApplyTest', flags: 'js&test|java&test' }
   ]
 });

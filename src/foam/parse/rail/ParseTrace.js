@@ -89,10 +89,17 @@ foam.CLASS({
     },
 
     function nextRuleFrom(n) {
-      /** Index just past the next try of a Symbol (a rule entry) at or after event n. */
+      /**
+       * Index just past the next rule entry at or after event n. A Symbol try is
+       * always followed by the try of the rule's body (Symbol.parse applies it at
+       * once); the body is what the definition strip is keyed on, so land past both.
+       * The synthetic root try already carries the body parser.
+       */
       for ( var i = n ; i < this.events_.length ; i++ ) {
         var ev = this.events_[i];
-        if ( ev.type === 'try' && ( ev.root || foam.parse.Symbol.isInstance(ev.p) ) ) return i + 1;
+        if ( ev.type !== 'try' ) continue;
+        if ( ev.root ) return i + 1;
+        if ( foam.parse.Symbol.isInstance(ev.p) ) return Math.min(this.length(), i + 2);
       }
       return this.length();
     },

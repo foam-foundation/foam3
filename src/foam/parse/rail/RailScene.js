@@ -20,7 +20,12 @@ foam.CLASS({
   requires: [
     'foam.graphics.SceneLayer',
     'foam.graphics.TooltipCView',
-    'foam.parse.rail.RailTheme'
+    'foam.graphics.Tween',
+    'foam.parse.rail.Outcome',
+    'foam.parse.rail.RailStrip',
+    'foam.parse.rail.RailSymRef',
+    'foam.parse.rail.RailTheme',
+    'foam.parse.rail.Tier'
   ],
 
   properties: [
@@ -37,7 +42,20 @@ foam.CLASS({
     },
     { name: 'strips', factory: function() { return []; } },
     { name: 'stackSub_' },
-    { class: 'Float', name: 'dividerY_', value: -1, documentation: 'Scene y of the dashed divider before the unreachable block, or -1.' }
+    { class: 'Float', name: 'dividerY_', value: -1, documentation: 'Scene y of the dashed divider before the unreachable block, or -1.' },
+    {
+      class: 'Boolean',
+      name: 'motion',
+      documentation: 'Change pulse, follow-pan, label flash. Off under prefers-reduced-motion; tests set false.',
+      factory: function() {
+        return typeof window !== 'undefined' && window.matchMedia ? ! window.matchMedia('(prefers-reduced-motion: reduce)').matches : false;
+      }
+    },
+    { class: 'Int', name: 'followMargin', value: 40, documentation: 'Viewport px kept clear around the element being followed.' },
+    { class: 'Int', name: 'panDuration', value: 220 },
+    { name: 'pulses_', factory: function() { return new Map(); }, documentation: 'element -> running Tween.' },
+    { name: 'panTween_' },
+    { name: 'highlighted_', factory: function() { return []; } }
   ],
 
   methods: [
@@ -125,6 +143,88 @@ foam.CLASS({
     },
 
     function hideTooltip() { this.tooltip.alpha = 0; },
+
+    // ---- trace ----------------------------------------------------------
+
+    function applyTrace(snap) {
+      /**
+       * null clears everything. Otherwise: outcome + consumed per element by path
+       * suffix, then tier by scope: a strip or unfolded frame is live while its rule
+       * has an open activation; a finished trace has nothing open, so it renders as a
+       * result view. Changed elements pulse; the element being tried is revealed.
+       */
+      var self = this, O = this.Outcome, T = this.Tier, focus = null;
+      if ( ! snap ) {
+        this.eachElement(function(el) { el.outcome = O.NONE; el.tier = T.LIVE; el.consumed = ''; });
+        this.strips.forEach(function(s) { s.runs = 0; s.matches = 0; });
+        return;
+      }
+      var scope = function(el, live) {
+        if ( self.RailStrip.isInstance(el) ) {
+          live = live || snap.isActive(el.parser);
+          var wasOutcome = el.outcome, wasRuns = el.runs;
+          el.runs    = snap.runsOf(el.parser);
+          el.matches = snap.matchesOf(el.parser);
+          el.outcome = snap.outcomeOf(el.pathKey);
+          if ( el.outcome !== wasOutcome || el.runs !== wasRuns ) self.startPulse(el);    // rule entered or exited: label flash
+          el.children.forEach(function(c) { scope(c, live); });
+          return;
+        }
+        if ( self.RailSymRef.isInstance(el) && el.unfolded ) live = live || snap.isActive(el.parser);
+        if ( el.parser !== undefined ) {
+          var before = el.outcome;
+          el.outcome  = snap.outcomeOf(el.pathKey);
+          el.consumed = snap.consumedBy(el.pathKey);
+          el.tier     = el.outcome === O.NONE ? T.NEVER : live ? T.LIVE : T.HISTORY;
+          if ( el.outcome !== before ) self.startPulse(el);
+          if ( el.outcome === O.TRYING && ! focus ) focus = el;
+        }
+        el.children.forEach(function(c) { scope(c, live); });
+      };
+      this.strips.forEach(function(s) { scope(s, snap.finished); });
+      if ( focus ) this.revealElement(focus);
+    },
+
+    function startPulse(el) {
+      /** Stroke swell that settles over ~200 ms; one Tween per element, restarted on a new change. */
+      if ( ! this.motion ) return;
+      var old = this.pulses_.get(el);
+      if ( old ) old.cancel();
+      var tw = this.Tween.create({ onUpdate: function(t) { el.pulse = 1 - t; }, onDone: function() { el.pulse = 0; } }).start();
+      this.pulses_.set(el, tw);
+    },
+
+    function revealElement(el) {
+      /** Pans so el is inside the viewport minus the margin; no-op when already visible. */
+      var r = this.sceneRectOf(el), z = this.zoom, m = this.followMargin;
+      var vx0 = r.x * z + this.x, vy0 = r.y * z + this.y, vx1 = vx0 + r.width * z, vy1 = vy0 + r.height * z;
+      var dx = 0, dy = 0;
+      if ( vx0 < m ) dx = m - vx0; else if ( vx1 > this.viewWidth - m ) dx = this.viewWidth - m - vx1;
+      if ( vy0 < m ) dy = m - vy0; else if ( vy1 > this.viewHeight - m ) dy = this.viewHeight - m - vy1;
+      if ( dx || dy ) this.panTo(this.x + dx, this.y + dy);
+    },
+
+    function panTo(tx, ty) {
+      /** Animated pan; the newest pan wins. Instant when motion is off. */
+      var self = this;
+      if ( this.panTween_ ) this.panTween_.cancel();
+      if ( ! this.motion ) { this.x = tx; this.y = ty; return; }
+      var sx = this.x, sy = this.y;
+      this.panTween_ = this.Tween.create({ duration: this.panDuration, onUpdate: function(t) { self.x = sx + ( tx - sx ) * t; self.y = sy + ( ty - sy ) * t; } }).start();
+    },
+
+    function highlightParser(parser) {
+      /** Heavy outline on every element for a parser (definition strip track + call sites); replaces the previous highlight. */
+      this.clearHighlight();
+      this.highlighted_ = this.elementsFor(parser);
+      this.highlighted_.forEach(function(el) { el.highlighted = true; });
+      return this.highlighted_;
+    },
+
+    function clearHighlight() {
+      this.highlighted_.forEach(function(el) { el.highlighted = false; });
+      this.highlighted_ = [];
+    },
 
     function paintSelf(ctx) {
       this.SUPER(ctx);                                     // background

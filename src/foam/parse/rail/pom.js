@@ -19,6 +19,7 @@ foam.POM({
     { name: 'RailGeneric', flags: 'web' },
     { name: 'RailSeq', flags: 'web' },
     { name: 'RailSymRef', flags: 'web' },
-    { name: 'RailStrip', flags: 'web' }
+    { name: 'RailStrip', flags: 'web' },
+    { name: 'RailBuilder', flags: 'web' }
   ]
 });

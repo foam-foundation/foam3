@@ -25,7 +25,8 @@ foam.CLASS({
     'foam.parse.rail.RailStrip',
     'foam.parse.rail.RailSymRef',
     'foam.parse.rail.RailTerminal',
-    'foam.parse.rail.RailTheme'
+    'foam.parse.rail.RailTheme',
+    'foam.parse.rail.RailUntil'
   ],
 
   properties: [
@@ -124,6 +125,13 @@ foam.CLASS({
       return p.minimum ? '×' + p.minimum + '+' : '';
     },
 
+    function literalBox(s, path) {
+      /** A terminal box for a bare string (UntilLiteral keeps its terminator as a string, not a parser). Synthetic path: parent + 0. */
+      var el = this.make(this.RailTerminal, { text: '"' + s + '"' });
+      el.pathIds = path.concat(0);
+      return el;
+    },
+
     function build(p, chain, path) {
       /** The mapping table. Each PR appends rows; the last row is the never-throw fallback. */
       var self = this, P = foam.parse, L = foam.parse.rail.ParserLabels;
@@ -141,6 +149,10 @@ foam.CLASS({
                                                        el = this.make(this.RailSeq, { items: kids(p.args) });
       else if ( P.Repeat.isInstance(p) )               el = rep();
       else if ( P.Optional.isInstance(p) )             el = this.make(this.RailOptional, { item: one(p.p) });
+      else if ( P.Until.isInstance(p) || P.Until0.isInstance(p) )
+                                                       el = this.make(this.RailUntil, { terminator: one(p.p), badge: P.Until0.isInstance(p) ? '∅' : '' });
+      else if ( P.UntilLiteral.isInstance(p) || P.UntilLiteral0.isInstance(p) )
+                                                       el = this.make(this.RailUntil, { terminator: this.literalBox(p.s, here), badge: P.UntilLiteral0.isInstance(p) ? '∅' : '' });
       else if ( P.Symbol.isInstance(p) )               el = this.make(this.RailSymRef, { name: p.name, builder: this, chain: chain, missing: ! this.hasSymbol(p.name) });
       else                                             el = this.make(this.RailGeneric, { text: p.cls_.name });
       el.parser  = p;

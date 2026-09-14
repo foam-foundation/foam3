@@ -8,6 +8,7 @@ foam.POM({
   name: 'test',
   files: [
     { name: 'RailThemeTest', flags: 'js&test|java&test' },
-    { name: 'ParserLabelsTest', flags: 'js&test|java&test' }
+    { name: 'ParserLabelsTest', flags: 'js&test|java&test' },
+    { name: 'RailTerminalTest', flags: 'js&test|java&test' }
   ]
 });

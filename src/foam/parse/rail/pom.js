@@ -12,6 +12,10 @@ foam.POM({
     { name: 'RailTheme',  flags: 'web' },
     { name: 'ParserIds',  flags: 'web' },
     { name: 'Track',      flags: 'web' },
-    { name: 'ParserLabels', flags: 'web' }
+    { name: 'ParserLabels', flags: 'web' },
+    { name: 'RailElement', flags: 'web' },
+    { name: 'RailComposite', flags: 'web' },
+    { name: 'RailTerminal', flags: 'web' },
+    { name: 'RailGeneric', flags: 'web' }
   ]
 });

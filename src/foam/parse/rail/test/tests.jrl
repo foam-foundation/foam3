@@ -1,2 +1,3 @@
 p({"class":"foam.parse.rail.test.RailThemeTest","id":"RailThemeTest"})
 p({"class":"foam.parse.rail.test.ParserLabelsTest","id":"ParserLabelsTest"})
+p({"class":"foam.parse.rail.test.RailTerminalTest","id":"RailTerminalTest"})

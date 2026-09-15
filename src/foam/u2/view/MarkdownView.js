@@ -513,6 +513,11 @@ foam.CLASS({
     {
       class: 'String',
       name: 'data'
+    },
+    'lastGoodTokens_',
+    {
+      class: 'String',
+      name: 'renderData_'
     }
   ],
 
@@ -521,19 +526,29 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
+      this.renderData_ = this.data;
+      this.onDetach(this.data$.sub(this.updateRender));
+
       this
         .addClass()
         .add(this.dynamic(function(data) {
           self.markdownContext = undefined;
           var tokens = self.markdownGrammar.parseString(data + '\n');
-          if ( tokens ) {
-            tokens.forEach(t => t.call(this));
-          } else {
-            this.start().add('PARSE ERROR');
-          }
+          if ( tokens ) self.lastGoodTokens_ = tokens;
+          else          tokens = self.lastGoodTokens_;
+          if ( tokens ) tokens.forEach(t => t.call(this));
         }));
     }
-  ]
+  ],
+
+  listeners: [
+    {
+      name: 'updateRender',
+      isMerged: true,
+      mergeDelay: 150,
+      code: function() { this.renderData_ = this.data; }
+    }
+  ],
 });
 
 
@@ -654,6 +669,7 @@ foam.CLASS({
         .start(foam.u2.tag.TextArea, {
           rows: 20,
           cols: 80,
+          onKey: true,
           data$: this.data$,
           placeholder: 'Enter markdown text...'
         }, this.editorElement_$)

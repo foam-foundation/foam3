@@ -6,20 +6,21 @@ same server also runs as an MCP server, so a coding agent (Claude Code, Codex,
 Gemini CLI, Cursor, Pi) can ask it the same questions instead of grepping.
 
 Both need Node.js and a FOAM project root, the directory that holds `pom.js`
-and `foam3/`. Run every command below from that root.
+and `foam3/`. Run every command below from that root. In a standalone foam3
+checkout, prefix the agent commands with `FOAM_PROJECT_ROOT=$PWD`.
 
 ## Editor setup
 
 ```bash
 ./build.sh lsp-install              # lists the editors and agents found on PATH, asks which to set up
-./build.sh lsp-install:vscode       # builds the extension, installs the .vsix; restart VS Code after
-./build.sh lsp-install:emacs        # copies lsp-foam.el to ~/.emacs.d/site-lisp/, prints the init.el snippet
+./build.sh lsp-install:vscode       # builds the extension, installs the .vsix (needs the `code` command on PATH); restart VS Code after
+./build.sh lsp-install:emacs        # copies the .el files to ~/.emacs.d/site-lisp/, prints an eglot and an lsp-mode snippet; pick one
 ./build.sh lsp-install:zed          # prints the Install Dev Extension steps; needs Rust from rustup
 ./build.sh lsp-install:all          # every editor and agent found on PATH
 ```
 
 The VS Code extension activates in any workspace that contains `pom.js`. For
-Emacs, add the printed snippet to `init.el` and restart. For Zed, pick the
+Emacs, add the snippet you picked to `init.el` and restart. For Zed, pick the
 `foam3/tools/lsp/editors/zed-foam3` folder when Zed asks for the extension
 directory.
 
@@ -53,13 +54,18 @@ open a file to count columns first.
 
 The server loads every FOAM model on boot, which takes 10 to 15 seconds. In an
 editor that shows as a short delay before the first completion. In an agent
-session only the first tool call pays it.
+session only the first tool call pays it, and the first call after 30 idle
+minutes or a `git checkout` pays it again.
 
-To check the server itself without an editor:
+To check the server itself without an editor, run one test category (about
+half a minute; the full suite takes two to three minutes):
 
 ```bash
-node foam3/tools/tests/testFoamLSP.js
+node foam3/tools/tests/testFoamLSP.js hover
 ```
+
+A healthy run ends with a `SUMMARY` section and `N passed, 0 failed`. A run
+that ends without the `SUMMARY` line failed to boot.
 
 ## Team settings
 
@@ -77,8 +83,10 @@ The file is read once at start, so restart the server after editing it.
 
 ## When something is off
 
-- **Nothing happens in the editor.** Confirm the workspace root holds `pom.js`.
-  The server only starts for a FOAM project.
+- **Nothing happens in the editor.** Open the **FOAM Language Server** output
+  channel. `Not a FOAM project (lsp-start.js not found)` means the workspace
+  root, or a folder directly under it, has no `foam3/tools/lsp-start.js`.
+  Initialise the submodule or open the project root.
 - **Completions never arrive, or the agent tools time out.** The boot may have
   failed. In VS Code, open the **FOAM Language Server** output channel. In
   Claude Code, run `/mcp` and read the `[foam-lsp]` lines. A broken `pom.js`

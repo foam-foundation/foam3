@@ -10,30 +10,19 @@ and `foam3/`. Run every command below from that root.
 
 ## Editor setup
 
-One installer covers every editor. With no argument it lists what it finds on
-your PATH and asks which one to set up.
-
 ```bash
-foam3/tools/lsp/install.sh            # detect and prompt
-foam3/tools/lsp/install.sh vscode
-foam3/tools/lsp/install.sh emacs
-foam3/tools/lsp/install.sh zed
-foam3/tools/lsp/install.sh all        # every detected editor and agent
+foam3/tools/lsp/install.sh          # lists the editors and agents found on PATH, asks which to set up
+foam3/tools/lsp/install.sh vscode   # builds the extension, installs the .vsix; restart VS Code after
+foam3/tools/lsp/install.sh emacs    # copies lsp-foam.el to ~/.emacs.d/site-lisp/, prints the init.el snippet
+foam3/tools/lsp/install.sh zed      # prints the Install Dev Extension steps; needs Rust from rustup
+foam3/tools/lsp/install.sh all      # every editor and agent found on PATH
+./build.sh lsp-install:vscode       # same script through the build; also lsp-install:emacs, :zed
 ```
 
-`./build.sh lsp-install` and `./build.sh lsp-install:vscode` run the same
-script.
-
-What each one does:
-
-- **VS Code** builds the extension, installs the `.vsix`, and asks you to
-  restart VS Code. The extension activates in any workspace that contains
-  `pom.js`.
-- **Emacs** copies `lsp-foam.el` to `~/.emacs.d/site-lisp/` and prints the
-  `init.el` snippet for eglot or lsp-mode. Add the snippet, restart Emacs.
-- **Zed** needs Rust from rustup, not Homebrew. The script prints the steps:
-  Command Palette, `zed: extensions`, **Install Dev Extension**, pick the
-  `foam3/tools/lsp/editors/zed-foam3` folder.
+The VS Code extension activates in any workspace that contains `pom.js`. For
+Emacs, add the printed snippet to `init.el` and restart. For Zed, pick the
+`foam3/tools/lsp/editors/zed-foam3` folder when Zed asks for the extension
+directory.
 
 Any other LSP client works too. Point it at this command, with the project
 root as the working directory and stdio as the transport:
@@ -45,16 +34,15 @@ node foam3/tools/lsp-start.js
 ## Agent setup (MCP)
 
 ```bash
-foam3/tools/lsp/install.sh claude-code   # Claude Code   -> .mcp.json
-foam3/tools/lsp/install.sh codex         # Codex CLI     -> .codex/config.toml
-foam3/tools/lsp/install.sh gemini        # Gemini CLI   -> .gemini/settings.json
-foam3/tools/lsp/install.sh cursor        # Cursor        -> .cursor/mcp.json
-foam3/tools/lsp/install.sh pi            # Pi            -> .pi/mcp.json
+foam3/tools/lsp/install.sh claude-code   # writes the foam-lsp entry to .mcp.json
+foam3/tools/lsp/install.sh codex         # writes it to .codex/config.toml
+foam3/tools/lsp/install.sh gemini        # writes it to .gemini/settings.json
+foam3/tools/lsp/install.sh cursor        # writes it to .cursor/mcp.json
+foam3/tools/lsp/install.sh pi            # writes it to .pi/mcp.json
 ```
 
-Each command writes a `foam-lsp` entry into that agent's project config and
-keeps any other entries already there. Then restart the agent. In Claude Code,
-run `/mcp` and approve the project `.mcp.json`.
+Other entries already in the file are kept. Restart the agent afterwards. In
+Claude Code, run `/mcp` and approve the project `.mcp.json`.
 
 The agent then has tools named `foam_hover`, `foam_definition`,
 `foam_references`, `foam_type_hierarchy`, `foam_workspace_symbols`,

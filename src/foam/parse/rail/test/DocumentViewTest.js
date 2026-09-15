@@ -65,7 +65,9 @@ foam.CLASS({
       x.test(states.filter(function(t) { return t.state === 'unreached'; }).map(function(t) { return t.text; }).join('') === input.substring(mid.probe ? mid.probe.end : mid.pos), 'unreached pieces = input after the probe');
       x.test(! mid.probe || states.some(function(t) { return t.state === 'probe' && t.text === input.substring(mid.probe.start, mid.probe.end); }), 'the char under test is its own probe piece');
       var opens = toks.filter(function(t) { return t.kind === 'open'; });
-      x.test(opens.length === mid.spans().length, 'one open token per span');
+      var shown = mid.spans().filter(function(s) { return s.pending || s.end - s.start > 1; });
+      x.test(opens.length === shown.length && opens.length < mid.spans().length, 'one open token per span, one-char spans (key "a") dropped');
+      x.test(! opens.some(function(t) { return t.span.name === 'key' && t.span.start === 0; }), 'the one-char key at 0 has no span');
       x.test(opens.filter(function(t) { return t.span.pending; }).every(function(t) { return t.stackSame >= 0; }), 'open tokens carry the same-start stacking index');
 
       // No snapshot: plain text, one piece, no state.

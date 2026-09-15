@@ -85,11 +85,12 @@ foam.CLASS({
        * span (stackSame = how many enclosing spans start at the same char, so their
        * chips stack instead of overlapping), { kind: 'text', text, state } is a run
        * of characters in one state, { kind: 'close' } ends the innermost span.
-       * Without a snapshot the whole text is one 'plain' piece.
+       * Without a snapshot the whole text is one 'plain' piece. Spans that would
+       * label one character or blank space are dropped (see trivial()).
        */
       var out = [];
       if ( ! snap ) { if ( text ) out.push({ kind: 'text', text: text, state: 'plain' }); return out; }
-      var self = this, spans = snap.spans(), stack = [], cursor = 0;
+      var self = this, spans = snap.spans().filter(function(s) { return ! self.trivial(text, s); }), stack = [], cursor = 0;
       var endOf = function(s) { return s.end === null ? Math.max(s.start, snap.pos) : s.end; };
       var closeTop = function() { var top = stack.pop(); self.pieces(out, text, snap, cursor, top.end); cursor = Math.max(cursor, top.end); out.push({ kind: 'close' }); };
       spans.forEach(function(s) {
@@ -103,6 +104,12 @@ foam.CLASS({
       while ( stack.length ) closeTop();
       this.pieces(out, text, snap, cursor, text.length);
       return out;
+    },
+
+    function trivial(text, s) {
+      /** A label over one character or over blank space says nothing (digit, nl, ws): no span for it. Open spans always show. */
+      if ( s.pending ) return false;
+      return s.end - s.start <= 1 || text.substring(s.start, s.end).trim() === '';
     },
 
     function pieces(out, text, snap, a, b) {

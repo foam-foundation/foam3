@@ -17,7 +17,8 @@ foam.CLASS({
 
   constants: {
     DESCRIBE_MAX: 60,      // parser description length in the status line
-    NEAR_CHARS: 5          // context each side of the failure position
+    NEAR_CHARS: 5,         // context each side of the failure position
+    CLIP_CHARS: 80         // consumed text shown in the status line before it is clipped
   },
 
   properties: [
@@ -87,12 +88,17 @@ foam.CLASS({
       return line1 + '\n' + line2;
     },
 
+    function clip(text) {
+      /** Consumed text for the status line: a whole document would push the controls off the page. */
+      return text.length > this.CLIP_CHARS ? text.substring(0, this.CLIP_CHARS) + '…(' + text.length + ' chars)' : text;
+    },
+
     function describe(ev) {
       var name = ev.root ? this.startSymbol : ev.p.toString();
       if ( name.length > this.DESCRIBE_MAX ) name = name.substring(0, this.DESCRIBE_MAX - 3) + '…';
       if ( ev.type === 'try' ) return 'try  ' + name + ' @' + ev.start;
       return ev.end === null ? '✗    ' + name + ' @' + ev.start
-                             : '✓    ' + name + ' ' + ev.start + '→' + ev.end + ' "' + this.input.substring(ev.start, ev.end) + '"';
+                             : '✓    ' + name + ' ' + ev.start + '→' + ev.end + ' "' + this.clip(this.input.substring(ev.start, ev.end)) + '"';
     },
 
     function derivationRows(opt_filterParser) {

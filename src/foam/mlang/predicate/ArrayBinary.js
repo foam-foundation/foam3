@@ -42,15 +42,22 @@ foam.CLASS({
       },
       javaPreSet: `
         if ( val instanceof Constant && getArg1() instanceof PropertyInfo ) {
-          Object[] valArr;
-          if ( ((Constant) val).getValue() instanceof List ) {
-            valArr = ((List)((Constant) val).getValue()).toArray();
-          } else {
-            valArr = (Object[]) ((Constant) val).getValue();
-          }
-          for ( int i = 0; i < valArr.length; i++ ) {
-            PropertyInfo prop = (PropertyInfo) getArg1();
-            valArr[i] = prop.castObject(valArr[i]);
+          PropertyInfo prop  = (PropertyInfo) getArg1();
+          Object       value = ((Constant) val).getValue();
+
+          // A single value is a legal arg2 — IN(prop, x) asks whether a list-valued
+          // property holds x, and the query parser builds exactly that — so cast it as
+          // one element rather than casting the value itself to an array.
+          if ( value instanceof List ) {
+            List list = (List) value;
+            for ( int i = 0 ; i < list.size() ; i++ ) {
+              list.set(i, prop.castObject(list.get(i)));
+            }
+          } else if ( value instanceof Object[] ) {
+            Object[] valArr = (Object[]) value;
+            for ( int i = 0 ; i < valArr.length ; i++ ) {
+              valArr[i] = prop.castObject(valArr[i]);
+            }
           }
         }
       `

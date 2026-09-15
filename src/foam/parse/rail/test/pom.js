@@ -24,6 +24,7 @@ foam.POM({
     { name: 'RailNotationTest', flags: 'js&test|java&test' },
     { name: 'ParseTraceTest', flags: 'js&test|java&test' },
     { name: 'RailTraceApplyTest', flags: 'js&test|java&test' },
-    { name: 'RailCacheTest', flags: 'js&test|java&test' }
+    { name: 'RailCacheTest', flags: 'js&test|java&test' },
+    { name: 'DocumentViewTest', flags: 'js&test|java&test' }
   ]
 });

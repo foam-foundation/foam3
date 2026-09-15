@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.parse.Grammar',
     'foam.parse.GrammarAxiom',
     'foam.parse.rail.DerivationPanel',
+    'foam.parse.rail.DocumentView',
     'foam.parse.rail.Outcome',
     'foam.parse.rail.ParseTrace',
     'foam.parse.rail.RailBuilder',
@@ -53,6 +54,8 @@ foam.CLASS({
     ^transport button { flex: 1; padding: 3px 0; white-space: nowrap; }
     ^slider { width: 100%; margin: 0; }
     ^ribbon { flex: none; overflow: hidden; border-bottom: 1px solid #e4e4e4; }
+    ^doc { flex: 1 1 45%; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid #ccc; }
+    ^docToggle { font-size: 12px; margin-left: auto; white-space: nowrap; }
     ^status { font: 12px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; padding: 4px 8px; border-bottom: 1px solid #ccc; background: #fafafa; flex: none; }
     ^panel { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; }
     ^swatch { font-weight: bold; }
@@ -64,6 +67,7 @@ foam.CLASS({
     { name: 'HINT',              message: 'drag = pan · wheel = zoom · hover = tooltip' },
     { name: 'TITLE',             message: 'foam.parse.rail' },
     { name: 'LEGEND_TOGGLE',     message: 'Legend' },
+    { name: 'DOC_TOGGLE',        message: 'Document view' },
     { name: 'EDIT_GRAMMAR',      message: 'edit grammar' },
     { name: 'LEGEND_NOTATION',   message: 'Notation:' },
     { name: 'LEGEND_TERMINAL',   message: 'rounded yellow box = terminal (text to match)' },
@@ -163,6 +167,7 @@ foam.CLASS({
     { class: 'Int', name: 'step' },
     { name: 'ribbon', factory: function() { return this.RailInputRibbon.create({ theme: this.scene.theme, measure: this.scene.measure }); } },
     { name: 'panel',  factory: function() { var self = this; return this.DerivationPanel.create({ onSelect: function(p) { self.highlight(p); } }); } },
+    { name: 'doc',    factory: function() { var self = this; return this.DocumentView.create({ onSelect: function(p) { self.highlight(p); } }); } },
     { name: 'hostEl' },
     { name: 'inputEl' },
     { name: 'sliderEl' },
@@ -186,6 +191,7 @@ foam.CLASS({
     { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' },
     { class: 'Boolean', name: 'legendShown',  documentation: 'Legend panel over the canvas corner; off by default.' },
     { class: 'Boolean', name: 'grammarShown', documentation: 'Typed-grammar editor unfolded (dev only).' },
+    { class: 'Boolean', name: 'documentShown', documentation: 'Whole input as decorated text in place of the one-line ribbon.' },
     { class: 'Boolean', name: 'debugHook', documentation: 'Expose window.__rail so scripted checks can drive the page deterministically.' }
   ],
 
@@ -310,8 +316,13 @@ foam.CLASS({
               .end()
               .start('input', null, this.sliderEl$).attrs({ type: 'range', min: 0, max: 0, value: 0, step: 1, title: this.SLIDER_HINT }).addClass(this.myClass('slider'))
                 .on('input', function(e) { self.stopPlay(); self.show(+e.target.value); }).end()
+              .start('label').addClass(this.myClass('docToggle'))
+                .start('input').attrs({ type: 'checkbox', checked: this.documentShown$ }).on('change', function(e) { self.documentShown = e.target.checked; }).end()
+                .add(' ', this.DOC_TOGGLE)
+              .end()
             .end()
-            .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).add(this.ribbon).end()
+            .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).hide(this.documentShown$).add(this.ribbon).end()
+            .start('div').addClass(this.myClass('doc')).show(this.documentShown$).add(this.doc).end()
             .start('div').addClass(this.myClass('status')).add(this.status$).end()
             .start('div').addClass(this.myClass('panel')).add(this.panel).end()
           .end()
@@ -330,6 +341,7 @@ foam.CLASS({
         size();
       });
       this.ribbon.text = this.input;
+      this.doc.text = this.input;
 
       var canvas = this.scene.canvas;
       canvas.on('pointerdown',  function(e) { self.onDown(e); });
@@ -458,6 +470,7 @@ foam.CLASS({
       this.rebuildStrips();
       this.trace = null;
       this.ribbon.text = this.input; this.ribbon.snapshot = null;
+      this.doc.text = this.input; this.doc.snapshot = null;
       this.panel.snapshot = null; this.panel.filterParser = null;
       this.status = grammar.symbols.length ? grammar.symbols.length + ' rules, start = ' + this.startSymbol : this.NO_SYMBOLS;
       this.scene.fitWidth();
@@ -516,6 +529,7 @@ foam.CLASS({
       if ( this.inputEl ) this.inputEl.el().then(function(el) { if ( el.value !== text ) el.value = text; });
       this.trace = null;
       this.ribbon.text = text; this.ribbon.snapshot = null;
+      this.doc.text = text; this.doc.snapshot = null;
       this.scene.applyTrace(null);
       this.panel.snapshot = null;
       this.status = this.NOT_PARSED;
@@ -535,6 +549,7 @@ foam.CLASS({
       this.step = snap.step;
       this.scene.applyTrace(snap);
       this.ribbon.snapshot = snap;
+      this.doc.snapshot = snap;
       this.panel.snapshot = snap;
       this.status = snap.summary();
       if ( this.sliderEl ) this.sliderEl.el().then(function(el) { el.max = snap.total; el.value = snap.step; });

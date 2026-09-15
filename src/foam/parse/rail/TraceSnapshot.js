@@ -133,13 +133,26 @@ foam.CLASS({
             prev.count++; prev.recursing = true; childDepth = prev.depth + 1;
           } else {
             rows.push({ parser: node.parser, label: label, kind: rule ? 'rule' : 'leaf', depth: depth, start: node.start, end: node.end,
-              pending: node.pending, count: 1, consumed: rule && node.end !== null ? self.input.substring(node.start, node.end) : '', recursing: false });
+              pending: node.pending, count: 1, consumed: rule && node.end !== null ? self.input.substring(node.start, node.end) : '', recursing: false, root: !! node.root });
             childDepth = depth + 1;
           }
         }
         pushKids(node.kids, childDepth);
       }
       return rows;
+    },
+
+    function spans() {
+      /**
+       * Rule activations on the path as text spans for the document view:
+       * [{ parser, name, start, end, pending, depth }] in pre-order (outer before
+       * inner), the start rule itself excluded. A pending span has end null; it is
+       * open up to pos. Same collapsing as derivationRows(), so a left-recursion
+       * staircase is one span.
+       */
+      return this.derivationRows().filter(function(r) { return r.kind === 'rule' && ! r.root; }).map(function(r) {
+        return { parser: r.parser, name: r.label, start: r.start, end: r.end, pending: r.pending, depth: r.depth };
+      });
     }
   ]
 });

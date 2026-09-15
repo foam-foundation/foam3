@@ -19,6 +19,8 @@ import java.io.File;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
 
+import static foam.mlang.MLang.EQ;
+
 public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
 {
@@ -188,11 +190,12 @@ public class PartitionedDAO
         // because the journal formats the object AFTER the delegate stamps
         // it (AbstractF3FileJournal.put executes dao.put_ under lock first).
         DAO seq = new foam.core.partition.PartitionedSequenceNumberDAO.Builder(loadX)
-          .setPrefix(rawPart + SEPARATOR)
           .setProperty("id")
           .setDelegate(new foam.dao.MDAO(getOf()))
           .build();
-        return new JDAO(loadX, seq, journalName);
+        JDAO jdao = new JDAO(loadX, seq, journalName);
+        addIndices(jdao);
+        return jdao;
       }
 
       JDAO jdao = new JDAO(loadX, getOf(), journalName);
@@ -217,8 +220,10 @@ public class PartitionedDAO
 
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
-    String[] a = getID(obj).split(SEPARATOR);
-    //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
+    // -1 keeps the trailing empty segment: an unset id arrives here as "" at
+    // depth 1 and as "<a>~" at depth 2, and dropping that empty tail would
+    // re-append the previous level's key as the sequence segment.
+    String[] a = getID(obj).split(SEPARATOR, -1);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
       for ( int i = 0 ; i < getDepth()-1 ; i++ ) {
@@ -228,7 +233,6 @@ public class PartitionedDAO
       sb.append(part);
       sb.append(SEPARATOR);
       sb.append(a[a.length-1]);
-      // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
     FObject ret = getDelegate(part).put_(x, obj);
@@ -255,9 +259,29 @@ public class PartitionedDAO
 
   public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     Object part = extractPredicateValue(predicate);
-    // TODO: extract partition match or range
-    // return sink;
-    return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
+
+    if ( part == null ) {
+      // No partition term: nothing can be routed. Answer empty and say so,
+      // rather than creating and caching a partition literally named "null".
+      Loggers.logger(x, this).info("No partition term in predicate, nothing selected", getDirName(), predicate);
+      sink.eof();
+      return sink;
+    }
+
+    if ( ! ( part instanceof Object[] ) ) {
+      return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
+    }
+
+    // IN over the partition property: one partition per listed value, same
+    // fan-out as DatePartitionedDAO over a date range.
+    Sink                                  s2 = decorateSink(x, sink, skip, limit, order, predicate);
+    DatePartitionedDAO.DetachableSink     s3 = new DatePartitionedDAO.DetachableSink(s2);
+    for ( Object p : (Object[]) part ) {
+      getDelegate(String.valueOf(p)).select_(x, s3, 0, MAX_SAFE_INTEGER, null, null);
+      if ( s3.isDetached() ) break;
+    }
+    s2.eof();
+    return sink;
   }
 
   public Object extractPredicateValue(Predicate predicate) {
@@ -272,6 +296,11 @@ public class PartitionedDAO
       if ( expr.getArg1() == getPartitionProperty() ) {
         if ( predicate.getClass() == Eq.class ) {
           return expr.getArg2().f(expr);
+        }
+        if ( predicate.getClass() == In.class ) {
+          Object values = expr.getArg2().f(expr);
+          if ( values instanceof Object[] ) return values;
+          if ( values instanceof java.util.List ) return ((java.util.List) values).toArray();
         }
         /*
         // For range predicates, you could return a Range object or array
@@ -296,6 +325,51 @@ public class PartitionedDAO
     }
 
     return null;
+  }
+
+  /** Path of the leaf partition this object routes to, one segment per
+      level ("<a>~<b>" for two levels), built the same way put_ routes. A
+      nested partitioned delegate is asked for its own segment; a leaf ends
+      the path. */
+  public String leafPath(FObject obj) {
+    String part = getPartition(obj);
+    DAO    d    = getDelegate(part);
+    return d instanceof PartitionedDAO ? part + SEPARATOR + ((PartitionedDAO) d).leafPath(obj) : part;
+  }
+
+  /** A blank instance of `of` carrying only the partition-key properties of
+      obj, at every level. The values, not the partition names: partitionPredicate
+      turns them back into the terms the router understands. */
+  public FObject partitionKey(FObject obj) {
+    try {
+      FObject key = (FObject) getOf().newInstance();
+      copyPartitionKey(obj, key);
+      return key;
+    } catch ( java.lang.Exception e ) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  protected void copyPartitionKey(FObject from, FObject to) {
+    PropertyInfo prop = (PropertyInfo) getPartitionProperty();
+    prop.set(to, prop.get(from));
+    DAO d = getDelegate(getPartition(from));
+    if ( d instanceof PartitionedDAO ) ((PartitionedDAO) d).copyPartitionKey(from, to);
+  }
+
+  /** The predicate that routes to exactly the leaf holding `key` and is true
+      for every row in it, at every level. Equality on the partition property
+      here; DatePartitionedDAO answers with the partition's date range. */
+  public Predicate partitionPredicate(FObject key) {
+    Predicate mine = levelPredicate(key);
+    DAO       d    = getDelegate(getPartition(key));
+    return d instanceof PartitionedDAO
+      ? foam.mlang.MLang.AND(mine, ((PartitionedDAO) d).partitionPredicate(key))
+      : mine;
+  }
+
+  protected Predicate levelPredicate(FObject key) {
+    return EQ(getPartitionProperty(), getPartitionProperty().f(key));
   }
 
   /** Copy a legacy single-file journal's records into this DAO's per-partition

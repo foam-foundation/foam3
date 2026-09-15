@@ -13,10 +13,14 @@ foam.POM({
     { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' },
     { name: 'PartitionLoadProgressDAOTest',       flags: 'js&test|java&test' },
     { name: 'UnloadableDecoratedDAOTest',         flags: 'js&test|java&test' },
-    { name: 'PartitionedDAOListenTest',           flags: 'js&test|java&test' }
+    { name: 'PartitionedDAOListenTest',           flags: 'js&test|java&test' },
+    { name: 'TwoLevelUnsetIdTest',                flags: 'js&test|java&test' },
+    { name: 'PartitionedDAORoutingTest',          flags: 'js&test|java&test' },
+    { name: 'PartitionIndexDAOTest',              flags: 'js&test|java&test' }
   ],
 
   javaFiles: [
-    { name: 'TwoLevelPartitionedDAO', flags: 'test' }
+    { name: 'TwoLevelPartitionedDAO',    flags: 'test' },
+    { name: 'RegionDatePartitionedDAO', flags: 'test' }
   ]
 });

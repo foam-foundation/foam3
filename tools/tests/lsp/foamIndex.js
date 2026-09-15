@@ -535,3 +535,54 @@ section('FoamIndex — failed grammar parse must not be cached against mtime');
   test(users.indexOf('lsptest.of.Holder') !== -1,
     'of-user found regardless of adapted of shape, got ' + JSON.stringify(users));
 })();
+
+// === reindexPath: a save refreshes the class→file map ===
+// buildFileIndex walks the POMs once at boot. A class file or pom.js saved
+// after that must land in fileIndex_ through reindexPath, or go-to-definition
+// and every name lookup stay blind to it until a restart.
+section('FoamIndex — reindexPath after a save');
+(function() {
+  var os     = require('os');
+  var tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'foam-lsp-reindex-'));
+  var pomPath = path.join(tmpDir, 'pom.js');
+  var fooPath = path.join(tmpDir, 'Foo.js');
+  var barPath = path.join(tmpDir, 'Bar.js');
+  try {
+    fs.writeFileSync(fooPath, "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n");
+    fs.writeFileSync(pomPath, "foam.POM({ name: 'reindex', files: [ { name: 'Foo', flags: 'js|java' } ] });\n");
+
+    index.buildFileIndex();
+    test(index.getFilePath('lsp.reindex.Foo') === null,
+      'reindexPath: a pom outside the boot walk is not indexed at boot');
+
+    // pom.js saved: every file it names is indexed with the pom's flags.
+    index.reindexPath(pomPath);
+    test(index.getFilePath('lsp.reindex.Foo') === fooPath,
+      'reindexPath(pom.js): class named by the saved pom resolves to its file');
+    var fooLoc = index.getPomLocationForClass('lsp.reindex.Foo');
+    test(fooLoc && fooLoc.pomFile === pomPath,
+      'reindexPath(pom.js): pom entry navigation works for the new class');
+    test(index.getFileFlags('lsp.reindex.Foo').indexOf('java') !== -1,
+      'reindexPath(pom.js): flags come from the pom entry');
+
+    // Class file saved before its pom entry exists: nearest pom.js up the
+    // tree is the owner, flags default to js.
+    fs.writeFileSync(barPath, "foam.CLASS({ package: 'lsp.reindex', name: 'Bar' });\n");
+    index.reindexPath(barPath);
+    test(index.getFilePath('lsp.reindex.Bar') === barPath,
+      'reindexPath(class file): class in a file with no pom entry resolves to its file');
+    test(index.getClassForPomEntry(pomPath, 'Bar') === 'lsp.reindex.Bar',
+      'reindexPath(class file): the nearest pom.js is recorded as its owner');
+
+    // Class file saved with a new class added: the addition is indexed.
+    fs.writeFileSync(fooPath,
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo2' });\n");
+    index.reindexPath(fooPath);
+    test(index.getFilePath('lsp.reindex.Foo2') === fooPath,
+      'reindexPath(class file): a class added to an indexed file resolves');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    index.buildFileIndex();
+  }
+})();

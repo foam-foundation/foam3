@@ -806,12 +806,18 @@ foam.CLASS({
       for ( var f = 0 ; f < files.length ; f++ ) {
         var file = files[f];
         var filePath = path_.resolve(location, file.name + '.js');
-        var fileFlags = file.flags ? String(file.flags).split('|').map(function(s) {
-          return s.split('&');
-        }).reduce(function(a, b) { return a.concat(b); }, []) : ['js'];
+        var fileFlags = file.flags ? this.splitFlags_(file.flags) : ['js'];
 
         this.indexFileClasses_(filePath, fileFlags, pomFile, file.name, fs_);
       }
+    },
+
+    function splitFlags_(raw) {
+      /** 'js&test|java&test' → ['js', 'test', 'java', 'test']; '' → []. */
+      if ( ! raw ) return [];
+      return String(raw).split('|').map(function(s) {
+        return s.split('&');
+      }).reduce(function(a, b) { return a.concat(b); }, []);
     },
 
     function indexFileClasses_(filePath, fileFlags, pomFile, pomEntryName, fs_) {
@@ -1036,13 +1042,8 @@ foam.CLASS({
               for ( var f = 0 ; f < projFiles.length ; f++ ) {
                 var file = projFiles[f];
                 if ( ! file || ! file.name ) continue;
-                var rawFlags = file.flags || '';
-                var fileFlags = rawFlags ? rawFlags.split('|').map(function(s) {
-                  return s.split('&');
-                }).reduce(function(a, b) { return a.concat(b); }, []) : [];
-                if ( projFlags ) fileFlags = fileFlags.concat(projFlags.split('|').map(function(s) {
-                  return s.split('&');
-                }).reduce(function(a, b) { return a.concat(b); }, []));
+                var fileFlags = this.splitFlags_(file.flags);
+                if ( projFlags ) fileFlags = fileFlags.concat(this.splitFlags_(projFlags));
 
                 var filePath = path_.resolve(projLocation, file.name + '.js');
                 this.indexFileClasses_(filePath, fileFlags, projPomPath, file.name, fs_);
@@ -1752,6 +1753,74 @@ foam.CLASS({
       // adding or removing a class invalidates the alt() list, so drop the
       // cached instance too.
       this.grammar_          = null;
+    },
+
+    function reindexPath(filePath) {
+      /**
+       * Refresh the class→file map for one file saved after boot.
+       * buildFileIndex walks the POMs once, so a class file or a pom.js
+       * entry added later is unknown to getFilePath, getClassForPomEntry
+       * and every name-addressed lookup until the server restarts.
+       *
+       * A saved pom.js re-indexes every file it names, with that entry's
+       * flags. A saved class file is indexed under the pom that already
+       * owns it, or, before its pom entry exists, under the nearest pom.js
+       * up the tree with the default js flag.
+       */
+      if ( ! filePath ) return;
+      var path_ = require('path');
+      var fs_   = require('fs');
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+
+      if ( path_.basename(filePath) === 'pom.js' ) {
+        var content = fs_.readFileSync(filePath, 'utf8');
+        var files   = this.parsePomFiles_(content) || [];
+        var dir     = path_.dirname(filePath);
+        for ( var f = 0 ; f < files.length ; f++ ) {
+          var file = files[f];
+          if ( ! file || ! file.name ) continue;
+          var fileFlags = file.flags ? this.splitFlags_(file.flags) : ['js'];
+          var target    = path_.resolve(dir, file.name + '.js');
+          this.indexFileClasses_(target, fileFlags, filePath, file.name, fs_);
+        }
+        return;
+      }
+
+      var owner = this.findOwnerEntry_(filePath);
+      if ( ! owner ) {
+        var pomFile = this.findNearestPom_(path_.dirname(filePath), path_, fs_);
+        if ( ! pomFile ) return;
+        var relative = path_.relative(path_.dirname(pomFile), filePath);
+        owner = {
+          flags:        ['js'],
+          pomFile:      pomFile,
+          pomEntryName: relative.replace(/\.js$/, '')
+        };
+      }
+      this.indexFileClasses_(
+        filePath, owner.flags, owner.pomFile, owner.pomEntryName, fs_);
+    },
+
+    function findOwnerEntry_(filePath) {
+      /** The existing fileIndex_ entry for a path, so a re-save keeps the
+       *  flags and pom the boot walk recorded. Null for a file indexed
+       *  nowhere yet. */
+      for ( var id in this.fileIndex_ ) {
+        var entry = this.fileIndex_[id];
+        if ( entry && entry.path === filePath ) return entry;
+      }
+      return null;
+    },
+
+    function findNearestPom_(dir, path_, fs_) {
+      /** Walk up from dir to the filesystem root for the closest pom.js. */
+      for ( ; ; ) {
+        var candidate = path_.join(dir, 'pom.js');
+        if ( fs_.existsSync(candidate) ) return candidate;
+        var parent = path_.dirname(dir);
+        if ( parent === dir ) return null;
+        dir = parent;
+      }
     },
 
     function invalidatePomCache(pomFile) {

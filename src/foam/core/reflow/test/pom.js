@@ -9,6 +9,7 @@ foam.POM({
   files: [
     { name: 'ColumnParserTest', flags: 'js&test|java&test' },
     { name: 'DependencyScannerTest', flags: 'js&test|java&test' },
+    { name: 'FlowHistoryRuleActionTest', flags: 'js&test|java&test' },
     { name: 'FlowScriptShapeTest', flags: 'js&test|java&test' }
   ]
 });

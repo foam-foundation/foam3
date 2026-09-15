@@ -58,8 +58,8 @@ public class PartitionIndexDAO
   }
 
   // TODO: do we need a per-property bucket count at all? One fixed count
-  // (64, say) splits a large index (card numbers) into files small enough
-  // to load per lookup and costs a small one (upload ids) nothing but a few
+  // (64, say) splits a large index (account ids) into files small enough
+  // to load per lookup and costs a small one (source ids) nothing but a few
   // tiny files. If so, drop the argument.
   /** Index `prop` across `buckets` journals. Registers the in-leaf index on
       `prop` too, so a routed query is answered by a lookup, not a scan.

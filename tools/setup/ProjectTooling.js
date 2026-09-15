@@ -127,6 +127,8 @@ foam.POM({
       // Docker image
       templateMerge(TEMPLATE_DIR, 'Dockerfile', `${PROJECT_DIR}`, 'Dockerfile');
       templateMerge(TEMPLATE_DIR, 'dockerignore', `${PROJECT_DIR}`, '.dockerignore');
+      // Cloud Run Button settings, see https://github.com/GoogleCloudPlatform/cloud-run-button
+      templateMerge(TEMPLATE_DIR, 'app.json', `${PROJECT_DIR}`, 'app.json');
 
       // gitignore.execSync('sudo chown -R $USER /opt')
     }],

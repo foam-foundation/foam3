@@ -83,8 +83,10 @@ The file is read once at start, so restart the server after editing it.
   failed. In VS Code, open the **FOAM Language Server** output channel. In
   Claude Code, run `/mcp` and read the `[foam-lsp]` lines. A broken `pom.js`
   stops model indexing.
-- **A new class is not found.** The index reflects files on disk at start.
-  Restart the server after adding a class file or a `pom.js` entry.
+- **A class in a new file is not found.** Saving a file re-registers the
+  classes in it, so hover, completion and diagnostics follow your edits.
+  The class-to-file map is built once at start, so go-to-definition and
+  name lookups for a file created after boot need a restart.
 - **Changed a flag or `foam-lsp.json` and nothing changed.** Restart the
   server. VS Code: FOAM status bar item, **Restart FOAM LSP**. Agents: restart
   the agent.

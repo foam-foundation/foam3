@@ -7,8 +7,6 @@
 # volumes so data survives the container. The heap defaults to 75% of the
 # container memory (conf/shrc.custom); set JAVA_OPTS to override, e.g.
 #   docker run -e JAVA_OPTS="-Xms4g -Xmx4g" ...
-#
-# Dockerfile.vercel shares the builder stage; keep the two in step.
 
 # Stage 1: build the binary and resources JARs and package them as tarballs.
 FROM eclipse-temurin:21 AS builder

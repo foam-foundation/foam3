@@ -4,7 +4,9 @@ Shared rules for finding and fixing hardcoded user-facing strings in FOAM views.
 Used by both modes of the `i18n` skill: `tree` (whole tree/module) and `diff` (current change).
 
 For HOW messages work (defining, `messageMap`, template `${}`, the expression
-reactivity rule), read the mechanism guide `doc/guides/i18n.md`. This file is
+reactivity rule), read the mechanism guide `doc/guides/i18n.md`. When the foam-lsp MCP is connected, `foam_code_actions` and
+`foam_diagnostics` produce the candidates per file; the greps below are the fallback (see
+"Tools before grep" in `SKILL.md`). This file is
 only the judging layer: what is a violation, what is exempt, where to look, and how to
 fix.
 

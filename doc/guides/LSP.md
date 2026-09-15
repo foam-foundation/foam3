@@ -11,12 +11,11 @@ and `foam3/`. Run every command below from that root.
 ## Editor setup
 
 ```bash
-foam3/tools/lsp/install.sh          # lists the editors and agents found on PATH, asks which to set up
-foam3/tools/lsp/install.sh vscode   # builds the extension, installs the .vsix; restart VS Code after
-foam3/tools/lsp/install.sh emacs    # copies lsp-foam.el to ~/.emacs.d/site-lisp/, prints the init.el snippet
-foam3/tools/lsp/install.sh zed      # prints the Install Dev Extension steps; needs Rust from rustup
-foam3/tools/lsp/install.sh all      # every editor and agent found on PATH
-./build.sh lsp-install:vscode       # same script through the build; also lsp-install:emacs, :zed
+./build.sh lsp-install              # lists the editors and agents found on PATH, asks which to set up
+./build.sh lsp-install:vscode       # builds the extension, installs the .vsix; restart VS Code after
+./build.sh lsp-install:emacs        # copies lsp-foam.el to ~/.emacs.d/site-lisp/, prints the init.el snippet
+./build.sh lsp-install:zed          # prints the Install Dev Extension steps; needs Rust from rustup
+./build.sh lsp-install:all          # every editor and agent found on PATH
 ```
 
 The VS Code extension activates in any workspace that contains `pom.js`. For
@@ -34,11 +33,11 @@ node foam3/tools/lsp-start.js
 ## Agent setup (MCP)
 
 ```bash
-foam3/tools/lsp/install.sh claude-code   # writes the foam-lsp entry to .mcp.json
-foam3/tools/lsp/install.sh codex         # writes it to .codex/config.toml
-foam3/tools/lsp/install.sh gemini        # writes it to .gemini/settings.json
-foam3/tools/lsp/install.sh cursor        # writes it to .cursor/mcp.json
-foam3/tools/lsp/install.sh pi            # writes it to .pi/mcp.json
+./build.sh lsp-install:claude-code  # writes the foam-lsp entry to .mcp.json
+./build.sh lsp-install:codex        # writes it to .codex/config.toml
+./build.sh lsp-install:gemini       # writes it to .gemini/settings.json
+./build.sh lsp-install:cursor       # writes it to .cursor/mcp.json
+./build.sh lsp-install:pi           # writes it to .pi/mcp.json
 ```
 
 Other entries already in the file are kept. Restart the agent afterwards. In

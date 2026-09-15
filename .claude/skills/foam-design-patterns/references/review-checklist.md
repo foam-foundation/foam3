@@ -51,6 +51,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 
 ## 7. u2 views
 - A colour literal? An unscoped CSS class? A root `width`/`height` on a reusable view? `!important`?
+- `min-height: 0` sitting beside `overflow: auto` (a no-op), or missing from a flex ancestor of a scroll pane?
 - `px` where `rem` fits? `<h3>` where a Fonts class fits?
 - `dynamic()` around structure that does not change? `slot()` returning a detached element?
 - `sub()` outside `onDetach`? Registered on the data instead of the view?

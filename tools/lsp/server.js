@@ -397,6 +397,18 @@ function start() {
       if ( pomPath ) index.invalidatePomCache(pomPath);
     }
 
+    // The class→file map is built from the POMs once at boot. Index the saved
+    // file (or every file a saved pom names) so a class added after boot
+    // resolves in go-to-definition and name lookups without a restart.
+    if ( savedKind === 'class' || savedKind === 'pom' ) {
+      try {
+        index.reindexPath(uriToPath_(uri));
+      } catch ( e ) {
+        console.error('[LSP] file map reindex failed for ' + uri + ': ' +
+          e.message);
+      }
+    }
+
     var changedClassIds = [];
     if ( savedKind === 'class' ) {
       var models = fileModelCache.getModels(uri, doc.text);

@@ -90,6 +90,31 @@ The project also includes a `Dockerfile`. The image builds the app and runs it f
     docker build -t example .
     docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
 
+### Deploy to Vercel with one click
+
+The project also includes a `Dockerfile.vercel`, which
+[Vercel](https://vercel.com/docs/functions/container-images) builds and runs
+as a function. The button clones the template repository into the reader's
+GitHub account and deploys it; a Hobby account needs no card.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/foam-foundation/foam3-template&project-name=foam3-demo&repository-name=foam3-demo)
+
+Vercel spreads requests over several instances that share no memory, with no
+way to pin one, and FOAM keeps sessions in the JVM, so a login on one instance
+is unknown to the next. `Dockerfile.vercel` therefore sets
+`SESSION_DEFAULT_USER` to the admin and `run.sh` passes it as
+`-Dsession.defaultUser`, which signs every new session in as that user. That
+suits a demo and nothing else; unset the variable in the project settings to
+get the login page back. Only `/tmp` is writable, so data resets on every
+cold start.
+
+Cost, 2 GB function, from the Fluid compute pricing page:
+
+| Plan | Included | Requests every second all month |
+| --- | --- | --- |
+| Hobby, no card | 4 CPU-hours, 360 GB-hours memory, 1M invocations | memory allowance gone in about a week, then Vercel pauses the project until next month; no bill |
+| Pro, $20/month | usage credit, then $0.0106 per GB-hour and $0.128 per CPU-hour (iad1) | about $35 for memory plus up to $93 of CPU on top of the $20 |
+
 <!--
 ## Running Application Controller
 

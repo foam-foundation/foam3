@@ -31,6 +31,8 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - A number, date, code, or currency stored as `String`? `Float` for money?
 - A computed value persisted where a transient with `factory`/`javaFactory` would do?
 - `== null` on an Enum? `isSet_` on a factory-backed property?
+- A date split across two properties, or a raw millisecond count? A timestamp passed into a `Date`-typed predicate?
+- A creation stamp assigned in a view instead of a `factory`/`javaFactory`?
 
 ## 5. Context and DAO
 - `getX()` where an `x` was handed in? A user request touching a DAO without `inX(x)`?
@@ -56,6 +58,11 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - `sub()` outside `onDetach`? Registered on the data instead of the view?
 - A property view rendering its own label or reading `controllerMode`? A shared axiom mutated?
 - An optional import without `?` and `?.`?
+- An action styled through `style()`/`addClass` instead of `buttonStyle`?
+- An SVG given `color` instead of `fill`?
+- A collapsible, tab strip, or section view written from scratch? A border that hard-codes its body instead of taking a content slot?
+- A render-local `var` holding an element across statements where `callIf` would chain?
+- `toLocaleString`, a locale string, or date maths inside `render()`?
 
 ## 8. Reflow
 - A block reading a DAO per row, or filtering after the select?

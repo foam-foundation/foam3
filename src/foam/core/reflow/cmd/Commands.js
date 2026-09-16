@@ -489,6 +489,8 @@ foam.CLASS({
   name: 'Flows',
   extends: 'foam.core.reflow.cmd.Command',
 
+  requires: [ 'foam.core.reflow.Flow' ],
+
   imports: [ 'flowDAO' ],
 
   properties: [
@@ -499,7 +501,7 @@ foam.CLASS({
     function execute(q) {
       if ( q ) q = q.toLowerCase();
       var self = this;
-      this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO, function(f) {
+      this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO.orderBy(this.Flow.CATEGORY, this.Flow.NAME), function(f) {
         if ( q != undefined && (f.id + f.category + f.status + f.description).toLowerCase().indexOf(q) == -1 ) return;
         // TODO: use a real TableView instead
         // FROM flowDAO ORDER BY -category,name COLUMNS category,name,status,description TO CSV

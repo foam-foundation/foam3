@@ -68,7 +68,7 @@ foam.CLASS({
 
 The client row keeps the `java&test` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
 
-A `tests.jrl` loads from the directory of a `pom.js` that is itself loaded; in foam3 that means listed in `src/pom.js` or reachable from a pom that is. A directory with no pom of its own needs a `journalFiles:` line in `src/pom.js`. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
+A `tests.jrl` loads because the pom walk reaches its directory: the directory of a loaded `pom.js`, or any directory under it that has no pom of its own (`pmake.js`). Two things stop the walk without the `test` flag: any directory named `test` or `tests` is skipped, and any `tests.jrl` is skipped (`JournalMaker.js`), which is why a test pom sits under `projects:` with `flags: 'test'`. `journalFiles:` is an exclude list, not a registration. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
 
 ## Run it
 
@@ -79,7 +79,7 @@ A `tests.jrl` loads from the directory of a `pom.js` that is itself loaded; in f
 ./build.sh --log-level:INFO server-tests:MyServerTest    # keep INFO in the output; default is ERROR
 ```
 
-`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time, and `-XcleanAll` combined with a test run loses the test classes.
+`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time.
 
 ## Read the result
 
@@ -89,14 +89,15 @@ Trust the tally and the `✘ FAILURE:` lines, never the exit code: the build exi
 grep -niE "PASSED:|FAILED:|✘ FAILURE|Test not run|ERROR CREATING" test.log
 ```
 
-Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any registered class ...`, `Element N of actions is not an instance of Action ...` on every run; none of them is the test. Client results arrive after the `BrowserAgent ... Launching` line, from the browser; a terminal `Client tests timed out after 30 seconds` means dispatched to the browser, not failed.
+Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any registered class ...`, `Element N of actions is not an instance of Action ...` on every run; none of them is the test. Client results arrive after the `BrowserAgent ... Launching` line, from the browser; a terminal `Client tests made no progress for 30 seconds after N results. Tests may still be running in the browser.` means the browser has not reported back yet, not that a test failed.
 
 ## When it will not run
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Test not run: MyTest. Mode: server` on a `JSTest` | expected: `language: 0` makes the server skip it | run it with `client-tests:` |
-| `Test not run` on a server `Test` | not in `testDAO`: no row, an unloaded `tests.jrl`, or an id typo | add the row beside a loaded pom |
+| `WARNING :: Test not run: MyTest. Mode: server. Possible client/server/suite mismatch or typo.` on a `JSTest` | expected: `language: 0` makes the server skip it | run it with `client-tests:` |
+| the same on a server `Test` | not in `testDAO`: no row, a `tests.jrl` the walk never reached, or an id typo; the warning only fires for ids named on the command line | add the row where the walk reaches it, and check the id |
+| nothing runs, no warning | `enabled: false` on the row; both runners select `EQ(Test.ENABLED, true)` first | drop the field or set it true |
 | `ERROR CREATING: pkg.MyClientTest` at replay | flagged `js&test` only, no Java class to instantiate | `js&test\|java&test` |
 | `Cannot find module .../tests.js` from pmake | the journal is in `files:` | remove it; a `.jrl` beside a loaded pom needs no entry |
 | `this.test is not a function` | `this.test` in a JS `runTest` | `x.test(...)` |
@@ -106,6 +107,6 @@ Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any reg
 ## Worked examples
 
 - server, direct Java: `src/foam/dao/SequenceNumberDAOTest.js`
-- server, inline JSHELL in a journal: the `FixedSizeDAOTest` row in `src/foam/dao/tests.jrl`
-- client JS: `src/foam/dao/CopyOnWriteDAOJsTest.js`, `src/foam/parse/test/QueryParserJSTest.js`
+- server, inline BeanShell in a journal with no class of its own: the `FixedSizeDAOTest` row in `src/foam/dao/tests.jrl`
+- client JS: `src/foam/parse/test/QueryParserJSTest.js`
 - pure JS unit: `src/foam/parse/test/SimpleQueryParserTest.js`

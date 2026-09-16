@@ -67,10 +67,11 @@ The task (`foam3/tools/JavaTooling.js`, `javaBenchmarks`) adds the `test` flag, 
 
 ## Read the result
 
-The console ends with `DONE RUNNING N BenchmarkRunners` and nothing else: `BenchmarkRunnerScript` filters the logger to WARN and the runner logs its table at INFO. The result is in the journal:
+By default the console ends with `DONE RUNNING N BenchmarkRunners` and nothing else: `BenchmarkRunnerScript` filters the logger to WARN and the runner logs its table at INFO. Two ways to the number:
 
 ```bash
-grep -o 'name:"[^"]*"\|operationsS:[0-9.]*\|pass:[0-9]*\|fail:[0-9]*' /tmp/benchmark/journals/benchmarkResults
+./build.sh --log-level:INFO java-benchmarks:SelectBenchmarkRunner       # the runner's CSV table prints, for a run at the keyboard
+grep -o 'name:"[^"]*"\|operationsS:[0-9.]*\|pass:[0-9]*\|fail:[0-9]*' /tmp/benchmark/journals/benchmarkResults   # the row, for a script
 ```
 
 `operationsS` is `threads * executionCount / averageTotalTime`, executions per second over the whole sample; `1000 / operationsS` is milliseconds per execution. `fail` above 0 means `execute` threw; the runner logs the exception at ERROR, which the filter lets through.
@@ -94,7 +95,7 @@ Size the data so one `execute` takes at least 100 ms; at 15 ms per execution JIT
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `DONE RUNNING` and no numbers | result logged at INFO, filtered to WARN | read `benchmarkResults`, above |
+| `DONE RUNNING` and no numbers | result logged at INFO, filtered to WARN | `--log-level:INFO`, or read `benchmarkResults`, above |
 | second runner's row shows the first runner's `uid` as a `p(` update | two runners in one JVM drew the same result id | one runner per `java-benchmarks:` invocation when comparing |
 | `Benchmark not found <id>` | the runner's `benchmarkId` names no row in `benchmarks.jrl`, and the runner has no `code:` | add the row, or pass the runner id rather than the benchmark id |
 | run takes minutes, or the box swaps | `executionCount` defaults to 1000 and `threadCount` to every core (`BenchmarkRunner.js`) | set both on the runner row |

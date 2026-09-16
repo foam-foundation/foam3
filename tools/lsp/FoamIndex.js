@@ -2258,19 +2258,20 @@ foam.CLASS({
        * dot-directories skipped.
        *
        * Deliberately NOT getJournalDirs(). That one answers "which
-       * directories hold a pom or an indexed source", which is the right
-       * question for resolving a service name to its services.jrl row, and
-       * JournalEntryIndex shares it so those two cannot drift. It is a
-       * different question from "where is every journal in the workspace":
-       * measured on this repo, the directory answer reaches 110 journals and
-       * this walk reaches 367, a strict superset — the 257 it adds are almost
-       * all of deployment/, which holds no indexed source and no pom.
+       * directories hold a pom or an indexed source"; this one answers "where
+       * is every journal in the workspace". Measured here: the directory
+       * answer reaches 110 journals, this walk 367, a strict superset.
        *
-       * Cost of the gap: 5ms for the directory scan against 91ms cold / 81ms
-       * warm here. Widening journal discovery to this walk would give
-       * go-to-definition the deployment journals too, at the price of every
-       * JournalEntryIndex lookup reading 367 files instead of 110 — worth
-       * doing, worth measuring, and not part of restoring this index.
+       * The 257 it adds are journals in directories carrying no pom and no
+       * indexed source. An earlier version of this comment called them
+       * "almost all of deployment/" — measured, deployment/ is 39 of the 257
+       * and src/ is 196, so the rule is the pom-and-source one above, not a
+       * directory name.
+       *
+       * Cost: 5ms for the directory scan against 91ms cold / 81ms warm here.
+       * getServiceJournalFiles() below serves the services.jrl slice of this
+       * walk to JournalEntryIndex; the general entry lookup still uses the
+       * narrow directory answer on purpose (see that method).
        */
       var fs_   = require('fs');
       var path_ = require('path');
@@ -2423,6 +2424,38 @@ foam.CLASS({
       }
 
       this.stringUsageIndex_ = { byName: byName };
+    },
+
+    function getServiceJournalFiles() {
+      /**
+       * Every services.jrl in the workspace — the WIDE answer, and the one
+       * JournalEntryIndex uses to resolve a service name.
+       *
+       * Why this and not getJournalDirs(): a FOAM app keeps per-target
+       * deployment journals (deployment/<target>/services.jrl) in directories
+       * that hold no class file and register no pom, so the directory answer
+       * never reaches them. This repo has 11 such targets, 9 carrying a
+       * services.jrl. Measured here: the directory answer sees 22 of the 78
+       * services.jrl in the tree and resolves 36 of the 80 daoKey values
+       * written across src/ and deployment/; this walk sees all 78 and
+       * resolves 77.
+       *
+       * Only the SERVICES lookup is widened. The general entry lookup
+       * (getEntryLocations — a Reference property naming a journal row) stays
+       * on findJournalFiles_'s directory answer, because seed journals are
+       * copied per deployment target: widening it makes one id resolve to the
+       * same row in every target, which is a longer answer, not a better one.
+       *
+       * Not cached here — JournalEntryIndex caches the result and drops it in
+       * invalidate(), so a .jrl save re-runs the walk exactly once.
+       */
+      var path_ = require('path');
+      var all   = this.findWorkspaceJrlFiles_();
+      var out   = [];
+      for ( var i = 0 ; i < all.length ; i++ ) {
+        if ( path_.basename(all[i]) === 'services.jrl' ) out.push(all[i]);
+      }
+      return out;
     },
 
     function getJournalDirs() {

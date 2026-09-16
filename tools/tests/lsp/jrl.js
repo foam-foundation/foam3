@@ -682,10 +682,30 @@ try {
   test(autoFiles.indexOf(path.join(jrlnavDir, 'menus.jrl')) !== -1 &&
        autoFiles.indexOf(path.join(jrlnavDir, 'services.jrl')) !== -1,
     'JEI: auto-discovery finds .jrl files in foam.poms locations');
-  test(jeiAuto.getServiceLocations('recipeDAO') !== null,
-    'JEI: auto-discovered recipeDAO service resolves');
+  // getEntryLocations, not getServiceLocations: the service lookup now
+  // resolves through the workspace walk, which reaches this fixture with or
+  // without the pom entry, so it would pass with the push above removed.
+  // The entry lookup still reads foam.poms.
+  test(jeiAuto.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe') !== null,
+    'JEI: auto-discovered entry resolves from a foam.poms location');
 } finally {
   foam.poms.pop();
+}
+
+// A pom location OUTSIDE the workspace root (the server walks from
+// process.cwd()) must still register its services: the wide walk is a
+// superset of the directory answer only if it is unioned with it.
+var jeiOutDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lsp-jrlsvc-out-'));
+fs.writeFileSync(path.join(jeiOutDir, 'services.jrl'),
+  'p({"class":"foam.core.boot.CSpec","name":"outsideRootProbeDAO","serve":true})\n');
+foam.poms.push({ location: jeiOutDir });
+try {
+  var jeiOut = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  test(jeiOut.getServiceLocations('outsideRootProbeDAO') !== null,
+    'JEI: a services.jrl in a pom location outside the workspace root still resolves');
+} finally {
+  foam.poms.pop();
+  try { fs.rmSync(jeiOutDir, { recursive: true, force: true }); } catch ( e ) {}
 }
 
 // --- Service discovery reaches journals with no pom and no source ---------

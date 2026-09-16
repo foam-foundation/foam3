@@ -435,9 +435,21 @@ test(cspecUses.length > 0 && cspecUses[0].file.endsWith('services.jrl') && cspec
   'cspec records: localUserDAO is recorded with its file and line'
   + ' (got ' + ( cspecUses.length ? cspecUses[0].file.split('/').pop() + ':' + cspecUses[0].line : 'none' ) + ')');
 
-// The services.jrl walk must ask getJournalDirs, not getIndexedDirs:
-// src/services.jrl is 38 registrations in a directory holding no class file
-// at all, so a walk of indexed sources alone never opens it.
+// Service symbols come from the SAME services.jrl list the service lookup
+// resolves against (getServiceJournalFiles), so a name registered only in a
+// pom-less, source-less directory — the per-target deployment shape — is a
+// symbol too. fixtures/jrlservices/{alpha,beta}/services.jrl register
+// rankProbeDAO and nothing else reaches those directories.
+var probeHits = (index.searchSymbols('rankProbeDAO', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'rankProbeDAO'; });
+test(probeHits.length === 2 &&
+     probeHits.every(function(s) { return s.kind === 13 && /jrlservices\/(alpha|beta)\/services\.jrl$/.test(s.filePath); }),
+  'service symbols: a service registered only in pom-less directories is a symbol, one row per registration'
+  + ' (got ' + probeHits.length + ': ' + probeHits.map(function(s) { return s.filePath.split('/').slice(-2).join('/'); }).join(', ') + ')');
+
+// The general journal-directory answer (getJournalDirs) still feeds
+// JournalEntryIndex.findJournalFiles_ and must reach src/, which holds
+// src/services.jrl (38 registrations) and no class file.
 var jDirs = index.getJournalDirs();
 var iDirs = index.getIndexedDirs();
 test(jDirs.length > iDirs.length,

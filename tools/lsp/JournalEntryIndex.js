@@ -42,7 +42,7 @@ foam.CLASS({
   properties: [
     {
       name: 'index',
-      documentation: 'FoamIndex; supplies getJournalDirs() for journal discovery.'
+      documentation: 'FoamIndex; supplies getJournalDirs() for entry-journal discovery and getServiceJournalFiles() for services.jrl discovery.'
     },
     {
       class: 'StringArray',
@@ -205,8 +205,8 @@ foam.CLASS({
       var fs_ = require('fs');
       var path_ = require('path');
       var files = [];
-      // The pom locations + indexed source dirs union lives on FoamIndex, so
-      // this and buildStringUsageIndex_'s services.jrl walk cannot drift.
+      // The narrow answer, on purpose — see getServiceJournalFiles() on
+      // FoamIndex for why the services lookup is the only widened one.
       var dirs = ( this.index && this.index.getJournalDirs() ) || [];
 
       // Read .jrl files from each directory

@@ -85,10 +85,15 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 ### Run in Docker
 
-The project also includes a `Dockerfile`. The image builds the app and runs it from the JARs, with journals, logs and documents as volumes:
+The project also includes a `Dockerfile` and a `docker-compose.yml`. The
+image builds the app and runs it from the JARs, with journals, logs and
+documents in named volumes:
 
-    docker build -t example .
-    docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
+    docker compose up --build
+
+`JOURNALS=production docker compose up --build` adds deployment journal sets
+to the build (`docker` is always included), and `JAVA_OPTS` sizes the heap.
+
 
 <!--
 ## Running Application Controller

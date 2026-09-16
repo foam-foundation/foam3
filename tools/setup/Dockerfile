@@ -1,7 +1,7 @@
 # Runs {App} in a container.
 #
-# Build:  docker build -t {app} .
-# Run:    docker run --rm -p 8080:8080 -v {app}-journals:/opt/{app}/journals {app}
+# Run:    docker compose up --build        (see docker-compose.yml)
+# Or:     docker build -t {app} . && docker run --rm -p 8080:8080 -v {app}-journals:/opt/{app}/journals {app}
 #
 # Journals, logs and documents live under /opt/{app} and are declared as
 # volumes so data survives the container. The heap defaults to 75% of the
@@ -26,9 +26,13 @@ RUN [ -f foam3/pom.js ] || git clone --depth 1 \
       "$(git config -f .gitmodules submodule.foam3.url)" foam3
 RUN cd foam3 && npm install
 
-RUN ./build.sh -Jdocker --build-docker-tar \
- && ./build.sh -Jdocker --build-resources-tar \
- && grep -m1 "version:" pom.js | sed "s/.*'\(.*\)'.*/\1/" > build/package/VERSION
+# JOURNALS: extra deployment journal sets, e.g. production or test; docker is
+# always appended. VERSION: shown by run-docker.sh, defaults to pom.js.
+ARG JOURNALS=
+ARG VERSION=
+RUN ./build.sh -J${JOURNALS:+${JOURNALS},}docker --build-docker-tar \
+ && ./build.sh -J${JOURNALS:+${JOURNALS},}docker --build-resources-tar \
+ && echo "${VERSION:-$(grep -m1 "version:" pom.js | sed "s/.*'\(.*\)'.*/\1/")}" > build/package/VERSION
 
 # Stage 2: runtime. JDK rather than JRE: foam.core.script.Script runs JShell
 # in-process and needs jdk.jshell and jdk.compiler.

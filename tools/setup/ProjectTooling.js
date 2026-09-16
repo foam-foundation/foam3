@@ -127,6 +127,7 @@ foam.POM({
       // Docker image
       templateMerge(TEMPLATE_DIR, 'Dockerfile', `${PROJECT_DIR}`, 'Dockerfile');
       templateMerge(TEMPLATE_DIR, 'dockerignore', `${PROJECT_DIR}`, '.dockerignore');
+      templateMerge(TEMPLATE_DIR, 'docker-compose.yml', `${PROJECT_DIR}`, 'docker-compose.yml');
 
       // gitignore.execSync('sudo chown -R $USER /opt')
     }],

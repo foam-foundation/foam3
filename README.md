@@ -90,6 +90,22 @@ The project also includes a `Dockerfile`. The image builds the app and runs it f
     docker build -t example .
     docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
 
+### Run on a VM, for example Oracle Cloud Always Free
+
+The project also includes `deployment/vm/setup.sh`, a one-shot install for a
+fresh Ubuntu or Oracle Linux VM: it installs Docker, opens the port in the
+VM firewall, builds the image from the project's git repository and starts
+the container with `--restart unless-stopped` and volumes for journals,
+documents and logs. Run it again to update; the volumes are kept.
+
+Oracle's Always Free tier gives an Ampere A1 VM (2 OCPU, 12 GB, 200 GB of
+disk, no time limit) that stays up around the clock, enough for one
+container with real logins and persistent journals at no cost. Create a
+`VM.Standard.A1.Flex` instance with a public IP, add an ingress rule for the
+port to its subnet's security list, then on the VM:
+
+    REPO=https://github.com/<you>/<your-app> bash deployment/vm/setup.sh
+
 <!--
 ## Running Application Controller
 

@@ -46,9 +46,9 @@ Do:    `return dao.find(p) != null;` or `dao.select(COUNT())`
 Review asked: "Can be done with find() or if you don't care about the result then a COUNT()."
 
 ### Read the sink `select` returns
-`select` answers with the sink to read, which is not always the one passed in: `ClientDAO.select_` sends an `ArraySink` over the wire and resolves with the one deserialized from the reply. Reading the local instance works until that DAO is in the chain.
-Don't: `ArraySink s = new ArraySink(); dao.select(s); return s.getArray();`
-Do:    `ArraySink s = (ArraySink) dao.select(new ArraySink()); return s.getArray();`
+`select` answers with the sink to read, in Java as the return and in JS as what the promise resolves with, and it is not always the one passed in: `ClientDAO.select_` sends an `ArraySink` over the wire and resolves with the one deserialized from the reply. Reading the local instance works until that DAO is in the chain.
+Don't: `ArraySink s = new ArraySink(); dao.select(s); return s.getArray();` / `var s = this.ArraySink.create(); await dao.select(s); use(s.array);`
+Do:    `ArraySink s = (ArraySink) dao.select(new ArraySink()); return s.getArray();` / `var s = await dao.select(); use(s.array);`
 Review asked: "Should be: array = dao.select(array);"
 
 ### Express the query; let the DAO answer it

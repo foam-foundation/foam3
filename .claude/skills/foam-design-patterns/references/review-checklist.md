@@ -84,3 +84,11 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 ## 10. Tests
 - Test files under `test/` with `flags: 'test'` on the pom entry?
 - An assertion that cannot fail? An `async` test that awaits nothing?
+
+## 11. Services
+- A connection, credential, or timer opened outside `COREService.start()`? A live handle on a non-transient property?
+- A `COREService` CSpec without `lazy: false`? A durable flush that lives only in `stop()`?
+- A `reload()` expected from a CSpec edit that touched none of `service`, `serviceClass`, `serviceScript`?
+- A hand-rolled sleep or counter where a `Throttle` CSpec fits? `throttle()` under a lock, or unguarded against a null lookup?
+- A hand-written `Client<Name>Service` where `client: true` would generate it? A DAO passed across the wire?
+- A "can read" check ahead of a `find`? A `dao.find(id)` without `inX(x)` on a user path?

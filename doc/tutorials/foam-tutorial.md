@@ -1633,28 +1633,25 @@ Because both resolve their target from the context `data`, rendering them outsid
 
 One of FOAM's most powerful features is its reactive slot system. A **slot** is a live reference to a value — a handle that notifies the UI whenever the value changes. You never manually update DOM elements; you bind them to slots and FOAM keeps everything in sync.
 
-Every property has a slot, reached with the `$` suffix. A few forms cover most day-to-day view code:
+Every property has a slot, reached with the `$` suffix:
 
 ```javascript
 this.name        // the current value — a static snapshot
 this.name$       // the slot — a live handle to the property
 
-this.add(this.name$);                                   // reactive text: re-renders when name changes
-this.tag({ class: 'foam.u2.TextField', data$: this.name$ });  // two-way bind: field ↔ property
+this.add(this.name$);                                        // reactive text: re-renders when name changes
+this.tag({ class: 'foam.u2.TextField', data$: this.name$ }); // two-way bind: field ↔ property
 
-// a computed slot — a derived value that recomputes when any dependency changes
-// (argument names ARE the dependencies)
+// a computed slot — recomputes whenever any named dependency changes
 var fullName = this.slot(function(firstName, lastName) {
   return firstName + ' ' + lastName;
 });
 this.add(fullName);
 ```
 
-When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancelled when the component is removed:
+Slots go much deeper than this: they can mirror each other, be chained across object graphs, subscribe to changes, and drive reactive DOM rebuilds. Those patterns — `follow()`, `sub()`, `dynamic()`, slot chains with `$`-paths — appear throughout this tutorial and are explained each time we use them in context.
 
-```javascript
-this.onDetach(this.name$.sub(this.onNameChange));
-```
+For the complete picture up front, read [`Slots.md`](../guides/Slots.md). It covers the full slot type zoo, how `dot()` builds chains that auto-rewire when intermediate objects are replaced, how ExpressionSlots infer their dependencies from argument names, and the subtle difference between syncing values and subscribing to events. It is the single most useful reference in this guide — the developers who read it early consistently find the rest of the tutorial significantly easier to follow.
 
 ### When the Stock UI Isn't Enough
 

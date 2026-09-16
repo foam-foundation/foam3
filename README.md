@@ -83,6 +83,13 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 * visit: http:/localhost:8080 and login with admin / badpassword
 
+### Run in Docker
+
+The project also includes a `Dockerfile`. The image builds the app and runs it from the JARs, with journals, logs and documents as volumes:
+
+    docker build -t example .
+    docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
+
 <!--
 ## Running Application Controller
 

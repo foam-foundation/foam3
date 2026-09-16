@@ -66,7 +66,7 @@ foam.CLASS({
 | client test | `js&test\|java&test` too | same, plus `"language": 0` |
 | standalone `.java` test | `javaFiles:` entry, `flags: "test"` | same as server |
 
-The client row keeps the `java&test` half because the server instantiates every journalled test during replay; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
+The client row keeps the `java&test` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
 
 A `tests.jrl` loads from the directory of a `pom.js` that is itself loaded; in foam3 that means listed in `src/pom.js` or reachable from a pom that is. A directory with no pom of its own needs a `journalFiles:` line in `src/pom.js`. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
 

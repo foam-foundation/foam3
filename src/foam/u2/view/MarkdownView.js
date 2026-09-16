@@ -542,12 +542,13 @@ foam.CLASS({
   ],
 
   listeners: [
-    function updateRender() {
-      var self = this;
-      clearTimeout(this.renderTimeout_);
-      this.renderTimeout_ = setTimeout(function() { self.renderData_ = self.data; }, 300);
+    {
+      name: 'updateRender',
+      isMerged: true,
+      mergeDelay: 150,
+      code: function() { this.renderData_ = this.data; }
     }
-  ]
+  ],
 });
 
 

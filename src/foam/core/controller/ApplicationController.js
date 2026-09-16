@@ -477,7 +477,7 @@ foam.CLASS({
 
         // Source runs only (no foam-bin): pick up .js edits without a page reload.
         if ( ! globalThis.FOAM_BIN && client.sourceChangeDAO ) {
-          self.onDetach(self.ViewReloader.create({ root: self }, self.__subContext__));
+          self.onDetach(self.ViewReloader.create(null, self.__subContext__));
         }
         // For testing purposes only. Do not use in code.
         globalThis.x     = self.__subContext__;

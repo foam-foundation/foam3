@@ -11,10 +11,10 @@ foam.CLASS({
   documentation: `A .js file under core.webroot whose mtime changed. id is the
     webroot-relative path with a leading slash, which is also the URL pathname
     the browser loaded the file from, so foam.u2.ViewReloader matches it against
-    Model.source without a lookup table.`,
+    Model.source without a lookup table. Every put reaches every listener, so a
+    second save of the same file needs no distinguishing field.`,
 
   properties: [
-    { class: 'String',   name: 'id' },
-    { class: 'DateTime', name: 'modified', documentation: 'When the change was detected.' }
+    { class: 'String', name: 'id' }
   ]
 });

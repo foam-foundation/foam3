@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.core.fs.test',
   name: 'SourceWatcherTest',
-  extends: 'foam.core.test.Test',
+  extends: 'foam.core.fs.test.WatcherTestBase',
 
   javaImports: [
     'foam.core.fs.SourceChange',
@@ -15,14 +15,9 @@ foam.CLASS({
     'foam.dao.ArraySink',
     'foam.dao.MDAO',
     'foam.lang.X',
-    'java.io.IOException',
-    'java.nio.file.FileVisitResult',
     'java.nio.file.Files',
     'java.nio.file.Path',
-    'java.nio.file.SimpleFileVisitor',
-    'java.nio.file.attribute.BasicFileAttributes',
-    'java.nio.file.attribute.FileTime',
-    'java.util.function.BooleanSupplier'
+    'java.nio.file.attribute.FileTime'
   ],
 
   methods: [
@@ -70,10 +65,7 @@ foam.CLASS({
               .filter(o -> ! "/warmup.js".equals(((SourceChange) o).getId()))
               .count();
             test(seen && changes == 1, "one change reported: the .js outside skipDirs, got " + changes);
-
-            SourceChange c = (SourceChange) dao.find("/a.js");
-            test(c != null, "id is the root-relative path with a leading slash");
-            test(c != null && c.getModified() != null, "modified is set");
+            test(dao.find("/a.js") != null, "id is the root-relative path with a leading slash");
             test(Files.exists(file), "the source file is not deleted");
           } finally {
             w.stop();
@@ -88,21 +80,6 @@ foam.CLASS({
         } finally {
           if ( root != null ) deleteTree(root);
         }
-      `
-    },
-    {
-      documentation: 'Poll cond every 20ms until it is true or timeoutMs elapses.',
-      name: 'await',
-      args: 'BooleanSupplier cond, long timeoutMs',
-      type: 'Boolean',
-      javaThrows: [ 'InterruptedException' ],
-      javaCode: `
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while ( ! cond.getAsBoolean() ) {
-          if ( System.currentTimeMillis() >= deadline ) return false;
-          Thread.sleep(20);
-        }
-        return true;
       `
     },
     {
@@ -123,27 +100,6 @@ foam.CLASS({
           Files.setLastModifiedTime(sentinel, FileTime.fromMillis(System.currentTimeMillis()));
           Thread.sleep(20);
         }
-      `
-    },
-    {
-      documentation: 'Recursively delete a temp directory tree used by this test.',
-      name: 'deleteTree',
-      args: 'Path root',
-      javaThrows: [ 'IOException' ],
-      javaCode: `
-        if ( ! Files.exists(root) ) return;
-        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
-          @Override
-          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            Files.deleteIfExists(file);
-            return FileVisitResult.CONTINUE;
-          }
-          @Override
-          public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-            Files.deleteIfExists(dir);
-            return FileVisitResult.CONTINUE;
-          }
-        });
       `
     }
   ]

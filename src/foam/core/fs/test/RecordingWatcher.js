@@ -7,9 +7,9 @@
 foam.CLASS({
   package: 'foam.core.fs.test',
   name: 'RecordingWatcher',
-  extends: 'foam.core.fs.Watcher',
+  extends: 'foam.core.fs.PollingWatcher',
 
-  documentation: 'Test double for Watcher: records handled requests, rejects names starting with "skip".',
+  documentation: 'Test double for PollingWatcher: records handled requests, rejects names starting with "skip".',
 
   javaImports: [
     'java.util.concurrent.CopyOnWriteArrayList'

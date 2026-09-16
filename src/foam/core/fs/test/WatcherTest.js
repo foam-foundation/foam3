@@ -7,17 +7,16 @@
 foam.CLASS({
   package: 'foam.core.fs.test',
   name: 'WatcherTest',
-  extends: 'foam.core.test.Test',
+  extends: 'foam.core.fs.test.WatcherTestBase',
 
   javaImports: [
-    'java.io.IOException',
-    'java.nio.file.FileVisitResult',
+    'foam.core.fs.Watcher',
+    'foam.lang.X',
     'java.nio.file.Files',
     'java.nio.file.Path',
-    'java.nio.file.SimpleFileVisitor',
-    'java.nio.file.attribute.BasicFileAttributes',
     'java.nio.file.attribute.FileTime',
-    'java.util.function.BooleanSupplier'
+    'java.util.List',
+    'java.util.concurrent.CopyOnWriteArrayList'
   ],
 
   methods: [
@@ -29,7 +28,7 @@ foam.CLASS({
         Path root2 = null;
         Path legacyDir = null;
         try {
-          // poll() (recursive: true) on a flat directory: a new file is a request, handled by name, then deleted
+          // PollingWatcher on a flat directory: a new file is a request, handled by name, then deleted
           dir = Files.createTempDirectory("watcher");
           Path sentinel = dir.resolve("warmup");
           Path req1     = dir.resolve("req1");
@@ -37,7 +36,6 @@ foam.CLASS({
           Files.writeString(sentinel, "0");
           RecordingWatcher w = new RecordingWatcher.Builder(x)
             .setWatchDir(dir.toString())
-            .setRecursive(true)
             .setPollInterval(50)
             .build();
           w.getRunning().set(true);
@@ -60,17 +58,21 @@ foam.CLASS({
           }
           test(! t.isAlive(), "stop() ends the poll loop");
 
-          // recursive: relative path with forward slashes, skipDirs honoured, a modify is a request
+          // recursive: relative path with forward slashes, skipDirs and dot-directories skipped, a modify is a request
           root = Files.createTempDirectory("watcher-tree");
           Path nested = root.resolve("a").resolve("b");
           Path built  = root.resolve("build");
+          Path hidden = root.resolve(".cache");
           Files.createDirectories(nested);
           Files.createDirectories(built);
+          Files.createDirectories(hidden);
           Path inner        = nested.resolve("inner.js");
           Path out          = built.resolve("out.js");
+          Path cached       = hidden.resolve("cached.js");
           Path rootSentinel = root.resolve("warmup");
           Files.writeString(inner, "1");
           Files.writeString(out, "1");
+          Files.writeString(cached, "1");
           Files.writeString(rootSentinel, "0");
           RecordingWatcher r = new RecordingWatcher.Builder(x)
             .setWatchDir(root.toString())
@@ -85,11 +87,12 @@ foam.CLASS({
           try {
             warmup(r, rootSentinel);
             long mt = System.currentTimeMillis() + 5000;
-            Files.setLastModifiedTime(inner, FileTime.fromMillis(mt));
-            Files.setLastModifiedTime(out,   FileTime.fromMillis(mt));
+            Files.setLastModifiedTime(inner,  FileTime.fromMillis(mt));
+            Files.setLastModifiedTime(out,    FileTime.fromMillis(mt));
+            Files.setLastModifiedTime(cached, FileTime.fromMillis(mt));
             boolean seen = await(() -> ! r.getHandled().isEmpty(), 2000);
             test(seen && r.getHandled().size() == 1 && "a/b/inner.js".equals(r.getHandled().get(0)),
-              "a modified file under a subdirectory is reported by its relative path and build/ is skipped, got " + r.getHandled());
+              "a modified file under a subdirectory is reported by its relative path; build/ and .cache/ are skipped, got " + r.getHandled());
           } finally {
             r.stop();
             rt.join(2000);
@@ -120,13 +123,16 @@ foam.CLASS({
             nt.join(2000);
           }
 
-          // legacy watch() (recursive unset, the default): java.nio.WatchService: a new file is detected and deleted, and so is a rejected one -- the old behaviour
+          // Watcher itself: java.nio.WatchService: a new file is detected and deleted, and so is a rejected one
           legacyDir = Files.createTempDirectory("watcher-legacy");
           Path legacyReq1 = legacyDir.resolve("req1");
           Path legacySkip = legacyDir.resolve("skip.txt");
-          RecordingWatcher lw = new RecordingWatcher.Builder(x)
-            .setWatchDir(legacyDir.toString())
-            .build();
+          List<String> legacyHandled = new CopyOnWriteArrayList<>();
+          Watcher lw = new Watcher(x) {
+            public boolean acceptRequest(X x, String request) { return ! request.startsWith("skip"); }
+            public void handleRequest(X x, String request) { legacyHandled.add(request); }
+          };
+          lw.setWatchDir(legacyDir.toString());
           lw.getRunning().set(true);
           Thread lt = new Thread(() -> lw.execute(x));
           lt.start();
@@ -140,10 +146,10 @@ foam.CLASS({
             // Wait for the full end state (handled AND both files gone), not just handled: postCleanup
             // runs after handleRequest, so checking handled alone can race the gap between the two.
             boolean seen = await(() ->
-              lw.getHandled().contains("req1") && ! Files.exists(legacyReq1) && ! Files.exists(legacySkip), 15000);
-            test(seen, "the legacy WatchService path detects a new file by name, got " + lw.getHandled());
+              legacyHandled.contains("req1") && ! Files.exists(legacyReq1) && ! Files.exists(legacySkip), 15000);
+            test(seen, "the WatchService path detects a new file by name, got " + legacyHandled);
             test(! Files.exists(legacyReq1), "postCleanup deleted the accepted file");
-            test(! Files.exists(legacySkip), "postCleanup deletes a rejected file too -- the legacy behaviour");
+            test(! Files.exists(legacySkip), "postCleanup deletes a rejected file too");
           } finally {
             lw.stop();
             lt.join(3000);
@@ -157,21 +163,6 @@ foam.CLASS({
           if ( root2     != null ) deleteTree(root2);
           if ( legacyDir != null ) deleteTree(legacyDir);
         }
-      `
-    },
-    {
-      documentation: 'Poll cond every 20ms until it is true or timeoutMs elapses.',
-      name: 'await',
-      args: 'BooleanSupplier cond, long timeoutMs',
-      type: 'Boolean',
-      javaThrows: [ 'InterruptedException' ],
-      javaCode: `
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while ( ! cond.getAsBoolean() ) {
-          if ( System.currentTimeMillis() >= deadline ) return false;
-          Thread.sleep(20);
-        }
-        return true;
       `
     },
     {
@@ -196,27 +187,6 @@ foam.CLASS({
           Thread.sleep(20);
         }
         w.getHandled().clear();
-      `
-    },
-    {
-      documentation: 'Recursively delete a temp directory tree used by this test.',
-      name: 'deleteTree',
-      args: 'Path root',
-      javaThrows: [ 'IOException' ],
-      javaCode: `
-        if ( ! Files.exists(root) ) return;
-        Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
-          @Override
-          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            Files.deleteIfExists(file);
-            return FileVisitResult.CONTINUE;
-          }
-          @Override
-          public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-            Files.deleteIfExists(dir);
-            return FileVisitResult.CONTINUE;
-          }
-        });
       `
     }
   ]

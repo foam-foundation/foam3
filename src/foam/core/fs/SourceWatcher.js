@@ -7,13 +7,12 @@
 foam.CLASS({
   package: 'foam.core.fs',
   name: 'SourceWatcher',
-  extends: 'foam.core.fs.Watcher',
+  extends: 'foam.core.fs.PollingWatcher',
 
   documentation: `Reports every changed .js under core.webroot as a SourceChange in sourceChangeDAO, for foam.u2.ViewReloader. Registered by the 'live' deployment journal, which ./build.sh -l adds; a build without it loads neither this service nor the DAO. core.webroot is set for source runs only, so a jar that did load the journal would still log once and return. The source tree is large, so the tree walk runs every 30s and the 500ms tick only stats the known files.`,
 
   javaImports: [
-    'foam.dao.DAO',
-    'java.util.Date'
+    'foam.dao.DAO'
   ],
 
   properties: [
@@ -27,7 +26,7 @@ foam.CLASS({
     },
     {
       name: 'skipDirs',
-      javaFactory: 'return new String[] { "build", "node_modules", ".git" };'
+      javaFactory: 'return new String[] { "build", "node_modules" };'
     },
     {
       name: 'rescanInterval',
@@ -48,10 +47,7 @@ foam.CLASS({
       name: 'handleRequest',
       javaCode: `
       ((DAO) x.get("sourceChangeDAO")).inX(x).put(
-        new SourceChange.Builder(x)
-          .setId("/" + request)
-          .setModified(new Date())
-          .build());
+        new SourceChange.Builder(x).setId("/" + request).build());
       `
     },
     {

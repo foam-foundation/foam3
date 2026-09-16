@@ -24,7 +24,9 @@ foam.CLASS({
     it, gaining a first css: block is not treated as css-only and instead
     rebuilds so a fresh instance installs its own style block, a css+code
     edit reuses the existing style block for the rebuilt instance instead
-    of leaving a stale one behind and installing a duplicate, an axiom-
+    of leaving a stale one behind and installing a duplicate, an instance
+    inside an Element written as its own root (a popup) is rebuilt through
+    document.u2Roots and a removed root leaves that set, an axiom-
     count change in the rebuild path is skipped rather than force-matched,
     and a reload that fails to load restores the class it cleared instead
     of leaving it unregistered.`,
@@ -35,6 +37,10 @@ foam.CLASS({
     {
       name: 'runTest',
       code: async function(x) {
+        // init() subscribes to sourceChangeDAO; nothing here puts into it
+        x = x.createSubContext({
+          sourceChangeDAO: foam.dao.MDAO.create({ of: 'foam.core.fs.SourceChange' }, x)
+        });
         var r = this.ViewReloader.create({}, x);
 
         // --- modelsFor: a model is found by the pathname of its source ---
@@ -113,7 +119,8 @@ foam.CLASS({
         var root  = foam.u2.Element.create(null, x);
         var oldV  = foam.u2.test.ReloaderView.create({ data$: holder.data$ }, x);
         root.add(oldV);
-        var rr = this.ViewReloader.create({ root: root }, x);
+        root.write();
+        var rr = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__['foam.u2.test.ReloaderView'];
         foam.CLASS({
@@ -132,6 +139,7 @@ foam.CLASS({
         holder.data = 'third';
         x.test(newV.data === 'third', 'a holder write reaches the new view');
         x.test(! root.element_.contains(oldV.element_), 'old element left the DOM');
+        root.remove();
 
         // --- rebuild: what old's PARENT put on the host node -- a class,
         //     an inline style, a DOM attribute -- survives too, since
@@ -144,7 +152,8 @@ foam.CLASS({
             .style({ 'grid-column': '3 / span 2' })
             .setAttribute('data-slot', 'a')
           .end();
-        var rr5 = this.ViewReloader.create({ root: root5 }, x);
+        root5.write();
+        var rr5 = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__['foam.u2.test.ReloaderView'];
         foam.CLASS({
@@ -161,14 +170,39 @@ foam.CLASS({
           'an inline style the parent set survives a rebuild');
         x.test(newV5.element_.getAttribute('data-slot') === 'a',
           'a DOM attribute the parent set survives a rebuild');
+        root5.remove();
+
+        // --- rebuild: an Element written to the document as its own root
+        //     (a Popup or ModalOverlay attaches to document.body beside the
+        //     controller) is walked like any other, via document.u2Roots ---
+        var popup = foam.u2.Element.create(null, x);
+        popup.add(foam.u2.test.ReloaderView.create({ data: 'in-popup' }, x));
+        popup.write();
+        var rr6 = this.ViewReloader.create(null, x);
+
+        delete foam.__context__.__cache__['foam.u2.test.ReloaderView'];
+        foam.CLASS({
+          package: 'foam.u2.test', name: 'ReloaderView', extends: 'foam.u2.View',
+          source: 'http://localhost:8080/foam3/src/foam/u2/test/ReloaderView.js?t=6',
+          methods: [ function version() { return 6; }, function render() { this.add(this.data$); } ]
+        });
+
+        var res6 = rr6.rebuild([ 'foam.u2.test.ReloaderView' ]);
+        x.test(res6.rebuilt === 1 && popup.childNodes[0].version() === 6,
+          'an instance inside an Element written as its own root is rebuilt, got ' + JSON.stringify(res6));
+        popup.remove();
+        x.test(! popup.document.u2Roots.has(popup),
+          'removing a written root drops it from document.u2Roots');
 
         // an instance under a SlotNode is reported, not replaced
         var root2 = foam.u2.Element.create(null, x);
         var slot  = foam.lang.SimpleSlot.create({ value: foam.u2.test.ReloaderView.create({ data: 'x' }, x) });
         root2.add(slot);
-        var rr2  = this.ViewReloader.create({ root: root2 }, x);
+        root2.write();
+        var rr2  = this.ViewReloader.create(null, x);
         var res2 = rr2.rebuild([ 'foam.u2.test.ReloaderView' ]);
         x.test(res2.rebuilt === 0 && res2.skipped === 1, 'a SlotNode-hosted instance is skipped and counted, got ' + JSON.stringify(res2));
+        root2.remove();
 
         // a SlotNode-hosted instance is skipped, but its own child is still
         // walked and replaced
@@ -178,7 +212,8 @@ foam.CLASS({
         outer.add(nested);
         var slot3 = foam.lang.SimpleSlot.create({ value: outer });
         root3.add(slot3);
-        var rr3 = this.ViewReloader.create({ root: root3 }, x);
+        root3.write();
+        var rr3 = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__['foam.u2.test.ReloaderView'];
         foam.CLASS({
@@ -190,6 +225,7 @@ foam.CLASS({
         var res3 = rr3.rebuild([ 'foam.u2.test.ReloaderView' ]);
         x.test(res3.rebuilt === 1 && res3.skipped === 1,
           'a SlotNode-hosted view is skipped but its own child is still replaced, got ' + JSON.stringify(res3));
+        root3.remove();
 
         // --- replace: an Element-level property name re-declared by a
         //     subclass is still excluded by name, not sourceCls_ ---
@@ -205,7 +241,8 @@ foam.CLASS({
         var oldCM = foam.u2.test.CMProbe.create({}, x);
         oldCM.controllerMode = foam.u2.ControllerMode.EDIT;
         root4.add(oldCM);
-        var rr4 = this.ViewReloader.create({ root: root4 }, x);
+        root4.write();
+        var rr4 = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__['foam.u2.test.CMProbe'];
         foam.CLASS({
@@ -222,6 +259,7 @@ foam.CLASS({
         x.test(newCM !== oldCM && newCM.version() === 2, 'CMProbe was rebuilt');
         x.test(newCM.controllerMode === foam.u2.ControllerMode.VIEW,
           'a redeclared Element-level property name is excluded by name, not sourceCls_, got ' + newCM.controllerMode);
+        root4.remove();
 
         // --- swapCSS: a css-only edit of a subclass keeps the parent's
         //     installed style instead of dropping it. installInClass
@@ -380,7 +418,8 @@ foam.CLASS({
         var oldGrow  = foam.lookup(growId);
         var rootGrow = foam.u2.Element.create(null, x);
         rootGrow.add(oldGrow.create({}, x));
-        var rrGrow = this.ViewReloader.create({ root: rootGrow }, x);
+        rootGrow.write();
+        var rrGrow = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__[growId];
         foam.CLASS({
@@ -400,6 +439,7 @@ foam.CLASS({
 
         x.test(document.querySelectorAll('style[owner="' + growId + '"]').length === 1,
           'the rebuilt instance installs a fresh style block');
+        rootGrow.remove();
 
         // --- integration: a css+code edit reuses the existing <style>
         //     block for the rebuilt instance instead of leaving the
@@ -414,7 +454,8 @@ foam.CLASS({
         var oldCode  = foam.lookup(codeId);
         var rootCode = foam.u2.Element.create(null, x);
         rootCode.add(oldCode.create({}, x));
-        var rrCode = this.ViewReloader.create({ root: rootCode }, x);
+        rootCode.write();
+        var rrCode = this.ViewReloader.create(null, x);
 
         delete foam.__context__.__cache__[codeId];
         foam.CLASS({
@@ -440,6 +481,7 @@ foam.CLASS({
           'the existing block shows the new css');
         x.test(! codeTexts.some(t => t.includes('opacity: 0.5')),
           'the old css text is gone, not layered underneath');
+        rootCode.remove();
 
         // --- integration: an axiom-count change in the rebuild path is
         //     skipped by reinstallCSS, not force-matched ---
@@ -468,7 +510,7 @@ foam.CLASS({
         var beforeFail = foam.lookup('foam.u2.test.ReloadFailProbe');
         var threw = false;
         try {
-          await r.reload('/foam3/src/foam/u2/test/NoSuchFile.js', new Date());
+          await r.reload('/foam3/src/foam/u2/test/NoSuchFile.js');
         } catch ( e ) {
           threw = true;
         }

@@ -15,8 +15,7 @@ foam.CLASS({
 
   documentation: `The driver to export data retrieved with projection to XML.
     Exports the columns the table shows, like the CSV driver, and honours the
-    'Include all columns in export' option. The raw XMLDriver dumps every
-    stored field of the record instead.`,
+    'Include all columns in export' option.`,
 
   properties: [
     {

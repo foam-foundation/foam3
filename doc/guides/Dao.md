@@ -1,3 +1,4 @@
+<flow name="Dao" category="DOC/GUIDE" spid="foam"/>
 # DAO: Data Access Objects
 
 A DAO (Data Access Object) is FOAM's universal interface to a collection of objects. Every DAO — regardless of whether it stores data in memory, a journal file, a SQL database, or a remote server — presents exactly the same interface to the caller. Your code works identically with any of them.

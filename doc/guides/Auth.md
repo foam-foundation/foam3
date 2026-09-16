@@ -1,3 +1,4 @@
+<flow name="Auth" category="DOC/GUIDE" spid="foam"/>
 See:
   [auth/README.md](../../src/foam/core/auth/README.md)
   [Permissions.md](Permissions.md)

@@ -1,3 +1,4 @@
+<flow name="email-setup" category="DOC/GUIDE" spid="foam"/>
 # Email Setup Guide with Foam
 
 This step-by-step guide will help you set up and configure email notifications in your Foam application. We'll use real examples from the Foam codebase to demonstrate each step.

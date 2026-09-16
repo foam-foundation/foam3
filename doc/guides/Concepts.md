@@ -1,3 +1,4 @@
+<flow name="Concepts" category="DOC/GUIDE" spid="foam"/>
 # Key FOAM Concepts
 
 ## Meta-Programming

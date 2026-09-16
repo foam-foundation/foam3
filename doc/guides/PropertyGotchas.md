@@ -1,3 +1,4 @@
+<flow name="PropertyGotchas" category="DOC/GUIDE" spid="foam"/>
 # Property Gotchas
 
 How a property's value, view and label actually resolve: when `factory`, `expression` and `postSet` fire, what `transient` cascades into, which access form runs the permission check, and how axioms are reused and reflected over.

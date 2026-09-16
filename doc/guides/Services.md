@@ -1,3 +1,4 @@
+<flow name="Services" category="DOC/GUIDE" spid="foam"/>
 ## How to Create Services
 
 ### Server

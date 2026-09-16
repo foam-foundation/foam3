@@ -1,3 +1,4 @@
+<flow name="DSL" category="DOC/GUIDE" spid="foam"/>
 # The Power of DSLs in FOAM
 
 FOAM demonstrates a masterclass in the use of Domain Specific Languages. Consider how a simple query parser is constructed: FOAM's parser combinators form an *internal DSL* for creating *external DSLs*. These combinators are used to compile AQL (Autocomplete Query Language), an external DSL, into MLangs, which are themselves an internal DSL for predicates.

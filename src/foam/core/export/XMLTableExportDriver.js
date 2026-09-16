@@ -22,7 +22,7 @@ foam.CLASS({
     {
       name: 'outputter',
       hidden: true,
-      expression: function(addUnits) {
+      factory: function() {
         var pad = n => ('0' + n).slice(-2);
         return this.XMLTableOutputter.create({
           // ISO 8601 date, 24h time: a consumer parses the value without
@@ -30,8 +30,7 @@ foam.CLASS({
           dateFormat: [
             d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()),
             d => pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
-          ],
-          addUnits: addUnits
+          ]
         });
       }
     }

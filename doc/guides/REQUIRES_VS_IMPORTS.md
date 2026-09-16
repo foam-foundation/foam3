@@ -1,3 +1,4 @@
+<flow name="REQUIRES_VS_IMPORTS" category="DOC/GUIDE" spid="foam"/>
 # FOAM3 Dependencies: `requires` vs `imports`
 
 This document explains the differences between `requires` and `imports` in the FOAM3 framework and when each should be used in the codebase.

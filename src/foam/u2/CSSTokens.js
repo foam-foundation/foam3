@@ -139,6 +139,20 @@ foam.CLASS({
     { name: 'warn', value: '#F5DB6B' },
     { name: 'success', value: '#34CF56' },
 
+    // HINTS
+    { name: 'hintBackground',         value:'#d9f6ff'},
+    { name: 'hintBorder',             value:'#a8ceef'},
+    { name: 'hintText',               value:'#2170b5'},
+    { name: 'hintWarningBackground',  value:'#fff2d9'},
+    { name: 'hintWarningBorder',      value:'#efc7a8'},
+    { name: 'hintWarningText',        value:'#875e17'},
+    { name: 'hintDangerBackground',   value:'#ffd9d9'},
+    { name: 'hintDangerBorder',       value:'#efa8a8'},
+    { name: 'hintDangerText',         value:'#a52222'},
+    { name: 'hintSuccessBackground',  value:'#daffd9'},
+    { name: 'hintSuccessBorder',      value:'#a8efa8'},
+    { name: 'hintSuccessText',        value:'#227218'},
+
     // SEMANTIC TOKENS
     // For semantic tokens we use the term brand instead of primary for two reasons:
     // 1. Default, secondary, and tertiary are three variations of the semantic tokens so primary might cause confusion

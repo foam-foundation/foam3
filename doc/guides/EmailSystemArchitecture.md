@@ -1,3 +1,4 @@
+<flow name="EmailSystemArchitecture" category="DOC/GUIDE" spid="foam"/>
 # FOAM3 Email System Architecture
 
 ## Table of Contents

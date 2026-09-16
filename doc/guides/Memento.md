@@ -1,3 +1,4 @@
+<flow name="Memento" category="DOC/GUIDE" spid="foam"/>
 # Memento & Routing
 
 How FOAM syncs UI state (current menu, route, filters, tab selection, ...) into the browser URL hash, so it survives refresh and is bookmarkable/back-forward navigable. Two pieces: `foam.u2.memento.Memento` (the encode/decode engine) and `foam.u2.Router` (a controller mixin built on top of it for route-driven view switching).

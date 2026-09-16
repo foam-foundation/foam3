@@ -1,3 +1,4 @@
+<flow name="EasyDao" category="DOC/GUIDE" spid="foam"/>
 
 # EasyDAO: One-stop shop for data source configuration
 

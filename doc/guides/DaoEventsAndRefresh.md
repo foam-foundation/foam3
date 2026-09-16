@@ -1,3 +1,4 @@
+<flow name="DaoEventsAndRefresh" category="DOC/GUIDE" spid="foam"/>
 # DAO Events & Refresh
 
 ## How a change reaches the screen

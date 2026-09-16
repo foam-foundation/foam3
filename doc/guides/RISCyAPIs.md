@@ -1,3 +1,4 @@
+<flow name="RISCyAPIs" category="DOC/GUIDE" spid="foam"/>
 # RISC-y APIs
 
 ## The Analogy

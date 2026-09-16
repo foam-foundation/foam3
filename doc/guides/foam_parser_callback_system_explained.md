@@ -1,3 +1,4 @@
+<flow name="foam_parser_callback_system_explained" category="DOC/GUIDE" spid="foam"/>
 # FOAM Parser Callback System - Deep Dive
 
 This document explains how the FOAM parser callback system works, including error handling, with visual diagrams.

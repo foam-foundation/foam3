@@ -1,3 +1,4 @@
+<flow name="Slots" category="DOC/GUIDE" spid="foam"/>
 # Slots: Observable OO Pointers
 
 This guide is the **conceptual and advanced reference** for slots. If you just want the

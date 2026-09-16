@@ -1,6 +1,6 @@
-<flow name="UserLifecycleTicket" category="DOC/DEV" spid="foam"/>
-<title>UserLifecycleTicket</title>
-<h1>Incomplete</h1>
+<flow name="UserLifecycleTicket" category="DOC/DEV" spid="foam" label="UserLifecycleTicket"/>
+# Incomplete
+
 UserLifecycleTicket is a ticket which helps manage user deletion.
 It is common to have relationships between a user and other application entities,
 and when a user is deleted, many of the associates should be deleted as well.

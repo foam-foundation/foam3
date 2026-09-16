@@ -1,4 +1,6 @@
 <flow name="demo" category="DOC/DEV" spid="foam"/>
+
+```js
 console.clear();
 
 foam.QA2({
@@ -91,3 +93,4 @@ foam.QA2({
     var results = picker.getCandidates();
     picker.applyOutcome(results[0]);       // sets picker.name = 'Thai Restaurant'
     console.log(picker.name);
+```

@@ -1,35 +1,36 @@
 <flow name="Cron" category="DOC/DEV" spid="foam"/>
-<title>Cron</title>
-<h1>Cron</h1>
+# Cron
 
-<h2>Cron, Cron Job, Cron Job Event</h2>
-<ol>
-  <li>Cron - cron detail</li>
-  <li>Cron Job - active/running Cron</li>
-  <li>Cron Job Event - 'print' output from Cron Job</li>
-</ol>
+## Cron, Cron Job, Cron Job Event
 
-<h1>Scheduling</h1>
+1. Cron - cron detail
+2. Cron Job - active/running Cron
+3. Cron Job Event - 'print' output from Cron Job
+
+# Scheduling
+
 Crons have two scheduling behaviours.
-<ol>
-  <li>Regular Scheduling</li>
-  <li>Re-attempt Scheduling</li>
-</ol>
-<h2>Regular Scheduling</h2>
+
+1. Regular Scheduling
+2. Re-attempt Scheduling
+
+## Regular Scheduling
+
 The schedule used for normal script execution.
 
-<h2>Reattempt Scheduling</h2>
-<p>A secondary schedule controlling frequency of retries or reattempts when the script determines that is has failed.</p>
-<p>Defaults to IntervalSchedule set at 5 minutes.</p>
-<p>
+## Reattempt Scheduling
+
+A secondary schedule controlling frequency of retries or reattempts when the script determines that is has failed.
+
+Defaults to IntervalSchedule set at 5 minutes.
+
 Reattempt scheduling is invoked from the script by calling:
-<ul><li><b>currentScript.reattempt()</b></li></ul>
-The number of reattempt attempts is control by <b>maxReattempts</b>
-</p>
-<p>
-When reattempt attempts reaches <b>maxReattempts</b> the following willl occur:
-<ul>
-  <li>Alarm generated with name equal to the cron id</li>
-  <li>Cron will disable itself</li>
-</ul>
-</p>
+
+- **currentScript.reattempt()**
+
+The number of reattempt attempts is control by **maxReattempts**
+
+When reattempt attempts reaches **maxReattempts** the following willl occur:
+
+- Alarm generated with name equal to the cron id
+- Cron will disable itself

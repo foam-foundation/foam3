@@ -1,7 +1,7 @@
 <flow name="DAGView" category="DOC/DEV" spid="foam"/>
-<h1>DAGView</h1>
+# DAGView
 
-<h2>What is DAGView?</h2>
+## What is DAGView?
 
 DAGView renders a directed acyclic graph, such as the one shown in the
 CrunchLab view. Unlike a tree view, multiple parent nodes can connect
@@ -16,7 +16,7 @@ GridPlacementPlan interface.
 
 <foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.u2.svg.graph.DAGView" />
 
-<h2>How the view is generated</h2>
+## How the view is generated
 
 The strategy for positioning nodes in the graph is decoupled from DAGView itself.
 The `gridPlacement` property can be set to any implementor of GridPlacementPlan.

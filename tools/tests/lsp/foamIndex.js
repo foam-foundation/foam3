@@ -556,7 +556,7 @@ section('FoamIndex — reindexPath after a save');
       'reindexPath: a pom outside the boot walk is not indexed at boot');
 
     // pom.js saved: every file it names is indexed with the pom's flags.
-    index.reindexPath(pomPath);
+    index.reindexPath(pomPath, 'pom');
     test(index.getFilePath('lsp.reindex.Foo') === fooPath,
       'reindexPath(pom.js): class named by the saved pom resolves to its file');
     var fooLoc = index.getPomLocationForClass('lsp.reindex.Foo');
@@ -568,7 +568,7 @@ section('FoamIndex — reindexPath after a save');
     // Class file saved before its pom entry exists: nearest pom.js up the
     // tree is the owner, flags default to js.
     fs.writeFileSync(barPath, "foam.CLASS({ package: 'lsp.reindex', name: 'Bar' });\n");
-    index.reindexPath(barPath);
+    index.reindexPath(barPath, 'class');
     test(index.getFilePath('lsp.reindex.Bar') === barPath,
       'reindexPath(class file): class in a file with no pom entry resolves to its file');
     test(index.getClassForPomEntry(pomPath, 'Bar') === 'lsp.reindex.Bar',
@@ -578,11 +578,55 @@ section('FoamIndex — reindexPath after a save');
     fs.writeFileSync(fooPath,
       "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n" +
       "foam.CLASS({ package: 'lsp.reindex', name: 'Foo2' });\n");
-    index.reindexPath(fooPath);
+    index.reindexPath(fooPath, 'class');
     test(index.getFilePath('lsp.reindex.Foo2') === fooPath,
       'reindexPath(class file): a class added to an indexed file resolves');
+
+    // A pom not named pom.js is a pom — four in this repo are not — so the
+    // kind the classifier resolved decides the branch, not the file name.
+    var oddPom = path.join(tmpDir, 'zacpom.js');
+    fs.writeFileSync(path.join(tmpDir, 'Zed.js'),
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Zed' });\n");
+    fs.writeFileSync(oddPom,
+      "foam.POM({ name: 'z', files: [ { name: 'Zed', flags: 'js' } ] });\n");
+    index.reindexPath(oddPom, 'pom');
+    test(index.getFilePath('lsp.reindex.Zed') === path.join(tmpDir, 'Zed.js'),
+      'reindexPath(pom): a pom not named pom.js indexes the files it names');
+
+    // A pom save re-reads only the entries whose flags or owning pom moved.
+    // src/pom.js names 1500 files; re-parsing them all costs about a second
+    // and finds nothing, because a class added to a file the pom already
+    // names arrives on that file's own save.
+    fs.writeFileSync(fooPath,
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo2' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo3' });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFilePath('lsp.reindex.Foo3') === null,
+      'reindexPath(pom): an unchanged entry is skipped, not re-read');
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'reindex', files: [ { name: 'Foo', flags: 'js' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFilePath('lsp.reindex.Foo3') === fooPath,
+      'reindexPath(pom): an entry whose flags changed is re-read');
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     index.buildFileIndex();
   }
+})();
+
+// A sub-pom's own save must rebuild the flag set the boot walk gave it: the
+// project flags live on the PARENT's projects entry, which the saved file
+// does not carry.
+section('FoamIndex — a sub-pom save keeps its project flags');
+(function() {
+  var TEST_CLASS = 'foam.core.auth.test.GroupResetSessionTest';
+  var booted = index.getFileFlags(TEST_CLASS);
+  test(booted && booted.indexOf('test') !== -1,
+    'boot walk records the parent project flag: ' + JSON.stringify(booted));
+  var subPom = path.join(path.dirname(index.getFilePath(TEST_CLASS)), 'pom.js');
+  index.reindexPath(subPom, 'pom');
+  var after = index.getFileFlags(TEST_CLASS);
+  test(after && after.join('|') === booted.join('|'),
+    'a sub-pom save keeps the same flags: ' + JSON.stringify(after));
 })();

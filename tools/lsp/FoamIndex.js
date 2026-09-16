@@ -780,6 +780,8 @@ foam.CLASS({
       this.fileIndex_ = {};
       this.libIndex_ = {};
       this.refinementIndex_ = {};
+      this.pomProjectFlags_ = {};
+      this.pathIndex_ = {};
       var path_ = require('path');
       var fs_ = require('fs');
 
@@ -806,7 +808,7 @@ foam.CLASS({
       for ( var f = 0 ; f < files.length ; f++ ) {
         var file = files[f];
         var filePath = path_.resolve(location, file.name + '.js');
-        var fileFlags = file.flags ? this.splitFlags_(file.flags) : ['js'];
+        var fileFlags = this.pomFileFlags_(file, pomFile);
 
         this.indexFileClasses_(filePath, fileFlags, pomFile, file.name, fs_);
       }
@@ -818,6 +820,33 @@ foam.CLASS({
       return String(raw).split('|').map(function(s) {
         return s.split('&');
       }).reduce(function(a, b) { return a.concat(b); }, []);
+    },
+
+    function indexEntry_(filePath, line, flags, pomFile, pomEntryName) {
+      /** One file-index row, and the path→row entry that answers
+       *  findOwnerEntry_ — written together so a row can never exist
+       *  under one and not the other. Classes sharing a file share a
+       *  path, and every caller of findOwnerEntry_ reads only the
+       *  file-level fields, so the first row wins. */
+      var entry = {
+        path:         filePath,
+        line:         line,
+        flags:        flags,
+        pomFile:      pomFile,
+        pomEntryName: pomEntryName
+      };
+      if ( ! this.pathIndex_ ) this.pathIndex_ = {};
+      this.pathIndex_[filePath] = this.pathIndex_[filePath] || entry;
+      return entry;
+    },
+
+    function pomFileFlags_(file, pomFile) {
+      /** A file entry's own flags plus the flags its pom carries as a
+       *  sub-project of its parent. `['js']` for an entry that declares
+       *  none, the build's default. */
+      var flags   = file.flags ? this.splitFlags_(file.flags) : ['js'];
+      var project = this.pomProjectFlags_ && this.pomProjectFlags_[pomFile];
+      return project && project.length ? flags.concat(project) : flags;
     },
 
     function indexFileClasses_(filePath, fileFlags, pomFile, pomEntryName, fs_) {
@@ -868,13 +897,8 @@ foam.CLASS({
             // The refined class keeps its own file as its definition site;
             // this only fills in when nothing else claims the id.
             if ( ! this.fileIndex_[m.refines] ) {
-              this.fileIndex_[m.refines] = {
-                path:         filePath,
-                line:         m.sourceLine_ || 0,
-                flags:        fileFlags,
-                pomFile:      pomFile,
-                pomEntryName: pomEntryName
-              };
+              this.fileIndex_[m.refines] = this.indexEntry_(
+                filePath, m.sourceLine_ || 0, fileFlags, pomFile, pomEntryName);
             }
           }
 
@@ -882,13 +906,8 @@ foam.CLASS({
 
           // Index the model's own identity (package + name).
           var ownId = m.package ? m.package + '.' + m.name : m.name;
-          if ( ownId ) this.fileIndex_[ownId] = {
-            path:         filePath,
-            line:         m.sourceLine_ || 0,
-            flags:        fileFlags,
-            pomFile:      pomFile,
-            pomEntryName: pomEntryName
-          };
+          if ( ownId ) this.fileIndex_[ownId] = this.indexEntry_(
+            filePath, m.sourceLine_ || 0, fileFlags, pomFile, pomEntryName);
         }
       } catch ( e ) {
         require('./logError').logLspError('indexFileClasses ' + filePath, e);
@@ -1029,6 +1048,11 @@ foam.CLASS({
           if ( ! projName ) continue;
 
           var projPomPath = path_.resolve(location, projName + '.js');
+          // Only the PARENT pom knows a sub-project's flags, and reindexPath
+          // is handed the sub-pom alone — remember them here, keyed by the
+          // sub-pom's path, so a save of it rebuilds the same flag set.
+          if ( ! this.pomProjectFlags_ ) this.pomProjectFlags_ = {};
+          this.pomProjectFlags_[projPomPath] = this.splitFlags_(projFlags);
           var alreadyLoaded = foam.poms.some(function(p) { return p.path === projPomPath; });
           if ( alreadyLoaded ) continue;
           if ( ! fs_.existsSync(projPomPath) ) continue;
@@ -1042,8 +1066,7 @@ foam.CLASS({
               for ( var f = 0 ; f < projFiles.length ; f++ ) {
                 var file = projFiles[f];
                 if ( ! file || ! file.name ) continue;
-                var fileFlags = this.splitFlags_(file.flags);
-                if ( projFlags ) fileFlags = fileFlags.concat(this.splitFlags_(projFlags));
+                var fileFlags = this.pomFileFlags_(file, projPomPath);
 
                 var filePath = path_.resolve(projLocation, file.name + '.js');
                 this.indexFileClasses_(filePath, fileFlags, projPomPath, file.name, fs_);
@@ -1755,32 +1778,41 @@ foam.CLASS({
       this.grammar_          = null;
     },
 
-    function reindexPath(filePath) {
+    function reindexPath(filePath, kind) {
       /**
        * Refresh the class→file map for one file saved after boot.
-       * buildFileIndex walks the POMs once, so a class file or a pom.js
+       * buildFileIndex walks the POMs once, so a class file or a pom
        * entry added later is unknown to getFilePath, getClassForPomEntry
        * and every name-addressed lookup until the server restarts.
        *
-       * A saved pom.js re-indexes every file it names, with that entry's
-       * flags. A saved class file is indexed under the pom that already
-       * owns it, or, before its pom entry exists, under the nearest pom.js
-       * up the tree with the default js flag.
+       * `kind` is the classifier's answer ('pom' or 'class'), passed in
+       * rather than re-derived: four poms in this repo are not named
+       * pom.js, and the classifier reads the foam.POM call.
+       *
+       * A saved pom re-indexes the files it names whose flags or owning pom
+       * changed — a class added to a file the pom already names arrives on
+       * that file's own save, so re-reading all of them costs a second on a
+       * 1500-entry pom and finds nothing. A saved class file is indexed
+       * under the pom that already owns it, or, before its pom entry
+       * exists, under the nearest pom.js up the tree with the js flag.
        */
       if ( ! filePath ) return;
       var path_ = require('path');
       var fs_   = require('fs');
       if ( ! this.fileIndex_ ) this.buildFileIndex();
 
-      if ( path_.basename(filePath) === 'pom.js' ) {
+      if ( kind === 'pom' ) {
         var content = fs_.readFileSync(filePath, 'utf8');
         var files   = this.parsePomFiles_(content) || [];
         var dir     = path_.dirname(filePath);
         for ( var f = 0 ; f < files.length ; f++ ) {
           var file = files[f];
           if ( ! file || ! file.name ) continue;
-          var fileFlags = file.flags ? this.splitFlags_(file.flags) : ['js'];
+          var fileFlags = this.pomFileFlags_(file, filePath);
           var target    = path_.resolve(dir, file.name + '.js');
+          var indexed   = this.findOwnerEntry_(target);
+          if ( indexed && indexed.pomFile === filePath &&
+               indexed.flags.join('|') === fileFlags.join('|') ) continue;
           this.indexFileClasses_(target, fileFlags, filePath, file.name, fs_);
         }
         return;
@@ -1802,14 +1834,9 @@ foam.CLASS({
     },
 
     function findOwnerEntry_(filePath) {
-      /** The existing fileIndex_ entry for a path, so a re-save keeps the
-       *  flags and pom the boot walk recorded. Null for a file indexed
-       *  nowhere yet. */
-      for ( var id in this.fileIndex_ ) {
-        var entry = this.fileIndex_[id];
-        if ( entry && entry.path === filePath ) return entry;
-      }
-      return null;
+      /** The indexed row for a path, so a re-save keeps the flags and pom
+       *  the boot walk recorded. Null for a file indexed nowhere yet. */
+      return ( this.pathIndex_ && this.pathIndex_[filePath] ) || null;
     },
 
     function findNearestPom_(dir, path_, fs_) {

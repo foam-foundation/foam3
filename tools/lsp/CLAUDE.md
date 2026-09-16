@@ -221,8 +221,13 @@ A class or pom save also calls `index.reindexPath(path)`: the class→file map
 (`fileIndex_`) is built from the POMs once at boot, so without it a file or
 pom entry added after boot is invisible to `getFilePath`, `foam/byName` and
 `workspace/symbol` until a restart. A saved pom re-indexes every file it
-names; a saved class file keeps its existing entry's flags and pom, or takes
-the nearest `pom.js` up the tree with the `js` flag when no entry names it yet.
+names whose flags or owning pom moved; a saved class file keeps its existing
+entry's flags and pom, or takes the nearest `pom.js` up the tree with the `js`
+flag when no entry names it yet. It takes the classifier's `kind` rather than
+re-deriving it, since four poms here are not named `pom.js`. `pathIndex_` (a
+path→row map written beside every `fileIndex_` row) answers the "is this
+already indexed" question the skip asks, so a save of a 1500-entry pom costs
+one eval rather than 1500 file reads.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods

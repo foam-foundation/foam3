@@ -402,7 +402,7 @@ function start() {
     // resolves in go-to-definition and name lookups without a restart.
     if ( savedKind === 'class' || savedKind === 'pom' ) {
       try {
-        index.reindexPath(uriToPath_(uri));
+        index.reindexPath(uriToPath_(uri), savedKind);
       } catch ( e ) {
         console.error('[LSP] file map reindex failed for ' + uri + ': ' +
           e.message);

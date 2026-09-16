@@ -49,7 +49,9 @@ foam.CLASS({
       args: [ { name: 'x', type: 'Context' } ],
       javaCode: `
         var provider = findProvider(x);
-        provider.refreshAccessToken(x, this);
+        if ( provider != null ) {
+          provider.refreshAccessToken(x, this);
+        }
       `
     },
     {

@@ -4,12 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// U3 is now the default, to use U2 instead:
-// either include ?u3=true in URL or include "setFlags: { u3: true }" in your POM.
-
-// You can determine if your code is running in U3 with:
-// foam.u2.Element.U3, which will eval to true if you are.
-
 /*
 TODO:
  - Remove use of E() and replace with create-ing axiom to add same behaviour.
@@ -347,6 +341,7 @@ foam.CLASS({
   properties: [
     'dao',
     'code',
+    'config',
     {
       class: 'Int',
       name: 'batch',
@@ -361,14 +356,18 @@ foam.CLASS({
       factory: function() {
         var self = this;
         return this.dynamic(function(data_) {
-          data_.forEach(d => {
-            var e = this.code.call(this, d);
-            if ( e ) {
-              // TODO: remove after port from U2 to U3
-              console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
-              this.tag(e);
-            }
-          })
+          if ( data_.length ) {
+            data_.forEach(d => {
+              var e = this.code.call(this, d);
+              if ( e ) {
+                // TODO: remove after port from U2 to U3
+                console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
+                this.tag(e);
+              }
+            });
+          } else if ( this.config && this.config.onEmpty ) {
+            this.config.onEmpty.call(this);
+          }
         });
       }
     }
@@ -1190,18 +1189,14 @@ foam.CLASS({
         l();
       } else {
         enabled = negate(enabled, opt_negate);
-        var parts = cls.split(' ');
-        for ( var i = 0 ; i < parts.length ; i++ ) {
-          this.classes[parts[i]] = enabled;
-          if ( ! this.element_.classList ) {
-            console.warn("Can't set class of document fragments.");
-          } else {
-            if ( enabled ) {
-              this.element_.classList.add(parts[i]);
-            } else {
-              this.element_.classList.remove(parts[i]);
-            }
-          }
+        cls = this.sanitizeClassName_(cls);
+        this.classes[cls] = enabled;
+        if ( ! this.element_.classList ) {
+          console.warn("Can't set class of document fragments.");
+        } else if ( enabled ) {
+          this.element_.classList.add(cls);
+        } else {
+          this.element_.classList.remove(cls);
         }
       }
       return this;
@@ -1210,6 +1205,7 @@ foam.CLASS({
     function removeClass(cls) {
       /* Remove specified CSS class. */
       if ( cls ) {
+        cls = this.sanitizeClassName_(cls);
         delete this.classes[cls];
         this.element_.classList.remove(cls);
       }
@@ -1492,11 +1488,13 @@ foam.CLASS({
      * return an Element that represents the view of the record passed to it.
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
+     * @param congig { onEmpty: function() { } }
      */
-    function select(dao, f) {
+    function select(dao, f, opt_config) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
+        config: opt_config
       }, this));
       return this;
     },
@@ -1524,15 +1522,23 @@ foam.CLASS({
       return this;
     },
 
+    function sanitizeClassName_(cls) {
+      /*
+        Return cls conformed to CSS_CLASSNAME_PATTERN: characters which aren't
+        legal in a classname become '-', and a leading digit is prefixed with
+        '_'. Names which are already valid are returned unchanged.
+      */
+      if ( this.CSS_CLASSNAME_PATTERN.test(cls) ) return cls;
+      var s = ( '' + cls ).replace(/[^a-z\d_-]/gi, '-');
+      return /^\d/.test(s) ? '_' + s : s;
+    },
+
     function addClass_(oldClass, newClass) {
       /* Replace oldClass with newClass. Called by cls(). */
       if ( oldClass === newClass ) return;
       if ( oldClass ) this.removeClass(oldClass);
       if ( newClass ) {
-        if ( ! this.CSS_CLASSNAME_PATTERN.test(newClass) ) {
-          console.log('Invalid CSS ClassName: ', newClass);
-          throw "Invalid CSS classname";
-        }
+        newClass = this.sanitizeClassName_(newClass);
         this.classes[newClass] = true;
         // Could be a FunctionNode which only has a comment
         if ( this.element_ && this.element_.classList )

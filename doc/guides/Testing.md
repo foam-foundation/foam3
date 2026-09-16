@@ -1,3 +1,4 @@
+<flow name="Testing" category="DOC/GUIDE" spid="foam"/>
 # Testing
 
 FOAM provides a testing harness for implementing Unit Test Cases, and in conjunction with the Build, provides for test case execution and reporting.

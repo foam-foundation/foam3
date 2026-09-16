@@ -1,3 +1,4 @@
+<flow name="Build" category="DOC/GUIDE" spid="foam"/>
 # FOAM Build
 **Pom-O-Matic**
 Solve your Build troubles with Pom-O-Matic!

@@ -1,3 +1,4 @@
+<flow name="Permissions" category="DOC/GUIDE" spid="foam"/>
 # FOAM Permissions
 
 ## Permission System Architecture

@@ -9,6 +9,7 @@ system context; every other rule here is the same instinct at smaller scale.
 | Inside a decorator, call the `_` methods with `x` | any bare `find(`/`put(`/`select(` on `getDelegate()`? |
 | Inside a rule, `x` reads, `ruler.getX()` writes | which context does the `put` use? |
 | Existence is `find`, count is `COUNT()` | any `ArraySink` followed by `isEmpty()` or `size()`? |
+| Read the sink `select` returns | any `dao.select(sink)` whose return is dropped, with `sink` read afterwards? |
 | Configure EasyDAO before writing a new layer | is there a `cache`, `decorator`, or `pm` switch for this? |
 
 ### Take `x` from the argument and pass it down
@@ -43,6 +44,12 @@ A sink materializes rows to answer a yes/no question.
 Don't: `ArraySink s = new ArraySink(); dao.where(p).limit(1).select(s); return ! s.getArray().isEmpty();`
 Do:    `return dao.find(p) != null;` or `dao.select(COUNT())`
 Review asked: "Can be done with find() or if you don't care about the result then a COUNT()."
+
+### Read the sink `select` returns
+`select` answers with the sink to read, in Java as the return and in JS as what the promise resolves with, and it is not always the one passed in: `ClientDAO.select_` sends an `ArraySink` over the wire and resolves with the one deserialized from the reply. Reading the local instance works until that DAO is in the chain.
+Don't: `ArraySink s = new ArraySink(); dao.select(s); return s.getArray();` / `var s = this.ArraySink.create(); await dao.select(s); use(s.array);`
+Do:    `ArraySink s = (ArraySink) dao.select(new ArraySink()); return s.getArray();` / `var s = await dao.select(); use(s.array);`
+Review asked: "Should be: array = dao.select(array);"
 
 ### Express the query; let the DAO answer it
 A loop that compares rows in Java bypasses indices and the decorators that would have scoped it.

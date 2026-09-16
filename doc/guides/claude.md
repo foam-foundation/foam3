@@ -1,3 +1,4 @@
+<flow name="claude" category="DOC/GUIDE" spid="foam"/>
 # FOAM for LLMs
 
 > FOAM (Feature-Oriented Active Modeller) is a model-driven, cross-platform application framework for JavaScript, Java, and Swift. Everything is a model. Everything is composable. Code is a liability; declarations are assets.

@@ -12,6 +12,8 @@ foam.CLASS({
     Renders a body of text within a "hint" box
   `,
 
+  requires: [ 'foam.u2.tag.Image' ],
+
   css: `
     ^icon {
       color: currentColor;
@@ -80,6 +82,15 @@ foam.CLASS({
       expression: function(category) {
         return category.glyphName;
       }
+    },
+    {
+      name: 'icon_',
+      factory: function() {
+        return this.Image.create({
+          glyph:    this.iconName || 'documentation',
+          embedSVG: true
+        }, this).addClass(this.myClass('icon'));
+      }
     }
   ],
 
@@ -94,12 +105,7 @@ foam.CLASS({
         .addClass(this.category$.map(function(c) { // Category -> CSS class
           return self.myClass(c && c.cssClass ? c.cssClass : 'hint');
         }))
-        .add(this.category$.map(function(c) { // Icon based on category
-          return foam.u2.tag.Image.create({
-            glyph: c && c.glyphName ? c.glyphName : 'documentation',
-            embedSVG: true
-          }, self).addClass(self.myClass('icon'));
-        }));
+        .add(this.icon_); // Icon based on the category
     }
   ]
 });

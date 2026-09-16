@@ -26,10 +26,6 @@ foam.POM({
       if ( arg && arg > 2 && arg < 1000) ADMIN_USER_ID = arg;
       else this.error(`Invalid adminUserId. Expecting value between in range [3..999]`);
     }],
-    anonymousUserId: ['', 'anonymous-user-id', 'ANONYMOUS_USER_ID', 'Id of the user anonymous (not logged in) requests run as. Numerical value between 3 and 999.', '43', function(arg) {
-      if ( arg && arg > 2 && arg < 1000) ANONYMOUS_USER_ID = arg;
-      else this.error(`Invalid anonymousUserId. Expecting value between in range [3..999]`);
-    }],
     appName: [ '', 'app-name', 'APP_NAME', "Name used to construct a unique project directory and deployment structure. Also used as default model name if an explicit model name is not provided.", '', args => APP_NAME = args ],
     appNameLow: ['', 'app-name-low', 'APP_NAME_LOW', 'Application name with first letter lowercase. Used for directory name, spid, packages, ...', function() { return APP_NAME && APP_NAME[0].toLowerCase() + APP_NAME.substring(1); }, arg => APP_NAME_LOW = arg],
     domain: ['', 'domain', 'DOMAIN', 'Inverse package name for email', function() { return PACKAGE.split('.').reverse().join('.'); /* for email*/ }, arg => DOMAIN = arg ],
@@ -64,7 +60,6 @@ foam.POM({
     }],
     createProject: ['create-project', 'Create directories and creates root and src/ POMs for a new FOAM based project', ['validate', 'genJava'], function () {
       var modelName = MODEL_NAME || APP_NAME;
-      APP_NAME_CAP   = APP_NAME[0].toUpperCase() + APP_NAME.substring(1);
       MODEL_NAME_CAP = modelName[0].toUpperCase() + modelName.substring(1);
       MODEL_NAME = modelName[0].toLowerCase() + modelName.substring(1);
 
@@ -115,18 +110,10 @@ foam.POM({
       // adminPassword = this.hash(adminPassword);
       templateMerge(TEMPLATE_DIR, 'adminUser.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `users.jrl`);
 
-      // service provider for the spid and the user anonymous requests run as
-      templateMerge(TEMPLATE_DIR, 'journalCapabilities.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `capabilities.jrl`);
-      templateMerge(TEMPLATE_DIR, 'anonymousUser.jrl', `${PROJECT_DIR}/${JOURNAL_DIR}`, `users.jrl`, true);
-
       // Additional PROJECT_DIRectories and poms
       templateMerge(TEMPLATE_DIR, 'build.sh', `${PROJECT_DIR}`, `build.sh`);
       this.execSync(`chmod u+x ${PROJECT_DIR}/build.sh`);
       templateMerge(TEMPLATE_DIR, 'gitignore', `${PROJECT_DIR}`, '.gitignore');
-
-      // Docker image
-      templateMerge(TEMPLATE_DIR, 'Dockerfile', `${PROJECT_DIR}`, 'Dockerfile');
-      templateMerge(TEMPLATE_DIR, 'dockerignore', `${PROJECT_DIR}`, '.dockerignore');
 
       // gitignore.execSync('sudo chown -R $USER /opt')
     }],
@@ -154,7 +141,6 @@ foam.POM({
                       text = text.replaceAll("{adminPassword}", ADMIN_PASSWORD_HASH);
                       text = text.replaceAll("{adminUser}", ADMIN_USER);
                       text = text.replaceAll("{adminUserId}", ADMIN_USER_ID);
-                      text = text.replaceAll("{anonymousUserId}", ANONYMOUS_USER_ID);
                       text = text.replaceAll("{app}", APP_NAME_LOW);
                       text = text.replaceAll("{appName}", APP_NAME_LOW);
                       text = text.replaceAll("{App}", APP_NAME_CAP);

@@ -531,9 +531,9 @@ foam.CLASS({
 
       this
         .addClass()
-        .add(this.dynamic(function(data) {
+        .add(this.dynamic(function(renderData_) {
           self.markdownContext = undefined;
-          var tokens = self.markdownGrammar.parseString(data + '\n');
+          var tokens = self.markdownGrammar.parseString(renderData_ + '\n');
           if ( tokens ) self.lastGoodTokens_ = tokens;
           else          tokens = self.lastGoodTokens_;
           if ( tokens ) tokens.forEach(t => t.call(this));

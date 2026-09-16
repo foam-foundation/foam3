@@ -13,7 +13,7 @@ A benchmark is a `foam.core.bench.Benchmark`: `setup(x, br)` once, then `execute
 |---|---|---|
 | `<Name>Benchmark.js` | `extends: 'foam.core.bench.Benchmark'`, `setup`, `execute` | pom `files:` with `flags: 'js&test\|java&test'` |
 | `benchmarks.jrl` | one `p({class, id, ...props})` per benchmark shape; sizes and switches live here | auto-loaded from the pom's directory |
-| `benchmarkRunners.jrl` | one `p({class: "foam.core.bench.BenchmarkRunner", id, benchmarkId, executionCount, threadCount, oneTimeSetup})` per run shape | same |
+| `benchmarkRunners.jrl` | one `p({class: "foam.core.bench.BenchmarkRunner", id, benchmarkId, executionCount, threadCount, oneTimeSetup})` per run shape; `runPerThread: true` sweeps thread counts and writes one result row each | same |
 
 Two shapes of one benchmark (a different size, a different sink) are two rows in `benchmarks.jrl` setting properties, not two classes. A runner can also build the benchmark inline with `code:` (`foam/core/benchmark/benchmarkRunners.jrl`, the `Authorizer*` runners) when a `Builder` call reads better than journal properties.
 
@@ -37,7 +37,7 @@ foam.CLASS({
       javaCode: `
         DAO dao = new MDAO(User.getOwnClassInfo());
         for ( int i = 0 ; i < getRowCount() ; i++ ) { User u = new User(); u.setId(i); dao.put(u); }
-        setDao(dao);                                     // the runner fclones the row before setup, so setters work
+        setDao(dao);                                     // this runs on an fclone of the journal row, so setters work
       `
     },
     {
@@ -74,7 +74,7 @@ By default the console ends with `DONE RUNNING N BenchmarkRunners` and nothing e
 grep -o 'name:"[^"]*"\|operationsS:[0-9.]*\|pass:[0-9]*\|fail:[0-9]*' /tmp/benchmark/journals/benchmarkResults   # the row, for a script
 ```
 
-`operationsS` is `threads * executionCount / averageTotalTime`, executions per second over the whole sample; `1000 / operationsS` is milliseconds per execution. `fail` above 0 means `execute` threw; the runner logs the exception at ERROR, which the filter lets through.
+`operationsS` is `threads * executionCount / averageTotalTime`, executions per second over the whole sample; with one thread, `1000 / operationsS` is milliseconds per execution. `fail` above 0 means `execute` threw; the runner logs the exception at ERROR, which the filter lets through.
 
 ## Before and after
 
@@ -96,7 +96,8 @@ Size the data so one `execute` takes at least 100 ms; at 15 ms per execution JIT
 | Symptom | Cause | Fix |
 |---|---|---|
 | `DONE RUNNING` and no numbers | result logged at INFO, filtered to WARN | `--log-level:INFO`, or read `benchmarkResults`, above |
-| second runner's row shows the first runner's `uid` as a `p(` update | two runners in one JVM drew the same result id | one runner per `java-benchmarks:` invocation when comparing |
+| `DONE RUNNING`, no numbers, a WARN `Benchmark execution disabled in PRODUCTION` | `appConfig` mode is PRODUCTION; `execute` returns before running (`BenchmarkRunner.js`) | run on a non-production `appConfig` |
+| second runner's row shows the first runner's `uid` as a `p(` update | each runner builds its own `AUIDGenerator` with the same salt (`BenchmarkRunner.js`), so a second runner in the same JVM can draw the same first id | one runner per `java-benchmarks:` invocation when comparing |
 | `Benchmark not found <id>` | the runner's `benchmarkId` names no row in `benchmarks.jrl`, and the runner has no `code:` | add the row, or pass the runner id rather than the benchmark id |
 | run takes minutes, or the box swaps | `executionCount` defaults to 1000 and `threadCount` to every core (`BenchmarkRunner.js`) | set both on the runner row |
 | `Object is frozen` in `setup` | a caller took the row from `benchmarkDAO` and ran `setup` on it | go through the runner, which fclones the row first (`getBenchmark`) |

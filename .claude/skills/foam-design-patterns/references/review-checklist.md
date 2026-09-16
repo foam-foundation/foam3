@@ -40,6 +40,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - Inside a rule: a write through `x` instead of `ruler.getX()`? A re-put without `ruler.stop()`?
 - `XLocator.get()` outside a property hook?
 - `ArraySink` then `isEmpty()`/`size()` where `find` or `COUNT()` answers?
+- `dao.select(sink)` with its return dropped and `sink` read afterwards?
 - A loop of `EQ`s where `IN` fits? A scan where an index exists? A new cache where EasyDAO has a switch?
 - A decorator `cmd_` that throws? `imports: ['ctrl']`?
 

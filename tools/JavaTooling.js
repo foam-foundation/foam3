@@ -560,6 +560,9 @@ foam.POM({
 
       MESSAGE = 'Running tests...';
 
+      if ( LOG_LEVEL )
+        JAVA_OPTS += ` -Dlog.level=${LOG_LEVEL}`;
+
       if ( mode === 'benchmark' ) {
         MESSAGE = 'Running benchmarks...';
         if ( BENCHMARKS )

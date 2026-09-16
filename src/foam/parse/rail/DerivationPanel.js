@@ -33,7 +33,7 @@ foam.CLASS({
     ^leaf { font-family: monospace; color: #333; background: #fff7d6; border: 1px solid #d9c98d; border-radius: 9px; padding: 0 7px; line-height: 1.4; }
     ^pending ^leaf { border-color: #E69F00; }
     ^span { font: 11px monospace; color: #6b6b6b; text-align: right; white-space: nowrap; }
-    ^text { font: 11px monospace; color: #444; background: #f1f1f1; border-radius: 3px; padding: 0 4px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+    ^text { display: inline-block; vertical-align: bottom; font: 11px monospace; color: #444; background: #f1f1f1; border-radius: 3px; padding: 0 4px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
     ^count { font-size: 10px; color: #6b6b6b; margin-left: 4px; }
     ^locate { visibility: hidden; color: #0072B2; font-size: 11px; margin-left: 6px; }
     ^pending { color: #E69F00; }

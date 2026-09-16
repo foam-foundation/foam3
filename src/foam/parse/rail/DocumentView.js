@@ -33,13 +33,14 @@ foam.CLASS({
     ^probe { outline: 2px solid #E69F00; outline-offset: -1px; }
     ^died { background: #f8d9c4; outline: 2px solid #D55E00; outline-offset: -1px; }
     ^unreached { color: #888; }
-    ^rule { border-bottom: 2px solid #0072B2; }
-    ^pending { border-bottom-style: dashed; border-bottom-color: #E69F00; }
+    ^rule { border-bottom: 2px solid #0072B2; }   /* colour overridden per depth */
+    ^pending { border-bottom-style: dashed; border-bottom-color: #E69F00 !important; }
     ^hot { background: #cfe0f5; }
     ^at { position: absolute; }
-    ^chip { display: inline-block; font: 11px/1.2 sans-serif; color: #fff; background: #0072B2; border-radius: 3px; padding: 1px 5px; cursor: pointer; white-space: nowrap; }
+    ^chip { display: inline-block; font: 11px/1.2 sans-serif; color: #fff; background: #0072B2; border-radius: 3px; padding: 1px 5px; cursor: pointer; white-space: nowrap; border: 2px solid transparent; }
     ^chip:hover { outline: 2px solid #222; }
-    ^chipPending { background: #E69F00; color: #222; }
+    ^chipPending { border: 2px dashed #E69F00; }
+    ^depths b { color: #fff; padding: 0 5px; border-radius: 3px; margin-right: 2px; }
     ^empty { color: #666; padding: 4px 8px; }
   `,
 
@@ -50,7 +51,9 @@ foam.CLASS({
     { name: 'LEGEND_PROBE',    message: 'char under test' },
     { name: 'LEGEND_DIED',     message: 'char it died on' },
     { name: 'LEGEND_UNREACH',  message: 'not reached' },
-    { name: 'LEGEND_CHIP',     message: 'chip = rule that matched the text under it (dashed = still open) · click to locate' },
+    { name: 'LEGEND_CHIP',     message: 'chip = rule that matched the text under it · click to locate' },
+    { name: 'LEGEND_DEPTH',    message: 'colour = nesting depth' },
+    { name: 'LEGEND_PENDING',  message: 'dashed = still open' },
     { name: 'EMPTY',           message: 'no input' }
   ],
 
@@ -73,6 +76,11 @@ foam.CLASS({
           .start('b').addClass(this.myClass('died')).add(this.LEGEND_DIED).end()
           .start('b').addClass(this.myClass('unreached')).add(this.LEGEND_UNREACH).end()
           .start('span').add(this.LEGEND_CHIP).end()
+          .start('span').addClass(this.myClass('depths'))
+            .forEach(this.DEPTH_PALETTE, function(c, i) { this.start('b').style({ background: c.bg, color: c.fg }).add(i + 1).end(); })
+            .add(' ', this.LEGEND_DEPTH)
+          .end()
+          .start('span').style({ border: '2px dashed #E69F00', padding: '0 4px' }).add(this.LEGEND_PENDING).end()
         .end()
         .start('div', null, this.body_$).addClass(this.myClass('body')).end();
       this.text$.sub(this.rebuild);
@@ -137,9 +145,15 @@ foam.CLASS({
 
     function openSpan(parent, sp) {
       /** One DOM span for a rule on one line; the logical span remembers every piece so a chip can light all of them. */
-      var el = parent.start('span').addClass(this.myClass('rule')).enableClass(this.myClass('pending'), sp.span.pending);
+      var el = parent.start('span').addClass(this.myClass('rule')).enableClass(this.myClass('pending'), sp.span.pending)
+        .style({ 'border-bottom-color': this.depthColor(sp.span).bg });
       sp.els.push(el);
       return el;
+    },
+
+    function depthColor(span) {
+      /** Nesting depth picks the colour so siblings match and a rule inside a rule reads as a step down; the palette cycles. */
+      return this.DEPTH_PALETTE[( Math.max(1, span.depth) - 1 ) % this.DEPTH_PALETTE.length];
     },
 
     function placeChips(line) {
@@ -158,6 +172,7 @@ foam.CLASS({
         var sp = c.sp;
         line.el.start('span').addClass(self.myClass('at')).style({ left: c.col + 'ch', top: ( c.lane * self.LANE_H ) + 'px' })
           .start('span').addClass(self.myClass('chip')).enableClass(self.myClass('chipPending'), sp.span.pending)
+            .style({ background: self.depthColor(sp.span).bg, color: self.depthColor(sp.span).fg })
             .add(sp.span.name)
             .on('click', function(e) { e.stopPropagation(); self.onSelect(sp.span.parser); })
             .on('mouseenter', function() { sp.els.forEach(function(el) { el.addClass(self.myClass('hot')); }); })
@@ -171,7 +186,14 @@ foam.CLASS({
   constants: {
     LANE_H: 17,      // px per chip lane above a line
     CHIP_CH: 0.85,   // chip width per name character, in line-font ch units, for lane packing
-    CHIP_PAD: 1.6    // chip padding, in ch
+    CHIP_PAD: 1.6,   // chip padding, in ch
+    DEPTH_PALETTE: [ // Okabe-Ito minus amber, which is the 'still open' state colour
+      { bg: '#0072B2', fg: '#fff' },   // blue
+      { bg: '#D55E00', fg: '#fff' },   // vermillion
+      { bg: '#009E73', fg: '#fff' },   // green
+      { bg: '#CC79A7', fg: '#222' },   // purple
+      { bg: '#56B4E9', fg: '#222' }    // sky
+    ]
   },
 
   listeners: [

@@ -1,3 +1,4 @@
+<flow name="Intro" category="DOC/GUIDE" spid="foam"/>
 # Introduction to FOAM for Developers
 
 ## What is FOAM?

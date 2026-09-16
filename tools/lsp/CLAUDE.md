@@ -217,6 +217,21 @@ A `.jrl` save invalidates three indexes, gathered in the `didSave` case behind
 and `index.invalidateJrlUsageIndex(uri)`. `reindexFile` reaches none of them on
 a journal save, since it invalidates only for a file that classifies as a class.
 
+A class or pom save also calls `index.reindexPath(path)`: the class→file map
+(`fileIndex_`) is built from the POMs once at boot, so without it a file or
+pom entry added after boot is invisible to `getFilePath`, `foam/byName` and
+`workspace/symbol` until a restart. A saved pom re-indexes every file it
+names whose flags or owning pom moved; a saved class file keeps its existing
+entry's flags and pom, or takes the nearest `pom.js` up the tree with the `js`
+flag when no entry names it yet. It takes the classifier's `kind` rather than
+re-deriving it, since four poms here are not named `pom.js`. `pathIndex_` (a
+path→row map written beside every `fileIndex_` row, dropped at the top of each
+`indexFileClasses_` pass so the newest row answers) serves the "is this already
+indexed" question the skip asks, so a save of a 1500-entry pom costs one eval
+rather than 1500 file reads. `splitFlags_` takes the array form too: a loaded
+pom hands its entry flags over as `['js','java']`, and stringifying that made
+one flag named `js,java` that matched no active flag.
+
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods
 - Implementing classes get interface properties ONLY if explicitly declared in JS

@@ -320,6 +320,19 @@ module.exports.done = (async function() {
   var d5 = await diagsFor(POM_URI, 're-push of the open pom after the missing file is saved');
   test(d5.length === 0,
     'saving the file a pom entry names clears pom-file-missing on the open pom');
+
+  // The class->file map is built from the POMs at boot, and this fixture pom
+  // is not one of them. The didSave above must index C.js itself: the save
+  // re-registers d.C, so resolveSymbol finds the class, but its uri comes
+  // from the file map and stays null until a restart. Same for
+  // workspace/symbol, which drops any hit without a file.
+  var byName = await request('foam/byName', { name: 'd.C', op: 'definition' });
+  test(byName.result && byName.result[0] && byName.result[0].uri === CREATED_URI,
+    'foam/byName definition reaches the file created after boot');
+  var wsSym = await request('workspace/symbol', { query: 'C' });
+  test(Array.isArray(wsSym.result) && wsSym.result.some(function(r) {
+      return r.location && r.location.uri === CREATED_URI; }),
+    'workspace/symbol lists the class created after boot');
 })().catch(function(e) {
   test(false, 'dispatch tests failed — ' + e.message);
 }).then(function() {

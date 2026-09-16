@@ -1,3 +1,4 @@
+<flow name="DaoExamples" category="DOC/GUIDE" spid="foam"/>
 # Foam version 2, DAO examples.
 
 Foam 1 version can be found [here](http://foam-framework.github.io/foam/foam/demos/dao.html).

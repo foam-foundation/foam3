@@ -587,6 +587,8 @@ foam.POM({
     { name: "foam/u2/ActionButtonStyleRefinement",                    flags: "web" },
     { name: "foam/u2/view/MenuView",                                  flags: "web" },
     { name: "foam/u2/DetailView",                                     flags: "web" },
+    { name: "foam/u2/ViewReloader",                                   flags: "web" },
+    { name: "foam/u2/test/ViewReloaderTest",                          flags: "js&test|java&test" },
     { name: "foam/u2/ContextSensitiveDetailView",                     flags: "web" },
     { name: "foam/u2/tag/Image",                                      flags: "web" },
     { name: "foam/u2/tag/Foam",                                       flags: "web" }, // Maybe move into reflow POM

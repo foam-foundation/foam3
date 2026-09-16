@@ -232,6 +232,9 @@ A long-form FOAM3 cheat sheet covering model/class definition syntax, property t
 **[PropertyGotchas](PropertyGotchas.md)**
 Catalog of non-obvious property behaviors: when `postSet` doesn't fire (value default, equal slot binding, deserialization ordering), why an `expression` goes cold (lazy one-shot subscription), `javaFactory` frozen-safety mechanics, `javaGetter` values not reaching the client via the `isSet` gate, and what `transient` cascades into. Read this when a property change seems to be silently ignored.
 
+**[LiveReload](LiveReload.md)**
+Explains `./build.sh -l`: save a `.js` file and the open page rewrites the stylesheet or rebuilds the on-screen instances in place, no page reload. Covers the console line, what a rebuild keeps and drops, the cases that still need a reload (boot classes, `foam.SCRIPT`, SlotNode-rendered views, popups), the server-side stat poll and its CPU cost, and how to tune `skipDirs` and the poll intervals.
+
 **[Debugging](Debugging.md)**
 Practical debugging guide for both JavaScript (Chrome DevTools: breakpoints, `postSet` debugger trick, console commands, network tab) and Java (JDPA remote debugging in VS Code and IntelliJ, source file locations).
 

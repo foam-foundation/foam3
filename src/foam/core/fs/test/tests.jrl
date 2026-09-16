@@ -1,0 +1,2 @@
+p({"class":"foam.core.fs.test.WatcherTest","id":"WatcherTest","description":"PollingWatcher: new file handled and cleaned up, rejected file ignored, stop() ends the loop, recursive relative paths, skipDirs and dot-directories, rescan picks up new files; Watcher: the WatchService path"})
+p({"class":"foam.core.fs.test.SourceWatcherTest","id":"SourceWatcherTest","description":"SourceWatcher reports a changed .js under core.webroot as a SourceChange, keeps the file, and stays off without core.webroot"})

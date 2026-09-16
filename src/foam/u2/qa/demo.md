@@ -1,3 +1,4 @@
+<flow name="demo" category="DOC/DEV" spid="foam"/>
 console.clear();
 
 foam.QA2({

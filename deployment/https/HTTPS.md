@@ -1,3 +1,4 @@
+<flow name="HTTPS" category="DOC/DEV" spid="foam"/>
 <title>HTTPS</title>
 <h1>FOAM SSL/HTTPS</h1>
 <b><i>This repo is intended for developer localhost use.</i></b><br/>

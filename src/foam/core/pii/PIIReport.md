@@ -1,3 +1,4 @@
+<flow name="PIIReport" category="DOC/DEV" spid="foam"/>
 <title>PII Report</title>
 <h1>Personal Identifiable Information (PII)</h1>
 <p>FOAM provides for <b>General Data Protection Regulation (GDPR)</b> reporting of PII. The EU GDPR provides for the end user to inquire into PII held by a system, and additionally, deletion of said data if it does not conflict with superceeding requirements.</p>

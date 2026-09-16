@@ -1,3 +1,4 @@
+<flow name="doc" category="DOC/DEV" spid="foam"/>
 <title>CRUNCH UI</title>
 
 <h1>CRUNCH Wizard</h1>

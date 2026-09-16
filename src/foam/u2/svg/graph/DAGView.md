@@ -1,3 +1,4 @@
+<flow name="DAGView" category="DOC/DEV" spid="foam"/>
 <h1>DAGView</h1>
 
 <h2>What is DAGView?</h2>

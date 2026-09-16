@@ -1,3 +1,4 @@
+<flow name="FlowWidgets" category="DOC/DEV" spid="foam"/>
 <title>FLOW Widgets</title>
 
 <h1>FLOW Widgets</h1>

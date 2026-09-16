@@ -1,3 +1,4 @@
+<flow name="intro" category="DOC/DEV" spid="foam"/>
 <title>FOAM Introduction</title>
 
 <p>Build fully featured high performance apps in less time using FOAM.</p>

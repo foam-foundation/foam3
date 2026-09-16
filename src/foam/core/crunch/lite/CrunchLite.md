@@ -1,3 +1,4 @@
+<flow name="CrunchLite" category="DOC/DEV" spid="foam"/>
 <title>CRUNCH Lite</title>
 <h1>CRUNCH Lite</h1>
 

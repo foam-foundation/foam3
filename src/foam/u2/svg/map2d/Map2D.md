@@ -1,3 +1,4 @@
+<flow name="Map2D" category="DOC/DEV" spid="foam"/>
 <h1>2D Mapping for FObjects</h1>
 
 This package provides a common interface for components which map FObjects into

@@ -1,3 +1,4 @@
+<flow name="UserLifecycleTicket" category="DOC/DEV" spid="foam"/>
 <title>UserLifecycleTicket</title>
 <h1>Incomplete</h1>
 UserLifecycleTicket is a ticket which helps manage user deletion.

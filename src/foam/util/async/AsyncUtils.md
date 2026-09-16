@@ -1,3 +1,4 @@
+<flow name="AsyncUtils" category="DOC/DEV" spid="foam"/>
 <title>foam.util.async</title>
 
 <h1>Sequence</h1>

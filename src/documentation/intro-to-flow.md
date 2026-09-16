@@ -1,3 +1,4 @@
+<flow name="intro-to-flow" category="DOC/DEV" spid="foam"/>
 <title>Introduction to FLOW</title>
 
 <h1>Introduction to FLOW</h1>

@@ -1,3 +1,4 @@
+<flow name="Notification" category="DOC/DEV" spid="foam"/>
 <h1>Notification System</h1>
 
 <h2>Documentation TODO</h2>

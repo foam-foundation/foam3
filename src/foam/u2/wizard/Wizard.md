@@ -1,3 +1,4 @@
+<flow name="Wizard" category="DOC/DEV" spid="foam"/>
 <title>Modular Wizard Documentation</title>
 
 <h1>THIS DOCUMENTATION IS OUT OF DATE</h1>

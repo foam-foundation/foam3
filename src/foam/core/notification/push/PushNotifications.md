@@ -1,3 +1,4 @@
+<flow name="PushNotifications" category="DOC/DEV" spid="foam"/>
 <h1>Push Notifications</h1>
 
 <h2>Web Push</h2>

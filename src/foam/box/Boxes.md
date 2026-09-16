@@ -1,3 +1,4 @@
+<flow name="Boxes" category="DOC/DEV" spid="foam"/>
 <title>Box Based Messaging</title>
 
 <h1>Overview</h1>

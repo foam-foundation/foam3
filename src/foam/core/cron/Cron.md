@@ -1,3 +1,4 @@
+<flow name="Cron" category="DOC/DEV" spid="foam"/>
 <title>Cron</title>
 <h1>Cron</h1>
 

@@ -1,3 +1,4 @@
+<flow name="Alarm" category="DOC/DEV" spid="foam"/>
 <title>Alarm Documentation</title>
 
 <h1>Alarm Documentation</h1>

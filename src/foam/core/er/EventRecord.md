@@ -1,3 +1,4 @@
+<flow name="EventRecord" category="DOC/DEV" spid="foam"/>
 <title>Event Record</title>
 <h1>Event Record (ER)</h1>
 <h1>Overview</h1>

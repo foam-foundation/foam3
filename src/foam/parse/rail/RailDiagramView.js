@@ -44,7 +44,10 @@ foam.CLASS({
     ^legendPanel { position: absolute; left: 8px; bottom: 8px; max-width: 62%; max-height: 70%; overflow: auto; background: rgba(255,255,255,0.96);
                    border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #444; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
     ^legendGroup { display: flex; flex-wrap: wrap; gap: 3px 12px; align-items: baseline; margin: 2px 0 6px; }
-    ^right { width: 440px; flex: none; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid #ccc; }
+    ^right { flex: none; display: flex; flex-direction: column; min-height: 0; }
+    ^split { flex: none; width: 7px; cursor: col-resize; background: #eee; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
+    ^split:hover { background: #d6e8f5; }
+    .foam-u2-TooltipView { background: rgba(34, 34, 34, 0.92); color: #fff; }   /* u2 turns title= into a tooltip whose colours come from theme tokens; the demo has no theme */
     ^section { padding: 6px 8px; border-bottom: 1px solid #e4e4e4; flex: none; }
     ^row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     ^row select, ^row input[type=text] { min-width: 0; flex: 1; }
@@ -68,6 +71,7 @@ foam.CLASS({
     { name: 'TITLE',             message: 'foam.parse.rail' },
     { name: 'LEGEND_TOGGLE',     message: 'Legend' },
     { name: 'DOC_TOGGLE',        message: 'Document view' },
+    { name: 'TIP_SPLIT',         message: 'drag to resize the panel' },
     { name: 'EDIT_GRAMMAR',      message: 'edit grammar' },
     { name: 'LEGEND_NOTATION',   message: 'Notation:' },
     { name: 'LEGEND_TERMINAL',   message: 'rounded yellow box = terminal (text to match)' },
@@ -137,6 +141,9 @@ foam.CLASS({
 
   constants: {
     ZOOM_STEP: 1.1,
+    PANEL_WIDTH: 440,      // right column default width (px)
+    PANEL_MIN: 240,        // splitter floor for either column (px)
+    DOC_SHARE: 0.5,        // opening the document view widens the right column to this share of the window
     DRAG_THRESHOLD: 3,     // px of movement before a press counts as a drag, not a click
     TIP_OFFSET: 14,        // tooltip sits this far right/below the pointer (viewport px)
     PLAY_INTERVAL_MS: 140, // auto-step pace
@@ -191,7 +198,9 @@ foam.CLASS({
     { name: 'perf_', documentation: '{ paints, total, orig } while a measured Play runs.' },
     { class: 'Boolean', name: 'legendShown',  documentation: 'Legend panel over the canvas corner; off by default.' },
     { class: 'Boolean', name: 'grammarShown', documentation: 'Typed-grammar editor unfolded (dev only).' },
-    { class: 'Boolean', name: 'documentShown', documentation: 'Whole input as decorated text in place of the one-line ribbon.' },
+    { class: 'Boolean', name: 'documentShown', documentation: 'Whole input as decorated text in place of the one-line ribbon.',
+      postSet: function(_, on) { if ( on && this.rightWidth === this.PANEL_WIDTH ) this.rightWidth = Math.max(this.PANEL_WIDTH, Math.round(window.innerWidth * this.DOC_SHARE)); } },
+    { class: 'Int', name: 'rightWidth', factory: function() { return this.PANEL_WIDTH; }, documentation: 'Right column width in px; the splitter drags it, opening the document view widens it once.' },
     { class: 'Boolean', name: 'debugHook', documentation: 'Expose window.__rail so scripted checks can drive the page deterministically.' }
   ],
 
@@ -276,7 +285,8 @@ foam.CLASS({
               })
             .end()
           .end()
-          .start('div').addClass(this.myClass('right'))
+          .start('div').addClass(this.myClass('split')).attrs({ title: this.TIP_SPLIT }).on('pointerdown', function(e) { self.startSplit(e); }).end()
+          .start('div').addClass(this.myClass('right')).style({ width: this.rightWidth$.map(function(w) { return w + 'px'; }) })
             .start('div').addClass(this.myClass('section')).addClass(this.myClass('gram'))
               .start('div').addClass(this.myClass('row'))
                 .start('select').on('change', function(e) { if ( e.target.value ) self.usePreset(e.target.value); })
@@ -597,6 +607,15 @@ foam.CLASS({
     },
 
     function highlight(parser) { this.scene.highlightParser(parser); },
+
+    function startSplit(e) {
+      /** Splitter drag: the right column follows the pointer until release. */
+      var self = this, x0 = e.clientX, w0 = this.rightWidth;
+      var move = function(ev) { self.rightWidth = Math.max(self.PANEL_MIN, Math.min(window.innerWidth - self.PANEL_MIN, w0 + x0 - ev.clientX)); };
+      var up = function() { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      e.preventDefault();
+    },
 
     // ---- pointer ---------------------------------------------------------
 

@@ -16,7 +16,7 @@ foam.CLASS({
     Routers must instantiate using the addCrumb() (usually in the init()).
   `,
 
-  imports: ['breadcrumbs?', 'stack?'],
+  imports: [ 'breadcrumbs?', 'stack?' ],
   exports: [ 'route' ],
 
   // topics: ['routedTo'],

@@ -85,13 +85,13 @@ foam.CLASS({
                   verifyReActivation(x, user);
                 }
 
+                user = (User) user.fclone();
                 if ( ticket.getIncludeRelationships() ) {
                   updateUserAssociations(
                     ruler.getX()
                       .put("logger", new PrefixLogger(new Object[] { "UserLifecycleTicket", user.getId() }, (Logger) x.get("logger")))
                       .put(UserLifecycleTicket.class, ticket),
                     user, nu);
-                  user = (User) user.fclone();
                   user.setLifecycleState(nu);
                   ((Logger) x.get("logger")).info("UserLifecycleTicket", user.getId(), old, nu);
                   ((DAO) ruler.getX().get("localUserDAO")).put(user);

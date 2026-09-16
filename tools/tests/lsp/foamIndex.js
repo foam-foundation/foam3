@@ -630,3 +630,56 @@ section('FoamIndex — a sub-pom save keeps its project flags');
   test(after && after.join('|') === booted.join('|'),
     'a sub-pom save keeps the same flags: ' + JSON.stringify(after));
 })();
+
+// A loaded pom carries its entry flags as an array. Stringifying one joins on
+// a comma, which makes a single flag named 'js,java' that matches nothing and
+// never equals the two flags the same entry's text parses to.
+section('FoamIndex — pom entry flags are two flags, not one comma-joined one');
+(function() {
+  var commaJoined = [];
+  for ( var id in index.fileIndex_ ) {
+    var flags = index.fileIndex_[id].flags || [];
+    if ( flags.some(function(f) { return String(f).indexOf(',') !== -1; }) ) {
+      commaJoined.push(id);
+    }
+  }
+  test(commaJoined.length === 0,
+    'no indexed class carries a comma-joined flag (' + commaJoined.length +
+    ' do, e.g. ' + JSON.stringify(commaJoined.slice(0, 2)) + ')');
+  test(index.splitFlags_([ 'js', 'java' ]).join('|') === 'js|java',
+    'splitFlags_ reads the array form a loaded pom hands it');
+  var multi = index.getFileFlags('foam.core.auth.Group');
+  test(multi && multi.indexOf('java') !== -1,
+    'a js|java class reports the java flag: ' + JSON.stringify(multi));
+})();
+
+// findOwnerEntry_ must answer with what the LAST pass wrote. Answering with
+// the boot row instead lets a later class-file save restore the old flags.
+section('FoamIndex — a changed entry stays changed');
+(function() {
+  var os     = require('os');
+  var tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'foam-lsp-flags-'));
+  var pomPath = path.join(tmpDir, 'pom.js');
+  var relPath = path.join(tmpDir, 'Rel.js');
+  try {
+    fs.writeFileSync(relPath, "foam.CLASS({ package: 'lsp.flags', name: 'Rel' });\n");
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'f', files: [ { name: 'Rel', flags: 'js|java' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js|java',
+      'a pom save records both flags');
+
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'f', files: [ { name: 'Rel', flags: 'js' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js',
+      'a pom save that drops a flag is recorded');
+
+    index.reindexPath(relPath, 'class');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js',
+      'the next save of the class file keeps the new flags, not the old ones');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    index.buildFileIndex();
+  }
+})();

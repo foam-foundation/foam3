@@ -815,8 +815,12 @@ foam.CLASS({
     },
 
     function splitFlags_(raw) {
-      /** 'js&test|java&test' → ['js', 'test', 'java', 'test']; '' → []. */
+      /** 'js&test|java&test' → ['js', 'test', 'java', 'test']; '' → [].
+       *  A loaded pom hands its entry flags over as an array already, and
+       *  stringifying that joins on a comma — one flag named 'js,java'
+       *  rather than two — so the array form is rejoined, not stringified. */
       if ( ! raw ) return [];
+      if ( Array.isArray(raw) ) raw = raw.join('|');
       return String(raw).split('|').map(function(s) {
         return s.split('&');
       }).reduce(function(a, b) { return a.concat(b); }, []);
@@ -867,6 +871,10 @@ foam.CLASS({
         if ( ! this.libIndex_ ) this.libIndex_ = {};
         var models = foam.parse.lsp.FileModelCache.create().parseFileModels(content);
         if ( ! this.refinementIndex_ ) this.refinementIndex_ = {};
+        // The first row THIS pass writes owns the path. Without the drop the
+        // boot row answers findOwnerEntry_ forever, so a pom save that
+        // changes an entry's flags is undone by the next save of the file.
+        if ( this.pathIndex_ ) delete this.pathIndex_[filePath];
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
 

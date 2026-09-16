@@ -125,6 +125,7 @@ foam.CLASS({
         {
           class: 'String',
           name: 'search',
+          shortName: 's',
           view: {
            class: 'foam.u2.ClearableSearchField',
            onKey: true
@@ -298,7 +299,6 @@ foam.CLASS({
       x.register(this.DAOUpdateControllerView, 'foam.comics.DAOUpdateControllerView');
       // TODO: Fix route handling in this view
       x.register(this.CustomDAOSummaryView,    'foam.comics.v3.DetailView');
-      x.register(foam.u2.DetailView,           'foam.u2.DetailView');
 
       this.dynamic(function(route) {
         self.removeAllChildren(); // I don't know why this is necessary

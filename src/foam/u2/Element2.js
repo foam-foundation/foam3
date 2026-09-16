@@ -4,12 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// U3 is now the default, to use U2 instead:
-// either include ?u3=true in URL or include "setFlags: { u3: true }" in your POM.
-
-// You can determine if your code is running in U3 with:
-// foam.u2.Element.U3, which will eval to true if you are.
-
 /*
 TODO:
  - Remove use of E() and replace with create-ing axiom to add same behaviour.
@@ -347,6 +341,7 @@ foam.CLASS({
   properties: [
     'dao',
     'code',
+    'config',
     {
       class: 'Int',
       name: 'batch',
@@ -361,14 +356,18 @@ foam.CLASS({
       factory: function() {
         var self = this;
         return this.dynamic(function(data_) {
-          data_.forEach(d => {
-            var e = this.code.call(this, d);
-            if ( e ) {
-              // TODO: remove after port from U2 to U3
-              console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
-              this.tag(e);
-            }
-          })
+          if ( data_.length ) {
+            data_.forEach(d => {
+              var e = this.code.call(this, d);
+              if ( e ) {
+                // TODO: remove after port from U2 to U3
+                console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
+                this.tag(e);
+              }
+            });
+          } else if ( this.config && this.config.onEmpty ) {
+            this.config.onEmpty.call(this);
+          }
         });
       }
     }
@@ -1492,11 +1491,13 @@ foam.CLASS({
      * return an Element that represents the view of the record passed to it.
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
+     * @param congig { onEmpty: function() { } }
      */
-    function select(dao, f) {
+    function select(dao, f, opt_config) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
+        config: opt_config
       }, this));
       return this;
     },

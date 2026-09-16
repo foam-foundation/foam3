@@ -58,6 +58,18 @@ foam.CLASS({
       x.test(this.isValid("disabledTopics HAS tag1", 'IN(foam.core.auth.User.disabledTopics, "tag1")'), "StringArray Test4: The disabledTopics exactly matches one value");
       x.test(this.isValid('disabledTopics != tag1', 'NOT(IN(foam.core.auth.User.disabledTopics, "tag1"))'), 'StringArray Test5: The disabledTopics does not exactly match one value');
 
+      // The assertions above check the shape of the predicate. These check that it answers,
+      // which is a separate question on a list-valued property: an array holding more than
+      // one value used to match none of its own values.
+      let taggedUser = foam.core.auth.User.create({ disabledTopics: [ 'tag1', 'tag2' ] }, x);
+      x.test(   this.evaluate('disabledTopics HAS tag1', taggedUser),       'StringArray Test6: HAS matches a value the array holds');
+      x.test(   this.evaluate('disabledTopics = tag2', taggedUser),         'StringArray Test7: = matches a value the array holds');
+      x.test( ! this.evaluate('disabledTopics HAS tag9', taggedUser),       'StringArray Test8: HAS does not match a value the array lacks');
+      x.test(   this.evaluate('disabledTopics IN (tag2,tag9)', taggedUser), 'StringArray Test9: IN matches when the array holds one of the candidates');
+      x.test( ! this.evaluate('disabledTopics IN (tag8,tag9)', taggedUser), 'StringArray Test10: IN does not match when the array holds none of them');
+      x.test( ! this.evaluate('disabledTopics != tag1', taggedUser),        'StringArray Test11: != is false for a value the array holds');
+      x.test(   this.evaluate('disabledTopics != tag9', taggedUser),        'StringArray Test12: != is true for a value the array lacks');
+
       // Float symbol tests
       // note: pick tricky float numbers to force floating point precision handling
       x.test(this.isValidSymbol('float', "1.107", "1.107", true), "Float Test1: The float is 1.107");

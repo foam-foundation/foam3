@@ -29,7 +29,7 @@ foam.CLASS({
         this.alt.args.push(p.sug(p.literalIC(f.name), {
           text: f.name,
           prependSpaceOnSelect: false,
-          category: 'flow'}));
+          category: f.category || 'flow'}));
       });
     },
 

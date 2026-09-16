@@ -1090,7 +1090,11 @@ dao loading, which improves overall startup time.`,
       type: 'foam.dao.DAO',
       javaCode: `
         foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
-        jdao.setX(x);
+        // CSpecFactory.initService resets every DAO in the chain to the bare
+        // boot context, and NotPartitionedDAO rebuilds through here from that
+        // context, so the CSpec key put in the delegate factory is gone by
+        // then. JDAO reads it to wrap the journals in NDiffJournal.
+        jdao.setX(x.put(CSpec.CSPEC_CTX_KEY, getCSpec()));
         jdao.setFilename(getJournalName());
         jdao.setCluster(getCluster() && !getSaf());
         jdao.setWaitReplay(getWaitReplay());

@@ -1,3 +1,4 @@
+<flow name="Enum" category="DOC/GUIDE" spid="foam"/>
 # Enums
 
 For those familiar with Java, FOAM Enums are very similar to Java enums in

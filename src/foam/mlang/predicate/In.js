@@ -18,8 +18,10 @@ foam.CLASS({
   requires: [ 'foam.mlang.Constant' ],
 
   javaImports: [
+    'foam.lang.PropertyInfo',
     'foam.mlang.ArrayConstant',
     'foam.mlang.Constant',
+    'foam.mlang.Expr',
     'java.util.Arrays',
     'java.util.HashSet',
     'java.util.List',
@@ -54,6 +56,24 @@ foam.CLASS({
         var rhs = this.arg2.f(o);
 
         if ( ! rhs ) return false;
+
+        // A list-valued left side is a membership question, not an equality one: the
+        // paths below compare the whole array against each candidate, so a row holding
+        // [ "a", "b" ] matches neither "a" nor "b". Test the elements instead.
+        if ( foam.Array.isInstance(lhs) ) {
+          var candidates = foam.Array.isInstance(rhs) ? rhs : [ rhs ];
+          for ( var i = 0 ; i < lhs.length ; i++ ) {
+            for ( var j = 0 ; j < candidates.length ; j++ ) {
+              var l = lhs[i], r = candidates[j];
+              if ( this.upperCase_ ) {
+                if ( foam.String.isInstance(l) ) l = l.toUpperCase();
+                if ( foam.String.isInstance(r) ) r = r.toUpperCase();
+              }
+              if ( foam.util.equals(l, r) ) return true;
+            }
+          }
+          return false;
+        }
 
         // Fast path when arg2 is a Constant of Object[].
         // DO NOT drop the `+ ''`: a JS Set matches objects by REFERENCE, so an
@@ -114,6 +134,23 @@ return false
   Object lhs = getArg1().f(obj);
   Object rhs = getArg2().f(obj);
 
+  // A list-valued left side is a membership question, not an equality one: the paths
+  // below compare the whole array against each candidate, so a row holding
+  // [ "a", "b" ] matches neither "a" nor "b". Test the elements instead.
+  if ( lhs != null && lhs.getClass().isArray() ) {
+    // Reflection so an int[] or long[] property answers the same way a String[] does.
+    int      length     = java.lang.reflect.Array.getLength(lhs);
+    Object[] candidates = rhs instanceof Object[] ? (Object[]) rhs : new Object[] { rhs };
+
+    for ( int i = 0 ; i < length ; i++ ) {
+      Object value = java.lang.reflect.Array.get(lhs, i);
+      for ( Object candidate : candidates ) {
+        if ( foam.util.SafetyUtil.compare(value, candidate) == 0 ) return true;
+      }
+    }
+    return false;
+  }
+
   // Fast path when arg2 holds a constant Object[]. ArrayConstant is a sibling
   // of Constant, not a subclass, and it is what MLang.prepare() builds for an
   // Object[] - so both have to be named or every MLang.IN caller keeps paying
@@ -173,7 +210,13 @@ return false
 
         if ( foam.Array.isInstance(value) ) {
           if ( value.length == 0 ) return this.FALSE;
-          if ( value.length == 1 ) return this.Eq.create({arg1: this.arg1, arg2: value[0]});
+
+          // IN with one candidate is EQ when arg1 holds a single value. When
+          // arg1 holds a list, IN asks whether the list contains the candidate
+          // and EQ compares the whole list to it, so the list case stays IN.
+          if ( value.length == 1 && ! this.isListValued(this.arg1) ) {
+            return this.Eq.create({arg1: this.arg1, arg2: value[0]});
+          }
         }
 
         return this;
@@ -194,7 +237,11 @@ return false
           if ( arr.length == 0 ) {
             return foam.mlang.MLang.FALSE;
           }
-          if ( arr.length == 1 ) {
+
+          // IN with one candidate is EQ when arg1 holds a single value. When
+          // arg1 holds a list, IN asks whether the list contains the candidate
+          // and EQ compares the whole list to it, so the list case stays IN.
+          if ( arr.length == 1 && ! isListValued(getArg1()) ) {
             return new Eq.Builder(getX())
               .setArg1(getArg1())
               .setArg2(new Constant(arr[0]))
@@ -202,6 +249,20 @@ return false
           }
         }
         return this;
+      `
+    },
+    {
+      name: 'isListValued',
+      type: 'Boolean',
+      args: 'Expr expr',
+      documentation: 'True when the expression is a list-valued property.',
+      code: function(expr) {
+        return foam.lang.StringArray.isInstance(expr) ||
+          foam.lang.Array.isInstance(expr);
+      },
+      javaCode: `
+        return expr instanceof PropertyInfo
+          && ((PropertyInfo) expr).getValueClass().isArray();
       `
     },
     function toMQL() {

@@ -1,3 +1,4 @@
+<flow name="Guides" category="DOC/GUIDE" spid="foam"/>
 # Guide to Guides
 
 A map of what each guide covers, organized by category. If you're not sure which guide to read, start here.

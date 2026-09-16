@@ -40,10 +40,7 @@ p({
     "servletMappings": [{
       "class": "foam.core.servlet.ServletMapping",
       "servletObject": {
-        "class": "foam.core.servlet.VirtualHostRoutingServlet",
-        "headerParameters": {
-          "Cache-Control": "no-cache"
-        }
+        "class": "foam.core.servlet.VirtualHostRoutingServlet"
       },
       "pathSpec": "/welcome"
     }, {

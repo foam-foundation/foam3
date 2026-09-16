@@ -1,3 +1,4 @@
+<flow name="DesignPatterns" category="DOC/GUIDE" spid="foam"/>
 # Design Patterns in FOAM
 
 FOAM is built on a small number of well-known design patterns applied consistently and pervasively. Understanding which pattern underlies a given FOAM concept makes it easier to predict behaviour, extend the framework, and recognise the structure of unfamiliar code.

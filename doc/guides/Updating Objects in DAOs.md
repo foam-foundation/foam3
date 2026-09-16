@@ -1,3 +1,4 @@
+<flow name="Updating Objects in DAOs" category="DOC/GUIDE" spid="foam"/>
 # Updating Objects in a DAO
 
 ## Table of Contents

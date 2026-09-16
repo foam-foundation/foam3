@@ -1,3 +1,4 @@
+<flow name="Journals" category="DOC/GUIDE" spid="foam"/>
 # FOAM Journals 
 
 ## What are FOAM Journals?

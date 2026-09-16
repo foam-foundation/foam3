@@ -1,7 +1,7 @@
 ---
 name: foam-model-builder
 description: >-
-  Author a FOAM model and wire it into the build — the `foam.CLASS` skeleton, choosing property classes, `id` and sequence numbers, the `services.jrl` DAO config, and the `pom.js` entry that makes it compile. Use when creating a model, adding properties to an existing one, setting up a DAO for it, or working out why a new model does not appear at runtime. Views are in `foam-view-builder`; framework-level design decisions are in `doc/guides/DesignPatterns.md`.
+  Author a FOAM model and wire it into the build — the `foam.CLASS` skeleton, choosing property classes, `id` and sequence numbers, the `services.jrl` DAO config, and the `pom.js` entry that makes it compile. Use when creating a model, adding properties to an existing one, setting up a DAO for it, or working out why a new model does not appear at runtime. Views are in `foam-view-builder`; once the model exists, the served-DAO name, menu, permission grant, and test registration that make it reachable are in `foam-feature-wiring`; framework-level design decisions are in `doc/guides/DesignPatterns.md`.
 ---
 
 # Authoring a FOAM Model
@@ -112,6 +112,8 @@ A `.jrl` in the same directory as the `pom.js` auto-loads — do **not** add it 
   the `isSet` gate, what `transient` cascades into
 - `doc/guides/DaoGotchas.md` — decorator ordering, frozen results, context scoping
 - `doc/guides/Journals.md` — journal format and replay
+- `foam-feature-wiring` skill — the served-DAO name rule, `lazy`, the POM sub-directory skip,
+  catalogue-versus-grant permissions, and why a test never runs
 
 ## Project-specific rules
 

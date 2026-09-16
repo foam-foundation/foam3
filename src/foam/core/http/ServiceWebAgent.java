@@ -93,15 +93,15 @@ public class ServiceWebAgent
         return;
       }
 
-      int read   = 0;
-      int count  = 0;
-      int length = req.getContentLength();
+      // Read to end of stream rather than to Content-Length: a proxy that
+      // forwards the body chunked sends no Content-Length, and the old
+      // 'count < length' test then discarded the first read.
+      int read = 0;
 
       StringBuilder builder = sb.get();
       char[] cbuffer = new char[BUFFER_SIZE];
-      while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 && count < length ) {
+      while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 ) {
         builder.append(cbuffer, 0, read);
-        count += read;
       }
 
       String str = builder.toString();

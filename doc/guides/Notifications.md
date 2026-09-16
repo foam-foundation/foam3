@@ -1,3 +1,4 @@
+<flow name="Notifications" category="DOC/GUIDE" spid="foam"/>
 # FOAM Notification System Overview
 
 In FOAM, you can send notifications to individual users, groups of users, or broadcast them to all users in a system. The notification system is built around a core `Notification` class that can be extended for specialized use cases.

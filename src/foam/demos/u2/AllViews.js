@@ -82,6 +82,8 @@ foam.CLASS({
     'foam.u2.view.ReferenceView'
    ],
 
+  imports: [ 'window' ],
+
   exports: [ 'sampleDataDAO', 'displayWidth' ],
 
   messages: [
@@ -126,7 +128,7 @@ foam.CLASS({
       factory: function() {
         return this.DisplayWidth.VALUES
           .sort((a, b) => b.minWidth - a.minWidth)
-          .find(o => o.minWidth <= window.innerWidth);
+          .find(o => o.minWidth <= this.window.innerWidth);
       }
     },
     {

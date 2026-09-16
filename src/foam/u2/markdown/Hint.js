@@ -80,16 +80,7 @@ foam.CLASS({
       class: 'String',
       name: 'iconName',
       expression: function(category) {
-        return category.glyphName;
-      }
-    },
-    {
-      name: 'icon_',
-      factory: function() {
-        return this.Image.create({
-          glyph:    this.iconName || 'documentation',
-          embedSVG: true
-        }, this).addClass(this.myClass('icon'));
+        return category && category.glyphName || 'hintInfo';
       }
     }
   ],
@@ -101,11 +92,19 @@ foam.CLASS({
 
       this
         .addClass()
-        .addClass(this.myClass('box')) // Box around the hint
-        .addClass(this.category$.map(function(c) { // Category -> CSS class
+        .addClass(this.myClass('box'))
+        .addClass(this.category$.map(function(c) {
           return self.myClass(c && c.cssClass ? c.cssClass : 'hint');
         }))
-        .add(this.icon_); // Icon based on the category
+        .start()
+          .addClass(this.myClass('icon'))
+          .add(this.iconName$.map(function(n) {
+            return self.Image.create({
+              glyph:    n || 'documentation',
+              embedSVG: true
+            }, self);
+          }))
+        .end();
     }
   ]
 });

@@ -583,7 +583,7 @@ foam.CLASS({
     function init() {
       // TODO: There should be some helper support to make this easier
       var w = this.window.open('', '', 'width=700, heigh=1000');
-      var window = foam.lang.Window.create({window: w});
+      var window = foam.lang.Window.create({window: w}, this.__subContext__);
       var browser = this.DocBrowser.create({path: this.initialClass}, window.__subContext__);
       w.document.body.insertAdjacentHTML('beforeend', browser.outerHTML);
       browser.load();

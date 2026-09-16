@@ -5,9 +5,9 @@ description: Use when writing a script to paste into the browser console of a ru
 
 # Browser console scripts
 
-A FOAM app's console has `x`, the client context with every DAO and service, set by
-`ApplicationController` (`globalThis.x`). A script reads `x.someDAO` directly and never redeclares
-`x` or digs it out of `ctrl`.
+A FOAM app's console has `x`, the client context with every DAO and service, and `MLang`, a ready
+`foam.mlang.Expressions`, both set by `ApplicationController` (`globalThis.x`, `globalThis.MLang`).
+A script reads `x.someDAO` directly and never redeclares `x`; the controller itself is `x.ctrl`.
 
 ## Before writing
 
@@ -32,13 +32,14 @@ Read-only: an async IIFE.
 // DRY RUN:  revertBatch()       logs what would change, changes nothing
 // LIVE RUN: revertBatch(true)   does it
 async function revertBatch(execute) {
-  var E    = foam.mlang.Expressions.create();
+  var E    = MLang;                                       // or foam.mlang.Expressions.create()
   var dry  = ! execute;
-  var rows = (await x.fileDAO.where(E.EQ(foam.some.File.STATUS, 'FAILED')).select()).array;
+  var Row  = foam.lookup('pkg.MyModel');                  // the model behind x.myDAO
+  var rows = (await x.myDAO.where(E.EQ(Row.STATUS, 'FAILED')).select()).array;
 
   for ( var r of rows ) {
     if ( dry ) { console.log('[DRY] would remove ' + r.id); continue; }
-    try { await x.fileDAO.remove(r); console.log('removed ' + r.id); }
+    try { await x.myDAO.remove(r); console.log('removed ' + r.id); }
     catch (e) { console.error(r.id, e); }                 // one failure never aborts the loop
   }
 
@@ -49,8 +50,8 @@ revertBatch();
 
 ```javascript
 (async function() {
-  var E = foam.mlang.Expressions.create();
-  var byStatus = await x.fileDAO.select(E.GROUP_BY(foam.some.File.STATUS, E.COUNT()));
+  var Row      = foam.lookup('pkg.MyModel');
+  var byStatus = await x.myDAO.select(MLang.GROUP_BY(Row.STATUS, MLang.COUNT()));
   for ( var k of byStatus.groupKeys ) console.log(k, byStatus.groups[k].value);
 })();
 ```
@@ -59,15 +60,16 @@ revertBatch();
 
 | Need | Code |
 |---|---|
-| expressions | `var E = foam.mlang.Expressions.create();` |
+| expressions | `MLang`, already there; or `var E = foam.mlang.Expressions.create();` |
 | every row | `(await dao.select()).array` |
 | filter | `dao.where(E.EQ(Model.FIELD, v))`, `E.IN(Model.FIELD, [...])` |
 | count / sum / min / max | `(await dao.select(E.COUNT())).value`, `E.SUM(Model.AMOUNT)`, `E.MIN(...)`, `E.MAX(...)` |
 | per group | `var g = await dao.select(E.GROUP_BY(Model.KEY, E.COUNT())); g.groupKeys; g.groups[k].value` |
-| distinct values | `(await dao.select(E.UNIQUE(Model.FIELD, foam.dao.ArraySink.create()))).delegate.array` |
+| one row per distinct value | `(await dao.select(E.UNIQUE(Model.FIELD, foam.dao.ArraySink.create()))).delegate.array` |
+| a page | `dao.orderBy(Model.CREATED).skip(1000).limit(500)` |
 | exists | `await dao.find(predicate)` |
 | model class by name | `foam.lookup('pkg.Model')`; a property is `Model.UPPER_SNAKE` |
-| remove a set | `await dao.where(predicate).removeAll()` |
+| remove a set | `await dao.where(predicate).removeAll()`, inside the dry-run function only |
 | drop a client cache | `dao.cmd(foam.dao.DAO.RESET_CMD)` |
 | hand the result over | `await navigator.clipboard.writeText(JSON.stringify(result, null, 2))` |
 
@@ -85,14 +87,14 @@ var g = await targetDAO.where(E.IN(Row.SOURCE_ID, ids)).select(E.GROUP_BY(Row.SO
 
 ## Export a DAO
 
-Two paths, picked by where the DAO lives; `DownloadDAOAgent` in
-`foam3/src/foam/core/reflow/AbstractDAOAgent.js` is the reference, switching on `dao.cmd('serviceName?')`.
+Two paths, picked by where the DAO lives; `foam3/src/foam/core/reflow/DownloadDAOAgent.js` is the
+reference, switching on `dao.cmd('serviceName?')`.
 
-A server-registered DAO goes through DIG, which serializes on the server and never builds the rows
-in the tab:
+A DAO served by a CSpec goes through DIG, which serializes on the server, never builds the rows in
+the tab, and runs as the pasting user, so their row and column permissions still apply:
 
 ```javascript
-var url  = origin + '/service/dig?dao=fileDAO&format=jsonj&limit=0&sessionId=' + x.sessionID;
+var url  = origin + '/service/dig?dao=myDAO&format=jsonj&limit=0&sessionId=' + x.sessionID;
 var text = await (await fetch(url)).text();     // one p({...}) per line, ready as a .jrl
 ```
 

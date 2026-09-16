@@ -64,9 +64,8 @@ foam.CLASS({
       css: `
         ^dao, ^header {
           display: inline-block;
-          font-size: smaller;
-          margin: 2px;
-          padding: 2px;
+          font-size: small;
+          padding: 4 8px;
           width: 220px;
         }
         ^dao {
@@ -80,10 +79,16 @@ foam.CLASS({
         ^section {
           display: inline-grid;
           vertical-align: baseline;
+          margin: 10px;
+          background: $white;
+          border-radius: 4px;
+          padding: 10px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          border: 1px solid $borderLight;
         }
         ^header {
           background: $backgroundInverse;
-          color:$textOnInverse;
+          color: $textOnInverse;
           font-weight: $font-bold;
         }
         ^footer {

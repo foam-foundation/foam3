@@ -72,11 +72,11 @@
 - [NanoServices](#nanoservices)
   - [How It Works: The Stub/Skeleton Pattern](#how-it-works-the-stubskeleton-pattern)
     - [What Gets Generated](#what-gets-generated)
-  - [Step 1: Define Request and Response Models](#step-1-define-request-and-response-models)
-  - [Step 2: Define the Service Interface](#step-2-define-the-service-interface)
-  - [Step 3: Implement the Server Side](#step-3-implement-the-server-side)
-  - [Step 4: Register the Service](#step-4-register-the-service)
-  - [Step 5: Putting It All Together](#step-5-putting-it-all-together)
+  - [Define Request and Response Models](#define-request-and-response-models)
+  - [Define the Service Interface](#define-the-service-interface)
+  - [Implement the Server Side](#implement-the-server-side)
+  - [Register the Service](#register-the-service)
+  - [Putting It All Together](#putting-it-all-together)
     - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
 - [Notifications (Coming Soon)](#notifications-coming-soon)
 - [Appendix](#appendix)
@@ -2507,7 +2507,7 @@ Step back and look at what `render()` actually contains: roughly 30 lines for a 
 
 `SectionedDetailView` handles layout, labels, validation display, and visibility rules for both the recipe fields and each step form. `RecipeStepIngredientAmountsView` handles the entire ingredient amounts interaction — and because it is already wired to the `ingredientAmounts` relationship in `Relationships.js`, the standard step form includes the picker automatically with no extra code here. `ComicsAction` overrides handle save and cancel orchestration. None of that logic lives in `RecipeView` — it was written once, in the right place, and composed here.
 
-This is the payoff of FOAM's philosophy: build small, focused pieces that know their own concern, wire them together with relationships and context, and the top-level view stays thin. The complexity does not disappear — it is distributed to where it belongs.
+This is the payoff of FOAM's philosophy: build small, focused pieces that know their own concern, wire them together with relationships and context, and the top-level view stays thin. ***The complexity does not disappear — it is distributed to where it belongs.***
 
 > 💡 **Compare with `RecipeCreate2`.** The zip file includes `RecipeCreate2` — a fully custom create screen included for comparison, with its own layout, field wiring, and step management. Open it alongside `RecipeView` and compare the two.
 >
@@ -2574,7 +2574,7 @@ When you set `skeleton: true` and `client: true` on a `foam.INTERFACE`, the buil
 
 Neither file is ever edited. They regenerate whenever the interface changes — adding a method, renaming an argument, or changing a return type is a single edit in one place.
 
-## Step 1: Define Request and Response Models
+## Define Request and Response Models
 
 Let's see it in action. We'll build a unit conversion service for the Recipe app — something that converts between cups, grams, millilitres, and the other units cooks actually use. Step by step, from the interface definition all the way to a working UI.
 
@@ -2613,7 +2613,7 @@ Beyond the numeric result, `ConversionResponse` carries an optional `message` st
 
 The key constraint on request and response models is that all properties must be serializable standard FOAM types (`String`, `Float`, `Enum`, `Boolean`, etc.). That is the only requirement — everything else is regular FOAM modelling.
 
-## Step 2: Define the Service Interface
+## Define the Service Interface
 
 Immediately after the models in the same file, define the interface:
 
@@ -2655,7 +2655,7 @@ Now add the file to `pom.js`:
 { name: 'com.foamdev.cook.ConversionService', flags: 'js' }
 ```
 
-## Step 3: Implement the Server Side
+## Implement the Server Side
 
 Create `src/com/foamdev/cook/ServerConversionService.java`. This class provides the actual business logic. It extends `ContextAwareSupport` (which gives it access to the FOAM context) and implements the generated `ConversionService` interface.
 
@@ -2761,7 +2761,7 @@ foam.POM({
 });
 ```
 
-## Step 4: Register the Service
+## Register the Service
 
 Services are registered in `journals/services.jrl` using a `CSpec` — the same file and the same mechanism we used earlier to register the DAO services for our models. The difference is that instead of wiring up a DAO, this `CSpec` wires up an RPC service. Add the following entry:
 
@@ -2805,7 +2805,7 @@ The CSpec properties that matter here:
 | `serviceScript` | Server-side construction (runs in the FOAM context `x`) |
 | `client` | JSON description of what to create on the client side |
 
-## Step 5: Putting It All Together
+## Putting It All Together
 
 With the interface, implementation, and CSpec in place, we can build a UI that calls the service. Copy `UnitConversionPage.js` from the tutorial assets zip into `src/com/foamdev/cook/` and add it to `pom.js`:
 
@@ -2973,7 +2973,11 @@ p({
 
 After restarting the server, logging in navigates directly to the Unit Converter. The cookbook is still reachable from the sidebar — the default menu controls only where the app begins, not what else is available.
 
-Take a moment to appreciate what just happened. You defined a typed interface, wrote a pure Java implementation, registered it as a nano-service with one CSpec entry, and called it from a reactive UI — with authentication, RPC transport, error handling, and locale-aware formatting all handled by the framework. The same `convert()` call works whether the service is running in the same JVM, across HTTP, or over a WebSocket. You never touched a REST endpoint, wrote a serializer, or wired up a router. That is FOAM nano-services doing their job.
+![Unit Converter landing page](images/screen10.png)
+
+> 🎉 **Take a moment to appreciate what just happened!**
+>
+> You defined a typed interface, wrote a pure Java implementation, registered it as a nano-service with one CSpec entry, and called it from a reactive UI — with authentication, RPC transport, error handling, and locale-aware formatting all handled by the framework. The same `convert()` call works whether the service is running in the same JVM, across HTTP, or over a WebSocket. You never touched a REST endpoint, wrote a serializer, or wired up a router. That is FOAM nano-services doing their job.
 
 # Notifications (Coming Soon)
 

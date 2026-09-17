@@ -202,8 +202,11 @@ foam.CLASS({
           setPassCount(passCount.get());
           setFailCount(failCount.get());
           String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
+          // A waitReplay:false replay runs on the thread pool after
+          // CSpecFactory.initService has already set READY, so the replay
+          // itself has to hand the status back.
           if ( cspec != null )
-            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+            cspec.updateStatus(CSpecStatus.READY, "Replay", msg);
           else {
             if ( getFailCount() == 0 ) {
               getLogger().info("Replay", msg);

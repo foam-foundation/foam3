@@ -170,9 +170,14 @@ foam.CLASS({
                   if ( pass % 100000 == 0 ) {
                     // Bytes read run ahead of entries processed by the reader's
                     // buffer, and a journal appended to mid-replay outgrows its
-                    // starting size, so cap at 100.
-                    long percent = totalBytes > 0 ? Math.min(100, 100 * getReplayBytesRead().get() / totalBytes) : -1;
-                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(pm.getTime()));
+                    // starting size, so cap the percentage at 100 and the
+                    // bytes left at 0.
+                    long read    = getReplayBytesRead().get();
+                    long elapsed = pm.getTime();
+                    long percent = totalBytes > 0 ? Math.min(100, 100 * read / totalBytes) : -1;
+                    // Time left at the average rate so far.
+                    long left    = percent < 0 || read == 0 ? -1 : (long) (elapsed * (double) Math.max(0, totalBytes - read) / read);
+                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s,left,%5$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(elapsed), left < 0 ? "?" : Duration.ofMillis(left));
                     if ( cspec != null )
                       cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
                     else

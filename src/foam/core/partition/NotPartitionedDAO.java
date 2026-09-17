@@ -128,7 +128,10 @@ public class NotPartitionedDAO
 
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      return true;
+    }
+
+    synchronized ( this ) {
+      if ( delegate_ == null ) return false;
     }
 
     return getDelegate().cmd_(x, cmd);

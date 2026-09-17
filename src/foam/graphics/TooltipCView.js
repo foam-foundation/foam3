@@ -48,10 +48,17 @@ foam.CLASS({
       return m ? parseFloat(m[1]) : this.DEFAULT_FONT_PX;
     },
 
+    function lines() {
+      /** Tip text is written as one string with newlines; each line is drawn separately. */
+      return this.text.split('\n');
+    },
+
     function layout() {
-      /** Sizes the box to its text; call after changing text or font. */
-      this.width  = this.measure(this.text, this.font) + 2 * this.padding;
-      this.height = this.fontPx() * this.LINE_HEIGHT_RATIO + 2 * this.padding;
+      /** Sizes the box to its widest line and its line count; call after changing text or font. */
+      var self = this, w = 0;
+      this.lines().forEach(function(line) { w = Math.max(w, self.measure(line, self.font)); });
+      this.width  = w + 2 * this.padding;
+      this.height = this.lines().length * this.fontPx() * this.LINE_HEIGHT_RATIO + 2 * this.padding;
     },
 
     function paintSelf(x) {
@@ -59,7 +66,8 @@ foam.CLASS({
       x.font         = this.font;
       x.fillStyle    = this.theme.resolve('tooltipText');
       x.textBaseline = 'middle';
-      x.fillText(this.text, this.padding, this.height / 2);
+      var lh = this.fontPx() * this.LINE_HEIGHT_RATIO, y = this.padding + lh / 2;
+      this.lines().forEach(function(line) { x.fillText(line, this.padding, y); y += lh; }, this);
     },
 
     function hitTest(p) { return false; }

@@ -539,6 +539,11 @@ foam.CLASS({
       if ( expr ) subTree = subTree.lte(expr.arg2.f(), this.index.compare, this.index.nullNode);
 
       cost = subTree.size;
+
+      // A sink whose result does not depend on put order lets an unlimited
+      // select drop its order, instead of collecting and sorting every row.
+      if ( order && ! limit && sink?.isOrderIndependent?.() ) order = undefined;
+
       var sortRequired = ! this.index.isOrderSelectable(order);
       var reverseSort = false;
 
@@ -560,7 +565,8 @@ foam.CLASS({
 
       return m.CustomPlan.create({
         cost: cost,
-        customExecute: function(promise, sink, skip, limit, order, predicate) {
+        // The order decided above, not the caller's: the sink may have dropped it.
+        customExecute: function(promise, sink, skip, limit, _, predicate) {
           if ( sortRequired ) {
             var arrSink = m.ArraySink.create();
             index.selectCount++;

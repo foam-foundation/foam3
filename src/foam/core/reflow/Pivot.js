@@ -129,6 +129,7 @@ foam.CLASS({
   methods: [
     {
       name: 'isOrderIndependent',
+      code: function() { return !! this.acc.isOrderIndependent?.(); },
       javaCode: 'return getAcc().isOrderIndependent();'
     },
     {

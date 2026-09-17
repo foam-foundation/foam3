@@ -126,10 +126,16 @@ foam.CLASS({
           ['', fullString],
           ['', tokenName]
         ];
-        if ( variantToCheck) {
+        if ( variantToCheck ) {
+          // Variant rows (source-dark, or variants: { dark }) for the current
+          // theme first, then the theme-less ('') rows, then the plain rows.
+          // A theme-less variant row was skipped before this: the loop never
+          // asked for ['', 'token-dark'], so a global dark override did nothing.
           args = [
             [themeID, fullString + '-' + variantToCheck],
             [themeID, tokenName + '-' + variantToCheck],
+            ['', fullString + '-' + variantToCheck],
+            ['', tokenName + '-' + variantToCheck],
             ...args
           ];
         }

@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.core.menu',
-  name: 'DocumentCitationView',
+  name: 'FlowDocumentCitationView',
   extends: 'foam.u2.CitationView',
   documentation: `
     CitationView for rendering documentation/tutorial/demo flows as

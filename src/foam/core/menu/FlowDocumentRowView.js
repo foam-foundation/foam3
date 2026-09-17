@@ -6,17 +6,17 @@
 
 foam.CLASS({
   package: 'foam.core.menu',
-  name: 'DocumentRowView',
+  name: 'FlowDocumentRowView',
   extends: 'foam.u2.View',
-  documentation: 'Container view for DocumentCitationView',
+  documentation: 'Container view for FlowDocumentCitationView',
 
-  requires: [ 'foam.core.menu.DocumentCitationView' ],
+  requires: [ 'foam.core.menu.FlowDocumentCitationView' ],
 
   exports: [ 'as rowView' ],
 
   methods: [
     function render() {
-      this.tag(this.DocumentCitationView, {
+      this.tag(this.FlowDocumentCitationView, {
         data: this.data
       })
     }

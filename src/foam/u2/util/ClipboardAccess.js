@@ -41,6 +41,31 @@ foam.CLASS({
       }
     },
     function cut() {},
-    function paste() {}
+    function paste(provideNotifications = true) {
+      let tryPaste = function() {
+        let res = navigator.clipboard && navigator.clipboard.readText ?
+                  navigator.clipboard.readText() :
+                  Promise.reject(new Error('No Clipboard Found'));
+        if ( provideNotifications ) {
+          res.catch((e) => {
+            this.ctrl?.notify?.('Paste Failed', '', 'ERROR', true);
+          });
+        }
+        return res;
+      }.bind(this);
+      if ( navigator.permissions ) {
+        // Browsers without the clipboard-read permission name reject the query; try anyway.
+        return navigator.permissions.query({ name: 'clipboard-read' }).then(result => {
+          if ( result.state === 'granted' || result.state === 'prompt' ) {
+            return tryPaste();
+          }
+          if ( provideNotifications )
+            this.ctrl?.notify?.('Paste Failed', 'Permission Denied', 'ERROR', true);
+          return Promise.reject(new Error('Permission Denied'));
+        }, tryPaste);
+      } else {
+        return tryPaste();
+      }
+    }
   ]
 });

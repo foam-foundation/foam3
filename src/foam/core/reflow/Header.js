@@ -4,7 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'HeaderView',
@@ -41,6 +40,7 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Header',
 
+
   sections: [
     {
       name: 'general',
@@ -73,6 +73,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return ( this.type + ' ' + this.text ).trim(); },
+
     function addToE(e) {
       e.tag(foam.core.reflow.HeaderView, {data: this});
     }

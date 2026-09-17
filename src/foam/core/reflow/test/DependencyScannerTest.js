@@ -274,7 +274,23 @@ foam.CLASS({
       x.test(blocks7c[1].cmd === 'dao(people.filteredDAO)', 'rewrite: short form users -> people after usersDAO -> people');
 
       // ============================================
-      // 8. Duplicate flowNames -- positional ids
+      // 8. freeName
+      // ============================================
+      x.test(
+        scanner.freeName('dao1', function(n) { return [ 'dao1', 'dao2' ].includes(n); }) === 'dao3',
+        'freeName: dao1 with dao1,dao2 taken -> dao3'
+      );
+      x.test(
+        scanner.freeName('transactionDAO', function(n) { return n === 'transactionDAO'; }) === 'transaction1DAO',
+        'freeName: transactionDAO with transactionDAO taken -> transaction1DAO'
+      );
+      x.test(
+        scanner.freeName('a', function() { return false; }) === 'a1',
+        'freeName: a with nothing taken -> a1'
+      );
+
+      // ============================================
+      // 9. Duplicate flowNames -- positional ids
       // ============================================
       var blocks9 = [
         { flowName: 'a', cmd: 'x' },

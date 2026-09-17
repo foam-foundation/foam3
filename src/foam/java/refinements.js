@@ -1823,13 +1823,20 @@ foam.CLASS({
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
 
-      info.method({
-        name: 'get__',
-        type: 'long',
-        visibility: 'public',
-        args: [{ name: 'o', type: 'Object' }],
-        body: 'return ((' + cls.id + ') o).' + this.name + '_;'
-      });
+      // The index and the comparators read the long behind the property
+      // through get__ so they never allocate a Date. A javaGetter owns that
+      // field: it may derive the value on first read, so until it runs the
+      // field still holds the unset long. Leave such a property on the base
+      // get__, which goes through the getter.
+      if ( ! this.javaGetter ) {
+        info.method({
+          name: 'get__',
+          type: 'long',
+          visibility: 'public',
+          args: [{ name: 'o', type: 'Object' }],
+          body: 'return ((' + cls.id + ') o).' + this.name + '_;'
+        });
+      }
 
       // TODO: cast isn't called on setter
       var m = info.getMethod('cast');

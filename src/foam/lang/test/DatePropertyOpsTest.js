@@ -20,6 +20,7 @@ foam.CLASS({
     explicitly set to null.`,
 
   javaImports: [
+    'foam.lang.FObject',
     'foam.lang.PropertyInfo',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
@@ -243,6 +244,49 @@ foam.CLASS({
           "compare treats unset and explicitly null as the same date");
         test(prop.compare(unset, set) == prop.comparePropertyToObject(null, set),
           "compare and comparePropertyToObject order an unset date the same way");
+
+        // ---- a date the getter derives ----
+        // derivedDate stays unset until its getter runs, then takes regularDate.
+        // The index and the comparators read a date without calling the
+        // getter, so a row nobody has read yet has to compare and range-query
+        // by the value the getter would give, not by the unset field.
+        PropertyInfo derived = DateTimeTestModel.DERIVED_DATE;
+        DateTimeTestModel unread = model(1, JAN_15);
+        test(derived.comparePropertyToObject(new Date(JAN_15), unread) == 0,
+          "A key equals a derived date nobody has read yet");
+        test(derived.compare(unread, model(2, JAN_20)) < 0,
+          "Two unread derived dates order by their derived values");
+        test(! derived.isDefaultValue(unread),
+          "An unread derived date with a source is not the unset value");
+
+        MDAO byDerived = new MDAO(DateTimeTestModel.getOwnClassInfo());
+        byDerived.addIndex(derived);
+        id = 1;
+        for ( int i = 0 ; i < 3 ; i++ ) byDerived.put(model(id++, JAN_15));
+        for ( int i = 0 ; i < 2 ; i++ ) byDerived.put(model(id++, JAN_20));
+        byDerived.put(model(id++, FEB_10));
+        Count derivedInJan = (Count) byDerived
+          .where(AND(GTE(derived, new Date(JAN_15)), LTE(derived, new Date(JAN_20))))
+          .select(new Count());
+        test(derivedInJan.getValue() == 5,
+          "A range on a derived date finds the rows put through its index (found "
+          + derivedInJan.getValue() + ")");
+
+        // The same rows through a bulk load, the path a journal replay takes.
+        MDAO bulk = new MDAO(DateTimeTestModel.getOwnClassInfo());
+        bulk.addIndex(derived);
+        FObject[] derivedRows = new FObject[6];
+        id = 1;
+        for ( int i = 0 ; i < 3 ; i++ ) derivedRows[i]     = model(id++, JAN_15);
+        for ( int i = 0 ; i < 2 ; i++ ) derivedRows[3 + i] = model(id++, JAN_20);
+        derivedRows[5] = model(id++, FEB_10);
+        test(bulk.bulkLoad(derivedRows), "An empty MDAO accepts a bulk load");
+        Count derivedInJanBulk = (Count) bulk
+          .where(AND(GTE(derived, new Date(JAN_15)), LTE(derived, new Date(JAN_20))))
+          .select(new Count());
+        test(derivedInJanBulk.getValue() == 5,
+          "A range on a derived date finds the rows bulk-loaded into its index (found "
+          + derivedInJanBulk.getValue() + ")");
       `
     }
   ]

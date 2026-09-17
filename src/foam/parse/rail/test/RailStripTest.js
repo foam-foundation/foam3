@@ -53,6 +53,9 @@ foam.CLASS({
       x.test(strip.hitTest(this.Point.create({ x: 10, y: 10 })),      'label column is clickable');
       x.test(! strip.hitTest(this.Point.create({ x: T.LABEL_W + 40, y: 10 })), 'track area is not the strip\'s own hit (elements handle themselves)');
       x.test(strip.tipText().indexOf('not tried') >= 0,               'before a trace the tooltip says not tried');
+      strip.labelW = 200;
+      x.test(seq.x === 200 + T.STUB && strip.width === 200 + 2 * T.STUB + seq.width, 'a wider label column moves the track and widens the strip');
+      strip.labelW = T.LABEL_W;
       strip.runs = 3; strip.matches = 1;
       x.test(strip.tipText().indexOf('tried 3') >= 0 && strip.tipText().indexOf('1 matched') >= 0, 'after a trace the tooltip states attempts and matches');
     }

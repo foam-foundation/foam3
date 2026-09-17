@@ -47,6 +47,17 @@ foam.CLASS({
       x.test(n === 2 + 3 + 1, 'eachElement visits strips, the sequence, its two items and the literal');
       x.test(s.stripFor('a') === s.strips[1] && s.stripFor('zzz') === undefined, 'stripFor by rule name');
 
+      // A long rule name widens the label column for every strip, so the tracks stay aligned.
+      var g2 = this.Grammar.create({ symbols: function(seq, sym, literal, eof) {
+        return { START: seq(sym('acknowledgementSection'), eof()), acknowledgementSection: literal('x') };
+      } });
+      var s2 = this.RailScene.create({ viewWidth: 400, viewHeight: 300, measure: foam.graphics.TextUtil.estimateMeasurer(7) });
+      s2.setStrips(this.RailBuilder.create({ grammar: g2, theme: s2.theme, measure: s2.measure }).buildStrips());
+      var wide = 7 * 'acknowledgementSection'.length + T.LABEL_GAP;
+      x.test(s2.strips[0].labelW === wide && s2.strips[1].labelW === wide, 'label column = longest name + LABEL_GAP, shared by every strip');
+      x.test(s2.strips[0].track.x === s2.strips[1].track.x && s2.strips[0].track.x === wide + T.STUB, 'every track starts at the same x, after the widened column');
+      x.test(s.strips[0].labelW === T.LABEL_W, 'short names keep the minimum column width');
+
       // Bounds and fit.
       var cb = s.contentBounds();
       x.test(cb.width >= s.strips[1].x + s.strips[1].width && cb.height >= s.strips[1].y + s.strips[1].height, 'contentBounds covers every strip');

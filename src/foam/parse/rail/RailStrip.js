@@ -24,6 +24,8 @@ foam.CLASS({
 
   properties: [
     { class: 'String', name: 'name' },
+    { class: 'Float',  name: 'labelW', factory: function() { return this.theme.LABEL_W; }, postSet: function() { this.layout(); },
+      documentation: 'Width of the rule-name column. The scene sets one shared value so every track starts at the same x.' },
     { name: 'track', documentation: 'The rule body element (any RailElement).' },
     { class: 'Int', name: 'runs',    documentation: 'Finished activations of this rule in the applied trace (attempts).' },
     { class: 'Int', name: 'matches', documentation: 'How many of those matched.' },
@@ -35,9 +37,9 @@ foam.CLASS({
 
     function layout() {
       var T = this.theme;
-      this.track.x = T.LABEL_W + T.STUB;
+      this.track.x = this.labelW + T.STUB;
       this.track.y = 0;
-      this.width   = T.LABEL_W + T.STUB * 2 + this.track.width;
+      this.width   = this.labelW + T.STUB * 2 + this.track.width;
       this.height  = this.track.height;
       this.entryY  = this.track.entryY;
     },
@@ -49,7 +51,7 @@ foam.CLASS({
         ctx.save();
         ctx.globalAlpha *= this.pulse * T.RULE_LABEL_FLASH_ALPHA;
         ctx.fillStyle = this.outcomeColor();
-        Tr.roundRect(ctx, -4, E - this.LABEL_FLASH_DY, T.LABEL_W - 8, 2 * this.LABEL_FLASH_DY, this.LABEL_FLASH_RADIUS);
+        Tr.roundRect(ctx, -4, E - this.LABEL_FLASH_DY, this.labelW - 8, 2 * this.LABEL_FLASH_DY, this.LABEL_FLASH_RADIUS);
         ctx.fill();
         ctx.restore();
       }
@@ -67,17 +69,17 @@ foam.CLASS({
       }
       // Entry stub, dot; exit stub, bar. Coloured by the track's outcome.
       Tr.begin(ctx, this.track.outcomeColor(), T.BRANCH_STROKE);
-      Tr.h(ctx, T.LABEL_W, this.track.x, E);
+      Tr.h(ctx, this.labelW, this.track.x, E);
       Tr.h(ctx, this.track.x + this.track.width, this.width, E);
       ctx.stroke();
       ctx.fillStyle = this.track.outcomeColor();
-      ctx.beginPath(); ctx.arc(T.LABEL_W, E, T.TERMINATOR_RADIUS, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(this.labelW, E, T.TERMINATOR_RADIUS, 0, Math.PI * 2); ctx.fill();
       ctx.fillRect(this.width - T.END_STOP_W + 1, E - T.END_STOP_H / 2, T.END_STOP_W, T.END_STOP_H);
     },
 
     function hitTest(p) {
       /** Only the name column; the track's elements handle themselves. */
-      return p.x >= 0 && p.x < this.theme.LABEL_W && p.y >= 0 && p.y < Math.max(this.height, this.theme.BOX_H);
+      return p.x >= 0 && p.x < this.labelW && p.y >= 0 && p.y < Math.max(this.height, this.theme.BOX_H);
     },
 
     function tipText() {

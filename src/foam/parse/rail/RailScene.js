@@ -78,7 +78,10 @@ foam.CLASS({
       if ( this.stackSub_ ) { this.stackSub_.detach(); this.stackSub_ = null; }
       this.strips.forEach(function(s) { self.content.remove(s); });
       this.strips = strips;
-      strips.forEach(function(s) { self.content.add(s); });
+      // One label column for every strip, wide enough for the longest rule name, so the tracks line up.
+      var T = this.theme, labelW = T.LABEL_W;
+      strips.forEach(function(s) { labelW = Math.max(labelW, self.measure(s.name, T.font('ruleName')) + T.LABEL_GAP); });
+      strips.forEach(function(s) { s.labelW = labelW; self.content.add(s); });
       if ( this.cacheStrips ) strips.forEach(function(s) { s.cache(); });
       if ( strips.length ) {
         this.stackSub_ = foam.lang.ArraySlot.create({ slots: strips.map(function(s) { return s.height$; }) }).sub(this.stackStrips);

@@ -31,7 +31,8 @@ foam.CLASS({
     // Unfolded frame and strip
     FRAME_HEAD: 20,
     FRAME_PAD:  10,
-    LABEL_W:    90,    // rule-name column
+    LABEL_W:    90,    // rule-name column, minimum; the scene widens it to the longest name + LABEL_GAP
+    LABEL_GAP:  12,    // clear space between the longest rule name and the entry dot
     STUB:       14,    // entry/exit stub between the label column and the track
     STRIP_GAP:  28,    // vertical gap between strips
     CANVAS_MARGIN: 20, // strips start this far from the scene origin

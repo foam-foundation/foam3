@@ -39,7 +39,7 @@ foam.CLASS({
 
       // Geometry constants are numbers (a missing one becomes NaN in a layout and the strip vanishes).
       [ 'PAD', 'GLYPH_SLOT', 'BOX_H', 'GAP', 'VGAP', 'ARC', 'LOOP_PAD', 'BEND', 'BYPASS_HEADROOM',
-        'FRAME_HEAD', 'FRAME_PAD', 'LABEL_W', 'STUB', 'STRIP_GAP', 'CANVAS_MARGIN',
+        'FRAME_HEAD', 'FRAME_PAD', 'LABEL_W', 'LABEL_GAP', 'STUB', 'STRIP_GAP', 'CANVAS_MARGIN',
         'PRIORITY_DX', 'PRIORITY_DY', 'PRIORITY_RADIUS',
         'STROKE_BASE', 'STROKE_VISITED', 'STROKE_HIGHLIGHT', 'STROKE_PULSE', 'BRANCH_STROKE', 'BRANCH_STROKE_VISITED' ]
         .forEach(function(k) { x.test(typeof t[k] === 'number', 'geometry constant ' + k + ' is a number'); });

@@ -1,4 +1,5 @@
 <flow name="ControllerModeAndVisibility" category="DOC/GUIDE" spid="foam"/>
+
 # Mode and Visibility Pipeline
 
 How FOAM controls whether a property's view is editable, read-only, disabled, or hidden.

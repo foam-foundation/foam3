@@ -1,4 +1,5 @@
 <flow name="Dashboard" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM3 Dashboard Quick Start Guide
 
 This guide shows you how to create a simple dashboard in FOAM3 in just a few steps.

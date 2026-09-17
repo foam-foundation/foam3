@@ -1,4 +1,5 @@
 <flow name="Actions" category="DOC/GUIDE" spid="foam"/>
+
 # Actions
 
 ## What Is an Action?

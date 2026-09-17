@@ -1,4 +1,5 @@
 <flow name="SystemOutage" category="DOC/DEV" spid="foam"/>
+
 # SystemOutage
 
 SytemOutage is intended to model the actions taken when a system wide event has occured, or is occuring, such as maintenance event, or third party end-point failing.

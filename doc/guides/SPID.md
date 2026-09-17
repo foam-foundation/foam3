@@ -1,4 +1,5 @@
 <flow name="SPID" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM Service Provider (SPID) System
 
 The SPID (Service Provider ID) system provides multi-tenancy in FOAM3 by isolating data and permissions per service provider. This enables hosting multiple independent tenants in a single application instance with guaranteed data isolation.

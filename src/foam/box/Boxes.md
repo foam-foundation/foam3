@@ -1,4 +1,5 @@
 <flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging"/>
+
 # Overview
 
 Boxes are the network abstraction within foam that higher level constructs are built upon.  The box interface is the minimal viable networking abstraction.  The box is a "send only" interface, rather than a classical read()/write() or Berkeley sockets, or Request/Response of HTTP and similar protocols.

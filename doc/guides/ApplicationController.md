@@ -1,4 +1,5 @@
 <flow name="ApplicationController" category="DOC/GUIDE" spid="foam"/>
+
 # ApplicationController
 
 `foam.core.controller.ApplicationController` is the top-level client shell for a FOAM application. It owns the application stack, authentication lifecycle, theming, navigation, notifications, and session management, and exports all of these as named services into the context so that every descendant view can import them by name without explicit wiring.

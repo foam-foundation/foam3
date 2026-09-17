@@ -1,4 +1,5 @@
 <flow name="dynamic" category="DOC/GUIDE" spid="foam"/>
+
 ## Expressions vs this.dynamic()
 
 **Expressions** are reactive property computations defined at the model level that automatically recalculate when their dependencies change [1](#0-0) . **`this.dynamic()`** is a UI method that creates reactive DOM content that updates when referenced properties change [2](#0-1) .

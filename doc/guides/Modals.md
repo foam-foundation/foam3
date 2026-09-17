@@ -1,4 +1,5 @@
 <flow name="Modals" category="DOC/GUIDE" spid="foam"/>
+
 ## Modal Component Hierarchy
 
 The FOAM3 framework has a clear hierarchy of modal components, with `Popup` serving as the base class for all modal dialogs [1](#0-0) .

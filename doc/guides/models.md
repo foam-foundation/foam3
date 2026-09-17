@@ -1,4 +1,5 @@
 <flow name="models" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM Model Types for Modellers
 
 FOAM provides several model types that serve different purposes in designing your application. Each type is optimized for specific modeling needs.

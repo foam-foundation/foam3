@@ -1,4 +1,5 @@
 <flow name="WhyFOAM" category="DOC/GUIDE" spid="foam"/>
+
 # Why FOAM? What Makes It Different?
 
 > *"Many people have tried to build a practical model-based programming environment, but these efforts always seem to collapse under their own weight. What are you doing differently this time?"*

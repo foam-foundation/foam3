@@ -206,135 +206,14 @@ foam.CLASS({
 
   methods: [
     function render() {
-      var self = this, T = this.scene.theme, O = this.Outcome;
-      var tone = function(outcome) { return { color: T.outcomeColor(outcome) }; };
-      var legendGroup = function(e, title) { return e.start('div').addClass(self.myClass('legendGroup')).start('b').add(title).end(); };
-      // Swatch carries the colour or the fade; the words stay full contrast, so a dim
-      // state is never explained by dim text.
-      var swatch = function(e, style, label) {
-        return e.start('span')
-          .start('span').addClass(self.myClass('swatch')).style(style).add('▬').end()
-          .add(' ' + label)
-        .end();
-      };
+      var self = this;
       this.addClass(this.myClass())
-        .start('div').addClass(this.myClass('bar'))
-          .start('span').addClass(this.myClass('title')).add(this.TITLE).end()
-          .start('button').add(this.FIT_WIDTH).on('click', function() { self.scene.fitWidth(); }).end()
-          .start('button').add(this.FIT_ALL).on('click', function() { self.scene.fitAll(); }).end()
-          .start('label')
-            .start('input').attrs({ type: 'checkbox' }).on('change', function(e) { self.showAll = e.target.checked; }).end()
-            .add(' ', this.ALL_RULES, ' (', this.unreachableCount$, ' ', this.UNREACHABLE_WORD, ')')
-          .end()
-          .start('input').attrs({ placeholder: this.FIND_PLACEHOLDER })
-            .on('input', function(e) { self.findText = e.target.value.trim(); })
-            .on('keydown', function(e) { if ( e.key === 'Enter' && self.scene.strips.length ) self.goToRule(self.scene.strips[0].name); })
-          .end()
-          .start('button').add(this.UNFOLD_PATH).on('click', function() { self.unfoldPath(); }).end()
-          .start('button').add(this.FOLD_ALL).on('click', function() { self.foldAll(); }).end()
-          .start('label')
-            .start('input').attrs({ type: 'checkbox', checked: this.scene.cacheStrips }).on('change', function(e) { self.scene.cacheStrips = e.target.checked; }).end()
-            .add(' ', this.CACHE_STRIPS)
-          .end()
-          .start('label')
-            .start('input').attrs({ type: 'checkbox', checked: this.legendShown$ }).on('change', function(e) { self.legendShown = e.target.checked; }).end()
-            .add(' ', this.LEGEND_TOGGLE)
-          .end()
-          .start('span').addClass(this.myClass('hint')).add(this.HINT).end()
-        .end()
+        .start('div').addClass(this.myClass('bar')).call(function() { self.renderBar(this); }).end()
         .start('div').addClass(this.myClass('main'))
-          .start('div').addClass(this.myClass('left'))
-            .start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
-            .start('div').addClass(this.myClass('legendPanel')).show(this.legendShown$)
-              .call(function() {
-                legendGroup(this, self.LEGEND_NOTATION)
-                  .start('span').add(self.LEGEND_TERMINAL).end()
-                  .start('span').add(self.LEGEND_RULE_REF).end()
-                  .start('span').add(self.LEGEND_END_STOP).end()
-                  .start('span').add(self.LEGEND_PRIORITY).end()
-                  .start('span').add(self.LEGEND_LOOP).end()
-                  .start('span').add(self.LEGEND_MIN).end()
-                  .start('span').add(self.LEGEND_BYPASS).end()
-                  .start('span').add(self.LEGEND_GENERIC).end()
-                  .start('span').add(self.LEGEND_UNFOLD).end()
-                  .start('span').add(self.LEGEND_UNREACH).end()
-                  .start('span').add(self.LEGEND_GATE).end()
-                  .start('span').add(self.LEGEND_BADGES).end()
-                .end();
-                legendGroup(this, self.LEGEND_TRACE)
-                  .call(function() { swatch(this, tone(O.MATCHED), self.LEGEND_MATCHED); })
-                  .call(function() { swatch(this, tone(O.TRYING),  self.LEGEND_TRYING); })
-                  .call(function() { swatch(this, tone(O.FAILED),  self.LEGEND_FAILED); })
-                  .call(function() { swatch(this, { color: T.outcomeColor(O.MATCHED), opacity: self.Tier.HISTORY.alpha }, self.LEGEND_HISTORY); })
-                  .call(function() { swatch(this, { color: T.resolve('text'), opacity: self.Tier.NEVER.alpha }, self.LEGEND_NEVER); })
-                  .start('span').add(self.LEGEND_COUNTER).end()
-                  .start('span').add(self.LEGEND_SELECTED).end()
-                .end();
-                legendGroup(this, self.LEGEND_RIBBON)
-                  .start('span').style({ background: T.resolve('consumedBg') }).add(self.LEGEND_CONSUMED).end()
-                  .start('span').style({ borderBottom: '3px solid ' + T.outcomeColor(O.TRYING) }).add(self.LEGEND_OPEN).end()
-                  .start('span').style({ background: T.resolve('failBg') }).add(self.LEGEND_DIED).end()
-                  .start('span').style({ border: '1px dashed ' + T.resolve('muted'), padding: '0 3px' }).add(self.LEGEND_CURRENT).end()
-                  .start('span').style({ border: '2px solid ' + T.outcomeColor(O.TRYING), padding: '0 3px' }).add(self.LEGEND_UNDER_TEST).end()
-                  .start('span').add(self.LEGEND_CARET).end()
-                .end();
-                legendGroup(this, self.LEGEND_DERIV)
-                  .start('span').style(tone(O.MATCHED)).add(self.LEGEND_DERIV_MATCHED).end()
-                  .start('span').style(tone(O.TRYING)).add(self.LEGEND_DERIV_OPEN).end()
-                .end();
-              })
-            .end()
-          .end()
+          .start('div').addClass(this.myClass('left')).call(function() { self.renderCanvas(this); }).end()
           .start('div').addClass(this.myClass('split')).attrs({ title: this.TIP_SPLIT }).on('pointerdown', function(e) { self.startSplit(e); }).end()
           .start('div').addClass(this.myClass('right')).style({ width: this.rightWidth$.map(function(w) { return w + 'px'; }) })
-            .start('div').addClass(this.myClass('section')).addClass(this.myClass('gram'))
-              .start('div').addClass(this.myClass('row'))
-                .start('select').on('change', function(e) { if ( e.target.value ) self.usePreset(e.target.value); })
-                  .start('option').attrs({ value: '' }).add(this.PRESET_PLACEHOLDER).end()
-                  .forEach(Object.keys(this.presets), function(k) { this.start('option').attrs({ value: k }).add(k).end(); })
-                .end()
-                .start('select', null, this.registeredEl$).on('change', function(e) { if ( e.target.value ) self.loadRegistered(e.target.value); })
-                  .start('option').attrs({ value: '' }).add(this.REGISTERED_PLACEHOLDER).end()
-                .end()
-                .start('input', null, this.classIdEl$).attrs({ type: 'text', placeholder: this.CLASS_ID_PLACEHOLDER })
-                  .on('keydown', function(e) { if ( e.key === 'Enter' ) self.loadClassId(e.target.value.trim()); }).end()
-                .callIf(this.allowTypedGrammar, function() {
-                  this.start('span').addClass(self.myClass('toggle'))
-                    .add(self.grammarShown$.map(function(o) { return ( o ? '▾ ' : '▸ ' ) + self.EDIT_GRAMMAR; }))
-                    .on('click', function() { self.grammarShown = ! self.grammarShown; })
-                  .end();
-                })
-              .end()
-              .callIf(this.allowTypedGrammar, function() {
-                this.start('div').show(self.grammarShown$)
-                  .start('div').addClass(self.myClass('hint')).add(self.TYPED_TITLE).end()
-                  .start('textarea', null, self.grammarEl$).attrs({ value: self.grammarText$, spellcheck: false }).on('input', function(e) { self.grammarText = e.target.value; }).end()
-                  .start('button').add(self.LOAD_TYPED).on('click', function() { self.loadTyped(); }).end()
-                .end();
-              })
-            .end()
-            .start('div').addClass(this.myClass('section'))
-              .start('textarea', null, this.inputEl$).addClass(this.myClass('input')).attrs({ value: this.input$, spellcheck: false }).on('input', function(e) { self.setInput(e.target.value); }).end()
-              .start('div').addClass(this.myClass('transport'))
-                .start('button').attrs({ title: this.TIP_PARSE }).add(this.START).on('click', function() { self.stopPlay(); self.record(0); }).end()
-                .start('button').attrs({ title: this.TIP_BACK }).add(this.BACK).on('click', function() { self.stepBack(); }).end()
-                .start('button').attrs({ title: this.TIP_STEP }).add(this.STEP_ONE).on('click', function() { self.stepOne(); }).end()
-                .start('button').attrs({ title: this.TIP_OVER }).add(this.STEP_OVER).on('click', function() { self.stepOver(); }).end()
-                .start('button').attrs({ title: this.TIP_RULE }).add(this.NEXT_RULE).on('click', function() { self.nextRule(); }).end()
-                .start('button', null, this.playBtn$).attrs({ title: this.TIP_PLAY }).add(this.PLAY).on('click', function() { self.togglePlay(); }).end()
-                .start('button').attrs({ title: this.TIP_END }).add(this.RUN_TO_END).on('click', function() { self.runToEnd(); }).end()
-              .end()
-              .start('input', null, this.sliderEl$).attrs({ type: 'range', min: 0, max: 0, value: 0, step: 1, title: this.SLIDER_HINT }).addClass(this.myClass('slider'))
-                .on('input', function(e) { self.stopPlay(); self.show(+e.target.value); }).end()
-              .start('label').addClass(this.myClass('docToggle'))
-                .start('input').attrs({ type: 'checkbox', checked: this.documentShown$ }).on('change', function(e) { self.documentShown = e.target.checked; }).end()
-                .add(' ', this.DOC_TOGGLE)
-              .end()
-            .end()
-            .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).hide(this.documentShown$).add(this.ribbon).end()
-            .start('div').addClass(this.myClass('doc')).show(this.documentShown$).add(this.doc).end()
-            .start('div').addClass(this.myClass('status')).add(this.status$).end()
-            .start('div').addClass(this.myClass('panel')).add(this.panel).end()
+            .call(function() { self.renderPanels(this); })
           .end()
         .end();
 
@@ -380,6 +259,141 @@ foam.CLASS({
           strips: function() { return self.scene.strips.map(function(s) { return s.name; }); }
         };
       }
+    },
+
+    function renderBar(e) {
+      /** Top toolbar: camera, rule filter, find/unfold, cache and legend toggles. */
+      var self = this;
+      e.start('span').addClass(this.myClass('title')).add(this.TITLE).end()
+        .start('button').add(this.FIT_WIDTH).on('click', function() { self.scene.fitWidth(); }).end()
+        .start('button').add(this.FIT_ALL).on('click', function() { self.scene.fitAll(); }).end()
+        .start('label')
+          .start('input').attrs({ type: 'checkbox' }).on('change', function(e) { self.showAll = e.target.checked; }).end()
+          .add(' ', this.ALL_RULES, ' (', this.unreachableCount$, ' ', this.UNREACHABLE_WORD, ')')
+        .end()
+        .start('input').attrs({ placeholder: this.FIND_PLACEHOLDER })
+          .on('input', function(e) { self.findText = e.target.value.trim(); })
+          .on('keydown', function(e) { if ( e.key === 'Enter' && self.scene.strips.length ) self.goToRule(self.scene.strips[0].name); })
+        .end()
+        .start('button').add(this.UNFOLD_PATH).on('click', function() { self.unfoldPath(); }).end()
+        .start('button').add(this.FOLD_ALL).on('click', function() { self.foldAll(); }).end()
+        .start('label')
+          .start('input').attrs({ type: 'checkbox', checked: this.scene.cacheStrips }).on('change', function(e) { self.scene.cacheStrips = e.target.checked; }).end()
+          .add(' ', this.CACHE_STRIPS)
+        .end()
+        .start('label')
+          .start('input').attrs({ type: 'checkbox', checked: this.legendShown$ }).on('change', function(e) { self.legendShown = e.target.checked; }).end()
+          .add(' ', this.LEGEND_TOGGLE)
+        .end()
+        .start('span').addClass(this.myClass('hint')).add(this.HINT).end();
+    },
+
+    function renderCanvas(e) {
+      /** Left column: the scene host and the legend under it. */
+      var self = this, T = this.scene.theme, O = this.Outcome;
+      var tone = function(outcome) { return { color: T.outcomeColor(outcome) }; };
+      var legendGroup = function(e, title) { return e.start('div').addClass(self.myClass('legendGroup')).start('b').add(title).end(); };
+      // Swatch carries the colour or the fade; the words stay full contrast, so a dim
+      // state is never explained by dim text.
+      var swatch = function(e, style, label) {
+        return e.start('span')
+          .start('span').addClass(self.myClass('swatch')).style(style).add('▬').end()
+          .add(' ' + label)
+        .end();
+      };
+      e.start('div', null, this.hostEl$).addClass(this.myClass('host')).add(this.scene).end()
+        .start('div').addClass(this.myClass('legendPanel')).show(this.legendShown$)
+          .call(function() {
+            legendGroup(this, self.LEGEND_NOTATION)
+              .start('span').add(self.LEGEND_TERMINAL).end()
+              .start('span').add(self.LEGEND_RULE_REF).end()
+              .start('span').add(self.LEGEND_END_STOP).end()
+              .start('span').add(self.LEGEND_PRIORITY).end()
+              .start('span').add(self.LEGEND_LOOP).end()
+              .start('span').add(self.LEGEND_MIN).end()
+              .start('span').add(self.LEGEND_BYPASS).end()
+              .start('span').add(self.LEGEND_GENERIC).end()
+              .start('span').add(self.LEGEND_UNFOLD).end()
+              .start('span').add(self.LEGEND_UNREACH).end()
+              .start('span').add(self.LEGEND_GATE).end()
+              .start('span').add(self.LEGEND_BADGES).end()
+            .end();
+            legendGroup(this, self.LEGEND_TRACE)
+              .call(function() { swatch(this, tone(O.MATCHED), self.LEGEND_MATCHED); })
+              .call(function() { swatch(this, tone(O.TRYING),  self.LEGEND_TRYING); })
+              .call(function() { swatch(this, tone(O.FAILED),  self.LEGEND_FAILED); })
+              .call(function() { swatch(this, { color: T.outcomeColor(O.MATCHED), opacity: self.Tier.HISTORY.alpha }, self.LEGEND_HISTORY); })
+              .call(function() { swatch(this, { color: T.resolve('text'), opacity: self.Tier.NEVER.alpha }, self.LEGEND_NEVER); })
+              .start('span').add(self.LEGEND_COUNTER).end()
+              .start('span').add(self.LEGEND_SELECTED).end()
+            .end();
+            legendGroup(this, self.LEGEND_RIBBON)
+              .start('span').style({ background: T.resolve('consumedBg') }).add(self.LEGEND_CONSUMED).end()
+              .start('span').style({ borderBottom: '3px solid ' + T.outcomeColor(O.TRYING) }).add(self.LEGEND_OPEN).end()
+              .start('span').style({ background: T.resolve('failBg') }).add(self.LEGEND_DIED).end()
+              .start('span').style({ border: '1px dashed ' + T.resolve('muted'), padding: '0 3px' }).add(self.LEGEND_CURRENT).end()
+              .start('span').style({ border: '2px solid ' + T.outcomeColor(O.TRYING), padding: '0 3px' }).add(self.LEGEND_UNDER_TEST).end()
+              .start('span').add(self.LEGEND_CARET).end()
+            .end();
+            legendGroup(this, self.LEGEND_DERIV)
+              .start('span').style(tone(O.MATCHED)).add(self.LEGEND_DERIV_MATCHED).end()
+              .start('span').style(tone(O.TRYING)).add(self.LEGEND_DERIV_OPEN).end()
+            .end();
+          })
+        .end();
+    },
+
+    function renderPanels(e) {
+      /** Right column: grammar sources, input + transport, then ribbon or document view, status, derivation. */
+      var self = this;
+      e.start('div').addClass(this.myClass('section')).addClass(this.myClass('gram'))
+          .start('div').addClass(this.myClass('row'))
+            .start('select').on('change', function(e) { if ( e.target.value ) self.usePreset(e.target.value); })
+              .start('option').attrs({ value: '' }).add(this.PRESET_PLACEHOLDER).end()
+              .forEach(Object.keys(this.presets), function(k) { this.start('option').attrs({ value: k }).add(k).end(); })
+            .end()
+            .start('select', null, this.registeredEl$).on('change', function(e) { if ( e.target.value ) self.loadRegistered(e.target.value); })
+              .start('option').attrs({ value: '' }).add(this.REGISTERED_PLACEHOLDER).end()
+            .end()
+            .start('input', null, this.classIdEl$).attrs({ type: 'text', placeholder: this.CLASS_ID_PLACEHOLDER })
+              .on('keydown', function(e) { if ( e.key === 'Enter' ) self.loadClassId(e.target.value.trim()); }).end()
+            .callIf(this.allowTypedGrammar, function() {
+              this.start('span').addClass(self.myClass('toggle'))
+                .add(self.grammarShown$.map(function(o) { return ( o ? '▾ ' : '▸ ' ) + self.EDIT_GRAMMAR; }))
+                .on('click', function() { self.grammarShown = ! self.grammarShown; })
+              .end();
+            })
+          .end()
+          .callIf(this.allowTypedGrammar, function() {
+            this.start('div').show(self.grammarShown$)
+              .start('div').addClass(self.myClass('hint')).add(self.TYPED_TITLE).end()
+              .start('textarea', null, self.grammarEl$).attrs({ value: self.grammarText$, spellcheck: false }).on('input', function(e) { self.grammarText = e.target.value; }).end()
+              .start('button').add(self.LOAD_TYPED).on('click', function() { self.loadTyped(); }).end()
+            .end();
+          })
+        .end()
+        .start('div').addClass(this.myClass('section'))
+          .start('textarea', null, this.inputEl$).addClass(this.myClass('input')).attrs({ value: this.input$, spellcheck: false }).on('input', function(e) { self.setInput(e.target.value); }).end()
+          .start('div').addClass(this.myClass('transport'))
+            .start('button').attrs({ title: this.TIP_PARSE }).add(this.START).on('click', function() { self.stopPlay(); self.record(0); }).end()
+            .start('button').attrs({ title: this.TIP_BACK }).add(this.BACK).on('click', function() { self.stepBack(); }).end()
+            .start('button').attrs({ title: this.TIP_STEP }).add(this.STEP_ONE).on('click', function() { self.stepOne(); }).end()
+            .start('button').attrs({ title: this.TIP_OVER }).add(this.STEP_OVER).on('click', function() { self.stepOver(); }).end()
+            .start('button').attrs({ title: this.TIP_RULE }).add(this.NEXT_RULE).on('click', function() { self.nextRule(); }).end()
+            .start('button', null, this.playBtn$).attrs({ title: this.TIP_PLAY }).add(this.PLAY).on('click', function() { self.togglePlay(); }).end()
+            .start('button').attrs({ title: this.TIP_END }).add(this.RUN_TO_END).on('click', function() { self.runToEnd(); }).end()
+          .end()
+          .start('input', null, this.sliderEl$).attrs({ type: 'range', min: 0, max: 0, value: 0, step: 1, title: this.SLIDER_HINT }).addClass(this.myClass('slider'))
+            .on('input', function(e) { self.stopPlay(); self.show(+e.target.value); }).end()
+          .start('label').addClass(this.myClass('docToggle'))
+            .start('input').attrs({ type: 'checkbox', checked: this.documentShown$ }).on('change', function(e) { self.documentShown = e.target.checked; }).end()
+            .add(' ', this.DOC_TOGGLE)
+          .end()
+        .end()
+        .start('div', null, this.ribbonEl$).addClass(this.myClass('ribbon')).hide(this.documentShown$).add(this.ribbon).end()
+        .start('div').addClass(this.myClass('doc')).show(this.documentShown$).add(this.doc).end()
+        .start('div').addClass(this.myClass('status')).add(this.status$).end()
+        .start('div').addClass(this.myClass('panel')).add(this.panel).end();
     },
 
     // ---- grammar sources -------------------------------------------------

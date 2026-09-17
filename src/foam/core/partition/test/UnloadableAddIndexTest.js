@@ -9,16 +9,12 @@ foam.CLASS({
   name: 'UnloadableAddIndexTest',
   extends: 'foam.core.test.Test',
 
-  documentation: `An index added to an unloadable EasyDAO after its delegate is
-    already loaded has to reach the live MDAO, not only the list replayed on the
-    next load. A cSpec with lazy:false builds the delegate inside the delegate
-    factory, which runs before the serviceScript's own addPropertyIndex() calls,
-    so an AddIndexCommand that is merely recorded leaves every query on that
-    property scanning the whole table until something unloads the DAO.
+  documentation: `Indexes on an unloadable EasyDAO, from both ends. One added
+    while the delegate is loaded has to reach the live MDAO; one added while
+    nothing is loaded is recorded and applied by the next createDAO().
 
-    The unloaded case is asserted too: recording is the whole job there, so the
-    command answers TRUE. AddIndexService abandons the rest of its list on any
-    other answer, and it targets lazy cSpecs whose delegate is never built.`,
+    Also covers AddIndexService, which sends a list of them: an index the DAO
+    cannot place is reported and the rest of the list still goes out.`,
 
   javaImports: [
     'foam.core.boot.CSpec',
@@ -30,6 +26,7 @@ foam.CLASS({
     'foam.dao.JournalType',
     'foam.dao.MDAO',
     'foam.dao.index.AddIndexCommand',
+    'foam.dao.index.AddIndexService',
     'foam.lang.FObject',
     'foam.lang.Indexer',
     'foam.lang.X',
@@ -82,9 +79,7 @@ foam.CLASS({
 
         AddIndexCommand pending = new AddIndexCommand();
         pending.setIndexers(new Indexer[] { UnloadableDecoratedRecord.DATA2 });
-        Object answer = easy.cmd_(tx, pending);
-        test( Boolean.TRUE.equals(answer),
-          "an index added while nothing is loaded answers TRUE, got " + answer );
+        easy.cmd_(tx, pending);
 
         easy.find(MLang.EQ(UnloadableDecoratedRecord.DATA, "r2"));
 
@@ -93,6 +88,16 @@ foam.CLASS({
           "unload rebuilt the inner chain, so getMdao() tracks a new store" );
         test( reloaded.getIndexCount() == 3,
           "both recorded indexes are replayed onto the rebuilt MDAO, count=" + reloaded.getIndexCount() );
+
+        RefusingDAO refusing = new RefusingDAO(tx);
+        new AddIndexService.Builder(tx.put("refusingIndexTarget", refusing))
+          .setCSpec("refusingIndexTarget")
+          .build()
+          .addIndex(new Indexer[] { UnloadableDecoratedRecord.DATA })
+          .addIndex(new Indexer[] { UnloadableDecoratedRecord.DATA2 })
+          .start();
+        test( refusing.attempts == 2,
+          "an index a DAO refuses does not stop the ones listed after it, attempts=" + refusing.attempts );
       `
     },
     {
@@ -108,5 +113,26 @@ foam.CLASS({
         return x.put(Storage.class, fs).put(FileSystemStorage.class, fs);
       `
     }
-  ]
+  ],
+
+  javaCode: `
+    /** Refuses every AddIndexCommand and counts the attempts, so a caller that
+        gives up after the first refusal shows as a count of one. */
+    public static class RefusingDAO extends foam.dao.ProxyDAO {
+      public int attempts = 0;
+
+      public RefusingDAO(X x) {
+        setX(x);
+        setDelegate(new MDAO(UnloadableDecoratedRecord.getOwnClassInfo()));
+      }
+
+      public Object cmd_(X x, Object cmd) {
+        if ( cmd instanceof AddIndexCommand ) {
+          attempts++;
+          return null;
+        }
+        return super.cmd_(x, cmd);
+      }
+    }
+  `
 });

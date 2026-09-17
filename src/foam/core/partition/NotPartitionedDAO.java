@@ -126,16 +126,12 @@ public class NotPartitionedDAO
       return true;
     }
 
-    // With nothing loaded, recording is the whole job - createDAO() replays the
-    // list through addIndices() - and reaching the delegate here would replay
-    // the journal just to add an index. The answer is still TRUE: AddIndexService
-    // gives up on the rest of its list on anything else, and it targets lazy
-    // cSpecs, whose delegate is never built.
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      synchronized ( this ) {
-        if ( delegate_ == null ) return true;
-      }
+    }
+
+    synchronized ( this ) {
+      if ( delegate_ == null ) return false;
     }
 
     return getDelegate().cmd_(x, cmd);

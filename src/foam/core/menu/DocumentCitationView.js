@@ -13,6 +13,8 @@ foam.CLASS({
     clickable cards that display their name, description, and keywords
   `,
 
+  // TODO: Messages, Colours, and Clickin'
+
   css: `
     ^ {
       background: $white;

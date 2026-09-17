@@ -38,7 +38,7 @@ p({
         }
       },
       "summaryView":{
-        "class":"foam.u2.GroupingDAOList",
+        "class":"foam.u2.GridGroupingDAOList",
         "showEmptyMessage":true,
         "groupExpr":{
           "class":"foam.lang.__Property__",

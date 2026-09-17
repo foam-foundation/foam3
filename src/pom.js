@@ -577,6 +577,7 @@ foam.POM({
     { name: "foam/u2/DAOChoicesListView",                             flags: "web" },
     { name: "foam/u2/Progressable",                                   flags: "web" },
     { name: "foam/u2/GroupingDAOList",                                flags: "web" },
+    { name: "foam/u2/GridGroupingDAOList",                            flags: "web" },
     { name: "foam/u2/TableView",                                      flags: "web" },
     { name: "foam/u2/TableSelection",                                 flags: "web" },
     { name: "foam/u2/Scroller",                                       flags: "web" },

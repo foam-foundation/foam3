@@ -69,7 +69,15 @@
     - [Detail: view and edit modes](#detail-view-and-edit-modes)
     - [Configuring the DAOController from the menu](#configuring-the-daocontroller-from-the-menu)
   - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
-- [Nano Services (Coming Soon)](#nano-services-coming-soon)
+- [NanoServices](#nanoservices)
+  - [How It Works: The Stub/Skeleton Pattern](#how-it-works-the-stubskeleton-pattern)
+    - [What Gets Generated](#what-gets-generated)
+  - [Step 1: Define Request and Response Models](#step-1-define-request-and-response-models)
+  - [Step 2: Define the Service Interface](#step-2-define-the-service-interface)
+  - [Step 3: Implement the Server Side](#step-3-implement-the-server-side)
+  - [Step 4: Register the Service](#step-4-register-the-service)
+  - [Step 5: Putting It All Together](#step-5-putting-it-all-together)
+    - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
 - [Notifications (Coming Soon)](#notifications-coming-soon)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
@@ -2507,10 +2515,465 @@ This is the payoff of FOAM's philosophy: build small, focused pieces that know t
 >
 > `RecipeCreate2` would need a separate screen for view and edit. `RecipeView` handles all three modes with no duplication — that is exactly what the Comics shell and `controllerMode` buy you.
 
-# Nano Services (Coming Soon)
+# NanoServices
 
-// Coming soon
-[foam-nanoservices]
+Every real application depends on services: authentication, email, push notifications, AI inference, translation, currency formatting. These are not about storing records — they take a request, do something, and return a result. FOAM treats all of them through the same mechanism: the **nano-service**.
+
+FOAM ships with hundreds of built-in nano-services covering the most common platform needs. Before writing a new service, always check whether one already exists. Notable built-ins include:
+
+| Service | Context name | What it does |
+|---|---|---|
+| `AuthService` | `auth` | Login, logout, password change, user lookup |
+| `AppConfigService` | `appConfigService` | Fetches application configuration for the current theme/tenant |
+| `TranslationService` | `translationService` | Internationalization — looks up translated strings by key |
+| `LLMService` | `llmService` | Large language model inference (AI completions) |
+| `EmailDocService` | `emailDocService` | Template-based email sending |
+| `OTPAuthService` | `twofactor` | Google Authenticator / TOTP two-factor authentication |
+| `CrunchService` | `crunchService` | User capability and permission lifecycle management |
+| `GlobalSearchService` | `globalSearchService` | Full-text cross-model search |
+| `ThemeService` | `themes` | Theme resolution and multi-tenancy |
+
+When you do need to build your own, FOAM's nano-service architecture solves a fundamental problem in distributed systems: **how do you write code that works identically whether services are local (same JVM/process) or remote (across a network)?**
+
+The answer is **location-agnostic design** through three mechanisms:
+
+1. **Context-based dependency injection** — services are accessed by name, not by direct instantiation
+2. **Box-based messaging** — a minimal transport abstraction that hides network details
+3. **Stub/Skeleton RPC** — automatic generation of client proxies and server handlers
+
+The calling code is identical in all three cases:
+
+![NanoService transport diagram](images/nanoservice-transport.svg)
+
+## How It Works: The Stub/Skeleton Pattern
+
+FOAM achieves location-agnostic services through three mechanisms working together:
+
+1. **Context-based dependency injection** — the service is accessed by name (`imports: ['conversionService']`), not by direct instantiation. The context provides the right implementation automatically.
+2. **Box-based messaging** — a minimal transport abstraction (`Box.send(envelope)`) that hides whether the call goes in-process or over the network.
+3. **Stub/Skeleton code generation** — from a single interface definition, FOAM generates a client-side stub that marshals calls into messages, and a server-side skeleton that receives those messages and dispatches them to the real implementation.
+
+![Stub/Skeleton pattern](images/nanoservice-stubskeleton.svg)
+
+The flow for a single call:
+
+1. Your code calls a method on the stub: `this.conversionService.convert(x, request)`
+2. The stub marshals the call into an `RPCMessage` (method name + arguments) and wraps it in an `Envelope`
+3. A `Box` sends the envelope — over HTTP, WebSocket, or directly in-process depending on configuration
+4. The skeleton on the server receives the envelope, unpacks the `RPCMessage`, and calls the real implementation
+5. The result travels back through the same chain in reverse
+
+You write the interface. FOAM generates steps 2–4 in both languages.
+
+### What Gets Generated
+
+When you set `skeleton: true` and `client: true` on a `foam.INTERFACE`, the build produces two files automatically:
+
+- **`Client<ServiceName>.js`** — the browser-side stub. Every method becomes an async function that packages the call into an `RPCMessage`, sends it through the configured `Box`, and resolves or rejects the returned promise based on the reply.
+- **`<ServiceName>Skeleton.java`** — the server-side dispatcher. It receives incoming messages, switches on the method name, calls your real implementation, and sends the result back.
+
+Neither file is ever edited. They regenerate whenever the interface changes — adding a method, renaming an argument, or changing a return type is a single edit in one place.
+
+## Step 1: Define Request and Response Models
+
+Let's see it in action. We'll build a unit conversion service for the Recipe app — something that converts between cups, grams, millilitres, and the other units cooks actually use. Step by step, from the interface definition all the way to a working UI.
+
+The first thing any nano-service needs is a typed contract: a request object that the caller fills in, and a response object that the service returns. These are ordinary FOAM models — nothing special about them except that all their properties must be serializable standard types so they can cross the wire.
+
+Create a new file `src/com/foamdev/cook/ConversionService.js`. We will put the models and the interface in the same file.
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionRequest',
+
+  documentation: 'Request object for unit conversion.',
+
+  properties: [
+    { class: 'Float',                             name: 'amount'   },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'fromUnit' },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'toUnit'   }
+  ]
+});
+
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionResponse',
+
+  documentation: 'Response object containing the converted amount and an optional server note.',
+
+  properties: [
+    { class: 'Float',  name: 'amount'  },
+    { class: 'String', name: 'message' }
+  ]
+});
+```
+
+Beyond the numeric result, `ConversionResponse` carries an optional `message` string — a slot for the server to pass any note it wants the user to see. We'll leave what goes there up to the implementation.
+
+The key constraint on request and response models is that all properties must be serializable standard FOAM types (`String`, `Float`, `Enum`, `Boolean`, etc.). That is the only requirement — everything else is regular FOAM modelling.
+
+## Step 2: Define the Service Interface
+
+Immediately after the models in the same file, define the interface:
+
+```javascript
+foam.INTERFACE({
+  package: 'com.foamdev.cook',
+  name: 'ConversionService',
+
+  documentation: `
+    A nano-service for converting between measurement units.
+    Demonstrates the nano-service pattern: pure business logic,
+    no database dependency, location-agnostic calling.
+  `,
+
+  skeleton: true,   // generate ConversionServiceSkeleton.java
+  client:   true,   // generate ClientConversionService.js
+
+  methods: [
+    {
+      name:  'convert',
+      async: true,
+      type:  'com.foamdev.cook.ConversionResponse',
+      args: [
+        { name: 'x',       type: 'Context'                            },
+        { name: 'request', type: 'com.foamdev.cook.ConversionRequest' }
+      ]
+    }
+  ]
+});
+```
+
+The two flags are everything. `skeleton: true` tells the build to generate the Java skeleton; `client: true` generates the JavaScript stub. The interface itself has no implementation — it is a pure contract.
+
+Notice the first argument: `x: Context`. Every nano-service method takes the caller's context as its first argument. The server uses this context for authentication checks, for accessing other services, and for passing it along to further calls. This is what makes the whole system composable — context flows end-to-end.
+
+Now add the file to `pom.js`:
+
+```javascript
+{ name: 'com.foamdev.cook.ConversionService', flags: 'js' }
+```
+
+## Step 3: Implement the Server Side
+
+Create `src/com/foamdev/cook/ServerConversionService.java`. This class provides the actual business logic. It extends `ContextAwareSupport` (which gives it access to the FOAM context) and implements the generated `ConversionService` interface.
+
+```java
+package com.foamdev.cook;
+
+import foam.lang.ContextAwareSupport;
+import foam.lang.X;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ServerConversionService extends ContextAwareSupport
+    implements ConversionService {
+
+  // Volume units: everything converts to/from millilitres
+  private static final Map<Unit, Double> VOLUME_TO_ML    = new HashMap<>();
+
+  // Weight units: everything converts to/from grams
+  private static final Map<Unit, Double> WEIGHT_TO_GRAMS = new HashMap<>();
+
+  static {
+    VOLUME_TO_ML.put(Unit.TEA_SPOON,   4.929);
+    VOLUME_TO_ML.put(Unit.TABLE_SPOON, 14.787);
+    VOLUME_TO_ML.put(Unit.CUP,         236.588);
+    VOLUME_TO_ML.put(Unit.MILLILITER,  1.0);
+    VOLUME_TO_ML.put(Unit.LITER,       1000.0);
+    VOLUME_TO_ML.put(Unit.PINCH,       0.6161);   // 1/8 teaspoon
+
+    WEIGHT_TO_GRAMS.put(Unit.GRAM,     1.0);
+    WEIGHT_TO_GRAMS.put(Unit.KILOGRAM, 1000.0);
+    WEIGHT_TO_GRAMS.put(Unit.OUNCE,    28.3495);
+    WEIGHT_TO_GRAMS.put(Unit.POUND,    453.592);
+  }
+
+  public ServerConversionService(X x) { setX(x); }
+
+  @Override
+  public ConversionResponse convert(X x, ConversionRequest request) {
+    var response = new ConversionResponse();
+    var from     = request.getFromUnit();
+    var to       = request.getToUnit();
+    var amount   = request.getAmount();
+
+    // Trivial case
+    if ( from == to ) {
+      response.setAmount((float) amount);
+      return response;
+    }
+
+    var volumeUnits = VOLUME_TO_ML.keySet();
+    var weightUnits = WEIGHT_TO_GRAMS.keySet();
+
+    // Volume → volume: convert to ml, then to target
+    if ( volumeUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / VOLUME_TO_ML.get(to)));
+      return response;
+    }
+
+    // Weight → weight: convert to grams, then to target
+    if ( weightUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      return response;
+    }
+
+    // Cross-dimension: bridge via water density (1 ml ≈ 1 g)
+    if ( volumeUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+    if ( weightUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / VOLUME_TO_ML.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+
+    throw new RuntimeException(String.format(
+      "Cannot convert between %s and %s", from.getLabel(), to.getLabel()));
+  }
+}
+```
+
+A few things to notice in this implementation.
+
+**All intelligence is on the server.** The client sends a request and gets back either a result (with an optional note) or an exception. It never reasons about whether units are compatible or what assumptions were made — all of that lives here. This is a deliberate design: the server is the single source of truth for domain logic, and the client is a thin display layer.
+
+**The note mechanism.** When we convert between volume and weight (which are not directly comparable), we use water density as a bridge approximation and set `response.setMessage(...)`. The client will surface that message to the user without needing to understand why. If you later add ingredient-specific densities to make the approximation more accurate, you update only this file — the client and interface stay the same.
+
+**Throwing on incompatible units.** If two units genuinely cannot be converted (a future unit type that fits neither dimension), we throw a `RuntimeException`. FOAM's skeleton catches it and sends it back as a rejection on the client promise. The client never receives a `ConversionResponse` — it receives an error.
+
+Add `ServerConversionService` to `pom.js`. Entries in `files` are FOAM models — when the `java` flag is set, the build generates a Java counterpart from the model. `ServerConversionService` is a hand-written Java class that does not go through that pipeline; `javaFiles` is the place for classes like that:
+
+```javascript
+foam.POM({
+  // ...
+  files: [
+    // ... existing entries ...
+  ],
+
+  javaFiles: [
+    { name: 'ServerConversionService' }
+  ]
+});
+```
+
+## Step 4: Register the Service
+
+Services are registered in `journals/services.jrl` using a `CSpec` — the same file and the same mechanism we used earlier to register the DAO services for our models. The difference is that instead of wiring up a DAO, this `CSpec` wires up an RPC service. Add the following entry:
+
+```javascript
+p({
+  "class":         "foam.core.boot.CSpec",
+  "name":          "conversionService",
+  "serve":         true,
+  "authenticate":  true,
+  "boxClass":      "com.foamdev.cook.ConversionServiceSkeleton",
+  "serviceScript": """
+    return new com.foamdev.cook.ServerConversionService(x);
+  """,
+  "client": """
+    {
+      "class": "com.foamdev.cook.ClientConversionService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/conversionService"
+        }
+      }
+    }
+  """
+})
+```
+
+The CSpec has two halves. The `serviceScript` runs on the server at startup and creates the implementation. The `client` block is JSON that gets sent to the browser; the browser evaluates it and registers the result as `conversionService` in the client context.
+
+What the client gets is a `ClientConversionService` (the generated stub, which knows how to make `convert` calls) wrapping a `SessionClientBox` (which adds the current session ID to every request for authentication) wrapping an `HTTPBox` (which POSTs to `service/conversionService`). All of this happens transparently — application code just calls `this.conversionService.convert(...)` and gets a promise.
+
+The CSpec properties that matter here:
+
+| Property | Purpose |
+|---|---|
+| `name` | How the service is accessed in context — `imports: ['conversionService']` |
+| `serve: true` | Expose over the network via the skeleton |
+| `authenticate: true` | Require a valid session; anonymous requests are rejected |
+| `boxClass` | The generated skeleton class that receives RPC messages |
+| `serviceScript` | Server-side construction (runs in the FOAM context `x`) |
+| `client` | JSON description of what to create on the client side |
+
+## Step 5: Putting It All Together
+
+With the interface, implementation, and CSpec in place, we can build a UI that calls the service. Copy `UnitConversionPage.js` from the tutorial assets zip into `src/com/foamdev/cook/` and add it to `pom.js`:
+
+```javascript
+{ name: 'UnitConversionPage', flags: 'js' }
+```
+
+Here is the complete file (CSS omitted for brevity — the full version is in the tutorial assets zip):
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'UnitConversionPage',
+  extends: 'foam.u2.Controller',
+
+  requires: [
+    'com.foamdev.cook.ConversionRequest',
+    'com.foamdev.cook.Unit'
+  ],
+
+  imports: ['conversionService'],
+
+  sections: [{ name: 'converter', title: '' }],
+
+  properties: [
+    {
+      class: 'Float',
+      name: 'amount',
+      value: 1,
+      min: 0,
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'fromUnit',
+      factory: function() { return this.Unit.CUP; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'toUnit',
+      factory: function() { return this.Unit.MILLILITER; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    { class: 'Float',   name: 'result',  precision: 2, hidden: true },
+    { class: 'Boolean', name: 'hasResult',        hidden: true },
+    { class: 'String',  name: 'conversionError',  hidden: true },
+    { class: 'Boolean', name: 'converting',       hidden: true },
+    { class: 'String',  name: 'resultMessage',    hidden: true }
+  ],
+
+  css: `/* ... see zip ... */`,
+
+  actions: [{
+    name:      'convert',
+    label:     'Convert',
+    section:   'converter',
+    isEnabled: function(converting, amount) { return ! converting && amount > 0; },
+    code: async function() {
+      this.converting      = true;
+      this.conversionError = '';
+      this.hasResult       = false;
+      try {
+        var request  = this.ConversionRequest.create({
+          amount:   this.amount,
+          fromUnit: this.fromUnit,
+          toUnit:   this.toUnit
+        });
+        var response     = await this.conversionService.convert(this.__subContext__, request);
+        this.result        = response.amount;
+        this.resultMessage = response.message || '';
+        this.hasResult     = true;
+      } catch(e) {
+        this.conversionError = (e && (e.message || e.toString())) || 'Conversion failed.';
+      } finally {
+        this.converting = false;
+      }
+    }
+  }],
+
+  methods: [
+    function render() {
+      var self = this;
+      this.SUPER();
+
+      this.addClass()
+        .start().addClass(this.myClass('header'))
+          .start('h2').add('Unit Converter').end()
+          .start('p')
+            .add('Convert between volume and weight units used in recipes. ')
+            .add('Enter an amount, choose the units, and click Convert.')
+          .end()
+        .end()
+        .start().addClass(this.myClass('card'))
+          .tag({
+            class:       'foam.u2.detail.SectionView',
+            data:        self,
+            of:          'com.foamdev.cook.UnitConversionPage',
+            sectionName: 'converter',
+            showTitle:   false
+          })
+          .add(this.dynamic(function(hasResult, result, conversionError, fromUnit, toUnit, amount, resultMessage) {
+            if ( conversionError ) {
+              this.start().addClass(self.myClass('error')).add(conversionError).end();
+              return;
+            }
+            if ( hasResult ) {
+              var fmt = new Intl.NumberFormat(foam.locale, { maximumFractionDigits: self.RESULT.precision }).format(result);
+              this.start().addClass(self.myClass('result'))
+                .start().addClass(self.myClass('result-value'))
+                  .add(fmt + ' ' + toUnit.label)
+                .end()
+                .start().addClass(self.myClass('result-label'))
+                  .add(amount + ' ' + fromUnit.label + ' = ' + fmt + ' ' + toUnit.label)
+                .end()
+                .callIf(resultMessage, function() {
+                  this.start('p').addClass(self.myClass('note')).add(resultMessage).end();
+                })
+              .end();
+            }
+          }))
+        .end();
+    }
+  ]
+});
+```
+
+The `render()` method reuses everything from the Custom UI chapter — `hidden: true` state properties, `SectionView` for the form, `gridColumns` for the responsive layout, `converting` as a submission lock, and `dynamic()` for the reactive result area. If any of those feel unfamiliar, take a quick look back at that section. You may also notice `Intl.NumberFormat(foam.locale, ...)` — a small teaser for FOAM's internationalization support, where the active locale flows through the context and all formatting adapts automatically. That is out of scope here but will be covered in more specialized tutorials.
+
+The interesting part here is the `convert` action, which is where the service call happens:
+
+- **`this.__subContext__`** is passed as the first argument to every nano-service call. It carries the session and security context the server needs to authenticate the request.
+- **`try / finally`** ensures `converting` is always reset — even if the call throws — so the button never stays permanently disabled.
+- **`conversionError`** is populated from the exception message and displayed as-is — errors like incompatible units surface directly to the user.
+- **`response.message`** carries an optional note from the server — such as a density assumption if needed for some conversions — displayed below the result.
+
+### Wiring It as the Default Landing Page
+
+Here is a good opportunity to introduce one more trick. So far we have wired views as regular menu items that appear in the sidebar. This time we will do something different: wire the Unit Converter as the landing page — the first screen users see when they log in. If they navigate away to the recipe cookbook or any other section, they can always get back by clicking the FOAM icon in the top left. The wiring takes just two journal entries.
+
+**In `journals/menus.jrl`**, add a menu entry with `parent: "hidden"`. The `"hidden"` parent is a FOAM convention: the menu exists and is navigable, but does not appear in the sidebar navigation:
+
+```javascript
+p({
+  "class":        "foam.core.menu.Menu",
+  "id":           "welcome",
+  "parent":       "hidden",
+  "label":        "Unit Converter",
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view":  { "class": "com.foamdev.cook.UnitConversionPage" }
+  }
+})
+```
+
+**In `journals/themes.jrl`**, set `"defaultMenu"` to point at that menu's id:
+
+```javascript
+"defaultMenu": ["welcome"]
+```
+
+After restarting the server, logging in navigates directly to the Unit Converter. The cookbook is still reachable from the sidebar — the default menu controls only where the app begins, not what else is available.
+
+Take a moment to appreciate what just happened. You defined a typed interface, wrote a pure Java implementation, registered it as a nano-service with one CSpec entry, and called it from a reactive UI — with authentication, RPC transport, error handling, and locale-aware formatting all handled by the framework. The same `convert()` call works whether the service is running in the same JVM, across HTTP, or over a WebSocket. You never touched a REST endpoint, wrote a serializer, or wired up a router. That is FOAM nano-services doing their job.
 
 # Notifications (Coming Soon)
 

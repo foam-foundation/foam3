@@ -59,10 +59,8 @@ foam.CLASS({
         border-color: $destructive400;
       }
 
-      @media (prefers-color-scheme: dark) {
-        .allowVariants input {
-          color-scheme: dark;
-        }
+      input {
+        color-scheme: $colorScheme;
       }
       `,
       name: 'CSS-TextInputCSS',

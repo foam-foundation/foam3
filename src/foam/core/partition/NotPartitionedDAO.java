@@ -126,9 +126,19 @@ public class NotPartitionedDAO
       return true;
     }
 
+    // Recording alone leaves the index dead until the next reload: a cSpec with
+    // lazy:false builds the delegate before the serviceScript's own
+    // addPropertyIndex() calls run, so a delegate that is already loaded has to
+    // be told too. An unloaded one needs nothing - createDAO() replays the list
+    // through addIndices() - and reaching it through getDelegate() would replay
+    // the whole journal just to add an index, so the reference is read directly
+    // and under the same monitor getDelegate() holds.
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      return true;
+      synchronized ( this ) {
+        DAO dao = delegate_ == null ? null : delegate_.get();
+        return dao == null ? true : dao.cmd_(x, cmd);
+      }
     }
 
     return getDelegate().cmd_(x, cmd);

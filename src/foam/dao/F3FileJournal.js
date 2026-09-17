@@ -177,7 +177,7 @@ foam.CLASS({
                     long percent = totalBytes > 0 ? Math.min(100, 100 * read / totalBytes) : -1;
                     // Time left at the average rate so far.
                     long left    = percent < 0 || read == 0 ? -1 : (long) (elapsed * (double) Math.max(0, totalBytes - read) / read);
-                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s,left,%5$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(elapsed), left < 0 ? "?" : Duration.ofMillis(left));
+                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s,eta,%5$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(elapsed), left < 0 ? "?" : Duration.ofMillis(left));
                     if ( cspec != null )
                       cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
                     else

@@ -12,36 +12,36 @@ foam.ENUM({
     {
       name: 'INITIAL',
       label: 'Initial',
-      color: '$textSecondary',
-      background: '$backgroundSecondary',
+      color: '$statusNeutralText',
+      background: '$statusNeutralBackground',
       borderColor: '$textSecondary',
     },
     {
       name: 'INITIALIZING',
       label: 'Initializing',
-      color: '$yellow700',
-      background: '$yellow100',
+      color: '$statusWarnText',
+      background: '$statusWarnBackground',
       borderColor: '$yellow700'
     },
     {
       name: 'REPLAYING',
       label: 'Replaying',
-      color: '$blue500',
-      background: '$blue50',
+      color: '$statusInfoText',
+      background: '$statusInfoBackground',
       borderColor: '$blue500'
     },
     {
       name: 'READY',
       label: 'Ready',
-      color: '$green600',
-      background: '$green50',
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground',
       borderColor: '$green600'
     },
     {
       name: 'ERROR',
       label: 'Error',
-      color: '$red600',
-      background: '$red50',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
       borderColor: '$red600'
     }
   ]

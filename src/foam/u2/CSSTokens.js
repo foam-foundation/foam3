@@ -210,6 +210,20 @@ foam.CLASS({
 
     { name: 'link', value: '$blue200' },
 
+    // STATUS (enum pills, badges, chips): text/background pairs per meaning.
+    // Light values are the palette pairs the status enums already used, so
+    // light mode does not change; dark values invert the pair on the ramp.
+    { name: 'statusSuccessText',       value: '$success700',     variants: { dark: { value: '$success200' } } },
+    { name: 'statusSuccessBackground', value: '$success50',      variants: { dark: { value: '$success700' } } },
+    { name: 'statusWarnText',          value: '$warn700',        variants: { dark: { value: '$warn200' } } },
+    { name: 'statusWarnBackground',    value: '$warn50',         variants: { dark: { value: '$warn700' } } },
+    { name: 'statusDangerText',        value: '$destructive500', variants: { dark: { value: '$destructive200' } } },
+    { name: 'statusDangerBackground',  value: '$destructive50',  variants: { dark: { value: '$destructive700' } } },
+    { name: 'statusInfoText',          value: '$primary400',     variants: { dark: { value: '$primary200' } } },
+    { name: 'statusInfoBackground',    value: '$primary50',      variants: { dark: { value: '$primary700' } } },
+    { name: 'statusNeutralText',       value: '$grey700',        variants: { dark: { value: '$neutral300' } } },
+    { name: 'statusNeutralBackground', value: '$grey100',        variants: { dark: { value: '$neutral700' } } },
+
     // BORDER COLOR
     { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },
     { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$black300' } } },

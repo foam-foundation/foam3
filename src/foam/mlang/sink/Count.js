@@ -55,6 +55,10 @@ if (other instanceof foam.mlang.sink.Count) {
 }
       `
     },
+    {
+      name: 'isOrderIndependent',
+      javaCode: 'return true;'
+    },
     function toString() { return 'COUNT()'; },
     function toSummary() { return this.value; },
     function addToE(e) { e.add(this.value); },

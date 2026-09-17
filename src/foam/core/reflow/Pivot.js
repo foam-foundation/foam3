@@ -128,6 +128,10 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'isOrderIndependent',
+      javaCode: 'return getAcc().isOrderIndependent();'
+    },
+    {
       name: 'put',
       code: function put(obj, sub) {
         this.cols && this.cols.put(obj);

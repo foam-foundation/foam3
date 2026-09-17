@@ -49,6 +49,13 @@ foam.CLASS({
         }
         return foam.util.DateUtil.longToNullableDate(derivedDate_);
       `
+    },
+    {
+      class: 'Date',
+      name: 'factoryDate',
+      documentation: 'The same shape through a javaFactory: regularDate, filled in on first read.',
+      storageTransient: true,
+      javaFactory: 'return getRegularDate();'
     }
   ]
 });

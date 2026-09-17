@@ -1824,19 +1824,24 @@ foam.CLASS({
       var info = this.SUPER(cls);
 
       // The index and the comparators read the long behind the property
-      // through get__ so they never allocate a Date. A javaGetter owns that
-      // field: it may derive the value on first read, so until it runs the
-      // field still holds the unset long. Leave such a property on the base
-      // get__, which goes through the getter.
-      if ( ! this.javaGetter ) {
-        info.method({
-          name: 'get__',
-          type: 'long',
-          visibility: 'public',
-          args: [{ name: 'o', type: 'Object' }],
-          body: 'return ((' + cls.id + ') o).' + this.name + '_;'
-        });
-      }
+      // through get__ so they never allocate a Date. The field only carries
+      // the value once the getter has set it: a javaFactory or a caching
+      // javaGetter fills it on first read, a value: stands in while it is
+      // unset. So read the field when it is set, and ask the getter otherwise;
+      // a getter that sets the field on the way makes every later read a
+      // field read again.
+      var obj   = '((' + cls.id + ') o)';
+      var isSet = obj + '.' + this.name + 'IsSet_';
+      var field = obj + '.' + this.name + '_';
+      info.method({
+        name: 'get__',
+        type: 'long',
+        visibility: 'public',
+        args: [{ name: 'o', type: 'Object' }],
+        body: 'if ( ' + isSet + ' ) return ' + field + ';\n' +
+          'java.util.Date d = ' + obj + '.get' + foam.String.capitalize(this.name) + '();\n' +
+          'return ' + isSet + ' ? ' + field + ' : foam.util.DateUtil.nullableDateToLong(d);'
+      });
 
       // TODO: cast isn't called on setter
       var m = info.getMethod('cast');

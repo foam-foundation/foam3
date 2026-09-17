@@ -113,20 +113,6 @@ public class PartitionedDAO
     return ref != null && ref.get() != null;
   }
 
-  /** Collects the live delegates under the monitor and sends the command
-      outside it, so a partition that takes the command slowly does not hold
-      off getDelegate() for every other partition. */
-  public void cmdLoadedDelegates(X x, Object cmd) {
-    java.util.List<DAO> loaded = new java.util.ArrayList<>();
-    synchronized ( delegates_ ) {
-      for ( SoftReference<DAO> ref : delegates_.values() ) {
-        DAO dao = ref.get();
-        if ( dao != null ) loaded.add(dao);
-      }
-    }
-    for ( DAO dao : loaded ) dao.cmd_(x, cmd);
-  }
-
   public String getID(FObject o) {
     return (String) getIdProperty().f(o);
   }

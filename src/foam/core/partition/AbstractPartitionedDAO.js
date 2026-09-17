@@ -110,13 +110,6 @@ foam.CLASS({
     }
   }
 
-  /** Hand a command to the delegates already in memory, loading none. One that
-      is not loaded picks the command up through addIndices() when it is next
-      built, so this covers only what exists right now. */
-  public void cmdLoadedDelegates(X x, Object cmd) {
-    // NOP, implement in sub-classes
-  }
-
   public Object cmd_(X x, Object cmd) {
     if ( UNLOAD_CMD.equals(cmd) ) {
       unload();
@@ -125,11 +118,6 @@ foam.CLASS({
 
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      // Recording alone leaves the index dead until the next reload. A cSpec
-      // with lazy:false has its delegate built inside EasyDAO.build(), which
-      // runs before the serviceScript's own addPropertyIndex() calls, so the
-      // index has to reach the loaded delegate too or it never applies.
-      cmdLoadedDelegates(x, cmd);
       return true;
     }
 

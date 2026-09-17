@@ -950,7 +950,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
       `,
       value: async function(x, val, unitPropName) {
@@ -1006,7 +1006,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
         toFixed also collapses float noise; the '-' is stripped off -0.00.
       `,

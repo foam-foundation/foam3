@@ -1,7 +1,5 @@
-<flow name="AsyncUtils" category="DOC/DEV" spid="foam"/>
-<title>foam.util.async</title>
-
-<h1>Sequence</h1>
+<flow name="AsyncUtils" category="DOC/DEV" spid="foam" label="foam.util.async"/>
+# Sequence
 
 The Sequence class provides a way to execute a sequence of steps, where each
 step can import from the subcontext of the previous step. Every step implements

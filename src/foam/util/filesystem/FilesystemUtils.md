@@ -1,4 +1,4 @@
 <flow name="FilesystemUtils" category="DOC/DEV" spid="foam"/>
-<title>Package foam.util.filesystem</title>
+# Package foam.util.filesystem
 
 This package contains utilities for interacting with the filesystem.

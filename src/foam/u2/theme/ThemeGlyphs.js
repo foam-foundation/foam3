@@ -1371,6 +1371,70 @@ foam.CLASS({
         </svg>
         ` };
       }
-    }
+    },
+    // Hint icons for Markdown
+    {
+      name: 'hintInfo',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7.5v.01" fill="none"/>
+          <path d="M12 11v5.5" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintWarning',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7v5.6" fill="none"/>
+          <path d="M12 16.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintDanger',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.9 4.3l8.5 14.8a1.1 1.1 0 0 1-.9 1.6H3.5a1.1 1.1 0 0 1-.9-1.6L11.1 4.3a1.05 1.05 0 0 1 1.8 0z" fill="none"/>
+          <path d="M12 9.6v4.4" fill="none"/>
+          <path d="M12 17.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintSuccess',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M7.8 12.3l2.9 2.9 5.5-6.2" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
   ]
 });

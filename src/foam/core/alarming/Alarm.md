@@ -1,50 +1,58 @@
 <flow name="Alarm" category="DOC/DEV" spid="foam"/>
-<title>Alarm Documentation</title>
+# Alarm Documentation
 
-<h1>Alarm Documentation</h1>
+## Introduction
 
-<h2>Introduction</h2>
-<p>An Alarm is high level system event reporting an unusual or unexpected event.
-For example, alarms are appropriate in scenarios such as:</p>
-<ul>
-  <li>network timeouts when communicating with an integration endpoint</li>
-  <li>missing configuration</li>
-</ul>
+An Alarm is high level system event reporting an unusual or unexpected event.
+For example, alarms are appropriate in scenarios such as:
 
-<h2>Audience</h2>
-<p>Alarms are intended to be monitored by a Network Operations Center (NOC). NOC operators are monitoring many systems, and generally do not have detailed knowledge of each system.  The Alarm is simply to bring attention to a problem that a System Engineer will address.</p>
-<p>As such, the alarm should have a short simple name, and just enough details in the <i>note</i> for System Engineer to narrow their search of the system and logs.</p>
+- network timeouts when communicating with an integration endpoint
+- missing configuration
 
-<h2>Notifications</h2>
-<p>Alarms with <b>severity</b> of <i>WARN</i> or <i>ERROR</i> automatically generated a <b>notification</b></p>
+## Audience
 
-<h2>Auto Generated Alarms</h2>
-<p>Alarms are automatically generated for <b>error PMs</b> <i>(pm.error)</i></p>
+Alarms are intended to be monitored by a Network Operations Center (NOC). NOC operators are monitoring many systems, and generally do not have detailed knowledge of each system.  The Alarm is simply to bring attention to a problem that a System Engineer will address.
 
-<h2>Usage</h2>
-<p>The Alarm <b>name</b> is the alarm id or key. Alarms default to severity <b>Warning</b> and when created are <b>active</b>.</p>
+As such, the alarm should have a short simple name, and just enough details in the *note* for System Engineer to narrow their search of the system and logs.
 
-<h3>Code Examples</h3>
-<h4>Alarm</h4>
-<code>
+## Notifications
+
+Alarms with **severity** of *WARN* or *ERROR* automatically generated a **notification**
+
+## Auto Generated Alarms
+
+Alarms are automatically generated for **error PMs** *(pm.error)*
+
+## Usage
+
+The Alarm **name** is the alarm id or key. Alarms default to severity **Warning** and when created are **active**.
+
+### Code Examples
+
+#### Alarm
+
+```
   Alarm alarm = new Alarm.Builder(x)
                     .setName("Payment Provider CP Onboarding")
                     .setReason(AlarmReason.TIMEOUT)
                     .build();
   DAO alarmDAO = (DAO) alarmDAO.put(alarm);
-</code>
-<code>
-  ((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", AlarmReason.TIMEOUT));
-</code>
+```
 
-<h2>Programatically <b>stopping</b> an Alarm</h2>
-<p>To stop an alarm simply create a same <b>named</b> alarm with <b>active</b> false.</p>
-<code>
-  ((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", false));
-</code>
+`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", AlarmReason.TIMEOUT));`
 
-<h1>Alarm Config</h1>
-<h2>Supressing/Silencing/Ignoring Alarms</h2>
-<p>AlarmConfig acts as a template which will change the behaviour of an Alarm.</p>
-<h3>Example</h3>
-<p>If a network endpoint is flooding the system with <i>network outage</i> alarms, an AlarmConfig can be created for this <b>name</b> which can change the severity and/or status of the alarm.  The AlarmConfig status could be <i>not active</i>, and all subsequent alarms will be disabled or inactive.</p>
+## Programatically **stopping** an Alarm
+
+To stop an alarm simply create a same **named** alarm with **active** false.
+
+`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", false));`
+
+# Alarm Config
+
+## Supressing/Silencing/Ignoring Alarms
+
+AlarmConfig acts as a template which will change the behaviour of an Alarm.
+
+### Example
+
+If a network endpoint is flooding the system with *network outage* alarms, an AlarmConfig can be created for this **name** which can change the severity and/or status of the alarm.  The AlarmConfig status could be *not active*, and all subsequent alarms will be disabled or inactive.

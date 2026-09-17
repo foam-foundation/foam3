@@ -1,48 +1,38 @@
 <flow name="intro-to-flow" category="DOC/DEV" spid="foam"/>
-<title>Introduction to FLOW</title>
-
-<h1>Introduction to FLOW</h1>
+# Introduction to FLOW
 
 <section name="intro">
-<p>FLOW is a text markup language for live documents in the
-FOAM system.  It is a subset of HTML with added support for FOAM specific features.</p>
+
+FLOW is a text markup language for live documents in the
+FOAM system.  It is a subset of HTML with added support for FOAM specific features.
 
 </section>
 <section name="features">
-<h2>Features</h2>
+
+## Features
+
 A quick rundown of the features in FLOW
-<ul>
-  <li>&lt;i&gt;<i>italics</i>&lt;/i&gt;</li>
-  <li>&lt;b&gt;<b>bold</b>&lt;/b&gt;</li>
-  <li>&lt;p&gt;Paragraph tags&lt;/p&gt;</li>
-  <li>HTML entities: &amp;amp; -> &amp;</li>
-  <li><h3>Headers</h3></li>
-  <li>
-  Various lists, including:
-  <ol>
-    <li>Ordered</li>
-    <li>Unordered</li>
-    <li>additionally
-      <ul>
-        <li>Sub</li>
-        <li>
-          <ol>
-            <li>Lists</li>
-          </ol>
-        </li>
-      </ul>
-    </li>
-  </ol>
+
+- &lt;i&gt;*italics*&lt;/i&gt;
+- &lt;b&gt;**bold**&lt;/b&gt;
+- &lt;p&gt;Paragraph tags&lt;/p&gt;
+- HTML entities: &amp;amp; -> &amp;
+- ### Headers
+- Various lists, including: 
+
   </li>
   <li>
-    <a href="#nspec">Links!</a>
+    [Links!](#nspec)
   </li>
   <li>
-  Embedded FOAM tags &lt;foam class="com.google.foam.demos.bubbles.Bubbles"/&gt;<br/>
+  Embedded FOAM tags &lt;foam class="com.google.foam.demos.bubbles.Bubbles"/&gt;
+
   <foam class="com.google.foam.demos.bubbles.Bubbles"/>
   </li>
   <li>Code tags:
-  <code>/**
+  
+```
+/**
  * @license
  * Copyright 2018 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
@@ -71,28 +61,30 @@ foam.RELATIONSHIP({
   forwardName: 'courses',
   inverseName: 'students'
 });
-</code>
+```
+
 </li>
-<li>Image support:<br/>
+<li>Image support:
+
 <img src="/src/foam/core/controller/foam_red.png"/></li>
 </ul>
-
 
 </section>
 
 <section name="todo">
-<h2>Items still to implement</h2>
-<ul>
-<li>Table of Contents support</li>
-<li>More robust linking for linking</li>
-<li>Native support for android/iOS</li>
-<li>Tables</li>
-<li>Any other formatting tags we decide we want</li>
-<li>Syntax highlighting for code tags</li>
-<li>Naming and references of objects defined by FOAM tags to build more complete "applications"</li>
-<li>Additional markup formats like Markdown or Org mode</li>
-<li>PDF or other printable format rendering</li>
-<li>Online editing with split/alt view of markup vs rendered document.</li>
-<li>Online editing with a rich text editor</li>
-</ul>
+
+## Items still to implement
+
+- Table of Contents support
+- More robust linking for linking
+- Native support for android/iOS
+- Tables
+- Any other formatting tags we decide we want
+- Syntax highlighting for code tags
+- Naming and references of objects defined by FOAM tags to build more complete "applications"
+- Additional markup formats like Markdown or Org mode
+- PDF or other printable format rendering
+- Online editing with split/alt view of markup vs rendered document.
+- Online editing with a rich text editor
+
 </section>

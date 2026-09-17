@@ -1,13 +1,12 @@
 <flow name="CrunchLite" category="DOC/DEV" spid="foam"/>
-<title>CRUNCH Lite</title>
-<h1>CRUNCH Lite</h1>
+# CRUNCH Lite
 
 <foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />
 
 Note: code snippets are all written in Javascript syntax, although this is not
   meant to imply that every method called has a javascript implementation.
 
-<h2>What is `crunch.lite`?</h2>
+## What is `crunch.lite`?
 
 CRUNCH Lite makes it possible for capability data to be stored on objects rather
 than in association with a user. This allows control over data a user has to
@@ -18,11 +17,11 @@ to choose at least one flavour. Because we know the configuration of icecream
 can be complicated, we choose to make Icecream implement Capable, which adds
 CRUNCH Lite features to our Icecream model.
 
-<h2>How-To</h2>
+## How-To
 
-<h3>Implement `Capable`</h3>
+### Implement `Capable`
 
-<code>
+```
 foam.CLASS({
   package: 'com.example.2scoop4u',
   name: 'Icecream',
@@ -42,35 +41,28 @@ foam.CLASS({
       .map(m => m.clone())),
   ]
 });
-</code>
+```
 
-
-<h3>Add a requirement to a Capable</h3>
+### Add a requirement to a Capable
 
 To add a capability that a Capable object requires its own copy of, use the
 `addRequirement` method.
-<code>
-myCapable.addRequirement('MY-CAPABILITY-ID');
-</code>
+`myCapable.addRequirement('MY-CAPABILITY-ID');`
 
 To specify the capabilities that represent a user's prerequisite for filling
 Capable requirements, use `setUserCapabilityRequirements`. This will cause an
 additional CRUNCH intercept if the user is missing this capability.
-<code>
-myCapable.setUserCapabilityRequirements(['USER-CAPABILITY-ID']);
-</code>
+`myCapable.setUserCapabilityRequirements(['USER-CAPABILITY-ID']);`
 
-<h3>Verify Requirements</h3>
+### Verify Requirements
 
 To verify that a capable object has one or more requirements, use the
 `verifyRequirements` method. This will throw IllegalStateException if any of
 the capabilities listed are not granted.
 
-<code>
-myCapable.verifyRequirements(x, ['MY-CAPABILITY-ID']);
-</code>
+`myCapable.verifyRequirements(x, ['MY-CAPABILITY-ID']);`
 
-<h3>Invoking a CRUNCH intercept</h3>
+### Invoking a CRUNCH intercept
 
 <foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
 

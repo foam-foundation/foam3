@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'MDAODescOrderTest',
   extends: 'foam.core.test.Test',
 

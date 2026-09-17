@@ -57,7 +57,6 @@ foam.CLASS({
     'java.util.Set',
     'java.util.regex.Pattern',
     'java.util.TimeZone',
-    'java.util.concurrent.atomic.AtomicLong',
     'java.util.stream.Collectors',
     'java.util.stream.Stream'
   ],
@@ -218,8 +217,8 @@ foam.CLASS({
       documentation: 'Bytes the current replay has read from the journal, against the file size for a progress percentage. Reset when a new reader is opened.',
       class: 'Object',
       name: 'replayBytesRead',
-      javaType: 'AtomicLong',
-      javaFactory: 'return new AtomicLong();'
+      javaType: 'java.util.concurrent.atomic.AtomicLong',
+      javaFactory: 'return new java.util.concurrent.atomic.AtomicLong();'
     },
     // reader uses a getter because we want a new reader on file replay
     {
@@ -234,7 +233,7 @@ try {
     return null;
   }
   is = decorateReplayStream(is);
-  final AtomicLong bytesRead = getReplayBytesRead();
+  final java.util.concurrent.atomic.AtomicLong bytesRead = getReplayBytesRead();
   bytesRead.set(0);
   is = new java.io.FilterInputStream(is) {
     public int read() throws IOException {

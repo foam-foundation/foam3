@@ -45,6 +45,11 @@ foam.CLASS({
       activeModifier: -15
     },
     {
+      // ColorToken, not bare CSSToken: only a token with variantKey 'color'
+      // has its dark variant consulted (CSSTokenOverrideService, stdlib
+      // getTokenValue). As a bare token the dark branch below never ran and
+      // the light formula darkened the surface, hiding the border in dark mode.
+      class: 'foam.u2.ColorToken',
       name: 'buttonSecondaryBorderColor',
       variantKey: 'color',
       value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) },
@@ -111,6 +116,13 @@ foam.CLASS({
       width: 100%;
       max-height: 100%;
       vertical-align: middle;
+    }
+    /* Embedded icon files (images/*.svg) paint their shapes with a fixed
+       fill="#494F59" attribute, which wins over a fill set on the <svg>; so
+       point every shape at currentColor and let the button's text colour,
+       and its dark variant, drive the icon. fill="none" outlines are kept. */
+    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]) {
+      fill: currentColor;
     }
 
     ^.material-icons {
@@ -246,7 +258,7 @@ foam.CLASS({
     }
 
     ^tertiary:disabled {
-      color: $textBrandTertiary;
+      color: $textTertiary;
     }
 
     /* Tertiary destructive */
@@ -269,7 +281,7 @@ foam.CLASS({
     }
 
     ^tertiary-destructive:disabled {
-      color: $buttonSecondaryColor$disabled;
+      color: $textTertiary;
     }
 
     /* Link */
@@ -311,7 +323,7 @@ foam.CLASS({
     }
 
     ^black:disabled {
-      color: $buttonSecondaryColor$active;
+      color: $textTertiary;
     }
 
     /* Text */
@@ -335,7 +347,7 @@ foam.CLASS({
     }
 
     ^text:disabled {
-      color: $buttonSecondaryColor$active;
+      color: $textTertiary;
     }
 
     /* Sizes */

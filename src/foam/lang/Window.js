@@ -130,7 +130,13 @@ foam.CLASS({
       let colorSchemeQuery = this.window.matchMedia('(prefers-color-scheme: dark)');
       let fn = () => {
         if ( ! theme.useVariants ) return;
-        if ( this.window.matchMedia('(prefers-color-scheme: dark)').matches ) {
+        // A scheme the user picked in-app wins over the OS setting; with no
+        // pick the app follows the OS. foam.u2.theme.ColorSchemeToggle writes
+        // the same key.
+        let stored = null;
+        try { stored = this.window.localStorage?.getItem('foam.colorScheme'); } catch (_) {}
+        let dark = stored ? stored === 'dark' : this.window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if ( dark ) {
           theme.activeVariants$set('color', 'dark');
         } else {
           theme.activeVariants$remove('color');

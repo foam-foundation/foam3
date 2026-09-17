@@ -18,9 +18,11 @@ Code marked `generateJava: false` has no Java and cannot run server-side; `javaC
 
 ## Write it
 
+The file goes in `<pkg>/test/`, package `<pkg>.test`, never beside the class it tests. `ls <pkg>/test/` first: when the directory exists it already has the `pom.js` and `tests.jrl` the test registers in. A `tests.jrl` at the package root is legacy, not a place to add to.
+
 ```javascript
 foam.CLASS({
-  package: 'foam.dao',
+  package: 'foam.dao.test',
   name: 'MyServerTest',
   extends: 'foam.core.test.Test',          // language defaults to BEANSHELL: runs server-side
   javaImports: [ 'foam.core.auth.User', 'foam.dao.DAO', 'foam.dao.MDAO', 'foam.lang.X', 'foam.mlang.sink.Count' ],

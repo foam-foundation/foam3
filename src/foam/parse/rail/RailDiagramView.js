@@ -140,7 +140,8 @@ foam.CLASS({
   ],
 
   constants: {
-    ZOOM_STEP: 1.1,
+    ZOOM_RATE: 0.0015,        // zoom factor = e^(-deltaY * rate): one mouse notch (100) ≈ ×1.16, a trackpad pinch tick (2–10) ≈ ×1.01
+    ZOOM_MAX_DELTA: 100,      // one event never zooms more than a mouse notch
     PANEL_WIDTH: 440,      // right column default width (px)
     PANEL_MIN: 240,        // splitter floor for either column (px)
     DOC_SHARE: 0.5,        // opening the document view widens the right column to this share of the window
@@ -240,7 +241,9 @@ foam.CLASS({
       canvas.on('wheel', function(e) {
         e.preventDefault();
         var v = self.viewPoint(e);
-        self.scene.zoomAt(v.x, v.y, e.deltaY < 0 ? self.ZOOM_STEP : 1 / self.ZOOM_STEP);
+        // Proportional to the wheel delta so a pinch (many small deltas) zooms gradually and a notch stays a notch.
+        var d = Math.max(-self.ZOOM_MAX_DELTA, Math.min(self.ZOOM_MAX_DELTA, e.deltaY));
+        self.scene.zoomAt(v.x, v.y, Math.exp(-d * self.ZOOM_RATE));
       });
       canvas.on('dblclick', function(e) {
         var v = self.viewPoint(e), hit = self.scene.hitAtView(v.x, v.y);
@@ -541,7 +544,6 @@ foam.CLASS({
       } while ( open.length );
       this.scene.strips.forEach(function(s) { self.scene.recacheStrip(s); });
       if ( this.trace ) this.show(this.step);
-      this.scene.fitWidth();
     },
 
     // ---- trace lifecycle -------------------------------------------------
@@ -562,8 +564,7 @@ foam.CLASS({
     function record(opt_step) {
       if ( ! this.grammar ) { this.status = this.LOAD_FIRST; return; }
       this.trace = this.ParseTrace.create({ grammar: this.grammar, startSymbol: this.startSymbol, input: this.input }).record();
-      this.show(opt_step === undefined ? this.trace.length() : opt_step);
-      this.scene.fitWidth();                                     // a fresh recording starts from the top; follow-pan takes over while stepping
+      this.show(opt_step === undefined ? this.trace.length() : opt_step);   // the camera stays where the user put it; follow-pan takes over while stepping
     },
 
     function show(n) {
@@ -583,7 +584,7 @@ foam.CLASS({
     function stepOne()  { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.step + 1); },
     function stepOver() { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.trace.stepOverFrom(this.step)); },
     function nextRule() { this.stopPlay(); if ( ! this.trace ) this.record(0); else this.show(this.trace.nextRuleFrom(this.step)); },
-    function runToEnd() { this.stopPlay(); if ( ! this.trace ) this.record(); else { this.show(this.trace.length()); this.scene.fitWidth(); } },
+    function runToEnd() { this.stopPlay(); if ( ! this.trace ) this.record(); else this.show(this.trace.length()); },
 
     function togglePlay() {
       /** Auto-step at a human pace; stops at the end or on any other navigation. Background tabs throttle timers. */

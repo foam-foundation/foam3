@@ -76,13 +76,13 @@ foam.CLASS({
         // Only check FileSystemStorage — ResourceStorage.get() can't produce a
         // File for a jar resource (and a jar has no directory-journals anyway).
         foam.core.fs.Storage jrlStorage = (foam.core.fs.Storage) getX().get(foam.core.fs.Storage.class);
-        if ( jrlStorage instanceof foam.core.fs.FileSystemStorage ) {
-          java.io.File jrlFile = jrlStorage.get(getFilename());
-          if ( jrlFile != null && jrlFile.isDirectory() ) {
-            getLogger().warning("Journal path is a directory; skipping replay", getFilename());
-            return;
-          }
+        java.io.File jrlFile = jrlStorage instanceof foam.core.fs.FileSystemStorage ? jrlStorage.get(getFilename()) : null;
+        if ( jrlFile != null && jrlFile.isDirectory() ) {
+          getLogger().warning("Journal path is a directory; skipping replay", getFilename());
+          return;
         }
+        // Denominator of the progress percentage; 0 (unknown) for a jar resource.
+        final long totalBytes = jrlFile != null ? jrlFile.length() : 0;
 
         // Pre-compute the parser X context once per replay. When the target
         // ClassInfo has no backing Java class (getObjClass() is null), thread
@@ -168,7 +168,11 @@ foam.CLASS({
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
                   if ( pass % 100000 == 0 ) {
-                    String msg = String.format("progress,%1$s,processed,%2$d,in,%3$s", getFilename(), pass, Duration.ofMillis(pm.getTime()));
+                    // Bytes read run ahead of entries processed by the reader's
+                    // buffer, and a journal appended to mid-replay outgrows its
+                    // starting size, so cap at 100.
+                    long percent = totalBytes > 0 ? Math.min(100, 100 * getReplayBytesRead().get() / totalBytes) : -1;
+                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(pm.getTime()));
                     if ( cspec != null )
                       cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
                     else

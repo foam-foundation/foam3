@@ -6,3 +6,54 @@ p({
   keywords: ["doc", "documentation", "flow", "help", "question"],
   "handler":{"class":"foam.core.menu.ViewMenu","view":{"class":"foam.core.doc.DocumentationView", "defaultDocument": "intro" }}
 })
+
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"newDocs",
+  "label":"New Documentation",
+  "handler":{
+    "class":"foam.core.menu.DAOMenu2",
+    "config":{
+      "class":"foam.comics.v2.DAOControllerConfig",
+      "daoKey":"flowDAO",
+      "browseTitle":"New Documentation",
+      "createPredicate":{"class":"foam.mlang.predicate.False"},
+      "editPredicate":{"class":"foam.mlang.predicate.False"},
+      "deletePredicate":{"class":"foam.mlang.predicate.False"},
+      "importPredicate":{"class":"foam.mlang.predicate.False"},
+      "exportPredicate":{"class":"foam.mlang.predicate.False"},
+      "predicate":{
+        "class":"foam.mlang.predicate.Not",
+        "arg1":{
+          "class":"foam.mlang.predicate.Eq",
+          "arg1":{
+            "class": "foam.lang.__Property__",
+            "forClass_":"foam.core.reflow.Flow",
+            "name":"category"
+          },
+          "arg2":{
+            "class":"foam.mlang.Constant",
+            "value":""
+          }
+        }
+      },
+      "summaryView":{
+        "class":"foam.u2.GroupingDAOList",
+        "showEmptyMessage":true,
+        "groupExpr":{
+          "class":"foam.lang.__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"category"
+        },
+        "order":{
+          "class":"foam.lang.__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"category"
+        },
+        "rowView":{
+           "class":"foam.core.menu.DocumentRowView"
+        }
+      }
+    }
+  }
+})

@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.dao.index',
+  package: 'foam.dao.index.test',
   name: 'MDAOOrderDropJsTest',
   extends: 'foam.core.test.JSTest',
 

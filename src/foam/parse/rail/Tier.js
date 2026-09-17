@@ -22,7 +22,7 @@ foam.ENUM({
 
   values: [
     { name: 'LIVE',    alpha: 1 },
-    { name: 'HISTORY', alpha: 0.45 },
-    { name: 'NEVER',   alpha: 0.22 }
+    { name: 'HISTORY', alpha: 0.55 },
+    { name: 'NEVER',   alpha: 0.34 }
   ]
 });

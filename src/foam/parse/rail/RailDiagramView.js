@@ -55,8 +55,9 @@ foam.CLASS({
     ^ribbon { flex: none; overflow: hidden; border-bottom: 1px solid #e4e4e4; }
     ^status { font: 12px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; padding: 4px 8px; border-bottom: 1px solid #ccc; background: #fafafa; flex: none; }
     ^panel { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; }
+    ^swatch { font-weight: bold; }
     ^toggle { cursor: pointer; color: #0072B2; font-size: 12px; user-select: none; }
-    ^hint { color: #777; font-size: 12px; }
+    ^hint { color: #666; font-size: 12px; }
   `,
 
   messages: [
@@ -78,11 +79,11 @@ foam.CLASS({
     { name: 'LEGEND_GATE',       message: '⊘ dashed frame = must NOT match next (nothing consumed) · ⟶? = must match next' },
     { name: 'LEGEND_BADGES',     message: '∅ no value · «» substring · ⊕ joined string · ⚙ action · 💬 suggestion/message · 🐞 debug' },
     { name: 'LEGEND_TRACE',      message: 'Trace:' },
-    { name: 'LEGEND_MATCHED',    message: '▬ ✓ matched' },
-    { name: 'LEGEND_TRYING',     message: '▬ ▶ trying' },
-    { name: 'LEGEND_FAILED',     message: '▬ ✗ failed' },
-    { name: 'LEGEND_HISTORY',    message: '▬ ✓ ran earlier, rule idle now' },
-    { name: 'LEGEND_NEVER',      message: '▬ not reached' },
+    { name: 'LEGEND_MATCHED',    message: '✓ matched' },
+    { name: 'LEGEND_TRYING',     message: '▶ trying' },
+    { name: 'LEGEND_FAILED',     message: '✗ failed' },
+    { name: 'LEGEND_HISTORY',    message: '✓ ran earlier, rule idle now' },
+    { name: 'LEGEND_NEVER',      message: 'not reached' },
     { name: 'LEGEND_COUNTER',    message: '"tried ×n · ✓m" under a rule = attempts and matches so far · click the rule name to list the matches' },
     { name: 'LEGEND_SELECTED',   message: 'heavy outline = selected from the derivation panel' },
     { name: 'LEGEND_RIBBON',     message: 'Ribbon:' },
@@ -193,6 +194,14 @@ foam.CLASS({
       var self = this, T = this.scene.theme, O = this.Outcome;
       var tone = function(outcome) { return { color: T.outcomeColor(outcome) }; };
       var legendGroup = function(e, title) { return e.start('div').addClass(self.myClass('legendGroup')).start('b').add(title).end(); };
+      // Swatch carries the colour or the fade; the words stay full contrast, so a dim
+      // state is never explained by dim text.
+      var swatch = function(e, style, label) {
+        return e.start('span')
+          .start('span').addClass(self.myClass('swatch')).style(style).add('▬').end()
+          .add(' ' + label)
+        .end();
+      };
       this.addClass(this.myClass())
         .start('div').addClass(this.myClass('bar'))
           .start('span').addClass(this.myClass('title')).add(this.TITLE).end()
@@ -238,11 +247,11 @@ foam.CLASS({
                   .start('span').add(self.LEGEND_BADGES).end()
                 .end();
                 legendGroup(this, self.LEGEND_TRACE)
-                  .start('span').style(tone(O.MATCHED)).add(self.LEGEND_MATCHED).end()
-                  .start('span').style(tone(O.TRYING)).add(self.LEGEND_TRYING).end()
-                  .start('span').style(tone(O.FAILED)).add(self.LEGEND_FAILED).end()
-                  .start('span').style({ color: T.outcomeColor(O.MATCHED), opacity: self.Tier.HISTORY.alpha }).add(self.LEGEND_HISTORY).end()
-                  .start('span').style({ opacity: self.Tier.NEVER.alpha }).add(self.LEGEND_NEVER).end()
+                  .call(function() { swatch(this, tone(O.MATCHED), self.LEGEND_MATCHED); })
+                  .call(function() { swatch(this, tone(O.TRYING),  self.LEGEND_TRYING); })
+                  .call(function() { swatch(this, tone(O.FAILED),  self.LEGEND_FAILED); })
+                  .call(function() { swatch(this, { color: T.outcomeColor(O.MATCHED), opacity: self.Tier.HISTORY.alpha }, self.LEGEND_HISTORY); })
+                  .call(function() { swatch(this, { color: T.resolve('text'), opacity: self.Tier.NEVER.alpha }, self.LEGEND_NEVER); })
                   .start('span').add(self.LEGEND_COUNTER).end()
                   .start('span').add(self.LEGEND_SELECTED).end()
                 .end();

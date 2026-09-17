@@ -20,7 +20,7 @@ foam.CLASS({
   css: `
     ^ { font: 12px sans-serif; color: #222; }
     ^title { font-weight: bold; color: #444; padding: 0 8px 4px; }
-    ^sub { color: #888; font-size: 11px; padding: 0 8px 8px; }
+    ^sub { color: #666; font-size: 11px; padding: 0 8px 8px; }
     ^row { display: grid; grid-template-columns: auto 16px minmax(0, 1fr) 62px auto; align-items: baseline;
            gap: 0 6px; padding: 2px 8px 2px 6px; cursor: pointer; border-left: 3px solid transparent; }
     ^row:hover { background: #f1f5fb; }
@@ -32,14 +32,14 @@ foam.CLASS({
     ^rule, ^leaf { justify-self: start; }
     ^leaf { font-family: monospace; color: #333; background: #fff7d6; border: 1px solid #d9c98d; border-radius: 9px; padding: 0 7px; line-height: 1.4; }
     ^pending ^leaf { border-color: #E69F00; }
-    ^span { font: 11px monospace; color: #999; text-align: right; white-space: nowrap; }
+    ^span { font: 11px monospace; color: #6b6b6b; text-align: right; white-space: nowrap; }
     ^text { font: 11px monospace; color: #444; background: #f1f1f1; border-radius: 3px; padding: 0 4px; white-space: pre; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-    ^count { font-size: 10px; color: #999; margin-left: 4px; }
-    ^locate { visibility: hidden; color: #999; font-size: 11px; margin-left: 6px; }
+    ^count { font-size: 10px; color: #6b6b6b; margin-left: 4px; }
+    ^locate { visibility: hidden; color: #0072B2; font-size: 11px; margin-left: 6px; }
     ^pending { color: #E69F00; }
     ^pending ^rule { color: #B87A00; }
     ^matched ^glyph { color: #0072B2; }
-    ^empty { color: #888; padding: 4px 8px; }
+    ^empty { color: #666; padding: 4px 8px; }
     ^filter { background: #fff7e0; border-bottom: 1px solid #f0d890; padding: 4px 8px; margin-bottom: 4px; }
     ^clear { color: #0072B2; cursor: pointer; margin-left: 8px; text-decoration: underline; }
   `,

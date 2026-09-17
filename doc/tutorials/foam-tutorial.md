@@ -138,12 +138,15 @@ already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> inst
 
 > 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
-By following this tutorial you will learn to:
-1. Initialize a new FOAM application 
-1. Define FOAM models
-1. Familiarize with DAOs
-1. Understand journals
-1. ...
+By following this tutorial you will be able to:
+1. Scaffold a working full-stack web application in minutes
+1. Describe your data once and get storage, validation, and UI for free
+1. Query, filter, and persist data without writing database boilerplate
+1. Connect related data — lists, lookups, and many-to-many joins — automatically
+1. Build reactive UIs where the screen stays in sync with the data without manual DOM updates
+1. Generate complete browse, create, and edit screens from your data model and customize only what needs to differ
+1. Add server-side business logic as lightweight, reusable services
+1. Wire up real-time notifications between parts of the application
 
 This tutorial is best suited for FOAM beginners as well as experienced FOAM developers who wish to understand the underlying architecture in more depth.
 
@@ -166,11 +169,11 @@ cd <project root>
 git init
 ```
 
-One of the conveniences of FOAM is that allows customizations (called "refinements") to the predefined models. For that reason, FOAM is included in your project as a GIT sub-module, instead of a package.
-Therefore our next step is to go to the [FOAM Repository][foam-repo] and grab the repository's URL, then link to it as a sub-module for our project. Here is an example how to do it using the ssh github link:
+FOAM is included directly from its repository. The example below uses a git sub-module, which is one common way to bring it in. Go to the [FOAM Repository][foam-repo] and grab the repository's URL. The example uses SSH — if you haven't set up SSH keys with GitHub yet, see the [GitHub SSH guide][github-ssh]:
 
 ```
-git submodule add git@github.com:kgrgreer/foam3.git
+# using SSH
+git submodule add git@github.com:foam-foundation/foam3.git
 git submodule update --init --recursive --rebase --force
 ```
 
@@ -184,8 +187,9 @@ cd foam3/
 
 # Generate Application
 
-The easiest way to create a FOAM application is to use the foam build script <code>foam3/tools/build.js</code> and generate the application structure and the main application model. To create your application this way,
-while still in the *foam3* directory, execute the following:
+With the repository cloned, the sub-module linked, and the npm dependencies installed, everything is in place. We are now ready to generate our application skeleton.
+
+The easiest way to create a FOAM application is to use the project generator, which scaffolds the application structure and the main application model for you. From the *foam3* directory, run:
 
 ```
 # from foam3 directory
@@ -194,7 +198,12 @@ while still in the *foam3* directory, execute the following:
 cd ..
 ```
 
-In this case, we named the application and the top model _Recipe_ and placed it in the _com.foamdev.cook_ package.
+| Argument | Description |
+|----------|-------------|
+| `-T+setup/Project` | Runs the built-in project scaffolding task |
+| `--appName:Recipe` | The name of the application to generate and its top-level model class |
+| `--package:com.foamdev.cook` | The Java-style package namespace for all generated source files |
+| `--adminPassword:badpassword` | The initial password for the generated admin user — change this before any real deployment |
 
 ## Application Structure
 
@@ -222,13 +231,13 @@ One of the generated files is *build.sh* with the following content:
 node foam3/tools/build.js "$@"
 ```
 
-This is a convenience script to make the application builds easier. Before you use it, make sure that the script has executable privileges:
+This script is your entry point to the FOAM build tools — every build, test, and generator command you run throughout this tutorial goes through it. Before you use it, make sure that the script has executable privileges:
 
 ```
 chmod +x build.sh
 ```
 
-The next file to take a look at is the Project Object Model (POM) file for our project, named pom.js. Note that this file is a meta project file that will be used by FOAM to generate the traditional POM.xml used by build tools. The file should have the following content:
+The next file to take a look at is the Project Object Model (POM) file for our project, named `pom.js`. The `.js` extension is intentional — rather than a static XML descriptor, this is a live JavaScript file that FOAM evaluates at build time to produce the traditional `pom.xml` that build tools expect. Writing it in JavaScript means you can use variables, functions, and conditions to express build configuration that XML simply cannot. The file should have the following content:
 
 ```
 foam.POM({
@@ -284,8 +293,8 @@ in the projects below.</td>
 <td width=80% align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
 </tr>
 <tr>
-<td width=20% align="left">VERSION</td>
-<td width=80% align="left">The version that will be attached to some built files. Should be updated when you make a new release so that old cached code isn't used.</td>
+<td width=20% align="left">envs.version</td>
+<td width=80% align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
 </tr>
 <tr>
 <td width=20% align="left">tasks</td>
@@ -2157,22 +2166,49 @@ A few things worth calling out from the implementation.
 
 **Hand-rolled reactivity with `invalidate`.** Mutations go through the junction DAO, which does not propagate events to the relationship's target DAO — so there is no DAO event the list can subscribe to directly. One solution is a Boolean `invalidate` property used as a dirty flag. An alternative would be to subscribe to `step.ingredientAmounts.junctionDAO.on` events inside the render block — but since this view owns every mutation, the dirty flag is simpler and equally correct.
 
-The list is rendered inside a `dynamic()` block. `dynamic()` is FOAM's **ExpressionSlot for the DOM**: it inspects the argument names of the function you pass in, resolves each one as a slot on the view, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes. Here `invalidate` is the only argument, so the block re-runs exactly when we want it to:
+The list is rendered inside a `dynamic()` block. `dynamic()` is FOAM's **ExpressionSlot for the DOM**: it inspects the argument names of the function you pass in, resolves each one as a slot on the view, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes. Here `invalidate` is the only argument, so the block re-runs exactly when we want it to.
+
+The reset back to `false` lives on the property itself via `postSet`, not inside the `dynamic()` block. Putting it inside the block would cause a second re-render immediately after every mutation — once for `true`, once for `false`. With `postSet` the reset happens synchronously within the setter, before the slot fires, so `dynamic()` sees only the `true` transition and runs once:
 
 ```javascript
 // property
-{ class: 'Boolean', name: 'invalidate' }
+{
+  class: 'Boolean',
+  name: 'invalidate',
+  postSet: function(_, newValue) {
+    if ( newValue ) this.invalidate = false;
+  }
+}
 
-// in render()
-.add(this.dynamic(function(invalidate) {
-  self.invalidate = false;   // mark as rendered
+// dynamic block re-runs on every invalidate = true
+.add(self.dynamic(function(invalidate) {
   var step = self.__context__.objData;
-  this.select(step.ingredientAmounts.dao, function(ia) { ... });
+  if ( ! step || ! step.id ) {
+    this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    return;
+  }
+  this.select(step.ingredientAmounts.dao, function(ia) {
+    this.start().addClass(self.myClass('row'))...
+  }, {
+    onEmpty: function() {
+      this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    }
+  });
 }))
 
-// after every add / remove / edit:
+// after each mutation — bump the flag to re-render:
 self.invalidate = true;
 ```
+
+The empty state message is defined once using FOAM's `messages` axiom — a built-in i18n-aware string constant — and referenced as `self.EMPTY_MESSAGE`:
+
+```javascript
+messages: [
+  { name: 'EMPTY_MESSAGE', message: 'No ingredients yet.' }
+]
+```
+
+There are two distinct empty paths: the step has no `id` yet (just added, not yet persisted — no junction DAO to query), and the step is saved but all its amounts have been removed (the DAO query returns empty, so `onEmpty` fires). Both show the same message.
 
 
 **`RichChoiceView` — reusing the framework's own picker component.** For a `Reference` property (a foreign key), FOAM's `ReferenceView` generates a searchable dropdown automatically. Under the hood, `ReferenceView` delegates to `RichChoiceView` — the same component that powers every relationship picker in the framework. For a `*:*` list there is no generated equivalent: the framework cannot assume whether you want a picker, a multi-select table, tag chips, or something else entirely. So we reach for `RichChoiceView` directly — the same building block the framework uses internally, just configured and wired by hand:
@@ -3551,11 +3587,11 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 
 <!-- List all links here -->
 
-[foam-repo]: https://github.com/kgrgreer/foam3
-[foam-pom-spec]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/POM.md
-[foam-build-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Build.md
-[foam-testing-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Testing.md
-[foam-install]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[foam-repo]: https://github.com/foam-foundation/foam3
+[foam-pom-spec]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/POM.md
+[foam-build-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md
+[foam-testing-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Testing.md
+[foam-install]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [foam-intro]: https://docs.google.com/presentation/d/1yT6Yb5aJJ3OXD3n_8GKC_vtTs_rxJpzOQRgU1Oa_1r4/edit?usp=sharing
 [github-docs-repo]: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
 [app-screen-1]: images/screen1.png
@@ -3566,10 +3602,10 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 [app-screen-6]: images/screen6.png
 [recipe-schema]: images/RecipeDBSchema.png
 [github-ssh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-[foam-dao]: https://github.com/kgrgreer/foam3/blob/development/src/foam/dao/DAO.js
-[foam-guides]: https://github.com/kgrgreer/foam3/tree/development/doc/guides
-[foam-relationships]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Relationships.md
-[foam-nanoservices]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/NanoServices.md
-[foam-dsl-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/DSL.md
-[foam-reactive-ui]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ReactiveUI.md
-[foam-visibility]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md
+[foam-dao]: https://github.com/foam-foundation/foam3/blob/development/src/foam/dao/DAO.js
+[foam-guides]: https://github.com/foam-foundation/foam3/tree/development/doc/guides
+[foam-relationships]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Relationships.md
+[foam-nanoservices]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/NanoServices.md
+[foam-dsl-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/DSL.md
+[foam-reactive-ui]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ReactiveUI.md
+[foam-visibility]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md

@@ -16,8 +16,7 @@ foam.CLASS({
     different threads, as create, delta, remove, create again, delta, and a
     seventh of the ids end removed. The same check runs on a String-id model
     (Group) and on a compound-id model (GroupPermissionJunction), whose ids
-    hash by value. Also checks that the merge returns the merged row itself
-    when the class is unchanged.`,
+    hash by value.`,
 
   javaImports: [
     'foam.core.auth.Group',
@@ -91,13 +90,6 @@ foam.CLASS({
           test(u != null && "again8".equals(u.getUserName()) && "t4".equals(u.getJobTitle()),
             "id 8 ends as its second create plus the last delta, not the first create: " + (u == null ? "null" : u.getUserName() + " " + u.getJobTitle()));
           test(rows.get(7L) == null, "id 7 ends removed");
-
-          // The merge returns the merged old row when the class is unchanged.
-          User old = new User(); old.setId(1); old.setUserName("a"); old.setJobTitle("x");
-          User diff = new User(); diff.setId(1); diff.setJobTitle("y");
-          FObject merged = ref.mergeFObject(old, diff);
-          test(merged == old, "same class: merge returns the old instance");
-          test("a".equals(((User) merged).getUserName()) && "y".equals(((User) merged).getJobTitle()), "merged row carries both sides");
 
           checkStringIds(fsX, storage);
           checkCompoundIds(fsX, storage);

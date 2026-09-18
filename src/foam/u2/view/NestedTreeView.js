@@ -89,6 +89,10 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Every heading shares the same action, so the button's DOM name
+              // would be 'onClickFunctions' for all of them; use the menu id so
+              // recorders/tests get a stable, unique selector per heading.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewHeading.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL'

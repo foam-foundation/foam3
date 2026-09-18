@@ -315,13 +315,25 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Every menu row shares the same action, so the button's DOM name
+              // would be 'onClickFunctions' for all of them; use the menu id so
+              // recorders/tests get a stable, unique selector per menu.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
               themeIcon$: self.data$.dot('themeIcon') || '',
               icon$: self.data$.dot('icon') || ''
             }).
-              attrs({ title: self.data$.dot('tooltip').map(t => t || labelString) }).
+              attrs({
+                title: self.data$.dot('tooltip').map(t => t || labelString),
+                // Rows with children announce open/closed to screen readers. Leaf
+                // rows must not carry aria-expanded at all, or they would be read
+                // as "collapsed"; returning undefined removes the attribute.
+                'aria-expanded': self.slot(function(hasChildren, expanded) {
+                  return hasChildren ? String(expanded) : undefined;
+                })
+              }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().

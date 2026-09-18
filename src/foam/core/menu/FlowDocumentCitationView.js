@@ -13,6 +13,8 @@ foam.CLASS({
     clickable cards that display their name, description, and keywords
   `,
 
+  imports: [ 'routeTo' ],
+
   css: `
     ^ {
       background: $white;
@@ -150,7 +152,7 @@ foam.CLASS({
         .enableClass(this.myClass('expanded'), this.expanded$)
         .attrs({ role: 'button', tabindex: 0 })
         .style({ // Change top of the cards based on the flow's category
-          'border-top-color': 'hsl(' + this.stringToHue(this.data.category) + ', 80%, 45%)'
+          'border-top-color': 'hsl(' + this.stringToHue(this.data.category || '') + ', 80%, 45%)'
         })
         .on('click', this.routeToReflow) // Open flow in Reflow on click
         .on('keydown', function(e) {  // Also do it when you tab + enter
@@ -179,6 +181,7 @@ foam.CLASS({
                     .attrs({ title: keyword })
                     .addClass(self.myClass('keyword'))
                     .add(keyword)
+                    .on('click', function(e) { self.addKeywordOnClick(e, keyword); })
                   .end();
                 })
                 .callIf(kw.length > self.collapsedCount, function() {
@@ -216,6 +219,54 @@ foam.CLASS({
     function routeToReflow(e) {
       e.preventDefault();
       this.reflow();
+    },
+
+    function addKeywordOnClick(e, word) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Get the current search query
+      var hash = window.location.hash;
+      var i = hash.indexOf('search=');
+      var ogQuery = i === -1 ? '' : decodeURIComponent(hash.slice(i + 'search='.length).split('&')[0]);
+      var newQuery = ogQuery;
+
+      if ( ogQuery.length == 0 ) { // If the search query is empty
+        newQuery = "keywords IN (" + word + ")";
+
+      } else if ( ogQuery.includes('keywords IN (') ) { // If the search query already has "keywords IN"
+        var j     = ogQuery.indexOf('keywords IN (');
+        var open  = j + 'keywords IN ('.length;
+        var close = ogQuery.indexOf(')', open);
+
+        if ( close === -1 ) {
+          // Malformed — no closing paren. Leave the query alone.
+          newQuery = ogQuery;
+        } else {
+          var terms = ogQuery.slice(open, close)
+            .split(',')
+            .map(t => t.trim())
+            .filter(t => t);
+
+          if ( ! terms.includes(word) ) {
+            terms.push(word);
+            newQuery = ogQuery.slice(0, open) +
+                       terms.join(', ') +
+                       ogQuery.slice(close);
+          }
+        }
+      } else { // If the search query has non-keyword-related content
+        newQuery = ogQuery + " OR keywords IN (" + word + ")"; // Append on the keyword query
+      }
+
+      if ( newQuery === ogQuery ) return; // Don't rebuild for no reason
+
+      // Set the newQuery and push it to the URL, then route back to this menu
+      var route = hash.replace(/^#/, '');          // "knowledgeBase?search=..."
+      var qIdx  = route.indexOf('?');
+      var menu  = qIdx === -1 ? route : route.slice(0, qIdx);
+
+      this.routeTo(menu + '?search=' + encodeURIComponent(newQuery));
     }
   ],
 

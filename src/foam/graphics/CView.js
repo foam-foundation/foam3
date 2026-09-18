@@ -417,6 +417,11 @@ foam.CLASS({
   // Fires when this CView is invalidated and needs a repaint.
   // Is listened to a foam.u2.Canvas() if one was created for
   // this CView.
+  constants: {
+    CACHE_SCALE_TOLERANCE: 0.1,  // re-render the cached bitmap when the effective scale drifts more than 10%
+    CACHE_PAD: 4                 // local units added around the cached extent so strokes and shadows at the edge are not cropped
+  },
+
   topics: [ 'invalidated' ],
 
   properties: [
@@ -602,6 +607,17 @@ foam.CLASS({
           this.autoRepaint ? this.invalidated.pub    :
           null ;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'cached_',
+      transient: true, hidden: true,
+      documentation: `
+        True between cache() and uncache(). The bitmap itself (cacheCanvas_), the scale it was
+        rendered at (cacheScale_) and the subscriptions (cacheSubs_) are plain fields, not
+        properties: writing a property fires propertyChange, which is exactly the signal the
+        cache listens to, so storing the bitmap in a property would invalidate it immediately.
+      `
     }
   ],
 
@@ -679,6 +695,93 @@ foam.CLASS({
       }
     },
 
+    function cache() {
+      /**
+       * Like Konva node.cache(): render this subtree once to an offscreen bitmap and
+       * blit it on later paints until something inside changes. Use on a subtree with
+       * many static children (a strip of shapes) so one change elsewhere does not repaint it.
+       * Children added after this call are not watched until cache() is called again.
+       */
+      this.cached_ = true;
+      this.cacheCanvas_ = null;
+      this.unsubscribeSubtree_();
+      this.cacheSubs_ = [];
+      this.subscribeSubtree_(this);
+    },
+
+    function subscribeSubtree_(node) {
+      // Any property change anywhere in the subtree drops the bitmap.
+      this.cacheSubs_.push(node.propertyChange.sub(this.invalidateCache.bind(this)));
+      for ( var i = 0 ; i < node.children.length ; i++ ) this.subscribeSubtree_(node.children[i]);
+    },
+
+    function unsubscribeSubtree_() {
+      ( this.cacheSubs_ || [] ).forEach(function(s) { s.detach(); });
+      this.cacheSubs_ = null;
+    },
+
+    function uncache() {
+      this.cached_ = false;
+      this.cacheCanvas_ = null;
+      this.unsubscribeSubtree_();
+    },
+
+    function invalidateCache() {
+      this.cacheCanvas_ = null;
+    },
+
+    function effectiveScale_(x) {
+      /** Scale applied to x so far (read back from the context when available; 1 in tests). */
+      var t = x.getTransform ? x.getTransform() : null;
+      return t ? Math.sqrt(t.a * t.a + t.b * t.b) : 1;
+    },
+
+    function cacheBounds_() {
+      /**
+       * Size of the area the bitmap must cover, in local units. A node with its own width/height
+       * (a Box) uses that; a sizeless group (a SceneLayer) uses the extent of its children.
+       */
+      if ( this.width && this.height ) return { w: this.width, h: this.height };
+      var w = 0, h = 0;
+      for ( var i = 0 ; i < this.children.length ; i++ ) {
+        var c = this.children[i], cb = c.cacheBounds_ ? c.cacheBounds_() : { w: c.width, h: c.height };
+        w = Math.max(w, c.x + cb.w * ( c.scaleX || 1 ));
+        h = Math.max(h, c.y + cb.h * ( c.scaleY || 1 ));
+      }
+      return { w: w, h: h };
+    },
+
+    function renderCache_(x) {
+      /** Paints self + children into a fresh offscreen canvas covering cacheBounds_() at the current scale. */
+      var scale = this.effectiveScale_(x) * this.scaleX;
+      var pad = this.CACHE_PAD, b = this.cacheBounds_();
+      b = { w: b.w + 2 * pad, h: b.h + 2 * pad };          // pad on every side: strokes spill past the rectangle in both directions
+      var w = Math.max(1, Math.ceil(b.w * scale));
+      var h = Math.max(1, Math.ceil(b.h * scale));
+      var off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)
+              : typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: w, height: h })
+              : null;
+      if ( ! off ) return false;             // no canvas at all: caller falls back to live painting
+      var ctx = off.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.translate(pad, pad);                              // local origin sits pad units inside the bitmap
+      ctx.save();
+        this.paintSelf(ctx);
+      ctx.restore();
+      this.paintChildren(ctx);
+      this.cacheCanvas_ = off;
+      this.cacheScale_  = scale;
+      this.cacheW_ = b.w; this.cacheH_ = b.h;      // blit size in local units
+      return true;
+    },
+
+    function paintLive_(x) {
+      x.save();
+        this.paintSelf(x);
+      x.restore();
+      this.paintChildren(x);
+    },
+
     function paint(x) {
       this.maybeInitCView(x);
 
@@ -715,10 +818,15 @@ foam.CLASS({
           x.shadowBlur  = shadowBlur;
         }
 
-        x.save();
-          this.paintSelf(x);
-        x.restore();
-        this.paintChildren(x);
+        if ( this.cached_ ) {
+          // Re-render when stale or when the zoom drifted enough to blur; otherwise blit the bitmap.
+          var scaleNow = this.effectiveScale_(x) * this.scaleX;
+          var stale = ! this.cacheCanvas_ || Math.abs(scaleNow - this.cacheScale_) > this.CACHE_SCALE_TOLERANCE * this.cacheScale_;
+          if ( stale && ! this.renderCache_(x) ) this.paintLive_(x);
+          else x.drawImage(this.cacheCanvas_, -this.CACHE_PAD, -this.CACHE_PAD, this.cacheW_, this.cacheH_);
+        } else {
+          this.paintLive_(x);
+        }
       } finally {
         x.restore();
       }

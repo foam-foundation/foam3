@@ -1,4 +1,4 @@
-<flow name="email-setup" category="DOC/GUIDE" spid="foam"/>
+<flow name="email-setup" category="DOC/GUIDE" spid="foam" description="Step-by-step guide for configuring email: EmailServiceConfig (SMTP), EmailTemplate, and EmailConfig journal entries." keywords="email,smtp,emailtemplate,notificationdao"/>
 
 # Email Setup Guide with Foam
 

@@ -1,4 +1,4 @@
-<flow name="claude" category="DOC/GUIDE" spid="foam"/>
+<flow name="claude" category="DOC/GUIDE" spid="foam" description="Comprehensive LLM-oriented FOAM3 reference covering class definition, properties, DAOs, MLang, context, and code-generation conventions." keywords="llm,reference,foam.class,context,dao"/>
 
 # FOAM for LLMs
 

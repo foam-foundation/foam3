@@ -1,4 +1,4 @@
-<flow name="Build" category="DOC/GUIDE" spid="foam"/>
+<flow name="Build" category="DOC/GUIDE" spid="foam" description="The FOAM Pom-O-Matic build system: POM file types, the three build phases, and command-line flag styles." keywords="build,pom-o-matic,flags,tooling,compilation"/>
 
 # FOAM Build
 **Pom-O-Matic**

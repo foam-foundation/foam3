@@ -1,4 +1,4 @@
-<flow name="Cron" category="DOC/DEV" spid="foam"/>
+<flow name="Cron" category="DOC/DEV" spid="foam" description="Cron, CronJob, and CronJobEvent: regular and re-attempt scheduling, and maxReattempts alarm behaviour." keywords="cron,scheduling,cronjob,reattempt"/>
 
 # Cron
 

@@ -1,4 +1,4 @@
-<flow name="SystemOutage" category="DOC/DEV" spid="foam"/>
+<flow name="SystemOutage" category="DOC/DEV" spid="foam" description="SystemOutage models system-wide events: SystemNotification display, filtering, and EventRecord integration." keywords="systemoutage,systemnotification,eventrecord"/>
 
 # SystemOutage
 

@@ -1,4 +1,4 @@
-<flow name="Wizard" category="DOC/DEV" spid="foam" label="Modular Wizard Documentation"/>
+<flow name="Wizard" category="DOC/DEV" spid="foam" label="Modular Wizard Documentation" description="Out-of-date wizard documentation: Wizardlet, WizardletSection, and StepWizardController for building step wizards." keywords="wizard,wizardlet,stepwizardcontroller"/>
 
 # THIS DOCUMENTATION IS OUT OF DATE
 

@@ -1,4 +1,4 @@
-<flow name="Dao" category="DOC/GUIDE" spid="foam"/>
+<flow name="Dao" category="DOC/GUIDE" spid="foam" description="Comprehensive DAO guide: JS/Java DAO interfaces, filtering, common sinks, EasyDAO overview, MLang predicates." keywords="dao,select,find,put,mlang,sinks"/>
 
 # DAO: Data Access Objects
 

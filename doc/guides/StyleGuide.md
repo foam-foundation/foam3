@@ -1,4 +1,4 @@
-<flow name="StyleGuide" category="DOC/GUIDE" spid="foam"/>
+<flow name="StyleGuide" category="DOC/GUIDE" spid="foam" description="FOAM coding style guidelines: Google JS Style Guide exceptions, naming conventions, and modelling over prototyping." keywords="style guide,naming conventions,formatting"/>
 
 # FOAM3 Coding Style Guidelines
 

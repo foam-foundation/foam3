@@ -1,4 +1,4 @@
-<flow name="Services" category="DOC/GUIDE" spid="foam"/>
+<flow name="Services" category="DOC/GUIDE" spid="foam" description="Step-by-step guide to creating FOAM nano-services: foam.INTERFACE with skeleton, server implementation, CSpec registration." keywords="services,interface,skeleton,cspec"/>
 
 ## How to Create Services
 

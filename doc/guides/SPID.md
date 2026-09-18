@@ -1,4 +1,4 @@
-<flow name="SPID" category="DOC/GUIDE" spid="foam"/>
+<flow name="SPID" category="DOC/GUIDE" spid="foam" description="Comprehensive guide to the SPID multi-tenancy system: ServiceProviderAware, hierarchical SPIDs, and per-SPID Theme white-labelling." keywords="spid,multi-tenancy,theme,white-labelling"/>
 
 # FOAM Service Provider (SPID) System
 

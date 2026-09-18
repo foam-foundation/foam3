@@ -1,4 +1,4 @@
-<flow name="Slots" category="DOC/GUIDE" spid="foam"/>
+<flow name="Slots" category="DOC/GUIDE" spid="foam" description="Conceptual reference for Slots as observable pointers: PropertySlot, SubSlot, ExpressionSlot, the $ accessor, two-way linking." keywords="slots,propertyslot,observable,two-way binding"/>
 
 # Slots: Observable OO Pointers
 

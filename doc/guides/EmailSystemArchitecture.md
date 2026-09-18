@@ -1,4 +1,4 @@
-<flow name="EmailSystemArchitecture" category="DOC/GUIDE" spid="foam"/>
+<flow name="EmailSystemArchitecture" category="DOC/GUIDE" spid="foam" description="Architecture overview of FOAM3's email pipeline: config entry types, rule-driven processing, templates, Microsoft Graph integration." keywords="email,architecture,templates,microsoft graph"/>
 
 # FOAM3 Email System Architecture
 

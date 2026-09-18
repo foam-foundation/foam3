@@ -1,4 +1,4 @@
-<flow name="Compaction" category="DOC/GUIDE" spid="foam"/>
+<flow name="Compaction" category="DOC/GUIDE" spid="foam" description="Covers FOAM journal compaction: the five-step process that rewrites delta entries into one entry per object." keywords="compaction,journal,replay,rollback"/>
 
 # Journal Compaction
 

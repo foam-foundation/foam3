@@ -1,4 +1,4 @@
-<flow name="FlowWidgets" category="DOC/DEV" spid="foam"/>
+<flow name="FlowWidgets" category="DOC/DEV" spid="foam" description="FLOW widgets for documenting FOAM code: TabbedModelDocumentation, PropertyShortSummary, ModelSummary, EnumSummary, ApiShortSummary." keywords="flow widgets,documentation,modelsummary"/>
 
 # FLOW Widgets
 

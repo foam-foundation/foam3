@@ -1,4 +1,4 @@
-<flow name="Guides" category="DOC/GUIDE" spid="foam"/>
+<flow name="Guides" category="DOC/GUIDE" spid="foam" description="Index of all FOAM3 guides, organized by category, to help you find which guide to read." keywords="guides,index,documentation,table of contents"/>
 
 # Guide to Guides
 

@@ -1,4 +1,4 @@
-<flow name="DaoExamples" category="DOC/GUIDE" spid="foam"/>
+<flow name="DaoExamples" category="DOC/GUIDE" spid="foam" description="Hands-on code examples for ArrayDAO, put, find, select with predicates and sinks." keywords="dao,examples,arraydao,select,predicates"/>
 
 # Foam version 2, DAO examples.
 

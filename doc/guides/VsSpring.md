@@ -1,4 +1,4 @@
-<flow name="VsSpring" category="DOC/GUIDE" spid="foam"/>
+<flow name="VsSpring" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-language, context DI) vs Spring Boot (annotation-driven, Java IoC container)." keywords="spring,comparison,ioc,java"/>
 
 ## Overview
 

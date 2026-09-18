@@ -1,4 +1,4 @@
-<flow name="CrunchExtra" category="DOC/DEV" spid="foam"/>
+<flow name="CrunchExtra" category="DOC/DEV" spid="foam" description="Utility classes for use with CRUNCH." keywords="crunch,utilities"/>
 
 # CRUNCH Extras
 

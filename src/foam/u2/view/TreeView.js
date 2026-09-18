@@ -327,8 +327,9 @@ foam.CLASS({
             }).
               attrs({
                 title: self.data$.dot('tooltip').map(t => t || labelString),
-                // Announce collapse state to assistive tech; leaf rows get no
-                // aria-expanded at all (undefined removes the attribute).
+                // Rows with children announce open/closed to screen readers. Leaf
+                // rows must not carry aria-expanded at all, or they would be read
+                // as "collapsed"; returning undefined removes the attribute.
                 'aria-expanded': self.slot(function(hasChildren, expanded) {
                   return hasChildren ? String(expanded) : undefined;
                 })

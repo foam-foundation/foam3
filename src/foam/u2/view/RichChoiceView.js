@@ -630,10 +630,11 @@ foam.CLASS({
                           .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
-                          // Mirror the root's data-value (set in render above) so
-                          // each option is addressable by id, not list position.
-                          // name too: test recorders configured to key on the
-                          // name attribute can then anchor option clicks by id.
+                          // Option rows had no id-bearing attribute, so recorders/tests
+                          // could only address them by list position, which breaks on
+                          // any reorder. Carry the choice id as data-value (matching the
+                          // root element) and as name, the attribute test recorders are
+                          // pointed at.
                           .attrs({
                             'data-value': foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id,
                             name: foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id

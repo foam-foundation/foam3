@@ -1,4 +1,4 @@
-<flow name="Modals" category="DOC/GUIDE" spid="foam" description="Describes the modal hierarchy: Popup, StyledModal, ConfirmationModal, and ApplicationPopup wizard flows." keywords="modals,popup,confirmationmodal,wizard"/>
+<flow name="Modals" category="DOC/GUIDE" spid="foam" description="Describes the modal hierarchy: Popup, StyledModal, ConfirmationModal, and ApplicationPopup wizard flows." keywords="modals,popup,confirmationmodal,wizard,knowledge"/>
 
 ## Modal Component Hierarchy
 

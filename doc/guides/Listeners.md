@@ -1,4 +1,4 @@
-<flow name="Listeners" category="DOC/GUIDE" spid="foam" description="Covers Listeners as pre-bound methods: short/long form, isMerged/isFramed/isIdled timing, pub/sub topics, on: binding." keywords="listeners,pub/sub,ismerged,isframed,topics"/>
+<flow name="Listeners" category="DOC/GUIDE" spid="foam" description="Covers Listeners as pre-bound methods: short/long form, isMerged/isFramed/isIdled timing, pub/sub topics, on: binding." keywords="listeners,pub/sub,ismerged,isframed,topics,knowledge"/>
 
 # Listeners
 

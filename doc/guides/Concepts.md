@@ -1,4 +1,4 @@
-<flow name="Concepts" category="DOC/GUIDE" spid="foam" description="Core pillars of FOAM thinking: meta-programming, Model-Driven Development, Feature-Orientation, and meta-circularity." keywords="meta-programming,mdd,feature-orientation,meta-circularity,concepts"/>
+<flow name="Concepts" category="DOC/GUIDE" spid="foam" description="Core pillars of FOAM thinking: meta-programming, Model-Driven Development, Feature-Orientation, and meta-circularity." keywords="meta-programming,mdd,feature-orientation,meta-circularity,concepts,knowledge"/>
 
 # Key FOAM Concepts
 

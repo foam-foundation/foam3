@@ -1,4 +1,4 @@
-<flow name="ApplicationController" category="DOC/GUIDE" spid="foam" description="Documents foam.core.controller.ApplicationController: navigation stack, auth lifecycle, theming, notifications, session management." keywords="applicationcontroller,navigation,theming,session,auth"/>
+<flow name="ApplicationController" category="DOC/GUIDE" spid="foam" description="Documents foam.core.controller.ApplicationController: navigation stack, auth lifecycle, theming, notifications, session management." keywords="applicationcontroller,navigation,theming,session,auth,knowledge"/>
 
 # ApplicationController
 

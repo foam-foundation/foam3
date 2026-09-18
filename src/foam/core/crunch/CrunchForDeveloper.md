@@ -1,4 +1,4 @@
-<flow name="CrunchForDeveloper" category="DOC/DEV" spid="foam" description="CRUNCH developer internals: CrunchController, CapabilityIntercept, and throwing intercepts for subject capabilities." keywords="crunch,capabilityintercept,crunchcontroller"/>
+<flow name="CrunchForDeveloper" category="DOC/DEV" spid="foam" description="CRUNCH developer internals: CrunchController, CapabilityIntercept, and throwing intercepts for subject capabilities." keywords="crunch,capabilityintercept,crunchcontroller,knowledge"/>
 
 # CRUNCH Developer Documentation
 

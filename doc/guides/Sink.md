@@ -1,4 +1,4 @@
-<flow name="Sink" category="DOC/GUIDE" spid="foam" description="Reference for FOAM Sinks: put/remove/eof/reset interface, streaming architecture, built-in sinks, delegation and chaining." keywords="sink,arraysink,count,group_by,streaming"/>
+<flow name="Sink" category="DOC/GUIDE" spid="foam" description="Reference for FOAM Sinks: put/remove/eof/reset interface, streaming architecture, built-in sinks, delegation and chaining." keywords="sink,arraysink,count,group_by,streaming,knowledge"/>
 
 # FOAM Sinks
 

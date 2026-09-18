@@ -1,4 +1,4 @@
-<flow name="HTTPS" category="DOC/DEV" spid="foam" label="HTTPS" description="Configuring a FOAM application for SSL/HTTPS in local development and production, including certificate generation." keywords="https,ssl,certificates,keystore,deployment"/>
+<flow name="HTTPS" category="DOC/DEV" spid="foam" label="HTTPS" description="Configuring a FOAM application for SSL/HTTPS in local development and production, including certificate generation." keywords="https,ssl,certificates,keystore,deployment,knowledge"/>
 
 # FOAM SSL/HTTPS
 

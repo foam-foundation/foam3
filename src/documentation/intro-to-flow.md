@@ -1,4 +1,4 @@
-<flow name="intro-to-flow" category="DOC/DEV" spid="foam" description="Introduction to FLOW, FOAM's text markup language for live documents: italics, bold, headers, links, embedded FOAM tags, code blocks." keywords="flow,markup,documentation,foam tags"/>
+<flow name="intro-to-flow" category="DOC/DEV" spid="foam" description="Introduction to FLOW, FOAM's text markup language for live documents: italics, bold, headers, links, embedded FOAM tags, code blocks." keywords="flow,markup,documentation,foam tags,knowledge"/>
 
 # Introduction to FLOW
 

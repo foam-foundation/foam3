@@ -1,4 +1,4 @@
-<flow name="DaoEventsAndRefresh" category="DOC/GUIDE" spid="foam" description="Explains the three DAO events (put/remove/reset), how they bubble to views, and when to force a manual refresh." keywords="dao events,listen,refresh,put,remove,reset"/>
+<flow name="DaoEventsAndRefresh" category="DOC/GUIDE" spid="foam" description="Explains the three DAO events (put/remove/reset), how they bubble to views, and when to force a manual refresh." keywords="dao events,listen,refresh,put,remove,reset,knowledge"/>
 
 # DAO Events & Refresh
 

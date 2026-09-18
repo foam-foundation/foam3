@@ -1,4 +1,4 @@
-<flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging" description="Overview of Box based messaging, FOAM's minimal send-only network abstraction underlying Stub/Skeleton RPC and ClientDAO." keywords="box,envelope,rpc,messaging,clientdao"/>
+<flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging" description="Overview of Box based messaging, FOAM's minimal send-only network abstraction underlying Stub/Skeleton RPC and ClientDAO." keywords="box,envelope,rpc,messaging,clientdao,knowledge"/>
 
 # Overview
 

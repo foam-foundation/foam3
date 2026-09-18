@@ -1,4 +1,4 @@
-<flow name="Reflow" category="DOC/GUIDE" spid="foam" description="Overview of Reflow, FOAM's Jupyter-style interactive console: Console, Flow documents, Block execution, command system, dashboards." keywords="reflow,console,flow,block,dashboard"/>
+<flow name="Reflow" category="DOC/GUIDE" spid="foam" description="Overview of Reflow, FOAM's Jupyter-style interactive console: Console, Flow documents, Block execution, command system, dashboards." keywords="reflow,console,flow,block,dashboard,knowledge"/>
 
 ## Overview
 

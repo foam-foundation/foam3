@@ -1,4 +1,4 @@
-<flow name="DebuggingCountAndUsed" category="DOC/GUIDE" spid="foam" description="Explains cls.count_ (instance creation count per class) and foam.USED (registry of instantiated classes this session)." keywords="debugging,count,used,unused,classes"/>
+<flow name="DebuggingCountAndUsed" category="DOC/GUIDE" spid="foam" description="Explains cls.count_ (instance creation count per class) and foam.USED (registry of instantiated classes this session)." keywords="debugging,count,used,unused,classes,knowledge"/>
 
 # FOAM3 Debugging: `count_` and `foam.USED`
 

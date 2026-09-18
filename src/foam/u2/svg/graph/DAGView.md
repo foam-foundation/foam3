@@ -1,4 +1,4 @@
-<flow name="DAGView" category="DOC/DEV" spid="foam" description="DAGView renders a directed acyclic graph via SVG, with pluggable grid placement plans for node layout." keywords="dagview,graph,svg,placement plan"/>
+<flow name="DAGView" category="DOC/DEV" spid="foam" description="DAGView renders a directed acyclic graph via SVG, with pluggable grid placement plans for node layout." keywords="dagview,graph,svg,placement plan,knowledge"/>
 
 # DAGView
 

@@ -10,7 +10,11 @@ foam.CLASS({
   extends: 'foam.u2.CitationView',
   documentation: `
     CitationView for rendering documentation/tutorial/demo flows as
-    clickable cards that display their name, description, and keywords
+    clickable cards that display their name, description, and keywords.
+
+    When editing the CSS for this view, keep in mind that ^keyword's
+    max-width: 98px; depends on ^'s width, which in turn decides
+    collapsedCount.
   `,
 
   imports: [ 'routeTo' ],

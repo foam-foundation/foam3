@@ -40,6 +40,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"localEmailMessageDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
@@ -48,7 +49,6 @@ p({
       .setFuid(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("emailMessages")
-      .setWaitReplay(false)
       .setSaf(true)
       .setServiceProviderAware(false)
       .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
@@ -214,6 +214,7 @@ p({
   class:"foam.core.boot.CSpec",
   name:"smtpAgent",
   lazy: false,
+  lazyOrder: -1,
   service:{
     class:"foam.core.notification.email.SMTPAgent",
     id: 'smtp'
@@ -224,6 +225,7 @@ p({
   class:"foam.core.boot.CSpec",
   name:"emailFolderAgent",
   lazy: false,
+  lazyOrder: -1,
   service:{
     class:"foam.core.notification.email.EmailFolderAgent",
     id: 'imap'

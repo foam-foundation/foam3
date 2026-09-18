@@ -212,19 +212,23 @@ public class OAuthWebAgent implements WebAgent {
         // after user successfully authenticated on the provider side their email is considered
         // as verified implicitly.
         if (!bodyObject.getBoolean("email_verified", true)) {
+            logger.warning("Invalid idToken: Email is not verified", bodyb64);
             throw new AuthenticationException("Email is not verified");
         }
 
         if (bodyObject.getInt("exp", Integer.MIN_VALUE) < java.time.Instant.now().getEpochSecond()) {
+            logger.warning("Invalid idToken: Expired token", bodyb64);
             throw new AuthenticationException("Expired token");
         }
 
         if (!provider.getClientId().equals(bodyObject.getString("aud"))) {
+            logger.warning("Invalid idToken: Incorrect audience", bodyb64);
             throw new AuthenticationException("Incorrect audience");
         }
 
         String email = bodyObject.getString("email", null);
         if ( SafetyUtil.isEmpty(email) ) {
+            logger.warning("Invalid idToken: Missing email", bodyb64);
             throw new AuthenticationException("Missing email");
         }
 

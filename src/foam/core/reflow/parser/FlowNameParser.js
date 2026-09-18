@@ -8,8 +8,10 @@ foam.CLASS({
   package: 'foam.core.reflow.parser',
   name: 'FlowNameParser',
   extends: 'foam.parse.Grammar',
+  implements: [ 'foam.mlang.Expressions' ],
 
   requires: [
+    'foam.core.reflow.Flow',
     'foam.parse.Alternate',
     'foam.parse.Parsers'
   ],
@@ -25,17 +27,24 @@ foam.CLASS({
       const p          = this.Parsers.create();
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
-      (await this.flowDAO.select()).array.sort(comparator).map(f => {
-        this.alt.args.push(p.sug(p.literalIC(f.name), {
-          text:  f.name,
+      // Only the name and category are needed; a projection avoids pulling
+      // every flow's full script and blocks just to list them.
+      const sink = await this.flowDAO.select(
+        this.PROJECTION(this.Flow.NAME, this.Flow.CATEGORY));
+
+      sink.projection.sort((a, b) => comparator(a[0], b[0])).forEach(row => {
+        const [ name, category ] = row;
+        this.alt.args.push(p.sug(p.literalIC(name), {
+          text: name,
           prependSpaceOnSelect: false,
-          category: 'flow'}));
+          category: category || 'flow'}));
       });
     },
 
-    function grammar() {
+    function grammar(seq1, sym) {
       return {
-        START: this.alt
+        START: seq1(1, ' ', sym('flows')),
+        flows: this.alt
       };
     }
   ]

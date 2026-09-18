@@ -190,6 +190,109 @@ foam.CLASS({
       });
 
       return { nodes: nodes, edges: edges };
+    },
+
+    function rewrite(blocks, renames) {
+      /**
+       * Mutates blocks in place: renames flowName at every nesting level and
+       * rewrites references inside the same scanned string fields that scan()
+       * reads, using the same token rules. renames = { oldName: newName }.
+       */
+      renames = renames || {};
+
+      var declared = {};
+      this.names(blocks).forEach(function(n) { declared[n] = true; });
+
+      var aliasMap = {};
+      for ( var oldName in renames ) {
+        if ( ! Object.prototype.hasOwnProperty.call(renames, oldName) ) continue;
+        var newName = renames[oldName];
+        aliasMap[oldName] = newName;
+        aliasMap[oldName + '$block'] = newName + '$block';
+        // "xDAO" is also addressable as "x" unless a block is named "x" (the
+        // rule scan() applies). The short form follows the new name: "yDAO"
+        // keeps one, any other name is spelled in full.
+        if ( oldName.length > 3 && oldName.slice(-3) === 'DAO' ) {
+          var short = oldName.slice(0, -3);
+          if ( ! declared[short] ) {
+            aliasMap[short] = newName.length > 3 && newName.slice(-3) === 'DAO' ?
+              newName.slice(0, -3) :
+              newName;
+          }
+        }
+      }
+
+      function renameFlowNames(list) {
+        for ( var i = 0 ; i < list.length ; i++ ) {
+          var b = list[i];
+          if ( Object.prototype.hasOwnProperty.call(renames, b.flowName) ) {
+            b.flowName = renames[b.flowName];
+          }
+          if ( b.flowChildren && b.flowChildren.length ) renameFlowNames(b.flowChildren);
+        }
+      }
+
+      function rewriteString(str) {
+        var re = /[A-Za-z_$][\w$]*/g;
+        var result = '';
+        var lastIndex = 0;
+        var m;
+        while ( (m = re.exec(str)) !== null ) {
+          var tok = m[0];
+          var precededByDot = m.index > 0 && str.charAt(m.index - 1) === '.';
+          if ( ! precededByDot && Object.prototype.hasOwnProperty.call(aliasMap, tok) ) {
+            result += str.slice(lastIndex, m.index) + aliasMap[tok];
+            lastIndex = m.index + tok.length;
+          }
+        }
+        result += str.slice(lastIndex);
+        return result;
+      }
+
+      // Same field classification as scan()'s walkFields, but mutates
+      // string leaves in place instead of collecting edges.
+      function walkAndRewrite(obj, forcedKind) {
+        if ( obj === null || typeof obj !== 'object' ) return;
+        if ( Array.isArray(obj) ) {
+          for ( var i = 0 ; i < obj.length ; i++ ) {
+            if ( typeof obj[i] === 'string' ) {
+              if ( forcedKind ) obj[i] = rewriteString(obj[i]);
+            } else {
+              walkAndRewrite(obj[i], forcedKind);
+            }
+          }
+          return;
+        }
+        for ( var key in obj ) {
+          if ( ! Object.prototype.hasOwnProperty.call(obj, key) ) continue;
+          if ( key === 'flowChildren' || key === 'flowName' || key === 'class' ) continue;
+          var val  = obj[key];
+          var kind = forcedKind;
+          if ( key === 'reactions_' ) {
+            kind = 'reaction';
+          } else if ( ! kind ) {
+            if ( key === 'cmd' || key === 'src' ) kind = 'data';
+            else if ( key.indexOf('daoKey') === 0 ) kind = 'data';
+            else if ( key === 'code' || key === 'script' || key === 'countOnClick' ) kind = 'script';
+          }
+          if ( typeof val === 'string' ) {
+            if ( kind ) obj[key] = rewriteString(val);
+          } else {
+            walkAndRewrite(val, kind);
+          }
+        }
+      }
+
+      renameFlowNames(blocks || []);
+
+      function walkBlocksForRewrite(list) {
+        for ( var i = 0 ; i < list.length ; i++ ) {
+          var b = list[i];
+          walkAndRewrite(b, null);
+          if ( b.flowChildren && b.flowChildren.length ) walkBlocksForRewrite(b.flowChildren);
+        }
+      }
+      walkBlocksForRewrite(blocks || []);
     }
   ]
 });

@@ -12,6 +12,10 @@ foam.CLASS({
 
   imports: [ 'softSelected' ],
 
+  implements: [ 'foam.core.reflow.TreeCellFormatter' ],
+
+  requires: [ 'foam.core.reflow.TreeCellFormatter' ],
+
   css: `
     ^dependent {
       border: 1px solid orange !important;
@@ -106,6 +110,20 @@ foam.CLASS({
       return this.flowName;
     },
 
+    function flowRoot() {
+      /** The Console at the top of the flowParent chain. */
+      var f = this;
+      while ( f.flowParent ) f = f.flowParent;
+      return f;
+    },
+
+    function flattenFlow() {
+      /** Every block below this one in document order, parent before its children. */
+      var out = [];
+      ( function walk(l) { l.forEach(b => { out.push(b); walk(b.flowChildren || []); }); } )(this.flowChildren);
+      return out;
+    },
+
     function createFlowChildName(prefix) {
       for ( var i = 1, name = prefix ; ; ) {
         name = prefix + i++;
@@ -156,6 +174,10 @@ foam.CLASS({
         this.detachFlowChild(c);
       });
       this.flowChildren = [];
+    },
+
+    function treeCellFormatter(e) {
+      if ( this.TreeCellFormatter.isInstance(this.value) ) this.value.treeCellFormatter(e);
     }
   ]
 });

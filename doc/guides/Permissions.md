@@ -1,3 +1,5 @@
+<flow name="Permissions" category="DOC/GUIDE" spid="foam" description="Documents the permission system: User to Group to GroupPermissionJunction to Permission check flow and the AuthService decorator chain." keywords="permissions,authservice,groups,cspec,knowledge"/>
+
 # FOAM Permissions
 
 ## Permission System Architecture

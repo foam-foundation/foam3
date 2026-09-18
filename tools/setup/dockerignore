@@ -1,0 +1,15 @@
+.git
+**/.git
+build
+**/build
+node_modules
+**/node_modules
+pom.xml
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store

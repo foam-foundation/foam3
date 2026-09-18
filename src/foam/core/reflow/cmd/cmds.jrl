@@ -1,25 +1,26 @@
-p({"class":"foam.core.reflow.cmd.Cells", "id": "cells", permissionRequired: true })
+p({"class":"foam.core.reflow.cmd.Cells", "id": "cells", "icon": "/images/matrix.svg", permissionRequired: true })
 p({"class":"foam.core.reflow.cmd.Clear", "id": "clear"})
-p({"class":"foam.core.reflow.cmd.DAO", "id": "dao"})
-p({"class":"foam.core.reflow.cmd.From", "id": "FROM", permissionRequired: true})
-p({"class":"foam.core.reflow.cmd.DAOCreate", "id": "add", linkable: false})
-p({"class":"foam.core.reflow.cmd.DAOS", "id": "daos"})
-p({"class":"foam.core.reflow.cmd.Describe", "id": "describe", linkable: false})
-p({"class":"foam.core.reflow.cmd.Flows", "id": "flows"})
-p({"class":"foam.core.reflow.cmd.Help", "id": "help"})
-p({"class":"foam.core.reflow.cmd.HelpFunctions", "id": "helpFn"})
-p({"class":"foam.core.reflow.cmd.History", "id": "history"})
-p({"class":"foam.core.reflow.cmd.Load", "id": "load", linkable: false})
-p({"class":"foam.core.reflow.cmd.MQLHelp", "id": "helpMQL"})
-p({"class":"foam.core.reflow.cmd.Models", "id": "models"})
+p({"class":"foam.core.reflow.cmd.DAO", "id": "dao", "icon": "database"})
+p({"class":"foam.core.reflow.cmd.From", "id": "FROM", "icon": "/images/ic-search.svg", permissionRequired: true})
+p({"class":"foam.core.reflow.cmd.DAOCreate", "id": "add", "icon": "database", linkable: false})
+p({"class":"foam.core.reflow.cmd.DAOS", "id": "daos", "icon": "database"})
+p({"class":"foam.core.reflow.cmd.Describe", "id": "describe", "icon": "documentation", linkable: false})
+p({"class":"foam.core.reflow.cmd.Flows", "id": "flows", "icon": "flow"})
+p({"class":"foam.core.reflow.cmd.Help", "id": "help", "icon": "documentation"})
+p({"class":"foam.core.reflow.cmd.HelpFunctions", "id": "helpFn", "icon": "documentation"})
+p({"class":"foam.core.reflow.cmd.History", "id": "history", "icon": "history"})
+p({"class":"foam.core.reflow.cmd.Load", "id": "load", "icon": "flow", linkable: false})
+p({"class":"foam.core.reflow.cmd.MQLHelp", "id": "helpMQL", "icon": "documentation"})
+p({"class":"foam.core.reflow.cmd.Models", "id": "models", "icon": "/images/modeling.svg"})
 // p({"class":"foam.core.reflow.cmd.Quote", "id": "quote", linkable: false})
 p({"class":"foam.core.reflow.cmd.Save", "id": "save"})
-p({"class":"foam.core.reflow.cmd.Login", "id": "login"})
-p({"class":"foam.core.reflow.cmd.Services", "id": "services", permissionRequired: true })
+p({"class":"foam.core.reflow.cmd.Login", "id": "login", "icon": "/images/key.svg"})
+p({"class":"foam.core.reflow.cmd.Services", "id": "services", "icon": "/images/lightning.svg", permissionRequired: true })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "clock",
   "description": "Clock widget",
+  "icon": "clock",
   "script": """
     var clock = foam.core.reflow.Clock.create({x:110, y:110}, this);
     this.addValue(clock);
@@ -33,6 +34,7 @@ p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "api",
   "description": "API documentation for a DAO",
+  "icon": "documentation",
   "parserClass": "foam.core.reflow.parser.DAOTargetParser",
   "script": """
     let doc = foam.doc.DIGApiDoc.create({data: args[0]}, this);
@@ -41,66 +43,75 @@ p({
    permissionRequired: true
 })
 
-p({"class":"foam.core.reflow.cmd.Command", "id": "signature", "description": "Signature block",  "script": """var s = foam.core.reflow.Signature.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;"""})
+p({"class":"foam.core.reflow.cmd.Command", "id": "signature", "description": "Signature block", "icon": "signature", "script": """var s = foam.core.reflow.Signature.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;"""})
 
-p({"class":"foam.core.reflow.cmd.Command", "id": "check", "description": "Check mark",  "script": """var s = foam.core.reflow.Check.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;""", permissionRequired: true })
+p({"class":"foam.core.reflow.cmd.Command", "id": "check", "description": "Checkmark", "icon": "checkmark", "script": """var s = foam.core.reflow.Check.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;""", permissionRequired: true })
 
-p({"class":"foam.core.reflow.cmd.Command", "id": "now", "description": "Now timestamp",  "script": """var d = new Date(); var holder = foam.lang.DateTimeHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$);"""})
+p({"class":"foam.core.reflow.cmd.Command", "id": "now", "description": "Now timestamp", "icon": "clock", "script": """var d = new Date(); var holder = foam.lang.DateTimeHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$);"""})
 
-p({"class":"foam.core.reflow.cmd.Command", "id": "today", "description": "Today's date",  "script": """var d = new Date(); var holder = foam.lang.DateHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$.map(d => d.toDateString()));"""})
+p({"class":"foam.core.reflow.cmd.Command", "id": "today", "description": "Today's date", "icon": "calendar", "script": """var d = new Date(); var holder = foam.lang.DateHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$.map(d => d.toDateString()));"""})
 
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "h",
   "description": "Header",
+  "icon": "h",
   "script": """addValue(foam.core.reflow.Header.create({text: args.join(' ')}, this));"""
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "h1",
   "description": "Header 1",
+  "icon": "h1",
   "script": "addValue(foam.core.reflow.Header.create({type:'h1', text: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "h2",
   "description": "Header 2",
+  "icon": "h2",
   "script": "addValue(foam.core.reflow.Header.create({type:'h2', text: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "h3",
   "description": "Header 3",
+  "icon": "h3",
   "script": "addValue(foam.core.reflow.Header.create({type:'h3', text: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "h4",
   "description": "Header 4",
+  "icon": "h4",
   "script": "addValue(foam.core.reflow.Header.create({type:'h4', text: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "doc",
   "description": "Document rich text block",
+  "icon": "/images/file-icon.svg",
   "script": "addValue(foam.core.reflow.Doc.create({richText: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "markdown",
   "description": "Markdown document",
+  "icon": "markdown",
   "script": "addValue(foam.core.reflow.Markdown.create({markdown: args.join(' ')}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "image",
   "description": "Image",
+  "icon": "image",
   "script": "addValue(foam.core.reflow.Image.create({}, this));"
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "upload",
   "description": "Upload data to a DAO",
+  "icon": "upload",
   "parserClass": "foam.core.reflow.parser.DAOTargetParser",
   linkable: false,
   "script": """
@@ -124,6 +135,7 @@ p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "script",
   "description": "Script an editable JavaScript block",
+  "icon": "script",
   "script": """
     var code = args.join(' ');
     addValue(foam.core.reflow.Script.create({code: code, autoRun: !! code}, this), true);
@@ -132,6 +144,7 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "function",
+  "icon": "functionSign",
   "description": "Script an editable JavaScript block whose return value is the block's value",
   "script": """
     var code = args.join(' ');
@@ -142,6 +155,7 @@ p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "fetchFile",
   "description": "Fetch a file from a URL",
+  "icon": "/images/file-icon.svg",
   "script": """
     addValue(foam.core.reflow.XHR.create({url: args[0]}, this));
   """,
@@ -150,17 +164,20 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Button",
   "id": "button",
-  "description": "Button with custom logic"
+  "description": "Button with custom logic",
+  "icon": "input"
 })
 p({
   "class":"foam.core.reflow.cmd.Buttons",
   "id": "buttons",
-  "description": "Buttons group with custom logic"
+  "description": "Buttons group with custom logic",
+  "icon": "input"
 })
 p({
   "class":"foam.core.reflow.cmd.Input",
   "id": "input",
-  "description": "Input from user or URL parameter"
+  "description": "Input from user or URL parameter",
+  "icon": "input"
 })
 
 p({
@@ -189,23 +206,27 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Layout",
   "id": "layout",
-  "description": "Layout block for arranging content"
+  "description": "Layout block for arranging content",
+  "icon": "dashboard"
 })
-p({"class":"foam.core.reflow.cmd.DAOFilter", "id": "daofilter"})
+p({"class":"foam.core.reflow.cmd.DAOFilter", "id": "daofilter", "icon": "database"})
 p({
   "class":"foam.core.reflow.cmd.Info",
-  "id": "info"
+  "id": "info",
+  "icon": "documentation"
 })
 p({
   "class":"foam.core.reflow.cmd.Example",
   "id": "example",
-  "description": "Example code snippet"
+  "description": "Example code snippet",
+  "icon": "script"
 })
 
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "perf",
   "description": "Performance capture block",
+  "icon": "speed",
   "script": """
     var p = foam.core.reflow.perf.Perf.create({}, this);
     this.out.add(p);
@@ -215,4 +236,4 @@ p({
   permissionRequired: true
 })
 
-p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", linkable: false, permissionRequired: true})
+p({"class":"foam.core.reflow.cmd.LoadPerf", "id": "loadPerf", "icon": "speed", linkable: false, permissionRequired: true})

@@ -1,3 +1,5 @@
+<flow name="Axioms" category="DOC/GUIDE" spid="foam" description="Explains Axioms as FOAM's core extension mechanism: installInClass/installInProto, two-phase installation, priority ordering." keywords="axioms,installinclass,installinproto,extensibility,knowledge"/>
+
 ## What are Axioms?
 
 Axioms are the core mechanism by which FOAM models define class structure and functionality. [1](#0-0)  They are defined with a pseudo-interface that includes optional `installInClass(cls)` and `installInProto(proto)` methods. [2](#0-1)

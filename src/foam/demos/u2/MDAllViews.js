@@ -19,6 +19,8 @@ foam.CLASS({
     'foam.u2.dao.MDDAOList',
    ],
 
+  imports: [ 'window' ],
+
   exports: [ 'sampleDataDAO', 'displayWidth' ],
 
   properties: [
@@ -29,7 +31,7 @@ foam.CLASS({
       factory: function() {
         return this.DisplayWidth.VALUES
           .sort((a, b) => b.minWidth - a.minWidth)
-          .find(o => o.minWidth <= window.innerWidth);
+          .find(o => o.minWidth <= this.window.innerWidth);
       }
     },
     {

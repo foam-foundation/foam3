@@ -42,6 +42,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "http",
   "lazy": false,
+  "lazyOrder": -1,
   "service": {
     "class": "foam.core.jetty.HttpServer",
     "welcomeFiles": ["welcome"],
@@ -104,6 +105,7 @@ p({
   "name":"columnConfigToPropertyConverter",
   "serve": true,
   "lazy":false,
+  "lazyOrder":-1,
   "serviceClass": "foam.core.column.ColumnConfigToPropertyConverter",
   "client": "{\"class\":\"foam.core.column.ColumnConfigToPropertyConverter\"}"
 })
@@ -118,6 +120,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "threadPool",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": false,
   "serviceScript": `
     return new foam.core.pool.ThreadPoolAgency.Builder(x)
@@ -262,12 +265,13 @@ p({
     }
   """
 })
-p({"class":"foam.core.boot.CSpec", "name":"emailDocService",                  "lazy":false, "serve":true,  "boxClass":"foam.core.auth.email.EmailDocInterfaceSkeleton", "serviceClass":"foam.core.auth.email.EmailDocService","client":"{\"class\":\"foam.core.auth.email.ClientEmailDocService\", \"delegate\": { \"class\":\"foam.box.HTTPBox\", \"url\":\"service/emailDocService\" } }"})
+p({"class":"foam.core.boot.CSpec", "name":"emailDocService",                  "lazy":false, "lazyOrder":-1, "serve":true,  "boxClass":"foam.core.auth.email.EmailDocInterfaceSkeleton", "serviceClass":"foam.core.auth.email.EmailDocService","client":"{\"class\":\"foam.core.auth.email.ClientEmailDocService\", \"delegate\": { \"class\":\"foam.box.HTTPBox\", \"url\":\"service/emailDocService\" } }"})
 
 p({
   "class":"foam.core.boot.CSpec",
   "name":"appConfig",
   "lazy":false,
+  "lazyOrder":-1,
   "service": {
     "class":"foam.core.app.AppConfig"
   }

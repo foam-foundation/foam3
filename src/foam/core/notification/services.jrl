@@ -3,6 +3,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "localNotificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serviceScript": """
     mdao = new foam.dao.MDAO(foam.core.notification.Notification.getOwnClassInfo());
     mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.GROUP_ID,foam.core.notification.Notification.READ });
@@ -20,7 +21,6 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("notifications")
       .setSaf(true)
-      .setWaitReplay(false)
       .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
         .setComparator(foam.mlang.MLang.COMPOUND(new foam.mlang.order.Comparator[] {
           foam.mlang.MLang.DESC(foam.core.notification.Notification.CREATED),
@@ -36,6 +36,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "notificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
@@ -77,6 +78,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "myNotificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "serviceScript": """
     import foam.core.auth.User;
@@ -118,6 +120,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"notificationTemplateDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)

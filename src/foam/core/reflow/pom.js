@@ -104,7 +104,8 @@ foam.POM({
     { name: 'FilteredDAOAgent',        flags: 'js' },
     { name: 'cells/Cells',             flags: 'js' },
     { name: 'cells/CellsDAOAgent',     flags: 'js' },
-    { name: 'cells/CellsSink',         flags: 'js|java' }
+    { name: 'cells/CellsSink',         flags: 'js|java' },
+    { name: 'TreeCellFormatter',       flags: 'js' }
   ],
   javaFiles: [
     { name: 'ScriptParser' }

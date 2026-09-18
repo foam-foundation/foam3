@@ -571,7 +571,14 @@ try {
     {
       name: 'mergeFObject',
       type: 'foam.lang.FObject',
-      documentation: 'Add diff property to old property',
+      documentation: `Merge the diff's set properties into the old object and
+        return the merged row.
+
+        When the classes match the merged old object is the row: a second pass
+        copying every set property back into the diff would only fire each
+        setter again, and on an update-heavy journal that pass was half the
+        serial apply cost. When the entry changed the row's class the diff, of
+        the new class, carries the old values instead.`,
       args: ['FObject oldFObject', 'FObject diffFObject' ],
       javaCode: `
         //get PropertyInfos
@@ -582,6 +589,7 @@ try {
           PropertyInfo prop = (PropertyInfo) e.next();
           mergeProperty(oldFObject, diffFObject, prop);
         }
+        if ( oldFObject.getClass() == diffFObject.getClass() ) return oldFObject;
         // it's backwards in case when we override the "class" was changed
         return diffFObject.copyFrom(oldFObject);
       `

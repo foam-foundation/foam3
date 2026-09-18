@@ -13,8 +13,6 @@ foam.CLASS({
     clickable cards that display their name, description, and keywords
   `,
 
-  // TODO: Messages, Colours, and Clickin'
-
   css: `
     ^ {
       background: $white;
@@ -28,7 +26,6 @@ foam.CLASS({
       width: 330px;
       height: 200px;
       overflow: hidden;
-      border-top-color: $blue300;
       border-top-width: 4px;
       display: flex;
       flex-direction: column;
@@ -110,6 +107,21 @@ foam.CLASS({
     }
   `,
 
+  messages: [
+    {
+      name: 'NO_DESC_MSG',
+      messageMap: { en: 'No description', fr: 'Pas de description' }
+    },
+    {
+      name: 'SHOW_MORE_MSG',
+      messageMap: { en: 'Show more', fr: 'Afficher plus' }
+    },
+    {
+      name: 'SHOW_LESS_MSG',
+      messageMap: { en: 'Show less', fr: 'Afficher moins' }
+    }
+  ],
+
   properties: [
     {
       class: 'FObjectProperty',
@@ -130,20 +142,20 @@ foam.CLASS({
     }
   ],
 
-  listeners: [
-    function toggleKeywords(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      this.expanded = ! this.expanded;
-    }
-  ],
-
   methods: [
     function render() {
       var self = this;
       this
         .addClass(this.myClass())
         .enableClass(this.myClass('expanded'), this.expanded$)
+        .attrs({ role: 'button', tabindex: 0 })
+        .style({ // Change top of the cards based on the flow's category
+          'border-top-color': 'hsl(' + this.stringToHue(this.data.category) + ', 80%, 50%)'
+        })
+        .on('click', this.routeToReflow) // Open flow in Reflow on click
+        .on('keydown', function(e) {  // Also do it when you tab + enter
+          if ( e.key === 'Enter' || e.key === ' ' ) self.routeToReflow(e);
+        })
           .start() // Title
             .addClass(this.myClass('title'))
             .attrs({ title: this.data.name })
@@ -151,7 +163,8 @@ foam.CLASS({
           .end()
           .start() // Description
             .attrs({ title: this.data.name })
-            .addClass(this.myClass('description')).add(this.data.description ? this.data.description : 'No description')
+            .addClass(this.myClass('description')).add(this.data.description ? this.data.description : this.NO_DESC_MSG)
+
           .end()
           .start() // Keywords + Toggle Logic
             .addClass(this.myClass('keywords'))
@@ -170,14 +183,53 @@ foam.CLASS({
                 })
                 .callIf(kw.length > self.collapsedCount, function() {
                   this.start()
-                    .attrs({ title: expanded ? 'Show less' : 'Show more'})
+                    .attrs({ title: expanded ? self.SHOW_LESS_MSG : self.SHOW_MORE_MSG})
                     .addClass(self.myClass('keyword'), self.myClass('toggle'))
-                    .add(expanded ? 'Show less' : '+' + (kw.length - shown.length))
+                    .add(expanded ? self.SHOW_LESS_MSG : '+' + (kw.length - shown.length))
                     .on('click', self.toggleKeywords)
                   .end();
                 });
             }))
           .end();
+    },
+
+    function stringToHue(str) {
+      let hash = 0;
+      
+      // Hash the string using a simple djb2-like numeric accumulator
+      for (let i = 0; i < str.length; i++) {
+          hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      
+      // Ensure the hash is positive and map it to a 0-360 degree angle
+      return Math.abs(hash) % 360;
+    }
+  ],
+
+  listeners: [
+    function toggleKeywords(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.expanded = ! this.expanded;
+    },
+
+    function routeToReflow(e) {
+      e.preventDefault();
+      this.reflow();
+    }
+  ],
+
+  actions: [
+    {
+      name: 'reflow', // Taken from Flow.js
+      code: function(X) {
+        var mode = X.flowMode || X.config?.flowMode || 'PRESENTATION';
+        X.routeTo('flow_/' + encodeURIComponent(this.data.name) + '?flowMode=' + mode);
+      },
+      isAvailable: function() {
+        // Disable in Reflow, but enable in DAOController (because already in reflow)
+        return ! this.__context__.flow;
+      }
     }
   ]
 });

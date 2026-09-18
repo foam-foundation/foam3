@@ -37,6 +37,20 @@ public abstract class AbstractDatePropertyInfo
     return ((Date)o1).compareTo(((Date)o2));
   }
 
+  /**
+   * A predicate constant goes through castObject before it is compared to a
+   * row (Binary.arg2 preSet). Routing it through the property's cast gives the
+   * constant the same normalisation the tree index applies to a query key
+   * (noon GMT for a Date, the instant kept for a DateTime), so a scan and an
+   * indexed select agree at a day boundary. Only a Date is cast: a DateTime's
+   * generated cast is a plain (Date) cast, and a constant of another type keeps
+   * the raw comparison it had.
+   */
+  @Override
+  public Object castObject(Object value) {
+    return value instanceof Date ? cast(value) : value;
+  }
+
   public Object fromString(String value) {
     StringPStream ps = new StringPStream(value);
     ParserContextImpl x = new ParserContextImpl();

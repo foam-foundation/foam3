@@ -179,7 +179,6 @@ public class PartitionedDAO
       // Long-id models stay flat (no prefix), preserving non-composite usage.
       // Guard is required: PartitionedSequenceNumberDAO.getObjId casts the id to
       // String, so wrapping a Long-id model throws ClassCastException on every put_.
-      DAO                    dao;
       foam.lang.PropertyInfo idProp = getIdProperty();
       if ( idProp != null && String.class.equals(idProp.getValueClass()) ) {
         // The sequence wrapper sits INSIDE the JDAO: journal replay flows
@@ -193,17 +192,14 @@ public class PartitionedDAO
           .setProperty("id")
           .setDelegate(new foam.dao.MDAO(getOf()))
           .build();
-        dao = new JDAO(loadX, seq, journalName);
-      } else {
-        dao = new JDAO(loadX, getOf(), journalName);
+        JDAO jdao = new JDAO(loadX, seq, journalName);
+        addIndices(jdao);
+        return jdao;
       }
 
-      // Both id shapes: an index registered on this DAO belongs on every
-      // partition's MDAO, or a select pushed into the partition scans it.
-      // The command travels through the JDAO (and the sequence wrapper) to
-      // the MDAO, so it reaches the same store either way.
-      addIndices(dao);
-      return dao;
+      JDAO jdao = new JDAO(loadX, getOf(), journalName);
+      addIndices(jdao);
+      return jdao;
     } finally {
       reporter.done();
     }

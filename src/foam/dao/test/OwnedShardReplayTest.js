@@ -14,11 +14,16 @@ foam.CLASS({
     thread it replaces, on a journal built to break a wrong order: every id
     appears five times, spread across batches so its entries are parsed on
     different threads, as create, delta, remove, create again, delta, and a
-    seventh of the ids end removed. Also checks that the merge returns the
-    merged row itself when the class is unchanged.`,
+    seventh of the ids end removed. The same check runs on a String-id model
+    (Group) and on a compound-id model (GroupPermissionJunction), whose ids
+    hash by value. Also checks that the merge returns the merged row itself
+    when the class is unchanged.`,
 
   javaImports: [
+    'foam.core.auth.Group',
+    'foam.core.auth.GroupPermissionJunction',
     'foam.core.auth.User',
+    'foam.lang.ClassInfo',
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
     'foam.dao.BulkLoadDAO',
@@ -94,7 +99,12 @@ foam.CLASS({
           test(merged == old, "same class: merge returns the old instance");
           test("a".equals(((User) merged).getUserName()) && "y".equals(((User) merged).getJobTitle()), "merged row carries both sides");
 
+          checkStringIds(fsX, storage);
+          checkCompoundIds(fsX, storage);
+
           storage.get("users").delete();
+          storage.get("groups").delete();
+          storage.get("junctions").delete();
           dir.delete();
         } catch (Exception e) {
           test(false, "unexpected: " + e);
@@ -125,6 +135,90 @@ foam.CLASS({
             }
           }
         }
+      `
+    },
+    {
+      name: 'checkStringIds',
+      documentation: 'Group: String ids "g1".."g2000", create, delta, then remove every fifth or a second delta.',
+      args: 'X fsX, FileSystemStorage storage',
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        try ( BufferedWriter w = new BufferedWriter(new OutputStreamWriter(storage.getOutputStream("groups"))) ) {
+          for ( int pass = 0 ; pass < 3 ; pass++ ) {
+            for ( int i = 1 ; i <= 2000 ; i++ ) {
+              String line = pass == 0 ? "p({class:\\"foam.core.auth.Group\\",id:\\"g" + i + "\\",description:\\"d0\\"})"
+                : pass == 1 ? "p({class:\\"foam.core.auth.Group\\",id:\\"g" + i + "\\",description:\\"d1\\"})"
+                : i % 5 == 0 ? "r({class:\\"foam.core.auth.Group\\",id:\\"g" + i + "\\"})"
+                : "p({class:\\"foam.core.auth.Group\\",id:\\"g" + i + "\\",description:\\"d2\\"})";
+              w.write(line);
+              w.newLine();
+            }
+          }
+        }
+        Map<Object, FObject> rows = replayBoth(fsX, "groups", Group.getOwnClassInfo(), 6000, "description", "String ids");
+        test(rows.size() == 1600, "String ids: every fifth group removed, " + rows.size() + " rows");
+        Group g = (Group) rows.get("g1");
+        test(g != null && "d2".equals(g.getDescription()), "String ids: g1 carries the last delta");
+      `
+    },
+    {
+      name: 'checkCompoundIds',
+      documentation: 'GroupPermissionJunction: id is (sourceId, targetId); create all, remove every fourth, re-create every eighth.',
+      args: 'X fsX, FileSystemStorage storage',
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        try ( BufferedWriter w = new BufferedWriter(new OutputStreamWriter(storage.getOutputStream("junctions"))) ) {
+          for ( int pass = 0 ; pass < 3 ; pass++ ) {
+            for ( int i = 1 ; i <= 2000 ; i++ ) {
+              String key = "sourceId:\\"g" + (i % 50) + "\\",targetId:\\"perm" + i + "\\"";
+              String line = pass == 0 ? "p({class:\\"foam.core.auth.GroupPermissionJunction\\"," + key + "})"
+                : pass == 1 ? ( i % 4 == 0 ? "r({class:\\"foam.core.auth.GroupPermissionJunction\\"," + key + "})" : "" )
+                : ( i % 8 == 0 ? "p({class:\\"foam.core.auth.GroupPermissionJunction\\"," + key + "})" : "" );
+              if ( line.isEmpty() ) continue;
+              w.write(line);
+              w.newLine();
+            }
+          }
+        }
+        Map<Object, FObject> rows = replayBoth(fsX, "junctions", GroupPermissionJunction.getOwnClassInfo(), 2000 + 500 + 250, "targetId", "compound ids");
+        test(rows.size() == 1750, "compound ids: removed every fourth, re-created every eighth, " + rows.size() + " rows");
+        boolean has8 = false, has4 = false;
+        for ( FObject f : rows.values() ) {
+          GroupPermissionJunction j = (GroupPermissionJunction) f;
+          if ( "perm8".equals(j.getTargetId()) ) has8 = true;
+          if ( "perm4".equals(j.getTargetId()) ) has4 = true;
+        }
+        test(has8 && ! has4, "compound ids: perm8 came back, perm4 stayed removed");
+      `
+    },
+    {
+      name: 'replayBoth',
+      documentation: 'Replay one journal through the single apply thread and through the sharded line at the default and at 3 shards; every row must agree on the marker property. Returns the reference rows by id.',
+      args: 'X fsX, String file, ClassInfo of, int entries, String marker, String label',
+      type: 'java.util.Map',
+      javaCode: `
+        BulkLoadDAO single = new BulkLoadDAO(fsX, of, 1);
+        F3FileJournal ref = new SingleApplyJournal();
+        ref.setX(fsX);
+        ref.setFilename(file);
+        ref.replay(fsX, single);
+        test(ref.getFailCount() == 0 && ref.getPassCount() == entries, label + ": reference replay applied " + ref.getPassCount() + " of " + entries);
+        Map<Object, FObject> e = byId(single.rows());
+
+        for ( int shards : new int[] { new BulkLoadDAO(fsX, of).shards(), 3 } ) {
+          BulkLoadDAO owned = new BulkLoadDAO(fsX, of, shards);
+          F3FileJournal jrl = new F3FileJournal.Builder(fsX).setFilename(file).build();
+          jrl.replay(fsX, owned);
+          test(jrl.getFailCount() == 0 && jrl.getPassCount() == entries, label + ", " + shards + " shards: every entry applied");
+          Map<Object, FObject> a = byId(owned.rows());
+          int diff = 0;
+          for ( Map.Entry<Object, FObject> en : e.entrySet() ) {
+            FObject other = a.get(en.getKey());
+            if ( other == null || ! String.valueOf(en.getValue().getProperty(marker)).equals(String.valueOf(other.getProperty(marker))) ) diff++;
+          }
+          test(a.size() == e.size() && diff == 0, label + ", " + shards + " shards: rows match the single-thread line, " + a.size() + " vs " + e.size() + ", " + diff + " differ");
+        }
+        return e;
       `
     },
     {

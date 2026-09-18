@@ -19,8 +19,9 @@ foam.CLASS({
       the thread count.
     - merge: old (merge, then a second full copyFrom pass) or new (return
       the merged row when the class is unchanged).
-    - shape: unique (every id once) or half-dup (every id twice; the second
-      entry is a delta that merges into the first).
+    - shape: the share of entries that are updates: unique (0%), half-dup
+      (50%, every id twice), or updNN for NN% (upd80: every id five times).
+      An update is a delta that merges into the row its id already has.
     - model: narrow (5 properties), user (foam.core.auth.User, ~15 of 80
       set), wide (50 properties, all set).
 
@@ -75,6 +76,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'shapes',
+      documentation: 'unique, half-dup, or updNN for NN percent updates.',
       value: 'unique,half-dup'
     },
     {
@@ -143,6 +145,14 @@ foam.CLASS({
       return n % 2 == 1 ? c[n / 2] : (c[n / 2 - 1] + c[n / 2]) / 2;
     }
 
+    /** Distinct ids in a journal of n entries for a shape: the rest of the entries are updates. **/
+    static int uniqueIds(String shape, int n) {
+      if ( "unique".equals(shape) ) return n;
+      if ( "half-dup".equals(shape) ) return n / 2;
+      int pct = Integer.parseInt(shape.substring(3));
+      return Math.max(1, (int) (n * (100 - pct) / 100L));
+    }
+
     static String[] split(String csv) {
       return Arrays.stream(csv.split(",")).map(String::trim).toArray(String[]::new);
     }
@@ -191,7 +201,7 @@ foam.CLASS({
           for ( String model : modelNames_ ) {
             for ( String shape : shapeNames_ ) {
               String name = model + "_" + shape;
-              writeJournal(name, model, getEntryCount(), "unique".equals(shape) ? getEntryCount() : getEntryCount() / 2);
+              writeJournal(name, model, getEntryCount(), uniqueIds(shape, getEntryCount()));
               System.out.println(String.format("wrote %-16s %7.1f MB", name, storage_.get(name).length() / 1048576.0));
             }
           }
@@ -321,7 +331,7 @@ foam.CLASS({
           if ( journal.getPassCount() != getEntryCount() || journal.getFailCount() != 0 )
             throw new RuntimeException(label(cell) + ": passed " + journal.getPassCount() + " failed " + journal.getFailCount());
           if ( ! floor ) {
-            int expectRows = "unique".equals(shapeOf(cell)) ? getEntryCount() : getEntryCount() / 2;
+            int expectRows = uniqueIds(shapeOf(cell), getEntryCount());
             int rows = ((BulkLoadDAO) dao).rows().length;
             if ( rows != expectRows ) throw new RuntimeException(label(cell) + ": " + rows + " rows, expected " + expectRows);
             // A merged row must still carry the first entry's values.

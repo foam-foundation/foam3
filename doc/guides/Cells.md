@@ -1,4 +1,4 @@
-<flow name="Cells" category="DOC/GUIDE" spid="foam" description="A conceptual essay on how spreadsheet cells unify input, display, computation, and storage, and how FOAM extends the idea." keywords="cells,spreadsheet,reactive expressions,fobject"/>
+<flow name="Cells" category="DOC/GUIDE" spid="foam" description="A conceptual essay on how spreadsheet cells unify input, display, computation, and storage, and how FOAM extends the idea." keywords="cells,spreadsheet,reactive expressions,fobject,knowledge"/>
 
 # The Magic of Spreadsheet Cells
 

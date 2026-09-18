@@ -1,4 +1,4 @@
-<flow name="MixinsAndImplements" category="DOC/GUIDE" spid="foam" description="Compares implements: (safe override via axiomMap) vs mixins: (direct unconditional axiom copy)." keywords="mixins,implements,axiommap,override,inheritance"/>
+<flow name="MixinsAndImplements" category="DOC/GUIDE" spid="foam" description="Compares implements: (safe override via axiomMap) vs mixins: (direct unconditional axiom copy)." keywords="mixins,implements,axiommap,override,inheritance,knowledge"/>
 
 **Summary**
 - `implements:` declares intent to implement an interface or mix in a model, with special handling to avoid property override conflicts by inserting an intermediate axiom map level.

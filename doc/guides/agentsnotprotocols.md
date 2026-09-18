@@ -1,4 +1,4 @@
-<flow name="agentsnotprotocols" category="DOC/GUIDE" spid="foam" description="Drawing on Bill Joy's essay, argues shipping executable agents beats wire-protocol specs; FOAM/CORE realises this via CSpec." keywords="agents,protocols,cspec,rpc,bill joy"/>
+<flow name="agentsnotprotocols" category="DOC/GUIDE" spid="foam" description="Drawing on Bill Joy's essay, argues shipping executable agents beats wire-protocol specs; FOAM/CORE realises this via CSpec." keywords="agents,protocols,cspec,rpc,bill joy,knowledge"/>
 
 # Agents Not Protocols
 

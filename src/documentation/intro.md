@@ -1,4 +1,4 @@
-<flow name="intro" category="DOC/DEV" spid="foam" description="Top-level FOAM introduction: Feature Oriented Active Modeller, modeling classes to generate JS, Java, and Swift code." keywords="introduction,foam,modeller,cross-platform"/>
+<flow name="intro" category="DOC/DEV" spid="foam" description="Top-level FOAM introduction: Feature Oriented Active Modeller, modeling classes to generate JS, Java, and Swift code." keywords="introduction,foam,modeller,cross-platform,knowledge"/>
 
 # FOAM Introduction
 

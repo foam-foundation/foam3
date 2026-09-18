@@ -1,4 +1,4 @@
-<flow name="VsReact" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-platform, built-in DAO layer) vs React (component-based, virtual DOM, hooks)." keywords="react,comparison,virtual dom,hooks"/>
+<flow name="VsReact" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-platform, built-in DAO layer) vs React (component-based, virtual DOM, hooks)." keywords="react,comparison,virtual dom,hooks,knowledge"/>
 
 ## Overview
 

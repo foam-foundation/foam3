@@ -1,4 +1,4 @@
-<flow name="Deployment" category="DOC/GUIDE" spid="foam" description="Covers FOAM deployment: building a tarball, remote install via SSH, JVM memory defaults and tuning." keywords="deployment,tarball,ssh,jvm"/>
+<flow name="Deployment" category="DOC/GUIDE" spid="foam" description="Covers FOAM deployment: building a tarball, remote install via SSH, JVM memory defaults and tuning." keywords="deployment,tarball,ssh,jvm,knowledge"/>
 
 # Deployment (DevOps)
 

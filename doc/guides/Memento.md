@@ -1,4 +1,4 @@
-<flow name="Memento" category="DOC/GUIDE" spid="foam" description="Explains foam.u2.memento.Memento's URL-hash state sync, the route path special case, WindowHashMemento, and foam.u2.Router." keywords="memento,routing,url hash,router,navigation"/>
+<flow name="Memento" category="DOC/GUIDE" spid="foam" description="Explains foam.u2.memento.Memento's URL-hash state sync, the route path special case, WindowHashMemento, and foam.u2.Router." keywords="memento,routing,url hash,router,navigation,knowledge"/>
 
 # Memento & Routing
 

@@ -42,15 +42,18 @@ p({
   "lazy":false,
   "lazyOrder":-1,
   "serviceScript":"""
-    // One journal per day, loaded when a query or a write reaches that day.
+    // One journal per week, opened when a query or a write reaches that week.
     // This DAO is built before anything else can run (lazyOrder -1), so boot
-    // now costs today's journal instead of every message ever sent.
+    // now replays the two-week window start() preloads instead of every
+    // message ever sent.
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.notification.email.EmailMessage.getOwnClassInfo(),
       "emailMessages-",
       foam.core.notification.email.EmailMessage.CREATED,
-      foam.core.partition.DatePartitioningScheme.YYYYMMDD);
+      foam.core.partition.DatePartitioningScheme.YYYYWW);
+    partitioned.setTimeWindow(14);
+    partitioned.setPreload(true);
 
     dao = new foam.dao.EasyDAO.Builder(x)
       .setPm(false)

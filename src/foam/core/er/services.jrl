@@ -3,16 +3,19 @@ p({
   name:"eventRecordDAO",
   serve:true,
   serviceScript:"""
-    // One journal per day, loaded when a query or a write reaches that day.
-    // Writing an EventRecord only opens today's journal, so the service is
-    // available without replaying the history behind it, and the size cap the
-    // FixedSizeDAO used to apply is now the partitions the JVM keeps live.
+    // One journal per week, opened when a query or a write reaches that week.
+    // The two-week window is what a query with no date bound covers and what
+    // start() preloads, so a restart replays two or three weekly journals
+    // instead of the whole history. The size cap the FixedSizeDAO used to
+    // apply is now the partitions the JVM keeps live.
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.er.EventRecord.getOwnClassInfo(),
       "eventRecords-",
       foam.core.er.EventRecord.CREATED,
-      foam.core.partition.DatePartitioningScheme.YYYYMMDD);
+      foam.core.partition.DatePartitioningScheme.YYYYWW);
+    partitioned.setTimeWindow(14);
+    partitioned.setPreload(true);
 
     dao = new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.er.EventRecord.getOwnClassInfo())

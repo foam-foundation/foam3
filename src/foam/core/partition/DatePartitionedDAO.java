@@ -6,6 +6,7 @@
 
 package foam.core.partition;
 
+import foam.core.COREService;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.lang.*;
@@ -21,6 +22,7 @@ import java.util.List;
 
 public class DatePartitionedDAO
   extends PartitionedDAO
+  implements COREService
 {
   public final static long DAY                 = 24 * 60 * 60 * 1000; // 1 day in ms
   public final static int  DEFAULT_TIME_WINDOW = 5 * 7;               // five weeks
@@ -61,8 +63,9 @@ public class DatePartitionedDAO
   } // DetachableSink
 
 
-  protected int timeWindow_ = DEFAULT_TIME_WINDOW;
-  protected DatePartitioningScheme scheme_ = DatePartitioningScheme.YYYYMM;
+  protected int                     timeWindow_ = DEFAULT_TIME_WINDOW;
+  protected boolean                 preload_    = false;
+  protected DatePartitioningScheme  scheme_     = DatePartitioningScheme.YYYYMM;
 
   public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty) {
     super(x, of, dirName, partitionProperty);
@@ -79,6 +82,37 @@ public class DatePartitionedDAO
 
   public int getTimeWindow() {
     return timeWindow_;
+  }
+
+  /** Load the partitions of the default query window when the service
+      starts, so the first query after a restart finds them resident instead
+      of paying their replay. Off by default: a partition otherwise opens on
+      its first touch. */
+  public void setPreload(boolean preload) {
+    preload_ = preload;
+  }
+
+  public boolean getPreload() {
+    return preload_;
+  }
+
+  /** COREService hook: CSpecFactory.initService calls start() on every
+      member of the service's delegate chain once the service is built, on
+      the boot thread for a lazy:false CSpec and on the thread pool for a
+      lazy one. A partition is either in the cache or not, and getDelegate
+      synchronizes on the partition name, so a query that arrives while the
+      pool is still loading a partition waits for that one load rather than
+      seeing part of it. */
+  public void start() {
+    if ( preload_ ) preload();
+  }
+
+  /** Open every partition the default window covers: the same set a query
+      with no date bound walks (see extractPredicateRange). */
+  public void preload() {
+    String[] parts = getPartitions(extractPredicateRange(null));
+    Loggers.logger(getX(), this).info("Preloading partitions", getDirName(), parts.length);
+    for ( String part : parts ) getDelegate(part);
   }
 
   public String getPartition(FObject o) {

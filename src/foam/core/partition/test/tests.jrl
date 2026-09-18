@@ -2,6 +2,7 @@ p({"class":"foam.core.partition.test.SingleToPartitionMigratorTest","id":"Single
 p({"class":"foam.core.partition.test.ReferenceMigratorTest","id":"ReferenceMigratorTest"})
 p({"class":"foam.core.partition.test.DatePartitioningSchemeTest","id":"DatePartitioningSchemeTest"})
 p({"class":"foam.core.partition.test.DatePartitionedSelectTest","id":"DatePartitionedSelectTest"})
+p({"class":"foam.core.partition.test.DatePartitionedPreloadTest","id":"DatePartitionedPreloadTest"})
 p({"class":"foam.core.partition.test.PartitionLoadReporterTest","id":"PartitionLoadReporterTest"})
 p({"class":"foam.core.partition.test.PartitionLoadReplayTest","id":"PartitionLoadReplayTest"})
 p({"class":"foam.core.partition.test.PartitionLoadStatusIntegrationTest","id":"PartitionLoadStatusIntegrationTest"})

@@ -519,6 +519,25 @@ public class TreeNode {
   }
 
   /**
+   * Reverse in-order traversal: the mirror of select_, so a DESC on the index
+   * property walks the tree backwards and stops at the limit like the forward walk.
+   */
+  protected void selectReverse_(TreeNode node, Sink sink, Index tail) {
+    while ( node != null ) {
+      Object   value = node.getValue();
+      TreeNode left  = node.getLeft();
+
+      selectReverse_(node.getRight(), sink, tail);
+
+      if ( value != null ) {
+        tail.select(value, sink, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+      }
+
+      node = left;
+    }
+  }
+
+  /**
    * This function only used for GroupByPlan. To out each data if the tree to groupBy sink.
    */
   protected void groupBy(TreeNode node, Sink sink, Index tail, Indexer indexer) {
@@ -592,7 +611,11 @@ public class TreeNode {
 
     if ( hasPredicate(predicate) || order != null ) {
       sink = decorateSink(null, sink, skip, limit, order, predicate);
-      select_(currentNode, sink, tail);
+      if ( reverse ) {
+        selectReverse_(currentNode, sink, tail);
+      } else {
+        select_(currentNode, sink, tail);
+      }
       if ( order != null ) sink.eof();
     } else if ( skip > 0 || limit != AbstractDAO.MAX_SAFE_INTEGER || reverse ) {
       skipLimitTreeNode(currentNode, sink, new long[] {skip, limit}, tail, reverse);

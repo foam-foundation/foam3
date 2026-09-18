@@ -380,6 +380,7 @@ foam.POM({
     { name: "foam/dao/index/test/MDAOBulkLoadTest",                   flags: "js&test|java&test" },
     { name: "foam/dao/index/test/MDAODescOrderTest",                  flags: "js&test|java&test" },
     { name: "foam/dao/index/test/MDAODescOrderPredicateTest",         flags: "js&test|java&test" },
+    { name: "foam/dao/index/test/MDAOOrderFuzzTest",                  flags: "js&test|java&test" },
     { name: "foam/dao/index/test/MDAOOrderDropJsTest",                flags: "js&test|java&test" },
     { name: "foam/dao/MDAO",                                          flags: "js" },
     { name: "foam/dao/ArrayDAO",                                      flags: "js|java" },

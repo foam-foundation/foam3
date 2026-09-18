@@ -5,3 +5,4 @@ p({"class":"foam.dao.index.test.MDAOBulkLoadTest","id":"MDAOBulkLoadTest","descr
 p({"class":"foam.dao.index.test.MDAODescOrderTest","id":"MDAODescOrderTest","description":"DESC on an indexed property must walk the tree in reverse even with no skip or limit"})
 p({"class":"foam.dao.index.test.MDAOOrderDropJsTest","id":"MDAOOrderDropJsTest","description":"the client planner drops an ORDER BY for an order-independent sink on an unlimited select", language: 0})
 p({"class":"foam.dao.index.test.MDAODescOrderPredicateTest","id":"MDAODescOrderPredicateTest","description":"a DESC page on the primary key under a predicate must walk the index backwards and stop at the limit, not visit and sort every row"})
+p({"class":"foam.dao.index.test.MDAOOrderFuzzTest","id":"MDAOOrderFuzzTest","description":"every order x predicate x skip x limit over an MDAO with secondary indexes must match a brute-force filter, stable sort, skip and limit of the same rows"})

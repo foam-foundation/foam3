@@ -170,20 +170,20 @@ foam.CLASS({
             .addClass(this.myClass('keywords'))
             .enableClass(this.myClass('keywords-expanded'), this.expanded$)
             .add(this.slot(function(expanded, data$keywords) {
-              var kw    = data$keywords || [];
+              var kw    = (data$keywords || []).filter(k => k !== 'knowledge'); // Filter out the knowledge keyword
               var shown = expanded ? kw : kw.slice(0, self.collapsedCount);
               return self.E()
                 .addClass(self.myClass('keyword-list'))
                 .forEach(shown, function(keyword) {
                   this.start()
-                    .attrs({title: keyword})
+                    .attrs({ title: keyword })
                     .addClass(self.myClass('keyword'))
                     .add(keyword)
                   .end();
                 })
                 .callIf(kw.length > self.collapsedCount, function() {
                   this.start()
-                    .attrs({ title: expanded ? self.SHOW_LESS_MSG : self.SHOW_MORE_MSG})
+                    .attrs({ title: expanded ? self.SHOW_LESS_MSG : self.SHOW_MORE_MSG })
                     .addClass(self.myClass('keyword'), self.myClass('toggle'))
                     .add(expanded ? self.SHOW_LESS_MSG : '+' + (kw.length - shown.length))
                     .on('click', self.toggleKeywords)

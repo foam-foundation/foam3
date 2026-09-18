@@ -26,18 +26,15 @@ p({
       "importPredicate":{"class":"foam.mlang.predicate.False"},
       "exportPredicate":{"class":"foam.mlang.predicate.False"},
       "predicate":{
-        "class":"foam.mlang.predicate.Not",
+        "class":"foam.mlang.predicate.In",
         "arg1":{
-          "class":"foam.mlang.predicate.Eq",
-          "arg1":{
-            "class": "foam.lang.__Property__",
-            "forClass_":"foam.core.reflow.Flow",
-            "name":"category"
-          },
-          "arg2":{
-            "class":"foam.mlang.Constant",
-            "value":""
-          }
+          "class":"foam.mlang.Constant",
+          "value":"knowledge"
+        },
+        "arg2":{
+          "class":"__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"keywords"
         }
       },
       "summaryView":{

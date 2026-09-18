@@ -82,7 +82,7 @@ Cases without a hint:
 
 - **CSS token values.** A token expands to its literal value when a stylesheet is installed (`foam.CSS.replaceTokens`). Editing the token's own definition rewrites nothing that already inlined the old value.
 - **A file that throws while loading.** A syntax error, or a runtime throw inside `foam.CLASS`, restores the old classes and logs `failed, old classes restored`. An editor that writes the file in two steps produces one of these per save; the next save reloads it. Fix the file and save again; if the page is left in a mixed state, reload it.
-- **Many files at once.** A `git checkout` that touches 300 `.js` files is 300 puts, and every open tab loads and rebuilds them one after another. Reload the page instead of waiting.
+- **Many files at once.** A `git checkout` that touches 300 `.js` files is 300 puts, and every open tab loads and rebuilds them one after another. Reload the page instead of waiting. A cap, if one is ever added, is client-side: `reload()` chains onto a busy `queue_`, so a count of puts arriving while the chain is non-empty is all it needs, no second message from the server.
 
 ## How it works
 

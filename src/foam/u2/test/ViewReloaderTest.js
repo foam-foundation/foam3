@@ -439,6 +439,8 @@ foam.CLASS({
           'a mixin-file edit reaches the mixin block under MixA\'s owner');
         x.test(mixBTextsAfterMixinEdit.some(t => t.includes('padding: 1px')),
           'a mixin-file edit reaches the mixin block under MixB\'s owner too');
+        x.test(r.mixersOf([ 'foam.u2.test.CssMixinProbe' ]).sort().join() === 'foam.u2.test.MixA,foam.u2.test.MixB',
+          'mixersOf finds the USED classes whose mixins: names the reloaded id, got ' + r.mixersOf([ 'foam.u2.test.CssMixinProbe' ]));
 
         // --- integration: a class gaining a css: block is rebuilt (not
         //     silently dropped as a no-op "swap"), and the rebuilt

@@ -125,9 +125,11 @@ foam.CLASS({
 
     function mixersOf(ids) {
       /* USED classes that mix in one of ids. cascade keys on extends only,
-         so their instances are not rebuilt; the caller hints. */
+         so their instances are not rebuilt; the caller hints. foam.USED
+         holds the raw spec, so mixins: is the author's array of id
+         strings (or {path} objects), not built Mixin axioms. */
       return Object.values(foam.USED)
-        .filter(m => ( m.mixins || [] ).some(mx => ids.includes(mx.path)))
+        .filter(m => ( m.mixins || [] ).some(mx => ids.includes(mx.path || mx)))
         .map(m => m.id);
     },
 

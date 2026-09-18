@@ -69,7 +69,15 @@
     - [Detail: view and edit modes](#detail-view-and-edit-modes)
     - [Configuring the DAOController from the menu](#configuring-the-daocontroller-from-the-menu)
   - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
-- [Nano Services (Coming Soon)](#nano-services-coming-soon)
+- [NanoServices](#nanoservices)
+  - [How It Works: The Stub/Skeleton Pattern](#how-it-works-the-stubskeleton-pattern)
+    - [What Gets Generated](#what-gets-generated)
+  - [Define Request and Response Models](#define-request-and-response-models)
+  - [Define the Service Interface](#define-the-service-interface)
+  - [Implement the Server Side](#implement-the-server-side)
+  - [Register the Service](#register-the-service)
+  - [Putting It All Together](#putting-it-all-together)
+    - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
 - [Notifications (Coming Soon)](#notifications-coming-soon)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
@@ -138,12 +146,15 @@ already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> inst
 
 > 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
-By following this tutorial you will learn to:
-1. Initialize a new FOAM application 
-1. Define FOAM models
-1. Familiarize with DAOs
-1. Understand journals
-1. ...
+By following this tutorial you will be able to:
+1. Scaffold a working full-stack web application in minutes
+1. Describe your data once and get storage, validation, and UI for free
+1. Query, filter, and persist data without writing database boilerplate
+1. Connect related data — lists, lookups, and many-to-many joins — automatically
+1. Build reactive UIs where the screen stays in sync with the data without manual DOM updates
+1. Generate complete browse, create, and edit screens from your data model and customize only what needs to differ
+1. Add server-side business logic as lightweight, reusable services
+1. Wire up real-time notifications between parts of the application
 
 This tutorial is best suited for FOAM beginners as well as experienced FOAM developers who wish to understand the underlying architecture in more depth.
 
@@ -166,11 +177,11 @@ cd <project root>
 git init
 ```
 
-One of the conveniences of FOAM is that allows customizations (called "refinements") to the predefined models. For that reason, FOAM is included in your project as a GIT sub-module, instead of a package.
-Therefore our next step is to go to the [FOAM Repository][foam-repo] and grab the repository's URL, then link to it as a sub-module for our project. Here is an example how to do it using the ssh github link:
+FOAM is included directly from its repository. The example below uses a git sub-module, which is one common way to bring it in. Go to the [FOAM Repository][foam-repo] and grab the repository's URL. The example uses SSH — if you haven't set up SSH keys with GitHub yet, see the [GitHub SSH guide][github-ssh]:
 
 ```
-git submodule add git@github.com:kgrgreer/foam3.git
+# using SSH
+git submodule add git@github.com:foam-foundation/foam3.git
 git submodule update --init --recursive --rebase --force
 ```
 
@@ -184,8 +195,9 @@ cd foam3/
 
 # Generate Application
 
-The easiest way to create a FOAM application is to use the foam build script <code>foam3/tools/build.js</code> and generate the application structure and the main application model. To create your application this way,
-while still in the *foam3* directory, execute the following:
+With the repository cloned, the sub-module linked, and the npm dependencies installed, everything is in place. We are now ready to generate our application skeleton.
+
+The easiest way to create a FOAM application is to use the project generator, which scaffolds the application structure and the main application model for you. From the *foam3* directory, run:
 
 ```
 # from foam3 directory
@@ -194,7 +206,12 @@ while still in the *foam3* directory, execute the following:
 cd ..
 ```
 
-In this case, we named the application and the top model _Recipe_ and placed it in the _com.foamdev.cook_ package.
+| Argument | Description |
+|----------|-------------|
+| `-T+setup/Project` | Runs the built-in project scaffolding task |
+| `--appName:Recipe` | The name of the application to generate and its top-level model class |
+| `--package:com.foamdev.cook` | The Java-style package namespace for all generated source files |
+| `--adminPassword:badpassword` | The initial password for the generated admin user — change this before any real deployment |
 
 ## Application Structure
 
@@ -222,13 +239,13 @@ One of the generated files is *build.sh* with the following content:
 node foam3/tools/build.js "$@"
 ```
 
-This is a convenience script to make the application builds easier. Before you use it, make sure that the script has executable privileges:
+This script is your entry point to the FOAM build tools — every build, test, and generator command you run throughout this tutorial goes through it. Before you use it, make sure that the script has executable privileges:
 
 ```
 chmod +x build.sh
 ```
 
-The next file to take a look at is the Project Object Model (POM) file for our project, named pom.js. Note that this file is a meta project file that will be used by FOAM to generate the traditional POM.xml used by build tools. The file should have the following content:
+The next file to take a look at is the Project Object Model (POM) file for our project, named `pom.js`. The `.js` extension is intentional — rather than a static XML descriptor, this is a live JavaScript file that FOAM evaluates at build time to produce the traditional `pom.xml` that build tools expect. Writing it in JavaScript means you can use variables, functions, and conditions to express build configuration that XML simply cannot. The file should have the following content:
 
 ```
 foam.POM({
@@ -284,8 +301,8 @@ in the projects below.</td>
 <td width=80% align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
 </tr>
 <tr>
-<td width=20% align="left">VERSION</td>
-<td width=80% align="left">The version that will be attached to some built files. Should be updated when you make a new release so that old cached code isn't used.</td>
+<td width=20% align="left">envs.version</td>
+<td width=80% align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
 </tr>
 <tr>
 <td width=20% align="left">tasks</td>
@@ -1633,28 +1650,25 @@ Because both resolve their target from the context `data`, rendering them outsid
 
 One of FOAM's most powerful features is its reactive slot system. A **slot** is a live reference to a value — a handle that notifies the UI whenever the value changes. You never manually update DOM elements; you bind them to slots and FOAM keeps everything in sync.
 
-Every property has a slot, reached with the `$` suffix. A few forms cover most day-to-day view code:
+Every property has a slot, reached with the `$` suffix:
 
 ```javascript
 this.name        // the current value — a static snapshot
 this.name$       // the slot — a live handle to the property
 
-this.add(this.name$);                                   // reactive text: re-renders when name changes
-this.tag({ class: 'foam.u2.TextField', data$: this.name$ });  // two-way bind: field ↔ property
+this.add(this.name$);                                        // reactive text: re-renders when name changes
+this.tag({ class: 'foam.u2.TextField', data$: this.name$ }); // two-way bind: field ↔ property
 
-// a computed slot — a derived value that recomputes when any dependency changes
-// (argument names ARE the dependencies)
+// a computed slot — recomputes whenever any named dependency changes
 var fullName = this.slot(function(firstName, lastName) {
   return firstName + ' ' + lastName;
 });
 this.add(fullName);
 ```
 
-When you subscribe to a slot manually, wrap it with `onDetach()` so it's cancelled when the component is removed:
+Slots go much deeper than this: they can mirror each other, be chained across object graphs, subscribe to changes, and drive reactive DOM rebuilds. Those patterns — `follow()`, `sub()`, `dynamic()`, slot chains with `$`-paths — appear throughout this tutorial and are explained each time we use them in context.
 
-```javascript
-this.onDetach(this.name$.sub(this.onNameChange));
-```
+For the complete picture up front, read [`Slots.md`](../guides/Slots.md). It covers the full slot type zoo, how `dot()` builds chains that auto-rewire when intermediate objects are replaced, how ExpressionSlots infer their dependencies from argument names, and the subtle difference between syncing values and subscribing to events. It is the single most useful reference in this guide — the developers who read it early consistently find the rest of the tutorial significantly easier to follow.
 
 ### When the Stock UI Isn't Enough
 
@@ -2005,7 +2019,7 @@ With these two views in place, `IngredientAmount` goes from a form full of meani
 
 The third layer is **Controllers** — whole screens assembled from your model definition: browse, create, and edit wired together with navigation and actions, ready to use out of the box yet still customizable. FOAM's is **Comics**.
 
-**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — exactly the automatic Recipe browse and create screens we have been working with. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
+**Comics** stands for **Co**ntext-Oriented **MI**cro-**C**ontroller**s**. Rather than one large controller managing the entire CRUD flow, Comics composes a set of small, focused micro-controllers — one per state (browse, create, view/edit) — coordinated by a top-level state machine (`DAOController`) that routes between them. Because each piece is independent, you customize one part (say, the create form) by swapping just that micro-controller and leaving the rest untouched. Given a model and a DAO, Comics generates browse tables, detail views, and create/edit forms — the same kind of generated screens as the custom views we have been building. You reach for Comics when you want a standard data-management screen without writing view code, and you customize it (columns, sections, custom detail/create views, actions) only where the defaults fall short.
 
 Two closely related pieces are out of scope for this tutorial:
 
@@ -2027,7 +2041,7 @@ Under the hood the `DAOController` is a small state machine with a single `route
 | a record id | **Detail** — view/edit that record (`DetailView`) |
 | `'create'`  | **Create** — an empty form (`CreateView`) |
 
-Clicking a row sets `route = id` (detail); the Create button sets `route = 'create'`. Because `route` is declared `memorable`, it's reflected in the URL, so browser back/refresh just work. Everything below is generated from `IngredientAmount`'s own declarations — its `tableColumns`, `sections`, property `view`s, and `actions`.
+Clicking a row sets `route = id` (detail); the Create button sets `route = 'create'`. Because `route` is declared `memorable`, it's reflected in the URL, so browser back/refresh just work.
 
 ### Detail: view and edit modes
 
@@ -2049,13 +2063,13 @@ sections: [
 ]
 ```
 
-Each property opts into a section with `section: 'main'` (or `'other'`), and Comics lays those sections out with one of three interchangeable **section views** — the details are out of scope here, but in short:
+In this example, each property opts into a section with `section: 'main'` (or `'other'`), and Comics lays those sections out with one of three interchangeable **section views** — the details are out of scope here, but in short:
 
 - **`TabbedDetailView`** — one tab per section.
 - **`SectionedDetailView`** — one card per section, in a grid/list.
 - **`VerticalDetailView`** — sections stacked vertically, no chrome.
 
-The view/edit screen (`DetailView`) defaults to the **tabbed** layout; the create screen (`CreateView`) defaults to the **sectioned** (card) layout. We override create to use the tabbed layout too, so create matches view/edit — which is why the `alternative` reference (in the `other` section) always appears under its own **Alternative** tab, create included. And because each property renders with its configured `view`, that Alternative tab is where our `AlternativePickerView` shows up, while `IngredientPickerView` renders `ingredient` on the `main` tab. The customization we did on the model flows automatically into every one of these generated screens.
+The view/edit screen (`DetailView`) defaults to the **tabbed** layout; the create screen (`CreateView`) defaults to the **sectioned** (card) layout. Look at `IngredientAmount` as a concrete example: in view/edit, the tabbed layout puts `alternative` on its own **Alternative** tab — it is there when you need it but out of the way when you do not. Switch to create and the default sectioned layout puts both sections on the same page, so the optional `alternative` field appears right alongside the required fields every time you create a new record. The next section shows how to fix this by configuring the create view from the menu.
 
 ### Configuring the DAOController from the menu
 
@@ -2069,7 +2083,7 @@ We saw earlier that a menu entry's `handler` determines what happens when you op
 
 Set any combination; leave the rest unset and Comics generates them from the model.
 
-By default, `createView` uses a **sectioned (card) layout** — all sections stacked on one page. You can see this by opening the **IngredientAmount** DAO directly from the Data Management screen and clicking **Create New Ingredient Amount**: both the Ingredient and Alternative sections appear together.
+You can see the `createView` default in action with `IngredientAmount`: open the DAO directly from the Data Management screen and click **Create New Ingredient Amount** — both the Ingredient and Alternative sections appear together on one page.
 
 For our Ingredients menu entry, that's not quite right. `alternative` is an optional substitute — not every ingredient amount has one. Showing it alongside the required fields on the same page makes the form feel cluttered. The tabbed layout is a better fit: the main **Ingredient** tab holds the fields a user always fills in, and the **Alternative** tab is there if needed without getting in the way.
 
@@ -2118,7 +2132,13 @@ Three pieces work together to make it happen: a **working-state on `Recipe`** th
 
 ### The ingredient amounts picker for a step: `RecipeStepIngredientAmountsView`
 
-Before the Recipe screen can show ingredient amounts inline on each step, there has to be a view that manages them. That is `RecipeStepIngredientAmountsView`, registered in `pom.js` and wired via the `RecipeStep → IngredientAmount` relationship in `Relationships.js`:
+Just as we built `IngredientPickerView` for the ingredient reference on `IngredientAmount` and `AlternativePickerView` for the alternative substitute, we need a custom picker for the `RecipeStep → IngredientAmount` relationship.
+
+It is worth pausing on why this relationship exists at all. We could have made `RecipeStep` hold its ingredient amounts directly as an `FObjectArray` property — simpler, no junction table, no extra DAO. The trade-off is that we would lose normalization: the same ingredient amount could not be reused across steps, and the full-text search, filtering, and sorting that a dedicated DAO gives us would be gone. Both approaches are valid; we are sticking with the normalized model here precisely to illustrate how FOAM handles it.
+
+The `RecipeStep → IngredientAmount` relationship is `*:*`, so FOAM generates a junction table automatically. The default view for this kind of property is **hidden** — FOAM does not know what UI to render for a many-to-many, so it opts out. Unlike the two pickers above, where we could subclass `foam.u2.view.ReferencePropertyView` and get searching for free, there is no stock base class for a many-to-many list with attach, create, and remove affordances. We wire in `foam.u2.view.RichChoiceView` at a lower level ourselves and build the rest by hand — which will also give us a chance to demonstrate FOAM's **transient fields**. The full `RecipeStepIngredientAmountsView` is provided in the zip file; copy it into `src/com/foamdev/cook/` and add an entry for it in `pom.js`. Below we cover only the wiring and the parts worth calling out.
+
+Add the relationship to `Relationships.js`:
 
 ```javascript
 foam.RELATIONSHIP({
@@ -2137,32 +2157,104 @@ foam.RELATIONSHIP({
 });
 ```
 
+Rebuild:
+
+```bash
+./build.sh -Jdemo
+```
+
+Then search for **Recipe Step** in the left nav search bar. Click **Create**, add a few ingredient amounts, and save. The dropdown searches existing amounts, **New ingredient amount** creates one in place, and **Remove** unlinks without deleting.
+
+
+> 💡 **Note:** Creating a `RecipeStep` outside a `Recipe` is not how the final app should work — steps only make sense as part of a recipe, and in a real application you would not expose this DAO at all. We are using the nav search here purely to test the picker in isolation. To hide a DAO from the nav search and Data Management entirely, set `"hidden": true` on its `nSpec` service declaration in `services.jrl`.
+
 The view renders a compact list of amounts linked to this step and adapts to the current controller mode: in VIEW it is read-only; in EDIT or CREATE the affordances activate — a searchable dropdown to link an existing amount, a **New ingredient amount** button to create one in place, and a **Remove** button on each row.
 
-A few things worth noting in how it works:
+A few things worth calling out from the implementation.
 
-- The searchable dropdown uses `RichChoiceView` pointed at `ingredientAmountDAO`, searching by `SUMMARY` — the `storageTransient` field the server pre-computes from `toSummary()`, so the client gets readable labels with no extra round-trip.
-- The `*:*` relationship requires the step to have an `id` before a junction can be created. The view handles this by persisting the step on first add if it is not yet saved, adopting the returned `id` in place so the surrounding create/Save flow just updates the same record.
-- Because the junction DAO does not fire events on the relationship's target DAO, there is no DAO event to bind the list re-render to. Instead the view tracks its own `invalidate` counter and bumps it after every add, remove, or edit — which causes the `slot()` rendering the list to rebuild.
+**Hand-rolled reactivity with `invalidate`.** Mutations go through the junction DAO, which does not propagate events to the relationship's target DAO — so there is no DAO event the list can subscribe to directly. One solution is a Boolean `invalidate` property used as a dirty flag. An alternative would be to subscribe to `step.ingredientAmounts.junctionDAO.on` events inside the render block — but since this view owns every mutation, the dirty flag is simpler and equally correct.
+
+The list is rendered inside a `dynamic()` block. `dynamic()` is FOAM's **ExpressionSlot for the DOM**: it inspects the argument names of the function you pass in, resolves each one as a slot on the view, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes. Here `invalidate` is the only argument, so the block re-runs exactly when we want it to.
+
+The reset back to `false` lives on the property itself via `postSet`, not inside the `dynamic()` block. Putting it inside the block would cause a second re-render immediately after every mutation — once for `true`, once for `false`. With `postSet` the reset happens synchronously within the setter, before the slot fires, so `dynamic()` sees only the `true` transition and runs once:
+
+```javascript
+// property
+{
+  class: 'Boolean',
+  name: 'invalidate',
+  postSet: function(_, newValue) {
+    if ( newValue ) this.invalidate = false;
+  }
+}
+
+// dynamic block re-runs on every invalidate = true
+.add(self.dynamic(function(invalidate) {
+  var step = self.__context__.objData;
+  if ( ! step || ! step.id ) {
+    this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    return;
+  }
+  this.select(step.ingredientAmounts.dao, function(ia) {
+    this.start().addClass(self.myClass('row'))...
+  }, {
+    onEmpty: function() {
+      this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    }
+  });
+}))
+
+// after each mutation — bump the flag to re-render:
+self.invalidate = true;
+```
+
+The empty state message is defined once using FOAM's `messages` axiom — a built-in i18n-aware string constant — and referenced as `self.EMPTY_MESSAGE`:
+
+```javascript
+messages: [
+  { name: 'EMPTY_MESSAGE', message: 'No ingredients yet.' }
+]
+```
+
+There are two distinct empty paths: the step has no `id` yet (just added, not yet persisted — no junction DAO to query), and the step is saved but all its amounts have been removed (the DAO query returns empty, so `onEmpty` fires). Both show the same message.
+
+
+**`RichChoiceView` — reusing the framework's own picker component.** For a `Reference` property (a foreign key), FOAM's `ReferenceView` generates a searchable dropdown automatically. Under the hood, `ReferenceView` delegates to `RichChoiceView` — the same component that powers every relationship picker in the framework. For a `*:*` list there is no generated equivalent: the framework cannot assume whether you want a picker, a multi-select table, tag chips, or something else entirely. So we reach for `RichChoiceView` directly — the same building block the framework uses internally, just configured and wired by hand:
+
+```javascript
+.tag(self.RichChoiceView, {
+  search: true,
+  searchPlaceholder: 'Search ingredient amounts',
+  sections: [ { dao: self.ingredientAmountDAO, searchBy: [ self.IngredientAmount.SUMMARY ] } ],
+  data$: self.selectedId$
+})
+```
+
+`sections` is an array, so you could point different sections at different DAOs — for example one section for recently used amounts and one for the full list. Here there is just one. `searchBy` tells `RichChoiceView` which properties to match the search text against; `SUMMARY` is the `storageTransient` computed label we added to `IngredientAmount` earlier — the server computes it from amount, unit, and ingredient name, sends it to the client, and the client caches it in the local `MDAO`. The search predicate runs against that cached value in memory, with no server round-trip, and displays something readable like "2 cups Flour" rather than a raw id.
+
+`data$: self.selectedId$` establishes a **two-way binding** between `RichChoiceView` and the view's `selectedId` property. Two-way binding means both sides stay in sync: when the user picks an entry the picker writes the id into `selectedId`, and if `selectedId` is changed in code the picker's displayed value updates to match. This is the same slot-linking mechanism you saw earlier with `follow()` and `linkFrom()` — here expressed inline as a slot assignment on the component's `data$`. Keeping the picker and the backing property in sync through a shared slot, rather than wiring callbacks in both directions, is idiomatic FOAM.
+
+> 💡 **Stop and read [`Slots.md`](../guides/Slots.md).** Slots are FOAM's reactive primitive — they underpin every property binding, every `dynamic()` block, every two-way link, and the `$`-chain notation you just saw. This tutorial introduces slots in context as they appear, but `Slots.md` gives you the complete mental model in one place: what a slot is, how `dot()` builds chains, how `ExpressionSlot` infers dependencies, and why two-way binding works the way it does. Developers who skip this document consistently struggle to understand why reactive UI works in some places and not others. Read it now, before moving on — it will make everything that follows significantly clearer.
+
 
 ### Working state on `Recipe`: `editSteps` and `loadedStepIds`
 
-Comics' default Save writes the root object. For a Recipe, that is not enough: the steps are separate records linked by `recipe` id, and ingredient-amount junctions are separate records linked by `step` id. They must be persisted in the right order and only after the root has an id.
+Comics' default Save writes the root object. For a Recipe that is not enough: the steps are separate records linked by `recipe` id, and ingredient-amount junctions are separate records linked by `step` id. They must be persisted in the right order and only after the root has an `id`. Similarly, default Cancel just discards the in-memory working copy — but during editing a user may have already persisted steps (because the ingredient-amounts picker needs a real step `id`). Those orphaned steps have to be cleaned up on Cancel.
 
-Similarly, default Cancel just discards the in-memory working copy. But during editing a user may have persisted steps in place (because the ingredient-amounts picker needs a real step id). Those orphaned steps have to be deleted on Cancel.
-
-Two transient, hidden properties on `Recipe` carry the state across the editing session:
+Open `src/com/foamdev/cook/Recipe.js` and add two transient, hidden properties to the `properties` array:
 
 ```javascript
 {
-  // UI-only working set of steps while editing; the save ComicsAction persists them.
+  // Temporary in-memory working copy of steps for the current edit/create session.
+  // Not stored. The save ComicsAction persists them to the DAO when the user saves.
   class: 'Array',
   name: 'editSteps',
   transient: true,
   hidden: true
 },
 {
-  // Ids present when editing began; lets discardSteps keep pre-existing steps on Cancel.
+  // Snapshot of step ids that existed when editing began. Not stored.
+  // discardSteps uses this to avoid deleting pre-existing steps when the user cancels.
   class: 'Array',
   name: 'loadedStepIds',
   transient: true,
@@ -2170,70 +2262,104 @@ Two transient, hidden properties on `Recipe` carry the state across the editing 
 }
 ```
 
-`transient` means neither property is stored in the journal or sent over the network — they exist only in the client's in-memory object for the duration of an edit session.
+`transient` means neither property is stored or sent over the network — they exist only in the client's in-memory object for the duration of an edit session. `hidden` keeps them out of any auto-generated form.
 
-Two helper methods drive the cleanup logic:
-
-- **`saveSteps(x, recipeId)`** — iterates `editSteps`, sets each step's `recipe` and `rank`, and calls `recipeStepDAO.put()` in order.
-- **`discardSteps(x)`** — compares `editSteps` against `loadedStepIds`: any step with an id that was not there when editing started gets deleted along with its junctions via `removeWithJunctions`.
-
-### ComicsAction overrides on `Recipe`
-
-Three default Comics actions are overridden directly on the `Recipe` model. Because they are declared on the model, the correct logic runs everywhere a Recipe is saved — regardless of which screen triggered it.
-
-**`save`** — puts the recipe first to get an `id`, then calls `saveSteps`. After persisting, it signals the surrounding controller: in edit mode it refreshes the detail view's data and returns to VIEW; in create mode it navigates to the new record's detail screen.
+Next, add two helper methods to the `methods` array. These do the heavy lifting for the action overrides below:
 
 ```javascript
-{
-  class: 'foam.comics.v3.ComicsAction',
-  name: 'save',
-  code: async function(x) {
-    var recipe = await x.config.dao.put(this);
-    await this.saveSteps(x, recipe.id);
+// Persist editSteps linked to recipeId, in list order.
+async function saveSteps(x, recipeId) {
+  var steps = this.editSteps || [];
+  for ( var i = 0 ; i < steps.length ; i++ ) {
+    steps[i].recipe = recipeId;
+    steps[i].rank   = i + 1;
+    await x.recipeStepDAO.put(steps[i]);
+  }
+},
 
-    if ( x.detailView ) {
-      x.detailView.data = recipe;
-      x.detailView.finished.pub();
-      x.config.dao.on.reset.pub();
-      x.detailView.controllerMode = 'VIEW';
-    } else if ( x.createView ) {
-      x.createView.data = recipe;
-      x.createView.finished.pub();
-      x.daoController && ( x.daoController.route = recipe.id );
-    }
-    x.notify(recipe.toSummary() + ' saved', '', foam.log.LogLevel.INFO, true);
+// Cancel cleanup: delete steps that were persisted during this session but did not
+// pre-exist. On create, loadedStepIds is empty so all persisted steps are removed.
+async function discardSteps(x) {
+  var loaded = this.loadedStepIds || [];
+  var steps  = this.editSteps || [];
+  for ( var i = 0 ; i < steps.length ; i++ ) {
+    var step = steps[i];
+    if ( step.id && loaded.indexOf(step.id) === -1 ) await step.removeWithJunctions(x);
   }
 }
 ```
 
-**`cancel`** (create flow) — calls `discardSteps` to clean up any steps created during this session, then navigates back to browse.
+Finally, add an `actions` array to the class and override the three default Comics actions.
 
-**`cancelEdit`** (edit flow) — same step cleanup, then resets the working copy to the original data and returns to VIEW mode.
+This is worth pausing on. We are not replacing the Comics micro-controllers — the generated `DetailView` and `CreateView` are still doing all the work: routing, toolbar rendering, clone/restore, mode switching. What we are doing is replacing only the specific actions those controllers call. `ComicsAction` is a subclass of `Action`; when Comics looks for a `save`, `cancel`, or `cancelEdit` action to execute, it finds the model-declared one first. The controllers stay; only the action code changes. This is the narrowest possible override — everything the framework gives us for free is still in play, and we bolt on just the nested-graph persistence that the default code does not know about.
+
+Because these are declared on the model rather than inside a controller, the correct logic runs everywhere a Recipe is saved — regardless of which screen triggered it. `save` puts the recipe first to get an `id` then persists the steps, signalling the surrounding controller when done. `cancel` cleans up any steps created during the session and navigates back to browse. `cancelEdit` does the same cleanup then resets the working copy and returns to VIEW mode:
+
+```javascript
+// In all action code functions: 'this' is the record, 'x' is the Comics execution
+// context — the same __context__ every FOAM object carries, injected by the controller.
+actions: [
+  {
+    // Overrides comics Save for edit and create. Persists the
+    // recipe + its steps, then finishes per controller.
+    class: 'foam.comics.v3.ComicsAction',
+    name: 'save',
+    code: async function(x) {
+      // config is the controller's config, which has the DAO to persist the recipe.
+      var recipe = await x.config.dao.put(this);
+
+      // now we can persist the steps, which need the recipeId to link to.
+      await this.saveSteps(x, recipe.id);
+
+      // adjust the view and navigation per Comics conventions: edit returns to VIEW, create navigates to the new record.
+      var isEdit     = !! x.detailView;
+      var innerView  = x.detailView || x.createView;
+      innerView.data = recipe;
+      innerView.finished.pub();
+      if ( isEdit ) {
+        // Broadcast reset to all DAO listeners so any live views re-query (needed to refresh BROWSE).
+        x.config.dao.on.reset.pub();
+        innerView.controllerMode = 'VIEW';
+      } else {
+        // Create: navigate to the new record's detail.
+        x.daoController && ( x.daoController.route = recipe.id );
+      }
+      x.notify(recipe.toSummary() + ' saved', '', foam.log.LogLevel.INFO, true);
+    }
+  },
+  {
+    // Overrides create's Cancel: clean up persisted steps, then back to browse.
+    class: 'foam.comics.v3.ComicsAction',
+    name: 'cancel',
+    code: async function(x) {
+      await this.discardSteps(x);
+      if ( x.daoController ) x.daoController.routeToMe();
+      else if ( x.createView ) await x.createView.stack.pop();
+    }
+  },
+  {
+    // Overrides edit's Cancel: clean up persisted steps, revert working copy, back to VIEW.
+    class: 'foam.comics.v3.ComicsAction',
+    name: 'cancelEdit',
+    code: async function(x) {
+      await this.discardSteps(x);
+      var ctrl = x.detailView;
+      ctrl.workingData    = ctrl.data.clone(ctrl);
+      ctrl.controllerMode = 'VIEW';
+    }
+  }
+]
+```
 
 ### `RecipeView`
 
-`RecipeView` extends `foam.u2.View` and is registered in `pom.js`. Comics renders it as the inner form inside its own shell — the shell provides the Save/Cancel toolbar and page chrome, so `RecipeView` focuses entirely on the form layout.
+`RecipeView` is the centrepiece of the app. The full file is provided in the zip — copy it to `src/com/foamdev/cook/RecipeView.js` and add it to `pom.js`:
 
-**`init()`** sets up two subscriptions:
+```javascript
+{ name: 'RecipeView', flags: 'js' }
+```
 
-- Follows `controllerMode$` from the context so the view knows when to switch between VIEW and EDIT — the same mechanism `SectionView` uses.
-- Subscribes to `data$` so `loadSteps()` is called whenever the data object changes. This matters because Comics' detail view swaps between the original record and a working clone; `RecipeView` must reload the step list from whichever object is current.
-
-**`loadSteps()`** queries `data.steps` ordered by rank, writes the results into `editSteps`, and records their ids in `loadedStepIds`. A recipe with no `id` (still being created) starts with empty arrays — querying at `id = null` could return orphaned steps from the database.
-
-**`render()`** has two parts:
-
-1. The recipe's own fields, via `SectionedDetailView` with a `propertyWhitelist` that names only `NAME`, `CATEGORY`, and `DESCRIPTION`. The `steps` relationship is deliberately excluded — it would render as a raw table — and `hideActions: true` keeps the recipe's ComicsActions out of the form body (they live on the Comics shell).
-
-2. The step list — a labelled section with an **Add Step** button (edit mode only), then each step rendered via the default `SectionedDetailView`. Because `RecipeStepIngredientAmountsView` is already wired to the `ingredientAmounts` relationship, the standard step form automatically includes the ingredient amounts picker with no extra code here.
-
-**`addStep()`** creates a new `RecipeStep` with the recipe id and the next rank, and appends it to `editSteps`. The list re-renders reactively.
-
-**`removeStep(step)`** filters the step out of `editSteps`, renumbers the remaining steps' ranks, and — if the step was already persisted — immediately deletes it and its junctions from the DAO.
-
-### Wiring into the menu
-
-`RecipeView` is registered in `pom.js` and pointed to from the Recipes menu entry as both `detailView` and `createView`:
+Then add the Recipes menu entry to `journals/menus.jrl`:
 
 ```javascript
 p({
@@ -2255,12 +2381,603 @@ p({
 })
 ```
 
-The browse table remains fully generated from `Recipe`'s `tableColumns`. Only the detail and create screens use `RecipeView`. Open **Recipes** in the app: the browse table is there, click a recipe and the detail screen shows the recipe's own fields followed by its steps — each with its ingredient amounts list, read-only. Click **Edit** and the same view becomes fully interactive: Add Step, Remove, the ingredient amounts picker, and the comics Save/Cancel all wired together and working as a single cohesive form.
+Rebuild:
 
-# Nano Services (Coming Soon)
+```bash
+./build.sh -Jdemo
+```
 
-// Coming soon
-[foam-nanoservices]
+Open **Recipes** in the app. Create a recipe, add some steps, attach ingredient amounts to each step, and save. Then open the record, edit it, remove a step, cancel — make sure the orphaned step is cleaned up. The browse table is still fully generated from `Recipe`'s `tableColumns`; only the detail and create screens swap in our custom `RecipeView` as the inner form. The Comics chrome — toolbar, Save/Cancel buttons, routing, page title — is still entirely Comics. We replaced only the part that renders the form content.
+
+The create form opens with the recipe fields at the top and an empty Steps section below, ready for steps to be added:
+
+![Create Recipe — empty steps](images/screen7.png)
+
+After clicking **Add Step** and filling in the step details, the ingredient amounts picker appears inline on each step card. Here the pasta boiling step has its amounts attached:
+
+![Create Recipe — first step with ingredient amounts](images/screen8.png)
+
+After saving and reopening the record in edit mode, the same `RecipeView` is used — create and edit share the identical layout. A second step shows the egg and cheese mixture with its ingredient amounts:
+
+![Edit Recipe — second step with ingredient amounts](images/screen9.png)
+
+Once you have a feel for how it behaves, the sections below walk through the interesting parts of the implementation.
+
+#### `init()` — following context
+
+Comics renders `RecipeView` as the inner form inside its own shell. The shell owns the toolbar and page chrome; `RecipeView` focuses entirely on the form layout. To stay in sync with the shell, `init()` follows two slots:
+
+```javascript
+function init() {
+  this.SUPER();
+
+  // Follow the Comics shell's controllerMode (VIEW <-> EDIT).
+  if ( this.__context__.controllerMode$ ) {
+    this.controllerMode$.follow(this.__context__.controllerMode$);
+  }
+
+  // Comics swaps data for a fresh clone on edit; reload steps whenever data changes.
+  this.data$.sub(() => this.loadSteps());
+  this.loadSteps();
+}
+```
+
+The two slots are wired differently, and that difference is intentional.
+
+`controllerMode$` uses `follow()` — a declarative **value sync**. `follow(source)` keeps the two slots permanently equal: whenever `source` changes, the following slot is updated to match. There is no callback, no side effect — just two slots pointing at the same value at all times. Use `follow()` when you want a property to mirror another slot continuously.
+
+`data$` uses `sub()` — an imperative **event subscription**. `.sub(fn)` calls `fn` whenever the slot fires, but does not sync values. It is the right tool here because the response to a data change is a side effect: an async DAO query (`loadSteps()`). There is no value to mirror; there is work to do. Use `sub()` when a change should trigger behaviour, not when it should propagate a value.
+
+This matters because Comics' detail view swaps `data` for a fresh working clone when the user enters edit mode. `follow()` would not help here — we do not want `RecipeView.data` to track the context's `data`; we want to react to the swap and reload the step list from whichever object is now current.
+
+The explicit `this.loadSteps()` call at the end of `init()` is necessary because `sub()` fires only on **future changes** — it does not fire for the current value. When the view is first created, `data` is already set. The subscription will not fire for that initial value, so without the explicit call the step list would never be seeded on first render. The pattern — subscribe, then call once immediately — is a common idiom whenever a slot subscription must also handle the value that was already there when the listener was attached.
+
+#### `render()` — composing recipe fields and step cards
+
+Here is the full `render()` method so you can see how all the pieces fit together before we walk through each one:
+
+```javascript
+function render() {
+  var self = this;                                          // ① self = view, always
+  self.SUPER();
+
+  self.addClass()
+    .add(self.dynamic(function(data, controllerMode) {     // ② outer ExpressionSlot
+      if ( ! data ) return;
+      var editing = controllerMode == 'EDIT' || controllerMode == 'CREATE';
+
+      this.tag({                                           // ③ recipe fields (self = view, this = element)
+        class: 'foam.u2.detail.SectionedDetailView',
+        data: data,
+        propertyWhitelist: [ self.Recipe.NAME, self.Recipe.CATEGORY, self.Recipe.DESCRIPTION ],
+        hideActions: true
+      });
+
+      this.start().addClass(self.myClass('section'))
+        .start().addClass(self.myClass('section-title')).add('Steps').end()
+        .callIf(editing, function() {                      // ④ Add Step button — edit mode only
+          this.start('button')
+            .addClass(self.myClass('btn')).addClass(self.myClass('btn-secondary'))
+            .add('Add Step')
+            .on('click', () => self.addStep())
+          .end();
+        })
+        .add(self.dynamic(function(data$editSteps) {       // ⑤ inner ExpressionSlot with slot chain
+          ( data$editSteps || [] ).forEach((step) => {
+            this.start().addClass(self.myClass('step'))
+              .callIf(editing, function() { .... })        // Remove button — edit mode only
+              .tag({ class: 'foam.u2.detail.SectionedDetailView', data: step })
+            .end();
+          });
+        }))
+      .end();
+    }));
+}
+```
+
+##### ① `self` vs `this`
+
+Inside a U2 `render()` method, `this` has two different meanings depending on where you are. At the top level of `render()`, `this` is the view instance — the `RecipeView` object with its properties and methods. But inside `dynamic()` and `callIf()` callbacks, FOAM rebinds `this` to the **element currently being built** — the fluent DOM builder you call `.start()`, `.tag()`, `.end()` on.
+
+`var self = this` is declared as the very first line — before even calling `SUPER()` — so it is available throughout. The convention is then unambiguous: `self` is always the view, `this` inside a callback is always the element. You never have to ask "which `this` am I in?"
+
+##### ② ExpressionSlots: `dynamic()`
+
+You already saw `dynamic()` introduced in `RecipeStepIngredientAmountsView` where it watched the `invalidate` flag to re-render the ingredient amounts list. The same mechanism is at work here, just with richer dependencies. As a reminder: `dynamic()` is FOAM's **ExpressionSlot for the DOM** — it inspects the argument names of the function, resolves each as a slot on the owning object, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes.
+
+Here the outer `dynamic(function(data, controllerMode))` re-runs whenever `self.data$` or `self.controllerMode$` changes — two dependencies inferred from two argument names, no wiring needed.
+
+##### ③ Recipe fields via `SectionedDetailView`
+
+`render()` keeps `RecipeView` lean by reusing existing components rather than reimplementing form layout. `propertyWhitelist` renders only the three named properties, deliberately excluding the `steps` relationship (which would render as a raw table). `hideActions: true` keeps the recipe's ComicsActions out of the form body — they belong on the Comics shell toolbar, not inline.
+
+##### ④ `callIf` — conditional DOM
+
+`callIf(condition, fn)` calls `fn` (with `this` bound to the element) only when `condition` is true. It is the declarative alternative to an `if` statement inside a fluent builder chain. Here it gates the Add Step button and the Remove button on `editing` — so the same `render()` produces a read-only layout in VIEW mode and an editable one in EDIT/CREATE mode, with no imperative DOM manipulation.
+
+##### ⑤ Slot chaining: `data$editSteps`
+
+Look at the argument name in the inner `dynamic()` in the snippet above: `data$editSteps`. This is a **slot chain** — the `$` separator tells `dynamic()` to follow a path: start from `self.data$`, then follow to `.editSteps$` on whatever `data` currently holds. The result re-fires when either link in the chain changes: when `data` is replaced (Comics swaps in a fresh clone on edit), or when `editSteps` changes on the current data (a step is added or removed). A plain `data` argument would miss the second case entirely.
+
+You already saw slot chains introduced in the `RichChoiceView` section with two-way binding. This is the same mechanism applied to a `dynamic()` dependency. If this still feels unfamiliar, now is a good time to revisit [`Slots.md`](../guides/Slots.md) — specifically the *Composition: deep slot chains* section. The `dot()` primitive, `SubSlot` auto-rewiring, and `$`-path sugar are all covered there. Slot chains appear constantly in real FOAM code; a solid mental model of how they work will pay off immediately.
+
+#### The payoff: composition over complexity
+
+Step back and look at what `render()` actually contains: roughly 30 lines for a screen that displays a recipe's fields, a dynamic list of steps in VIEW and EDIT mode with Add and Remove controls, and inside each step a fully functional many-to-many ingredient picker with search, attach, create-in-place, and per-row edit/delete. That level of functionality in that few lines is only possible because every piece was built to be reused.
+
+`SectionedDetailView` handles layout, labels, validation display, and visibility rules for both the recipe fields and each step form. `RecipeStepIngredientAmountsView` handles the entire ingredient amounts interaction — and because it is already wired to the `ingredientAmounts` relationship in `Relationships.js`, the standard step form includes the picker automatically with no extra code here. `ComicsAction` overrides handle save and cancel orchestration. None of that logic lives in `RecipeView` — it was written once, in the right place, and composed here.
+
+This is the payoff of FOAM's philosophy: build small, focused pieces that know their own concern, wire them together with relationships and context, and the top-level view stays thin. ***The complexity does not disappear — it is distributed to where it belongs.***
+
+> 💡 **Compare with `RecipeCreate2`.** The zip file includes `RecipeCreate2` — a fully custom create screen included for comparison, with its own layout, field wiring, and step management. Open it alongside `RecipeView` and compare the two.
+>
+> The key distinction is **view vs controller**. `RecipeCreate2` is a **controller** — it owns its own data, manages its own lifecycle, and only handles the create case. `RecipeView` is a **view** — it receives `data` from the Comics shell, follows the shell's `controllerMode`, and adapts its rendering to VIEW, EDIT, and CREATE in a single component. The controller does more but knows less about the surrounding system; the view does less but integrates seamlessly with Comics' routing, toolbar, and mode management.
+>
+> `RecipeCreate2` would need a separate screen for view and edit. `RecipeView` handles all three modes with no duplication — that is exactly what the Comics shell and `controllerMode` buy you.
+
+# NanoServices
+
+Every real application depends on services: authentication, email, push notifications, AI inference, translation, currency formatting. These are not about storing records — they take a request, do something, and return a result. FOAM treats all of them through the same mechanism: the **nano-service**.
+
+FOAM ships with hundreds of built-in nano-services covering the most common platform needs. Before writing a new service, always check whether one already exists. Notable built-ins include:
+
+| Service | Context name | What it does |
+|---|---|---|
+| `AuthService` | `auth` | Login, logout, password change, user lookup |
+| `AppConfigService` | `appConfigService` | Fetches application configuration for the current theme/tenant |
+| `TranslationService` | `translationService` | Internationalization — looks up translated strings by key |
+| `LLMService` | `llmService` | Large language model inference (AI completions) |
+| `EmailDocService` | `emailDocService` | Template-based email sending |
+| `OTPAuthService` | `twofactor` | Google Authenticator / TOTP two-factor authentication |
+| `CrunchService` | `crunchService` | User capability and permission lifecycle management |
+| `GlobalSearchService` | `globalSearchService` | Full-text cross-model search |
+| `ThemeService` | `themes` | Theme resolution and multi-tenancy |
+
+When you do need to build your own, FOAM's nano-service architecture solves a fundamental problem in distributed systems: **how do you write code that works identically whether services are local (same JVM/process) or remote (across a network)?**
+
+The answer is **location-agnostic design** through three mechanisms:
+
+1. **Context-based dependency injection** — services are accessed by name, not by direct instantiation
+2. **Box-based messaging** — a minimal transport abstraction that hides network details
+3. **Stub/Skeleton RPC** — automatic generation of client proxies and server handlers
+
+The calling code is identical in all three cases:
+
+![NanoService transport diagram](images/nanoservice-transport.svg)
+
+## How It Works: The Stub/Skeleton Pattern
+
+FOAM achieves location-agnostic services through three mechanisms working together:
+
+1. **Context-based dependency injection** — the service is accessed by name (`imports: ['conversionService']`), not by direct instantiation. The context provides the right implementation automatically.
+2. **Box-based messaging** — a minimal transport abstraction (`Box.send(envelope)`) that hides whether the call goes in-process or over the network.
+3. **Stub/Skeleton code generation** — from a single interface definition, FOAM generates a client-side stub that marshals calls into messages, and a server-side skeleton that receives those messages and dispatches them to the real implementation.
+
+![Stub/Skeleton pattern](images/nanoservice-stubskeleton.svg)
+
+The flow for a single call:
+
+1. Your code calls a method on the stub: `this.conversionService.convert(x, request)`
+2. The stub marshals the call into an `RPCMessage` (method name + arguments) and wraps it in an `Envelope`
+3. A `Box` sends the envelope — over HTTP, WebSocket, or directly in-process depending on configuration
+4. The skeleton on the server receives the envelope, unpacks the `RPCMessage`, and calls the real implementation
+5. The result travels back through the same chain in reverse
+
+You write the interface. FOAM generates steps 2–4 in both languages.
+
+### What Gets Generated
+
+When you set `skeleton: true` and `client: true` on a `foam.INTERFACE`, the build produces two files automatically:
+
+- **`Client<ServiceName>.js`** — the browser-side stub. Every method becomes an async function that packages the call into an `RPCMessage`, sends it through the configured `Box`, and resolves or rejects the returned promise based on the reply.
+- **`<ServiceName>Skeleton.java`** — the server-side dispatcher. It receives incoming messages, switches on the method name, calls your real implementation, and sends the result back.
+
+Neither file is ever edited. They regenerate whenever the interface changes — adding a method, renaming an argument, or changing a return type is a single edit in one place.
+
+## Define Request and Response Models
+
+Let's see it in action. We'll build a unit conversion service for the Recipe app — something that converts between cups, grams, millilitres, and the other units cooks actually use. Step by step, from the interface definition all the way to a working UI.
+
+The first thing any nano-service needs is a typed contract: a request object that the caller fills in, and a response object that the service returns. These are ordinary FOAM models — nothing special about them except that all their properties must be serializable standard types so they can cross the wire.
+
+Create a new file `src/com/foamdev/cook/ConversionService.js`. We will put the models and the interface in the same file.
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionRequest',
+
+  documentation: 'Request object for unit conversion.',
+
+  properties: [
+    { class: 'Float',                             name: 'amount'   },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'fromUnit' },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'toUnit'   }
+  ]
+});
+
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionResponse',
+
+  documentation: 'Response object containing the converted amount and an optional server note.',
+
+  properties: [
+    { class: 'Float',  name: 'amount'  },
+    { class: 'String', name: 'message' }
+  ]
+});
+```
+
+Beyond the numeric result, `ConversionResponse` carries an optional `message` string — a slot for the server to pass any note it wants the user to see. We'll leave what goes there up to the implementation.
+
+The key constraint on request and response models is that all properties must be serializable standard FOAM types (`String`, `Float`, `Enum`, `Boolean`, etc.). That is the only requirement — everything else is regular FOAM modelling.
+
+## Define the Service Interface
+
+Immediately after the models in the same file, define the interface:
+
+```javascript
+foam.INTERFACE({
+  package: 'com.foamdev.cook',
+  name: 'ConversionService',
+
+  documentation: `
+    A nano-service for converting between measurement units.
+    Demonstrates the nano-service pattern: pure business logic,
+    no database dependency, location-agnostic calling.
+  `,
+
+  skeleton: true,   // generate ConversionServiceSkeleton.java
+  client:   true,   // generate ClientConversionService.js
+
+  methods: [
+    {
+      name:  'convert',
+      async: true,
+      type:  'com.foamdev.cook.ConversionResponse',
+      args: [
+        { name: 'x',       type: 'Context'                            },
+        { name: 'request', type: 'com.foamdev.cook.ConversionRequest' }
+      ]
+    }
+  ]
+});
+```
+
+The two flags are everything. `skeleton: true` tells the build to generate the Java skeleton; `client: true` generates the JavaScript stub. The interface itself has no implementation — it is a pure contract.
+
+Notice the first argument: `x: Context`. Every nano-service method takes the caller's context as its first argument. The server uses this context for authentication checks, for accessing other services, and for passing it along to further calls. This is what makes the whole system composable — context flows end-to-end.
+
+Now add the file to `pom.js`:
+
+```javascript
+{ name: 'com.foamdev.cook.ConversionService', flags: 'js' }
+```
+
+## Implement the Server Side
+
+Create `src/com/foamdev/cook/ServerConversionService.java`. This class provides the actual business logic. It extends `ContextAwareSupport` (which gives it access to the FOAM context) and implements the generated `ConversionService` interface.
+
+```java
+package com.foamdev.cook;
+
+import foam.lang.ContextAwareSupport;
+import foam.lang.X;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ServerConversionService extends ContextAwareSupport
+    implements ConversionService {
+
+  // Volume units: everything converts to/from millilitres
+  private static final Map<Unit, Double> VOLUME_TO_ML    = new HashMap<>();
+
+  // Weight units: everything converts to/from grams
+  private static final Map<Unit, Double> WEIGHT_TO_GRAMS = new HashMap<>();
+
+  static {
+    VOLUME_TO_ML.put(Unit.TEA_SPOON,   4.929);
+    VOLUME_TO_ML.put(Unit.TABLE_SPOON, 14.787);
+    VOLUME_TO_ML.put(Unit.CUP,         236.588);
+    VOLUME_TO_ML.put(Unit.MILLILITER,  1.0);
+    VOLUME_TO_ML.put(Unit.LITER,       1000.0);
+    VOLUME_TO_ML.put(Unit.PINCH,       0.6161);   // 1/8 teaspoon
+
+    WEIGHT_TO_GRAMS.put(Unit.GRAM,     1.0);
+    WEIGHT_TO_GRAMS.put(Unit.KILOGRAM, 1000.0);
+    WEIGHT_TO_GRAMS.put(Unit.OUNCE,    28.3495);
+    WEIGHT_TO_GRAMS.put(Unit.POUND,    453.592);
+  }
+
+  public ServerConversionService(X x) { setX(x); }
+
+  @Override
+  public ConversionResponse convert(X x, ConversionRequest request) {
+    var response = new ConversionResponse();
+    var from     = request.getFromUnit();
+    var to       = request.getToUnit();
+    var amount   = request.getAmount();
+
+    // Trivial case
+    if ( from == to ) {
+      response.setAmount((float) amount);
+      return response;
+    }
+
+    var volumeUnits = VOLUME_TO_ML.keySet();
+    var weightUnits = WEIGHT_TO_GRAMS.keySet();
+
+    // Volume → volume: convert to ml, then to target
+    if ( volumeUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / VOLUME_TO_ML.get(to)));
+      return response;
+    }
+
+    // Weight → weight: convert to grams, then to target
+    if ( weightUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      return response;
+    }
+
+    // Cross-dimension: bridge via water density (1 ml ≈ 1 g)
+    if ( volumeUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+    if ( weightUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / VOLUME_TO_ML.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+
+    throw new RuntimeException(String.format(
+      "Cannot convert between %s and %s", from.getLabel(), to.getLabel()));
+  }
+}
+```
+
+A few things to notice in this implementation.
+
+**All intelligence is on the server.** The client sends a request and gets back either a result (with an optional note) or an exception. It never reasons about whether units are compatible or what assumptions were made — all of that lives here. This is a deliberate design: the server is the single source of truth for domain logic, and the client is a thin display layer.
+
+**The note mechanism.** When we convert between volume and weight (which are not directly comparable), we use water density as a bridge approximation and set `response.setMessage(...)`. The client will surface that message to the user without needing to understand why. If you later add ingredient-specific densities to make the approximation more accurate, you update only this file — the client and interface stay the same.
+
+**Throwing on incompatible units.** If two units genuinely cannot be converted (a future unit type that fits neither dimension), we throw a `RuntimeException`. FOAM's skeleton catches it and sends it back as a rejection on the client promise. The client never receives a `ConversionResponse` — it receives an error.
+
+Add `ServerConversionService` to `pom.js`. Entries in `files` are FOAM models — when the `java` flag is set, the build generates a Java counterpart from the model. `ServerConversionService` is a hand-written Java class that does not go through that pipeline; `javaFiles` is the place for classes like that:
+
+```javascript
+foam.POM({
+  // ...
+  files: [
+    // ... existing entries ...
+  ],
+
+  javaFiles: [
+    { name: 'ServerConversionService' }
+  ]
+});
+```
+
+## Register the Service
+
+Services are registered in `journals/services.jrl` using a `CSpec` — the same file and the same mechanism we used earlier to register the DAO services for our models. The difference is that instead of wiring up a DAO, this `CSpec` wires up an RPC service. Add the following entry:
+
+```javascript
+p({
+  "class":         "foam.core.boot.CSpec",
+  "name":          "conversionService",
+  "serve":         true,
+  "authenticate":  true,
+  "boxClass":      "com.foamdev.cook.ConversionServiceSkeleton",
+  "serviceScript": """
+    return new com.foamdev.cook.ServerConversionService(x);
+  """,
+  "client": """
+    {
+      "class": "com.foamdev.cook.ClientConversionService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/conversionService"
+        }
+      }
+    }
+  """
+})
+```
+
+The CSpec has two halves. The `serviceScript` runs on the server at startup and creates the implementation. The `client` block is JSON that gets sent to the browser; the browser evaluates it and registers the result as `conversionService` in the client context.
+
+What the client gets is a `ClientConversionService` (the generated stub, which knows how to make `convert` calls) wrapping a `SessionClientBox` (which adds the current session ID to every request for authentication) wrapping an `HTTPBox` (which POSTs to `service/conversionService`). All of this happens transparently — application code just calls `this.conversionService.convert(...)` and gets a promise.
+
+The CSpec properties that matter here:
+
+| Property | Purpose |
+|---|---|
+| `name` | How the service is accessed in context — `imports: ['conversionService']` |
+| `serve: true` | Expose over the network via the skeleton |
+| `authenticate: true` | Require a valid session; anonymous requests are rejected |
+| `boxClass` | The generated skeleton class that receives RPC messages |
+| `serviceScript` | Server-side construction (runs in the FOAM context `x`) |
+| `client` | JSON description of what to create on the client side |
+
+## Putting It All Together
+
+With the interface, implementation, and CSpec in place, we can build a UI that calls the service. Copy `UnitConversionPage.js` from the tutorial assets zip into `src/com/foamdev/cook/` and add it to `pom.js`:
+
+```javascript
+{ name: 'UnitConversionPage', flags: 'js' }
+```
+
+Here is the complete file (CSS omitted for brevity — the full version is in the tutorial assets zip):
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'UnitConversionPage',
+  extends: 'foam.u2.Controller',
+
+  requires: [
+    'com.foamdev.cook.ConversionRequest',
+    'com.foamdev.cook.Unit'
+  ],
+
+  imports: ['conversionService'],
+
+  sections: [{ name: 'converter', title: '' }],
+
+  properties: [
+    {
+      class: 'Float',
+      name: 'amount',
+      value: 1,
+      min: 0,
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'fromUnit',
+      factory: function() { return this.Unit.CUP; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'toUnit',
+      factory: function() { return this.Unit.MILLILITER; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    { class: 'Float',   name: 'result',  precision: 2, hidden: true },
+    { class: 'Boolean', name: 'hasResult',        hidden: true },
+    { class: 'String',  name: 'conversionError',  hidden: true },
+    { class: 'Boolean', name: 'converting',       hidden: true },
+    { class: 'String',  name: 'resultMessage',    hidden: true }
+  ],
+
+  css: `/* ... see zip ... */`,
+
+  actions: [{
+    name:      'convert',
+    label:     'Convert',
+    section:   'converter',
+    isEnabled: function(converting, amount) { return ! converting && amount > 0; },
+    code: async function() {
+      this.converting      = true;
+      this.conversionError = '';
+      this.hasResult       = false;
+      try {
+        var request  = this.ConversionRequest.create({
+          amount:   this.amount,
+          fromUnit: this.fromUnit,
+          toUnit:   this.toUnit
+        });
+        var response     = await this.conversionService.convert(this.__subContext__, request);
+        this.result        = response.amount;
+        this.resultMessage = response.message || '';
+        this.hasResult     = true;
+      } catch(e) {
+        this.conversionError = (e && (e.message || e.toString())) || 'Conversion failed.';
+      } finally {
+        this.converting = false;
+      }
+    }
+  }],
+
+  methods: [
+    function render() {
+      var self = this;
+      this.SUPER();
+
+      this.addClass()
+        .start().addClass(this.myClass('header'))
+          .start('h2').add('Unit Converter').end()
+          .start('p')
+            .add('Convert between volume and weight units used in recipes. ')
+            .add('Enter an amount, choose the units, and click Convert.')
+          .end()
+        .end()
+        .start().addClass(this.myClass('card'))
+          .tag({
+            class:       'foam.u2.detail.SectionView',
+            data:        self,
+            of:          'com.foamdev.cook.UnitConversionPage',
+            sectionName: 'converter',
+            showTitle:   false
+          })
+          .add(this.dynamic(function(hasResult, result, conversionError, fromUnit, toUnit, amount, resultMessage) {
+            if ( conversionError ) {
+              this.start().addClass(self.myClass('error')).add(conversionError).end();
+              return;
+            }
+            if ( hasResult ) {
+              var fmt = new Intl.NumberFormat(foam.locale, { maximumFractionDigits: self.RESULT.precision }).format(result);
+              this.start().addClass(self.myClass('result'))
+                .start().addClass(self.myClass('result-value'))
+                  .add(fmt + ' ' + toUnit.label)
+                .end()
+                .start().addClass(self.myClass('result-label'))
+                  .add(amount + ' ' + fromUnit.label + ' = ' + fmt + ' ' + toUnit.label)
+                .end()
+                .callIf(resultMessage, function() {
+                  this.start('p').addClass(self.myClass('note')).add(resultMessage).end();
+                })
+              .end();
+            }
+          }))
+        .end();
+    }
+  ]
+});
+```
+
+The `render()` method reuses everything from the Custom UI chapter — `hidden: true` state properties, `SectionView` for the form, `gridColumns` for the responsive layout, `converting` as a submission lock, and `dynamic()` for the reactive result area. If any of those feel unfamiliar, take a quick look back at that section. You may also notice `Intl.NumberFormat(foam.locale, ...)` — a small teaser for FOAM's internationalization support, where the active locale flows through the context and all formatting adapts automatically. That is out of scope here but will be covered in more specialized tutorials.
+
+The interesting part here is the `convert` action, which is where the service call happens:
+
+- **`this.__subContext__`** is passed as the first argument to every nano-service call. It carries the session and security context the server needs to authenticate the request.
+- **`try / finally`** ensures `converting` is always reset — even if the call throws — so the button never stays permanently disabled.
+- **`conversionError`** is populated from the exception message and displayed as-is — errors like incompatible units surface directly to the user.
+- **`response.message`** carries an optional note from the server — such as a density assumption if needed for some conversions — displayed below the result.
+
+### Wiring It as the Default Landing Page
+
+Here is a good opportunity to introduce one more trick. So far we have wired views as regular menu items that appear in the sidebar. This time we will do something different: wire the Unit Converter as the landing page — the first screen users see when they log in. If they navigate away to the recipe cookbook or any other section, they can always get back by clicking the FOAM icon in the top left. The wiring takes just two journal entries.
+
+**In `journals/menus.jrl`**, add a menu entry with `parent: "hidden"`. The `"hidden"` parent is a FOAM convention: the menu exists and is navigable, but does not appear in the sidebar navigation:
+
+```javascript
+p({
+  "class":        "foam.core.menu.Menu",
+  "id":           "welcome",
+  "parent":       "hidden",
+  "label":        "Unit Converter",
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view":  { "class": "com.foamdev.cook.UnitConversionPage" }
+  }
+})
+```
+
+**In `journals/themes.jrl`**, set `"defaultMenu"` to point at that menu's id:
+
+```javascript
+"defaultMenu": ["welcome"]
+```
+
+After restarting the server, logging in navigates directly to the Unit Converter. The cookbook is still reachable from the sidebar — the default menu controls only where the app begins, not what else is available.
+
+![Unit Converter landing page](images/screen10.png)
+
+> 🎉 **Take a moment to appreciate what just happened!**
+>
+> You defined a typed interface, wrote a pure Java implementation, registered it as a nano-service with one CSpec entry, and called it from a reactive UI — with authentication, RPC transport, error handling, and locale-aware formatting all handled by the framework. The same `convert()` call works whether the service is running in the same JVM, across HTTP, or over a WebSocket. You never touched a REST endpoint, wrote a serializer, or wired up a router. That is FOAM nano-services doing their job.
 
 # Notifications (Coming Soon)
 
@@ -3337,11 +4054,11 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 
 <!-- List all links here -->
 
-[foam-repo]: https://github.com/kgrgreer/foam3
-[foam-pom-spec]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/POM.md
-[foam-build-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Build.md
-[foam-testing-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Testing.md
-[foam-install]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[foam-repo]: https://github.com/foam-foundation/foam3
+[foam-pom-spec]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/POM.md
+[foam-build-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md
+[foam-testing-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Testing.md
+[foam-install]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [foam-intro]: https://docs.google.com/presentation/d/1yT6Yb5aJJ3OXD3n_8GKC_vtTs_rxJpzOQRgU1Oa_1r4/edit?usp=sharing
 [github-docs-repo]: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
 [app-screen-1]: images/screen1.png
@@ -3352,10 +4069,10 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 [app-screen-6]: images/screen6.png
 [recipe-schema]: images/RecipeDBSchema.png
 [github-ssh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-[foam-dao]: https://github.com/kgrgreer/foam3/blob/development/src/foam/dao/DAO.js
-[foam-guides]: https://github.com/kgrgreer/foam3/tree/development/doc/guides
-[foam-relationships]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Relationships.md
-[foam-nanoservices]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/NanoServices.md
-[foam-dsl-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/DSL.md
-[foam-reactive-ui]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ReactiveUI.md
-[foam-visibility]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md
+[foam-dao]: https://github.com/foam-foundation/foam3/blob/development/src/foam/dao/DAO.js
+[foam-guides]: https://github.com/foam-foundation/foam3/tree/development/doc/guides
+[foam-relationships]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Relationships.md
+[foam-nanoservices]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/NanoServices.md
+[foam-dsl-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/DSL.md
+[foam-reactive-ui]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ReactiveUI.md
+[foam-visibility]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md

@@ -39,6 +39,7 @@ foam.POM({
     { name: "test/pom",                                flags: "test" },
     { name: "theme/pom" },
     { name: "partition/pom" },
+    { name: "job/pom" },
     { name: "license/pom" }
   ],
   files: [
@@ -49,8 +50,10 @@ foam.POM({
     { name: "column/CSVTableOutputter",                                                   flags: "js" },
     { name: "column/NestedPropertiesExpression",                                          flags: "js|java" },
     { name: "column/TableColumnOutputter",                                                flags: "js|java" },
+    { name: "column/XMLTableOutputter",                                                   flags: "js" },
     { name: "column/test/CSVTableOutputterJSTest",                                        flags: "js&test|java&test" },
     { name: "column/test/TableColumnOutputterJSTest",                                     flags: "js&test|java&test" },
+    { name: "column/test/XMLTableOutputterJSTest",                                        flags: "js&test|java&test" },
     { name: "controller/AppStyles",                                                       flags: "web" },
     { name: "controller/Fonts",                                                           flags: "web" },
     { name: "logger/DAOLogger",                                                           flags: "js|java" },
@@ -242,6 +245,7 @@ foam.POM({
     { name: "export/JSONDriver",                                                          flags: "js" },
     { name: "export/JSONJDriver",                                                         flags: "js" },
     { name: "export/XMLDriver",                                                           flags: "js" },
+    { name: "export/XMLTableExportDriver",                                                flags: "js" },
     { name: "export/report/Template",                                                     flags: "js|java" },
     { name: "export/PDFGoogleSheetsExportDriver",                                         flags: "js|java" },
     { name: "export/TableExportDriver",                                                   flags: "js|java" },

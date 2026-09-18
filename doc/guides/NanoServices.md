@@ -1,3 +1,5 @@
+<flow name="NanoServices" category="DOC/GUIDE" spid="foam" description="Comprehensive guide to FOAM's nano-service architecture: context DI, Box messaging layer, Stub/Skeleton RPC, CSpec registration." keywords="nanoservices,box,rpc,cspec,stub,skeleton"/>
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*

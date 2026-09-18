@@ -14,6 +14,15 @@ foam.CLASS({
     Asks questions one at a time in optimal information-gain order, tracks a
     back-navigation stack, narrows the candidate set, and presents the outcome.
     Fully agnostic to the QA class — works with any compiled foam.QA2() model.
+
+    Sizing: the footer holding Back and Next is pinned to the bottom of
+    whatever height this view is given, and the question area scrolls inside
+    what is left. In a flex container it claims the leftover space by default,
+    whether it sits there directly or inside a wrapper. Outside one it is as
+    tall as its content, so an embedder that wants it to fill a fixed-height
+    container has to say so — and has to say it on this element, not on a
+    wrapper around it, or the footer stops at the end of a short question
+    instead of the bottom of the container.
   `,
 
   exports: ['as wizard'],
@@ -39,11 +48,12 @@ foam.CLASS({
     ^ {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      /* A flex item will not shrink below its content by default, so when this
-         view is itself a flex item sharing a container with anything else — a
-         dialog title, say — a question with many choices makes it taller than
-         its share and the footer lands past the container's bottom edge. */
+      /* No height: the embedder owns the footprint. These two say how to behave
+         once given one — take the leftover space of a flex parent, and accept a
+         height smaller than a long question so the question scrolls rather than
+         the footer sliding off the bottom. Both are defaults an embedder can
+         override, and both are inert outside a flex container. */
+      flex: 1;
       min-height: 0;
       background: $backgroundDefault;
     }

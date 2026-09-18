@@ -32,7 +32,7 @@ foam.CLASS({
       name: 'openOnCreate',
       value: false
     },
-    { name: 'addUnits', hidden: true },
+    { name: 'formattedValues', hidden: true },
     { name: 'daoKey', hidden: true },
     { name: 'dao',    hidden: true },
     { name: 'of',     hidden: true },

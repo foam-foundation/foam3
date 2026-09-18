@@ -1,3 +1,5 @@
+<flow name="VsWebComponents" category="DOC/GUIDE" spid="foam" description="Compares FOAM and Web Components/Polymer: Web Components solve only the UI problem, FOAM covers persistence, networking, validation." keywords="web components,polymer,comparison,ui"/>
+
 # FOAM3 vs Web Components (and Polymer)
 
 ## A Note on Comparisons

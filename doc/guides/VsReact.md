@@ -1,3 +1,5 @@
+<flow name="VsReact" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-platform, built-in DAO layer) vs React (component-based, virtual DOM, hooks)." keywords="react,comparison,virtual dom,hooks"/>
+
 ## Overview
 
 You're asking about FOAM (Feature Oriented Active Modeller), a modeling framework and class-based object system that can generate code for multiple platforms [1](#0-0) , versus React, a popular JavaScript UI library. While both can build web applications, they represent fundamentally different architectural approaches.

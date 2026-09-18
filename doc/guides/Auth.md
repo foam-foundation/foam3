@@ -1,3 +1,5 @@
+<flow name="Auth" category="DOC/GUIDE" spid="foam" description="Covers the FOAM authorization system: User/Group/Permission/Capability models, GroupPermissionJunction, SPID multi-tenancy." keywords="auth,permissions,group,spid,capability"/>
+
 See:
   [auth/README.md](../../src/foam/core/auth/README.md)
   [Permissions.md](Permissions.md)

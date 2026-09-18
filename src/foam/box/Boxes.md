@@ -1,0 +1,54 @@
+<flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging" description="Overview of Box based messaging, FOAM's minimal send-only network abstraction underlying Stub/Skeleton RPC and ClientDAO." keywords="box,envelope,rpc,messaging,clientdao"/>
+
+# Overview
+
+Boxes are the network abstraction within foam that higher level constructs are built upon.  The box interface is the minimal viable networking abstraction.  The box is a "send only" interface, rather than a classical read()/write() or Berkeley sockets, or Request/Response of HTTP and similar protocols.
+
+There's a few ways to conceptualize boxes.  You can consider a Box as an object oriented "address."  An HTTP URL for example, is a concrete address, but its just a string.  In Box Based Messaging, you would package your http URL up into an HTTPBox as an Object, and the HTTPBox would be responsible for knowing how to deliver a message to the given url.
+
+As a phycial analogy, a box is something you put an Envelope into.  An Envelope has contents (a payload, or "message"), and it has an optional "return address" or "reply box."
+
+```
+interface Box {
+  void send(envelope: Envelope);
+}
+
+class Envelope {
+  Object  message; // the contents of the envelope
+  Box     replyBox; // where to send replies to this message, optional
+}
+```
+
+There are low level transport boxes like HTTPBox, WebSocketBox, SocketBox, that are responsible for delivering an envelope over their given transport, in some cases these are also responsible for handling any replies.  There are also higher level decorators that can be applied to boxes to achieve desired behaviours.  For example, if you need your message send to time out after a set time, you can apply a TimeoutBox.  Or if you want exponential backoff retry attempts for your send you can apply a Retry Box.
+
+# Example
+
+```
+var box = HTTPBox.create({ url: 'https://examle.com/some-box-service' });
+var replyBox = {
+  send: function(envelope) {
+    console.log("got reply", envelope.message);
+  }
+};
+
+box.send(foam.box.Envelope.create({
+  message: "hello",
+  replyBox: replyBox
+}));
+```
+
+# How are Boxes used in FOAM
+
+Boxes are primarily used to drive the Stub/Skeleton RPC system of FOAM.  For example, ClientDAO is a Stub DAO, it can be provided with a Box and will communicate over that Box to provide a DAO interface.
+
+```
+var dao = foam.dao.ClientDAO.create({
+  delegate: foam.box.WebSocketBox.create({  url: 'ws://someserver.com/service/someDAO' })
+});
+
+dao.put(some.Object.create({ ... }))
+```
+
+# When not to use Boxes
+
+Boxes are not an all encompassing network abstraction.  If you are talking to existing APIs like a REST based API from some third party, you would not use HTTPBox.  You would continue to use fetch() or whatever http client library you would traditionally use.  Boxes are meant to be used by all communicating parties, most transport boxes expect specific wire level protocols.

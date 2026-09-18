@@ -44,8 +44,10 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'addUnits',
-      documentation: 'Include unit in UnitValues (mostly currencies) or not',
+      name: 'formattedValues',
+      documentation: `Values as the table shows them: a UnitValue keeps its unit
+        and a reference column its summary. Cleared, both fall back to the plain
+        value a spreadsheet or a consumer parses.`,
       value: true
     }
   ],
@@ -55,7 +57,7 @@ foam.CLASS({
       var propToColumnMapping  = this.columnConfigToPropertyConverter.returnPropertyColumnMappings(obj.cls_, propNames);
       var propertyNamesToQuery = this.columnHandler.returnPropNamesToQuery(propToColumnMapping);
 
-      return await this.outputter.objectToTable(X, obj.cls_, propertyNamesToQuery, obj, propNames.length, this.addUnits);
+      return await this.outputter.objectToTable(X, obj.cls_, propertyNamesToQuery, obj, propNames.length, this.formattedValues);
     },
 
     async function exportDAOAndReturnTable(X, dao, propNames) {
@@ -72,7 +74,7 @@ foam.CLASS({
         propertyNamesToQuery = this.columnHandler.returnPropNamesToQuery(propToColumnMapping);
       }
 
-      return await this.outputter.returnTable(X, dao.of, propertyNamesToQuery, sink.projection, propNames.length, this.addUnits);
+      return await this.outputter.returnTable(X, dao.of, propertyNamesToQuery, sink.projection, propNames.length, this.formattedValues);
     },
 
     function getPropName(X, of) {

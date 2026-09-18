@@ -1,3 +1,5 @@
+<flow name="Journals" category="DOC/GUIDE" spid="foam" description="Explains FOAM journals: append-only .jrl files, p/c/r/v operations, JSON delta compression, replay, and compaction." keywords="journal,jrl,replay,compaction,persistence"/>
+
 # FOAM Journals 
 
 ## What are FOAM Journals?

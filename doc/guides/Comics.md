@@ -1,3 +1,5 @@
+<flow name="Comics" category="DOC/GUIDE" spid="foam" description="Explains foam.comics.v3: the DAOController state machine composing DAOView/CreateView/DetailView into a full CRUD UI." keywords="comics,crud,daocontroller,forms"/>
+
 # foam.comics — Context-Oriented MIcro ControllerS
 
 ## What Is Comics?

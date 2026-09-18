@@ -1,3 +1,5 @@
+<flow name="Guides" category="DOC/GUIDE" spid="foam" description="Index of all FOAM3 guides, organized by category, to help you find which guide to read." keywords="guides,index,documentation,table of contents"/>
+
 # Guide to Guides
 
 A map of what each guide covers, organized by category. If you're not sure which guide to read, start here.

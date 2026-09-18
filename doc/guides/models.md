@@ -1,3 +1,5 @@
+<flow name="models" category="DOC/GUIDE" spid="foam" description="Reference for FOAM model types: foam.CLASS, foam.ENUM, foam.INTERFACE, foam.SCRIPT, foam.RELATIONSHIP, foam.LIB." keywords="class,enum,interface,relationship,models"/>
+
 # FOAM Model Types for Modellers
 
 FOAM provides several model types that serve different purposes in designing your application. Each type is optimized for specific modeling needs.

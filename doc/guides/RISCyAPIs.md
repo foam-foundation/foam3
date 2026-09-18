@@ -1,3 +1,5 @@
+<flow name="RISCyAPIs" category="DOC/GUIDE" spid="foam" description="Applies the CISC vs RISC analogy to framework API design: FOAM APIs are small and regular because FOAM generates most calls itself." keywords="risc,api design,cisc,code generation"/>
+
 # RISC-y APIs
 
 ## The Analogy

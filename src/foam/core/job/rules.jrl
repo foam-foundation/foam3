@@ -1,0 +1,17 @@
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "foam_core_job_SubmitJob",
+  "name": "Submit job for execution",
+  "priority": 100,
+  "documentation": "Hand a newly submitted Job to the threadPool, wrapped in a JobRunner. Create only, so the JobRunner's own status writes come back as updates and do not re-submit the Job.",
+  "ruleGroup": "default",
+  "daoKey": "jobDAO",
+  "operation": 0,
+  "after": true,
+  "action": {
+    "class": "foam.core.job.SubmitJobRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})

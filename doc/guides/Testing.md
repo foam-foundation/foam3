@@ -1,3 +1,5 @@
+<flow name="Testing" category="DOC/GUIDE" spid="foam" description="Covers the FOAM test harness: running all/server/client tests, specific test IDs, exclusions, and the SUCCESS/FAILURE output format." keywords="testing,test harness,server-tests,client-tests"/>
+
 # Testing
 
 FOAM provides a testing harness for implementing Unit Test Cases, and in conjunction with the Build, provides for test case execution and reporting.

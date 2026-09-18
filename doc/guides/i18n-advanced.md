@@ -1,3 +1,5 @@
+<flow name="i18n-advanced" category="DOC/GUIDE" spid="foam" description="Advanced runtime i18n: messageMap/localeDAO sync at boot, Locale rows, and the message-override lifecycle." keywords="i18n,localedao,locale,runtime translation"/>
+
 # FOAM i18n — Advanced & Runtime
 
 The companion to the [beginner guide](./i18n.md). The beginner guide covers declaring strings in model code (`messages:`, inline `label: { en, fr }` maps). This guide covers the **runtime translation system**: `Locale` rows in `locales.jrl`/`localeDAO`, the language picker, source-key conventions, automated extraction, the Translation Console, and the message-override lifecycle.
@@ -120,7 +122,8 @@ Use the fully qualified model id for class-owned keys. FOAM's extraction scripts
 
 | The string is… | Use | Editable at runtime? |
 |---|---|---|
-| declared on your own model or view | `messages`/`messageMap` (or an inline `label: { en, fr }` map) for the default; add a `Locale` row to override it | Default is code; the `Locale` override is data |
+| declared on your own model or view | `message: '...'` in the base language, plus a `Locale` row per shipped locale keyed `<class id>.<NAME>` — the translation service sends the client only the viewer's locale | Yes |
+| needed on the client before any round trip (a boot-time label, a login-page error) | `messageMap: { en, fr }` or an inline `label: { en, fr }` map. Every inline language ships in the client JS for every user, so keep this set small | Default is code; a `Locale` row still overrides it |
 | framework-driven, looked up by a source key — menu label, DAO browse/create title, class action label/tooltip | a `Locale` row in `localeDAO` keyed by that source key | Yes |
 
 ## Menu Internationalization

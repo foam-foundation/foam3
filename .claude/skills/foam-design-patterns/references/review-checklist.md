@@ -31,6 +31,8 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - A number, date, code, or currency stored as `String`? `Float` for money?
 - A computed value persisted where a transient with `factory`/`javaFactory` would do?
 - `== null` on an Enum? `isSet_` on a factory-backed property?
+- A date split across two properties, or a raw millisecond count? A timestamp passed into a `Date`-typed predicate?
+- A creation stamp assigned in a view instead of a `factory`/`javaFactory`?
 
 ## 5. Context and DAO
 - `getX()` where an `x` was handed in? A user request touching a DAO without `inX(x)`?
@@ -38,6 +40,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - Inside a rule: a write through `x` instead of `ruler.getX()`? A re-put without `ruler.stop()`?
 - `XLocator.get()` outside a property hook?
 - `ArraySink` then `isEmpty()`/`size()` where `find` or `COUNT()` answers?
+- `dao.select(sink)` with its return dropped and `sink` read afterwards?
 - A loop of `EQ`s where `IN` fits? A scan where an index exists? A new cache where EasyDAO has a switch?
 - A decorator `cmd_` that throws? `imports: ['ctrl']`?
 
@@ -51,11 +54,17 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 
 ## 7. u2 views
 - A colour literal? An unscoped CSS class? A root `width`/`height` on a reusable view? `!important`?
+- `min-height: 0` sitting beside `overflow: auto` (a no-op), or missing from a flex ancestor of a scroll pane?
 - `px` where `rem` fits? `<h3>` where a Fonts class fits?
 - `dynamic()` around structure that does not change? `slot()` returning a detached element?
 - `sub()` outside `onDetach`? Registered on the data instead of the view?
 - A property view rendering its own label or reading `controllerMode`? A shared axiom mutated?
 - An optional import without `?` and `?.`?
+- An action styled through `style()`/`addClass` instead of `buttonStyle`?
+- An SVG given `color` instead of `fill`?
+- A collapsible, tab strip, or section view written from scratch? A border that hard-codes its body instead of taking a content slot?
+- A render-local `var` holding an element across statements where `callIf` would chain?
+- `toLocaleString`, a locale string, or date maths inside `render()`?
 
 ## 8. Reflow
 - A block reading a DAO per row, or filtering after the select?
@@ -75,3 +84,11 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 ## 10. Tests
 - Test files under `test/` with `flags: 'test'` on the pom entry?
 - An assertion that cannot fail? An `async` test that awaits nothing?
+
+## 11. Services
+- A connection, credential, or timer opened outside `COREService.start()`? A live handle on a non-transient property?
+- A `COREService` CSpec without `lazy: false`? A durable flush that lives only in `stop()`?
+- A `reload()` expected from a CSpec edit that touched none of `service`, `serviceClass`, `serviceScript`?
+- A hand-rolled sleep or counter where a `Throttle` CSpec fits? `throttle()` under a lock, or unguarded against a null lookup?
+- A hand-written `Client<Name>Service` where `client: true` would generate it? A DAO passed across the wire?
+- A "can read" check ahead of a `find`? A `dao.find(id)` without `inX(x)` on a user path?

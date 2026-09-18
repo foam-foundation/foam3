@@ -1,3 +1,5 @@
+<flow name="cheat-sheet" category="DOC/GUIDE" spid="foam" description="A long-form FOAM3 cheat sheet: class definition syntax, property types, methods, listeners, actions, DAOs, reactivity." keywords="cheat sheet,reference,syntax,quick reference"/>
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*

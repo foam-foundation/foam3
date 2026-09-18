@@ -1,3 +1,5 @@
+<flow name="Refinements" category="DOC/GUIDE" spid="foam" description="Explains Refinements: extending or modifying existing FOAM classes post-definition without subclassing." keywords="refinements,extension,two-phase installation,java code generation"/>
+
 ## What are Refinements?
 
 Refinements allow you to extend or modify existing classes after they've been defined by adding new axioms to them. [1](#1-0)  When a model specifies a `refines` property, it doesn't create a new class but instead adds axioms to the existing class being refined. [1](#1-0)

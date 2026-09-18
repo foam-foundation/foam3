@@ -1296,7 +1296,7 @@ foam.CLASS({
 
         // (B) Convention rule: schema-blind service keys -> services.jrl.
         if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(segment.key) !== -1 ) {
-          var svcLocs = this.journalEntryIndex.getServiceLocations(segment.rawValue);
+          var svcLocs = this.journalEntryIndex.getServiceLocations(segment.rawValue, opt_uri);
           if ( svcLocs ) return this.toLocations_(svcLocs);
         }
       }

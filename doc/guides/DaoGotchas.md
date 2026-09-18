@@ -1,3 +1,5 @@
+<flow name="DaoGotchas" category="DOC/GUIDE" spid="foam" description="Catalog of non-obvious DAO behaviors: decorator context, argless find/select, frozen objects, TTL branch, LTE and unset dates." keywords="dao,gotchas,context,decorators,frozen objects"/>
+
 # DAO Gotchas
 
 Behaviour of the DAO stack that is not obvious from reading a model: which context an operation runs in, what a decorator wraps, when a result is frozen or cached, and how predicates and sinks actually evaluate.

@@ -1,3 +1,5 @@
+<flow name="Intro" category="DOC/GUIDE" spid="foam" description="Developer introduction to FOAM: cross-platform MDD framework for JS/Java/Swift, reactive binding, built-in UI, DAOs." keywords="introduction,mdd,cross-platform,reactive,dao"/>
+
 # Introduction to FOAM for Developers
 
 ## What is FOAM?

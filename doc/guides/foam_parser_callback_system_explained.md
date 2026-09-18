@@ -1,3 +1,5 @@
+<flow name="foam_parser_callback_system_explained" category="DOC/GUIDE" spid="foam" description="Deep-dive on FOAM's parser callback system: the apply intercept mechanism, callback types, and getLastError()." keywords="parser,callback,stringpstream,error handling"/>
+
 # FOAM Parser Callback System - Deep Dive
 
 This document explains how the FOAM parser callback system works, including error handling, with visual diagrams.

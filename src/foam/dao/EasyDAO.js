@@ -605,20 +605,18 @@ foam.CLASS({
       name: 'multiLineOutput'
     },
     {
-      documentation: `See JDAO.  Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
+      documentation: `REMOVED. Journal replay is always synchronous: the
+service is published only after every row is in the MDAO and the index is
+bulk loaded once. waitReplay:false replayed on a thread-pool thread after the
+service was published, so reads saw partial data, puts raced the replay, the
+index was built one put per row, and the replay reporter could not tell when
+the DAO had finished loading.`,
       class: 'Boolean',
       name: 'waitReplay',
       value: true,
-      javaGetter: `
-        if ( getSeqNo() ) return true;
-        if ( getFuid() ) {
-          foam.lang.PropertyInfo pInfo = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
-          if ( pInfo instanceof foam.lang.AbstractLongPropertyInfo )
-            return true;
-        }
-        if ( waitReplayIsSet_ )
-          return waitReplay_;
-        return true;
+      javaSetter: `
+        if ( ! val )
+          Loggers.logger(getX(), this).warning(getName(), "waitReplay:false support has been removed, replay is synchronous");
       `
     },
     {
@@ -1032,7 +1030,6 @@ dao loading, which improves overall startup time.`,
           ddao.setDatabaseType(getDatabaseType());
           ddao.setDatabaseTableName(getDatabaseTableName());
           ddao.setJournalName(getJournalName());
-          ddao.setWaitReplay(getWaitReplay());
           ddao.setDelegate(delegate);
           delegate = ddao;
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
@@ -1085,15 +1082,18 @@ dao loading, which improves overall startup time.`,
     },
     {
       name: 'wrapInJDAO',
-      documentation: 'Wraps delegate in a JDAO over getJournalName(), applying the cluster/waitReplay/ndiff settings shared by every SINGLE_JOURNAL construction path.',
+      documentation: 'Wraps delegate in a JDAO over getJournalName(), applying the cluster/ndiff settings shared by every SINGLE_JOURNAL construction path.',
       args: 'X x, foam.dao.DAO delegate',
       type: 'foam.dao.DAO',
       javaCode: `
         foam.dao.java.JDAO jdao = new foam.dao.java.JDAO();
-        jdao.setX(x);
+        // CSpecFactory.initService resets every DAO in the chain to the bare
+        // boot context, and NotPartitionedDAO rebuilds through here from that
+        // context, so the CSpec key put in the delegate factory is gone by
+        // then. JDAO reads it to wrap the journals in NDiffJournal.
+        jdao.setX(x.put(CSpec.CSPEC_CTX_KEY, getCSpec()));
         jdao.setFilename(getJournalName());
         jdao.setCluster(getCluster() && !getSaf());
-        jdao.setWaitReplay(getWaitReplay());
         jdao.setNdiff(getNdiff());
         jdao.setMultiLineOutput(getMultiLineOutput());
         // Setting of delegate must be last as it triggers replay

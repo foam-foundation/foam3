@@ -1,4 +1,4 @@
-<flow name="ExportingFlows" category="DOC/GUIDE" spid="foam"/>
+<flow name="ExportingFlows" category="DOC/GUIDE" spid="foam" description="Step-by-step instructions for exporting a Reflow flow from the running app and replacing it in the .jrl source file." keywords="reflow,export,flow,jrl"/>
 
 # Exporting ("Lifting") Flows
 

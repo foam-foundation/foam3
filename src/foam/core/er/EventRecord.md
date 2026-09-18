@@ -1,4 +1,4 @@
-<flow name="EventRecord" category="DOC/DEV" spid="foam" label="Event Record"/>
+<flow name="EventRecord" category="DOC/DEV" spid="foam" label="Event Record" description="EventRecord (ER): logs a logical operation and can generate Alarms and Notifications based on severity and rules." keywords="eventrecord,alarm,notification,logging"/>
 
 # Event Record (ER)
 

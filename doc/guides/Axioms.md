@@ -1,4 +1,4 @@
-<flow name="Axioms" category="DOC/GUIDE" spid="foam"/>
+<flow name="Axioms" category="DOC/GUIDE" spid="foam" description="Explains Axioms as FOAM's core extension mechanism: installInClass/installInProto, two-phase installation, priority ordering." keywords="axioms,installinclass,installinproto,extensibility"/>
 
 ## What are Axioms?
 

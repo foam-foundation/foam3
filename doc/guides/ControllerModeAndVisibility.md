@@ -1,4 +1,4 @@
-<flow name="ControllerModeAndVisibility" category="DOC/GUIDE" spid="foam"/>
+<flow name="ControllerModeAndVisibility" category="DOC/GUIDE" spid="foam" description="Documents the ControllerMode/Visibility/DisplayMode pipeline controlling whether a property view is editable, read-only, or hidden." keywords="controllermode,visibility,displaymode,rw,ro,hidden"/>
 
 # Mode and Visibility Pipeline
 

@@ -1,4 +1,4 @@
-<flow name="PropertyGotchas" category="DOC/GUIDE" spid="foam"/>
+<flow name="PropertyGotchas" category="DOC/GUIDE" spid="foam" description="Catalog of non-obvious property behaviors: when postSet doesn't fire, why expression goes cold, transient cascades, isSet gate." keywords="property,gotchas,postset,expression,transient"/>
 
 # Property Gotchas
 

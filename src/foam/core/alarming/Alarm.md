@@ -1,4 +1,4 @@
-<flow name="Alarm" category="DOC/DEV" spid="foam"/>
+<flow name="Alarm" category="DOC/DEV" spid="foam" description="Alarm documentation: high-level system event reporting for NOC monitoring, auto-generated alarms, and AlarmConfig suppression." keywords="alarm,noc,alarmconfig,monitoring"/>
 
 # Alarm Documentation
 

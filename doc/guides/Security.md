@@ -1,4 +1,4 @@
-<flow name="Security" category="DOC/GUIDE" spid="foam"/>
+<flow name="Security" category="DOC/GUIDE" spid="foam" description="Covers FOAM security at two levels: structural XSS/SQL-injection immunity via U2/U3 and MLang, and CSpec-based service authorization." keywords="security,xss,sql injection,cspec,authorization"/>
 
 # FOAM Application Security
 

@@ -1,4 +1,4 @@
-<flow name="LLM" category="DOC/GUIDE" spid="foam"/>
+<flow name="LLM" category="DOC/GUIDE" spid="foam" description="Argues LLM-generated code repeats the code-generator liability trap, and how FOAM's declaration-over-code approach avoids it." keywords="llm,code generation,declarative,ai"/>
 
 # FOAM and LLMs
 

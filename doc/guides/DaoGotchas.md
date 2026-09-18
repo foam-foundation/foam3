@@ -1,4 +1,4 @@
-<flow name="DaoGotchas" category="DOC/GUIDE" spid="foam"/>
+<flow name="DaoGotchas" category="DOC/GUIDE" spid="foam" description="Catalog of non-obvious DAO behaviors: decorator context, argless find/select, frozen objects, TTL branch, LTE and unset dates." keywords="dao,gotchas,context,decorators,frozen objects"/>
 
 # DAO Gotchas
 

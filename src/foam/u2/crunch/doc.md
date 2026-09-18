@@ -1,4 +1,4 @@
-<flow name="doc" category="DOC/DEV" spid="foam" label="CRUNCH UI"/>
+<flow name="doc" category="DOC/DEV" spid="foam" label="CRUNCH UI" description="The CRUNCH wizard: invocation via CrunchController, wizard sequences, and the UCJProperty predicate property." keywords="crunch,wizard,crunchcontroller,ucjproperty"/>
 
 # CRUNCH Wizard
 

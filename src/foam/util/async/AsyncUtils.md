@@ -1,4 +1,4 @@
-<flow name="AsyncUtils" category="DOC/DEV" spid="foam" label="foam.util.async"/>
+<flow name="AsyncUtils" category="DOC/DEV" spid="foam" label="foam.util.async" description="The Sequence class: executes ordered async steps, each able to import context exported by the previous step." keywords="sequence,async,fluent,contextagent"/>
 
 # Sequence
 

@@ -1,4 +1,4 @@
-<flow name="Updating Objects in DAOs" category="DOC/GUIDE" spid="foam"/>
+<flow name="Updating Objects in DAOs" category="DOC/GUIDE" spid="foam" description="Explains the read-copy-edit-put pattern: frozen objects, clone()/fclone(), and the DAO write stack." keywords="fclone,frozen objects,put,dao,update"/>
 
 # Updating Objects in a DAO
 

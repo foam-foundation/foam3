@@ -1,4 +1,4 @@
-<flow name="models" category="DOC/GUIDE" spid="foam"/>
+<flow name="models" category="DOC/GUIDE" spid="foam" description="Reference for FOAM model types: foam.CLASS, foam.ENUM, foam.INTERFACE, foam.SCRIPT, foam.RELATIONSHIP, foam.LIB." keywords="class,enum,interface,relationship,models"/>
 
 # FOAM Model Types for Modellers
 

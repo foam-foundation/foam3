@@ -1,4 +1,4 @@
-<flow name="ReactiveUI" category="DOC/GUIDE" spid="foam"/>
+<flow name="ReactiveUI" category="DOC/GUIDE" spid="foam" description="Explains FOAM's four reactive UI patterns from lightest to heaviest: slot binding, dot(), map(), and dynamic()." keywords="reactive ui,slots,dynamic,dot,map"/>
 
 # Reactive UI Patterns
 

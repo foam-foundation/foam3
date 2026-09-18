@@ -1,4 +1,4 @@
-<flow name="Refinements" category="DOC/GUIDE" spid="foam"/>
+<flow name="Refinements" category="DOC/GUIDE" spid="foam" description="Explains Refinements: extending or modifying existing FOAM classes post-definition without subclassing." keywords="refinements,extension,two-phase installation,java code generation"/>
 
 ## What are Refinements?
 

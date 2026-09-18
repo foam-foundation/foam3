@@ -1,4 +1,4 @@
-<flow name="dynamic" category="DOC/GUIDE" spid="foam"/>
+<flow name="dynamic" category="DOC/GUIDE" spid="foam" description="Explains property expression: (lazy pull-based) vs this.dynamic() (eager push-based reactive DOM content)." keywords="dynamic,expression,reactive,dom"/>
 
 ## Expressions vs this.dynamic()
 

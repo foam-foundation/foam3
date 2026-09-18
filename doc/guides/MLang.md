@@ -1,4 +1,4 @@
-<flow name="MLang" category="DOC/GUIDE" spid="foam"/>
+<flow name="MLang" category="DOC/GUIDE" spid="foam" description="Reference for MLang predicates (EQ/GT/AND/OR/IN/CONTAINS), aggregation sinks, and ordering, in both Java and JS style." keywords="mlang,predicates,eq,sinks,query"/>
 
 ## FOAM MLang Examples
 

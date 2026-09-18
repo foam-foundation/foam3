@@ -16,6 +16,11 @@ p({
   id:"F3FileJournalTest"
 })
 p({
+  class:"foam.dao.test.OwnedShardReplayTest",
+  id:"OwnedShardReplayTest",
+  description:"A sharded replay applies every id in journal order and matches the single-thread line row for row"
+})
+p({
   class:"foam.dao.test.JournalDefaultClassNameTest",
   id:"JournalDefaultClassNameTest"
 })

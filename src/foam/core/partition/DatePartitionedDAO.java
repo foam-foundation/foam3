@@ -82,7 +82,16 @@ public class DatePartitionedDAO
   }
 
   public String getPartition(FObject o) {
-    Date     d   = (Date) getPartitionProperty().f(o);
+    Date d = (Date) getPartitionProperty().f(o);
+
+    // Which partition a record belongs to IS its date, so an unset one has no
+    // answer -- name the DAO and the property rather than leaving a bare NPE
+    // from Calendar.setTime for whoever migrates an old journal.
+    if ( d == null ) {
+      throw new RuntimeException("DatePartitionedDAO " + getDirName() + ": record has no "
+        + ((PropertyInfo) getPartitionProperty()).getName() + ", id " + getID(o));
+    }
+
     Calendar cal = Calendar.getInstance();
     cal.setTime(d);
 
@@ -121,12 +130,27 @@ public class DatePartitionedDAO
     Sink           s2 = decorateSink(null, sink, skip, limit, order, predicate);
     DetachableSink s3 = new DetachableSink(s2);
 
+    // The query goes into each partition so its MDAO can answer it from an
+    // index instead of handing every row to s2's PredicatedSink. The
+    // predicate always: partitions hold data outside the range, s2 filters
+    // again, and a second filter only ever removes rows the first already
+    // passed. The order and limit only when the limit is bounded, as a
+    // per-partition top-(skip+limit): the partition sorts its own result,
+    // s2's OrderedSink merges those into the global order, and the rows
+    // dropped can never place inside a limit the merge respects. An
+    // unbounded select pushes neither -- every row reaches s2 anyway, so a
+    // per-partition sort would only buffer the same rows twice.
+    boolean    bounded   = limit > 0 && limit < MAX_SAFE_INTEGER && skip < MAX_SAFE_INTEGER;
+    long       partLimit = bounded ? skip + limit : MAX_SAFE_INTEGER;
+    Comparator partOrder = bounded ? order : null;
+
     List<String> queuedIds = publishQueued(x, parts);
     try {
       for ( int i = 0 ; i < parts.length ; i++ ) {
         DAO dao = getDelegate(parts[i]);
 
-        dao.select(s3);
+        // Skip stays here: it counts across partitions, so s2 owns it.
+        dao.select_(x, s3, 0, partLimit, partOrder, predicate);
         if ( s3.isDetached() ) break;
       }
 

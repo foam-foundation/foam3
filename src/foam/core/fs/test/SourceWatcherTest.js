@@ -12,9 +12,10 @@ foam.CLASS({
   javaImports: [
     'foam.core.fs.SourceChange',
     'foam.core.fs.SourceWatcher',
-    'foam.dao.ArraySink',
     'foam.dao.MDAO',
     'foam.lang.X',
+    'foam.mlang.sink.Count',
+    'static foam.mlang.MLang.NEQ',
     'java.nio.file.Files',
     'java.nio.file.Path',
     'java.nio.file.attribute.FileTime'
@@ -44,9 +45,7 @@ foam.CLASS({
             .setWatchDir(root.toString())
             .setPollInterval(50)
             .build();
-          w.getRunning().set(true);
-          Thread t = new Thread(() -> w.execute(sx));
-          t.start();
+          Thread t = startWatcher(sx, w);
           try {
             warmup(dao, sentinel);
 
@@ -55,21 +54,15 @@ foam.CLASS({
             Files.setLastModifiedTime(skipped, FileTime.fromMillis(mt));
             Files.setLastModifiedTime(other,   FileTime.fromMillis(mt));
             boolean seen = await(() -> dao.find("/a.js") != null, 2000);
+            test(seen, "the changed .js is reported under the root-relative path with a leading slash");
 
-            // warmup's own sentinel (/warmup.js) may still be in dao, or may have been detected
-            // a second time under load before its mtime settled; it is not part of what this
-            // assertion is proving, so exclude it by id rather than depending on exactly-once
-            // detection or a remove() that runs concurrently with the watcher's own puts.
-            ArraySink sink = (ArraySink) dao.select(new ArraySink());
-            long changes = sink.getArray().stream()
-              .filter(o -> ! "/warmup.js".equals(((SourceChange) o).getId()))
-              .count();
-            test(seen && changes == 1, "one change reported: the .js outside skipDirs, got " + changes);
-            test(dao.find("/a.js") != null, "id is the root-relative path with a leading slash");
+            // warmup's own sentinel (/warmup.js) is still in dao; exclude it by id rather than
+            // depending on a remove() that runs concurrently with the watcher's own puts.
+            long changes = ((Count) dao.where(NEQ(SourceChange.ID, "/warmup.js")).select(new Count())).getValue();
+            test(changes == 1, "one change reported: the .js outside skipDirs, got " + changes);
             test(Files.exists(file), "the source file is not deleted");
           } finally {
-            w.stop();
-            t.join(2000);
+            stopWatcher(w, t, 2000);
           }
 
           SourceWatcher off = new SourceWatcher.Builder(sx).setWatchDir("").build();

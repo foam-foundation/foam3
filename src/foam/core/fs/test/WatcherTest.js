@@ -28,7 +28,7 @@ foam.CLASS({
         Path root2 = null;
         Path legacyDir = null;
         try {
-          // PollingWatcher on a flat directory: a new file is a request, handled by name, then deleted
+          // PollingWatcher on a flat directory: a new file is a request, handled by name and left in place
           dir = Files.createTempDirectory("watcher");
           Path sentinel = dir.resolve("warmup");
           Path req1     = dir.resolve("req1");
@@ -38,23 +38,18 @@ foam.CLASS({
             .setWatchDir(dir.toString())
             .setPollInterval(50)
             .build();
-          w.getRunning().set(true);
-          Thread t = new Thread(() -> w.execute(x));
-          t.start();
+          Thread t = startWatcher(x, w);
           try {
             warmup(w, sentinel);
             Files.writeString(req1, "1");
             Files.writeString(skipTxt, "junk");
-            // postCleanup runs after handleRequest, so wait for both: otherwise the file-deleted
-            // assertion below can run in the gap between the two.
-            boolean seen = await(() -> ! w.getHandled().isEmpty() && ! Files.exists(req1), 2000);
+            boolean seen = await(() -> ! w.getHandled().isEmpty(), 2000);
             test(seen && w.getHandled().size() == 1 && "req1".equals(w.getHandled().get(0)),
               "a file appearing in watchDir is handled by name, got " + w.getHandled());
-            test(! Files.exists(req1), "postCleanup deleted the handled file");
+            test(Files.exists(req1), "a polled file is watched in place: postCleanup deletes nothing");
             test(Files.exists(skipTxt), "a file acceptRequest rejects is left alone");
           } finally {
-            w.stop();
-            t.join(2000);
+            stopWatcher(w, t, 2000);
           }
           test(! t.isAlive(), "stop() ends the poll loop");
 
@@ -81,9 +76,7 @@ foam.CLASS({
             .setPollInterval(50)
             .setRescanInterval(60000)
             .build();
-          r.getRunning().set(true);
-          Thread rt = new Thread(() -> r.execute(x));
-          rt.start();
+          Thread rt = startWatcher(x, r);
           try {
             warmup(r, rootSentinel);
             long mt = System.currentTimeMillis() + 5000;
@@ -94,8 +87,7 @@ foam.CLASS({
             test(seen && r.getHandled().size() == 1 && "a/b/inner.js".equals(r.getHandled().get(0)),
               "a modified file under a subdirectory is reported by its relative path; build/ and .cache/ are skipped, got " + r.getHandled());
           } finally {
-            r.stop();
-            rt.join(2000);
+            stopWatcher(r, rt, 2000);
           }
 
           // recursive with rescan every tick: a file created in a subdirectory is a request
@@ -109,9 +101,7 @@ foam.CLASS({
             .setRecursive(true)
             .setPollInterval(50)
             .build();
-          n.getRunning().set(true);
-          Thread nt = new Thread(() -> n.execute(x));
-          nt.start();
+          Thread nt = startWatcher(x, n);
           try {
             warmup(n, root2Sentinel);
             Files.writeString(nested2.resolve("new.js"), "1");
@@ -119,8 +109,7 @@ foam.CLASS({
             test(seen && n.getHandled().size() == 1 && "a/new.js".equals(n.getHandled().get(0)),
               "a rescan picks up a file created in a subdirectory, got " + n.getHandled());
           } finally {
-            n.stop();
-            nt.join(2000);
+            stopWatcher(n, nt, 2000);
           }
 
           // Watcher itself: java.nio.WatchService: a new file is detected and deleted, and so is a rejected one
@@ -133,9 +122,7 @@ foam.CLASS({
             public void handleRequest(X x, String request) { legacyHandled.add(request); }
           };
           lw.setWatchDir(legacyDir.toString());
-          lw.getRunning().set(true);
-          Thread lt = new Thread(() -> lw.execute(x));
-          lt.start();
+          Thread lt = startWatcher(x, lw);
           try {
             // watch() has no observable "ready" signal like the poller's baseline scan warmup() waits on --
             // give the WatchService registration time to complete before writing.
@@ -151,8 +138,7 @@ foam.CLASS({
             test(! Files.exists(legacyReq1), "postCleanup deleted the accepted file");
             test(! Files.exists(legacySkip), "postCleanup deletes a rejected file too");
           } finally {
-            lw.stop();
-            lt.join(3000);
+            stopWatcher(lw, lt, 3000);
           }
           test(! lt.isAlive(), "stop() closes the WatchService so a blocked take() returns and the loop ends");
         } catch ( Exception e ) {
@@ -178,12 +164,7 @@ foam.CLASS({
           if ( System.currentTimeMillis() >= deadline ) {
             throw new IllegalStateException("watcher never became active within 2000ms");
           }
-          // writeString, not setLastModifiedTime: postCleanup may have
-          // deleted sentinel between the isEmpty() check above and here
-          // (it is a normal accepted request too, handled and cleaned up
-          // like any other), and setLastModifiedTime throws
-          // NoSuchFileException on a missing file where a write recreates it.
-          Files.writeString(sentinel, "0");
+          Files.setLastModifiedTime(sentinel, FileTime.fromMillis(System.currentTimeMillis()));
           Thread.sleep(20);
         }
         w.getHandled().clear();

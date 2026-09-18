@@ -55,7 +55,6 @@ foam.CLASS({
     'foam.core.u2.navigation.Stack',
     'foam.core.u2.navigation.PopupManager',
     'foam.u2.LoadingSpinner',
-    'foam.u2.ViewReloader',
     'foam.u2.crunch.CapabilityInterceptView',
     'foam.u2.crunch.CrunchController',
     'foam.u2.crunch.WizardRunner',
@@ -475,9 +474,12 @@ foam.CLASS({
         self.subject = self.client.initSubject;
         self.initSubject = true;
 
-        // Source runs only (no foam-bin): pick up .js edits without a page reload.
-        if ( ! globalThis.FOAM_BIN && client.sourceChangeDAO ) {
-          self.onDetach(self.ViewReloader.create(null, self.__subContext__));
+        // Source runs only: pick up .js edits without a page reload. The
+        // class is built under dev&web, so a foam-bin build has no such
+        // class and maybeLookup, not requires:, is the right question.
+        var ViewReloader = foam.maybeLookup('foam.u2.ViewReloader');
+        if ( ViewReloader && client.sourceChangeDAO ) {
+          self.onDetach(ViewReloader.create({ root: self }, self.__subContext__));
         }
         // For testing purposes only. Do not use in code.
         globalThis.x     = self.__subContext__;

@@ -13,26 +13,31 @@ foam.CLASS({
     changed file as a <script> tag after clearing its classes from the context
     cache, then either swaps the stylesheet when only css: changed or replaces
     on-screen instances of the rebuilt classes in place. Created by
-    ApplicationController.onClientLoad when the page is not running foam-bin.
+    ApplicationController.onClientLoad, which hands itself over as root; the
+    class is built under dev&web, so a foam-bin build never carries it.
 
     Instances are looked for under every Element loaded as a root of its own:
     the ApplicationController, and any Popup or ModalOverlay open beside it.
     init() creates document.u2Roots, which Element.load then adds to and
     Element.detach removes from; no build without a ViewReloader keeps the
     set, so nothing is retained in production. The controller loaded before
-    this existed, so init() adds it by hand.
+    this existed, so init() adds root by hand.
 
     What it cannot do, and says so in the console: a file that defines a
-    foam.SCRIPT, a class in foam.lang, and an instance rendered through a
-    SlotNode all ask for a page reload.`,
+    foam.SCRIPT, a class in foam.lang, an instance rendered through a
+    SlotNode, an instance that is itself a root, and a file holding only
+    refinements or a mixin all ask for a page reload.`,
 
   imports: [
-    'ctrl?',
     'document',
     'sourceChangeDAO'
   ],
 
   properties: [
+    {
+      name: 'root',
+      documentation: 'An Element loaded before document.u2Roots existed, added to it by init(): the ApplicationController.'
+    },
     {
       name: 'queue_',
       hidden: true,
@@ -55,30 +60,36 @@ foam.CLASS({
         .filter(m => this.pathOf(m.source) === path);
     },
 
+    function stripped(cls) {
+      /* The model as text, minus css:, the foam.u2.CSS axiom the css postSet
+         pushes into axioms_, and the two fields every reload changes. */
+      var m = { ...cls.model_.instance_ };
+      delete m.css;
+      delete m.order;
+      delete m.source;
+      m.axioms_ = (m.axioms_ || []).filter(a => ! foam.u2.CSS.isInstance(a));
+      return foam.json.Compact.stringify(m);
+    },
+
+    function isUnchanged(oldCls, newCls) {
+      /* True when the save changed nothing: a formatter run, or :w on an
+         unchanged buffer. Nothing to swap or rebuild then. */
+      return oldCls.model_.css === newCls.model_.css &&
+        this.stripped(oldCls) === this.stripped(newCls);
+    },
+
     function isCssOnly(oldCls, newCls) {
-      /* True when the two models differ in css: and nothing else. The css
-         postSet pushes a foam.u2.CSS axiom into axioms_, so that is
-         stripped too. swapCSS rewrites in place by matching axioms
-         index-for-index, which only makes sense when the two classes
-         carry the same NUMBER of own css axioms -- gaining a first css:
-         block (0 -> 1), or a mixins: change that adds or drops one, has
-         nothing to match against, so those are excluded here and fall
-         through to cascade/rebuild instead, where a fresh instance
+      /* True when the two models differ in css: and nothing else. swapCSS
+         matches own css axioms index-for-index, so the counts must agree:
+         gaining a first css: block, or a mixins: change that adds or drops
+         one, falls through to cascade/rebuild, where a fresh instance
          installs its own style block normally. */
       if ( oldCls.getOwnAxiomsByClass(foam.u2.CSS).length !==
            newCls.getOwnAxiomsByClass(foam.u2.CSS).length ) {
         return false;
       }
-      var strip = cls => {
-        var m = { ...cls.model_.instance_ };
-        delete m.css;
-        delete m.order;
-        delete m.source;
-        m.axioms_ = (m.axioms_ || []).filter(a => ! foam.u2.CSS.isInstance(a));
-        return foam.json.Compact.stringify(m);
-      };
       return oldCls.model_.css !== newCls.model_.css &&
-        strip(oldCls) === strip(newCls);
+        this.stripped(oldCls) === this.stripped(newCls);
     },
 
     function cascade(ids, path) {
@@ -112,20 +123,33 @@ foam.CLASS({
       return order;
     },
 
+    function mixersOf(ids) {
+      /* USED classes that mix in one of ids. cascade keys on extends only,
+         so their instances are not rebuilt; the caller hints. */
+      return Object.values(foam.USED)
+        .filter(m => ( m.mixins || [] ).some(mx => ids.includes(mx.path)))
+        .map(m => m.id);
+    },
+
     function rebuild(ids) {
       /* Replace the topmost instances of the rebuilt classes under every
-         root the document knows (a Popup or ModalOverlay attaches to
-         document.body beside the ApplicationController). A SlotNode
-         renders its value outside its parent's childNodes, so an instance
-         found there is counted as skipped instead of replaced; its own
-         children are still walked, since a skip means only that instance
-         couldn't be swapped, not that its subtree is out of bounds. */
-      var result = { rebuilt: 0, skipped: 0 };
+         root the document knows. An instance with no parent is a root
+         itself (the controller, an open popup) and has nothing to be
+         swapped into; one whose parent does not list it in childNodes is
+         rendered through a SlotNode. Both are counted, not replaced, and
+         their children are still walked. */
+      var result = { rebuilt: 0, skipped: 0, roots: 0 };
       var visit  = e => {
         if ( ! e || typeof e === 'string' ) return;
         if ( e.cls_ && ids.includes(e.cls_.id) ) {
-          if ( this.replace(e) ) { result.rebuilt++; return; }
-          result.skipped++;
+          if ( ! e.parentNode ) {
+            result.roots++;
+          } else if ( this.replace(e) ) {
+            result.rebuilt++;
+            return;
+          } else {
+            result.skipped++;
+          }
         }
         if ( foam.u2.SlotNode.isInstance(e) ) { visit(e.node); return; }
         ( e.childNodes || [] ).forEach(visit);
@@ -136,16 +160,13 @@ foam.CLASS({
 
     function replace(old) {
       /* Create the new-class twin of old with every property old set that its
-         own class declares, excluded by NAME against foam.u2.Element (which
-         also covers Node, its parent) rather than by sourceCls_: sourceCls_ is
-         whichever class last installed the axiom, so a view that re-declares
-         an Element-level name (controllerMode, shown, nodeName) would
-         otherwise slip through and get linked to the old instance instead of
-         running its own factory. hasOwnProperty is also true once a factory
-         has materialized a value (Property.js:536), so a factory-backed
-         property is pinned to old's value on reload, same as an explicitly
-         set one. Properties are linked by slot so a data$ binding stays
-         two-way through old, then swap it into the parent. */
+         own class declares, linked by slot so a data$ binding stays two-way
+         through old, then swap it into the parent. Excluded by NAME against
+         foam.u2.Element (which covers Node too), not by sourceCls_: a view
+         that re-declares an Element-level name would otherwise be pinned to
+         old's value instead of running its own factory. hasOwnProperty is
+         true once a factory has materialized a value, so a factory-backed
+         property is carried over like an explicitly set one. */
       var parent = old.parentNode;
       if ( ! parent || ! parent.childNodes.includes(old) ) return false;
 
@@ -157,27 +178,19 @@ foam.CLASS({
         if ( ! newCls.getAxiomByName(p.name) ) return;
         args[p.name + '$'] = old.slot(p.name);
       });
+      // shown is Element-level, so the loop skips it, but a parent's
+      // .show(cond$) follows into old's shown$ and the new instance must
+      // hear the flip too. Its postSet owns the hidden class, so that one is
+      // not copied below.
+      args.shown$ = old.shown$;
       var newE = newCls.create(args, old.__context__);
 
-      // What old's PARENT put on the host node -- addClass()/style() calls
-      // made from outside old's own render, e.g. a grid-column a dashboard
-      // sets per widget -- rather than old's own state, so it survives a
-      // rebuild the same way it would survive nothing happening at all.
-      // classes is a name->true map (Element2.js:644-649) and addClass
-      // accepts multiple names (Element2.js:1144-1150); a name old's own
-      // render also adds is a harmless repeat set on that map. css is a
-      // name->resolved-value map (Element2.js:651-657): style_ writes the
-      // CURRENT value there even for a slot-bound style (Element2.js:1559-
-      // 1563), so a style bound to a slot is carried across as a snapshot,
-      // not a live binding -- accepted here, since re-establishing the
-      // binding would need the parent's own render, which this can't see.
-      // A class name the edit removed from old's own render stays on the
-      // rebuilt node until a page reload -- same reasoning: it isn't
-      // information this method has. addClass() called with zero
-      // arguments is not a no-op -- it adds newE's OWN default self-class
-      // (Element2.js:1144-1150) -- so an empty classes map is skipped
-      // rather than passed through.
-      var oldClasses = Object.keys(old.classes);
+      // What old's PARENT put on the host node from outside old's render
+      // (a dashboard's per-widget grid column) survives, as a snapshot: a
+      // slot-bound style is copied by value. addClass() with no arguments
+      // adds newE's own self-class, so an empty list is skipped.
+      var oldClasses = Object.keys(old.classes)
+        .filter(c => c !== 'foam-u2-Element-hidden');
       if ( oldClasses.length ) newE.addClass(...oldClasses);
       newE.style(old.css);
       for ( var i = 0 ; i < old.element_.attributes.length ; i++ ) {
@@ -187,23 +200,17 @@ foam.CLASS({
         }
       }
 
-      // old is kept alive on purpose, as the slot relay between new and
-      // whatever old was linked to: replaceChild (Element2.js:1110-1123) has
-      // already overwritten childNodes[i] with newE by the time it calls
-      // oldE.remove(), so removeChild's search for old (Element2.js:1091-1108)
-      // finds nothing and old.detach() never runs -- if it did, old's own
-      // link to its data source would tear down and the chain would break.
-      // removeChild's own `TODO: set c.parentNode to undefined` would break
-      // this too, if ever acted on. old's listeners keep firing against
-      // orphaned DOM, and each reload adds one more link; acceptable for a
-      // dev-only tool. Do not add old.detach() here.
+      // old stays alive as the slot relay between newE and old's data
+      // source: replaceChild overwrites childNodes[i] before oldE.remove()
+      // runs, so removeChild finds nothing and old.detach() never fires.
+      // Do not add old.detach() here; it would tear the relay down.
       parent.replaceChild(newE, old);
       return true;
     },
 
     function init() {
       var roots = this.document.u2Roots || ( this.document.u2Roots = new Set() );
-      if ( this.ctrl ) roots.add(this.ctrl);
+      if ( this.root ) roots.add(this.root);
       this.onDetach(this.sourceChangeDAO.listen(this.onChange));
     },
 
@@ -224,22 +231,17 @@ foam.CLASS({
     },
 
     function swapCSS(oldCls, newCls) {
-      /* Move newCls's css text onto oldCls's own css axioms, matched
-         index-for-index (oldCls and newCls, freshly reloaded, list them in
-         the same declaration order; both callers -- isCssOnly and
-         reinstallCSS -- have already checked the counts agree), then let
-         CSS.reloadStyles rewrite every
-         installed <style> block from its axiom's current code -- the same
-         walk a theme change runs. expands_ is an expression on code, so it
-         recomputes on the next read.
+      /* Copy newCls's css text onto oldCls's own css axioms, matched
+         index-for-index (both callers have checked the counts agree), then
+         let CSS.reloadStyles re-expand every installed <style> block from
+         its axiom's current code, the same walk a theme change runs.
 
-         The text is copied onto the EXISTING axiom object rather than
-         swapping in newAxioms[i]: reload_ keeps oldCls registered for a
-         css-only id (nothing rebuilds), so a second edit's own-axiom list is
-         still oldCls's. A mixin installs the SAME axiom object into every
-         class that mixes it in (Mixin.js:27-34), so a match on a sibling's
-         entry moves every mixer's block together, which is what a mixin
-         edit means. No <style> element is added or removed. */
+         Copied onto the EXISTING axiom object, not swapped for newAxioms[i]:
+         reload_ keeps oldCls registered for a css-only id, so a second
+         edit's own-axiom list is still oldCls's. A mixin installs the same
+         axiom object into every class that mixes it in, so one match moves
+         every mixer's block together. No <style> element is added or
+         removed. */
       var oldAxioms = oldCls.getOwnAxiomsByClass(foam.u2.CSS);
       var newAxioms = newCls.getOwnAxiomsByClass(foam.u2.CSS);
       if ( ! oldAxioms.length ) return;
@@ -248,28 +250,13 @@ foam.CLASS({
     },
 
     function reinstallCSS(oldCls, newCls) {
-      /* Called between cascade and rebuild for a NON-css-only id (code
-         changed too, so it is about to be rebuilt, not swapped): reuses
-         the existing <style> block(s) instead of leaving the pre-edit
-         ones live while rebuild() installs a second, duplicate block for
-         the fresh instances it is about to create. A freshly reloaded
-         class carries a freshly built css axiom with its own $UID
-         (maybeInstallInDocument keys installedStyles by the INSTALLING
-         axiom's $UID, CSS.js:66-85), so without this, a new instance's
-         install finds nothing under that $UID and appends rather than
-         reusing.
-
-         Reuses swapCSS to rewrite the existing block(s) to the new text
-         in place, then remaps each installedStyles entry from
-         oldAxiom.$UID to newAxiom.$UID -- and re-points its axiom
-         reference at newAxiom -- so a subsequent install under the new
-         axiom's $UID finds the entry already there and skips, and so a
-         THIRD edit's own-axiom match (which will compare against whatever
-         is registered by then, i.e. newCls) still finds it.
-
-         Returns false, doing nothing, when the axiom counts differ --
-         same reason swapCSS itself refuses: nothing to index-match
-         against. The caller hints a page reload in that case. */
+      /* Called between cascade and rebuild for an id whose code changed:
+         rewrites its existing <style> block(s) to the new text through
+         swapCSS, then re-keys each installedStyles entry from the old
+         axiom's $UID to the new one's, so a fresh instance's install finds
+         the block already there instead of appending a duplicate under the
+         pre-edit one. Returns false, doing nothing, when the axiom counts
+         differ; the caller hints a page reload. */
       var oldAxioms = oldCls.getOwnAxiomsByClass(foam.u2.CSS);
       var newAxioms = newCls.getOwnAxiomsByClass(foam.u2.CSS);
       if ( ! oldAxioms.length ) return true;
@@ -293,15 +280,12 @@ foam.CLASS({
     },
 
     function restore(id, cls) {
-      /* Put cls back as the live registration for id, and as the global
-         accessor foam.<pkg>.<Name>: registerClassFactory (stdlib.js:
-         1229-1246) defines that as a getter with no setter, so the plain
-         assignment inside registerClass (stdlib.js:1214-1222) -- what
-         register() below triggers -- is silently dropped once a lazy
-         registration got there first. register() itself asserts when the
-         cache already holds a different, non-factory value for the name
-         (Context.js:157-164), so the entry a re-run foam.CLASS left behind
-         is cleared first. */
+      /* Put cls back as the live registration for id and as the global
+         accessor foam.<pkg>.<Name>. The accessor is a getter with no setter
+         once a lazy registration got there first, so registerClass's plain
+         assignment is silently dropped and defineProperty is needed.
+         register() asserts on a cache entry holding a different class, so
+         the one the re-run foam.CLASS left is cleared first. */
       delete foam.__context__.__cache__[id];
       foam.__context__.register(cls);
       Object.defineProperty(
@@ -327,22 +311,23 @@ foam.CLASS({
       try {
         await this.load(path);
 
-        var cssOnly = ids.filter(id =>
+        var same = ids.filter(id =>
+          olds[id] && this.isUnchanged(olds[id], foam.lookup(id)));
+        same.forEach(id => this.restore(id, olds[id]));
+
+        var cssOnly = ids.filter(id => ! same.includes(id) &&
           olds[id] && this.isCssOnly(olds[id], foam.lookup(id)));
         cssOnly.forEach(id => this.swapCSS(olds[id], foam.lookup(id)));
         cssOnly.forEach(id => this.restore(id, olds[id]));
 
-        var order =
-          this.cascade(ids.filter(id => ! cssOnly.includes(id)), path);
+        var order = this.cascade(
+          ids.filter(id => ! same.includes(id) && ! cssOnly.includes(id)), path);
 
         var hints = [];
 
-        // A code (and maybe css) edit: id is about to be rebuilt, so reuse
-        // its existing style block(s) in place rather than leave the
-        // pre-edit ones live under a fresh instance's duplicate install.
-        // Only ids reloaded directly (olds[id] set) are handled here -- a
-        // subclass cascade adds to order is rebuilt from its own unchanged
-        // source, not from anything reload_ has an "old" reference for.
+        // Only ids reloaded directly (olds[id] set) have a pre-edit class to
+        // reconcile against; a subclass cascade added is rebuilt from its own
+        // unchanged source.
         order.forEach(id => {
           if ( olds[id] && ! this.reinstallCSS(olds[id], foam.lookup(id)) ) {
             hints.push(id + ' stylesheet count changed');
@@ -356,11 +341,21 @@ foam.CLASS({
         }
         ids.filter(id => id.startsWith('foam.lang.'))
           .forEach(id => hints.push(id + ' is a boot class'));
+        if ( ! ids.length ) {
+          hints.push('the file holds only refinements; existing instances were not rebuilt');
+        }
+        var mixers = this.mixersOf(order);
+        if ( mixers.length ) {
+          hints.push(mixers.length + ' class(es) mix this in; their instances were not rebuilt');
+        }
+        if ( result.roots ) {
+          hints.push(result.roots + ' instance(s) are a root themselves (the controller or an open popup)');
+        }
         if ( result.skipped ) {
           hints.push(result.skipped + ' instance(s) render through a SlotNode');
         }
 
-        console.info('[reload] ' + path + ': ' + order.length + ' class(es) redefined, ' + cssOnly.length + ' stylesheet(s) swapped, ' + result.rebuilt + ' view(s) rebuilt' + ( hints.length ? '. Reload the page: ' + hints.join('; ') : '' ));
+        console.info('[reload] ' + path + ': ' + order.length + ' class(es) redefined, ' + cssOnly.length + ' stylesheet(s) swapped, ' + result.rebuilt + ' view(s) rebuilt' + ( same.length ? ', ' + same.length + ' unchanged' : '' ) + ( hints.length ? '. Reload the page: ' + hints.join('; ') : '' ));
       } catch ( e ) {
         // A 404 or a throw partway leaves a reloaded id with nothing in the
         // cache; put back what reload_ found there before it ran.
@@ -368,7 +363,7 @@ foam.CLASS({
           if ( olds[id] ) this.restore(id, olds[id]);
           else delete foam.__context__.__cache__[id];
         });
-        console.error('[reload] ' + path + ' failed, old classes restored: ' + e.message + '. Reload the page.');
+        console.error('[reload] ' + path + ' failed, old classes restored: ' + e.message + '. Fix the file and save again, or reload the page.');
       }
     },
 

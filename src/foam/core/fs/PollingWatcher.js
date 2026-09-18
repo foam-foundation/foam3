@@ -17,8 +17,8 @@ and a change of mtime is a request too, not only a new file.
 On macOS WatchService is sun.nio.fs.PollingWatchService, 10s per directory by
 default, so one per directory on a source tree costs more than a stat of every
 known file each tick; doc/guides/LiveReload.md has the measurements.
-acceptRequest is applied at scan time, so a rejected file is never tracked and
-never cleaned up.`,
+acceptRequest is applied at scan time, so a rejected file is never tracked. A
+polled tree is watched in place: postCleanup deletes nothing.`,
 
   javaImports: [
     'foam.core.logger.Logger',
@@ -109,7 +109,7 @@ never cleaned up.`,
         Map.Entry<String, Long> e = it.next();
         long mt = root.resolve(e.getKey()).toFile().lastModified();
         if ( mt == 0 ) {
-          // gone: postCleanup deleted it, or the user did
+          // gone
           it.remove();
           continue;
         }
@@ -125,8 +125,9 @@ never cleaned up.`,
       args: 'X x, Path root',
       javaType: 'Map<String, Long>',
       javaCode: `
-      Map<String, Long> files = new HashMap<>();
-      Set<String>       skip  = new HashSet<>(Arrays.asList(getSkipDirs()));
+      Logger            logger = Loggers.logger(x, this);
+      Map<String, Long> files  = new HashMap<>();
+      Set<String>       skip   = new HashSet<>(Arrays.asList(getSkipDirs()));
       try {
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
           @Override
@@ -147,12 +148,12 @@ never cleaned up.`,
           }
           @Override
           public FileVisitResult visitFileFailed(Path file, IOException e) {
-            Loggers.logger(x, this).debug("scan visitFileFailed", file, e);
+            logger.debug("scan visitFileFailed", file, e);
             return FileVisitResult.CONTINUE;
           }
         });
       } catch (IOException e) {
-        Loggers.logger(x, this).warning("scan", root, e);
+        logger.warning("scan", root, e);
       }
       return files;
       `
@@ -167,19 +168,9 @@ never cleaned up.`,
       `
     },
     {
-      documentation: 'Handle one detected file, then clean it up. A failure in either is logged and the loop goes on.',
-      name: 'request',
-      args: 'X x, String request',
-      javaCode: `
-      Logger logger = Loggers.logger(x, this);
-      logger.info("Detected", request);
-      try {
-        handleRequest(x, request);
-        postCleanup(x, request);
-      } catch (Throwable t) {
-        logger.warning(request, t);
-      }
-      `
+      name: 'postCleanup',
+      documentation: 'A polled tree is watched in place; nothing is deleted.',
+      javaCode: '// nothing to clean up'
     }
   ]
 });

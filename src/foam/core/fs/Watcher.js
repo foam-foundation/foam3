@@ -157,52 +157,51 @@ stat poll that can walk a tree.`,
       args: 'X x, Path root',
       javaCode: `
       Logger logger = Loggers.logger(x, this);
-      try {
-        WatchService ws = FileSystems.getDefault().newWatchService();
+      try ( WatchService ws = FileSystems.getDefault().newWatchService() ) {
         setWatchService(ws);
-        try {
-          root.register(ws, StandardWatchEventKinds.ENTRY_CREATE);
+        root.register(ws, StandardWatchEventKinds.ENTRY_CREATE);
 
-          while ( getRunning().get() ) {
-            WatchKey key;
-            try {
-              key = ws.take();
-            } catch (InterruptedException e) {
-              Thread.currentThread().interrupt();
-              break;
-            } catch (ClosedWatchServiceException e) {
-              // stop() closed ws to unblock this take()
-              break;
-            }
-            if ( ! getRunning().get() ) break;
-
-            for ( WatchEvent<?> event : key.pollEvents() ) {
-              if ( event.kind() == StandardWatchEventKinds.ENTRY_CREATE ) {
-                String request = event.context().toString();
-                logger.info("Detected", request);
-                try {
-                  if ( acceptRequest(x, request) ) {
-                    handleRequest(x, request);
-                  } else {
-                    logger.warning("Rejected", request);
-                  }
-                  postCleanup(x, request);
-                } catch (Throwable t) {
-                  logger.warning(t);
-                }
-              }
-            }
-            key.reset();
-          }
-        } finally {
+        while ( getRunning().get() ) {
+          WatchKey key;
           try {
-            ws.close();
-          } catch (IOException e) {
-            // already closing
+            key = ws.take();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            break;
+          } catch (ClosedWatchServiceException e) {
+            // stop() closed ws to unblock this take()
+            break;
           }
+          if ( ! getRunning().get() ) break;
+
+          for ( WatchEvent<?> event : key.pollEvents() ) {
+            if ( event.kind() == StandardWatchEventKinds.ENTRY_CREATE ) {
+              request(x, event.context().toString());
+            }
+          }
+          key.reset();
         }
       } catch (IOException e) {
         logger.error("watch", e);
+      }
+      `
+    },
+    {
+      documentation: 'One detected request: handle it when acceptRequest agrees, then postCleanup. A failure in either is logged and the loop goes on.',
+      name: 'request',
+      args: 'X x, String request',
+      javaCode: `
+      Logger logger = Loggers.logger(x, this);
+      logger.info("Detected", request);
+      try {
+        if ( acceptRequest(x, request) ) {
+          handleRequest(x, request);
+        } else {
+          logger.warning("Rejected", request);
+        }
+        postCleanup(x, request);
+      } catch (Throwable t) {
+        logger.warning(request, t);
       }
       `
     },

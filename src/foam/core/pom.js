@@ -91,7 +91,7 @@ foam.POM({
     { name: "fs/Watcher",                                                                 flags: "js|java" },
     { name: "fs/PollingWatcher",                                                          flags: "js|java" },
     { name: "fs/SourceChange",                                                            flags: "js|java" },
-    { name: "fs/SourceWatcher",                                                           flags: "js|java" },
+    { name: "fs/SourceWatcher",                                                           flags: "java" },
     { name: "fs/test/RecordingWatcher",                                                   flags: "js&test|java&test" },
     { name: "fs/test/WatcherTestBase",                                                    flags: "js&test|java&test" },
     { name: "fs/test/WatcherTest",                                                        flags: "js&test|java&test" },

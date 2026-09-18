@@ -49,12 +49,6 @@ foam.CLASS({
       ((DAO) x.get("sourceChangeDAO")).inX(x).put(
         new SourceChange.Builder(x).setId("/" + request).build());
       `
-    },
-    {
-      name: 'postCleanup',
-      javaCode: `
-      // the source file stays where it is
-      `
     }
   ]
 });

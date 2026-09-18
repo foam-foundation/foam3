@@ -42,21 +42,32 @@ p({
   "lazy":false,
   "lazyOrder":-1,
   "serviceScript":"""
-    return new foam.dao.EasyDAO.Builder(x)
+    // One journal per day, loaded when a query or a write reaches that day.
+    // This DAO is built before anything else can run (lazyOrder -1), so boot
+    // now costs today's journal instead of every message ever sent.
+    partitioned = new foam.core.partition.DatePartitionedDAO(
+      x,
+      foam.core.notification.email.EmailMessage.getOwnClassInfo(),
+      "emailMessages-",
+      foam.core.notification.email.EmailMessage.CREATED,
+      foam.core.partition.DatePartitioningScheme.YYYYMMDD);
+
+    dao = new foam.dao.EasyDAO.Builder(x)
       .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setAuthorize(false)
       .setFuid(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("emailMessages")
+      .setInnerDAO(partitioned)
       .setSaf(true)
       .setServiceProviderAware(false)
-      .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
-        .setComparator(foam.mlang.MLang.DESC(foam.core.notification.email.EmailMessage.CREATED) )
-        .setSize(100000)
-        .build())
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.notification.email.EmailMessage.CREATED});
+
+    // After the indices are registered, so the partitions the import creates
+    // carry them. No-ops once the legacy journal has been archived.
+    partitioned.migrateFrom(x, "emailMessages", "emailMessageDAO");
+
+    return dao;
   """
 })
 

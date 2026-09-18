@@ -31,6 +31,13 @@ import static foam.mlang.MLang.COUNT;
 public class SingleToPartitionMigrator {
 
   public long migrate(X x, DAO source, PartitionedDAO target, Map<String,String> idMap) {
+    return migrate(x, source, target, target, idMap);
+  }
+
+  /** writeTarget receives every put_; it is the target itself, or a decorator
+      over it that has to see the rows (PartitionIndexDAO fills its index this
+      way). target is still read for its id property and directory. */
+  public long migrate(X x, DAO source, PartitionedDAO target, DAO writeTarget, Map<String,String> idMap) {
     // Lean entirely on the target's put_: it routes the record through every
     // partition level (PartitionedDAO -> nested DatePartitionedDAO -> JDAO) and
     // stamps the composite id. The migrator no longer recomputes the partition
@@ -47,7 +54,7 @@ public class SingleToPartitionMigrator {
         // Only String-id models get restamped (the per-partition seqNo); capture
         // the id change so references held by other DAOs can be rewritten.
         String oldId = strId ? (String) idProp.f(record) : null;
-        FObject stored = target.put_(x, record);
+        FObject stored = writeTarget.put_(x, record);
         String newId = strId ? (String) idProp.f(stored) : null;
         if ( ! SafetyUtil.isEmpty(oldId) && ! oldId.equals(newId) ) {
           idMap.put(oldId, newId);
@@ -116,6 +123,10 @@ public class SingleToPartitionMigrator {
   }
 
   public void run(X x, String legacyJournalName, PartitionedDAO target, String daoKey) {
+    run(x, legacyJournalName, target, daoKey, target);
+  }
+
+  public void run(X x, String legacyJournalName, PartitionedDAO target, String daoKey, DAO writeTarget) {
     // Use the WRITABLE FileSystemStorage (JOURNAL_HOME), not Storage.class — the
     // latter is a read-only ResourceStorage when -Dresource.journals.dir is set
     // (dev/most deploys), which can't detect or rename the runtime journal.
@@ -144,7 +155,7 @@ public class SingleToPartitionMigrator {
     long srcCount = ((Count) source.select(COUNT())).getValue();
 
     Map<String,String> idMap    = new HashMap<>();
-    long               migrated = migrate(x, source, target, idMap);
+    long               migrated = migrate(x, source, target, writeTarget, idMap);
 
     if ( migrated != srcCount ) {
       Loggers.logger(x, this).warning(

@@ -150,7 +150,7 @@ foam.CLASS({
         .enableClass(this.myClass('expanded'), this.expanded$)
         .attrs({ role: 'button', tabindex: 0 })
         .style({ // Change top of the cards based on the flow's category
-          'border-top-color': 'hsl(' + this.stringToHue(this.data.category) + ', 80%, 50%)'
+          'border-top-color': 'hsl(' + this.stringToHue(this.data.category) + ', 80%, 45%)'
         })
         .on('click', this.routeToReflow) // Open flow in Reflow on click
         .on('keydown', function(e) {  // Also do it when you tab + enter

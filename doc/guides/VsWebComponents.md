@@ -1,4 +1,5 @@
 <flow name="VsWebComponents" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM3 vs Web Components (and Polymer)
 
 ## A Note on Comparisons

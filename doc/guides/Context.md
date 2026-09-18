@@ -1,4 +1,5 @@
 <flow name="Context" category="DOC/GUIDE" spid="foam"/>
+
 ## What is a Context?
 
 A context looks very much like a map, and behaves like a map, except it has inhertitance.

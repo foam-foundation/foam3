@@ -1,4 +1,5 @@
 <flow name="Compaction" category="DOC/GUIDE" spid="foam"/>
+
 # Journal Compaction
 
 ## Table of Contents

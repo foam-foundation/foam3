@@ -1,4 +1,5 @@
 <flow name="CrunchLite" category="DOC/DEV" spid="foam"/>
+
 # CRUNCH Lite
 
 <foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />

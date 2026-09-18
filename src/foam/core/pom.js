@@ -39,6 +39,7 @@ foam.POM({
     { name: "test/pom",                                flags: "test" },
     { name: "theme/pom" },
     { name: "partition/pom" },
+    { name: "job/pom" },
     { name: "license/pom" }
   ],
   files: [

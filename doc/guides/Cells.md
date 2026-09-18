@@ -1,4 +1,5 @@
 <flow name="Cells" category="DOC/GUIDE" spid="foam"/>
+
 # The Magic of Spreadsheet Cells
 
 There is a quiet revolution hiding in plain sight on millions of desktops around the world. It lives in the humble spreadsheet cell—a rectangle so commonplace that we rarely stop to consider just how remarkable it truly is.

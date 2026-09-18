@@ -1,4 +1,5 @@
 <flow name="Listeners" category="DOC/GUIDE" spid="foam"/>
+
 # Listeners
 
 Listeners are methods that stay bound to their owner. In plain JavaScript, passing a method as a callback loses `this`:

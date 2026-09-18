@@ -1,4 +1,5 @@
 <flow name="NDiff" category="DOC/GUIDE" spid="foam"/>
+
 # NDiff - CSpec Change Tracking System
 
 ## Table of Contents

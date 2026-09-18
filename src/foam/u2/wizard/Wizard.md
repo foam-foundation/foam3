@@ -1,4 +1,5 @@
 <flow name="Wizard" category="DOC/DEV" spid="foam" label="Modular Wizard Documentation"/>
+
 # THIS DOCUMENTATION IS OUT OF DATE
 
 I've decided to preserve this documentation because it provides potentially

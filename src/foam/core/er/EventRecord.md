@@ -1,4 +1,5 @@
 <flow name="EventRecord" category="DOC/DEV" spid="foam" label="Event Record"/>
+
 # Event Record (ER)
 
 # Overview

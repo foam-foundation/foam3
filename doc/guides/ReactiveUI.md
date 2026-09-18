@@ -1,4 +1,5 @@
 <flow name="ReactiveUI" category="DOC/GUIDE" spid="foam"/>
+
 # Reactive UI Patterns
 
 How FOAM keeps the screen in sync with changing data — and when to use which approach.

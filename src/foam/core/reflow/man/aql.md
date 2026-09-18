@@ -1,4 +1,5 @@
 <flow name="manual:Query Syntax" category="MANUAL" keywords="help query" spid="foam"/>
+
 # Query Syntax Guide
 
 ## Basic AQL Syntax

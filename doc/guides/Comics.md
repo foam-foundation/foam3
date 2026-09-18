@@ -1,4 +1,5 @@
 <flow name="Comics" category="DOC/GUIDE" spid="foam"/>
+
 # foam.comics — Context-Oriented MIcro ControllerS
 
 ## What Is Comics?

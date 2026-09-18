@@ -1,4 +1,5 @@
 <flow name="ReactivePatterns" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM Reactive Patterns — Complete Reference
 
 All variations of slots, expressions, dynamic functions, and bindings in FOAM3.

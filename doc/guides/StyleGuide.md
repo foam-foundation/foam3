@@ -1,4 +1,5 @@
 <flow name="StyleGuide" category="DOC/GUIDE" spid="foam"/>
+
 # FOAM3 Coding Style Guidelines
 
 Except where noted below, FOAM conforms to the [Google Javascript Style Guide](https://google.github.io/styleguide/jsguide.html).

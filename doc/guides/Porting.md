@@ -1,4 +1,5 @@
 <flow name="Porting" category="DOC/GUIDE" spid="foam"/>
+
 # Porting from FOAM1 to FOAM2
 
 Replace CLASS() with foam.CLASS().

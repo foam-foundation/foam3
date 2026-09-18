@@ -1,3 +1,5 @@
+<flow name="JobQueue" category="DOC/DEV" spid="foam" description="Design and usage guide for the jobDAO service used to submit long-running jobs to the server for execution." keywords="job,threadpool,server,knowledge"/>
+
 # Job
 
 Server-side execution of long-running, client-initiated tasks, with pollable status.
@@ -34,8 +36,6 @@ client                jobDAO                        threadPool
 | `services.jrl` | The `jobDAO` CSpec. |
 | `rules.jrl`, `ruleGroups.jrl` | The submit-on-create rule and its group. |
 
-Six decisions are worth knowing before changing anything here.
-
 **`Job` is an abstract class, not an interface.** The obvious shape is an interface that a
 task implements alongside whatever it already extends. FOAM cannot express that for a stored
 type: `foam.INTERFACE` generates no Java `ClassInfo`, `EasyDAO` hard-fails without an `of`
@@ -47,11 +47,6 @@ storable Job therefore extends `Job`.
 **The rule is create-only.** `JobRunner` writes each transition back through the same
 `jobDAO`. Were the rule `CREATE_OR_UPDATE`, its own `RUNNING` write would re-submit the job,
 forever. `"operation": 0` in `rules.jrl` is the whole guard.
-
-**The rule needs its `RuleGroup` row.** `RulerDAO.updateRuleGroups`
-(`foam3/src/foam/core/ruler/RulerDAO.js:366-385`) resolves groups against `ruleGroupDAO` and
-logs *"RuleGroup not found. Rules in the group will not be run."* for a miss — silently, with
-the rule never firing. That is what `ruleGroups.jrl` is for.
 
 **The client DAO disables caching.** `ClientBuilder` stamps `cache: true` and a five-minute
 `ttlPurgeTime` onto every served EasyDAO (`foam3/src/foam/core/client/ClientBuilder.js:32,209-213`).
@@ -119,6 +114,9 @@ can be constructed on the client and executed on the server.
 
 Server side:
 
+While the following would work, the Job feature is meant for the submission and monitoring
+of long running jobs from the client. Server code can just use the threadPool service directly.
+
 ```java
 ImportJob job = new ImportJob();
 job.setFileId(fileId);
@@ -136,7 +134,7 @@ while ( true ) {
   if ( job.status === this.JobStatus.COMPLETED ) break;
   if ( job.status === this.JobStatus.FAILED   ) throw job.exception;
   // show job.statusMsg, and job.progress when it is not -1
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 1000));
 }
 ```
 

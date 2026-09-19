@@ -120,8 +120,12 @@ foam.CLASS({
     /* Embedded icon files (images/*.svg) paint their shapes with a fixed
        fill="#494F59" attribute, which wins over a fill set on the <svg>; so
        point every shape at currentColor and let the button's text colour,
-       and its dark variant, drive the icon. fill="none" outlines are kept. */
-    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]) {
+       and its dark variant, drive the icon. fill="none" outlines are kept.
+       Sketch exports wrap the icon in <g fill="none"> with an unfilled
+       bounding <polygon>/<rect> that inherits that none; painting it would
+       draw a solid square, so shapes without their own fill inside such a
+       group are left alone (26 of the 97 shipped icons have one). */
+    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])) {
       fill: currentColor;
     }
 

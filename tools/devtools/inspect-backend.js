@@ -46,6 +46,9 @@
       } catch (e) {}
     }
     picked = picked || { data: null, view: null };
+    // Kept so why-backend can re-derive the record and mode later: the view
+    // may switch to EDIT (and to its workingData clone) after the click.
+    D.lastEl = r.el; D.lastStack = lastStack; D.pickEnv = pickEnv;
     // The nearest DAO above the record's view: what open-backend.js edits it in.
     var dao = null, from = picked.view ? lastStack.indexOf(picked.view) : -1;
     for ( var j = Math.max(from, 0) ; j < lastStack.length && ! dao ; j++ ) {

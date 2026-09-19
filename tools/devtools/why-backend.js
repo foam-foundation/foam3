@@ -65,10 +65,25 @@
   // screen is about (the detail view under the navigation stack's current
   // view), else nothing.
   function target() {
-    var sel = D.selection;
+    // Re-derive from the selected element every time: after the click the
+    // view may have gone to EDIT and swapped its record for the working copy
+    // (comics v3 currentData_, DetailView.js:215-221), so a snapshot taken at
+    // inspect time reports the wrong mode and validates the wrong object.
     try {
-      if ( sel && sel.data && sel.view && sel.view.element_ && sel.view.element_.isConnected ) {
-        return { data: sel.data, view: sel.view, dao: sel.dao, mode: sel.mode, source: 'selection' };
+      var el = D.lastEl;
+      if ( el && el.element_ && el.element_.isConnected && D.lastStack && D.pickEnv ) {
+        var picked = P.pickRecord(D.lastStack, D.pickEnv);
+        if ( ! picked ) {
+          var dv = el.__context__ && el.__context__.detailView;
+          var held = dv && ( P.recordOfView(dv) || ( P.dataOf(dv) && ! P.isDAO(P.dataOf(dv)) ? P.dataOf(dv) : null ) );
+          if ( held ) picked = { data: held, view: dv };
+        }
+        if ( picked ) {
+          var dao = D.selection && D.selection.dao;
+          try { if ( ! dao && picked.view.config && P.isDAO(picked.view.config.dao) ) dao = picked.view.config.dao; } catch (e) {}
+          var mode = P.modeOf(el) || ( picked.view.instance_ && picked.view.instance_.controllerMode && picked.view.instance_.controllerMode.name ) || null;
+          return { data: picked.data, view: picked.view, dao: dao, mode: mode, source: 'selection' };
+        }
       }
     } catch (e) {}
     var root = null;

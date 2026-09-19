@@ -145,7 +145,9 @@ function renderTree(st) {
   T.flatten(st.tree, st.expanded).forEach(function(r) {
     var row = el('div', 'node' + ( r.uid === st.selected ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
-    row.title = 'click to select — Elements, sidebar, Why and $v follow';
+    row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
+    row.addEventListener('mouseenter', function() { highlight(r.uid); });
+    row.addEventListener('mouseleave', function() { highlight(null); });
     var tog = el('span', 'tog', r.hasKids ? ( r.open ? '▾' : '▸' ) : '');
     if ( r.hasKids ) {
       tog.addEventListener('click', function(ev) {
@@ -165,16 +167,20 @@ function renderTree(st) {
   return root;
 }
 
-// A row click is the same act as an Elements click: the page's selection
-// owner takes the element, then Elements reveals it and both tabs reload.
+// A row click hands the element to the page's selection owner, so the
+// sidebar, Why and $v follow — without inspect(), which would switch
+// DevTools to the Elements tab; that is the Reveal button's job.
 function selectRow(uid) {
   rpc('selectUid', [ JSON.stringify(uid) ]).then(function(r) {
     if ( r.error ) { setStatus(r.error); return; }
     state.selected = uid;
-    reveal(0);
     refresh();
   });
 }
+
+// Hover outline on the page; null clears it. Drawn by the page (see
+// tree-backend.js) because Chrome gives extensions no overlay API.
+function highlight(uid) { rpc('highlight', [ JSON.stringify(uid) ]); }
 
 function loadTree() {
   rpc('tree').then(function(r) {
@@ -196,6 +202,7 @@ function render(state) {
   var root = document.getElementById('root');
   root.textContent = '';
   root.appendChild(state.tab === 'tree' ? renderTree(state) : renderWhy(state.why));
+  document.getElementById('reveal').disabled = state.selected === null || state.selected === undefined;
   document.getElementById('status').textContent =
     state.pollsLeft ? 'waiting for permission checks…' :
     state.why && state.why.error && state.tab === 'why' ? state.why.error :
@@ -248,4 +255,9 @@ document.querySelectorAll('#tabs .tab').forEach(function(b) {
   b.addEventListener('click', function() { setTab(b.dataset.tab); });
 });
 document.getElementById('refresh').addEventListener('click', refresh);
+// stack[0] is the selected element itself (selectUid puts it there), so
+// node(0) is its DOM node.
+document.getElementById('reveal').addEventListener('click', function() { reveal(0); });
+// the pointer can leave the panel without crossing a row's edge
+document.getElementById('root').addEventListener('mouseleave', function() { highlight(null); });
 refresh();

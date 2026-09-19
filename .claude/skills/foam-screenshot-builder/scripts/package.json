@@ -1,0 +1,15 @@
+{
+  "name": "foam-screenshot-builder",
+  "private": true,
+  "type": "module",
+  "description": "Before/after element screenshots of a FOAM app with callouts (Playwright only)",
+  "scripts": {
+    "postinstall": "playwright install chromium",
+    "shots": "node shots.mjs",
+    "compose": "node compose.mjs",
+    "discover": "node discover.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

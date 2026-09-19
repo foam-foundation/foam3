@@ -32,13 +32,28 @@
     // in force at the selected node (from its context — never the property
     // factory). Shared with other backends (why-backend.js) as D.selection,
     // and handed to the console as $v / $d, like React DevTools' $r.
-    var picked = P.pickRecord(lastStack, pickEnv) || { data: null, view: null };
+    var picked = P.pickRecord(lastStack, pickEnv);
+    // Comics v3 moves the title and Edit/Save/Cancel into the navigation
+    // stack's header (DetailView.js:236 setTrailingContainer; WrapperNode
+    // re-parents them), so their u2 chain never passes the detail view. Their
+    // context still does: DetailView exports itself 'as detailView'
+    // (DetailView.js:51), so ask it for the record it is showing.
+    if ( ! picked && r.el ) {
+      try {
+        var dv = r.el.__context__ && r.el.__context__.detailView;
+        var held = dv && ( P.recordOfView(dv) || ( P.dataOf(dv) && ! P.isDAO(P.dataOf(dv)) ? P.dataOf(dv) : null ) );
+        if ( held ) picked = { data: held, view: dv };
+      } catch (e) {}
+    }
+    picked = picked || { data: null, view: null };
     // The nearest DAO above the record's view: what open-backend.js edits it in.
     var dao = null, from = picked.view ? lastStack.indexOf(picked.view) : -1;
     for ( var j = Math.max(from, 0) ; j < lastStack.length && ! dao ; j++ ) {
       var dd = P.dataOf(lastStack[j]);
       if ( dd && P.isDAO(dd) ) dao = dd;
     }
+    // Comics detail views carry their DAO on config (v2 DAOUpdateView, v3 DetailView).
+    try { if ( ! dao && picked.view && picked.view.config && P.isDAO(picked.view.config.dao) ) dao = picked.view.config.dao; } catch (e) {}
     D.selection = { data: picked.data, view: picked.view, dao: dao, mode: r.el ? P.modeOf(r.el) : null };
     window.$v = lastStack[0] || undefined;
     window.$d = D.selection.data || undefined;

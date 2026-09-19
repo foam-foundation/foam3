@@ -162,12 +162,31 @@
   // view is a foreign record — skip; anything else (embedded-table row) is a
   // record of its own.
   // env = { isDAO(v), isElement(v), objDataOf(el), propertyNamesOf(rec) }.
+  // The record a detail-type view is currently showing, from its own state:
+  // comics v3 DetailView keeps it in currentData_ (data in VIEW, the
+  // workingData clone in EDIT, DetailView.js:215-221); comics v2
+  // DAOUpdateView edits workingData (DAOUpdateView.js:83-93). Own values
+  // only, so nothing is computed on the view's behalf.
+  exports.recordOfView = function(el) {
+    var inst = ( el && el.instance_ ) || {};
+    if ( inst.currentData_ && inst.currentData_.cls_ ) return inst.currentData_;
+    if ( inst.workingData && inst.workingData.cls_ ) return inst.workingData;
+    return null;
+  };
+
   exports.pickRecord = function(stack, env) {
     for ( var i = 0 ; i < stack.length ; i++ ) {
       var L = stack[i], d = exports.dataOf(L);
-      if ( ! d || env.isDAO(d) || env.isElement(d) ) continue;
-      var w = L.instance_ && L.instance_.workingData;
-      if ( w && w.cls_ ) return { data: w, view: L };
+      if ( ! d || env.isDAO(d) ) continue;
+      if ( env.isElement(d) ) {
+        // An ActionView bound to its detail view (startContext({ data: self }))
+        // stands for that view's record; a Stack or scroll element for nothing.
+        var held = exports.recordOfView(d);
+        if ( held ) return { data: held, view: L };
+        continue;
+      }
+      var w = exports.recordOfView(L);
+      if ( w ) return { data: w, view: L };
       var rec = env.objDataOf(L);
       if ( ! rec || rec === d ) return { data: d, view: L };
       if ( exports.isPropertyValueOf(rec, d, env) ) continue;

@@ -151,24 +151,5 @@ function loadWhy() {
 function refresh() { state.pollsLeft = 3; loadWhy(); }
 function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
 
-// DAO picker: every *DAO key in the app context; Open pushes FOAM's own
-// browse screen for it, menu or no menu.
-function loadDaoKeys() {
-  rpc('daoKeys').then(function(r) {
-    var sel = document.getElementById('daoPick');
-    sel.textContent = '';
-    ( r.keys || [] ).forEach(function(k) {
-      var o = el('option', null, k); o.value = k; sel.appendChild(o);
-    });
-    if ( r.error ) setStatus(r.error);
-  });
-}
-document.getElementById('daoOpen').addEventListener('click', function() {
-  var key = document.getElementById('daoPick').value;
-  if ( ! key ) return;
-  rpc('openDao', [ JSON.stringify(key) ]).then(function(r) { setStatus(r.error || ('opened ' + key)); });
-});
-
-document.getElementById('refresh').addEventListener('click', function() { refresh(); loadDaoKeys(); });
+document.getElementById('refresh').addEventListener('click', refresh);
 refresh();
-loadDaoKeys();

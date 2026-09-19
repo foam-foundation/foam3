@@ -4,12 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// "Open in FOAM": push one of the app's own screens onto its navigation
-// stack — the comics DAO browser for any DAO in the app context, or the
-// comics edit view for the selected record. FOAM draws it; the extension
-// only names what to show. Uses the same StackBlock calls the comics
-// controllers make themselves (DAOBrowseControllerView.js:196,
-// DAOSummaryView.js:180).
+// "Open in FOAM": push the comics edit view for the selected record onto
+// the app's navigation stack. FOAM draws it; the extension only names what
+// to show. Same StackBlock call the comics controllers make themselves
+// (DAOSummaryView.js:180).
 (function() {
   var D = window.__foamDevtools;
 
@@ -19,27 +17,6 @@
     stack.push(foam.u2.stack.StackBlock.create({ view: view, parent: ctrl }));
     return { ok: true };
   }
-
-  // Every DAO the app context knows by name, sorted. Context keys are
-  // enumerable through the prototype chain, so for..in sees inherited ones.
-  D.register('daoKeys', function() {
-    if ( ! D.foamReady() ) return { foam: false };
-    var x = ctrl.__subContext__, keys = [];
-    for ( var k in x ) if ( /DAO$/.test(k) ) keys.push(k);
-    keys.sort();
-    return { keys: keys };
-  });
-
-  D.register('openDao', function(key) {
-    if ( ! D.foamReady() ) return { foam: false };
-    var dao = ctrl.__subContext__[String(key)];
-    if ( ! dao || typeof dao.select !== 'function' ) return { error: 'no DAO named ' + key + ' in the app context' };
-    return push({
-      class: 'foam.comics.v2.DAOBrowseControllerView',
-      data: dao,
-      title: String(key)
-    });
-  });
 
   // The selected record in the comics edit view when its DAO is known from
   // the view stack (D.selection.dao, set by inspect); otherwise a plain

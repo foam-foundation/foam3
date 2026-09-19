@@ -114,6 +114,12 @@ var orig = { cls_: { id: 'com.x.User' } }, work = { cls_: { id: 'com.x.User' } }
 var updateView = u2('foam.comics.v2.DAOUpdateView', { instance_: { data: orig, workingData: work } });
 pr = P.pickRecord([ u2('foam.u2.ActionView', { data: { cls_: { id: 'foam.comics.v2.DAOUpdateView' }, isEl: true } }), updateView ], env());
 t(pr.data === work && pr.view === updateView, 'pickRecord: ActionView bound to a view is skipped; workingData wins');
+var v3 = u2('foam.comics.v3.DetailView', { isEl: true, instance_: { data: orig, workingData: work, currentData_: orig } });
+pr = P.pickRecord([ u2('foam.u2.ActionView', { data: v3 }), u2('foam.u2.WrapperNode'), u2('foam.core.u2.navigation.Stack') ], env());
+t(pr.data === orig && pr.view.cls_.id === 'foam.u2.ActionView', 'pickRecord: header ActionView bound to a v3 DetailView yields its currentData_');
+v3.instance_.currentData_ = work;
+t(P.recordOfView(v3) === work, 'recordOfView: currentData_ (v3) beats workingData (v2)');
+t(P.recordOfView(u2('x')) === null, 'recordOfView: plain view -> null');
 var group = { cls_: { id: 'com.x.Group' }, id: 7 };
 pr = P.pickRecord([
   u2('foam.u2.view.ReferenceCitationView', { data: group, ctxObjData: user }),

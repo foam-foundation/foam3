@@ -56,8 +56,11 @@ rows where it differs from the row above.
   layer whose `data` is a property value of the enclosing `objData` (the
   record PropertyBorder / DetailView / TableCellFormatter export) is a
   value view — skipped; a Reference citation under an id-valued property
-  view is a foreign record — skipped. So the status badge gives the
-  record, not the enum; a field inside a nested address gives the address.
+  view is a foreign record — skipped; a detail view's own `currentData_`
+  (comics v3) or `workingData` (comics v2) wins, also when reached through
+  an action button bound to that view. So the status badge gives the
+  record, not the enum; a field inside a nested address gives the address;
+  the Save button gives what the form is editing.
 - **map** — how many `u2` elements were walked, how many had a DOM node, and
   the walk time in ms.
 
@@ -99,23 +102,15 @@ after changing a value.
 
 ## Open in FOAM
 
-The app already has a screen for every DAO (the comics browser: table,
-search, columns, row → edit) and an edit form for every record; you normally
-reach them through menus. Two controls push those screens onto the app's own
-navigation stack, so FOAM draws them with the app's styling, permissions and
-validation — the extension writes no UI:
-
-- **open DAO in app** (panel toolbar) — pick any `*DAO` key from the app
-  context (`cSpecDAO`, `menuDAO`, caches, anything without a menu) → **Open**
-  pushes `foam.comics.v2.DAOBrowseControllerView` for it.
-- **Open in FOAM** (Why tab, record line) — pushes
-  `foam.comics.v2.DAOUpdateView` for the selected record, in the DAO nearest
-  above it in the view stack; with no DAO in the stack you get a
-  `SectionedDetailView` of the object instead (validates, no Save).
-
-Both are the same `stack.push(StackBlock)` calls the comics controllers make
-(`DAOBrowseControllerView.js:196`, `DAOSummaryView.js:180`). Use the app's
-Back to return.
+The app already has an edit form for every record; you normally reach it
+through a menu and a table. **Open in FOAM** (Why tab, record line) pushes
+`foam.comics.v2.DAOUpdateView` for the selected record onto the app's own
+navigation stack, so FOAM draws it with the app's styling, permissions and
+validation — the extension writes no UI. The DAO comes from the view stack
+(a table above the row) or the detail view's `config.dao`; with neither you
+get a `SectionedDetailView` of the object (validates, no Save). Same
+`stack.push(StackBlock)` call the comics controllers make
+(`DAOSummaryView.js:180`). Use the app's Back to return.
 
 ## Architecture — three layers, one contract each
 
@@ -216,6 +211,10 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 15 passed
    lists it with ✓ or ✗ (may show `…` for one re-poll).
 6. **Actions.** A greyed button on screen appears with `enabled: …` naming
    the gate; change the field it depends on, Refresh → flips.
-7. **Open in FOAM.** Toolbar: pick `menuDAO` → Open → the app shows the
-   menu table. Why tab → Open in FOAM → the app shows the edit form for the
-   record you clicked; Back returns.
+7. **Open in FOAM.** Why tab → Open in FOAM → the app shows the edit form
+   for the record you clicked; Back returns.
+8. **Comics v3 header.** On an `admin.data` detail screen (comics v3),
+   click the record title or the Edit/Save/Cancel buttons in Elements: the
+   stack shows `ButtonGroup → … → Stack` (they live in the stack header) but
+   the Why tab still names the record — it comes from the `detailView`
+   context export.

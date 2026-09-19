@@ -696,9 +696,10 @@ async function callTool(lsp, projectRoot, name, args) {
     case 'foam_implementation':
       return shapeLocations(await navRaw(lsp, projectRoot, args, 'implementation', 'textDocument/implementation'), projectRoot);
     case 'foam_type_definition':
-      // Symbol mode resolves the symbol's own definition; position mode jumps
-      // to the property type at the cursor.
-      return shapeLocations(await navRaw(lsp, projectRoot, args, 'definition', 'textDocument/typeDefinition'), projectRoot);
+      // Symbol mode resolves the symbol's PROPERTY TYPE (op: 'typeDefinition'
+      // routes foam/byName to the same class-jump Case B does below); position
+      // mode jumps to the property type at the cursor via the LSP method.
+      return shapeLocations(await navRaw(lsp, projectRoot, args, 'typeDefinition', 'textDocument/typeDefinition'), projectRoot);
     case 'foam_type_hierarchy': {
       const hr = await hierarchyRaw(lsp, projectRoot, args, 'type');
       if ( ! hr ) return 'No type hierarchy at this target.';

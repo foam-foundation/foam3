@@ -457,8 +457,124 @@ try {
   // class references (methods keep going through callHierarchy).
   test(mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'noSuchMember') === null,
     'unknown member returns null (falls back to class references)');
+
+  // CONSTANT-case call sites: mlang predicate code writes `EQ(Ticket.CREATED_FOR, x)`,
+  // never `EQ(Ticket.createdFor, x)`. None of the five original patterns
+  // (.propName / propName: / 'propName' / getPropName( / setPropName() ever
+  // matched that CONSTANT form — though PIIReportRequestView.js is not proof
+  // of it by itself: the file already has a `createdFor: user.id` key-position
+  // hit at :41 that pattern 2 (`propName\s*:`) matches with or without the
+  // CONSTANT-case fix. Only the line-level assertion below, pinned to the
+  // `this.Ticket.CREATED_FOR` call site at :122, is specific to this change.
+  var cfLocs = mrHandler.memberReferencesForClassId('foam.core.ticket.Ticket', 'createdFor');
+
+  var cfFs    = require('fs');
+  var cfPath  = index.getFilePath('foam.core.pii.PIIReportRequestView');
+  var cfLines = cfFs.readFileSync(cfPath, 'utf8').split('\n');
+  var cfLine = -1;
+  for ( var ci = 0 ; ci < cfLines.length ; ci++ ) {
+    if ( cfLines[ci].indexOf('this.Ticket.CREATED_FOR') !== -1 ) { cfLine = ci; break; }
+  }
+  test(cfLine !== -1, 'fixture: PIIReportRequestView.js still has a this.Ticket.CREATED_FOR call site');
+  test((cfLocs || []).some(function(l) {
+    return l.uri === 'file://' + cfPath && l.range.start.line === cfLine;
+  }), 'CONSTANT-case usage LINE matched: this.Ticket.CREATED_FOR call site at line ' + cfLine);
 } catch (err) {
   test(false, 'member references section threw: ' + err.message);
+}
+
+
+// === memberScanLocations_ — javaImports-only requirer via getJavaUsages ===
+//
+// `memberScanLocations_` (ReferencesHandler.js) adds every class whose
+// javaCode names the owner through `javaImports` (`index.getJavaUsages`) to
+// the scan set, alongside subclasses and `requires:`/`of:` requirers.
+// UserPropertyAvailabilityService.js is a real, un-fixtured example: it has
+// NO `requires:` array at all, lists `foam.core.auth.User` only in
+// `javaImports`, and its javaCode calls `EQ(User.SPID, spid)`. If the
+// getJavaUsages addition were removed, this file would drop out of
+// User.spid's scan set entirely (it is not a requirer, not a subclass, not
+// an of-user).
+
+section('memberScanLocations_ — javaImports-only requirer scanned via getJavaUsages');
+
+try {
+  var jcCls = foam.maybeLookup('foam.core.auth.UserPropertyAvailabilityService');
+  test(!! jcCls, 'fixture: UserPropertyAvailabilityService is registered');
+
+  var jcModel = jcCls && jcCls.model_;
+  test(jcModel && ! jcModel.requires,
+    'precondition: UserPropertyAvailabilityService has no requires: array (User reaches it only via javaImports)');
+
+  var jcRequirers = index.getRequirers('foam.core.auth.User');
+  test(jcRequirers.indexOf('foam.core.auth.UserPropertyAvailabilityService') === -1,
+    'precondition: getRequirers(User) does not include it (confirms the requires:/of: paths do not already cover this file)');
+
+  var jcFs   = require('fs');
+  var jcPath = index.getFilePath('foam.core.auth.UserPropertyAvailabilityService');
+  var jcLines = jcFs.readFileSync(jcPath, 'utf8').split('\n');
+  var jcLine = -1;
+  for ( var ji = 0 ; ji < jcLines.length ; ji++ ) {
+    if ( jcLines[ji].indexOf('EQ(User.SPID') !== -1 ) { jcLine = ji; break; }
+  }
+  test(jcLine !== -1, 'fixture: UserPropertyAvailabilityService.js still has an EQ(User.SPID, ...) call site');
+
+  var jcLocs = mrHandler.memberReferencesForClassId('foam.core.auth.User', 'spid');
+  test((jcLocs || []).some(function(l) {
+    return l.uri === 'file://' + jcPath && l.range.start.line === jcLine;
+  }), 'memberReferencesForClassId(User, spid) includes the javaImports-only javaCode site in ' +
+    'UserPropertyAvailabilityService.js at line ' + jcLine + ' (got ' +
+    (jcLocs ? jcLocs.length : jcLocs) + ' locations)');
+} catch (err) {
+  test(false, 'javaImports-only member scan section threw: ' + err.message);
+}
+
+
+// === getRequirers — a refines: block's requires: is otherwise invisible ===
+//
+// `foam.CLASS({ refines: ... })` returns before `registerFactory` runs
+// (`src/foam/lang/EndBoot.js`), so the refinement's own id never lands in
+// `foam.__context__.__cache__`, and `getAllClassIds` (which `getRequirers`
+// walks) never sees it — a refinement's OWN `requires:` array used to be
+// invisible to `getRequirers`, even though the refined class's `model_` is
+// untouched by the refinement so the class-walk loop can't find it either
+// way. `UserRefine.js` is the real, un-fixtured miss: `PIIReportUserRefines`
+// refines `foam.core.auth.User`, `requires: [ ..., 'foam.core.ticket.Ticket' ]`,
+// and its action code calls `this.EQ(this.Ticket.CREATED_FOR, this.id)`.
+
+section('getRequirers — refines: block requires: (refinement-only requirer)');
+
+try {
+  var rfModel = foam.USED['foam.core.pii.PIIReportUserRefines'];
+  test(!! rfModel && rfModel.refines === 'foam.core.auth.User',
+    'fixture: PIIReportUserRefines is a registered refines: block for User');
+  test(!! rfModel && Array.isArray(rfModel.requires) &&
+    rfModel.requires.indexOf('foam.core.ticket.Ticket') !== -1,
+    'fixture: PIIReportUserRefines requires foam.core.ticket.Ticket');
+
+  var rfRequirers = index.getRequirers('foam.core.ticket.Ticket');
+  test(rfRequirers.indexOf('foam.core.pii.PIIReportUserRefines') !== -1,
+    'getRequirers(Ticket) includes the refinement id itself, got: ' + JSON.stringify(rfRequirers));
+
+  var rfFs   = require('fs');
+  var rfPath = index.getFilePath('foam.core.pii.PIIReportUserRefines');
+  test(!! rfPath && rfPath.indexOf('UserRefine.js') !== -1,
+    'getFilePath resolves the refinement id to UserRefine.js, got: ' + JSON.stringify(rfPath));
+
+  var rfLines = rfFs.readFileSync(rfPath, 'utf8').split('\n');
+  var rfLine = -1;
+  for ( var ri = 0 ; ri < rfLines.length ; ri++ ) {
+    if ( rfLines[ri].indexOf('this.Ticket.CREATED_FOR') !== -1 ) { rfLine = ri; break; }
+  }
+  test(rfLine !== -1, 'fixture: UserRefine.js still has a this.Ticket.CREATED_FOR call site');
+
+  var rfLocs = mrHandler.memberReferencesForClassId('foam.core.ticket.Ticket', 'createdFor');
+  test((rfLocs || []).some(function(l) {
+    return l.uri === 'file://' + rfPath && l.range.start.line === rfLine;
+  }), 'memberReferencesForClassId(Ticket, createdFor) includes the refines: block\'s call site in ' +
+    'UserRefine.js at line ' + rfLine + ' (got ' + (rfLocs ? rfLocs.length : rfLocs) + ' locations)');
+} catch (err) {
+  test(false, 'refines: requires: member scan section threw: ' + err.message);
 }
 
 

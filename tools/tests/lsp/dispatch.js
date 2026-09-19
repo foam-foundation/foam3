@@ -371,6 +371,25 @@ module.exports.done = (async function() {
     'completion over the wire: unrequired class carries its requires edit');
   test(! arItems.some(function(i) { return i.labelDetails; }),
     'completion over the wire: no labelDetails for a client that did not declare labelDetailsSupport');
+
+  // foam/byName op:'typeDefinition' on a Class.member used to have no case in
+  // byNameResult's switch. The MCP symbol-mode foam_type_definition tool
+  // never sent 'typeDefinition' to it — it sent op:'definition' explicitly
+  // (`editors/mcp/server.js`), so a Class.member request resolved to the
+  // property's OWN declaration line, not its type. Now the tool sends
+  // 'typeDefinition' and this case resolves it to the property's type class.
+  // User.email's type is foam.lang.EMail, declared in foam/lang/types.js;
+  // the returned location's line must also be inside that file, not line 0.
+  var tdByName = await request('foam/byName',
+    { name: 'foam.core.auth.User.email', op: 'typeDefinition' });
+  var tdLoc = tdByName.result && tdByName.result[0];
+  var tdUri = tdLoc && tdLoc.uri;
+  test(!! tdUri && tdUri.replace(/\\/g, '/').indexOf('foam/lang/types.js') !== -1,
+    'foam/byName typeDefinition on User.email resolves to the EMail property class (types.js), got: ' +
+    JSON.stringify(tdUri));
+  test(!! tdLoc && tdLoc.range && tdLoc.range.start.line > 0,
+    'foam/byName typeDefinition on User.email resolves to a real line, not the location_ line-0 default, got: ' +
+    JSON.stringify(tdLoc && tdLoc.range));
 })().catch(function(e) {
   test(false, 'dispatch tests failed — ' + e.message);
 }).then(function() {

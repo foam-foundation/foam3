@@ -140,7 +140,8 @@ current view (`ctrl.stack.current`) down, since `Stack.push` only hides the
 previous view. One row per element: short class name, what it is bound to
 (record, DAO, view) and its property when it has one; elements with
 `shown === false` are greyed and tagged `hidden`. `▸`/`▾` toggles a subtree,
-alt-click toggles the whole branch; the root and two levels below it start
+alt-click toggles the whole branch, **Expand all / Collapse all** the whole
+tree (collapse keeps the root open); the root and two levels below it start
 open, a chain of only children stays open until it branches, plus the path
 to the selected element. **hide wrappers** (on by default, remembered) folds
 `Element`, `SlotNode`, `Text` and `HTMLView` rows away and moves their

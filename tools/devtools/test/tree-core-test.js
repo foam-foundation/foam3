@@ -65,6 +65,11 @@ t(T.flatten({ root: N(1, 'foam.u2.Element', [ N(2, 'com.x.V') ]) }, new Set([ 1 
 var onlyWrap = T.flatten({ root: N(1, 'com.x.Root', [ N(2, 'foam.u2.Element', [ N(3, 'foam.u2.Text') ]) ]) }, new Set([ 1 ]), { hideWrappers: true });
 t(onlyWrap.length === 1 && onlyWrap[0].hasKids === false, 'flatten hideWrappers: wrapper-only subtree -> no toggle');
 
+t(T.allOpen(tree, new Set([ 1, 2, 3 ])) === true && T.allOpen(tree, new Set([ 1, 2 ])) === false, 'allOpen: one collapsed toggle on screen -> false');
+t(T.allOpen(tree, new Set([ 1 ])) === false && T.allOpen(tree, new Set()) === false, 'allOpen: collapsed root -> false');
+t(T.allOpen(wt, new Set([ 1, 4 ]), { hideWrappers: true }) === true, 'allOpen: hidden wrappers do not count');
+t(T.allOpen(null, new Set()) === true, 'allOpen: no tree -> vacuously true');
+
 t(T.subtreeUids(tree, 2).join(',') === '2,3,4,5', 'subtreeUids: node and everything below');
 t(T.subtreeUids(tree, 42).length === 0, 'subtreeUids: miss -> []');
 

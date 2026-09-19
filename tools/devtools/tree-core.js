@@ -46,6 +46,14 @@
     return false;
   };
 
+  // Is every toggle on screen open? Decides whether the fold button reads
+  // "Collapse all" or "Expand all": one collapsed row anywhere means there is
+  // still something to expand. A collapsed row is always in the row list
+  // (only its subtree is left out), so the visible rows are enough.
+  exports.allOpen = function(tree, expanded, opts) {
+    return exports.flatten(tree, expanded, opts).every(function(r) { return ! r.hasKids || r.open; });
+  };
+
   // Every uid in the subtree rooted at uid (the node itself included), for
   // alt-click open/close of a whole branch. [] when uid is not in the tree.
   exports.subtreeUids = function(tree, uid) {

@@ -159,13 +159,7 @@ function renderTree(st) {
       tog.addEventListener('click', function(ev) {
         ev.stopPropagation();
         // alt-click toggles the whole branch, as in Chrome's Elements tab
-        var uids = ev.altKey ? T.subtreeUids(st.tree, r.uid) : [ r.uid ];
-        uids.forEach(function(u) {
-          if ( r.open ) { st.closed.add(u); st.opened.delete(u); }
-          else          { st.opened.add(u); st.closed.delete(u); }
-        });
-        st.expanded = T.effectiveExpanded(st.tree, st.selected, st.opened, st.closed);
-        render(state);
+        setOpen(ev.altKey ? T.subtreeUids(st.tree, r.uid) : [ r.uid ], ! r.open);
       });
     }
     row.appendChild(tog);
@@ -176,6 +170,27 @@ function renderTree(st) {
     root.appendChild(row);
   });
   return root;
+}
+
+// Open or close a set of nodes as a user toggle: recorded in opened/closed so
+// the choice survives the next poll (effectiveExpanded re-applies it over
+// the defaults), then re-rendered from the same snapshot.
+function setOpen(uids, open) {
+  uids.forEach(function(u) {
+    if ( open ) { state.opened.add(u); state.closed.delete(u); }
+    else        { state.closed.add(u); state.opened.delete(u); }
+  });
+  state.expanded = T.effectiveExpanded(state.tree, state.selected, state.opened, state.closed);
+  render(state);
+}
+
+// Fold button: every branch open, or everything closed but the root, so the
+// screen's top-level views stay listed and the tree is never a single row.
+function foldAll() {
+  if ( ! state.tree || ! state.tree.root ) return;
+  var open = ! T.allOpen(state.tree, state.expanded, { hideWrappers: state.hideWrappers });
+  var uids = T.subtreeUids(state.tree, state.tree.root.uid);
+  setOpen(open ? uids : uids.slice(1), open);
 }
 
 // A row click hands the element to the page's selection owner, so the
@@ -216,6 +231,9 @@ function render(state) {
   root.textContent = '';
   root.appendChild(state.tab === 'tree' ? renderTree(state) : renderWhy(state.why));
   document.getElementById('reveal').disabled = state.selected === null || state.selected === undefined;
+  var fold = document.getElementById('fold');
+  fold.disabled = ! state.tree;
+  fold.textContent = state.tree && ! T.allOpen(state.tree, state.expanded, { hideWrappers: state.hideWrappers }) ? 'Expand all' : 'Collapse all';
   document.getElementById('status').textContent =
     state.pollsLeft ? 'waiting for permission checks…' :
     state.why && state.why.error && state.tab === 'why' ? state.why.error :
@@ -276,6 +294,7 @@ document.getElementById('wrappers').addEventListener('change', function(ev) {
 // stack[0] is the selected element itself (selectUid puts it there), so
 // node(0) is its DOM node.
 document.getElementById('reveal').addEventListener('click', function() { reveal(0); });
+document.getElementById('fold').addEventListener('click', foldAll);
 // the pointer can leave the panel without crossing a row's edge
 document.getElementById('root').addEventListener('mouseleave', function() { highlight(null); });
 refresh();

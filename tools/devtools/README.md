@@ -3,10 +3,11 @@
 A Chrome DevTools extension for inspecting FOAM3 apps at runtime. Two
 surfaces: an **Elements sidebar** showing the stack of `u2` views above the
 selected DOM node, what each binds (DAO, record, property) and a copyable FOAM
-path; and a **FOAM panel** whose **Why** tab explains, for the record on
+path; and a **FOAM panel** with two tabs: **Why** explains, for the record on
 screen, why each field is hidden or read-only, what validation is failing, why
 each action is greyed or missing, and which permissions the screen has asked
-for. It reads the live FOAM registry inside the inspected page and writes
+for; **Tree** shows the live `u2` view tree of the current screen, and a row
+click selects that element everywhere. It reads the live FOAM registry inside the inspected page and writes
 only: the `$v`/`$d` console handles; permission checks it asks the app's
 cached auth service (so the "checked" list grows with the panel's own
 questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
@@ -131,13 +132,31 @@ get a `SectionedDetailView` of the object (validates, no Save). Same
 `stack.push(StackBlock)` call the comics controllers make
 (`DAOSummaryView.js:180`). Use the app's Back to return.
 
+## The Tree tab
+
+The live u2 view tree of the screen currently shown — the navigation stack's
+current view (`ctrl.stack.current`) down, since `Stack.push` only hides the
+previous view. One row per element: short class name, what it is bound to
+(record, DAO, view) and its property when it has one; elements with
+`shown === false` are greyed and tagged `hidden`. `▸`/`▾` toggles a subtree;
+the root and two levels below it start open, plus the path to the selected
+element.
+
+Clicking a row selects that element the same way an Elements click does:
+Elements reveals its DOM node, the sidebar shows its chain, the Why tab
+explains its record, and `$v` / `$d` point at it. The tree reloads with the
+same 1s screen poll as the Why tab, so navigating in the app swaps it.
+Snapshots are capped at 5000 nodes ("showing N nodes (capped)").
+
 ## Architecture — three layers, one contract each
 
 **Page world** (`shapers.js`, `why-core.js`, `backend.js`,
-`selection-backend.js`, `inspect-backend.js`, `why-backend.js`,
-`open-backend.js`; MAIN-world content scripts, loaded in that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
+`selection-backend.js`, `tree-backend.js`, `inspect-backend.js`,
+`why-backend.js`, `open-backend.js`; MAIN-world content scripts, loaded in
+that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
 (`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`), the
-per-layer shape (`layerOf`), and the gate replay (`propGate`, `actionGate`,
+per-layer shape (`layerOf`), the tree snapshot (`treeOf`, over the one child
+rule `childrenOf`), and the gate replay (`propGate`, `actionGate`,
 `sectionGate`) — no `window.foam` or DOM API use, so they run under Node with
 injected evaluators. `backend.js` is the core: `window.__foamDevtools
 .register(name, fn)` and `call(name, ...args)`.
@@ -161,13 +180,14 @@ builds the other (`inspect(window.__foamDevtools.node(i))`). Views never
 hand-write an eval string. `argExprs` are page-side JS fragments: `'$0'` for
 the Elements selection, `JSON.stringify(v)` for data.
 
-**Panel side** (`devtools.js`, `sidebar-core.js`, `sidebar.*`, `why-explain.js`,
-`panel.*`). `render(result)` builds DOM from the response object alone — no
+**Panel side** (`devtools.js`, `sidebar-core.js`, `sidebar.*`, `tree-core.js`,
+`why-explain.js`, `panel.*`). `render(result)` builds DOM from the response object alone — no
 page references. **Contract:** a view is a function of the last response. The
-FOAM panel keeps all its state in one object (`state = { tab, why, pollsLeft }`)
-and one `render(state)`; later tabs add a key and a render function. The pure
-parts (`pathOf`, `shortName`; `explainProp`, `explainAction`,
-`explainSection`) live in their own files so they have Node tests.
+FOAM panel keeps all its state in one object (`state = { tab, why, tree,
+expanded, selected, ... }`) and one `render(state)`; each tab has a render
+function. The pure parts (`pathOf`, `shortName`, `bindingText`; `flatten`,
+`defaultExpanded`; `explainProp`, `explainAction`, `explainSection`) live in
+their own files so they have Node tests.
 
 Page-side selection has one owner, `selection-backend.js`: `inspect` hands
 it the pointed-at element and its stack (`D.selectNode`); `why` and
@@ -176,7 +196,10 @@ its node is inside the navigation stack's current view, else the record the
 screen is about, else the table it lists. Only the pointer is stored;
 record, DAO and mode are resolved on every ask by the pure `resolveRecord`
 / `screenTarget` in `shapers.js`, so a view that moves from VIEW to EDIT
-(and to its working copy) after the click is reported correctly. Every
+(and to its working copy) after the click is reported correctly. The Tree
+tab's `selectUid` hands its element to the same `D.selectNode`; the only
+state `tree-backend.js` keeps is the uid→element map of its last snapshot
+(a cache of what the panel is looking at, rebuilt on every `tree` call). Every
 element read goes through `own(el, key)` (the element's `instance_` only),
 because FOAM property reads can run factories — `element_` would create a
 DOM node, `controllerMode` would default to CREATE, a record's unset
@@ -207,8 +230,9 @@ it lives exactly as long as FOAM's own auth cache entry.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 43 passed
-node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 55 passed
+node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 9 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 16 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
 node tools/devtools/test/why-core-test.js       # why-core-test: 25 passed
@@ -251,3 +275,17 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 17 passed
    stack shows `ButtonGroup → … → Stack` (they live in the stack header) but
    the Why tab still names the record — it comes from the `detailView`
    context export.
+
+### Smoke checklist — Tree tab
+
+9. Open a record (e.g. `#admin.data/userDAO/1`) → FOAM panel → Tree. Rows
+   show the screen's views; a `DetailView  User #1` row is present.
+10. Click a `PropertyBorder  prop email` row → Elements jumps to its DOM
+    node, the sidebar shows its chain, Why still says User #1, console `$v`
+    is the PropertyBorder.
+11. Click `▸` on a collapsed row → its children appear; click `▾` → gone; the
+    1s poll does not reset the toggle.
+12. Navigate to another record → tree swaps within a second, selection
+    highlight clears.
+13. Select a node in Elements → the Tree tab highlights its row and opens the
+    path to it.

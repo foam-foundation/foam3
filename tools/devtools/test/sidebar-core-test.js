@@ -27,4 +27,10 @@ t(S.pathOf([ L('com.x.Plain'), L('foam.core.ApplicationController') ]) === 'ctrl
   'pathOf: layer with nothing bound -> bare short name');
 t(S.pathOf([]) === '', 'pathOf: empty stack -> empty string');
 
+t(S.bindingText(L('x', { view: 'foam.u2.stack.Stack' })) === 'bound to Stack', 'bindingText: view');
+t(S.bindingText(L('x', { dao: { key: 'userDAO', of: 'com.x.User' } })) === 'dao userDAO', 'bindingText: dao key wins');
+t(S.bindingText(L('x', { dao: { key: null, of: 'com.x.User' } })) === 'dao of User', 'bindingText: dao of');
+t(S.bindingText(L('x', { data: { cls: 'com.x.User', id: '1', summary: 'Ajeet' } })) === 'User #1 — Ajeet', 'bindingText: record');
+t(S.bindingText(L('x', { prop: 'email' })) === '', 'bindingText: prop alone is not a binding');
+
 console.log('sidebar-core-test:', passes, 'passed');

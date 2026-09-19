@@ -12,6 +12,21 @@
     return i < 0 ? clsId : clsId.slice(i + 1);
   };
 
+  // What a layer is bound to, in the words both the sidebar and the Tree tab
+  // use: the view it stands for, the DAO (context key, else class), or the
+  // record (class, id, summary). A property layer's prop is shown separately.
+  exports.bindingText = function(l) {
+    if ( l.view ) return 'bound to ' + exports.shortName(l.view);
+    if ( l.dao ) return l.dao.key ? 'dao ' + l.dao.key : ( l.dao.of ? 'dao of ' + exports.shortName(l.dao.of) : 'dao' );
+    if ( l.data ) {
+      var s = exports.shortName(l.data.cls);
+      if ( l.data.id ) s += ' #' + l.data.id;
+      if ( l.data.summary ) s += ' — ' + l.data.summary;
+      return s;
+    }
+    return '';
+  };
+
   // The FOAM-level selector Elements can't give: one segment per layer, root
   // first. The walk root is always window.ctrl, so it is written "ctrl". Each
   // other layer is its short class name plus the one thing that identifies it

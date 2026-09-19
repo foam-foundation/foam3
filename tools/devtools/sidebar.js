@@ -31,18 +31,6 @@ function mapLine(s) {
   return line('map: ' + s.walked + ' elements, ' + s.withDom + ' with a DOM node, ' + s.ms + 'ms', 'muted');
 }
 
-function bindingText(l) {
-  if ( l.view ) return 'bound to ' + S.shortName(l.view);
-  if ( l.dao ) return l.dao.key ? 'dao ' + l.dao.key : ( l.dao.of ? 'dao of ' + S.shortName(l.dao.of) : 'dao' );
-  if ( l.data ) {
-    var s = S.shortName(l.data.cls);
-    if ( l.data.id ) s += ' #' + l.data.id;
-    if ( l.data.summary ) s += ' — ' + l.data.summary;
-    return s;
-  }
-  return '';
-}
-
 function modeText(m) {
   return ( m.controllerMode || '—' ) + ' / ' + ( m.displayMode || '—' );
 }
@@ -55,7 +43,7 @@ function stackRow(l, i, depth, parentModes, selected) {
   row.style.paddingLeft = ( 4 + depth * 12 ) + 'px';
   row.title = l.cls + ' — click to reveal in Elements';
   row.appendChild(span(S.shortName(l.cls), 'cls'));
-  var b = bindingText(l);
+  var b = S.bindingText(l);
   if ( b ) row.appendChild(span(b, 'bind'));
   if ( l.prop ) row.appendChild(span('prop ' + l.prop, 'bind'));
   var m = l.modes;

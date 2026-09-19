@@ -4,8 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Pure helpers for the sidebar's rendering. Dual-exported so pathOf has a
-// Node test; sidebar.js stays browser glue.
+// Pure helpers for describing a stack layer, shared by the sidebar and the
+// Tree tab. Dual-exported so each has a Node test; sidebar.js and panel.js
+// stay browser glue.
 (function(exports) {
   exports.shortName = function(clsId) {
     var i = clsId.lastIndexOf('.');
@@ -25,6 +26,13 @@
       return s;
     }
     return '';
+  };
+
+  // A layer's whole label after the class name: the binding, then the
+  // property when the layer has one.
+  exports.layerText = function(l) {
+    var b = exports.bindingText(l), p = l.prop ? 'prop ' + l.prop : '';
+    return [ b, p ].filter(Boolean).join('  ');
   };
 
   // The FOAM-level selector Elements can't give: one segment per layer, root

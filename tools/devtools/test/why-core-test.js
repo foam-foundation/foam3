@@ -86,9 +86,21 @@ var fr = new Map(); fr.set(pr, false);
 a = W.actionGate(asyncAct, data, env(null, fr), false);
 t(a.available.value === false, 'actionGate: async isAvailable resolved false -> unavailable');
 
+a = W.actionGate({ name: 'x', isAvailable: function() { throw new Error('nope'); } }, data, env(), false);
+t(a.available.fn.err === 'nope' && a.available.value === false, 'actionGate: throwing isAvailable -> {err} kept, unavailable');
+a = W.actionGate({ name: 'x', enabledPermissions: [ 'e.p' ] }, data, env({ 'e.p': false }), false);
+t(a.available.value === true && a.enabled.value === false && a.enabled.perms[0].result === false, 'actionGate: enabledPermissions denied -> disabled only');
+
+var eg = W.errGate({ name: 'q', label: 'Q', hidden: true }, 'boom');
+t(eg.name === 'q' && eg.label === 'Q' && eg.hidden === true && eg.final === 'ERR' && eg.base.err === 'boom' && eg.clamp === 'ERR', 'errGate: propGate shape with ERR everywhere and the message');
+
 // sectionGate
 var s = W.sectionGate({ name: 'Admin', permissionRequired: true, isAvailable: function() { return true; } }, data, env({ 'user.section.admin': false }));
 t(s.available === true && s.perm.name === 'user.section.admin' && s.perm.result === false, 'sectionGate: perm name + result');
+s = W.sectionGate({ name: 'S', isAvailable: function() { throw new Error('bad'); } }, data, env());
+t(s.available.err === 'bad', 'sectionGate: throwing isAvailable -> {err}');
+s = W.sectionGate({ name: 'S', properties: [ 'a', { name: 'b' }, { name: 'c.d' } ] }, data, env(), [ { name: 'a', final: 'RW' }, { name: 'b', final: 'HIDDEN' }, { name: 'd', final: 'HIDDEN' } ]);
+t(s.fields === 2 && s.anyVisible === true, 'sectionGate: explicit members by string or {name}; a dotted path (another class) is not a member');
 var gates = [ { name: 'a', final: 'HIDDEN' }, { name: 'b', final: 'HIDDEN' }, { name: 'c', final: 'RW' } ];
 s = W.sectionGate({ name: 'Hidden', properties: [ 'a', 'b' ] }, data, env(), gates);
 t(s.fields === 2 && s.anyVisible === false, 'sectionGate: explicit properties all HIDDEN -> anyVisible false');

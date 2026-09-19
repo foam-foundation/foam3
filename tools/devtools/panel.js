@@ -4,21 +4,19 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-try {
-  if ( chrome.devtools.panels.themeName === 'dark' ) document.documentElement.classList.add('dark');
-} catch (e) {}
-
 var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore;
 
 // All panel state in one object, one render(state) from it.
 // tab: which tab is showing, remembered across panel reopens.
-// open: which Why sections are expanded, by key. opened/closed: the tree
+// why: the last why() response ({error} included); pollsLeft: re-polls
+// still allowed for pending checks. tree: the last tree() snapshot, or
+// {error}; selected: the page's selection uid; opened/closed: the tree
 // nodes the user toggled, by $UID; expanded is derived from them plus the
-// defaults on every snapshot. All survive re-renders because render rebuilds
-// the DOM each time.
+// defaults on every snapshot. open: which Why sections are unfolded, by key.
+// All survive re-renders because render rebuilds the DOM each time.
 var TAB_KEY = 'foamDevtools.tab', WRAPPERS_KEY = 'foamDevtools.hideWrappers';
 var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
-              tree: null, treeError: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null,
+              tree: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null,
               hideWrappers: readPref(WRAPPERS_KEY, true) };
 
 function readTab() {
@@ -28,20 +26,16 @@ function readPref(key, dflt) {
   try { var v = localStorage.getItem(key); return v === null ? dflt : v === 'true'; } catch (e) { return dflt; }
 }
 function writePref(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
+// Switching tabs reloads the tab's data: the other tab may have missed a
+// navigation, since only the showing tab loads.
 function setTab(tab) {
   state.tab = tab;
-  try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
+  writePref(TAB_KEY, tab);
   render(state);
-  if ( tab === 'tree' && ! state.tree ) loadTree();
+  refresh();
 }
 
-// ---- DOM helpers (textContent only) ----
-function el(tag, cls, text) {
-  var d = document.createElement(tag);
-  if ( cls ) d.className = cls;
-  if ( text !== undefined ) d.textContent = text;
-  return d;
-}
+// ---- DOM helpers (el() is in common.js) ----
 function table(headers, rows) {
   var t = el('table'), tr = el('tr');
   headers.forEach(function(h) { tr.appendChild(el('th', null, h)); });
@@ -55,15 +49,15 @@ function table(headers, rows) {
 }
 // A collapsible block. Default open; the user's toggle is remembered in
 // state.open[key] so a re-render does not snap it back.
-function section(key, title, body) {
+function section(key, title, body, cls) {
   var s = el('details');
   s.open = state.open[key] !== false;
-  s.appendChild(el('summary', null, title));
+  s.appendChild(el('summary', cls, title));
   s.appendChild(body);
   s.addEventListener('toggle', function() { state.open[key] = s.open; });
   return s;
 }
-function permMark(r) { return r === 'pending' ? '…' : ( r ? '✓' : '✗' ); }
+function permMark(r) { return r === 'pending' ? '…' : ( r === true ? '✓' : '✗' ); }
 
 // ---- Why tab ----
 var MODE_ORDER = { HIDDEN: 0, RO: 1, DISABLED: 2, ERR: 3, pending: 4, RW: 5 };
@@ -96,10 +90,7 @@ function renderWhy(w) {
     return [ g.name + ( g.hidden ? ' (hidden axiom)' : '' ), { text: g.final, cls: 'mode ' + g.final }, E.explainProp(g) ];
   })));
   if ( rw.length ) {
-    var det = el('details');
-    det.appendChild(el('summary', 'muted', 'and ' + rw.length + ' read-write'));
-    det.appendChild(el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')));
-    body.appendChild(det);
+    body.appendChild(section('rw', 'and ' + rw.length + ' read-write', el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')), 'muted'));
   }
   root.appendChild(section('fields', 'Fields (' + notRW.length + ' not RW; class axioms, per-view overrides not replayed)', body));
 
@@ -118,7 +109,7 @@ function renderWhy(w) {
 
   if ( w.sections.length ) {
     root.appendChild(section('sections', 'Sections', table([ 'section', 'available', 'why' ], w.sections.map(function(s) {
-      var ok = s.available && ( ! s.perm || s.perm.result === true );
+      var ok = s.available === true && ( ! s.perm || s.perm.result === true );
       return [ s.name, ok ? '✓' : ( s.perm && s.perm.result === 'pending' ? '…' : '✗' ), E.explainSection(s) ];
     }))));
   }
@@ -141,14 +132,17 @@ function renderWhy(w) {
 }
 
 // ---- Tree tab ----
-function renderTree(st) {
-  var root = el('div');
-  if ( st.treeError ) { root.appendChild(el('div', 'err', st.treeError)); return root; }
-  if ( ! st.tree ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
-  if ( ! st.tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
-  if ( st.tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + st.tree.count + ' nodes (capped)'));
-  T.flatten(st.tree, st.expanded, { hideWrappers: st.hideWrappers }).forEach(function(r) {
-    var row = el('div', 'node' + ( r.uid === st.selected ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
+function treeOpts() { return { hideWrappers: state.hideWrappers }; }
+
+function renderTree() {
+  var root = el('div'), tree = state.tree;
+  if ( ! tree ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
+  if ( tree.error ) { root.appendChild(el('div', 'err', tree.error)); return root; }
+  if ( ! tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
+  if ( tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + tree.count + ' nodes (capped)'));
+  var selectedRow = T.shownUid(tree, state.selected, treeOpts());
+  T.flatten(tree, state.expanded, treeOpts()).forEach(function(r) {
+    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
     row.addEventListener('mouseenter', function() { highlight(r.uid); });
@@ -159,7 +153,7 @@ function renderTree(st) {
       tog.addEventListener('click', function(ev) {
         ev.stopPropagation();
         // alt-click toggles the whole branch, as in Chrome's Elements tab
-        setOpen(ev.altKey ? T.subtreeUids(st.tree, r.uid) : [ r.uid ], ! r.open);
+        setOpen(ev.altKey ? T.subtreeUids(state.tree, r.uid) : [ r.uid ], ! r.open);
       });
     }
     row.appendChild(tog);
@@ -188,19 +182,22 @@ function setOpen(uids, open) {
 // screen's top-level views stay listed and the tree is never a single row.
 function foldAll() {
   if ( ! state.tree || ! state.tree.root ) return;
-  var open = ! T.allOpen(state.tree, state.expanded, { hideWrappers: state.hideWrappers });
+  var open = ! T.allOpen(state.tree, state.expanded, treeOpts());
   var uids = T.subtreeUids(state.tree, state.tree.root.uid);
   setOpen(open ? uids : uids.slice(1), open);
 }
 
 // A row click hands the element to the page's selection owner, so the
 // sidebar, Why and $v follow — without inspect(), which would switch
-// DevTools to the Elements tab; that is the Reveal button's job.
+// DevTools to the Elements tab; that is the Reveal button's job. The row is
+// marked at once; the reload comes from the screen poll, which sees the
+// selection generation change (one reload, not one here and one there).
 function selectRow(uid) {
   rpc('selectUid', [ JSON.stringify(uid) ]).then(function(r) {
     if ( r.error ) { setStatus(r.error); return; }
     state.selected = uid;
-    refresh();
+    render(state);
+    watchScreen();
   });
 }
 
@@ -210,10 +207,10 @@ function highlight(uid) { rpc('highlight', [ JSON.stringify(uid) ]); }
 
 function loadTree() {
   rpc('tree').then(function(r) {
-    if ( r.error || r.foam === false ) {
-      state.treeError = r.error || 'not a FOAM page'; state.tree = null; render(state); return;
-    }
-    state.treeError = null; state.tree = r.tree; state.selected = r.selected;
+    if ( r.error || r.foam === false ) { state.tree = { error: r.error || 'not a FOAM page' }; render(state); return; }
+    // A new selection must be visible even under a branch the user closed.
+    if ( r.selected !== state.selected ) T.pathTo(r.tree, r.selected).forEach(function(u) { state.closed.delete(u); });
+    state.tree = r.tree; state.selected = r.selected;
     state.opened = T.pruneExpanded(state.opened, r.tree);
     state.closed = T.pruneExpanded(state.closed, r.tree);
     state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed);
@@ -229,13 +226,13 @@ function render(state) {
   document.getElementById('wrappers').checked = state.hideWrappers;
   var root = document.getElementById('root');
   root.textContent = '';
-  root.appendChild(state.tab === 'tree' ? renderTree(state) : renderWhy(state.why));
+  root.appendChild(state.tab === 'tree' ? renderTree() : renderWhy(state.why));
   document.getElementById('reveal').disabled = state.selected === null || state.selected === undefined;
-  var fold = document.getElementById('fold');
-  fold.disabled = ! state.tree;
-  fold.textContent = state.tree && ! T.allOpen(state.tree, state.expanded, { hideWrappers: state.hideWrappers }) ? 'Expand all' : 'Collapse all';
+  var fold = document.getElementById('fold'), hasTree = !! ( state.tree && state.tree.root );
+  fold.disabled = ! hasTree;
+  fold.textContent = hasTree && ! T.allOpen(state.tree, state.expanded, treeOpts()) ? 'Expand all' : 'Collapse all';
   document.getElementById('status').textContent =
-    state.pollsLeft ? 'waiting for permission checks…' :
+    state.pollsLeft ? ( state.why && state.why.error ? 'waiting for the record to load…' : 'waiting for permission checks…' ) :
     state.why && state.why.error && state.tab === 'why' ? state.why.error :
     state.updated ? 'updated ' + state.updated : '';
   // A short highlight so a refresh that changes nothing is still visibly a refresh.
@@ -243,35 +240,42 @@ function render(state) {
 }
 
 // ---- data flow ----
-function loadWhy() {
+// One why() chain at a time: a new load cancels the pending re-poll and
+// outranks any response still in flight (seq), so an answer for the previous
+// screen cannot land on top of the current one.
+var whyTimer = null, whySeq = 0;
+function stopWhy() { clearTimeout(whyTimer); whyTimer = null; whySeq++; state.pollsLeft = 0; }
+function loadWhy(pollsLeft) {
+  stopWhy();
+  var seq = whySeq;
+  state.pollsLeft = pollsLeft;
   setStatus('refreshing…');
   rpc('why').then(function(w) {
+    if ( seq !== whySeq ) return;
     state.why = w;
     state.updated = stamp();
     // An error right after navigation usually means the detail view has not
     // loaded its record yet (DetailView.loadData is idled + a find), so it
-    // gets the same re-polls as pending permission checks.
-    if ( w && ( w.pending > 0 || w.error ) && state.pollsLeft > 0 ) {
-      state.pollsLeft--;
-      setTimeout(loadWhy, 400);
-    } else {
-      state.pollsLeft = 0;
-    }
+    // gets the same re-polls as pending permission checks — unless the page
+    // says the error is final (a table screen).
+    var again = w && ( w.pending > 0 || ( w.error && ! w.final ) ) && pollsLeft > 0;
+    if ( again ) whyTimer = setTimeout(function() { loadWhy(pollsLeft - 1); }, 400);
+    else state.pollsLeft = 0;
     render(state);
   });
 }
-// Both tabs reload together: the Why tab always (it re-polls pending
-// permission checks), the tree only while it is showing.
+// Only the showing tab loads: why() replays every gate and asks the app's
+// auth for each permission, which is not worth doing behind the Tree tab.
 function refresh() {
-  state.pollsLeft = 3;
-  loadWhy();
-  if ( state.tab === 'tree' ) loadTree();
+  if ( state.tab === 'why' ) { loadWhy(3); return; }
+  stopWhy();
+  loadTree();
 }
 function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
 
-// Follow the app: poll the route + stack position once a second while the
-// panel is visible and reload when it changes, so opening a record in the
-// app is enough — no Elements click, no Refresh.
+// Follow the app: poll the route + stack position + selection once a second
+// while the panel is visible and reload when it changes, so opening a record
+// in the app is enough — no Elements click, no Refresh.
 var lastKey = null;
 function watchScreen() {
   if ( document.visibilityState !== 'visible' ) return;
@@ -291,9 +295,8 @@ document.getElementById('wrappers').addEventListener('change', function(ev) {
   writePref(WRAPPERS_KEY, state.hideWrappers);
   render(state);
 });
-// stack[0] is the selected element itself (selectUid puts it there), so
-// node(0) is its DOM node.
-document.getElementById('reveal').addEventListener('click', function() { reveal(0); });
+// no index: the pointed-at element's own DOM node (see selection-backend.js)
+document.getElementById('reveal').addEventListener('click', function() { reveal(); });
 document.getElementById('fold').addEventListener('click', foldAll);
 // the pointer can leave the panel without crossing a row's edge
 document.getElementById('root').addEventListener('mouseleave', function() { highlight(null); });

@@ -37,6 +37,11 @@ t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ] }, data, env()
 t(E.explainAction(W.actionGate({ name: 'x', isEnabled: function() { return false; } }, data, env(), false)) === 'enabled: isEnabled → false', 'explainAction: isEnabled');
 t(E.explainAction(W.actionGate({ name: 'x', availablePermissions: [ 'p.q' ] }, data, env({ 'p.q': false }), false)) === 'available: p.q denied', 'explainAction: available perm');
 t(E.explainAction(W.actionGate({ name: 'x' }, data, env(), true)) === 'enabled: running', 'explainAction: running');
+t(E.explainAction(W.actionGate({ name: 'x', isAvailable: function() { throw new Error('nope'); } }, data, env(), false)) === 'available: isAvailable threw: nope', 'explainAction: throwing isAvailable named as threw, not false');
+t(E.explainAction(W.actionGate({ name: 'x', enabledPermissions: [ 'e.p' ] }, data, env({ 'e.p': false }), false)) === 'enabled: e.p denied', 'explainAction: enabled perm');
+t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { return false; } }, data, env())) === 'isAvailable → false', 'explainSection: isAvailable false');
+t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { throw new Error('bad'); } }, data, env())) === 'isAvailable threw: bad', 'explainSection: isAvailable threw');
+t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { return Promise.resolve(true); } }, data, env())) === 'isAvailable pending (async)', 'explainSection: isAvailable pending');
 t(E.explainAction(W.actionGate({ name: 'x', confirmationRequired: function() { return true; } }, data, env(), false)) === 'confirm required', 'explainAction: confirm');
 t(E.explainAction(W.actionGate({ name: 'x' }, data, env(), false)) === '', 'explainAction: all clear -> empty');
 

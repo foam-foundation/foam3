@@ -4,9 +4,24 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Panel-side transport. Loaded as plain globals in every extension page
-// (sidebar.html, later panel.html); exported for Node so rpcExpr is testable.
+// Panel-side transport plus the two helpers every extension page (sidebar,
+// panel) shares. Loaded as plain globals; exported for Node so the
+// expression builders are testable.
 (function(exports) {
+  // Both pages: follow the DevTools theme, and build DOM with textContent
+  // only (no innerHTML, so class ids need no escaping).
+  if ( typeof document !== 'undefined' ) {
+    try {
+      if ( chrome.devtools.panels.themeName === 'dark' ) document.documentElement.classList.add('dark');
+    } catch (e) {}
+    exports.el = function(tag, cls, text) {
+      var d = document.createElement(tag);
+      if ( cls ) d.className = cls;
+      if ( text !== undefined ) d.textContent = text;
+      return d;
+    };
+  }
+
   // Evaluate an expression in the inspected page and parse the JSON string the
   // backend returns. Backend methods ALWAYS return strings; a raw non-string
   // result means the expression bypassed the backend — surfaced as an error.
@@ -41,13 +56,15 @@
 
   function rpc(name, argExprs) { return foamEval(rpcExpr(name, argExprs)); }
 
-  // Reveal a stack layer's DOM node in the Elements tab. Chrome's inspect()
-  // is a Command Line API function that only exists inside inspectedWindow
-  // .eval, so the call is composed here; node(i) is the backend's one raw
-  // (non-JSON) accessor. inspect(undefined) is a no-op, so a stale index is
-  // harmless. The index is coerced to an integer so nothing else can be
-  // spliced into the expression.
-  function revealExpr(i) { return 'inspect(window.__foamDevtools.node(' + ( parseInt(i, 10) || 0 ) + '))'; }
+  // Reveal a DOM node in the Elements tab: the i-th named layer's, or with no
+  // index the pointed-at element's own. Chrome's inspect() is a Command Line
+  // API function that only exists inside inspectedWindow.eval, so the call is
+  // composed here; node(i) is the backend's one raw (non-JSON) accessor.
+  // inspect(undefined) is a no-op, so a stale index is harmless. The index is
+  // coerced to an integer so nothing else can be spliced into the expression.
+  function revealExpr(i) {
+    return 'inspect(window.__foamDevtools.node(' + ( i === undefined ? '' : ( parseInt(i, 10) || 0 ) ) + '))';
+  }
 
   function reveal(i) { return foamEval(revealExpr(i)); }
 

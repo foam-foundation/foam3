@@ -9,8 +9,8 @@
 // availability (foam.lang.Action) and section availability
 // (foam.layout.SectionAxiom). Each step is recorded instead of collapsed so
 // the panel can name the one that decided. No foam global: the page hands in
-// env = { evalFn(fn, data) -> value|'ERR', slotGet(slot) -> value,
-// perm(name) -> true|false|'pending' }.
+// env = { evalFn(fn, data) -> value | 'pending' | {err}, slotGet(slot) ->
+// value | 'ERR', perm(name) -> true|false|'pending' }.
 (function(exports) {
   var MODE_PROP = { CREATE: 'createVisibility', VIEW: 'readVisibility', EDIT: 'updateVisibility' };
 
@@ -40,6 +40,13 @@
     if ( canRead ) return 'RO';
     if ( ro === 'pending' ) return 'pending';
     return ro ? 'RO' : 'HIDDEN';
+  };
+
+  // The gate record for a property whose replay itself threw, so the row
+  // still renders and names the error. Same shape as propGate's result.
+  exports.errGate = function(prop, msg) {
+    return { name: prop.name, label: prop.label || prop.name, hidden: !! prop.hidden,
+             base: { source: 'default', kind: 'value', mode: 'ERR', err: msg }, clamp: 'ERR', perm: null, final: 'ERR' };
   };
 
   exports.propGate = function(prop, modeName, data, env) {
@@ -106,15 +113,16 @@
   // An async isAvailable/isEnabled yields a promise; FOAM's ExpressionSlot is
   // a PromiseSlot that keeps the old value (null = not available) until it
   // resolves (Slot.js:578-586). env.evalFn answers 'pending' for a thenable
-  // until it lands, same as env.perm.
+  // until it lands, same as env.perm. A throw comes back as {err} and is
+  // kept as such: "threw" is a different gate from "returned false".
   function boolOf(fn, data, env) {
     if ( ! fn ) return true;
     var r = env.evalFn(fn, data);
-    if ( r === 'pending' ) return 'pending';
-    return ( r && r.err ) ? false : !! r;
+    if ( r === 'pending' || ( r && r.err ) ) return r;
+    return !! r;
   }
   function andAll(fn, perms) {
-    if ( fn === false || perms === false ) return false;
+    if ( fn === false || ( fn && fn.err ) || perms === false ) return false;
     if ( fn === 'pending' || perms === 'pending' ) return 'pending';
     return true;
   }
@@ -147,7 +155,12 @@
     }
     var members = null;
     if ( propGates ) {
-      var explicit = Array.isArray(section.properties) ? section.properties.map(function(p) { return typeof p === 'string' ? p : ( p && p.name ); }) : null;
+      // A dotted entry ('a.b') is a PathPropertyHolder into another class
+      // (SectionAxiom.js:113-117), not one of this record's gates: left out.
+      var explicit = Array.isArray(section.properties)
+        ? section.properties.map(function(p) { return typeof p === 'string' ? p : ( p && p.name ); })
+                            .filter(function(n) { return n && n.indexOf('.') < 0; })
+        : null;
       members = propGates.filter(function(g) {
         return explicit ? explicit.indexOf(g.name) >= 0 : ( propSectionOf && propSectionOf(g.name) === section.name );
       });

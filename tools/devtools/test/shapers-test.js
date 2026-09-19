@@ -138,8 +138,8 @@ t(P.layerOf(u2('foam.u2.ActionView', { data: v3 })).view === 'foam.comics.v3.Det
 var screenDao = fakeDao;
 var tableView = u2('foam.comics.v2.DAOBrowseControllerView', { data: screenDao, config: { dao: screenDao } });
 var v3detail = u2('foam.comics.v3.DetailView', { instance_: { currentData_: orig } });
-var border = u2('foam.u2.borders.NullBorder', { childNodes: [ v3detail ] });
-var stackRoot2 = u2('foam.core.u2.navigation.Stack', { childNodes: [ u2('foam.u2.Element', { childNodes: [ border ] }) ] });
+var nullBorder = u2('foam.u2.borders.NullBorder', { childNodes: [ v3detail ] });
+var stackRoot2 = u2('foam.core.u2.navigation.Stack', { childNodes: [ u2('foam.u2.Element', { childNodes: [ nullBorder ] }) ] });
 var sv = P.findScreenViews(stackRoot2, env());
 t(sv.record && sv.record.data === orig && sv.record.view === v3detail, 'findScreenViews: finds the v3 detail view under the stack');
 sv = P.findScreenViews(u2('root', { childNodes: [ tableView ] }), env());
@@ -207,9 +207,16 @@ t(tree.root.layer.cls === 'com.x.A' && tree.root.kids[0].layer.cls === 'com.x.B'
 t(tree.root.wrapper === false && tree.root.kids[1].wrapper === true, 'treeOf: wrapper flag from isWrapper');
 t(visited.join(',') === '1,2,3,4', 'treeOf: visit(el, uid) once per included node, in order');
 
-var capped = P.treeOf(tA, 2);
+var cappedSeen = [];
+var capped = P.treeOf(tA, 2, function(el, uid) { cappedSeen.push(uid); });
 t(capped.count === 2 && capped.truncated === true && capped.root.kids.length === 1 && capped.root.kids[0].uid === 2,
   'treeOf: cap stops adding nodes, truncated flagged');
+t(cappedSeen.join(',') === '1,2', 'treeOf: visit never fires for a node the cap left out');
+
+t(P.str('abcdef', 4) === 'abcd…' && P.str('abcd', 4) === 'abcd' && P.str(12, 5) === '12', 'str: cut at max with an ellipsis, shorter untouched');
+var longId = { cls_: { id: 'com.x.L' }, id: 'x'.repeat(50), toSummary: function() { return 'y'.repeat(70); } };
+var desc = P.describeRecord(longId);
+t(desc.id.length === 41 && desc.summary.length === 61, 'describeRecord: id cut at 40, summary at 60');
 
 var tCyc = u2('com.x.Cyc', { $UID: 9 });
 tCyc.childNodes = [ tCyc ];

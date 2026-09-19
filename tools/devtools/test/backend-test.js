@@ -20,6 +20,9 @@ D.register('boom', function() { throw new Error('kaboom'); });
 var boom = JSON.parse(D.call('boom'));
 t(boom.error === 'kaboom', 'call: throwing method -> {error: message} string');
 
+D.register('cycle', function() { var o = {}; o.self = o; return o; });
+t(/^stringify: /.test(JSON.parse(D.call('cycle')).error), 'call: unserialisable result -> {error: stringify: ...} string');
+
 t(D.foamReady() === false, 'foamReady: false outside a FOAM page');
 
 console.log('backend-test:', passes, 'passed');

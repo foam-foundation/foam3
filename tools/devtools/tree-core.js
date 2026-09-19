@@ -8,13 +8,6 @@
 // into the flat row list the panel renders. Dual-exported so every rule has
 // a Node test; panel.js stays browser glue.
 (function(exports, S) {
-  // Row label after the class name: the binding (record / dao / view) and
-  // the property, when the layer has one.
-  exports.rowText = function(layer) {
-    var b = S.bindingText(layer), p = layer.prop ? 'prop ' + layer.prop : '';
-    return [ b, p ].filter(Boolean).join('  ');
-  };
-
   // Pre-order rows; a collapsed node's subtree is left out. depth is the
   // indent level, open whether the node's uid is in expanded. With
   // opts.hideWrappers a wrapper node (Element, SlotNode, Text...) gets no
@@ -28,7 +21,7 @@
         return;
       }
       var open = expanded.has(n.uid);
-      rows.push({ uid: n.uid, depth: depth, cls: S.shortName(n.layer.cls), binding: exports.rowText(n.layer),
+      rows.push({ uid: n.uid, depth: depth, cls: S.shortName(n.layer.cls), binding: S.layerText(n.layer),
                   shown: n.shown, hasKids: exports.hasVisibleKids(n, hide), open: open });
       if ( open ) for ( var i = 0 ; i < n.kids.length ; i++ ) walk(n.kids[i], depth + 1, false);
     }
@@ -66,6 +59,20 @@
     }
     if ( tree && tree.root ) find(tree.root);
     return out;
+  };
+
+  // The row that stands for uid on screen: uid itself, or — when it is a
+  // wrapper and wrappers are hidden — its nearest ancestor that gets a row.
+  // null when uid is not in the tree. So a selection made in Elements (where
+  // every div is a foam.u2.Element) still highlights something.
+  exports.shownUid = function(tree, uid, opts) {
+    var hide = !! ( opts && opts.hideWrappers ), path = exports.pathTo(tree, uid);
+    if ( ! path.length ) return null;
+    if ( ! hide ) return uid;
+    var byUid = {};
+    (function index(n) { byUid[n.uid] = n; for ( var i = 0 ; i < n.kids.length ; i++ ) index(n.kids[i]); })(tree.root);
+    for ( var i = path.length - 1 ; i > 0 ; i-- ) if ( ! byUid[path[i]].wrapper ) return path[i];
+    return path[0];
   };
 
   // Root-first uids from the root down to uid; [] when uid is not in the tree.

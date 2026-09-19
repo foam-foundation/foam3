@@ -5,12 +5,10 @@
  */
 
 // Core of the page-world backend: a method registry and one dispatcher.
-// Feature files (inspect-backend.js, later card/dao/...) call register(); the
-// panel side only ever evaluates window.__foamDevtools.call(name, ...args).
-// This file never grows per feature.
+// Feature files (selection-, tree-, inspect-, why-, open-backend.js) call
+// register(); the panel side only ever evaluates
+// window.__foamDevtools.call(name, ...args). This file never grows per feature.
 (function(exports) {
-  if ( exports.call ) return; // already installed (content script re-injected)
-
   var registry = {};
 
   function S(x) {
@@ -42,4 +40,4 @@
     if ( ! fn ) throw new Error('unknown method: ' + name);
     return fn.apply(null, Array.prototype.slice.call(arguments, 1));
   });
-})(typeof module !== 'undefined' ? module.exports : ( window.__foamDevtools = window.__foamDevtools || {} ));
+})(typeof module !== 'undefined' ? module.exports : ( window.__foamDevtools = {} ));

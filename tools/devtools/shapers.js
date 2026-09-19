@@ -25,10 +25,12 @@
   }
   exports.own = own;
 
+  // String(v) cut to max characters, for anything shown in a table cell.
   function str(v, max) {
     var s = String(v);
     return s.length > max ? s.slice(0, max) + '…' : s;
   }
+  exports.str = str;
 
   // { cls, id, summary } for a record, each read guarded. id is null for the
   // unset sentinels FOAM uses ('' / 0 / null / undefined).
@@ -172,17 +174,6 @@
     return false;
   };
 
-  // The record on screen for a stack (deepest first). Rules, in order:
-  // skip layers bound to a DAO or to a view/stack (ActionView under
-  // startContext({ data: self }), DAOUpdateView.js:195); an edit screen's
-  // own workingData wins over its original (DAOUpdateView.js:83-93); with
-  // no objData in scope the layer holds the record (table row, summary view);
-  // objData === data means the layer IS the border/detail view of the
-  // record; a layer whose data is a property value of objData is a value
-  // view (enum, nested FObject) — skip; a citation under a primitive property
-  // view is a foreign record — skip; anything else (embedded-table row) is a
-  // record of its own.
-  // env = { isDAO(v), isElement(v), objDataOf(el), propertyNamesOf(rec) }.
   // The record a detail-type view is currently showing, from its own state:
   // comics v3 DetailView keeps it in currentData_ (data in VIEW, the
   // workingData clone in EDIT, DetailView.js:215-221); comics v2
@@ -215,15 +206,24 @@
         else if ( d && env.isDAO(d) && ! table && cfg ) table = { view: el, dao: d };
       }
       if ( record ) break;
-      var kids = el.childNodes || [];
+      var kids = exports.childrenOf(el);
       // push in reverse so the first child is visited first (DFS, document order)
-      for ( var i = kids.length - 1 ; i >= 0 ; i-- ) if ( kids[i] && kids[i].cls_ ) stack.push(kids[i]);
-      var n = el.instance_ && el.instance_.node;
-      if ( n && n.cls_ ) stack.push(n);
+      for ( var i = kids.length - 1 ; i >= 0 ; i-- ) stack.push(kids[i]);
     }
     return { record: record, table: table };
   };
 
+  // The record on screen for a stack (deepest first). Rules, in order:
+  // skip layers bound to a DAO or to a view/stack (ActionView under
+  // startContext({ data: self }), DAOUpdateView.js:195); an edit screen's
+  // own workingData wins over its original (DAOUpdateView.js:83-93); with
+  // no objData in scope the layer holds the record (table row, summary view);
+  // objData === data means the layer IS the border/detail view of the
+  // record; a layer whose data is a property value of objData is a value
+  // view (enum, nested FObject) — skip; a citation under a primitive property
+  // view is a foreign record — skip; anything else (embedded-table row) is a
+  // record of its own.
+  // env = { isDAO(v), isElement(v), objDataOf(el), propertyNamesOf(rec) }.
   exports.pickRecord = function(stack, env) {
     for ( var i = 0 ; i < stack.length ; i++ ) {
       var L = stack[i], d = exports.dataOf(L);

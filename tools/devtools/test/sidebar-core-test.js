@@ -33,4 +33,10 @@ t(S.bindingText(L('x', { dao: { key: null, of: 'com.x.User' } })) === 'dao of Us
 t(S.bindingText(L('x', { data: { cls: 'com.x.User', id: '1', summary: 'Ajeet' } })) === 'User #1 — Ajeet', 'bindingText: record');
 t(S.bindingText(L('x', { prop: 'email' })) === '', 'bindingText: prop alone is not a binding');
 
+t(S.layerText({ cls: 'x', data: { cls: 'com.x.User', id: '1', summary: null }, prop: null }) === 'User #1', 'layerText: record binding');
+t(S.layerText({ cls: 'x', prop: 'email' }) === 'prop email', 'layerText: prop only');
+t(S.layerText({ cls: 'x', data: { cls: 'com.x.U', id: '2', summary: null }, prop: 'name' }) === 'U #2  prop name', 'layerText: binding then prop');
+t(S.bindingText({ cls: 'x', dao: {} }) === 'dao', 'bindingText: dao with neither key nor of');
+t(S.pathOf([ { cls: 'foam.u2.Element' } ]) === 'ctrl', 'pathOf: one-layer stack is just ctrl');
+
 console.log('sidebar-core-test:', passes, 'passed');

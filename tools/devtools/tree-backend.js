@@ -4,9 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Registers the two methods the Tree tab needs. Browser-only glue: the walk
-// is shapers.treeOf (tested); this adds the root choice, the uid -> element
-// map of the last snapshot, and the hand-off to selection-backend.js.
+// Registers the Tree tab's methods. Browser-only glue: the walk is
+// shapers.treeOf (tested); this adds the uid -> element map of the last
+// snapshot, the hand-off to selection-backend.js and the hover overlay.
 (function() {
   var D = window.__foamDevtools, P = window.__foamShapers;
   var CAP = 5000;
@@ -17,31 +17,23 @@
 
   D.register('tree', function() {
     if ( ! D.foamReady() ) return { foam: false };
-    // Stack.push only hides the previous view, so the tree starts at the
-    // navigation stack's current view, not at ctrl.
-    var root = null;
-    try { root = ( ctrl.stack && ctrl.stack.current ) || ctrl; } catch (e) { root = window.ctrl; }
-    if ( ! root ) return { error: 'no screen' };
     uidMap = new Map();
-    var tree = P.treeOf(root, CAP, function(el, uid) { uidMap.set(uid, el); });
+    var tree = P.treeOf(D.screenRoot(), CAP, function(el, uid) { uidMap.set(uid, el); });
     return { tree: tree, selected: D.selectionUid() };
   });
 
   D.register('selectUid', function(uid) {
     var el = uidMap.get(uid);
     if ( ! el ) return { error: 'stale tree — refresh' };
-    // namedStack skips wrappers; a wrapper row still reveals its own DOM
-    // node and becomes $v, so it is put in front of the named chain.
-    var stack = P.namedStack(el);
-    if ( stack[0] !== el ) stack.unshift(el);
-    D.selectNode(el, stack);
+    D.selectNode(el);
     return { ok: true };
   });
 
   // Hover highlight. Chrome gives extensions no overlay API, so the page
   // draws it: one fixed div over the element's box with a class-name tag,
   // moved on every call and removed by highlight(null). The only DOM the
-  // extension adds to the page, and it never outlives the hover.
+  // extension adds to the page, and it never outlives the hover; box is the
+  // handle to remove it.
   var box = null;
   function overlay() {
     if ( box && box.isConnected ) return box;

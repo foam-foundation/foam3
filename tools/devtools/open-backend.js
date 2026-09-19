@@ -9,7 +9,7 @@
 // to show. Same StackBlock call the comics controllers make themselves
 // (DAOSummaryView.js:180).
 (function() {
-  var D = window.__foamDevtools;
+  var D = window.__foamDevtools, P = window.__foamShapers;
 
   function push(view) {
     var stack = ctrl.stack;
@@ -25,14 +25,14 @@
     if ( ! D.foamReady() ) return { foam: false };
     var t = D.currentTarget();
     if ( ! t || ! t.data ) return { error: D.NO_RECORD };
-    var obj = t.data, of = obj.cls_;
+    var obj = t.data, of = obj.cls_, id = P.describeRecord(obj).id;
     if ( t.dao ) {
       return push({
         class: 'foam.comics.v2.DAOUpdateView',
         data: obj,
         config: foam.comics.v2.DAOControllerConfig.create({ dao: t.dao, of: of }, ctrl),
         of: of,
-        title: 'Edit ' + of.name + ( obj.id !== undefined ? ' ' + obj.id : '' )
+        title: 'Edit ' + of.name + ( id ? ' ' + id : '' )
       });
     }
     return push({

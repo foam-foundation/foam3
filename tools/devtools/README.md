@@ -34,7 +34,7 @@ ApplicationController
       UnstyledTableRow      User #123 — Ajeet Gill
         PropertyBorder      prop email          ← selected
 ctrl › DAOBrowseControllerView[userDAO] › TableView[User] › UnstyledTableRow[123] › email
-console: $v = selected view, $d = its data
+console: $v = the selected element, $d = the current target's record
 map: 1834 elements, 1210 with a DOM node, 12.4ms
 ```
 
@@ -49,8 +49,9 @@ rows where it differs from the row above.
 - **Path line** — the FOAM-level selector: `ctrl › Class[key|Of|id] › … ›
   prop`. Read-only input; click to select all.
 - **`$v` / `$d`** — after every selection the page gets `window.$v` (the
-  selected view) and `window.$d` (the record on screen), like React
-  DevTools' `$r`. Console: `$v.controllerMode`, `$d.errors_`, `$d.email`.
+  selected element itself, a wrapper `Element` when that is what you
+  clicked) and `window.$d` (the record on screen), like React DevTools'
+  `$r`. Console: `$v.controllerMode`, `$d.errors_`, `$d.email`.
 
   Which object is "the record" follows FOAM's own conventions, because a
   property view's `data` is the property *value* (`Element2.js:1816`) and
@@ -153,10 +154,14 @@ name and size — drawn by the page, since Chrome gives extensions no overlay
 API; it is the only DOM the extension adds and it goes away on mouse-out).
 Clicking a row selects the element: the sidebar shows its chain, the Why tab
 explains its record, and `$v` / `$d` point at it — DevTools stays on this
-panel. **Reveal in Elements** (tab strip) jumps the Elements tab to the
-selected element's DOM node when you want it. The tree reloads with the same
-1s screen poll as the Why tab, so navigating in the app swaps it. Snapshots
-are capped at 5000 nodes ("showing N nodes (capped)").
+panel. **Reveal in Elements** jumps the Elements tab to the selected
+element's own DOM node when you want it. A selection made in Elements shows
+up here too; when it is a wrapper (every `.start('div')` is a
+`foam.u2.Element`) and wrappers are hidden, the nearest row above it is
+marked. The tree reloads with the same 1s screen poll as the Why tab, so
+navigating in the app swaps it; only the showing tab loads, and switching
+tabs reloads the one you switch to. Snapshots are capped at 5000 nodes
+("showing N nodes (capped)").
 
 ## Architecture — three layers, one contract each
 
@@ -174,12 +179,16 @@ injected evaluators. `backend.js` is the core: `window.__foamDevtools
 result and turns any throw into `{"error": msg}`. Feature files register
 methods; the core never changes per feature.
 
-One documented exception: `window.__foamDevtools.node(i)` returns a live DOM
-node (the `i`-th layer of the last inspected stack). It exists so the panel
-can evaluate `inspect(node(i))` — Chrome's `inspect()` is a Command Line API
-function that only exists inside `inspectedWindow.eval`, so the reveal has
-to be composed on the panel side. It is installed directly on the API object,
-never through `register`, so `call` itself never hands out a non-JSON value.
+The panel-facing API is `call` and one documented exception:
+`window.__foamDevtools.node(i)` returns a live DOM node (the `i`-th named
+layer of the selection; with no index, the selected element's own). It
+exists so the panel can evaluate `inspect(node(i))` — Chrome's `inspect()` is
+a Command Line API function that only exists inside `inspectedWindow.eval`,
+so the reveal has to be composed on the panel side. It is installed directly
+on the API object, never through `register`, so `call` itself never hands out
+a non-JSON value. The other members of `window.__foamDevtools` (`foamReady`,
+`register`, `selectNode`, `currentTarget`, `screenRoot`, ...) are plumbing
+between the page-side files, not part of the panel contract.
 
 **Transport** (`common.js`, loaded by every extension page). `foamEval(expr)`
 wraps `chrome.devtools.inspectedWindow.eval` and parses the JSON string.
@@ -195,29 +204,33 @@ the Elements selection, `JSON.stringify(v)` for data.
 page references. **Contract:** a view is a function of the last response. The
 FOAM panel keeps all its state in one object (`state = { tab, why, tree,
 expanded, selected, ... }`) and one `render(state)`; each tab has a render
-function. The pure parts (`pathOf`, `shortName`, `bindingText`; `flatten`,
-`defaultExpanded`; `explainProp`, `explainAction`, `explainSection`) live in
-their own files so they have Node tests.
+function. The pure parts (`pathOf`, `shortName`, `layerText`; `flatten`,
+`defaultExpanded`, `shownUid`; `explainProp`, `explainAction`,
+`explainSection`) live in their own files so they have Node tests.
 
-Page-side selection has one owner, `selection-backend.js`: `inspect` hands
-it the pointed-at element and its stack (`D.selectNode`); `why` and
-`openRecord` ask `D.currentTarget()` — the pointed-at element's record while
-its node is inside the navigation stack's current view, else the record the
+Page-side selection has one owner, `selection-backend.js`: `inspect` (from
+Elements) and `selectUid` (from the Tree tab) hand it the pointed-at element
+(`D.selectNode(el)`), which builds the named stack itself — one rule for
+both entry points; `why` and `openRecord` ask `D.currentTarget()` — the
+pointed-at element's record while its node is inside the screen
+(`D.screenRoot()`: the navigation stack's current view), else the record the
 screen is about, else the table it lists. Only the pointer is stored;
 record, DAO and mode are resolved on every ask by the pure `resolveRecord`
 / `screenTarget` in `shapers.js`, so a view that moves from VIEW to EDIT
-(and to its working copy) after the click is reported correctly. The Tree
-tab's `selectUid` hands its element to the same `D.selectNode`; the only
-state `tree-backend.js` keeps is the uid→element map of its last snapshot
-(a cache of what the panel is looking at, rebuilt on every `tree` call). Every
-element read goes through `own(el, key)` (the element's `instance_` only),
-because FOAM property reads can run factories — `element_` would create a
-DOM node, `controllerMode` would default to CREATE, a record's unset
-`address` would create an Address. The panel's other mutable state is a
-`WeakMap` of settled promises in `why-backend.js`, keyed by the promise so
-it lives exactly as long as FOAM's own auth cache entry.
+(and to its working copy) after the click is reported correctly. The same
+file answers `screenKey`, what the panel polls. The state `tree-backend.js`
+keeps is the uid→element map of its last snapshot (a cache of what the
+panel is looking at, rebuilt on every `tree` call) and the handle of the
+hover overlay. Every factory-backed read goes through `own(el, key)` (the
+element's `instance_` only) — `element_`, `config`, `controllerMode`,
+`shown`, `currentData_`, `workingData` — because a FOAM property read can run
+its factory: `element_` would create a DOM node, `controllerMode` would
+default to CREATE. Plain getters (`data`, `prop`, `childNodes`, `$UID`) are
+read directly. `why-backend.js` keeps one thing across calls: a `WeakMap` of
+settled promises, keyed by the promise so it lives exactly as long as
+FOAM's own auth cache entry; the auth itself is a closure argument per call.
 
-### Adding a method (how slice 2 plugs in)
+### Adding a method
 
 1. Put the logic in a pure module with a Node test.
 2. Add a page-world file that calls `window.__foamDevtools.register('name', fn)`
@@ -226,8 +239,9 @@ it lives exactly as long as FOAM's own auth cache entry.
 
 ## Limits
 
-- The sidebar is a snapshot per selection. The Why tab polls the route,
-  stack position and selection once a second; nothing is subscribed.
+- The sidebar is a snapshot per selection. The panel polls the route,
+  stack position and selection once a second; nothing is subscribed. Only
+  the showing tab loads; switching tabs reloads the one you switch to.
 - The `u2` tree is walked from `window.ctrl` on every `inspect` call (fresh
   `WeakMap`); large pages pay the walk each time — the **map** line shows the
   cost.
@@ -240,13 +254,13 @@ it lives exactly as long as FOAM's own auth cache entry.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 56 passed
-node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 9 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 30 passed
-node tools/devtools/test/backend-test.js        # backend-test: 4 passed
-node tools/devtools/test/common-test.js         # common-test: 3 passed
-node tools/devtools/test/why-core-test.js       # why-core-test: 25 passed
-node tools/devtools/test/why-explain-test.js    # why-explain-test: 17 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 59 passed
+node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 14 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 34 passed
+node tools/devtools/test/backend-test.js        # backend-test: 5 passed
+node tools/devtools/test/common-test.js         # common-test: 10 passed
+node tools/devtools/test/why-core-test.js       # why-core-test: 30 passed
+node tools/devtools/test/why-explain-test.js    # why-explain-test: 22 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)

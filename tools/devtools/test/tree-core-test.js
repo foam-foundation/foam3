@@ -29,10 +29,6 @@ var tree = { root: N(1, 'com.x.Root', [
   N(6, 'com.x.Footer')
 ]), count: 6, truncated: false };
 
-t(T.rowText(tree.root.kids[0].layer) === 'User #1', 'rowText: record binding');
-t(T.rowText(tree.root.kids[0].kids[0].layer) === 'prop email', 'rowText: prop layer');
-t(T.rowText({ cls: 'x', data: { cls: 'com.x.U', id: '2', summary: null }, prop: 'name' }) === 'U #2  prop name', 'rowText: binding then prop');
-
 var all = T.flatten(tree, new Set([ 1, 2, 3 ]));
 t(all.map(function(r) { return r.uid; }).join(',') === '1,2,3,4,5,6', 'flatten: pre-order');
 t(all.map(function(r) { return r.depth; }).join(',') === '0,1,2,3,2,1', 'flatten: depth per row');
@@ -75,10 +71,18 @@ t(T.subtreeUids(tree, 42).length === 0, 'subtreeUids: miss -> []');
 
 var pruned = T.pruneExpanded(new Set([ 1, 2, 42 ]), tree);
 t(pruned.size === 2 && pruned.has(1) && pruned.has(2) && ! pruned.has(42), 'pruneExpanded: uids gone from the tree dropped');
+t(T.pruneExpanded(new Set([ 1 ]), null).size === 0, 'pruneExpanded: no tree -> empty');
+
+t(T.shownUid(wt, 4, { hideWrappers: true }) === 4 && T.shownUid(wt, 4) === 4, 'shownUid: a view row is its own row');
+t(T.shownUid(wt, 3, { hideWrappers: true }) === 1 && T.shownUid(wt, 5, { hideWrappers: true }) === 1, 'shownUid: hidden wrapper -> nearest ancestor with a row');
+t(T.shownUid(wt, 3) === 3, 'shownUid: wrappers shown -> the wrapper itself');
+t(T.shownUid(wt, 99, { hideWrappers: true }) === null && T.shownUid(wt, null) === null, 'shownUid: miss / null -> null');
+t(T.shownUid({ root: N(1, 'foam.u2.Element', [ N(2, 'foam.u2.Text') ]) }, 2, { hideWrappers: true }) === 1, 'shownUid: wrapper root is still a row');
 
 var eff = T.effectiveExpanded(tree, null, new Set([ 4 ]), new Set([ 2 ]));
 t(eff.has(1) && eff.has(6) && eff.has(4) && ! eff.has(2), 'effectiveExpanded: defaults + opened - closed');
 var late = { root: N(1, 'a', [ N(2, 'b', [ N(7, 'late', [ N(8, 'kid') ]) ]) ]) };
 t(T.effectiveExpanded(late, null, new Set(), new Set()).has(7), 'effectiveExpanded: a node that appeared after the first poll starts open');
+t(! T.effectiveExpanded(tree, 4, new Set(), new Set([ 2 ])).has(2), 'effectiveExpanded: a closed ancestor of the selection stays closed (the panel reopens the path on a new selection)');
 
 console.log('tree-core-test:', passes, 'passed');

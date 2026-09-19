@@ -14,6 +14,8 @@
   };
 
   exports.isWrapper = function(clsId) { return !! WRAPPERS[clsId]; };
+  // The list itself, for the panel's labels — one source for what "wrapper" means.
+  exports.WRAPPER_CLASSES = Object.freeze(Object.keys(WRAPPERS));
 
   // A FOAM property read can run its factory and store the result (element_
   // creates a DOM node, config creates a controller config, controllerMode

@@ -22,7 +22,7 @@
       }
       var open = expanded.has(n.uid);
       rows.push({ uid: n.uid, depth: depth, cls: S.shortName(n.layer.cls), binding: S.layerText(n.layer),
-                  shown: n.shown, hasKids: exports.hasVisibleKids(n, hide), open: open });
+                  shown: n.shown, wrapper: n.wrapper, hasKids: exports.hasVisibleKids(n, hide), open: open });
       if ( open ) for ( var i = 0 ; i < n.kids.length ; i++ ) walk(n.kids[i], depth + 1, false);
     }
     if ( tree && tree.root ) walk(tree.root, 0, true);

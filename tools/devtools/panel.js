@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore;
+var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore, P = window.__foamShapers;
 
 // All panel state in one object, one render(state) from it.
 // tab: which tab is showing, remembered across panel reopens.
@@ -134,6 +134,11 @@ function renderWhy(w) {
 
 // ---- Tree tab ----
 function treeOpts() { return { hideWrappers: state.hideWrappers }; }
+// Wrapper = one of the framework's raw primitives (shapers.WRAPPER_CLASSES):
+// what a view's render() emits, not a view someone wrote. The same list the
+// sidebar folds. Named here once for every label that mentions it.
+var WRAPPER_NAMES = P.WRAPPER_CLASSES.map(S.shortName).join(', ');
+function tag(text, title) { var t = el('span', 'tag', text); t.title = title; return t; }
 
 function renderTree() {
   var root = el('div'), tree = state.tree;
@@ -143,7 +148,7 @@ function renderTree() {
   if ( tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + tree.count + ' nodes (capped)'));
   var selectedRow = T.shownUid(tree, state.selected, treeOpts());
   T.flatten(tree, state.expanded, treeOpts()).forEach(function(r) {
-    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
+    var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
     row.addEventListener('mouseenter', function() { highlight(r.uid); });
@@ -160,7 +165,8 @@ function renderTree() {
     row.appendChild(tog);
     row.appendChild(el('span', 'cls', r.cls));
     if ( r.binding ) row.appendChild(el('span', 'bind', r.binding));
-    if ( ! r.shown ) row.appendChild(el('span', 'muted', 'hidden'));
+    if ( r.wrapper ) row.appendChild(tag('wrapper', 'framework plumbing (' + WRAPPER_NAMES + '); folded away by "hide wrappers"'));
+    if ( ! r.shown ) row.appendChild(tag('hidden', 'shown === false: rendered but not displayed'));
     row.addEventListener('click', function() { selectRow(r.uid); });
     root.appendChild(row);
   });
@@ -226,6 +232,7 @@ function render(state) {
   document.querySelectorAll('#tabs .tab').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === state.tab); });
   document.body.classList.toggle('tree-tab', state.tab === 'tree');
   document.getElementById('wrappers').checked = state.hideWrappers;
+  document.getElementById('hint').textContent = ( state.hideWrappers ? '' : 'grey ·wrapper rows fold away when ticked · ' ) + 'alt-click ▸ opens a whole branch';
   var root = document.getElementById('root');
   root.textContent = '';
   root.appendChild(state.tab === 'tree' ? renderTree() : renderWhy(state.why));
@@ -291,6 +298,7 @@ document.querySelectorAll('#tabs .tab').forEach(function(b) {
   b.addEventListener('click', function() { setTab(b.dataset.tab); });
 });
 document.getElementById('refresh').addEventListener('click', refresh);
+document.getElementById('wrappers-label').title = 'fold ' + WRAPPER_NAMES + ' rows away; their children move up';
 document.getElementById('wrappers').addEventListener('change', function(ev) {
   state.hideWrappers = ev.target.checked;
   writePref(WRAPPERS_KEY, state.hideWrappers);

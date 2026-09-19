@@ -213,6 +213,7 @@ t(capped.count === 2 && capped.truncated === true && capped.root.kids.length ===
   'treeOf: cap stops adding nodes, truncated flagged');
 t(cappedSeen.join(',') === '1,2', 'treeOf: visit never fires for a node the cap left out');
 
+t(P.WRAPPER_CLASSES.length === 4 && P.WRAPPER_CLASSES.every(P.isWrapper) && Object.isFrozen(P.WRAPPER_CLASSES), 'WRAPPER_CLASSES: the isWrapper list, read-only');
 t(P.str('abcdef', 4) === 'abcd…' && P.str('abcd', 4) === 'abcd' && P.str(12, 5) === '12', 'str: cut at max with an ellipsis, shorter untouched');
 var longId = { cls_: { id: 'com.x.L' }, id: 'x'.repeat(50), toSummary: function() { return 'y'.repeat(70); } };
 var desc = P.describeRecord(longId);

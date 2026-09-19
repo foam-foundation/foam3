@@ -16,7 +16,7 @@ body { background: var(--bg); color: var(--fg); font: 12px system-ui, sans-serif
 #toolbar { display: none; gap: 10px; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 0; margin-bottom: 6px; }
 body.tree-tab #toolbar { display: flex; }
 #toolbar label { user-select: none; white-space: nowrap; }
-#toolbar .hint { margin-left: auto; white-space: nowrap; }
+#toolbar .hint { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button { background: var(--btn-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; white-space: nowrap; flex: none; }
 #tabs #status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tabs .tab.active { font-weight: 600; border-color: var(--fg); }
@@ -42,6 +42,9 @@ textarea.copy { width: 100%; box-sizing: border-box; background: var(--input-bg)
 .node.selected { background: var(--btn-bg); }
 .node.selected .cls { font-weight: 700; }
 .node.hidden { color: var(--muted); }
+/* a wrapper row is plumbing: greyed and tagged, so what "hide wrappers" folds is visible before folding */
+.node.wrapper .cls { color: var(--muted); font-style: italic; }
+.tag { color: var(--muted); font-size: 10px; border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-right: 6px; vertical-align: 1px; }
 .node .tog { display: inline-block; width: 12px; color: var(--muted); user-select: none; }
 .node .cls { margin-right: 8px; }
 .node .bind { margin-right: 8px; font-family: ui-monospace, monospace; }

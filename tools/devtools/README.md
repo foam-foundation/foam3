@@ -147,7 +147,10 @@ open, a chain of only children stays open until it branches, plus the path
 to the selected element. **hide wrappers** (on by default, remembered) folds
 `Element`, `SlotNode`, `Text` and `HTMLView` rows away and moves their
 children up, so the tree reads as the views someone wrote — same list the
-sidebar folds.
+sidebar folds (`WRAPPER_CLASSES` in `shapers.js`, matched by exact class id:
+a subclass you named is a view, not a wrapper). Unticked, those rows are
+shown greyed with a `wrapper` tag, so you can see what ticking will fold.
+A `hidden` tag marks `shown === false`.
 
 Hovering a row outlines that element on the page (a blue box with the class
 name and size — drawn by the page, since Chrome gives extensions no overlay
@@ -200,7 +203,8 @@ hand-write an eval string. `argExprs` are page-side JS fragments: `'$0'` for
 the Elements selection, `JSON.stringify(v)` for data.
 
 **Panel side** (`devtools.js`, `sidebar-core.js`, `sidebar.*`, `tree-core.js`,
-`why-explain.js`, `panel.*`). `render(result)` builds DOM from the response object alone — no
+`why-explain.js`, `panel.*`; the panel also loads the pure `shapers.js` for
+`WRAPPER_CLASSES`, so its labels name the same list the page folds). `render(result)` builds DOM from the response object alone — no
 page references. **Contract:** a view is a function of the last response. The
 FOAM panel keeps all its state in one object (`state = { tab, why, tree,
 expanded, selected, ... }`) and one `render(state)`; each tab has a render
@@ -254,9 +258,9 @@ FOAM's own auth cache entry; the auth itself is a closure argument per call.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 59 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 60 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 15 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 38 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 39 passed
 node tools/devtools/test/backend-test.js        # backend-test: 5 passed
 node tools/devtools/test/common-test.js         # common-test: 10 passed
 node tools/devtools/test/why-core-test.js       # why-core-test: 30 passed

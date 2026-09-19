@@ -35,6 +35,7 @@ t(all.map(function(r) { return r.depth; }).join(',') === '0,1,2,3,2,1', 'flatten
 t(all[0].cls === 'Root' && all[1].binding === 'User #1' && all[2].binding === 'prop email', 'flatten: short class + binding');
 t(all[1].hasKids === true && all[1].open === true && all[3].hasKids === false && all[5].open === false, 'flatten: hasKids / open flags');
 t(all[4].shown === false && all[0].shown === true, 'flatten: shown carried');
+t(all[4].wrapper === true && all[0].wrapper === false, 'flatten: wrapper carried, so shown wrappers can be marked');
 var some = T.flatten(tree, new Set([ 1 ]));
 t(some.map(function(r) { return r.uid; }).join(',') === '1,2,6', 'flatten: collapsed subtree skipped');
 t(T.flatten(tree, new Set()).length === 1, 'flatten: collapsed root -> root row only');

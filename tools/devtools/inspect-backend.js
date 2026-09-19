@@ -19,6 +19,8 @@
     var t0 = performance.now();
     var r  = P.resolveOwner(window.ctrl, node);
     var mapStats = { walked: r.walked, withDom: r.withDom, ms: Math.round((performance.now() - t0) * 10) / 10 };
+    // a node no u2 element owns is not a selection, same as a text node above
+    if ( ! r.el ) return { stack: [], mapStats: mapStats };
     return { stack: D.selectNode(r.el).map(P.layerOf), mapStats: mapStats };
   });
 })();

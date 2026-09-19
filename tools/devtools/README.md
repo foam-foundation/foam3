@@ -223,7 +223,7 @@ keeps is the uid→element map of its last snapshot (a cache of what the
 panel is looking at, rebuilt on every `tree` call) and the handle of the
 hover overlay. Every factory-backed read goes through `own(el, key)` (the
 element's `instance_` only) — `element_`, `config`, `controllerMode`,
-`shown`, `currentData_`, `workingData` — because a FOAM property read can run
+`mode`, `shown`, `currentData_`, `workingData` — because a FOAM property read can run
 its factory: `element_` would create a DOM node, `controllerMode` would
 default to CREATE. Plain getters (`data`, `prop`, `childNodes`, `$UID`) are
 read directly. `why-backend.js` keeps one thing across calls: a `WeakMap` of
@@ -255,12 +255,12 @@ Pure logic has Node tests with no dependencies:
 
 ```bash
 node tools/devtools/test/shapers-test.js        # shapers-test: 59 passed
-node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 14 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 34 passed
+node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 15 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 38 passed
 node tools/devtools/test/backend-test.js        # backend-test: 5 passed
 node tools/devtools/test/common-test.js         # common-test: 10 passed
 node tools/devtools/test/why-core-test.js       # why-core-test: 30 passed
-node tools/devtools/test/why-explain-test.js    # why-explain-test: 22 passed
+node tools/devtools/test/why-explain-test.js    # why-explain-test: 27 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
@@ -294,11 +294,14 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 22 passed
    the gate; change the field it depends on, Refresh → flips.
 7. **Open in FOAM.** Why tab → Open in FOAM → the app shows the edit form
    for the record you clicked; Back returns.
-8. **Comics v3 header.** On an `admin.data` detail screen (comics v3),
-   click the record title or the Edit/Save/Cancel buttons in Elements: the
-   stack shows `ButtonGroup → … → Stack` (they live in the stack header) but
-   the Why tab still names the record — it comes from the `detailView`
-   context export.
+8. **Comics v3 header (open question).** On an `admin.data` detail screen
+   (comics v3), click the Edit/Save/Cancel buttons in Elements: the stack
+   shows `ButtonGroup → … → Stack` (they live in the stack header,
+   `Stack.js:155`, outside the current view's DOM). Expected by source:
+   `onScreen` rejects them and the Record line reads "(record on screen)".
+   If it reads "(from Elements selection)" instead, the `detailView` branch
+   of `resolveRecord` is what answered; if not, that branch is dead and
+   should go (`shapers.js` `resolveRecord`, its test, and this step).
 
 ### Smoke checklist — Tree tab
 

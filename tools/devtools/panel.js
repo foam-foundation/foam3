@@ -26,11 +26,12 @@ function readPref(key, dflt) {
   try { var v = localStorage.getItem(key); return v === null ? dflt : v === 'true'; } catch (e) { return dflt; }
 }
 function writePref(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
-// Switching tabs reloads the tab's data: the other tab may have missed a
-// navigation, since only the showing tab loads.
+// Switching tabs drops the tab's data and reloads it: only the showing tab
+// loads, so what the other tab holds may be a previous screen.
 function setTab(tab) {
   state.tab = tab;
   writePref(TAB_KEY, tab);
+  if ( tab === 'why' ) state.why = null; else state.tree = null;
   render(state);
   refresh();
 }
@@ -208,9 +209,10 @@ function highlight(uid) { rpc('highlight', [ JSON.stringify(uid) ]); }
 function loadTree() {
   rpc('tree').then(function(r) {
     if ( r.error || r.foam === false ) { state.tree = { error: r.error || 'not a FOAM page' }; render(state); return; }
-    // A new selection must be visible even under a branch the user closed.
-    if ( r.selected !== state.selected ) T.pathTo(r.tree, r.selected).forEach(function(u) { state.closed.delete(u); });
-    state.tree = r.tree; state.selected = r.selected;
+    // A new selection must be visible even under a branch the user closed:
+    // its ancestors reopen, the node itself keeps the user's toggle.
+    if ( r.selected !== state.selected ) T.pathTo(r.tree, r.selected).slice(0, -1).forEach(function(u) { state.closed.delete(u); });
+    state.tree = r.tree; state.selected = r.selected; state.updated = stamp();
     state.opened = T.pruneExpanded(state.opened, r.tree);
     state.closed = T.pruneExpanded(state.closed, r.tree);
     state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed);
@@ -228,9 +230,11 @@ function render(state) {
   root.textContent = '';
   root.appendChild(state.tab === 'tree' ? renderTree() : renderWhy(state.why));
   document.getElementById('reveal').disabled = state.selected === null || state.selected === undefined;
-  var fold = document.getElementById('fold'), hasTree = !! ( state.tree && state.tree.root );
-  fold.disabled = ! hasTree;
-  fold.textContent = hasTree && ! T.allOpen(state.tree, state.expanded, treeOpts()) ? 'Expand all' : 'Collapse all';
+  if ( state.tab === 'tree' ) {
+    var fold = document.getElementById('fold'), hasTree = !! ( state.tree && state.tree.root );
+    fold.disabled = ! hasTree;
+    fold.textContent = hasTree && ! T.allOpen(state.tree, state.expanded, treeOpts()) ? 'Expand all' : 'Collapse all';
+  }
   document.getElementById('status').textContent =
     state.pollsLeft ? ( state.why && state.why.error ? 'waiting for the record to load…' : 'waiting for permission checks…' ) :
     state.why && state.why.error && state.tab === 'why' ? state.why.error :
@@ -254,12 +258,7 @@ function loadWhy(pollsLeft) {
     if ( seq !== whySeq ) return;
     state.why = w;
     state.updated = stamp();
-    // An error right after navigation usually means the detail view has not
-    // loaded its record yet (DetailView.loadData is idled + a find), so it
-    // gets the same re-polls as pending permission checks — unless the page
-    // says the error is final (a table screen).
-    var again = w && ( w.pending > 0 || ( w.error && ! w.final ) ) && pollsLeft > 0;
-    if ( again ) whyTimer = setTimeout(function() { loadWhy(pollsLeft - 1); }, 400);
+    if ( E.shouldRepoll(w, pollsLeft) ) whyTimer = setTimeout(function() { loadWhy(pollsLeft - 1); }, 400);
     else state.pollsLeft = 0;
     render(state);
   });
@@ -276,10 +275,12 @@ function setStatus(msg) { document.getElementById('status').textContent = msg ||
 // Follow the app: poll the route + stack position + selection once a second
 // while the panel is visible and reload when it changes, so opening a record
 // in the app is enough — no Elements click, no Refresh.
-var lastKey = null;
+var lastKey = null, keyInFlight = false;
 function watchScreen() {
-  if ( document.visibilityState !== 'visible' ) return;
+  if ( document.visibilityState !== 'visible' || keyInFlight ) return;
+  keyInFlight = true;
   rpc('screenKey').then(function(r) {
+    keyInFlight = false;
     if ( r && r.key !== undefined && r.key !== lastKey ) { lastKey = r.key; refresh(); }
   });
 }

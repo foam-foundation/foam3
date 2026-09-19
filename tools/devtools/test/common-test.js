@@ -24,7 +24,7 @@ t(C.rpcExpr('selectUid', [ '"7"', '$0' ]) ===
   'rpcExpr: several args, comma-joined');
 t(C.revealExpr('3') === 'inspect(window.__foamDevtools.node(3))' && C.revealExpr('x') === 'inspect(window.__foamDevtools.node(0))',
   'revealExpr: integer index only, anything else becomes 0');
-t(C.revealExpr() === 'inspect(window.__foamDevtools.node())', 'revealExpr: no index -> the pointed-at element');
+t(C.revealExpr() === 'inspect(window.__foamDevtools.node())' && C.revealExpr(null) === 'inspect(window.__foamDevtools.node())', 'revealExpr: no index / null -> the pointed-at element');
 
 // foamEval never rejects: every failure resolves to {error}
 answers = [ [ '{"ok":1}', null ], [ undefined, { isException: true, value: 'boom' } ], [ 42, null ], [ undefined, null ], [ '{nope', null ] ];

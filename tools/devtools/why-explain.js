@@ -46,8 +46,18 @@
     if ( a.enabled.value !== true ) {
       parts.push('enabled: ' + ( a.enabled.running ? 'running' : a.enabled.fn === true ? permsWhy(a.enabled.perms) : fnWord('isEnabled', a.enabled.fn) ));
     }
-    if ( a.confirm.fn === true || ( a.confirm.perms.length && ! permsWhy(a.confirm.perms) ) ) parts.push('confirm required');
+    if ( a.confirm.fn && a.confirm.fn.err ) parts.push(fnWord('confirmationRequired', a.confirm.fn));
+    else if ( a.confirm.fn === true || ( a.confirm.perms.length && ! permsWhy(a.confirm.perms) ) ) parts.push('confirm required');
     return parts.join('; ');
+  };
+
+  // Ask why() again in 400 ms? While permission checks are pending, or on an
+  // error right after navigation (the detail view has not loaded its record
+  // yet: DetailView.loadData is idled + a find) — unless the page marked the
+  // error final (a table screen stays a table) — and only while re-polls are
+  // left.
+  exports.shouldRepoll = function(w, pollsLeft) {
+    return !! w && pollsLeft > 0 && ( w.pending > 0 || !! ( w.error && ! w.final ) );
   };
 
   exports.explainSection = function(s) {

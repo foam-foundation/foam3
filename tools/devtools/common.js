@@ -4,9 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Panel-side transport plus the two helpers every extension page (sidebar,
-// panel) shares. Loaded as plain globals; exported for Node so the
-// expression builders are testable.
+// Panel-side transport, plus the el() helper and the theme bootstrap every
+// extension page (sidebar, panel) shares. Loaded as plain globals; exported
+// for Node so the expression builders are testable.
 (function(exports) {
   // Both pages: follow the DevTools theme, and build DOM with textContent
   // only (no innerHTML, so class ids need no escaping).
@@ -56,14 +56,14 @@
 
   function rpc(name, argExprs) { return foamEval(rpcExpr(name, argExprs)); }
 
-  // Reveal a DOM node in the Elements tab: the i-th named layer's, or with no
-  // index the pointed-at element's own. Chrome's inspect() is a Command Line
+  // Reveal a DOM node in the Elements tab: the i-th named layer's, or with i
+  // null/undefined the pointed-at element's own. Chrome's inspect() is a Command Line
   // API function that only exists inside inspectedWindow.eval, so the call is
   // composed here; node(i) is the backend's one raw (non-JSON) accessor.
   // inspect(undefined) is a no-op, so a stale index is harmless. The index is
   // coerced to an integer so nothing else can be spliced into the expression.
   function revealExpr(i) {
-    return 'inspect(window.__foamDevtools.node(' + ( i === undefined ? '' : ( parseInt(i, 10) || 0 ) ) + '))';
+    return 'inspect(window.__foamDevtools.node(' + ( i == null ? '' : ( parseInt(i, 10) || 0 ) ) + '))';
   }
 
   function reveal(i) { return foamEval(revealExpr(i)); }

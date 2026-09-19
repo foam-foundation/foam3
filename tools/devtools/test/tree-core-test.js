@@ -78,6 +78,12 @@ t(T.shownUid(wt, 3, { hideWrappers: true }) === 1 && T.shownUid(wt, 5, { hideWra
 t(T.shownUid(wt, 3) === 3, 'shownUid: wrappers shown -> the wrapper itself');
 t(T.shownUid(wt, 99, { hideWrappers: true }) === null && T.shownUid(wt, null) === null, 'shownUid: miss / null -> null');
 t(T.shownUid({ root: N(1, 'foam.u2.Element', [ N(2, 'foam.u2.Text') ]) }, 2, { hideWrappers: true }) === 1, 'shownUid: wrapper root is still a row');
+var deep = { root: N(1, 'com.x.Root', [ N(2, 'com.x.View', [ N(3, 'foam.u2.Element', [ N(4, 'foam.u2.Text') ]) ]) ]) };
+t(T.shownUid(deep, 4, { hideWrappers: true }) === 2, 'shownUid: nearest non-wrapper ancestor, not the root');
+t(T.shownUid(null, 4) === null && T.shownUid({ root: null }, 4) === null, 'shownUid: no tree -> null');
+t(T.allOpen(wt, new Set([ 1 ]), { hideWrappers: true }) === true, 'allOpen: closed nodes that are hidden wrappers do not count');
+var deepRows = T.flatten(deep, T.defaultExpanded(deep, 4), { hideWrappers: true }).map(function(r) { return r.uid; });
+t(deepRows.indexOf(4) < 0 && deepRows.indexOf(T.shownUid(deep, 4, { hideWrappers: true })) >= 0, 'flatten + shownUid: the wrapper gets no row, its stand-in does');
 
 var eff = T.effectiveExpanded(tree, null, new Set([ 4 ]), new Set([ 2 ]));
 t(eff.has(1) && eff.has(6) && eff.has(4) && ! eff.has(2), 'effectiveExpanded: defaults + opened - closed');

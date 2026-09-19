@@ -25,7 +25,8 @@
     if ( ! D.foamReady() ) return { foam: false };
     var t = D.currentTarget();
     if ( ! t || ! t.data ) return { error: D.NO_RECORD };
-    var obj = t.data, of = obj.cls_, id = P.describeRecord(obj).id;
+    var obj = t.data, of = obj.cls_, id = null;
+    try { id = ( obj.id !== undefined && obj.id !== null && obj.id !== '' && obj.id !== 0 ) ? String(obj.id) : null; } catch (e) {}
     if ( t.dao ) {
       return push({
         class: 'foam.comics.v2.DAOUpdateView',

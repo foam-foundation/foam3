@@ -91,8 +91,8 @@ t(a.available.fn.err === 'nope' && a.available.value === false, 'actionGate: thr
 a = W.actionGate({ name: 'x', enabledPermissions: [ 'e.p' ] }, data, env({ 'e.p': false }), false);
 t(a.available.value === true && a.enabled.value === false && a.enabled.perms[0].result === false, 'actionGate: enabledPermissions denied -> disabled only');
 
-var eg = W.errGate({ name: 'q', label: 'Q', hidden: true }, 'boom');
-t(eg.name === 'q' && eg.label === 'Q' && eg.hidden === true && eg.final === 'ERR' && eg.base.err === 'boom' && eg.clamp === 'ERR', 'errGate: propGate shape with ERR everywhere and the message');
+var eg = W.errGate({ name: 'q', get label() { throw new Error('label getter'); }, get hidden() { throw new Error('hidden getter'); } }, 'boom');
+t(eg.name === 'q' && eg.label === 'q' && eg.hidden === false && eg.final === 'ERR' && eg.base.err === 'boom' && eg.clamp === 'ERR', 'errGate: propGate shape with ERR everywhere; reads only name, so a throwing label/hidden getter cannot throw again');
 
 // sectionGate
 var s = W.sectionGate({ name: 'Admin', permissionRequired: true, isAvailable: function() { return true; } }, data, env({ 'user.section.admin': false }));

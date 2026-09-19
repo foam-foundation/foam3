@@ -43,9 +43,10 @@
   };
 
   // The gate record for a property whose replay itself threw, so the row
-  // still renders and names the error. Same shape as propGate's result.
+  // still renders and names the error. Same shape as propGate's result;
+  // reads only the name, since any other getter may be what threw.
   exports.errGate = function(prop, msg) {
-    return { name: prop.name, label: prop.label || prop.name, hidden: !! prop.hidden,
+    return { name: prop.name, label: prop.name, hidden: false,
              base: { source: 'default', kind: 'value', mode: 'ERR', err: msg }, clamp: 'ERR', perm: null, final: 'ERR' };
   };
 

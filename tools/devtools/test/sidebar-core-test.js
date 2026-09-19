@@ -37,6 +37,7 @@ t(S.layerText({ cls: 'x', data: { cls: 'com.x.User', id: '1', summary: null }, p
 t(S.layerText({ cls: 'x', prop: 'email' }) === 'prop email', 'layerText: prop only');
 t(S.layerText({ cls: 'x', data: { cls: 'com.x.U', id: '2', summary: null }, prop: 'name' }) === 'U #2  prop name', 'layerText: binding then prop');
 t(S.bindingText({ cls: 'x', dao: {} }) === 'dao', 'bindingText: dao with neither key nor of');
+t(S.layerText({ cls: 'x', dao: { of: 'com.x.Kid', key: null }, prop: 'kids' }) === 'dao of Kid  prop kids', 'layerText: dao binding then prop (embedded table)');
 t(S.pathOf([ { cls: 'foam.u2.Element' } ]) === 'ctrl', 'pathOf: one-layer stack is just ctrl');
 
 console.log('sidebar-core-test:', passes, 'passed');

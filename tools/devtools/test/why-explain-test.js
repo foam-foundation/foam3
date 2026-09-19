@@ -39,6 +39,8 @@ t(E.explainAction(W.actionGate({ name: 'x', availablePermissions: [ 'p.q' ] }, d
 t(E.explainAction(W.actionGate({ name: 'x' }, data, env(), true)) === 'enabled: running', 'explainAction: running');
 t(E.explainAction(W.actionGate({ name: 'x', isAvailable: function() { throw new Error('nope'); } }, data, env(), false)) === 'available: isAvailable threw: nope', 'explainAction: throwing isAvailable named as threw, not false');
 t(E.explainAction(W.actionGate({ name: 'x', enabledPermissions: [ 'e.p' ] }, data, env({ 'e.p': false }), false)) === 'enabled: e.p denied', 'explainAction: enabled perm');
+t(E.explainAction(W.actionGate({ name: 'x', isEnabled: function() { throw new Error('bad'); } }, data, env(), false)) === 'enabled: isEnabled threw: bad', 'explainAction: isEnabled threw');
+t(E.explainAction(W.actionGate({ name: 'x', confirmationRequired: function() { throw new Error('cr'); } }, data, env(), false)) === 'confirmationRequired threw: cr', 'explainAction: confirmationRequired threw is named, not silent');
 t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { return false; } }, data, env())) === 'isAvailable → false', 'explainSection: isAvailable false');
 t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { throw new Error('bad'); } }, data, env())) === 'isAvailable threw: bad', 'explainSection: isAvailable threw');
 t(E.explainSection(W.sectionGate({ name: 'S', isAvailable: function() { return Promise.resolve(true); } }, data, env())) === 'isAvailable pending (async)', 'explainSection: isAvailable pending');
@@ -46,5 +48,9 @@ t(E.explainAction(W.actionGate({ name: 'x', confirmationRequired: function() { r
 t(E.explainAction(W.actionGate({ name: 'x' }, data, env(), false)) === '', 'explainAction: all clear -> empty');
 
 t(E.explainSection(W.sectionGate({ name: 'S', permissionRequired: true }, data, env({ 'user.section.s': false }))) === 'user.section.s denied', 'explainSection: perm');
+
+t(E.shouldRepoll({ pending: 2 }, 3) === true && E.shouldRepoll({ pending: 0 }, 3) === false, 'shouldRepoll: pending checks');
+t(E.shouldRepoll({ error: 'loading' }, 1) === true && E.shouldRepoll({ error: 'table', final: true }, 3) === false, 'shouldRepoll: error unless final');
+t(E.shouldRepoll({ pending: 2 }, 0) === false && E.shouldRepoll(null, 3) === false, 'shouldRepoll: no polls left / no response');
 
 console.log('why-explain-test:', passes, 'passed');

@@ -14,7 +14,7 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain;
 // put their response under their own key and their own render function.
 // open: which collapsible sections are expanded, by key; survives re-renders
 // (Refresh, permission re-polls) because render rebuilds the DOM each time.
-var state = { tab: 'why', why: null, pollsLeft: 0, open: {} };
+var state = { tab: 'why', why: null, pollsLeft: 0, open: {}, updated: null };
 
 // ---- DOM helpers (textContent only) ----
 function el(tag, cls, text) {
@@ -119,17 +119,26 @@ function renderWhy(w) {
   return root;
 }
 
+function stamp() { return new Date().toTimeString().slice(0, 8); }
+
 function render(state) {
   var root = document.getElementById('root');
   root.textContent = '';
   if ( state.tab === 'why' ) root.appendChild(renderWhy(state.why));
-  document.getElementById('status').textContent = state.pollsLeft ? 'waiting for permission checks…' : '';
+  document.getElementById('status').textContent =
+    state.pollsLeft ? 'waiting for permission checks…' :
+    state.why && state.why.error ? state.why.error :
+    state.updated ? 'updated ' + state.updated : '';
+  // A short highlight so a refresh that changes nothing is still visibly a refresh.
+  root.classList.remove('flash'); void root.offsetWidth; root.classList.add('flash');
 }
 
 // ---- data flow ----
 function loadWhy() {
+  setStatus('refreshing…');
   rpc('why').then(function(w) {
     state.why = w;
+    state.updated = stamp();
     if ( w && w.pending > 0 && state.pollsLeft > 0 ) {
       state.pollsLeft--;
       setTimeout(loadWhy, 400);

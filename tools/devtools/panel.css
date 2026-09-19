@@ -29,3 +29,6 @@ th { color: var(--muted); font-weight: 600; }
 details summary { cursor: pointer; padding: 2px 0; }
 textarea.copy { width: 100%; box-sizing: border-box; background: var(--input-bg); color: var(--fg);
   border: 1px solid var(--border); border-radius: 4px; font-family: ui-monospace, monospace; }
+
+.flash { animation: flashbg 0.6s ease-out; }
+@keyframes flashbg { from { background: var(--btn-bg); } to { background: transparent; } }

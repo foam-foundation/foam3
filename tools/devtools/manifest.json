@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["shapers.js", "why-core.js", "backend.js", "inspect-backend.js", "why-backend.js", "open-backend.js"],
+      "js": ["shapers.js", "why-core.js", "backend.js", "selection-backend.js", "inspect-backend.js", "why-backend.js", "open-backend.js"],
       "world": "MAIN",
       "run_at": "document_idle"
     }

@@ -4,9 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Registers 'why': for the record in D.selection, replay every client-side
-// gate (why-core.js, tested) with the page's real evaluators, and report the
-// permission cache. Browser-only glue.
+// Registers 'why': for the current target (selection-backend.js), replay
+// every client-side gate (why-core.js, tested) with the page's real
+// evaluators, and report the permission cache. Browser-only glue.
 (function() {
   var D = window.__foamDevtools, W = window.__foamWhyCore;
 
@@ -48,8 +48,6 @@
 
   function str(v, max) { var s = String(v); return s.length > max ? s.slice(0, max) + '…' : s; }
 
-  var P = window.__foamShapers;
-
   // What the panel polls to notice navigation: the route plus the stack
   // position (a push/back within the same hash still changes pos).
   D.register('screenKey', function() {
@@ -59,54 +57,14 @@
     return { key: location.hash + '|' + pos };
   });
 
-  // The record the panel should explain, in priority: an Elements selection
-  // whose DOM node is still in the document (the selection's element keeps
-  // element_ after detach, Element2.js:733-738), else the record the current
-  // screen is about (the detail view under the navigation stack's current
-  // view), else nothing.
-  function target() {
-    // Re-derive from the selected element every time: after the click the
-    // view may have gone to EDIT and swapped its record for the working copy
-    // (comics v3 currentData_, DetailView.js:215-221), so a snapshot taken at
-    // inspect time reports the wrong mode and validates the wrong object.
-    try {
-      var el = D.lastEl;
-      if ( el && el.element_ && el.element_.isConnected && D.lastStack && D.pickEnv ) {
-        var picked = P.pickRecord(D.lastStack, D.pickEnv);
-        if ( ! picked ) {
-          var dv = el.__context__ && el.__context__.detailView;
-          var held = dv && ( P.recordOfView(dv) || ( P.dataOf(dv) && ! P.isDAO(P.dataOf(dv)) ? P.dataOf(dv) : null ) );
-          if ( held ) picked = { data: held, view: dv };
-        }
-        if ( picked ) {
-          var dao = D.selection && D.selection.dao;
-          try { if ( ! dao && picked.view.config && P.isDAO(picked.view.config.dao) ) dao = picked.view.config.dao; } catch (e) {}
-          var mode = P.modeOf(el) || ( picked.view.instance_ && picked.view.instance_.controllerMode && picked.view.instance_.controllerMode.name ) || null;
-          return { data: picked.data, view: picked.view, dao: dao, mode: mode, source: 'selection' };
-        }
-      }
-    } catch (e) {}
-    var root = null;
-    try { root = ( ctrl.stack && ctrl.stack.current ) || ctrl; } catch (e) { root = ctrl; }
-    var found = P.findScreenViews(root, { isDAO: P.isDAO });
-    if ( found.record ) {
-      var v = found.record.view, dao = null;
-      try { dao = ( v.config && P.isDAO(v.config.dao) ) ? v.config.dao : null; } catch (e) {}
-      return { data: found.record.data, view: v, dao: dao, mode: P.modeOf(v) || ( v.instance_ && v.instance_.controllerMode && v.instance_.controllerMode.name ) || null, source: 'screen' };
-    }
-    if ( found.table ) return { table: found.table, source: 'screen' };
-    return null;
-  }
-
   D.register('why', function() {
     if ( ! D.foamReady() ) return { foam: false };
-    var t = target();
+    var t = D.currentTarget();
     if ( ! t ) return { error: 'no record on this screen — open a record, or select one of its elements in Elements' };
     if ( t.table ) {
       var of = t.table.dao.of;
       return { error: 'this screen is a table of ' + ( of ? of.id : 'records' ) + ' — open a record, or select a row in Elements' };
     }
-    D.selection = { data: t.data, view: t.view, dao: t.dao, mode: t.mode };
     window.$d = t.data;
     var data = t.data, cls = data.cls_;
     // No controllerMode in scope is what FOAM turns into CREATE (Element2.js:569).

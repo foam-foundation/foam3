@@ -226,4 +226,60 @@
     }
     return null;
   };
+
+  // The nearest DAO to a view: first DAO-bound layer at or above it in the
+  // stack, else the view's own comics config (v2 DAOUpdateView, v3 DetailView).
+  function daoFor(view, stack, env) {
+    var from = stack.indexOf(view);
+    for ( var j = Math.max(from, 0) ; j < stack.length ; j++ ) {
+      var d = exports.dataOf(stack[j]);
+      if ( d && env.isDAO(d) ) return d;
+    }
+    try { if ( view && view.config && env.isDAO(view.config.dao) ) return view.config.dao; } catch (e) {}
+    return null;
+  }
+
+  // The controllerMode for a target: the context in force at the element the
+  // user pointed at, else the record holder's own (comics views set theirs).
+  function modeFor(el, view) {
+    var m = exports.modeOf(el);
+    if ( m ) return m;
+    try { var own = view && view.instance_ && view.instance_.controllerMode; return own ? modeName(own) : null; } catch (e) { return null; }
+  }
+
+  // THE one answer to "which record, in which view, in which DAO, in which
+  // mode" for a pointed-at element and its named stack. Every page-side
+  // caller (sidebar, Why, Open in FOAM) goes through this, so the ladder is
+  // written once: pickRecord over the stack; else the detail view the
+  // element's context exports (comics v3 puts title and buttons in the
+  // navigation stack header, out of the u2 chain — DetailView.js:51,236);
+  // then the DAO and the mode for whatever was found. Recomputed on every
+  // call, never cached: the same element can move from VIEW to EDIT and from
+  // the original record to its working copy after it was pointed at.
+  exports.resolveRecord = function(el, stack, env) {
+    var picked = exports.pickRecord(stack, env);
+    if ( ! picked ) {
+      var dv = null;
+      try { dv = el && el.__context__ && el.__context__.detailView; } catch (e) {}
+      if ( dv ) {
+        var d = exports.dataOf(dv);
+        var held = exports.recordOfView(dv) || ( d && ! env.isDAO(d) ? d : null );
+        if ( held ) picked = { data: held, view: dv };
+      }
+    }
+    if ( ! picked ) return null;
+    return { data: picked.data, view: picked.view, dao: daoFor(picked.view, stack, env), mode: modeFor(el, picked.view) };
+  };
+
+  // The same answer with nothing pointed at: the record the current screen
+  // is about, or the table it lists.
+  exports.screenTarget = function(root, env) {
+    var found = exports.findScreenViews(root, env);
+    if ( found.record ) {
+      var v = found.record.view;
+      return { data: found.record.data, view: v, dao: daoFor(v, [], env), mode: modeFor(v, v) };
+    }
+    if ( found.table ) return { table: found.table };
+    return null;
+  };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamShapers = {} ));

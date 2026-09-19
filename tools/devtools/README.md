@@ -121,8 +121,8 @@ get a `SectionedDetailView` of the object (validates, no Save). Same
 ## Architecture — three layers, one contract each
 
 **Page world** (`shapers.js`, `why-core.js`, `backend.js`,
-`inspect-backend.js`, `why-backend.js`, `open-backend.js`; MAIN-world content
-scripts, loaded in that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
+`selection-backend.js`, `inspect-backend.js`, `why-backend.js`,
+`open-backend.js`; MAIN-world content scripts, loaded in that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
 (`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`), the
 per-layer shape (`layerOf`), and the gate replay (`propGate`, `actionGate`,
 `sectionGate`) — no `window.foam` or DOM API use, so they run under Node with
@@ -156,9 +156,14 @@ and one `render(state)`; later tabs add a key and a render function. The pure
 parts (`pathOf`, `shortName`; `explainProp`, `explainAction`,
 `explainSection`) live in their own files so they have Node tests.
 
-Shared page-side selection: `inspect` stores `D.selection = { data, view }`
-(the record on screen and the view holding it); `why` reads it, so the panel
-passes no arguments.
+Page-side selection has one owner, `selection-backend.js`: `inspect` hands
+it the pointed-at element and its stack (`D.selectNode`); `why` and
+`openRecord` ask `D.currentTarget()` — the pointed-at element's record while
+its DOM node is still in the document, else the record the screen is about,
+else the table it lists. Only the pointer is stored; record, DAO and mode
+are resolved on every ask by the pure `resolveRecord` / `screenTarget` in
+`shapers.js`, so a view that moves from VIEW to EDIT (and to its working
+copy) after the click is reported correctly.
 
 ### Adding a method (how slice 2 plugs in)
 
@@ -182,7 +187,7 @@ passes no arguments.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 37 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 43 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed

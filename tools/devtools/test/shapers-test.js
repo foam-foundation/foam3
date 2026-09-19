@@ -158,4 +158,21 @@ var badRec = { cls_: { id: 'com.x.Bad' }, toSummary: function() { throw new Erro
 var badLayer = P.layerOf(u2('com.x.V', { data: badRec }));
 t(badLayer.data.summary === null && badLayer.data.id === null, 'layerOf: throwing toSummary / unset id -> nulls, no throw');
 
+// resolveRecord / screenTarget
+var rr = P.resolveRecord(null, [ u2('foam.u2.table.UnstyledTableRowComponent', { data: row }), u2('foam.u2.table.UnstyledTableRow', { data: row }), tableView ], env());
+t(rr && rr.data === row && rr.dao === screenDao && rr.mode === null, 'resolveRecord: pick + nearest DAO above; no mode in scope -> null');
+var hdrBtn = u2('foam.u2.ButtonGroup', { __context__: { detailView: v3, controllerMode: 'VIEW' } });
+v3.instance_.currentData_ = orig; v3.config = { dao: screenDao };
+rr = P.resolveRecord(hdrBtn, [ hdrBtn, u2('foam.core.u2.navigation.Stack') ], env());
+t(rr && rr.data === orig && rr.view === v3 && rr.dao === screenDao && rr.mode === 'VIEW', 'resolveRecord: header element -> detailView export, config dao, context mode');
+v3.instance_.currentData_ = work; v3.instance_.controllerMode = { name: 'EDIT' };
+var body = u2('x', { __context__: { controllerMode: { name: 'EDIT' } } }); // exported by the v3 view
+rr = P.resolveRecord(body, [ imp(u2('foam.u2.PropertyBorder', { prop: { name: 'a' }, ctxObjData: work }), work), v3 ], env());
+t(rr && rr.data === work && rr.mode === 'EDIT', 'resolveRecord: recomputed after Edit -> working copy + EDIT from context');
+t(P.resolveRecord(null, [ tableView ], env()) === null, 'resolveRecord: nothing -> null');
+var st2 = P.screenTarget(stackRoot2, env());
+t(st2 && st2.data === orig && st2.view === v3detail, 'screenTarget: record screen');
+st2 = P.screenTarget(u2('root', { childNodes: [ tableView ] }), env());
+t(st2 && st2.table && st2.table.dao === screenDao, 'screenTarget: table screen');
+
 console.log('shapers-test:', passes, 'passed');

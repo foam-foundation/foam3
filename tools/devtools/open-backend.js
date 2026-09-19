@@ -18,20 +18,19 @@
     return { ok: true };
   }
 
-  // The selected record in the comics edit view when its DAO is known from
-  // the view stack (D.selection.dao, set by inspect); otherwise a plain
-  // sectioned detail view of the object, which still validates and shows
-  // every property, but has no Save.
+  // The current target (selection-backend.js) in the comics edit view when
+  // its DAO is known; otherwise a plain sectioned detail view of the object,
+  // which still validates and shows every property, but has no Save.
   D.register('openRecord', function() {
     if ( ! D.foamReady() ) return { foam: false };
-    var sel = D.selection;
-    if ( ! sel || ! sel.data ) return { error: 'no record selected — select an element inside a form or table in Elements' };
-    var obj = sel.data, of = obj.cls_;
-    if ( sel.dao ) {
+    var t = D.currentTarget();
+    if ( ! t || ! t.data ) return { error: 'no record on this screen — open a record, or select one of its elements in Elements' };
+    var obj = t.data, of = obj.cls_;
+    if ( t.dao ) {
       return push({
         class: 'foam.comics.v2.DAOUpdateView',
         data: obj,
-        config: foam.comics.v2.DAOControllerConfig.create({ dao: sel.dao, of: of }, ctrl),
+        config: foam.comics.v2.DAOControllerConfig.create({ dao: t.dao, of: of }, ctrl),
         of: of,
         title: 'Edit ' + of.name + ( obj.id !== undefined ? ' ' + obj.id : '' )
       });

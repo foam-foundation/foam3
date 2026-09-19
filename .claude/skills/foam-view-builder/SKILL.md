@@ -70,6 +70,13 @@ Before writing any view code, clarify:
 - **Confirmation modals?** Actions that need user confirmation
 - **Responsive behavior?** Must work at different widths
 
+### 1.4 Variants — decide before building
+Answer these four for any new custom view. One **yes** → build it as a variant component (3.31); all **no** → build it plain and say so in the plan.
+- **More than one semantic state?** Will the same view render as success / warn / error / neutral?
+- **Reused with a different meaning?** Will a second screen `.tag()` it to say something else (open vs closed, matched vs unmatched)?
+- **Color carries meaning?** Would swapping the color change what the user reads, not just how it looks?
+- **An enum already drives it?** Is there a status / severity / type enum the view mirrors? Then the variant is derived from that enum, not a second knob the caller sets by hand.
+
 ---
 
 ## Phase 2: Read the Model (MANDATORY)
@@ -1002,6 +1009,7 @@ view: {
 | Reactive DAO filtering in dropdown | `view: function(_, X)` with slot subscription | No |
 | Confirmation dialog on change | `postSet` with `ConfirmationModal` | No |
 | Completely custom layout/structure | Custom `foam.u2.View` class | **Yes** |
+| Reusable card/badge/banner with named style presets | Variant enum + `expression(variant)` color props (3.31) | **Yes** |
 | Custom painting/canvas | Custom `foam.u2.View` class | **Yes** |
 | Complex multi-model dashboard | Custom `foam.u2.View` class or Flow | **Yes** |
 
@@ -1128,6 +1136,12 @@ methods: [
 ]
 ```
 
+The value forms a ViewSpec accepts are the branches of `createView` (`foam3/src/foam/u2/ViewSpec.js:46-95`: string → HTML tag, Element, Slot, anything with `toE`, function, `{ class }` spec or Class); the same property type backs a property's `view:`. Three shapes beyond the default above:
+
+- **Optional slot** — declare the `foam.u2.ViewSpec` with no `value:` and gate the render on presence: `.callIf(self.icon, function() { this.tag(self.icon); })` (`this` is the element, `self` the view) when the caller sets it at create time, `.add(this.icon$.map(...))` if it can arrive later. `.tag(spec)` with no args object is valid (`foam3/src/foam/u2/dialog/InlineNotificationMessage.js:157`).
+- **Wrap the caller's spec** — a derived `rowView_` that decorates the caller's `rowView` (3.25); the source is `foam3/src/foam/u2/DAOList.js:100-106`.
+- **Outside a fluent chain** — `foam.u2.ViewSpec.createView(spec, args, self, ctx)` (`foam3/src/foam/u2/ViewSpec.js:42`). A bare string passed here becomes an HTML tag name via `ctx.E(spec, args)` (`ViewSpec.js:46-52`), so pass `{ class: 'a.b.C' }`, never `'a.b.C'`; only the property's `adapt` (`ViewSpec.js:124-131`) wraps a string in `{ class: ... }` for you.
+
 ---
 
 ## Phase 6: Context and Dependencies
@@ -1218,6 +1232,10 @@ view: function(_, X) {
 | `slot()` for async content in render chain | `dynamic()` — slot can cause DOM placement issues |
 | `.add(prop)` for property with `writePermissionRequired` / `readPermissionRequired` | `.tag(prop.__, { config: { label: '', reserveLabelSpace: false } })` — bare `.add` skips PropertyBorder so the auth check never runs (3.27) |
 | `visibility: 'RO'` on model just to lock down a cell render | Route the cell through `prop.__` so model permission gate keeps working for admins (3.27) |
+| Per-variant colors hardcoded in `render()` / `factory:` for a variant-derived color | Tokens on the enum values + `expression: function(variant)` — follows the variant, still caller-overridable (3.31) |
+| `callIf(this.reactiveProp, ...)` for something that changes after render | `enableClass(cls, slot)` / `show(slot)` / `add(slot.map(...))` — `callIf` runs once (3.31) |
+| `cssTokens:` color entry without `class: 'foam.u2.ColorToken'` | Declare the class — a bare `CSSToken` has an empty `variantKey`, so a theme's dark override never matches (3.31) |
+| `MyView.create({ someCssToken: ... })` to retune a color per instance | `cssTokens` are class constants; per-instance control is a property + `enableClass` (3.31) |
 
 ---
 
@@ -1535,6 +1553,190 @@ Gotchas:
 - Guard unset values before appending separators — `.add(' | ', value?.toString())` leaves a dangling separator for records that predate the field; the read-only DateTime view renders a `"yyyy-mm-dd hh:mm"` placeholder for null (`RODateTimeView.js:48-49`).
 - Never bake a server-side `toString()` into a persisted String (Java `Date.toString()` = server TZ, unreformattable later). Persist the typed prop, format at render; fixed `SimpleDateFormat("yyyy-MM-dd")` only as a last resort for string payloads.
 
+### 3.29 Section Name vs Property Name Collision
+
+A section is an axiom with a `name` (`foam3/src/foam/layout/SectionAxiom.js:9-14`), and a section resolves its members with `cls.getAxiomByName` (`foam3/src/foam/layout/Section.js:165`, `:173`) — one name-keyed map, so section `products` and property `products` fight for the same slot and the section may not render. Use a unique section name (e.g. `binProducts` with `title: 'Products'`).
+
+### 3.30 Conditional Sections
+
+- `RELATIONSHIP sourceProperty` can set `section` to place a DAOBrowser in a specific tab — it is passed as `propertyOverrides` onto the generated property (`foam3/src/foam/dao/Relationship.js:246`)
+- Property-level `visibility` conditionally shows/hides fields within a section (3.13)
+- For conditional tabs: a dedicated section with the toggle property and its dependent fields together
+
+### 3.31 Variant Components — Named Style Presets
+
+**When**: any 1.4 answer was yes. A **variant** is a named preset (SUCCESS, ERROR, WARN, ...) the caller picks with one property instead of passing raw colors.
+
+**The pattern** has three layers:
+
+1. **The enum carries the tokens** — each value holds `$token` strings (`color`, `background`, optionally `glyph`). Never hex; tokens come from `foam3/src/foam/u2/CSSTokens.js` (3.2).
+2. **Color properties derive from the enum via `expression`** — every visual knob follows the variant by default and stays overridable per instance.
+3. **`render()` adds a per-variant CSS class** — `this.myClass(this.variant)` emits `.<pkg>-<Class>-WARN`, so a parent can restyle one variant without touching the component.
+
+In-tree examples, read before writing:
+
+| Example | File | Shows |
+|---|---|---|
+| InlineNotificationMessage | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js:19-54, 73-111, 157` | Token enum with `glyph`, icon built as a spec from the variant, manual token resolution, an `UNSTYLED` value |
+| Button | `foam3/src/foam/u2/tag/Button.js:498-523` | Reactive variant class via `addClass(this.slot(...))`, per-variant `css:` blocks |
+| Tabs | `foam3/src/foam/u2/Tabs.js:75-85` | `cssTokens:` — the theme-level knob, not the per-instance one |
+
+#### 1. The enum (same file, above the class)
+
+```javascript
+foam.ENUM({
+  package: 'myapp.ui',
+  name: 'StatusCardStyle',
+  values: [
+    { name: 'UNSTYLED', color: '$textDefault',    background: '$backgroundSecondary' },
+    { name: 'DEFAULT',  color: '$textBrand',      background: '$primary50' },
+    { name: 'SUCCESS',  color: '$success600',     background: '$success50' },
+    { name: 'ERROR',    color: '$destructive500', background: '$destructive50' },
+    { name: 'WARN',     color: '$warn700',        background: '$warn50' }
+  ]
+});
+```
+
+- Pair tokens the way sibling variants do: `$success600` text on a `$success50` surface. Semantic aliases over raw scales (3.2).
+- Always include `UNSTYLED` (the neutral escape hatch for callers embedding the view on an already-colored surface) and `DEFAULT`. `InlineNotificationStyles` has both (`InlineNotificationMessage.js:23-53`).
+- Extra per-variant data is fine — `InlineNotificationStyles` adds `glyph:` (`InlineNotificationMessage.js:19-54`).
+
+#### 2. The properties
+
+```javascript
+properties: [
+  {
+    class: 'Enum',
+    of: 'myapp.ui.StatusCardStyle',
+    name: 'variant',
+    value: 'DEFAULT'          // a string is fine; FOAM resolves it to the enum value
+  },
+  {
+    class: 'Color',
+    name: 'accentColor',
+    documentation: 'Defaults to the variant background; caller may override',
+    expression: function(variant) {
+      return ( variant && variant.background ) || '$backgroundDefault';
+    }
+  },
+  {
+    class: 'Color',
+    name: 'iconColor',
+    expression: function(variant) {
+      return ( variant && variant.color ) || '$textDefault';
+    }
+  }
+]
+```
+
+**Why `expression`, not `factory` or `value`**: an expression recomputes when `variant` changes, and stops the moment the caller sets the property — the generated factory only invalidates while the instance has no own value (`foam3/src/foam/lang/Property.js:127-137`, `:670`). That is the "preset with overrides" contract; a `factory` snapshots once and never follows the variant.
+
+**Why `class: 'Color'`**: it is a real property type (`foam3/src/foam/lang/types.js:851`) whose getter resolves a `$token` to a concrete color on read (`types.js:869-878`), so `.style({ color: this.iconColor$ })` and any child's plain color prop get a usable value. The raw token stays reachable as `iconColor$raw` (`types.js:879-883`).
+
+Name the color props for this component's roles (`accentColor` = surface, `iconColor` = foreground; yours might be `labelColor`, `borderColor`).
+
+#### 3. Render — static or reactive variant class
+
+```javascript
+function render() {
+  var self = this;
+  this
+    .addClass(this.myClass(), this.myClass(this.variant))  // static: variant fixed at create time
+    .style({ color: this.iconColor$ })                     // reactive: slot binds fine
+    .start().addClass(this.myClass('label'))
+      .add(this.label$)                                    // reactive text: the slot, not this.label
+    .end();
+}
+```
+
+`myClass(this.variant)` string-concatenates the enum, and `Enum.toString()` returns its `name` (`foam3/src/foam/lang/Enum.js:412`), so the class is `.<pkg>-<Class>-<VARIANT>`. Name the hook in the class `documentation:`. Multiple `.addClass()` arguments stack (`foam3/src/foam/u2/Element2.js:1144-1148`).
+
+**Static vs reactive — decide by who changes `variant`:**
+- Callers set it once at `.tag(...)` time (cards, banners): the static form above.
+- The same element's variant changes at runtime (status transitions, toggles): the static class goes stale. Use the Button form — a derived name property plus a slot-based class (`Button.js:498-505`, `:521-523`):
+
+```javascript
+{ name: 'styleClass_', expression: function(variant) { return variant.name.toLowerCase(); } }
+// render():
+this.addClass(this.slot(function(styleClass_) { return this.myClass(styleClass_); }));
+```
+
+Per-variant rules then live in the `css:` template, one `^<variant>` block each (`^primary` at `Button.js:128`, `^secondary` at `:176`). The two forms compose: keep `.addClass(this.myClass())` for the base class and add the variant class in a second `.addClass(slot)` call.
+
+#### 4. Layout variants (structure, not color)
+
+The presence of a prop can pick the layout — centre the header when there is no icon:
+
+```javascript
+.addClass(this.myClass('header'), this.myClass(this.icon ? 'align-space-between' : 'align-center'))
+.callIf(this.icon, function() { /* icon block */ })
+```
+
+`callIf` runs once (`foam3/src/foam/lang/Fluent.js:33`). Fine for construction-time props like `icon`; wrong for anything that changes later — those take `enableClass(cls, slot)`, `show(slot)` or `add(slot.map(...))`. `enableClass` takes a third `opt_negate` argument that inverts the slot (`foam3/src/foam/u2/Element2.js:1179-1181`), so `enableClass(self.myClass('no-icon'), self.icon$, true)` adds the class exactly when the icon is absent.
+
+#### 5. When a token has to become a concrete color string
+
+`$token` strings work as-is in `css:` templates, and a `class: 'Color'` property resolves them on read (step 2). Resolve by hand only when reading a token from somewhere untyped — an enum field, a plain String prop, an SVG fill, a data URL:
+
+```javascript
+foam.CSS.returnTokenValue(this.type.color, this.cls_, this.__subContext__)
+```
+
+`returnTokenValue` (`foam3/src/foam/lang/stdlib.js:1368`) passes non-token strings through unchanged. `InlineNotificationMessage.js:93-111` uses it in both an `expression` (derive from the variant) and an `adapt` (resolve a caller-supplied token) on untyped props.
+
+#### Theme-overridable knobs — `cssTokens:`
+
+A variant enum lets the **caller** pick a preset per instance. `cssTokens:` lets the **app or theme** retune the palette once for every instance. Pick by who needs to change the value:
+
+| Who changes it | Mechanism |
+|---|---|
+| Caller, per instance, from a named preset | Variant enum (steps 1-3) |
+| App or theme, once, for every instance | `cssTokens:` on the class |
+| Nobody — fixed part of the design | Plain `$globalToken` inline in `css:` |
+| Caller, per instance, boolean on/off | `Boolean` property + `enableClass` (3.24) |
+
+Declare each themable color as a `ColorToken`, never a bare `CSSToken`:
+
+```javascript
+cssTokens: [
+  {
+    class: 'foam.u2.ColorToken',   // required for color knobs — see below
+    name: 'tabActiveColor',
+    value: '$textBrandSecondary'   // may reference another token
+  }
+],
+css: `^active { color: $tabActiveColor; }`
+```
+
+In-tree example: `foam.u2.Tabs` (`foam3/src/foam/u2/Tabs.js:75-85`).
+
+**Why the `class:` line is load-bearing.** Without it the token silently loses dark-mode theming:
+- `getTokenValue` reads `variantKey` off the token axiom and looks up `theme.activeVariants[variantKey]` (`foam3/src/foam/core/theme/customisation/CSSTokenOverrideService.js:114-115`).
+- The `<token>-<variant>` override rows are prepended only when that lookup returned something (`:129-134`); otherwise just the flat override applies.
+- A bare `CSSToken` declares `variantKey` with no value, so it is `''` (`foam3/src/foam/u2/CSSToken.js:51-63`); `ColorToken` sets `value: 'color'` (`foam3/src/foam/u2/ColorToken.js:15-19`).
+
+The miss is invisible in review: both modes render right because `value: '$textBrandSecondary'` chains to a global `ColorToken` that has a dark variant. Only a theme trying to override `tabActiveColor-dark` finds its row ignored.
+
+Two consequences:
+- **Class-scoped, not per instance.** `installInClass` defines the token as a constant on the class (`CSSToken.js:86-97`), so `MyView.create({ tabActiveColor: ... })` does nothing. Per-instance control is a property + `enableClass`. The same name in two classes is two independent defaults.
+- **Derived states are lazy.** `ColorToken` adds `$name$hover` / `$active` / `$disabled` / `$foreground` as getters that run `LIGHTEN` / `FOREGROUND` only when a `css:` string references them (`ColorToken.js:48-82`). A non-color value like `transparent` is safe unless some CSS reads a derived form of it.
+
+**Override from an app**: subclass and redeclare the same `name` — `cssTokens` is an `AxiomArray` of `foam.u2.CSSToken` keyed on `name` (`foam3/src/foam/u2/CSSTokenModelRefinement.js:14-19`).
+
+#### Pluggable child views
+
+A caller-replaceable slot (row renderer, icon, inner content) is a `foam.u2.ViewSpec` property, not a hardcoded class — the forms, the optional-slot shape and `createView` are in Phase 5. Variant and ViewSpec compose: the variant can supply the spec. `InlineNotificationMessage`'s `icon` expression returns `{ class: 'foam.u2.tag.CircleIndicator', ... }` built from `type.glyph` (`InlineNotificationMessage.js:73-87`), and `render` does `.tag(self.icon)` (`:157`).
+
+#### Checklist for a new variant component
+
+- [ ] Enum values use `$tokens`, include `UNSTYLED` + `DEFAULT`
+- [ ] Every derived visual prop is `class: 'Color'` with `expression(variant)` — caller-overridable
+- [ ] `myClass(variant)` class added
+- [ ] Reactive bits use slots (`enableClass` / `show` / `addClass(slot)`), not `callIf`
+- [ ] Theme-tunable colors declared in `cssTokens:` with `class: 'foam.u2.ColorToken'`
+- [ ] Pluggable slots declared as `foam.u2.ViewSpec` with a sensible default
+- [ ] Usage reads as one line: `.tag(this.StatusCard, { title: ..., variant: 'WARN', value$: slot })`
+
 ---
 
 ## Reference Files
@@ -1552,6 +1754,10 @@ Gotchas:
 | Element API | `foam3/src/foam/u2/Element2.js` |
 | PropertyBorder (labels) | `foam3/src/foam/u2/PropertyBorder.js` |
 | CSS Tokens (colors, weights, sizes) | `foam3/src/foam/u2/CSSTokens.js` |
+| `cssTokens:` axiom — `ColorToken` (dark-mode `variantKey`) vs bare `CSSToken` | `foam3/src/foam/u2/ColorToken.js`, `foam3/src/foam/u2/CSSToken.js` |
+| ViewSpec (value forms, `createView`) | `foam3/src/foam/u2/ViewSpec.js` |
+| Variant enum with `glyph`, icon built as a spec | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js` |
+| Reactive variant class (`styleClass_` + `addClass(slot)`) | `foam3/src/foam/u2/tag/Button.js` |
 | Global Typography Classes (`h100…h700`, `p`, `p-*`) | `foam3/src/foam/core/controller/Fonts.js` |
 | DisplayMode + restrictDisplayMode | `foam3/src/foam/u2/DisplayMode.js` |
 | ExpressionSlot | `foam3/src/foam/lang/Slot.js` |

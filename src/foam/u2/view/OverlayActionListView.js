@@ -43,6 +43,12 @@ foam.CLASS({
 
   properties: [
     {
+      // Recorders and a11y tools key on the button's name attribute; a plain
+      // Button renders name="" so the icon-only trigger had no stable selector.
+      name: 'name',
+      value: 'overlay'
+    },
+    {
       class: 'FObjectArray',
       of: 'foam.lang.FObject',
       name: 'data'

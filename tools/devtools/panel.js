@@ -8,13 +8,25 @@ try {
   if ( chrome.devtools.panels.themeName === 'dark' ) document.documentElement.classList.add('dark');
 } catch (e) {}
 
-var S = window.__foamSidebarCore, E = window.__foamWhyExplain;
+var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foamTreeCore;
 
-// All panel state in one object, one render(state) from it. A second tab,
-// when one exists, adds its own key and render function.
-// open: which collapsible sections are expanded, by key; survives re-renders
-// (Refresh, permission re-polls) because render rebuilds the DOM each time.
-var state = { why: null, pollsLeft: 0, open: {}, updated: null };
+// All panel state in one object, one render(state) from it.
+// tab: which tab is showing, remembered across panel reopens.
+// open: which Why sections are expanded, by key; expanded: which tree nodes,
+// by $UID. Both survive re-renders because render rebuilds the DOM each time.
+var TAB_KEY = 'foamDevtools.tab';
+var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
+              tree: null, treeError: null, expanded: new Set(), selected: null };
+
+function readTab() {
+  try { return localStorage.getItem(TAB_KEY) === 'tree' ? 'tree' : 'why'; } catch (e) { return 'why'; }
+}
+function setTab(tab) {
+  state.tab = tab;
+  try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
+  render(state);
+  if ( tab === 'tree' && ! state.tree ) loadTree();
+}
 
 // ---- DOM helpers (textContent only) ----
 function el(tag, cls, text) {
@@ -121,15 +133,69 @@ function renderWhy(w) {
   return root;
 }
 
+// ---- Tree tab ----
+function renderTree(st) {
+  var root = el('div');
+  if ( st.treeError ) { root.appendChild(el('div', 'err', st.treeError)); return root; }
+  if ( ! st.tree ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
+  if ( ! st.tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
+  if ( st.tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + st.tree.count + ' nodes (capped)'));
+  T.flatten(st.tree, st.expanded).forEach(function(r) {
+    var row = el('div', 'node' + ( r.uid === st.selected ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
+    row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
+    row.title = 'click to select — Elements, sidebar, Why and $v follow';
+    var tog = el('span', 'tog', r.hasKids ? ( r.open ? '▾' : '▸' ) : '');
+    if ( r.hasKids ) {
+      tog.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        if ( r.open ) st.expanded.delete(r.uid); else st.expanded.add(r.uid);
+        render(state);
+      });
+    }
+    row.appendChild(tog);
+    row.appendChild(el('span', 'cls', r.cls));
+    if ( r.binding ) row.appendChild(el('span', 'bind', r.binding));
+    if ( ! r.shown ) row.appendChild(el('span', 'muted', 'hidden'));
+    row.addEventListener('click', function() { selectRow(r.uid); });
+    root.appendChild(row);
+  });
+  return root;
+}
+
+// A row click is the same act as an Elements click: the page's selection
+// owner takes the element, then Elements reveals it and both tabs reload.
+function selectRow(uid) {
+  rpc('selectUid', [ JSON.stringify(uid) ]).then(function(r) {
+    if ( r.error ) { setStatus(r.error); return; }
+    state.selected = uid;
+    reveal(0);
+    refresh();
+  });
+}
+
+function loadTree() {
+  rpc('tree').then(function(r) {
+    if ( r.error || r.foam === false ) {
+      state.treeError = r.error || 'not a FOAM page'; state.tree = null; render(state); return;
+    }
+    state.treeError = null; state.tree = r.tree; state.selected = r.selected;
+    state.expanded = state.expanded.size ? T.pruneExpanded(state.expanded, r.tree) : T.defaultExpanded(r.tree, r.selected);
+    // a selection made elsewhere (Elements click) must be visible: open its ancestors
+    T.pathTo(r.tree, r.selected).slice(0, -1).forEach(function(u) { state.expanded.add(u); });
+    render(state);
+  });
+}
+
 function stamp() { return new Date().toTimeString().slice(0, 8); }
 
 function render(state) {
+  document.querySelectorAll('#tabs .tab').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === state.tab); });
   var root = document.getElementById('root');
   root.textContent = '';
-  root.appendChild(renderWhy(state.why));
+  root.appendChild(state.tab === 'tree' ? renderTree(state) : renderWhy(state.why));
   document.getElementById('status').textContent =
     state.pollsLeft ? 'waiting for permission checks…' :
-    state.why && state.why.error ? state.why.error :
+    state.why && state.why.error && state.tab === 'why' ? state.why.error :
     state.updated ? 'updated ' + state.updated : '';
   // A short highlight so a refresh that changes nothing is still visibly a refresh.
   root.classList.remove('flash'); void root.offsetWidth; root.classList.add('flash');
@@ -153,7 +219,13 @@ function loadWhy() {
     render(state);
   });
 }
-function refresh() { state.pollsLeft = 3; loadWhy(); }
+// Both tabs reload together: the Why tab always (it re-polls pending
+// permission checks), the tree only while it is showing.
+function refresh() {
+  state.pollsLeft = 3;
+  loadWhy();
+  if ( state.tab === 'tree' ) loadTree();
+}
 function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
 
 // Follow the app: poll the route + stack position once a second while the
@@ -169,5 +241,8 @@ function watchScreen() {
 setInterval(watchScreen, 1000);
 document.addEventListener('visibilitychange', function() { if ( document.visibilityState === 'visible' ) { lastKey = null; watchScreen(); } });
 
+document.querySelectorAll('#tabs .tab').forEach(function(b) {
+  b.addEventListener('click', function() { setTab(b.dataset.tab); });
+});
 document.getElementById('refresh').addEventListener('click', refresh);
 refresh();

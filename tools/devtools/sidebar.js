@@ -32,6 +32,7 @@ function mapLine(s) {
 }
 
 function bindingText(l) {
+  if ( l.view ) return 'bound to ' + S.shortName(l.view);
   if ( l.dao ) return l.dao.key ? 'dao ' + l.dao.key : ( l.dao.of ? 'dao of ' + S.shortName(l.dao.of) : 'dao' );
   if ( l.data ) {
     var s = S.shortName(l.data.cls);

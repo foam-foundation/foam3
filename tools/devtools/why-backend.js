@@ -48,19 +48,54 @@
 
   function str(v, max) { var s = String(v); return s.length > max ? s.slice(0, max) + '…' : s; }
 
+  var P = window.__foamShapers;
+
+  // What the panel polls to notice navigation: the route plus the stack
+  // position (a push/back within the same hash still changes pos).
+  D.register('screenKey', function() {
+    if ( ! D.foamReady() ) return { foam: false };
+    var pos = -1;
+    try { pos = ctrl.stack ? ctrl.stack.pos : -1; } catch (e) {}
+    return { key: location.hash + '|' + pos };
+  });
+
+  // The record the panel should explain, in priority: an Elements selection
+  // whose DOM node is still in the document (the selection's element keeps
+  // element_ after detach, Element2.js:733-738), else the record the current
+  // screen is about (the detail view under the navigation stack's current
+  // view), else nothing.
+  function target() {
+    var sel = D.selection;
+    try {
+      if ( sel && sel.data && sel.view && sel.view.element_ && sel.view.element_.isConnected ) {
+        return { data: sel.data, view: sel.view, dao: sel.dao, mode: sel.mode, source: 'selection' };
+      }
+    } catch (e) {}
+    var root = null;
+    try { root = ( ctrl.stack && ctrl.stack.current ) || ctrl; } catch (e) { root = ctrl; }
+    var found = P.findScreenViews(root, { isDAO: P.isDAO });
+    if ( found.record ) {
+      var v = found.record.view, dao = null;
+      try { dao = ( v.config && P.isDAO(v.config.dao) ) ? v.config.dao : null; } catch (e) {}
+      return { data: found.record.data, view: v, dao: dao, mode: P.modeOf(v) || ( v.instance_ && v.instance_.controllerMode && v.instance_.controllerMode.name ) || null, source: 'screen' };
+    }
+    if ( found.table ) return { table: found.table, source: 'screen' };
+    return null;
+  }
+
   D.register('why', function() {
     if ( ! D.foamReady() ) return { foam: false };
-    var sel = D.selection;
-    if ( ! sel || ! sel.data ) return { error: 'no record selected — select an element inside a form or table in Elements' };
-    var data = sel.data, cls = data.cls_;
-    // The selection's DOM node keeps element_ after detach (Element2.js:733-738),
-    // so a stack push/back leaves a record that is no longer on screen.
-    try {
-      var dom = sel.view && sel.view.element_;
-      if ( dom && ! dom.isConnected ) return { error: 'selection is no longer on screen — reselect in Elements' };
-    } catch (e) {}
+    var t = target();
+    if ( ! t ) return { error: 'no record on this screen — open a record, or select one of its elements in Elements' };
+    if ( t.table ) {
+      var of = t.table.dao.of;
+      return { error: 'this screen is a table of ' + ( of ? of.id : 'records' ) + ' — open a record, or select a row in Elements' };
+    }
+    D.selection = { data: t.data, view: t.view, dao: t.dao, mode: t.mode };
+    window.$d = t.data;
+    var data = t.data, cls = data.cls_;
     // No controllerMode in scope is what FOAM turns into CREATE (Element2.js:569).
-    var mode = sel.mode || null, modeName = mode || 'CREATE';
+    var mode = t.mode || null, modeName = mode || 'CREATE';
 
     var properties = cls.getAxiomsByClass(foam.lang.Property).map(function(p) {
       try { return W.propGate(p, modeName, data, env); }
@@ -99,7 +134,7 @@
     try { summary = typeof data.toSummary === 'function' ? str(data.toSummary(), 60) : null; } catch (e) {}
 
     return {
-      cls: cls.id, id: id, summary: summary || null, mode: modeName, modeDefaulted: ! mode,
+      cls: cls.id, id: id, summary: summary || null, mode: modeName, modeDefaulted: ! mode, source: t.source,
       properties: properties, validation: validation, actions: actions, sections: sections,
       permissions: permissions, pending: pending
     };

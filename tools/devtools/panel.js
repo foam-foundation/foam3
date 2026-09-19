@@ -51,12 +51,13 @@ var MODE_ORDER = { HIDDEN: 0, RO: 1, DISABLED: 2, ERR: 3, pending: 4, RW: 5 };
 
 function renderWhy(w) {
   var root = el('div');
-  if ( ! w ) { root.appendChild(el('div', 'muted', 'select an element in the Elements tab, then Refresh')); return root; }
+  if ( ! w ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
   if ( w.error ) { root.appendChild(el('div', 'err', w.error)); return root; }
   if ( w.foam === false ) { root.appendChild(el('div', null, 'not a FOAM page')); return root; }
 
   var head = S.shortName(w.cls) + ( w.id ? ' #' + w.id : '' ) + ( w.summary ? ' — ' + w.summary : '' ) +
              '   mode ' + w.mode + ( w.modeDefaulted ? ' (none in scope → FOAM default)' : '' ) +
+             ( w.source === 'selection' ? '   (from Elements selection)' : '   (record on screen)' ) +
              ( w.pending ? '   ' + w.pending + ' permission check(s) pending' : '' );
   var rec = el('div', 'record', head);
   var openBtn = el('button', null, 'Open in FOAM');
@@ -150,6 +151,19 @@ function loadWhy() {
 }
 function refresh() { state.pollsLeft = 3; loadWhy(); }
 function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
+
+// Follow the app: poll the route + stack position once a second while the
+// panel is visible and reload when it changes, so opening a record in the
+// app is enough — no Elements click, no Refresh.
+var lastKey = null;
+function watchScreen() {
+  if ( document.visibilityState !== 'visible' ) return;
+  rpc('screenKey').then(function(r) {
+    if ( r && r.key !== undefined && r.key !== lastKey ) { lastKey = r.key; refresh(); }
+  });
+}
+setInterval(watchScreen, 1000);
+document.addEventListener('visibilitychange', function() { if ( document.visibilityState === 'visible' ) { lastKey = null; watchScreen(); } });
 
 document.getElementById('refresh').addEventListener('click', refresh);
 refresh();

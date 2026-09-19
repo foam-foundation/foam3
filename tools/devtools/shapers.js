@@ -87,9 +87,12 @@
   // view), a property (PropertyBorder, ValueView). Each read is guarded so a
   // throwing getter degrades to null instead of losing the whole stack.
   exports.layerOf = function(el) {
-    var layer = { cls: el.cls_.id, dao: null, data: null, prop: null, modes: null };
+    var layer = { cls: el.cls_.id, dao: null, data: null, view: null, prop: null, modes: null };
     var d = exports.dataOf(el);
-    if ( d && exports.isDAO(d) ) {
+    if ( d && Array.isArray(d.childNodes) ) {
+      // bound to another u2 element (ActionView under startContext({ data: self }))
+      layer.view = d.cls_.id;
+    } else if ( d && exports.isDAO(d) ) {
       var key = null;
       try { key = ( el.config && el.config.daoKey ) ? String(el.config.daoKey) : null; } catch (e) {}
       layer.dao = { of: ( d.of && d.of.id ) ? d.of.id : null, key: key };
@@ -172,6 +175,34 @@
     if ( inst.currentData_ && inst.currentData_.cls_ ) return inst.currentData_;
     if ( inst.workingData && inst.workingData.cls_ ) return inst.workingData;
     return null;
+  };
+
+  // The record the current screen is about, with no selection at all: walk
+  // the u2 tree under root (the navigation stack's current view) and return
+  // the first detail-type view — one holding currentData_/workingData
+  // (comics v3 / v2 edit) or a record plus a comics config (v2 summary).
+  // Second value: the first DAO-bound view with a config, for table screens.
+  exports.findScreenViews = function(root, env) {
+    var stack = [ root ], seen = new Set(), walked = 0, record = null, table = null;
+    while ( stack.length && walked < 20000 ) {
+      var el = stack.pop();
+      if ( ! el || ! el.cls_ || seen.has(el) ) continue;
+      seen.add(el); walked++;
+      if ( ! record ) {
+        var held = exports.recordOfView(el);
+        var d = held ? null : exports.dataOf(el);
+        if ( held ) record = { view: el, data: held };
+        else if ( d && ! env.isDAO(d) && el.config && el.config.dao ) record = { view: el, data: d };
+        else if ( d && env.isDAO(d) && ! table && el.config ) table = { view: el, dao: d };
+      }
+      if ( record ) break;
+      var kids = el.childNodes || [];
+      // push in reverse so the first child is visited first (DFS, document order)
+      for ( var i = kids.length - 1 ; i >= 0 ; i-- ) if ( kids[i] && kids[i].cls_ ) stack.push(kids[i]);
+      var n = el.instance_ && el.instance_.node;
+      if ( n && n.cls_ ) stack.push(n);
+    }
+    return { record: record, table: table };
   };
 
   exports.pickRecord = function(stack, env) {

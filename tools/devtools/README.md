@@ -71,12 +71,18 @@ inspected page").
 
 ## The Why tab
 
-Select a node inside a form or table in Elements (the sidebar's `$d` is the
-record), open the **FOAM** panel, press **Refresh**. Six blocks:
+Open a record in the app, open the **FOAM** panel: it explains the record on
+screen, and follows you — the panel polls the route and stack position once a
+second and reloads when they change. No Elements click needed. Selecting a
+node inside a form or table in Elements overrides that (the sidebar's `$d`)
+for as long as the node stays on screen; **Refresh** re-reads either way. On
+a table screen the panel says "table of <Class>" until you open a row. Six
+blocks:
 
-1. **Record** — class, id, summary, the `controllerMode` in force where you
-   clicked (read from the context, the way FOAM's own views get it; "none in
-   scope → FOAM default" means CREATE by `Element2.js:569`).
+1. **Record** — class, id, summary, where it came from ("record on screen"
+   or "from Elements selection"), and the `controllerMode` in force (read
+   from the context, the way FOAM's own views get it; "none in scope → FOAM
+   default" means CREATE by `Element2.js:569`).
 2. **Fields (N not RW)** — every property that is not read-write, with the
    step of FOAM's visibility ladder that decided it (`createVisibilityFor`
    in `foam.u2.Element2`): `readVisibility → RO`, `visibility function →
@@ -176,7 +182,7 @@ passes no arguments.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 30 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 37 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
@@ -202,10 +208,12 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 15 passed
 
 ### Smoke checklist — Why tab
 
-4. **Fields + validation.** Select a field inside a detail view → FOAM panel
-   → Refresh. Record line names the record and its mode; Fields lists the
-   hidden/RO ones with a reason; on a create form with a required field
-   empty, Validation shows it with the "Please enter valid …" message.
+4. **Fields + validation.** Open any record (e.g. `#admin.data/userDAO/1`)
+   → FOAM panel. Without touching Elements, the Record line names the record
+   and its mode within a second; navigate to another record → it follows.
+   Fields lists the hidden/RO ones with a reason; on a create form with a
+   required field empty, Validation shows it with the "Please enter valid …"
+   message.
 5. **Permissions.** On a record whose model has a `writePermissionRequired`
    property, the why column names `<cls>.rw.<prop>` and Permissions checked
    lists it with ✓ or ✗ (may show `…` for one re-poll).

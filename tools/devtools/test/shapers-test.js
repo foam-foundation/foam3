@@ -120,6 +120,21 @@ t(pr.data === orig && pr.view.cls_.id === 'foam.u2.ActionView', 'pickRecord: hea
 v3.instance_.currentData_ = work;
 t(P.recordOfView(v3) === work, 'recordOfView: currentData_ (v3) beats workingData (v2)');
 t(P.recordOfView(u2('x')) === null, 'recordOfView: plain view -> null');
+t(P.layerOf(u2('foam.u2.ActionView', { data: v3 })).view === 'foam.comics.v3.DetailView', 'layerOf: element-bound data reported as view, not data');
+
+// findScreenViews
+var screenDao = fakeDao;
+var tableView = u2('foam.comics.v2.DAOBrowseControllerView', { data: screenDao, config: { dao: screenDao } });
+var v3detail = u2('foam.comics.v3.DetailView', { instance_: { currentData_: orig } });
+var border = u2('foam.u2.borders.NullBorder', { childNodes: [ v3detail ] });
+var stackRoot2 = u2('foam.core.u2.navigation.Stack', { childNodes: [ u2('foam.u2.Element', { childNodes: [ border ] }) ] });
+var sv = P.findScreenViews(stackRoot2, env());
+t(sv.record && sv.record.data === orig && sv.record.view === v3detail, 'findScreenViews: finds the v3 detail view under the stack');
+sv = P.findScreenViews(u2('root', { childNodes: [ tableView ] }), env());
+t(sv.record === null && sv.table && sv.table.dao === screenDao, 'findScreenViews: table screen -> no record, table reported');
+var v2summary = u2('foam.comics.v2.DAOSummaryView', { data: orig, config: { dao: screenDao } });
+sv = P.findScreenViews(u2('root', { childNodes: [ v2summary ] }), env());
+t(sv.record && sv.record.data === orig, 'findScreenViews: v2 summary view (record + config) counts as a record screen');
 var group = { cls_: { id: 'com.x.Group' }, id: 7 };
 pr = P.pickRecord([
   u2('foam.u2.view.ReferenceCitationView', { data: group, ctxObjData: user }),

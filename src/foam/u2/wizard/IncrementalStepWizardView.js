@@ -234,8 +234,8 @@ foam.CLASS({
                 .start(this.CircleIndicator, {
                   label: 'X',
                   borderThickness: 2,
-                  borderColor: this.theme.grey2,
-                  borderColorHover: this.theme.primary1,
+                  borderColor: foam.CSS.returnTokenValue('$borderDefault', this.cls_, this.__subContext__),
+                  borderColorHover: foam.CSS.returnTokenValue('$borderBrand', this.cls_, this.__subContext__),
                   clickable: true
                 })
                 .on('click', () => this.showExitPrompt())

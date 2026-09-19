@@ -46,15 +46,32 @@ var root2 = u2('com.x.Root2', { element_: rootDom, childNodes: [ slotHolder ] })
 var r5 = P.resolveOwner(root2, slotDom);
 t(r5.el === slotNode, 'resolveOwner: walks instance_.node children (SlotNode)');
 
-// dataOwner
-var rec = { cls_: { id: 'com.x.Rec' } };
-var withData = u2('com.x.DetailView', { instance_: { data: rec } });
-t(P.dataOwner(withData) === rec, 'dataOwner: data on the named owner itself');
-var input = u2('com.x.Input', { parentNode: u2('com.x.Border', { parentNode: withData }) });
-t(P.dataOwner(input) === rec, 'dataOwner: climbs parentNode to an ancestor with data');
-var deep = u2('com.x.L0'), cur = deep;
-for ( var i = 1 ; i <= 16 ; i++ ) { var p = u2('com.x.L' + i); cur.parentNode = p; cur = p; }
-cur.data = rec;
-t(P.dataOwner(deep) === null, 'dataOwner: gives up after 15 hops');
+// namedStack
+var stackRoot = u2('com.x.Root');
+var stackView = u2('com.x.MyView', { parentNode: stackRoot });
+var stackSlot = u2('foam.u2.SlotNode', { parentNode: stackView });
+var stackEl   = u2('foam.u2.Element', { parentNode: stackSlot });
+var st = P.namedStack(stackEl);
+t(st.length === 2 && st[0] === stackView && st[1] === stackRoot, 'namedStack: wrappers skipped, deepest first');
+t(P.namedStack(stackRoot).length === 1 && P.namedStack(stackRoot)[0] === stackRoot, 'namedStack: root alone');
+
+// isDAO
+var fakeDao = { cls_: { id: 'foam.dao.ProxyDAO' }, of: { id: 'com.x.Rec' }, select: function() {}, find: function() {}, put: function() {} };
+t(P.isDAO(fakeDao) === true, 'isDAO: select/find/put functions -> true');
+t(P.isDAO({ cls_: { id: 'com.x.Rec' } }) === false, 'isDAO: plain FObject -> false');
+
+// layerOf
+var ctrlLayer = P.layerOf(u2('foam.comics.v2.DAOBrowseControllerView', { data: fakeDao, config: { daoKey: 'recDAO' } }));
+t(ctrlLayer.dao && ctrlLayer.dao.of === 'com.x.Rec' && ctrlLayer.dao.key === 'recDAO' && ctrlLayer.data === null,
+  'layerOf: DAO-bound layer reports of + config.daoKey');
+var rec = { cls_: { id: 'com.x.Rec' }, id: 123, toSummary: function() { return 'Ajeet Gill'; } };
+var rowLayer = P.layerOf(u2('foam.u2.table.UnstyledTableRow', { data: rec }));
+t(rowLayer.data && rowLayer.data.cls === 'com.x.Rec' && rowLayer.data.id === '123' && rowLayer.data.summary === 'Ajeet Gill' && rowLayer.dao === null,
+  'layerOf: FObject-bound layer reports cls + id + summary');
+var propLayer = P.layerOf(u2('foam.u2.PropertyBorder', { prop: { name: 'email' }, instance_: { data: rec } }));
+t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + data from instance_.data');
+var badRec = { cls_: { id: 'com.x.Bad' }, toSummary: function() { throw new Error('nope'); } };
+var badLayer = P.layerOf(u2('com.x.V', { data: badRec }));
+t(badLayer.data.summary === null && badLayer.data.id === null, 'layerOf: throwing toSummary / unset id -> nulls, no throw');
 
 console.log('shapers-test:', passes, 'passed');

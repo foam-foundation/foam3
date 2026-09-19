@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FOAM DevTools",
-  "version": "2.0.0",
-  "description": "Elements sidebar for FOAM3 apps: which u2 view, data object and mode own the selected node.",
+  "version": "2.1.0",
+  "description": "Elements sidebar for FOAM3 apps: the u2 view stack above the selected node, what each view binds, and a FOAM path.",
   "devtools_page": "devtools.html",
   "content_scripts": [
     {

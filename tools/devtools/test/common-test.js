@@ -16,5 +16,7 @@ t(C.rpcExpr('inspect', [ '$0' ]) ===
 t(C.rpcExpr('ping') ===
   'window.__foamDevtools ? window.__foamDevtools.call("ping") : ' + FALLBACK,
   'rpcExpr: no args -> call(name) only');
+t(C.revealExpr('3') === 'inspect(window.__foamDevtools.node(3))' && C.revealExpr('x') === 'inspect(window.__foamDevtools.node(0))',
+  'revealExpr: integer index only, anything else becomes 0');
 
 console.log('common-test:', passes, 'passed');

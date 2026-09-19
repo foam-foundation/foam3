@@ -59,16 +59,51 @@
     return null;
   };
 
-  // The data object is normally on the named owner, but a bare input inside a
-  // PropertyBorder inherits it from an ancestor: climb up to 15 parents.
-  exports.dataOwner = function(named) {
-    var cur = named, hops = 0;
-    while ( cur && cur.cls_ && hops < 15 ) {
-      var data = exports.dataOf(cur);
-      if ( data ) return data;
-      try { cur = cur.parentNode; } catch (e) { return null; }
+  // Every non-wrapper element from el up to the root, deepest first. This is
+  // the "component stack" the sidebar renders: one row per view a developer
+  // wrote, wrappers folded away.
+  exports.namedStack = function(el) {
+    var out = [], cur = el, hops = 0;
+    while ( cur && cur.cls_ && hops < 200 ) {
+      if ( ! exports.isWrapper(cur.cls_.id) ) out.push(cur);
+      try { cur = cur.parentNode; } catch (e) { break; }
       hops++;
     }
-    return null;
+    return out;
+  };
+
+  // DAOs are FObjects too (ProxyDAO has cls_), so the class alone can't tell
+  // a bound DAO from a bound record; the three DAO methods can.
+  exports.isDAO = function(v) {
+    return !! v && typeof v.select === 'function' && typeof v.find === 'function' && typeof v.put === 'function';
+  };
+
+  function str(v, max) {
+    var s = String(v);
+    return s.length > max ? s.slice(0, max) + '…' : s;
+  }
+
+  // What one layer binds: a DAO (table, controller), a record (row, detail
+  // view), a property (PropertyBorder, ValueView). Each read is guarded so a
+  // throwing getter degrades to null instead of losing the whole stack.
+  exports.layerOf = function(el) {
+    var layer = { cls: el.cls_.id, dao: null, data: null, prop: null, modes: null };
+    var d = exports.dataOf(el);
+    if ( d && exports.isDAO(d) ) {
+      var key = null;
+      try { key = ( el.config && el.config.daoKey ) ? String(el.config.daoKey) : null; } catch (e) {}
+      layer.dao = { of: ( d.of && d.of.id ) ? d.of.id : null, key: key };
+    } else if ( d ) {
+      var id = null, summary = null;
+      try { id = ( d.id !== undefined && d.id !== null && d.id !== '' && d.id !== 0 ) ? str(d.id, 40) : null; } catch (e) {}
+      try { summary = typeof d.toSummary === 'function' ? str(d.toSummary(), 60) : null; } catch (e) {}
+      layer.data = { cls: d.cls_.id, id: id, summary: summary || null };
+    }
+    try { if ( el.prop && el.prop.name ) layer.prop = String(el.prop.name); } catch (e) {}
+    function modeName(v) { return v && v.name ? v.name : ( v === undefined ? null : String(v) ); }
+    try {
+      layer.modes = { controllerMode: modeName(el.controllerMode), displayMode: modeName(el.displayMode) };
+    } catch (e) { layer.modes = { error: str(e.message, 40) }; }
+    return layer;
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamShapers = {} ));

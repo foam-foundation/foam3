@@ -41,7 +41,19 @@
 
   function rpc(name, argExprs) { return foamEval(rpcExpr(name, argExprs)); }
 
-  exports.foamEval = foamEval;
-  exports.rpcExpr  = rpcExpr;
-  exports.rpc      = rpc;
+  // Reveal a stack layer's DOM node in the Elements tab. Chrome's inspect()
+  // is a Command Line API function that only exists inside inspectedWindow
+  // .eval, so the call is composed here; node(i) is the backend's one raw
+  // (non-JSON) accessor. inspect(undefined) is a no-op, so a stale index is
+  // harmless. The index is coerced to an integer so nothing else can be
+  // spliced into the expression.
+  function revealExpr(i) { return 'inspect(window.__foamDevtools.node(' + ( parseInt(i, 10) || 0 ) + '))'; }
+
+  function reveal(i) { return foamEval(revealExpr(i)); }
+
+  exports.foamEval   = foamEval;
+  exports.rpcExpr    = rpcExpr;
+  exports.rpc        = rpc;
+  exports.revealExpr = revealExpr;
+  exports.reveal     = reveal;
 })(typeof module !== 'undefined' ? module.exports : window);

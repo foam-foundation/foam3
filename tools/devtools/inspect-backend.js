@@ -4,9 +4,9 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Registers the two methods the Elements sidebar needs. Browser-only glue:
-// the walk itself is in shapers.js (tested); this adds FOAM readiness, timing
-// and the response shape.
+// Registers the methods the Elements sidebar needs. Browser-only glue: the
+// walk and the per-layer shaping are in shapers.js (tested); this adds FOAM
+// readiness, timing, the response shape and the page-side selection state.
 (function() {
   var D = window.__foamDevtools, P = window.__foamShapers;
 
@@ -15,9 +15,10 @@
     return { foam: ready, classes: ready ? Object.keys(foam.__context__.__cache__).length : 0 };
   });
 
-  // controllerMode / displayMode are enums with a .name; unset reads as
-  // undefined on the element and is reported as null.
-  function modeName(v) { return v && v.name ? v.name : ( v === undefined ? null : String(v) ); }
+  // The last resolved stack, deepest first. Kept so the panel can ask for a
+  // layer's DOM node by index (node(i), below) and so the console gets $v/$d
+  // — the panel cannot hold page objects, only the page can.
+  var lastStack = [];
 
   D.register('inspect', function(node) {
     if ( ! D.foamReady() ) return { foam: false };
@@ -25,20 +26,25 @@
     var t0 = performance.now();
     var r  = P.resolveOwner(window.ctrl, node);
     var mapStats = { walked: r.walked, withDom: r.withDom, ms: Math.round((performance.now() - t0) * 10) / 10 };
-    if ( ! r.el ) return { owner: null, mapStats: mapStats };
-    var named = P.namedOwner(r.el);
-    var data  = P.dataOwner(named);
-    var modes;
-    try {
-      modes = { controllerMode: modeName(named.controllerMode), displayMode: modeName(named.displayMode) };
-    } catch (e) { modes = { error: String(e.message).slice(0, 40) }; }
-    return {
-      owner: {
-        cls: r.el.cls_.id,
-        named: { cls: named.cls_.id, dataCls: data ? data.cls_.id : null },
-        modes: modes
-      },
-      mapStats: mapStats
-    };
+    lastStack = r.el ? P.namedStack(r.el) : [];
+    var stack = lastStack.map(P.layerOf);
+    // Console handles, like React DevTools' $r: the selected view and the
+    // nearest data object above it (a bare input has none of its own).
+    window.$v = lastStack[0] || undefined;
+    window.$d = undefined;
+    for ( var i = 0 ; i < lastStack.length ; i++ ) {
+      var d = P.dataOf(lastStack[i]);
+      if ( d && ! P.isDAO(d) ) { window.$d = d; break; }
+    }
+    return { stack: stack, mapStats: mapStats };
   });
+
+  // The one raw accessor outside the JSON contract: returns a live DOM node so
+  // the panel can evaluate inspect(node(i)) and have Chrome reveal it in the
+  // Elements tab. Installed directly, not via register(), so call() never
+  // hands out a non-JSON value.
+  D.node = function(i) {
+    var el = lastStack[i];
+    return el ? el.element_ : undefined;
+  };
 })();

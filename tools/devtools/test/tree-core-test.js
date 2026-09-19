@@ -54,4 +54,9 @@ t(d1.has(3) && d1.has(4) && ! d1.has(5), 'defaultExpanded: ancestors of the sele
 var pruned = T.pruneExpanded(new Set([ 1, 2, 42 ]), tree);
 t(pruned.size === 2 && pruned.has(1) && pruned.has(2) && ! pruned.has(42), 'pruneExpanded: uids gone from the tree dropped');
 
+var eff = T.effectiveExpanded(tree, null, new Set([ 4 ]), new Set([ 2 ]));
+t(eff.has(1) && eff.has(6) && eff.has(4) && ! eff.has(2), 'effectiveExpanded: defaults + opened - closed');
+var late = { root: N(1, 'a', [ N(2, 'b', [ N(7, 'late', [ N(8, 'kid') ]) ]) ]) };
+t(T.effectiveExpanded(late, null, new Set(), new Set()).has(7), 'effectiveExpanded: a node that appeared after the first poll starts open');
+
 console.log('tree-core-test:', passes, 'passed');

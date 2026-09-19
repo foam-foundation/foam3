@@ -12,11 +12,13 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foam
 
 // All panel state in one object, one render(state) from it.
 // tab: which tab is showing, remembered across panel reopens.
-// open: which Why sections are expanded, by key; expanded: which tree nodes,
-// by $UID. Both survive re-renders because render rebuilds the DOM each time.
+// open: which Why sections are expanded, by key. opened/closed: the tree
+// nodes the user toggled, by $UID; expanded is derived from them plus the
+// defaults on every snapshot. All survive re-renders because render rebuilds
+// the DOM each time.
 var TAB_KEY = 'foamDevtools.tab';
 var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
-              tree: null, treeError: null, expanded: new Set(), selected: null };
+              tree: null, treeError: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null };
 
 function readTab() {
   try { return localStorage.getItem(TAB_KEY) === 'tree' ? 'tree' : 'why'; } catch (e) { return 'why'; }
@@ -148,7 +150,8 @@ function renderTree(st) {
     if ( r.hasKids ) {
       tog.addEventListener('click', function(ev) {
         ev.stopPropagation();
-        if ( r.open ) st.expanded.delete(r.uid); else st.expanded.add(r.uid);
+        if ( r.open ) { st.closed.add(r.uid); st.opened.delete(r.uid); st.expanded.delete(r.uid); }
+        else          { st.opened.add(r.uid); st.closed.delete(r.uid); st.expanded.add(r.uid); }
         render(state);
       });
     }
@@ -179,9 +182,9 @@ function loadTree() {
       state.treeError = r.error || 'not a FOAM page'; state.tree = null; render(state); return;
     }
     state.treeError = null; state.tree = r.tree; state.selected = r.selected;
-    state.expanded = state.expanded.size ? T.pruneExpanded(state.expanded, r.tree) : T.defaultExpanded(r.tree, r.selected);
-    // a selection made elsewhere (Elements click) must be visible: open its ancestors
-    T.pathTo(r.tree, r.selected).slice(0, -1).forEach(function(u) { state.expanded.add(u); });
+    state.opened = T.pruneExpanded(state.opened, r.tree);
+    state.closed = T.pruneExpanded(state.closed, r.tree);
+    state.expanded = T.effectiveExpanded(r.tree, r.selected, state.opened, state.closed);
     render(state);
   });
 }

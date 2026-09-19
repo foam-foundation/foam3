@@ -66,5 +66,16 @@
     expanded.forEach(function(u) { if ( live.has(u) ) out.add(u); });
     return out;
   };
+
+  // What is open for this snapshot: the defaults (recomputed every time, so a
+  // detail view that rendered after the first poll, or a new screen, still
+  // starts open) plus the nodes the user opened, minus the ones the user
+  // closed. opened/closed are the user's toggles, kept across polls.
+  exports.effectiveExpanded = function(tree, selectedUid, opened, closed) {
+    var set = exports.defaultExpanded(tree, selectedUid);
+    opened.forEach(function(u) { set.add(u); });
+    closed.forEach(function(u) { set.delete(u); });
+    return set;
+  };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamTreeCore = {} ),
    typeof module !== 'undefined' ? require('./sidebar-core.js') : window.__foamSidebarCore);

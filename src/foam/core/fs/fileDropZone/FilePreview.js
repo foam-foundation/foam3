@@ -195,7 +195,7 @@ foam.CLASS({
         p.style.display    = 'block';
         p.style.height     = '100%';
         p.style.width      = '100%';
-      } else if ( data.mimeType === 'image/tiff' && await this.renderTiff_(url, div, image) ) {
+      } else if ( data.mimeType === 'image/tiff' && await this.renderTiff_(url, div, image, d && d.blob) ) {
         // Handled: every TIFF page rendered as its own canvas. A browser <img>
         // shows only the first IFD of a multi-page TIFF (or nothing at all), so
         // the remaining pages would otherwise be invisible.
@@ -209,11 +209,17 @@ foam.CLASS({
     // Decode and paint every page of a (multi-page) TIFF. Returns true when at
     // least one page was rendered; false on any failure so the caller falls back
     // to the single <img> path (which still shows page one where the browser can).
-    async function renderTiff_(url, div, image) {
+    async function renderTiff_(url, div, image, blob) {
       try {
         if ( ! await this.ensureUtif_() ) return false;
 
-        let buffer = await fetch(url, { credentials: 'include' }).then(r => r.arrayBuffer());
+        // Prefer the in-memory blob (inline file data) so we never fetch the
+        // object URL — a blob: fetch needs connect-src blob:, which the default
+        // policy omits. Only fall back to fetching when the file is remote (an
+        // address with no loaded data).
+        let buffer = blob
+          ? await blob.arrayBuffer()
+          : await fetch(url, { credentials: 'include' }).then(r => r.arrayBuffer());
         let pages  = UTIF.decode(buffer);
         if ( ! pages || ! pages.length ) return false;
 
@@ -247,13 +253,17 @@ foam.CLASS({
       }
     },
 
-    // Load UTIF (TIFF decoder) on demand. Its CDN URL is whitelisted in
-    // src/cspdirectives.jrl under the 'tiff' script-src key. installLib resolves
-    // even when the script fails to load, so confirm the global before use.
+    // Load UTIF (TIFF decoder) on demand. We use utif2, a maintained fork:
+    // the original utif@3.x mis-decodes 1-bit LZW TIFFs (the scanned-document
+    // format the schemes return) — it renders the first rows then desyncs into
+    // noise/black. utif2 keeps the same UTIF global and API. Its CDN URL is
+    // whitelisted in src/cspdirectives.jrl under the 'tiff' script-src key.
+    // installLib resolves even when the script fails to load, so confirm the
+    // global before use.
     async function ensureUtif_() {
       if ( typeof UTIF !== 'undefined' ) return true;
       await foam.u2.JsLib.create({
-        src: 'https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js'
+        src: 'https://cdn.jsdelivr.net/npm/utif2@4.1.0/UTIF.min.js'
       }).installLib();
       return typeof UTIF !== 'undefined';
     }

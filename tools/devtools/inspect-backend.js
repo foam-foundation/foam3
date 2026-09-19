@@ -33,7 +33,13 @@
     // factory). Shared with other backends (why-backend.js) as D.selection,
     // and handed to the console as $v / $d, like React DevTools' $r.
     var picked = P.pickRecord(lastStack, pickEnv) || { data: null, view: null };
-    D.selection = { data: picked.data, view: picked.view, mode: r.el ? P.modeOf(r.el) : null };
+    // The nearest DAO above the record's view: what open-backend.js edits it in.
+    var dao = null, from = picked.view ? lastStack.indexOf(picked.view) : -1;
+    for ( var j = Math.max(from, 0) ; j < lastStack.length && ! dao ; j++ ) {
+      var dd = P.dataOf(lastStack[j]);
+      if ( dd && P.isDAO(dd) ) dao = dd;
+    }
+    D.selection = { data: picked.data, view: picked.view, dao: dao, mode: r.el ? P.modeOf(r.el) : null };
     window.$v = lastStack[0] || undefined;
     window.$d = D.selection.data || undefined;
     return { stack: stack, mapStats: mapStats };

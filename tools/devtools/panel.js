@@ -58,7 +58,14 @@ function renderWhy(w) {
   var head = S.shortName(w.cls) + ( w.id ? ' #' + w.id : '' ) + ( w.summary ? ' — ' + w.summary : '' ) +
              '   mode ' + w.mode + ( w.modeDefaulted ? ' (none in scope → FOAM default)' : '' ) +
              ( w.pending ? '   ' + w.pending + ' permission check(s) pending' : '' );
-  root.appendChild(el('div', 'record', head));
+  var rec = el('div', 'record', head);
+  var openBtn = el('button', null, 'Open in FOAM');
+  openBtn.title = 'push the comics edit view for this record onto the app\'s own navigation stack';
+  openBtn.addEventListener('click', function() {
+    rpc('openRecord').then(function(r) { if ( r.error ) setStatus(r.error); });
+  });
+  rec.appendChild(openBtn);
+  root.appendChild(rec);
 
   var props = w.properties.slice().sort(function(a, b) { return MODE_ORDER[a.final] - MODE_ORDER[b.final]; });
   var notRW = props.filter(function(g) { return g.final !== 'RW'; });
@@ -133,6 +140,26 @@ function loadWhy() {
   });
 }
 function refresh() { state.pollsLeft = 3; loadWhy(); }
+function setStatus(msg) { document.getElementById('status').textContent = msg || ''; }
 
-document.getElementById('refresh').addEventListener('click', refresh);
+// DAO picker: every *DAO key in the app context; Open pushes FOAM's own
+// browse screen for it, menu or no menu.
+function loadDaoKeys() {
+  rpc('daoKeys').then(function(r) {
+    var sel = document.getElementById('daoPick');
+    sel.textContent = '';
+    ( r.keys || [] ).forEach(function(k) {
+      var o = el('option', null, k); o.value = k; sel.appendChild(o);
+    });
+    if ( r.error ) setStatus(r.error);
+  });
+}
+document.getElementById('daoOpen').addEventListener('click', function() {
+  var key = document.getElementById('daoPick').value;
+  if ( ! key ) return;
+  rpc('openDao', [ JSON.stringify(key) ]).then(function(r) { setStatus(r.error || ('opened ' + key)); });
+});
+
+document.getElementById('refresh').addEventListener('click', function() { refresh(); loadDaoKeys(); });
 refresh();
+loadDaoKeys();

@@ -97,11 +97,31 @@ Permission answers are promises; the panel shows `…` and re-polls up to three
 times (400 ms apart) until they land. Nothing is subscribed — press Refresh
 after changing a value.
 
+## Open in FOAM
+
+The app already has a screen for every DAO (the comics browser: table,
+search, columns, row → edit) and an edit form for every record; you normally
+reach them through menus. Two controls push those screens onto the app's own
+navigation stack, so FOAM draws them with the app's styling, permissions and
+validation — the extension writes no UI:
+
+- **open DAO in app** (panel toolbar) — pick any `*DAO` key from the app
+  context (`cSpecDAO`, `menuDAO`, caches, anything without a menu) → **Open**
+  pushes `foam.comics.v2.DAOBrowseControllerView` for it.
+- **Open in FOAM** (Why tab, record line) — pushes
+  `foam.comics.v2.DAOUpdateView` for the selected record, in the DAO nearest
+  above it in the view stack; with no DAO in the stack you get a
+  `SectionedDetailView` of the object instead (validates, no Save).
+
+Both are the same `stack.push(StackBlock)` calls the comics controllers make
+(`DAOBrowseControllerView.js:196`, `DAOSummaryView.js:180`). Use the app's
+Back to return.
+
 ## Architecture — three layers, one contract each
 
 **Page world** (`shapers.js`, `why-core.js`, `backend.js`,
-`inspect-backend.js`, `why-backend.js`; MAIN-world content scripts, loaded in
-that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
+`inspect-backend.js`, `why-backend.js`, `open-backend.js`; MAIN-world content
+scripts, loaded in that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
 (`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`), the
 per-layer shape (`layerOf`), and the gate replay (`propGate`, `actionGate`,
 `sectionGate`) — no `window.foam` or DOM API use, so they run under Node with
@@ -196,3 +216,6 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 15 passed
    lists it with ✓ or ✗ (may show `…` for one re-poll).
 6. **Actions.** A greyed button on screen appears with `enabled: …` naming
    the gate; change the field it depends on, Refresh → flips.
+7. **Open in FOAM.** Toolbar: pick `menuDAO` → Open → the app shows the
+   menu table. Why tab → Open in FOAM → the app shows the edit form for the
+   record you clicked; Back returns.

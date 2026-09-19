@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "FOAM DevTools",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "FOAM3 inspector: the u2 view stack behind any DOM node, and why each field, action and section is shown, hidden or disabled.",
   "devtools_page": "devtools.html",
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["shapers.js", "why-core.js", "backend.js", "inspect-backend.js", "why-backend.js"],
+      "js": ["shapers.js", "why-core.js", "backend.js", "inspect-backend.js", "why-backend.js", "open-backend.js"],
       "world": "MAIN",
       "run_at": "document_idle"
     }

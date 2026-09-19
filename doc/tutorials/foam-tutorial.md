@@ -57,18 +57,31 @@
       - [`style()`](#style)
     - [CSS Scoping with `^`](#css-scoping-with-%5E)
   - [Layer 2: Views](#layer-2-views)
-    - [View vs Controller](#view-vs-controller)
     - [Reactive Slots](#reactive-slots)
+    - [When the Stock UI Isn't Enough](#when-the-stock-ui-isnt-enough)
+      - [Why the defaults fall short](#why-the-defaults-fall-short)
+      - [Two options](#two-options)
+    - [Customizing the IngredientAmount View](#customizing-the-ingredientamount-view)
+      - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
+      - [A picker for `ingredient`: `targetProperty`](#a-picker-for-ingredient-targetproperty)
+      - [Browse: the table and `tableCellFormatter`](#browse-the-table-and-tablecellformatter)
+      - [A picker for `alternative`](#a-picker-for-alternative)
   - [Layer 3: Controllers (Comics)](#layer-3-controllers-comics)
-  - [Customizing the IngredientAmount View](#customizing-the-ingredientamount-view)
-    - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
-    - [A picker for `alternative`](#a-picker-for-alternative)
-    - [Customizing a relationship-generated reference: `targetProperty`](#customizing-a-relationship-generated-reference-targetproperty)
-    - [Browse: the table and `tableCellFormatter`](#browse-the-table-and-tablecellformatter)
   - [The Generated CRUD Screen: Detail and Create](#the-generated-crud-screen-detail-and-create)
     - [Detail: view and edit modes](#detail-view-and-edit-modes)
     - [Configuring the DAOController from the menu](#configuring-the-daocontroller-from-the-menu)
-  - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
+  - [The Recipe Screen: Putting It All Together](#the-recipe-screen-putting-it-all-together)
+    - [The ingredient amounts picker for a step: `RecipeStepIngredientAmountsView`](#the-ingredient-amounts-picker-for-a-step-recipestepingredientamountsview)
+    - [Working state on `Recipe`: `editSteps` and `loadedStepIds`](#working-state-on-recipe-editsteps-and-loadedstepids)
+    - [`RecipeView`](#recipeview)
+      - [`init()` — following context](#init--following-context)
+      - [`render()` — composing recipe fields and step cards](#render--composing-recipe-fields-and-step-cards)
+        - [① `self` vs `this`](#%E2%91%A0-self-vs-this)
+        - [② ExpressionSlots: `dynamic()`](#%E2%91%A1-expressionslots-dynamic)
+        - [③ Recipe fields via `SectionedDetailView`](#%E2%91%A2-recipe-fields-via-sectioneddetailview)
+        - [④ `callIf` — conditional DOM](#%E2%91%A3-callif--conditional-dom)
+        - [⑤ Slot chaining: `data$editSteps`](#%E2%91%A4-slot-chaining-dataeditsteps)
+      - [The payoff: composition over complexity](#the-payoff-composition-over-complexity)
 - [NanoServices](#nanoservices)
   - [How It Works: The Stub/Skeleton Pattern](#how-it-works-the-stubskeleton-pattern)
     - [What Gets Generated](#what-gets-generated)
@@ -76,9 +89,9 @@
   - [Define the Service Interface](#define-the-service-interface)
   - [Implement the Server Side](#implement-the-server-side)
   - [Register the Service](#register-the-service)
-  - [Putting It All Together](#putting-it-all-together)
-    - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
-- [Notifications (Coming Soon)](#notifications-coming-soon)
+- [Putting It All Together](#putting-it-all-together)
+  - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
+- [Where to Go from Here](#where-to-go-from-here)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
     - [Properties](#properties)
@@ -154,7 +167,6 @@ By following this tutorial you will be able to:
 1. Build reactive UIs where the screen stays in sync with the data without manual DOM updates
 1. Generate complete browse, create, and edit screens from your data model and customize only what needs to differ
 1. Add server-side business logic as lightweight, reusable services
-1. Wire up real-time notifications between parts of the application
 
 This tutorial is best suited for FOAM beginners as well as experienced FOAM developers who wish to understand the underlying architecture in more depth.
 
@@ -2519,7 +2531,7 @@ This is the payoff of FOAM's philosophy: build small, focused pieces that know t
 
 Every real application depends on services: authentication, email, push notifications, AI inference, translation, currency formatting. These are not about storing records — they take a request, do something, and return a result. FOAM treats all of them through the same mechanism: the **nano-service**.
 
-FOAM ships with hundreds of built-in nano-services covering the most common platform needs. Before writing a new service, always check whether one already exists. Notable built-ins include:
+FOAM ships with many built-in nano-services covering the most common platform needs. Before writing a new service, always check whether one already exists. Notable built-ins include:
 
 | Service | Context name | What it does |
 |---|---|---|
@@ -2527,9 +2539,9 @@ FOAM ships with hundreds of built-in nano-services covering the most common plat
 | `AppConfigService` | `appConfigService` | Fetches application configuration for the current theme/tenant |
 | `TranslationService` | `translationService` | Internationalization — looks up translated strings by key |
 | `LLMService` | `llmService` | Large language model inference (AI completions) |
-| `EmailDocService` | `emailDocService` | Template-based email sending |
+| `Notification` | `notificationDAO` | In-app and push notifications |
 | `OTPAuthService` | `twofactor` | Google Authenticator / TOTP two-factor authentication |
-| `CrunchService` | `crunchService` | User capability and permission lifecycle management |
+| `ResetPasswordService` | `resetPasswordService` | Password reset flow via token or code |
 | `GlobalSearchService` | `globalSearchService` | Full-text cross-model search |
 | `ThemeService` | `themes` | Theme resolution and multi-tenancy |
 
@@ -2805,9 +2817,11 @@ The CSpec properties that matter here:
 | `serviceScript` | Server-side construction (runs in the FOAM context `x`) |
 | `client` | JSON description of what to create on the client side |
 
-## Putting It All Together
+# Putting It All Together
 
-With the interface, implementation, and CSpec in place, we can build a UI that calls the service. Copy `UnitConversionPage.js` from the tutorial assets zip into `src/com/foamdev/cook/` and add it to `pom.js`:
+Everything in this tutorial has been building toward this moment. We modeled our domain, built reactive UIs, wired up FOAM's CRUD engine, and now have a live server-side service. Time to pull it all together into a small example landing page that puts the conversion service to work.
+
+Copy `UnitConversionPage.js` from the tutorial assets zip into `src/com/foamdev/cook/` and add it to `pom.js`:
 
 ```javascript
 { name: 'UnitConversionPage', flags: 'js' }
@@ -2945,9 +2959,9 @@ The interesting part here is the `convert` action, which is where the service ca
 - **`conversionError`** is populated from the exception message and displayed as-is — errors like incompatible units surface directly to the user.
 - **`response.message`** carries an optional note from the server — such as a density assumption if needed for some conversions — displayed below the result.
 
-### Wiring It as the Default Landing Page
+## Wiring It as the Default Landing Page
 
-Here is a good opportunity to introduce one more trick. So far we have wired views as regular menu items that appear in the sidebar. This time we will do something different: wire the Unit Converter as the landing page — the first screen users see when they log in. If they navigate away to the recipe cookbook or any other section, they can always get back by clicking the FOAM icon in the top left. The wiring takes just two journal entries.
+As a wrap, one more trick. So far we have wired views as regular menu items that appear in the sidebar. This time we will do something different: wire the Unit Converter as the landing page — the first screen users see when they log in. If they navigate away to the recipe cookbook or any other section, they can always get back by clicking the FOAM icon in the top left. The wiring takes just two journal entries.
 
 **In `journals/menus.jrl`**, add a menu entry with `parent: "hidden"`. The `"hidden"` parent is a FOAM convention: the menu exists and is navigable, but does not appear in the sidebar navigation:
 
@@ -2975,24 +2989,23 @@ After restarting the server, logging in navigates directly to the Unit Converter
 
 ![Unit Converter landing page](images/screen10.png)
 
-> 🎉 **Take a moment to appreciate what just happened!**
->
-> You defined a typed interface, wrote a pure Java implementation, registered it as a nano-service with one CSpec entry, and called it from a reactive UI — with authentication, RPC transport, error handling, and locale-aware formatting all handled by the framework. The same `convert()` call works whether the service is running in the same JVM, across HTTP, or over a WebSocket. You never touched a REST endpoint, wrote a serializer, or wired up a router. That is FOAM nano-services doing their job.
+# Where to Go from Here
 
-# Notifications (Coming Soon)
+You have come a long way. Starting from an empty project, you modeled a domain, built reactive UIs, let FOAM generate browse, create, and edit screens from your data model, composed custom views for the cases where auto-generation was not enough, and finally designed and deployed a nano-service that runs across JVM, HTTP, and WebSocket without a single change to the calling code.
 
-// TODO - shopping list, menu generated, 
+Congratulations — you now have everything you need to start building real FOAM applications and to dive into the more advanced topics this platform has to offer.
 
+And a lot comes for free that this tutorial did not cover. A few things worth knowing are already in your application, waiting to be configured:
 
+- **User management and authentication** — FOAM ships with a full user model, login flows, password reset, and session handling out of the box.
+- **Role-based access control** — rules on DAOs and services can be made conditional on the current user's roles and groups, with no changes to the business logic.
+- **Multi-factor authentication** — built-in support for TOTP and other second factors, wired through the same nano-service architecture you just used.
+- **Theming and branding** — colors, logos, fonts, and layout are all controlled through the theme journal you already touched when setting the default menu.
+- **Audit logging** — every DAO write can be logged automatically, giving you a full history of who changed what and when.
+- **Internationalization** — the `foam.locale` teased in the Unit Converter flows through the entire framework; labels, dates, numbers, and currency all adapt automatically.
+- **Email and push notifications** — built-in services for transactional email and real-time push, registered and called exactly like `conversionService`.
 
-
-// TODO - to be continued ...
-
-* generate the app again to adjust the structure for changes
-* add a section on the high level system structure and some core services
-* add a section on debugging tips
-* add some recipes and package journals for them
-* test the clone mode (the already generated application) and write up README.md how to run if you do not follow along
+The FOAM ecosystem is large. Explore, read the source, and look for the service you need before writing it from scratch — chances are it already exists.
 
 
 # Appendix

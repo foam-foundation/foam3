@@ -28,14 +28,17 @@
     var mapStats = { walked: r.walked, withDom: r.withDom, ms: Math.round((performance.now() - t0) * 10) / 10 };
     lastStack = r.el ? P.namedStack(r.el) : [];
     var stack = lastStack.map(P.layerOf);
-    // Console handles, like React DevTools' $r: the selected view and the
-    // nearest data object above it (a bare input has none of its own).
-    window.$v = lastStack[0] || undefined;
-    window.$d = undefined;
+    // The record on screen and the view that holds it (that view's
+    // controllerMode is the mode the record is shown in). Shared with other
+    // backends (why-backend.js) as D.selection, and handed to the console as
+    // $v / $d, like React DevTools' $r.
+    D.selection = { data: null, view: null };
     for ( var i = 0 ; i < lastStack.length ; i++ ) {
       var d = P.dataOf(lastStack[i]);
-      if ( d && ! P.isDAO(d) ) { window.$d = d; break; }
+      if ( d && ! P.isDAO(d) ) { D.selection = { data: d, view: lastStack[i] }; break; }
     }
+    window.$v = lastStack[0] || undefined;
+    window.$d = D.selection.data || undefined;
     return { stack: stack, mapStats: mapStats };
   });
 

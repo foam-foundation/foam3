@@ -4,8 +4,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Slice 1 registers only the Elements sidebar pane. The main FOAM panel
-// (chrome.devtools.panels.create) arrives with the card in slice 2.
+// Elements sidebar (view stack) and the main FOAM panel (Why tab).
 chrome.devtools.panels.elements.createSidebarPane('FOAM', function(pane) {
   pane.setPage('sidebar.html');
 });
+chrome.devtools.panels.create('FOAM', '', 'panel.html', function() {});

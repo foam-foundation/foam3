@@ -1,19 +1,21 @@
 # FOAM DevTools
 
-A Chrome DevTools extension for inspecting FOAM3 apps at runtime. This build
-has one feature: an **Elements sidebar** that answers what the browser's own
-Elements panel can't — the stack of `u2` views above the selected DOM node,
-what each one binds (DAO, record, property), and a copyable FOAM path. It only
-reads from the live FOAM registry inside the inspected page; the one thing it
-writes is the `$v`/`$d` console handles.
+A Chrome DevTools extension for inspecting FOAM3 apps at runtime. Two
+surfaces: an **Elements sidebar** showing the stack of `u2` views above the
+selected DOM node, what each binds (DAO, record, property) and a copyable FOAM
+path; and a **FOAM panel** whose **Why** tab explains, for the record on
+screen, why each field is hidden or read-only, what validation is failing, why
+each action is greyed or missing, and which permissions the screen has asked
+for. It only reads from the live FOAM registry inside the inspected page; the
+one thing it writes is the `$v`/`$d` console handles.
 
 ## Install
 
 1. Open `chrome://extensions`, turn on **Developer mode**.
 2. **Load unpacked** → select this folder (`tools/devtools/`).
 3. Open a FOAM3 app page and **reload it** (content scripts inject on page
-   load), then open DevTools (F12) → **Elements**. A **FOAM** pane appears in
-   the sidebar next to Styles/Computed.
+   load), then open DevTools (F12). A **FOAM** pane appears in the Elements
+   sidebar next to Styles/Computed, and a **FOAM** tab next to Console.
 
 ## The sidebar
 
@@ -53,14 +55,45 @@ u2 Element found" (the node is outside the `ctrl` tree — e.g. a browser
 extension's own DOM), or a red error line (most often "no backend — reload the
 inspected page").
 
+## The Why tab
+
+Select a node inside a form or table in Elements (the sidebar's `$d` is the
+record), open the **FOAM** panel, press **Refresh**. Six blocks:
+
+1. **Record** — class, id, summary, the `controllerMode` it is shown in.
+2. **Fields (N not RW)** — every property that is not read-write, with the
+   step of FOAM's visibility ladder that decided it (`createVisibilityFor`
+   in `foam.u2.Element2`): `readVisibility → RO`, `visibility function →
+   HIDDEN`, `VIEW clamps RW → RO`, `user.rw.salary denied → RO`,
+   `user.ro.salary denied → HIDDEN`. Read-write fields are collapsed under
+   "and N read-write". A field marked `(hidden axiom)` has `hidden: true`.
+   One FOAM quirk is called out explicitly: `readPermissionRequired` on its
+   own never restricts on the client (write is not gated, so `allowCreate`
+   stays true) — the row says `… denied but write not gated — no effect`.
+3. **Validation (N failing)** — `obj.errors_`: field, current value, message.
+4. **Actions (N blocked)** — per action: available ✓/✗, enabled ✓/✗, and the
+   gate that failed: `isEnabled → false`, `running`, `user.approve denied`,
+   `confirm required`.
+5. **Sections** — only for classes that declare sections: `isAvailable` and
+   the `<cls>.section.<name>` permission.
+6. **Permissions checked (N, M denied)** — every permission string the page's
+   cached auth service has been asked this session, ✓/✗/…, plus a copy box
+   with the denied ones.
+
+Permission answers are promises; the panel shows `…` and re-polls up to three
+times (400 ms apart) until they land. Nothing is subscribed — press Refresh
+after changing a value.
+
 ## Architecture — three layers, one contract each
 
-**Page world** (`shapers.js`, `backend.js`, `inspect-backend.js`; MAIN-world
-content scripts, loaded in that order). `shapers.js` is pure: the DOM→`u2`
-walk (`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`) and
-the per-layer shape (`layerOf`: DAO / record / prop / modes), with no
-`window.foam` or DOM API use so it runs under Node. `backend.js` is the
-core: `window.__foamDevtools.register(name, fn)` and `call(name, ...args)`.
+**Page world** (`shapers.js`, `why-core.js`, `backend.js`,
+`inspect-backend.js`, `why-backend.js`; MAIN-world content scripts, loaded in
+that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
+(`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`), the
+per-layer shape (`layerOf`), and the gate replay (`propGate`, `actionGate`,
+`sectionGate`) — no `window.foam` or DOM API use, so they run under Node with
+injected evaluators. `backend.js` is the core: `window.__foamDevtools
+.register(name, fn)` and `call(name, ...args)`.
 **Contract:** `call` always returns a JSON string — `guard()` serialises the
 result and turns any throw into `{"error": msg}`. Feature files register
 methods; the core never changes per feature.
@@ -81,10 +114,17 @@ builds the other (`inspect(window.__foamDevtools.node(i))`). Views never
 hand-write an eval string. `argExprs` are page-side JS fragments: `'$0'` for
 the Elements selection, `JSON.stringify(v)` for data.
 
-**Panel side** (`devtools.js`, `sidebar-core.js`, `sidebar.*`). `render(result)`
-builds DOM from the response object alone — no page references, no state.
-**Contract:** a view is a function of the last response. `sidebar-core.js`
-holds the pure part (`pathOf`, `shortName`) so it has a Node test.
+**Panel side** (`devtools.js`, `sidebar-core.js`, `sidebar.*`, `why-explain.js`,
+`panel.*`). `render(result)` builds DOM from the response object alone — no
+page references. **Contract:** a view is a function of the last response. The
+FOAM panel keeps all its state in one object (`state = { tab, why, pollsLeft }`)
+and one `render(state)`; later tabs add a key and a render function. The pure
+parts (`pathOf`, `shortName`; `explainProp`, `explainAction`,
+`explainSection`) live in their own files so they have Node tests.
+
+Shared page-side selection: `inspect` stores `D.selection = { data, view }`
+(the record on screen and the view holding it); `why` reads it, so the panel
+passes no arguments.
 
 ### Adding a method (how slice 2 plugs in)
 
@@ -112,6 +152,8 @@ node tools/devtools/test/shapers-test.js        # shapers-test: 17 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
+node tools/devtools/test/why-core-test.js       # why-core-test: 20 passed
+node tools/devtools/test/why-explain-test.js    # why-explain-test: 15 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
@@ -129,3 +171,15 @@ node tools/devtools/test/common-test.js         # common-test: 3 passed
    selection jumps to that row's DOM node and the pane re-renders with that
    layer selected. Console: `$v.cls_.id` is the selected layer's class,
    `$d.id` is the record id.
+
+### Smoke checklist — Why tab
+
+4. **Fields + validation.** Select a field inside a detail view → FOAM panel
+   → Refresh. Record line names the record and its mode; Fields lists the
+   hidden/RO ones with a reason; on a create form with a required field
+   empty, Validation shows it with the "Please enter valid …" message.
+5. **Permissions.** On a record whose model has a `writePermissionRequired`
+   property, the why column names `<cls>.rw.<prop>` and Permissions checked
+   lists it with ✓ or ✗ (may show `…` for one re-poll).
+6. **Actions.** A greyed button on screen appears with `enabled: …` naming
+   the gate; change the field it depends on, Refresh → flips.

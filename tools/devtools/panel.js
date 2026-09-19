@@ -16,13 +16,18 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain, T = window.__foam
 // nodes the user toggled, by $UID; expanded is derived from them plus the
 // defaults on every snapshot. All survive re-renders because render rebuilds
 // the DOM each time.
-var TAB_KEY = 'foamDevtools.tab';
+var TAB_KEY = 'foamDevtools.tab', WRAPPERS_KEY = 'foamDevtools.hideWrappers';
 var state = { tab: readTab(), why: null, pollsLeft: 0, open: {}, updated: null,
-              tree: null, treeError: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null };
+              tree: null, treeError: null, expanded: new Set(), opened: new Set(), closed: new Set(), selected: null,
+              hideWrappers: readPref(WRAPPERS_KEY, true) };
 
 function readTab() {
   try { return localStorage.getItem(TAB_KEY) === 'tree' ? 'tree' : 'why'; } catch (e) { return 'why'; }
 }
+function readPref(key, dflt) {
+  try { var v = localStorage.getItem(key); return v === null ? dflt : v === 'true'; } catch (e) { return dflt; }
+}
+function writePref(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
 function setTab(tab) {
   state.tab = tab;
   try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
@@ -142,7 +147,7 @@ function renderTree(st) {
   if ( ! st.tree ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
   if ( ! st.tree.root ) { root.appendChild(el('div', 'muted', 'no screen')); return root; }
   if ( st.tree.truncated ) root.appendChild(el('div', 'muted', 'showing ' + st.tree.count + ' nodes (capped)'));
-  T.flatten(st.tree, st.expanded).forEach(function(r) {
+  T.flatten(st.tree, st.expanded, { hideWrappers: st.hideWrappers }).forEach(function(r) {
     var row = el('div', 'node' + ( r.uid === st.selected ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
@@ -150,10 +155,16 @@ function renderTree(st) {
     row.addEventListener('mouseleave', function() { highlight(null); });
     var tog = el('span', 'tog', r.hasKids ? ( r.open ? '▾' : '▸' ) : '');
     if ( r.hasKids ) {
+      tog.title = r.open ? 'collapse (alt-click: whole branch)' : 'expand (alt-click: whole branch)';
       tog.addEventListener('click', function(ev) {
         ev.stopPropagation();
-        if ( r.open ) { st.closed.add(r.uid); st.opened.delete(r.uid); st.expanded.delete(r.uid); }
-        else          { st.opened.add(r.uid); st.closed.delete(r.uid); st.expanded.add(r.uid); }
+        // alt-click toggles the whole branch, as in Chrome's Elements tab
+        var uids = ev.altKey ? T.subtreeUids(st.tree, r.uid) : [ r.uid ];
+        uids.forEach(function(u) {
+          if ( r.open ) { st.closed.add(u); st.opened.delete(u); }
+          else          { st.opened.add(u); st.closed.delete(u); }
+        });
+        st.expanded = T.effectiveExpanded(st.tree, st.selected, st.opened, st.closed);
         render(state);
       });
     }
@@ -199,6 +210,8 @@ function stamp() { return new Date().toTimeString().slice(0, 8); }
 
 function render(state) {
   document.querySelectorAll('#tabs .tab').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === state.tab); });
+  document.body.classList.toggle('tree-tab', state.tab === 'tree');
+  document.getElementById('wrappers').checked = state.hideWrappers;
   var root = document.getElementById('root');
   root.textContent = '';
   root.appendChild(state.tab === 'tree' ? renderTree(state) : renderWhy(state.why));
@@ -255,6 +268,11 @@ document.querySelectorAll('#tabs .tab').forEach(function(b) {
   b.addEventListener('click', function() { setTab(b.dataset.tab); });
 });
 document.getElementById('refresh').addEventListener('click', refresh);
+document.getElementById('wrappers').addEventListener('change', function(ev) {
+  state.hideWrappers = ev.target.checked;
+  writePref(WRAPPERS_KEY, state.hideWrappers);
+  render(state);
+});
 // stack[0] is the selected element itself (selectUid puts it there), so
 // node(0) is its DOM node.
 document.getElementById('reveal').addEventListener('click', function() { reveal(0); });

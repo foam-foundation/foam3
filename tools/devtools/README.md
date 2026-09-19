@@ -139,9 +139,13 @@ The live u2 view tree of the screen currently shown — the navigation stack's
 current view (`ctrl.stack.current`) down, since `Stack.push` only hides the
 previous view. One row per element: short class name, what it is bound to
 (record, DAO, view) and its property when it has one; elements with
-`shown === false` are greyed and tagged `hidden`. `▸`/`▾` toggles a subtree;
-the root and two levels below it start open, plus the path to the selected
-element.
+`shown === false` are greyed and tagged `hidden`. `▸`/`▾` toggles a subtree,
+alt-click toggles the whole branch; the root and two levels below it start
+open, a chain of only children stays open until it branches, plus the path
+to the selected element. **hide wrappers** (on by default, remembered) folds
+`Element`, `SlotNode`, `Text` and `HTMLView` rows away and moves their
+children up, so the tree reads as the views someone wrote — same list the
+sidebar folds.
 
 Hovering a row outlines that element on the page (a blue box with the class
 name and size — drawn by the page, since Chrome gives extensions no overlay
@@ -235,9 +239,9 @@ it lives exactly as long as FOAM's own auth cache entry.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 55 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 56 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 9 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 16 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 26 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
 node tools/devtools/test/why-core-test.js       # why-core-test: 25 passed
@@ -291,7 +295,8 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 17 passed
     console `$v` is the PropertyBorder. **Reveal in Elements** → Elements
     tab jumps to its DOM node.
 11. Click `▸` on a collapsed row → its children appear; click `▾` → gone; the
-    1s poll does not reset the toggle.
+    1s poll does not reset the toggle. Alt-click `▸` → the whole branch
+    opens. Untick **hide wrappers** → `Element`/`SlotNode` rows reappear.
 12. Navigate to another record → tree swaps within a second, selection
     highlight clears.
 13. Select a node in Elements → the Tree tab highlights its row and opens the

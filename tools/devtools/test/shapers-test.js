@@ -204,6 +204,7 @@ t(tree.root.uid === 1 && tree.root.kids.length === 2 && tree.root.kids[0].uid ==
 t(tree.count === 4 && tree.truncated === false, 'treeOf: count = nodes included, not truncated');
 t(tree.root.shown === true && tree.root.kids[0].shown === false, 'treeOf: shown from instance_ only; unset = shown');
 t(tree.root.layer.cls === 'com.x.A' && tree.root.kids[0].layer.cls === 'com.x.B', 'treeOf: each node carries layerOf(el)');
+t(tree.root.wrapper === false && tree.root.kids[1].wrapper === true, 'treeOf: wrapper flag from isWrapper');
 t(visited.join(',') === '1,2,3,4', 'treeOf: visit(el, uid) once per included node, in order');
 
 var capped = P.treeOf(tA, 2);

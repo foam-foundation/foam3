@@ -16,17 +16,48 @@
   };
 
   // Pre-order rows; a collapsed node's subtree is left out. depth is the
-  // indent level, open whether the node's uid is in expanded.
-  exports.flatten = function(tree, expanded) {
-    var rows = [];
-    function walk(n, depth) {
+  // indent level, open whether the node's uid is in expanded. With
+  // opts.hideWrappers a wrapper node (Element, SlotNode, Text...) gets no
+  // row: its children take its place at its depth, as if it were open — so
+  // the tree reads as the views someone wrote. The root is always shown.
+  exports.flatten = function(tree, expanded, opts) {
+    var rows = [], hide = !! ( opts && opts.hideWrappers );
+    function walk(n, depth, isRoot) {
+      if ( hide && n.wrapper && ! isRoot ) {
+        for ( var j = 0 ; j < n.kids.length ; j++ ) walk(n.kids[j], depth, false);
+        return;
+      }
       var open = expanded.has(n.uid);
       rows.push({ uid: n.uid, depth: depth, cls: S.shortName(n.layer.cls), binding: exports.rowText(n.layer),
-                  shown: n.shown, hasKids: n.kids.length > 0, open: open });
-      if ( open ) for ( var i = 0 ; i < n.kids.length ; i++ ) walk(n.kids[i], depth + 1);
+                  shown: n.shown, hasKids: exports.hasVisibleKids(n, hide), open: open });
+      if ( open ) for ( var i = 0 ; i < n.kids.length ; i++ ) walk(n.kids[i], depth + 1, false);
     }
-    if ( tree && tree.root ) walk(tree.root, 0);
+    if ( tree && tree.root ) walk(tree.root, 0, true);
     return rows;
+  };
+
+  // Would this node show any row below it? With wrappers hidden, a wrapper
+  // child counts only if something non-wrapper sits under it.
+  exports.hasVisibleKids = function(n, hide) {
+    for ( var i = 0 ; i < n.kids.length ; i++ ) {
+      var k = n.kids[i];
+      if ( ! hide || ! k.wrapper || exports.hasVisibleKids(k, hide) ) return true;
+    }
+    return false;
+  };
+
+  // Every uid in the subtree rooted at uid (the node itself included), for
+  // alt-click open/close of a whole branch. [] when uid is not in the tree.
+  exports.subtreeUids = function(tree, uid) {
+    var out = [];
+    function collect(n) { out.push(n.uid); for ( var i = 0 ; i < n.kids.length ; i++ ) collect(n.kids[i]); }
+    function find(n) {
+      if ( n.uid === uid ) { collect(n); return true; }
+      for ( var i = 0 ; i < n.kids.length ; i++ ) if ( find(n.kids[i]) ) return true;
+      return false;
+    }
+    if ( tree && tree.root ) find(tree.root);
+    return out;
   };
 
   // Root-first uids from the root down to uid; [] when uid is not in the tree.
@@ -42,14 +73,17 @@
     return ( tree && tree.root && uid !== null && uid !== undefined && find(tree.root) ) ? path : [];
   };
 
-  // First view of a screen: the root and two levels below it open, plus every
+  // First view of a screen: the root and two levels below it open; below
+  // that, a chain of only children stays open until it branches (one row of
+  // wrapping per level would otherwise cost one click per level); plus every
   // ancestor of the selected node so its row is on screen.
   exports.defaultExpanded = function(tree, selectedUid) {
     var set = new Set();
     function open(n, depth) {
-      if ( depth > 2 ) return;
       set.add(n.uid);
-      for ( var i = 0 ; i < n.kids.length ; i++ ) open(n.kids[i], depth + 1);
+      for ( var i = 0 ; i < n.kids.length ; i++ ) {
+        if ( depth + 1 <= 2 || n.kids.length === 1 ) open(n.kids[i], depth + 1);
+      }
     }
     if ( tree && tree.root ) open(tree.root, 0);
     exports.pathTo(tree, selectedUid).slice(0, -1).forEach(function(u) { set.add(u); });

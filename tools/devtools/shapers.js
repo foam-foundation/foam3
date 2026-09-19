@@ -306,7 +306,9 @@
   // per element, keyed by $UID (stable for the object's life, lib.js:18-28).
   // shown is read from instance_ only (Element2.js:605: Boolean, value true),
   // so an unset shown means visible. cap bounds the snapshot; count is the
-  // number of nodes included. visit(el, uid), when given, is called once per
+  // number of nodes included. wrapper marks the plumbing classes the sidebar
+  // also folds (isWrapper), so the panel can hide them without knowing the
+  // list. visit(el, uid), when given, is called once per
   // included node so the caller can keep its own uid -> element map without
   // a second walk.
   exports.treeOf = function(root, cap, visit) {
@@ -316,7 +318,8 @@
       if ( ! el || ! el.cls_ || seen.has(el) ) return null;
       if ( count >= cap ) { truncated = true; return null; }
       seen.add(el); count++;
-      var n = { uid: el.$UID, layer: exports.layerOf(el), shown: own(el, 'shown') !== false, kids: [] };
+      var n = { uid: el.$UID, layer: exports.layerOf(el), shown: own(el, 'shown') !== false,
+                wrapper: exports.isWrapper(el.cls_.id), kids: [] };
       if ( visit ) visit(el, n.uid);
       var kids = exports.childrenOf(el);
       for ( var i = 0 ; i < kids.length ; i++ ) { var k = node(kids[i]); if ( k ) n.kids.push(k); }

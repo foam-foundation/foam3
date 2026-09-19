@@ -51,6 +51,9 @@
   // notices a new selection without a manual Refresh.
   D.selectionGen = function() { return gen; };
 
+  // The pointed-at element's $UID, so the Tree tab can highlight its row.
+  D.selectionUid = function() { return pointed.el ? pointed.el.$UID : null; };
+
   // The console handles, like React DevTools' $r: $v = the pointed-at view,
   // $d = the record of the current target. One writer, called by whoever
   // resolved last (selectNode here, why in why-backend.js).

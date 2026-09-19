@@ -8,7 +8,8 @@ screen, why each field is hidden or read-only, what validation is failing, why
 each action is greyed or missing, and which permissions the screen has asked
 for; **Tree** shows the live `u2` view tree of the current screen, and a row
 click selects that element everywhere. It reads the live FOAM registry inside the inspected page and writes
-only: the `$v`/`$d` console handles; permission checks it asks the app's
+only: the `$v`/`$d` console handles; the hover outline while a Tree row is
+hovered; permission checks it asks the app's
 cached auth service (so the "checked" list grows with the panel's own
 questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
 
@@ -142,11 +143,15 @@ previous view. One row per element: short class name, what it is bound to
 the root and two levels below it start open, plus the path to the selected
 element.
 
-Clicking a row selects that element the same way an Elements click does:
-Elements reveals its DOM node, the sidebar shows its chain, the Why tab
-explains its record, and `$v` / `$d` point at it. The tree reloads with the
-same 1s screen poll as the Why tab, so navigating in the app swaps it.
-Snapshots are capped at 5000 nodes ("showing N nodes (capped)").
+Hovering a row outlines that element on the page (a blue box with the class
+name and size — drawn by the page, since Chrome gives extensions no overlay
+API; it is the only DOM the extension adds and it goes away on mouse-out).
+Clicking a row selects the element: the sidebar shows its chain, the Why tab
+explains its record, and `$v` / `$d` point at it — DevTools stays on this
+panel. **Reveal in Elements** (tab strip) jumps the Elements tab to the
+selected element's DOM node when you want it. The tree reloads with the same
+1s screen poll as the Why tab, so navigating in the app swaps it. Snapshots
+are capped at 5000 nodes ("showing N nodes (capped)").
 
 ## Architecture — three layers, one contract each
 
@@ -280,9 +285,11 @@ node tools/devtools/test/why-explain-test.js    # why-explain-test: 17 passed
 
 9. Open a record (e.g. `#admin.data/userDAO/1`) → FOAM panel → Tree. Rows
    show the screen's views; a `DetailView  User #1` row is present.
-10. Click a `PropertyBorder  prop email` row → Elements jumps to its DOM
-    node, the sidebar shows its chain, Why still says User #1, console `$v`
-    is the PropertyBorder.
+10. Hover a `PropertyBorder  prop email` row → a blue box outlines that
+    field on the page, gone on mouse-out. Click the row → DevTools stays on
+    the FOAM panel; the sidebar shows its chain, Why still says User #1,
+    console `$v` is the PropertyBorder. **Reveal in Elements** → Elements
+    tab jumps to its DOM node.
 11. Click `▸` on a collapsed row → its children appear; click `▾` → gone; the
     1s poll does not reset the toggle.
 12. Navigate to another record → tree swaps within a second, selection

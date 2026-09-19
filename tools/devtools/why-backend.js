@@ -53,9 +53,14 @@
     var sel = D.selection;
     if ( ! sel || ! sel.data ) return { error: 'no record selected — select an element inside a form or table in Elements' };
     var data = sel.data, cls = data.cls_;
-    var mode = null;
-    try { mode = sel.view && sel.view.controllerMode && sel.view.controllerMode.name || null; } catch (e) {}
-    var modeName = mode || 'VIEW';
+    // The selection's DOM node keeps element_ after detach (Element2.js:733-738),
+    // so a stack push/back leaves a record that is no longer on screen.
+    try {
+      var dom = sel.view && sel.view.element_;
+      if ( dom && ! dom.isConnected ) return { error: 'selection is no longer on screen — reselect in Elements' };
+    } catch (e) {}
+    // No controllerMode in scope is what FOAM turns into CREATE (Element2.js:569).
+    var mode = sel.mode || null, modeName = mode || 'CREATE';
 
     var properties = cls.getAxiomsByClass(foam.lang.Property).map(function(p) {
       try { return W.propGate(p, modeName, data, env); }
@@ -94,7 +99,7 @@
     try { summary = typeof data.toSummary === 'function' ? str(data.toSummary(), 60) : null; } catch (e) {}
 
     return {
-      cls: cls.id, id: id, summary: summary || null, mode: mode,
+      cls: cls.id, id: id, summary: summary || null, mode: modeName, modeDefaulted: ! mode,
       properties: properties, validation: validation, actions: actions, sections: sections,
       permissions: permissions, pending: pending
     };

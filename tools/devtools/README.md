@@ -28,7 +28,7 @@ ApplicationController
   DAOBrowseControllerView   dao userDAO
     TableView               dao of User
       UnstyledTableRow      User #123 — Ajeet Gill
-        PropertyBorder      prop email          VIEW / RO   ← selected
+        PropertyBorder      prop email          ← selected
 ctrl › DAOBrowseControllerView[userDAO] › TableView[User] › UnstyledTableRow[123] › email
 console: $v = selected view, $d = its data
 map: 1834 elements, 1210 with a DOM node, 12.4ms
@@ -45,8 +45,19 @@ rows where it differs from the row above.
 - **Path line** — the FOAM-level selector: `ctrl › Class[key|Of|id] › … ›
   prop`. Read-only input; click to select all.
 - **`$v` / `$d`** — after every selection the page gets `window.$v` (the
-  selected view) and `window.$d` (the nearest record above it), like React
+  selected view) and `window.$d` (the record on screen), like React
   DevTools' `$r`. Console: `$v.controllerMode`, `$d.errors_`, `$d.email`.
+
+  Which object is "the record" follows FOAM's own conventions, because a
+  property view's `data` is the property *value* (`Element2.js:1816`) and
+  enum values / nested objects look like records too. Rules (`pickRecord`
+  in `shapers.js`): a layer bound to a DAO, a view or the navigation stack
+  is skipped; an edit screen's `workingData` wins over its original; a
+  layer whose `data` is a property value of the enclosing `objData` (the
+  record PropertyBorder / DetailView / TableCellFormatter export) is a
+  value view — skipped; a Reference citation under an id-valued property
+  view is a foreign record — skipped. So the status badge gives the
+  record, not the enum; a field inside a nested address gives the address.
 - **map** — how many `u2` elements were walked, how many had a DOM node, and
   the walk time in ms.
 
@@ -60,7 +71,9 @@ inspected page").
 Select a node inside a form or table in Elements (the sidebar's `$d` is the
 record), open the **FOAM** panel, press **Refresh**. Six blocks:
 
-1. **Record** — class, id, summary, the `controllerMode` it is shown in.
+1. **Record** — class, id, summary, the `controllerMode` in force where you
+   clicked (read from the context, the way FOAM's own views get it; "none in
+   scope → FOAM default" means CREATE by `Element2.js:569`).
 2. **Fields (N not RW)** — every property that is not read-write, with the
    step of FOAM's visibility ladder that decided it (`createVisibilityFor`
    in `foam.u2.Element2`): `readVisibility → RO`, `visibility function →
@@ -148,7 +161,7 @@ passes no arguments.
 Pure logic has Node tests with no dependencies:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 17 passed
+node tools/devtools/test/shapers-test.js        # shapers-test: 30 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed

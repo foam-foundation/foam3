@@ -50,7 +50,8 @@ function renderWhy(w) {
   if ( w.foam === false ) { root.appendChild(el('div', null, 'not a FOAM page')); return root; }
 
   var head = S.shortName(w.cls) + ( w.id ? ' #' + w.id : '' ) + ( w.summary ? ' — ' + w.summary : '' ) +
-             '   mode ' + ( w.mode || '(none)' ) + ( w.pending ? '   ' + w.pending + ' permission check(s) pending' : '' );
+             '   mode ' + w.mode + ( w.modeDefaulted ? ' (none in scope → FOAM default)' : '' ) +
+             ( w.pending ? '   ' + w.pending + ' permission check(s) pending' : '' );
   root.appendChild(el('div', 'record', head));
 
   var props = w.properties.slice().sort(function(a, b) { return MODE_ORDER[a.final] - MODE_ORDER[b.final]; });

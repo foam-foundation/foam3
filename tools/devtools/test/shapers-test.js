@@ -68,8 +68,71 @@ var rec = { cls_: { id: 'com.x.Rec' }, id: 123, toSummary: function() { return '
 var rowLayer = P.layerOf(u2('foam.u2.table.UnstyledTableRow', { data: rec }));
 t(rowLayer.data && rowLayer.data.cls === 'com.x.Rec' && rowLayer.data.id === '123' && rowLayer.data.summary === 'Ajeet Gill' && rowLayer.dao === null,
   'layerOf: FObject-bound layer reports cls + id + summary');
-var propLayer = P.layerOf(u2('foam.u2.PropertyBorder', { prop: { name: 'email' }, instance_: { data: rec } }));
-t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + data from instance_.data');
+// A real PropertyBorder imports data: a prototype getter, never in instance_ (ImportsExports.js:117-125)
+var border = u2('foam.u2.PropertyBorder', { prop: { name: 'email' } });
+Object.defineProperty(border, 'data', { get: function() { return rec; } });
+var propLayer = P.layerOf(border);
+t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + imported (getter) data');
+var modeLayer = P.layerOf(u2('com.x.V', { instance_: { controllerMode: { name: 'EDIT' }, mode: { name: 'RW' } } }));
+t(modeLayer.modes.controllerMode === 'EDIT' && modeLayer.modes.displayMode === 'RW', 'layerOf: modes from own instance_ values only');
+t(P.layerOf(u2('com.x.V', { controllerMode: { name: 'EDIT' } })).modes.controllerMode === null, 'layerOf: prototype-level controllerMode is not read (no factory run)');
+
+// modeOf
+t(P.modeOf({ __context__: { controllerMode: { name: 'VIEW' } } }) === 'VIEW', 'modeOf: enum in context');
+t(P.modeOf({ __context__: { controllerMode: 'view' } }) === 'VIEW', 'modeOf: string pushed by startContext, upper-cased');
+t(P.modeOf({ __context__: {} }) === null && P.modeOf(null) === null, 'modeOf: nothing in scope -> null');
+
+// pickRecord
+function env(over) {
+  return Object.assign({
+    isDAO: P.isDAO,
+    isElement: function(v) { return !! ( v && v.isEl ); },
+    objDataOf: function(el) { return el.ctxObjData || null; },
+    propertyNamesOf: function(r) { return Object.keys(r).filter(function(k) { return k !== 'cls_'; }); }
+  }, over || {});
+}
+function imp(el, data) { Object.defineProperty(el, 'data', { get: function() { return data; } }); return el; }
+var ACTIVE = { cls_: { id: 'com.x.Status' }, label: 'Active' };
+var user = { cls_: { id: 'com.x.User' }, id: 1, status: ACTIVE, group: 7 };
+var pr = P.pickRecord([
+  u2('foam.u2.view.ReadOnlyEnumView', { data: ACTIVE, ctxObjData: user }),
+  u2('foam.u2.view.EnumView', { prop: { name: 'status' }, data: ACTIVE, ctxObjData: user }),
+  imp(u2('foam.u2.PropertyBorder', { prop: { name: 'status' }, ctxObjData: user }), user)
+], env());
+t(pr.data === user && pr.view.cls_.id === 'foam.u2.PropertyBorder', 'pickRecord: enum value under PropertyBorder picks the record');
+var address = { cls_: { id: 'com.x.Address' }, street: 'x' };
+user.address = address;
+pr = P.pickRecord([ imp(u2('foam.u2.PropertyBorder', { prop: { name: 'street' }, ctxObjData: address }), address) ], env());
+t(pr.data === address, 'pickRecord: field inside a nested FObject picks the nested object');
+pr = P.pickRecord([
+  u2('foam.u2.view.FObjectView', { data: address, ctxObjData: user }),
+  u2('foam.u2.view.FObjectPropertyView', { prop: { name: 'address' }, data: address, ctxObjData: user }),
+  imp(u2('foam.u2.PropertyBorder', { prop: { name: 'address' }, ctxObjData: user }), user)
+], env());
+t(pr.data === user, 'pickRecord: FObjectView chooser picks the outer record');
+var orig = { cls_: { id: 'com.x.User' } }, work = { cls_: { id: 'com.x.User' } };
+var updateView = u2('foam.comics.v2.DAOUpdateView', { instance_: { data: orig, workingData: work } });
+pr = P.pickRecord([ u2('foam.u2.ActionView', { data: { cls_: { id: 'foam.comics.v2.DAOUpdateView' }, isEl: true } }), updateView ], env());
+t(pr.data === work && pr.view === updateView, 'pickRecord: ActionView bound to a view is skipped; workingData wins');
+var group = { cls_: { id: 'com.x.Group' }, id: 7 };
+pr = P.pickRecord([
+  u2('foam.u2.view.ReferenceCitationView', { data: group, ctxObjData: user }),
+  u2('foam.u2.view.ReadReferenceView', { prop: { name: 'group' }, data: 7, ctxObjData: user }),
+  imp(u2('foam.u2.PropertyBorder', { prop: { name: 'group' }, ctxObjData: user }), user)
+], env());
+t(pr.data === user, 'pickRecord: reference citation target is skipped');
+var row = { cls_: { id: 'com.x.User' }, id: 2 };
+pr = P.pickRecord([ u2('foam.u2.table.UnstyledTableRowComponent', { data: row }), u2('foam.u2.table.UnstyledTableRow', { data: row }), u2('foam.u2.table.TableView', { data: fakeDao }) ], env());
+t(pr.data === row && pr.view.cls_.id === 'foam.u2.table.UnstyledTableRowComponent', 'pickRecord: table row with no objData is the record');
+var parent = { cls_: { id: 'com.x.Parent' }, kids: fakeDao }, child = { cls_: { id: 'com.x.Kid' } };
+pr = P.pickRecord([
+  u2('foam.u2.table.UnstyledTableRow', { data: child, ctxObjData: parent }),
+  u2('foam.u2.table.TableView', { data: fakeDao, ctxObjData: parent }),
+  u2('foam.u2.view.EmbeddedTableView', { prop: { name: 'kids' }, data: fakeDao, ctxObjData: parent }),
+  imp(u2('foam.u2.PropertyBorder', { prop: { name: 'kids' }, ctxObjData: parent }), parent)
+], env());
+t(pr.data === child, 'pickRecord: embedded table row under a border wins');
+t(P.pickRecord([ u2('foam.u2.table.TableView', { data: fakeDao }) ], env()) === null, 'pickRecord: DAO-only stack -> null');
 var badRec = { cls_: { id: 'com.x.Bad' }, toSummary: function() { throw new Error('nope'); } };
 var badLayer = P.layerOf(u2('com.x.V', { data: badRec }));
 t(badLayer.data.summary === null && badLayer.data.id === null, 'layerOf: throwing toSummary / unset id -> nulls, no throw');

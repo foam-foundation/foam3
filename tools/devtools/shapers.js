@@ -100,10 +100,80 @@
       layer.data = { cls: d.cls_.id, id: id, summary: summary || null };
     }
     try { if ( el.prop && el.prop.name ) layer.prop = String(el.prop.name); } catch (e) {}
-    function modeName(v) { return v && v.name ? v.name : ( v === undefined ? null : String(v) ); }
+    // Own values only (instance_): reading el.controllerMode would run its
+    // factory and write a value into a view that never asked for one
+    // (Element2.js:569); el.mode is an expression on it. The effective mode
+    // for the selection comes from modeOf() below instead.
     try {
-      layer.modes = { controllerMode: modeName(el.controllerMode), displayMode: modeName(el.displayMode) };
+      var inst = el.instance_ || {};
+      layer.modes = { controllerMode: modeName(inst.controllerMode), displayMode: modeName(inst.mode) };
     } catch (e) { layer.modes = { error: str(e.message, 40) }; }
     return layer;
+  };
+
+  function modeName(v) { return v && v.name ? v.name : ( v === undefined || v === null ? null : String(v).toUpperCase() ); }
+
+  // The controllerMode in force where the selected DOM node sits: whatever
+  // the nearest context carries (an enum from a comics controller export, or a
+  // plain string pushed by startContext — table cells push 'VIEW',
+  // UnstyledTableRow.js:189). null = nothing in scope, which FOAM treats as
+  // CREATE (Element2.js:569). Never reads the property, so no factory runs.
+  exports.modeOf = function(el) {
+    try {
+      var x = el && el.__context__;
+      return x ? modeName(x.controllerMode) : null;
+    } catch (e) { return null; }
+  };
+
+  // Is d the value of one of rec's properties? That is exactly the relation a
+  // property view has to the record above it (Element2.js:1816:
+  // el.data$ = X.data$.dot(prop.name)), which is how an enum badge or a nested
+  // FObject gets told apart from the record itself.
+  exports.isPropertyValueOf = function(rec, d, env) {
+    var names = env.propertyNamesOf(rec) || [];
+    for ( var i = 0 ; i < names.length ; i++ ) {
+      try { if ( rec[names[i]] === d ) return true; } catch (e) {}
+    }
+    return false;
+  };
+
+  // A Reference field renders its target record as a child citation, and the
+  // target is not a property value of the row (the row holds the id). Detect
+  // it by the primitive-valued property view (ReadReferenceView: has prop or
+  // prop_, dataOf null) sitting between the layer and the objData owner.
+  exports.insidePrimitivePropertyView = function(stack, i, rec) {
+    for ( var j = i + 1 ; j < stack.length ; j++ ) {
+      var u = stack[j], du = exports.dataOf(u), hasProp = false;
+      if ( du === rec ) return false;
+      try { hasProp = !! ( ( u.prop && u.prop.name ) || ( u.prop_ && u.prop_.name ) ); } catch (e) {}
+      if ( hasProp && du === null ) return true;
+    }
+    return false;
+  };
+
+  // The record on screen for a stack (deepest first). Rules, in order:
+  // skip layers bound to a DAO or to a view/stack (ActionView under
+  // startContext({ data: self }), DAOUpdateView.js:195); an edit screen's
+  // own workingData wins over its original (DAOUpdateView.js:83-93); with
+  // no objData in scope the layer holds the record (table row, summary view);
+  // objData === data means the layer IS the border/detail view of the
+  // record; a layer whose data is a property value of objData is a value
+  // view (enum, nested FObject) — skip; a citation under a primitive property
+  // view is a foreign record — skip; anything else (embedded-table row) is a
+  // record of its own.
+  // env = { isDAO(v), isElement(v), objDataOf(el), propertyNamesOf(rec) }.
+  exports.pickRecord = function(stack, env) {
+    for ( var i = 0 ; i < stack.length ; i++ ) {
+      var L = stack[i], d = exports.dataOf(L);
+      if ( ! d || env.isDAO(d) || env.isElement(d) ) continue;
+      var w = L.instance_ && L.instance_.workingData;
+      if ( w && w.cls_ ) return { data: w, view: L };
+      var rec = env.objDataOf(L);
+      if ( ! rec || rec === d ) return { data: d, view: L };
+      if ( exports.isPropertyValueOf(rec, d, env) ) continue;
+      if ( exports.insidePrimitivePropertyView(stack, i, rec) ) continue;
+      return { data: d, view: L };
+    }
+    return null;
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamShapers = {} ));

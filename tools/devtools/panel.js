@@ -12,7 +12,9 @@ var S = window.__foamSidebarCore, E = window.__foamWhyExplain;
 
 // All panel state in one object, one render(state) from it. Tabs added later
 // put their response under their own key and their own render function.
-var state = { tab: 'why', why: null, pollsLeft: 0 };
+// open: which collapsible sections are expanded, by key; survives re-renders
+// (Refresh, permission re-polls) because render rebuilds the DOM each time.
+var state = { tab: 'why', why: null, pollsLeft: 0, open: {} };
 
 // ---- DOM helpers (textContent only) ----
 function el(tag, cls, text) {
@@ -32,10 +34,14 @@ function table(headers, rows) {
   });
   return t;
 }
-function section(title, body) {
-  var s = el('section');
-  s.appendChild(el('h3', null, title));
+// A collapsible block. Default open; the user's toggle is remembered in
+// state.open[key] so a re-render does not snap it back.
+function section(key, title, body) {
+  var s = el('details');
+  s.open = state.open[key] !== false;
+  s.appendChild(el('summary', null, title));
   s.appendChild(body);
+  s.addEventListener('toggle', function() { state.open[key] = s.open; });
   return s;
 }
 function permMark(r) { return r === 'pending' ? '…' : ( r ? '✓' : '✗' ); }
@@ -67,15 +73,15 @@ function renderWhy(w) {
     det.appendChild(el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')));
     body.appendChild(det);
   }
-  root.appendChild(section('Fields (' + notRW.length + ' not RW)', body));
+  root.appendChild(section('fields', 'Fields (' + notRW.length + ' not RW)', body));
 
-  root.appendChild(section('Validation (' + w.validation.length + ' failing)',
+  root.appendChild(section('validation', 'Validation (' + w.validation.length + ' failing)',
     w.validation.length
       ? table([ 'field', 'value', 'message' ], w.validation.map(function(v) { return [ v.name, { text: v.value, cls: 'val' }, v.message ]; }))
       : el('div', 'muted', 'no errors')));
 
   var blocked = w.actions.filter(function(a) { return a.available.value !== true || a.enabled.value !== true; });
-  root.appendChild(section('Actions (' + blocked.length + ' blocked of ' + w.actions.length + ')',
+  root.appendChild(section('actions', 'Actions (' + blocked.length + ' blocked of ' + w.actions.length + ')',
     w.actions.length
       ? table([ 'action', 'available', 'enabled', 'why' ], w.actions.map(function(a) {
           return [ a.name, permMark(a.available.value), permMark(a.enabled.value), E.explainAction(a) ];
@@ -83,7 +89,7 @@ function renderWhy(w) {
       : el('div', 'muted', 'no actions')));
 
   if ( w.sections.length ) {
-    root.appendChild(section('Sections', table([ 'section', 'available', 'why' ], w.sections.map(function(s) {
+    root.appendChild(section('sections', 'Sections', table([ 'section', 'available', 'why' ], w.sections.map(function(s) {
       var ok = s.available && ( ! s.perm || s.perm.result === true );
       return [ s.name, ok ? '✓' : ( s.perm && s.perm.result === 'pending' ? '…' : '✗' ), E.explainSection(s) ];
     }))));
@@ -102,7 +108,7 @@ function renderWhy(w) {
     pbody.appendChild(el('div', 'muted', 'denied (copy):'));
     pbody.appendChild(ta);
   }
-  root.appendChild(section('Permissions checked (' + w.permissions.length + ', ' + denied.length + ' denied)', pbody));
+  root.appendChild(section('permissions', 'Permissions checked (' + w.permissions.length + ', ' + denied.length + ' denied)', pbody));
   return root;
 }
 

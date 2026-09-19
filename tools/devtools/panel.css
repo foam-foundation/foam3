@@ -14,8 +14,9 @@ button { background: var(--btn-bg); color: var(--fg); border: 1px solid var(--bo
 button.tab { border-color: transparent; background: none; }
 button.tab.active { border-color: var(--border); background: var(--btn-bg); }
 .record { font-weight: 600; margin: 4px 0 8px; white-space: pre; }
-section { margin: 8px 0; }
-h3 { font-size: 12px; margin: 6px 0 2px; color: var(--muted); font-weight: 600; }
+details { margin: 8px 0; }
+details > summary { cursor: pointer; font-size: 12px; margin: 6px 0 2px; color: var(--muted); font-weight: 600; user-select: none; }
+details > summary:hover { color: var(--fg); }
 table { border-collapse: collapse; width: 100%; }
 th, td { border-bottom: 1px solid var(--border); padding: 2px 8px; text-align: left; vertical-align: top; }
 th { color: var(--muted); font-weight: 600; }

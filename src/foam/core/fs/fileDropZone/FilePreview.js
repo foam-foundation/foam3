@@ -195,7 +195,7 @@ foam.CLASS({
         p.style.display    = 'block';
         p.style.height     = '100%';
         p.style.width      = '100%';
-      } else if ( data.mimeType === 'image/tiff' && await this.renderTiff_(url, div, image) ) {
+      } else if ( data.mimeType === 'image/tiff' && await this.renderTiff_(url, div, image, d && d.blob) ) {
         // Handled: every TIFF page rendered as its own canvas. A browser <img>
         // shows only the first IFD of a multi-page TIFF (or nothing at all), so
         // the remaining pages would otherwise be invisible.
@@ -209,11 +209,17 @@ foam.CLASS({
     // Decode and paint every page of a (multi-page) TIFF. Returns true when at
     // least one page was rendered; false on any failure so the caller falls back
     // to the single <img> path (which still shows page one where the browser can).
-    async function renderTiff_(url, div, image) {
+    async function renderTiff_(url, div, image, blob) {
       try {
         if ( ! await this.ensureUtif_() ) return false;
 
-        let buffer = await fetch(url, { credentials: 'include' }).then(r => r.arrayBuffer());
+        // Prefer the in-memory blob (inline file data) so we never fetch the
+        // object URL — a blob: fetch needs connect-src blob:, which the default
+        // policy omits. Only fall back to fetching when the file is remote (an
+        // address with no loaded data).
+        let buffer = blob
+          ? await blob.arrayBuffer()
+          : await fetch(url, { credentials: 'include' }).then(r => r.arrayBuffer());
         let pages  = UTIF.decode(buffer);
         if ( ! pages || ! pages.length ) return false;
 

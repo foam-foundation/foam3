@@ -12,11 +12,11 @@ body { background: var(--bg); color: var(--fg); font: 12px system-ui, sans-serif
 #tabs { display: flex; gap: 6px; align-items: center; padding-bottom: 4px; }
 #tabs .tab { border-radius: 4px 4px 0 0; border-bottom: none; padding: 3px 12px; }
 #tabs #status { margin-left: auto; }
-#toolbar { display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 0; margin-bottom: 6px; }
+/* Tree-only controls; the Why tab has nothing to reveal or fold */
+#toolbar { display: none; gap: 10px; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 0; margin-bottom: 6px; }
+body.tree-tab #toolbar { display: flex; }
 #toolbar label { user-select: none; white-space: nowrap; }
 #toolbar .hint { margin-left: auto; white-space: nowrap; }
-#wrappers-label, #toolbar .hint { display: none; }
-body.tree-tab #wrappers-label, body.tree-tab #toolbar .hint { display: inline; }
 button { background: var(--btn-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; white-space: nowrap; flex: none; }
 #tabs #status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tabs .tab.active { font-weight: 600; border-color: var(--fg); }

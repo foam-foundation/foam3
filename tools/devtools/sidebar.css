@@ -1,0 +1,9 @@
+:root {
+  --bg: #fff; --fg: #202124; --muted: #5f6368; --err: #c5221f;
+}
+:root.dark {
+  --bg: #202124; --fg: #e8eaed; --muted: #9aa0a6; --err: #f28b82;
+}
+body { background: var(--bg); color: var(--fg); font: 12px system-ui, sans-serif; margin: 8px; }
+.muted { color: var(--muted); }
+.err { color: var(--err); }

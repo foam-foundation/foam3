@@ -187,4 +187,37 @@ t(st2 && st2.data === orig && st2.view === v3detail, 'screenTarget: record scree
 st2 = P.screenTarget(u2('root', { childNodes: [ tableView ] }), env());
 t(st2 && st2.table && st2.table.dao === screenDao, 'screenTarget: table screen');
 
+// childrenOf / treeOf
+var tA = u2('com.x.A', { $UID: 1, element_: dom() });
+var tB = u2('com.x.B', { $UID: 2, instance_: { shown: false } });
+var tSlotKid = u2('com.x.SlotKid', { $UID: 4 });
+var tSlot = u2('foam.u2.SlotNode', { $UID: 3, instance_: { node: tSlotKid } });
+tA.childNodes = [ tB, 'text child', tSlot ];
+t(P.childrenOf(tA).length === 2 && P.childrenOf(tA)[0] === tB && P.childrenOf(tA)[1] === tSlot, 'childrenOf: FObject childNodes only, strings skipped');
+t(P.childrenOf(tSlot).length === 1 && P.childrenOf(tSlot)[0] === tSlotKid, 'childrenOf: SlotNode instance_.node is a child');
+t(P.childrenOf(null).length === 0, 'childrenOf: null -> []');
+
+var visited = [];
+var tree = P.treeOf(tA, 5000, function(el, uid) { visited.push(uid); });
+t(tree.root.uid === 1 && tree.root.kids.length === 2 && tree.root.kids[0].uid === 2 && tree.root.kids[1].uid === 3 && tree.root.kids[1].kids[0].uid === 4,
+  'treeOf: pre-order nodes keyed by $UID, SlotNode child walked');
+t(tree.count === 4 && tree.truncated === false, 'treeOf: count = nodes included, not truncated');
+t(tree.root.shown === true && tree.root.kids[0].shown === false, 'treeOf: shown from instance_ only; unset = shown');
+t(tree.root.layer.cls === 'com.x.A' && tree.root.kids[0].layer.cls === 'com.x.B', 'treeOf: each node carries layerOf(el)');
+t(visited.join(',') === '1,2,3,4', 'treeOf: visit(el, uid) once per included node, in order');
+
+var capped = P.treeOf(tA, 2);
+t(capped.count === 2 && capped.truncated === true && capped.root.kids.length === 1 && capped.root.kids[0].uid === 2,
+  'treeOf: cap stops adding nodes, truncated flagged');
+
+var tCyc = u2('com.x.Cyc', { $UID: 9 });
+tCyc.childNodes = [ tCyc ];
+var cycTree = P.treeOf(tCyc);
+t(cycTree.count === 1 && cycTree.root.kids.length === 0, 'treeOf: cycle terminates, node once');
+t(P.treeOf(null).root === null && P.treeOf(null).count === 0, 'treeOf: null root -> root null');
+
+var shownLazy = u2('com.x.Lazy', { $UID: 10 });
+Object.defineProperty(shownLazy, 'shown', { get: function() { throw new Error('factory ran'); } });
+t(P.treeOf(shownLazy).root.shown === true, 'treeOf: never reads the shown getter');
+
 console.log('shapers-test:', passes, 'passed');

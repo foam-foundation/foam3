@@ -39,8 +39,19 @@
     return { cls: d.cls_.id, id: id, summary: summary || null };
   };
 
-  // Every rendered u2.Element keeps its DOM node on element_; children live in
-  // childNodes and, for SlotNode, in instance_.node. Walk the tree under root
+  // A u2 element's FOAM children: the FObject entries of childNodes (strings
+  // are text) plus, for SlotNode, the element it currently renders in
+  // instance_.node. The one child rule for every walk in this file.
+  exports.childrenOf = function(el) {
+    var out = [], kids = ( el && el.childNodes ) || [];
+    for ( var i = 0 ; i < kids.length ; i++ ) if ( kids[i] && kids[i].cls_ ) out.push(kids[i]);
+    var n = el && el.instance_ && el.instance_.node;
+    if ( n && n.cls_ ) out.push(n);
+    return out;
+  };
+
+  // Every rendered u2.Element keeps its DOM node on element_; children come
+  // from childrenOf. Walk the tree under root
   // once into a WeakMap(DOM node -> u2.Element), then climb the selected DOM
   // node's parentElement chain until a mapped node appears. Caps: 50000
   // elements and a Set of visited elements, so a cyclic tree still terminates.
@@ -53,10 +64,8 @@
       seen.add(el); walked++;
       var d = own(el, 'element_');
       if ( d && d.nodeType === 1 && ! map.has(d) ) { map.set(d, el); withDom++; }
-      var kids = el.childNodes || [];
-      for ( var i = 0 ; i < kids.length ; i++ ) if ( kids[i] && kids[i].cls_ ) stack.push(kids[i]);
-      var n = el.instance_ && el.instance_.node;
-      if ( n && n.cls_ ) stack.push(n);
+      var kids = exports.childrenOf(el);
+      for ( var i = 0 ; i < kids.length ; i++ ) stack.push(kids[i]);
     }
     var node = domNode;
     while ( node && ! map.has(node) ) node = node.parentElement;
@@ -291,5 +300,28 @@
     }
     if ( found.table ) return { table: found.table };
     return null;
+  };
+
+  // Snapshot of the u2 tree under root for the Tree tab: pre-order, one node
+  // per element, keyed by $UID (stable for the object's life, lib.js:18-28).
+  // shown is read from instance_ only (Element2.js:605: Boolean, value true),
+  // so an unset shown means visible. cap bounds the snapshot; count is the
+  // number of nodes included. visit(el, uid), when given, is called once per
+  // included node so the caller can keep its own uid -> element map without
+  // a second walk.
+  exports.treeOf = function(root, cap, visit) {
+    cap = cap || 5000;
+    var seen = new Set(), count = 0, truncated = false;
+    function node(el) {
+      if ( ! el || ! el.cls_ || seen.has(el) ) return null;
+      if ( count >= cap ) { truncated = true; return null; }
+      seen.add(el); count++;
+      var n = { uid: el.$UID, layer: exports.layerOf(el), shown: own(el, 'shown') !== false, kids: [] };
+      if ( visit ) visit(el, n.uid);
+      var kids = exports.childrenOf(el);
+      for ( var i = 0 ; i < kids.length ; i++ ) { var k = node(kids[i]); if ( k ) n.kids.push(k); }
+      return n;
+    }
+    return { root: node(root), count: count, truncated: truncated };
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamShapers = {} ));

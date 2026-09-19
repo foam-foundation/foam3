@@ -242,7 +242,7 @@ Pure logic has Node tests with no dependencies:
 ```bash
 node tools/devtools/test/shapers-test.js        # shapers-test: 56 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 9 passed
-node tools/devtools/test/tree-core-test.js      # tree-core-test: 26 passed
+node tools/devtools/test/tree-core-test.js      # tree-core-test: 30 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
 node tools/devtools/test/why-core-test.js       # why-core-test: 25 passed

@@ -14,7 +14,8 @@ p({class:"foam.core.http.csp.CSPDirective",name:"script-src",key:"foam",value:"'
 // Existing urls and hashes - no longer know the pairing.
 p({class:"foam.core.http.csp.CSPDirective",name:"script-src",key:"foam-url",value:" https://cdn.plaid.com/link/v2/stable/link-initialize.js https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js",hash:"'sha256-HY1JzEwuxkis4xx0ggY23gbYY/MCEAE1T6+OQnWS2vA='  'sha256-NiNrLgJ8wbIXIi5saiR3XTd1Mxm4k0nju66GJsw4b9U='   'sha256-FLYDXBkz4oo/H5jEfYXqAGYUwERY44OO1yznaMCdMiU='  'sha256-G3UfiJBy6rwOk3glkBQuQDFA7IoCtiOT56gTh+IfNF0='"})
 p({class:"foam.core.http.csp.CSPDirective",name:"script-src",key:"foam.core.oauth.OAuthWebAgent",value:"'self' 'sha256-cw3HTks31hEccM/N4XI4Dh1j0wqVDd9KcpeyZcCO2+g=' 'sha256-tuxv6z5+g23FxCNcIV5bpLy8ND0ucDEajbda3zK1jqs='"})
-// UTIF (TIFF decoder) for multi-page TIFF preview in FilePreview. Loaded on
+// utif2 (TIFF decoder) for multi-page TIFF preview in FilePreview. Loaded on
 // demand from the CDN (script-src). renderTiff_ decodes the in-memory file
-// bytes directly, so no connect-src entry is needed.
-p({class:"foam.core.http.csp.CSPDirective",name:"script-src",key:"tiff",value:"https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js"})
+// bytes directly, so no connect-src entry is needed. utif2 fixes the 1-bit LZW
+// decode bug in the original utif.
+p({class:"foam.core.http.csp.CSPDirective",name:"script-src",key:"tiff",value:"https://cdn.jsdelivr.net/npm/utif2@4.1.0/UTIF.min.js"})

@@ -253,13 +253,17 @@ foam.CLASS({
       }
     },
 
-    // Load UTIF (TIFF decoder) on demand. Its CDN URL is whitelisted in
-    // src/cspdirectives.jrl under the 'tiff' script-src key. installLib resolves
-    // even when the script fails to load, so confirm the global before use.
+    // Load UTIF (TIFF decoder) on demand. We use utif2, a maintained fork:
+    // the original utif@3.x mis-decodes 1-bit LZW TIFFs (the scanned-document
+    // format the schemes return) — it renders the first rows then desyncs into
+    // noise/black. utif2 keeps the same UTIF global and API. Its CDN URL is
+    // whitelisted in src/cspdirectives.jrl under the 'tiff' script-src key.
+    // installLib resolves even when the script fails to load, so confirm the
+    // global before use.
     async function ensureUtif_() {
       if ( typeof UTIF !== 'undefined' ) return true;
       await foam.u2.JsLib.create({
-        src: 'https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.min.js'
+        src: 'https://cdn.jsdelivr.net/npm/utif2@4.1.0/UTIF.min.js'
       }).installLib();
       return typeof UTIF !== 'undefined';
     }

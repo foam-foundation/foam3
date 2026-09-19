@@ -295,8 +295,6 @@ this.start().addClass('p-semiBold').add(this.label).end()
 
 ### 3.3 Reactive Patterns
 
-> **dynamic(), deep slot watching ($), event handlers**: See CLAUDE.md "Dynamic UI Rendering" and "Reactive Patterns" sections.
-
 #### Slots — When Only Values Change (Preferred over dynamic())
 ```javascript
 // Attribute binding via slot
@@ -318,6 +316,36 @@ this.start().addClass('p-semiBold').add(this.label).end()
 .show(this.data.isVisible$)
 .hide(this.data.isHidden$)
 ```
+
+#### Dynamic UI Rendering — when the STRUCTURE changes
+
+- `this.data.dynamic(function(prop1, prop2) {...})` when every argument belongs to `data`
+- Multiple sources: `this.dynamic(function(prop1, prop2) {...})`; a `$` suffix asks for the slot itself — `function(mapping$isDynamic, fileHeaders)`
+- Inside `dynamic`, read the value off `this` (`this.mapping.isDynamic`); the `$` parameter only tells FOAM what to watch
+- Do not pass a trailing property list to `dynamic()` — the argument names already declare the dependencies
+- Do not construct a `SimpleSlot` by hand for a reactive object; `object.dynamic()` already does it
+
+#### Deep slot watching — the `$` chain
+
+An expression that depends on a nested property will not re-fire when you watch only the top-level object, because that reference never changes. Name the whole path instead:
+
+```javascript
+// WRONG: function(block) { return block?.flowParent?.value?.currency; }
+// CORRECT:
+function(block$flowParent$value$currency) { return block$flowParent$value$currency || 'USD'; }
+```
+
+FOAM walks `this.block` → `.flowParent` → `.value` → `.currency` and re-fires on a change at any step.
+
+#### Subscribing to a slot from a view
+
+**Never call `slot$.sub(fn)` from `render()` without wrapping it in `this.onDetach(...)`** — the subscription outlives the view and every re-render stacks another handler:
+
+```javascript
+this.onDetach(this.someSlot$.sub(function() { ... }));
+```
+
+Prefer a `listeners:` entry with `on:` (4.3) unless the handler must close over render-time local state.
 
 ### 3.4 Section Configuration
 
@@ -452,7 +480,7 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.6 labelFormatter Patterns (Reactive Labels)
 
-> See CLAUDE.md "labelFormatter (Reactive Labels)" for full details. Key point: labelFormatter is a ONE-TIME render function — use `data.prop$` slots for reactivity.
+`labelFormatter` is called **once**, as `el.call(prop.labelFormatter, [data, prop])` (`foam3/src/foam/u2/PropertyBorder.js:173`); the default implementation just adds `prop.label$` (`foam3/src/foam/lang/types.js:1392-1396`). It does not re-run when `data` changes, so a label that has to follow another property adds a slot (`data.prop$.map(...)`) rather than branching on a value. Example: 3.17.
 
 ### 3.7 Property view: Configuration
 
@@ -512,16 +540,62 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.8 DoubleUnitValue (Currency Display)
 
-> See CLAUDE.md "Rendering DoubleUnitValue Properties in Custom Views" for the `startContext({controllerMode: VIEW, objData: this.data})` pattern.
+The default view is `CurrencyView`, a `ModeAltView` (`foam3/src/foam/u2/view/CurrencyView.js:10`). Rendering one read-only inside a custom view needs two things in context:
+
+1. `controllerMode: VIEW` — so the read-only `ValueView` is picked instead of an editable input
+2. `objData` — the parent object, so `ValueView` can resolve the property's `unitPropName` (e.g. `currency`) off it (`foam3/src/foam/u2/view/ValueView.js:43-50`)
+
+```javascript
+startContext({ controllerMode: foam.u2.ControllerMode.VIEW, objData: this.data }).
+  start().add(this.data.OPENING_BALANCE).end().
+endContext()
+```
 
 ### 3.9 ViewCustomizer (Dynamic View by Context)
 
-> See CLAUDE.md "Customizing Views by Scheme" for the `on:` declarative listener pattern. Key: use `on:` binding instead of manual `.sub()`, no `isInitialized_` flag, no `pushMenu` hack.
+When a context value (the selected tenant, product type, region) decides which properties a screen shows, put the decision in one customizer service rather than in each view:
+
+- `requires` the model and the enum it switches on; `imports` the context value
+- bind with an `on:` declarative listener (3.3), not a manual `.sub()` and an `isInitialized_` flag
+- call the listener once from `init()` so the first render is already correct
+- install it as a CSpec with `lazyClient: false` (a client service; `lazyClient` defaults true, `foam3/src/foam/core/boot/CSpec.js:144-147`) so it is running before the first screen opens
+- no `pushMenu` refresh hack
+
+Flipping `Model.PROPERTY.hidden` mutates one axiom shared by every instance (`.claude/skills/foam-design-patterns/references/u2-views.md:79`); acceptable only as a single application-wide switch — per-record differences go in `visibility: function(...)` (3.13).
 
 
 ### 3.10 Confirmation Modal from postSet
 
-> See CLAUDE.md "Confirmation Modals from Model Code" for the full `postSet` + `ConfirmationModal` + `changeReady_` pattern.
+Use `postSet` + `ConfirmationModal` when a property change needs the user to confirm:
+
+- `preSet` is synchronous and cannot show a modal — keep it for non-interactive transforms
+- a transient `changeReady_` flag skips the first `postSet` (initial load). On revert, clear the flag **before** assigning back, or the revert re-triggers the modal
+- **permission caveat**: if the dependent field carries `writePermissionRequired` or restricted visibility, check the user can modify it before showing anything
+
+```javascript
+requires: ['foam.u2.dialog.ConfirmationModal'],
+imports: ['ctrl?'],
+properties: [
+  { class: 'Boolean', name: 'changeReady_', hidden: true, transient: true },
+  {
+    class: 'Enum', of: 'com.example.MyEnum', name: 'myField',
+    postSet: function(old, nu) {
+      if ( ! this.changeReady_ ) { this.changeReady_ = true; return; }
+      if ( old === nu || ! this.dependentArray?.length || ! this.ctrl ) return;
+      var self = this;
+      this.ctrl.add(this.ConfirmationModal.create({
+        title: 'Field Changed', modalStyle: 'WARN',
+        primaryAction: foam.lang.Action.create({ name: 'confirm', label: 'Clear Data',
+          code: function() { self.dependentArray = []; } }),
+        secondaryAction: foam.lang.Action.create({ name: 'cancel', label: 'Revert',
+          code: function() { self.changeReady_ = false; self.myField = old; } })
+      }).add('Changing this field will clear dependent data. Continue?'));
+    }
+  }
+]
+```
+
+**Reference**: `foam3/src/foam/u2/dialog/ConfirmationModal.js`; the framework does the same thing for an action's own `confirmationRequired` at `foam3/src/foam/u2/ActionView.js:199`.
 
 ### 3.11 propertyWhitelist — Replacing Custom DetailViews
 
@@ -896,6 +970,7 @@ Use the right metadata property for each purpose:
 - Use `documentation` for developer/admin notes about the field's purpose
 - Use `placeholder` for input format hints (e.g., `'YYYY-MM-DD'`, `'Enter account number'`)
 - `help` is legacy — only use if you need tooltip-only behavior
+- `externalTransient` hides a property only from the external outputter (`foam3/src/foam/lib/xml/Outputter.java:196`, `foam3/src/foam/lib/ExternalPropertyPredicate.js:16`), not from the browser or `tableColumns` — `ServiceProviderAware.spid` has it (`foam3/src/foam/core/auth/ServiceProviderAware.js:20-24`) and still shows as a column. Use `networkTransient` to keep a value off the client.
 
 ```javascript
 {
@@ -933,6 +1008,12 @@ Use the right metadata property for each purpose:
   }
 }
 ```
+
+Three knobs worth knowing before you write around them:
+
+- **Collapsible rows** — `collapseBehaviour` is `NONE` / `ALLOW_COLLAPSE` / `START_COLLAPSED` (`TitledArrayView.js:146`), exported to the rows (`:150`). `START_COLLAPSED` earns its keep past about ten entries.
+- **Row title** — each row shows `value.toSummary()` when the item has one, and falls back to `'New ' + of.model_.label` when it does not (`TitledArrayView.js:85`). To change the fallback, set `label` on the item model; to change the title itself, give the item a `toSummary`.
+- **Choices from a sibling array** — a `ChoiceView` inside `propertyWhitelist` takes `choices$: ExpressionSlot` over `X.data$.dot('items')` (3.12), so the options recompute when the array does.
 
 **Reference**: `foam3/src/foam/u2/view/TitledArrayView.js`
 
@@ -1569,3 +1650,5 @@ Gotchas:
 | ButtonGroup (responsive) | `foam3/src/foam/u2/ButtonGroup.js` |
 | PivotTableView (sticky) | `foam3/src/foam/core/reflow/PivotTableView.js` |
 | FileCard (template methods) | `foam3/src/foam/core/fs/fileDropZone/FileCard.js` |
+| **Exemplar** | |
+| Read-only browse view opened from a menu (title, breadcrumb, comics toolbar) | `references/menu-browse-view.js` (this skill) |

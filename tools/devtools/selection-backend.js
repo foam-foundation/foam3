@@ -37,28 +37,54 @@
   // named stack (deepest first). Only the pointer is stored; the record, DAO
   // and mode are resolved on every ask, because the same element can move
   // from VIEW to EDIT and from the original record to its working copy.
-  var pointed = { el: null, stack: [] };
+  var pointed = { el: null, stack: [] }, gen = 0;
+
+  D.NO_RECORD = 'no record on this screen — open a record, or select one of its elements in Elements';
 
   D.selectNode = function(el, stack) {
     pointed = { el: el, stack: stack || [] };
-    window.$v = pointed.stack[0] || undefined;   // console handle, like React DevTools' $r
-    window.$d = ( D.currentTarget() || {} ).data;
+    gen++;
+    D.publishHandles(D.currentTarget());
   };
+
+  // Bumps on every Elements click; folded into screenKey so the panel's poll
+  // notices a new selection without a manual Refresh.
+  D.selectionGen = function() { return gen; };
+
+  // The console handles, like React DevTools' $r: $v = the pointed-at view,
+  // $d = the record of the current target. One writer, called by whoever
+  // resolved last (selectNode here, why in why-backend.js).
+  D.publishHandles = function(target) {
+    window.$v = pointed.stack[0] || undefined;
+    window.$d = ( target && target.data ) || undefined;
+  };
+
+  // "Still on screen" for a hide-based stack: Stack.push only hide()s the
+  // previous view (Stack.js:165-171, Element2.js:608-613 toggles a class), so
+  // a table row stays in the document after its record is opened.
+  // isConnected alone would keep answering with the row; the node must also
+  // sit inside the navigation stack's current view.
+  function onScreen(el) {
+    var d = P.own(el, 'element_');
+    if ( ! d || ! d.isConnected ) return false;
+    var host = null;
+    try { var cur = ctrl.stack && ctrl.stack.current; host = cur && P.own(cur, 'element_'); } catch (e) {}
+    return host ? host.contains(d) : true;
+  }
 
   // The i-th layer's DOM node, for the panel's reveal (Chrome's inspect()).
   // The one raw, non-JSON accessor; installed directly, not via register().
   D.node = function(i) {
-    var el = pointed.stack[i];
-    return el ? el.element_ : undefined;
+    return P.own(pointed.stack[i], 'element_');
   };
 
-  // The current target, in priority: the pointed-at element while its DOM
-  // node is still in the document (element_ survives detach,
-  // Element2.js:733-738); else the record the current screen is about; else
+  // The current target, in priority: the pointed-at element while it is on
+  // screen (see onScreen); else the record the current screen is about; else
   // the table it lists. { data, view, dao, mode, source } | { table, source } | null.
+  // No side effects: publishing $v/$d is the caller's call.
   D.currentTarget = function() {
     try {
-      if ( pointed.el && pointed.el.element_ && pointed.el.element_.isConnected ) {
+      if ( pointed.el && onScreen(pointed.el) ) {
         var r = P.resolveRecord(pointed.el, pointed.stack, env);
         if ( r ) { r.source = 'selection'; return r; }
       }

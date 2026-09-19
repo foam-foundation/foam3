@@ -8,13 +8,13 @@
 // every client-side gate (why-core.js, tested) with the page's real
 // evaluators, and report the permission cache. Browser-only glue.
 (function() {
-  var D = window.__foamDevtools, W = window.__foamWhyCore;
+  var D = window.__foamDevtools, W = window.__foamWhyCore, P = window.__foamShapers;
 
   // Client auth is a decorator stack (AuthorizeAnonymousClientDecorator ->
   // CachedAuthServiceProxy -> ClientLoginAuthService); apps may re-stack it,
   // so walk .delegate until the object with the cache map appears.
   function authCache() {
-    var a = window.ctrl && ctrl.__subContext__ && ctrl.__subContext__.auth, hops = 0;
+    var a = currentAuth, hops = 0;
     while ( a && hops < 10 ) {
       if ( a.cache && typeof a.cache === 'object' ) return a.cache;
       a = a.delegate; hops++;
@@ -22,25 +22,38 @@
     return null;
   }
 
-  // auth.check returns a promise and caches it; the panel needs a value now.
-  // Resolve each promise once into permResults and answer 'pending' until it
-  // lands — the panel re-polls.
-  var permResults = {};
-  function permOf(name) {
-    if ( name in permResults ) return permResults[name];
-    var auth = ctrl.__subContext__.auth;
-    if ( ! auth ) return 'pending';
-    var p;
-    try { p = auth.check(null, name); } catch (e) { permResults[name] = false; return false; }
-    if ( ! p || typeof p.then !== 'function' ) { permResults[name] = !! p; return permResults[name]; }
-    p.then(function(v) { permResults[name] = !! v; }, function() { permResults[name] = false; });
+  // Promises the page hands back (auth.check results, async isAvailable),
+  // settled once each. Keyed by the promise itself, so a permission answer
+  // lives exactly as long as FOAM's own cache entry: CachedAuthServiceProxy
+  // returns the same promise for a name until it resets on group/subject/
+  // login change or a capability junction put (CachedAuthServiceProxy.js:36-56).
+  var settled = new WeakMap();
+  function settle(p) {
+    if ( settled.has(p) ) return settled.get(p);
+    p.then(function(v) { settled.set(p, !! v); }, function() { settled.set(p, false); });
     return 'pending';
   }
 
+  // FOAM asks the auth in the record's own context (Element2.js:1889-1890);
+  // with none, every permission-gated property is HIDDEN. Actions and
+  // sections skip permission checks entirely without an auth (Action.js:218).
+  var currentAuth = null;
+  function permOf(name) {
+    if ( ! currentAuth ) return false;
+    var p;
+    try { p = currentAuth.check(null, name); } catch (e) { return false; }
+    if ( ! p || typeof p.then !== 'function' ) return !! p;
+    return settle(p);
+  }
+
   var env = {
+    // withArgs is what FOAM's own slots use (Action.js:253); a thenable result
+    // means "not yet" until it lands (PromiseSlot, Slot.js:578-586).
     evalFn: function(fn, data) {
-      try { return foam.Function.withArgs(fn, data, data); }
+      var r;
+      try { r = foam.Function.withArgs(fn, data, data); }
       catch (e) { return { err: String(e && e.message).slice(0, 80) }; }
+      return ( r && typeof r.then === 'function' ) ? settle(r) : r;
     },
     slotGet: function(s) { try { return s.get(); } catch (e) { return 'ERR'; } },
     perm: permOf
@@ -54,19 +67,20 @@
     if ( ! D.foamReady() ) return { foam: false };
     var pos = -1;
     try { pos = ctrl.stack ? ctrl.stack.pos : -1; } catch (e) {}
-    return { key: location.hash + '|' + pos };
+    return { key: location.hash + '|' + pos + '|' + D.selectionGen() };
   });
 
   D.register('why', function() {
     if ( ! D.foamReady() ) return { foam: false };
     var t = D.currentTarget();
-    if ( ! t ) return { error: 'no record on this screen — open a record, or select one of its elements in Elements' };
+    if ( ! t ) return { error: D.NO_RECORD };
     if ( t.table ) {
       var of = t.table.dao.of;
       return { error: 'this screen is a table of ' + ( of ? of.id : 'records' ) + ' — open a record, or select a row in Elements' };
     }
-    window.$d = t.data;
+    D.publishHandles(t);
     var data = t.data, cls = data.cls_;
+    try { currentAuth = ( data.__subContext__ && data.__subContext__.auth ) || null; } catch (e) { currentAuth = null; }
     // No controllerMode in scope is what FOAM turns into CREATE (Element2.js:569).
     var mode = t.mode || null, modeName = mode || 'CREATE';
 
@@ -90,8 +104,15 @@
       return W.actionGate(a, data, env, running);
     });
 
+    // A section is also unavailable when every property in it is HIDDEN
+    // (SectionAxiom.js:125-165); members come from its explicit `properties`
+    // list or from each property's `section` (SectionAxiom.js:108-123).
+    var propAxioms = cls.getAxiomsByClass(foam.lang.Property), sectionOf = {};
+    propAxioms.forEach(function(p) { try { sectionOf[p.name] = p.section || null; } catch (e) {} });
     var sections = ( foam.layout && foam.layout.SectionAxiom )
-      ? cls.getAxiomsByClass(foam.layout.SectionAxiom).map(function(s) { return W.sectionGate(s, data, env); })
+      ? cls.getAxiomsByClass(foam.layout.SectionAxiom).map(function(s) {
+          return W.sectionGate(s, data, env, properties, function(n) { return sectionOf[n]; });
+        })
       : [];
 
     var cache = authCache(), permissions = [];
@@ -100,14 +121,12 @@
     var pending = 0;
     properties.forEach(function(g) { if ( g.final === 'pending' ) pending++; });
     actions.forEach(function(a) { if ( a.available.value === 'pending' || a.enabled.value === 'pending' ) pending++; });
+    sections.forEach(function(s) { if ( s.available === 'pending' || ( s.perm && s.perm.result === 'pending' ) ) pending++; });
     permissions.forEach(function(p) { if ( p.result === 'pending' ) pending++; });
 
-    var id = null, summary = null;
-    try { id = ( data.id !== undefined && data.id !== null && data.id !== '' && data.id !== 0 ) ? str(data.id, 40) : null; } catch (e) {}
-    try { summary = typeof data.toSummary === 'function' ? str(data.toSummary(), 60) : null; } catch (e) {}
-
+    var rec = P.describeRecord(data);
     return {
-      cls: cls.id, id: id, summary: summary || null, mode: modeName, modeDefaulted: ! mode, source: t.source,
+      cls: rec.cls, id: rec.id, summary: rec.summary, mode: modeName, modeDefaulted: ! mode, source: t.source,
       properties: properties, validation: validation, actions: actions, sections: sections,
       permissions: permissions, pending: pending
     };

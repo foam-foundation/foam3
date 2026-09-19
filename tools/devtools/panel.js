@@ -10,11 +10,11 @@ try {
 
 var S = window.__foamSidebarCore, E = window.__foamWhyExplain;
 
-// All panel state in one object, one render(state) from it. Tabs added later
-// put their response under their own key and their own render function.
+// All panel state in one object, one render(state) from it. A second tab,
+// when one exists, adds its own key and render function.
 // open: which collapsible sections are expanded, by key; survives re-renders
 // (Refresh, permission re-polls) because render rebuilds the DOM each time.
-var state = { tab: 'why', why: null, pollsLeft: 0, open: {}, updated: null };
+var state = { why: null, pollsLeft: 0, open: {}, updated: null };
 
 // ---- DOM helpers (textContent only) ----
 function el(tag, cls, text) {
@@ -54,6 +54,7 @@ function renderWhy(w) {
   if ( ! w ) { root.appendChild(el('div', 'muted', 'loading…')); return root; }
   if ( w.error ) { root.appendChild(el('div', 'err', w.error)); return root; }
   if ( w.foam === false ) { root.appendChild(el('div', null, 'not a FOAM page')); return root; }
+  if ( ! w.properties ) { root.appendChild(el('div', 'err', 'unexpected response')); return root; }
 
   var head = S.shortName(w.cls) + ( w.id ? ' #' + w.id : '' ) + ( w.summary ? ' — ' + w.summary : '' ) +
              '   mode ' + w.mode + ( w.modeDefaulted ? ' (none in scope → FOAM default)' : '' ) +
@@ -81,7 +82,7 @@ function renderWhy(w) {
     det.appendChild(el('div', 'muted', rw.map(function(g) { return g.name; }).join(', ')));
     body.appendChild(det);
   }
-  root.appendChild(section('fields', 'Fields (' + notRW.length + ' not RW)', body));
+  root.appendChild(section('fields', 'Fields (' + notRW.length + ' not RW; class axioms, per-view overrides not replayed)', body));
 
   root.appendChild(section('validation', 'Validation (' + w.validation.length + ' failing)',
     w.validation.length
@@ -116,7 +117,7 @@ function renderWhy(w) {
     pbody.appendChild(el('div', 'muted', 'denied (copy):'));
     pbody.appendChild(ta);
   }
-  root.appendChild(section('permissions', 'Permissions checked (' + w.permissions.length + ', ' + denied.length + ' denied)', pbody));
+  root.appendChild(section('permissions', 'Permissions checked by the page or this panel (' + w.permissions.length + ', ' + denied.length + ' denied)', pbody));
   return root;
 }
 
@@ -125,7 +126,7 @@ function stamp() { return new Date().toTimeString().slice(0, 8); }
 function render(state) {
   var root = document.getElementById('root');
   root.textContent = '';
-  if ( state.tab === 'why' ) root.appendChild(renderWhy(state.why));
+  root.appendChild(renderWhy(state.why));
   document.getElementById('status').textContent =
     state.pollsLeft ? 'waiting for permission checks…' :
     state.why && state.why.error ? state.why.error :
@@ -140,7 +141,10 @@ function loadWhy() {
   rpc('why').then(function(w) {
     state.why = w;
     state.updated = stamp();
-    if ( w && w.pending > 0 && state.pollsLeft > 0 ) {
+    // An error right after navigation usually means the detail view has not
+    // loaded its record yet (DetailView.loadData is idled + a find), so it
+    // gets the same re-polls as pending permission checks.
+    if ( w && ( w.pending > 0 || w.error ) && state.pollsLeft > 0 ) {
       state.pollsLeft--;
       setTimeout(loadWhy, 400);
     } else {

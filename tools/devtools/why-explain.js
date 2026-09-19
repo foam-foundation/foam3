@@ -35,10 +35,10 @@
   exports.explainAction = function(a) {
     var parts = [];
     if ( a.available.value !== true ) {
-      parts.push('available: ' + ( a.available.fn === false ? 'isAvailable → false' : permsWhy(a.available.perms) ));
+      parts.push('available: ' + ( a.available.fn === false ? 'isAvailable → false' : a.available.fn === 'pending' ? 'isAvailable pending (async)' : permsWhy(a.available.perms) ));
     }
     if ( a.enabled.value !== true ) {
-      parts.push('enabled: ' + ( a.enabled.running ? 'running' : a.enabled.fn === false ? 'isEnabled → false' : permsWhy(a.enabled.perms) ));
+      parts.push('enabled: ' + ( a.enabled.running ? 'running' : a.enabled.fn === false ? 'isEnabled → false' : a.enabled.fn === 'pending' ? 'isEnabled pending (async)' : permsWhy(a.enabled.perms) ));
     }
     if ( a.confirm.fn === true || ( a.confirm.perms.length && ! permsWhy(a.confirm.perms) ) ) parts.push('confirm required');
     return parts.join('; ');
@@ -47,7 +47,9 @@
   exports.explainSection = function(s) {
     var parts = [];
     if ( s.available === false ) parts.push('isAvailable → false');
+    if ( s.available === 'pending' ) parts.push('isAvailable pending');
     if ( s.perm && s.perm.result !== true ) parts.push(s.perm.name + ' ' + permWord(s.perm));
+    if ( s.anyVisible === false ) parts.push('all ' + s.fields + ' fields HIDDEN');
     return parts.join('; ');
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamWhyExplain = {} ));

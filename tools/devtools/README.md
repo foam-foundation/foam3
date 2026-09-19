@@ -6,8 +6,10 @@ selected DOM node, what each binds (DAO, record, property) and a copyable FOAM
 path; and a **FOAM panel** whose **Why** tab explains, for the record on
 screen, why each field is hidden or read-only, what validation is failing, why
 each action is greyed or missing, and which permissions the screen has asked
-for. It only reads from the live FOAM registry inside the inspected page; the
-one thing it writes is the `$v`/`$d` console handles.
+for. It reads the live FOAM registry inside the inspected page and writes
+only: the `$v`/`$d` console handles; permission checks it asks the app's
+cached auth service (so the "checked" list grows with the panel's own
+questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
 
 ## Install
 
@@ -73,11 +75,13 @@ inspected page").
 
 Open a record in the app, open the **FOAM** panel: it explains the record on
 screen, and follows you — the panel polls the route and stack position once a
-second and reloads when they change. No Elements click needed. Selecting a
-node inside a form or table in Elements overrides that (the sidebar's `$d`)
-for as long as the node stays on screen; **Refresh** re-reads either way. On
-a table screen the panel says "table of <Class>" until you open a row. Six
-blocks:
+second and reloads when they change, and a click in Elements counts as a
+change. No Refresh needed. Selecting a node inside a form or table in
+Elements overrides the screen record for as long as the node is inside the
+stack's current view (a table row you clicked stops counting once its
+record is opened, even though the hidden table stays in the DOM);
+**Refresh** re-reads either way. On a table screen the panel says "table of
+<Class>" until you open a row. Six blocks:
 
 1. **Record** — class, id, summary, where it came from ("record on screen"
    or "from Elements selection"), and the `controllerMode` in force (read
@@ -85,22 +89,31 @@ blocks:
    default" means CREATE by `Element2.js:569`).
 2. **Fields (N not RW)** — every property that is not read-write, with the
    step of FOAM's visibility ladder that decided it (`createVisibilityFor`
-   in `foam.u2.Element2`): `readVisibility → RO`, `visibility function →
-   HIDDEN`, `VIEW clamps RW → RO`, `user.rw.salary denied → RO`,
-   `user.ro.salary denied → HIDDEN`. Read-write fields are collapsed under
-   "and N read-write". A field marked `(hidden axiom)` has `hidden: true`.
+   in `foam.u2.Element2`): `readVisibility → RO` (the factory default in
+   VIEW), `visibility function → HIDDEN`, `VIEW clamps RW → RO` (only a
+   visibility *function*'s result is clamped; `visibility: 'RW'` stays RW),
+   `user.rw.salary denied → RO`, `user.ro.salary denied → HIDDEN`.
+   Read-write fields are collapsed under "and N read-write". A field marked
+   `(hidden axiom)` has `hidden: true`. This is the **class-level** ladder:
+   a view's per-property `config` override (`{ name: 'x', visibility: 'RW' }`
+   in a section or PropertyBorder) is not replayed.
    One FOAM quirk is called out explicitly: `readPermissionRequired` on its
    own never restricts on the client (write is not gated, so `allowCreate`
    stays true) — the row says `… denied but write not gated — no effect`.
 3. **Validation (N failing)** — `obj.errors_`: field, current value, message.
-4. **Actions (N blocked)** — per action: available ✓/✗, enabled ✓/✗, and the
-   gate that failed: `isEnabled → false`, `running`, `user.approve denied`,
-   `confirm required`.
-5. **Sections** — only for classes that declare sections: `isAvailable` and
-   the `<cls>.section.<name>` permission.
-6. **Permissions checked (N, M denied)** — every permission string the page's
-   cached auth service has been asked this session, ✓/✗/…, plus a copy box
-   with the denied ones.
+4. **Actions (N blocked)** — per action: available ✓/✗/…, enabled ✓/✗/…, and
+   the gate that failed: `isEnabled → false`, `running`, `user.approve
+   denied`, `isAvailable pending (async)`, `confirm required`. An `async`
+   gate is `…` until its promise settles, as in FOAM (a PromiseSlot holds
+   the old value until then).
+5. **Sections** — only for classes that declare sections: `isAvailable`, the
+   `<cls>.section.<name>` permission, and "all N fields HIDDEN" (a section
+   with no visible field is unavailable in FOAM too).
+6. **Permissions checked by the page or this panel (N, M denied)** — every
+   permission string the record's cached auth service has been asked, by the
+   app or by this replay, ✓/✗/…, plus a copy box with the denied ones.
+   Answers are keyed by FOAM's own cached promise, so they reset when FOAM's
+   cache does (login, group or capability change).
 
 Permission answers are promises; the panel shows `…` and re-polls up to three
 times (400 ms apart) until they land. Nothing is subscribed — press Refresh
@@ -159,11 +172,17 @@ parts (`pathOf`, `shortName`; `explainProp`, `explainAction`,
 Page-side selection has one owner, `selection-backend.js`: `inspect` hands
 it the pointed-at element and its stack (`D.selectNode`); `why` and
 `openRecord` ask `D.currentTarget()` — the pointed-at element's record while
-its DOM node is still in the document, else the record the screen is about,
-else the table it lists. Only the pointer is stored; record, DAO and mode
-are resolved on every ask by the pure `resolveRecord` / `screenTarget` in
-`shapers.js`, so a view that moves from VIEW to EDIT (and to its working
-copy) after the click is reported correctly.
+its node is inside the navigation stack's current view, else the record the
+screen is about, else the table it lists. Only the pointer is stored;
+record, DAO and mode are resolved on every ask by the pure `resolveRecord`
+/ `screenTarget` in `shapers.js`, so a view that moves from VIEW to EDIT
+(and to its working copy) after the click is reported correctly. Every
+element read goes through `own(el, key)` (the element's `instance_` only),
+because FOAM property reads can run factories — `element_` would create a
+DOM node, `controllerMode` would default to CREATE, a record's unset
+`address` would create an Address. The panel's other mutable state is a
+`WeakMap` of settled promises in `why-backend.js`, keyed by the promise so
+it lives exactly as long as FOAM's own auth cache entry.
 
 ### Adding a method (how slice 2 plugs in)
 
@@ -174,7 +193,8 @@ copy) after the click is reported correctly.
 
 ## Limits
 
-- Snapshot per selection; no live updates. Reselect to refresh.
+- The sidebar is a snapshot per selection. The Why tab polls the route,
+  stack position and selection once a second; nothing is subscribed.
 - The `u2` tree is walked from `window.ctrl` on every `inspect` call (fresh
   `WeakMap`); large pages pay the walk each time — the **map** line shows the
   cost.
@@ -191,8 +211,8 @@ node tools/devtools/test/shapers-test.js        # shapers-test: 43 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 4 passed
 node tools/devtools/test/backend-test.js        # backend-test: 4 passed
 node tools/devtools/test/common-test.js         # common-test: 3 passed
-node tools/devtools/test/why-core-test.js       # why-core-test: 20 passed
-node tools/devtools/test/why-explain-test.js    # why-explain-test: 15 passed
+node tools/devtools/test/why-core-test.js       # why-core-test: 25 passed
+node tools/devtools/test/why-explain-test.js    # why-explain-test: 17 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)

@@ -61,7 +61,12 @@
       base.mode = modeNameOf(v);
     }
     gate.base  = base;
-    gate.clamp = base.mode === 'ERR' ? 'ERR' : exports.clampFor(modeName, base.mode);
+    // FOAM wraps controllerMode.restrictDisplayMode only around a visibility
+    // FUNCTION's result (Element2.js:1854-1856); a DisplayMode value or a slot
+    // is used as-is (:1841-1842, :1861), so `visibility: 'RW'` stays RW in VIEW.
+    gate.clamp = base.mode === 'ERR' ? 'ERR'
+               : base.kind === 'function' ? exports.clampFor(modeName, base.mode)
+               : base.mode;
 
     var needsPerm = prop.readPermissionRequired || prop.writePermissionRequired || prop.updatePermissionRequired;
     if ( needsPerm && data && data.cls_ ) {
@@ -98,15 +103,20 @@
     }
     return pending ? 'pending' : true;
   }
+  // An async isAvailable/isEnabled yields a promise; FOAM's ExpressionSlot is
+  // a PromiseSlot that keeps the old value (null = not available) until it
+  // resolves (Slot.js:578-586). env.evalFn answers 'pending' for a thenable
+  // until it lands, same as env.perm.
   function boolOf(fn, data, env) {
     if ( ! fn ) return true;
     var r = env.evalFn(fn, data);
+    if ( r === 'pending' ) return 'pending';
     return ( r && r.err ) ? false : !! r;
   }
   function andAll(fn, perms) {
-    if ( fn === false ) return false;
-    if ( perms === 'pending' ) return 'pending';
-    return fn && perms;
+    if ( fn === false || perms === false ) return false;
+    if ( fn === 'pending' || perms === 'pending' ) return 'pending';
+    return true;
   }
 
   // Action.js: available = isAvailable(data) && availablePermissions all
@@ -126,12 +136,23 @@
   };
 
   // SectionAxiom.js: isAvailable(data) && (permissionRequired ? auth.check(cls.section.name) : true)
-  exports.sectionGate = function(section, data, env) {
+  // && at least one of its properties is not HIDDEN (SectionAxiom.js:125-165).
+  // propGates: this record's propGate list; a section's members are its
+  // explicit `properties` names, else every property whose `section` is it.
+  exports.sectionGate = function(section, data, env, propGates, propSectionOf) {
     var avail = boolOf(section.isAvailable, data, env), perm = null;
     if ( section.permissionRequired && data && data.cls_ ) {
       var n = String(data.cls_.name).toLowerCase() + '.section.' + String(section.name).toLowerCase();
       perm = { name: n, result: env.perm(n) };
     }
-    return { name: section.name, available: avail, perm: perm };
+    var members = null;
+    if ( propGates ) {
+      var explicit = Array.isArray(section.properties) ? section.properties.map(function(p) { return typeof p === 'string' ? p : ( p && p.name ); }) : null;
+      members = propGates.filter(function(g) {
+        return explicit ? explicit.indexOf(g.name) >= 0 : ( propSectionOf && propSectionOf(g.name) === section.name );
+      });
+    }
+    var anyVisible = members === null ? null : members.some(function(g) { return g.final !== 'HIDDEN'; });
+    return { name: section.name, available: avail, perm: perm, fields: members ? members.length : null, anyVisible: anyVisible };
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamWhyCore = {} ));

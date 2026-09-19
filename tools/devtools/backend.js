@@ -35,7 +35,6 @@
            typeof window.ctrl !== 'undefined' && !! window.ctrl;
   }
 
-  exports.guard     = guard;
   exports.foamReady = foamReady;
   exports.register  = function(name, fn) { registry[name] = fn; };
   exports.call      = guard(function(name) {

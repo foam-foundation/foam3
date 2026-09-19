@@ -19,7 +19,7 @@
           return;
         }
         if ( typeof result !== 'string' ) {
-          resolve(result === undefined ? {} : { error: 'non-string result' });
+          resolve({ error: result === undefined ? 'no result — page mid-reload?' : 'non-string result' });
           return;
         }
         try { resolve(JSON.parse(result)); }

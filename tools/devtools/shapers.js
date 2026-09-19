@@ -15,16 +15,28 @@
 
   exports.isWrapper = function(clsId) { return !! WRAPPERS[clsId]; };
 
-  // The u2.Element that owns a DOM node is usually a plain wrapper (Element,
-  // SlotNode) inside the view a developer actually wrote. Climb parentNode
-  // past wrappers so the sidebar names "TableView", not "foam.u2.Element".
-  // Falls back to the input when every ancestor is a wrapper.
-  exports.namedOwner = function(el) {
-    var e = el, hops = 0;
-    while ( e && e.cls_ && exports.isWrapper(e.cls_.id) && e.parentNode && hops < 50 ) {
-      e = e.parentNode; hops++;
-    }
-    return ( e && e.cls_ ) ? e : el;
+  // A FOAM property read can run its factory and store the result (element_
+  // creates a DOM node, config creates a controller config, controllerMode
+  // defaults to CREATE — Element2.js:546, :569). Everything this file learns
+  // about an element comes from values it already holds.
+  function own(el, key) {
+    var inst = el && el.instance_;
+    return inst ? inst[key] : undefined;
+  }
+  exports.own = own;
+
+  function str(v, max) {
+    var s = String(v);
+    return s.length > max ? s.slice(0, max) + '…' : s;
+  }
+
+  // { cls, id, summary } for a record, each read guarded. id is null for the
+  // unset sentinels FOAM uses ('' / 0 / null / undefined).
+  exports.describeRecord = function(d) {
+    var id = null, summary = null;
+    try { id = ( d.id !== undefined && d.id !== null && d.id !== '' && d.id !== 0 ) ? str(d.id, 40) : null; } catch (e) {}
+    try { summary = typeof d.toSummary === 'function' ? str(d.toSummary(), 60) : null; } catch (e) {}
+    return { cls: d.cls_.id, id: id, summary: summary || null };
   };
 
   // Every rendered u2.Element keeps its DOM node on element_; children live in
@@ -39,7 +51,7 @@
       var el = stack.pop();
       if ( ! el || ! el.cls_ || seen.has(el) || walked >= 50000 ) continue;
       seen.add(el); walked++;
-      var d = el.element_;
+      var d = own(el, 'element_');
       if ( d && d.nodeType === 1 && ! map.has(d) ) { map.set(d, el); withDom++; }
       var kids = el.childNodes || [];
       for ( var i = 0 ; i < kids.length ; i++ ) if ( kids[i] && kids[i].cls_ ) stack.push(kids[i]);
@@ -78,11 +90,6 @@
     return !! v && typeof v.select === 'function' && typeof v.find === 'function' && typeof v.put === 'function';
   };
 
-  function str(v, max) {
-    var s = String(v);
-    return s.length > max ? s.slice(0, max) + '…' : s;
-  }
-
   // What one layer binds: a DAO (table, controller), a record (row, detail
   // view), a property (PropertyBorder, ValueView). Each read is guarded so a
   // throwing getter degrades to null instead of losing the whole stack.
@@ -93,14 +100,11 @@
       // bound to another u2 element (ActionView under startContext({ data: self }))
       layer.view = d.cls_.id;
     } else if ( d && exports.isDAO(d) ) {
-      var key = null;
-      try { key = ( el.config && el.config.daoKey ) ? String(el.config.daoKey) : null; } catch (e) {}
+      var cfg = own(el, 'config'), key = null;
+      try { key = ( cfg && cfg.daoKey ) ? String(cfg.daoKey) : null; } catch (e) {}
       layer.dao = { of: ( d.of && d.of.id ) ? d.of.id : null, key: key };
     } else if ( d ) {
-      var id = null, summary = null;
-      try { id = ( d.id !== undefined && d.id !== null && d.id !== '' && d.id !== 0 ) ? str(d.id, 40) : null; } catch (e) {}
-      try { summary = typeof d.toSummary === 'function' ? str(d.toSummary(), 60) : null; } catch (e) {}
-      layer.data = { cls: d.cls_.id, id: id, summary: summary || null };
+      layer.data = exports.describeRecord(d);
     }
     try { if ( el.prop && el.prop.name ) layer.prop = String(el.prop.name); } catch (e) {}
     // Own values only (instance_): reading el.controllerMode would run its
@@ -108,8 +112,7 @@
     // (Element2.js:569); el.mode is an expression on it. The effective mode
     // for the selection comes from modeOf() below instead.
     try {
-      var inst = el.instance_ || {};
-      layer.modes = { controllerMode: modeName(inst.controllerMode), displayMode: modeName(inst.mode) };
+      layer.modes = { controllerMode: modeName(own(el, 'controllerMode')), displayMode: modeName(own(el, 'mode')) };
     } catch (e) { layer.modes = { error: str(e.message, 40) }; }
     return layer;
   };
@@ -132,10 +135,16 @@
   // property view has to the record above it (Element2.js:1816:
   // el.data$ = X.data$.dot(prop.name)), which is how an enum badge or a nested
   // FObject gets told apart from the record itself.
+  // Only values the record already holds are compared: reading an unset
+  // property would run its factory and write into the record under
+  // inspection (User.address creates an Address, Property.js:520-530). A
+  // value view has already read its property, so the value is stored
+  // whenever the relation holds. FObject.hasOwnProperty is an instance_ check
+  // (FObject.js:449-456), no factory.
   exports.isPropertyValueOf = function(rec, d, env) {
     var names = env.propertyNamesOf(rec) || [];
     for ( var i = 0 ; i < names.length ; i++ ) {
-      try { if ( rec[names[i]] === d ) return true; } catch (e) {}
+      try { if ( rec.hasOwnProperty(names[i]) && rec[names[i]] === d ) return true; } catch (e) {}
     }
     return false;
   };
@@ -171,9 +180,9 @@
   // DAOUpdateView edits workingData (DAOUpdateView.js:83-93). Own values
   // only, so nothing is computed on the view's behalf.
   exports.recordOfView = function(el) {
-    var inst = ( el && el.instance_ ) || {};
-    if ( inst.currentData_ && inst.currentData_.cls_ ) return inst.currentData_;
-    if ( inst.workingData && inst.workingData.cls_ ) return inst.workingData;
+    var cd = own(el, 'currentData_'), wd = own(el, 'workingData');
+    if ( cd && cd.cls_ ) return cd;
+    if ( wd && wd.cls_ ) return wd;
     return null;
   };
 
@@ -191,9 +200,10 @@
       if ( ! record ) {
         var held = exports.recordOfView(el);
         var d = held ? null : exports.dataOf(el);
+        var cfg = own(el, 'config');
         if ( held ) record = { view: el, data: held };
-        else if ( d && ! env.isDAO(d) && el.config && el.config.dao ) record = { view: el, data: d };
-        else if ( d && env.isDAO(d) && ! table && el.config ) table = { view: el, dao: d };
+        else if ( d && ! env.isDAO(d) && cfg && cfg.dao ) record = { view: el, data: d };
+        else if ( d && env.isDAO(d) && ! table && cfg ) table = { view: el, dao: d };
       }
       if ( record ) break;
       var kids = el.childNodes || [];
@@ -235,7 +245,7 @@
       var d = exports.dataOf(stack[j]);
       if ( d && env.isDAO(d) ) return d;
     }
-    try { if ( view && view.config && env.isDAO(view.config.dao) ) return view.config.dao; } catch (e) {}
+    try { var cfg = own(view, 'config'); if ( cfg && env.isDAO(cfg.dao) ) return cfg.dao; } catch (e) {}
     return null;
   }
 
@@ -244,7 +254,7 @@
   function modeFor(el, view) {
     var m = exports.modeOf(el);
     if ( m ) return m;
-    try { var own = view && view.instance_ && view.instance_.controllerMode; return own ? modeName(own) : null; } catch (e) { return null; }
+    try { var m2 = own(view, 'controllerMode'); return m2 ? modeName(m2) : null; } catch (e) { return null; }
   }
 
   // THE one answer to "which record, in which view, in which DAO, in which

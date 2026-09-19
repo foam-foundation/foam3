@@ -11,18 +11,27 @@ function t(cond, msg) { assert(cond, msg); passes++; console.log('  ok', msg); }
 
 // Fake u2 elements: { cls_: { id }, parentNode, childNodes, element_, instance_ }
 // Fake DOM nodes: { nodeType: 1, parentElement }
-function u2(id, extra) { var e = { cls_: { id: id }, parentNode: null, childNodes: [] }; Object.assign(e, extra || {}); return e; }
+// element_ and config are FOAM properties with factories, so the code reads
+// them from instance_ only; the fixture stores them there like FOAM does.
+function u2(id, extra) {
+  var e = { cls_: { id: id }, parentNode: null, childNodes: [], instance_: {} };
+  extra = extra || {};
+  Object.keys(extra).forEach(function(k) {
+    if ( k === 'element_' || k === 'config' ) e.instance_[k] = extra[k];
+    else if ( k === 'instance_' ) Object.assign(e.instance_, extra[k]);
+    else e[k] = extra[k];
+  });
+  return e;
+}
 function dom(parent) { return { nodeType: 1, parentElement: parent || null }; }
 
-// namedOwner / isWrapper
-var view = u2('com.x.MyView');
-var slot = u2('foam.u2.SlotNode', { parentNode: view });
-var el   = u2('foam.u2.Element', { parentNode: slot });
-t(P.namedOwner(el) === view, 'namedOwner: climbs Element->SlotNode->MyView');
-t(P.namedOwner(view) === view, 'namedOwner: non-wrapper returns itself');
-var orphan = u2('foam.u2.Element');
-t(P.namedOwner(orphan) === orphan, 'namedOwner: all-wrapper chain falls back to input');
+// isWrapper / own / describeRecord
 t(P.isWrapper('foam.u2.SlotNode') && ! P.isWrapper('com.x.MyView'), 'isWrapper basics');
+var lazy = u2('x', { instance_: { config: 'own' } });
+Object.defineProperty(lazy, 'config', { get: function() { throw new Error('factory ran'); } });
+t(P.own(lazy, 'config') === 'own' && P.own(lazy, 'element_') === undefined, 'own: reads instance_ only, never the getter');
+t(P.describeRecord({ cls_: { id: 'a.B' }, id: 0 }).id === null && P.describeRecord({ cls_: { id: 'a.B' }, id: 'k', toSummary: function() { throw new Error('x'); } }).summary === null,
+  'describeRecord: unset id sentinel and throwing toSummary -> null');
 
 // resolveOwner
 var rootDom = dom(), childDom = dom(rootDom), grandDom = dom(childDom);
@@ -110,6 +119,9 @@ pr = P.pickRecord([
   imp(u2('foam.u2.PropertyBorder', { prop: { name: 'address' }, ctxObjData: user }), user)
 ], env());
 t(pr.data === user, 'pickRecord: FObjectView chooser picks the outer record');
+var lazyRec = { cls_: { id: 'com.x.User' } };
+Object.defineProperty(lazyRec, 'address', { get: function() { throw new Error('factory ran'); }, enumerable: true });
+t(P.isPropertyValueOf(lazyRec, address, env({ propertyNamesOf: function() { return [ 'address' ]; } })) === false, 'isPropertyValueOf: unset property is never read (no factory)');
 var orig = { cls_: { id: 'com.x.User' } }, work = { cls_: { id: 'com.x.User' } };
 var updateView = u2('foam.comics.v2.DAOUpdateView', { instance_: { data: orig, workingData: work } });
 pr = P.pickRecord([ u2('foam.u2.ActionView', { data: { cls_: { id: 'foam.comics.v2.DAOUpdateView' }, isEl: true } }), updateView ], env());
@@ -162,7 +174,7 @@ t(badLayer.data.summary === null && badLayer.data.id === null, 'layerOf: throwin
 var rr = P.resolveRecord(null, [ u2('foam.u2.table.UnstyledTableRowComponent', { data: row }), u2('foam.u2.table.UnstyledTableRow', { data: row }), tableView ], env());
 t(rr && rr.data === row && rr.dao === screenDao && rr.mode === null, 'resolveRecord: pick + nearest DAO above; no mode in scope -> null');
 var hdrBtn = u2('foam.u2.ButtonGroup', { __context__: { detailView: v3, controllerMode: 'VIEW' } });
-v3.instance_.currentData_ = orig; v3.config = { dao: screenDao };
+v3.instance_.currentData_ = orig; v3.instance_.config = { dao: screenDao };
 rr = P.resolveRecord(hdrBtn, [ hdrBtn, u2('foam.core.u2.navigation.Stack') ], env());
 t(rr && rr.data === orig && rr.view === v3 && rr.dao === screenDao && rr.mode === 'VIEW', 'resolveRecord: header element -> detailView export, config dao, context mode');
 v3.instance_.currentData_ = work; v3.instance_.controllerMode = { name: 'EDIT' };

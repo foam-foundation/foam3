@@ -24,7 +24,7 @@
   D.register('openRecord', function() {
     if ( ! D.foamReady() ) return { foam: false };
     var t = D.currentTarget();
-    if ( ! t || ! t.data ) return { error: 'no record on this screen — open a record, or select one of its elements in Elements' };
+    if ( ! t || ! t.data ) return { error: D.NO_RECORD };
     var obj = t.data, of = obj.cls_;
     if ( t.dao ) {
       return push({

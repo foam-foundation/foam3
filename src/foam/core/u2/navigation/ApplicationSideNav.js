@@ -67,6 +67,9 @@ foam.CLASS({
     ^bottom-container > * + * {
       margin-top: 4px;
     }
+    ^scheme-toggle {
+      padding: 0 8px;
+    }
     ^menu-container {
       flex: 1;
       transition: all 0.2s ease;
@@ -130,6 +133,11 @@ foam.CLASS({
           // TODO: make this enableClass based on scroll pos
           .addClass(this.myClass('divider'))
           .enableClass(this.myClass('expand'), this.bottomRoot_$.map(v => !! v))
+          // Below MD the top nav hides its right-hand controls, so this is
+          // the only place a small screen can switch colour scheme.
+          .start({ class: 'foam.u2.theme.ColorSchemeToggle', showText: true })
+            .addClass(this.myClass('scheme-toggle'))
+          .end()
           .start({
             class: 'foam.u2.view.NestedTreeView',
             data: self.menuDAO.where(self.EQ(self.Menu.ENABLED, true)),

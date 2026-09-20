@@ -150,10 +150,14 @@ foam.CLASS({
     { name: 'white', value: '#FFFFFF' },
     { name: 'black', value: '#000000' },
 
-    { name: 'destructive', value: '#E11721' },
-    { name: 'info', value: '#FC7F27' },
-    { name: 'warn', value: '#F5DB6B' },
-    { name: 'success', value: '#34CF56' },
+    // Status colours: the 400 step of each ramp in light. Dark steps two up to
+    // 200, as textDestructive/textBrand do, so each reads as text on the dark
+    // surface ($black200): red200 4.95:1, orange200 8.05:1, yellow200 14.12:1,
+    // green200 9.38:1; at 400 red is 3.37:1, below the 4.5:1 text floor.
+    { name: 'destructive', value: '#E11721', variants: { dark: { value: '$red200' } } },
+    { name: 'info', value: '#FC7F27', variants: { dark: { value: '$orange200' } } },
+    { name: 'warn', value: '#F5DB6B', variants: { dark: { value: '$yellow200' } } },
+    { name: 'success', value: '#34CF56', variants: { dark: { value: '$green200' } } },
 
     // HINTS
     { name: 'hintBackground',         value:'#d9f6ff', variants: { dark: { value: '#0F2A3A' } } },

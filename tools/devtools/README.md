@@ -163,8 +163,11 @@ A `hidden` tag marks `shown === false`.
 
 Hovering a row outlines that element on the page (a blue box with the class
 name and size — drawn by the page, since Chrome gives extensions no overlay
-API; it is the only DOM the extension adds and it goes away on mouse-out,
-on leaving the Tree tab, and when the panel closes).
+API; it is the only DOM the extension adds). It goes away on mouse-out, on
+leaving the Tree tab, when the panel closes — and by itself 2.5 s after the
+panel last repeated the hover (once a second while a row stays hovered), so
+a row re-rendered under the pointer by the poll or a toggle, which fires no
+mouseleave, cannot leave it behind.
 Clicking a row selects the element: the sidebar shows its chain, the Why tab
 explains its record, and `$v` / `$d` point at it — DevTools stays on this
 panel. **Reveal in Elements** jumps the Elements tab to the selected
@@ -281,7 +284,8 @@ Pure logic has Node tests with no dependencies. One command runs them all,
 each file in its own process; the exit code is the number of failing files:
 
 ```bash
-node tools/devtools/test/run-all.js             # 7 files, 215 assertions passed
+npm run test:devtools                           # = node tools/devtools/test/run-all.js
+                                                # 7 files, 218 assertions passed
 ```
 
 Or one at a time:

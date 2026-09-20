@@ -5,7 +5,8 @@
   "scripts": {
     "lint": "eslint src/ tools/ --ext .js",
     "lint:fix": "eslint src/ tools/ --ext .js --fix",
-    "lint:check": "eslint src/ tools/ --ext .js --max-warnings 0"
+    "lint:check": "eslint src/ tools/ --ext .js --max-warnings 0",
+    "test:devtools": "node tools/devtools/test/run-all.js"
   },
   "dependencies": {
     "container-query-polyfill": "^1.0.2"

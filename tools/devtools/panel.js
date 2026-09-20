@@ -215,8 +215,19 @@ function selectRow(uid) {
 }
 
 // Hover outline on the page; null clears it. Drawn by the page (see
-// tree-backend.js) because Chrome gives extensions no overlay API.
-function highlight(uid) { rpc('highlight', [ JSON.stringify(uid) ]); }
+// tree-backend.js) because Chrome gives extensions no overlay API. The page
+// drops the box by itself unless it hears again within its TTL, so the
+// heartbeat below is what keeps the outline up while a row stays hovered —
+// and what ends it when the hovered row is re-rendered away (poll, toggle)
+// or the panel is hidden, neither of which fires a mouseleave.
+var hovered = null;
+function highlight(uid) {
+  hovered = uid;
+  rpc('highlight', [ JSON.stringify(uid) ]);
+}
+setInterval(function() {
+  if ( hovered !== null && document.visibilityState === 'visible' ) rpc('highlight', [ JSON.stringify(hovered) ]);
+}, 1000);
 
 function loadTree() {
   rpc('tree').then(function(r) {

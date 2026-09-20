@@ -25,6 +25,7 @@ function u2(id, extra) {
   return e;
 }
 function dom(parent) { return { nodeType: 1, parentElement: parent || null }; }
+var getterReads = 0; // bumped by every data getter trap below; asserted zero at the end
 
 // isWrapper / own / describeRecord
 t(P.isWrapper('foam.u2.SlotNode') && ! P.isWrapper('com.x.MyView'), 'isWrapper basics');
@@ -83,9 +84,14 @@ t(rowLayer.data && rowLayer.data.cls === 'com.x.Rec' && rowLayer.data.id === '12
 // exporter's own value is read; neither getter runs (imp() below throws from both).
 var propLayer = P.layerOf(imp(u2('foam.u2.PropertyBorder', { prop: { name: 'email' } }), rec));
 t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + imported data, read off the exporter\'s instance_');
-var unsetDetail = u2('foam.u2.detail.SectionedDetailView');
-Object.defineProperty(unsetDetail, 'data', { get: function() { throw new Error('factory ran'); } });
-t(P.dataOf(unsetDetail) === null, 'dataOf: unset detail view -> null, its data factory is not run');
+var unsetDetail = u2('foam.u2.detail.SectionedDetailView'), factoryRuns = 0;
+Object.defineProperty(unsetDetail, 'data', { get: function() { factoryRuns++; return { cls_: { id: 'com.x.Created' } }; } });
+t(P.dataOf(unsetDetail) === null && factoryRuns === 0, 'dataOf: unset detail view -> null, its data factory is not run');
+P.treeOf(unsetDetail);
+t(factoryRuns === 0, 'treeOf: an unset detail view walks without running its data factory');
+var unsetExporter = imp(u2('foam.u2.PropertyBorder', { prop: { name: 'email' } }), rec);
+unsetExporter.__context__.data$.obj.instance_ = {};
+t(P.dataOf(unsetExporter) === null && getterReads === 0, 'dataOf: import whose exporter has not set data -> null, no getter run');
 var asExport = u2('foam.u2.PropertyBorder');
 asExport.cls_.getAxiomByName = function(n) { return n === 'data' ? { cls_: { id: 'foam.lang.Import' } } : null; };
 asExport.__context__ = { data$: { cls_: { id: 'foam.lang.ConstantSlot' }, instance_: { value: rec } } };
@@ -109,13 +115,15 @@ function env(over) {
   }, over || {});
 }
 // An imported `data`: the Import axiom, the exporter's PropertySlot in the
-// context, and a getter that must never be called.
+// context, and getters that must never be called. The traps count instead of
+// throwing: dataOf catches, so a throwing trap that IS read still yields
+// null and a null-expecting assertion would pass on the wrong code.
 function imp(el, data) {
   el.cls_.getAxiomByName = function(n) { return n === 'data' ? { cls_: { id: 'foam.lang.Import' } } : null; };
   var exporter = { instance_: { data: data } };
-  Object.defineProperty(exporter, 'data', { get: function() { throw new Error('exporter getter ran'); } });
+  Object.defineProperty(exporter, 'data', { get: function() { getterReads++; return data; } });
   el.__context__ = { data$: { obj: exporter, prop: { name: 'data' } } };
-  Object.defineProperty(el, 'data', { get: function() { throw new Error('import getter ran'); } });
+  Object.defineProperty(el, 'data', { get: function() { getterReads++; return data; } });
   return el;
 }
 var ACTIVE = { cls_: { id: 'com.x.Status' }, label: 'Active' };
@@ -245,5 +253,7 @@ t(P.treeOf(null).root === null && P.treeOf(null).count === 0, 'treeOf: null root
 var shownLazy = u2('com.x.Lazy', { $UID: 10 });
 Object.defineProperty(shownLazy, 'shown', { get: function() { throw new Error('factory ran'); } });
 t(P.treeOf(shownLazy).root.shown === true, 'treeOf: never reads the shown getter');
+
+t(getterReads === 0, 'no test above read a data getter');
 
 console.log('shapers-test:', passes, 'passed');

@@ -36,7 +36,12 @@
   // moved on every call and removed by highlight(null). The only DOM the
   // extension adds to the page, and it never outlives the hover; box is the
   // handle to remove it.
-  var box = null;
+  // The box expires by itself TTL_MS after the last highlight call: the panel
+  // repeats the call once a second while a row stays hovered, so every way a
+  // hover can end without a mouseleave (a row re-rendered under the pointer
+  // by the poll or a toggle, the panel hidden or torn down) ends the outline
+  // too, with no cleanup message needed for each path.
+  var box = null, expiry = null, TTL_MS = 2500;
   function overlay() {
     if ( box && box.isConnected ) return box;
     box = document.createElement('div');
@@ -50,7 +55,10 @@
     document.documentElement.appendChild(box);
     return box;
   }
-  function clearHighlight() { if ( box ) { box.remove(); box = null; } }
+  function clearHighlight() {
+    clearTimeout(expiry); expiry = null;
+    if ( box ) { box.remove(); box = null; }
+  }
 
   // The panel is done with the snapshot: drop the pins and any hover outline.
   D.register('treeRelease', function() {
@@ -64,6 +72,7 @@
     var d = el && P.own(el, 'element_');
     if ( ! d || d.nodeType !== 1 || ! d.isConnected ) { clearHighlight(); return { shown: false }; }
     var r = d.getBoundingClientRect(), b = overlay();
+    clearTimeout(expiry); expiry = setTimeout(clearHighlight, TTL_MS);
     b.style.left = r.left + 'px'; b.style.top = r.top + 'px';
     b.style.width = r.width + 'px'; b.style.height = r.height + 'px';
     b.firstChild.textContent = el.cls_.id.split('.').pop() + '  ' + Math.round(r.width) + '×' + Math.round(r.height);

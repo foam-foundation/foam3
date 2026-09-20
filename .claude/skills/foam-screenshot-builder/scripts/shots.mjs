@@ -1,4 +1,10 @@
-// node shots.mjs [rows.json] [rowName ...]   — takes every (row × server × mode) still missing under out/
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+// node shots.mjs [rows.json] [rowName ...]   — re-shoots every (row × server × mode); pass
+// row names to re-shoot only those. No skip-if-exists: every run overwrites what it shoots.
 import { openApps, launchMenu, setMode, runPrep, shot, readRows, stepTarget, parseArgs } from './lib.mjs';
 
 const { cfgFile, names } = parseArgs();

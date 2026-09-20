@@ -191,8 +191,13 @@ foam.CLASS({
     { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey200' } } },
     { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$black300' } } },
 
-    { name: 'backgroundDestructive', value: '$destructive400', variants: { dark: { value: '$destructive300' } } },
-    { name: 'backgroundDestructiveSecondary', value: '$destructive500', variants: { dark: { value: '$destructive400' } } },
+    // Destructive buttons keep the light ramp in dark. textOnDestructive is
+    // $white in both modes and white on $destructive300 is 3.99:1, under the
+    // 4.5:1 AA floor; $destructive400 gives 4.83:1 with white and 3.37:1
+    // against $black200, so unlike backgroundBrand (blue400 is 2.18:1 against
+    // the dark surface, hence its step to primary300) red needs no lighter step.
+    { name: 'backgroundDestructive', value: '$destructive400' },
+    { name: 'backgroundDestructiveSecondary', value: '$destructive500' },
     { name: 'backgroundDestructiveTertiary', value: '$destructive50', variants: { dark: { value: '$destructive700' } } },
 
     // TEXT

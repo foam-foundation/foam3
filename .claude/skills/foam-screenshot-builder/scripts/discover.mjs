@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 // node discover.mjs [rows.json] <menuId> [...]  — prints the largest FOAM container classes on a
 // screen of the "after" server so you can pick `sel` and `marks` without guessing.
 import { openApps, launchMenu, readRows, parseArgs } from './lib.mjs';

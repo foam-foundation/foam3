@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 // node compose.mjs [rows.json] [rowName ...]
 // For every row × mode with shots on disk, renders before|after with callout boxes,
 // numbered badges, short arrows and a legend as an HTML page and screenshots it.

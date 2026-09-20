@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 // node import-recording.mjs <chrome-recorder.json> [--name n] [--strip]
 // Turns a Chrome DevTools Recorder export into a rows.json row: `menu` from the first
 // app hash, `prep` from click/change/Enter steps (--strip: `steps` instead, one shot per step).

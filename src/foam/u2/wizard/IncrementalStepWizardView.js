@@ -61,7 +61,7 @@ foam.CLASS({
       max-width: 100vw;
     }
     ^status {
-      background-color: %WHITE%;
+      background-color: $backgroundDefault;
       padding: 50px;
       padding-top: 100px;
       overflow-y: auto;
@@ -70,7 +70,7 @@ foam.CLASS({
       justify-content: space-between;
     }
     ^hide-X-status {
-      background-color: %WHITE%;
+      background-color: $backgroundDefault;
       padding: 50px;
       overflow-y: auto;
       display: none;
@@ -103,7 +103,7 @@ foam.CLASS({
       padding-bottom: 0;
     }
     ^rightside ^bottom-buttons {
-      background-color: %GREY6%;
+      background-color: $backgroundSecondary;
       padding: 0 50px 25px 50px;
       text-align: right;
     }

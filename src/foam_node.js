@@ -38,8 +38,9 @@ globalThis.foam = {
     if ( ! fn ) return;
 
     // ???: foam.resolve()?
-    var cwd  = foam.cwd;
-    var path = path_.resolve(foam.cwd, fn + '.js');
+    var cwd        = foam.cwd;
+    var sourceFile = foam.sourceFile;
+    var path       = path_.resolve(foam.cwd, fn + '.js');
     try {
       if ( ! isProject && globalThis.foam.seen(path) ) return;
       foam.cwd = path_.dirname(path);
@@ -56,7 +57,8 @@ globalThis.foam = {
       console.trace();
       throw x;
     } finally {
-      foam.cwd = cwd;
+      foam.cwd        = cwd;
+      foam.sourceFile = sourceFile;
     }
   },
   loadJSLibs: function(libs) {

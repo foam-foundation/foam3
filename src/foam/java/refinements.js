@@ -1307,6 +1307,7 @@ foam.CLASS({
 
           cls.name          = this.model_.name;
           cls.package       = this.model_.package;
+          cls.source        = this.model_.source;
           cls.documentation = this.model_.documentation;
           cls.implements    = (this.implements || [])
             .concat(this.model_.javaExtends || []);
@@ -1602,6 +1603,7 @@ foam.CLASS({
 
           cls.name       = this.name;
           cls.package    = this.package;
+          cls.source     = this.model_.source;
           cls.extends    = this.extends;
           cls.values     = this.VALUES;
           cls.implements = [ 'foam.lang.FEnum' ];

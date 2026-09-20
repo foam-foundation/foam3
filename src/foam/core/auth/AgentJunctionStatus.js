@@ -26,8 +26,8 @@ foam.ENUM({
     {
       name: 'INVITED',
       label: 'Invited',
-      color: '$statusWarnText',
-      background: '$statusWarnBackground',
+      color: '$warn700',
+      background: '$warn500',
       documentation: 'The person has been invited to join the business.'
     }
   ]

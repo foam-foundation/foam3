@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 // node export-recording.mjs [rows.json] <rowName> [--server after] > flow.json
 // Emits a Chrome DevTools Recorder flow (import via Recorder → Import) that replays a row's
 // `prep`/`steps` in the human's own logged-in Chrome. The menu is opened through the app's
@@ -11,17 +16,26 @@ if (!row) { console.error(`no row "${names[0] ?? ''}" — have: ${cfg.rows.map(r
 const url = cfg.servers[flags.server || cfg.main];
 if (!url) { console.error(`unknown server "${flags.server}" — have: ${Object.keys(cfg.servers).join(', ')}`); process.exit(2); }
 
-// Playwright selector → Recorder alternative (array of chained parts). Unknown dialects dropped.
+// Playwright selector → Recorder alternative (array of chained parts). A chain segment
+// Recorder has no equivalent for (nth=, internal:) drops the whole candidate; a segment that
+// looks like a Playwright-only dialect (an engine= form or pseudo-class Recorder can't run)
+// is refused, naming the step, instead of being emitted as a literal — and broken — selector.
 const toRecorder = sel => { const parts = sel.split(' >> ').map(toRecorder1); return parts.every(Boolean) ? parts : null; };
 const toRecorder1 = part => {
   let m;
-  if (/^(nth|internal):/.test(part)) return null;
+  if (/^(nth=|internal:)/.test(part)) return null;
   // Recorder matches aria/ and text/ names exactly; a /regex/i name would silently never match.
   if (/^(role|text)=.*\/.*\//.test(part)) throw new Error(`cannot export a regex selector to Recorder: ${part}\n  give this step a plain css or text= selector in rows.json`);
   if ((m = part.match(/^role=(\w+)\[name=(?:"([^"]*)"|\/(.*)\/i?)\]$/))) return `aria/${m[2] ?? m[3]}[role="${m[1]}"]`;
   if ((m = part.match(/^role=(\w+)$/))) return `aria/[role="${m[1]}"]`;
   if ((m = part.match(/^text=(?:"([^"]*)"|(.*))$/))) return `text/${m[1] ?? m[2]}`;
   if (part.startsWith('xpath=')) return 'xpath/' + part.slice(6);
+  // A role=/text= that reached here didn't match either shape above (e.g. a trailing " i"
+  // case-insensitive flag) — it is not valid CSS on its own, so it must not fall through.
+  // Same for Playwright-only pseudo-classes/functions: real CSS, but not ones a plain
+  // querySelector (what Recorder replays) understands.
+  if (/^(role|text)=/.test(part) || /:(has-text|text-is|near|above|below|left-of|right-of|nth-match)\(/.test(part))
+    throw new Error(`cannot export selector dialect to Recorder: ${part}\n  give this step a plain css, text=, or role=NAME[name="exact"] selector in rows.json`);
   return part;
 };
 const selectors = sel => (Array.isArray(sel) ? sel : [sel]).map(toRecorder).filter(Boolean);

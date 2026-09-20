@@ -1,5 +1,9 @@
 # FOAM3
 
+[![Documentation](https://img.shields.io/badge/docs-foam--foundation.github.io%2Ffoam3-4285F4?style=for-the-badge)](https://foam-foundation.github.io/foam3/)
+
+**Start here → [foam-foundation.github.io/foam3](https://foam-foundation.github.io/foam3/)** — guides, tutorials, demos and videos.
+
 Build fully featured high performance apps in less time using FOAM.
 
   * Application Speed

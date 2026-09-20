@@ -45,9 +45,15 @@ foam.CLASS({
 
   constants: [
     {
-      name: 'NEXT',
-      documentation: 'The cycle: keyed by the current colorScheme value.',
-      value: { '': 'light', light: 'dark', dark: '' }
+      name: 'STATES',
+      documentation: `Keyed by colorScheme. '' is "follow the OS" (Window clears
+        the stored key for it). Each row names the glyph, the visible text, the
+        accessible name, and the state the next press moves to.`,
+      value: {
+        '':    { next: 'light', glyph: 'systemMode', text: 'SYSTEM_THEME', label: 'SYSTEM_THEME_LABEL' },
+        light: { next: 'dark',  glyph: 'lightMode',  text: 'LIGHT_THEME',  label: 'LIGHT_THEME_LABEL'  },
+        dark:  { next: '',      glyph: 'darkMode',   text: 'DARK_THEME',   label: 'DARK_THEME_LABEL'   }
+      }
     }
   ],
 
@@ -61,41 +67,34 @@ foam.CLASS({
 
   methods: [
     function render() {
-      var self = this;
+      var state$ = this.colorScheme$.map(s => this.STATES[s] || this.STATES['']);
       var args = {
-        themeIcon$: this.colorScheme$.map(s => s === 'dark' ? 'darkMode' : s === 'light' ? 'lightMode' : 'systemMode'),
+        themeIcon$: state$.map(st => st.glyph),
         // Default (MEDIUM) size: the notification and user controls beside
         // it in the top nav are MEDIUM, so the hit box matches theirs.
         buttonStyle: 'TERTIARY'
       };
-      if ( this.showText ) args.label$ = this.colorScheme$.map(s => self.stateText(s));
+      if ( this.showText ) args.label$ = state$.map(st => this[st.text]);
       this
         .addClass(this.myClass())
-        .show(this.theme.useVariants)
+        // A slot, not a one-time read: the theme is replaced after login.
+        .show(this.theme$.map(t => !! t?.useVariants))
         .startContext({ data: this })
-          .start(this.TOGGLE, args)
+          .start(this.CYCLE, args)
             // Button reads its aria-label once in render(); bind the attribute
             // here so only this button carries a live label.
-            .attrs({ 'aria-label': this.colorScheme$.map(s => self.stateLabel(s)) })
+            .attrs({ 'aria-label': state$.map(st => this[st.label]) })
           .end()
         .endContext();
-    },
-
-    function stateText(s) {
-      return s === 'dark' ? this.DARK_THEME : s === 'light' ? this.LIGHT_THEME : this.SYSTEM_THEME;
-    },
-
-    function stateLabel(s) {
-      return s === 'dark' ? this.DARK_THEME_LABEL : s === 'light' ? this.LIGHT_THEME_LABEL : this.SYSTEM_THEME_LABEL;
     }
   ],
 
   actions: [
     {
-      name: 'toggle',
+      name: 'cycle',
       label: '',
       code: function() {
-        this.colorScheme = this.NEXT[this.colorScheme];
+        this.colorScheme = this.STATES[this.colorScheme].next;
       }
     }
   ]

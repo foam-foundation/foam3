@@ -320,8 +320,8 @@ this.start().addClass('p-semiBold').add(this.label).end()
 #### Dynamic UI Rendering — when the STRUCTURE changes
 
 - `this.data.dynamic(function(prop1, prop2) {...})` when every argument belongs to `data`
-- Multiple sources: `this.dynamic(function(prop1, prop2) {...})`; a `$` suffix asks for the slot itself — `function(mapping$isDynamic, fileHeaders)`
-- Inside `dynamic`, read the value off `this` (`this.mapping.isDynamic`); the `$` parameter only tells FOAM what to watch
+- Multiple sources: `this.dynamic(function(prop1, prop2) {...})`; a `$` inside a name is a path — `function(mapping$isDynamic, fileHeaders)` watches `mapping.isDynamic` and receives its **value**, the same way the `$` chain below does
+- Every argument arrives as a value, never a slot: FOAM resolves each name with `obj.slot(name)` and applies `.get()` before calling (`foam3/src/foam/lang/Slot.js:565-567, 593-595`; the path split is `FObject.js:792-802`). Use the parameter directly; `this.mapping.isDynamic` reads the same thing a second time
 - Do not pass a trailing property list to `dynamic()` — the argument names already declare the dependencies
 - Do not construct a `SimpleSlot` by hand for a reactive object; `object.dynamic()` already does it
 

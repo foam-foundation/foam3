@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+/**
  * EXEMPLAR — a custom, read-only BROWSE view launched from a menu.
  *
  * Copy this shape for any standalone view that is opened from a menu entry and
@@ -12,7 +18,10 @@
 foam.CLASS({
   package: 'foam.u2',
   name: 'ExampleRow',
-  ids: [ 'id' ],
+  // A property named `id` is the id. Do not add `ids: [ 'id' ]` beside it:
+  // IDSupport installs an IDAlias axiom that is itself named 'id'
+  // (foam3/src/foam/lang/IDSupport.js:29, :200-201), so the two collide at
+  // class build time ("Axiom name conflict ... : id").
   properties: [
     { class: 'String', name: 'id', hidden: true },
     { class: 'String', name: 'name' },
@@ -28,9 +37,11 @@ foam.CLASS({
 
   implements: [ 'foam.mlang.Expressions' ],   // gives this.FALSE / this.EQ for predicates
 
-  // 'stack' is how the title/breadcrumb get set. Optional ('?') so the view
-  // still renders outside a stack.
-  imports: [ 'stack?' ],
+  // 'stack' is how the title/breadcrumb get set. Required, not 'stack?': the
+  // embedded foam.comics.v3.DAOView imports it unconditionally and calls
+  // this.stack.setTrailingContainer() in render (foam3/src/foam/comics/v3/DAOView.js:15, :74),
+  // so this view cannot render outside a stack either way.
+  imports: [ 'stack' ],
 
   requires: [
     'foam.comics.v2.DAOControllerConfig',
@@ -81,7 +92,7 @@ foam.CLASS({
       // foam.comics.v3.DAOView never calls stack.setTitle — only DAOController
       // does (foam3/src/foam/comics/v3/DAOController.js:106), and this view
       // embeds the former. Stack.setTitle: foam3/src/foam/core/u2/navigation/Stack.js:254.
-      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+      this.onDetach(this.stack.setTitle(this.viewTitle$, this));
 
       // BROWSE TABLE via the comics DAO stack: AQL search, filter chips, column
       // config, count and CSV export come for free. Never hand-roll
@@ -96,9 +107,10 @@ foam.CLASS({
         tableColumns:           [ 'name', 'status' ],
         disableSelection:       true,
         disableTableRowActions: true,
-        // Toolbar action — sits next to refresh/export. The toolbar renders its
-        // actions with `data: self` = the DAOView (foam3/src/foam/comics/v3/DAOView.js:89),
-        // so a closure-bound Action is how `code` reaches THIS view.
+        // Toolbar action — sits next to refresh/export. DAOBrowserView renders
+        // DAOActions with `data: self` = the DAOBrowserView
+        // (foam3/src/foam/comics/v2/DAOBrowserView.js:356-358), so a
+        // closure-bound Action is how `code` reaches THIS view.
         DAOActions: [
           this.Action.create({
             name:  'reload',
@@ -111,7 +123,7 @@ foam.CLASS({
       // columnStorage: null stops a localStorage column set from another table
       // overriding tableColumns (foam3/src/foam/u2/table/UnstyledTableView.js:50, :130).
       this.startContext({ columnStorage: null })
-        .tag({ class: 'foam.comics.v3.DAOView', data$: this.dao$, config: config })
+        .tag(this.DAOView, { data$: this.dao$, config: config })
       .endContext();
     }
   ]

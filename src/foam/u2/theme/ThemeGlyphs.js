@@ -1459,6 +1459,19 @@ foam.CLASS({
           </svg>
         ` };
       }
+    },
+    {
+      name: 'systemMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'A ring with its right half filled: the colour scheme follows the OS.',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 4a8 8 0 0 1 0 16z"/>
+          </svg>
+        ` };
+      }
     }
   ]
 });

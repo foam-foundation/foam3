@@ -9,67 +9,83 @@ foam.CLASS({
   name: 'ColorSchemeToggle',
   extends: 'foam.u2.View',
 
-  documentation: `One icon button that flips the theme between light and dark.
+  documentation: `One icon button that cycles the colour scheme:
+    follow the OS -> light -> dark -> follow the OS.
 
-    It writes theme.activeVariants.color, the same key foam.lang.Window sets from
-    the OS prefers-color-scheme query, so every $token with a dark variant
-    re-expands through foam.u2.CSS.reloadStyles. The pick is kept in
-    localStorage under 'foam.colorScheme' and read back by Window on the next
-    load, so it outlives the OS setting; clearing that key returns to following
-    the OS.
+    It only sets foam.lang.Window's colorScheme; Window owns the stored pick
+    and turns it into theme.activeVariants.color, so every $token with a dark
+    variant re-expands through foam.u2.CSS.reloadStyles. The icon shows the
+    current state (sun, moon, or a half-filled ring for "following the OS")
+    and the aria-label names the state and what the next press does.
+
+    The server-rendered loading splash (foam.core.servlet.VirtualHostRoutingServlet)
+    still follows the OS: its colours are static CSS keyed off
+    prefers-color-scheme, and nothing in that page reads localStorage before
+    the app boots, so the stored pick cannot reach it. Someone who picks light
+    on a dark OS sees a dark splash until the app takes over.
 
     Renders nothing when theme.useVariants is false: without variants there is
     nothing to switch.`,
 
   imports: [
-    'theme',
-    'window'
+    'colorScheme',
+    'theme'
   ],
 
   messages: [
-    { name: 'SWITCH_TO_DARK',  message: 'Switch to dark mode' },
-    { name: 'SWITCH_TO_LIGHT', message: 'Switch to light mode' }
+    // Visible text (with showText) and the current-state half of the aria-label
+    { name: 'SYSTEM_THEME', message: 'System theme' },
+    { name: 'LIGHT_THEME',  message: 'Light theme' },
+    { name: 'DARK_THEME',   message: 'Dark theme' },
+    // Accessible names: the current state, then what the next press does
+    { name: 'SYSTEM_THEME_LABEL', message: 'System theme. Switch to light' },
+    { name: 'LIGHT_THEME_LABEL',  message: 'Light theme. Switch to dark' },
+    { name: 'DARK_THEME_LABEL',   message: 'Dark theme. Follow the system' }
   ],
 
   constants: [
-    { name: 'STORAGE_KEY', value: 'foam.colorScheme' }
+    {
+      name: 'NEXT',
+      documentation: 'The cycle: keyed by the current colorScheme value.',
+      value: { '': 'light', light: 'dark', dark: '' }
+    }
   ],
 
   properties: [
     {
       class: 'Boolean',
-      name: 'isDark',
-      documentation: 'Mirrors theme.activeVariants.color === "dark".',
-      factory: function() { return this.readIsDark(); }
+      name: 'showText',
+      documentation: 'Render the state name next to the icon, for a menu row rather than a toolbar.'
     }
   ],
 
   methods: [
     function render() {
       var self = this;
-      this.onDetach(this.theme.activeVariants$.sub(function() {
-        self.isDark = self.readIsDark();
-      }));
+      var args = {
+        themeIcon$: this.colorScheme$.map(s => s === 'dark' ? 'darkMode' : s === 'light' ? 'lightMode' : 'systemMode'),
+        buttonStyle: 'TERTIARY',
+        size: 'SMALL'
+      };
+      if ( this.showText ) args.label$ = this.colorScheme$.map(s => self.stateText(s));
       this
         .addClass(this.myClass())
         .show(this.theme.useVariants)
         .startContext({ data: this })
-          .start(this.TOGGLE, {
-            themeIcon$: this.isDark$.map(d => d ? 'lightMode' : 'darkMode'),
-            ariaLabel$: this.isDark$.map(d => d ? self.SWITCH_TO_LIGHT : self.SWITCH_TO_DARK),
-            buttonStyle: 'TERTIARY',
-            size: 'SMALL'
-          })
+          .start(this.TOGGLE, args)
+            // Button reads its aria-label once in render(); bind the attribute
+            // here so only this button carries a live label.
+            .attrs({ 'aria-label': this.colorScheme$.map(s => self.stateLabel(s)) })
           .end()
         .endContext();
     },
 
-    function readIsDark() {
-      return this.theme.activeVariants?.color === 'dark';
+    function stateText(s) {
+      return s === 'dark' ? this.DARK_THEME : s === 'light' ? this.LIGHT_THEME : this.SYSTEM_THEME;
     },
 
-    function store(scheme) {
-      try { this.window.localStorage.setItem(this.STORAGE_KEY, scheme); } catch (_) {}
+    function stateLabel(s) {
+      return s === 'dark' ? this.DARK_THEME_LABEL : s === 'light' ? this.LIGHT_THEME_LABEL : this.SYSTEM_THEME_LABEL;
     }
   ],
 
@@ -78,13 +94,7 @@ foam.CLASS({
       name: 'toggle',
       label: '',
       code: function() {
-        if ( this.isDark ) {
-          this.theme.activeVariants$remove('color');
-          this.store('light');
-        } else {
-          this.theme.activeVariants$set('color', 'dark');
-          this.store('dark');
-        }
+        this.colorScheme = this.NEXT[this.colorScheme];
       }
     }
   ]

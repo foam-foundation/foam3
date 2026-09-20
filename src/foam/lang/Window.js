@@ -48,6 +48,7 @@ foam.CLASS({
     'cancelAnimationFrame',
     'clearInterval',
     'clearTimeout',
+    'colorScheme',
     'columnStorage',
     'console',
     'debug',
@@ -73,9 +74,42 @@ foam.CLASS({
     'window'
   ],
 
+  constants: [
+    {
+      name: 'COLOR_SCHEME_KEY',
+      value: 'foam.colorScheme',
+      documentation: 'localStorage key behind colorScheme. Only Window reads or writes it.'
+    }
+  ],
+
   properties: [
     [ 'name', 'window' ],
     'window',
+    {
+      class: 'String',
+      name: 'colorScheme',
+      documentation: `The colour scheme the user picked in-app: 'light', 'dark',
+        or '' to follow the OS prefers-color-scheme query. Kept in localStorage
+        under COLOR_SCHEME_KEY so it outlives the page and the OS setting.
+        Setting it writes (or clears) the key and re-applies
+        theme.activeVariants.color for the current theme, so a control such as
+        foam.u2.theme.ColorSchemeToggle only ever sets this property.`,
+      factory: function() {
+        var v = null;
+        try { v = this.window.localStorage?.getItem(this.COLOR_SCHEME_KEY); } catch (_) {}
+        return v === 'light' || v === 'dark' ? v : '';
+      },
+      postSet: function(_, n) {
+        try {
+          if ( n ) {
+            this.window.localStorage.setItem(this.COLOR_SCHEME_KEY, n);
+          } else {
+            this.window.localStorage.removeItem(this.COLOR_SCHEME_KEY);
+          }
+        } catch (_) {}
+        this.getPrivate_('applyColorScheme')?.();
+      }
+    },
     {
       name: 'columnStorage',
       factory: function() { return localStorage; }
@@ -130,18 +164,17 @@ foam.CLASS({
       let colorSchemeQuery = this.window.matchMedia('(prefers-color-scheme: dark)');
       let fn = () => {
         if ( ! theme.useVariants ) return;
-        // A scheme the user picked in-app wins over the OS setting; with no
-        // pick the app follows the OS. foam.u2.theme.ColorSchemeToggle writes
-        // the same key.
-        let stored = null;
-        try { stored = this.window.localStorage?.getItem('foam.colorScheme'); } catch (_) {}
-        let dark = stored ? stored === 'dark' : this.window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // A scheme picked in-app wins over the OS setting; with no pick the
+        // app follows the OS.
+        let dark = this.colorScheme ? this.colorScheme === 'dark' : this.window.matchMedia('(prefers-color-scheme: dark)').matches;
         if ( dark ) {
           theme.activeVariants$set('color', 'dark');
         } else {
           theme.activeVariants$remove('color');
         }
       }
+      // colorScheme's postSet re-runs this for the current theme
+      this.setPrivate_('applyColorScheme', fn);
       // Every time this is called, remove the listener in case there is one for the old theme
       colorSchemeQuery.removeEventListener('change', fn);
       if ( this.getPrivate_('currentWindowThemeListener' ) ) this.getPrivate_('currentWindowThemeListener').detach();

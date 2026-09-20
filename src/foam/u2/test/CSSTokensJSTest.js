@@ -9,7 +9,10 @@ foam.CLASS({
   name: 'CSSTokensJSTest',
   extends: 'foam.core.test.JSTest',
 
-  requires: ['foam.lang.Latch'],
+  requires: [
+    'foam.lang.Latch',
+    'foam.u2.tag.Button'
+  ],
 
   css: `
     ^test1 {
@@ -87,6 +90,18 @@ foam.CLASS({
       expanded = a.expandCSS(this.cls_, a.code, x);
       x.test(expanded.includes("background: /*$test1*/ #59D374;"), "color $green300");
       // console.log('CSSTokensTest a.expandCSS (outer)', expanded);
+
+      // Regression: Button's secondary border is LIGHTEN($buttonSecondaryColor, -40)
+      // in both modes. A dark variant of +40 resolved to rgb(22.95,..) on the
+      // #0F0F0F dark surface, 8 RGB steps above it, so the border did not show.
+      var border = '^ { border-color: $buttonSecondaryBorderColor; }';
+      var lightX = x.createSubContext({ theme: { activeVariants: {} } });
+      var darkX  = x.createSubContext({ theme: { activeVariants: { color: 'dark' } } });
+      var b = foam.u2.CSS.create({ code: border }, x);
+      x.test(b.expandCSS(this.Button, border, lightX).includes('rgb(153.0000,153.0000,153.0000)'),
+        'secondary border on the white surface is #999999');
+      x.test(b.expandCSS(this.Button, border, darkX).includes('rgb(53.5500,53.5500,53.5500)'),
+        'secondary border on the $black500 surface is #363636');
     }
   ]
 });

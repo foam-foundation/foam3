@@ -117,9 +117,12 @@ foam.CLASS({
        point every shape at currentColor and let the button's text colour,
        and its dark variant, drive the icon. fill="none" outlines are kept.
        Sketch exports wrap the icon in <g fill="none"> with an unfilled
-       bounding <polygon>/<rect> that inherits that none; painting it would
-       draw a solid square, so shapes without their own fill inside such a
-       group are left alone (26 of the 97 shipped icons have one). */
+       bounding <polygon>, <rect> or <path d="M0 0h24v24H0z"> that inherits
+       that none, placed first or last in its group; painting it would draw
+       a solid square, and no selector tells it from unfilled art, so shapes
+       without their own fill inside such a group are left alone (25 of the
+       57 shipped svg files have one). Art must carry its own fill to be
+       painted; list-view.svg and tree-view.svg were given one. */
     ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])) {
       fill: currentColor;
     }

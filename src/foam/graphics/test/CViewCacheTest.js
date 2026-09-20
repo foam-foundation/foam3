@@ -34,9 +34,17 @@ foam.CLASS({
       return {
         save: noop, restore: noop, transform: noop, setTransform: noop, scale: noop, translate: noop,
         beginPath: noop, rect: noop, stroke: noop, fill: noop, clip: noop, setLineDash: noop, roundRect: noop,
-        drawImage: function() { calls.drawImage++; },
+        drawImage: function() { calls.drawImage++; calls.lastBlit = Array.prototype.slice.call(arguments, 1); },
         globalAlpha: 1, lineWidth: 1, fillStyle: '', strokeStyle: '', font: ''
       };
+    },
+
+    function scaledContext(calls, scale) {
+      /** fakeContext plus getTransform, reporting a uniform scale the way a zoomed real context does. */
+      var ctx = this.fakeContext(calls);
+      ctx.scaleNow = scale;
+      ctx.getTransform = function() { return { a: ctx.scaleNow, b: 0, c: 0, d: ctx.scaleNow, e: 0, f: 0 }; };
+      return ctx;
     },
 
     async function runTest(x) {
@@ -83,6 +91,55 @@ foam.CLASS({
         x.test(group.cacheW_ === 340 + 2 * pad && group.cacheH_ === 140 + 2 * pad, 'a sizeless group caches the extent of its children plus edge padding on every side');
         group.paint(ctx);
         x.test(far.paints === 1,            'the child inside the group bitmap is painted once, then blitted');
+
+        // A child left of / above the origin extends the bitmap that way; the blit starts at the extent's corner.
+        var wide = this.Box.create({ width: 0, height: 0, border: null });
+        wide.add(this.CountingBox.create({ x: -50, y: -20, width: 40, height: 20 }), this.CountingBox.create({ x: 100, y: 0, width: 40, height: 20 }));
+        wide.cache();
+        wide.paint(ctx);
+        x.test(wide.cacheX_ === -50 && wide.cacheY_ === -20 && wide.cacheW_ === 190 + 2 * pad && wide.cacheH_ === 40 + 2 * pad, 'a negative child extent widens the bitmap left/up');
+        wide.paint(ctx);
+        x.test(calls.lastBlit[0] === -50 - pad && calls.lastBlit[1] === -20 - pad, 'the bitmap is blitted from the extent corner, not the origin');
+
+        // The bitmap is sized from the context's scale alone: paint() already put this node's scaleX on the context.
+        var big = this.Box.create({ width: 100, height: 100, scaleX: 2, scaleY: 2 });
+        big.cache();
+        big.paint(this.scaledContext(calls, 2));
+        x.test(big.cacheCanvas_.width === Math.ceil((100 + 2 * pad) * 2), 'bitmap pixels = extent x context scale (scaleX is not applied twice)');
+
+        // Zoom drift: one 1.1 step either way reuses the bitmap; three steps re-render. Same threshold in and out.
+        var zctx = this.scaledContext(calls, 1);
+        var zoomed = this.Box.create({ width: 100, height: 100 }), zchild = this.CountingBox.create({ width: 10, height: 10 });
+        zoomed.add(zchild);
+        zoomed.cache();
+        zoomed.paint(zctx);
+        zctx.scaleNow = 1.1;   zoomed.paint(zctx);
+        zctx.scaleNow = 1.21;  zoomed.paint(zctx);
+        x.test(zchild.paints === 1,         'zooming in by 1.1 twice reuses the bitmap');
+        zctx.scaleNow = 1.331; zoomed.paint(zctx);
+        x.test(zchild.paints === 2,         'a third 1.1 step in re-renders');
+        zctx.scaleNow = 1.331 / 1.21; zoomed.paint(zctx);
+        x.test(zchild.paints === 2,         'zooming out by 1.1 twice reuses the bitmap');
+        zctx.scaleNow = 1;     zoomed.paint(zctx);
+        x.test(zchild.paints === 3,         'a third 1.1 step out re-renders');
+
+        // Structural changes: add and remove both drop the bitmap and re-subscribe.
+        var tree = this.Box.create({ width: 100, height: 100 }), kept = this.CountingBox.create({ width: 10, height: 10 }), gone = this.CountingBox.create({ width: 10, height: 10 });
+        tree.add(kept); tree.add(gone);
+        tree.cache();
+        tree.paint(ctx);
+        var late = this.CountingBox.create({ width: 10, height: 10 });
+        tree.add(late);
+        x.test(! tree.cacheCanvas_,         'add() under a cached node drops its bitmap');
+        tree.paint(ctx);
+        late.width = 20;
+        x.test(! tree.cacheCanvas_,         'a child added after cache() is watched');
+        tree.paint(ctx);
+        tree.remove(gone);
+        x.test(! tree.cacheCanvas_,         'remove() under a cached node drops its bitmap');
+        tree.paint(ctx);
+        gone.width = 20;
+        x.test(!! tree.cacheCanvas_,        'a removed child no longer invalidates the bitmap');
       } finally {
         if ( hadOffscreen ) globalThis.OffscreenCanvas = saved; else delete globalThis.OffscreenCanvas;
       }

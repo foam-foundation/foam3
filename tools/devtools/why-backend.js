@@ -37,8 +37,8 @@
 
   // The evaluators why-core replays with, for one record's auth. FOAM asks
   // the auth in the record's own context (Element2.js:1889-1890); with none,
-  // every permission-gated property is HIDDEN. Actions and sections skip
-  // permission checks entirely without an auth (Action.js:218).
+  // perm answers null and why-core applies FOAM's three readings of it
+  // (property HIDDEN, action check skipped, permissionRequired section blocked).
   function envFor(auth) {
     return {
       // withArgs is what FOAM's own slots use (Action.js:253); a thenable result
@@ -51,7 +51,7 @@
       },
       slotGet: function(s) { try { return s.get(); } catch (e) { return 'ERR'; } },
       perm: function(name) {
-        if ( ! auth ) return false;
+        if ( ! auth ) return null;
         var p;
         try { p = auth.check(null, name); } catch (e) { return false; }
         if ( ! p || typeof p.then !== 'function' ) return !! p;
@@ -92,20 +92,24 @@
       });
     } catch (e) { validation.push({ name: '(errors_)', value: '', message: 'threw: ' + P.str(e.message, 100) }); }
 
-    var actions = cls.getAxiomsByClass(foam.lang.Action).map(function(a) {
+    var actionAxioms = cls.getAxiomsByClass(foam.lang.Action);
+    var actions = actionAxioms.map(function(a) {
       var running = false;
       try { running = !! a.getRunning$(data).get(); } catch (e) {}
       return W.actionGate(a, data, env, running);
     });
 
-    // A section is also unavailable when every property in it is HIDDEN
-    // (SectionAxiom.js:125-165); members come from its explicit `properties`
-    // list or from each property's `section` (SectionAxiom.js:108-123).
-    var sectionOf = {};
+    // A section is also unavailable when every property in it is HIDDEN and
+    // none of its actions is available (SectionAxiom.js:103-165); members
+    // come from its explicit `properties` / `actions` lists or from each
+    // axiom's `section` (SectionAxiom.js:108-123, :137-146).
+    var sectionOf = {}, actionSectionOf = {};
     propAxioms.forEach(function(p) { try { sectionOf[p.name] = p.section || null; } catch (e) {} });
+    actionAxioms.forEach(function(a) { try { actionSectionOf[a.name] = a.section || null; } catch (e) {} });
     var sections = ( foam.layout && foam.layout.SectionAxiom )
       ? cls.getAxiomsByClass(foam.layout.SectionAxiom).map(function(s) {
-          return W.sectionGate(s, data, env, properties, function(n) { return sectionOf[n]; });
+          return W.sectionGate(s, data, env, properties, function(n) { return sectionOf[n]; },
+                               actions, function(n) { return actionSectionOf[n]; });
         })
       : [];
 
@@ -115,7 +119,7 @@
     var pending = 0;
     properties.forEach(function(g) { if ( g.final === 'pending' ) pending++; });
     actions.forEach(function(a) { if ( a.available.value === 'pending' || a.enabled.value === 'pending' ) pending++; });
-    sections.forEach(function(s) { if ( s.available === 'pending' || ( s.perm && s.perm.result === 'pending' ) ) pending++; });
+    sections.forEach(function(s) { if ( s.available === 'pending' || ( s.perm && s.perm.result === 'pending' ) || s.anyVisible === 'pending' ) pending++; });
     permissions.forEach(function(p) { if ( p.result === 'pending' ) pending++; });
 
     var rec = P.describeRecord(data);

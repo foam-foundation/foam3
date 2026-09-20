@@ -32,7 +32,17 @@ t(E.explainProp(W.propGate(prop({ name: 'a', readPermissionRequired: true, write
 t(E.explainProp(W.propGate(prop({ name: 'a', readPermissionRequired: true }), 'EDIT', data, env({ 'user.rw.a': false }))) === 'user.rw.a denied but write not gated — no effect', 'explainProp: read-only gate quirk is called out');
 t(E.explainProp(W.propGate(prop({ name: 'a', readPermissionRequired: true }), 'EDIT', data, env({}))) === 'permission check pending', 'explainProp: pending');
 t(E.explainAction(W.actionGate({ name: 'x', isAvailable: function() { return Promise.resolve(true); } }, data, env(), false)) === 'available: isAvailable pending (async)', 'explainAction: async pending');
-t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ] }, data, env(), [ { name: 'a', final: 'HIDDEN' } ])) === 'all 1 fields HIDDEN', 'explainSection: all hidden');
+t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ] }, data, env(), [ { name: 'a', ladder: 'HIDDEN', final: 'HIDDEN' } ])) === 'all 1 fields HIDDEN', 'explainSection: all hidden');
+var noAct = W.actionGate({ name: 'no', isAvailable: function() { return false; } }, data, env(), false);
+t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'no' ] }, data, env(), [ { name: 'a', ladder: 'HIDDEN', final: 'HIDDEN' } ], null, [ noAct ])) === 'all 1 fields HIDDEN, all 1 actions unavailable', 'explainSection: fields and actions both named');
+t(E.explainSection(W.sectionGate({ name: 'S', actions: [ 'no' ] }, data, env(), [], null, [ noAct ])) === 'all 1 actions unavailable', 'explainSection: no fields -> only the actions clause');
+var pendAct = W.actionGate({ name: 'maybe', availablePermissions: [ 'p' ] }, data, env({}), false);
+t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'maybe' ] }, data, env(), [ { name: 'a', ladder: 'HIDDEN', final: 'HIDDEN' } ], null, [ pendAct ])) === 'no field visible; an action\'s isAvailable is pending', 'explainSection: pending action');
+t(E.explainProp(W.propGate(prop({ name: 'a', hidden: true }), 'EDIT', data, env())) === 'hidden: true — dropped before the visibility ladder runs (Section.js:178)', 'explainProp: hidden axiom is the whole answer');
+function noAuth() { var e = env(); e.perm = function() { return null; }; return e; }
+t(E.explainProp(W.propGate(prop({ name: 'a', writePermissionRequired: true }), 'EDIT', data, noAuth())) === 'no auth in scope → HIDDEN (Element2.js:1888)', 'explainProp: no auth');
+t(E.explainAction(W.actionGate({ name: 'x', availablePermissions: [ 'p.q' ] }, data, noAuth(), false)) === '', 'explainAction: no auth -> nothing to explain, the check is skipped');
+t(E.explainSection(W.sectionGate({ name: 'S', permissionRequired: true }, data, noAuth())) === 'user.section.s unanswerable — no auth in scope', 'explainSection: no auth names the reason');
 
 t(E.explainAction(W.actionGate({ name: 'x', isEnabled: function() { return false; } }, data, env(), false)) === 'enabled: isEnabled → false', 'explainAction: isEnabled');
 t(E.explainAction(W.actionGate({ name: 'x', availablePermissions: [ 'p.q' ] }, data, env({ 'p.q': false }), false)) === 'available: p.q denied', 'explainAction: available perm');

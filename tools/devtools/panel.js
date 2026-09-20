@@ -27,8 +27,12 @@ function readPref(key, dflt) {
 }
 function writePref(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
 // Switching tabs drops the tab's data and reloads it: only the showing tab
-// loads, so what the other tab holds may be a previous screen.
+// loads, so what the other tab holds may be a previous screen. Leaving the
+// Tree tab also releases the page side: render() is about to destroy the
+// hovered row without a mouseleave, and the uid map pins every element of
+// the last snapshot until the next tree() call.
 function setTab(tab) {
+  if ( state.tab === 'tree' && tab !== 'tree' ) rpc('treeRelease');
   state.tab = tab;
   writePref(TAB_KEY, tab);
   if ( tab === 'why' ) state.why = null; else state.tree = null;
@@ -109,9 +113,11 @@ function renderWhy(w) {
       : el('div', 'muted', 'no actions')));
 
   if ( w.sections.length ) {
+    // the tick folds every gate the why column can name, anyVisible included
     root.appendChild(section('sections', 'Sections', table([ 'section', 'available', 'why' ], w.sections.map(function(s) {
-      var ok = s.available === true && ( ! s.perm || s.perm.result === true );
-      return [ s.name, ok ? '✓' : ( s.perm && s.perm.result === 'pending' ? '…' : '✗' ), E.explainSection(s) ];
+      var ok = s.available === true && ( ! s.perm || s.perm.result === true ) && s.anyVisible !== false;
+      var pending = s.available === 'pending' || ( s.perm && s.perm.result === 'pending' ) || s.anyVisible === 'pending';
+      return [ s.name, ok ? ( pending ? '…' : '✓' ) : '✗', E.explainSection(s) ];
     }))));
   }
 
@@ -309,4 +315,6 @@ document.getElementById('reveal').addEventListener('click', function() { reveal(
 document.getElementById('fold').addEventListener('click', foldAll);
 // the pointer can leave the panel without crossing a row's edge
 document.getElementById('root').addEventListener('mouseleave', function() { highlight(null); });
+// closing DevTools or the panel tears this page down with no mouseleave
+window.addEventListener('pagehide', function() { rpc('treeRelease'); });
 refresh();

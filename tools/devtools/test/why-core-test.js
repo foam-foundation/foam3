@@ -99,12 +99,45 @@ var s = W.sectionGate({ name: 'Admin', permissionRequired: true, isAvailable: fu
 t(s.available === true && s.perm.name === 'user.section.admin' && s.perm.result === false, 'sectionGate: perm name + result');
 s = W.sectionGate({ name: 'S', isAvailable: function() { throw new Error('bad'); } }, data, env());
 t(s.available.err === 'bad', 'sectionGate: throwing isAvailable -> {err}');
-s = W.sectionGate({ name: 'S', properties: [ 'a', { name: 'b' }, { name: 'c.d' } ] }, data, env(), [ { name: 'a', final: 'RW' }, { name: 'b', final: 'HIDDEN' }, { name: 'd', final: 'HIDDEN' } ]);
+function pg(name, ladder) { return { name: name, ladder: ladder, final: ladder }; }
+s = W.sectionGate({ name: 'S', properties: [ 'a', { name: 'b' }, { name: 'c.d' } ] }, data, env(), [ pg('a', 'RW'), pg('b', 'HIDDEN'), pg('d', 'HIDDEN') ]);
 t(s.fields === 2 && s.anyVisible === true, 'sectionGate: explicit members by string or {name}; a dotted path (another class) is not a member');
-var gates = [ { name: 'a', final: 'HIDDEN' }, { name: 'b', final: 'HIDDEN' }, { name: 'c', final: 'RW' } ];
+var gates = [ pg('a', 'HIDDEN'), pg('b', 'HIDDEN'), pg('c', 'RW') ];
 s = W.sectionGate({ name: 'Hidden', properties: [ 'a', 'b' ] }, data, env(), gates);
 t(s.fields === 2 && s.anyVisible === false, 'sectionGate: explicit properties all HIDDEN -> anyVisible false');
 s = W.sectionGate({ name: 'Main' }, data, env(), gates, function(n) { return n === 'c' ? 'Main' : 'Other'; });
 t(s.fields === 1 && s.anyVisible === true, 'sectionGate: members by property.section');
+
+// hidden: true is dropped before the ladder (Section.js:178), but the section's
+// own check runs the ladder on it anyway (SectionAxiom.js:124-135)
+g = W.propGate(prop({ name: 'secret', hidden: true }), 'EDIT', data, env());
+t(g.hidden === true && g.ladder === 'RW' && g.final === 'HIDDEN', 'propGate: hidden axiom -> final HIDDEN, ladder kept (RW)');
+s = W.sectionGate({ name: 'S', properties: [ 'secret' ] }, data, env(), [ g ]);
+t(s.anyVisible === true, 'sectionGate: a hidden property with a visible ladder still keeps its section available (FOAM does not filter hidden there)');
+
+// actions are folded into the section's availability (SectionAxiom.js:137-164)
+var okAct = W.actionGate({ name: 'go' }, data, env(), false);
+var noAct = W.actionGate({ name: 'no', isAvailable: function() { return false; } }, data, env(), false);
+var pendAct = W.actionGate({ name: 'maybe', availablePermissions: [ 'p' ] }, data, env({}), false);
+s = W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'go' ] }, data, env(), gates, null, [ okAct, noAct ]);
+t(s.fields === 1 && s.actions === 1 && s.anyVisible === true, 'sectionGate: all fields HIDDEN but an explicit action available -> anyVisible true');
+s = W.sectionGate({ name: 'S', properties: [ 'a' ] }, data, env(), gates, null, [ okAct, noAct ], function(n) { return n === 'no' ? 'S' : 'Other'; });
+t(s.actions === 1 && s.anyVisible === false, 'sectionGate: actions by action.section; the one member is unavailable -> false');
+s = W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'maybe' ] }, data, env(), gates, null, [ pendAct ]);
+t(s.anyVisible === 'pending', 'sectionGate: no field visible, an action pending -> pending');
+s = W.sectionGate({ name: 'S' }, data, env(), null, null, [ okAct ], function() { return 'S'; });
+t(s.fields === null && s.actions === 1 && s.anyVisible === true, 'sectionGate: action gates alone still answer anyVisible');
+
+// no auth in scope: env.perm answers null. Property HIDDEN (Element2.js:1888),
+// action skips the check (Action.js:218), section permSlot stays false (SectionAxiom.js:87-95).
+function noAuth() { var e = env(); e.perm = function() { return null; }; return e; }
+g = W.propGate(prop({ name: 'salary', writePermissionRequired: true }), 'EDIT', data, noAuth());
+t(g.perm.rw.result === null && g.perm.ro === null && g.perm.mode === 'HIDDEN' && g.final === 'HIDDEN', 'propGate: no auth -> HIDDEN, ro never asked');
+g = W.propGate(prop({ name: 'name' }), 'EDIT', data, noAuth());
+t(g.perm === null && g.final === 'RW', 'propGate: no auth, no permission gate -> untouched');
+a = W.actionGate({ name: 'del', availablePermissions: [ 'user.delete' ], enabledPermissions: [ 'user.x' ] }, data, noAuth(), false);
+t(a.available.value === true && a.enabled.value === true && a.available.perms[0].result === null, 'actionGate: no auth -> permission checks skipped, action allowed');
+s = W.sectionGate({ name: 'Admin', permissionRequired: true }, data, noAuth());
+t(s.perm.result === false && s.perm.noAuth === true, 'sectionGate: no auth -> permissionRequired section blocked (permSlot never set)');
 
 console.log('why-core-test:', passes, 'passed');

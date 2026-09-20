@@ -13,6 +13,8 @@
 
   // uid -> element for the last snapshot only: a cache of what the panel is
   // looking at, rebuilt on every tree() call, never the selection itself.
+  // It pins up to CAP elements (and their records and DAOs) until the next
+  // tree() or treeRelease, which the panel sends when it leaves the Tree tab.
   var uidMap = new Map();
 
   D.register('tree', function() {
@@ -49,6 +51,13 @@
     return box;
   }
   function clearHighlight() { if ( box ) { box.remove(); box = null; } }
+
+  // The panel is done with the snapshot: drop the pins and any hover outline.
+  D.register('treeRelease', function() {
+    uidMap = new Map();
+    clearHighlight();
+    return { ok: true };
+  });
 
   D.register('highlight', function(uid) {
     var el = ( uid === null || uid === undefined ) ? null : uidMap.get(uid);

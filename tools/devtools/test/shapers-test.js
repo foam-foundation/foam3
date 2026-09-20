@@ -11,13 +11,14 @@ function t(cond, msg) { assert(cond, msg); passes++; console.log('  ok', msg); }
 
 // Fake u2 elements: { cls_: { id }, parentNode, childNodes, element_, instance_ }
 // Fake DOM nodes: { nodeType: 1, parentElement }
-// element_ and config are FOAM properties with factories, so the code reads
-// them from instance_ only; the fixture stores them there like FOAM does.
+// element_, config and data are FOAM properties (data has a factory on
+// detail views), so the code reads them from instance_ only; the fixture
+// stores them there like FOAM does.
 function u2(id, extra) {
   var e = { cls_: { id: id }, parentNode: null, childNodes: [], instance_: {} };
   extra = extra || {};
   Object.keys(extra).forEach(function(k) {
-    if ( k === 'element_' || k === 'config' ) e.instance_[k] = extra[k];
+    if ( k === 'element_' || k === 'config' || k === 'data' ) e.instance_[k] = extra[k];
     else if ( k === 'instance_' ) Object.assign(e.instance_, extra[k]);
     else e[k] = extra[k];
   });
@@ -69,7 +70,7 @@ var fakeDao = { cls_: { id: 'foam.dao.ProxyDAO' }, of: { id: 'com.x.Rec' }, sele
 t(P.isDAO(fakeDao) === true, 'isDAO: select/find/put functions -> true');
 t(P.isDAO({ cls_: { id: 'com.x.Rec' } }) === false, 'isDAO: plain FObject -> false');
 
-// layerOf
+// layerOf — `data` is a FOAM property, so a set value lives in instance_
 var ctrlLayer = P.layerOf(u2('foam.comics.v2.DAOBrowseControllerView', { data: fakeDao, config: { daoKey: 'recDAO' } }));
 t(ctrlLayer.dao && ctrlLayer.dao.of === 'com.x.Rec' && ctrlLayer.dao.key === 'recDAO' && ctrlLayer.data === null,
   'layerOf: DAO-bound layer reports of + config.daoKey');
@@ -77,11 +78,18 @@ var rec = { cls_: { id: 'com.x.Rec' }, id: 123, toSummary: function() { return '
 var rowLayer = P.layerOf(u2('foam.u2.table.UnstyledTableRow', { data: rec }));
 t(rowLayer.data && rowLayer.data.cls === 'com.x.Rec' && rowLayer.data.id === '123' && rowLayer.data.summary === 'Ajeet Gill' && rowLayer.dao === null,
   'layerOf: FObject-bound layer reports cls + id + summary');
-// A real PropertyBorder imports data: a prototype getter, never in instance_ (ImportsExports.js:117-125)
-var border = u2('foam.u2.PropertyBorder', { prop: { name: 'email' } });
-Object.defineProperty(border, 'data', { get: function() { return rec; } });
-var propLayer = P.layerOf(border);
-t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + imported (getter) data');
+// A real PropertyBorder imports data: a prototype getter over the exporter's
+// slot in the context (ImportsExports.js:110-125), never in instance_. The
+// exporter's own value is read; neither getter runs (imp() below throws from both).
+var propLayer = P.layerOf(imp(u2('foam.u2.PropertyBorder', { prop: { name: 'email' } }), rec));
+t(propLayer.prop === 'email' && propLayer.data.id === '123', 'layerOf: prop name + imported data, read off the exporter\'s instance_');
+var unsetDetail = u2('foam.u2.detail.SectionedDetailView');
+Object.defineProperty(unsetDetail, 'data', { get: function() { throw new Error('factory ran'); } });
+t(P.dataOf(unsetDetail) === null, 'dataOf: unset detail view -> null, its data factory is not run');
+var asExport = u2('foam.u2.PropertyBorder');
+asExport.cls_.getAxiomByName = function(n) { return n === 'data' ? { cls_: { id: 'foam.lang.Import' } } : null; };
+asExport.__context__ = { data$: { cls_: { id: 'foam.lang.ConstantSlot' }, instance_: { value: rec } } };
+t(P.dataOf(asExport) === rec, 'dataOf: an `as data` export (ConstantSlot) is read from its own value');
 var modeLayer = P.layerOf(u2('com.x.V', { instance_: { controllerMode: { name: 'EDIT' }, mode: { name: 'RW' } } }));
 t(modeLayer.modes.controllerMode === 'EDIT' && modeLayer.modes.displayMode === 'RW', 'layerOf: modes from own instance_ values only');
 t(P.layerOf(u2('com.x.V', { controllerMode: { name: 'EDIT' } })).modes.controllerMode === null, 'layerOf: prototype-level controllerMode is not read (no factory run)');
@@ -100,7 +108,16 @@ function env(over) {
     propertyNamesOf: function(r) { return Object.keys(r).filter(function(k) { return k !== 'cls_'; }); }
   }, over || {});
 }
-function imp(el, data) { Object.defineProperty(el, 'data', { get: function() { return data; } }); return el; }
+// An imported `data`: the Import axiom, the exporter's PropertySlot in the
+// context, and a getter that must never be called.
+function imp(el, data) {
+  el.cls_.getAxiomByName = function(n) { return n === 'data' ? { cls_: { id: 'foam.lang.Import' } } : null; };
+  var exporter = { instance_: { data: data } };
+  Object.defineProperty(exporter, 'data', { get: function() { throw new Error('exporter getter ran'); } });
+  el.__context__ = { data$: { obj: exporter, prop: { name: 'data' } } };
+  Object.defineProperty(el, 'data', { get: function() { throw new Error('import getter ran'); } });
+  return el;
+}
 var ACTIVE = { cls_: { id: 'com.x.Status' }, label: 'Active' };
 var user = { cls_: { id: 'com.x.User' }, id: 1, status: ACTIVE, group: 7 };
 var pr = P.pickRecord([

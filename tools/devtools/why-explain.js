@@ -8,7 +8,11 @@
 // its "why" column: the step that decided, not the whole ladder. Pure and
 // dual-exported so each rule has a Node test.
 (function(exports) {
-  function permWord(p) { return p.result === 'pending' ? 'pending' : ( p.result ? 'granted' : 'denied' ); }
+  function permWord(p) {
+    if ( p.result === 'pending' ) return 'pending';
+    if ( p.result === null || p.noAuth ) return 'unanswerable — no auth in scope';
+    return p.result ? 'granted' : 'denied';
+  }
   // A gate function's outcome in words: false, pending (async), or threw.
   function fnWord(name, v) {
     if ( v === 'pending' ) return name + ' pending (async)';
@@ -17,8 +21,10 @@
   }
 
   exports.explainProp = function(g) {
+    if ( g.hidden ) return 'hidden: true — dropped before the visibility ladder runs (Section.js:178)';
     if ( g.final === 'ERR' ) return g.base.source + ' fn threw: ' + g.base.err;
     if ( g.final === 'pending' ) return 'permission check pending';
+    if ( g.perm && g.perm.rw.result === null ) return 'no auth in scope → HIDDEN (Element2.js:1888)';
     var parts = [];
     var baseWord = g.base.kind === 'value' ? g.base.source : g.base.source + ' ' + g.base.kind;
     if ( g.base.mode !== 'RW' ) parts.push(baseWord + ' → ' + g.base.mode);
@@ -33,8 +39,11 @@
     return parts.join('; ');
   };
 
+  // null (no auth) is skipped by FOAM (Action.js:218), so it never explains a block.
   function permsWhy(perms) {
-    for ( var i = 0 ; i < perms.length ; i++ ) if ( perms[i].result !== true ) return perms[i].name + ' ' + permWord(perms[i]);
+    for ( var i = 0 ; i < perms.length ; i++ ) {
+      if ( perms[i].result !== true && perms[i].result !== null ) return perms[i].name + ' ' + permWord(perms[i]);
+    }
     return null;
   }
 
@@ -64,7 +73,14 @@
     var parts = [];
     if ( s.available !== true ) parts.push(fnWord('isAvailable', s.available));
     if ( s.perm && s.perm.result !== true ) parts.push(s.perm.name + ' ' + permWord(s.perm));
-    if ( s.anyVisible === false ) parts.push('all ' + s.fields + ' fields HIDDEN');
+    if ( s.anyVisible === false ) {
+      var what = [];
+      if ( s.fields ) what.push('all ' + s.fields + ' fields HIDDEN');
+      if ( s.actions ) what.push('all ' + s.actions + ' actions unavailable');
+      parts.push(what.length ? what.join(', ') : 'no fields or actions');
+    } else if ( s.anyVisible === 'pending' ) {
+      parts.push('no field visible; an action\'s isAvailable is pending');
+    }
     return parts.join('; ');
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamWhyExplain = {} ));

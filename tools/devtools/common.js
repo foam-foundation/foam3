@@ -46,15 +46,49 @@
   // Source of the one expression every view sends. argExprs are JS fragments
   // evaluated in the page: '$0' for the Elements-tab selection (a Command Line
   // API variable inside inspectedWindow.eval), JSON.stringify(v) for data.
-  // Content scripts inject at document_idle, so a page opened before the
-  // extension was loaded has no backend — the fallback names the fix.
+  // No backend yet (first call, or the page reloaded) answers with the
+  // noBackend marker, which rpc() turns into an inject + one retry.
   function rpcExpr(name, argExprs) {
     var args = [ JSON.stringify(name) ].concat(argExprs || []).join(', ');
     return 'window.__foamDevtools ? window.__foamDevtools.call(' + args + ') : ' +
-      'JSON.stringify({error:"no backend — reload the inspected page (extension scripts inject on page load)"})';
+      'JSON.stringify({error:"no backend",noBackend:true})';
   }
 
-  function rpc(name, argExprs) { return foamEval(rpcExpr(name, argExprs)); }
+  // The page-world files, in load order: each registers on the one before.
+  // They reach the page through inspectedWindow.eval, the channel every rpc
+  // already uses, so nothing is injected into a page the panel never opens
+  // and the manifest lists no content scripts or permissions.
+  var BACKEND_FILES = [ 'shapers.js', 'why-core.js', 'backend.js', 'selection-backend.js',
+                        'tree-backend.js', 'inspect-backend.js', 'why-backend.js', 'open-backend.js' ];
+
+  // Fetched once per extension page. The wrapper makes a second injection a
+  // no-op — the sidebar and the panel both call this, and evals run one at
+  // a time on the page — and returns a JSON string so foamEval can parse it.
+  var backendSource = null;
+  function loadBackendSource() {
+    if ( ! backendSource ) {
+      backendSource = Promise.all(BACKEND_FILES.map(function(f) {
+        return fetch(chrome.runtime.getURL(f)).then(function(r) { return r.text(); });
+      })).then(function(srcs) {
+        return '(function() { if ( ! window.__foamDevtools ) {\n' + srcs.join('\n') +
+               '\n} return JSON.stringify({ ok: true }); })()';
+      });
+    }
+    return backendSource;
+  }
+  function injectBackend() {
+    return loadBackendSource().then(foamEval, function(e) { return { error: 'backend fetch failed: ' + e.message }; });
+  }
+
+  function rpc(name, argExprs) {
+    var expr = rpcExpr(name, argExprs);
+    return foamEval(expr).then(function(r) {
+      if ( ! r.noBackend ) return r;
+      return injectBackend().then(function(i) {
+        return i.error ? { error: 'backend inject failed: ' + i.error } : foamEval(expr);
+      });
+    });
+  }
 
   // Reveal a DOM node in the Elements tab: the i-th named layer's, or with i
   // null/undefined the pointed-at element's own. Chrome's inspect() is a Command Line
@@ -68,9 +102,11 @@
 
   function reveal(i) { return foamEval(revealExpr(i)); }
 
-  exports.foamEval   = foamEval;
-  exports.rpcExpr    = rpcExpr;
-  exports.rpc        = rpc;
+  exports.foamEval      = foamEval;
+  exports.rpcExpr       = rpcExpr;
+  exports.rpc           = rpc;
+  exports.BACKEND_FILES = BACKEND_FILES;
+  exports.injectBackend = injectBackend;
   exports.revealExpr = revealExpr;
   exports.reveal     = reveal;
 })(typeof module !== 'undefined' ? module.exports : window);

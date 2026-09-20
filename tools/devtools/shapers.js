@@ -76,10 +76,29 @@
     return { el: node ? map.get(node) : null, walked: walked, withDom: withDom };
   };
 
+  // An imported property (PropertyBorder's data) is a prototype getter that
+  // reads the exporter's slot from the context (ImportsExports.js:110-125);
+  // slot.get() runs the exporter's getter, so read the exporter's own value
+  // instead. Exports of a property are PropertySlots (Property.exportAs,
+  // Property.js:735-738); exports of a plain value are ConstantSlots
+  // (Context.js:189-191).
+  function importedOwn(el, key) {
+    var ax = el.cls_.getAxiomByName ? el.cls_.getAxiomByName(key) : null;
+    if ( ! ax || ! ax.cls_ || ax.cls_.id !== 'foam.lang.Import' ) return undefined;
+    var s = el.__context__ ? el.__context__[key + '$'] : null;
+    if ( ! s ) return undefined;
+    if ( s.obj && s.prop ) return own(s.obj, s.prop.name);
+    if ( s.cls_ && s.cls_.id === 'foam.lang.ConstantSlot' ) return own(s, 'value');
+    return undefined;
+  }
+
+  // Held values only: `el.data` on a detail view with no record runs the
+  // factory, which creates one and writes `of` (AbstractSectionedDetailView.js:36-42).
   exports.dataOf = function(el) {
     try {
-      if ( el.instance_ && el.instance_.data && el.instance_.data.cls_ ) return el.instance_.data;
-      if ( el.data && el.data.cls_ ) return el.data;
+      var d = own(el, 'data');
+      if ( d === undefined ) d = importedOwn(el, 'data');
+      if ( d && d.cls_ ) return d;
     } catch (e) {}
     return null;
   };

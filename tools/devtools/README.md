@@ -17,9 +17,11 @@ questions); and, on **Open in FOAM**, a view pushed onto the app's stack.
 
 1. Open `chrome://extensions`, turn on **Developer mode**.
 2. **Load unpacked** → select this folder (`tools/devtools/`).
-3. Open a FOAM3 app page and **reload it** (content scripts inject on page
-   load), then open DevTools (F12). A **FOAM** pane appears in the Elements
-   sidebar next to Styles/Computed, and a **FOAM** tab next to Console.
+3. Open a FOAM3 app page and open DevTools (F12). A **FOAM** pane appears in
+   the Elements sidebar next to Styles/Computed, and a **FOAM** tab next to
+   Console. The page-world backend is injected the first time either asks
+   the page something, and again after a page reload — nothing runs on a
+   page until a FOAM view is opened on it.
 
 ## The sidebar
 
@@ -71,8 +73,8 @@ rows where it differs from the row above.
 
 Other states: "not a FOAM page" (no `window.foam`/`window.ctrl`), "no owning
 u2 Element found" (the node is outside the `ctrl` tree — e.g. a browser
-extension's own DOM), or a red error line (most often "no backend — reload the
-inspected page").
+extension's own DOM), or a red error line (`backend inject failed: …` when
+the page refused the backend, e.g. mid-reload — pick the element again).
 
 ## The Why tab
 
@@ -96,8 +98,13 @@ record is opened, even though the hidden table stays in the DOM);
    VIEW), `visibility function → HIDDEN`, `VIEW clamps RW → RO` (only a
    visibility *function*'s result is clamped; `visibility: 'RW'` stays RW),
    `user.rw.salary denied → RO`, `user.ro.salary denied → HIDDEN`.
-   Read-write fields are collapsed under "and N read-write". A field marked
-   `(hidden axiom)` has `hidden: true`. This is the **class-level** ladder:
+   Read-write fields are collapsed under "and N read-write". A field with
+   `hidden: true` is HIDDEN whatever its ladder says — FOAM drops it before
+   the ladder runs — and is marked `(hidden axiom)`. A record with no auth
+   in its context reads `no auth in scope → HIDDEN` on every
+   permission-gated field, which is what FOAM does (Element2.js:1888); an
+   action's permission check is skipped in that case (Action.js:218), and a
+   `permissionRequired` section stays blocked. This is the **class-level** ladder:
    a view's per-property `config` override (`{ name: 'x', visibility: 'RW' }`
    in a section or PropertyBorder) is not replayed.
    One FOAM quirk is called out explicitly: `readPermissionRequired` on its
@@ -110,8 +117,10 @@ record is opened, even though the hidden table stays in the DOM);
    gate is `…` until its promise settles, as in FOAM (a PromiseSlot holds
    the old value until then).
 5. **Sections** — only for classes that declare sections: `isAvailable`, the
-   `<cls>.section.<name>` permission, and "all N fields HIDDEN" (a section
-   with no visible field is unavailable in FOAM too).
+   `<cls>.section.<name>` permission, and "all N fields HIDDEN, all M actions
+   unavailable" (a section shows when one of its fields is visible **or** one
+   of its actions is available, SectionAxiom.js:157-164). The ✓ folds all
+   three; `…` while an action's async `isAvailable` could still turn it on.
 6. **Permissions checked by the page or this panel (N, M denied)** — every
    permission string the record's cached auth service has been asked, by the
    app or by this replay, ✓/✗/…, plus a copy box with the denied ones.
@@ -154,7 +163,8 @@ A `hidden` tag marks `shown === false`.
 
 Hovering a row outlines that element on the page (a blue box with the class
 name and size — drawn by the page, since Chrome gives extensions no overlay
-API; it is the only DOM the extension adds and it goes away on mouse-out).
+API; it is the only DOM the extension adds and it goes away on mouse-out,
+on leaving the Tree tab, and when the panel closes).
 Clicking a row selects the element: the sidebar shows its chain, the Why tab
 explains its record, and `$v` / `$d` point at it — DevTools stays on this
 panel. **Reveal in Elements** jumps the Elements tab to the selected
@@ -170,8 +180,15 @@ tabs reloads the one you switch to. Snapshots are capped at 5000 nodes
 
 **Page world** (`shapers.js`, `why-core.js`, `backend.js`,
 `selection-backend.js`, `tree-backend.js`, `inspect-backend.js`,
-`why-backend.js`, `open-backend.js`; MAIN-world content scripts, loaded in
-that order). `shapers.js` and `why-core.js` are pure: the DOM→`u2` walk
+`why-backend.js`, `open-backend.js`; `BACKEND_FILES` in `common.js`, in
+that order). They are not content scripts: the first `rpc()` that finds no
+`window.__foamDevtools` fetches them from the extension, concatenates them
+under one `if ( ! window.__foamDevtools )` guard and evaluates the bundle
+with `chrome.devtools.inspectedWindow.eval` — the same channel every call
+uses, and exempt from the page's CSP like the console. So the manifest
+lists no content scripts, permissions or host patterns, and a page the
+panel never opened on carries nothing. `shapers.js` and `why-core.js` are
+pure: the DOM→`u2` walk
 (`resolveOwner`), the stack of non-wrapper ancestors (`namedStack`), the
 per-layer shape (`layerOf`), the tree snapshot (`treeOf`, over the one child
 rule `childrenOf`), and the gate replay (`propGate`, `actionGate`,
@@ -238,7 +255,7 @@ FOAM's own auth cache entry; the auth itself is a closure argument per call.
 
 1. Put the logic in a pure module with a Node test.
 2. Add a page-world file that calls `window.__foamDevtools.register('name', fn)`
-   and list it in `manifest.json` `content_scripts.js` after `backend.js`.
+   and list it in `BACKEND_FILES` (`common.js`) after `backend.js`.
 3. Call it from a view with `rpc('name', [ argExprs ])`.
 
 ## Limits
@@ -249,28 +266,40 @@ FOAM's own auth cache entry; the auth itself is a closure argument per call.
 - The `u2` tree is walked from `window.ctrl` on every `inspect` call (fresh
   `WeakMap`); large pages pay the walk each time — the **map** line shows the
   cost.
-- The MAIN-world content script injects `window.__foamDevtools` into every
-  page matching `<all_urls>`. This is a load-unpacked dev tool; narrow
-  `matches` in `manifest.json` if that bothers you.
+- The backend lives in the page's main world once injected
+  (`window.__foamDevtools`, `__foamShapers`, `__foamWhyCore`, `$v`, `$d`)
+  for the rest of that page's life; only pages a FOAM view was opened on
+  get it.
+- The tree's uid → element map pins the last snapshot (up to 5000 elements,
+  with their records and DAOs) while the Tree tab shows; leaving the tab or
+  closing the panel releases it. A selected element is released once its
+  DOM node leaves the document.
 
 ## Testing
 
-Pure logic has Node tests with no dependencies:
+Pure logic has Node tests with no dependencies. One command runs them all,
+each file in its own process; the exit code is the number of failing files:
 
 ```bash
-node tools/devtools/test/shapers-test.js        # shapers-test: 60 passed
+node tools/devtools/test/run-all.js             # 7 files, 215 assertions passed
+```
+
+Or one at a time:
+
+```bash
+node tools/devtools/test/shapers-test.js        # shapers-test: 62 passed
 node tools/devtools/test/sidebar-core-test.js   # sidebar-core-test: 15 passed
 node tools/devtools/test/tree-core-test.js      # tree-core-test: 39 passed
 node tools/devtools/test/backend-test.js        # backend-test: 5 passed
-node tools/devtools/test/common-test.js         # common-test: 10 passed
-node tools/devtools/test/why-core-test.js       # why-core-test: 30 passed
-node tools/devtools/test/why-explain-test.js    # why-explain-test: 27 passed
+node tools/devtools/test/common-test.js         # common-test: 20 passed
+node tools/devtools/test/why-core-test.js       # why-core-test: 40 passed
+node tools/devtools/test/why-explain-test.js    # why-explain-test: 34 passed
 ```
 
 ### Smoke checklist (manual, ~3 minutes, after every load/reload of the extension)
 
-1. **Bridge proof.** Load unpacked, open a FOAM app, reload the page, open
-   DevTools → Elements. The FOAM pane reads "select an element…"; selecting
+1. **Bridge proof.** Load unpacked, open a FOAM app, open DevTools →
+   Elements. The FOAM pane reads "select an element…"; selecting
    `<body>` shows a one-row stack and a `map:` line. On a non-FOAM page the
    pane reads "not a FOAM page". In the page console
    `JSON.parse(__foamDevtools.call('ping')).foam` is `true`.

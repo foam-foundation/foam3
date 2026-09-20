@@ -100,11 +100,24 @@
     return P.own(i === undefined ? pointed.el : pointed.stack[i], 'element_');
   };
 
+  // A pointed-at element whose DOM node has left the document is gone for
+  // good (a hidden stack view keeps its node — see onScreen — so that one is
+  // kept for the way back). Dropping it lets the element, its record and $v go.
+  function forgetDetached() {
+    if ( ! pointed.el ) return;
+    var d = P.own(pointed.el, 'element_');
+    if ( d && d.isConnected ) return;
+    pointed = { el: null, stack: [] };
+    window.$v = undefined;
+  }
+
   // The current target, in priority: the pointed-at element while it is on
   // screen (see onScreen); else the record the current screen is about; else
   // the table it lists. { data, view, dao, mode, source } | { table, source } | null.
-  // No side effects: publishing $v/$d is the caller's call.
+  // Publishing $v/$d is the caller's call; the only write here is forgetting
+  // a detached selection.
   D.currentTarget = function() {
+    forgetDetached();
     try {
       if ( pointed.el && onScreen(pointed.el) ) {
         var r = P.resolveRecord(pointed.el, pointed.stack, env);

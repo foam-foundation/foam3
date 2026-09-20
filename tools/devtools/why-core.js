@@ -10,7 +10,11 @@
 // (foam.layout.SectionAxiom). Each step is recorded instead of collapsed so
 // the panel can name the one that decided. No foam global: the page hands in
 // env = { evalFn(fn, data) -> value | 'pending' | {err}, slotGet(slot) ->
-// value | 'ERR', perm(name) -> true|false|'pending' }.
+// value | 'ERR', perm(name) -> true|false|'pending'|null }. null is "no auth
+// in scope", which FOAM answers three ways: a permission-gated property is
+// HIDDEN (Element2.js:1888), an action skips the check (Action.js:218), a
+// permissionRequired section stays unavailable — its permSlot is created
+// false and nothing ever sets it (SectionAxiom.js:87-95).
 (function(exports) {
   var MODE_PROP = { CREATE: 'createVisibility', VIEW: 'readVisibility', EDIT: 'updateVisibility' };
 
@@ -32,9 +36,11 @@
     return 'ERR';
   }
 
-  // Element2.js:1895-1900 — rw first; ro only when rw failed and reading is
-  // not free. ro is null when FOAM would never have asked for it.
+  // Element2.js:1888-1900 — no auth is HIDDEN outright; else rw first, ro
+  // only when rw failed and reading is not free. ro is null when FOAM would
+  // never have asked for it.
   exports.permMode = function(rw, ro, canRead, allowCreate) {
+    if ( rw === null ) return 'HIDDEN';
     if ( rw === 'pending' ) return 'pending';
     if ( rw || allowCreate ) return 'RW';
     if ( canRead ) return 'RO';
@@ -84,7 +90,7 @@
                         ( prop.updatePermissionRequired !== true || modeName === 'CREATE' );
       var rwName = cls + '.rw.' + pn, roName = cls + '.ro.' + pn;
       var rw = env.perm(rwName), ro = null;
-      var askRo = rw !== 'pending' && ! rw && ! allowCreate && ! canRead;
+      var askRo = rw !== null && rw !== 'pending' && ! rw && ! allowCreate && ! canRead;
       if ( askRo ) ro = env.perm(roName);
       gate.perm = {
         rw: { name: rwName, result: rw },
@@ -93,21 +99,29 @@
         mode: exports.permMode(rw, ro, canRead, allowCreate)
       };
     }
-    if ( gate.clamp === 'ERR' ) gate.final = 'ERR';
-    else if ( ! gate.perm ) gate.final = gate.clamp;
-    else if ( gate.perm.mode === 'pending' ) gate.final = 'pending';
-    else gate.final = exports.combine(gate.clamp, gate.perm.mode);
+    if ( gate.clamp === 'ERR' ) gate.ladder = 'ERR';
+    else if ( ! gate.perm ) gate.ladder = gate.clamp;
+    else if ( gate.perm.mode === 'pending' ) gate.ladder = 'pending';
+    else gate.ladder = exports.combine(gate.clamp, gate.perm.mode);
+    // `hidden: true` is filtered out before any of the above runs
+    // (Section.js:178, AbstractSectionedDetailView.js:134), so the field is
+    // HIDDEN whatever the ladder says. ladder is kept for sectionGate: a
+    // section's own "any property visible" check does not filter hidden
+    // (SectionAxiom.js:124-135).
+    gate.final = gate.hidden ? 'HIDDEN' : gate.ladder;
     return gate;
   };
 
   function permsOf(names, env) {
     return ( names || [] ).map(function(n) { return { name: n, result: env.perm(n) }; });
   }
+  // null (no auth) counts as granted: Action.js:218 returns the slot
+  // untouched when there is no auth to ask.
   function allGranted(perms) {
     var pending = false;
     for ( var i = 0 ; i < perms.length ; i++ ) {
       if ( perms[i].result === 'pending' ) pending = true;
-      else if ( ! perms[i].result ) return false;
+      else if ( perms[i].result !== null && ! perms[i].result ) return false;
     }
     return pending ? 'pending' : true;
   }
@@ -144,29 +158,45 @@
     };
   };
 
+  // The gates that belong to a section: its explicit name list (`properties`
+  // / `actions`), else every axiom whose `section` is it. A dotted entry
+  // ('a.b') is a PathPropertyHolder into another class (SectionAxiom.js:113-117),
+  // not one of this record's gates: left out.
+  function membersOf(list, gates, sectionOf, sectionName) {
+    if ( ! gates ) return null;
+    var explicit = Array.isArray(list)
+      ? list.map(function(p) { return typeof p === 'string' ? p : ( p && p.name ); })
+            .filter(function(n) { return n && n.indexOf('.') < 0; })
+      : null;
+    return gates.filter(function(g) {
+      return explicit ? explicit.indexOf(g.name) >= 0 : ( sectionOf && sectionOf(g.name) === sectionName );
+    });
+  }
+
   // SectionAxiom.js: isAvailable(data) && (permissionRequired ? auth.check(cls.section.name) : true)
-  // && at least one of its properties is not HIDDEN (SectionAxiom.js:125-165).
-  // propGates: this record's propGate list; a section's members are its
-  // explicit `properties` names, else every property whose `section` is it.
-  exports.sectionGate = function(section, data, env, propGates, propSectionOf) {
+  // && (one of its properties is not HIDDEN || one of its actions is available)
+  // (SectionAxiom.js:103-165). propGates / actionGates: this record's gate lists.
+  // anyVisible is true, false, or 'pending' when only an async isAvailable
+  // could still turn it true.
+  exports.sectionGate = function(section, data, env, propGates, propSectionOf, actionGates, actionSectionOf) {
     var avail = boolOf(section.isAvailable, data, env), perm = null;
     if ( section.permissionRequired && data && data.cls_ ) {
       var n = String(data.cls_.name).toLowerCase() + '.section.' + String(section.name).toLowerCase();
-      perm = { name: n, result: env.perm(n) };
+      var r = env.perm(n);
+      // no auth: the permSlot is created false and never set (SectionAxiom.js:87-95)
+      perm = { name: n, result: r === null ? false : r, noAuth: r === null };
     }
-    var members = null;
-    if ( propGates ) {
-      // A dotted entry ('a.b') is a PathPropertyHolder into another class
-      // (SectionAxiom.js:113-117), not one of this record's gates: left out.
-      var explicit = Array.isArray(section.properties)
-        ? section.properties.map(function(p) { return typeof p === 'string' ? p : ( p && p.name ); })
-                            .filter(function(n) { return n && n.indexOf('.') < 0; })
-        : null;
-      members = propGates.filter(function(g) {
-        return explicit ? explicit.indexOf(g.name) >= 0 : ( propSectionOf && propSectionOf(g.name) === section.name );
-      });
+    var props   = membersOf(section.properties, propGates, propSectionOf, section.name);
+    var actions = membersOf(section.actions, actionGates, actionSectionOf, section.name);
+    var anyVisible = null;
+    if ( props !== null || actions !== null ) {
+      // the section's own check runs the ladder on hidden properties too, so ladder, not final
+      var propShown = ( props || [] ).some(function(g) { return g.ladder !== 'HIDDEN'; });
+      var actShown  = ( actions || [] ).some(function(a) { return a.available.value === true; });
+      var actMaybe  = ( actions || [] ).some(function(a) { return a.available.value === 'pending'; });
+      anyVisible = ( propShown || actShown ) ? true : actMaybe ? 'pending' : false;
     }
-    var anyVisible = members === null ? null : members.some(function(g) { return g.final !== 'HIDDEN'; });
-    return { name: section.name, available: avail, perm: perm, fields: members ? members.length : null, anyVisible: anyVisible };
+    return { name: section.name, available: avail, perm: perm,
+             fields: props ? props.length : null, actions: actions ? actions.length : null, anyVisible: anyVisible };
   };
 })(typeof module !== 'undefined' ? module.exports : ( window.__foamWhyCore = {} ));

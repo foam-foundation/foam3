@@ -72,13 +72,18 @@ foam.CLASS({
       documentation: 'function(text, font) -> width in px. Defaults to the canvas context on first paint; tests inject an estimate.',
       factory: function() {
         var self = this;
-        // Lazy: the canvas context does not exist until the scene is painted once.
+        // Lazy: the canvas context does not exist until the scene is painted once. The real
+        // measurer is memoized in a private field, never written back to this property: a
+        // property write publishes propertyChange, which CView turns into invalidated, and
+        // callers hold this closure for the scene's lifetime (every element measures through it).
         return function(text, font) {
-          var ctx = self.canvas && self.canvas.context;
-          // TextUtil is a LIB (not a class), so it is referenced directly rather than through requires.
-          if ( ! ctx ) return foam.graphics.TextUtil.estimateMeasurer(7)(text, font);
-          self.measure = foam.graphics.TextUtil.canvasMeasurer(ctx);
-          return self.measure(text, font);
+          if ( ! self.measurer_ ) {
+            var ctx = self.canvas && self.canvas.context;
+            // TextUtil is a LIB (not a class), so it is referenced directly rather than through requires.
+            if ( ! ctx ) return foam.graphics.TextUtil.estimateMeasurer(7)(text, font);
+            self.measurer_ = foam.graphics.TextUtil.canvasMeasurer(ctx);
+          }
+          return self.measurer_(text, font);
         };
       }
     }

@@ -62,6 +62,17 @@ foam.CLASS({
 
       // --- measureText delegates ---
       x.test(t.measureText('abc', 'any') === 21, 'measureText uses the injected measurer');
+
+      // The default measurer binds to the canvas context once, privately: measuring never writes
+      // the measure property (a write would publish propertyChange and dirty the whole scene).
+      var lazy = this.Scene.create({ viewWidth: 200, viewHeight: 200 });
+      var held = lazy.measure;                       // callers keep this closure for the scene's lifetime
+      x.test(held('abc', 'f') === 21,               'before the first paint the default measurer estimates 7px per char');
+      lazy.canvas = { context: { measureText: function(s) { return { width: s.length * 5 }; } } };
+      var writes = 0;
+      lazy.propertyChange.sub(function() { writes++; });
+      x.test(held('abc', 'f') === 15 && held('abcd', 'f') === 20, 'with a context the held closure measures through it');
+      x.test(writes === 0,                           'measuring writes no property (no invalidation per measurement)');
     }
   ]
 });

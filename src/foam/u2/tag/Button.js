@@ -516,7 +516,7 @@ foam.CLASS({
 
       this.addContent();
 
-      this.attrs({ name: this.name || '', 'aria-label': this.ariaLabel$ });
+      this.attrs({ name: this.name || '', 'aria-label': this.ariaLabel });
 
       this.addClass(this.slot(function(styleClass_) {
         return this.myClass(styleClass_);

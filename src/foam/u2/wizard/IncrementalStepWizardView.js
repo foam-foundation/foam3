@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.u2.wizard',
   name: 'IncrementalStepWizardView',
   extends: 'foam.u2.View',
+  mixins: ['foam.u2.wizard.WizardletRenderUtils'],
 
   documentation: `Displays wizardlets in individual screens.`,
 
@@ -234,8 +235,8 @@ foam.CLASS({
                 .start(this.CircleIndicator, {
                   label: 'X',
                   borderThickness: 2,
-                  borderColor: foam.CSS.returnTokenValue('$borderDefault', this.cls_, this.__subContext__),
-                  borderColorHover: foam.CSS.returnTokenValue('$borderBrand', this.cls_, this.__subContext__),
+                  borderColor: this.tok('$borderDefault'),
+                  borderColorHover: this.tok('$borderBrand'),
                   clickable: true
                 })
                 .on('click', () => this.showExitPrompt())

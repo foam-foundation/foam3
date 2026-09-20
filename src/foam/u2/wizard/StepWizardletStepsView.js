@@ -26,6 +26,8 @@ foam.CLASS({
       // Legacy theme colour props (approval3, grey2, black, white) are unset
       // on token-based themes; resolve tokens for the indicator props and
       // inline styles, which the $token CSS expansion does not reach.
+      // Shared by every view that mixes this in (steps list, incremental
+      // and scrolling wizards) so the helper is written once.
       return foam.CSS.returnTokenValue(t, this.cls_, this.__subContext__);
     },
     function configureIndicator(wizardlet, isCurrent, number) {

@@ -1,6 +1,12 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const DPR = 2;
@@ -148,7 +154,7 @@ export async function shot(page, sel, file, { pad = 12, nth = 0, maxH = 900, mar
 
 // Config paths are resolved against the rows file's own folder (and the scripts folder when
 // there is no rows file yet), so every script works from any working directory.
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export function readRows(file) {
   const rowsFile = path.resolve(file || path.join(HERE, 'rows.json'));

@@ -13,6 +13,13 @@ foam.CLASS({
     onUpdate on each animation frame. Domain-free: the caller maps the value
     onto whatever it animates (a stroke width, a camera position). The frame
     scheduler and clock are injectable so tests run without a browser clock.
+
+    Tie a tween to its owner with owner.onDetach(tween): detaching the owner
+    cancels the tween, so a view torn down mid-animation stops scheduling frames.
+
+    Sits beside foam.animation (Animation/Interp): that pair animates an object's
+    properties by diffing before/after states; Tween is one value over time that
+    the caller maps onto anything, with an injectable clock for tests.
   `,
 
   constants: {
@@ -52,6 +59,11 @@ foam.CLASS({
     function cancel() {
       this.gen_++;
       this.running = false;
+    },
+
+    function detach() {
+      this.cancel();
+      this.SUPER();
     }
   ],
 

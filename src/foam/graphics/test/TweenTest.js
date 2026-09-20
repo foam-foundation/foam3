@@ -40,6 +40,16 @@ foam.CLASS({
       run();
       x.test(values.length === 1 && done === 0 && ! tw2.running, 'cancel: one frame ran, no more, no onDone');
 
+      // Detaching the owner cancels the tween: no further frames, no onDone.
+      values = []; done = 0; t = 0;
+      var owner = foam.lang.FObject.create();
+      var tw3 = this.Tween.create({ duration: 200, schedule: schedule, now: now, onUpdate: function(v) { values.push(v); }, onDone: function() { done++; } }).start();
+      owner.onDetach(tw3);
+      t += 50; queue.shift()(t);
+      owner.detach();
+      run();
+      x.test(values.length === 1 && done === 0 && ! tw3.running, 'owner.detach(): one frame ran, tween stopped, no onDone');
+
       // A zero duration completes on its first frame.
       values = [];
       this.Tween.create({ duration: 0, schedule: schedule, now: now, onUpdate: function(v) { values.push(v); } }).start();

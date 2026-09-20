@@ -14,6 +14,9 @@ foam.CLASS({
     system -> light -> dark -> system.`,
 
   requires: [
+    'foam.core.menu.Menu',
+    'foam.core.u2.navigation.ApplicationSideNav',
+    'foam.dao.MDAO',
     'foam.lang.Window',
     'foam.u2.theme.ColorSchemeToggle',
     'foam.u2.theme.StandaloneTheme'
@@ -128,8 +131,35 @@ foam.CLASS({
       t2.element_.remove(); t2.detach();
 
       // --- Side nav carries the toggle for small screens -------------------
-      var src = foam.core.u2.navigation.ApplicationSideNav.getAxiomByName('render').code.toString();
-      x.test(src.includes('foam.u2.theme.ColorSchemeToggle'), 'ApplicationSideNav renders the toggle');
+      // Minimal context: an empty menu tree is enough for the nav to render.
+      var navCtx = win.__subContext__.createSubContext({
+        menuDAO: this.MDAO.create({ of: this.Menu }),
+        currentMenu: null,
+        pushDefaultMenu: function() {},
+        pushMenu: function() {},
+        loginSuccess: true
+      });
+      // UserInfoView (the settings row) reads the page-global ctrl; stub it
+      // when the runner has no app controller.
+      var hadCtrl = 'ctrl' in globalThis;
+      if ( ! hadCtrl ) globalThis.ctrl = { __subContext__: { auth: { getCurrentSubject: async () => null } } };
+      try {
+        var nav = this.ApplicationSideNav.create({}, navCtx);
+        nav.write();
+        await wait(100);
+        var hidden = () => nav.element_.querySelector('.foam-u2-theme-ColorSchemeToggle')?.classList.contains('foam-u2-Element-hidden');
+        x.test(hidden() === false, 'side nav shows the toggle in its bottom container, hidden=' + hidden());
+        nav.bottomRoot_ = this.Menu.create({ id: 'settings' }, navCtx);
+        await wait(50);
+        x.test(hidden() === true, 'drilling into a bottom row hides the toggle, hidden=' + hidden());
+        nav.bottomRoot_ = null;
+        await wait(50);
+        x.test(hidden() === false, 'leaving the submenu shows the toggle again, hidden=' + hidden());
+        nav.element_.remove();
+        nav.detach();
+      } finally {
+        if ( ! hadCtrl ) delete globalThis.ctrl;
+      }
     }
   ]
 });

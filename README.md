@@ -1,5 +1,9 @@
 # FOAM3
 
+[![Documentation](https://img.shields.io/badge/docs-foam--foundation.github.io%2Ffoam3-4285F4?style=for-the-badge)](https://foam-foundation.github.io/foam3/)
+
+**Start here → [foam-foundation.github.io/foam3](https://foam-foundation.github.io/foam3/)** — guides, tutorials, demos and videos.
+
 Build fully featured high performance apps in less time using FOAM.
 
   * Application Speed
@@ -82,6 +86,18 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
     ./build.sh
 
 * visit: http:/localhost:8080 and login with admin / badpassword
+
+### Run in Docker
+
+The project also includes a `Dockerfile` and a `docker-compose.yml`. The
+image builds the app and runs it from the JARs, with journals, logs and
+documents in named volumes:
+
+    docker compose up --build
+
+`JOURNALS=production docker compose up --build` adds deployment journal sets
+to the build (`docker` is always included), and `JAVA_OPTS` sizes the heap.
+
 
 <!--
 ## Running Application Controller

@@ -1,4 +1,5 @@
-<flow name="CrunchLite" category="DOC/DEV" spid="foam"/>
+<flow name="CrunchLite" category="DOC/DEV" spid="foam" description="CRUNCH Lite: storing capability data on objects via the Capable interface instead of associating it with a user." keywords="crunch lite,capable,capability,knowledge"/>
+
 # CRUNCH Lite
 
 <foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />

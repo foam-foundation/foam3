@@ -31,7 +31,10 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.Indexer',
     'foam.lang.PropertyInfo',
+    'foam.dao.index.TreeIndex',
     'foam.dao.index.TreeNode',
+    'foam.core.reflow.Pivot',
+    'foam.mlang.Expr',
     'foam.mlang.order.Comparator',
     'foam.mlang.predicate.Predicate',
     'foam.mlang.sink.Count',
@@ -99,7 +102,47 @@ foam.CLASS({
         setBulk_(true);
         checkSmall(x);
         checkStaged(x);
+        checkOrderDrop(x);
       `
+    },
+
+    {
+      name: 'checkOrderDrop',
+      args: 'X x',
+      documentation: `An ORDER BY that the index cannot serve makes ScanPlan collect
+        and sort every matching row. A sink whose result does not depend on put
+        order - a Count, a GroupBy of Counts, a Pivot of either - must have the
+        order dropped from the plan, and only when the select is unlimited: with
+        a limit, which rows arrive depends on the order.`,
+      javaCode: `
+        TreeIndex idx   = new TreeIndex(IndexKeyRecord.ID, true);
+        Object    state = null;
+        state = idx.put(state, mk(1, 10, "bravo", null, AndOrderStatus.INIT));
+        state = idx.put(state, mk(2, 20, "alpha", null, AndOrderStatus.INIT));
+        state = idx.put(state, mk(3, 10, "delta", null, AndOrderStatus.INIT));
+
+        Comparator byName = IndexKeyRecord.NAME;
+        long       all    = foam.dao.AbstractDAO.MAX_SAFE_INTEGER;
+        Pivot      pivot  = new Pivot.Builder(x).setYFunc(new Expr[] { IndexKeyRecord.GROUP_ID }).setAcc(COUNT()).build();
+
+        test(plan(idx, state, new ArraySink(), all, byName).contains("sortRequired:true"),
+          tag() + "order drop / ArraySink keeps its sort");
+        test(plan(idx, state, GROUP_BY(IndexKeyRecord.GROUP_ID, COUNT()), all, byName).contains("sortRequired:false"),
+          tag() + "order drop / GROUP_BY(COUNT) drops the sort");
+        test(plan(idx, state, pivot, all, byName).contains("sortRequired:false"),
+          tag() + "order drop / Pivot of COUNT drops the sort");
+        test(plan(idx, state, pivot, 2, byName).contains("sortRequired:true"),
+          tag() + "order drop / a limited Pivot keeps its sort");
+        test(plan(idx, state, GROUP_BY(IndexKeyRecord.GROUP_ID, new ArraySink()), all, byName).contains("sortRequired:true"),
+          tag() + "order drop / GROUP_BY(ArraySink) keeps its sort");
+      `
+    },
+
+    {
+      name: 'plan',
+      args: 'TreeIndex idx, Object state, foam.dao.Sink sink, long limit, Comparator order',
+      type: 'String',
+      javaCode: 'return idx.planSelect(state, sink, 0, limit, order, null).toString();'
     },
 
     {

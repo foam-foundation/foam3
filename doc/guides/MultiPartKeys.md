@@ -1,4 +1,5 @@
-<flow name="MultiPartKeys" category="DOC/GUIDE" spid="foam"/>
+<flow name="MultiPartKeys" category="DOC/GUIDE" spid="foam" description="Explains composite primary keys via the ids array: typed ID class generation and multi-part key lookups." keywords="multi-part keys,ids,composite key,primary key,knowledge"/>
+
 # MultiPart Keys (Composite Primary Keys)
 
 FOAM supports composite primary keys through the `ids` property. When a model needs a unique identifier composed of multiple fields, you define an `ids` array listing the property names that form the composite key.

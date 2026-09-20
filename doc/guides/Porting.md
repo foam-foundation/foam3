@@ -1,4 +1,5 @@
-<flow name="Porting" category="DOC/GUIDE" spid="foam"/>
+<flow name="Porting" category="DOC/GUIDE" spid="foam" description="Migration guide from FOAM1 to FOAM2/FOAM3: key API renames and behavioral differences." keywords="porting,migration,foam1,foam2,api renames,knowledge"/>
+
 # Porting from FOAM1 to FOAM2
 
 Replace CLASS() with foam.CLASS().

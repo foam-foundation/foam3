@@ -1,6 +1,6 @@
 ---
 name: foam-view-builder
-description: Use when building, designing, or modifying FOAM UI views. Triggers on mentions of views, detail views, sections, table columns, CSS, property views, formatters, tableCellFormatter, labelFormatter, reactive UI, custom views, comics, DAOController, DAOControllerConfig, DAOMenu2, faceted views, {Model}DetailView / {Model}CreateView, browseController / createController, or when user wants to create/modify a FOAM u2 view or customize a comics (DAO CRUD) screen.
+description: Use when building, designing, or modifying FOAM UI views. Triggers on mentions of views, detail views, sections, table columns, CSS, property views, formatters, tableCellFormatter, labelFormatter, reactive UI, custom views, comics, DAOController, DAOControllerConfig, DAOMenu2, faceted views, {Model}DetailView / {Model}CreateView, browseController / createController, variants / variant enums / named style presets, cssTokens, Color properties and $token resolution, ViewSpec slots, or when user wants to create/modify a FOAM u2 view or customize a comics (DAO CRUD) screen.
 ---
 
 # FOAM View Builder - Best Practices from Codebase
@@ -1136,7 +1136,7 @@ methods: [
 ]
 ```
 
-The value forms a ViewSpec accepts are the branches of `createView` (`foam3/src/foam/u2/ViewSpec.js:46-95`: string → HTML tag, Element, Slot, anything with `toE`, function, `{ class }` spec or Class); the same property type backs a property's `view:`. Three shapes beyond the default above:
+The value forms a ViewSpec accepts are the branches of `createView` (`foam3/src/foam/u2/ViewSpec.js:46-103`: string → HTML tag, Element, Slot, anything with `toE`, function, `{ class }` spec or Class; `:105` is the throw for anything else); the same property type backs a property's `view:`. Three shapes beyond the default above:
 
 - **Optional slot** — declare the `foam.u2.ViewSpec` with no `value:` and gate the render on presence: `.callIf(self.icon, function() { this.tag(self.icon); })` (`this` is the element, `self` the view) when the caller sets it at create time, `.add(this.icon$.map(...))` if it can arrive later. `.tag(spec)` with no args object is valid (`foam3/src/foam/u2/dialog/InlineNotificationMessage.js:157`).
 - **Wrap the caller's spec** — a derived `rowView_` that decorates the caller's `rowView` (3.25); the source is `foam3/src/foam/u2/DAOList.js:100-106`.
@@ -1569,7 +1569,7 @@ A section is an axiom with a `name` (`foam3/src/foam/layout/SectionAxiom.js:9-14
 
 **The pattern** has three layers:
 
-1. **The enum carries the tokens** — each value holds `$token` strings (`color`, `background`, optionally `glyph`). Never hex; tokens come from `foam3/src/foam/u2/CSSTokens.js` (3.2).
+1. **The enum carries the tokens** — each value holds `$token` strings in `color`, `background`, optionally `glyph`. All three are properties every enum already has (`foam3/src/foam/lang/Enum.js:339-376`; `color`/`background` are `String`, default `''`), so a value that leaves one out reads as `''`, not `undefined`. Never hex; tokens come from `foam3/src/foam/u2/CSSTokens.js` (3.2).
 2. **Color properties derive from the enum via `expression`** — every visual knob follows the variant by default and stays overridable per instance.
 3. **`render()` adds a per-variant CSS class** — `this.myClass(this.variant)` emits `.<pkg>-<Class>-WARN`, so a parent can restyle one variant without touching the component.
 
@@ -1577,7 +1577,7 @@ In-tree examples, read before writing:
 
 | Example | File | Shows |
 |---|---|---|
-| InlineNotificationMessage | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js:19-54, 73-111, 157` | Token enum with `glyph`, icon built as a spec from the variant, manual token resolution, an `UNSTYLED` value |
+| InlineNotificationMessage | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js:19-54, 73-111, 157` | Token enum with `glyph`, icon built as a spec from the variant, manual token resolution with a fallback (`iconColor` reads `type.background`, which no value sets, so the `''` falls through to `\|\| '#FFFFFF'` — `:109`), an `UNSTYLED` value |
 | Button | `foam3/src/foam/u2/tag/Button.js:498-523` | Reactive variant class via `addClass(this.slot(...))`, per-variant `css:` blocks |
 | Tabs | `foam3/src/foam/u2/Tabs.js:75-85` | `cssTokens:` — the theme-level knob, not the per-instance one |
 
@@ -1599,7 +1599,7 @@ foam.ENUM({
 
 - Pair tokens the way sibling variants do: `$success600` text on a `$success50` surface. Semantic aliases over raw scales (3.2).
 - Always include `UNSTYLED` (the neutral escape hatch for callers embedding the view on an already-colored surface) and `DEFAULT`. `InlineNotificationStyles` has both (`InlineNotificationMessage.js:23-53`).
-- Extra per-variant data is fine — `InlineNotificationStyles` adds `glyph:` (`InlineNotificationMessage.js:19-54`).
+- Extra per-variant data is fine — `InlineNotificationStyles` uses the built-in `glyph:` (`InlineNotificationMessage.js:19-54`). A field that is **not** one of the built-ins (`color`, `background`, `glyph`, `icon`, `borderColor`… — `Enum.js:339-390`) needs a `properties:` entry on the enum with `class: 'String'`; without one the read is `undefined`, and step 5's `returnTokenValue` throws on it.
 
 #### 2. The properties
 
@@ -1679,10 +1679,12 @@ The presence of a prop can pick the layout — centre the header when there is n
 `$token` strings work as-is in `css:` templates, and a `class: 'Color'` property resolves them on read (step 2). Resolve by hand only when reading a token from somewhere untyped — an enum field, a plain String prop, an SVG fill, a data URL:
 
 ```javascript
-foam.CSS.returnTokenValue(this.type.color, this.cls_, this.__subContext__)
+foam.CSS.returnTokenValue(this.type.color || '$textDefault', this.cls_, this.__subContext__)
 ```
 
-`returnTokenValue` (`foam3/src/foam/lang/stdlib.js:1368`) passes non-token strings through unchanged. `InlineNotificationMessage.js:93-111` uses it in both an `expression` (derive from the variant) and an `adapt` (resolve a caller-supplied token) on untyped props.
+`returnTokenValue` (`foam3/src/foam/lang/stdlib.js:1368`) passes a non-token string through unchanged — `''` included, which is what a built-in enum field holds when the variant leaves it out (step 1) — and has no null guard (`token.startsWith('$')`, `:1370`). The `|| '$token'` **inside** the call covers both: an empty built-in resolves to the fallback token, and an `undefined` (a custom enum field with no `properties:` declaration, a plain prop nobody set) never reaches `startsWith`. Keep the fallback a token, not a hex value, so the theme still owns it; `InlineNotificationMessage.js:109` falls back after the call with `|| '#FFFFFF'`, which works because white is meant literally there.
+
+`InlineNotificationMessage.js:93-111` uses it in both an `expression` (derive from the variant) and an `adapt` (resolve a caller-supplied token) on untyped props.
 
 #### Theme-overridable knobs — `cssTokens:`
 

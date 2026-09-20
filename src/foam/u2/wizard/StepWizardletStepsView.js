@@ -57,8 +57,8 @@ foam.CLASS({
       } else {
         args = {
           ...args,
-          borderColor: this.tok('$borderDefault'),
-          borderColorHover: this.tok('$borderDefault'),
+          borderColor: this.tok('$textTertiary'),
+          borderColorHover: this.tok('$textTertiary'),
           label: '' + number
         };
       }

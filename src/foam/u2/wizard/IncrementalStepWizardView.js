@@ -235,7 +235,7 @@ foam.CLASS({
                 .start(this.CircleIndicator, {
                   label: 'X',
                   borderThickness: 2,
-                  borderColor: this.tok('$borderDefault'),
+                  borderColor: this.tok('$textTertiary'),
                   borderColorHover: this.tok('$borderBrand'),
                   clickable: true
                 })

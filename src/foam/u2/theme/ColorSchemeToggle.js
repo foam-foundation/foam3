@@ -64,8 +64,9 @@ foam.CLASS({
       var self = this;
       var args = {
         themeIcon$: this.colorScheme$.map(s => s === 'dark' ? 'darkMode' : s === 'light' ? 'lightMode' : 'systemMode'),
-        buttonStyle: 'TERTIARY',
-        size: 'SMALL'
+        // Default (MEDIUM) size: the notification and user controls beside
+        // it in the top nav are MEDIUM, so the hit box matches theirs.
+        buttonStyle: 'TERTIARY'
       };
       if ( this.showText ) args.label$ = this.colorScheme$.map(s => self.stateText(s));
       this

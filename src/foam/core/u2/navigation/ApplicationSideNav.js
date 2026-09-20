@@ -137,6 +137,10 @@ foam.CLASS({
           // the only place a small screen can switch colour scheme.
           .start({ class: 'foam.u2.theme.ColorSchemeToggle', showText: true })
             .addClass(this.myClass('scheme-toggle'))
+            // Drilling into a bottom row (user settings) replaces the row
+            // list with that submenu; the toggle sits outside the tree, so
+            // hide it with the rows or it stays above the "< back" header.
+            .show(this.bottomRoot_$.map(v => ! v))
           .end()
           .start({
             class: 'foam.u2.view.NestedTreeView',

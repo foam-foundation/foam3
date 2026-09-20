@@ -45,19 +45,14 @@ foam.CLASS({
       activeModifier: -15
     },
     {
-      // ColorToken, not bare CSSToken: only a token with variantKey 'color'
-      // has its dark variant consulted (CSSTokenOverrideService, stdlib
-      // getTokenValue). As a bare token the dark branch below never ran and
-      // the light formula darkened the surface, hiding the border in dark mode.
-      class: 'foam.u2.ColorToken',
+      // No dark variant: LIGHTEN moves away from the surface for a negative
+      // amount in both modes (colorlib lighten, l <= 200 branch), which is
+      // what the ColorToken hover/active/disabled modifiers rely on. A dark
+      // variant of +40 flipped that and put the border 8 RGB steps above the
+      // $black500 surface (#171717 on #0F0F0F), so it did not show. -40 gives
+      // #999999 on white and #363636 on $black500.
       name: 'buttonSecondaryBorderColor',
-      variantKey: 'color',
-      value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) },
-      variants: {
-        dark: {
-          value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), 40) }
-        }
-      }
+      value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) }
     },
     {
       class: 'foam.u2.ColorToken',

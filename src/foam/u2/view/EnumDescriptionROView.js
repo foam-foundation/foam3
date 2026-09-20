@@ -10,6 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
   documentation: 'View for displaying Enum values with descriptions',
   requires: ['foam.u2.borders.CardBorder'],
+  imports: ['theme?'],
   exports: ['controllerMode'],
   css: `
     ^card.foam-u2-borders-CardBorder {
@@ -49,13 +50,17 @@ foam.CLASS({
   methods: [
     function render() {
       let self = this;
+      // Inline colours, re-resolved on theme.activeVariants$ so an open card
+      // follows a scheme flip (reloadStyles() only rewrites <style> elements).
+      let colorOf = key => this.slot(function(data) { return self.setColor(data?.[key]); },
+        this.data$, this.theme?.activeVariants$);
       this
         .addClass()
         .start(this.CardBorder)
           .addClass(this.myClass('card'))
-          .style({ background: this.data$.dot('background').map(v => this.setColor(v)) })
+          .style({ background: colorOf('background') })
           .start().addClass(this.myClass('statusLabel')).start().addClass('h600').add('Status: ').end().add(this.data$.map(v => v && v.label)).end()
-          .start().style({ background: this.data$.dot('color').map(v => this.setColor(v)) }).addClass(this.myClass('hr')).end()
+          .start().style({ background: colorOf('color') }).addClass(this.myClass('hr')).end()
           .add(this.slot(function(data, descriptionOverrides) {
             let e = this.E().style({ display: 'contents' });
             if ( self.descriptionOverrides[data] ) {

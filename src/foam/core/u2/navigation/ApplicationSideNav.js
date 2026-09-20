@@ -59,7 +59,10 @@ foam.CLASS({
     }
     ^bottom-container {
       bottom: 0;
-      transition: all 0.2s ease;
+      /* Only the collapse/expand animates (^collapse, ^expand, ^padding);
+         'all' would also cross-fade background and color over 200ms while
+         the rest of the page flips colour scheme in one frame. */
+      transition: flex 0.2s ease, padding 0.2s ease;
     }
     ^top-container {
       top: 0;
@@ -72,7 +75,7 @@ foam.CLASS({
     }
     ^menu-container {
       flex: 1;
-      transition: all 0.2s ease;
+      transition: flex 0.2s ease, padding 0.2s ease;
     }
     ^logo {
       flex: 1;

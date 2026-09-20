@@ -18,11 +18,8 @@ foam.CLASS({
     current state (sun, moon, or a half-filled ring for "following the OS")
     and the aria-label names the state and what the next press does.
 
-    The server-rendered loading splash (foam.core.servlet.VirtualHostRoutingServlet)
-    still follows the OS: its colours are static CSS keyed off
-    prefers-color-scheme, and nothing in that page reads localStorage before
-    the app boots, so the stored pick cannot reach it. Someone who picks light
-    on a dark OS sees a dark splash until the app takes over.
+    The server-rendered loading splash follows the OS, not the pick; see the
+    note in foam.core.servlet.VirtualHostRoutingServlet.
 
     Renders nothing when theme.useVariants is false: without variants there is
     nothing to switch.`,

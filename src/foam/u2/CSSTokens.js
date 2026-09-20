@@ -187,8 +187,12 @@ foam.CLASS({
     { name: 'backgroundBrandSecondary', value: '$primary600', variants: { dark: { value: '$primary200' } } },
     { name: 'backgroundBrandTertiary', value: '$primary50', variants: { dark: { value: '$primary500' } } },
 
+    // Inverse surfaces step toward the page: default is the strongest contrast
+    // against backgroundDefault, secondary a step back. Light runs
+    // $black700 < $grey500; dark runs $grey300 (light grey, not near-white,
+    // same reason the dark surfaces are not pure black) > $grey400.
     { name: 'backgroundInverse', value: '$black700', variants: { dark: { value: '$grey300' } } },
-    { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey200' } } },
+    { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey400' } } },
     { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$black300' } } },
 
     // Destructive buttons keep the light ramp in dark. textOnDestructive is

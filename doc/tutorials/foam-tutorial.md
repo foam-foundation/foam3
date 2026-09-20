@@ -91,6 +91,7 @@
   - [Register the Service](#register-the-service)
 - [Putting It All Together](#putting-it-all-together)
   - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
+  - [Testing with the Demo User](#testing-with-the-demo-user)
 - [Where to Go from Here](#where-to-go-from-here)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
@@ -3547,7 +3548,7 @@ actions: [
 
 ## Source-to-Sink Architecture
 
-In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://kgrgreer.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
+In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://foam-foundation.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
 
 ### The Sink Interface
 

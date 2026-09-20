@@ -97,7 +97,9 @@ foam.CLASS({
 
     // True neutral greys (no blue cast, unlike grey*). Fills the gap between
     // black50 (#373737) and grey700 (#494F59) that dark-mode borders and
-    // dividers need; Tailwind's neutral ramp.
+    // dividers need; Tailwind's neutral ramp. The ramp is shipped complete,
+    // like the other palette ramps: a theme or app picks the step it needs
+    // without adding one to this file first.
     { name: 'neutral50',  value: '#FAFAFA' },
     { name: 'neutral100', value: '#F5F5F5' },
     { name: 'neutral200', value: '#E5E5E5' },

@@ -100,6 +100,8 @@ foam.CLASS({
         return v === 'light' || v === 'dark' ? v : '';
       },
       postSet: function(_, n) {
+        // Persist only. populateDefaultThemeVariants subscribes to
+        // colorScheme$ and re-applies, the same way it listens to the OS query.
         try {
           if ( n ) {
             this.window.localStorage.setItem(this.COLOR_SCHEME_KEY, n);
@@ -107,7 +109,6 @@ foam.CLASS({
             this.window.localStorage.removeItem(this.COLOR_SCHEME_KEY);
           }
         } catch (_) {}
-        this.getPrivate_('applyColorScheme')?.();
       }
     },
     {
@@ -161,7 +162,6 @@ foam.CLASS({
     function populateDefaultThemeVariants(theme, ctx) {
       // WARNING: IN DEVELOPMENT
       // SET useVariants TO TRUE ON THEME TO ENABLE MODE SWITCHING
-      let colorSchemeQuery = this.window.matchMedia('(prefers-color-scheme: dark)');
       let fn = () => {
         if ( ! theme.useVariants ) return;
         // A scheme picked in-app wins over the OS setting; with no pick the
@@ -173,18 +173,18 @@ foam.CLASS({
           theme.activeVariants$remove('color');
         }
       }
-      // colorScheme's postSet re-runs this for the current theme
-      this.setPrivate_('applyColorScheme', fn);
-      // Every time this is called, remove the listener in case there is one for the old theme
-      colorSchemeQuery.removeEventListener('change', fn);
-      if ( this.getPrivate_('currentWindowThemeListener' ) ) this.getPrivate_('currentWindowThemeListener').detach();
-      if ( ! theme.useVariants ) return;
-      if ( this.window.matchMedia ) {
-        colorSchemeQuery.addEventListener('change', fn);
-        fn();
-        let themeListener = theme.onDetach(theme.activeVariants$.sub(() => { foam.u2.CSS.reloadStyles(ctx); }))
-        this.setPrivate_('currentWindowThemeListener', themeListener);
-      }
+      // The previous theme's three inputs (OS query, in-app pick, variant
+      // change) are held in one detachable so they go together.
+      this.getPrivate_('variantInputs')?.detach();
+      if ( ! theme.useVariants || ! this.window.matchMedia ) return;
+      let mql    = this.window.matchMedia('(prefers-color-scheme: dark)');
+      let inputs = foam.lang.FObject.create();
+      mql.addEventListener('change', fn);
+      inputs.onDetach(() => mql.removeEventListener('change', fn));
+      inputs.onDetach(this.colorScheme$.sub(fn));
+      inputs.onDetach(theme.activeVariants$.sub(() => { foam.u2.CSS.reloadStyles(ctx); }));
+      this.setPrivate_('variantInputs', inputs);
+      fn();
     },
 
     function getElementById(id) {

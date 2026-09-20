@@ -29,6 +29,15 @@ foam.CLASS({
     'theme'
   ],
 
+  css: `
+    /* Button swaps in a new Image element on each glyph change, so the
+       keyframe runs on every state; the page itself flips in one frame. */
+    @media (prefers-reduced-motion: no-preference) {
+      ^ svg { animation: foam-u2-theme-ColorSchemeToggle-fade 150ms ease-out; }
+    }
+    @keyframes foam-u2-theme-ColorSchemeToggle-fade { from { opacity: 0; } }
+  `,
+
   messages: [
     // Visible text (with showText) and the current-state half of the aria-label
     { name: 'SYSTEM_THEME', message: 'System theme' },

@@ -28,7 +28,7 @@ A quick rundown of the features in FLOW
   <li>
   Embedded FOAM tags &lt;foam class="com.google.foam.demos.bubbles.Bubbles"/&gt;
 
-  <foam class="com.google.foam.demos.bubbles.Bubbles"/>
+  <foam class="com.google.foam.demos.bubbles.Bubbles"></foam>
   </li>
   <li>Code tags:
   

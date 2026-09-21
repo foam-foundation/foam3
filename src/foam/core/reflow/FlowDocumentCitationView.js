@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.flow',
+  package: 'foam.core.reflow',
   name: 'FlowDocumentCitationView',
   extends: 'foam.u2.CitationView',
   documentation: `

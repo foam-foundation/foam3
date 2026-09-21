@@ -5,12 +5,12 @@
  */
 
 foam.CLASS({
-  package: 'foam.flow',
+  package: 'foam.core.reflow',
   name: 'FlowDocumentRowView',
   extends: 'foam.u2.View',
   documentation: 'Container view for FlowDocumentCitationView',
 
-  requires: [ 'foam.flow.FlowDocumentCitationView' ],
+  requires: [ 'foam.core.reflow.FlowDocumentCitationView' ],
 
   exports: [ 'as rowView' ],
 

@@ -42,7 +42,7 @@ p({
           "name":"category"
         },
         "rowView":{
-           "class":"foam.flow.FlowDocumentRowView"
+           "class":"foam.core.reflow.FlowDocumentRowView"
         }
       }
     }

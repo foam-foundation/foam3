@@ -88,7 +88,7 @@ foam.CLASS({
         group.cache();
         group.paint(ctx);
         var pad = foam.graphics.CView.CACHE_PAD;
-        x.test(group.cacheW_ === 340 + 2 * pad && group.cacheH_ === 140 + 2 * pad, 'a sizeless group caches the extent of its children plus edge padding on every side');
+        x.test(group.cacheX_ === 300 && group.cacheY_ === 120 && group.cacheW_ === 40 + 2 * pad && group.cacheH_ === 20 + 2 * pad, 'a sizeless group caches the extent of its children (not from its origin) plus edge padding on every side');
         group.paint(ctx);
         x.test(far.paints === 1,            'the child inside the group bitmap is painted once, then blitted');
 
@@ -135,11 +135,24 @@ foam.CLASS({
         late.width = 20;
         x.test(! tree.cacheCanvas_,         'a child added after cache() is watched');
         tree.paint(ctx);
+        var keptSubs = 0, keptSub = kept.propertyChange.sub;
+        kept.propertyChange.sub = function() { keptSubs++; return keptSub.apply(this, arguments); };
         tree.remove(gone);
         x.test(! tree.cacheCanvas_,         'remove() under a cached node drops its bitmap');
+        x.test(keptSubs === 0,              'remove() unsubscribes only the removed subtree; siblings keep their subscription');
         tree.paint(ctx);
         gone.width = 20;
         x.test(!! tree.cacheCanvas_,        'a removed child no longer invalidates the bitmap');
+        kept.width = 20;
+        x.test(! tree.cacheCanvas_,         'a sibling of the removed child still invalidates the bitmap');
+
+        // Removing every child one at a time (SceneDemo.buildGrid) costs one walk per child, not one per remaining child.
+        var many = this.Box.create({ width: 100, height: 100 }), subs = 0;
+        for ( var i = 0 ; i < 50 ; i++ ) many.add(this.CountingBox.create({ width: 1, height: 1 }));
+        many.cache();
+        many.children.forEach(function(c) { var s = c.propertyChange.sub; c.propertyChange.sub = function() { subs++; return s.apply(this, arguments); }; });
+        many.children.slice().forEach(function(c) { many.remove(c); });
+        x.test(subs === 0,                  'removing 50 children singly re-subscribes nothing (saw ' + subs + ' re-subscriptions)');
       } finally {
         if ( hadOffscreen ) globalThis.OffscreenCanvas = saved; else delete globalThis.OffscreenCanvas;
       }

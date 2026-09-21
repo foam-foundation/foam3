@@ -144,6 +144,27 @@ foam.CLASS({
       `
     },
     {
+      name: 'cmd_',
+      documentation: `Number a bulk load the way put_ numbers a single row, then
+        let it carry on down. Without this the batch would reach the store with
+        every id still unset and collapse onto one row.`,
+      javaCode: `
+        if ( obj instanceof foam.dao.BulkLoadCommand ) {
+          synchronized ( this ) {
+            for ( foam.lang.FObject row : ((foam.dao.BulkLoadCommand) obj).getRows() ) {
+              long id = getObjId(row);
+              if ( id == 0 ) {
+                setObjId(row, getValue_());
+              } else if ( id >= getValue_() ) {
+                setValue_(id + 1);
+              }
+            }
+          }
+        }
+        return getDelegate().cmd_(x, obj);
+      `
+    },
+    {
       name: 'getObjId',
       args: 'Object obj',
       type: 'long',

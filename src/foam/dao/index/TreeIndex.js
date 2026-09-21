@@ -330,26 +330,45 @@ foam.CLASS({
     },
 
     /**
-     * Bulk load an unsorted array of objects.
-     * Faster than loading individually, and produces a balanced tree.
+     * Build the whole tree from an unsorted array in one pass instead of
+     * descending into it once per row.
+     *
+     * The sort uses the index's own key comparison, the one every descent makes,
+     * so the layout cannot disagree with the search. Rows sharing a key become
+     * one node, and the tail builds that node's value the same way, so a chained
+     * index needs no check of what the tail is.
+     *
+     * The array is copied before sorting, so a caller handing the same rows to
+     * several indexes keeps its own order.
      **/
     function bulkLoad(a) {
       a = a.array || a;
       this.root = this.index.nullNode;
+      if ( ! a.length ) return;
 
-      // Only safe if children aren't themselves trees
-      // TODO: should this be !TreeIndex.isInstance? or are we talking any
-      // non-simple index, and is ValueIndex the only simple index?
-      // It's the default, so ok for now
-      if ( this.index.ValueIndex.isInstance(this.tail) ) {
-        var prop = this.index.prop;
-        a.sort(prop.compare.bind(prop));
-        this.root = this.root.bulkLoad_(a, 0, a.length-1, prop.f);
-      } else {
-        for ( var i = 0 ; i < a.length ; i++ ) {
-          this.put(a[i]);
+      var index = this.index;
+      var prop  = index.prop;
+      var cmp   = index.compare.bind(index);
+
+      a = a.slice().sort(function(o1, o2) { return cmp(prop.f(o1), prop.f(o2)); });
+
+      // Where each run of equal keys begins, with one extra entry closing the
+      // last run, and each run's key.
+      var starts = [], keys = [], key;
+      for ( var i = 0 ; i < a.length ; i++ ) {
+        key = prop.f(a[i]);
+        if ( ! keys.length || cmp(keys[keys.length-1], key) !== 0 ) {
+          starts.push(i);
+          keys.push(key);
+        } else {
+          // Point the row's own property at the key already held, the way a put
+          // onto an existing node does.
+          index.dedup(a[i], keys[keys.length-1]);
         }
       }
+      starts.push(a.length);
+
+      this.root = index.nullNode.bulkLoad_(a, starts, keys, 0, keys.length-1);
     },
 
     function put(newValue) {
@@ -520,6 +539,11 @@ foam.CLASS({
       if ( expr ) subTree = subTree.lte(expr.arg2.f(), this.index.compare, this.index.nullNode);
 
       cost = subTree.size;
+
+      // A sink whose result does not depend on put order lets an unlimited
+      // select drop its order, instead of collecting and sorting every row.
+      if ( order && ! limit && sink?.isOrderIndependent?.() ) order = undefined;
+
       var sortRequired = ! this.index.isOrderSelectable(order);
       var reverseSort = false;
 
@@ -541,7 +565,8 @@ foam.CLASS({
 
       return m.CustomPlan.create({
         cost: cost,
-        customExecute: function(promise, sink, skip, limit, order, predicate) {
+        // The order decided above, not the caller's: the sink may have dropped it.
+        customExecute: function(promise, sink, skip, limit, _, predicate) {
           if ( sortRequired ) {
             var arrSink = m.ArraySink.create();
             index.selectCount++;

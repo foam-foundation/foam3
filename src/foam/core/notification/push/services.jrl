@@ -67,6 +67,7 @@ p({
   class: "foam.core.boot.CSpec",
   name: "pushNotificationThreadPool",
   lazy: false,
+  lazyOrder: -1,
   serve: false,
   serviceScript: """
     return new foam.lang.TimeoutAgency(

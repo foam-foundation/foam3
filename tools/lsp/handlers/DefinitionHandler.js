@@ -16,6 +16,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'fileClassifier',
+      documentation: `The one answer to "is this a FOAM class file". server.js
+        wires its own shared instance so guard and handler cannot disagree and
+        the per-uri memo stays warm; the factory keeps handler-direct tests
+        working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.FoamIndex',
       name: 'index',
@@ -32,6 +40,14 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      name: 'journalEntryIndex',
+      documentation: `Optional. Supplies services.jrl lookups so a service
+        name written in a .js model navigates to the row that registers it.
+        Absent (tests constructing this handler bare) simply skips that
+        branch — no service jump, everything else unchanged.`,
+      value: null
     }
   ],
 
@@ -51,7 +67,7 @@ foam.CLASS({
       var classToPomJump = this.handleClassToPom_(text, position, uri);
       if ( classToPomJump ) return classToPomJump;
 
-      if ( ! this.analyzer.isFoamFile(text) ) return null;
+      if ( this.fileClassifier.classify(uri || '', text) !== 'class' ) return null;
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
@@ -137,7 +153,7 @@ foam.CLASS({
               var defClass = this.findPropertyDefiner_(cls, segment);
               if ( defClass ) {
                 filePath = this.index.getFilePath(defClass);
-                if ( filePath ) return this.buildLocationAtProperty(filePath, segment);
+                if ( filePath ) return this.buildLocationAtProperty(filePath, segment, defClass);
               }
             }
             // Check if it's a message axiom — `this.LABEL_X`
@@ -157,7 +173,52 @@ foam.CLASS({
         }
       }
 
+
+      // Last resort: a string literal that names a REGISTERED SERVICE jumps to
+      // the services.jrl row registering it. `daoKey: 'localUserDAO'` in a .js
+      // model resolved to nothing at all — JrlHandler had the rule, but only
+      // fires when the cursor is inside a .jrl file.
+      //
+      // Schema-blind on purpose, the way JrlHandler's own service rule is:
+      // nothing in a model declares that daoKey points at a journal. What
+      // bounds it is the same thing that bounds JrlHandler's rule — the KEY
+      // must be one of SERVICE_KEY_NAMES. The lookup alone does not bound it:
+      // `file` and `blobStore` are registered service names that also occur
+      // as ordinary string values all over the tree.
+      var svcJump = this.serviceNameJump_(text, position, opt_uri);
+      if ( svcJump ) return svcJump;
+
       return null;
+    },
+
+    function serviceNameJump_(text, position, opt_uri) {
+      /**
+       * A SERVICE-KEY value whose whole content names a registered service
+       * -> its services.jrl row. Null when there is no journal index wired,
+       * the cursor is not inside a string, the string is not the value of a
+       * key in SERVICE_KEY_NAMES, or the name is not registered.
+       */
+      if ( ! this.journalEntryIndex ) return null;
+      // Gated on the key, exactly as JrlHandler's rule is. Without it the
+      // rule is not "a service key's value" but "any quoted word that spells
+      // a service name": `attrs({ type: 'file' })` in BlobView.js jumped to
+      // the `file` CSpec in src/services.jrl, and so did an array element.
+      var key = this.analyzer.getEnclosingKey(text, position);
+      if ( ! key ) return null;
+      if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(key) === -1 ) return null;
+      var value = this.analyzer.getEnclosingStringContent(text, position);
+      if ( ! value ) return null;
+      // opt_uri orders a multi-file answer nearest-first; without it the
+      // order is still stable, just not relative to anything.
+      var locs = this.journalEntryIndex.getServiceLocations(value, opt_uri);
+      if ( ! locs || ! locs.length ) return null;
+      var out = locs.map(function(l) {
+        return {
+          uri: 'file://' + l.file,
+          range: { start: { line: l.line, character: 0 }, end: { line: l.line, character: 0 } }
+        };
+      });
+      return out.length === 1 ? out[0] : out;
     },
 
     function isPomFile_(uri) {
@@ -346,7 +407,7 @@ foam.CLASS({
         var defClass = this.findPropertyDefiner_(cls, name);
         if ( defClass ) {
           var filePath = this.index.getFilePath(defClass);
-          if ( filePath ) return this.buildLocationAtProperty(filePath, name);
+          if ( filePath ) return this.buildLocationAtProperty(filePath, name, defClass);
         }
       }
 
@@ -479,7 +540,7 @@ foam.CLASS({
       return this.grammarInstance_;
     },
 
-    function buildLocationAtProperty(filePath, propName) {
+    function buildLocationAtProperty(filePath, propName, opt_classId) {
       /**
        * Jump to a property definition within a file. Uses the grammar's
        * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
@@ -505,6 +566,23 @@ foam.CLASS({
           };
         }
       } catch ( e ) {}
+      // The class's own file may not declare the property at all — a
+      // refinement in another file can, and the index knows where those are.
+      // Without this, User.twoFactorEnabled navigated to User.js line 0 while
+      // the same member looked up through the index answered
+      // UserRefinements.js:14.
+      if ( opt_classId ) {
+        var idxPos = this.index.getSymbolPosition(opt_classId, propName, 7);
+        if ( idxPos && idxPos.uri && idxPos.uri !== 'file://' + filePath ) {
+          return {
+            uri: idxPos.uri,
+            range: {
+              start: { line: idxPos.line, character: idxPos.character },
+              end:   { line: idxPos.line, character: idxPos.character + propName.length }
+            }
+          };
+        }
+      }
       return this.buildLocation(filePath);
     },
 
@@ -551,7 +629,7 @@ foam.CLASS({
                 var defClass = this.findPropertyDefiner_(cls, propName);
                 if ( defClass ) {
                   var filePath = this.index.getFilePath(defClass);
-                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName);
+                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName, defClass);
                 }
               }
             }

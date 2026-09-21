@@ -21,7 +21,11 @@ foam.CLASS({
       name: 'tokenMap_',
       documentation: `Map of tokenName to
         { default_: { value, resolved }, themes: { themeId: { value, resolved } },
-          variants: { variantName: { value, resolved } }, type, source }`,
+          variants: { variantName: { value, resolved } }, type, source, sources }.
+        source is the LAST installing class (its value wins the flat map);
+        sources lists EVERY declaring class — per-class tokens may share a
+        name across sibling classes with different defaults (Tabs vs
+        SegmentedTabs tabActiveColor), and that is legal FOAM, not a clash.`,
       factory: function() { return {}; }
     },
     {
@@ -98,7 +102,13 @@ foam.CLASS({
       entries.sort(function(a, b) {
         var aRoot = a.sourceCls.id === 'foam.u2.CSSTokens' ? 1 : 0;
         var bRoot = b.sourceCls.id === 'foam.u2.CSSTokens' ? 1 : 0;
-        return aRoot - bRoot;
+        if ( aRoot !== bRoot ) return aRoot - bRoot;
+        // Secondary sort by class id: the registry cache iterates in
+        // insertion order, so without this, which sibling's duplicate
+        // token wins the flat map depends on load order — the entry's
+        // `source` flapped between foam.u2.Tabs and foam.u2.SegmentedTabs.
+        return a.sourceCls.id < b.sourceCls.id ? -1 :
+               a.sourceCls.id > b.sourceCls.id ?  1 : 0;
       });
 
       for ( var i = 0 ; i < entries.length ; i++ ) {
@@ -134,13 +144,21 @@ foam.CLASS({
         ? this.functionValueRepr_(rawValue)
         : ( rawValue || '' );
 
+      // A same-named token from another class is a sibling declaration,
+      // not an overwrite target: keep every declaring class in `sources`
+      // while the rest of the entry keeps last-writer-wins semantics.
+      var prev    = this.tokenMap_[axiom.name];
+      var sources = ( prev && prev.sources ) ? prev.sources : [];
+      if ( sources.indexOf(sourceCls.id) === -1 ) sources.push(sourceCls.id);
+
       var entry = {
         default_: { value: displayValue, resolved: null },
         themes:   {},
         variants: {},
         type:     ( axiom.cls_ && axiom.cls_.id === 'foam.u2.ColorToken' )
                     ? 'ColorToken' : 'CSSToken',
-        source:   sourceCls.id
+        source:   sourceCls.id,
+        sources:  sources
       };
 
       if ( axiom.variants ) {

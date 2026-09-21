@@ -932,7 +932,7 @@ When should I use axioms with javaExtras?
 </br>
 Answer:
 Anything you can define on a model is defined as an axiom of that model.
-Better reading of axioms here https://github.com/kgrgreer/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/Boot.js#L79
+Better reading of axioms here https://github.com/foam-foundation/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/Boot.js#L79
 Axioms include methods, properties, listeners, refines, imports, javaExtras …
 <br>
 From above link “Axioms can be added either during the initial creation of a class and prototype, or anytime after.“
@@ -966,8 +966,8 @@ Without freezable, a service could still have access to an object and save some 
 So yes, a frozen object means that no modifications to this object are suppose to happen.
 <br>
 We implement this idea with an interface Freezable that is implemented on all FObjects.
-The default implementation of beforeFreeze() is a noop function. https://github.com/kgrgreer/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/FObject.java#L414
-Then have a refinement here https://github.com/kgrgreer/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/java/refinements.js#L552
+The default implementation of beforeFreeze() is a noop function. https://github.com/foam-foundation/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/FObject.java#L414
+Then have a refinement here https://github.com/foam-foundation/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/java/refinements.js#L552
 </br>
 So the idea behind beforeFreeze is that if an object needs to do something before the object is frozen, it can.
 In the example 1, we see an implementation definition from the refinement.
@@ -979,7 +979,7 @@ If we didn’t run default javeFactory code and the property was never set, then
 and its predefined values would be ignored - virtually breaking javaFactory on all properties.
 <br>
 In example 2 you have the default behaviour setting for the freeze function of any FObject that is built on server(java).
-Defined https://github.com/kgrgreer/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/java/refinements.js#L600
+Defined https://github.com/foam-foundation/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/java/refinements.js#L600
 which is what is building the java Object code.
 =======
 ##  CSpec Service Initialization

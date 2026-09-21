@@ -13,6 +13,7 @@ p({
       .setPm(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("scripts")
+      .setMultiLineOutput(true)
       .setDecorator(new foam.core.script.ScriptRunnerDAO(new foam.dao.NullDAO(x, foam.core.script.Script.getOwnClassInfo())))
       .setOrder(new foam.mlang.order.Comparator[] {
         new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.script.Script.ENABLED).build(),

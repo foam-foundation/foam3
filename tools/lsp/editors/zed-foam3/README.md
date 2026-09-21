@@ -79,6 +79,43 @@ Defaults:
 - `path`: `node` from PATH (detected via `worktree.which("node")`)
 - `arguments`: `["foam3/tools/lsp-start.js"]`
 
+### Feature Toggles and i18n Settings
+
+Zed forwards `lsp.foam3-lsp.initialization_options` to the server unchanged
+as LSP `initializationOptions` — no extension code is involved. Nest
+everything under a `foam` key so it lands where `FeatureConfig` expects it
+(`params.initializationOptions.foam`):
+
+```json
+{
+  "lsp": {
+    "foam3-lsp": {
+      "initialization_options": {
+        "foam": {
+          "features": {
+            "codeLens.hierarchy": true
+          },
+          "i18n": {
+            "sourceLanguage": "en"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`features` keys are booleans matching `FeatureConfig.DEFAULTS`
+(`tools/lsp/FeatureConfig.js`) — e.g. `hover`, `completion`, `codeLens.i18n`,
+`codeLens.hierarchy`. `i18n` keys (`languages`, `sourceLanguage`, `endpoint`,
+`model`) configure the translation provider. This layer wins over a
+`foam-lsp.json` at the workspace root, which in turn wins over the built-in
+defaults.
+
+**Restart to apply.** Flags are read once at server `initialize` — there is
+no live reload. After editing `.zed/settings.json`, restart the FOAM
+language server (or reopen the workspace) for a change to take effect.
+
 ### Java Syntax Highlighting in `javaCode:` Blocks
 
 The extension provides a "FOAM JavaScript" language that includes Java syntax

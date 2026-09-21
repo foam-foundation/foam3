@@ -71,7 +71,7 @@ foam.CLASS({
 
           Object val = prop.get(obj);
           if ( val instanceof String ) {
-            prop.set(obj, ((String) val).intern());
+            prop.set(obj, foam.util.StringInterner.intern((String) val));
           }
         }
       `

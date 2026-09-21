@@ -11,7 +11,7 @@ foam.INTERFACE({
     {
       class: 'Int',
       name: 'ordinal'
-    },
+    }
   ],
   methods: [
     {
@@ -19,7 +19,7 @@ foam.INTERFACE({
       args: [
         { name: 'o' },
       ],
-      type: 'Boolean',
+      type: 'Boolean'
     },
     {
       name: 'compare',
@@ -27,7 +27,7 @@ foam.INTERFACE({
         { name: 'o1' },
         { name: 'o2' },
       ],
-      swiftType: 'Int',
-    },
-  ],
+      swiftType: 'Int'
+    }
+  ]
 });

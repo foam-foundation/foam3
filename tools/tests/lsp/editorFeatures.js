@@ -112,6 +112,27 @@ test(propHits.some(function(s) { return s.kind === 7; }) || propHits.length === 
 var methodHits = wsSymbolHandler.handle('toSummary');
 test(Array.isArray(methodHits), 'WorkspaceSymbol: method search returns array');
 
+// A member's location must use the position's OWN uri. Pairing the line with
+// the class's file puts a line number in a file that may not have one — 34
+// workspace symbols pointed past the end of the file they named.
+var twoFactorHits = wsSymbolHandler.handle('twoFactorEnabled').filter(function(sym) {
+  return sym.name === 'twoFactorEnabled' && sym.containerName === 'foam.core.auth.User';
+});
+test(twoFactorHits.length > 0 && twoFactorHits[0].location.uri.indexOf('UserRefinements.js') !== -1
+  && twoFactorHits[0].location.range.start.line === 14,
+  'WorkspaceSymbol: a member declared in a refinement points at the refining file'
+  + ' (got ' + ( twoFactorHits.length ? twoFactorHits[0].location.uri.split('/').pop() + ':'
+    + twoFactorHits[0].location.range.start.line : 'no hit' ) + ')');
+
+// The same discard broke the Java side long before refinements existed:
+// fclone has no JS axiom on foam.core.partition.All and resolves to FObject.java.
+var fcloneHits = wsSymbolHandler.handle('fclone').filter(function(sym) {
+  return sym.name === 'fclone' && sym.containerName === 'foam.core.partition.All';
+});
+test(fcloneHits.length > 0 && fcloneHits[0].location.uri.endsWith('.java'),
+  'WorkspaceSymbol: a Java-resolved member points at the .java file, not the .js'
+  + ' (got ' + ( fcloneHits.length ? fcloneHits[0].location.uri.split('/').pop() : 'no hit' ) + ')');
+
 // Empty index → empty results (no crash).
 var emptyIndex = foam.parse.lsp.FoamIndex.create();
 var emptyHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: emptyIndex });

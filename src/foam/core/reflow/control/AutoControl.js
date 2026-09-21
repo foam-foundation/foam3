@@ -81,9 +81,20 @@ foam.CLASS({
           .addClass(this.myClass('input'))
           .focus()
         .end()
+        .add(this.SUBMIT.clone().copyFrom({ toolTip: this.SUBMIT.label, label: '' }))
       .end();
 
       this.data.input_ = this.smartView_.field;
+    },
+
+    function submitPrompt() {
+      let n = this.smartView_.preview;
+      this.smartView_.preview = this.smartView_.data = '';
+
+      if ( n ) {
+        if ( n.startsWith('/') || n.startsWith('~') ) n = n.substring(1);
+        if ( n ) this.eval_(n);
+      }
     }
   ],
 
@@ -111,20 +122,21 @@ foam.CLASS({
         this.smartView_.preview = '/';
         this.smartView_.focus();
       }
+    },
+    {
+      name: 'submit',
+      themeIcon: 'sendHorizontal',
+      code: function() {
+        this.submitPrompt();
+        this.reset()
+      }
     }
   ],
 
   listeners: [
     function onKeyDown(e) {
       if ( e.key === 'Enter' ) {
-        let n = this.smartView_.preview;
-        this.smartView_.preview = this.smartView_.data = '';
-
-        if ( n ) {
-          if ( n.startsWith('/') || n.startsWith('~') ) n = n.substring(1);
-          if ( n ) this.eval_(n);
-        }
-
+        this.submitPrompt();
         e.stopPropagation();
         e.preventDefault();
         this.reset();

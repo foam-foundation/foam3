@@ -65,7 +65,7 @@ if (other instanceof foam.mlang.sink.Sum) {
     },
 
     function toString() {
-      return `SUM(${this.arg1}, ${this.value})`;
+      return `SUM(${this.arg1}, ${this.value}, ${this.precision})`;
     }
   ]
 });

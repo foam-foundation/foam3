@@ -1,0 +1,1 @@
+p({"class":"foam.mlang.predicate.test.DatePredicateConstantTest","id":"DatePredicateConstantTest","description":"a comparison on a Date property with a constant off noon GMT must return the same rows scanned as indexed"})

@@ -10,6 +10,6 @@ p({
 })
 p({
   "class":"foam.core.auth.Permission",
-  "id":"foam.core.cron.schedulable.section.history",
+  "id":"schedulable.section.history",
   "description":"permission to see schedulable history section"
 })

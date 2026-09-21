@@ -764,6 +764,18 @@ foam.CLASS({
       }
     },
     {
+      name: 'sendHorizontal',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 20 20" fill="/*%FILL%*/ #FFFFFF" xmlns="http://www.w3.org/2000/svg">
+        <path d="M19.326 10.0006C13.0944 13.2187 6.9022 16.4168 0.674 19.6328C0.7137 19.5038 0.7393 19.4173 0.7667 19.3312C1.7305 16.2872 2.6959 13.244 3.6539 10.1982C3.6912 10.0785 3.6936 9.9267 3.6562 9.8077C2.6903 6.7367 1.7166 3.6685 0.7444 0.5997C0.725 0.5381 0.7074 0.4762 0.6752 0.3672C6.9014 3.5829 13.0922 6.7807 19.326 10.0006ZM2.6411 2.7039C3.3614 4.9764 4.0637 7.1922 4.75 9.3581C8.3729 9.3585 11.9594 9.3584 15.5263 9.3586C11.2661 7.1585 6.9798 4.9445 2.6408 2.7036L2.6411 2.7039ZM2.6557 17.2885C6.9808 15.0553 11.2696 12.8403 15.6102 10.5991C15.504 10.5932 15.4597 10.5891 15.4151 10.5887C11.9195 10.5885 8.4239 10.5889 4.9283 10.5838C4.7813 10.5835 4.7446 10.6477 4.708 10.764C4.0453 12.8654 3.379 14.9661 2.7142 17.0668C2.6954 17.1256 2.6824 17.1864 2.6557 17.2885L2.6557 17.2885Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
       name: 'decreaseIndentation',
       class: 'GlyphProperty',
       of: 'foam.lang.Glyph',
@@ -874,7 +886,7 @@ foam.CLASS({
       factory: () => {
         return { template: `
         <svg height="100%" viewBox="0 0 8 13" fill="/*%FILL%*/ #ffffff" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4.22474 6.1446C2.71141 5.75126 2.22474 5.3446 2.22474 4.71126C2.22474 3.9846 2.89808 3.47793 4.02474 3.47793C5.21141 3.47793 5.65141 4.0446 5.69141 4.87793H7.16474C7.11808 3.73126 6.41808 2.67793 5.02474 2.33793V0.87793H3.02474V2.31793C1.73141 2.59793 0.691411 3.43793 0.691411 4.7246C0.691411 6.2646 1.96474 7.03126 3.82474 7.47793C5.49141 7.87793 5.82474 8.4646 5.82474 9.0846C5.82474 9.5446 5.49808 10.2779 4.02474 10.2779C2.65141 10.2779 2.11141 9.6646 2.03808 8.87793H0.571411C0.651411 10.3379 1.74474 11.1579 3.02474 11.4313V12.8779H5.02474V11.4446C6.32474 11.1979 7.35808 10.4446 7.35808 9.07793C7.35808 7.1846 5.73808 6.53793 4.22474 6.1446Z" fill="#1A6B54"/>
+        <path d="M4.22474 6.1446C2.71141 5.75126 2.22474 5.3446 2.22474 4.71126C2.22474 3.9846 2.89808 3.47793 4.02474 3.47793C5.21141 3.47793 5.65141 4.0446 5.69141 4.87793H7.16474C7.11808 3.73126 6.41808 2.67793 5.02474 2.33793V0.87793H3.02474V2.31793C1.73141 2.59793 0.691411 3.43793 0.691411 4.7246C0.691411 6.2646 1.96474 7.03126 3.82474 7.47793C5.49141 7.87793 5.82474 8.4646 5.82474 9.0846C5.82474 9.5446 5.49808 10.2779 4.02474 10.2779C2.65141 10.2779 2.11141 9.6646 2.03808 8.87793H0.571411C0.651411 10.3379 1.74474 11.1579 3.02474 11.4313V12.8779H5.02474V11.4446C6.32474 11.1979 7.35808 10.4446 7.35808 9.07793C7.35808 7.1846 5.73808 6.53793 4.22474 6.1446Z"/>
         </svg>
         ` };
       }
@@ -886,7 +898,7 @@ foam.CLASS({
       factory: () => {
         return { template: `
         <svg width="100%" viewBox="0 0 12 12" fill="/*%FILL%*/ #ffffff" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10.8 2.52632H9.492C9.558 2.33053 9.6 2.11579 9.6 1.89474C9.6 0.846316 8.796 0 7.8 0C7.17 0 6.624 0.341053 6.3 0.852632L6 1.27579L5.7 0.846316C5.376 0.341053 4.83 0 4.2 0C3.204 0 2.4 0.846316 2.4 1.89474C2.4 2.11579 2.442 2.33053 2.508 2.52632H1.2C0.534 2.52632 0.00599999 3.08842 0.00599999 3.78947L0 10.7368C0 11.4379 0.534 12 1.2 12H10.8C11.466 12 12 11.4379 12 10.7368V3.78947C12 3.08842 11.466 2.52632 10.8 2.52632ZM7.8 1.26316C8.13 1.26316 8.4 1.54737 8.4 1.89474C8.4 2.24211 8.13 2.52632 7.8 2.52632C7.47 2.52632 7.2 2.24211 7.2 1.89474C7.2 1.54737 7.47 1.26316 7.8 1.26316ZM4.2 1.26316C4.53 1.26316 4.8 1.54737 4.8 1.89474C4.8 2.24211 4.53 2.52632 4.2 2.52632C3.87 2.52632 3.6 2.24211 3.6 1.89474C3.6 1.54737 3.87 1.26316 4.2 1.26316ZM10.8 10.7368H1.2V9.47368H10.8V10.7368ZM10.8 7.57895H1.2V4.42105C1.2 4.07368 1.47 3.78947 1.8 3.78947H4.248L3.36 5.06526C3.162 5.34947 3.222 5.74737 3.492 5.94947C3.756 6.15158 4.134 6.08842 4.326 5.81053L6 3.41053L7.674 5.81053C7.866 6.08842 8.244 6.15158 8.508 5.94947C8.778 5.74737 8.838 5.34947 8.64 5.06526L7.752 3.78947H10.2C10.53 3.78947 10.8 4.07368 10.8 4.42105V7.57895Z" fill="#1A6B54"/>
+        <path d="M10.8 2.52632H9.492C9.558 2.33053 9.6 2.11579 9.6 1.89474C9.6 0.846316 8.796 0 7.8 0C7.17 0 6.624 0.341053 6.3 0.852632L6 1.27579L5.7 0.846316C5.376 0.341053 4.83 0 4.2 0C3.204 0 2.4 0.846316 2.4 1.89474C2.4 2.11579 2.442 2.33053 2.508 2.52632H1.2C0.534 2.52632 0.00599999 3.08842 0.00599999 3.78947L0 10.7368C0 11.4379 0.534 12 1.2 12H10.8C11.466 12 12 11.4379 12 10.7368V3.78947C12 3.08842 11.466 2.52632 10.8 2.52632ZM7.8 1.26316C8.13 1.26316 8.4 1.54737 8.4 1.89474C8.4 2.24211 8.13 2.52632 7.8 2.52632C7.47 2.52632 7.2 2.24211 7.2 1.89474C7.2 1.54737 7.47 1.26316 7.8 1.26316ZM4.2 1.26316C4.53 1.26316 4.8 1.54737 4.8 1.89474C4.8 2.24211 4.53 2.52632 4.2 2.52632C3.87 2.52632 3.6 2.24211 3.6 1.89474C3.6 1.54737 3.87 1.26316 4.2 1.26316ZM10.8 10.7368H1.2V9.47368H10.8V10.7368ZM10.8 7.57895H1.2V4.42105C1.2 4.07368 1.47 3.78947 1.8 3.78947H4.248L3.36 5.06526C3.162 5.34947 3.222 5.74737 3.492 5.94947C3.756 6.15158 4.134 6.08842 4.326 5.81053L6 3.41053L7.674 5.81053C7.866 6.08842 8.244 6.15158 8.508 5.94947C8.778 5.74737 8.838 5.34947 8.64 5.06526L7.752 3.78947H10.2C10.53 3.78947 10.8 4.07368 10.8 4.42105V7.57895Z"/>
         </svg>
         ` };
       }
@@ -1129,18 +1141,18 @@ foam.CLASS({
       factory: () => {
         return { template: `
 <?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
-<svg fill="#000000" width="800px" height="800px" viewBox="0 0 256 256" id="Flat" xmlns="http://www.w3.org/2000/svg">
+<svg fill="currentColor" width="800px" height="800px" viewBox="0 0 256 256" id="Flat" xmlns="http://www.w3.org/2000/svg">
   <path d="M192.14062,42.54736C174.94238,33.1665,152.16357,28,128,28S81.05762,33.1665,63.85938,42.54736C45.894,52.34668,36,65.64746,36,80v96c0,14.35254,9.894,27.65332,27.85938,37.45264C81.05762,222.834,103.83643,228,128,228s46.94238-5.166,64.14062-14.54736C210.106,203.65332,220,190.35254,220,176V80C220,65.64746,210.106,52.34668,192.14062,42.54736Zm-124.45068,7.023C83.7334,40.81934,105.15186,36,128,36s44.2666,4.81934,60.31006,13.57031C203.58691,57.90332,212,68.71,212,80s-8.41309,22.09668-23.68994,30.42969C172.2666,119.18066,150.84814,124,128,124s-44.2666-4.81934-60.31006-13.57031C52.41309,102.09668,44,91.29,44,80S52.41309,57.90332,67.68994,49.57031ZM212,176c0,11.29-8.41309,22.09668-23.68994,30.42969C172.2666,215.18066,150.84814,220,128,220s-44.2666-4.81934-60.31006-13.57031C52.41309,198.09668,44,187.29,44,176V149.48193c4.69214,5.93213,11.374,11.34229,19.85938,15.97071C81.05762,174.834,103.83643,180,128,180s46.94238-5.166,64.14062-14.54736C200.626,160.82422,207.30786,155.41406,212,149.48193Zm0-48c0,11.29-8.41309,22.09668-23.68994,30.42969C172.2666,167.18066,150.84814,172,128,172s-44.2666-4.81934-60.31006-13.57031C52.41309,150.09668,44,139.29,44,128V101.48193c4.69214,5.93213,11.374,11.34229,19.85938,15.97071C81.05762,126.8335,103.83643,132,128,132s46.94238-5.1665,64.14062-14.54736C200.626,112.82422,207.30786,107.41406,212,101.48193Z"/>
 </svg> `}
       }
     },
     {
-      name: 'test',
+      name: 'pipette', // Formerly 'test'
       class: 'GlyphProperty',
       of: 'foam.lang.Glyph',
       factory: () => {
         return { template: `
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="/*%FILL%*/ #ffffff" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pipette-icon lucide-pipette"><path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/><path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"/><path d="m2 22 .414-.414"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pipette-icon lucide-pipette"><path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12" fill="none"/><path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z" fill="none"/><path d="m2 22 .414-.414" fill="none"/></svg>
         `}
       }
     },
@@ -1162,6 +1174,303 @@ foam.CLASS({
         return { template: `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18,10a1,1,0,0,0-1-1H5.41l2.3-2.29A1,1,0,0,0,6.29,5.29l-4,4a1,1,0,0,0-.21,1.09A1,1,0,0,0,3,11H17A1,1,0,0,0,18,10Zm3.92,3.62A1,1,0,0,0,21,13H7a1,1,0,0,0,0,2H18.59l-2.3,2.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0l4-4A1,1,0,0,0,21.92,13.62Z"/></svg>
         `}
+      }
+    },
+    {
+      name: 'documentation',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 2.75H5.75a1 1 0 0 0-1 1v16.5a1 1 0 0 0 1 1h12.5a1 1 0 0 0 1-1V8L14 2.75Z" fill="none"/>
+          <path d="M13.85 2.9V7.1a1 1 0 0 0 1 1h4.2" fill="none"/>
+          <path d="M9.9 10.2a2.1 2.1 0 1 1 2.1 2.1v1.6" fill="none"/>
+          <path d="M12 15.9v.4" fill="none"/>
+          <path d="M6.4 18.9h11.2" stroke-dasharray="0.9 1.4" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'markdown',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 208 128"
+            fill="/*%FILL%*/ #FFFFFF" stroke="currentColor"
+            xmlns="http://www.w3.org/2000/svg">
+          <rect x="5" y="5" width="198" height="118" rx="10" fill="none" stroke-width="10"/>
+          <path d="M30 98V30h20l20 25 20-25h20v68H90V59L70 84 50 59v39zm125 0l-30-33h20V30h20v35h20z" stroke="none"/>
+        </svg>
+        ` };
+      }
+    },
+        {
+      name: 'h1',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.0 18.6V12.94H5.24V18.6H2.48V5.4H5.24V10.66H11.0V5.4H13.76V18.6Z"/>
+          <path d="M15.16 18.6V17.21H17.49V10.79L15.23 12.2V10.73L17.59 9.2H19.36V17.21H21.52V18.6Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'h2',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10.89 18.6V12.94H5.13V18.6H2.37V5.4H5.13V10.66H10.89V5.4H13.65V18.6Z"/>
+          <path d="M15.05 18.6V17.3Q15.42 16.49 16.09 15.72Q16.77 14.96 17.8 14.12Q18.79 13.32 19.18 12.8Q19.58 12.28 19.58 11.78Q19.58 10.55 18.35 10.55Q17.75 10.55 17.43 10.88Q17.11 11.2 17.02 11.85L15.13 11.74Q15.29 10.43 16.11 9.75Q16.93 9.06 18.33 9.06Q19.85 9.06 20.67 9.75Q21.48 10.45 21.48 11.7Q21.48 12.36 21.22 12.9Q20.96 13.43 20.55 13.88Q20.15 14.33 19.65 14.72Q19.15 15.12 18.69 15.49Q18.22 15.86 17.84 16.24Q17.45 16.63 17.27 17.06H21.63V18.6Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'h3',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10.78 18.6V12.94H5.03V18.6H2.26V5.4H5.03V10.66H10.78V5.4H13.54V18.6Z"/>
+          <path d="M21.74 15.99Q21.74 17.31 20.87 18.03Q20.0 18.75 18.4 18.75Q16.89 18.75 15.99 18.06Q15.1 17.36 14.94 16.04L16.85 15.88Q17.03 17.23 18.39 17.23Q19.07 17.23 19.44 16.9Q19.81 16.57 19.81 15.88Q19.81 15.25 19.36 14.92Q18.91 14.58 18.01 14.58H17.36V13.07H17.97Q18.78 13.07 19.19 12.74Q19.59 12.41 19.59 11.8Q19.59 11.21 19.27 10.88Q18.95 10.55 18.33 10.55Q17.75 10.55 17.39 10.87Q17.03 11.19 16.98 11.78L15.1 11.65Q15.25 10.43 16.11 9.75Q16.97 9.06 18.36 9.06Q19.83 9.06 20.66 9.72Q21.5 10.39 21.5 11.56Q21.5 12.44 20.98 13.01Q20.46 13.58 19.49 13.76V13.79Q20.57 13.92 21.15 14.5Q21.74 15.08 21.74 15.99Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'h4',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10.52 18.6V12.94H4.76V18.6H2.0V5.4H4.76V10.66H10.52V5.4H13.28V18.6Z"/>
+          <path d="M20.74 16.69V18.6H18.96V16.69H14.68V15.28L18.65 9.2H20.74V15.29H22.0V16.69ZM18.96 12.22Q18.96 11.86 18.98 11.43Q19.0 11.01 19.02 10.89Q18.84 11.27 18.39 11.98L16.21 15.29H18.96Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'h',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14.88 18.6V12.94H9.12V18.6H6.36V5.4H9.12V10.66H14.88V5.4H17.64V18.6Z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'script',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg" fill="none">
+          <path d="M8.2 8 4 12 8.2 16" fill="none"/>
+          <path d="M15.8 8 20 12 15.8 16" fill="none"/>
+          <path d="M13 6.2 11 17.8" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'clock',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'input',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 3.01H3c-1.1 0-2 .9-2 2V9h2V4.99h18v14.03H3V15H1v4.01c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2v-14c0-1.1-.9-2-2-2zM11 16l4-4-4-4v3H1v2h10v3z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'history',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'signature',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg">
+          <path d="M3.5 14.5c.6-6.5 2.3-10 4-9.5 1.6.5 1.1 4.4-.3 7.9-1.1 2.7-1.6 4.2-.4 4.5 2 .5 3.9-3.8 6-4 1.5-.2 1.2 1.9 2.6 1.9 1.1 0 2.1-.7 2.7-1.6" fill="none"/>
+          <path d="M3.5 20.5h17" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'test',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.5 3.5v5.7L4.3 18.5A1.7 1.7 0 0 0 5.8 21h12.4a1.7 1.7 0 0 0 1.5-2.5L14.5 9.2V3.5" fill="none"/>
+          <path d="M8 3.5h8" fill="none"/>
+          <path d="M6.6 14.6h10.8" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'image',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            xmlns="http://www.w3.org/2000/svg">
+          <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="2.6" fill="none"/>
+          <circle cx="8.9" cy="8" r="1.7" fill="none"/>
+          <path d="M4 17.6l4.4-4.4a1.4 1.4 0 0 1 2 0l3.3 3.3 1.9-1.9a1.4 1.4 0 0 1 2 0l2.4 2.4" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    // Hint icons for Markdown
+    {
+      name: 'hintInfo',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7.5v.01" fill="none"/>
+          <path d="M12 11v5.5" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintWarning',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7v5.6" fill="none"/>
+          <path d="M12 16.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintDanger',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.9 4.3l8.5 14.8a1.1 1.1 0 0 1-.9 1.6H3.5a1.1 1.1 0 0 1-.9-1.6L11.1 4.3a1.05 1.05 0 0 1 1.8 0z" fill="none"/>
+          <path d="M12 9.6v4.4" fill="none"/>
+          <path d="M12 17.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintSuccess',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M7.8 12.3l2.9 2.9 5.5-6.2" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'lightMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'darkMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'systemMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'A ring with its right half filled: the colour scheme follows the OS.',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 4a8 8 0 0 1 0 16z"/>
+          </svg>
+        ` };
       }
     }
   ]

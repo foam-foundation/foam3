@@ -17,11 +17,14 @@ foam.POM({
     { name: 'SignatureHelpHandler', flags: 'js' },
     { name: 'FoldingRangeHandler', flags: 'js' },
     { name: 'CodeActionHandler', flags: 'js' },
+    { name: 'I18nHandler', flags: 'js' },
     { name: 'WorkspaceSymbolHandler', flags: 'js' },
     { name: 'TypeHierarchyHandler', flags: 'js' },
     { name: 'ImplementationHandler', flags: 'js' },
     { name: 'TypeDefinitionHandler', flags: 'js' },
     { name: 'CallHierarchyHandler', flags: 'js' },
-    { name: 'PomValidator', flags: 'js' }
+    { name: 'PomValidator', flags: 'js' },
+    { name: 'CodeLensHandler', flags: 'js' },
+    { name: 'ScaffoldHandler', flags: 'js' }
   ]
 });

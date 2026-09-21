@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.lang.test',
   name: 'DatePropertyBench',
-  extends: 'foam.core.test.Test',
+  extends: 'foam.core.test.PhaseBench',
 
   documentation: `Per-operation heap and CPU benchmark for date-typed
     properties, measured over DateTimeTestModel (one Date, one DateTime, one
@@ -40,8 +40,6 @@ foam.CLASS({
     'foam.mlang.expr.DateToYYYYMMExpr',
     'foam.mlang.sink.Count',
     'foam.mlang.sink.GroupBy',
-    'java.lang.management.GarbageCollectorMXBean',
-    'java.lang.management.ManagementFactory',
     'foam.lang.X',
     'java.util.ArrayList',
     'java.util.Date',
@@ -53,62 +51,7 @@ foam.CLASS({
     'static foam.mlang.MLang.LTE'
   ],
 
-  properties: [
-    { class: 'Long', name: 'gcCount_', transient: true, hidden: true },
-    { class: 'Long', name: 'gcTime_',  transient: true, hidden: true },
-    { class: 'Long', name: 'cpu0_',    transient: true, hidden: true },
-    { class: 'Long', name: 'wall0_',   transient: true, hidden: true }
-  ],
-
   methods: [
-    {
-      name: 'settleHeap',
-      documentation: 'Force a few collections so a heap reading is comparable.',
-      type: 'Long',
-      javaCode: `
-        for ( int i = 0 ; i < 3 ; i++ ) {
-          System.gc();
-          try { Thread.sleep(300); } catch ( InterruptedException e ) {}
-        }
-        Runtime rt = Runtime.getRuntime();
-        return rt.totalMemory() - rt.freeMemory();
-      `
-    },
-    {
-      name: 'startPhase',
-      javaCode: `
-        long c = 0, t = 0;
-        for ( GarbageCollectorMXBean b : ManagementFactory.getGarbageCollectorMXBeans() ) {
-          c += b.getCollectionCount();
-          t += b.getCollectionTime();
-        }
-        setGcCount_(c);
-        setGcTime_(t);
-        setCpu0_(ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime());
-        setWall0_(System.nanoTime());
-      `
-    },
-    {
-      name: 'endPhase',
-      documentation: 'Emit one BENCH line for the phase started by startPhase.',
-      args: 'String phase, String extra',
-      javaCode: `
-        long wallMs = ( System.nanoTime() - getWall0_() ) / 1000000;
-        long cpuMs  = ( ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime()
-                        - getCpu0_() ) / 1000000;
-        long c = 0, t = 0;
-        for ( GarbageCollectorMXBean b : ManagementFactory.getGarbageCollectorMXBeans() ) {
-          c += b.getCollectionCount();
-          t += b.getCollectionTime();
-        }
-        System.out.println("BENCH phase=" + phase
-          + " wallMs=" + wallMs
-          + " cpuMs=" + cpuMs
-          + " gcCount=" + ( c - getGcCount_() )
-          + " gcTimeMs=" + ( t - getGcTime_() )
-          + ( extra == null ? "" : " " + extra ));
-      `
-    },
     {
       name: 'runTest',
       javaCode: `

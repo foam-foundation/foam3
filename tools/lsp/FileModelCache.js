@@ -11,7 +11,8 @@ foam.CLASS({
   documentation: 'Eval-intercept cache for FOAM model files. Captures foam.CLASS/ENUM/INTERFACE objects directly by executing the file with overridden foam.CLASS.',
 
   requires: [
-    'foam.parse.lsp.CursorAnalyzer'
+    'foam.parse.lsp.CursorAnalyzer',
+    'foam.parse.lsp.FileClassifier'
   ],
 
   properties: [
@@ -22,6 +23,13 @@ foam.CLASS({
     {
       name: 'analyzer_',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      name: 'classifier_',
+      documentation: `Supplies the significant-foam-call scan that sourceLine_
+        is read from. Its own instance rather than the server's: the two share
+        no cached answer, only the scan.`,
+      factory: function() { return this.FileClassifier.create(); }
     }
   ],
 
@@ -39,7 +47,7 @@ foam.CLASS({
     function getModelAt(uri, text, line) {
       /**
        * Returns the model whose source range contains the given line.
-       * Uses sourceLine_ (set by findCallLine) to find the last model
+       * Uses sourceLine_ (set from the significant-call scan) to find the last model
        * that starts at or before the given line. Essential for multi-class
        * files where we need to know which model the cursor is inside.
        */
@@ -178,8 +186,33 @@ foam.CLASS({
       var models = [];
       var modelCount = 0;
 
+      // Where each model starts, taken from the significant-call scan — calls
+      // written inside comments and string literals are not in it. Counting
+      // raw foam.<X>( matches instead put every model after a doc comment
+      // that mentions foam.CLASS( onto the comment's line.
+      var calls      = this.classifier_.significantCalls(text);
+      var classLines = [];
+      var libLines   = [];
+      for ( var ci = 0 ; ci < calls.length ; ci++ ) {
+        var callName = calls[ci].name;
+        // POM and SCRIPT never enter `models` (their overrides are no-ops) and
+        // LIB is counted separately, so neither may shift the class index.
+        if ( callName === 'LIB' ) libLines.push(calls[ci].line);
+        else if ( callName !== 'POM' && callName !== 'SCRIPT' ) classLines.push(calls[ci].line);
+      }
+
+      // The SyntaxError fallback evaluates one call at a time and knows exactly
+      // which call it is on, so it sets the line directly. A running count is
+      // wrong there twice over: a block that fails to eval does not advance it,
+      // and the fallback used to find its blocks with a regex of its own, which
+      // happily evaluated a call written inside a comment and shifted every
+      // real model behind it.
+      var evalState = { forcedLine: -1 };
+
       var captureClass = function(m) {
-        m.sourceLine_ = findCallLine(text, modelCount);
+        m.sourceLine_ = evalState.forcedLine >= 0
+          ? evalState.forcedLine
+          : ( classLines[modelCount] || 0 );
         m.type_ = m.type_ || 'CLASS';
         models.push(m);
         modelCount++;
@@ -221,7 +254,13 @@ foam.CLASS({
         LIB:    function(m) {
           if ( ! m || ! m.name ) return;
           m.type_ = 'LIB';
-          m.sourceLine_ = findLibCallLine(text, models);
+          var libIndex = 0;
+          for ( var li = 0 ; li < models.length ; li++ ) {
+            if ( models[li].type_ === 'LIB' ) libIndex++;
+          }
+          m.sourceLine_ = evalState.forcedLine >= 0
+            ? evalState.forcedLine
+            : ( libLines[libIndex] || 0 );
           models.push(m);
         }
       };
@@ -250,7 +289,7 @@ foam.CLASS({
         // Fall back to extracting individual foam.<X>(...) blocks and eval each.
         if ( e instanceof SyntaxError && models.length === 0 ) {
           modelCount = 0;
-          this.evalIndividualBlocks_(text, context, models);
+          this.evalIndividualBlocks_(text, context, calls, evalState);
         }
         // RuntimeError after some models captured — partial results are fine
       }
@@ -258,19 +297,22 @@ foam.CLASS({
       return models;
     },
 
-    function evalIndividualBlocks_(text, context, models) {
+    function evalIndividualBlocks_(text, context, calls, evalState) {
       /**
-       * Fallback for SyntaxError: extract individual foam.<X>(...) blocks
-       * using bracket matching and eval each separately. Generic on the call
-       * name so foam.FSM/foam.RELATIONSHIP/etc. all participate.
+       * Fallback for SyntaxError: bracket-match each foam.<X>(...) block and
+       * eval it on its own. Generic on the call name so foam.FSM /
+       * foam.RELATIONSHIP / etc. all participate.
+       *
+       * Blocks come from the significant-call scan, not a regex of this
+       * function's own. A regex sees a `foam.CLASS(` written in a comment as a
+       * block, evaluates it into a real model, and every model behind it then
+       * answers with the line of the one in front.
        */
-      var regex = /foam\.[A-Z][A-Z0-9_]*\s*\(/g;
-      var match;
-      while ( ( match = regex.exec(text) ) !== null ) {
-        var start = match.index;
+      for ( var ci = 0 ; ci < calls.length ; ci++ ) {
+        var start = calls[ci].offset;
         var depth = 0;
         var end = -1;
-        for ( var i = start + match[0].length ; i < text.length ; i++ ) {
+        for ( var i = text.indexOf('(', start) + 1 ; i < text.length ; i++ ) {
           var ch = text[i];
           if ( ch === '(' || ch === '{' || ch === '[' ) depth++;
           else if ( ch === ')' || ch === '}' || ch === ']' ) {
@@ -287,75 +329,15 @@ foam.CLASS({
           }
         }
         if ( end === -1 ) continue;
-        var block = text.substring(start, end);
+        evalState.forcedLine = calls[ci].line;
         try {
-          with ( context ) { eval(block); }
+          with ( context ) { eval(text.substring(start, end)); }
         } catch (e2) {
           // This block is incomplete/broken — skip it
         }
       }
+      evalState.forcedLine = -1;
     }
   ]
 });
 
-function findCallLine(text, index) {
-  /**
-   * Find the line number of the Nth foam.<X>(...) call in text.
-   *
-   * WHY: Multi-class files (e.g., Element2.js) contain multiple foam.CLASS
-   * calls. When the user's cursor is on line 50, getModelAt() needs to know
-   * which model that line belongs to. sourceLine_ on each model enables
-   * this lookup. Also needed by SymbolHandler for accurate outline positions
-   * and DiagnosticsHandler for correct error squiggle placement.
-   *
-   * Generic on the call name (CLASS/ENUM/INTERFACE/RELATIONSHIP/FSM/...) so
-   * model-position tracking works for any foam.<X> extension. POM/SCRIPT are
-   * matched too but never appear in `models` (their overrides are no-ops).
-   *
-   * For single-class files (99% of cases), sourceLine_ is always 0 and
-   * getModelAt() returns the only model regardless. The cost is negligible.
-   *
-   * Skips POM/SCRIPT/LIB — those don't enter the regular `models` array via
-   * captureClass(), so counting them would misalign the index.
-   */
-  var regex = /foam\.(?!POM\b|SCRIPT\b|LIB\b)[A-Z][A-Z0-9_]*\s*\(/g;
-  var match;
-  var count = 0;
-  while ( ( match = regex.exec(text) ) !== null ) {
-    if ( count === index ) {
-      var line = 0;
-      for ( var i = 0 ; i < match.index ; i++ ) {
-        if ( text[i] === '\n' ) line++;
-      }
-      return line;
-    }
-    count++;
-  }
-  return 0;
-}
-
-function findLibCallLine(text, models) {
-  /**
-   * Find the line number of the Nth foam.LIB call in text, where N is the
-   * count of LIBs already captured.
-   * TODO: migrate to FoamClassGrammar so LIB positions come from the parser.
-   */
-  var libIndex = 0;
-  for ( var i = 0 ; i < models.length ; i++ ) {
-    if ( models[i].type_ === 'LIB' ) libIndex++;
-  }
-  var regex = /foam\.LIB\s*\(/g;
-  var match;
-  var count = 0;
-  while ( ( match = regex.exec(text) ) !== null ) {
-    if ( count === libIndex ) {
-      var line = 0;
-      for ( var i = 0 ; i < match.index ; i++ ) {
-        if ( text[i] === '\n' ) line++;
-      }
-      return line;
-    }
-    count++;
-  }
-  return 0;
-}

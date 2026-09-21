@@ -11,7 +11,8 @@ foam.CLASS({
   documentation: '',
 
   implements: [
-    'foam.core.auth.CreatedAware'
+    'foam.core.auth.CreatedAware',
+    'foam.core.auth.ServiceProviderAware'
   ],
 
   properties: [

@@ -430,7 +430,7 @@ foam.CLASS({
         if ( ! this.auth || ! p.columnPermissionRequired )
           availableProps.push(p);
         else
-          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name}`).then(v => v && availableProps.push(p))
+          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name.toLowerCase()}`).then(v => v && availableProps.push(p))
       }));
       return availableProps.length > 0;
     }

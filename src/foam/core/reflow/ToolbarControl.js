@@ -26,7 +26,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'toolbar',
-      value: 'Standard'
+      value: 'Auto'
     },
     {
       class: 'Int',

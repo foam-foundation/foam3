@@ -72,6 +72,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'fileClassifier',
+      documentation: `The one answer to "is this a FOAM class file". server.js
+        wires its own shared instance so guard and handler cannot disagree and
+        the per-uri memo stays warm; the factory keeps handler-direct tests
+        working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.FoamIndex',
       name: 'index',
@@ -104,7 +112,10 @@ foam.CLASS({
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! this.analyzer.isFoamFile(text, true) ) {
+      var ckind_ = this.fileClassifier.classify(opt_uri || '', text);
+      // Completion serves pom.js too — the only caller that ever wanted the
+      // POM-including form of the old regex gate.
+      if ( ckind_ !== 'class' && ckind_ !== 'pom' ) {
         return { isIncomplete: false, items: [] };
       }
       var uri = opt_uri || '';
@@ -273,6 +284,30 @@ foam.CLASS({
               textEdit: { range: replaceRange, newText: name },
               sortText: '!' + name.toLowerCase()
             });
+          }
+
+          // tableColumns also accepts action names — rendered as row buttons
+          // (foam.u2.table.UnstyledTableView filters actions against
+          // tableColumns). Not offered for searchColumns (properties only).
+          if ( lineContext.lastIndexOf('tableColumns') >
+               lineContext.lastIndexOf('searchColumns') ) {
+            var actionNames = {};
+            var actions = this.index.getActions(classId);
+            for ( var ai = 0 ; ai < actions.length ; ai++ ) actionNames[actions[ai].name] = true;
+            (model.actions || []).forEach(function(a) {
+              var name = typeof a === 'function' ? a.name : a && a.name;
+              if ( name ) actionNames[name] = true;
+            });
+            for ( var name in actionNames ) {
+              if ( propNames[name] ) continue;
+              if ( partial && name.toLowerCase().indexOf(partial) === -1 ) continue;
+              items.push({
+                label: name, kind: 3,
+                detail: 'Action',
+                textEdit: { range: replaceRange, newText: name },
+                sortText: '!' + name.toLowerCase()
+              });
+            }
           }
           return items;
         }

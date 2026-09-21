@@ -37,6 +37,20 @@ public abstract class AbstractDatePropertyInfo
     return ((Date)o1).compareTo(((Date)o2));
   }
 
+  /**
+   * A predicate constant goes through castObject before it is compared to a
+   * row (Binary.arg2 preSet). Routing it through the property's cast gives the
+   * constant the same normalisation the tree index applies to a query key
+   * (noon GMT for a Date, the instant kept for a DateTime), so a scan and an
+   * indexed select agree at a day boundary. Only a Date is cast: a DateTime's
+   * generated cast is a plain (Date) cast, and a constant of another type keeps
+   * the raw comparison it had.
+   */
+  @Override
+  public Object castObject(Object value) {
+    return value instanceof Date ? cast(value) : value;
+  }
+
   public Object fromString(String value) {
     StringPStream ps = new StringPStream(value);
     ParserContextImpl x = new ParserContextImpl();
@@ -101,7 +115,20 @@ public abstract class AbstractDatePropertyInfo
   }
 
   public int comparePropertyToObject(Object key, Object o) {
-    return foam.util.SafetyUtil.compare(cast(key).getTime(), get__(o));
+    // cast() returns null for a null key, so getTime() would NPE here. A null
+    // key is normal - an Indexer over an unset date property produces one, and
+    // nullableDateToLong encodes it as the same reserved long the backing field
+    // holds while unset.
+    return foam.util.SafetyUtil.compare(
+      foam.util.DateUtil.nullableDateToLong(cast(key)), get__(o));
+  }
+
+  public boolean hasLongKey() {
+    return true;
+  }
+
+  public long keyAsLong(Object key) {
+    return foam.util.DateUtil.nullableDateToLong(cast(key));
   }
 
   public int comparePropertyToValue(Object key, Object value) {

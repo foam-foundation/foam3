@@ -16,6 +16,11 @@ p({
   id:"F3FileJournalTest"
 })
 p({
+  class:"foam.dao.test.MergeFObjectTest",
+  id:"MergeFObjectTest",
+  description:"mergeFObject returns the merged old row for a same-class delta and a row of the new class when the class changed"
+})
+p({
   class:"foam.dao.test.JournalDefaultClassNameTest",
   id:"JournalDefaultClassNameTest"
 })
@@ -32,3 +37,4 @@ p({
   id:"MDAOIndexDedupTest",
   description:"An index covered by an existing one must not be added"
 })
+p({"class":"foam.dao.test.BulkLoadCommandTest","id":"BulkLoadCommandTest","description":"a bulk load sent down cmd_ numbers its rows and stores them as the same puts would"})

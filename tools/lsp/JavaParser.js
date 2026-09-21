@@ -21,14 +21,19 @@ foam.CLASS({
     before and after, then convert to line numbers.
 
     parseFile(text) returns:
-      { package, imports, classes, methods, calls, casts, news, locals, idents }
+      { package, imports, classes, methods, calls, casts, news, locals,
+        idents, strings, comments }
     where:
-      methods = [{ name, sig, returnType, params, modifiers, doc, line }]
-      calls   = [{ receiver, methodName, line, col, recvCol, methodCol }]
-      casts   = [{ typeName, line, col }]
-      news    = [{ typeName, line, col }]
-      locals  = [{ typeName, varName, line, col }]
-      idents  = [{ name, line, col }]   // bare identifiers — used for enum constants
+      methods  = [{ name, sig, returnType, params, modifiers, doc, line }]
+      calls    = [{ receiver, methodName, line, col, recvCol, methodCol }]
+      casts    = [{ typeName, line, col }]
+      news     = [{ typeName, line, col }]
+      locals   = [{ typeName, varName, line, col }]
+      idents   = [{ name, line, col }]   // bare identifiers — used for enum constants
+      strings  = [{ start, end, line, col }]  // string/char literal spans
+      comments = [{ start, end, line, col }]  // // and /* */ spans
+    start/end are character offsets into the parsed text (parseBlock does
+    NOT shift them — only line/col land in the host file).
 
     parseBlock(text, baseLine, baseCol) returns the same shape but with
     per-token positions offset so positions land in the host file.
@@ -55,7 +60,8 @@ foam.CLASS({
 
       var result = {
         'package': null, imports: [], classes: [], methods: [],
-        calls: [], casts: [], news: [], locals: [], idents: []
+        calls: [], casts: [], news: [], locals: [], idents: [],
+        strings: [], comments: []
       };
       var captured = []; // { kind, startPos, endPos, value }
 
@@ -142,6 +148,10 @@ foam.CLASS({
           var vdExt = this.extractVarDecl_(node.text, node.startPos,
             offsetToLine, offsetToCol);
           if ( vdExt ) result.locals.push(vdExt);
+        } else if ( node.kind === 'stringLit' || node.kind === 'charLit' ) {
+          result.strings.push({ start: node.startPos, end: node.endPos, line: line, col: col });
+        } else if ( node.kind === 'lineComment' || node.kind === 'blockComment' ) {
+          result.comments.push({ start: node.startPos, end: node.endPos, line: line, col: col });
         } else if ( node.kind === 'identTok' ) {
           // Bare identifiers — useful for enum-constant detection (a
           // standalone TypeName.UPPER_VALUE shows up as two adjacent
@@ -188,6 +198,9 @@ foam.CLASS({
       arrShift(raw.casts);
       arrShift(raw.news);
       arrShift(raw.idents);
+      // strings/comments: line/col shift only — start/end stay block-relative
+      arrShift(raw.strings);
+      arrShift(raw.comments);
 
       // calls have receiver + method positions
       for ( var i = 0 ; i < raw.calls.length ; i++ ) {

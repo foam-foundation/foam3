@@ -6,3 +6,7 @@ p({
   class: "foam.core.dig.test.DUGLoopbackTest",
   id:"DUGLoopbackTest"
 })
+p({
+  class: "foam.core.dig.test.DigCsvDriverTest",
+  id:"DigCsvDriverTest"
+})

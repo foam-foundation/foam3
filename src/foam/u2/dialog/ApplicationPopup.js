@@ -20,7 +20,8 @@ foam.CLASS({
   imports: [
     'displayWidth?',
     'theme',
-    'translationService'
+    'translationService',
+    'window'
   ],
 
   requires: [
@@ -279,7 +280,7 @@ foam.CLASS({
     function init() {
       var content;
       const self = this;
-      window.thepopup = this;
+      this.window.thepopup = this;
       this.helpMenu$find.then( menu => {
         self.help_ = menu;
       });

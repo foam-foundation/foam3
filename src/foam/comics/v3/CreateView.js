@@ -25,24 +25,32 @@ foam.CLASS({
 
   requires: [
     'foam.log.LogLevel',
+    'foam.u2.ButtonGroup',
     'foam.u2.ControllerMode'
   ],
 
   imports: [
     'currentMenu?',
-    'daoController',
+    'daoController?',
     'notify',
     'stack',
     'translationService'
   ],
 
   exports: [
-    'controllerMode'
+    'controllerMode',
+    'as createView'
   ],
 
   messages: [
     { name: 'CREATED', message: 'Created' }
   ],
+
+  css: `
+    ^buttonGroup {
+      justify-content: flex-end;
+    }
+  `,
 
   properties: [
     {
@@ -77,14 +85,16 @@ foam.CLASS({
 
   actions: [
     {
+      // ComicsAction so a model can override create's Save (see buildActionsOverrides_).
+      class: 'foam.comics.v3.ComicsAction',
       name: 'save',
       buttonStyle: 'PRIMARY',
-      isEnabled: function(data$errors_) {
-        let enabled = ! data$errors_;
-        if ( ! enabled ) {
-          console.error('Save disabled:', data$errors_);
-        }
-        return enabled;
+      // Mode + validity only; create permission is gated at the create button + server-side.
+      internalIsAvailable: function(controllerMode) {
+        return controllerMode == 'CREATE';
+      },
+      internalIsEnabled: function(data$errors_) {
+        return ! data$errors_;
       },
       code: function() {
         var cData = this.data;
@@ -122,15 +132,64 @@ foam.CLASS({
           }
         });
       }
+    },
+    {
+      // ComicsAction so a model can override create's Cancel (e.g. cleanup).
+      class: 'foam.comics.v3.ComicsAction',
+      name: 'cancel',
+      internalIsAvailable: function(controllerMode) {
+        return controllerMode == 'CREATE';
+      },
+      internalIsEnabled: function() {
+        return true;
+      },
+      code: async function() {
+        // routeToMe() (not route='') returns to browse: an empty route also fires the
+        // Router's crumb.go(), racing the controller and making cancel intermittent.
+        if ( this.daoController ) this.daoController.routeToMe();
+        else await this.stack.pop();
+      }
     }
   ],
 
   methods: [
+    function buildActionsOverrides_() {
+      // Let a model override save/cancel with same-named ComicsActions, merged over the
+      // defaults (like DetailView.getActionsOverrides). overrideCodeData$ = data$ runs the
+      // override's code against the new record.
+      var self = this;
+      var of   = ( this.config && this.config.of ) || ( this.data && this.data.cls_ );
+      var overrides = {};
+      var comicsActions = of ? of.getAxiomsByClass(foam.comics.v3.ComicsAction) : [];
+      comicsActions.forEach(function(a) { overrides[a.name] = a; });
+
+      var result = {};
+      [ 'save', 'cancel' ].forEach(function(name) {
+        var def      = self[foam.String.constantize(name)];
+        var override = overrides[name];
+        if ( ! override ) { result[name] = def; return; }
+        var merged = def.clone(self).copyFrom(override);
+        if ( override.hasOwnProperty('code') ) merged.overrideCodeData$ = self.data$;
+        result[name] = merged;
+      });
+      return result;
+    },
+
     function render() {
       var self = this;
       this.SUPER();
+      var actions = this.buildActionsOverrides_();
       this.stack.setTitle(self.slot('config$createTitle'), this);
-      this.onDetach(this.stack.setTrailingContainer(this.E().startContext({ data: this }).tag(this.SAVE).endContext()));
+      this.onDetach(
+        this.stack.setTrailingContainer(
+          this.ButtonGroup.create({}, this)
+            .addClass(this.myClass('buttonGroup'))
+            .startContext({ data: this })
+              .tag(actions.save)
+              .tag(actions.cancel)
+            .endContext()
+        )
+      );
 
       this
         .addClass(this.myClass())

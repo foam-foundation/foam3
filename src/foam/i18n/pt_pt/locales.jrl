@@ -1061,3 +1061,6 @@ p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.approval.ApprovalReque
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.dashboard.view.DashboardView.TITLE",target:"Painel"})
 
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.net.web.HTTPRequest.GENERAL_ERROR",target:"Erro de rede, verifique sua conexão e tente novamente."})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.days",target:"dias"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.years",target:"anos"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.units.seconds",target:"segundos"})

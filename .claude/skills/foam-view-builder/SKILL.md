@@ -1,6 +1,6 @@
 ---
 name: foam-view-builder
-description: Use when building, designing, or modifying FOAM UI views. Triggers on mentions of views, detail views, sections, table columns, CSS, property views, formatters, tableCellFormatter, labelFormatter, reactive UI, custom views, comics, DAOController, DAOControllerConfig, DAOMenu2, faceted views, {Model}DetailView / {Model}CreateView, browseController / createController, or when user wants to create/modify a FOAM u2 view or customize a comics (DAO CRUD) screen.
+description: Use when building, designing, or modifying FOAM UI views. Triggers on mentions of views, detail views, sections, table columns, CSS, property views, formatters, tableCellFormatter, labelFormatter, reactive UI, custom views, comics, DAOController, DAOControllerConfig, DAOMenu2, faceted views, {Model}DetailView / {Model}CreateView, browseController / createController, variants / variant enums / named style presets, cssTokens, Color properties and $token resolution, ViewSpec slots, or when user wants to create/modify a FOAM u2 view or customize a comics (DAO CRUD) screen.
 ---
 
 # FOAM View Builder - Best Practices from Codebase
@@ -70,6 +70,13 @@ Before writing any view code, clarify:
 - **Confirmation modals?** Actions that need user confirmation
 - **Responsive behavior?** Must work at different widths
 
+### 1.4 Variants — decide before building
+Answer these four for any new custom view. One **yes** → build it as a variant component (3.31); all **no** → build it plain and say so in the plan.
+- **More than one semantic state?** Will the same view render as success / warn / error / neutral?
+- **Reused with a different meaning?** Will a second screen `.tag()` it to say something else (open vs closed, matched vs unmatched)?
+- **Color carries meaning?** Would swapping the color change what the user reads, not just how it looks?
+- **An enum already drives it?** Is there a status / severity / type enum the view mirrors? Then the variant is derived from that enum, not a second knob the caller sets by hand.
+
 ---
 
 ## Phase 2: Read the Model (MANDATORY)
@@ -118,6 +125,9 @@ Full pattern text + code lives in [references/patterns.md](references/patterns.m
 | 3.26 | Adapting framework views | Non-native contexts |
 | 3.27 | Bare vs bordered property | Permission-aware property rendering |
 | 3.28 | Programmatic value formatting | Inline text, not a property view |
+| 3.29 | Section name vs property name collision | A section silently fails to render |
+| 3.30 | Conditional sections | A tab that depends on a toggle property |
+| 3.31 | Variant components | Any 1.4 answer was yes — named style presets |
 
 ## Phase 3b: Decision Guide — Custom View vs Model Config
 
@@ -137,6 +147,7 @@ Full pattern text + code lives in [references/patterns.md](references/patterns.m
 | Reactive DAO filtering in dropdown | `view: function(_, X)` with slot subscription | No |
 | Confirmation dialog on change | `postSet` with `ConfirmationModal` | No |
 | Completely custom layout/structure | Custom `foam.u2.View` class | **Yes** |
+| Reusable card/badge/banner with named style presets | Variant enum + `expression(variant)` color props (3.31) | **Yes** |
 | Custom painting/canvas | Custom `foam.u2.View` class | **Yes** |
 | Complex multi-model dashboard | Custom `foam.u2.View` class or Flow | **Yes** |
 
@@ -263,6 +274,12 @@ methods: [
 ]
 ```
 
+The value forms a ViewSpec accepts are the branches of `createView` (`foam3/src/foam/u2/ViewSpec.js:46-103`: string → HTML tag, Element, Slot, anything with `toE`, function, `{ class }` spec or Class; `:105` is the throw for anything else); the same property type backs a property's `view:`. Three shapes beyond the default above:
+
+- **Optional slot** — declare the `foam.u2.ViewSpec` with no `value:` and gate the render on presence: `.callIf(self.icon, function() { this.tag(self.icon); })` (`this` is the element, `self` the view) when the caller sets it at create time, `.add(this.icon$.map(...))` if it can arrive later. `.tag(spec)` with no args object is valid (`foam3/src/foam/u2/dialog/InlineNotificationMessage.js:157`).
+- **Wrap the caller's spec** — a derived `rowView_` that decorates the caller's `rowView` (3.25); the source is `foam3/src/foam/u2/DAOList.js:100-106`.
+- **Outside a fluent chain** — `foam.u2.ViewSpec.createView(spec, args, self, ctx)` (`foam3/src/foam/u2/ViewSpec.js:42`). A bare string passed here becomes an HTML tag name via `ctx.E(spec, args)` (`ViewSpec.js:46-52`), so pass `{ class: 'a.b.C' }`, never `'a.b.C'`; only the property's `adapt` (`ViewSpec.js:124-131`) wraps a string in `{ class: ... }` for you.
+
 ---
 
 ## Phase 6: Context and Dependencies
@@ -353,6 +370,10 @@ view: function(_, X) {
 | `slot()` for async content in render chain | `dynamic()` — slot can cause DOM placement issues |
 | `.add(prop)` for property with `writePermissionRequired` / `readPermissionRequired` | `.tag(prop.__, { config: { label: '', reserveLabelSpace: false } })` — bare `.add` skips PropertyBorder so the auth check never runs (3.27) |
 | `visibility: 'RO'` on model just to lock down a cell render | Route the cell through `prop.__` so model permission gate keeps working for admins (3.27) |
+| Per-variant colors hardcoded in `render()` / `factory:` for a variant-derived color | Tokens on the enum values + `expression: function(variant)` — follows the variant, still caller-overridable (3.31) |
+| `callIf(this.reactiveProp, ...)` for something that changes after render | `enableClass(cls, slot)` / `show(slot)` / `add(slot.map(...))` — `callIf` runs once (3.31) |
+| `cssTokens:` color entry without `class: 'foam.u2.ColorToken'` | Declare the class — a bare `CSSToken` has an empty `variantKey`, so a theme's dark override never matches (3.31) |
+| `MyView.create({ someCssToken: ... })` to retune a color per instance | `cssTokens` are class constants; per-instance control is a property + `enableClass` (3.31) |
 
 ---
 
@@ -371,6 +392,10 @@ view: function(_, X) {
 | Element API | `foam3/src/foam/u2/Element2.js` |
 | PropertyBorder (labels) | `foam3/src/foam/u2/PropertyBorder.js` |
 | CSS Tokens (colors, weights, sizes) | `foam3/src/foam/u2/CSSTokens.js` |
+| `cssTokens:` axiom — `ColorToken` (dark-mode `variantKey`) vs bare `CSSToken` | `foam3/src/foam/u2/ColorToken.js`, `foam3/src/foam/u2/CSSToken.js` |
+| ViewSpec (value forms, `createView`) | `foam3/src/foam/u2/ViewSpec.js` |
+| Variant enum with `glyph`, icon built as a spec | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js` |
+| Reactive variant class (`styleClass_` + `addClass(slot)`) | `foam3/src/foam/u2/tag/Button.js` |
 | Global Typography Classes (`h100…h700`, `p`, `p-*`) | `foam3/src/foam/core/controller/Fonts.js` |
 | DisplayMode + restrictDisplayMode | `foam3/src/foam/u2/DisplayMode.js` |
 | ExpressionSlot | `foam3/src/foam/lang/Slot.js` |
@@ -388,3 +413,5 @@ view: function(_, X) {
 | ButtonGroup (responsive) | `foam3/src/foam/u2/ButtonGroup.js` |
 | PivotTableView (sticky) | `foam3/src/foam/core/reflow/PivotTableView.js` |
 | FileCard (template methods) | `foam3/src/foam/core/fs/fileDropZone/FileCard.js` |
+| **Exemplar** | |
+| Read-only browse view opened from a menu (title, breadcrumb, comics toolbar) | `references/menu-browse-view.js` (this skill) |

@@ -168,7 +168,7 @@ foam.CLASS({
         .addClass(this.myClass())
         .start()
           .addClass(this.myClass('search'))
-          .tag(foam.u2.SearchField, {
+          .tag(foam.u2.ClearableSearchField, {
             data$: this.searchController.data$,
             onKey: true
           })

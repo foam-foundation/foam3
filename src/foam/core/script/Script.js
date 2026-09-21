@@ -673,7 +673,8 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
         return enabled
          &&
           ( status == this.ScriptStatus.UNSCHEDULED ||
-            status == this.ScriptStatus.ERROR );
+            status == this.ScriptStatus.ERROR ||
+            status == this.ScriptStatus.INTERRUPTED );
       },
       code: function() {
         var self = this;

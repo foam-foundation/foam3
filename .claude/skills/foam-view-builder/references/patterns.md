@@ -211,45 +211,6 @@ this.start().addClass('p-semiBold').add(this.label).end()
 
 ### 3.3 Reactive Patterns
 
-#### dynamic() — When Structure Changes
-
-`slot()` re-renders a value; `dynamic()` re-runs a block when any watched property changes, so
-reach for it when the DOM *shape* depends on the value, not just its text.
-
-```javascript
-// all deps on `data`
-this.data.dynamic(function(kind, count) { ... })
-
-// deps across more than one object
-this.dynamic(function(mapping$isDynamic, fileHeaders) { ... })
-```
-
-- Inside the callback use `this.start()`, never `this.E()`, and `self.myClass()` rather than
-  `this.myClass()` — capture `var self = this` outside first.
-- Build by side effect; do not return elements.
-- Do not append a dependency list — the argument names ARE the dependency list.
-
-#### Deep slot watching — the `$` chain
-
-Watching an object does not re-fire when a nested property changes: the outer reference is
-unchanged. Name the whole path so each hop is subscribed.
-
-```javascript
-// WRONG — never re-fires when .currency changes
-function(block) { return block?.flowParent?.value?.currency; }
-
-// CORRECT — every hop is watched
-function(block$flowParent$value$currency) { return block$flowParent$value$currency; }
-```
-
-A `$` suffix on a parameter passes the slot itself rather than its value; read the current value
-off the object (`this.mapping.isDynamic`) when you need it.
-
-#### Event handlers
-
-`this` inside a handler is the event, not the view. Capture `self` in the enclosing scope and
-call `self.method()`.
-
 #### Slots — When Only Values Change (Preferred over dynamic())
 ```javascript
 // Attribute binding via slot
@@ -271,6 +232,42 @@ call `self.method()`.
 .show(this.data.isVisible$)
 .hide(this.data.isHidden$)
 ```
+
+#### Dynamic UI Rendering — when the STRUCTURE changes
+
+- `this.data.dynamic(function(prop1, prop2) {...})` when every argument belongs to `data`
+- Multiple sources: `this.dynamic(function(prop1, prop2) {...})`; a `$` inside a name is a path — `function(mapping$isDynamic, fileHeaders)` watches `mapping.isDynamic` and receives its **value**, the same way the `$` chain below does
+- Every argument arrives as a value, never a slot: FOAM resolves each name with `obj.slot(name)` and applies `.get()` before calling (`foam3/src/foam/lang/Slot.js:566-568, 593-595`; the path split is `FObject.js:792-802`). Use the parameter directly; `this.mapping.isDynamic` reads the same thing a second time
+- Do not pass a trailing property list to `dynamic()` — the argument names already declare the dependencies
+- Do not construct a `SimpleSlot` by hand for a reactive object; `object.dynamic()` already does it
+- Inside the callback use `this.start()`, never `this.E()`, and `self.myClass()` rather than `this.myClass()` — capture `var self = this` outside the callback first
+- Build by side effect; the callback's return value is ignored
+
+#### Deep slot watching — the `$` chain
+
+An expression that depends on a nested property will not re-fire when you watch only the top-level object, because that reference never changes. Name the whole path instead:
+
+```javascript
+// WRONG: function(block) { return block?.flowParent?.value?.currency; }
+// CORRECT:
+function(block$flowParent$value$currency) { return block$flowParent$value$currency || 'USD'; }
+```
+
+FOAM walks `this.block` → `.flowParent` → `.value` → `.currency` and re-fires on a change at any step.
+
+#### Subscribing to a slot from a view
+
+**Never call `slot$.sub(fn)` from `render()` without wrapping it in `this.onDetach(...)`** — the subscription outlives the view and every re-render stacks another handler:
+
+```javascript
+this.onDetach(this.someSlot$.sub(function() { ... }));
+```
+
+Prefer a `listeners:` entry with `on:` (4.3) unless the handler must close over render-time local state.
+
+#### Event handlers
+
+`this` inside a handler is the event, not the view. Capture `self` in the enclosing scope and call `self.method()`.
 
 ### 3.4 Section Configuration
 
@@ -405,7 +402,7 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.6 labelFormatter Patterns (Reactive Labels)
 
-> `labelFormatter` is a ONE-TIME render function — it does not re-fire when the data changes. For a reactive label, map a slot: `data.propName$.map(...)`.
+`labelFormatter` is called **once**, as `el.call(prop.labelFormatter, [data, prop])` (`foam3/src/foam/u2/PropertyBorder.js:173`); the default implementation just adds `prop.label$` (`foam3/src/foam/lang/types.js:1392-1396`). It does not re-run when `data` changes, so a label that has to follow another property adds a slot (`data.prop$.map(...)`) rather than branching on a value. Example: 3.17.
 
 ### 3.7 Property view: Configuration
 
@@ -465,15 +462,61 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.8 DoubleUnitValue (Currency Display)
 
-> For read-only display in a custom view, wrap in `startContext({ controllerMode: VIEW, objData: this.data })`. Both keys are required: `controllerMode` picks the read-only `ValueView` over the editable input, and `objData` is how that view resolves the unit property.
+The default view is `CurrencyView`, a `ModeAltView` (`foam3/src/foam/u2/view/CurrencyView.js:10`). Rendering one read-only inside a custom view needs two things in context:
+
+1. `controllerMode: VIEW` — so the read-only `ValueView` is picked instead of an editable input
+2. `objData` — the parent object, so `ValueView` can resolve the property's `unitPropName` (e.g. `currency`) off it (`foam3/src/foam/u2/view/ValueView.js:43-50`)
+
+```javascript
+startContext({ controllerMode: foam.u2.ControllerMode.VIEW, objData: this.data }).
+  start().add(this.data.OPENING_BALANCE).end().
+endContext()
+```
 
 ### 3.9 ViewCustomizer (Dynamic View by Context)
 
-> Drive it from an `on:` declarative listener rather than a manual `.sub()` — no `isInitialized_` flag and no `pushMenu` refresh hack needed.
+When a context value (the selected tenant, product type, region) decides which properties a screen shows, put the decision in one customizer service rather than in each view:
+
+- `requires` the model and the enum it switches on; `imports` the context value
+- bind with an `on:` declarative listener (3.3), not a manual `.sub()` and an `isInitialized_` flag
+- call the listener once from `init()` so the first render is already correct
+- install it as a CSpec with `lazyClient: false` (a client service; `lazyClient` defaults true, `foam3/src/foam/core/boot/CSpec.js:144-147`) so it is running before the first screen opens
+- no `pushMenu` refresh hack
+
+Flipping `Model.PROPERTY.hidden` mutates one axiom shared by every instance (`.claude/skills/foam-design-patterns/references/u2-views.md:79`); acceptable only as a single application-wide switch — per-record differences go in `visibility: function(...)` (3.13).
 
 ### 3.10 Confirmation Modal from postSet
 
-> Build it from `postSet` plus a `ConfirmationModal`: `preSet` is synchronous and cannot show one. Use a transient `changeReady_` flag to skip the first `postSet` during initial load, and clear it before reverting so the revert does not re-trigger.
+Use `postSet` + `ConfirmationModal` when a property change needs the user to confirm:
+
+- `preSet` is synchronous and cannot show a modal — keep it for non-interactive transforms
+- a transient `changeReady_` flag skips the first `postSet` (initial load). On revert, clear the flag **before** assigning back, or the revert re-triggers the modal
+- **permission caveat**: if the dependent field carries `writePermissionRequired` or restricted visibility, check the user can modify it before showing anything
+
+```javascript
+requires: ['foam.u2.dialog.ConfirmationModal'],
+imports: ['ctrl?'],
+properties: [
+  { class: 'Boolean', name: 'changeReady_', hidden: true, transient: true },
+  {
+    class: 'Enum', of: 'com.example.MyEnum', name: 'myField',
+    postSet: function(old, nu) {
+      if ( ! this.changeReady_ ) { this.changeReady_ = true; return; }
+      if ( old === nu || ! this.dependentArray?.length || ! this.ctrl ) return;
+      var self = this;
+      this.ctrl.add(this.ConfirmationModal.create({
+        title: 'Field Changed', modalStyle: 'WARN',
+        primaryAction: foam.lang.Action.create({ name: 'confirm', label: 'Clear Data',
+          code: function() { self.dependentArray = []; } }),
+        secondaryAction: foam.lang.Action.create({ name: 'cancel', label: 'Revert',
+          code: function() { self.changeReady_ = false; self.myField = old; } })
+      }).add('Changing this field will clear dependent data. Continue?'));
+    }
+  }
+]
+```
+
+**Reference**: `foam3/src/foam/u2/dialog/ConfirmationModal.js`; the framework does the same thing for an action's own `confirmationRequired` at `foam3/src/foam/u2/ActionView.js:199`.
 
 ### 3.11 propertyWhitelist — Replacing Custom DetailViews
 
@@ -836,6 +879,7 @@ Use the right metadata property for each purpose:
 - Use `documentation` for developer/admin notes about the field's purpose
 - Use `placeholder` for input format hints (e.g., `'YYYY-MM-DD'`, `'Enter account number'`)
 - `help` is legacy — only use if you need tooltip-only behavior
+- `externalTransient` hides a property only from the external outputter (`foam3/src/foam/lib/xml/Outputter.java:196`, `foam3/src/foam/lib/ExternalPropertyPredicate.js:16`), not from the browser or `tableColumns` — `ServiceProviderAware.spid` has it (`foam3/src/foam/core/auth/ServiceProviderAware.js:20-24`) and still shows as a column. Use `networkTransient` to keep a value off the client.
 
 ```javascript
 {
@@ -873,6 +917,12 @@ Use the right metadata property for each purpose:
   }
 }
 ```
+
+Three knobs worth knowing before you write around them:
+
+- **Collapsible rows** — `collapseBehaviour` is `NONE` / `ALLOW_COLLAPSE` / `START_COLLAPSED` (`TitledArrayView.js:146`), exported to the rows (`:150`). `START_COLLAPSED` earns its keep past about ten entries.
+- **Row title** — each row shows `value.toSummary()` when the item has one, and falls back to `'New ' + of.model_.label` when it does not (`TitledArrayView.js:85`). To change the fallback, set `label` on the item model; to change the title itself, give the item a `toSummary`.
+- **Choices from a sibling array** — a `ChoiceView` inside `propertyWhitelist` takes `choices$: ExpressionSlot` over `X.data$.dot('items')` (3.12), so the options recompute when the array does.
 
 **Reference**: `foam3/src/foam/u2/view/TitledArrayView.js`
 
@@ -1147,7 +1197,7 @@ DetailView renders in VIEW mode by default. To render editable controls (e.g., C
 
 **Rules**:
 - `rowView_` = the wrapper ViewSpec; `rowView` = the inner body ViewSpec. Easy to confuse
-- Writing to an imported property propagates up through the exporter's slot (see `SKILL.md` Phase 6, "Imports are writable") — the child driving parent state needs no manual slot plumbing
+- Writing to an imported property propagates up through the exporter's slot (see `SKILL.md` Phase 6, "Imports are read-write") — the child driving parent state needs no manual slot plumbing
 - Keep host-specific row policy (what "disabled" means, what a blocked click does) in callbacks the host supplies, not hardcoded in the wrapper
 
 ---
@@ -1232,4 +1282,188 @@ Gotchas:
 - Guard unset values before appending separators — `.add(' | ', value?.toString())` leaves a dangling separator for records that predate the field; the read-only DateTime view renders a `"yyyy-mm-dd hh:mm"` placeholder for null (`RODateTimeView.js:48-49`).
 - Never bake a server-side `toString()` into a persisted String (Java `Date.toString()` = server TZ, unreformattable later). Persist the typed prop, format at render; fixed `SimpleDateFormat("yyyy-MM-dd")` only as a last resort for string payloads.
 
----
+### 3.29 Section Name vs Property Name Collision
+
+A section is an axiom with a `name` (`foam3/src/foam/layout/SectionAxiom.js:9-14`), and a section resolves its members with `cls.getAxiomByName` (`foam3/src/foam/layout/Section.js:165`, `:173`) — one name-keyed map, so section `products` and property `products` fight for the same slot and the section may not render. Use a unique section name (e.g. `binProducts` with `title: 'Products'`).
+
+### 3.30 Conditional Sections
+
+- `RELATIONSHIP sourceProperty` can set `section` to place a DAOBrowser in a specific tab — it is passed as `propertyOverrides` onto the generated property (`foam3/src/foam/dao/Relationship.js:246`)
+- Property-level `visibility` conditionally shows/hides fields within a section (3.13)
+- For conditional tabs: a dedicated section with the toggle property and its dependent fields together
+
+### 3.31 Variant Components — Named Style Presets
+
+**When**: any `SKILL.md` 1.4 answer was yes. A **variant** is a named preset (SUCCESS, ERROR, WARN, ...) the caller picks with one property instead of passing raw colors.
+
+**The pattern** has three layers:
+
+1. **The enum carries the tokens** — each value holds `$token` strings in `color`, `background`, optionally `glyph`. All three are properties every enum already has (`foam3/src/foam/lang/Enum.js:339-376`; `color`/`background` are `String`, default `''`), so a value that leaves one out reads as `''`, not `undefined`. Never hex; tokens come from `foam3/src/foam/u2/CSSTokens.js` (3.2).
+2. **Color properties derive from the enum via `expression`** — every visual knob follows the variant by default and stays overridable per instance.
+3. **`render()` adds a per-variant CSS class** — `this.myClass(this.variant)` emits `.<pkg>-<Class>-WARN`, so a parent can restyle one variant without touching the component.
+
+In-tree examples, read before writing:
+
+| Example | File | Shows |
+|---|---|---|
+| InlineNotificationMessage | `foam3/src/foam/u2/dialog/InlineNotificationMessage.js:19-54, 73-111, 157` | Token enum with `glyph`, icon built as a spec from the variant, manual token resolution with a fallback (`iconColor` reads `type.background`, which no value sets, so the `''` falls through to `\|\| '#FFFFFF'` — `:109`), an `UNSTYLED` value |
+| Button | `foam3/src/foam/u2/tag/Button.js:498-523` | Reactive variant class via `addClass(this.slot(...))`, per-variant `css:` blocks |
+| Tabs | `foam3/src/foam/u2/Tabs.js:75-85` | `cssTokens:` — the theme-level knob, not the per-instance one |
+
+#### 1. The enum (same file, above the class)
+
+```javascript
+foam.ENUM({
+  package: 'myapp.ui',
+  name: 'StatusCardStyle',
+  values: [
+    { name: 'UNSTYLED', color: '$textDefault',    background: '$backgroundSecondary' },
+    { name: 'DEFAULT',  color: '$textBrand',      background: '$primary50' },
+    { name: 'SUCCESS',  color: '$success600',     background: '$success50' },
+    { name: 'ERROR',    color: '$destructive500', background: '$destructive50' },
+    { name: 'WARN',     color: '$warn700',        background: '$warn50' }
+  ]
+});
+```
+
+- Pair tokens the way sibling variants do: `$success600` text on a `$success50` surface. Semantic aliases over raw scales (3.2).
+- Always include `UNSTYLED` (the neutral escape hatch for callers embedding the view on an already-colored surface) and `DEFAULT`. `InlineNotificationStyles` has both (`InlineNotificationMessage.js:23-53`).
+- Extra per-variant data is fine — `InlineNotificationStyles` uses the built-in `glyph:` (`InlineNotificationMessage.js:19-54`). A field that is **not** one of the built-ins (`color`, `background`, `glyph`, `icon`, `borderColor`… — `Enum.js:339-390`) needs a `properties:` entry on the enum with `class: 'String'`; without one the read is `undefined`, and step 5's `returnTokenValue` throws on it.
+
+#### 2. The properties
+
+```javascript
+properties: [
+  {
+    class: 'Enum',
+    of: 'myapp.ui.StatusCardStyle',
+    name: 'variant',
+    value: 'DEFAULT'          // a string is fine; FOAM resolves it to the enum value
+  },
+  {
+    class: 'Color',
+    name: 'accentColor',
+    documentation: 'Defaults to the variant background; caller may override',
+    expression: function(variant) {
+      return ( variant && variant.background ) || '$backgroundDefault';
+    }
+  },
+  {
+    class: 'Color',
+    name: 'iconColor',
+    expression: function(variant) {
+      return ( variant && variant.color ) || '$textDefault';
+    }
+  }
+]
+```
+
+**Why `expression`, not `factory` or `value`**: an expression recomputes when `variant` changes, and stops the moment the caller sets the property — the generated factory only invalidates while the instance has no own value (`foam3/src/foam/lang/Property.js:127-137`, `:670`). That is the "preset with overrides" contract; a `factory` snapshots once and never follows the variant.
+
+**Why `class: 'Color'`**: it is a real property type (`foam3/src/foam/lang/types.js:851`) whose getter resolves a `$token` to a concrete color on read (`types.js:869-878`), so `.style({ color: this.iconColor$ })` and any child's plain color prop get a usable value. The raw token stays reachable as `iconColor$raw` (`types.js:879-883`).
+
+Name the color props for this component's roles (`accentColor` = surface, `iconColor` = foreground; yours might be `labelColor`, `borderColor`).
+
+#### 3. Render — static or reactive variant class
+
+```javascript
+function render() {
+  var self = this;
+  this
+    .addClass(this.myClass(), this.myClass(this.variant))  // static: variant fixed at create time
+    .style({ color: this.iconColor$ })                     // reactive: slot binds fine
+    .start().addClass(this.myClass('label'))
+      .add(this.label$)                                    // reactive text: the slot, not this.label
+    .end();
+}
+```
+
+`myClass(this.variant)` string-concatenates the enum, and `Enum.toString()` returns its `name` (`foam3/src/foam/lang/Enum.js:412`), so the class is `.<pkg>-<Class>-<VARIANT>`. Name the hook in the class `documentation:`. Multiple `.addClass()` arguments stack (`foam3/src/foam/u2/Element2.js:1144-1148`).
+
+**Static vs reactive — decide by who changes `variant`:**
+- Callers set it once at `.tag(...)` time (cards, banners): the static form above.
+- The same element's variant changes at runtime (status transitions, toggles): the static class goes stale. Use the Button form — a derived name property plus a slot-based class (`Button.js:498-505`, `:521-523`):
+
+```javascript
+{ name: 'styleClass_', expression: function(variant) { return variant.name.toLowerCase(); } }
+// render():
+this.addClass(this.slot(function(styleClass_) { return this.myClass(styleClass_); }));
+```
+
+Per-variant rules then live in the `css:` template, one `^<variant>` block each (`^primary` at `Button.js:128`, `^secondary` at `:176`). The two forms compose: keep `.addClass(this.myClass())` for the base class and add the variant class in a second `.addClass(slot)` call.
+
+#### 4. Layout variants (structure, not color)
+
+The presence of a prop can pick the layout — centre the header when there is no icon:
+
+```javascript
+.addClass(this.myClass('header'), this.myClass(this.icon ? 'align-space-between' : 'align-center'))
+.callIf(this.icon, function() { /* icon block */ })
+```
+
+`callIf` runs once (`foam3/src/foam/lang/Fluent.js:33`). Fine for construction-time props like `icon`; wrong for anything that changes later — those take `enableClass(cls, slot)`, `show(slot)` or `add(slot.map(...))`. `enableClass` takes a third `opt_negate` argument that inverts the slot (`foam3/src/foam/u2/Element2.js:1179-1181`), so `enableClass(self.myClass('no-icon'), self.icon$, true)` adds the class exactly when the icon is absent.
+
+#### 5. When a token has to become a concrete color string
+
+`$token` strings work as-is in `css:` templates, and a `class: 'Color'` property resolves them on read (step 2). Resolve by hand only when reading a token from somewhere untyped — an enum field, a plain String prop, an SVG fill, a data URL:
+
+```javascript
+foam.CSS.returnTokenValue(this.type.color || '$textDefault', this.cls_, this.__subContext__)
+```
+
+`returnTokenValue` (`foam3/src/foam/lang/stdlib.js:1368`) passes a non-token string through unchanged — `''` included, which is what a built-in enum field holds when the variant leaves it out (step 1) — and has no null guard (`token.startsWith('$')`, `:1370`). The `|| '$token'` **inside** the call covers both: an empty built-in resolves to the fallback token, and an `undefined` (a custom enum field with no `properties:` declaration, a plain prop nobody set) never reaches `startsWith`. Keep the fallback a token, not a hex value, so the theme still owns it; `InlineNotificationMessage.js:109` falls back after the call with `|| '#FFFFFF'`, which works because white is meant literally there.
+
+`InlineNotificationMessage.js:93-111` uses it in both an `expression` (derive from the variant) and an `adapt` (resolve a caller-supplied token) on untyped props.
+
+#### Theme-overridable knobs — `cssTokens:`
+
+A variant enum lets the **caller** pick a preset per instance. `cssTokens:` lets the **app or theme** retune the palette once for every instance. Pick by who needs to change the value:
+
+| Who changes it | Mechanism |
+|---|---|
+| Caller, per instance, from a named preset | Variant enum (steps 1-3) |
+| App or theme, once, for every instance | `cssTokens:` on the class |
+| Nobody — fixed part of the design | Plain `$globalToken` inline in `css:` |
+| Caller, per instance, boolean on/off | `Boolean` property + `enableClass` (3.24) |
+
+Declare each themable color as a `ColorToken`, never a bare `CSSToken`:
+
+```javascript
+cssTokens: [
+  {
+    class: 'foam.u2.ColorToken',   // required for color knobs — see below
+    name: 'tabActiveColor',
+    value: '$textBrandSecondary'   // may reference another token
+  }
+],
+css: `^active { color: $tabActiveColor; }`
+```
+
+In-tree example: `foam.u2.Tabs` (`foam3/src/foam/u2/Tabs.js:75-85`).
+
+**Why the `class:` line is load-bearing.** Without it the token silently loses dark-mode theming:
+- `getTokenValue` reads `variantKey` off the token axiom and looks up `theme.activeVariants[variantKey]` (`foam3/src/foam/core/theme/customisation/CSSTokenOverrideService.js:114-115`).
+- The `<token>-<variant>` override rows are prepended only when that lookup returned something (`:129-134`); otherwise just the flat override applies.
+- A bare `CSSToken` declares `variantKey` with no value, so it is `''` (`foam3/src/foam/u2/CSSToken.js:51-63`); `ColorToken` sets `value: 'color'` (`foam3/src/foam/u2/ColorToken.js:15-19`).
+
+The miss is invisible in review: both modes render right because `value: '$textBrandSecondary'` chains to a global `ColorToken` that has a dark variant. Only a theme trying to override `tabActiveColor-dark` finds its row ignored.
+
+Two consequences:
+- **Class-scoped, not per instance.** `installInClass` defines the token as a constant on the class (`CSSToken.js:86-97`), so `MyView.create({ tabActiveColor: ... })` does nothing. Per-instance control is a property + `enableClass`. The same name in two classes is two independent defaults.
+- **Derived states are lazy.** `ColorToken` adds `$name$hover` / `$active` / `$disabled` / `$foreground` as getters that run `LIGHTEN` / `FOREGROUND` only when a `css:` string references them (`ColorToken.js:48-82`). A non-color value like `transparent` is safe unless some CSS reads a derived form of it.
+
+**Override from an app**: subclass and redeclare the same `name` — `cssTokens` is an `AxiomArray` of `foam.u2.CSSToken` keyed on `name` (`foam3/src/foam/u2/CSSTokenModelRefinement.js:14-19`).
+
+#### Pluggable child views
+
+A caller-replaceable slot (row renderer, icon, inner content) is a `foam.u2.ViewSpec` property, not a hardcoded class — the forms, the optional-slot shape and `createView` are in `SKILL.md` Phase 5. Variant and ViewSpec compose: the variant can supply the spec. `InlineNotificationMessage`'s `icon` expression returns `{ class: 'foam.u2.tag.CircleIndicator', ... }` built from `type.glyph` (`InlineNotificationMessage.js:73-87`), and `render` does `.tag(self.icon)` (`:157`).
+
+#### Checklist for a new variant component
+
+- [ ] Enum values use `$tokens`, include `UNSTYLED` + `DEFAULT`
+- [ ] Every derived visual prop is `class: 'Color'` with `expression(variant)` — caller-overridable
+- [ ] `myClass(variant)` class added
+- [ ] Reactive bits use slots (`enableClass` / `show` / `addClass(slot)`), not `callIf`
+- [ ] Theme-tunable colors declared in `cssTokens:` with `class: 'foam.u2.ColorToken'`
+- [ ] Pluggable slots declared as `foam.u2.ViewSpec` with a sensible default
+- [ ] Usage reads as one line: `.tag(this.StatusCard, { title: ..., variant: 'WARN', value$: slot })`

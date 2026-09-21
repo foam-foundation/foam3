@@ -209,7 +209,7 @@ foam.CLASS({
       class: 'String',
       name: 'search',
       view: {
-       class: 'foam.u2.SearchField',
+       class: 'foam.u2.ClearableSearchField',
        onKey: true
       },
       preSet: function(o, n) { this.daoCount = 0; return n; }

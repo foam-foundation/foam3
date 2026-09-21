@@ -221,7 +221,7 @@ foam.CLASS({
 
         let proxy = this.ProxyDAO.create();
         let l = () => {
-          if ( this.value && this.value.asDAO ) proxy.delegate = this.value.asDAO();
+          if ( this.value && this.value.asDAO ) proxy.delegate = this.value.asDAO(this.block?.flowName);
         };
 
         this.value$.sub(l);
@@ -399,11 +399,7 @@ foam.CLASS({
       onKey: false,
       preSet: function(o, n) { return n.replaceAll(' ', ''); },
       view: function(_, X) {
-        var data = X.data;
-        return {
-          class: 'foam.parse.auto.SmartView',
-          parser: foam.core.reflow.parser.PropertyParser.create({of: data.dao.of}, X).getSymParser('propertyList')
-        };
+        return { class: 'foam.core.reflow.PropertyListView', of: X.data.dao.of };
       },
       validateObj: function(columns) {
         let a = columns.trim().split(',').map(c => c.trim()).filter(c => c);

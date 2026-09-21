@@ -67,7 +67,6 @@ foam.CLASS({
       name: 'outputFObjects',
       javaCode: `
       HttpServletResponse resp   = x.get(HttpServletResponse.class);
-      PrintWriter         out    = x.get(PrintWriter.class);
       ClassInfo           cInfo  = dao.getOf();
       String              output = null;
 
@@ -75,11 +74,15 @@ foam.CLASS({
 
       HttpParameters p = x.get(HttpParameters.class);
       boolean forceDownload = p != null && "true".equalsIgnoreCase(p.getParameter("download"));
-      resp.setContentType("text/csv");
+      // Set before the first PrintWriter lookup: the servlet writer takes its
+      // charset from the content type when it is created and falls back to
+      // ISO-8859-1, which would turn 'É' into '?'.
+      resp.setContentType("text/csv;charset=utf-8");
       if ( forceDownload ) {
         String filename = cInfo != null ? cInfo.getName() : "export";
         resp.setHeader("Content-Disposition", "attachment; filename=\\"" + filename + ".csv\\"");
       }
+      PrintWriter out = x.get(PrintWriter.class);
 
       if ( fobjects == null || fobjects.size() == 0 ) {
         getLogger().info("csv.output.empty");
@@ -90,8 +93,15 @@ foam.CLASS({
       String colsStr = cols == null ? "all" : String.join(",", cols);
       getLogger().info("csv.output.count", "count", fobjects.size(), "columns", colsStr);
 
+      // UTF-8 byte order mark: Excel decodes a CSV as Windows-1252 unless the
+      // file starts with one. ISO 8601 with a 24h time parses as a date in
+      // every Excel locale; Date.toString() and 'MM/dd/yyyy hh:mm:ss aa' stay
+      // text outside the US and sort lexically.
+      out.print("\\uFEFF");
       CSVOutputterImpl csv = new CSVOutputterImpl.Builder(x)
         .setOf(cInfo)
+        .setSheetsCompatible(true)
+        .setDateFormatter(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
         .build();
 
       if ( cols != null && cols.length > 0 ) csv.setProps(cols);

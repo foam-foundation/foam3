@@ -1,3 +1,5 @@
+<flow name="Debugging" category="DOC/GUIDE" spid="foam" description="Practical debugging guide for JavaScript (Chrome DevTools) and Java (JDPA remote debugging in VS Code and IntelliJ)." keywords="debugging,devtools,jdpa,breakpoints,knowledge"/>
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*

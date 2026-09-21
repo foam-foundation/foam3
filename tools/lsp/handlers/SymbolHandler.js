@@ -15,6 +15,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'fileClassifier',
+      documentation: `The one answer to "is this a FOAM class file". server.js
+        wires its own shared instance so guard and handler cannot disagree and
+        the per-uri memo stays warm; the factory keeps handler-direct tests
+        working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.FileModelCache',
       name: 'cache',
@@ -34,7 +42,7 @@ foam.CLASS({
        * Returns DocumentSymbol[] — outline of class, properties, methods.
        * Uses FileModelCache for class-level info, regex for source positions.
        */
-      if ( ! this.analyzer.isFoamFile(text) ) return [];
+      if ( this.fileClassifier.classify(opt_uri || '', text) !== 'class' ) return [];
 
       var models = this.cache.getModels(opt_uri || '', text);
       var symbols = [];

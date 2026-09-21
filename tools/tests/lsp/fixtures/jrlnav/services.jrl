@@ -1,0 +1,11 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"recipeDAO",
+  "serve":true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.menu.Menu.getOwnClassInfo())
+      .build();
+  """,
+  "client":`{"of":"foam.core.menu.Menu"}`
+})

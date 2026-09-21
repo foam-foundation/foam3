@@ -51,6 +51,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'id',
+      required: true,
       documentation: 'Unique name of the Group.'
     },
     {
@@ -227,6 +228,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
             appConfig.setUrl(url.replaceAll("/$", ""));
             break;
           }
+          if ( foam.util.SafetyUtil.isEmpty(group.getParent()) ) break;
           group = group.findParent(x);
         } while ( group != null );
         return appConfig;
@@ -241,6 +243,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
          */
         if ( ! groupId ) return false;
         if ( this.id === groupId || this.parent === groupId ) return true;
+        if ( ! this.parent ) return false;
         var parent = await groupDAO.find(this.parent);
         if ( parent == null ) return false;
         return parent.isDescendantOf(groupId, groupDAO);
@@ -256,6 +259,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
           SafetyUtil.equals(this.getId(), groupId) ||
           SafetyUtil.equals(this.getParent(), groupId)
         ) return true;
+        if ( SafetyUtil.isEmpty(this.getParent()) ) return false;
         Group parent = (Group) groupDAO.find(this.getParent());
         if ( parent == null ) return false;
         return parent.isDescendantOf(groupId, groupDAO);

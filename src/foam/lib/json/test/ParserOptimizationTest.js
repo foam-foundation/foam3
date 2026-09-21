@@ -37,6 +37,7 @@ foam.CLASS({
       javaCode: `
         testDoubleParser(x);
         testStringParser(x);
+        testPropertyKeyMatching(x);
         testJsonRoundtrip(x);
       `
     },
@@ -155,6 +156,44 @@ foam.CLASS({
         // Backtick delimiter.
         test("bt".equals(parseString(x, "\`bt\`")),
           "StringParser: backtick delimiter");
+      `
+    },
+    {
+      name: 'testPropertyKeyMatching',
+      args: 'foam.lang.X x',
+      javaCode: `
+        // Property names resolve via a hashed exact-span match; these lock in
+        // the cases a prefix tree handled implicitly.
+        JSONParser p = new JSONParser();
+        p.setX(x);
+
+        // one property name is a prefix of another: both resolve, either order
+        foam.core.auth.User u = (foam.core.auth.User) p.parseString(
+          "{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":7,\\"email\\":\\"a@b.c\\",\\"emailVerified\\":true}");
+        test(u != null && "a@b.c".equals(u.getEmail()) && u.getEmailVerified(),
+          "KeyMatch: prefix-pair properties email/emailVerified both resolve");
+        u = (foam.core.auth.User) p.parseString(
+          "{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":7,\\"emailVerified\\":true,\\"email\\":\\"a@b.c\\"}");
+        test(u != null && "a@b.c".equals(u.getEmail()) && u.getEmailVerified(),
+          "KeyMatch: prefix-pair properties resolve in the other order too");
+
+        // unquoted keys, and whitespace between the key and the colon
+        u = (foam.core.auth.User) p.parseString(
+          "{class:\\"foam.core.auth.User\\", id:7, email : \\"a@b.c\\"}");
+        test(u != null && "a@b.c".equals(u.getEmail()),
+          "KeyMatch: unquoted key with whitespace before the colon");
+
+        // unknown property is skipped, later known ones still land
+        u = (foam.core.auth.User) p.parseString(
+          "{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":7,\\"notAProperty\\":\\"zz\\",\\"email\\":\\"a@b.c\\"}");
+        test(u != null && "a@b.c".equals(u.getEmail()),
+          "KeyMatch: unknown property skipped, following properties parse");
+
+        // a key that extends a real name past its span is unknown, not a prefix hit
+        u = (foam.core.auth.User) p.parseString(
+          "{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":7,\\"emailX\\":\\"zz\\",\\"email\\":\\"a@b.c\\"}");
+        test(u != null && "a@b.c".equals(u.getEmail()),
+          "KeyMatch: a longer unknown key does not match its known prefix");
       `
     },
     {

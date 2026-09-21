@@ -77,10 +77,12 @@ foam.CLASS({
 
   documentation: 'A String which needs to be internationalized before being displayed to users.',
 
+  /*
   properties: [
    {
      name: 'getter_',
      value: function(proto, prop, obj, key) {
+       console.log('******* I18N getter_', prop, obj, key);
        if ( foam.lang.I18NString.GETTER__ ) return foam.lang.I18NString.GETTER__(proto, prop, obj, key);
        var msg_ = obj.instance_[key];
        if ( ! foam.i18n || ! foam.xmsg ) return msg_;
@@ -92,7 +94,7 @@ foam.CLASS({
      preSet: function(o, n) {
        var prop = this;
        var name = this.name;
-       if ( ! foam.i18n || ! foam.xmsg ) return n;
+       // if ( ! foam.i18n || ! foam.xmsg ) return n;
        n.apply = function(o, a) {
          var ret = n.call(o, a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
          if ( ! foam.i18n || ! foam.xmsg ) return ret;
@@ -100,13 +102,40 @@ foam.CLASS({
        };
        return n;
      }
-     /*
      value: function(o, n, prop) {
        if ( ! foam.i18n || ! foam.xmsg || ! prop.sourceCls_ ) return n;
        return foam.i18n.Lib.createText(prop.sourceCls_.id + '.' + prop.name, n);
      }
-     */
    }
+          ],
+*/
+
+  methods: [
+    function installInProto(proto) {
+      this.SUPER(proto);
+
+      const desc = Object.getOwnPropertyDescriptor(proto, this.name);
+
+      if ( ! desc ) return;
+
+      const originalGet = desc.get;
+
+      if ( ! originalGet ) return;
+
+      const prop = this;
+
+      Object.defineProperty(proto, this.name, {
+        get: function() {
+          const value = originalGet.call(this);
+          if ( foam.lang.I18NString.GETTER__ ) {
+            foam.lang.I18NString.GETTER__(proto, prop, this, prop.name);
+          }
+          return value;
+        },
+        set: desc.set,
+        configurable: true
+      });
+    }
   ]
 });
 
@@ -911,8 +940,9 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // stored value is already minor units — format's contract
           if ( unitProp )
-            return unitProp.format(unitProp.floatAmount(val), excludeUnit, false);
+            return unitProp.format(val, excludeUnit, false);
         }
         return val;
       }
@@ -920,7 +950,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
       `,
       value: async function(x, val, unitPropName) {
@@ -965,8 +995,10 @@ foam.CLASS({
         const currencyDAO = x.currencyDAO ?? this.__subContext__.currencyDAO;
         if ( unitPropName && currencyDAO ) {
           const unitProp = await currencyDAO.find(unitPropName);
+          // DoubleUnitValue stores major units; format takes minor —
+          // convert at this edge
           if ( unitProp )
-            return unitProp.format(val, excludeUnit, false);
+            return unitProp.format(unitProp.minorAmount(val), excludeUnit, false);
         }
         return val;
       }
@@ -974,7 +1006,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
         toFixed also collapses float noise; the '-' is stripped off -0.00.
       `,
@@ -1398,6 +1430,11 @@ foam.CLASS({
       name: 'label',
       expression: function(name) { return foam.String.labelize(name); }
     },
+    {
+      class: 'I18NString',
+      name: 'plural',
+      expression: function(label) { return foam.String.pluralize(label); }
+    },
     { class: 'Boolean', name: 'abstract' }
   ]
 });
@@ -1729,12 +1766,14 @@ foam.CLASS({
       }
     }
   ]
-})
+});
+
 
 foam.CLASS({
   package: 'foam.lang',
   name: 'TimeUnitValue',
   extends: 'Int',
+
   properties: [
     {
       class: 'String',

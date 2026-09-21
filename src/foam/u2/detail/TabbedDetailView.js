@@ -82,7 +82,7 @@ foam.CLASS({
               // Check available sections with a title
               if ( ( ! availableSections || availableSections.length == 0 ) && availableSectionsWithoutTitle && availableSectionsWithoutTitle.length > 0 ) {
                 availableSections = availableSectionsWithoutTitle;
-              } else {
+              } else if ( ! availableSections || availableSections.length == 0 ) {
                 console.warn('No visible sections in tabbed view for entity: ', self.of ? self.of.id : 'unknown');
               }
 

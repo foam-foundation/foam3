@@ -54,7 +54,7 @@ foam.CLASS({
       class: 'String',
       name: 'query',
       onKey: true,
-      view: 'foam.u2.SearchField',
+      view: 'foam.u2.ClearableSearchField',
       documentation: 'The current search query string.'
     },
     {

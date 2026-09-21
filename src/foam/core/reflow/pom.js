@@ -8,6 +8,7 @@ foam.POM({
     { name: "canvas/pom" },
     { name: "ai/pom" },
     { name: "perf/pom" },
+    { name: "function/pom" },
     { name: "test/pom", flags: "test" }
   ],
   files: [
@@ -18,13 +19,16 @@ foam.POM({
     { name: '../../u2/mlang/Table',    flags: 'js|java' },
     { name: '../../u2/mlang/Pie',      flags: 'js|java' },
     { name: 'AbstractDAOAgent',        flags: 'js' },
+    { name: 'DownloadDAOAgent',        flags: 'js' },
     { name: 'BadBlock',                flags: 'js' },
     { name: 'SetDAOAgent',             flags: 'js' },
     { name: 'DAOResolverMixin',        flags: 'js' },
     { name: 'Check',                   flags: 'js' },
     { name: 'CitationSink',            flags: 'js|java' },
     { name: 'Clock',                   flags: 'js' },
+    { name: 'Flowable',                flags: 'js' },
     { name: 'Console',                 flags: 'js' },
+    { name: 'DependencyScanner',       flags: 'js' },
     { name: 'Block',                   flags: 'js' },
     { name: 'ConsoleZACClient',        flags: 'js' },
     { name: 'DAOCreate',               flags: 'js' },
@@ -35,11 +39,12 @@ foam.POM({
     { name: 'Markdown',                flags: 'js' },
     { name: 'Image',                   flags: 'js' },
     { name: 'Link',                    flags: 'js' },
-    { name: 'DocumentReadWriteView',   flags: 'js' },
     { name: 'DuplicateSink',           flags: 'js|java' },
     { name: 'EditSink',                flags: 'js|java' },
     { name: 'ErrorView',               flags: 'js' },
     { name: 'FlowableTree',            flags: 'js' },
+    { name: 'FlowDocumentCitationView', flags: 'js' },
+    { name: 'FlowDocumentRowView',     flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
@@ -100,6 +105,10 @@ foam.POM({
     { name: 'FilteredDAOAgent',        flags: 'js' },
     { name: 'cells/Cells',             flags: 'js' },
     { name: 'cells/CellsDAOAgent',     flags: 'js' },
-    { name: 'cells/CellsSink',         flags: 'js|java' }
+    { name: 'cells/CellsSink',         flags: 'js|java' },
+    { name: 'TreeCellFormatter',       flags: 'js' }
+  ],
+  javaFiles: [
+    { name: 'ScriptParser' }
   ]
 });

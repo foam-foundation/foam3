@@ -121,7 +121,7 @@ foam.CLASS({
   name: 'UnstyledTableRowComponent',
   extends: 'foam.u2.table.TableComponentView',
 
-  mixins: ['foam.u2.util.ClipboardAccess'],
+  requires: ['foam.u2.util.CopyButton'],
 
   imports: [
     'colWidthUpdated',
@@ -143,16 +143,8 @@ foam.CLASS({
       text-overflow: ellipsis;
     }
     ^copy-button {
-      background: none;
-      border: none;
-      cursor: pointer;
       flex-shrink: 0;
       margin-left: auto;
-      padding: 0 4px;
-    }
-    ^copy-button img {
-      width: 14px;
-      height: 14px;
     }
     /* Only hide the copy button behind hover on devices that can hover;
        on touch devices it stays visible. */
@@ -161,10 +153,6 @@ foam.CLASS({
       ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
     }
   `,
-
-  messages: [
-    { name: 'COPY', message: 'Copy' }
-  ],
 
   properties: [
     {
@@ -200,6 +188,11 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
+        // Recorders/tests address a cell by column. prop.name is only the last
+        // segment of a nested column ('owner.id' and 'id' both give 'id'), so
+        // the hook is the full column name, on the same name= attribute the
+        // context-menu cell and the rest of the row hooks use.
+        .attrs({ name: this.propName })
         .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;
@@ -227,28 +220,17 @@ foam.CLASS({
             prop
           );
           cell.end();
-          wrapper.start('button')
-            .addClass(self.myClass('copy-button'))
-            .attrs({
-              type: 'button',
-              title: self.COPY,
-              'aria-label': self.COPY + ' ' + (prop.columnLabel || prop.label || prop.name)
-            })
-            .on('click', function(e) {
-              // Keep the click from also triggering the row's
-              // open-detail-view handler.
-              e.stopPropagation();
-              e.preventDefault();
+          wrapper.start(self.CopyButton, {
+            label: prop.columnLabel || prop.label || prop.name,
+            textProvider: function() {
               if ( foam.Function.isInstance(prop.copyable) ) {
-                self.copy(String(prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned) ?? ''));
-                return;
+                return prop.copyable.call(objReturned, prop.f ? prop.f(objReturned) : null, objReturned);
               }
               var node = cell.el_();
-              self.copy(node ? node.innerText.trim() : '');
-            })
-            .start('img')
-              .attrs({ src: '/images/copy-icon.svg', alt: '' })
-            .end()
+              return node ? node.innerText.trim() : '';
+            }
+          })
+            .addClass(self.myClass('copy-button'))
           .end();
           wrapper.end();
         })

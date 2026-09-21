@@ -4,11 +4,23 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+/*
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'DetailView',
+  extends: 'foam.u2.detail.SectionedDetailView',
+  deprecated: 'Use SectionedDetailView directly'
+  });
+  */
+
+// TODO: remove once there is a suitable replacement
 foam.CLASS({
   package: 'foam.u2',
   name: 'DetailView',
   extends: 'foam.u2.View',
   mixins: [ 'foam.u2.memento.Memorable' ],
+
+  deprecated: 'Use SectionedDetailView or VerticalDetailView.',
 
   documentation: 'A generic property-sheet style View for editing an FObject.',
 
@@ -21,10 +33,6 @@ foam.CLASS({
   exports: [
     'currentData as data',
     'currentData as objData'
-  ],
-
-  axioms: [
-    foam.pattern.Faceted.create()
   ],
 
   classes: [

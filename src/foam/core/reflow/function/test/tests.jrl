@@ -1,0 +1,5 @@
+p({
+  "class": "foam.core.reflow.function.test.FunctionTest",
+  "id": "FunctionTest",
+  "language": 0
+})

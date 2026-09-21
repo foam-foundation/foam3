@@ -124,6 +124,24 @@ foam.CLASS({
       }
       btn.element_.remove();
       btn.detach();
+
+      // A style with no ^loading rule of its own falls back to the
+      // fill="$backgroundBrand" attribute the spinner sets on its <svg>:
+      // the destructive styles and black must take the
+      // button's own colour instead, as their icons do.
+      for ( const [ style, destructive ] of [ [ 'PRIMARY', true ], [ 'SECONDARY', true ], [ 'TERTIARY', true ], [ 'BLACK', false ] ] ) {
+        var d = this.Button.create({ label: 'go', buttonStyle: style, isDestructive: destructive }, x);
+        d.write();
+        d.loading_ = true;
+        await new Promise(res => setTimeout(res, 100));
+        var dsvg = d.element_.querySelector('svg');
+        var want = getComputedStyle(d.element_).color;
+        var got  = dsvg && getComputedStyle(dsvg).fill;
+        x.test(!! dsvg && got === want,
+          style + (destructive ? '-destructive' : '') + ' spinner takes the button colour ' + want + ', got ' + got);
+        d.element_.remove();
+        d.detach();
+      }
     }
   ]
 });

@@ -441,6 +441,16 @@ foam.CLASS({
     ^text > ^loading svg, ^text:disabled > ^loading svg {
       fill: $buttonPrimaryColor;
     }
+    /* The spinner sets fill on its own <svg> from the backgroundBrand token, so a style
+       with no ^loading rule shows a brand-blue spinner whatever its text
+       colour. These follow the button's colour like their icons do. */
+    ^secondary-destructive ^loading svg, ^tertiary-destructive ^loading svg, ^black ^loading svg,
+    ^secondary-destructive:disabled ^loading svg, ^tertiary-destructive:disabled ^loading svg, ^black:disabled ^loading svg {
+      fill: currentColor;
+    }
+    ^primary-destructive ^loading svg, ^primary-destructive:disabled > ^loading svg {
+      fill: $textOnDestructive;
+    }
   `,
 
   properties: [

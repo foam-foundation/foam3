@@ -92,16 +92,38 @@ foam.CLASS({
       // console.log('CSSTokensTest a.expandCSS (outer)', expanded);
 
       // Regression: Button's secondary border is LIGHTEN($buttonSecondaryColor, -40)
-      // in both modes. A dark variant of +40 resolved to rgb(22.95,..) on the
-      // #0F0F0F dark surface, 8 RGB steps above it, so the border did not show.
+      // in light (#999999 on white). LIGHTEN clamps at grey 150, so on the
+      // #0F0F0F dark surface no amount reaches the 3:1 floor (+40 gave
+      // #171717, -40 gave #363636); dark resolves the semantic strong border.
       var border = '^ { border-color: $buttonSecondaryBorderColor; }';
       var lightX = x.createSubContext({ theme: { activeVariants: {} } });
       var darkX  = x.createSubContext({ theme: { activeVariants: { color: 'dark' } } });
       var b = foam.u2.CSS.create({ code: border }, x);
       x.test(b.expandCSS(this.Button, border, lightX).includes('rgb(153.0000,153.0000,153.0000)'),
         'secondary border on the white surface is #999999');
-      x.test(b.expandCSS(this.Button, border, darkX).includes('rgb(53.5500,53.5500,53.5500)'),
-        'secondary border on the $black500 surface is #363636');
+      x.test(b.expandCSS(this.Button, border, darkX).includes('#6B778C'),
+        'secondary border on the $black500 surface is $borderStrong (#6B778C, 4.24:1)');
+
+      // Regression: the icon shape rule (`^ svg :is(path, ...) { fill: currentColor }`)
+      // must not reach the loading spinner's <path>, or the per-state
+      // `^X ^loading svg { fill }` rules lose to it. A disabled text button
+      // shows the difference: currentColor is $textTertiary, its spinner rule $buttonPrimaryColor.
+      var btn = this.Button.create({ label: 'go', buttonStyle: 'TEXT' }, x);
+      btn.write();
+      btn.attrs({ disabled: true });
+      btn.loading_ = true;
+      await new Promise(res => setTimeout(res, 100));
+      var svg  = btn.element_.querySelector('svg');
+      var path = svg && svg.querySelector('path');
+      x.test(!! path, 'loading spinner rendered a path');
+      if ( path ) {
+        var svgFill  = getComputedStyle(svg).fill;
+        var pathFill = getComputedStyle(path).fill;
+        x.test(pathFill === svgFill,
+          'spinner path inherits the ^loading svg fill (' + svgFill + '), got ' + pathFill);
+      }
+      btn.element_.remove();
+      btn.detach();
     }
   ]
 });

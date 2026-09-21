@@ -45,14 +45,17 @@ foam.CLASS({
       activeModifier: -15
     },
     {
-      // No dark variant: LIGHTEN moves away from the surface for a negative
-      // amount in both modes (colorlib lighten, l <= 200 branch), which is
-      // what the ColorToken hover/active/disabled modifiers rely on. A dark
-      // variant of +40 flipped that and put the border 8 RGB steps above the
-      // $black500 surface (#171717 on #0F0F0F), so it did not show. -40 gives
-      // #999999 on white and #363636 on $black500.
+      // LIGHTEN clamps the grey level to 150 before scaling (colorlib
+      // lighten), so on the $black500 surface it cannot move far: -40 gives
+      // #363636, 1.59:1 on #0F0F0F, under the 3:1 floor for a non-text edge.
+      // Dark uses the semantic strong border ($grey500, 4.24:1) instead.
+      // Light keeps LIGHTEN(-40) = #999999 on white.
       name: 'buttonSecondaryBorderColor',
-      value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) }
+      variantKey: 'color',
+      value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) },
+      variants: {
+        dark: { value: '$borderStrong' }
+      }
     },
     {
       class: 'foam.u2.ColorToken',
@@ -122,8 +125,12 @@ foam.CLASS({
        a solid square, and no selector tells it from unfilled art, so shapes
        without their own fill inside such a group are left alone (25 of the
        57 shipped svg files have one). Art must carry its own fill to be
-       painted; list-view.svg and tree-view.svg were given one. */
-    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])) {
+       painted; list-view.svg and tree-view.svg were given one.
+       The loading spinner is excluded: its <path> carries no fill and takes
+       the per-state colour the ^loading rules below set on its <svg>, and a
+       fill on the path itself would override them (the disabled states
+       differ from currentColor). */
+    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])):not(^loading *) {
       fill: currentColor;
     }
 

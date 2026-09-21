@@ -13,7 +13,7 @@ foam.CLASS({
     Four ways to canonicalize the string values a journal replay parses, timed
     against each other at a chosen cardinality:
 
-      CACHED  foam.util.StringInterner: a per-replay cache in front of String.intern()
+      CACHED  foam.util.StringInterner: intern on second sight through a per-replay cache
       JVM     String.intern() on every call
       LEGACY  the weak ConcurrentHashMap interner this replaced (copied below so
               the comparison stays runnable)

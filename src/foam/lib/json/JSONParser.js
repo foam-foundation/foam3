@@ -28,7 +28,7 @@ foam.CLASS({
       ParserContext x = new ParserContextImpl();
       x.set("X", getX());
       Object interner = getX() == null ? null : getX().get(foam.util.StringInterner.CTX_KEY);
-      if ( interner != null ) x.set(foam.util.StringInterner.CTX_KEY, interner);
+      if ( interner != null ) x.set(foam.util.StringInterner.CTX_KEY, ((foam.util.StringInterner) interner).entry());
       try {
         ps = (StringPStream) ps.apply(defaultClass == null ? parser : ExprParser.create(defaultClass), x);
         return ps == null ? null : (FObject) ps.value();
@@ -42,7 +42,7 @@ foam.CLASS({
       ParserContext x = new ParserContextImpl();
       x.set("X", getX());
       Object interner = getX() == null ? null : getX().get(foam.util.StringInterner.CTX_KEY);
-      if ( interner != null ) x.set(foam.util.StringInterner.CTX_KEY, interner);
+      if ( interner != null ) x.set(foam.util.StringInterner.CTX_KEY, ((foam.util.StringInterner) interner).entry());
 
       try {
         ps = (StringPStream) ps.apply(FObjectArrayParser.create(defaultClass), x);

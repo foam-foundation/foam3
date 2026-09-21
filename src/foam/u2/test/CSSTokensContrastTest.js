@@ -42,7 +42,17 @@ foam.CLASS({
         light: x.createSubContext({ theme: { activeVariants: {} } }),
         dark:  x.createSubContext({ theme: { activeVariants: { color: 'dark' } } })
       };
-      var resolve = (token, mode) => foam.CSS.returnTokenValue('$' + token, cls, modes[mode]);
+      // A token that does not resolve comes back as a comment string, not a
+      // colour; report that as one failed assertion and keep measuring the
+      // rest instead of throwing out of luminance().
+      var resolve = (token, mode) => {
+        var v = foam.CSS.returnTokenValue('$' + token, cls, modes[mode]);
+        if ( ! /^#[0-9a-f]{6}$/i.test(v) ) {
+          x.test(false, `${mode}: ${token} resolves to a hex colour, got ${v}`);
+          return null;
+        }
+        return v;
+      };
 
       // Text sitting on a surface: AA text floor in both modes.
       var textPairs = [
@@ -61,7 +71,9 @@ foam.CLASS({
       ];
       for ( var mode of Object.keys(modes) ) {
         for ( var [ fg, bg ] of textPairs ) {
-          var f = resolve(fg, mode), b = resolve(bg, mode), r = this.contrast(f, b);
+          var f = resolve(fg, mode), b = resolve(bg, mode);
+          if ( ! f || ! b ) continue;
+          var r = this.contrast(f, b);
           x.test(r >= this.AA_TEXT,
             `${mode}: ${fg} ${f} on ${bg} ${b} is ${r.toFixed(2)}:1, floor ${this.AA_TEXT}:1`);
         }
@@ -69,7 +81,9 @@ foam.CLASS({
 
       // Status colours read as text on the dark surface.
       for ( var status of [ 'destructive', 'info', 'warn', 'success' ] ) {
-        var s = resolve(status, 'dark'), bg = resolve('backgroundDefault', 'dark'), r = this.contrast(s, bg);
+        var s = resolve(status, 'dark'), bg = resolve('backgroundDefault', 'dark');
+        if ( ! s || ! bg ) continue;
+        var r = this.contrast(s, bg);
         x.test(r >= this.AA_TEXT,
           `dark: ${status} ${s} on backgroundDefault ${bg} is ${r.toFixed(2)}:1, floor ${this.AA_TEXT}:1`);
       }
@@ -77,15 +91,28 @@ foam.CLASS({
       // Surface ramps keep their order. Light surfaces get darker as they rise
       // and dark surfaces get lighter; the inverse ramp runs the other way in
       // each mode (default is the strongest contrast against the page).
-      var ramp = (names, mode) => names.map(n => this.luminance(resolve(n, mode)));
+      var ramp = (names, mode) => names.map(n => this.luminance(resolve(n, mode) || '#000000'));
       var ordered = (arr, dir) => arr.every((v, i) => i === 0 || (dir > 0 ? v > arr[i - 1] : v < arr[i - 1]));
       var surfaces = [ 'backgroundDefault', 'backgroundSecondary', 'backgroundTertiary' ];
-      var inverse  = [ 'backgroundInverse', 'backgroundInverseSecondary' ];
+      var inverse  = [ 'backgroundInverse', 'backgroundInverseSecondary', 'backgroundInverseTertiary' ];
       x.test(ordered(ramp(surfaces, 'light'), -1), 'light: surfaces darken default < secondary < tertiary');
       x.test(ordered(ramp(surfaces, 'dark'),   1), 'dark: surfaces lighten default < secondary < tertiary');
-      x.test(ordered(ramp(inverse, 'light'),   1), 'light: inverse steps toward the page, default darker than secondary');
-      x.test(ordered(ramp(inverse, 'dark'),   -1),
-        `dark: inverse steps toward the page, default ${resolve('backgroundInverse', 'dark')} lighter than secondary ${resolve('backgroundInverseSecondary', 'dark')}`);
+      x.test(ordered(ramp(inverse, 'light'),   1), 'light: inverse steps toward the page, default < secondary < tertiary');
+      x.test(ordered(ramp(inverse, 'dark'),   -1), 'dark: inverse steps toward the page, default > secondary > tertiary');
+
+      // Ordering alone still passes when the last step crosses to the page's
+      // own side; an inverse surface that is darker than a dark page (or
+      // lighter than a light one) has no contrast left for what sits on it.
+      for ( var mode of Object.keys(modes) ) {
+        var page = resolve('backgroundDefault', mode);
+        for ( var name of inverse ) {
+          var v = resolve(name, mode);
+          if ( ! v || ! page ) continue;
+          var lighter = this.luminance(v) > this.luminance(page), r = this.contrast(v, page);
+          x.test(mode === 'dark' ? lighter : ! lighter,
+            `${mode}: ${name} ${v} stays on the far side of the page ${page} (${r.toFixed(2)}:1)`);
+        }
+      }
     }
   ]
 });

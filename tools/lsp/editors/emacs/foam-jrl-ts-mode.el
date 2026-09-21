@@ -7,7 +7,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: languages tree-sitter foam
-;; URL: https://github.com/kgrgreer/foam3
+;; URL: https://github.com/foam-foundation/foam3
 
 ;;; Commentary:
 

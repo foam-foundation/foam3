@@ -32,8 +32,8 @@ Both use FOAM's reactive slot system under the hood, but serve different purpose
 - [Reactive UI Patterns](ReactiveUI.md) — covers `dynamic()` alongside the other three reactive UI patterns (`slot.dot()`, `slot.map()`, and slot binding via `prop$:`), with a decision framework for choosing between them
 
 Wiki pages you might want to explore:
-- [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

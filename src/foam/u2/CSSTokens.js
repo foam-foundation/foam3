@@ -212,6 +212,14 @@ foam.CLASS({
 
     { name: 'link', value: '$blue200' },
 
+    // Browser-native chrome (scrollbars, checkboxes, date pickers) follows this
+    // via `color-scheme` on :root (AppStyles), so whatever sets the dark
+    // variant on theme.activeVariants (the OS listener in foam.lang.Window
+    // today) also flips native controls; inputs inherit it, no rule of their
+    // own. ColorToken only so the dark variant is consulted; the value is a
+    // keyword, not a colour.
+    { name: 'colorScheme', value: 'light', variants: { dark: { value: 'dark' } } },
+
     // BORDER COLOR
     { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },
     { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$black300' } } },

@@ -44,7 +44,7 @@ The system includes several specialized UI components:
 Reflow essentially provides an interactive programming environment within FOAM applications, similar to how Jupyter notebooks work for Python<cite />. It's particularly useful for data exploration, prototyping, and creating interactive documentation that combines code execution with rich output visualization<cite />. The system integrates deeply with FOAM's DAO system, allowing direct manipulation and visualization of data collections through the console interface<cite />.
 
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

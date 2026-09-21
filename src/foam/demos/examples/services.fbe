@@ -3,13 +3,13 @@
 FOAM services implement business logic and coordinate between DAOs. This example shows the complete service architecture using foam.core.place.PlaceService.
 
 **Source Files:**
-- Interface: [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js)
-- Registration: [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl)
-- Client: [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
-- Implementation: [GooglePlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/google/GooglePlaceService.js)
+- Interface: [PlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/PlaceService.js)
+- Registration: [services.jrl](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/services.jrl)
+- Client: [ClientPlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
+- Implementation: [GooglePlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/google/GooglePlaceService.js)
 
 ## 1. Service Interface Definition
-**File:** [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js)
+**File:** [PlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/PlaceService.js)
 
 Defines the contract that all implementations must follow:
 --
@@ -47,7 +47,7 @@ log('PlaceService interface defined');
 - `type` - Return type specification
 
 ## 2. Service Registration
-**File:** [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl)
+**File:** [services.jrl](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/services.jrl)
 
 Configures the service for client-server communication:
 --
@@ -80,7 +80,7 @@ log('PlaceService registration configured');
 - `HTTPBox` - HTTP transport mechanism
 
 ## 3. Client Implementation
-**File:** [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
+**File:** [ClientPlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
 
 Creates a client-side proxy that automatically forwards method calls to the server:
 --

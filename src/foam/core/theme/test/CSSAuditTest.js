@@ -188,6 +188,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
             logger.info("ignoring console formatter", line);
             continue;
           }
+          // theme.activeVariants maps a variant key to a variant name; the
+          // key named after the colour variant is not a CSS property.
+          if ( line.contains("activeVariants") ) {
+            logger.info("ignoring variant key", line);
+            continue;
+          }
           String property  = matcher.group(1);
           String openQuote = matcher.group(2);
           String value     = matcher.group(3);

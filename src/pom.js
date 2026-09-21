@@ -267,6 +267,7 @@ foam.POM({
     { name: "foam/u2/borders/BrowserSupportBorder",                   flags: "web" },
     { name: "foam/u2/borders/ClearableSearchBorder",                  flags: "web" },
     { name: "foam/u2/borders/NullBorder",                             flags: "web" },
+    { name: "foam/u2/borders/FillBorder",                             flags: "web" },
     { name: "foam/u2/borders/ScrollBorder",                           flags: "web" },
     { name: "foam/u2/borders/CardBorder",                             flags: "web" },
     { name: "foam/u2/borders/TopBorderCard",                          flags: "web" },

@@ -43,6 +43,15 @@ foam.CLASS({
 
   properties: [
     {
+      // Recorders and a11y tools key on the button's name attribute; a plain
+      // Button renders name="" so the icon-only trigger had no stable selector.
+      // One trigger per table row or notification is the common case, so the
+      // object's id goes into the name and each trigger stays addressable;
+      // the 'overlay-' prefix keeps a single selector for "any trigger".
+      name: 'name',
+      expression: function(id) { return id ? 'overlay-' + id : 'overlay'; }
+    },
+    {
       class: 'FObjectArray',
       of: 'foam.lang.FObject',
       name: 'data'

@@ -197,7 +197,7 @@ foam.CLASS({
     // same reason the dark surfaces are not pure black) > $grey400.
     { name: 'backgroundInverse', value: '$black700', variants: { dark: { value: '$grey300' } } },
     { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey400' } } },
-    { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$black300' } } },
+    { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$grey500' } } },
 
     // Destructive buttons keep the light ramp in dark. textOnDestructive is
     // $white in both modes and white on $destructive300 is 3.99:1, under the

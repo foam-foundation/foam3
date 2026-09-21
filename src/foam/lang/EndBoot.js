@@ -298,8 +298,14 @@ foam.CLASS({
   var CLASS   = foam.CLASS;
 
   foam.CLASS = function(m) {
-    if ( ! m.source && globalThis.document && globalThis.document.currentScript ) {
-      m.source = globalThis.document.currentScript.src;
+    if ( ! m.source ) {
+      if ( globalThis.document && globalThis.document.currentScript ) {
+        m.source = globalThis.document.currentScript.src;
+      } else if ( foam.sourceFile ) {
+        // Node: foam.require() records the file it is loading (foam_node.js)
+        // so generated Java can name the model that produced it.
+        m.source = foam.sourceFile;
+      }
     }
 
     if ( ! m.name ) throw new Error("Unnamed model" + m.refines);

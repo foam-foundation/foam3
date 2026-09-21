@@ -93,6 +93,14 @@ foam.POM({
     { name: "fs/FSFileContentDAO",                                                        flags: "java" },
     { name: "fs/Relationships",                                                           flags: "js|java" },
     { name: "fs/Watcher",                                                                 flags: "js|java" },
+    { name: "fs/PollingWatcher",                                                          flags: "js|java" },
+    { name: "fs/SourceChange",                                                            flags: "js|java" },
+    { name: "fs/SourceWatcher",                                                           flags: "java" },
+    { name: "fs/test/RecordingWatcher",                                                   flags: "js&test|java&test" },
+    { name: "fs/test/WatcherTestBase",                                                    flags: "js&test|java&test" },
+    { name: "fs/test/WatcherTest",                                                        flags: "js&test|java&test" },
+    { name: "fs/test/SourceWatcherTest",                                                  flags: "js&test|java&test" },
+    { name: "fs/test/SourceWatcherBenchmark",                                             flags: "js&test|java&test" },
     { name: "fs/fileDropZone/FileDropZone",                                               flags: "web" },
     { name: "fs/fileDropZone/FilePreview",                                                flags: "web" },
     { name: "fs/fileDropZone/FileCard",                                                   flags: "web" },
@@ -145,11 +153,9 @@ foam.POM({
     { name: "menu/AuthorizationStatus",                                                   flags: "js|java" },
     { name: "menu/DAOMenu",                                                               flags: "js" },
     { name: "menu/DAOMenu2",                                                              flags: "web" },
-    { name: "menu/DocumentMenu",                                                          flags: "js" },
     { name: "menu/FlowMenu",                                                              flags: "js" },
     { name: "menu/LimitedEditFlowMenu",                                                     flags: "js" },
     { name: "menu/SeparatorMenu",                                                         flags: "js" },
-    { name: "menu/DocumentFileMenu",                                                      flags: "js|java" },
     { name: "menu/LinkMenu",                                                              flags: "js" },
     { name: "menu/ListMenu",                                                              flags: "js" },
     { name: "menu/Menu",                                                                  flags: "js|java" },
@@ -382,7 +388,6 @@ foam.POM({
     { name: "http/test/DIGBroadcastWebAgentTest",                                         flags: "js&test|java&test" },
     { name: "dao/Operation",                                                              flags: "js|java" },
     { name: "dao/DAOEventRelayService",                                                   flags: "js" },
-    { name: "doc/DocumentationView",                                                      flags: "js" },
     { name: "demo/relationship/CourseType",                                               flags: "js|java" },
     { name: "demo/relationship/Course",                                                   flags: "js|java" },
     { name: "demo/relationship/Professor",                                                flags: "js|java" },
@@ -544,6 +549,7 @@ foam.POM({
     { name: "benchmark/F3FileJournalBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
+//    { name: "benchmark/GzipJournalReplayBenchmark",                   flags: "js&test|java&test" },
     { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
     { name: "notification/NotificationGroupingDAOList",               flags: "web" },
     { name: "analytics/ChangeAnalyticEvent",                          flags: 'js|java'           }
@@ -642,6 +648,8 @@ foam.POM({
     { name: "pool/tests",                                             flags: "test" },
     { name: "cron/tests",                                             flags: "test" },
     { name: "analytics/test/tests",                                   flags: "test" },
-    { name: "boot/test/bootscripts",                                  flags: "test" }
+    { name: "boot/test/bootscripts",                                  flags: "test" },
+    { name: "fs/test/tests",                                          flags: "test" },
+    { name: "fs/test/benchmarks",                                     flags: "test" }
   ]
 });

@@ -224,7 +224,7 @@ Ex.: `"OpsRole", "ReflowRole"`
 The FOAM permission system implements a comprehensive authorization framework with wildcard support, hierarchical naming, and multiple specialized authorizers. [10](#1-9)  The system integrates with both traditional group-based permissions and the advanced CRUNCH capability system for fine-grained access control.
 
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

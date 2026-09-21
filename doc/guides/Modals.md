@@ -58,8 +58,8 @@ The framework registers these components in the build system [20](#0-19) , makin
 There's also a legacy `PopupView` component [21](#0-20)  that appears to be an older implementation with different positioning logic, but the dialog system primarily uses the `Popup` hierarchy described above. The framework also includes specialized modals like `PropertyModal` [22](#0-21)  for property editing scenarios.
 
 Wiki pages you might want to explore:
-- [Framework Initialization and Boot System (kgrgreer/foam3)](/wiki/kgrgreer/foam3#2.1)
-- [User Interface Framework (kgrgreer/foam3)](/wiki/kgrgreer/foam3#4)
+- [Framework Initialization and Boot System (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#2.1)
+- [User Interface Framework (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#4)
 
 ### Citations
 

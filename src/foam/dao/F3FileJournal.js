@@ -216,6 +216,20 @@ foam.CLASS({
           setFailCount(failCount.get());
           if ( interner.calls() > 0 ) getLogger().info("Replay", "intern", interner.summary());
           interner.release();
+          // Records that received a raw copy before their value's second sight
+          // still hold it; a pass over the store swaps those for the canonical.
+          if ( ! interner.canonicals().isEmpty() ) {
+            foam.lang.Agency agency = (foam.lang.Agency) x.get("threadPool");
+            if ( agency != null ) {
+              agency.submit(x, new foam.dao.CanonicalizeStrings.Builder(x)
+                .setDao(dao)
+                .setCanonicals(interner.canonicals())
+                .setJournalName(getFilename())
+                .build(), "canonicalize strings after replay of " + getFilename());
+            } else {
+              getLogger().info("Replay", "canonicalize skipped, no threadPool in context", getFilename());
+            }
+          }
           String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
           // The reload of an unloadable dao replays with no initService to
           // write READY afterwards, so the replay itself hands the status back.

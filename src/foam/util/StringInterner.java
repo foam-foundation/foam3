@@ -78,6 +78,8 @@ public final class StringInterner {
   protected boolean[] canon_;      // slot holds the JVM canonical (true) or a first-sight raw string (false)
   protected int[]     entry_;      // the entry that first-sighted the slot's raw string; a hit from the same entry is not a second sight
   protected long      interned_;   // values sent to the JVM table
+  /** Every canonical this interner created, for the post-replay pass that repairs raw copies stored before a value's second sight. */
+  protected final java.util.ArrayList<String> canonicals_ = new java.util.ArrayList<>();
 
   private static final java.util.concurrent.atomic.AtomicInteger ENTRY_SEQ = new java.util.concurrent.atomic.AtomicInteger();
 
@@ -146,6 +148,7 @@ public final class StringInterner {
         slots[i] = e;
         canon[i] = true;
         interned_++;
+        synchronized ( canonicals_ ) { canonicals_.add(e); }   // second sights are rare next to hits, so a lock here is cheap
       }
       return e;
     }
@@ -160,6 +163,9 @@ public final class StringInterner {
 
   /** Values this interner has sent to the JVM table. */
   public long interned() { return interned_; }
+
+  /** The canonicals this interner created. Survives release(); read after the replay, from one thread. */
+  public java.util.List<String> canonicals() { return canonicals_; }
 
   /**
    * Drops the slot arrays. Each replay thread's JSONParser keeps the replay X,

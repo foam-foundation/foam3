@@ -239,6 +239,24 @@ public class MDAO
     return found;
   }
 
+  /**
+   * Replaces the stored object only if it is still the exact instance the caller
+   * read, under the write lock, so a put that landed in between is never
+   * overwritten. Returns false when the store moved on. Does not touch a
+   * journal: this is the in-memory store alone.
+   */
+  public boolean swap_(X x, FObject expected, FObject replacement) {
+    Object key = getPrimaryKey().get(expected);
+    replacement.freeze();
+    synchronized ( writeLock_ ) {
+      Object  state   = getState();
+      FObject current = (FObject) index_.find(state, key);
+      if ( current != expected ) return false;
+      setState(index_.update(state, current, replacement));
+      return true;
+    }
+  }
+
   public FObject find_(X x, Object o) {
     Object state;
 

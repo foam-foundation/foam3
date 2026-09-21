@@ -117,8 +117,12 @@ foam.CLASS({
       var b = foam.u2.CSS.create({ code: border }, x);
       x.test(b.expandCSS(this.Button, border, lightX).includes('rgb(153.0000,153.0000,153.0000)'),
         'secondary border on the white surface is #999999');
-      x.test(b.expandCSS(this.Button, border, darkX).includes('#6B778C'),
-        'secondary border on the $black500 surface is $borderStrong (#6B778C, 4.24:1)');
+      // Assert the alias, not a hex: $borderStrong's dark value is owned by
+      // CSSTokens and may move; the button must follow it.
+      var strongDark = foam.CSS.returnTokenValue('$borderStrong', foam.u2.CSSTokens, darkX);
+      var darkBorder = b.expandCSS(this.Button, border, darkX);
+      x.test(/^#[0-9a-f]{6}$/i.test(strongDark) && strongDark !== '#999999' && darkBorder.includes(strongDark),
+        'secondary border on the dark surface is $borderStrong (' + strongDark + '), got ' + darkBorder.trim());
 
       // Regression: the icon shape rule (`^ svg :is(path, ...) { fill: currentColor }`)
       // must not reach the loading spinner's <path>, or the per-state

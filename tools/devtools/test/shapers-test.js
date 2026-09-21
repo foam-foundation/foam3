@@ -179,10 +179,11 @@ var loginView = u2('foam.u2.view.LoginView', { data: signIn, childNodes: [ u2('f
 var loginBtn = u2('foam.u2.ActionView', { data: loginView }); loginView.childNodes.push(loginBtn);
 sv = P.findScreenViews(u2('root', { childNodes: [ loginView ] }), env());
 t(sv.record && sv.record.data === signIn && sv.record.view === loginView && sv.table === null, 'findScreenViews: plain record view (LoginView -> SignIn) counts as a record screen');
-// The sign-in screen has no stack, so the root is the controller and its
-// header comes first: ActionViews bound to the controller (an element,
-// DAOUpdateView.js:181,195 shape) must not lock in the plain candidate.
-var navBtn = u2('foam.u2.ActionView', { data: u2('foam.core.u2.ApplicationController', { isEl: true }) });
+// Header buttons are bound to a view or the stack, not a record
+// (startContext({ data: self.stack }) DAOUpdateView.js:181, ({ data: self })
+// LoginView.js:208). One rendered as a sibling before the record view must
+// not lock in the plain candidate: its own stack holds no record.
+var navBtn = u2('foam.u2.ActionView', { data: u2('foam.core.u2.navigation.Stack', { isEl: true }) });
 sv = P.findScreenViews(u2('root', { childNodes: [ u2('foam.u2.Element', { childNodes: [ navBtn ] }), loginView ] }), env());
 t(sv.record && sv.record.data === signIn && sv.record.view === loginView, 'findScreenViews: an ActionView bound to a view before the record view is not the plain candidate');
 var rowsTable = u2('foam.comics.v2.DAOBrowseControllerView', { data: screenDao, config: { dao: screenDao }, childNodes: [ u2('foam.u2.table.UnstyledTableRow', { data: orig }) ] });

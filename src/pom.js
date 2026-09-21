@@ -258,6 +258,7 @@ foam.POM({
     { name: "foam/u2/CSSTokens",                                      flags: "js|java" },
     { name: "foam/u2/parse/CSSParser",                                flags: "js" },
     { name: "foam/u2/test/CSSTokensJSTest",                           flags: "js&test|java&test" },
+    { name: "foam/u2/test/CSSStatusTokensJSTest",                     flags: "js&test|java&test" },
     { name: "foam/u2/test/CSSTokensContrastTest",                     flags: "js&test|java&test" },
     { name: "foam/u2/test/CSSTokenOverrideVariantJSTest",              flags: "js&test|java&test" },
     { name: "foam/u2/test/MenuHookNamesJSTest",                       flags: "js&test|java&test" },

@@ -12,15 +12,15 @@ foam.ENUM({
     {
       name: 'ACTIVE',
       label: 'Active',
-      color: '$success700',
-      background: '$success50',
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground',
       documentation: 'Junction is satisfied and agent may act as entity.'
     },
     {
       name: 'DISABLED',
       label: 'Disabled',
-      color: '$destructive500',
-      background: '$destructive50',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
       documentation: 'Junction is unsatisfied disabling agent from acting as entity.'
     },
     {

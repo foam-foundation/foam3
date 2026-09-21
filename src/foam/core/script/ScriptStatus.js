@@ -20,7 +20,7 @@ foam.ENUM({
       label: 'Unscheduled',
       ordinal: 1,
       color: '$textSecondary',
-      background: '$backgroundTertiary',
+      background: '$statusNeutralBackground',
     },
     {
       name: 'RUNNING',
@@ -33,8 +33,8 @@ foam.ENUM({
       name: 'ERROR',
       label: 'Error',
       ordinal: 3,
-      color: '$destructive500',
-      background: '$destructive50'
+      color: '$statusDangerText',
+      background: '$statusDangerBackground'
     },
     {
       name: 'INTERRUPTED',

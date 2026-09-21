@@ -14,7 +14,7 @@ foam.ENUM({
     { name: 'DOWN',  label: 'down',  color: '$grey500' },
     { name: 'MAINT', label: 'maint', color: '$orange500' },
     { name: 'UP',     label: 'up',    color: '$success500' },
-    { name: 'FAIL',   label: 'fail',  color: '$destructive500' },
+    { name: 'FAIL',   label: 'fail',  color: '$statusDangerText' },
     { name: 'DRAIN', label: 'drain', color: '$orange500' }
   ]
 });

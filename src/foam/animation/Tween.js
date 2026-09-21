@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.graphics',
+  package: 'foam.animation',
   name: 'Tween',
 
   documentation: `
@@ -17,9 +17,10 @@ foam.CLASS({
     Tie a tween to its owner with owner.onDetach(tween): detaching the owner
     cancels the tween, so a view torn down mid-animation stops scheduling frames.
 
-    Sits beside foam.animation (Animation/Interp): that pair animates an object's
+    Sits beside Animation/Interp in this package: that pair animates an object's
     properties by diffing before/after states; Tween is one value over time that
-    the caller maps onto anything, with an injectable clock for tests.
+    the caller maps onto anything, with an injectable clock for tests. A later
+    change can rebuild Animation on top of Tween so both share one clock.
   `,
 
   constants: {
@@ -28,7 +29,7 @@ foam.CLASS({
 
   properties: [
     { class: 'Int', name: 'duration', factory: function() { return this.DEFAULT_DURATION; }, documentation: 'Milliseconds.' },
-    { name: 'ease', factory: function() { return foam.graphics.Tween.outCubic; }, documentation: 'function(t) -> eased t, both in 0..1.' },
+    { name: 'ease', factory: function() { return foam.animation.Tween.outCubic; }, documentation: 'function(t) -> eased t, both in 0..1.' },
     { class: 'Function', name: 'onUpdate', value: function(v) {} },
     { class: 'Function', name: 'onDone',   value: function() {} },
     { name: 'schedule', factory: function() { return function(cb) { requestAnimationFrame(cb); }; } },

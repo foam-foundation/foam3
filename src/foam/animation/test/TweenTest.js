@@ -5,11 +5,11 @@
  */
 
 foam.CLASS({
-  package: 'foam.graphics.test',
+  package: 'foam.animation.test',
   name: 'TweenTest',
   extends: 'foam.core.test.JSTest',
 
-  requires: [ 'foam.graphics.Tween' ],
+  requires: [ 'foam.animation.Tween' ],
 
   documentation: 'A tween drives onUpdate from 0 to 1 over its duration on the injected scheduler, ends exactly at 1, and can be cancelled.',
 

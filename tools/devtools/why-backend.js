@@ -76,9 +76,11 @@
     // No controllerMode in scope is what FOAM turns into CREATE (Element2.js:569).
     var mode = t.mode || null, modeName = mode || 'CREATE';
 
+    var sectionAxioms = ( foam.layout && foam.layout.SectionAxiom ) ? cls.getAxiomsByClass(foam.layout.SectionAxiom) : [];
+    var listed = W.listedProps(sectionAxioms);
     var propAxioms = cls.getAxiomsByClass(foam.lang.Property);
     var properties = propAxioms.map(function(p) {
-      try { return W.propGate(p, modeName, data, env); }
+      try { return W.propGate(p, modeName, data, env, listed[p.name] === true); }
       catch (e) { return W.errGate(p, P.str(e.message, 80)); }
     });
 
@@ -106,12 +108,10 @@
     var sectionOf = {}, actionSectionOf = {};
     propAxioms.forEach(function(p) { try { sectionOf[p.name] = p.section || null; } catch (e) {} });
     actionAxioms.forEach(function(a) { try { actionSectionOf[a.name] = a.section || null; } catch (e) {} });
-    var sections = ( foam.layout && foam.layout.SectionAxiom )
-      ? cls.getAxiomsByClass(foam.layout.SectionAxiom).map(function(s) {
-          return W.sectionGate(s, data, env, properties, function(n) { return sectionOf[n]; },
-                               actions, function(n) { return actionSectionOf[n]; });
-        })
-      : [];
+    var sections = sectionAxioms.map(function(s) {
+      return W.sectionGate(s, data, env, properties, function(n) { return sectionOf[n]; },
+                           actions, function(n) { return actionSectionOf[n]; });
+    });
 
     var cache = authCache(auth), permissions = [];
     if ( cache ) Object.keys(cache).forEach(function(k) { permissions.push({ perm: k, result: env.perm(k) }); });

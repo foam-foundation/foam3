@@ -37,10 +37,11 @@
   // extension adds to the page, and it never outlives the hover; box is the
   // handle to remove it.
   // The box expires by itself TTL_MS after the last highlight call: the panel
-  // repeats the call once a second while a row stays hovered, so every way a
-  // hover can end without a mouseleave (a row re-rendered under the pointer
-  // by the poll or a toggle, the panel hidden or torn down) ends the outline
-  // too, with no cleanup message needed for each path.
+  // repeats the call once a second while a row stays hovered, so a panel that
+  // is hidden or torn down ends the outline by going quiet. A uid that no
+  // longer resolves (element re-rendered on the page) clears it on the spot
+  // below. A panel row re-rendered under the pointer is the panel's to notice
+  // (panel.js syncHover): from here that uid still resolves.
   var box = null, expiry = null, TTL_MS = 2500;
   function overlay() {
     if ( box && box.isConnected ) return box;

@@ -21,7 +21,7 @@
   }
 
   exports.explainProp = function(g) {
-    if ( g.hidden ) return 'hidden: true — dropped before the visibility ladder runs (Section.js:178)';
+    if ( g.hidden && ! g.listed ) return 'hidden: true — dropped before the visibility ladder runs (Section.js:178)';
     if ( g.final === 'ERR' ) return g.base.source + ' fn threw: ' + g.base.err;
     if ( g.final === 'pending' ) return 'permission check pending';
     if ( g.perm && g.perm.rw.result === null ) return 'no auth in scope → HIDDEN (Element2.js:1888)';
@@ -36,6 +36,7 @@
     } else if ( g.perm && g.perm.mode === 'RW' && ! g.perm.rw.result && g.perm.allowCreate ) {
       parts.push(g.perm.rw.name + ' denied but write not gated — no effect');
     }
+    if ( g.hidden ) parts.unshift('hidden: true, but a section lists it, so it renders (Section.js:161-175)');
     return parts.join('; ');
   };
 

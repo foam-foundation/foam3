@@ -52,12 +52,18 @@
   // still renders and names the error. Same shape as propGate's result;
   // reads only the name, since any other getter may be what threw.
   exports.errGate = function(prop, msg) {
-    return { name: prop.name, label: prop.name, hidden: false,
+    return { name: prop.name, label: prop.name, hidden: false, listed: false,
              base: { source: 'default', kind: 'value', mode: 'ERR', err: msg }, clamp: 'ERR', perm: null, final: 'ERR' };
   };
 
-  exports.propGate = function(prop, modeName, data, env) {
-    var gate = { name: prop.name, label: prop.label || prop.name, hidden: !! prop.hidden,
+  // listed: a SectionAxiom names this property in its explicit `properties`
+  // list. Section.js keeps every listed property (:161-175) and drops
+  // `hidden: true` only when it collects a section's members by their
+  // `section` (:178); AbstractSectionedDetailView.js:134 does the same for
+  // the leftover section. So hidden decides the outcome only when nothing
+  // lists the property.
+  exports.propGate = function(prop, modeName, data, env, listed) {
+    var gate = { name: prop.name, label: prop.label || prop.name, hidden: !! prop.hidden, listed: !! listed,
                  base: null, clamp: null, perm: null, final: null };
     var modeProp = MODE_PROP[modeName];
     var source = prop.visibility ? 'visibility' : ( modeProp && prop[modeProp] ) ? modeProp : 'default';
@@ -103,12 +109,11 @@
     else if ( ! gate.perm ) gate.ladder = gate.clamp;
     else if ( gate.perm.mode === 'pending' ) gate.ladder = 'pending';
     else gate.ladder = exports.combine(gate.clamp, gate.perm.mode);
-    // `hidden: true` is filtered out before any of the above runs
-    // (Section.js:178, AbstractSectionedDetailView.js:134), so the field is
-    // HIDDEN whatever the ladder says. ladder is kept for sectionGate: a
-    // section's own "any property visible" check does not filter hidden
-    // (SectionAxiom.js:124-135).
-    gate.final = gate.hidden ? 'HIDDEN' : gate.ladder;
+    // An unlisted `hidden: true` is filtered out before any of the above
+    // runs, so the field is HIDDEN whatever the ladder says. ladder is kept
+    // for sectionGate: a section's own "any property visible" check does not
+    // filter hidden (SectionAxiom.js:124-135).
+    gate.final = ( gate.hidden && ! gate.listed ) ? 'HIDDEN' : gate.ladder;
     return gate;
   };
 
@@ -156,6 +161,23 @@
       enabled:   { fn: eFn, perms: ePerms, running: !! running, value: enabled },
       confirm:   { fn: cFn, perms: cPerms }
     };
+  };
+
+  // The property names that some section lists explicitly (Section.js:161):
+  // string entries and { name } entries, minus dotted paths into another
+  // class. `properties` is read only when the axiom carries its own list
+  // (hasOwnProperty, as Section.js:161 and SectionAxiom.js:108 test it).
+  exports.listedProps = function(sectionAxioms) {
+    var out = {};
+    ( sectionAxioms || [] ).forEach(function(s) {
+      var list = null;
+      try { if ( Object.prototype.hasOwnProperty.call(s, 'properties') && Array.isArray(s.properties) ) list = s.properties; } catch (e) {}
+      ( list || [] ).forEach(function(p) {
+        var n = typeof p === 'string' ? p : ( p && p.name );
+        if ( n && n.indexOf('.') < 0 ) out[n] = true;
+      });
+    });
+    return out;
   };
 
   // The gates that belong to a section: its explicit name list (`properties`

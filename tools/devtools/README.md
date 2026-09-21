@@ -99,8 +99,11 @@ record is opened, even though the hidden table stays in the DOM);
    visibility *function*'s result is clamped; `visibility: 'RW'` stays RW),
    `user.rw.salary denied → RO`, `user.ro.salary denied → HIDDEN`.
    Read-write fields are collapsed under "and N read-write". A field with
-   `hidden: true` is HIDDEN whatever its ladder says — FOAM drops it before
-   the ladder runs — and is marked `(hidden axiom)`. A record with no auth
+   `hidden: true` is marked `(hidden axiom)` and is HIDDEN whatever its
+   ladder says — FOAM drops it before the ladder runs (Section.js:178) —
+   unless a section names it in an explicit `properties` list, which keeps
+   it (Section.js:161-175); then the ladder decides and the reason opens
+   with `hidden: true, but a section lists it`. A record with no auth
    in its context reads `no auth in scope → HIDDEN` on every
    permission-gated field, which is what FOAM does (Element2.js:1888); an
    action's permission check is skipped in that case (Action.js:218), and a
@@ -119,8 +122,10 @@ record is opened, even though the hidden table stays in the DOM);
 5. **Sections** — only for classes that declare sections: `isAvailable`, the
    `<cls>.section.<name>` permission, and "all N fields HIDDEN, all M actions
    unavailable" (a section shows when one of its fields is visible **or** one
-   of its actions is available, SectionAxiom.js:157-164). The ✓ folds all
-   three; `…` while an action's async `isAvailable` could still turn it on.
+   of its actions is available, SectionAxiom.js:157-164). The mark folds all
+   three like an action's: ✗ when one has settled false, else `…` while any
+   is still pending (an async `isAvailable`, a permission, an action's async
+   `isAvailable` that could still turn the section on), else ✓.
 6. **Permissions checked by the page or this panel (N, M denied)** — every
    permission string the record's cached auth service has been asked, by the
    app or by this replay, ✓/✗/…, plus a copy box with the denied ones.
@@ -166,8 +171,11 @@ name and size — drawn by the page, since Chrome gives extensions no overlay
 API; it is the only DOM the extension adds). It goes away on mouse-out, on
 leaving the Tree tab, when the panel closes — and by itself 2.5 s after the
 panel last repeated the hover (once a second while a row stays hovered), so
-a row re-rendered under the pointer by the poll or a toggle, which fires no
-mouseleave, cannot leave it behind.
+a panel that is hidden or torn down cannot leave it behind. A row
+re-rendered under the pointer by the poll or a toggle fires no mouseleave;
+before each repeat the panel checks that the row which started the hover is
+still in its DOM and, if not, follows the row now under the pointer or
+clears the outline.
 Clicking a row selects the element: the sidebar shows its chain, the Why tab
 explains its record, and `$v` / `$d` point at it — DevTools stays on this
 panel. **Reveal in Elements** jumps the Elements tab to the selected

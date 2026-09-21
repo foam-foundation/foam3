@@ -113,11 +113,14 @@ function renderWhy(w) {
       : el('div', 'muted', 'no actions')));
 
   if ( w.sections.length ) {
-    // the tick folds every gate the why column can name, anyVisible included
+    // The mark folds the three gates the why column names — isAvailable,
+    // section permission, anyVisible — the way permMark does for an action:
+    // a settled false (or a throw) is ✗, else any pending one is …, else ✓.
     root.appendChild(section('sections', 'Sections', table([ 'section', 'available', 'why' ], w.sections.map(function(s) {
-      var ok = s.available === true && ( ! s.perm || s.perm.result === true ) && s.anyVisible !== false;
-      var pending = s.available === 'pending' || ( s.perm && s.perm.result === 'pending' ) || s.anyVisible === 'pending';
-      return [ s.name, ok ? ( pending ? '…' : '✓' ) : '✗', E.explainSection(s) ];
+      var gates = [ s.available, s.perm ? s.perm.result : true, s.anyVisible === null ? true : s.anyVisible ];
+      var fail = gates.some(function(v) { return v !== true && v !== 'pending'; });
+      var pending = gates.some(function(v) { return v === 'pending'; });
+      return [ s.name, fail ? '✗' : pending ? '…' : '✓', E.explainSection(s) ];
     }))));
   }
 
@@ -157,7 +160,8 @@ function renderTree() {
     var row = el('div', 'node' + ( r.uid === selectedRow ? ' selected' : '' ) + ( r.shown ? '' : ' hidden' ) + ( r.wrapper ? ' wrapper' : '' ));
     row.style.paddingLeft = ( 4 + r.depth * 12 ) + 'px';
     row.title = 'click to select — sidebar, Why and $v follow; hover outlines it on the page';
-    row.addEventListener('mouseenter', function() { highlight(r.uid); });
+    row.__uid = r.uid;
+    row.addEventListener('mouseenter', function() { highlight(r.uid, row); });
     row.addEventListener('mouseleave', function() { highlight(null); });
     var tog = el('span', 'tog', r.hasKids ? ( r.open ? '▾' : '▸' ) : '');
     if ( r.hasKids ) {
@@ -217,15 +221,25 @@ function selectRow(uid) {
 // Hover outline on the page; null clears it. Drawn by the page (see
 // tree-backend.js) because Chrome gives extensions no overlay API. The page
 // drops the box by itself unless it hears again within its TTL, so the
-// heartbeat below is what keeps the outline up while a row stays hovered —
-// and what ends it when the hovered row is re-rendered away (poll, toggle)
-// or the panel is hidden, neither of which fires a mouseleave.
-var hovered = null;
-function highlight(uid) {
-  hovered = uid;
+// heartbeat below is what keeps the outline up while a row stays hovered,
+// and the panel being hidden or torn down ends it by going quiet.
+// A re-render (poll, toggle) replaces the rows without a mouseleave, so the
+// row that set `hovered` can be gone while the pointer sits on another row
+// or on none; the page cannot tell, its element is still there. syncHover
+// re-reads the hover from the panel DOM before each heartbeat: the row under
+// the pointer, if any, else clear.
+var hovered = null, hoveredRow = null;
+function highlight(uid, row) {
+  hovered = uid; hoveredRow = row || null;
   rpc('highlight', [ JSON.stringify(uid) ]);
 }
+function syncHover() {
+  if ( hovered === null || ( hoveredRow && hoveredRow.isConnected ) ) return;
+  var row = document.querySelector('.node:hover');
+  highlight(row ? row.__uid : null, row);
+}
 setInterval(function() {
+  syncHover();
   if ( hovered !== null && document.visibilityState === 'visible' ) rpc('highlight', [ JSON.stringify(hovered) ]);
 }, 1000);
 

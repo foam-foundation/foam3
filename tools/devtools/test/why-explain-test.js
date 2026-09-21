@@ -38,7 +38,9 @@ t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'n
 t(E.explainSection(W.sectionGate({ name: 'S', actions: [ 'no' ] }, data, env(), [], null, [ noAct ])) === 'all 1 actions unavailable', 'explainSection: no fields -> only the actions clause');
 var pendAct = W.actionGate({ name: 'maybe', availablePermissions: [ 'p' ] }, data, env({}), false);
 t(E.explainSection(W.sectionGate({ name: 'S', properties: [ 'a' ], actions: [ 'maybe' ] }, data, env(), [ { name: 'a', ladder: 'HIDDEN', final: 'HIDDEN' } ], null, [ pendAct ])) === 'no field visible; an action\'s isAvailable is pending', 'explainSection: pending action');
-t(E.explainProp(W.propGate(prop({ name: 'a', hidden: true }), 'EDIT', data, env())) === 'hidden: true — dropped before the visibility ladder runs (Section.js:178)', 'explainProp: hidden axiom is the whole answer');
+t(E.explainProp(W.propGate(prop({ name: 'a', hidden: true }), 'EDIT', data, env())) === 'hidden: true — dropped before the visibility ladder runs (Section.js:178)', 'explainProp: unlisted hidden axiom is the whole answer');
+t(E.explainProp(W.propGate(prop({ name: 'a', hidden: true }), 'EDIT', data, env(), true)) === 'hidden: true, but a section lists it, so it renders (Section.js:161-175)', 'explainProp: listed hidden axiom names the section as the reason it shows');
+t(E.explainProp(W.propGate(prop({ name: 'a', hidden: true, visibility: 'RO' }), 'EDIT', data, env(), true)) === 'hidden: true, but a section lists it, so it renders (Section.js:161-175); visibility → RO', 'explainProp: listed hidden axiom, then the ladder');
 function noAuth() { var e = env(); e.perm = function() { return null; }; return e; }
 t(E.explainProp(W.propGate(prop({ name: 'a', writePermissionRequired: true }), 'EDIT', data, noAuth())) === 'no auth in scope → HIDDEN (Element2.js:1888)', 'explainProp: no auth');
 t(E.explainAction(W.actionGate({ name: 'x', availablePermissions: [ 'p.q' ] }, data, noAuth(), false)) === '', 'explainAction: no auth -> nothing to explain, the check is skipped');

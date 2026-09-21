@@ -108,12 +108,25 @@ t(s.fields === 2 && s.anyVisible === false, 'sectionGate: explicit properties al
 s = W.sectionGate({ name: 'Main' }, data, env(), gates, function(n) { return n === 'c' ? 'Main' : 'Other'; });
 t(s.fields === 1 && s.anyVisible === true, 'sectionGate: members by property.section');
 
-// hidden: true is dropped before the ladder (Section.js:178), but the section's
-// own check runs the ladder on it anyway (SectionAxiom.js:124-135)
+// hidden: true is dropped before the ladder when a section collects it by
+// `section` (Section.js:178), but the section's own check runs the ladder
+// on it anyway (SectionAxiom.js:124-135)
 g = W.propGate(prop({ name: 'secret', hidden: true }), 'EDIT', data, env());
-t(g.hidden === true && g.ladder === 'RW' && g.final === 'HIDDEN', 'propGate: hidden axiom -> final HIDDEN, ladder kept (RW)');
+t(g.hidden === true && g.listed === false && g.ladder === 'RW' && g.final === 'HIDDEN', 'propGate: unlisted hidden axiom -> final HIDDEN, ladder kept (RW)');
 s = W.sectionGate({ name: 'S', properties: [ 'secret' ] }, data, env(), [ g ]);
 t(s.anyVisible === true, 'sectionGate: a hidden property with a visible ladder still keeps its section available (FOAM does not filter hidden there)');
+// a section that lists the property keeps it, hidden or not (Section.js:161-175)
+g = W.propGate(prop({ name: 'secret', hidden: true }), 'EDIT', data, env(), true);
+t(g.hidden === true && g.listed === true && g.final === 'RW', 'propGate: listed hidden axiom -> final follows the ladder');
+g = W.propGate(prop({ name: 'secret', hidden: true, visibility: 'RO' }), 'EDIT', data, env(), true);
+t(g.final === 'RO', 'propGate: listed hidden axiom still answers to visibility');
+// listedProps: the explicit names across all sections, own-property only
+function sec(props) { var s = { name: 'S' }; if ( props !== undefined ) s.properties = props; return s; }
+var L = W.listedProps([ sec([ 'a', { name: 'b' }, 'x.y', { name: 'p.q' }, null ]), sec(), sec([ 'c' ]) ]);
+t(L.a === true && L.b === true && L.c === true && ! L.x && ! L.y && ! L.q && Object.keys(L).length === 3, 'listedProps: strings and { name } entries, dotted paths and blanks skipped');
+var inherited = Object.create({ properties: [ 'z' ] }); inherited.name = 'S';
+t(Object.keys(W.listedProps([ inherited ])).length === 0, 'listedProps: an inherited `properties` is not the axiom\'s own list (hasOwnProperty, as Section.js:161)');
+t(Object.keys(W.listedProps(null)).length === 0 && Object.keys(W.listedProps([ { name: 'S', properties: 'a' } ])).length === 0, 'listedProps: no axioms / non-array list -> nothing');
 
 // actions are folded into the section's availability (SectionAxiom.js:137-164)
 var okAct = W.actionGate({ name: 'go' }, data, env(), false);

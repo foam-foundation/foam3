@@ -2,7 +2,7 @@ p({
   class:"foam.core.menu.Menu",
   id:"analytics",
   label: "Analytics",
-  themeIcon: "reports",
+  themeIcon: "analytics",
   keywords: ["analytics","candlestick","chart","performance"],
   handler: {
     class:"foam.core.menu.SubMenu"

@@ -46,14 +46,23 @@ foam.CLASS({
       await settle();
       x.test(val() === '#202020', "theme-less row's dark variant applies in dark mode");
 
+      // Theme before variant: a row the current theme wrote for itself, even
+      // with no dark value, outranks a theme-less dark row. That keeps the
+      // rule every theme-scoped row already had over every '' row.
       await tokenDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({
-        theme: 'test-theme', source: 'surface', variants: { dark: '#2B2B2B' }
+        theme: 'test-theme', source: 'surface', target: '#AAAAAA'
       }, x));
       await settle();
-      x.test(val() === '#2B2B2B', "current theme's dark row wins over the theme-less one");
+      x.test(val() === '#AAAAAA', "current theme's plain row wins over the theme-less dark row");
+
+      await tokenDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({
+        theme: 'test-theme', source: 'surface', target: '#AAAAAA', variants: { dark: '#2B2B2B' }
+      }, x));
+      await settle();
+      x.test(val() === '#2B2B2B', "current theme's dark row wins over its plain row and the theme-less one");
 
       theme.activeVariants = {};
-      x.test(val() === '#FFFFFF', 'light mode ignores both dark rows');
+      x.test(val() === '#AAAAAA', "light mode ignores both dark rows and takes the theme's plain row");
     }
   ]
 });

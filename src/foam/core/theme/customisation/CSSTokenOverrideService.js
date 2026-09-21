@@ -120,25 +120,24 @@ foam.CLASS({
          * fullString = cls.id + tokenName eg. "foam.somePackage.someClass.token1"
          * variantToCheck = current active variant for the variantKey of the token
          */
-        var args = [
-          [themeID, fullString],
-          [themeID, tokenName],
-          ['', fullString],
-          ['', tokenName]
-        ];
-        if ( variantToCheck ) {
-          // Variant rows (source-dark, or variants: { dark }) for the current
-          // theme first, then the theme-less ('') rows, then the plain rows.
-          // A theme-less variant row was skipped before this: the loop never
-          // asked for ['', 'token-dark'], so a global dark override did nothing.
-          args = [
-            [themeID, fullString + '-' + variantToCheck],
-            [themeID, tokenName + '-' + variantToCheck],
-            ['', fullString + '-' + variantToCheck],
-            ['', tokenName + '-' + variantToCheck],
-            ...args
-          ];
-        }
+        // Theme is the primary axis, variant the secondary: every row the
+        // current theme wrote for itself, with or without a variant value,
+        // outranks every theme-less ('') row. Within one theme the variant
+        // row (source-dark, from variants: { dark }) beats the plain row.
+        // The '' variant rows were not looked up at all before this: the loop
+        // never asked for ['', 'token-dark'], so a global dark override did
+        // nothing.
+        var scopes = themeID ? [themeID, ''] : [''];
+        var args   = [];
+        scopes.forEach(scope => {
+          if ( variantToCheck ) {
+            args.push(
+              [scope, fullString + '-' + variantToCheck],
+              [scope, tokenName + '-' + variantToCheck]
+            );
+          }
+          args.push([scope, fullString], [scope, tokenName]);
+        });
         for ( var i = 0 ; i < args.length && ! result ; i ++) {
           result = this.tokenValueHelper.apply(self, args[i]);
           if ( result ) {

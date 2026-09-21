@@ -32,6 +32,11 @@ foam.CLASS({
     ^test5 {
       box-shadow: 0 0 9px $shadowColor     !important;
     }
+    ^test6 {
+      padding: $gapA $gapB;
+      border-color: transparent $test1 transparent;
+      width: calc($gapB * 2);
+    }
   `,
   cssTokens: [
     {
@@ -46,7 +51,9 @@ foam.CLASS({
       // space turns shadowColor into SHADOW_COLOR_ and the lookup fails.
       name: 'shadowColor',
       value: 'red'
-    }
+    },
+    { name: 'gapA', value: '4px' },
+    { name: 'gapB', value: '8px' }
   ],
 
   methods: [
@@ -75,10 +82,19 @@ foam.CLASS({
       // spacings: none, single space, and several spaces.
       x.test(expanded.includes("box-shadow: 0 0 4px /*$shadowColor*/ red!important;"),
         "token directly before !important (no space) resolves");
-      x.test(expanded.includes("box-shadow: 0 0 6px /*$shadowColor*/ red!important;"),
+      x.test(expanded.includes("box-shadow: 0 0 6px /*$shadowColor*/ red !important;"),
         "token followed by a space and !important resolves");
-      x.test(expanded.includes("box-shadow: 0 0 9px /*$shadowColor*/ red!important;"),
+      x.test(expanded.includes("box-shadow: 0 0 9px /*$shadowColor*/ red     !important;"),
         "token followed by several spaces and !important resolves");
+      // Regression: the token pattern ran to the next ';', so everything after
+      // the first token in a declaration was replaced along with it: a second
+      // token in a shorthand, a keyword after the token, calc()'s tail.
+      x.test(expanded.includes("padding: /*$gapA*/ 4px /*$gapB*/ 8px;"),
+        "two tokens in one shorthand both resolve");
+      x.test(expanded.includes("border-color: transparent /*$test1*/ #E93F48 transparent;"),
+        "text after a token in the same declaration is kept");
+      x.test(expanded.includes("width: calc(/*$gapB*/ 8px * 2);"),
+        "token inside calc() keeps the rest of the expression");
       // console.log('CSSTokensTest a.expandCSS (initial)', expanded);
       x.installCSS(expanded);
       var color = "$green300"; // #59D374

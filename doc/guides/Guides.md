@@ -1,4 +1,5 @@
-<flow name="Guides" category="DOC/GUIDE" spid="foam"/>
+<flow name="Guides" category="DOC/GUIDE" spid="foam" description="Index of all FOAM3 guides, organized by category, to help you find which guide to read." keywords="guides,index,documentation,table of contents,knowledge"/>
+
 # Guide to Guides
 
 A map of what each guide covers, organized by category. If you're not sure which guide to read, start here.
@@ -238,6 +239,9 @@ Practical debugging guide for both JavaScript (Chrome DevTools: breakpoints, `po
 
 **[DebuggingCountAndUsed](DebuggingCountAndUsed.md)**
 Explains two FOAM debugging tools: `cls.count_` (tracks instance creation count per class, incremented in `create()`) and `foam.USED` (registry of all classes actually instantiated in the current session, moved from `foam.UNUSED` on first lookup).
+
+**[LSP](LSP.md)**
+Setup instructions for the FOAM Language Server and its MCP server: the one-line installer per editor (VS Code, Emacs, Zed) and per coding agent (Claude Code, Codex, Gemini CLI, Cursor, Pi), the 10-15 second first boot, team defaults in `foam-lsp.json`, and what to check when the server stays quiet.
 
 **[Testing](Testing.md)**
 Covers the FOAM test harness: running all/server/client tests from the build, running specific test IDs or suites, excluding tests with `-`, the per-test SUCCESS/FAILURE output format, and modelling test cases as FOAM classes or scripts targeting Java or JavaScript.

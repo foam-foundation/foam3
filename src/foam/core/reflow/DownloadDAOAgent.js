@@ -30,7 +30,7 @@ foam.CLASS({
     'foam.core.export.CSVTableExportDriver',
     'foam.core.export.JSONDriver',
     'foam.core.export.JSONJDriver',
-    'foam.core.export.XMLDriver'
+    'foam.core.export.XMLTableExportDriver'
   ],
 
   properties: [
@@ -41,7 +41,7 @@ foam.CLASS({
           { label: 'CSV',    extension: '.csv',  format: 'csv',   driver: this.CSVTableExportDriver },
           { label: 'JSON',   extension: '.json', format: 'json',  driver: this.JSONDriver },
           { label: 'JSON/J', extension: '.jrl',  format: 'jsonj', driver: this.JSONJDriver },
-          { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLDriver }
+          { label: 'XML',    extension: '.xml',  format: 'xml',   driver: this.XMLTableExportDriver }
         ];
       }
     }

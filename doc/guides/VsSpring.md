@@ -1,4 +1,5 @@
-<flow name="VsSpring" category="DOC/GUIDE" spid="foam"/>
+<flow name="VsSpring" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-language, context DI) vs Spring Boot (annotation-driven, Java IoC container)." keywords="spring,comparison,ioc,java,knowledge"/>
+
 ## Overview
 
 FOAM (Feature Oriented Active Modeller), is a full-stack model-driven framework, and Spring Boot, is a popular Java application framework<cite/>. Both are enterprise-grade frameworks for building server-side applications, but they take fundamentally different architectural approaches<cite/>.
@@ -181,7 +182,7 @@ Key features:
 FOAM is a full-stack, model-driven framework with cross-language code generation and built-in data persistence, while Spring Boot is a Java-specific framework focused on convention-over-configuration and rapid application development<cite/>. FOAM's context-based dependency injection and DAO system provide a unified programming model across client and server, whereas Spring Boot requires separate frontend frameworks and relies on external databases<cite/>. FOAM has a steeper learning curve due to its unique concepts, but provides more built-in functionality for complex enterprise applications<cite/>.
 
 Wiki pages you might want to explore:
-- [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
+- [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
 
 ### Citations
 
@@ -635,8 +636,6 @@ foam.CLASS({
 In this current implementation setDelegate must be called last.`,
 
   javaImports: [
-    'foam.lang.Agency',
-    'foam.lang.ContextAgent',
     'foam.lang.X',
     'foam.dao.CompositeJournal',
     'foam.dao.DAO',
@@ -691,12 +690,6 @@ In this current implementation setDelegate must be called last.`,
       documentation: 'See F3FileJournal. Default journal replay is asynchronous. Some models with business logic that reference self can cause deadlock when parsed out of order.  If journal processing hangs, set syncReplay to true to replay synchronously.',
       class: 'Boolean',
       name: 'syncReplay'
-    },
-    {
-      documentation: `Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
-      class: 'Boolean',
-      name: 'waitReplay',
-      value: true
     },
     {
       documentation: 'Filesystem is read-only, journals updates are factilitated through some other means such as medusa.',

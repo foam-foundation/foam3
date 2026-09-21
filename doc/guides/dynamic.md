@@ -1,4 +1,5 @@
-<flow name="dynamic" category="DOC/GUIDE" spid="foam"/>
+<flow name="dynamic" category="DOC/GUIDE" spid="foam" description="Explains property expression: (lazy pull-based) vs this.dynamic() (eager push-based reactive DOM content)." keywords="dynamic,expression,reactive,dom,knowledge"/>
+
 ## Expressions vs this.dynamic()
 
 **Expressions** are reactive property computations defined at the model level that automatically recalculate when their dependencies change [1](#0-0) . **`this.dynamic()`** is a UI method that creates reactive DOM content that updates when referenced properties change [2](#0-1) .
@@ -31,8 +32,8 @@ Both use FOAM's reactive slot system under the hood, but serve different purpose
 - [Reactive UI Patterns](ReactiveUI.md) — covers `dynamic()` alongside the other three reactive UI patterns (`slot.dot()`, `slot.map()`, and slot binding via `prop$:`), with a decision framework for choosing between them
 
 Wiki pages you might want to explore:
-- [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

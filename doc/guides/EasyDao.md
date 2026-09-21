@@ -1,4 +1,4 @@
-<flow name="EasyDao" category="DOC/GUIDE" spid="foam"/>
+<flow name="EasyDao" category="DOC/GUIDE" spid="foam" description="Explains EasyDAO as a one-stop DAO configurator: storage type, caching, ID assignment, synchronization, journaling, authorization." keywords="easydao,dao,journal,caching,seqno,guid,knowledge"/>
 
 # EasyDAO: One-stop shop for data source configuration
 

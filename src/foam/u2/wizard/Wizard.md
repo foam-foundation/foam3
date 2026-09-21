@@ -1,4 +1,5 @@
-<flow name="Wizard" category="DOC/DEV" spid="foam" label="Modular Wizard Documentation"/>
+<flow name="Wizard" category="DOC/DEV" spid="foam" label="Modular Wizard Documentation" description="Out-of-date wizard documentation: Wizardlet, WizardletSection, and StepWizardController for building step wizards." keywords="wizard,wizardlet,stepwizardcontroller,knowledge"/>
+
 # THIS DOCUMENTATION IS OUT OF DATE
 
 I've decided to preserve this documentation because it provides potentially
@@ -26,7 +27,7 @@ The `of` property may also be null to indicate that this wizardlet doesn't have
 any data to enter. (although, the wizardlet may still appear if the `sections`
 property is overridden to display a custom view)
 
-<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="methods" of="foam.u2.wizard.wizardlet.Wizardlet" />
+<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="methods" of="foam.u2.wizard.wizardlet.Wizardlet"></foam>
 
 ## WizardletSection
 
@@ -37,7 +38,7 @@ allows adding custom views to a wizardlet independently from the data model.
 The MinMaxCapabilityWizardlet is an example where a custom WizardletSection is
 used to display a selection of choices.
 
-<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.u2.wizard.wizardlet.WizardletSection" />
+<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.u2.wizard.wizardlet.WizardletSection"></foam>
 
 # Wizards
 
@@ -53,7 +54,7 @@ on all wizardlets to provide status properties like 'allValid' and
 and moving the position backwards if a previous wizardlet becomes available.
 
 The following properties are useful to initialize when creating the controller:
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.u2.wizard.StepWizardController" whitelist="['wizardlets', 'config', 'wizardPosition']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.u2.wizard.StepWizardController" whitelist="['wizardlets', 'config', 'wizardPosition']"></foam>
 
 ## IncrementalStepWizardView
 
@@ -73,7 +74,7 @@ requirement information immediately.
 ## StepWizardConfig
 
 This is the model used for the 'config' property of StepWizardController.
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.u2.wizard.StepWizardConfig" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.u2.wizard.StepWizardConfig"></foam>
 
 # Wizardlet Save Logic
 

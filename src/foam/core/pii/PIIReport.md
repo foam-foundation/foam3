@@ -1,4 +1,5 @@
-<flow name="PIIReport" category="DOC/DEV" spid="foam" label="PII Report"/>
+<flow name="PIIReport" category="DOC/DEV" spid="foam" label="PII Report" description="GDPR PII reporting: PIIReportTicket generation via action or settings menu, PII property tagging, and email delivery." keywords="pii,gdpr,piireportticket,privacy,knowledge"/>
+
 # Personal Identifiable Information (PII)
 
 FOAM provides for **General Data Protection Regulation (GDPR)** reporting of PII. The EU GDPR provides for the end user to inquire into PII held by a system, and additionally, deletion of said data if it does not conflict with superceeding requirements.

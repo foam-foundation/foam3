@@ -21,7 +21,6 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("notifications")
       .setSaf(true)
-      .setWaitReplay(false)
       .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
         .setComparator(foam.mlang.MLang.COMPOUND(new foam.mlang.order.Comparator[] {
           foam.mlang.MLang.DESC(foam.core.notification.Notification.CREATED),

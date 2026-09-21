@@ -1198,6 +1198,7 @@ foam.POM({
     { name: "foam/dao/test/FileRollCmdTest",                          flags: "js&test|java&test" },
     { name: "foam/dao/test/BulkLoadCommandTest",                     flags: "js&test|java&test" },
     { name: "foam/dao/test/F3FileJournalTest",                        flags: "js&test|java&test" },
+    { name: "foam/dao/test/MergeFObjectTest",                         flags: "js&test|java&test" },
     { name: "foam/dao/test/JournalDefaultClassNameTest",              flags: "js&test|java&test" },
     { name: "foam/dao/test/JournalClassChangeTest",                    flags: "js&test|java&test" },
     { name: "foam/dao/test/OrDAOTest",                                flags: "js&test|java&test" },

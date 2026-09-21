@@ -1,4 +1,5 @@
-<flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging"/>
+<flow name="Boxes" category="DOC/DEV" spid="foam" label="Box Based Messaging" description="Overview of Box based messaging, FOAM's minimal send-only network abstraction underlying Stub/Skeleton RPC and ClientDAO." keywords="box,envelope,rpc,messaging,clientdao,knowledge"/>
+
 # Overview
 
 Boxes are the network abstraction within foam that higher level constructs are built upon.  The box interface is the minimal viable networking abstraction.  The box is a "send only" interface, rather than a classical read()/write() or Berkeley sockets, or Request/Response of HTTP and similar protocols.

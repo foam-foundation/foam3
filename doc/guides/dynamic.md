@@ -1,4 +1,5 @@
-<flow name="dynamic" category="DOC/GUIDE" spid="foam"/>
+<flow name="dynamic" category="DOC/GUIDE" spid="foam" description="Explains property expression: (lazy pull-based) vs this.dynamic() (eager push-based reactive DOM content)." keywords="dynamic,expression,reactive,dom,knowledge"/>
+
 ## Expressions vs this.dynamic()
 
 **Expressions** are reactive property computations defined at the model level that automatically recalculate when their dependencies change [1](#0-0) . **`this.dynamic()`** is a UI method that creates reactive DOM content that updates when referenced properties change [2](#0-1) .

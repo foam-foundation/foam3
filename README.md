@@ -1,5 +1,9 @@
 # FOAM3
 
+[![Documentation](https://img.shields.io/badge/docs-foam--foundation.github.io%2Ffoam3-4285F4?style=for-the-badge)](https://foam-foundation.github.io/foam3/)
+
+**Start here → [foam-foundation.github.io/foam3](https://foam-foundation.github.io/foam3/)** — guides, tutorials, demos and videos.
+
 Build fully featured high performance apps in less time using FOAM.
 
   * Application Speed
@@ -85,10 +89,15 @@ See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
 ### Run in Docker
 
-The project also includes a `Dockerfile`. The image builds the app and runs it from the JARs, with journals, logs and documents as volumes:
+The project also includes a `Dockerfile` and a `docker-compose.yml`. The
+image builds the app and runs it from the JARs, with journals, logs and
+documents in named volumes:
 
-    docker build -t example .
-    docker run --rm -p 8080:8080 -v example-journals:/opt/example/journals example
+    docker compose up --build
+
+`JOURNALS=production docker compose up --build` adds deployment journal sets
+to the build (`docker` is always included), and `JAVA_OPTS` sizes the heap.
+
 
 ### Deploy to Google Cloud Run with one click
 
@@ -161,19 +170,7 @@ to run the unit tests.
 - [Turtle Graphics](https://www.youtube.com/watch?v=4wO_RrftJTE)
 
 ## Guides
-- [Build](doc/guides/Build.md)
-- [Contexts](doc/guides/Context.md)
-- [DAOs](doc/guides/Dao.md)
-- [DAO Examples](doc/guides/DaoExamples.md)
-- [Deployment](doc/guides/Deployment.md)
-- [Easy DAO](doc/guides/EasyDao.md)
-- [Enums](doc/guides/Enum.md)
-- [Permissions](doc/guides/Permissions.md)
-- [Project Object Models (POMs)](doc/guides/POM.md)
-- [Porting](doc/guides/Porting.md)
-- [Services](doc/guides/Services.md)
-- [Security/Authentication](doc/guides/Security.md)
-- [Tessting API](doc/guides/APITesting.md)
+The full set of guides is published at **[foam-foundation.github.io/foam3/guides](https://foam-foundation.github.io/foam3/guides/index.html)**.
 
 ## Cheatsheets
 - [Short Form](https://docs.google.com/document/d/1SWgtXtEjdiz12FimPKcTY0dsJ06hxGtCViZXn98PoyY/edit?usp=sharing)
@@ -182,7 +179,7 @@ to run the unit tests.
 ## Tutorials
 <!--
 - [TODO](http://foam-framework.github.io/foam/tutorial/todo/0-intro/) (needs to be ported to FOAM3, needs fixes, even for FOAM1) -->
-- [PhoneCat](https://github.com/kgrgreer/foam3/blob/development/tutorial/phonecat/0-intro.md)
+- [FOAM Tutorial](https://foam-foundation.github.io/foam3/tutorials/foam-tutorial.html)
 
 ## Demos
 - [FOAM1 Demo Catalog](http://foam-framework.github.io/foam/foam/demos/DemoCat.html)

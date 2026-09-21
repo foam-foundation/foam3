@@ -160,6 +160,8 @@
   .doc-col a:hover{color:var(--ink);background:var(--grey-2)}
   .doc-col a .ext{opacity:0;color:var(--blue-btn);transition:opacity .14s;font-family:var(--mono);font-size:12px}
   .doc-col a:hover .ext{opacity:1}
+  .doc-col a.more{color:var(--blue-btn);font-weight:500}
+  .doc-col a.more .ext{opacity:1}
 
   /* built for agents */
   .ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start;margin-top:46px}
@@ -282,7 +284,7 @@
       <p class="lede">Describe your class once — its properties, methods, and relationships. FOAM <b>generates the running application</b> across every tier and platform, from the database to the network to the UI. Readable by developers and <b>AI agents</b> alike.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#start">Get started <span class="arw">→</span></a>
-        <a class="btn btn-ghost" href="https://github.com/kgrgreer/foam3" target="_blank" rel="noopener">FOAM by Example</a>
+        <a class="btn btn-ghost" href="tutorials/foam-tutorial.html">Tutorial</a>
       </div>
       <div class="hero-meta">
         <div class="m"><span class="n" style="color:var(--blue)">0</span><span class="l">Runtime deps</span></div>
@@ -462,7 +464,7 @@
           <div class="frow"><span class="fd"></span><span class="ft">Call the <b>agent orchestration service</b> right from the prompt</span></div>
         </div>
         <div class="cta-row" style="margin-top:30px">
-          <a class="btn btn-primary" href="guides/Reflow.index" target="_blank" rel="noopener">Read the REFLOW guide <span class="arw">→</span></a>
+          <a class="btn btn-primary" href="guides/Reflow.html" target="_blank" rel="noopener">Read the REFLOW guide <span class="arw">→</span></a>
         </div>
       </div>
 
@@ -551,28 +553,29 @@
       <div class="doc-col">
         <h4>Guides</h4>
         <ul>
-          <li><a href="doc/guides/WhyFOAM.html">Why FOAM? <span class="ext">→</span></a></li>
+          <li><a href="guides/WhyFOAM.html">Why FOAM? <span class="ext">→</span></a></li>
           <li><a href="guides/LLM.html" target="_blank" rel="noopener">AI &amp; LLMs <span class="ext">↗</span></a></li>
           <li><a href="guides/Reflow.html" target="_blank" rel="noopener">REFLOW <span class="ext">↗</span></a></li>
-          <li><a href="doc/guides/Build.html">Build <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Context.html">Contexts <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Dao.html">DAOs <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/EasyDao.html">Easy DAO <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Enum.html">Enums <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Permissions.html">Permissions <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/POM.html">POMs <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Services.html">Services <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Security.html">Security &amp; Auth <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Deployment.html">Deployment <span class="ext">→</span></a></li>
+          <li><a href="guides/Build.html">Build <span class="ext">→</span></a></li>
+          <li><a href="guides/Context.html">Contexts <span class="ext">→</span></a></li>
+          <li><a href="guides/Dao.html">DAOs <span class="ext">→</span></a></li>
+          <li><a href="guides/EasyDao.html">Easy DAO <span class="ext">→</span></a></li>
+          <li><a href="guides/Enum.html">Enums <span class="ext">→</span></a></li>
+          <li><a href="guides/Permissions.html">Permissions <span class="ext">→</span></a></li>
+          <li><a href="guides/POM.html">POMs <span class="ext">→</span></a></li>
+          <li><a href="guides/Services.html">Services <span class="ext">→</span></a></li>
+          <li><a href="guides/Security.html">Security &amp; Auth <span class="ext">→</span></a></li>
+          <li><a href="guides/Deployment.html">Deployment <span class="ext">→</span></a></li>
+          <li><a class="more" href="guides/index.html">All guides <span class="ext">→</span></a></li>
         </ul>
       </div>
       <div class="doc-col">
         <h4>Reference</h4>
         <ul>
-          <li><a href="doc/guides/DaoExamples.html">DAO examples <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/Porting.html">Porting <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/APITesting.html">API testing <span class="ext">→</span></a></li>
-          <li><a href="doc/guides/StyleGuide.html">Style guide <span class="ext">→</span></a></li>
+          <li><a href="guides/DaoExamples.html">DAO examples <span class="ext">→</span></a></li>
+          <li><a href="guides/Porting.html">Porting <span class="ext">→</span></a></li>
+          <li><a href="guides/APITesting.html">API testing <span class="ext">→</span></a></li>
+          <li><a href="guides/StyleGuide.html">Style guide <span class="ext">→</span></a></li>
           <li><a href="https://docs.google.com/document/d/1SWgtXtEjdiz12FimPKcTY0dsJ06hxGtCViZXn98PoyY/edit" target="_blank" rel="noopener">Cheatsheet · short <span class="ext">↗</span></a></li>
           <li><a href="https://docs.google.com/document/d/1nCyHhlZGupNMBf5YW043CNCh-7fKDNO9H4LYIQVyj8Y/edit" target="_blank" rel="noopener">Cheatsheet · long <span class="ext">↗</span></a></li>
           <li><a href="https://deepwiki.com/kgrgreer/foam3" target="_blank" rel="noopener">DeepWiki <span class="ext">↗</span></a></li>
@@ -581,7 +584,6 @@
       <div class="doc-col">
         <h4>Learn by doing</h4>
         <ul>
-          <li><a href="https://github.com/kgrgreer/foam3/blob/development/tutorial/phonecat/0-intro.html" target="_blank" rel="noopener">PhoneCat tutorial <span class="ext">↗</span></a></li>
           <li><a href="tutorials/foam-tutorial.html">Recipes <span class="ext">→</span></a></li>
           <li><a href="https://github.com/adamvy/example-foam-project" target="_blank" rel="noopener">Example project <span class="ext">↗</span></a></li>
           <li><a href="https://github.com/jlhughes/Journal" target="_blank" rel="noopener">Journal project <span class="ext">↗</span></a></li>

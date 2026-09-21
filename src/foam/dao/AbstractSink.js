@@ -13,6 +13,10 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'isOrderIndependent',
+      code: function() { return false; }
+    },
+    {
       name: 'put',
       code: function() {},
       swiftCode: '// NOOP',

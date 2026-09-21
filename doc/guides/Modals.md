@@ -1,4 +1,5 @@
-<flow name="Modals" category="DOC/GUIDE" spid="foam"/>
+<flow name="Modals" category="DOC/GUIDE" spid="foam" description="Describes the modal hierarchy: Popup, StyledModal, ConfirmationModal, and ApplicationPopup wizard flows." keywords="modals,popup,confirmationmodal,wizard,knowledge"/>
+
 ## Modal Component Hierarchy
 
 The FOAM3 framework has a clear hierarchy of modal components, with `Popup` serving as the base class for all modal dialogs [1](#0-0) .

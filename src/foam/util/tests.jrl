@@ -9,5 +9,5 @@ p({"class":"foam.util.test.DateUtilJSTest","id":"DateUtilJSTest","description":"
 p({
   class:"foam.util.test.StringInternerTest",
   id:"StringInternerTest",
-  description:"StringInterner deduplicates short strings per thread without String.intern()"
+  description:"StringInterner: per-replay cache in front of String.intern, its analytics, and the parser integration"
 })

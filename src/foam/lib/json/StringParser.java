@@ -24,6 +24,12 @@ public class StringParser
 
   public static Parser instance() { return instance__; }
 
+  /** Canonicalize through the replay's StringInterner when the context carries one, else through the JVM table directly. */
+  private static String intern(String v, ParserContext x) {
+    StringInterner c = x == null ? null : (StringInterner) x.get(StringInterner.CTX_KEY);
+    return c != null ? c.intern(v) : v.intern();
+  }
+
   protected static ThreadLocal<StringBuilder> builder__ = new ThreadLocal<StringBuilder>() {
     @Override
     protected StringBuilder initialValue() {
@@ -64,7 +70,7 @@ public class StringParser
    * of per-character ps.apply(delimiter, x) checks.
    * Returns null if escapes are present (falls back to slow path).
    */
-  private PStream parseFast(StringPStream sps, char delim) {
+  private PStream parseFast(StringPStream sps, char delim, ParserContext x) {
     String str = sps.getString().toString();
     int    pos = sps.pos();
     int closeIdx = str.indexOf(delim, pos);
@@ -85,7 +91,7 @@ public class StringParser
     }
 
     // No escapes — bulk extract the string
-    String value = StringInterner.intern(str.substring(pos, closeIdx));
+    String value = intern(str.substring(pos, closeIdx), x);
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -101,7 +107,7 @@ public class StringParser
     if ( ps instanceof StringPStream && delimiter instanceof foam.lib.parse.AbstractLiteral ) {
       String ds = ((foam.lib.parse.AbstractLiteral) delimiter).getString();
       if ( ds != null && ds.length() == 1 ) {
-        PStream fast = parseFast((StringPStream) ps, ds.charAt(0));
+        PStream fast = parseFast((StringPStream) ps, ds.charAt(0), x);
         if ( fast != null ) return fast;
       }
       // Fall through to character-by-character for escaped strings,
@@ -142,6 +148,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(StringInterner.intern(sb.toString()));
+    return ps.setValue(intern(sb.toString(), x));
   }
 }

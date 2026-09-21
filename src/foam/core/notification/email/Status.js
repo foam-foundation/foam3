@@ -35,14 +35,14 @@ foam.ENUM({
     {
       name: 'SENT',
       label: 'Sent',
-      color: '$success700',
-      background: '$success50',
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground',
     },
     {
       name: 'FAILED',
       label: 'Failed',
-      color: '$destructive500',
-      background: '$destructive50',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
     },
     {
       name: 'BOUNCED',
@@ -59,8 +59,8 @@ foam.ENUM({
     {
       name: 'PROCESSED',
       label: 'Processed',
-      color: '$success700',
-      background: '$success50',
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground',
     }
   ]
 });

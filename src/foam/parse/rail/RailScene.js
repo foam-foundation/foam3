@@ -20,7 +20,7 @@ foam.CLASS({
   requires: [
     'foam.graphics.SceneLayer',
     'foam.graphics.TooltipCView',
-    'foam.graphics.Tween',
+    'foam.animation.Tween',
     'foam.parse.rail.Outcome',
     'foam.parse.rail.RailStrip',
     'foam.parse.rail.RailSymRef',

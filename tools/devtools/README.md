@@ -86,7 +86,11 @@ Elements overrides the screen record for as long as the node is inside the
 stack's current view (a table row you clicked stops counting once its
 record is opened, even though the hidden table stays in the DOM);
 **Refresh** re-reads either way. On a table screen the panel says "table of
-<Class>" until you open a row. Six blocks:
+<Class>" until you open a row. A screen that is neither a comics record page
+nor a table but holds a record of its own — the sign-in view's `SignIn`, a
+wizard's data — is explained too, under the same rules an Elements
+selection gets; a table embedded under such a view is part of that record's
+screen, not a table screen. Six blocks:
 
 1. **Record** — class, id, summary, where it came from ("record on screen"
    or "from Elements selection"), and the `controllerMode` in force (read

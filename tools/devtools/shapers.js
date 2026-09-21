@@ -212,8 +212,18 @@
   // the first detail-type view — one holding currentData_/workingData
   // (comics v3 / v2 edit) or a record plus a comics config (v2 summary).
   // Second value: the first DAO-bound view with a config, for table screens.
+  // With neither comics shape anywhere, the first view holding a plain
+  // record (a sign-in view's SignIn, a wizard's data) counts, subject to the
+  // same pickRecord rules a selection gets — but only when it comes before
+  // any table in document order: a row under a table is the table's record,
+  // not the screen's. The other way round, a record view above a table (a
+  // wizard step embedding one) makes this the record's screen and the table
+  // a part of it, as a comics detail view above a table always has — the
+  // walk stops at the record and never reaches the table. A pure table
+  // screen is not at risk: the table view is the stack's current view, so
+  // it is the root itself and nothing sits above it.
   exports.findScreenViews = function(root, env) {
-    var stack = [ root ], seen = new Set(), walked = 0, record = null, table = null;
+    var stack = [ root ], seen = new Set(), walked = 0, record = null, table = null, plain = null;
     while ( stack.length && walked < 20000 ) {
       var el = stack.pop();
       if ( ! el || ! el.cls_ || seen.has(el) ) continue;
@@ -225,11 +235,16 @@
         if ( held ) record = { view: el, data: held };
         else if ( d && ! env.isDAO(d) && cfg && cfg.dao ) record = { view: el, data: d };
         else if ( d && env.isDAO(d) && ! table && cfg ) table = { view: el, dao: d };
+        else if ( d && ! env.isDAO(d) && ! env.isElement(d) && ! table && ! plain ) plain = el;
       }
       if ( record ) break;
       var kids = exports.childrenOf(el);
       // push in reverse so the first child is visited first (DFS, document order)
       for ( var i = kids.length - 1 ; i >= 0 ; i-- ) stack.push(kids[i]);
+    }
+    if ( ! record && plain ) {
+      var picked = exports.pickRecord(exports.namedStack(plain), env);
+      if ( picked ) record = { view: picked.view, data: picked.data };
     }
     return { record: record, table: table };
   };

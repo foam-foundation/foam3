@@ -48,7 +48,8 @@ foam.CLASS({
       // LIGHTEN clamps the grey level to 150 before scaling (colorlib
       // lighten), so on the $black500 surface it cannot move far: -40 gives
       // #363636, 1.59:1 on #0F0F0F, under the 3:1 floor for a non-text edge.
-      // Dark uses the semantic strong border ($grey500, 4.24:1) instead.
+      // Dark uses the semantic strong border token instead, so it follows
+      // whatever dark value $borderStrong carries.
       // Light keeps LIGHTEN(-40) = #999999 on white.
       name: 'buttonSecondaryBorderColor',
       variantKey: 'color',

@@ -89,7 +89,8 @@ record is opened, even though the hidden table stays in the DOM);
 <Class>" until you open a row. A screen that is neither a comics record page
 nor a table but holds a record of its own — the sign-in view's `SignIn`, a
 wizard's data — is explained too, under the same rules an Elements
-selection gets. Six blocks:
+selection gets; a table embedded under such a view is part of that record's
+screen, not a table screen. Six blocks:
 
 1. **Record** — class, id, summary, where it came from ("record on screen"
    or "from Elements selection"), and the `controllerMode` in force (read

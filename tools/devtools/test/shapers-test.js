@@ -179,15 +179,21 @@ var loginView = u2('foam.u2.view.LoginView', { data: signIn, childNodes: [ u2('f
 var loginBtn = u2('foam.u2.ActionView', { data: loginView }); loginView.childNodes.push(loginBtn);
 sv = P.findScreenViews(u2('root', { childNodes: [ loginView ] }), env());
 t(sv.record && sv.record.data === signIn && sv.record.view === loginView && sv.table === null, 'findScreenViews: plain record view (LoginView -> SignIn) counts as a record screen');
+// The sign-in screen has no stack, so the root is the controller and its
+// header comes first: ActionViews bound to the controller (an element,
+// DAOUpdateView.js:181,195 shape) must not lock in the plain candidate.
+var navBtn = u2('foam.u2.ActionView', { data: u2('foam.core.u2.ApplicationController', { isEl: true }) });
+sv = P.findScreenViews(u2('root', { childNodes: [ u2('foam.u2.Element', { childNodes: [ navBtn ] }), loginView ] }), env());
+t(sv.record && sv.record.data === signIn && sv.record.view === loginView, 'findScreenViews: an ActionView bound to a view before the record view is not the plain candidate');
 var rowsTable = u2('foam.comics.v2.DAOBrowseControllerView', { data: screenDao, config: { dao: screenDao }, childNodes: [ u2('foam.u2.table.UnstyledTableRow', { data: orig }) ] });
 sv = P.findScreenViews(u2('root', { childNodes: [ rowsTable ] }), env());
-t(sv.record === null && sv.table && sv.table.dao === screenDao, 'findScreenViews: rows under a table are not the screen record — still a table screen');
+t(sv.record === null && sv.table && sv.table.dao === screenDao, 'findScreenViews: rows under a table are not the screen record — still a table screen (pins pre-existing behaviour)');
 var wizard = u2('com.x.WizardView', { data: signIn, childNodes: [ rowsTable ] });
 sv = P.findScreenViews(u2('root', { childNodes: [ wizard ] }), env());
 t(sv.record && sv.record.data === signIn && sv.record.view === wizard, 'findScreenViews: a record view above an embedded table wins');
 var enumOnly = u2('foam.u2.view.ReadOnlyEnumView', { data: ACTIVE, ctxObjData: user });
 sv = P.findScreenViews(u2('root', { childNodes: [ enumOnly ] }), env());
-t(sv.record === null, 'findScreenViews: a value view (enum of an objData record) is not a record screen — pickRecord rules apply');
+t(sv.record === null, 'findScreenViews: a value view (enum of an objData record) is not a record screen — pickRecord rules apply (pins pre-existing behaviour)');
 var group = { cls_: { id: 'com.x.Group' }, id: 7 };
 pr = P.pickRecord([
   u2('foam.u2.view.ReferenceCitationView', { data: group, ctxObjData: user }),

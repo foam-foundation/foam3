@@ -216,7 +216,12 @@
   // record (a sign-in view's SignIn, a wizard's data) counts, subject to the
   // same pickRecord rules a selection gets — but only when it comes before
   // any table in document order: a row under a table is the table's record,
-  // not the screen's.
+  // not the screen's. The other way round, a record view above a table (a
+  // wizard step embedding one) makes this the record's screen and the table
+  // a part of it, as a comics detail view above a table always has — the
+  // walk stops at the record and never reaches the table. A pure table
+  // screen is not at risk: the table view is the stack's current view, so
+  // it is the root itself and nothing sits above it.
   exports.findScreenViews = function(root, env) {
     var stack = [ root ], seen = new Set(), walked = 0, record = null, table = null, plain = null;
     while ( stack.length && walked < 20000 ) {

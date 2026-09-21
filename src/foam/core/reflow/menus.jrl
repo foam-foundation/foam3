@@ -1,0 +1,50 @@
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"knowledgeBase",
+  "label":"Knowledge Base",
+  "order":-299,
+  "icon": "/images/icons8-questions-64.png",
+  "keywords": ["doc", "documentation", "flow", "help", "question", "knowledge"],
+  "handler":{
+    "class":"foam.core.menu.DAOMenu2",
+    "config":{
+      "class":"foam.comics.v2.DAOControllerConfig",
+      "daoKey":"flowDAO",
+      "browseTitle":"Knowledge Base",
+      "createPredicate":{"class":"foam.mlang.predicate.False"},
+      "editPredicate":{"class":"foam.mlang.predicate.False"},
+      "deletePredicate":{"class":"foam.mlang.predicate.False"},
+      "importPredicate":{"class":"foam.mlang.predicate.False"},
+      "exportPredicate":{"class":"foam.mlang.predicate.False"},
+      "predicate":{
+        "class":"foam.mlang.predicate.In",
+        "arg1":{
+          "class":"foam.mlang.Constant",
+          "value":"knowledge"
+        },
+        "arg2":{
+          "class":"__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"keywords"
+        }
+      },
+      "summaryView":{
+        "class":"foam.u2.GridGroupingDAOList",
+        "showEmptyMessage":true,
+        "groupExpr":{
+          "class":"foam.lang.__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"category"
+        },
+        "order":{
+          "class":"foam.lang.__Property__",
+          "forClass_":"foam.core.reflow.Flow",
+          "name":"category"
+        },
+        "rowView":{
+           "class":"foam.core.reflow.FlowDocumentRowView"
+        }
+      }
+    }
+  }
+})

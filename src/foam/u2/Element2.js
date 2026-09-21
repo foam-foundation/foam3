@@ -732,6 +732,7 @@ foam.CLASS({
 
     function detach() {
       this.SUPER();
+      this.document.u2Roots?.delete(this);
       this.childNodes = [];
       this.children   = [];
       this.private_ = this.parentNode = this.__subSubContext__ = this.instance_.subContext__ = undefined;
@@ -753,6 +754,12 @@ foam.CLASS({
     },
 
     function load() {
+      // An Element loaded with no parentNode is a root: written to the
+      // document by write(), a Popup or a ModalOverlay. document.u2Roots,
+      // when something created it (foam.u2.ViewReloader does), lists them
+      // so a walk of the on-screen tree can start from every one.
+      if ( ! this.parentNode ) this.document.u2Roots?.add(this);
+
       // Needed for OverlayDropdown which overrides add(), but shouldn't.
       // TODO: Fix OverlayDropdown to use content$ and then remove this.
       var customAdd = this.add != foam.u2.Element.prototype.add;

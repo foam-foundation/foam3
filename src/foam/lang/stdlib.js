@@ -1372,19 +1372,14 @@ foam.LIB({
       return tokenFinder(foam.CSS.returnTokenAndClass(token, cls, ctx), ctx);
     },
     function replaceTokens(text, cls, ctx, opt_tokenPattern) {
-      let foundTokens = [];
-      //TODO: This reg exp breaks when tokens have function values like rgb()/hsl()
-      // Need the ) for media queries. Fix before using tokens for media queries
-      const tokenPattern = opt_tokenPattern || new RegExp(/\$[^;!]*/, 'g');
-      let tokensToFind = text.match(tokenPattern);
-      if ( ! tokensToFind?.length ) return text;
-      for ( var i = 0 ; i < tokensToFind.length ; i++ ) {
-        let sanitizedToken = tokensToFind[i].match(/\$[^\*\s]*/)[0] //"$token !important" matches with the space; keep just "$token" so the lookup works
-        let replacement = foam.CSS.returnTokenValue(sanitizedToken, cls, ctx);
-        foundTokens[tokensToFind[i]] = { sanitizedToken: sanitizedToken, value: replacement}
-      }
+      // One match per $token. A name is letters, digits, '_' and '-', may contain
+      // '$' (ColorToken derived forms such as $primary400$hover) and '.' between
+      // segments for class-scoped tokens ($foam.u2.Tabs.tabDividerColor).
+      // Whatever follows the name stays in place, so a second token in a
+      // shorthand ("padding: $a $b"), " !important" and calc()'s " * 2)" survive.
+      const tokenPattern = opt_tokenPattern || /\$[\w$-]+(?:\.[\w$-]+)*/g;
       return text.replace(tokenPattern, function(match) {
-        return foundTokens[match] ? `/*${foundTokens[match].sanitizedToken}*/ ${foundTokens[match].value}` : '/* Token not found */';
+        return `/*${match}*/ ${foam.CSS.returnTokenValue(match, cls, ctx)}`;
       });
     }
   ]

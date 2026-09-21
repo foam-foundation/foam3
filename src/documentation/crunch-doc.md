@@ -1,7 +1,8 @@
-<flow name="crunch-doc" category="DOC/DEV" spid="foam" label="CRUNCH Documentation"/>
+<flow name="crunch-doc" category="DOC/DEV" spid="foam" label="CRUNCH Documentation" description="CRUNCH developer guide: Capability, prerequisites, permissions, required information, and wizard configuration." keywords="crunch,capability,wizard,permissions,knowledge"/>
+
 # Continuous Reactive User Nano-Capability Hierarchy
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="wip"></foam>
 
 CRUNCH is a CORE subsystem that enables flexible definitions of incremental steps users can take to gain access to features of an application. A key principle of CRUNCH is the user will only enter new information at the time it's required to perform an action. (although it is possible to have users add information ahead of time also)
 
@@ -25,7 +26,7 @@ A capability may also depend on other capabilities by its `prerequisites` relati
 
 To specify permissions, use the following property.
 
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['permissionsGranted']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['permissionsGranted']"></foam>
 
 Specifying permissions is optional. A capability which grants no permissions can be useful for grouping other capabilities.
 
@@ -34,7 +35,7 @@ Specifying permissions is optional. A capability which grants no permissions can
 A capability may require some input from the user. For example, a capability allowing a user to create new content may require their acceptance of a privacy policy.
 
 The following properties help to specify required information and how it will be processed:
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['of','daoKey','contextDAOFindKey']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['of','daoKey','contextDAOFindKey']"></foam>
 
 The class specified by `of` will be displayed to the user before the capability is granted. An instance of this class will be stored in a junction between User and Capability. (the UserCapabilityJunction)
 
@@ -52,7 +53,7 @@ is important to note that a capability will only configure the wizard if it is
 the root capability - usually the most dependant capability in a tree invoked by
 the intercept.
 
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['wizardConfig']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['wizardConfig']"></foam>
 
 The options available for StepWizardConfig are in the scope of wizard documentation.
 
@@ -134,37 +135,37 @@ at the top of the Capability store.
 
 ### Capability Prerequisites
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 ### CRUNCH Intercepts
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 ### Capability Categories
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 ### Capability User Associations
 
 Some applications may support an "acting as" behaviour for users; for example: a user may act on behalf of a company or organization, which is another type of user. When using CORE's application logic, the object `subject` in context has two properties to determine each user.
 
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.auth.Subject" whitelist="['realUser', 'user']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.auth.Subject" whitelist="['realUser', 'user']"></foam>
 
 A capability can specify how the user is associated to the capability using the `associatedEntity` property.
 
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['associatedEntity']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.Capability" whitelist="['associatedEntity']"></foam>
 
 Setting `associatedEntity` to one of these values will affect which user CRUNCH grants the capability to. The default value is USER, so capabilities will be granted to the effective user if this is not set.
 
-<foam class="foam.flow.widgets.EnumSummary" of="foam.core.crunch.AssociatedEntity" />
+<foam class="foam.flow.widgets.EnumSummary" of="foam.core.crunch.AssociatedEntity"></foam>
 
 ## Subclasses of Capability
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 ## CRUNCH Rules
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 notes: ValidateUCJDataOnPut sets of-less cap to PENDING, then
        SetUCJStatusOnPut will set it to GRANTED or keep it PENDING (or ??)

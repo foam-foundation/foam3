@@ -594,7 +594,7 @@ public class TreeNode {
       sink = decorateSink(null, sink, skip, limit, order, predicate);
       select_(currentNode, sink, tail);
       if ( order != null ) sink.eof();
-    } else if ( skip > 0 || limit != AbstractDAO.MAX_SAFE_INTEGER ) {
+    } else if ( skip > 0 || limit != AbstractDAO.MAX_SAFE_INTEGER || reverse ) {
       skipLimitTreeNode(currentNode, sink, new long[] {skip, limit}, tail, reverse);
     } else {
       select_(currentNode, sink, tail);

@@ -1,4 +1,5 @@
-<flow name="intro-to-flow" category="DOC/DEV" spid="foam"/>
+<flow name="intro-to-flow" category="DOC/DEV" spid="foam" description="Introduction to FLOW, FOAM's text markup language for live documents: italics, bold, headers, links, embedded FOAM tags, code blocks." keywords="flow,markup,documentation,foam tags,knowledge"/>
+
 # Introduction to FLOW
 
 <section name="intro">
@@ -27,7 +28,7 @@ A quick rundown of the features in FLOW
   <li>
   Embedded FOAM tags &lt;foam class="com.google.foam.demos.bubbles.Bubbles"/&gt;
 
-  <foam class="com.google.foam.demos.bubbles.Bubbles"/>
+  <foam class="com.google.foam.demos.bubbles.Bubbles"></foam>
   </li>
   <li>Code tags:
   

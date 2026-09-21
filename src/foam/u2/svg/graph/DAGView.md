@@ -1,4 +1,5 @@
-<flow name="DAGView" category="DOC/DEV" spid="foam"/>
+<flow name="DAGView" category="DOC/DEV" spid="foam" description="DAGView renders a directed acyclic graph via SVG, with pluggable grid placement plans for node layout." keywords="dagview,graph,svg,placement plan,knowledge"/>
+
 # DAGView
 
 ## What is DAGView?
@@ -14,7 +15,7 @@ to suit a wide variety of use cases. When DAGView isn't suitable, many of the
 components it uses are still re-usable, such as ArrowLine and the
 GridPlacementPlan interface.
 
-<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.u2.svg.graph.DAGView" />
+<foam class="foam.flow.widgets.TabbedModelDocumentation" defaultTab="properties" of="foam.u2.svg.graph.DAGView"></foam>
 
 ## How the view is generated
 

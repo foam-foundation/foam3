@@ -85,6 +85,11 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'isOrderIndependent',
+      code: function() { return !! this.arg2.isOrderIndependent?.(); },
+      javaCode: 'return getArg2().isOrderIndependent();'
+    },
+    {
       name: 'sortedKeys',
       javaType: 'java.util.List',
       args: 'foam.mlang.order.Comparator comparator',

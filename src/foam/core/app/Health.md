@@ -1,4 +1,5 @@
-<flow name="Health" category="DOC/DEV" spid="foam" label="Health (DevOps)"/>
+<flow name="Health" category="DOC/DEV" spid="foam" label="Health (DevOps)" description="The Health system: UDP heartbeat monitoring, healthDAO, and HealthWebAgent status reporting for load balancers." keywords="health,heartbeat,healthwebagent,load balancer,knowledge"/>
+
 # Health
 
 ## Overview

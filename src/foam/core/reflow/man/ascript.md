@@ -1,4 +1,5 @@
-<flow name="manual:AScript" category="MANUAL" keywords="help query" accessLevel="PUBLIC_RO" spid="foam"/>
+<flow name="manual:AScript" category="MANUAL" keywords="help query,knowledge" accessLevel="PUBLIC_RO" spid="foam" description="AScript user guide: an Excel-like formula language for computing, formatting, and colouring fields in REFLOW."/>
+
 # AScript User Guide
 
 *Writing formulas in REFLOW*

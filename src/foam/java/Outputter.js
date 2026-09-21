@@ -51,6 +51,25 @@ foam.CLASS({
       return this;
     },
 
+    function outputSourceHeader(source) {
+      // Generated .java files name the model .js they came from so a javac
+      // error in build/ can be traced back to the file that was edited.
+      // The path is written relative to the build's working directory (the
+      // pom root): an absolute path would bake each developer's home
+      // directory into the output, so two checkouts of the same commit would
+      // produce byte-different sources and defeat a shared build cache.
+      if ( typeof source === 'undefined' ) {
+        this.out('// SOURCE: <implied class>\n');
+        return this;
+      }
+      var path_ = require('path');
+      if ( path_.isAbsolute(source) ) {
+        source = path_.relative(process.cwd(), source);
+      }
+      this.out('// SOURCE: ' + source + '\n');
+      return this;
+    },
+
     function increaseIndent() {
       this.indentLevel_++;
     },

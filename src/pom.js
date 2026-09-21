@@ -206,6 +206,7 @@ foam.POM({
     { name: "foam/util/test/UIDUniquenessTest",                       flags: "js&test|java&test" },
     { name: "foam/util/test/SafetyUtilTest",                          flags: "js&test|java&test" },
     { name: "foam/util/test/StringInternerTest",                      flags: "js&test|java&test" },
+    { name: "foam/util/test/StringInternerConcurrencyTest",           flags: "js&test|java&test" },
     { name: "foam/util/test/DateUtilTest",                            flags: "js&test|java&test" },
     { name: "foam/util/test/DateUtilJSTest",                          flags: "js&test|java&test" },
     { name: "foam/util/uid/GlobalSearchService",                      flags: "js|java" },

@@ -28,14 +28,16 @@ const toRecorder1 = (part, why) => {
   const drop = reason => { why.push(`${part}  (${reason})`); return null; };
   let m;
   if (/^(nth=|internal:)/.test(part) || part === '..') return drop('no Recorder equivalent');
-  if (/^(role|text)=.*\/.*\//.test(part)) return drop('regex name; Recorder matches aria/ and text/ exactly');
+  // Only a name written as /re/ is a regex; a quoted label may itself contain slashes.
+  if (/^(role|text)=\/.*\/i?$|^role=\w+\[name=\/.*\/i?\]$/.test(part)) return drop('regex name; Recorder matches aria/ and text/ exactly');
   if ((m = part.match(/^role=(\w+)\[name=(?:"([^"]*)"|\/(.*)\/i?)\]$/))) return `aria/${m[2] ?? m[3]}[role="${m[1]}"]`;
   if ((m = part.match(/^role=(\w+)$/))) return `aria/[role="${m[1]}"]`;
   if (/^(text|role)=.*["\]]\s*i$/.test(part)) return drop('case-insensitive flag; Recorder matches exactly');
   if ((m = part.match(/^text=(?:"([^"]*)"|(.*))$/))) return `text/${m[1] ?? m[2]}`;
   if (part.startsWith('xpath=')) return 'xpath/' + part.slice(6);
   if (/^\*?[a-z_][\w-]*=/i.test(part)) return drop('Playwright engine= form, not CSS');
-  if (/:(has-text|text-is|near|above|below|left-of|right-of|nth-match|light|visible)\(/.test(part)) return drop('Playwright-only pseudo-class');
+  // :visible takes no argument, so it is matched bare (but not :visible-foo).
+  if (/:(has-text|text-matches|text-is|text|near|above|below|left-of|right-of|nth-match|light)\(|:visible(?![\w-])/.test(part)) return drop('Playwright-only pseudo-class');
   return part;
 };
 // Drops the candidates Recorder cannot replay; a step with none left is an error naming the

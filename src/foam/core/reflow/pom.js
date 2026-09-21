@@ -43,6 +43,8 @@ foam.POM({
     { name: 'EditSink',                flags: 'js|java' },
     { name: 'ErrorView',               flags: 'js' },
     { name: 'FlowableTree',            flags: 'js' },
+    { name: 'FlowDocumentCitationView', flags: 'js' },
+    { name: 'FlowDocumentRowView',     flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },

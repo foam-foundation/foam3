@@ -380,7 +380,6 @@ foam.POM({
     { name: "http/test/DIGBroadcastWebAgentTest",                                         flags: "js&test|java&test" },
     { name: "dao/Operation",                                                              flags: "js|java" },
     { name: "dao/DAOEventRelayService",                                                   flags: "js" },
-    { name: "doc/DocumentationView",                                                      flags: "js" },
     { name: "demo/relationship/CourseType",                                               flags: "js|java" },
     { name: "demo/relationship/Course",                                                   flags: "js|java" },
     { name: "demo/relationship/Professor",                                                flags: "js|java" },

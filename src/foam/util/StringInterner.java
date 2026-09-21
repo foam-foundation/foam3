@@ -52,8 +52,14 @@ public final class StringInterner {
   /** Key under which F3FileJournal publishes the replay's interner in X, and JSONParser in the ParserContext. */
   public static final String CTX_KEY = "stringInterner";
 
-  /** Largest cache: log2 of the slots. 2^20 slots is 8 MB of references for the life of one replay. */
-  public static final int MAX_BITS = Integer.getInteger("foam.util.stringInterner.bits", 20);
+  /**
+   * Largest cache: log2 of the slots. 2^22 slots is 32 MB of references for the
+   * life of one replay. Every eviction between two sightings of a value leaves
+   * one record holding a raw copy, so slots buy dedup: on a 1M-entry replay,
+   * 2^20 slots kept 566 MB against 534 MB at 2^22 (plain intern of everything:
+   * 490 MB), at the same wall time.
+   */
+  public static final int MAX_BITS = Integer.getInteger("foam.util.stringInterner.bits", 22);
   /** Smallest cache: 2^10 slots, 8 KB, for a journal of a few hundred rows. */
   public static final int MIN_BITS = 10;
 
@@ -100,7 +106,7 @@ public final class StringInterner {
   /**
    * Slots for a journal of the given size: about one per 32 bytes of journal,
    * clamped to [MIN_BITS, MAX_BITS]. A 10 KB config journal gets 1024 slots; a
-   * multi-GB journal gets the full cache. 0 (size unknown) gets the full cache.
+   * journal above 128 MB gets the full cache. 0 (size unknown) gets the full cache.
    */
   public static int bitsFor(long journalBytes) {
     if ( journalBytes <= 0 ) return MAX_BITS;

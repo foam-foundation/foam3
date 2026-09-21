@@ -1,4 +1,5 @@
-<flow name="Ticket" category="DOC/DEV" spid="foam"/>
+<flow name="Ticket" category="DOC/DEV" spid="foam" description="The Ticket system: a base model extended per use case, modelling a scenario as a sequence of steps and status rules." keywords="ticket,scenario,status,rules,knowledge"/>
+
 # Ticket
 
 The Ticket system is designed with the following intent

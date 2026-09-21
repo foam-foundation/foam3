@@ -1,4 +1,5 @@
-<flow name="Deployment" category="DOC/GUIDE" spid="foam"/>
+<flow name="Deployment" category="DOC/GUIDE" spid="foam" description="Covers FOAM deployment: building a tarball, remote install via SSH, JVM memory defaults and tuning." keywords="deployment,tarball,ssh,jvm,knowledge"/>
+
 # Deployment (DevOps)
 
 FOAM has support for building, uploading, and install a complete application.

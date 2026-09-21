@@ -1,4 +1,5 @@
-<flow name="DateTimeUTC" category="DOC/GUIDE" spid="foam"/>
+<flow name="DateTimeUTC" category="DOC/GUIDE" spid="foam" description="Documents the DateTimeUTC property type: UTC storage, parsing, and display guarantees, and supported input formats." keywords="datetime,utc,date parsing,timezone,knowledge"/>
+
 # DateTimeUTC Property Type in FOAM3
 
 ## Overview

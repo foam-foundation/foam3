@@ -1,4 +1,5 @@
-<flow name="crunch-doc" category="DOC/DEV" spid="foam" label="CRUNCH Documentation"/>
+<flow name="crunch-doc" category="DOC/DEV" spid="foam" label="CRUNCH Documentation" description="CRUNCH developer guide: Capability, prerequisites, permissions, required information, and wizard configuration." keywords="crunch,capability,wizard,permissions,knowledge"/>
+
 # Continuous Reactive User Nano-Capability Hierarchy
 
 <foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />

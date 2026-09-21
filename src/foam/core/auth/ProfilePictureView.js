@@ -33,7 +33,7 @@ foam.CLASS({
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      background-color: $backgroundDefault
+      background-color: $backgroundDefault;
       box-sizing: border-box; /* Include padding and border in the element's total width and height */
       transition: border-color 0.3s ease, background-color 0.3s ease;
     }

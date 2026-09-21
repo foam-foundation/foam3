@@ -27,15 +27,17 @@ foam.CLASS({
       const p          = this.Parsers.create();
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
-      // Only the name is needed; a projection avoids pulling every flow's
-      // full script and blocks just to list them.
-      const sink = await this.flowDAO.select(this.PROJECTION(this.Flow.NAME));
+      // Only the name and category are needed; a projection avoids pulling
+      // every flow's full script and blocks just to list them.
+      const sink = await this.flowDAO.select(
+        this.PROJECTION(this.Flow.NAME, this.Flow.CATEGORY));
 
-      sink.projection.map(r => r[0]).sort(comparator).forEach(name => {
+      sink.projection.sort((a, b) => comparator(a[0], b[0])).forEach(row => {
+        const [ name, category ] = row;
         this.alt.args.push(p.sug(p.literalIC(name), {
           text: name,
           prependSpaceOnSelect: false,
-          category: f.category || 'flow'}));
+          category: category || 'flow'}));
       });
     },
 

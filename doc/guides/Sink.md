@@ -1,4 +1,5 @@
-<flow name="Sink" category="DOC/GUIDE" spid="foam"/>
+<flow name="Sink" category="DOC/GUIDE" spid="foam" description="Reference for FOAM Sinks: put/remove/eof/reset interface, streaming architecture, built-in sinks, delegation and chaining." keywords="sink,arraysink,count,group_by,streaming,knowledge"/>
+
 # FOAM Sinks
 
 FOAM Sinks are the destination objects that receive and process data from DAO (Data Access Object) queries. They implement a streaming architecture where data flows from a source DAO through the `select()` operation to a Sink that accumulates, transforms, or processes the results [1](#0-0) .

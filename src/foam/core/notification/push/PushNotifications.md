@@ -1,4 +1,5 @@
-<flow name="PushNotifications" category="DOC/DEV" spid="foam"/>
+<flow name="PushNotifications" category="DOC/DEV" spid="foam" description="Configuring Web Push (VAPID keys) and APNS (Apple) push notification services." keywords="push notifications,web push,apns,vapid,knowledge"/>
+
 # Push Notifications
 
 ## Web Push

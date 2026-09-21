@@ -165,13 +165,16 @@
 
   // The property names that some section lists explicitly (Section.js:161):
   // string entries and { name } entries, minus dotted paths into another
-  // class. `properties` is read only when the axiom carries its own list
-  // (hasOwnProperty, as Section.js:161 and SectionAxiom.js:108 test it).
+  // class. `properties` is read only when the axiom carries its own list,
+  // through the axiom's own hasOwnProperty as Section.js:161 and
+  // SectionAxiom.js:108 call it: FObject.js:449-455 answers from instance_,
+  // where a FOAM object keeps its values, so the native own-key check would
+  // say false on every real axiom.
   exports.listedProps = function(sectionAxioms) {
     var out = {};
     ( sectionAxioms || [] ).forEach(function(s) {
       var list = null;
-      try { if ( Object.prototype.hasOwnProperty.call(s, 'properties') && Array.isArray(s.properties) ) list = s.properties; } catch (e) {}
+      try { if ( s.hasOwnProperty('properties') && Array.isArray(s.properties) ) list = s.properties; } catch (e) {}
       ( list || [] ).forEach(function(p) {
         var n = typeof p === 'string' ? p : ( p && p.name );
         if ( n && n.indexOf('.') < 0 ) out[n] = true;

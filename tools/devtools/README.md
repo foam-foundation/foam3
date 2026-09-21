@@ -293,7 +293,7 @@ each file in its own process; the exit code is the number of failing files:
 
 ```bash
 npm run test:devtools                           # = node tools/devtools/test/run-all.js
-                                                # 7 files, 218 assertions passed
+                                                # 7 files, 227 assertions passed
 ```
 
 Or one at a time:

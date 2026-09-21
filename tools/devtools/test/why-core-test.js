@@ -127,6 +127,14 @@ t(L.a === true && L.b === true && L.c === true && ! L.x && ! L.y && ! L.q && Obj
 var inherited = Object.create({ properties: [ 'z' ] }); inherited.name = 'S';
 t(Object.keys(W.listedProps([ inherited ])).length === 0, 'listedProps: an inherited `properties` is not the axiom\'s own list (hasOwnProperty, as Section.js:161)');
 t(Object.keys(W.listedProps(null)).length === 0 && Object.keys(W.listedProps([ { name: 'S', properties: 'a' } ])).length === 0, 'listedProps: no axioms / non-array list -> nothing');
+// A real SectionAxiom keeps its values in instance_ behind prototype accessors, and FObject.js:449-455
+// overrides hasOwnProperty to read instance_; the native own-key check answers false on it.
+function FoamAxiom(props) { this.instance_ = {}; if ( props !== undefined ) this.instance_.properties = props; }
+FoamAxiom.prototype.name = 'S';
+FoamAxiom.prototype.hasOwnProperty = function(n) { return !! this.instance_ && this.instance_[n] !== undefined; };
+Object.defineProperty(FoamAxiom.prototype, 'properties', { get: function() { return this.instance_.properties; } });
+t(W.listedProps([ new FoamAxiom([ 'a' ]) ]).a === true, 'listedProps: a FOAM-shaped axiom (value in instance_, framework hasOwnProperty) counts its list');
+t(Object.keys(W.listedProps([ new FoamAxiom() ])).length === 0, 'listedProps: a FOAM-shaped axiom with no list -> nothing');
 
 // actions are folded into the section's availability (SectionAxiom.js:137-164)
 var okAct = W.actionGate({ name: 'go' }, data, env(), false);

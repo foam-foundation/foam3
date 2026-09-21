@@ -46,7 +46,7 @@ function hello(name) {
 > It can span multiple lines.
 
 ## Links and Images
-Check out [FOAM3](https://github.com/kgrgreer/foam3).
+Check out [FOAM3](https://github.com/foam-foundation/foam3).
 ![Google](/foam3/src/com/google/auth/images/google.svg)
 ![Google](/foam3/src/com/google/auth/images/google.svg "Title")
 

@@ -77,3 +77,8 @@ this is specific to `--add-dir` and `/add-dir`: the `permissions.additionalDirec
    pointing at them from the body. Only `SKILL.md` loads when the skill is invoked; reference
    files load when Claude actually needs them.
 3. Commit it here. Consuming apps pick it up on their next submodule bump — no per-app wiring.
+
+A skill may also ship a `scripts/` folder with its own `package.json` when its job needs real
+code (Playwright, a CLI, anything past what an agent should write inline). A consumer runs `npm i`
+in `scripts/` once per checkout; a `postinstall` there may fetch a browser or other binary the
+scripts need. `node_modules` is gitignored, same as any other Node package in this repo.

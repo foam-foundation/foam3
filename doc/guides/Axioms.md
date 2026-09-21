@@ -1,4 +1,5 @@
-<flow name="Axioms" category="DOC/GUIDE" spid="foam"/>
+<flow name="Axioms" category="DOC/GUIDE" spid="foam" description="Explains Axioms as FOAM's core extension mechanism: installInClass/installInProto, two-phase installation, priority ordering." keywords="axioms,installinclass,installinproto,extensibility,knowledge"/>
+
 ## What are Axioms?
 
 Axioms are the core mechanism by which FOAM models define class structure and functionality. [1](#0-0)  They are defined with a pseudo-interface that includes optional `installInClass(cls)` and `installInProto(proto)` methods. [2](#0-1)
@@ -53,7 +54,7 @@ The framework also provides debugging support through `describe()` which lists a
 Axioms are stored in `axiomMap_` on each class, with inheritance handled through prototype chaining of the axiom maps. [6](#0-5)  When axioms are installed on parent classes, child classes are notified via pub/sub to clear their axiom caches. [18](#0-17)  The `Relationship` axiom is a specialized example that defines relationships between models. [19](#0-18)
 
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

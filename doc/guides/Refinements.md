@@ -1,4 +1,5 @@
-<flow name="Refinements" category="DOC/GUIDE" spid="foam"/>
+<flow name="Refinements" category="DOC/GUIDE" spid="foam" description="Explains Refinements: extending or modifying existing FOAM classes post-definition without subclassing." keywords="refinements,extension,two-phase installation,java code generation,knowledge"/>
+
 ## What are Refinements?
 
 Refinements allow you to extend or modify existing classes after they've been defined by adding new axioms to them. [1](#1-0)  When a model specifies a `refines` property, it doesn't create a new class but instead adds axioms to the existing class being refined. [1](#1-0)
@@ -49,7 +50,7 @@ FOAM models are modeled as FOAM models. This makes FOAM powerful, consistent and
 Refinements are a powerful mechanism for extending FOAM classes without modifying their original definitions. They're particularly useful for adding platform-specific functionality (like Java or Swift code generation) or framework-specific features (like UI views) to core classes.<cite /> The axiom installation process handles refinements transparently, treating refined axioms the same as original axioms once installed.<cite /> Multiple refinements can target the same class, and they're processed in the order they're loaded.<cite />
 
 Wiki pages you might want to explore:
-- [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
+- [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
 
 ### Citations
 

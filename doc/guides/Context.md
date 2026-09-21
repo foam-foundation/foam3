@@ -1,4 +1,5 @@
-<flow name="Context" category="DOC/GUIDE" spid="foam"/>
+<flow name="Context" category="DOC/GUIDE" spid="foam" description="Explains FOAM's immutable hierarchical Context (X): get/put/putFactory API and the system/session/request context hierarchy." keywords="context,dependency injection,x,imports,exports,knowledge"/>
+
 ## What is a Context?
 
 A context looks very much like a map, and behaves like a map, except it has inhertitance.

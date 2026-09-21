@@ -38,6 +38,13 @@ foam.ENUM({
       borderColor: '$green600'
     },
     {
+      name: 'UNLOADED',
+      label: 'Unloaded',
+      color: '$textSecondary',
+      background: '$backgroundSecondary',
+      borderColor: '$textSecondary'
+    },
+    {
       name: 'ERROR',
       label: 'Error',
       color: '$red600',

@@ -145,7 +145,6 @@ foam.POM({
     { name: "menu/AuthorizationStatus",                                                   flags: "js|java" },
     { name: "menu/DAOMenu",                                                               flags: "js" },
     { name: "menu/DAOMenu2",                                                              flags: "web" },
-    { name: "menu/DocumentMenu",                                                          flags: "js" },
     { name: "menu/FlowMenu",                                                              flags: "js" },
     { name: "menu/LimitedEditFlowMenu",                                                     flags: "js" },
     { name: "menu/SeparatorMenu",                                                         flags: "js" },

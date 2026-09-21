@@ -152,7 +152,7 @@ foam.CLASS({
     function render() {
       var self = this;
       this
-        .addClass(this.myClass())
+        .addClass()
         .enableClass(this.myClass('expanded'), this.expanded$)
         .attrs({ role: 'button', tabindex: 0 })
         .style({ // Change top of the cards based on the flow's category
@@ -175,11 +175,11 @@ foam.CLASS({
           .start() // Keywords + Toggle Logic
             .addClass(this.myClass('keywords'))
             .enableClass(this.myClass('keywords-expanded'), this.expanded$)
-            .add(this.slot(function(expanded, data$keywords) {
+            .addClass(self.myClass('keyword-list'))
+            .add(this.dynamic(function(expanded, data$keywords) {
               var kw    = (data$keywords || []).filter(k => k !== 'knowledge'); // Filter out the knowledge keyword
               var shown = expanded ? kw : kw.slice(0, self.collapsedCount);
-              return self.E()
-                .addClass(self.myClass('keyword-list'))
+              this
                 .forEach(shown, function(keyword) {
                   this.start()
                     .attrs({ title: keyword })
@@ -204,7 +204,7 @@ foam.CLASS({
       let hash = 0;
       
       // Hash the string using a simple djb2-like numeric accumulator
-      for (let i = 0; i < str.length; i++) {
+      for ( let i = 0; i < str.length; i++ ) {
           hash = str.charCodeAt(i) + ((hash << 5) - hash);
       }
       

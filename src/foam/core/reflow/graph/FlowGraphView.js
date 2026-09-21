@@ -249,13 +249,13 @@ foam.CLASS({
         if ( firstSize ) self.fitToNodes_();
       });
 
-      this.canvasEl_.on('pointerdown', function(evt) { self.onCanvasPointerDown_(evt); });
-      this.canvasEl_.on('pointermove', function(evt) { self.onCanvasPointerMove_(evt); });
-      this.canvasEl_.on('pointerup', function(evt) { self.onCanvasPointerUp_(evt); });
-      this.canvasEl_.on('pointercancel', function(evt) { self.onCanvasPointerUp_(evt); });
-      this.canvasEl_.on('pointerleave', function(evt) { self.onCanvasPointerLeave_(evt); });
-      this.canvasEl_.on('dblclick', function(evt) { self.onCanvasDblClick_(evt); });
-      this.canvasEl_.on('wheel', function(evt) { self.onCanvasWheel_(evt); }, { passive: false });
+      this.canvasEl_.on('pointerdown', self.onCanvasPointerDown_);
+      this.canvasEl_.on('pointermove', self.onCanvasPointerMove_);
+      this.canvasEl_.on('pointerup', self.onCanvasPointerUp_);
+      this.canvasEl_.on('pointercancel', self.onCanvasPointerUp_);
+      this.canvasEl_.on('pointerleave', self.onCanvasPointerLeave_);
+      this.canvasEl_.on('dblclick', self.onCanvasDblClick_);
+      this.canvasEl_.on('wheel', self.onCanvasWheel_, { passive: false });
       // Plain DOM listeners via .on(): these die with canvasEl_ itself (a
       // child of this view), same as the framework's own un-wrapped .on()
       // calls elsewhere -- no onDetach needed for them.
@@ -268,188 +268,6 @@ foam.CLASS({
       });
 
       if ( this.graph ) this.rebuild();
-    },
-
-    function onCanvasPointerDown_(evt) {
-      if ( evt.button !== 0 && evt.button !== 1 ) return;
-      this.canvasEl_.el_().setPointerCapture(evt.pointerId);
-
-      if ( evt.button === 1 ) {
-        this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
-        return;
-      }
-
-      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
-
-      if ( hit && hit.role === 'toggle' ) {
-        var c = hit.parent;
-        while ( c && ! this.GraphContainerCView.isInstance(c) ) c = c.parent;
-        if ( c ) this.toggleExpanded_(c.id, c.collapsed);
-        return;
-      }
-
-      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
-        this.lastModifier_ = evt.shiftKey || evt.ctrlKey || evt.metaKey;
-        if ( ! this.selection_[hit.id] && ! this.lastModifier_ ) {
-          var sel = {};
-          if ( hit.block ) sel[hit.id] = hit.block;
-          this.selection_ = sel;
-        }
-        this.drag_ = {
-          kind: 'node',
-          target: hit,
-          start: this.scene_.toScene(evt.clientX, evt.clientY),
-          origins: this.snapshotOrigins_(hit.id),
-          moved: false
-        };
-        return;
-      }
-
-      if ( evt.shiftKey ) {
-        var start = this.scene_.toScene(evt.clientX, evt.clientY);
-        this.marquee_ = foam.graphics.Box.create({
-          x: start.x, y: start.y, width: 0, height: 0,
-          color: this.theme_.colors.marqueeFill,
-          border: this.theme_.colors.marqueeStroke,
-          alpha: 0.15
-        });
-        this.scene_.overlay.add(this.marquee_);
-        this.drag_ = { kind: 'marquee', start: start };
-        return;
-      }
-
-      this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
-    },
-
-    function onCanvasPointerMove_(evt) {
-      var self = this;
-      var drag = this.drag_;
-
-      if ( drag && drag.kind === 'node' ) {
-        var p = this.scene_.toScene(evt.clientX, evt.clientY);
-        var dx = p.x - drag.start.x, dy = p.y - drag.start.y;
-        if ( Math.abs(dx) > 2 || Math.abs(dy) > 2 ) drag.moved = true;
-        Object.keys(drag.origins).forEach(function(name) {
-          var cv = self.nodeViews_[name];
-          if ( ! cv ) return;
-          var o = drag.origins[name];
-          cv.x = o.x + dx;
-          cv.y = o.y + dy;
-        });
-        return;
-      }
-
-      if ( drag && drag.kind === 'pan' ) {
-        this.scene_.panBy(evt.clientX - drag.last.clientX, evt.clientY - drag.last.clientY);
-        drag.last = { clientX: evt.clientX, clientY: evt.clientY };
-        return;
-      }
-
-      if ( drag && drag.kind === 'marquee' ) {
-        var p2 = this.scene_.toScene(evt.clientX, evt.clientY);
-        this.marquee_.x = Math.min(drag.start.x, p2.x);
-        this.marquee_.y = Math.min(drag.start.y, p2.y);
-        this.marquee_.width = Math.abs(p2.x - drag.start.x);
-        this.marquee_.height = Math.abs(p2.y - drag.start.y);
-        return;
-      }
-
-      // No drag in progress: hover.
-      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
-      var tip = '';
-      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
-        this.softSelected = hit.block;
-        tip = hit.tooltipAt(this.localPoint_(evt, hit)) || '';
-      } else if ( this.GraphEdgeCView.isInstance(hit) ) {
-        this.softSelected = null;
-        tip = hit.tooltipAt() || '';
-      } else {
-        this.softSelected = null;
-      }
-
-      this.tooltip_.text = tip;
-      if ( tip ) {
-        var scenePt = this.scene_.toScene(evt.clientX, evt.clientY);
-        this.tooltip_.anchorX = scenePt.x;
-        this.tooltip_.anchorY = scenePt.y;
-      }
-
-      var host = this.canvasEl_.parentNode;
-      host.enableClass(this.myClass('grab'), ! hit);
-      host.enableClass(this.myClass('pointer'), !! hit);
-    },
-
-    function onCanvasPointerUp_(evt) {
-      var self = this;
-      var drag = this.drag_;
-      this.drag_ = null;
-      if ( ! drag ) return;
-
-      if ( drag.kind === 'node' ) {
-        if ( ! drag.moved ) {
-          var id = drag.target.id;
-          if ( this.lastModifier_ ) {
-            var sel = Object.assign({}, this.selection_);
-            if ( sel[id] ) {
-              delete sel[id];
-            } else if ( drag.target.block ) {
-              sel[id] = drag.target.block;
-            }
-            this.selection_ = sel;
-          } else {
-            var sel2 = {};
-            if ( drag.target.block ) sel2[id] = drag.target.block;
-            this.selection_ = sel2;
-          }
-        }
-        this.selectingFromGraph_ = true;
-        this.selected = drag.target.block;
-        this.selectingFromGraph_ = false;
-        return;
-      }
-
-      if ( drag.kind === 'marquee' ) {
-        var box = this.marquee_;
-        this.scene_.overlay.remove(this.marquee_);
-        this.marquee_ = null;
-        if ( box.width < 2 && box.height < 2 ) return;
-
-        var hits = {};
-        Object.keys(this.nodeViews_).forEach(function(nm) {
-          var cv = self.nodeViews_[nm];
-          var intersects = cv.x < box.x + box.width && cv.x + cv.width > box.x &&
-                           cv.y < box.y + box.height && cv.y + cv.height > box.y;
-          if ( ! intersects ) return;
-          var b = self.blockOf_(nm);
-          if ( b ) hits[nm] = b;
-        });
-
-        this.selection_ = ( evt.ctrlKey || evt.metaKey ) ?
-          Object.assign({}, this.selection_, hits) :
-          hits;
-      }
-      // pan: nothing further to do.
-    },
-
-    function onCanvasPointerLeave_(evt) {
-      this.softSelected = null;
-      this.tooltip_.text = '';
-    },
-
-    function onCanvasDblClick_(evt) {
-      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
-      if ( ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) && hit.block ) {
-        this.data.graphMode = false;
-        this.selectFromTree(hit.block);
-      }
-    },
-
-    function onCanvasWheel_(evt) {
-      evt.preventDefault();
-      var rect = this.canvasEl_.el_().getBoundingClientRect();
-      var vx = evt.clientX - rect.left, vy = evt.clientY - rect.top;
-      var deltaY = evt.deltaMode === 1 ? evt.deltaY * 16 : evt.deltaY;
-      this.scene_.zoomAt(vx, vy, Math.exp(-deltaY * 0.0015));
     },
 
     function localPoint_(evt, cv) {
@@ -1050,6 +868,188 @@ foam.CLASS({
   ],
 
   listeners: [
+    function onCanvasPointerDown_(evt) {
+      if ( evt.button !== 0 && evt.button !== 1 ) return;
+      this.canvasEl_.el_().setPointerCapture(evt.pointerId);
+
+      if ( evt.button === 1 ) {
+        this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
+        return;
+      }
+
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+
+      if ( hit && hit.role === 'toggle' ) {
+        var c = hit.parent;
+        while ( c && ! this.GraphContainerCView.isInstance(c) ) c = c.parent;
+        if ( c ) this.toggleExpanded_(c.id, c.collapsed);
+        return;
+      }
+
+      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
+        this.lastModifier_ = evt.shiftKey || evt.ctrlKey || evt.metaKey;
+        if ( ! this.selection_[hit.id] && ! this.lastModifier_ ) {
+          var sel = {};
+          if ( hit.block ) sel[hit.id] = hit.block;
+          this.selection_ = sel;
+        }
+        this.drag_ = {
+          kind: 'node',
+          target: hit,
+          start: this.scene_.toScene(evt.clientX, evt.clientY),
+          origins: this.snapshotOrigins_(hit.id),
+          moved: false
+        };
+        return;
+      }
+
+      if ( evt.shiftKey ) {
+        var start = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.marquee_ = foam.graphics.Box.create({
+          x: start.x, y: start.y, width: 0, height: 0,
+          color: this.theme_.colors.marqueeFill,
+          border: this.theme_.colors.marqueeStroke,
+          alpha: 0.15
+        });
+        this.scene_.overlay.add(this.marquee_);
+        this.drag_ = { kind: 'marquee', start: start };
+        return;
+      }
+
+      this.drag_ = { kind: 'pan', last: { clientX: evt.clientX, clientY: evt.clientY } };
+    },
+
+    function onCanvasPointerMove_(evt) {
+      var self = this;
+      var drag = this.drag_;
+
+      if ( drag && drag.kind === 'node' ) {
+        var p = this.scene_.toScene(evt.clientX, evt.clientY);
+        var dx = p.x - drag.start.x, dy = p.y - drag.start.y;
+        if ( Math.abs(dx) > 2 || Math.abs(dy) > 2 ) drag.moved = true;
+        Object.keys(drag.origins).forEach(function(name) {
+          var cv = self.nodeViews_[name];
+          if ( ! cv ) return;
+          var o = drag.origins[name];
+          cv.x = o.x + dx;
+          cv.y = o.y + dy;
+        });
+        return;
+      }
+
+      if ( drag && drag.kind === 'pan' ) {
+        this.scene_.panBy(evt.clientX - drag.last.clientX, evt.clientY - drag.last.clientY);
+        drag.last = { clientX: evt.clientX, clientY: evt.clientY };
+        return;
+      }
+
+      if ( drag && drag.kind === 'marquee' ) {
+        var p2 = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.marquee_.x = Math.min(drag.start.x, p2.x);
+        this.marquee_.y = Math.min(drag.start.y, p2.y);
+        this.marquee_.width = Math.abs(p2.x - drag.start.x);
+        this.marquee_.height = Math.abs(p2.y - drag.start.y);
+        return;
+      }
+
+      // No drag in progress: hover.
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+      var tip = '';
+      if ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) {
+        this.softSelected = hit.block;
+        tip = hit.tooltipAt(this.localPoint_(evt, hit)) || '';
+      } else if ( this.GraphEdgeCView.isInstance(hit) ) {
+        this.softSelected = null;
+        tip = hit.tooltipAt() || '';
+      } else {
+        this.softSelected = null;
+      }
+
+      this.tooltip_.text = tip;
+      if ( tip ) {
+        var scenePt = this.scene_.toScene(evt.clientX, evt.clientY);
+        this.tooltip_.anchorX = scenePt.x;
+        this.tooltip_.anchorY = scenePt.y;
+      }
+
+      var host = this.canvasEl_.parentNode;
+      host.enableClass(this.myClass('grab'), ! hit);
+      host.enableClass(this.myClass('pointer'), !! hit);
+    },
+
+    function onCanvasPointerUp_(evt) {
+      var self = this;
+      var drag = this.drag_;
+      this.drag_ = null;
+      if ( ! drag ) return;
+
+      if ( drag.kind === 'node' ) {
+        if ( ! drag.moved ) {
+          var id = drag.target.id;
+          if ( this.lastModifier_ ) {
+            var sel = Object.assign({}, this.selection_);
+            if ( sel[id] ) {
+              delete sel[id];
+            } else if ( drag.target.block ) {
+              sel[id] = drag.target.block;
+            }
+            this.selection_ = sel;
+          } else {
+            var sel2 = {};
+            if ( drag.target.block ) sel2[id] = drag.target.block;
+            this.selection_ = sel2;
+          }
+        }
+        this.selectingFromGraph_ = true;
+        this.selected = drag.target.block;
+        this.selectingFromGraph_ = false;
+        return;
+      }
+
+      if ( drag.kind === 'marquee' ) {
+        var box = this.marquee_;
+        this.scene_.overlay.remove(this.marquee_);
+        this.marquee_ = null;
+        if ( box.width < 2 && box.height < 2 ) return;
+
+        var hits = {};
+        Object.keys(this.nodeViews_).forEach(function(nm) {
+          var cv = self.nodeViews_[nm];
+          var intersects = cv.x < box.x + box.width && cv.x + cv.width > box.x &&
+                           cv.y < box.y + box.height && cv.y + cv.height > box.y;
+          if ( ! intersects ) return;
+          var b = self.blockOf_(nm);
+          if ( b ) hits[nm] = b;
+        });
+
+        this.selection_ = ( evt.ctrlKey || evt.metaKey ) ?
+          Object.assign({}, this.selection_, hits) :
+          hits;
+      }
+      // pan: nothing further to do.
+    },
+
+    function onCanvasPointerLeave_(evt) {
+      this.softSelected = null;
+      this.tooltip_.text = '';
+    },
+
+    function onCanvasDblClick_(evt) {
+      var hit = this.scene_.hitAt(evt.clientX, evt.clientY);
+      if ( ( this.GraphNodeCView.isInstance(hit) || this.GraphContainerCView.isInstance(hit) ) && hit.block ) {
+        this.data.graphMode = false;
+        this.selectFromTree(hit.block);
+      }
+    },
+
+    function onCanvasWheel_(evt) {
+      evt.preventDefault();
+      var rect = this.canvasEl_.el_().getBoundingClientRect();
+      var vx = evt.clientX - rect.left, vy = evt.clientY - rect.top;
+      var deltaY = evt.deltaMode === 1 ? evt.deltaY * 16 : evt.deltaY;
+      this.scene_.zoomAt(vx, vy, Math.exp(-deltaY * 0.0015));
+    },
+
     {
       name: 'onSelected',
       on: [ 'this.propertyChange.selected' ],

@@ -630,6 +630,12 @@ foam.CLASS({
                           .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
+                          // Option rows had no id-bearing attribute, so recorders/tests
+                          // could only address them by list position, which breaks on
+                          // any reorder. Carry the choice id as data-value, the same
+                          // attribute the root element uses for its chosen value; name
+                          // stays on the root, where it is the field name.
+                          .attrs({ 'data-value': foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id })
                           .enableClass('disabled', section.disabled)
                           .enableClass('highlighted', self.highlightedIndex_$.map(v => v === itemIndex))
                           .callIf(! section.disabled, function() {

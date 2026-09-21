@@ -1,4 +1,5 @@
 p({"class":"foam.u2.test.CSSTokensJSTest","id":"CSSTokensJSTest"})
 p({"class":"foam.u2.test.RORelativeDateTimeViewTest","id":"RORelativeDateTimeViewTest"})
 p({"class":"foam.u2.test.ColorSchemeToggleTest","id":"ColorSchemeToggleTest"})
+p({"class":"foam.u2.test.RecorderHooksJSTest","id":"RecorderHooksJSTest"})
 p({"class":"foam.u2.test.ViewReloaderTest","id":"ViewReloaderTest","description":"ViewReloader path lookup, css-only detection, cascade, and in-place rebuild (#5403)", language: 0})

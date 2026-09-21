@@ -170,8 +170,6 @@ foam.POM({
     { name: "menu/ScriptMenu",                                                            flags: "js|java" },
     { name: "menu/TreeAltView",                                                           flags: "web" },
     { name: "menu/TreeGraphAltView",                                                      flags: "js" },
-    { name: "menu/FlowDocumentRowView",                                                   flags: "js" },
-    { name: "menu/FlowDocumentCitationView",                                              flags: "js" },
     { name: "benchmark/UUIDBenchmark",                                                    flags: "js&test|java&test" },
     { name: "u2/ButtonRefinement",                                                        flags: "web" },
     { name: "u2/navigation/IFrameTopNavigation",                                          flags: "web" },

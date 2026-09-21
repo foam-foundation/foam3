@@ -978,6 +978,8 @@ foam.POM({
     { name: "foam/test/IdentifiedStringHolder",                       flags: "js|java&test" },
     { name: "foam/lang/FObjectTest",                                  flags: "js&test|java&test" },
     { name: "foam/flow/Document",                                     flags: "js|java" },
+    { name: "foam/flow/FlowDocumentRowView",                          flags: "js" },
+    { name: "foam/flow/FlowDocumentCitationView",                     flags: "js" },
     { name: "foam/flow/MarkupEditor",                                 flags: "js" },
     { name: "foam/flow/DocumentationFolderDAO",                       flags: "js|java" },
     { name: "foam/flow/widgets/AxiomShortSummary",                    flags: "js" },

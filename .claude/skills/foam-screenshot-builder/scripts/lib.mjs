@@ -159,7 +159,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export function readRows(file) {
   const rowsFile = path.resolve(file || path.join(HERE, 'rows.json'));
   const base = path.dirname(rowsFile);
-  const cfg = fs.existsSync(rowsFile) ? JSON.parse(fs.readFileSync(rowsFile, 'utf8')) : {};   // discover runs before rows exist
+  // discover runs before the default rows.json exists; a path the caller typed has to exist,
+  // or a typo shoots zero rows and exits 0.
+  if (!fs.existsSync(rowsFile) && file) throw new Error(`rows file not found: ${rowsFile}`);
+  const cfg = fs.existsSync(rowsFile) ? JSON.parse(fs.readFileSync(rowsFile, 'utf8')) : {};
   cfg.servers ||= { before: 'http://localhost:9092/', after: 'http://localhost:9091/' };
   cfg.out = path.resolve(base, cfg.out || 'out');
   cfg.profile = path.resolve(base, cfg.profile || 'profile');

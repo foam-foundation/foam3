@@ -16,29 +16,36 @@ if (!row) { console.error(`no row "${names[0] ?? ''}" — have: ${cfg.rows.map(r
 const url = cfg.servers[flags.server || cfg.main];
 if (!url) { console.error(`unknown server "${flags.server}" — have: ${Object.keys(cfg.servers).join(', ')}`); process.exit(2); }
 
-// Playwright selector → Recorder alternative (array of chained parts). A chain segment
-// Recorder has no equivalent for (nth=, internal:) drops the whole candidate; a segment that
-// looks like a Playwright-only dialect (an engine= form or pseudo-class Recorder can't run)
-// is refused, naming the step, instead of being emitted as a literal — and broken — selector.
-const toRecorder = sel => { const parts = sel.split(' >> ').map(toRecorder1); return parts.every(Boolean) ? parts : null; };
-const toRecorder1 = part => {
+// Playwright selector → Recorder alternative (array of chained parts). A candidate with a
+// chain segment Recorder has no equivalent for is dropped and the next candidate is tried:
+// nth= / internal:, a `..` parent hop, any engine= form other than role=/text=/xpath=
+// (css=, id=, label=, visible=, _react=, ...), a /regex/ name (aria/ and text/ match
+// exactly, so it would silently never match), a role=/text= shape not handled below, and
+// Playwright-only pseudo-classes a plain querySelector cannot run. `why` collects each drop
+// so a step left with no candidate can say what it lost.
+const toRecorder = (sel, why) => { const parts = sel.split(' >> ').map(p => toRecorder1(p, why)); return parts.every(Boolean) ? parts : null; };
+const toRecorder1 = (part, why) => {
+  const drop = reason => { why.push(`${part}  (${reason})`); return null; };
   let m;
-  if (/^(nth=|internal:)/.test(part)) return null;
-  // Recorder matches aria/ and text/ names exactly; a /regex/i name would silently never match.
-  if (/^(role|text)=.*\/.*\//.test(part)) throw new Error(`cannot export a regex selector to Recorder: ${part}\n  give this step a plain css or text= selector in rows.json`);
+  if (/^(nth=|internal:)/.test(part) || part === '..') return drop('no Recorder equivalent');
+  if (/^(role|text)=.*\/.*\//.test(part)) return drop('regex name; Recorder matches aria/ and text/ exactly');
   if ((m = part.match(/^role=(\w+)\[name=(?:"([^"]*)"|\/(.*)\/i?)\]$/))) return `aria/${m[2] ?? m[3]}[role="${m[1]}"]`;
   if ((m = part.match(/^role=(\w+)$/))) return `aria/[role="${m[1]}"]`;
+  if (/^(text|role)=.*["\]]\s*i$/.test(part)) return drop('case-insensitive flag; Recorder matches exactly');
   if ((m = part.match(/^text=(?:"([^"]*)"|(.*))$/))) return `text/${m[1] ?? m[2]}`;
   if (part.startsWith('xpath=')) return 'xpath/' + part.slice(6);
-  // A role=/text= that reached here didn't match either shape above (e.g. a trailing " i"
-  // case-insensitive flag) — it is not valid CSS on its own, so it must not fall through.
-  // Same for Playwright-only pseudo-classes/functions: real CSS, but not ones a plain
-  // querySelector (what Recorder replays) understands.
-  if (/^(role|text)=/.test(part) || /:(has-text|text-is|near|above|below|left-of|right-of|nth-match)\(/.test(part))
-    throw new Error(`cannot export selector dialect to Recorder: ${part}\n  give this step a plain css, text=, or role=NAME[name="exact"] selector in rows.json`);
+  if (/^\*?[a-z_][\w-]*=/i.test(part)) return drop('Playwright engine= form, not CSS');
+  if (/:(has-text|text-is|near|above|below|left-of|right-of|nth-match|light|visible)\(/.test(part)) return drop('Playwright-only pseudo-class');
   return part;
 };
-const selectors = sel => (Array.isArray(sel) ? sel : [sel]).map(toRecorder).filter(Boolean);
+// Drops the candidates Recorder cannot replay; a step with none left is an error naming the
+// step and each dropped candidate, since a skipped click would replay a different flow.
+const selectors = sel => {
+  const why = [], sels = (Array.isArray(sel) ? sel : [sel]).map(c => toRecorder(c, why)).filter(Boolean);
+  if (!sels.length) throw new Error(`no Recorder-compatible selector; dropped:\n  ${why.join('\n  ')}\n  give this step a plain css, text="exact", role=NAME[name="exact"] or xpath= selector in rows.json`);
+  for (const w of why) console.error('dropped candidate:', w);
+  return sels;
+};
 
 const pause = ms => ({ type: 'waitForExpression', expression: `new Promise(r => setTimeout(() => r(true), ${ms}))` });
 // Outlines the step's target for 4s. Tries every recorded candidate (css and xpath) the way
@@ -69,7 +76,6 @@ for (const [n, s] of [...(row.prep || []), ...(row.steps || [])].entries()) { tr
   const target = stepTarget(s);
   if (target) {
     const sels = selectors(target);
-    if (!sels.length) { console.error('skipped step, no Recorder-compatible selector:', JSON.stringify(target)); continue; }
     steps.push({ type: 'waitForElement', selectors: sels, visible: true, timeout: 10000 });
     if (s.emphasize) { steps.push(highlight(sels.map(a => a.join(' ')).filter(a => !/^(aria|text)\//.test(a))), pause(s.pause ?? 2000)); }
     if (s.click) steps.push({ type: 'click', target: 'main', selectors: sels, offsetX: 5, offsetY: 5 });

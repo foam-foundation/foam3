@@ -14,6 +14,11 @@ foam.CLASS({
   ],
   properties: [
     {
+      // Menu id in place of the generic OverlayActionListView name.
+      name: 'name',
+      expression: function(menu) { return ( menu && menu.id ) || ''; }
+    },
+    {
       name: 'label',
       factory: function() { return this.menu?.label ?? ''; }
     },

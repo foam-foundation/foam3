@@ -1,4 +1,5 @@
 p({"class":"foam.u2.test.CSSTokensJSTest","id":"CSSTokensJSTest"})
+p({"class":"foam.u2.test.CSSTokensContrastTest","id":"CSSTokensContrastTest"})
 p({"class":"foam.u2.test.CSSTokenOverrideVariantJSTest","id":"CSSTokenOverrideVariantJSTest"})
 p({"class":"foam.u2.test.RORelativeDateTimeViewTest","id":"RORelativeDateTimeViewTest"})
 p({"class":"foam.u2.test.ColorSchemeToggleTest","id":"ColorSchemeToggleTest"})

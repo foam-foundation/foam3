@@ -174,6 +174,7 @@ Option **--flags:test** will include all source and configuration flagged as `te
 # Options and Tasks of interest
 
 - **--nop:option** - The No-Op option takes a comman seperated list of task names not to execute. For example if you are dealing with pure .java files, then issuing --nop:genJS will speed your build times.
+- **-l / --live-reload** - Source runs only: watches the `.js` files under the project root and pushes each save to the open browser, which reloads the changed class in place. See `doc/guides/LiveReload.md`.
 
 # Additional Tooling
 

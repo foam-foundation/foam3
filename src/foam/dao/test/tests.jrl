@@ -16,6 +16,11 @@ p({
   id:"F3FileJournalTest"
 })
 p({
+  class:"foam.dao.test.MergeFObjectTest",
+  id:"MergeFObjectTest",
+  description:"mergeFObject returns the merged old row for a same-class delta and a row of the new class when the class changed"
+})
+p({
   class:"foam.dao.test.JournalDefaultClassNameTest",
   id:"JournalDefaultClassNameTest"
 })

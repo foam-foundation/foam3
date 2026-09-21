@@ -1,0 +1,4 @@
+p({
+  class: "foam.core.fs.test.SourceWatcherBenchmark",
+  id: "SourceWatcherBenchmark"
+})

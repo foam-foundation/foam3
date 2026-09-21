@@ -188,7 +188,7 @@ foam.CLASS({
 
     { name: 'backgroundDestructive', value: '$destructive400' },
     { name: 'backgroundDestructiveSecondary', value: '$destructive500' },
-    { name: 'backgroundDestructiveTertiary', value: '$destructive50' },
+    { name: 'backgroundDestructiveTertiary', value: '$destructive50', variants: { dark: { value: '$destructive700' } } },
 
     // TEXT
     { name: 'textDefault', value: '$black', variants: { dark: { value: '$grey100' } } },
@@ -221,7 +221,8 @@ foam.CLASS({
     { name: 'statusSuccessText',       value: '$success700',     variants: { dark: { value: '$success200' } } },
     { name: 'statusSuccessBackground', value: '$success50',      variants: { dark: { value: '$success700' } } },
     { name: 'statusDangerText',        value: '$destructive500', variants: { dark: { value: '$destructive100' } } },
-    { name: 'statusDangerBackground',  value: '$destructive50',  variants: { dark: { value: '$destructive700' } } },
+    // Same pair as backgroundDestructiveTertiary in both modes; one source.
+    { name: 'statusDangerBackground',  value: '$backgroundDestructiveTertiary' },
     { name: 'statusNeutralBackground', value: '$grey100',        variants: { dark: { value: '$neutral700' } } },
 
     // BORDER COLOR

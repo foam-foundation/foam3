@@ -91,6 +91,7 @@
   - [Register the Service](#register-the-service)
 - [Putting It All Together](#putting-it-all-together)
   - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
+  - [Testing with the Demo User](#testing-with-the-demo-user)
 - [Where to Go from Here](#where-to-go-from-here)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
@@ -746,17 +747,19 @@ $ ./build.sh -Jdemo
 ```
 
 This will trigger the build and start the server. You can open your application in the web browser at http://localhost:8080/. 
-Use one of the following credentials at the logging screen:
+Use the following credentials at the login screen:
 
 ```
 # administrator - full access
 user: admin
 password: badpassword
 
-# regular non-priveledged user - can only interact with Recipes.
+# regular non-privileged user - can only interact with Recipes
 user: demo
 password: demopassword
 ```
+
+> 💡 **Use the admin account throughout this tutorial.** The demo user exists but requires group permissions that are only configured at the very end of the tutorial. Log in as `admin` for now — we will test the demo user once everything is wired up.
 
 Clicking on the Recipe in the left navigation menu should bring you to the Recipe screen:
 
@@ -1485,6 +1488,26 @@ After starting the application, you should see the new menu items. When you open
 For a comprehensive reference on FOAM relationships, including advanced configuration options like custom property settings, custom DAO keys, and one-way relationships, see the [FOAM Relationships Guide][foam-relationships].
 
 # Custom Views
+
+Before diving in, extract the archive that accompanies this chapter. From your project root:
+
+```bash
+tar -xzf foam3/doc/tutorials/resources/custom-views.tar.gz
+```
+
+This places the following files where they belong:
+
+| File | Destination |
+|------|-------------|
+| `IngredientPickerView.js` | `src/com/foamdev/cook/` |
+| `AlternativePickerView.js` | `src/com/foamdev/cook/` |
+| `RecipeStepIngredientAmountsView.js` | `src/com/foamdev/cook/` |
+| `RecipeView.js` | `src/com/foamdev/cook/` |
+| `RecipeCreateView2.js` | `src/com/foamdev/cook/` |
+| `UnitConversionPage.js` | `src/com/foamdev/cook/` |
+| `groupPermissionJunctions.jrl` | `journals/` |
+
+The journal file adds the permissions the demo user needs to access everything you build in this chapter — it will be needed at the very end when you test the demo login. The JS files are covered one by one throughout the chapter; you don't need to register them in `pom.js` yet — each section will tell you when to do that.
 
 Out of the box, FOAM turns a model into a working UI — the tables, forms, and browse-create-edit screens you've already seen — so you can **browse and edit your data with no UI code at all**. That default carries most apps a long way. But the stock views are a starting point, not a ceiling: you can **customize** them field by field, **swap in your own views**, and when a screen needs to be exactly right, assemble a **fully custom screen** — all from the same building blocks.
 
@@ -3061,7 +3084,11 @@ p({
 "defaultMenu": ["welcome"]
 ```
 
-After restarting the server, logging in navigates directly to the Unit Converter. The cookbook is still reachable from the sidebar — the default menu controls only where the app begins, not what else is available.
+Rebuild and restart — the default menu controls only where the app begins, not what else is available, so the cookbook is still reachable from the sidebar.
+
+## Testing with the Demo User
+
+Now is a good time to verify everything works for a regular non-privileged user. When you extracted `custom-views.tar.gz` at the start of this chapter, it also placed an updated `groupPermissionJunctions.jrl` into `journals/` — this file grants the `recipes` group permission to access all the Cook Book DAOs and menus we added throughout the tutorial — recipes, ingredients, ingredient amounts, recipe steps, the conversion service, and the `welcome` landing page. Log in as `demo` / `demopassword` — you should land directly on the Unit Converter and have access to the full cookbook menu. Notice that the left navigation is clean: only the Cook Book items you created are visible. The admin-only sections (user management, data management, and other system menus) are absent entirely — FOAM's permission system filters the sidebar automatically based on what the current user's group is allowed to see.
 
 ![Unit Converter landing page](images/screen10.png)
 
@@ -3521,7 +3548,7 @@ actions: [
 
 ## Source-to-Sink Architecture
 
-In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://kgrgreer.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
+In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://foam-foundation.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
 
 ### The Sink Interface
 

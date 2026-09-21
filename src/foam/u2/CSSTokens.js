@@ -97,7 +97,9 @@ foam.CLASS({
 
     // True neutral greys (no blue cast, unlike grey*). Fills the gap between
     // black50 (#373737) and grey700 (#494F59) that dark-mode borders and
-    // dividers need; Tailwind's neutral ramp.
+    // dividers need; Tailwind's neutral ramp. The ramp is shipped complete,
+    // like the other palette ramps: a theme or app picks the step it needs
+    // without adding one to this file first.
     { name: 'neutral50',  value: '#FAFAFA' },
     { name: 'neutral100', value: '#F5F5F5' },
     { name: 'neutral200', value: '#E5E5E5' },
@@ -209,6 +211,14 @@ foam.CLASS({
     { name: 'textOnDestructive', value: '$white' },
 
     { name: 'link', value: '$blue200' },
+
+    // Browser-native chrome (scrollbars, checkboxes, date pickers) follows this
+    // via `color-scheme` on :root (AppStyles), so whatever sets the dark
+    // variant on theme.activeVariants (the OS listener in foam.lang.Window
+    // today) also flips native controls; inputs inherit it, no rule of their
+    // own. ColorToken only so the dark variant is consulted; the value is a
+    // keyword, not a colour.
+    { name: 'colorScheme', value: 'light', variants: { dark: { value: 'dark' } } },
 
     // STATUS (enum pills, badges, chips): text/background pairs per meaning.
     // Palette tokens have no dark variant, so a pill on $success700/$success50

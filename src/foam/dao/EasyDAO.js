@@ -541,11 +541,10 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'unloadable',
+      name: 'unloadable'
       // Unloadable-by-default is intended: SINGLE_JOURNAL EasyDAOs get memory
       // management via lazy journal reload (NotPartitionedDAO) unless explicitly
       // opted out; wrappers that can't safely rebuild (e.g. fixedSize) exclude themselves.
-      value: true
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',

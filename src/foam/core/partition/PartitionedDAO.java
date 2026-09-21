@@ -192,7 +192,9 @@ public class PartitionedDAO
           .setProperty("id")
           .setDelegate(new foam.dao.MDAO(getOf()))
           .build();
-        return new JDAO(loadX, seq, journalName);
+        JDAO jdao = new JDAO(loadX, seq, journalName);
+        addIndices(jdao);
+        return jdao;
       }
 
       JDAO jdao = new JDAO(loadX, getOf(), journalName);

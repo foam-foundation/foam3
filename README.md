@@ -150,19 +150,7 @@ to run the unit tests.
 - [Turtle Graphics](https://www.youtube.com/watch?v=4wO_RrftJTE)
 
 ## Guides
-- [Build](doc/guides/Build.md)
-- [Contexts](doc/guides/Context.md)
-- [DAOs](doc/guides/Dao.md)
-- [DAO Examples](doc/guides/DaoExamples.md)
-- [Deployment](doc/guides/Deployment.md)
-- [Easy DAO](doc/guides/EasyDao.md)
-- [Enums](doc/guides/Enum.md)
-- [Permissions](doc/guides/Permissions.md)
-- [Project Object Models (POMs)](doc/guides/POM.md)
-- [Porting](doc/guides/Porting.md)
-- [Services](doc/guides/Services.md)
-- [Security/Authentication](doc/guides/Security.md)
-- [Tessting API](doc/guides/APITesting.md)
+The full set of guides is published at **[foam-foundation.github.io/foam3/guides](https://foam-foundation.github.io/foam3/guides/index.html)**.
 
 ## Cheatsheets
 - [Short Form](https://docs.google.com/document/d/1SWgtXtEjdiz12FimPKcTY0dsJ06hxGtCViZXn98PoyY/edit?usp=sharing)
@@ -171,7 +159,7 @@ to run the unit tests.
 ## Tutorials
 <!--
 - [TODO](http://foam-framework.github.io/foam/tutorial/todo/0-intro/) (needs to be ported to FOAM3, needs fixes, even for FOAM1) -->
-- [PhoneCat](https://github.com/kgrgreer/foam3/blob/development/tutorial/phonecat/0-intro.md)
+- [FOAM Tutorial](https://foam-foundation.github.io/foam3/tutorials/foam-tutorial.html)
 
 ## Demos
 - [FOAM1 Demo Catalog](http://foam-framework.github.io/foam/foam/demos/DemoCat.html)

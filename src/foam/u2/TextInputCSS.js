@@ -58,10 +58,6 @@ foam.CLASS({
         background-color: $backgroundDestructiveTertiary;
         border-color: $destructive400;
       }
-
-      input {
-        color-scheme: $colorScheme;
-      }
       `,
       name: 'CSS-TextInputCSS',
       expands_: false
@@ -73,7 +69,6 @@ foam.CLASS({
       this.SUPER();
       this.CSS.maybeInstallInDocument(this.__context__, {id: 'foam.u2.TextInputCSS'});
       this.addClass('foam-u2-TextInputCSS');
-      this.enableClass('allowVariants', this.__context__.theme$.dot('allowVariants'));
     }
   ]
 });

@@ -179,6 +179,13 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'drillsIn',
+      documentation: `True when clicking a row with children replaces the list
+        with that row's children (NestedTreeView) instead of expanding them in
+        place. Such a row is not a disclosure, so it carries no aria-expanded.`
+    },
+    {
+      class: 'Boolean',
       name: 'doesThisIncludeSearch',
       value: false
     },
@@ -327,11 +334,12 @@ foam.CLASS({
             }).
               attrs({
                 title: self.data$.dot('tooltip').map(t => t || labelString),
-                // Rows with children announce open/closed to screen readers. Leaf
-                // rows must not carry aria-expanded at all, or they would be read
-                // as "collapsed"; returning undefined removes the attribute.
-                'aria-expanded': self.slot(function(hasChildren, expanded) {
-                  return hasChildren ? String(expanded) : undefined;
+                // Rows that expand in place announce open/closed to screen
+                // readers. Leaf rows and rows that drill in (NestedTreeView
+                // replaces the list) must not carry aria-expanded at all, or they
+                // would be read as "collapsed"; undefined removes the attribute.
+                'aria-expanded': self.slot(function(hasChildren, drillsIn, expanded) {
+                  return hasChildren && ! drillsIn ? String(expanded) : undefined;
                 })
               }).
               enableClass('selected', this.selected_$).

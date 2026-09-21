@@ -162,6 +162,8 @@ foam.CLASS({
               self.selection = obj;
               isFirstSet = true;
             }
+            // Unless specified, stop nesting after one level
+            let drillsIn = this.continueNesting || ! currentRoot;
             let t = {
               class:        foam.u2.view.TreeViewRow,
               data:         obj,
@@ -169,8 +171,10 @@ foam.CLASS({
               expanded:     self.startExpanded,
               formatter:    self.formatter,
               query:        self.query,
-              // Unless specified, stop nesting after one level
-              onClickAddOn: this.continueNesting || ! currentRoot ? self.onClickAddOn1 : self.onClickAddOn,
+              onClickAddOn: drillsIn ? self.onClickAddOn1 : self.onClickAddOn,
+              // A drill-in row replaces the list on click, so it is not a
+              // disclosure and TreeViewRow leaves aria-expanded off it.
+              drillsIn:     drillsIn,
               level:        1
             }
             this.tag(t);

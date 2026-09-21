@@ -41,10 +41,10 @@ foam.CLASS({
     },
     async function runTest(x) {
       var self = this;
-      var modes = { light: {}, dark: { color: 'dark' } };
-      for ( var mode in modes ) {
+      var activeVariants = { light: {}, dark: { color: 'dark' } };
+      for ( var mode in activeVariants ) {
         var ctx = x.createSubContext({
-          theme: { activeVariants: modes[mode] },
+          theme: { activeVariants: activeVariants[mode] },
           stack: {}, notify: function() {}
         });
         var steps = this.StepWizardletStepsView.create({}, ctx);

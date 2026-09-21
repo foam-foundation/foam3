@@ -148,7 +148,6 @@ foam.POM({
     { name: "menu/FlowMenu",                                                              flags: "js" },
     { name: "menu/LimitedEditFlowMenu",                                                     flags: "js" },
     { name: "menu/SeparatorMenu",                                                         flags: "js" },
-    { name: "menu/DocumentFileMenu",                                                      flags: "js|java" },
     { name: "menu/LinkMenu",                                                              flags: "js" },
     { name: "menu/ListMenu",                                                              flags: "js" },
     { name: "menu/Menu",                                                                  flags: "js|java" },
@@ -543,6 +542,7 @@ foam.POM({
     { name: "benchmark/F3FileJournalBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
+    { name: "benchmark/GzipJournalReplayBenchmark",                   flags: "js&test|java&test" },
     { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
     { name: "notification/NotificationGroupingDAOList",               flags: "web" },
     { name: "analytics/ChangeAnalyticEvent",                          flags: 'js|java'           }

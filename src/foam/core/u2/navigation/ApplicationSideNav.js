@@ -138,12 +138,16 @@ foam.CLASS({
           .enableClass(this.myClass('expand'), this.bottomRoot_$.map(v => !! v))
           // Below MD the top nav hides its right-hand controls, so this is
           // the only place a small screen can switch colour scheme.
-          .start({ class: 'foam.u2.theme.ColorSchemeToggle', showText: true })
+          // Drilling into a bottom row (user settings) replaces the row
+          // list with that submenu; the toggle sits outside the tree, so
+          // hide it with the rows or it stays above the "< back" header.
+          // The toggle also hides itself when the theme has no variants;
+          // both gates follow shown$, so a second show() on the same element
+          // would let whichever fired last win. The wrapper keeps them apart.
+          .start()
             .addClass(this.myClass('scheme-toggle'))
-            // Drilling into a bottom row (user settings) replaces the row
-            // list with that submenu; the toggle sits outside the tree, so
-            // hide it with the rows or it stays above the "< back" header.
             .show(this.bottomRoot_$.map(v => ! v))
+            .tag({ class: 'foam.u2.theme.ColorSchemeToggle', showText: true })
           .end()
           .start({
             class: 'foam.u2.view.NestedTreeView',

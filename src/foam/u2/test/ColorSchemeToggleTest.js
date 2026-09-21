@@ -26,7 +26,7 @@ foam.CLASS({
     // A foam.lang.Window over a fake browser window: real document (the
     // toggle renders DOM), fake localStorage and matchMedia so the test
     // controls the stored pick and the OS preference.
-    function makeWindow(x, store, osDark) {
+    function makeWindow(x, store, osDark, useVariants) {
       var real = x.window;
       var fake = {
         document:  real.document,
@@ -45,7 +45,7 @@ foam.CLASS({
         requestAnimationFrame: real.requestAnimationFrame.bind(real),
         cancelAnimationFrame:  real.cancelAnimationFrame.bind(real)
       };
-      var theme = this.StandaloneTheme.create({ id: 'test', name: 'test', useVariants: true }, x);
+      var theme = this.StandaloneTheme.create({ id: 'test', name: 'test', useVariants: useVariants !== false }, x);
       var win   = this.Window.create({ window: fake, theme: theme }, x);
       win.populateDefaultThemeVariants(theme, win.__subContext__);
       return win;
@@ -132,31 +132,49 @@ foam.CLASS({
 
       // --- Side nav carries the toggle for small screens -------------------
       // Minimal context: an empty menu tree is enough for the nav to render.
-      var navCtx = win.__subContext__.createSubContext({
-        menuDAO: this.MDAO.create({ of: this.Menu }),
-        currentMenu: null,
-        pushDefaultMenu: function() {},
-        pushMenu: function() {},
-        loginSuccess: true
-      });
+      var makeNav = win => {
+        var navCtx = win.__subContext__.createSubContext({
+          menuDAO: this.MDAO.create({ of: this.Menu }),
+          currentMenu: null,
+          pushDefaultMenu: function() {},
+          pushMenu: function() {},
+          loginSuccess: true
+        });
+        var nav = this.ApplicationSideNav.create({}, navCtx);
+        nav.write();
+        return nav;
+      };
+      // The toggle or the wrapper the nav puts it in may carry the hidden
+      // class; either one hides it from the user.
+      var hidden = nav => {
+        var t = nav.element_.querySelector('.foam-u2-theme-ColorSchemeToggle');
+        return !! t && t.closest('.foam-u2-Element-hidden') !== null;
+      };
       // UserInfoView (the settings row) reads the page-global ctrl; stub it
       // when the runner has no app controller.
       var hadCtrl = 'ctrl' in globalThis;
       if ( ! hadCtrl ) globalThis.ctrl = { __subContext__: { auth: { getCurrentSubject: async () => null } } };
       try {
-        var nav = this.ApplicationSideNav.create({}, navCtx);
-        nav.write();
+        var nav = makeNav(win);
         await wait(100);
-        var hidden = () => nav.element_.querySelector('.foam-u2-theme-ColorSchemeToggle')?.classList.contains('foam-u2-Element-hidden');
-        x.test(hidden() === false, 'side nav shows the toggle in its bottom container, hidden=' + hidden());
-        nav.bottomRoot_ = this.Menu.create({ id: 'settings' }, navCtx);
+        x.test(hidden(nav) === false, 'side nav shows the toggle in its bottom container, hidden=' + hidden(nav));
+        nav.bottomRoot_ = this.Menu.create({ id: 'settings' }, nav.__subContext__);
         await wait(50);
-        x.test(hidden() === true, 'drilling into a bottom row hides the toggle, hidden=' + hidden());
+        x.test(hidden(nav) === true, 'drilling into a bottom row hides the toggle, hidden=' + hidden(nav));
         nav.bottomRoot_ = null;
         await wait(50);
-        x.test(hidden() === false, 'leaving the submenu shows the toggle again, hidden=' + hidden());
+        x.test(hidden(nav) === false, 'leaving the submenu shows the toggle again, hidden=' + hidden(nav));
         nav.element_.remove();
         nav.detach();
+
+        // A theme without variants has nothing to toggle: the nav's own
+        // show() must not override the toggle's hide.
+        var plainWin = this.makeWindow(x, {}, osDark, false);
+        var plainNav = makeNav(plainWin);
+        await wait(100);
+        x.test(hidden(plainNav) === true, 'useVariants=false keeps the toggle hidden in the side nav, hidden=' + hidden(plainNav));
+        plainNav.element_.remove();
+        plainNav.detach();
       } finally {
         if ( ! hadCtrl ) delete globalThis.ctrl;
       }

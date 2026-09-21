@@ -3,7 +3,7 @@ p({
   "id":"knowledgeBase",
   "label":"Knowledge Base",
   "order":-299,
-  "icon": "/images/icons8-questions-64.png",
+  "themeIcon": "documentation",
   "keywords": ["doc", "documentation", "flow", "help", "question", "knowledge"],
   "handler":{
     "class":"foam.core.menu.DAOMenu2",

@@ -19,7 +19,7 @@ foam.CLASS({
   properties: [
     {
       // Menu id as the button's name attribute, so recorders and a11y tools
-      // can address each menu; TreeView rows follow the same rule.
+      // can address each menu.
       name: 'name',
       expression: function(menu) { return ( menu && menu.id ) || ''; }
     },

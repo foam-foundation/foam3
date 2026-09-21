@@ -57,8 +57,8 @@ foam.CLASS({
           self.start('div').call(function() {
             var e = this;
             this
-              // Menu id as the entry's name, the same hook MenuView and
-              // TreeView rows carry, so the user dropdown is addressable too.
+              // Menu id as the entry's name, the same hook MenuView carries,
+              // so the user dropdown is addressable too.
               .attrs({ name: menu.id })
               .on('click', function() {
                 // TODO: if a submenu, don't close until child closed

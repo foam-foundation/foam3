@@ -11,8 +11,7 @@ foam.CLASS({
   imports: [
     'window',
     'ctrl',
-    'menuDAO',
-    'documentDAO'
+    'menuDAO'
   ],
   exports: [
     'routeTo',

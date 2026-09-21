@@ -384,7 +384,6 @@ foam.CLASS({
     'foam.core.reflow.FlowableTree',
     'foam.core.reflow.Layout',
     'foam.dao.ArrayDAO',
-    'foam.flow.Document',
     'foam.u2.Link'
   ],
 

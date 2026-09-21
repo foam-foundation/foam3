@@ -188,7 +188,11 @@ foam.CLASS({
       this
         .startContext({ controllerMode: 'VIEW' })
         .addClass(this.table.myClass('td'))
-        .addClass(this.table.myClass('td-' + prop.name))
+        // Recorders/tests address a cell by column. prop.name is only the last
+        // segment of a nested column ('owner.id' and 'id' both give 'id'), so
+        // the hook is the full column name, on the same name= attribute the
+        // context-menu cell and the rest of the row hooks use.
+        .attrs({ name: this.propName })
         .addClass()
         .style({ flex: this.slot(function(colWidth) {
             return colWidth ? `1 0 ${colWidth}px` : `1 0 ${this.table.MIN_COLUMN_WIDTH_FALLBACK}px`;

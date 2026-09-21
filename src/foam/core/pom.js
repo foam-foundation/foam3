@@ -93,6 +93,14 @@ foam.POM({
     { name: "fs/FSFileContentDAO",                                                        flags: "java" },
     { name: "fs/Relationships",                                                           flags: "js|java" },
     { name: "fs/Watcher",                                                                 flags: "js|java" },
+    { name: "fs/PollingWatcher",                                                          flags: "js|java" },
+    { name: "fs/SourceChange",                                                            flags: "js|java" },
+    { name: "fs/SourceWatcher",                                                           flags: "java" },
+    { name: "fs/test/RecordingWatcher",                                                   flags: "js&test|java&test" },
+    { name: "fs/test/WatcherTestBase",                                                    flags: "js&test|java&test" },
+    { name: "fs/test/WatcherTest",                                                        flags: "js&test|java&test" },
+    { name: "fs/test/SourceWatcherTest",                                                  flags: "js&test|java&test" },
+    { name: "fs/test/SourceWatcherBenchmark",                                             flags: "js&test|java&test" },
     { name: "fs/fileDropZone/FileDropZone",                                               flags: "web" },
     { name: "fs/fileDropZone/FilePreview",                                                flags: "web" },
     { name: "fs/fileDropZone/FileCard",                                                   flags: "web" },
@@ -640,6 +648,8 @@ foam.POM({
     { name: "pool/tests",                                             flags: "test" },
     { name: "cron/tests",                                             flags: "test" },
     { name: "analytics/test/tests",                                   flags: "test" },
-    { name: "boot/test/bootscripts",                                  flags: "test" }
+    { name: "boot/test/bootscripts",                                  flags: "test" },
+    { name: "fs/test/tests",                                          flags: "test" },
+    { name: "fs/test/benchmarks",                                     flags: "test" }
   ]
 });

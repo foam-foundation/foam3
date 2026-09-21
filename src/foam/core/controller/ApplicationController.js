@@ -473,6 +473,14 @@ foam.CLASS({
         self.setPrivate_('__subContext__', { name: 'ApplicationControllerProxy', __proto__: client.__subContext__});
         self.subject = self.client.initSubject;
         self.initSubject = true;
+
+        // Source runs only: pick up .js edits without a page reload. The
+        // class is built under dev&web, so a foam-bin build has no such
+        // class and maybeLookup, not requires:, is the right question.
+        var ViewReloader = foam.maybeLookup('foam.u2.ViewReloader');
+        if ( ViewReloader && client.sourceChangeDAO ) {
+          self.onDetach(ViewReloader.create({ root: self }, self.__subContext__));
+        }
         // For testing purposes only. Do not use in code.
         globalThis.x     = self.__subContext__;
         globalThis.MLang = foam.mlang.Expressions.create();

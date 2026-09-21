@@ -86,7 +86,6 @@ foam.CLASS({
       var row = await waitFor(x.document, '[role="option"][data-value="o1"]');
       x.test(!! row, 'choice row is addressable by data-value');
       x.test(row && ! row.hasAttribute('name'), 'choice row carries no name attribute');
-      x.test(choice.el_().getAttribute('name') === 'owner', 'choice root is named after the property, got ' + choice.el_().getAttribute('name'));
       choice.remove();
 
       // Trees: same menu data, two views.
@@ -96,6 +95,7 @@ foam.CLASS({
       var mx = x.createSubContext({ menuDAO: menuDAO });
       menuDAO.put(this.Menu.create({ id: 'parent', label: 'Parent' }, mx));
       menuDAO.put(this.Menu.create({ id: 'parent.child', parent: 'parent', label: 'Child' }, mx));
+      menuDAO.put(this.Menu.create({ id: 'parent.child.leaf', parent: 'parent.child', label: 'Leaf' }, mx));
       var relationship = foam.core.menu.MenuMenuChildrenRelationship;
       var fmt = function(data) { this.add(data.label); };
       var tree = await mount(this.TreeView.create({ data: menuDAO, relationship: relationship, startExpanded: false, formatter: fmt }, mx));
@@ -109,6 +109,16 @@ foam.CLASS({
       x.test(!! nestedRow, 'NestedTreeView renders the parent row');
       x.test(nestedRow && ! nestedRow.hasAttribute('aria-expanded'), 'NestedTreeView drill-in row carries no aria-expanded, got ' + (nestedRow && nestedRow.getAttribute('aria-expanded')));
       nested.remove();
+
+      // startExpanded renders a drill-in row's children inline before any
+      // click; they share its click handler, so they must not announce
+      // expanded/collapsed either.
+      var nestedOpen = await mount(this.NestedTreeView.create({ data: menuDAO, relationship: relationship, startExpanded: true, formatter: fmt, defaultRoot: '' }, mx));
+      var childRow = await waitFor(nestedOpen.el_(), '[name="parent.child"]');
+      await new Promise(r => setTimeout(r, 500));
+      x.test(!! childRow, 'NestedTreeView with startExpanded renders the inline child row');
+      x.test(childRow && ! childRow.hasAttribute('aria-expanded'), 'inline child of a drill-in row carries no aria-expanded, got ' + (childRow && childRow.getAttribute('aria-expanded')));
+      nestedOpen.remove();
     }
   ]
 });

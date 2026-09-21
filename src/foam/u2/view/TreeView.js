@@ -359,6 +359,9 @@ foam.CLASS({
                 showRootOnSearch: self.showThisRootOnSearch$,
                 query:            controlledSearchSlot,
                 onClickAddOn:     self.onClickAddOn,
+                // Inline children of a drill-in row (startExpanded) share its
+                // click handler, so a click on one replaces the list too.
+                drillsIn:         self.drillsIn,
                 level:            self.level + 1
               }, self)).addClass('child-menu');
             });

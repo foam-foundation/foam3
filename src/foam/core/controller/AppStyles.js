@@ -14,6 +14,7 @@ foam.CLASS({
   css: `
     :root{
       --max-height: calc(100vh - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0));
+      color-scheme: $colorScheme;
     }
 
     body {

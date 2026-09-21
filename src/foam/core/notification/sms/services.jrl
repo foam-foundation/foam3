@@ -13,7 +13,6 @@ p({
       .setSeqNo(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("smsMessages")
-      .setWaitReplay(false)
       .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
         .setComparator(foam.mlang.MLang.DESC(foam.core.notification.sms.SMSMessage.CREATED))
         .setPredicate(foam.mlang.MLang.EQ(foam.core.notification.sms.SMSMessage.STATUS, foam.core.notification.sms.SMSStatus.SENT))

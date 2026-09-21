@@ -1,4 +1,5 @@
-<flow name="Reflow" category="DOC/GUIDE" spid="foam"/>
+<flow name="Reflow" category="DOC/GUIDE" spid="foam" description="Overview of Reflow, FOAM's Jupyter-style interactive console: Console, Flow documents, Block execution, command system, dashboards." keywords="reflow,console,flow,block,dashboard,knowledge"/>
+
 ## Overview
 
 Reflow is FOAM's **notebook-style interactive console** that enables creation of interactive documents, data analysis workflows, and visual programming environments<cite />. It provides a command-line interface where you can execute commands, visualize data, create reusable flows, and build interactive documents similar to Jupyter notebooks<cite />.

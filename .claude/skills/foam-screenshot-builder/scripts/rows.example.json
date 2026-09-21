@@ -1,0 +1,29 @@
+{
+  "servers": { "before": "http://localhost:9092/", "after": "http://localhost:9091/" },
+  "out": "out",
+  "rows": [
+    { "name": "toggle-navbar", "menu": "admin.groups", "sel": ".foam-core-u2-navigation-ResponsiveTopNav", "modes": ["light", "dark"], "pad": 0,
+      "marks": [{ "sel": "[class*=\"ColorSchemeToggle\"]", "note": "new colour-scheme toggle" }] },
+
+    { "name": "scripts-table", "menu": "admin.scripts", "sel": ".foam-comics-v3-DAOView", "modes": ["light", "dark"], "maxH": 560,
+      "marks": [
+        { "sel": "role=button[name=/export/i]", "note": "export icon follows the button text colour" },
+        { "sel": "role=button[name=/import/i]", "note": "secondary button keeps a visible border on dark" },
+        { "sel": ".foam-u2-table-TableView-tr >> nth=1 >> .enum-label", "note": "status badge uses status tokens" }
+      ] },
+
+    { "name": "sidenav", "menu": "admin.groups", "sel": ".foam-core-u2-navigation-NavigationController-sideNav", "modes": ["dark"], "pad": 0, "maxH": 560,
+      "marks": [
+        { "sel": ".foam-u2-view-TreeViewRow-heading:has-text(\"Analytics\")", "note": "theme glyph replaces black PNG" },
+        { "sel": ".foam-u2-view-TreeViewRow-heading:has-text(\"Documentation\")", "note": "theme glyph" }
+      ] },
+
+    { "name": "notification", "menu": "admin.groups", "sel": "[class*=\"NotificationMessage\"]", "modes": ["light", "dark"],
+      "prep": [{ "js": "ctrl.notify('Group saved', 'Changes were stored', 'INFO')" }],
+      "marks": [{ "sel": "[class*=\"NotificationMessage\"] svg", "note": "check glyph drawn from tokens" }] },
+
+    { "name": "create-form", "menu": "admin.groups", "sel": ".foam-u2-detail-SectionView", "modes": ["dark"], "maxH": 560,
+      "prep": [{ "click": "text=/create a new group/i", "wait": 2500 }, { "uncheck": ".foam-u2-detail-SectionView input[type=checkbox]" }],
+      "marks": [{ "sel": ".foam-u2-detail-SectionView input[type=text]", "nth": 1, "note": "input border visible on dark" }] }
+  ]
+}

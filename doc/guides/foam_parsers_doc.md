@@ -1,4 +1,5 @@
-<flow name="foam_parsers_doc" category="DOC/GUIDE" spid="foam"/>
+<flow name="foam_parsers_doc" category="DOC/GUIDE" spid="foam" description="Comprehensive reference for FOAM's grammar-based parser library: simple parsers, combinators, Grammar, semantic actions, sug()." keywords="parsers,grammar,combinators,sug,autocomplete,knowledge"/>
+
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*

@@ -37,7 +37,12 @@ public class DateParser {
 
   public enum DateParseMode { DATE, STRING, DATETIME, DATETIME_UTC }
 
-  private Grammar grammar_;
+  /**
+   * Built once and shared by every instance: the grammar holds no per-call state
+   * (that lives in the PStream and ParserContext), and building it is the dominant
+   * cost of constructing a DateParser.
+   */
+  private static volatile Grammar grammar_;
 
   /**
    * If true, throws errors for invalid dates. If false, logs warnings and returns MAX_DATE.
@@ -57,6 +62,9 @@ public class DateParser {
 
   /** Effective strict = per-call override OR the legacy global flag. */
   private boolean isStrict() { return callStrict_ || strictValidation_; }
+
+  /** Strict flag as seen from a grammar action: read from the ParserContext, since the grammar is shared. */
+  private static boolean isStrict(ParserContext x) { return Boolean.TRUE.equals(x.get("strict")) || strictValidation_; }
 
   /**
    * Maximum cache size per method to prevent unbounded growth.
@@ -92,7 +100,11 @@ public class DateParser {
    * Constructor - initializes the grammar
    */
   public DateParser() {
-    grammar_ = getGrammar();
+    if ( grammar_ == null ) {
+      synchronized ( DateParser.class ) {
+        if ( grammar_ == null ) grammar_ = getGrammar();
+      }
+    }
   }
 
   // ========== Cache Helper Methods ==========
@@ -184,6 +196,7 @@ public class DateParser {
       StringPStream sps = new StringPStream(str);
       ParserContext x = new ParserContextImpl();
       x.set("dateParseMode", DateParseMode.STRING);
+      x.set("strict", isStrict());
 
       PStream parseResult = grammar_.parse(sps, x, opt_name);
       if ( parseResult == null || parseResult.value() == null ) {
@@ -242,6 +255,7 @@ public class DateParser {
       StringPStream sps = new StringPStream(str);
       ParserContext x = new ParserContextImpl();
       x.set("dateParseMode", DateParseMode.DATE);
+      x.set("strict", isStrict());
 
       PStream parseResult = grammar_.parse(sps, x, opt_name);
       if ( parseResult == null || parseResult.value() == null ) {
@@ -302,6 +316,7 @@ public class DateParser {
       StringPStream sps = new StringPStream(str);
       ParserContext x = new ParserContextImpl();
       x.set("dateParseMode", DateParseMode.DATETIME);
+      x.set("strict", isStrict());
 
       PStream parseResult = grammar_.parse(sps, x, opt_name);
       if ( parseResult == null || parseResult.value() == null ) {
@@ -362,6 +377,7 @@ public class DateParser {
       StringPStream sps = new StringPStream(str);
       ParserContext x = new ParserContextImpl();
       x.set("dateParseMode", DateParseMode.DATETIME_UTC);
+      x.set("strict", isStrict());
 
       PStream parseResult = grammar_.parse(sps, x, opt_name);
       if ( parseResult == null || parseResult.value() == null ) {
@@ -496,7 +512,7 @@ public class DateParser {
   /**
    * Converts 3-letter month abbreviation to 0-based month index (JAN→0, FEB→1, etc.)
    */
-  private int parseMonthName(String monthName) {
+  private int parseMonthName(ParserContext x, String monthName) {
     String month = monthName.toUpperCase();
     switch (month) {
       case "JAN": return 0;
@@ -512,7 +528,7 @@ public class DateParser {
       case "NOV": return 10;
       case "DEC": return 11;
       default:
-        if ( isStrict() ) {
+        if ( isStrict(x) ) {
           throw new RuntimeException("Invalid month name: \"" + monthName + "\"");
         }
         System.err.println("Warning: Invalid month name: \"" + monthName + "\"; assuming January.");
@@ -523,10 +539,10 @@ public class DateParser {
   /**
    * Build a Date object from parsed components based on mode
    */
-  private Date buildDate(DateParseMode mode, int year, int month, int day,
+  private Date buildDate(ParserContext x, DateParseMode mode, int year, int month, int day,
                          int hour, int minute, int second, int ms, String tz) {
     // Strict mode: reject out-of-range month/day instead of letting Calendar silently roll over.
-    if ( isStrict() ) {
+    if ( isStrict(x) ) {
       if ( month < 0 || month > 11 )
         throw new RuntimeException("Date out of range: month " + ( month + 1 ) + " in \"" + year + "-" + ( month + 1 ) + "-" + day + "\"");
       Calendar dim = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
@@ -616,13 +632,13 @@ public class DateParser {
    * Handles String (date-only), Object[] with compact time, and Object[] with colon time.
    * Returns int[4]: {hour, minute, second, tzOffsetMinutes} where -1 means unset.
    */
-  private Date buildCompactDate(DateParseMode mode, int year, int month, int day, Object val) {
+  private Date buildCompactDate(ParserContext x, DateParseMode mode, int year, int month, int day, Object val) {
     if ( val instanceof String ) {
-      return buildDate(mode, year, month, day, -1, -1, -1, -1, null);
+      return buildDate(x, mode, year, month, day, -1, -1, -1, -1, null);
     }
     Object[] v = (Object[]) val;
     if ( v.length <= 2 ) {
-      return buildDate(mode, year, month, day, -1, -1, -1, -1, null);
+      return buildDate(x, mode, year, month, day, -1, -1, -1, -1, null);
     }
     int hour, minute, second = -1;
     String tz = null;
@@ -641,7 +657,7 @@ public class DateParser {
       }
       tz = extractTimezone(v);
     }
-    return buildDate(mode, year, month, day, hour, minute, second, -1, tz);
+    return buildDate(x, mode, year, month, day, hour, minute, second, -1, tz);
   }
 
   /**
@@ -1454,7 +1470,7 @@ public class DateParser {
     grammar.addAction("yyyymmdd-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[0]),
         Integer.parseInt((String) v[2]) - 1,
         Integer.parseInt((String) v[4]),
@@ -1469,7 +1485,7 @@ public class DateParser {
     grammar.addAction("yyyymmdd-compact", (val, x) -> {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         Integer.parseInt(dateStr.substring(0, 4)),
         Integer.parseInt(dateStr.substring(4, 6)) - 1,
         Integer.parseInt(dateStr.substring(6, 8)),
@@ -1480,7 +1496,7 @@ public class DateParser {
     grammar.addAction("yyyymmddhhmmss-compact", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[0]),
         Integer.parseInt((String) v[1]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1494,7 +1510,7 @@ public class DateParser {
     grammar.addAction("mmddyyyy-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
         Integer.parseInt((String) v[0]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1514,7 +1530,7 @@ public class DateParser {
       String meridiem = ((String) v[12]).toUpperCase();
       if ( meridiem.equals("PM") && hour < 12 ) hour += 12;
       if ( meridiem.equals("AM") && hour == 12 ) hour = 0;
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
         Integer.parseInt((String) v[0]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1529,7 +1545,7 @@ public class DateParser {
     grammar.addAction("mmddyyyy-compact", (val, x) -> {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         Integer.parseInt(dateStr.substring(4, 8)),
         Integer.parseInt(dateStr.substring(0, 2)) - 1,
         Integer.parseInt(dateStr.substring(2, 4)),
@@ -1541,7 +1557,7 @@ public class DateParser {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       int twoDigitYear = Integer.parseInt((String) v[0]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt((String) v[2]) - 1,
         Integer.parseInt((String) v[4]),
@@ -1557,7 +1573,7 @@ public class DateParser {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
       int twoDigitYear = Integer.parseInt(dateStr.substring(0, 2));
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt(dateStr.substring(2, 4)) - 1,
         Integer.parseInt(dateStr.substring(4, 6)),
@@ -1568,7 +1584,7 @@ public class DateParser {
     grammar.addAction("ddmmyyyy-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
         Integer.parseInt((String) v[2]) - 1,
         Integer.parseInt((String) v[0]),
@@ -1583,7 +1599,7 @@ public class DateParser {
     grammar.addAction("ddmmyyyy-compact", (val, x) -> {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         Integer.parseInt(dateStr.substring(4, 8)),
         Integer.parseInt(dateStr.substring(2, 4)) - 1,
         Integer.parseInt(dateStr.substring(0, 2)),
@@ -1595,7 +1611,7 @@ public class DateParser {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       int twoDigitYear = Integer.parseInt((String) v[4]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt((String) v[2]) - 1,
         Integer.parseInt((String) v[0]),
@@ -1611,7 +1627,7 @@ public class DateParser {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
       int twoDigitYear = Integer.parseInt(dateStr.substring(4, 6));
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt(dateStr.substring(2, 4)) - 1,
         Integer.parseInt(dateStr.substring(0, 2)),
@@ -1622,7 +1638,7 @@ public class DateParser {
     grammar.addAction("yyyyddmm-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[0]),
         Integer.parseInt((String) v[4]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1637,7 +1653,7 @@ public class DateParser {
     grammar.addAction("yyyyddmm-compact", (val, x) -> {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         Integer.parseInt(dateStr.substring(0, 4)),
         Integer.parseInt(dateStr.substring(6, 8)) - 1,
         Integer.parseInt(dateStr.substring(4, 6)),
@@ -1649,7 +1665,7 @@ public class DateParser {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       int twoDigitYear = Integer.parseInt((String) v[0]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt((String) v[4]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1665,7 +1681,7 @@ public class DateParser {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
       int twoDigitYear = Integer.parseInt(dateStr.substring(0, 2));
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt(dateStr.substring(4, 6)) - 1,
         Integer.parseInt(dateStr.substring(2, 4)),
@@ -1676,9 +1692,9 @@ public class DateParser {
     grammar.addAction("ddmmmyy-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         self.convertTwoDigitYear(Integer.parseInt((String) v[4])),
-        self.parseMonthName((String) v[2]),
+        self.parseMonthName(x, (String) v[2]),
         Integer.parseInt((String) v[0]),
         -1, -1, -1, -1, null);
     });
@@ -1687,9 +1703,9 @@ public class DateParser {
     grammar.addAction("ddmmmyyyy-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
-        self.parseMonthName((String) v[2]),
+        self.parseMonthName(x, (String) v[2]),
         Integer.parseInt((String) v[0]),
         -1, -1, -1, -1, null);
     });
@@ -1698,9 +1714,9 @@ public class DateParser {
     grammar.addAction("ddmmmyyyy-compact", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[2]),
-        self.parseMonthName((String) v[1]),
+        self.parseMonthName(x, (String) v[1]),
         Integer.parseInt((String) v[0]),
         -1, -1, -1, -1, null);
     });
@@ -1709,9 +1725,9 @@ public class DateParser {
     grammar.addAction("yyyyddmmm-sep", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[0]),
-        self.parseMonthName((String) v[4]),
+        self.parseMonthName(x, (String) v[4]),
         Integer.parseInt((String) v[2]),
         -1, -1, -1, -1, null);
     });
@@ -1720,9 +1736,9 @@ public class DateParser {
     grammar.addAction("yyyyddmmm-compact", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[0]),
-        self.parseMonthName((String) v[2]),
+        self.parseMonthName(x, (String) v[2]),
         Integer.parseInt((String) v[1]),
         -1, -1, -1, -1, null);
     });
@@ -1745,9 +1761,9 @@ public class DateParser {
     grammar.addAction("mmmddyyyy-space", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
-        self.parseMonthName((String) v[0]),
+        self.parseMonthName(x, (String) v[0]),
         Integer.parseInt((String) v[2]),
         -1, -1, -1, -1, null);
     });
@@ -1760,9 +1776,9 @@ public class DateParser {
       String meridiem = ((String) v[12]).toUpperCase();
       if ( meridiem.equals("PM") && hour < 12 ) hour += 12;
       if ( meridiem.equals("AM") && hour == 12 ) hour = 0;
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),    // year
-        self.parseMonthName((String) v[0]), // month
+        self.parseMonthName(x, (String) v[0]), // month
         Integer.parseInt((String) v[2]),    // day
         hour,                                // hour (24h)
         Integer.parseInt((String) v[8]),    // minute
@@ -1775,9 +1791,9 @@ public class DateParser {
     grammar.addAction("ddmmmyyyy-space", (val, x) -> {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[4]),
-        self.parseMonthName((String) v[2]),
+        self.parseMonthName(x, (String) v[2]),
         Integer.parseInt((String) v[0]),
         -1, -1, -1, -1, null);
     });
@@ -1788,9 +1804,9 @@ public class DateParser {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String tz = self.normalizeJsTimezone(v[14]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[6]),    // year
-        self.parseMonthName((String) v[2]), // month
+        self.parseMonthName(x, (String) v[2]), // month
         Integer.parseInt((String) v[4]),    // day
         Integer.parseInt((String) v[8]),    // hour
         Integer.parseInt((String) v[10]),   // minute
@@ -1806,9 +1822,9 @@ public class DateParser {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       // Normalize timezone: GMT/UTC -> "Z", otherwise flatten array to string
       String tz = self.normalizeUnixTimezone(v[12]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         Integer.parseInt((String) v[14]),   // year
-        self.parseMonthName((String) v[2]), // month
+        self.parseMonthName(x, (String) v[2]), // month
         Integer.parseInt((String) v[4]),    // day
         Integer.parseInt((String) v[6]),    // hour
         Integer.parseInt((String) v[8]),    // minute
@@ -1822,7 +1838,7 @@ public class DateParser {
       Object[] v = (Object[]) val;
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       int twoDigitYear = Integer.parseInt((String) v[4]);
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt((String) v[0]) - 1,
         Integer.parseInt((String) v[2]),
@@ -1838,7 +1854,7 @@ public class DateParser {
       DateParseMode mode = (DateParseMode) x.get("dateParseMode");
       String dateStr = val instanceof String ? (String) val : (String) ((Object[]) val)[0];
       int twoDigitYear = Integer.parseInt(dateStr.substring(4, 6));
-      return self.buildCompactDate(mode,
+      return self.buildCompactDate(x, mode,
         self.convertTwoDigitYear(twoDigitYear),
         Integer.parseInt(dateStr.substring(0, 2)) - 1,
         Integer.parseInt(dateStr.substring(2, 4)),
@@ -1860,7 +1876,7 @@ public class DateParser {
       cal.set(Calendar.YEAR, year);
       cal.set(Calendar.DAY_OF_YEAR, dayOfYear);
 
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         cal.get(Calendar.YEAR),
         cal.get(Calendar.MONTH),
         cal.get(Calendar.DAY_OF_MONTH),
@@ -1894,7 +1910,7 @@ public class DateParser {
       cal.set(Calendar.YEAR, year);
       cal.set(Calendar.DAY_OF_YEAR, dayOfYear);
 
-      return self.buildDate(mode,
+      return self.buildDate(x, mode,
         cal.get(Calendar.YEAR),
         cal.get(Calendar.MONTH),
         cal.get(Calendar.DAY_OF_MONTH),

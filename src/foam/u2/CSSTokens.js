@@ -95,6 +95,22 @@ foam.CLASS({
     { name: 'black600', value: '#0C0C0C' },
     { name: 'black700', value: '#0D0D0D' },
 
+    // True neutral greys (no blue cast, unlike grey*). Fills the gap between
+    // black50 (#373737) and grey700 (#494F59) that dark-mode borders and
+    // dividers need; Tailwind's neutral ramp. The ramp is shipped complete,
+    // like the other palette ramps: a theme or app picks the step it needs
+    // without adding one to this file first.
+    { name: 'neutral50',  value: '#FAFAFA' },
+    { name: 'neutral100', value: '#F5F5F5' },
+    { name: 'neutral200', value: '#E5E5E5' },
+    { name: 'neutral300', value: '#D4D4D4' },
+    { name: 'neutral400', value: '#A3A3A3' },
+    { name: 'neutral500', value: '#737373' },
+    { name: 'neutral600', value: '#525252' },
+    { name: 'neutral700', value: '#404040' },
+    { name: 'neutral800', value: '#262626' },
+    { name: 'neutral900', value: '#171717' },
+
     { name: 'primary50', value: '$blue50' },
     { name: 'primary100', value: '$blue100' },
     { name: 'primary200', value: '$blue200' },
@@ -195,6 +211,14 @@ foam.CLASS({
     { name: 'textOnDestructive', value: '$white' },
 
     { name: 'link', value: '$blue200' },
+
+    // Browser-native chrome (scrollbars, checkboxes, date pickers) follows this
+    // via `color-scheme` on :root (AppStyles), so whatever sets the dark
+    // variant on theme.activeVariants (the OS listener in foam.lang.Window
+    // today) also flips native controls; inputs inherit it, no rule of their
+    // own. ColorToken only so the dark variant is consulted; the value is a
+    // keyword, not a colour.
+    { name: 'colorScheme', value: 'light', variants: { dark: { value: 'dark' } } },
 
     // BORDER COLOR
     { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },

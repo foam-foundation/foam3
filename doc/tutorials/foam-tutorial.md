@@ -3084,13 +3084,13 @@ p({
 "defaultMenu": ["welcome"]
 ```
 
-After restarting the server, logging in navigates directly to the Unit Converter. The cookbook is still reachable from the sidebar — the default menu controls only where the app begins, not what else is available.
-
-![Unit Converter landing page](images/screen10.png)
+Rebuild and restart — the default menu controls only where the app begins, not what else is available, so the cookbook is still reachable from the sidebar.
 
 ## Testing with the Demo User
 
-Now is a good time to verify everything works for a regular non-privileged user. When you extracted `custom-views.tar.gz` at the start of this chapter, it also placed an updated `groupPermissionJunctions.jrl` into `journals/` — this file grants the `recipes` group permission to reach the `welcome` landing page. Rebuild and restart, then log in as `demo` / `demopassword` — you should land directly on the Unit Converter and have access to the full cookbook menu.
+Now is a good time to verify everything works for a regular non-privileged user. When you extracted `custom-views.tar.gz` at the start of this chapter, it also placed an updated `groupPermissionJunctions.jrl` into `journals/` — this file grants the `recipes` group permission to access all the Cook Book DAOs and menus we added throughout the tutorial — recipes, ingredients, ingredient amounts, recipe steps, the conversion service, and the `welcome` landing page. Log in as `demo` / `demopassword` — you should land directly on the Unit Converter and have access to the full cookbook menu. Notice that the left navigation is clean: only the Cook Book items you created are visible. The admin-only sections (user management, data management, and other system menus) are absent entirely — FOAM's permission system filters the sidebar automatically based on what the current user's group is allowed to see.
+
+![Unit Converter landing page](images/screen10.png)
 
 # Where to Go from Here
 

@@ -88,13 +88,17 @@ foam.CLASS({
         // ClassInfo has no backing Java class (getObjClass() is null), thread
         // the ClassInfo itself through X so the parser can instantiate via
         // ci.newInstance() for entries that omit the class: prefix.
-        final foam.lang.X parseX;
+        final foam.lang.X parseX0;
         if ( dao.getOf().getObjClass() == null ) {
           getLogger().warning("Class not found for of, falling back to defaultClassInfo", dao.getOf().getId());
-          parseX = x.put("defaultClassInfo", dao.getOf());
+          parseX0 = x.put("defaultClassInfo", dao.getOf());
         } else {
-          parseX = x;
+          parseX0 = x;
         }
+        // One StringInterner per replay: a parsed string reaches the JVM table
+        // on its second sight, and the interner's maps die with the replay.
+        final foam.util.StringInterner interner = new foam.util.StringInterner();
+        final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
@@ -210,6 +214,8 @@ foam.CLASS({
             return;
           setPassCount(passCount.get());
           setFailCount(failCount.get());
+          if ( interner.calls() > 0 ) getLogger().info("Replay", "intern", interner.summary());
+          interner.release();
           String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
           // The reload of an unloadable dao replays with no initService to
           // write READY afterwards, so the replay itself hands the status back.

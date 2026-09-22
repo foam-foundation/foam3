@@ -118,3 +118,75 @@ p({
   id: "UUIDBenchmarkRunner",
   benchmarkId: "UUIDBenchmark"
 })
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerCachedDup20xBenchmarkRunner",
+  benchmarkId: "StringInternerCachedDup20xBenchmark",
+  description: "CACHED canonicalization, Dup20x cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerCachedUniqueBenchmarkRunner",
+  benchmarkId: "StringInternerCachedUniqueBenchmark",
+  description: "CACHED canonicalization, Unique cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerJvmDup20xBenchmarkRunner",
+  benchmarkId: "StringInternerJvmDup20xBenchmark",
+  description: "JVM canonicalization, Dup20x cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerJvmUniqueBenchmarkRunner",
+  benchmarkId: "StringInternerJvmUniqueBenchmark",
+  description: "JVM canonicalization, Unique cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerLegacyDup20xBenchmarkRunner",
+  benchmarkId: "StringInternerLegacyDup20xBenchmark",
+  description: "LEGACY canonicalization, Dup20x cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerLegacyUniqueBenchmarkRunner",
+  benchmarkId: "StringInternerLegacyUniqueBenchmark",
+  description: "LEGACY canonicalization, Unique cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerRawDup20xBenchmarkRunner",
+  benchmarkId: "StringInternerRawDup20xBenchmark",
+  description: "RAW canonicalization, Dup20x cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "StringInternerRawUniqueBenchmarkRunner",
+  benchmarkId: "StringInternerRawUniqueBenchmark",
+  description: "RAW canonicalization, Unique cardinality: 200k strings per execution.",
+  threadCount: 1,
+  executionCount: 20,
+  oneTimeSetup: true
+})

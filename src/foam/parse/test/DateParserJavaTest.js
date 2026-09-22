@@ -1613,6 +1613,25 @@ foam.CLASS({
         test(cal12.get(Calendar.YEAR) == expectedYear5, "juliandate 5216 (4-digit): year " + expectedYear5);
         test(cal12.get(Calendar.MONTH) == 7, "juliandate 5216 (4-digit): month 7 (Aug)");
         test(cal12.get(Calendar.DAY_OF_MONTH) == 4, "juliandate 5216 (4-digit): day 4");
+
+        // Test 7-digit with juliandate opt_name (4-digit year, not read as YYDDD "20252")
+        Date date13 = parser.parseDateString("2025216", "juliandate");
+        Calendar cal13 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal13.setTime(date13);
+        test(cal13.get(Calendar.YEAR) == 2025, "juliandate 2025216 (7-digit): year 2025");
+        test(cal13.get(Calendar.MONTH) == 7, "juliandate 2025216 (7-digit): month 7 (Aug)");
+        test(cal13.get(Calendar.DAY_OF_MONTH) == 4, "juliandate 2025216 (7-digit): day 4");
+
+        // Test 7-digit leap day 366 and a 19xx year
+        Date date14 = parser.parseDateString("2024366", "yyyyddd");
+        Calendar cal14 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal14.setTime(date14);
+        test(cal14.get(Calendar.YEAR) == 2024 && cal14.get(Calendar.MONTH) == 11 && cal14.get(Calendar.DAY_OF_MONTH) == 31, "YYYYDDD 2024366 leap year: Dec 31, 2024");
+
+        Date date15 = parser.parseDateString("1999001", "juliandate");
+        Calendar cal15 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal15.setTime(date15);
+        test(cal15.get(Calendar.YEAR) == 1999 && cal15.get(Calendar.MONTH) == 0 && cal15.get(Calendar.DAY_OF_MONTH) == 1, "juliandate 1999001 (7-digit): Jan 1, 1999");
       `
     },
 

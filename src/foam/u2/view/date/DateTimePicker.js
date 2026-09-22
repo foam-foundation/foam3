@@ -141,9 +141,9 @@ foam.CLASS({
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient($white, $borderLight);
+      background-image: linear-gradient($backgroundDefault, $backgroundTertiary);
       text-align: center;
-      border: 1px solid $borderLight;
+      border: 1px solid $borderDefault;
     }
 
     ^ .arrow-container-left{

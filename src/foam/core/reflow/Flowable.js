@@ -18,7 +18,7 @@ foam.CLASS({
 
   css: `
     ^dependent {
-      border: 1px solid $orange400 !important;
+      border: 1px solid $info !important;
     }
     ^error {
       color: $textDestructive;

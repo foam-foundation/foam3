@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.tag.Input',
 
   css: `
-    ^ { border: 1px solid $destructive400; padding: 4px; }
+    ^ { border: 1px solid $destructive; padding: 4px; }
   `,
 
   requires: [ 'foam.i18n.Locale' ],

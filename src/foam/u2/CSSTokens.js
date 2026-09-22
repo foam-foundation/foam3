@@ -355,6 +355,21 @@ foam.CLASS({
     { name: 'radius-2xl',  value: '1.6rem' },
     { name: 'radius-3xl',  value: '2.4rem' },
     { name: 'radius-full', value: '9999px' }
+  ])
+  // ELEVATION SCALE, Tailwind-named. px on purpose: shadows should not grow with the
+  // font size. Dark surfaces need a stronger shadow to read as raised, so each token
+  // carries a dark variant (variantKey 'color' is what makes that variant apply).
+  //   box-shadow: $shadow-md;
+  .concat([
+    // ELEVATION (px on purpose: shadows should not grow with the font size)
+    { name: 'shadow-none',  value: '0 0 #0000' },
+    { name: 'shadow-sm',    value: '0 1px 2px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: '0 1px 2px 0 rgb(0 0 0 / 0.3)' } } },
+    { name: 'shadow',       value: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.3)' } } },
+    { name: 'shadow-md',    value: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.35)' } } },
+    { name: 'shadow-lg',    value: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.4)' } } },
+    { name: 'shadow-xl',    value: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.45)' } } },
+    { name: 'shadow-2xl',   value: '0 25px 50px -12px rgb(0 0 0 / 0.25)', variantKey: 'color', variants: { dark: { value: '0 25px 50px -12px rgb(0 0 0 / 0.6)' } } },
+    { name: 'shadow-inner', value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.3)' } } }
   ]),
 
   javaCode: `

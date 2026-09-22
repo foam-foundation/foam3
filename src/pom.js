@@ -263,6 +263,7 @@ foam.POM({
     { name: "foam/u2/test/CSSTokenOverrideVariantJSTest",              flags: "js&test|java&test" },
     { name: "foam/u2/test/CSSSpacingTokensJSTest",                    flags: "js&test|java&test" },
     { name: "foam/u2/test/CSSRadiusTokensJSTest",                     flags: "js&test|java&test" },
+    { name: "foam/u2/test/CSSElevationTokensJSTest",                  flags: "js&test|java&test" },
     { name: "foam/u2/test/MenuHookNamesJSTest",                       flags: "js&test|java&test" },
     { name: "foam/u2/test/RecorderHooksJSTest",                       flags: "js&test|java&test" },
     { name: "foam/u2/test/RORelativeDateTimeViewTest",                flags: "js&test|java&test" },

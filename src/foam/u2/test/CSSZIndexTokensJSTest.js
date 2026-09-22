@@ -18,6 +18,15 @@ foam.CLASS({
 
       x.test(val('$z-0') === '0',   '$z-0 is 0');
       x.test(val('$z-50') === '50', '$z-50 is 50');
+
+      // Page layers must keep this order: chrome under popups, popups under modals,
+      // and the two body-level layers (tooltip, toast) above modals.
+      const layer = n => parseInt(val('$z-' + n), 10);
+      x.test(layer('nav') > layer('50'),         '$z-nav is above every local $z-*');
+      x.test(layer('popup') > layer('nav'),      '$z-popup is above $z-nav');
+      x.test(layer('modal') > layer('popup'),    '$z-modal is above $z-popup');
+      x.test(layer('tooltip') > layer('modal'),  '$z-tooltip is above $z-modal');
+      x.test(layer('toast') > layer('tooltip'),  '$z-toast is above $z-tooltip');
     }
   ]
 });

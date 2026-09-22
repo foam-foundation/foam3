@@ -311,26 +311,26 @@ foam.CLASS({
     // No variants are defined yet; every token resolves to its value below.
     { name: 'space-0',   value: '0' },
     { name: 'space-px',  value: '1px' },
-    { name: 'space-0_5', value: '0.2rem' },
-    { name: 'space-1',   value: '0.4rem' },
-    { name: 'space-1_5', value: '0.6rem' },
-    { name: 'space-2',   value: '0.8rem' },
-    { name: 'space-2_5', value: '1rem' },
-    { name: 'space-3',   value: '1.2rem' },
-    { name: 'space-3_5', value: '1.4rem' },
-    { name: 'space-4',   value: '1.6rem' },
-    { name: 'space-5',   value: '2rem' },
-    { name: 'space-6',   value: '2.4rem' },
-    { name: 'space-7',   value: '2.8rem' },
-    { name: 'space-8',   value: '3.2rem' },
-    { name: 'space-9',   value: '3.6rem' },
-    { name: 'space-10',  value: '4rem' },
-    { name: 'space-11',  value: '4.4rem' },
-    { name: 'space-12',  value: '4.8rem' },
-    { name: 'space-14',  value: '5.6rem' },
-    { name: 'space-16',  value: '6.4rem' },
-    { name: 'space-20',  value: '8rem' },
-    { name: 'space-24',  value: '9.6rem' }
+    { name: 'space-0_5', value: '0.2rem' }, // 2px
+    { name: 'space-1',   value: '0.4rem' }, // 4px
+    { name: 'space-1_5', value: '0.6rem' }, // 6px
+    { name: 'space-2',   value: '0.8rem' }, // 8px
+    { name: 'space-2_5', value: '1rem' },  // 10px
+    { name: 'space-3',   value: '1.2rem' }, // 12px
+    { name: 'space-3_5', value: '1.4rem' }, // 14px
+    { name: 'space-4',   value: '1.6rem' }, // 16px
+    { name: 'space-5',   value: '2rem' },  // 20px
+    { name: 'space-6',   value: '2.4rem' }, // 24px
+    { name: 'space-7',   value: '2.8rem' }, // 28px
+    { name: 'space-8',   value: '3.2rem' }, // 32px
+    { name: 'space-9',   value: '3.6rem' }, // 36px
+    { name: 'space-10',  value: '4rem' },  // 40px
+    { name: 'space-11',  value: '4.4rem' }, // 44px
+    { name: 'space-12',  value: '4.8rem' }, // 48px
+    { name: 'space-14',  value: '5.6rem' }, // 56px
+    { name: 'space-16',  value: '6.4rem' }, // 64px
+    { name: 'space-20',  value: '8rem' },  // 80px
+    { name: 'space-24',  value: '9.6rem' }  // 96px
   ].map(v => { v.variantKey = 'density'; return v; }))
   // BORDER RADIUS SCALE, Tailwind-named ($radius is Tailwind's unsuffixed 'rounded').
   // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
@@ -339,13 +339,13 @@ foam.CLASS({
   .concat([
     // BORDER RADIUS ($radius is Tailwind's unsuffixed 'rounded')
     { name: 'radius-none', value: '0' },
-    { name: 'radius-sm',   value: '0.2rem' },
-    { name: 'radius',      value: '0.4rem' },
-    { name: 'radius-md',   value: '0.6rem' },
-    { name: 'radius-lg',   value: '0.8rem' },
-    { name: 'radius-xl',   value: '1.2rem' },
-    { name: 'radius-2xl',  value: '1.6rem' },
-    { name: 'radius-3xl',  value: '2.4rem' },
+    { name: 'radius-sm',   value: '0.2rem' }, // 2px
+    { name: 'radius',      value: '0.4rem' }, // 4px
+    { name: 'radius-md',   value: '0.6rem' }, // 6px
+    { name: 'radius-lg',   value: '0.8rem' }, // 8px
+    { name: 'radius-xl',   value: '1.2rem' }, // 12px
+    { name: 'radius-2xl',  value: '1.6rem' }, // 16px
+    { name: 'radius-3xl',  value: '2.4rem' }, // 24px
     { name: 'radius-full', value: '9999px' }
   ])
   // ELEVATION SCALE, Tailwind-named. px on purpose: shadows should not grow with the
@@ -363,17 +363,37 @@ foam.CLASS({
     { name: 'shadow-2xl',   value: '0 25px 50px -12px rgb(0 0 0 / 0.25)', variantKey: 'color', variants: { dark: { value: '0 25px 50px -12px rgb(0 0 0 / 0.6)' } } },
     { name: 'shadow-inner', value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.3)' } } }
   ])
-  // Z-INDEX SCALE, Tailwind-named (0..50 in tens). Local stacking only; app layers
-  // (dropdown, modal, toast) get named tokens on top of this.
-  //   z-index: $z-50;
+  // Z-INDEX SCALE, Tailwind-named (0..50 in tens), for stacking inside one view:
+  // a sticky header over its rows, a label under its input. Every honest local value
+  // in src/foam/u2 is 10 or less.
+  //   z-index: $z-10;
   .concat([
-    // Z-INDEX
+    // Z-INDEX, local
     { name: 'z-0',  value: '0' },
     { name: 'z-10', value: '10' },
     { name: 'z-20', value: '20' },
     { name: 'z-30', value: '30' },
     { name: 'z-40', value: '40' },
     { name: 'z-50', value: '50' }
+  ])
+  // Z-INDEX LAYERS, for elements that float over the whole page. Without these,
+  // 18 views set z-index: 1000 by hand (modals, dropdowns, a loading overlay, a side
+  // nav, a toast) and the DOM order decides which one shows on top.
+  // The order comes from how FOAM renders: foam.u2.dialog.Popup is position: fixed
+  // with its own z-index, so it starts a stacking context and anything inside a modal
+  // competes only with its siblings, never with the page. A popup opened inside a
+  // modal therefore does not need to outrank the modal. Tooltips and toasts are the
+  // exception: they are written straight onto document.body, leave the modal's
+  // context, and must sit above $z-modal on their own.
+  // Gaps of 100 leave room for a local $z-10 on top of a layer.
+  //   z-index: $z-modal;
+  .concat([
+    // Z-INDEX, page layers
+    { name: 'z-nav',     value: '100' }, // app chrome: top nav, menu bar, side nav
+    { name: 'z-popup',   value: '200' }, // anchored to a control: dropdown, menu, date picker
+    { name: 'z-modal',   value: '300' }, // full-viewport scrim: dialog, loading, drag overlay
+    { name: 'z-tooltip', value: '400' }, // appended to document.body, must clear a modal
+    { name: 'z-toast',   value: '500' }  // reports the outcome of a modal action, so above it
   ])
   // MOTION SCALE, Tailwind-named durations and easings.
   //   transition: opacity $duration-150 $ease-in-out;

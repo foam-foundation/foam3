@@ -20,7 +20,8 @@ foam.CLASS({
       x.test(val('$space-px') === '1px',        '$space-px is 1px');
       x.test(val('$space-0_5') === '0.2rem',    '$space-0_5 is 0.2rem (2px on the 10px root)');
       x.test(val('$space-4') === '1.6rem',      '$space-4 is 1.6rem (16px on the 10px root)');
-      x.test(val('$space-96') === '38.4rem',    '$space-96 is 38.4rem');
+      x.test(val('$space-24') === '9.6rem',     '$space-24 is 9.6rem, the top of the scale');
+      x.test(! T.SPACE_96, '$space-96 is not declared (scale stops at 24)');
       x.test(T.SPACE_4.variantKey === 'density', '$space-* carry variantKey density');
 
       // A theme that declares a density variant on a spacing token is served that

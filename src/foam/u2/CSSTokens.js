@@ -299,6 +299,11 @@ foam.CLASS({
   // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
   // 62.5%), so one Tailwind unit = 4px = 0.4rem here, not Tailwind's own 0.25rem.
   //   padding: $space-2 $space-4;  gap: $space-3;
+  // The scale stops at space-24 (96px). Tailwind continues to 96 (384px), but those
+  // steps size widths and heights, and no padding, margin or gap in src/foam/u2 goes
+  // past 96px; every extra name is one more for a reader or a code assistant to pick
+  // from or invent. If a larger step is ever needed, the full list is in commit
+  // 0713bfa941 (space-28 .. space-96, 0.4rem per unit).
   .concat([
     // SPACING (padding, margin, gap, inset)
     // variantKey 'density' lets a theme serve compact/relaxed spacing through
@@ -325,20 +330,7 @@ foam.CLASS({
     { name: 'space-14',  value: '5.6rem' },
     { name: 'space-16',  value: '6.4rem' },
     { name: 'space-20',  value: '8rem' },
-    { name: 'space-24',  value: '9.6rem' },
-    { name: 'space-28',  value: '11.2rem' },
-    { name: 'space-32',  value: '12.8rem' },
-    { name: 'space-36',  value: '14.4rem' },
-    { name: 'space-40',  value: '16rem' },
-    { name: 'space-44',  value: '17.6rem' },
-    { name: 'space-48',  value: '19.2rem' },
-    { name: 'space-52',  value: '20.8rem' },
-    { name: 'space-56',  value: '22.4rem' },
-    { name: 'space-60',  value: '24rem' },
-    { name: 'space-64',  value: '25.6rem' },
-    { name: 'space-72',  value: '28.8rem' },
-    { name: 'space-80',  value: '32rem' },
-    { name: 'space-96',  value: '38.4rem' }
+    { name: 'space-24',  value: '9.6rem' }
   ].map(v => { v.variantKey = 'density'; return v; }))
   // BORDER RADIUS SCALE, Tailwind-named ($radius is Tailwind's unsuffixed 'rounded').
   // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to

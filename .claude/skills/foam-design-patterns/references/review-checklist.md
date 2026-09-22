@@ -47,6 +47,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 ## 6. Java server
 - An allocation (`new`, `Builder`, `substring`, `SimpleDateFormat`, collection copy) on a per-row path?
 - A shared collection or counter without synchronization? `notify()`?
+- A `compute`, CAS loop, or lock that closes a race whose only cost is an extra equal copy, with no number for that cost?
 - `+` inside a log call? "error" in an error log? A payload at debug?
 - A catch that neither logs nor rethrows? A rethrow without the cause?
 - A setter on a DAO result without `fclone()`? `setX(null)` without `clearX()`?
@@ -80,6 +81,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - An early return that skips work silently? An interface default that fails open?
 - A hand-rolled timer where PM exists? A codegen hook beside one that already receives the value?
 - A perf claim without a like-for-like measurement?
+- A bounded, lock-free, or special-cased structure with no measurement against the plain version it replaces? A special case with no test that fails without it?
 
 ## 10. Tests
 - Test files under `test/` with `flags: 'test'` on the pom entry?

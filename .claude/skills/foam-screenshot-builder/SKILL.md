@@ -103,7 +103,7 @@ node export-recording.mjs how-to-open-script --server after > flow.json   # Reco
 
 Emits a flow that waits for login, opens the menu through `menuDAO` (a deep-hash `navigate` can boot blank), waits for each element, then clicks. A step with `"emphasize": true` gets an orange outline for 4 s plus a pause (`"pause": ms`) before it runs — use it to make the viewer look at one control. Replay speed and per-step breakpoints live in the Recorder panel, not the file.
 
-Recorder limits: a regex selector (`role=button[name=/export/i]`) cannot be exported — Recorder matches names exactly, so the export stops and names the step; give that step a css or plain `text=` selector. A step `timeout` must be ≤ 30000; `aria/` and `text/` targets cannot be outlined (the highlight resolves css and xpath); typing replays as one `change`, not keystrokes.
+Recorder limits: a regex selector (`role=button[name=/export/i]`) cannot be exported — Recorder matches names exactly, so that candidate is dropped (printed as `dropped candidate:`) and the step's remaining candidates are used; the export stops, naming the step and each dropped candidate, only when a step has no candidate left. Give such a step a css or plain `text=` selector. A step `timeout` must be ≤ 30000; `aria/` and `text/` targets cannot be outlined (the highlight resolves css and xpath); typing replays as one `change`, not keystrokes.
 
 ## Common mistakes
 

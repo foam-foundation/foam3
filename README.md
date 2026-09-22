@@ -19,7 +19,7 @@ The FOAM1 [website](https://foam-framework.github.io/foam/) still contains many 
 Ask questions and get help on the [FOAM Discussion Group](https://groups.google.com/g/foam-framework-discuss). Or DeepWiki. 
 
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kgrgreer/foam3)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/foam-foundation/foam3)
 
 <!--
 [![Build Status](https://travis-ci.org/foam-framework/foam3.svg?branch=master)](https://travis-ci.org/foam-framework/foam3) -->

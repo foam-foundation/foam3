@@ -19,6 +19,9 @@ foam.CLASS({
   ],
 
   css: `
+    ^ a {
+      color: $link;
+    }
     ^ {
       display: flex;
       flex-direction: column;

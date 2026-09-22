@@ -1272,5 +1272,5 @@ Once you have a running FOAM application go to [FOAM Parsers Demo Interactive Pa
 
 
 <!-- List all links here -->
-[FOAM]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[FOAM]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [Live-Examples]: http://localhost:8080/foam3/src/foam/demos/examples/index.html?modules=parsers

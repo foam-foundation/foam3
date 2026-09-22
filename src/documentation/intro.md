@@ -10,7 +10,7 @@ Build fully featured high performance apps in less time using FOAM.
 
 "Fast apps Fast"
 
-Development lives on [GitHub](https://github.com/kgrgreer/foam3)
+Development lives on [GitHub](https://github.com/foam-foundation/foam3)
 
 Community lives on [Discord](https://discord.gg/DAdyxNjP)
 

@@ -49,7 +49,7 @@ foam.CLASS({
     }
 
     ^ canvas {
-      border: 1px solid black;
+      border: 1px solid $borderDefault;
     }
 
     ^ .foam-u2-ActionView- {

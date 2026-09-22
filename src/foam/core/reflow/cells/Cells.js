@@ -240,7 +240,7 @@ foam.CLASS({
     }
     ^ tr { height: 26px; }
     ^cell { display: block; min-width: 82px; }
-    ^, ^ th, ^ td { border: 1px solid #ccc; }
+    ^, ^ th, ^ td { border: 1px solid $borderLight; }
     ^ td { height: 100%; background: $backgroundDefault; }
     ^ th, ^ td {
       border-right: none;

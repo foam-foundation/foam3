@@ -18,7 +18,7 @@ foam.CLASS({
       text-decoration: underline;
     }
     ^content {
-      border: 1px gray solid;
+      border: 1px $grey400 solid;
       max-height: 800px;
       max-width: 95%;
       overflow: scroll;

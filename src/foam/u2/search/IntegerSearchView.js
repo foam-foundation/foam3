@@ -134,7 +134,7 @@ foam.CLASS({
     ^carrot {
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid black;
+      border-top: 5px solid $black;
       position: absolute;
       right: 8px;
       top: 18px;
@@ -144,7 +144,7 @@ foam.CLASS({
     ^ .foam-u2-tag-Select {
       background-color: $backgroundDefault;
       border-radius: 2px;
-      border: 1px solid #dce0e7;
+      border: 1px solid $borderLight;
       color: $textDefault;
       padding: 0 20px 0 8px;
       -webkit-appearance: none; /* Fix rounded corners in Chrome on OS X */
@@ -152,7 +152,7 @@ foam.CLASS({
 
     ^ .foam-u2-FloatView {
       border-radius: 2px;
-      border: 1px solid #dce0e7;
+      border: 1px solid $borderLight;
       color: $textDefault;
       height: 40px;
       padding: 0 14px 0 21px;

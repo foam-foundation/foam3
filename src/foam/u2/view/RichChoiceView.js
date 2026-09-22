@@ -306,7 +306,7 @@ foam.CLASS({
     }
 
     ^section:not(:last-child) {
-      border-bottom: 1px solid #f4f4f9;
+      border-bottom: 1px solid $borderXLight;
     }
 
     ^container .highlighted {

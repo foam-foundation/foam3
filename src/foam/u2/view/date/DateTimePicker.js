@@ -61,7 +61,7 @@ foam.CLASS({
       min-height: 304px;
       text-align: center;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderLight;
       border-radius: 5px;
       background-color: $backgroundDefault;
       padding-bottom: 25px;
@@ -141,9 +141,9 @@ foam.CLASS({
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient(#ffffff, #e7eaec);
+      background-image: linear-gradient($white, $borderLight);
       text-align: center;
-      border: 1px solid #cbcfd4;
+      border: 1px solid $borderLight;
     }
 
     ^ .arrow-container-left{

@@ -33,7 +33,12 @@ import java.util.*;
  *   Date date = parser.parseString("2025-01-15");
  *   Date datetime = parser.parseString("2025-01-15T14:30:45");
  */
-public class DateParser {
+public class DateParser
+{
+  private final static DateParser instance__ = new DateParser();
+
+  public static DateParser instance() { return instance__; }
+
 
   public enum DateParseMode { DATE, STRING, DATETIME, DATETIME_UTC }
 

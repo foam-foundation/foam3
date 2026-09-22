@@ -270,7 +270,7 @@ foam.CLASS({
 
     function onKeyDown(e) {
       var isEsc = (e.key === 'Escape' || e.keyCode === 27);
-      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id).focus(); }
+      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id)?.focus(); }
     },
 
     function onMouseEnter(e) {
@@ -297,7 +297,7 @@ foam.CLASS({
 
     function onResize(e) {
       this.setPosition();
-      window.removeEventListener('resize', onResize);
+      this.window.removeEventListener('resize', this.onResize);
     }
   ]
 });

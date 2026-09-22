@@ -41,10 +41,15 @@ foam.CLASS({
       border: none;
       background: transparent;
     }
+    ^overlay .foam-u2-md-OverlayDropdown {
+      display: flex;
+      flex-direction: column;
+    }
     ^container {
       align-items: flex-start;
       display: flex;
       flex-direction: column;
+      min-height: 0;
       width: clamp(18.75rem, 20vw, 37.5rem);
       max-width: calc(100vw - 2rem);
     }
@@ -92,11 +97,6 @@ foam.CLASS({
           this.selectColumnsExpanded = this.overlay_.opened;
       }));
     },
-    function closeDropDown(e) {
-      e?.stopPropagation();
-      this.columnConfigPropView?.onClose?.();
-      this.selectColumnsExpanded = false;
-    },
     function openDropDown() {
       var parentEl = this.parentEl;
       if ( ! parentEl && this.parentId )
@@ -113,6 +113,7 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
+      this.overlay_.addClass(this.myClass('overlay'));
       this.overlay_.add(this.dynamic(function(refreshIdx) {
         this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
           .addClass(self.myClass('container'))

@@ -252,7 +252,7 @@ foam.CLASS({
         if ( getDecorator() != null ) {
           if ( ! ( getDecorator() instanceof ProxyDAO) ) {
             logger.error(getName(), "delegateDAO", getDecorator(), "not instanceof ProxyDAO");
-            reportFatalDAOError();
+            throw new RuntimeException("not instanceof ProxyDAO");
           }
           // The decorator dao may be a proxy chain
           ProxyDAO proxy = (ProxyDAO) getDecorator();
@@ -960,17 +960,8 @@ dao loading, which improves overall startup time.`,
          if ( logger == null ) {
            logger = foam.core.logger.StdoutLogger.instance();
          }
-
-         logger = new PrefixLogger(new Object[] {
-           this.getClass().getSimpleName()
-         }, logger);
-
-         if ( logger != null ) {
-           logger.error("EasyDAO", getName(), "'of' not set.", new Exception("of not set"));
-         } else {
-           System.err.println("EasyDAO " + getName() + " 'of' not set.");
-         }
-         reportFatalDAOError();
+         logger.error("EasyDAO", getName(), "'of' not set.");
+         throw new RuntimeException("of not set");
        }
 
        if ( getInnerDAO() == null && getMdao() == null && ! getNullify() ) {
@@ -982,11 +973,11 @@ dao loading, which improves overall startup time.`,
       name: 'reportFatalDAOError',
       type: 'void',
       javaCode: `
-        Thread.dumpStack();
-        System.err.println("------------------------------------------------------ EasyDAO Shutting Down");
-        System.err.println("---- Due to inability to create DAO. Fix DAO specification.");
-
-        System.exit(-1);
+         Logger logger = (Logger) getX().get("logger");
+         if ( logger == null ) {
+           logger = foam.core.logger.StdoutLogger.instance();
+         }
+         logger.error("Failed to create DAO. Invalid DAO specification", getName(), new Exception("stacktrace"));
       `
     },
     {
@@ -997,6 +988,7 @@ dao loading, which improves overall startup time.`,
         try {
           var jdbcSpec = x.get("JDBCConnectionSpec");
           if ( jdbcSpec == null ) {
+            Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), "No JDBCConnectionSpec");
             throw new RuntimeException("No JDBCConnectionSpec");
           }
 

@@ -12,22 +12,22 @@ foam.ENUM({
       name: 'SCHEDULED',
       label: 'Scheduled',
       ordinal: 0,
-      color: '$warn700',
-      background: '$warn500'
+      color: '$statusWarnText',
+      background: '$statusWarnBackground'
     },
     {
       name: 'UNSCHEDULED',
       label: 'Unscheduled',
       ordinal: 1,
-      color: '$textSecondary',
+      color: '$statusNeutralText',
       background: '$statusNeutralBackground',
     },
     {
       name: 'RUNNING',
       label: 'Running',
       ordinal: 2,
-      color: '$success500',
-      background: '$success50',
+      color: '$statusWarnText',
+      background: '$statusWarnBackground',
     },
     {
       name: 'ERROR',
@@ -40,8 +40,8 @@ foam.ENUM({
       name: 'INTERRUPTED',
       label: 'Interrupted',
       ordinal: 4,
-      color: '$warn700',
-      background: '$warn500'
+      color: '$statusWarnText',
+      background: '$statusWarnBackground'
     }
   ]
 });

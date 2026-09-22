@@ -14,8 +14,8 @@
       label: { en: 'Requested', pt: 'Requeridos'},
       ordinal: 0,
       documentation: 'Request pending.',
-      color: '$warn500',
-      background: '$warn700',
+      color: '$statusWarnText',
+      background: '$statusWarnBackground',
     },
     {
       name: 'APPROVED',
@@ -38,8 +38,8 @@
       label: { en: 'Cancelled', pt: 'Cancelado'},
       ordinal: 3,
       documentation: 'Request was cancelled.',
-      color: '$textSecondary',
-      background: '$backgroundSecondary',
+      color: '$statusNeutralText',
+      background: '$statusNeutralBackground',
     }
   ]
 });

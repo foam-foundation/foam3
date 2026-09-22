@@ -382,6 +382,23 @@ foam.CLASS({
     { name: 'z-30', value: '30' },
     { name: 'z-40', value: '40' },
     { name: 'z-50', value: '50' }
+  ])
+  // MOTION SCALE, Tailwind-named durations and easings.
+  //   transition: opacity $duration-150 $ease-in-out;
+  .concat([
+    // MOTION
+    { name: 'duration-75',   value: '75ms' },
+    { name: 'duration-100',  value: '100ms' },
+    { name: 'duration-150',  value: '150ms' },
+    { name: 'duration-200',  value: '200ms' },
+    { name: 'duration-300',  value: '300ms' },
+    { name: 'duration-500',  value: '500ms' },
+    { name: 'duration-700',  value: '700ms' },
+    { name: 'duration-1000', value: '1000ms' },
+    { name: 'ease-linear',   value: 'linear' },
+    { name: 'ease-in',       value: 'cubic-bezier(0.4, 0, 1, 1)' },
+    { name: 'ease-out',      value: 'cubic-bezier(0, 0, 0.2, 1)' },
+    { name: 'ease-in-out',   value: 'cubic-bezier(0.4, 0, 0.2, 1)' }
   ]),
 
   javaCode: `

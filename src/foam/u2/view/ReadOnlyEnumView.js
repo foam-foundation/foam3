@@ -48,6 +48,12 @@ foam.CLASS({
     function render() {
       let self = this;
       this.SUPER();
+      // The colours land as inline styles, which a scheme flip's
+      // foam.u2.CSS.reloadStyles() never rewrites (it only refreshes <style>
+      // elements). Re-run on theme.activeVariants$ so a pill already on
+      // screen picks up its dark values when the scheme changes. The property
+      // slot, not a .dot() on theme, because the flip is activeVariants$set(),
+      // which publishes without replacing the map.
       this.dynamic(function(data) {
         if ( ! data ) return;
         this.removeAllChildren();
@@ -82,7 +88,7 @@ foam.CLASS({
             () => { this.start().add(data.label).end(); },
             () => { this.start().addClass('p').add(data.label).end(); }
           );
-      });
+      }, this.data$, this.theme?.activeVariants$);
     },
     {
       name: 'isFancy',

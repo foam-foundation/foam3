@@ -3,21 +3,30 @@ p({
   name:"eventRecordDAO",
   serve:true,
   serviceScript:"""
-    return new foam.dao.EasyDAO.Builder(x)
+    // One journal per week, opened when a query or a write reaches that week.
+    // The two-week window is what a query with no date bound covers and what
+    // start() preloads, so a restart replays two or three weekly journals
+    // instead of the whole history. The size cap the FixedSizeDAO used to
+    // apply is now the partitions the JVM keeps live.
+    partitioned = new foam.core.partition.DatePartitionedDAO(
+      x,
+      foam.core.er.EventRecord.getOwnClassInfo(),
+      "eventRecords-",
+      foam.core.er.EventRecord.CREATED,
+      foam.core.partition.DatePartitioningScheme.YYYYWW);
+    partitioned.setTimeWindow(14);
+    partitioned.setPreload(true);
+
+    dao = new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.er.EventRecord.getOwnClassInfo())
       .setFuid(true)
       .setCluster(false)
       .setSaf(false)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("eventRecords")
+      .setInnerDAO(partitioned)
       .setPm(true)
       .setDecorator(
         new foam.core.er.EventRecordResponseDAO.Builder(x).setDelegate(
           new foam.core.er.EventRecordDAO.Builder(x).setDelegate(new foam.dao.NullDAO(x, foam.core.er.EventRecord.getOwnClassInfo())).build()).build())
-      .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
-        .setComparator(foam.mlang.MLang.DESC(foam.core.er.EventRecord.CREATED))
-        .setSize(100000)
-        .build())
       .setOrder(new foam.mlang.order.Comparator[] { foam.mlang.MLang.DESC(foam.core.er.EventRecord.CREATED) })
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.er.EventRecord.CREATED })
@@ -27,6 +36,12 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.er.EventRecord.PARTNER })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.er.EventRecord.SEVERITY })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.er.EventRecord.SOURCE });
+
+    // After the indices are registered, so the partitions the import creates
+    // carry them. No-ops once the legacy journal has been archived.
+    partitioned.migrateFrom(x, "eventRecords", "eventRecordDAO");
+
+    return dao;
   """,
   "client":"""
     {

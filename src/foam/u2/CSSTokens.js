@@ -95,6 +95,22 @@ foam.CLASS({
     { name: 'black600', value: '#0C0C0C' },
     { name: 'black700', value: '#0D0D0D' },
 
+    // True neutral greys (no blue cast, unlike grey*). Fills the gap between
+    // black50 (#373737) and grey700 (#494F59) that dark-mode borders and
+    // dividers need; Tailwind's neutral ramp. The ramp is shipped complete,
+    // like the other palette ramps: a theme or app picks the step it needs
+    // without adding one to this file first.
+    { name: 'neutral50',  value: '#FAFAFA' },
+    { name: 'neutral100', value: '#F5F5F5' },
+    { name: 'neutral200', value: '#E5E5E5' },
+    { name: 'neutral300', value: '#D4D4D4' },
+    { name: 'neutral400', value: '#A3A3A3' },
+    { name: 'neutral500', value: '#737373' },
+    { name: 'neutral600', value: '#525252' },
+    { name: 'neutral700', value: '#404040' },
+    { name: 'neutral800', value: '#262626' },
+    { name: 'neutral900', value: '#171717' },
+
     { name: 'primary50', value: '$blue50' },
     { name: 'primary100', value: '$blue100' },
     { name: 'primary200', value: '$blue200' },
@@ -134,24 +150,28 @@ foam.CLASS({
     { name: 'white', value: '#FFFFFF' },
     { name: 'black', value: '#000000' },
 
-    { name: 'destructive', value: '#E11721' },
-    { name: 'info', value: '#FC7F27' },
-    { name: 'warn', value: '#F5DB6B' },
-    { name: 'success', value: '#34CF56' },
+    // Status colours: the 400 step of each ramp in light. Dark steps two up to
+    // 200, as textDestructive/textBrand do, so each reads as text on the dark
+    // surface ($black200): red200 4.95:1, orange200 8.05:1, yellow200 14.12:1,
+    // green200 9.38:1; at 400 red is 3.37:1, below the 4.5:1 text floor.
+    { name: 'destructive', value: '#E11721', variants: { dark: { value: '$red200' } } },
+    { name: 'info', value: '#FC7F27', variants: { dark: { value: '$orange200' } } },
+    { name: 'warn', value: '#F5DB6B', variants: { dark: { value: '$yellow200' } } },
+    { name: 'success', value: '#34CF56', variants: { dark: { value: '$green200' } } },
 
     // HINTS
-    { name: 'hintBackground',         value:'#d9f6ff'},
-    { name: 'hintBorder',             value:'#a8ceef'},
-    { name: 'hintText',               value:'#2170b5'},
-    { name: 'hintWarningBackground',  value:'#fff2d9'},
-    { name: 'hintWarningBorder',      value:'#efc7a8'},
-    { name: 'hintWarningText',        value:'#875e17'},
-    { name: 'hintDangerBackground',   value:'#ffd9d9'},
-    { name: 'hintDangerBorder',       value:'#efa8a8'},
-    { name: 'hintDangerText',         value:'#a52222'},
-    { name: 'hintSuccessBackground',  value:'#daffd9'},
-    { name: 'hintSuccessBorder',      value:'#a8efa8'},
-    { name: 'hintSuccessText',        value:'#227218'},
+    { name: 'hintBackground',         value:'#d9f6ff', variants: { dark: { value: '#0F2A3A' } } },
+    { name: 'hintBorder',             value:'#a8ceef', variants: { dark: { value: '#1E4D6B' } } },
+    { name: 'hintText',               value:'#2170b5', variants: { dark: { value: '#7CC0F0' } } },
+    { name: 'hintWarningBackground',  value:'#fff2d9', variants: { dark: { value: '#3A2A0F' } } },
+    { name: 'hintWarningBorder',      value:'#efc7a8', variants: { dark: { value: '#6B4D1E' } } },
+    { name: 'hintWarningText',        value:'#875e17', variants: { dark: { value: '#F0C87C' } } },
+    { name: 'hintDangerBackground',   value:'#ffd9d9', variants: { dark: { value: '#3A1414' } } },
+    { name: 'hintDangerBorder',       value:'#efa8a8', variants: { dark: { value: '#6B2626' } } },
+    { name: 'hintDangerText',         value:'#a52222', variants: { dark: { value: '#F08C8C' } } },
+    { name: 'hintSuccessBackground',  value:'#daffd9', variants: { dark: { value: '#123A14' } } },
+    { name: 'hintSuccessBorder',      value:'#a8efa8', variants: { dark: { value: '#226B26' } } },
+    { name: 'hintSuccessText',        value:'#227218', variants: { dark: { value: '#8CE08C' } } },
 
     // SEMANTIC TOKENS
     // For semantic tokens we use the term brand instead of primary for two reasons:
@@ -159,34 +179,46 @@ foam.CLASS({
     // 2. When theme semantic tokens are overriden, brand colour might be a mix of various random tokens that might be set up so "brand" offers a consistent easy to understand name
 
     // BG
-    { name: 'backgroundDefault', value: '$white', variants: { dark: { value: '$black500' } } },
+    // Dark surfaces are dark grey, not black, and get lighter the higher they sit
+    // (default < secondary < tertiary/hover). Pure black halos light text and
+    // hides elevation; see NN/g, "Dark Mode: How Users Think About It".
+    { name: 'backgroundDefault', value: '$white', variants: { dark: { value: '$black200' } } },
     { name: 'backgroundSecondary', value: '$grey50', variants: { dark: { value: '$black100' } } },
-    { name: 'backgroundTertiary', value: '$grey100', variants: { dark: { value: '$black200' } } },
+    { name: 'backgroundTertiary', value: '$grey100', variants: { dark: { value: '$black50' } } },
     { name: 'backgroundHover', value: '$backgroundTertiary' },
 
-    { name: 'backgroundBrand', value: '$primary400' },
+    { name: 'backgroundBrand', value: '$primary400', variants: { dark: { value: '$primary300' } } },
     { name: 'backgroundBrandSecondary', value: '$primary600', variants: { dark: { value: '$primary200' } } },
-    { name: 'backgroundBrandTertiary', value: '$primary50', variants: { dark: { value: '$primary700' } } },
+    { name: 'backgroundBrandTertiary', value: '$primary50', variants: { dark: { value: '$primary500' } } },
 
-    { name: 'backgroundInverse', value: '$black700', variants: { dark: { value: '$grey50' } } },
-    { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey200' } } },
-    { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$black300' } } },
+    // Inverse surfaces step toward the page: default is the strongest contrast
+    // against backgroundDefault, secondary a step back. Light runs
+    // $black700 < $grey500; dark runs $grey300 (light grey, not near-white,
+    // same reason the dark surfaces are not pure black) > $grey400.
+    { name: 'backgroundInverse', value: '$black700', variants: { dark: { value: '$grey300' } } },
+    { name: 'backgroundInverseSecondary', value: '$grey500', variants: { dark: { value: '$grey400' } } },
+    { name: 'backgroundInverseTertiary', value: '$grey400', variants: { dark: { value: '$grey500' } } },
 
+    // Destructive buttons keep the light ramp in dark. textOnDestructive is
+    // $white in both modes and white on $destructive300 is 3.99:1, under the
+    // 4.5:1 AA floor; $destructive400 gives 4.83:1 with white and 3.37:1
+    // against $black200, so unlike backgroundBrand (blue400 is 2.18:1 against
+    // the dark surface, hence its step to primary300) red needs no lighter step.
     { name: 'backgroundDestructive', value: '$destructive400' },
     { name: 'backgroundDestructiveSecondary', value: '$destructive500' },
-    { name: 'backgroundDestructiveTertiary', value: '$destructive50' },
+    { name: 'backgroundDestructiveTertiary', value: '$destructive50', variants: { dark: { value: '$destructive700' } } },
 
     // TEXT
-    { name: 'textDefault', value: '$black', variants: { dark: { value: '$grey100' } } },
-    { name: 'textSecondary', value: '$grey700', variants: { dark: { value: '$grey200' } } },
-    { name: 'textTertiary', value: '$grey500',variants: { dark: { value: '$grey400' } } },
+    { name: 'textDefault', value: '$black', variants: { dark: { value: '$neutral100' } } },
+    { name: 'textSecondary', value: '$grey700', variants: { dark: { value: '$neutral300' } } },
+    { name: 'textTertiary', value: '$grey500', variants: { dark: { value: '$neutral400' } } },
     { name: 'dropdownIcon', value: 'currentColor'},
 
-    { name: 'textBrand', value: '$primary400' },
+    { name: 'textBrand', value: '$primary400', variants: { dark: { value: '$primary200' } } },
     { name: 'textBrandSecondary', value: '$primary700', variants: { dark: { value: '$primary50' } } },
     { name: 'textBrandTertiary', value: '$primary50', variants: { dark: { value: '$primary500' } } },
 
-    { name: 'textDestructive', value: '$destructive400' },
+    { name: 'textDestructive', value: '$destructive400', variants: { dark: { value: '$destructive200' } } },
 
     { name: 'textOnBrand', value: '$white' },
 
@@ -194,13 +226,39 @@ foam.CLASS({
 
     { name: 'textOnDestructive', value: '$white' },
 
-    { name: 'link', value: '$blue200' },
+    { name: 'link', value: '$blue200', variants: { dark: { value: '$blue100' } } },
+
+    // Browser-native chrome (scrollbars, checkboxes, date pickers) follows this
+    // via `color-scheme` on :root (AppStyles), so whatever sets the dark
+    // variant on theme.activeVariants (the OS listener in foam.lang.Window
+    // today) also flips native controls; inputs inherit it, no rule of their
+    // own. ColorToken only so the dark variant is consulted; the value is a
+    // keyword, not a colour.
+    { name: 'colorScheme', value: 'light', variants: { dark: { value: 'dark' } } },
+
+    // STATUS (enum pills, badges, chips): one text/background pair per meaning.
+    // Light is ink on a tint (700 on 50); dark inverts the pair on the ramp,
+    // with text at 100 where 200 fell under 4.5:1 (warn 4.61:1, danger 6.10:1).
+    { name: 'statusSuccessText',       value: '$success700',     variants: { dark: { value: '$success200' } } },
+    { name: 'statusSuccessBackground', value: '$success50',      variants: { dark: { value: '$success700' } } },
+    { name: 'statusWarnText',          value: '$warn700',        variants: { dark: { value: '$warn100' } } },
+    { name: 'statusWarnBackground',    value: '$warn50',         variants: { dark: { value: '$warn700' } } },
+    { name: 'statusDangerText',        value: '$destructive500', variants: { dark: { value: '$destructive100' } } },
+    // Same pair as backgroundDestructiveTertiary in both modes; one source.
+    { name: 'statusDangerBackground',  value: '$backgroundDestructiveTertiary' },
+    { name: 'statusInfoText',          value: '$primary400',     variants: { dark: { value: '$primary200' } } },
+    { name: 'statusInfoBackground',    value: '$primary50',      variants: { dark: { value: '$primary700' } } },
+    { name: 'statusNeutralText',       value: '$grey700',        variants: { dark: { value: '$neutral300' } } },
+    { name: 'statusNeutralBackground', value: '$grey100',        variants: { dark: { value: '$neutral700' } } },
 
     // BORDER COLOR
-    { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$black400' } } },
-    { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$black300' } } },
-    { name: 'borderDefault', value: '$grey400', variants: { dark: { value: '$black100' } } },
-    { name: 'borderStrong', value: '$grey700', variants: { dark: { value: '$grey500' } } },
+    // Dark borders use the neutral ramp, one step lighter than the surfaces they
+    // sit on (lightest surface is $black50 #373737); grey* has a blue cast that
+    // reads as a tint against true-grey surfaces.
+    { name: 'borderXLight', value: '$grey50', variants: { dark: { value: '$neutral700' } } },
+    { name: 'borderLight', value: '$grey200', variants: { dark: { value: '$neutral600' } } },
+    { name: 'borderDefault', value: '$grey400', variants: { dark: { value: '$neutral500' } } },
+    { name: 'borderStrong', value: '$grey700', variants: { dark: { value: '$neutral400' } } },
 
     { name: 'borderBrandXLight', value: '$primary50', variants: { dark: { value: '$primary700' } } },
     { name: 'borderBrandLight', value: '$primary100', variants: { dark: { value: '$primary400' } } },

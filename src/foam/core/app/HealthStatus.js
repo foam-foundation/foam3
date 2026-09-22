@@ -11,10 +11,10 @@ foam.ENUM({
   documentation: 'Represents typical health status. Intended for use by a Load Balancer.',
 
   values: [
-    { name: 'DOWN',  label: 'down',  color: '$statusNeutralText' },
-    { name: 'MAINT', label: 'maint', color: '$statusWarnText' },
-    { name: 'UP',     label: 'up',    color: '$statusSuccessText' },
-    { name: 'FAIL',   label: 'fail',  color: '$statusDangerText' },
-    { name: 'DRAIN', label: 'drain', color: '$statusWarnText' }
+    { name: 'DOWN',  label: 'down',  color: '$statusNeutralText', background: '$statusNeutralBackground' },
+    { name: 'MAINT', label: 'maint', color: '$statusWarnText', background: '$statusWarnBackground' },
+    { name: 'UP',     label: 'up',    color: '$statusSuccessText', background: '$statusSuccessBackground' },
+    { name: 'FAIL',   label: 'fail',  color: '$statusDangerText', background: '$statusDangerBackground' },
+    { name: 'DRAIN', label: 'drain', color: '$statusWarnText', background: '$statusWarnBackground' }
   ]
 });

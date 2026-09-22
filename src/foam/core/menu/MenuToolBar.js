@@ -51,7 +51,7 @@ foam.CLASS({
       border: solid 1px $borderLight;
     }
     ^option:hover {
-      border: solid 1px $primary300;
+      border: solid 1px $borderBrand;
       cursor: pointer;
     }
     ^option-title {

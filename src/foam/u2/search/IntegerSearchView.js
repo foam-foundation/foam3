@@ -134,7 +134,7 @@ foam.CLASS({
     ^carrot {
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid $black;
+      border-top: 5px solid $textDefault;
       position: absolute;
       right: 8px;
       top: 18px;

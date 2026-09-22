@@ -33,7 +33,7 @@ foam.CLASS({
       padding: 4px 8px;
       font-family: monospace;
       font-size: 13px;
-      background: $white;
+      background: $backgroundDefault;
       outline: none;
     }
     ^command input:focus {

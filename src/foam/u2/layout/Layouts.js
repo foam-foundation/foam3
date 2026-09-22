@@ -56,7 +56,7 @@ foam.CLASS({
       align-items: stretch;
     }
     ^debug > div {
-      border: 1px solid $destructive400;
+      border: 1px solid $destructive;
     }
   `,
   properties: [

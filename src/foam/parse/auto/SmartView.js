@@ -278,7 +278,7 @@ foam.CLASS({
       z-index: 1000;
     }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
-    ^error { border: 1px solid $destructive400 !important; }
+    ^error { border: 1px solid $destructive !important; }
   `,
 
   properties: [

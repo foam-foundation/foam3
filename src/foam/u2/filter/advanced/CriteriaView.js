@@ -47,7 +47,7 @@ foam.CLASS({
       width: 100%;
       height: 34px;
       border-radius: 5px;
-      border: solid 1px $borderLight;
+      border: solid 1px $borderDefault;
     }
 
     ^ .foam-u2-filter-properties-PropertyFilterView {

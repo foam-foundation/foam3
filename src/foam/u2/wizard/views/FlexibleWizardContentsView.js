@@ -38,7 +38,7 @@ foam.CLASS({
       flex-direction: column;
       position: sticky;
       bottom: 0;
-      background-color: /*%WHITE%*/ #FFFFFF;
+      background-color: $white;
       gap: 0.5rem;
     }
     ^flexButtons > * {

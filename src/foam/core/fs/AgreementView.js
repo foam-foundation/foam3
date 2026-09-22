@@ -18,7 +18,7 @@ foam.CLASS({
         overflow-y: auto;
         height: 500px;
         width: 100%;
-        border: 1px solid #DDD;
+        border: 1px solid $borderLight;
         padding: 10px;
     }
 

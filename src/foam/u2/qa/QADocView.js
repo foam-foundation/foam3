@@ -13,9 +13,9 @@ foam.CLASS({
     ^ { font-family: system-ui, sans-serif; max-width: 1200px; }
     ^section { margin: 24px 0; }
     ^table { border-collapse: collapse; width: 100%; }
-    ^table th, ^table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    ^table th { background: #f5f5f5; }
-    ^code { font-family: monospace; font-size: 13px; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+    ^table th, ^table td { border: 1px solid $borderLight; padding: 8px; text-align: left; }
+    ^table th { background: $backgroundSecondary; }
+    ^code { font-family: monospace; font-size: 13px; background: $backgroundSecondary; padding: 2px 6px; border-radius: 3px; }
     ^predicate { font-family: monospace; font-size: 12px; white-space: pre-wrap; max-width: 500px; }
   `,
 

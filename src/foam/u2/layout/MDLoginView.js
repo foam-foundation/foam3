@@ -85,7 +85,7 @@ foam.CLASS({
 
     ^ .home-img {
       font-size: 9rem;
-      background: -webkit-linear-gradient(#604aff, #2e2379);
+      background: -webkit-linear-gradient($primary300, $primary600);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }

@@ -40,7 +40,7 @@ foam.CLASS({
       width: 100%;
       content: '';
       z-index: 10;
-      background: linear-gradient(to bottom, #DADDE2 0, #ffffff00 7px, #ffffff00 100%);
+      background: linear-gradient(to bottom, $grey300 0, transparent 7px, transparent 100%);
       top: 0;
       position: sticky;
     }
@@ -52,7 +52,7 @@ foam.CLASS({
       width: 100%;
       content: '';
       z-index: 10;
-      background: linear-gradient(to top, #DADDE2 0, #ffffff00 7px, #ffffff00 100%);
+      background: linear-gradient(to top, $grey300 0, transparent 7px, transparent 100%);
       bottom: 0;
       position: sticky;
     }

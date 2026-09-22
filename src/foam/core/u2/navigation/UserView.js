@@ -48,7 +48,7 @@ foam.CLASS({
       height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid white;
+      border-top: 5px solid $white;
     }
     ^ > .profile-container {
       cursor: pointer;

@@ -28,12 +28,12 @@ foam.CLASS({
     }
     ^command input {
       width: 100%;
-      border: 1px solid #ddd;
+      border: 1px solid $borderLight;
       border-radius: 4px;
       padding: 4px 8px;
       font-family: monospace;
       font-size: 13px;
-      background: #fff;
+      background: $white;
       outline: none;
     }
     ^command input:focus {

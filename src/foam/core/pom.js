@@ -539,6 +539,7 @@ foam.POM({
     { name: "analytics/DAOReduceManager",                             flags: "js|java" },
     { name: "cron/SimpleIntervalScheduleView",                        flags: "web" },
     { name: "benchmark/DateFormatBenchmark",                          flags: "js&test|java&test" },
+    { name: "benchmark/StringInternerBenchmark",                      flags: "js&test|java&test" },
     { name: "benchmark/JournalReplayBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/LoggingBenchmark",                             flags: "js&test|java&test" },
     { name: "benchmark/JSONOutputterEscapeBenchmark",                 flags: "js&test|java&test" },

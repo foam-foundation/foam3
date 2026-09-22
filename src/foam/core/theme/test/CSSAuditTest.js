@@ -26,14 +26,19 @@ foam.CLASS({
   !important.
 
   A $token in a declaration is checked as well: a name that is declared
-  neither in src/foam/u2/CSSTokens.js nor in the owning class' (or an
-  ancestor's) cssTokens: never resolves, so the declaration ships whatever
-  fallback the token machinery has - a typo is invisible until someone looks
-  at the rendered page.
+  neither in src/foam/u2/CSSTokens.js nor in the owning class' cssTokens: -
+  including the cssTokens: it inherits through extends: and the ones a
+  mixins: entry installs on it - never resolves, so the declaration ships
+  whatever fallback the token machinery has, and a typo is invisible until
+  someone looks at the rendered page. A derived $name$hover form is checked
+  against what ColorToken actually installs; see tokenDeclared below.
 
-  foam.u2.parse.CSSParser is the CSS grammar the GUI style editor uses. It is a
-  js-flagged class and this audit runs on the server (it walks the filesystem),
-  so the grammar below is read from the same shapes but implemented in Java.
+  What reads the CSS below is a character scanner for declarations, not a
+  grammar. foam.u2.parse.CSSParser, the CSS grammar the GUI style editor uses,
+  cannot read a real multi-line css: block: it is js-flagged (src/pom.js:259)
+  while this audit runs on the server, its whitespace rule is repeat0(' ')
+  (src/foam/u2/parse/CSSParser.js:42) so any newline or tab between
+  declarations fails it, and it has no rule for a comment or a string.
 
   Colour converters
 https://www.myfixguide.com/color-converter/ - hex,rgb,hsl, rgba, argb
@@ -69,13 +74,21 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
 
   properties: [
     {
+      documentation: `
+        Each entry is matched against the directory path relative to
+        project.home. A '^' prefix anchors the entry at the project root;
+        without it the entry matches anywhere in the path. See pathSkipped.
+      `,
       name: 'skipFoamPaths',
       class: 'List',
       javaFactory: `
       List list = new ArrayList();
       list.add("/build");
       list.add("/demos");
-      list.add("/doc");
+      // Anchored: an unanchored "/doc" also hid src/foam/doc, which holds 12
+      // .js files with a css: block. The folder meant here is the project's
+      // own doc/ at the root.
+      list.add("^/doc");
       list.add("/node_modules");
       list.add("/tools");
       list.add("/webroot");
@@ -272,11 +285,26 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         i = j < 0 ? n : j + 2;
         continue;
       }
+      // A quote opens a CSS string, which ends at its matching quote. It also
+      // ends at a raw newline: a CSS string cannot span one (a newline inside
+      // a string is a parse error that ends the string), and at a ';' or '}'
+      // outside parentheses, which end the declaration and the block. Without
+      // those two bounds a quote that never closes - a stray ' left behind
+      // where readLiteral blanked a \${'}'} interpolation - runs to the end of
+      // the block and every declaration after it goes unaudited.
       if ( c == '"' || c == '\\'' ) {
-        int j = i + 1;
-        while ( j < n && css.charAt(j) != c ) j++;
-        buf.append(css, i, Math.min(j + 1, n));
-        i = j + 1;
+        int     j      = i + 1;
+        boolean closed = false;
+        while ( j < n ) {
+          char e = css.charAt(j);
+          if ( e == c ) { closed = true; break; }
+          if ( e == '\\n' ) break;
+          if ( paren == 0 && ( e == ';' || e == '}' ) ) break;
+          j++;
+        }
+        int end = closed ? j + 1 : j;
+        buf.append(css, i, end);
+        i = end;
         continue;
       }
       // A value's parentheses hide ':' and ';' - url(data:...;base64,...) and
@@ -399,6 +427,19 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return false;
   }
 
+  // What a failing declaration says. The advice names the file to look in and
+  // three tokens to look at, so the line is actionable without going and
+  // reading this test first.
+  protected static final String COLOUR_ADVICE =
+    " is a hard coded colour; use a $token from src/foam/u2/CSSTokens.js " +
+    "(e.g. $textDefault, $borderLight, $backgroundSecondary) or declare one " +
+    "in the class' cssTokens:";
+
+  protected static final String FONT_ADVICE =
+    " is a hard coded font value; use a $token from src/foam/u2/CSSTokens.js " +
+    "(e.g. $font1, $font-bold, $body-md) or declare one in the class' " +
+    "cssTokens:";
+
   // Returns what is wrong with a declaration, or null when it is clean.
   protected static String violation(String property, String value) {
     String p = property.trim().toLowerCase();
@@ -411,20 +452,38 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
                      p.equals("border") || p.startsWith("border-") ||
                      p.equals("background") || p.equals("background-image");
     if ( colour ) {
-      return hasColourLiteral(v) ? "hard coded colour" : null;
+      return hasColourLiteral(v) ? COLOUR_ADVICE : null;
     }
     if ( p.equals("font") || p.equals("font-weight") ) {
-      return FONT_KEYWORDS.contains(v.toLowerCase()) ? null : "hard coded font value";
+      return FONT_KEYWORDS.contains(v.toLowerCase()) ? null : FONT_ADVICE;
     }
     return null;
   }
 
-  // ColorToken installs a derived token per state on the class it is declared
-  // on, so $primary400$hover and $buttonPrimaryColor$hover$foreground resolve
-  // through the name before the first '$'.
-  protected static final Set<String> DERIVED_SUFFIXES = new HashSet(Arrays.asList(
-    "hover", "active", "disabled", "foreground"
+  // The states ColorToken derives a token for.
+  protected static final Set<String> DERIVED_STATES = new HashSet(Arrays.asList(
+    "hover", "active", "disabled"
   ));
+
+  // Whether a derived form of a token name exists. ColorToken installs exactly
+  // five shapes on the class the token is declared on
+  // (src/foam/u2/ColorToken.js:51-68): $name$hover, $name$active,
+  // $name$disabled, $name$foreground and $name$<state>$foreground. Nothing
+  // else is installed, and a plain CSSToken gets none of them - $inputHeight
+  // has no $hover, so $inputHeight$hover resolves to nothing at runtime.
+  // tools/lsp/CSSTokenResolver.js:71-72 reads this same set off the class for
+  // the editor's completions: the two have to accept the same names, or the
+  // editor offers one this test then fails on.
+  // parts is the name split on '$', so parts[0] is the declared token.
+  protected static boolean derivedFormExists(String[] parts) {
+    if ( parts.length == 2 ) {
+      return DERIVED_STATES.contains(parts[1]) || "foreground".equals(parts[1]);
+    }
+    if ( parts.length == 3 ) {
+      return DERIVED_STATES.contains(parts[1]) && "foreground".equals(parts[2]);
+    }
+    return false;
+  }
 
   protected static boolean isTokenChar(char c) {
     return isIdentifierChar(c) || c == '-';
@@ -453,22 +512,105 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return out;
   }
 
-  // One brace walk over a .js file for what a $token lookup needs: every
-  // foam.CLASS/ENUM/INTERFACE literal - its id, what it extends and the span
-  // it covers - and every cssTokens: declaration, with the object literal its
-  // names are visible in. An inner class under classes: declares its own
-  // tokens, and that literal is the scope. Comments and strings are walked
-  // past. Returns { models, regions } where a model is
-  // { id, extendsId, start, end } and a region is { start, end, names }.
-  protected static Object[] scanStructure(String src) {
-    List<Object[]> models  = new ArrayList();
-    List<Object[]> regions = new ArrayList();
-    List<Object[]> stack   = new ArrayList();   // frame: { start, isModel, pkg, name, extends, refines, names }
-    int            n       = src.length();
-    int            i       = 0;
-    boolean        opensModel  = false;
-    int            collectAt   = -1;            // stack depth the cssTokens: value ends at
-    Object[]       collectInto = null;
+  // A class literal the scan found: a foam.CLASS/ENUM/INTERFACE call, or an
+  // object literal directly inside a classes: array. The second is a class in
+  // its own right at runtime - foam.lang.InnerClass registers it under
+  // outer.id + '.' + name and builds it from its own model, including its own
+  // extends: (src/foam/lang/InnerClass.js:77) - so it resolves $tokens on its
+  // own chain, not the outer class'.
+  //
+  // Named fields rather than an Object[] indexed by position: the walk below
+  // fills eight of them and the audit reads them a hundred lines later.
+  protected static class ModelInfo {
+    protected ModelInfo            outer;                    // set for an inner class
+    protected String               pkg;
+    protected String               name;
+    protected String               refines;
+    protected String               extendsId;
+    protected List<String>         mixinIds = new ArrayList();
+    // Declared token name -> whether its entry is a ColorToken, which decides
+    // which derived $suffix forms of it exist.
+    protected Map<String, Boolean> tokens   = new HashMap();
+    protected int                  start;                    // offset of the '{'
+    protected int                  end;                      // offset of the '}'
+
+    protected String  id_;
+    protected boolean idResolved_;
+
+    // Built after the walk, because an inner class' id needs the outer class'
+    // package: and name:, which may be read after the inner class closes.
+    protected String id() {
+      if ( idResolved_ ) return id_;
+      idResolved_ = true;
+      if ( refines != null ) {
+        id_ = refines;
+      } else if ( name == null ) {
+        id_ = null;
+      } else if ( outer != null ) {
+        String o = outer.id();
+        id_ = o == null ? name : o + "." + name;
+      } else {
+        id_ = pkg == null ? name : pkg + "." + name;
+      }
+      return id_;
+    }
+  }
+
+  // One '{' or '[' the walk is currently inside.
+  protected static class Frame {
+    protected int                  start;
+    protected char                 open;         // '{' or '['
+    protected ModelInfo            model;        // this '{' is a class literal
+    protected boolean              classesArray; // this '[' is a classes: value
+    protected boolean              mixinsArray;  // this '[' is a mixins: value
+    protected Map<String, Boolean> tokens;       // this '[' holds cssTokens: entries
+    protected String               tokenName;    // this '{' is a cssTokens: entry
+    protected String               tokenClass;
+  }
+
+  // The class the walk is inside: the nearest enclosing class literal.
+  protected static ModelInfo enclosingModel(List<Frame> stack) {
+    for ( int i = stack.size() - 1 ; i >= 0 ; i-- ) {
+      if ( stack.get(i).model != null ) return stack.get(i).model;
+    }
+    return null;
+  }
+
+  // Whether what follows a token array is a .map(...) that stamps a class onto
+  // every entry in it, which is how src/foam/u2/CSSTokens.js:267 makes its
+  // whole palette block ColorTokens: an entry there carries no class: of its
+  // own, so without reading this the palette would look like plain CSSTokens
+  // and every $primary400$hover in the tree would be reported unknown.
+  protected static boolean mappedToColorToken(String src, int i) {
+    int n = src.length();
+    while ( i < n && Character.isWhitespace(src.charAt(i)) ) i++;
+    if ( ! src.startsWith(".map(", i) ) return false;
+    int j = i + 5;
+    int d = 1;
+    while ( j < n && d > 0 ) {
+      char c = src.charAt(j);
+      if ( c == '(' ) d++;
+      else if ( c == ')' ) d--;
+      j++;
+    }
+    return src.substring(i, j).contains("ColorToken");
+  }
+
+  // One brace walk over a .js file for every class it declares: the
+  // foam.CLASS/ENUM/INTERFACE calls and the inner classes under a classes:
+  // array. Each carries what a $token lookup needs - id, extends:, mixins: and
+  // the cssTokens: it declares - and the span it covers, which is how a css:
+  // block is matched to the class that owns it. Comments and strings are
+  // walked past.
+  protected static List<ModelInfo> scanStructure(String src) {
+    List<ModelInfo> models       = new ArrayList();
+    List<Frame>     stack        = new ArrayList();
+    int             n            = src.length();
+    int             i            = 0;
+    boolean         opensModel   = false;  // the next '{' is a foam.CLASS body
+    int             pendingArray = 0;      // 1 = a classes: value, 2 = a mixins: value
+    ModelInfo       tokenOwner   = null;   // the class whose cssTokens: is being read
+    int             tokenDepth   = -1;     // the stack depth that value sits at
 
     while ( i < n ) {
       char c = src.charAt(i);
@@ -504,57 +646,94 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       }
 
       if ( c == '{' || c == '[' ) {
-        // An array element that is itself an array is the [ name, value ] form
-        // of a token.
-        if ( c == '[' && collectInto != null && stack.size() > collectAt ) {
-          int j = i + 1;
-          while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
-          if ( j < n && isQuote(src.charAt(j)) ) {
-            Object[] lit = readLiteral(src, j);
-            if ( lit != null ) ((Set<String>) collectInto[6]).add((String) lit[0]);
+        Frame top   = stack.isEmpty() ? null : stack.get(stack.size() - 1);
+        Frame frame = new Frame();
+        frame.start = i;
+        frame.open  = c;
+
+        if ( c == '{' ) {
+          if ( opensModel ) {
+            frame.model = new ModelInfo();
+            models.add(frame.model);
+          } else if ( top != null && top.classesArray ) {
+            frame.model       = new ModelInfo();
+            frame.model.outer = enclosingModel(stack);
+            models.add(frame.model);
           }
-        }
-        stack.add(new Object[] { Integer.valueOf(i), Boolean.valueOf(c == '{' && opensModel),
-                                 null, null, null, null, null });
-        opensModel = false;
-        i++;
-        continue;
-      }
-      if ( c == '}' || c == ']' ) {
-        if ( ! stack.isEmpty() ) {
-          Object[] frame = stack.remove(stack.size() - 1);
-          if ( frame[6] != null ) {
-            regions.add(new Object[] { frame[0], Integer.valueOf(i), frame[6] });
+        } else {
+          frame.classesArray = pendingArray == 1;
+          frame.mixinsArray  = pendingArray == 2;
+          // Every array at the cssTokens: value's own depth holds token
+          // entries: CSSTokens.js writes the value as
+          // [ ... ].map(...).concat([ ... ]), two sibling arrays.
+          if ( tokenOwner != null && stack.size() == tokenDepth ) {
+            frame.tokens = new HashMap();
           }
-          if ( ((Boolean) frame[1]).booleanValue() ) {
-            String pkg  = (String) frame[2];
-            String name = (String) frame[3];
-            String ref  = (String) frame[5];
-            String id   = ref != null ? ref
-                        : ( pkg != null && name != null ? pkg + "." + name : name );
-            if ( id != null ) {
-              models.add(new Object[] { id, frame[4], frame[0], Integer.valueOf(i),
-                                        frame[6] });
+          // An array element that is itself an array is the [ name, value ]
+          // form of a token.
+          if ( top != null && top.tokens != null ) {
+            int j = i + 1;
+            while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+            if ( j < n && isQuote(src.charAt(j)) ) {
+              Object[] lit = readLiteral(src, j);
+              if ( lit != null ) top.tokens.put((String) lit[0], Boolean.FALSE);
             }
           }
         }
-        if ( collectInto != null && stack.size() < collectAt ) {
-          collectInto = null;
-          collectAt   = -1;
+        opensModel   = false;
+        pendingArray = 0;
+        stack.add(frame);
+        i++;
+        continue;
+      }
+
+      if ( c == '}' || c == ']' ) {
+        if ( ! stack.isEmpty() ) {
+          Frame frame = stack.remove(stack.size() - 1);
+          Frame top   = stack.isEmpty() ? null : stack.get(stack.size() - 1);
+
+          if ( frame.model != null ) {
+            frame.model.start = frame.start;
+            frame.model.end   = i;
+          }
+          if ( frame.tokenName != null ) {
+            Boolean colour = Boolean.valueOf(frame.tokenClass != null &&
+                                             frame.tokenClass.endsWith("ColorToken"));
+            if ( top != null && top.tokens != null ) {
+              top.tokens.put(frame.tokenName, colour);
+            } else if ( tokenOwner != null ) {
+              tokenOwner.tokens.put(frame.tokenName, colour);
+            }
+          }
+          if ( frame.tokens != null && tokenOwner != null ) {
+            if ( mappedToColorToken(src, i + 1) ) {
+              for ( String name : new ArrayList<String>(frame.tokens.keySet()) ) {
+                frame.tokens.put(name, Boolean.TRUE);
+              }
+            }
+            tokenOwner.tokens.putAll(frame.tokens);
+          }
+          if ( tokenOwner != null && stack.size() < tokenDepth ) {
+            tokenOwner = null;
+            tokenDepth = -1;
+          }
         }
         i++;
         continue;
       }
-      if ( c == ',' && collectInto != null && stack.size() == collectAt ) {
-        collectInto = null;
-        collectAt   = -1;
+
+      if ( c == ',' && tokenOwner != null && stack.size() == tokenDepth ) {
+        tokenOwner = null;
+        tokenDepth = -1;
         i++;
         continue;
       }
 
       // A key: an identifier or a quoted name followed by ':'.
-      int keyEnd = -1;
-      String key = null;
+      Frame   top    = stack.isEmpty() ? null : stack.get(stack.size() - 1);
+      int     keyEnd = -1;
+      String  key    = null;
+      boolean quoted = false;
       if ( Character.isLetter(c) || c == '_' ) {
         int j = i;
         while ( j < n && isIdentifierChar(src.charAt(j)) ) j++;
@@ -565,42 +744,78 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         if ( lit == null ) { i++; continue; }
         key    = (String) lit[0];
         keyEnd = ((Integer) lit[1]).intValue();
+        quoted = true;
       }
       if ( key == null ) { i++; continue; }
 
       int j = keyEnd;
       while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
       if ( j >= n || src.charAt(j) != ':' ) {
+        // A string that is an element of a mixins: array is a mixin's path.
+        if ( quoted && top != null && top.mixinsArray ) {
+          ModelInfo m = enclosingModel(stack);
+          if ( m != null ) m.mixinIds.add(key);
+        }
         i = keyEnd;
         continue;
       }
       j++;
       while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
 
-      Object[] top = stack.isEmpty() ? null : stack.get(stack.size() - 1);
-      if ( key.equals("cssTokens") && top != null ) {
-        if ( top[6] == null ) top[6] = new HashSet();
-        collectInto = top;
-        collectAt   = stack.size();
-        i = j;
-        continue;
-      }
-      if ( collectInto != null && key.equals("name") && stack.size() > collectAt &&
-           j < n && isQuote(src.charAt(j)) ) {
-        Object[] lit = readLiteral(src, j);
-        if ( lit != null ) {
-          ((Set<String>) collectInto[6]).add((String) lit[0]);
-          i = ((Integer) lit[1]).intValue();
+      if ( top != null && top.model != null ) {
+        if ( key.equals("cssTokens") ) {
+          tokenOwner = top.model;
+          tokenDepth = stack.size();
+          i = j;
           continue;
         }
+        if ( key.equals("classes") || key.equals("mixins") ) {
+          if ( j < n && src.charAt(j) == '[' ) {
+            pendingArray = key.equals("classes") ? 1 : 2;
+          }
+          i = j;
+          continue;
+        }
+        if ( j < n && isQuote(src.charAt(j)) ) {
+          boolean known = key.equals("package") || key.equals("name") ||
+                          key.equals("extends") || key.equals("refines");
+          if ( known ) {
+            Object[] lit = readLiteral(src, j);
+            if ( lit != null ) {
+              String val = (String) lit[0];
+              if ( key.equals("package") && top.model.pkg       == null ) top.model.pkg       = val;
+              if ( key.equals("name")    && top.model.name      == null ) top.model.name      = val;
+              if ( key.equals("extends") && top.model.extendsId == null ) top.model.extendsId = val;
+              if ( key.equals("refines") && top.model.refines   == null ) top.model.refines   = val;
+              i = ((Integer) lit[1]).intValue();
+              continue;
+            }
+          }
+        }
       }
-      if ( top != null && ((Boolean) top[1]).booleanValue() && j < n && isQuote(src.charAt(j)) ) {
-        int slot = key.equals("package") ? 2 : key.equals("name")    ? 3 :
-                   key.equals("extends") ? 4 : key.equals("refines") ? 5 : -1;
-        if ( slot > 0 ) {
+
+      if ( top != null && top.model == null && top.open == '{' && j < n &&
+           isQuote(src.charAt(j)) ) {
+        // A cssTokens: entry's own name: and class:.
+        if ( tokenOwner != null && stack.size() > tokenDepth &&
+             ( key.equals("name") || key.equals("class") ) ) {
           Object[] lit = readLiteral(src, j);
           if ( lit != null ) {
-            if ( top[slot] == null ) top[slot] = lit[0];
+            if ( key.equals("name")  && top.tokenName  == null ) top.tokenName  = (String) lit[0];
+            if ( key.equals("class") && top.tokenClass == null ) top.tokenClass = (String) lit[0];
+            i = ((Integer) lit[1]).intValue();
+            continue;
+          }
+        }
+        // A mixins: entry written as { path: '...' } rather than a bare string
+        // (foam.lang.Mixin's adaptArrayElement takes either,
+        // src/foam/lang/Mixin.js:46-50).
+        if ( key.equals("path") && stack.size() > 1 &&
+             stack.get(stack.size() - 2).mixinsArray ) {
+          Object[] lit = readLiteral(src, j);
+          if ( lit != null ) {
+            ModelInfo m = enclosingModel(stack);
+            if ( m != null ) m.mixinIds.add((String) lit[0]);
             i = ((Integer) lit[1]).intValue();
             continue;
           }
@@ -608,23 +823,50 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       }
       i = j;
     }
-    return new Object[] { models, regions };
+    return models;
   }
 
-  // Resolves a $token the way the runtime does: the names lexically in scope
-  // where the css: is written, then the owning class and its ancestors, then
-  // the global foam.u2.CSSTokens.
-  protected static boolean tokenDeclared(String name, String classId, Set<String> lexical,
-                                         Map<String, String> extendsOf,
-                                         Map<String, Set<String>> tokensOf,
-                                         Set<String> globals) {
-    String base = name;
-    if ( base.indexOf('$') > 0 ) {
-      String[] parts = base.split("\\\\$");
-      for ( int i = 1 ; i < parts.length ; i++ ) {
-        if ( ! DERIVED_SUFFIXES.contains(parts[i]) ) return false;
+  // Whether a class declares a token, walking the chain the runtime installs
+  // axioms along: the class itself, then each mixin it lists - foam.lang.Mixin
+  // installs the mixin model's own axioms onto the mixing class
+  // (src/foam/lang/Mixin.js:30), so a token declared in a mixin's cssTokens:
+  // resolves on every class that mixes it in - then what the class extends,
+  // and so on. Returns TRUE or FALSE for the token's ColorToken-ness, or null
+  // when nothing on the chain declares it.
+  protected static Boolean declaredOn(String cls, String token,
+                                      Map<String, String> extendsOf,
+                                      Map<String, List<String>> mixinsOf,
+                                      Map<String, Map<String, Boolean>> tokensOf,
+                                      Set<String> seen) {
+    while ( cls != null && seen.add(cls) ) {
+      Map<String, Boolean> declared = tokensOf.get(cls);
+      if ( declared != null && declared.containsKey(token) ) return declared.get(token);
+      List<String> mixins = mixinsOf.get(cls);
+      if ( mixins != null ) {
+        for ( String mixin : mixins ) {
+          Boolean found = declaredOn(mixin, token, extendsOf, mixinsOf, tokensOf, seen);
+          if ( found != null ) return found;
+        }
       }
-      base = parts[0];
+      cls = extendsOf.get(cls);
+    }
+    return null;
+  }
+
+  // Resolves a $token the way the runtime does: the owning class, its mixins
+  // and its ancestors, then the global foam.u2.CSSTokens. A $name$suffix form
+  // has to be one ColorToken actually installs, on a token that is a
+  // ColorToken - see derivedFormExists.
+  protected static boolean tokenDeclared(String name, String classId,
+                                         Map<String, String> extendsOf,
+                                         Map<String, List<String>> mixinsOf,
+                                         Map<String, Map<String, Boolean>> tokensOf,
+                                         Map<String, Boolean> globals) {
+    String   base  = name;
+    String[] parts = null;
+    if ( base.indexOf('$') > 0 ) {
+      parts = base.split("\\\\$");
+      base  = parts[0];
     }
 
     String owner = classId;
@@ -633,18 +875,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     if ( dot > 0 ) {
       owner = base.substring(0, dot);
       token = base.substring(dot + 1);
-    } else if ( lexical != null && lexical.contains(token) ) {
-      return true;
     }
 
-    Set<String> seen = new HashSet();
-    String      cls  = owner;
-    while ( cls != null && seen.add(cls) ) {
-      Set<String> declared = tokensOf.get(cls);
-      if ( declared != null && declared.contains(token) ) return true;
-      cls = extendsOf.get(cls);
-    }
-    return globals.contains(token);
+    Boolean colour = declaredOn(owner, token, extendsOf, mixinsOf, tokensOf, new HashSet());
+    if ( colour == null ) colour = globals.get(token);
+    if ( colour == null ) return false;
+    if ( parts == null ) return true;
+    return colour.booleanValue() && derivedFormExists(parts);
   }
 
   // The declared name closest to a misspelt one, so a typo reads as a typo.
@@ -682,6 +919,23 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return prev[b.length()];
   }
 
+  // Whether a directory - given as its path relative to project.home, so it
+  // always starts with '/' - matches one of the skip entries. A '^' prefix on
+  // an entry anchors it at the project root; without one the entry matches
+  // anywhere in the path, which is what "src/foam/support" relies on and what
+  // made a plain "/doc" hide src/foam/doc as well as doc/.
+  protected static boolean pathSkipped(String parent, List<String> paths) {
+    for ( String p : paths ) {
+      if ( p.startsWith("^") ) {
+        String root = p.substring(1);
+        if ( parent.equals(root) || parent.startsWith(root + "/") ) return true;
+      } else if ( parent.contains(p) ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   protected static int lineOf(String src, int offset) {
     int line = 1;
     for ( int i = 0 ; i < offset && i < src.length() ; i++ ) {
@@ -708,9 +962,10 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     // A $token may be declared in a class this file only extends, so the
     // declarations are collected first and resolved once the whole tree has
     // been read.
-    final Map<String, String>      extendsOf = new HashMap();
-    final Map<String, Set<String>> tokensOf  = new HashMap();
-    final List<Object[]>           tokenUses = new ArrayList();
+    final Map<String, String>               extendsOf = new HashMap();
+    final Map<String, List<String>>         mixinsOf  = new HashMap();
+    final Map<String, Map<String, Boolean>> tokensOf  = new HashMap();
+    final List<Object[]>                    tokenUses = new ArrayList();
 
     try {
       Path start = Paths.get(projectHome);
@@ -727,22 +982,9 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     }
     parent = parent.substring(projectHome.length());
     String name = file.getName();
-    boolean skip = false;
-    for ( String p : (List<String>) getSkipFoamPaths() ) {
-      if ( parent.contains(p) ) {
-        skip = true;
-        break;
-      }
-    }
-    if ( ! skip ) {
-      for ( String p : (List<String>) getSkipAppPaths() ) {
-        if ( parent.contains(p) ) {
-          skip = true;
-          break;
-        }
-      }
-    }
-    if ( skip || 
+    boolean skip = pathSkipped(parent, (List<String>) getSkipFoamPaths()) ||
+                   pathSkipped(parent, (List<String>) getSkipAppPaths());
+    if ( skip ||
          name.startsWith("iso") ||
          name.startsWith(".") ) 
     {
@@ -765,21 +1007,28 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     try {
       String src = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
 
-      Object[]       structure = scanStructure(src);
-      List<Object[]> models    = (List<Object[]>) structure[0];
-      List<Object[]> regions   = (List<Object[]>) structure[1];
-      for ( Object[] model : models ) {
-        String id = (String) model[0];
-        if ( model[1] != null && ! extendsOf.containsKey(id) ) {
-          extendsOf.put(id, (String) model[1]);
+      List<ModelInfo> models = scanStructure(src);
+      for ( ModelInfo model : models ) {
+        String id = model.id();
+        if ( id == null ) continue;
+        if ( model.extendsId != null && ! extendsOf.containsKey(id) ) {
+          extendsOf.put(id, model.extendsId);
         }
-        if ( model[4] != null ) {
-          Set<String> declared = tokensOf.get(id);
+        if ( ! model.mixinIds.isEmpty() ) {
+          List<String> mixins = mixinsOf.get(id);
+          if ( mixins == null ) {
+            mixins = new ArrayList();
+            mixinsOf.put(id, mixins);
+          }
+          mixins.addAll(model.mixinIds);
+        }
+        if ( ! model.tokens.isEmpty() ) {
+          Map<String, Boolean> declared = tokensOf.get(id);
           if ( declared == null ) {
-            declared = new HashSet();
+            declared = new HashMap();
             tokensOf.put(id, declared);
           }
-          declared.addAll((Set<String>) model[4]);
+          declared.putAll(model.tokens);
         }
       }
 
@@ -788,24 +1037,16 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         String css  = (String) block[0];
         int    base = ((Integer) block[1]).intValue();
 
-        // The class the css: belongs to, and the token names in scope where it
-        // is written - a cssTokens: in the same object literal, which is how an
-        // inner class under classes: declares its own.
-        String      owner   = null;
-        int         nearest = -1;
-        for ( Object[] model : models ) {
-          int start = ((Integer) model[2]).intValue();
-          int end   = ((Integer) model[3]).intValue();
-          if ( start <= base && base <= end && start > nearest ) {
-            owner   = (String) model[0];
-            nearest = start;
-          }
-        }
-        Set<String> lexical = new HashSet();
-        for ( Object[] region : regions ) {
-          if ( ((Integer) region[0]).intValue() <= base &&
-               base <= ((Integer) region[1]).intValue() ) {
-            lexical.addAll((Set<String>) region[2]);
+        // The class the css: belongs to: the innermost class literal whose
+        // span contains it, so an inner class under classes: owns its own
+        // css: rather than the class it is nested in.
+        String owner   = null;
+        int    nearest = -1;
+        for ( ModelInfo model : models ) {
+          if ( model.start <= base && base <= model.end && model.start > nearest &&
+               model.id() != null ) {
+            owner   = model.id();
+            nearest = model.start;
           }
         }
 
@@ -815,7 +1056,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
           int    line     = lineOf(src, base + ((Integer) decl[2]).intValue());
 
           for ( String token : tokensIn(value) ) {
-            tokenUses.add(new Object[] { relativePath, Integer.valueOf(line), owner, lexical, token });
+            tokenUses.add(new Object[] { relativePath, Integer.valueOf(line), owner, token });
           }
 
           String problem = violation(property, value);
@@ -823,7 +1064,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
             logger.info("ok", property, value);
             continue;
           }
-          test ( false, relativePath+":"+line+" - "+problem+" "+property+": "+value );
+          test ( false, relativePath+":"+line+" - "+property+": "+value+problem );
         }
       }
     } catch (IOException e) {
@@ -848,22 +1089,22 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   }
 }
 );
-      Set<String> globals = tokensOf.get("foam.u2.CSSTokens");
-      if ( globals == null ) globals = new HashSet();
+      Map<String, Boolean> globals = tokensOf.get("foam.u2.CSSTokens");
+      if ( globals == null ) globals = new HashMap();
       for ( Object[] use : tokenUses ) {
-        String token = (String) use[4];
-        if ( tokenDeclared(token, (String) use[2], (Set<String>) use[3], extendsOf, tokensOf, globals) ) continue;
-        String near = didYouMean(token, globals);
+        String token = (String) use[3];
+        if ( tokenDeclared(token, (String) use[2], extendsOf, mixinsOf, tokensOf, globals) ) continue;
+        String near = didYouMean(token, globals.keySet());
         test ( false, use[0]+":"+use[1]+" - unknown CSS token '$"+token+"'"+
           ( use[2] == null ? "" : " in "+use[2] )+"."+
           ( near == null ? "" : " Did you mean '$"+near+"'?" )+
-          " Tokens are declared in src/foam/u2/CSSTokens.js or in the class' cssTokens:; do not invent names." );
+          " Tokens are declared in src/foam/u2/CSSTokens.js or in the class' cssTokens:" );
       }
     } catch ( IOException e ) {
       logger.error(e);
     } finally {
       if ( getFailed() == 0 ) {
-        test(true, "procesed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+tokenUses.size()+" token uses");
+        test(true, "processed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+tokenUses.size()+" token uses");
       }
     }
     `

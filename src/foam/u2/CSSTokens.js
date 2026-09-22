@@ -236,19 +236,19 @@ foam.CLASS({
     // keyword, not a colour.
     { name: 'colorScheme', value: 'light', variants: { dark: { value: 'dark' } } },
 
-    // STATUS (enum pills, badges, chips): text/background pairs per meaning.
-    // Palette tokens have no dark variant, so a pill on $success700/$success50
-    // stays light in dark mode. Each light value here is the palette value the
-    // enum rows now on the token already resolved to, so light mode renders
-    // as before; only rows whose pair matched were moved. Dark inverts the
-    // pair on the ramp; text steps to 100 where 200 fell under 4.5:1
-    // (success 5.53:1, danger 6.10:1). Neutral text stays $textSecondary,
-    // which already carries a dark variant.
+    // STATUS (enum pills, badges, chips): one text/background pair per meaning.
+    // Light is ink on a tint (700 on 50); dark inverts the pair on the ramp,
+    // with text at 100 where 200 fell under 4.5:1 (warn 4.61:1, danger 6.10:1).
     { name: 'statusSuccessText',       value: '$success700',     variants: { dark: { value: '$success200' } } },
     { name: 'statusSuccessBackground', value: '$success50',      variants: { dark: { value: '$success700' } } },
+    { name: 'statusWarnText',          value: '$warn700',        variants: { dark: { value: '$warn100' } } },
+    { name: 'statusWarnBackground',    value: '$warn50',         variants: { dark: { value: '$warn700' } } },
     { name: 'statusDangerText',        value: '$destructive500', variants: { dark: { value: '$destructive100' } } },
     // Same pair as backgroundDestructiveTertiary in both modes; one source.
     { name: 'statusDangerBackground',  value: '$backgroundDestructiveTertiary' },
+    { name: 'statusInfoText',          value: '$primary400',     variants: { dark: { value: '$primary200' } } },
+    { name: 'statusInfoBackground',    value: '$primary50',      variants: { dark: { value: '$primary700' } } },
+    { name: 'statusNeutralText',       value: '$grey700',        variants: { dark: { value: '$neutral300' } } },
     { name: 'statusNeutralBackground', value: '$grey100',        variants: { dark: { value: '$neutral700' } } },
 
     // BORDER COLOR

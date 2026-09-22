@@ -13,7 +13,7 @@ foam.ENUM({
       name: 'INITIATED',
       label: { en: 'Initiated', fr: 'Initié' },
       documentation: 'License has been newly created (count is unknown)',
-      color: '$textSecondary',
+      color: '$statusNeutralText',
       background: '$statusNeutralBackground'
     },
     {

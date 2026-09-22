@@ -28,6 +28,8 @@ foam.CLASS({
     'foam.net.web.HTTPRequest'
   ],
 
+  imports: [ 'window' ],
+
   css: `
     .property-argumentInfo button {
       display: none;
@@ -340,7 +342,7 @@ foam.CLASS({
       code: async function() {
         if ( this.sugarURL !== '' ) {
           var req = this.HTTPRequest.create({
-            url: window.location.protocol + '//' + window.location.hostname + ':' + window.location.port + this.sugarURL + '?data=' + this.postData+ '&sessionId=' + localStorage.defaultSession,
+            url: this.window.location.protocol + '//' + this.window.location.hostname + ':' + this.window.location.port + this.sugarURL + '?data=' + this.postData+ '&sessionId=' + localStorage.defaultSession,
             method: 'POST',
             contentType: 'url'
           }).send();

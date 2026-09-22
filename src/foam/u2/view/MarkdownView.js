@@ -671,6 +671,7 @@ foam.CLASS({
           cols: 80,
           onKey: true,
           data$: this.data$,
+          escapeTextArea: false,
           placeholder: 'Enter markdown text...'
         }, this.editorElement_$)
         .end();

@@ -18,8 +18,10 @@ foam.CLASS({
   requires: [ 'foam.mlang.Constant' ],
 
   javaImports: [
+    'foam.lang.PropertyInfo',
     'foam.mlang.ArrayConstant',
     'foam.mlang.Constant',
+    'foam.mlang.Expr',
     'java.util.Arrays',
     'java.util.HashSet',
     'java.util.List',
@@ -208,7 +210,13 @@ return false
 
         if ( foam.Array.isInstance(value) ) {
           if ( value.length == 0 ) return this.FALSE;
-          if ( value.length == 1 ) return this.Eq.create({arg1: this.arg1, arg2: value[0]});
+
+          // IN with one candidate is EQ when arg1 holds a single value. When
+          // arg1 holds a list, IN asks whether the list contains the candidate
+          // and EQ compares the whole list to it, so the list case stays IN.
+          if ( value.length == 1 && ! this.isListValued(this.arg1) ) {
+            return this.Eq.create({arg1: this.arg1, arg2: value[0]});
+          }
         }
 
         return this;
@@ -229,7 +237,11 @@ return false
           if ( arr.length == 0 ) {
             return foam.mlang.MLang.FALSE;
           }
-          if ( arr.length == 1 ) {
+
+          // IN with one candidate is EQ when arg1 holds a single value. When
+          // arg1 holds a list, IN asks whether the list contains the candidate
+          // and EQ compares the whole list to it, so the list case stays IN.
+          if ( arr.length == 1 && ! isListValued(getArg1()) ) {
             return new Eq.Builder(getX())
               .setArg1(getArg1())
               .setArg2(new Constant(arr[0]))
@@ -237,6 +249,20 @@ return false
           }
         }
         return this;
+      `
+    },
+    {
+      name: 'isListValued',
+      type: 'Boolean',
+      args: 'Expr expr',
+      documentation: 'True when the expression is a list-valued property.',
+      code: function(expr) {
+        return foam.lang.StringArray.isInstance(expr) ||
+          foam.lang.Array.isInstance(expr);
+      },
+      javaCode: `
+        return expr instanceof PropertyInfo
+          && ((PropertyInfo) expr).getValueClass().isArray();
       `
     },
     function toMQL() {

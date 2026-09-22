@@ -34,6 +34,102 @@ function writeFileChunked(source, targetFd) {
   }
 }
 
+// Any .md file carrying a <flow> tag is a FLOW document: markdown kept editable
+// with normal tools, with its FLOW properties in the tag:
+//   <flow name="someName" category="optional" label="optional" description="optional"
+//         keywords="keyword1,keyword2,..." notes="optional" spid="optional"
+//         accessLevel="optional"/>
+const FLOW_TAG  = /<flow\b([^>]*?)\/?>[ \t]*\r?\n?/i;
+const FLOW_ATTR = /([a-zA-Z][-a-zA-Z0-9_]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+// Properties copied straight through from the <flow> tag to the Flow model.
+// accessLevel is a FlowAccess enum, written by name (eg. "PUBLIC_RO"): a string
+// enum value resolves via Enum.valueOf() in the generated cast().
+const FLOW_STRING_ATTRS = [ 'category', 'label', 'description', 'notes', 'spid', 'accessLevel' ];
+
+// Parse and remove the <flow> tag, returning its attributes plus the remaining
+// markdown, or null if the file has no <flow> tag.
+function parseFlowTag(txt) {
+  var m = FLOW_TAG.exec(txt);
+  if ( ! m ) return null;
+
+  // First version removes the <foam> tag
+  //  var attrs = { markdown_: txt.substring(0, m.index) + txt.substring(m.index + m[0].length) };
+
+  // Keep the <foam> tag. In the future this should be removed and regenerated in REFLOW on save/export.
+  var attrs = { markdown_: txt };
+
+  // Attribute names are the Flow property names, so keep their case.
+  FLOW_ATTR.lastIndex = 0;
+  for ( var a ; ( a = FLOW_ATTR.exec(m[1]) ) ; )
+    attrs[a[1]] = a[2] !== undefined ? a[2] : a[3];
+
+  return attrs;
+}
+
+// Escape markdown for inclusion in a """ block.
+function escapeMultiline(str) {
+  // Backslashes first: the parser unescapes \\ to \ and \c to c, so literal
+  // backslashes must be doubled before any escapes of our own are added.
+  str = str.replace(/\\/g, '\\\\');
+
+  // Runs of 3+ quotes would close the block early, and so would a trailing run
+  // of any length once the closing delimiter is appended to it.
+  str = str.
+    replace(/"{3,}/g, m => m.replace(/"/g, '\\"')).
+    replace(/"+$/,    m => m.replace(/"/g, '\\"'));
+
+  // The journal reader is line based: it opens a record on a line that is
+  // exactly p({ or r({ and closes it on a line that is exactly })
+  // (foam/dao/AbstractFileJournal.js:399-404). Markdown holding such a line --
+  // any JS code sample ending in }) -- would otherwise split its own record,
+  // losing that document and turning the rest of its text into junk entries.
+  // The reader compares the raw line, the parser unescapes it, so escaping a
+  // character hides the line from the reader and still yields the same text.
+  // It has to be the SECOND character: a leading \\r would read as a carriage
+  // return (ASCIIEscapeParser.java:44), whereas ( and ) are not escape letters
+  // and fall through to the literal-next-character rule.
+  return str.split('\n').
+    map(l => ( l === '})' || l === 'p({' || l === 'r({' ) ?
+      l.charAt(0) + '\\' + l.substring(1) : l).
+    join('\n');
+}
+
+// Build the flows.jrl entry for one .fmd file: a Flow whose script is a single
+// markdown block holding the file's text. 'source' records the file the FLOW
+// was generated from, so that it can be traced back to, and eventually resaved
+// to, its .fmd.
+function flowJournalEntry(attrs, name, source) {
+  var props = [
+    '"class": "foam.core.reflow.Flow"',
+    `"name": ${JSON.stringify(name)}`,
+    `"source": ${JSON.stringify(source)}`
+  ];
+
+  FLOW_STRING_ATTRS.forEach(k => {
+    if ( attrs[k] ) props.push(`"${k}": ${JSON.stringify(attrs[k])}`);
+  });
+
+  if ( attrs.keywords ) {
+    var kws = attrs.keywords.split(',').map(k => k.trim()).filter(k => k);
+    if ( kws.length ) props.push(`"keywords": ${JSON.stringify(kws)}`);
+  }
+
+  props.push(`"script": [
+	{
+		"flowName": "markdown1",
+		"cmd": "markdown",
+		"value": {
+			"class": "foam.core.reflow.Markdown",
+			"markdown":
+"""${escapeMultiline(attrs.markdown_)}"""
+		}
+	}
+]`);
+
+  return `p({\n  ${props.join(',\n  ')}\n})\n`;
+}
+
 exports.init = function() {
   X.journaldir = X.journaldir || (X.builddir + '/journals');
   this.emptyDir(X.journaldir);
@@ -70,6 +166,28 @@ exports.visitFile = function(pom, f, fn) {
       fn: fn,
       msg: `// The following lines were copied from "${path_.relative(process.cwd(), fn)}"\n`
     });
+  }
+  else if ( f.name.endsWith('.md') ) {
+    if ( this.isExcluded(pom, fn) ) return;
+
+    var attrs = parseFlowTag(fs_.readFileSync(fn).toString());
+
+    // Only markdown files which declare themselves a FLOW become journal entries.
+    if ( ! attrs ) {
+      return;
+    }
+
+    // A file without an explicit name is named after itself.
+    var flowName = attrs.name || f.name.substring(0, f.name.length-3);
+
+    this.verbose('\t\tflow document source:', fn);
+    journalFiles.push(fn);
+
+    var source = path_.relative(process.cwd(), fn);
+
+    addJournalOutput('flows',
+      `// The following FLOW was generated from "${source}"\n` +
+      flowJournalEntry(attrs, flowName, source));
   }
 }
 

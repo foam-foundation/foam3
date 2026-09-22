@@ -51,6 +51,7 @@ The mechanics live in `references/`. Open every file on your task's row before w
 | a view, or CSS | `defaults-and-reuse.md`, `u2-views.md`, `where-behaviour-lives.md` |
 | a model or property | `defaults-and-reuse.md`, `property-axioms.md` |
 | a DAO, decorator, rule, service, or `javaCode` | `context-and-dao.md`, `where-behaviour-lives.md`, `java-server.md` |
+| a `COREService`, a throttled or outbound integration, or an authorization check | `services.md`, `context-and-dao.md` |
 | a flow, block, command, or agent | `reflow.md`, `defaults-and-reuse.md` |
 | a foam3 core class, index, or codegen | `foam3-core.md` |
 | any PR | `style-mechanics.md` |

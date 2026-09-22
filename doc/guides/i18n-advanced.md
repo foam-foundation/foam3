@@ -1,3 +1,5 @@
+<flow name="i18n-advanced" category="DOC/GUIDE" spid="foam" description="Advanced runtime i18n: messageMap/localeDAO sync at boot, Locale rows, and the message-override lifecycle." keywords="i18n,localedao,locale,runtime translation,knowledge"/>
+
 # FOAM i18n — Advanced & Runtime
 
 The companion to the [beginner guide](./i18n.md). The beginner guide covers declaring strings in model code (`messages:`, inline `label: { en, fr }` maps). This guide covers the **runtime translation system**: `Locale` rows in `locales.jrl`/`localeDAO`, the language picker, source-key conventions, automated extraction, the Translation Console, and the message-override lifecycle.

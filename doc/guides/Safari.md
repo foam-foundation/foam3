@@ -1,3 +1,5 @@
+<flow name="Safari" category="DOC/GUIDE" spid="foam" description="Short guide to running FOAM in Safari: building with HTTPS and trusting the certificate in Keychain." keywords="safari,https,certificate,keychain,knowledge"/>
+
 # Safari Debugging with HTTPS
 
 Safari has strict SSL/TLS certificate requirements that prevent it from connecting to localhost servers using plain HTTP or untrusted HTTPS certificates. To debug FOAM applications in Safari, you must build with HTTPS enabled.

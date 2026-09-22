@@ -78,17 +78,14 @@ foam.CLASS({
       ],
       javaCode: `
 
-        // turn off logging to get rid of clutter.
+        // Log at the level the build passed as -Dlog.level (--log-level:INFO), else
+        // this script's own logLevel, WARN by default to keep the run quiet. The
+        // runner logs its results at INFO.
         LogLevelFilterLogger loggerFilter = (LogLevelFilterLogger) x.get("logger");
-        if ( getLogLevel().getOrdinal() > LogLevel.DEBUG.getOrdinal() ) {
-          loggerFilter.setLogDebug(false);
-        }
-        if ( getLogLevel().getOrdinal() > LogLevel.INFO.getOrdinal() ) {
-          loggerFilter.setLogInfo(false);
-        }
-        if ( getLogLevel().getOrdinal() > LogLevel.WARN.getOrdinal() ) {
-          loggerFilter.setLogWarning(false);
-        }
+        LogLevel logLevel = LogLevel.valueOf(System.getProperty("log.level", getLogLevel().name()));
+        loggerFilter.setLogDebug(logLevel.getOrdinal() <= LogLevel.DEBUG.getOrdinal());
+        loggerFilter.setLogInfo(logLevel.getOrdinal() <= LogLevel.INFO.getOrdinal());
+        loggerFilter.setLogWarning(logLevel.getOrdinal() <= LogLevel.WARN.getOrdinal());
 
         DAO dao = (DAO) x.get("benchmarkRunnerDAO");
         dao = dao.where(EQ(BenchmarkRunner.ENABLED, true));

@@ -2895,6 +2895,10 @@ foam.CLASS({
       // 4-digit: Uses sliding window based on current year
       // ============================================================
       let juliandateTestCases = [
+        // 7-digit format (YYYYDDD) - 4-digit year, no pivot
+        { input: '2025216', year: 2025, month: 7, day: 4, desc: '7-digit: day 216 of 2025 = Aug 4, 2025' },
+        { input: '2024366', year: 2024, month: 11, day: 31, desc: '7-digit: day 366 of leap year 2024 = Dec 31, 2024' },
+        { input: '1999001', year: 1999, month: 0, day: 1, desc: '7-digit: day 1 of 1999 = Jan 1, 1999' },
         // 5-digit format (YYDDD) - uses fixed pivot
         { input: '25216', year: 2025, month: 7, day: 4, desc: '5-digit: day 216 of 2025 = Aug 4, 2025' },
         { input: '24341', year: 2024, month: 11, day: 6, desc: '5-digit: day 341 of 2024 = Dec 6, 2024' },

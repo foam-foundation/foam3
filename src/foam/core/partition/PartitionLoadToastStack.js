@@ -53,7 +53,7 @@ foam.CLASS({
       position: fixed;
       bottom: 16px;
       right: 16px;
-      z-index: 1000;
+      z-index: $z-toast;
       display: flex;
       flex-direction: column;
       align-items: flex-end;

@@ -65,7 +65,7 @@ foam.CLASS({
       position: absolute;
       top: 50%;
       transform: translate(-50%, -50%);
-      z-index: 100;
+      z-index: $z-10;
     }
     ^ButtonToolbar {
       display: flex;

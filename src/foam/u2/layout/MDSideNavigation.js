@@ -126,7 +126,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      z-index: 1000;
+      z-index: $z-nav;
       width: 50rem;
       position: absolute;
       box-shadow: 0px 0px 50px 0px $black;

@@ -260,7 +260,7 @@
       cursor: col-resize;
       inset: 0;
       position: fixed;
-      z-index: 1000;
+      z-index: $z-modal;
     }
 
     /* Hidden via opacity, not display, so the handle stays in the tab

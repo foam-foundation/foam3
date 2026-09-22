@@ -57,7 +57,7 @@ foam.CLASS({
 
       /* negative margin covers left-side padding of wizard */
       margin: 0 -48px;
-      z-index: 1000;
+      z-index: $z-modal;
 
       /* ease-out animation makes things feel stable */
       transition: all 200ms ease-out;

@@ -66,7 +66,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
       padding-bottom: 25px;
       margin-top: 16px;
-      z-index: 100002;
+      z-index: $z-popup;
       position: absolute;
     }
 
@@ -179,7 +179,8 @@ foam.CLASS({
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      /* click-away scrim: over the page, under the picker and its clear icon */
+      z-index: $z-nav;
     }
 
     ^ .date-display-box {
@@ -217,7 +218,7 @@ foam.CLASS({
     }
 
     ^ .date-display-image-cancel {
-      z-index: 10001;
+      z-index: $z-popup;
     }
 
     ^ {

@@ -30,7 +30,7 @@ foam.CLASS({
         position: fixed;
         top: 0;
         width: 100vw;
-        z-index: 15000;
+        z-index: $z-toast;
       }
       ^inner {
         width: 100%;

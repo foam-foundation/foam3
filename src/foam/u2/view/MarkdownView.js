@@ -601,7 +601,7 @@ foam.CLASS({
       left: 50%;
       transform: translate(-50%, -200%);
       margin-top: 6px;
-      z-index: 1000;
+      z-index: $z-popup;
       display: flex;
       gap: 6px;
       padding: 6px;

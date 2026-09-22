@@ -923,7 +923,7 @@ foam.CLASS({
       background: $backgroundDefault;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: $z-modal;
       width: 400px;
       max-width: 90%;
       justify-content: center;

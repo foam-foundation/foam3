@@ -66,7 +66,7 @@ foam.CLASS({
     ^ .foam-core-menu-SubMenuView-inner {
       position: absolute;
       float: right;
-      z-index: 10001;
+      z-index: $z-popup;
       width: 215px;
       background: $backgroundDefault;
       box-shadow: 2px 2px 2px 2px rgba(0, 0, 0, 0.19);

@@ -19,6 +19,7 @@ foam.POM({
     JAR_OUT:           ['Binary JAR full path',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
     JAR_RES_OUT:       ['Resources JAR full path',() => `${JAR_LIB_DIR}/${JAR_RES_NAME}`],
     JAVA:              ['Java executable', ''],
+    JAVA_HOME:         ['JDK directory javac, mvn and the JVM are taken from', () => process.env.JAVA_HOME || ''],
     JAVA_MANIFEST:     ['Generated JAVA_MANIFEST', ''],
     JAVA_TOOL_OPTIONS: ['Internal configuration for JVM with the JAVA_OPTS',() => JAVA_OPTS],
     JOURNAL_HOME:      ['Application journals directory',() => `${APP_HOME}/journals`],
@@ -101,13 +102,13 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build binary JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
+    buildJar: ['build-jar', 'Build binary JAR file.', [()=>JAR=true, 'pomEnvs', 'java', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
-    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [()=>JAR=true, 'pomEnvs', 'java', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
       // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
@@ -332,7 +333,7 @@ foam.POM({
       this.pmake.bind(this, `-makers=Image -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR}`)();
     }],
 
-    genJava: ['gen-java', 'Generate Java source from models and complile', ['cleanJava', 'javacParameters', 'genJournals', 'genDocuments'], function() {
+    genJava: ['gen-java', 'Generate Java source from models and complile', ['java', 'cleanJava', 'javacParameters', 'genJournals', 'genDocuments'], function() {
       // Compiled classes go into the binary JAR
       JAR_INCLUDES += ` -C ${BUILD_DIR}/classes .`;
 
@@ -392,10 +393,44 @@ foam.POM({
       this.execSync(`cp ${BUILD_DIR}/js/foam-bin-* ${BUILD_DIR}/webroot/`, {stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
-    java: ['java', 'Acquire java executable', ['pomEnvs'], function(args) {
+    java: ['java', 'Acquire the JDK used to compile and run.', ['pomEnvs'], function() {
       // TODO: Does this work on Windows?
-      JAVA = this.execSync('type java').toString();
-      JAVA = JAVA.substring(JAVA.indexOf('/')).trim();
+      // On macOS /usr/bin/javac and /usr/bin/java are stubs which only offer to install a
+      // JDK, so a build which picks them up compiles nothing new and then dies on the run.
+      // Take JAVA_HOME when it is set, then the JDK the OS itself knows about, then PATH.
+      var STUBS = ['/usr/bin/java', '/usr/bin/javac'];
+      var homes = [];
+
+      if ( process.env.JAVA_HOME ) homes.push(process.env.JAVA_HOME);
+
+      if ( PLATFORM === 'darwin' ) {
+        try {
+          homes.push(this.execSync('/usr/libexec/java_home', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim());
+        } catch ( e ) {
+          // No JDK registered with the macOS helper.
+        }
+      }
+
+      var home = homes.find(h => h && this.existsSync(this.join(h, 'bin', 'javac')));
+
+      if ( ! home ) {
+        var onPath = '';
+        try {
+          onPath = this.execSync('command -v javac', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+        } catch ( e ) {
+          // javac is not on PATH.
+        }
+        if ( onPath && ! STUBS.includes(onPath) ) home = this.join(onPath, '..', '..');
+      }
+
+      if ( ! home )
+        this.error('No JDK found. Install one, or set JAVA_HOME to a JDK directory. Both javac and java are required.');
+
+      JAVA_HOME = home;
+      JAVA      = this.join(home, 'bin', 'java');
+
+      // Put the JDK first on PATH so javac, mvn and the JVM all come from the same one.
+      process.env.PATH = this.join(home, 'bin') + ':' + process.env.PATH;
     }],
 
     // TODO: not tested
@@ -477,7 +512,7 @@ foam.POM({
       }
     }],
 
-    startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs'], function() {
+    startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['java', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs'], function() {
 
       if ( HOST_NAME !== 'localhost' ) {
         JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
@@ -497,7 +532,7 @@ foam.POM({
       // build/classes precedes build/lib/* so freshly compiled classes always win
       // over any stale jar sitting in build/lib (e.g. an app/test package left by a
       // prior run) — otherwise the jar shadows the recompiled classes silently.
-      this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
+      this.execSync(`"${JAVA}" -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
     }],
 
     startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs','java'], function() {
@@ -557,7 +592,7 @@ foam.POM({
       this.writeFileSync(CORE_PIDFILE, proc.pid.toString());
     }],
 
-    startCORETest: ['start-core-test', 'Start CORE server (Test, Benchmarks).', ['deployJournals', 'deployDocuments', 'deployLib', 'buildJavaTestOpts'], function(mode) {
+    startCORETest: ['start-core-test', 'Start CORE server (Test, Benchmarks).', ['java', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaTestOpts'], function(mode) {
 
       MESSAGE = 'Running tests...';
 
@@ -590,7 +625,7 @@ foam.POM({
       var testError = null;
 
       try {
-        this.execSync(`java -cp "${CLASSPATH}" ${JAVA_MAIN_CLASS}`, { stdio: 'inherit' });
+        this.execSync(`"${JAVA}" -cp "${CLASSPATH}" ${JAVA_MAIN_CLASS}`, { stdio: 'inherit' });
       } catch ( e ) {
         if ( mode !== 'test' )
           throw e;

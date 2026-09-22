@@ -582,7 +582,7 @@ foam.CLASS({
       margin-left: 0 !important;
     }
     ^separator {
-      background: $backgroundSecondary0;
+      background: $backgroundSecondary;
       width: 1px;
       height: 2em;
       align-self: center;

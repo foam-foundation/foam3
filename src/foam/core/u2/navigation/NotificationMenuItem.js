@@ -39,7 +39,7 @@ foam.CLASS({
     ^bell {
       align-items: center;
       border: 1px solid transparent;
-      border-radius: $buttonRadius;
+      border-radius: $inputBorderRadius;
       box-sizing: border-box;
       display: inline-flex;
       gap: 8px;

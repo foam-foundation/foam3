@@ -37,7 +37,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      background: $background;
+      background: $backgroundBrand;
       width: 100%;
       min-width: 992px;
       height: 60px;

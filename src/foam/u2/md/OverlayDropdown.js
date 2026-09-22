@@ -177,7 +177,7 @@ foam.CLASS({
 
     function setHeight() {
       var el = this.dropdownE_.el_?.();
-      var contentHeight = el.scrollHeight || el.offsetHeight || 0;
+      if ( ! el ) return;
       var screenHeight = this.window.innerHeight;
       let availableHeight;
       if ( this.top == 'auto' ) {
@@ -185,14 +185,9 @@ foam.CLASS({
       } else {
         availableHeight = screenHeight - this.top;
       }
-      if ( contentHeight > availableHeight ) {
-        availableHeight = Math.max(0, availableHeight - 8);
-        el.style.maxHeight = availableHeight + 'px';
-        el.style.overflowY = 'auto';
-      } else {
-        el.style.maxHeight = '';
-        el.style.overflowY = '';
-      }
+      availableHeight = Math.max(0, availableHeight - 8);
+      el.style.maxHeight = availableHeight + 'px';
+      el.style.overflowY = 'auto';
     },
 
     function close() {

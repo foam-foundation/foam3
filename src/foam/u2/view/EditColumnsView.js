@@ -50,8 +50,13 @@ foam.CLASS({
       display: flex;
       flex-direction: column;
       min-height: 0;
+      overflow: hidden;
       width: clamp(18.75rem, 20vw, 37.5rem);
       max-width: calc(100vw - 2rem);
+    }
+    ^container .foam-u2-view-ColumnConfigPropView-colContainer {
+      min-height: 0;
+      overflow-y: auto;
     }
   `,
 

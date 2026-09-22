@@ -370,6 +370,18 @@ foam.CLASS({
     { name: 'shadow-xl',    value: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.45)' } } },
     { name: 'shadow-2xl',   value: '0 25px 50px -12px rgb(0 0 0 / 0.25)', variantKey: 'color', variants: { dark: { value: '0 25px 50px -12px rgb(0 0 0 / 0.6)' } } },
     { name: 'shadow-inner', value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.3)' } } }
+  ])
+  // Z-INDEX SCALE, Tailwind-named (0..50 in tens). Local stacking only; app layers
+  // (dropdown, modal, toast) get named tokens on top of this.
+  //   z-index: $z-50;
+  .concat([
+    // Z-INDEX
+    { name: 'z-0',  value: '0' },
+    { name: 'z-10', value: '10' },
+    { name: 'z-20', value: '20' },
+    { name: 'z-30', value: '30' },
+    { name: 'z-40', value: '40' },
+    { name: 'z-50', value: '50' }
   ]),
 
   javaCode: `

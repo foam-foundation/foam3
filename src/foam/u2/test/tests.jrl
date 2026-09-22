@@ -5,6 +5,7 @@ p({"class":"foam.u2.test.CSSTokenOverrideVariantJSTest","id":"CSSTokenOverrideVa
 p({"class":"foam.u2.test.CSSSpacingTokensJSTest","id":"CSSSpacingTokensJSTest"})
 p({"class":"foam.u2.test.CSSRadiusTokensJSTest","id":"CSSRadiusTokensJSTest"})
 p({"class":"foam.u2.test.CSSElevationTokensJSTest","id":"CSSElevationTokensJSTest"})
+p({"class":"foam.u2.test.CSSZIndexTokensJSTest","id":"CSSZIndexTokensJSTest"})
 p({"class":"foam.u2.test.RORelativeDateTimeViewTest","id":"RORelativeDateTimeViewTest"})
 p({"class":"foam.u2.test.ColorSchemeToggleTest","id":"ColorSchemeToggleTest"})
 p({"class":"foam.u2.test.MenuHookNamesJSTest","id":"MenuHookNamesJSTest"})

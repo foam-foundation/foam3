@@ -6,6 +6,8 @@
 
 package foam.core.partition;
 
+import foam.core.boot.CSpec;
+import foam.core.boot.CSpecStatus;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.dao.index.AddIndexCommand;
@@ -52,7 +54,8 @@ public class NotPartitionedDAO
 
     if ( dao == null ) {
       if ( delegate_ != null )
-        Loggers.logger(getX(), this).info("DAO was garbage collected. A new DAO will be created and cached.", getDirName());
+        updateStatus(CSpecStatus.UNLOADED, "Unload", "garbage collected", getDirName());
+      // The replay that follows reports its own start/progress/complete.
 
       loadingStarted("");
       try {
@@ -67,8 +70,17 @@ public class NotPartitionedDAO
   }
 
   public synchronized void unload() {
-    Loggers.logger(getX(), this).info("DAO unloaded.", getDirName());
+    updateStatus(CSpecStatus.UNLOADED, "Unload", getDirName());
     delegate_ = null;
+  }
+
+  protected void updateStatus(Object... args) {
+    CSpec cspec = getCSpec();
+    if ( cspec != null ) {
+      cspec.updateStatus(args);
+    } else {
+      Loggers.logger(getX(), this).info(args);
+    }
   }
 
   public DAO createDAO() {
@@ -128,7 +140,14 @@ public class NotPartitionedDAO
 
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      return true;
+
+      synchronized ( this ) {
+        if ( delegate_ == null ) return true;
+      }
+    }
+
+    synchronized ( this ) {
+      if ( delegate_ == null ) return false;
     }
 
     return getDelegate().cmd_(x, cmd);

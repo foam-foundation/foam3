@@ -6,7 +6,7 @@
 
 exports.description = 'copies .flow and .md files into /build/documents';
 
-const fs_                                 = require('fs');
+const fs_ = require('fs');
 
 const documentFiles = [];
 

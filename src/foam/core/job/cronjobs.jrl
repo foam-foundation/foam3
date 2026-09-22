@@ -1,0 +1,22 @@
+p({
+  "class": "foam.core.cron.Cron",
+  "id": "old jobs",
+  "description": "remove finished jobs older than the retention age",
+  "schedule": {
+    "class": "foam.core.cron.CronSchedule",
+    "second": 0,
+    "minute": 30,
+    "hour": 1,
+    "dayOfMonth": -1,
+    "month": -1,
+    "dayOfWeek": -1
+  },
+  "code":
+  """
+    import foam.core.job.RemoveOldJobsAgent;
+    agent = new RemoveOldJobsAgent();
+    // Retention age in milliseconds. Defaults to one day; uncomment to change.
+    // agent.setMaxAge(7 * 24 * 60 * 60 * 1000L);
+    agent.execute(x);
+  """
+})

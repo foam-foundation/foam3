@@ -732,6 +732,7 @@ foam.CLASS({
 
     function detach() {
       this.SUPER();
+      this.document.u2Roots?.delete(this);
       this.childNodes = [];
       this.children   = [];
       this.private_ = this.parentNode = this.__subSubContext__ = this.instance_.subContext__ = undefined;
@@ -753,6 +754,12 @@ foam.CLASS({
     },
 
     function load() {
+      // An Element loaded with no parentNode is a root: written to the
+      // document by write(), a Popup or a ModalOverlay. document.u2Roots,
+      // when something created it (foam.u2.ViewReloader does), lists them
+      // so a walk of the on-screen tree can start from every one.
+      if ( ! this.parentNode ) this.document.u2Roots?.add(this);
+
       // Needed for OverlayDropdown which overrides add(), but shouldn't.
       // TODO: Fix OverlayDropdown to use content$ and then remove this.
       var customAdd = this.add != foam.u2.Element.prototype.add;
@@ -1189,18 +1196,14 @@ foam.CLASS({
         l();
       } else {
         enabled = negate(enabled, opt_negate);
-        var parts = cls.split(' ');
-        for ( var i = 0 ; i < parts.length ; i++ ) {
-          this.classes[parts[i]] = enabled;
-          if ( ! this.element_.classList ) {
-            console.warn("Can't set class of document fragments.");
-          } else {
-            if ( enabled ) {
-              this.element_.classList.add(parts[i]);
-            } else {
-              this.element_.classList.remove(parts[i]);
-            }
-          }
+        cls = this.sanitizeClassName_(cls);
+        this.classes[cls] = enabled;
+        if ( ! this.element_.classList ) {
+          console.warn("Can't set class of document fragments.");
+        } else if ( enabled ) {
+          this.element_.classList.add(cls);
+        } else {
+          this.element_.classList.remove(cls);
         }
       }
       return this;
@@ -1209,6 +1212,7 @@ foam.CLASS({
     function removeClass(cls) {
       /* Remove specified CSS class. */
       if ( cls ) {
+        cls = this.sanitizeClassName_(cls);
         delete this.classes[cls];
         this.element_.classList.remove(cls);
       }
@@ -1525,15 +1529,23 @@ foam.CLASS({
       return this;
     },
 
+    function sanitizeClassName_(cls) {
+      /*
+        Return cls conformed to CSS_CLASSNAME_PATTERN: characters which aren't
+        legal in a classname become '-', and a leading digit is prefixed with
+        '_'. Names which are already valid are returned unchanged.
+      */
+      if ( this.CSS_CLASSNAME_PATTERN.test(cls) ) return cls;
+      var s = ( '' + cls ).replace(/[^a-z\d_-]/gi, '-');
+      return /^\d/.test(s) ? '_' + s : s;
+    },
+
     function addClass_(oldClass, newClass) {
       /* Replace oldClass with newClass. Called by cls(). */
       if ( oldClass === newClass ) return;
       if ( oldClass ) this.removeClass(oldClass);
       if ( newClass ) {
-        if ( ! this.CSS_CLASSNAME_PATTERN.test(newClass) ) {
-          console.log('Invalid CSS ClassName: ', newClass);
-          throw "Invalid CSS classname";
-        }
+        newClass = this.sanitizeClassName_(newClass);
         this.classes[newClass] = true;
         // Could be a FunctionNode which only has a comment
         if ( this.element_ && this.element_.classList )

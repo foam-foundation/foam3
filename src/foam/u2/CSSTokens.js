@@ -291,7 +291,55 @@ foam.CLASS({
     { name: 'header-xs', value: '1.6rem' },
     { name: 'header-xxs', value: '1.4rem' },
     // { name: 'header-xxxs', value: '1.2rem' }
-  ]),
+  ])
+  // SPACING SCALE (padding, margin, gap, inset)
+  // Tailwind-named so anyone who has used Tailwind can guess the token: $space-4 is
+  // Tailwind's 4. Fractional steps use an underscore because '.' separates class from
+  // token in a $reference: Tailwind's 0.5 is $space-0_5.
+  // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
+  // 62.5%), so one Tailwind unit = 4px = 0.4rem here, not Tailwind's own 0.25rem.
+  //   padding: $space-2 $space-4;  gap: $space-3;
+  .concat([
+    // SPACING (padding, margin, gap, inset)
+    // variantKey 'density' lets a theme serve compact/relaxed spacing through
+    // theme.activeVariants.density, the same rail dark mode uses for 'color'.
+    // No variants are defined yet; every token resolves to its value below.
+    { name: 'space-0',   value: '0' },
+    { name: 'space-px',  value: '1px' },
+    { name: 'space-0_5', value: '0.2rem' },
+    { name: 'space-1',   value: '0.4rem' },
+    { name: 'space-1_5', value: '0.6rem' },
+    { name: 'space-2',   value: '0.8rem' },
+    { name: 'space-2_5', value: '1rem' },
+    { name: 'space-3',   value: '1.2rem' },
+    { name: 'space-3_5', value: '1.4rem' },
+    { name: 'space-4',   value: '1.6rem' },
+    { name: 'space-5',   value: '2rem' },
+    { name: 'space-6',   value: '2.4rem' },
+    { name: 'space-7',   value: '2.8rem' },
+    { name: 'space-8',   value: '3.2rem' },
+    { name: 'space-9',   value: '3.6rem' },
+    { name: 'space-10',  value: '4rem' },
+    { name: 'space-11',  value: '4.4rem' },
+    { name: 'space-12',  value: '4.8rem' },
+    { name: 'space-14',  value: '5.6rem' },
+    { name: 'space-16',  value: '6.4rem' },
+    { name: 'space-20',  value: '8rem' },
+    { name: 'space-24',  value: '9.6rem' },
+    { name: 'space-28',  value: '11.2rem' },
+    { name: 'space-32',  value: '12.8rem' },
+    { name: 'space-36',  value: '14.4rem' },
+    { name: 'space-40',  value: '16rem' },
+    { name: 'space-44',  value: '17.6rem' },
+    { name: 'space-48',  value: '19.2rem' },
+    { name: 'space-52',  value: '20.8rem' },
+    { name: 'space-56',  value: '22.4rem' },
+    { name: 'space-60',  value: '24rem' },
+    { name: 'space-64',  value: '25.6rem' },
+    { name: 'space-72',  value: '28.8rem' },
+    { name: 'space-80',  value: '32rem' },
+    { name: 'space-96',  value: '38.4rem' }
+  ].map(v => { v.variantKey = 'density'; return v; })),
 
   javaCode: `
   public static CSSToken get(foam.lang.X x, String name) {

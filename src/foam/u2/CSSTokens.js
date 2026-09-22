@@ -339,7 +339,23 @@ foam.CLASS({
     { name: 'space-72',  value: '28.8rem' },
     { name: 'space-80',  value: '32rem' },
     { name: 'space-96',  value: '38.4rem' }
-  ].map(v => { v.variantKey = 'density'; return v; })),
+  ].map(v => { v.variantKey = 'density'; return v; }))
+  // BORDER RADIUS SCALE, Tailwind-named ($radius is Tailwind's unsuffixed 'rounded').
+  // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
+  // 62.5%), so one Tailwind unit = 4px = 0.4rem here, not Tailwind's own 0.25rem.
+  //   border-radius: $radius-lg;
+  .concat([
+    // BORDER RADIUS ($radius is Tailwind's unsuffixed 'rounded')
+    { name: 'radius-none', value: '0' },
+    { name: 'radius-sm',   value: '0.2rem' },
+    { name: 'radius',      value: '0.4rem' },
+    { name: 'radius-md',   value: '0.6rem' },
+    { name: 'radius-lg',   value: '0.8rem' },
+    { name: 'radius-xl',   value: '1.2rem' },
+    { name: 'radius-2xl',  value: '1.6rem' },
+    { name: 'radius-3xl',  value: '2.4rem' },
+    { name: 'radius-full', value: '9999px' }
+  ]),
 
   javaCode: `
   public static CSSToken get(foam.lang.X x, String name) {

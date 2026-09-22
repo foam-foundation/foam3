@@ -21,9 +21,7 @@ foam.CLASS({
   extends: 'foam.dao.ProxyDAO',
 
   javaImports: [
-    'foam.lang.FObject',
-    'foam.lang.PropertyInfo',
-    'java.util.List'
+    'foam.lang.FObject'
   ],
 
   documentation: `
@@ -63,17 +61,8 @@ foam.CLASS({
         }
       },
       javaCode: `
-        if ( obj == null ) return;
-
-        List<PropertyInfo> props = obj.getClassInfo().getAxiomsByClass(PropertyInfo.class);
-        for ( PropertyInfo prop : props ) {
-          if ( ! prop.isSet(obj) ) continue;
-
-          Object val = prop.get(obj);
-          if ( val instanceof String ) {
-            prop.set(obj, foam.util.StringInterner.shared().intern((String) val));
-          }
-        }
+        // Server-side strings are interned while a journal replays
+        // (foam.util.StringInterner); a live put keeps its values as given.
       `
     }
   ]

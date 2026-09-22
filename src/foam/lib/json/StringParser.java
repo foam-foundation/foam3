@@ -24,10 +24,10 @@ public class StringParser
 
   public static Parser instance() { return instance__; }
 
-  /** Canonicalize through the entry's view of the replay interner when the context carries one, else through the shared interner. */
+  /** Canonicalize through the replay's interner when the context carries one; outside a replay the value is kept as parsed. */
   private static String intern(String v, ParserContext x) {
-    Object e = x == null ? null : x.get(StringInterner.CTX_KEY);
-    return e instanceof StringInterner.Entry ? ((StringInterner.Entry) e).intern(v) : StringInterner.shared().intern(v);
+    Object i = x == null ? null : x.get(StringInterner.CTX_KEY);
+    return i instanceof StringInterner ? ((StringInterner) i).intern(v) : v;
   }
 
   protected static ThreadLocal<StringBuilder> builder__ = new ThreadLocal<StringBuilder>() {

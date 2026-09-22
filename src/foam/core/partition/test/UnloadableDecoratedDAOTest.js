@@ -97,14 +97,11 @@ foam.CLASS({
         dr.setId(1);
         dr.setData(new String("dedup-data"));
         dedupDao.put(dr);
-        // dedup interns on second sight: a value that repeats is canonical from
-        // its second occurrence on, and the canonical is the JVM table's.
+        // a live put keeps its values as given; interning happens in the replay
         UnloadableDecoratedRecord dr2 = new UnloadableDecoratedRecord();
         dr2.setId(2);
         dr2.setData(new String("dedup-data"));
-        FObject putDr2 = dedupDao.put(dr2);
-        test( UnloadableDecoratedRecord.DATA.get(putDr2) == "dedup-data".intern(),
-          "dedup interns a repeated data string on its second put" );
+        dedupDao.put(dr2);
 
         Object dedupUnloadResult = dedupDao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
         test( Boolean.TRUE.equals(dedupUnloadResult),

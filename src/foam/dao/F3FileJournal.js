@@ -95,9 +95,9 @@ foam.CLASS({
         } else {
           parseX0 = x;
         }
-        // One StringInterner per replay: every parsed string is canonicalized
-        // through the JVM table with a cache in front, and the cache dies with parseX.
-        final foam.util.StringInterner interner = new foam.util.StringInterner(foam.util.StringInterner.bitsFor(totalBytes));
+        // One StringInterner per replay: a parsed string reaches the JVM table
+        // on its second sight, and the interner's maps die with the replay.
+        final foam.util.StringInterner interner = new foam.util.StringInterner();
         final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 
         // NOTE: explicitly calling PM constructor as create only creates

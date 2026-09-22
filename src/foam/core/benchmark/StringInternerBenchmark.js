@@ -13,7 +13,7 @@ foam.CLASS({
     Four ways to canonicalize the string values a journal replay parses, timed
     against each other at a chosen cardinality:
 
-      CACHED  foam.util.StringInterner: intern on second sight through a per-replay cache
+      CACHED  foam.util.StringInterner: intern on second sight, two maps per replay
       JVM     String.intern() on every call
       LEGACY  the weak ConcurrentHashMap interner this replaced (copied below so
               the comparison stays runnable)
@@ -25,7 +25,9 @@ foam.CLASS({
     "distinct" to find the crossover for a corpus.
 
     Speed only. Retained heap is the other axis: LEGACY pays about 96 bytes an
-    entry on the heap, JVM and CACHED about 22 bytes an entry in native memory.
+    entry on the heap for good, JVM about 22 bytes an entry in native memory,
+    and CACHED the JVM's 22 for a repeated value plus about 42 bytes a distinct
+    value on the heap until the replay releases it.
   `,
 
   javaImports: [

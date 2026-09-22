@@ -33,6 +33,12 @@ foam.CLASS({
   someone looks at the rendered page. A derived $name$hover form is checked
   against what ColorToken actually installs; see tokenDeclared below.
 
+  An application can also declare a token outside JS entirely, as a
+  foam.core.theme.customisation.CSSTokenOverride row in a .jrl journal, which
+  CSSTokenOverrideService.getTokenValue resolves by bare name before the axiom
+  lookup - so the audit reads every .jrl under project.home too and counts the
+  source: of each such row as declared; see collectJournalTokens below.
+
   What reads the CSS below is a character scanner for declarations, not a
   grammar. foam.u2.parse.CSSParser, the CSS grammar the GUI style editor uses,
   cannot read a real multi-line css: block: it is js-flagged (src/pom.js:259)
@@ -919,6 +925,96 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return prev[b.length()];
   }
 
+  // The string value that follows an offset in a journal row: the ':' and any
+  // whitespace are stepped over, then a double quoted value is read, with a
+  // backslash taking the character after it as written.
+  protected static String quotedValueAt(String row, int i) {
+    int n = row.length();
+    while ( i < n && ( Character.isWhitespace(row.charAt(i)) || row.charAt(i) == ':' ) ) i++;
+    if ( i >= n || row.charAt(i) != '"' ) return null;
+    StringBuilder sb = new StringBuilder();
+    i++;
+    while ( i < n ) {
+      char c = row.charAt(i);
+      if ( c == '\\\\' ) {
+        if ( i + 1 < n ) sb.append(row.charAt(i + 1));
+        i += 2;
+        continue;
+      }
+      if ( c == '"' ) return sb.toString();
+      sb.append(c);
+      i++;
+    }
+    return null;
+  }
+
+  // The tokens an application declares outside JS: every
+  // foam.core.theme.customisation.CSSTokenOverride row in a journal
+  // contributes its source: as a token name. At runtime
+  // CSSTokenOverrideService.getTokenValue
+  // (src/foam/core/theme/customisation/CSSTokenOverrideService.js:109-152)
+  // looks a $name up in those rows - by the bare name as well as by
+  // class-qualified name - before it falls back to the CSSTokens axiom
+  // lookup, so a name only a journal declares still resolves on the page and
+  // is not a typo.
+  //
+  // Those rows are theme scoped at runtime: a row carries the theme it
+  // applies to, and getTokenValue only reads the rows of the current theme
+  // (plus the theme-less '' ones). The audit asks a narrower question - does
+  // this name exist anywhere in the application's vocabulary - so the theme
+  // is ignored and a row under any theme counts.
+  //
+  // p( and r( rows count the same, for the same reason: a row someone removed
+  // still proves the name was part of that vocabulary, and treating a removal
+  // as an undeclaration would report a name the rest of the journal still
+  // declares.
+  //
+  // A derived form may be written out literally in a journal
+  // (buttonSecondaryColor$hover as its own row); a literal match is a match.
+  // Nothing else about the token - whether it is a ColorToken, what it
+  // resolves to - can be read off a journal row, so no derived form is
+  // inferred from a journal declaration the way it is from a cssTokens:
+  // entry.
+  protected static void collectJournalTokens(String src, Set<String> out) {
+    int n = src.length();
+    // A journal entry starts at the beginning of a line, as a one letter
+    // command - p(, r(, c(, u( - wrapped around the object it carries, and
+    // runs until the next such line or the end of the file. Ending a row at
+    // the next command rather than at a ')' is what lets a row be written
+    // over several lines, and keeps triple quoted values - which the entry
+    // above cssTokenOverrides in src/foam/core/theme/services.jrl uses - from
+    // throwing off a quote counting walk.
+    List<Integer> starts = new ArrayList();
+    for ( int i = 0 ; i + 1 < n ; i++ ) {
+      if ( ( i == 0 || src.charAt(i - 1) == '\\n' ) &&
+           Character.isLetter(src.charAt(i)) && src.charAt(i + 1) == '(' ) {
+        starts.add(Integer.valueOf(i));
+      }
+    }
+    for ( int r = 0 ; r < starts.size() ; r++ ) {
+      int    from = starts.get(r).intValue();
+      int    to   = r + 1 < starts.size() ? starts.get(r + 1).intValue() : n;
+      String row  = src.substring(from, to);
+      // The row's own class:, not any class name that happens to appear in
+      // it: the CSpec that serves the CSSTokenOverride DAO names the same
+      // class under "of", and that entry declares no token.
+      boolean isOverride = false;
+      for ( int k = row.indexOf("\\"class\\"") ; k >= 0 ; k = row.indexOf("\\"class\\"", k + 7) ) {
+        if ( "foam.core.theme.customisation.CSSTokenOverride".equals(quotedValueAt(row, k + 7)) ) {
+          isOverride = true;
+          break;
+        }
+      }
+      if ( ! isOverride ) continue;
+      // source: may be written before or after class:, so the whole row is
+      // searched rather than the text after the class name.
+      int k = row.indexOf("\\"source\\"");
+      if ( k < 0 ) continue;
+      String name = quotedValueAt(row, k + 8);
+      if ( name != null && name.length() > 0 ) out.add(name);
+    }
+  }
+
   // Whether a directory - given as its path relative to project.home, so it
   // always starts with '/' - matches one of the skip entries. A '^' prefix on
   // an entry anchors it at the project root; without one the entry matches
@@ -967,6 +1063,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     final Map<String, Map<String, Boolean>> tokensOf  = new HashMap();
     final List<Object[]>                    tokenUses = new ArrayList();
 
+    // Token names an application declares as CSSTokenOverride journal rows.
+    // Collected in the same walk as the .js files and resolved with them, at
+    // the end, because a journal anywhere under project.home declares the
+    // name for every class - see collectJournalTokens.
+    final Set<String>                       journalTokens = new HashSet();
+
     try {
       Path start = Paths.get(projectHome);
       Files.walkFileTree(start,
@@ -998,6 +1100,15 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
     throws IOException {
 
+    if ( path.toString().endsWith(".jrl") ) {
+      try {
+        collectJournalTokens(new String(Files.readAllBytes(path), StandardCharsets.UTF_8),
+                             journalTokens);
+      } catch (IOException e) {
+        logger.error("Error reading journal " + path.toString() + " " + e.getMessage());
+      }
+      return FileVisitResult.CONTINUE;
+    }
     if ( ! path.toString().endsWith(".js") )
       return FileVisitResult.CONTINUE;
     processed.incrementAndGet();
@@ -1094,6 +1205,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       for ( Object[] use : tokenUses ) {
         String token = (String) use[3];
         if ( tokenDeclared(token, (String) use[2], extendsOf, mixinsOf, tokensOf, globals) ) continue;
+        // After the class chain and CSSTokens.js, because a journal row is
+        // the weakest kind of declaration the audit knows: it carries no
+        // class and no ColorToken-ness, only the name. It applies to every
+        // class, since getTokenValue reaches the rows by bare name whatever
+        // class the $token was written in.
+        if ( journalTokens.contains(token) ) continue;
         String near = didYouMean(token, globals.keySet());
         test ( false, use[0]+":"+use[1]+" - unknown CSS token '$"+token+"'"+
           ( use[2] == null ? "" : " in "+use[2] )+"."+
@@ -1104,7 +1221,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       logger.error(e);
     } finally {
       if ( getFailed() == 0 ) {
-        test(true, "processed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+tokenUses.size()+" token uses");
+        test(true, "processed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+tokenUses.size()+" token uses, "+journalTokens.size()+" journal tokens");
       }
     }
     `

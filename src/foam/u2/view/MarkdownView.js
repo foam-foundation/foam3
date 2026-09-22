@@ -530,6 +530,7 @@ foam.CLASS({
       var self = this;
 
       this.renderData_ = this.data;
+      this.onDetach(this.data$.sub(this.updateRender));
 
       this
         .addClass()

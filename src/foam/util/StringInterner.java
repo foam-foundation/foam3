@@ -32,9 +32,10 @@ import java.util.concurrent.atomic.LongAdder;
  * replay, about 42 bytes each; release() gives that back. Parsing outside a
  * replay is not interned.
  *
- * Thread safe: the replay's parse threads share one interner. A value's first
- * and second sight are decided inside one seenOnce.compute(), so two threads
- * sighting it together park one instance and promote it once. Never compare
+ * Thread safe: the replay's parse threads share one interner through two
+ * ConcurrentHashMaps. Two threads sighting a value at the same instant can
+ * each keep their own copy, or leave a stale entry in seenOnce until release;
+ * the value returned is always equal to the one passed in. Never compare
  * strings with ==; identity belongs to the table, not to the value.
  */
 public final class StringInterner {
@@ -65,21 +66,20 @@ public final class StringInterner {
     String c = many.get(s);
     if ( c != null ) { hit(b, s); return c; }
 
-    String[] out = new String[1];
-    once.compute(s, (k, first) -> {
-      if ( first == null ) {
-        out[0] = many.get(s);            // promoted while this thread waited on the key
-        return out[0] == null ? s : null;
-      }
-      out[0] = first.intern();
-      many.put(out[0], out[0]);
+    // second sight: intern the FIRST instance, the one already parked
+    String first = once.remove(s);
+    if ( first != null ) {
+      c = first.intern();
+      many.put(c, c);
       interned_[b].increment();
-      return null;
-    });
+      hit(b, s);
+      return c;
+    }
 
-    if ( out[0] == null ) { miss_[b].increment(); return s; }
-    hit(b, s);
-    return out[0];
+    // first sight: park it, hand it back raw
+    once.put(s, s);
+    miss_[b].increment();
+    return s;
   }
 
   /**

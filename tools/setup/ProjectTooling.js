@@ -89,6 +89,10 @@ foam.POM({
       templateMerge(TEMPLATE_DIR, 'run.sh', `${PROJECT_DIR}/deployment/demo`, `run.sh`);
       this.execSync(`chmod u+x ${PROJECT_DIR}/deployment/demo/run.sh`);
 
+      // docker deployment setup
+      templateMerge(TEMPLATE_DIR, 'deploymentDockerPOM.js', `${PROJECT_DIR}/deployment/docker`, `pom.js`);
+      templateMerge(TEMPLATE_DIR, 'deploymentDockerServices.jrl', `${PROJECT_DIR}/deployment/docker`, `services.jrl`);
+
       // test
       templateMerge(TEMPLATE_DIR, 'modelTestPOM.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}/test`, 'pom.js');
       templateMerge(TEMPLATE_DIR, 'modelTest.js', `${PROJECT_DIR}/src/${PACKAGE_PATH}/test`, `${MODEL_NAME_CAP}Test.js`);
@@ -176,12 +180,11 @@ foam.POM({
                       if ( ! this.existsSync(fn) ) {
                         this.ensureDir(outDir);
                         this.writeFileSync(fn, text);
+                      } else if ( append ) {
+                        this.log(`[Project] appending to: ${fn}`);
+                        this.appendFileSync(fn, text);
                       } else {
                         this.warning(`[Project] file already exists: ${fn}`);
-                        if ( append ) {
-                          this.warning(`[Project] appending to: ${fn}.`);
-                          this.appendFileSync(fn, text);
-                        }
                       }
                     }
                    ],

@@ -9,9 +9,8 @@ foam.CLASS({
   name: 'CSSStatusTokensJSTest',
   extends: 'foam.core.test.JSTest',
 
-  documentation: `The $status* tokens keep the palette values the enum rows used in
-    light mode, every text/background pair clears WCAG AA (4.5:1) in both
-    schemes, every status enum row resolves to a colour, and a pill already
+  documentation: `The $status* tokens give each meaning one text/background pair
+    per scheme, every pair clears WCAG AA (4.5:1) in both schemes, every status enum row resolves to a colour, and a pill already
     rendered re-resolves its inline colours when theme.activeVariants flips.`,
 
   requires: [
@@ -56,12 +55,17 @@ foam.CLASS({
       const dark  = () => theme.activeVariants$set('color', 'dark');
       const light = () => theme.activeVariants$remove('color');
 
-      // Light values are the palette values the rows already used
+      // Light: one tint/ink pair per meaning, taken from the palette ramps
       light();
       x.test(val('$statusSuccessText')       === '#005112', 'statusSuccessText light is $success700');
       x.test(val('$statusSuccessBackground') === '#E8FFED', 'statusSuccessBackground light is $success50');
+      x.test(val('$statusWarnText')          === '#846B02', 'statusWarnText light is $warn700');
+      x.test(val('$statusWarnBackground')    === '#FFFCEC', 'statusWarnBackground light is $warn50');
       x.test(val('$statusDangerText')        === '#C40610', 'statusDangerText light is $destructive500');
       x.test(val('$statusDangerBackground')  === '#FFEFF0', 'statusDangerBackground light is $destructive50');
+      x.test(val('$statusInfoText')          === '#0A4AC6', 'statusInfoText light is $primary400');
+      x.test(val('$statusInfoBackground')    === '#D7E4FF', 'statusInfoBackground light is $primary50');
+      x.test(val('$statusNeutralText')       === '#494F59', 'statusNeutralText light is $grey700');
       x.test(val('$statusNeutralBackground') === '#F0F2F5', 'statusNeutralBackground light is $grey100');
 
       // Dark inverts the pair on the ramp
@@ -70,13 +74,20 @@ foam.CLASS({
       x.test(val('$statusSuccessBackground') === '#005112', 'statusSuccessBackground dark is $success700');
       x.test(val('$statusDangerText')        === '#FA9095', 'statusDangerText dark is $destructive100');
       x.test(val('$statusDangerBackground')  === '#650005', 'statusDangerBackground dark is $destructive700');
+      x.test(val('$statusWarnText')          === '#FFF3BF', 'statusWarnText dark is $warn100');
+      x.test(val('$statusWarnBackground')    === '#846B02', 'statusWarnBackground dark is $warn700');
+      x.test(val('$statusInfoText')          === '#6795EE', 'statusInfoText dark is $primary200');
+      x.test(val('$statusInfoBackground')    === '#011B4E', 'statusInfoBackground dark is $primary700');
+      x.test(val('$statusNeutralText')       === '#D4D4D4', 'statusNeutralText dark is $neutral300');
       x.test(val('$statusNeutralBackground') === '#404040', 'statusNeutralBackground dark is $neutral700');
 
       // Every text/background pair clears AA in both schemes
       const pairs = [
         ['$statusSuccessText', '$statusSuccessBackground'],
+        ['$statusWarnText',    '$statusWarnBackground'],
         ['$statusDangerText',  '$statusDangerBackground'],
-        ['$textSecondary',     '$statusNeutralBackground']
+        ['$statusInfoText',    '$statusInfoBackground'],
+        ['$statusNeutralText', '$statusNeutralBackground']
       ];
       for ( const set of [light, dark] ) {
         set();

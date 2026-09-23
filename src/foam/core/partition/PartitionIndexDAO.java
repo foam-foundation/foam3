@@ -289,9 +289,15 @@ public class PartitionIndexDAO
     migrateFrom(x, legacyJournalName, null);
   }
 
+  /** The index DAOs sit beside the delegate, not under it, so a command
+      meant for every journal is passed to them here: unload, and compaction,
+      which drops the entries a remove pruned. */
   public Object cmd_(X x, Object cmd) {
     if ( AbstractPartitionedDAO.UNLOAD_CMD.equals(cmd) ) {
       for ( Spec spec : specs_.values() ) spec.index.unload();
+    }
+    if ( cmd instanceof foam.dao.compaction.CompactionCmd ) {
+      for ( Spec spec : specs_.values() ) spec.index.cmd_(x, cmd);
     }
     return super.cmd_(x, cmd);
   }

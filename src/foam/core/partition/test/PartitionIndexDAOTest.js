@@ -101,6 +101,22 @@ foam.CLASS({
         dao.remove((foam.lang.FObject) f1feb.getArray().get(1));
         test(count(dataIndex, null) == 1, "entry pruned with the leaf's last row carrying the value, got " + count(dataIndex, null));
 
+        // Compaction reaches the index journals too, and a restart reads back only the live entries.
+        foam.dao.compaction.CompactionCmd cmd = new foam.dao.compaction.CompactionCmd();
+        foam.dao.compaction.Compaction reclaim = new foam.dao.compaction.Compaction();
+        reclaim.setKeepSupersededGenerations(false);
+        cmd.setCompaction(reclaim);
+        dao.cmd_(tx, cmd);
+        test(cmd.awaitCompletion(60000), "compaction finished within the timeout");
+        test(foam.util.SafetyUtil.isEmpty(cmd.getError()), "compaction reported no error: " + cmd.getError());
+        Storage fs = (Storage) tx.get(Storage.class);
+        String indexDir = "index-" + dirName.substring(0, dirName.length() - 1) + "/";
+        test(fs.get(indexDir + "data/0/journal.1.snap.gz").exists(), "the data index bucket was compacted to a snapshot");
+        dao = newDAO(tx, dirName);
+        dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(EQ(PartitionIndexEntry.BUCKET, 0));
+        test(count(dataIndex, null) == 1, "after compaction and a restart the data index holds its one live entry, got " + count(dataIndex, null));
+        test(count(dao, EQ(PartitionStrRecord.DATA, "f1")) == 3, "rows are still found through the compacted index, got " + count(dao, EQ(PartitionStrRecord.DATA, "f1")));
+
         // Migration through the decorator fills the index (the migrator only writes into an empty partition dir).
         String legacy = "legacy_" + System.nanoTime();
         DAO src = new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), legacy);

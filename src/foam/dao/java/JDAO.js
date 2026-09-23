@@ -22,11 +22,16 @@ In this current implementation setDelegate must be called last.`,
     'foam.dao.Journal',
     'foam.dao.MDAO',
     'foam.dao.NullJournal',
+    'foam.dao.JournalGenerations',
     'foam.dao.ReadOnlyF3FileJournal',
     'foam.dao.WriteOnlyF3FileJournal',
     'foam.core.boot.CSpec',
     'foam.core.ndiff.NDiffJournal',
-    'foam.util.SafetyUtil'
+    'foam.dao.compaction.CompactionCmd',
+    'foam.dao.compaction.Compactor',
+    'foam.util.SafetyUtil',
+    'java.util.ArrayList',
+    'java.util.List'
   ],
 
   javaCode: `
@@ -133,10 +138,34 @@ In this current implementation setDelegate must be called last.`,
               getJournal()
             };
           } else {
+            // Everything replayed ahead of the runtime journal, in order.
+            List<Journal> preRuntime = new ArrayList<>();
+
             // Repo Journal
-            F3FileJournal journal0 = new ReadOnlyF3FileJournal.Builder(getX())
+            preRuntime.add(new ReadOnlyF3FileJournal.Builder(getX())
               .setFilename(getFilename() + ".0")
-              .build();
+              .build());
+
+            // Legacy compressed journal: a hand-gzipped runtime journal from
+            // before generations existed. Predates the numbering, so it sorts
+            // ahead of every generation.
+            String gzFilename = getFilename() + ".gz";
+            if ( getX().get(foam.core.fs.FileSystemStorage.class).get(gzFilename).exists() ) {
+              preRuntime.add(new ReadOnlyF3FileJournal.Builder(runtimeStorageX)
+                .setFilename(gzFilename)
+                .setGzip(true)
+                .build());
+            }
+
+            // Generations frozen by previous cutovers, ascending, skipping
+            // whatever a snapshot has superseded. Derived from the filesystem,
+            // so nothing has to be remembered between runs.
+            for ( String gen : new JournalGenerations(getX(), getFilename()).replayOrder() ) {
+              preRuntime.add(new ReadOnlyF3FileJournal.Builder(runtimeStorageX)
+                .setFilename(gen)
+                .setGzip(gen.endsWith(".gz"))
+                .build());
+            }
 
             // if CSpec present in X then go through NDiff
             // (set up in EasyDAO's decorator chain)
@@ -146,26 +175,28 @@ In this current implementation setDelegate must be called last.`,
 
             if ( nspec != null && getNdiff() ) {
               cSpecName = nspec.getName();
-              journals = new Journal[] {
-                // replays the repo journal
-                new NDiffJournal.Builder(getX())
-                .setDelegate(journal0)
-                .setCSpecName(cSpecName)
-                .setRuntimeOrigin(false)
-                .build(),
+              List<Journal> ndiffs = new ArrayList<>();
 
-                // replays the runtime journal
-                new NDiffJournal.Builder(getX())
+              // replays the journals that precede the runtime journal
+              for ( Journal jrl : preRuntime ) {
+                ndiffs.add(new NDiffJournal.Builder(getX())
+                  .setDelegate(jrl)
+                  .setCSpecName(cSpecName)
+                  .setRuntimeOrigin(false)
+                  .build());
+              }
+
+              // replays the runtime journal
+              ndiffs.add(new NDiffJournal.Builder(getX())
                 .setDelegate(getJournal())
                 .setCSpecName(cSpecName)
                 .setRuntimeOrigin(true)
-                .build()
-              };
+                .build());
+
+              journals = ndiffs.toArray(new Journal[0]);
             } else {
-              journals = new Journal[] {
-                journal0,
-                getJournal()
-              };
+              preRuntime.add(getJournal());
+              journals = preRuntime.toArray(new Journal[0]);
             }
           }
             final Journal jnl = new CompositeJournal.Builder(getX())
@@ -223,6 +254,15 @@ In this current implementation setDelegate must be called last.`,
     {
       name: 'cmd_',
       javaCode: `
+      // Compaction belongs to whoever owns the journal and the MDAO, which is
+      // this object. Handling it here rather than from outside means a
+      // partitioned DAO compacts correctly by forwarding the command to each
+      // partition, instead of an orchestrator guessing which JDAO was meant.
+      if ( obj instanceof CompactionCmd ) {
+        new Compactor().compact(x, this, (CompactionCmd) obj);
+        return obj;
+      }
+
       Object result = getJournal().cmd(x, obj);
       if ( result != null ) return result;
       return getDelegate().cmd_(x, obj);

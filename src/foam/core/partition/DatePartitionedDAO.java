@@ -27,41 +27,8 @@ public class DatePartitionedDAO
   public final static long DAY                 = 24 * 60 * 60 * 1000; // 1 day in ms
   public final static int  DEFAULT_TIME_WINDOW = 5 * 7;               // five weeks
 
-  // A Sink decorator which allows the delegate Sink to be fed to the select()
-  // method of multiple DAOs. If one of the DAOs detaches the isDetached()
-  // method will return true. This means the Sink doesn't need to be passed
-  // to the remaining DAOs. The eof() method is NOP-ed but needs to be called
-  // at the end of feeding the Sink to multiple DAOs.
-  public static class DetachableSink extends ProxySink implements Detachable {
-
-    protected boolean isDetached_ = false;
-
-    public DetachableSink(Sink delegate) {
-      super(delegate);
-    }
-
-    public void put(Object obj, Detachable sub) {
-      if ( isDetached() ) return;
-
-      getDelegate().put(obj, this);
-
-      if ( isDetached() && sub != null ) sub.detach();
-    }
-
-    public void eof() {
-      // NOP because will be fed to multiple DAOs
-    }
-
-    public boolean isDetached() {
-      return isDetached_;
-    }
-
-    public void detach() {
-      // System.err.println("***************** DETACHING SINK");
-      isDetached_ = true;
-    }
-  } // DetachableSink
-
+  // DetachableSink moved up to PartitionedDAO so non-date partitioned DAOs can
+  // fan a select out across partitions too. Inherited into scope here.
 
   protected int                     timeWindow_ = DEFAULT_TIME_WINDOW;
   protected boolean                 preload_    = false;

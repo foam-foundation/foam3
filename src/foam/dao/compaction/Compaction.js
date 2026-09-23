@@ -43,24 +43,10 @@ Used in conjuction with a custom compaction sink, the compaction process can fac
       value: true
     },
     {
-      name: 'predicate',
-      class: 'FObjectProperty',
-      of: 'foam.mlang.predicate.Predicate',
-      view: { class: 'foam.u2.view.JSONTextView' }
-    },
-    {
       documentation: 'LifecycleAware objects which are deleted/removed are set to state DELETED, an r() journal entry is not created.  This option allows to compact DELETED entries.',
       name: 'discardLifecycleDeleted',
       class: 'Boolean',
       value: true
-    },
-    {
-      name: 'createdSince',
-      class: 'DateTime'
-    },
-    {
-      name: 'lastModifiedSince',
-      class: 'DateTime'
     },
     {
       documentation: 'Name for JDAO creation during loading. Default is best gues. Required when nspec has JDAO setup outside of EasyDAO.',

@@ -31,7 +31,7 @@ public class TwoLevelPartitionedDAO
   }
 
   public DAO createDAO(String part) {
-    String journalName = getDirName() + part + "/";
+    String journalName = partitionDirFor(part);
 
     PartitionedDAO inner = new PartitionedDAO(getX(), getOf(), journalName, innerProperty_);
     inner.setDepth(getDepth() + 1);

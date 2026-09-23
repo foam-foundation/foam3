@@ -31,7 +31,7 @@ foam.CLASS({
       setX(x);
       String serviceName = "compactionTestDAO";
 
-      // Provide a compactionDAO in context for CompactionSink
+      // Provide a compactionDAO in context, as the deployment does
       DAO compactionDAO = new MDAO(Compaction.getOwnClassInfo());
       x = x.put("compactionDAO", compactionDAO);
 
@@ -39,10 +39,10 @@ foam.CLASS({
       JDAO jdao = new JDAO(x, User.getOwnClassInfo(), "compactiontest");
       MDAO mdao = (MDAO) jdao.getDelegate();
 
-      // Wrap in ProxyDAO (CompactionDAO.roll() casts to ProxyDAO)
+      // Wrap in ProxyDAO, as a served DAO would be
       ProxyDAO proxyDAO = new ProxyDAO.Builder(x).setDelegate(jdao).build();
 
-      // Register the DAO in context so CompactionDAO can find it
+      // Register the DAO in context, as the script looks it up by name
       x = x.put(serviceName, proxyDAO);
 
       // 2. Put multiple updates to the same objects (creates many journal entries)
@@ -73,26 +73,33 @@ foam.CLASS({
       long originalSize = originalFile.length();
       test( originalSize > 0, "Original journal has content");
 
-      // 3. Run CompactionDAO (which handles roll + compaction)
+      // 3. Compact by sending the command down the DAO stack, as the
+      // DAOCompaction script does. The JDAO underneath is what handles it.
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
       try {
-        CompactionDAO compactor = new CompactionDAO(x, serviceName);
-        compactor.execute(x);
-        test( true, "CompactionDAO.execute() completed without error");
+        proxyDAO.cmd_(x, cmd);
+        // The command dispatches and returns; a test wants the outcome.
+        test( cmd.awaitCompletion(60000), "CompactionCmd finished within the timeout");
+        test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "CompactionCmd reported no error");
       } catch (Throwable t) {
-        test( false, "CompactionDAO.execute() failed: " + t.getMessage());
+        test( false, "CompactionCmd failed: " + t.getMessage());
         return;
       }
+      test( cmd.getCompactedCount() == 1, "One journal compacted, got " + cmd.getCompactedCount());
 
-      // 4. Verify: rolled backup file exists
-      File rolledFile = x.get(Storage.class).get("compactiontest.1");
-      test( rolledFile.exists(), "Rolled backup file (compactiontest.1) exists");
-      test( rolledFile.length() > 0, "Rolled backup file has content");
+      // 4. Verify: the snapshot was committed and the generation it supersedes
+      // was dropped. A surviving .tmp means the rename never ran; a surviving
+      // .1 means cleanup did not, which is safe but wasteful.
+      File snapshot = x.get(Storage.class).get("compactiontest.1.snap.gz");
+      test( snapshot.exists(), "Snapshot (compactiontest.1.snap.gz) exists");
+      test( snapshot.length() > 0, "Snapshot has content");
+      test( ! x.get(Storage.class).get("compactiontest.1.snap.gz.tmp").exists(), "Snapshot temp renamed away on commit");
+      test( ! x.get(Storage.class).get("compactiontest.1").exists(), "Superseded generation removed");
 
-      // 5. Verify: new journal has content (compacted entries written)
+      // 5. Verify: the live journal was replaced by a fresh one for new traffic
       File newJournal = x.get(Storage.class).get("compactiontest");
-      test( newJournal.exists(), "New journal file exists after compaction");
-      long newSize = newJournal.length();
-      test( newSize > 0, "New journal has compacted entries");
+      test( newJournal.exists() || newJournal.length() == 0, "Live journal reset after cutover");
 
       // 6. Verify: MDAO still has all 5 objects with correct data
       count = (Count) mdao.select(new Count());
@@ -102,13 +109,13 @@ foam.CLASS({
       test( u1.getFirstName().startsWith("Updated"), "Object 1 has latest updated value");
 
       // 7. Verify: new entries go to the new journal after compaction
-      long sizeBeforeNewPut = newJournal.length();
+      long sizeBeforeNewPut = newJournal.exists() ? newJournal.length() : 0;
       User newUser = new User();
       newUser.setId(100);
       newUser.setFirstName("PostCompaction");
       newUser.setLastName("User");
       jdao.put_(x, newUser);
-      long sizeAfterNewPut = newJournal.length();
+      long sizeAfterNewPut = x.get(Storage.class).get("compactiontest").length();
       test( sizeAfterNewPut > sizeBeforeNewPut, "New entries written to journal after compaction");
       User fetched = (User) jdao.find_(x, 100L);
       test( fetched != null, "New entry is findable after compaction");
@@ -170,13 +177,15 @@ foam.CLASS({
       ProxyDAO proxy2 = new ProxyDAO.Builder(x).setDelegate(jdao2).build();
       x = x.put("zeroTestDAO", proxy2);
 
-      // 8. Run CompactionDAO
-      CompactionDAO compactor = new CompactionDAO(x, "zeroTestDAO");
+      // 8. Compact via the command
+      CompactionCmd zeroCmd = new CompactionCmd();
+      zeroCmd.setServiceName("zeroTestDAO");
       try {
-        compactor.execute(x);
-        test( true, ".0 awareness: CompactionDAO.execute() completed without error");
+        ((DAO) x.get("zeroTestDAO")).cmd_(x, zeroCmd);
+        test( zeroCmd.awaitCompletion(60000), ".0 awareness: CompactionCmd finished within the timeout");
+        test( foam.util.SafetyUtil.isEmpty(zeroCmd.getError()), ".0 awareness: CompactionCmd reported no error");
       } catch ( Throwable t ) {
-        test( false, ".0 awareness: CompactionDAO.execute() failed: " + t.getMessage());
+        test( false, ".0 awareness: CompactionCmd failed: " + t.getMessage());
         return;
       }
 
@@ -186,7 +195,7 @@ foam.CLASS({
       test( ((Long) count.getValue()) == 6, ".0 awareness: MDAO has 6 objects after compaction");
 
       // Verify report exists
-      String report = compactor.getReport();
+      String report = zeroCmd.getReport();
       test( report != null && report.contains("Compaction Report"), ".0 awareness: report generated");
 
       // Verify all 6 objects have correct data

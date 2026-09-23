@@ -35,30 +35,27 @@ foam.CLASS({
     'foam.core.om.OMLogger',
     'foam.core.pm.PM',
     'foam.util.SafetyUtil',
+    'java.io.BufferedInputStream',
     'java.io.BufferedReader',
     'java.io.BufferedWriter',
     'java.io.File',
     'java.io.IOException',
     'java.io.InputStream',
     'java.io.InputStreamReader',
-    'java.io.FileInputStream',
-    'java.io.FileOutputStream',
     'java.io.OutputStream',
     'java.io.OutputStreamWriter',
     'java.nio.file.Files',
     'java.nio.file.Path',
     'java.nio.file.StandardCopyOption',
-    'java.nio.file.StandardOpenOption',
     'java.time.format.DateTimeFormatter',
     'java.time.LocalDateTime',
     'java.util.Calendar',
     'java.util.Iterator',
     'java.util.List',
-    'java.util.Set',
     'java.util.regex.Pattern',
     'java.util.TimeZone',
-    'java.util.stream.Collectors',
-    'java.util.stream.Stream'
+    'java.util.zip.GZIPInputStream',
+    'java.util.zip.GZIPOutputStream'
   ],
 
   javaCode: `
@@ -121,6 +118,16 @@ foam.CLASS({
       p.setX(x);
       return p;
     }
+
+    // Bytes read from disk per read() during replay. Large on purpose: replay
+    // parsing runs concurrently off the reader thread, so a stall here idles
+    // cores, and the buffer is freed as soon as the replay closes the reader.
+    final static public int READ_BUFFER_SIZE    = 4 * 1024 * 1024;
+
+    // Compressed bytes GZIPInputStream pulls per inflate refill. In memory, off
+    // the buffer above, so it only has to be big enough that the per-refill cost
+    // disappears -- and small enough not to bypass that buffer.
+    final static public int INFLATE_BUFFER_SIZE = 64 * 1024;
 
     final static public char OP_CREATE  = 'c';
     final static public char OP_PUT     = 'p';
@@ -214,6 +221,17 @@ foam.CLASS({
       value: true,
     },
     {
+      class: 'Boolean',
+      name: 'gzip',
+      documentation: `Journal file is gzip compressed: the replay stream is
+        decompressed and the write stream compressed.
+
+        A compressed writer must be closed, not merely flushed, or the gzip
+        trailer is never written and the file will not read back. That suits a
+        write-once journal such as a compaction snapshot; it is not safe for a
+        live journal, which is flushed and never closed.`
+    },
+    {
       documentation: 'Bytes the current replay has read from the journal, against the file size for a progress percentage. Reset when a new reader is opened.',
       class: 'Object',
       name: 'replayBytesRead',
@@ -232,6 +250,14 @@ try {
     getLogger().warning("File not found", "for reading");
     return null;
   }
+  // Batch the disk reads. Everything above this reads in small slices --
+  // StreamDecoder pulls 8K at a time into a byte buffer that InputStreamReader
+  // gives no way to size, and GZIPInputStream pulls its input buffer's worth --
+  // so without this the file is read from disk 8K at a time however large the
+  // BufferedReader below is. Sitting under the counter and the replay stream
+  // decorator, it keeps their progress smooth: they see bytes as they are
+  // consumed, while the disk sees READ_BUFFER_SIZE reads.
+  is = new BufferedInputStream(is, READ_BUFFER_SIZE);
   is = decorateReplayStream(is);
   final java.util.concurrent.atomic.AtomicLong bytesRead = getReplayBytesRead();
   bytesRead.set(0);
@@ -247,8 +273,16 @@ try {
       return n;
     }
   };
+  // Decompress outside the counter, so the bytes counted are the compressed
+  // ones the file's length is measured in. The size argument is GZIPInputStream's
+  // *input* buffer -- how much compressed data it pulls per inflate refill, not
+  // decompressed output, which it inflates straight into the reader's array.
+  // Deliberately well under READ_BUFFER_SIZE: BufferedInputStream hands a read
+  // of its own buffer size or larger straight to the file, so a bigger value
+  // here would turn the buffering below back into pass-through.
+  if ( getGzip() ) is = new GZIPInputStream(is, INFLATE_BUFFER_SIZE);
   // Setting a larger buffer size increases performance by 10-15%
-  return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
+  return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 8);
 } catch ( Throwable t ) {
   getLogger().error("Failed to initialize reader", t);
   throw new RuntimeException(t);
@@ -267,6 +301,9 @@ try {
     getLogger().warning("File not found", "for writing");
     return null;
   }
+  // See the gzip property: the caller owns closing this, or the trailer never
+  // lands and the file cannot be replayed.
+  if ( getGzip() ) os = new GZIPOutputStream(os, INFLATE_BUFFER_SIZE);
   return new BufferedWriter(new OutputStreamWriter(os));
 } catch ( Throwable t ) {
   getLogger().error("Failed to initialize writer", t);
@@ -628,88 +665,64 @@ try {
       `
     },
     {
-      documentation: 'Backup/rename existing file with the next sequence number. New writes to new empty file.  NOTE: relies on upstream logic to block/pause io to journal',
+      documentation: `Freeze the live journal as the next generation and start a
+        fresh one. Returns the frozen filename.
+
+        Ordered against writes by running on the journal's own assembly line,
+        so it needs no cooperation from the caller -- no blocking DAO, no paused
+        traffic. See doc/guides/JournalFiles.md.`,
       name: 'roll',
       args: 'X x',
       type: 'String',
       javaCode: `
       Logger logger = Loggers.logger(x, this);
-      String filename = getFilename();
+      final String filename = getFilename();
       logger.info("roll", filename);
       PM pm = PM.create(x, this.getClass().getSimpleName(), "roll");
-      try {
-        getWriter().flush();
-        getWriter().close();
-        AbstractF3FileJournal.WRITER.clear(this);
 
-        // set filename to something that will fail file reading/writing.
-        setFilename(null);
+      final AbstractF3FileJournal self   = this;
+      final String                frozen = filename + "." + new JournalGenerations(x, filename).nextGeneration();
+      final Throwable[]           failed = new Throwable[1];
 
-        // NOTE: java File rename or move under Linux does not
-        // allow for swapping files.  When file A is renamed to B,
-        // just the inode is updated, the file is unchanged,
-        // and the VM file operations continue to act against
-        // the original inode.
-        // Employing copy and truncate as an alternative.
+      // Every put and remove already passes through getLine(), so running the
+      // cutover there orders it against them by construction: writes enqueued
+      // before this one have written their bytes, writes after it open the
+      // fresh file. Nothing blocks, and no caller has to pause traffic first.
+      //
+      // That ordering is also what makes a rename safe. The usual objection --
+      // that a rename moves only the inode, leaving the VM writing into the
+      // renamed file -- applies to a writer left open across it. Here the
+      // writer is closed first and the cached one cleared after, so the next
+      // write opens the new file. A rename moves no data, so the cutover costs
+      // the same whether the journal is a megabyte or a hundred gigabytes.
+      getLine().enqueue(new foam.util.concurrent.AbstractAssembly() {
+        public void endJob(boolean isLast) {
+          try {
+            self.getWriter().flush();
+            self.getWriter().close();
 
-        File existing = x.get(FileSystemStorage.class).get(filename);
-        String backup = filename + "." + nextSuffix(x, filename);
-        File copy = x.get(FileSystemStorage.class).get(backup);
-
-        // Copy - faster than Files.copy (apparently)
-        try (
-          InputStream is = new FileInputStream(existing);
-          OutputStream os = new FileOutputStream(copy);
-        ) {
-          byte[] buffer = new byte[4096];
-          int length =0;
-          while ( (length = is.read(buffer)) > 0 ) {
-            os.write(buffer, 0, length);
+            Files.move(x.get(FileSystemStorage.class).get(filename).toPath(),
+              x.get(FileSystemStorage.class).get(frozen).toPath(),
+              StandardCopyOption.ATOMIC_MOVE);
+          } catch (Throwable t) {
+            failed[0] = t;
+          } finally {
+            // Whether or not the move landed, the closed writer must not be
+            // reused -- the next write has to open a file.
+            AbstractF3FileJournal.WRITER.clear(self);
           }
         }
-        // truncate original
-        Files.write(existing.toPath(), new byte[0], StandardOpenOption.TRUNCATE_EXISTING);
+      });
 
-        setFilename(filename);
-        AbstractF3FileJournal.WRITER.clear(this);
-
-        pm.log(x);
-        return backup;
-      } catch (IOException e) {
-        logger.error("roll", filename, e);
-        pm.error(x, e);
-        throw new RuntimeException(e.getMessage());
+      if ( failed[0] != null ) {
+        logger.error("roll", filename, failed[0]);
+        pm.error(x, failed[0]);
+        throw new RuntimeException(failed[0].getMessage());
       }
-      `
-    },
-    {
-      name: 'nextSuffix',
-      args: 'X x, String filename',
-      type: 'Long',
-      javaThrows: ['java.io.IOException'],
-      javaCode: `
-        long suffix = 0;
-        Set<String> names = Stream.of(x.get(FileSystemStorage.class).get(filename).getParentFile().listFiles())
-          .filter(file -> !file.isDirectory())
-          .filter(file -> file.getName().startsWith(filename))
-          .map(File::getName)
-          .sorted()
-          .collect(Collectors.toSet());
-        for ( String name : names ) {
-          int p = name.lastIndexOf(".");
-          if ( p == filename.length() ) {
-            try {
-              long s = Long.parseLong(name.substring(p+1));
-              if ( s > suffix ) {
-                suffix = s;
-              }
-            } catch (NumberFormatException e) {
-              Loggers.logger(x, this).debug("nextSuffix", name, e.getMessage());
-            }
-          }
-        }
-        suffix += 1;
-        return suffix;
+
+      pm.log(x);
+      logger.info("roll", "complete", frozen);
+      return frozen;
       `
     },
     {

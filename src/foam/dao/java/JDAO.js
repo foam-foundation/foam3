@@ -110,6 +110,10 @@ In this current implementation setDelegate must be called last.`,
         a second command is skipped rather than started.`,
       class: 'Object',
       name: 'compacting',
+      // The factory is lazy, so without this two threads arriving together
+      // could each build their own AtomicBoolean and both win compareAndSet --
+      // the guard failing exactly when it is needed.
+      synchronized: true,
       javaType: 'java.util.concurrent.atomic.AtomicBoolean',
       javaFactory: 'return new java.util.concurrent.atomic.AtomicBoolean();'
     },

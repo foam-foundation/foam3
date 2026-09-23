@@ -37,6 +37,7 @@ foam.CLASS({
       javaCode: `
         testCompactsEveryPartition(x);
         testGenerationsAreNotPartitions(x);
+        testOnePartitionFailingDoesNotStrandTheRest(x);
       `
     },
 
@@ -135,6 +136,53 @@ foam.CLASS({
       `
     },
 
+    {
+      documentation: `Partitions are independent journals, so one that cannot be
+        compacted must not stop the others. The broken partition is made by
+        putting a directory where its journal file belongs, which fails the
+        roll inside the synchronous half of compaction -- the half that runs on
+        the forwarding thread and would otherwise abort the loop.`,
+      name: 'testOnePartitionFailingDoesNotStrandTheRest',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      javaCode: `
+        String root = newStorageDir();
+        X      px   = storageContext(x, root);
+
+        PartitionedDAO dao = new PartitionedDAO(
+          px, PartitionStrRecord.getOwnClassInfo(), "brk/", PartitionStrRecord.BUCKET);
+
+        for ( int bucket : new int[] { 1, 2 } ) {
+          PartitionStrRecord r = new PartitionStrRecord();
+          r.setBucket(bucket);
+          r.setData("d" + bucket);
+          dao.put(r);
+        }
+
+        // Partition 9 exists but its journal path is a directory, so its roll
+        // cannot open a writer.
+        new File(root, "brk/9/journal").mkdirs();
+
+        String[] parts = dao.getPartitions();
+        test( parts.length == 3, "broken: three partitions present, got " + Arrays.toString(parts));
+
+        CompactionCmd cmd = new CompactionCmd();
+        cmd.setServiceName("brokenPartitionTestDAO");
+        Compaction reclaim = new Compaction();
+        reclaim.setKeepSupersededGenerations(false);
+        cmd.setCompaction(reclaim);
+
+        dao.cmd_(px, cmd);
+        test( cmd.awaitCompletion(60000), "broken: dispatched partitions finished");
+
+        // The healthy partitions compacted; the broken one is reported.
+        test( cmd.getCompactedCount() == 2,
+          "broken: the other partitions still compacted, got " + cmd.getCompactedCount());
+        test( ! foam.util.SafetyUtil.isEmpty(cmd.getError()), "broken: the failure was recorded");
+        test( new File(root, "brk/1/journal.1.snap.gz").exists(), "broken: partition 1 snapshot committed");
+        test( new File(root, "brk/2/journal.1.snap.gz").exists(), "broken: partition 2 snapshot committed");
+      `
+    },
     {
       name: 'count',
       args: 'DAO dao',

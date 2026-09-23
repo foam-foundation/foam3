@@ -161,13 +161,25 @@ public class PartitionedDAO
 
   /** Compaction is per-journal, and each partition has one. Forwarding rather
       than handling means every partition is compacted and each one's report is
-      accumulated on the command. */
+      accumulated on the command.
+
+      Partitions are independent journals, so one that cannot be compacted must
+      not strand the others. Its failure is recorded on the command -- which
+      already carries per-partition results -- and the loop continues. Only the
+      synchronous half of compaction can throw here; once dispatched, the
+      rewrite records its own errors the same way. */
   public Object cmd_(X x, Object cmd) {
     if ( cmd instanceof foam.dao.compaction.CompactionCmd ) {
+      foam.dao.compaction.CompactionCmd cc = (foam.dao.compaction.CompactionCmd) cmd;
       for ( String part : getPartitions() ) {
-        getDelegate(part).cmd_(x, cmd);
+        try {
+          getDelegate(part).cmd_(x, cc);
+        } catch ( Throwable t ) {
+          cc.addError(journalNameFor(part) + ": " + t.getMessage());
+          Loggers.logger(getX(), this).error("compaction", part, t);
+        }
       }
-      return cmd;
+      return cc;
     }
     return super.cmd_(x, cmd);
   }

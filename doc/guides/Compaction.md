@@ -21,7 +21,7 @@
 
 Each DAO operation on the same object generates a journal entry containing just the changed fields. Over time a single object may have hundreds of entries, slowing **replay** since replay time is proportional to journal line count. **Compaction** writes each object to a new journal file in its entirety, reducing many entries to one and dramatically improving replay time.
 
-Used in conjunction with custom compaction sinks, the compaction process can also facilitate **archiving** by only writing recent or active objects to the new journal.
+Compaction does **not** decide what data should exist -- it writes whatever the MDAO currently holds. Archiving and TTL are separate, and are expressed as a `removeAll()` on their own schedule, or by dropping a partition directory. See [Deciding what survives](#deciding-what-survives).
 
 ---
 
@@ -38,7 +38,7 @@ Compaction follows a five-step process:
 |       |                                                            |
 |  2. SNAPSHOT      Read all objects from MDAO (a functional         |
 |       |           snapshot -- later writes cannot disturb it)      |
-|       |           Write full copies through the sink chain to      |
+|       |           Write full copies to                             |
 |       |           foo.N.snap.gz.tmp, beside live traffic           |
 |       |                                                            |
 |  3. COMMIT        Close (writes the gzip trailer), then rename     |
@@ -311,7 +311,7 @@ Compaction Report
 |-------|-------------|
 | processed | Total objects read from MDAO |
 | compacted | Objects written to new journal |
-| filtered | Percentage of objects removed by sink filters |
+| filtered | Percentage of objects not written -- lifecycle-deleted tombstones, when `discardLifecycleDeleted` is set |
 | journal entries | Line count before vs after compaction |
 | journal size | File size before vs after compaction |
 | skipped (.0) | Objects identical to `.0` version (not written) |

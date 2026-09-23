@@ -193,7 +193,8 @@ foam.CLASS({
     function close() {
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
-      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_())
+      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_());
+      this.window.removeEventListener('resize', this.onResize);
     },
 
     function render() {
@@ -292,7 +293,6 @@ foam.CLASS({
 
     function onResize(e) {
       this.setPosition();
-      this.window.removeEventListener('resize', this.onResize);
     }
   ]
 });

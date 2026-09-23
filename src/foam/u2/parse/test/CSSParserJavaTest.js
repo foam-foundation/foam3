@@ -39,6 +39,7 @@ foam.CLASS({
     'java.util.Collections',
     'java.util.IdentityHashMap',
     'java.util.List',
+    'java.util.Locale',
     'java.util.Set'
   ],
 
@@ -186,6 +187,9 @@ foam.CLASS({
     testImportantPosition();
     testHazards();
     testDeepAndLargeInput();
+    testAtRuleClosedByBrace();
+    testCaseAndWhitespace();
+    testJvmLocale();
   }
 
   // ---- Span helper ------------------------------------------------------------
@@ -871,6 +875,67 @@ foam.CLASS({
     CSSNode r7 = p.parse(i7);
     double  m7 = ms(t0);
     test(m7 < 500 && r7.end == i7.length(), "[( x 5000: parsed in " + Math.round(m7) + " ms");
+  }
+
+  // ---- review round 2 ---------------------------------------------------------------
+
+  protected void testAtRuleClosedByBrace() {
+    CSSParser p = new CSSParser();
+    String  input = "^ { @apply x }";
+    CSSNode tr    = p.parse(input);
+    t(() -> { CSSNode a = tr.children.get(0).children.get(0);
+      return "atrule".equals(a.kind) && "apply".equals(a.name) && a.children == null && "x".equals(a.prelude.raw) &&
+             CSSParser.errors(tr).isEmpty(); },
+      "at-rule closed by }: \\"@apply x\\" before } is a statement at-rule, no errors");
+    spansMatch(input, tr, "at-rule closed by }");
+
+    String  i2 = "a{@x}b{c:d}";
+    CSSNode t2 = p.parse(i2);
+    t(() -> kinds(t2.children).equals("rule rule") && "c".equals(t2.children.get(1).children.get(0).property.name) &&
+            CSSParser.errors(t2).isEmpty(),
+      "at-rule closed by }: the next rule still parses");
+    spansMatch(i2, t2, "at-rule closed by } 2");
+  }
+
+  protected void testCaseAndWhitespace() {
+    CSSParser p = new CSSParser();
+    CSSNode v = p.parseValue("c !\\u0131mportant");
+    t(() -> ! v.important && kinds(v.components).equals("ident delim ident"),
+      "case: !\\\\u0131mportant (dotless i) is not !important");
+    CSSNode a = p.parse("@MEDIA x;");
+    t(() -> "media".equals(a.children.get(0).name), "case: @MEDIA has the name media");
+
+    CSSNode c1 = p.parse("/*\\u00a0%NAME%\\u00a0*/");
+    t(() -> "NAME".equals(c1.children.get(0).placeholder), "whitespace: no-break spaces around %NAME% still make a placeholder");
+    String[] spaced = { "/*\\u3000$x\\u3000*/", "/*\\ufeff$x*/", "/*\\u2028$x*/" };
+    t(() -> {
+      for ( String s : spaced ) if ( ! "$x".equals(p.parse(s).children.get(0).token) ) return false;
+      return true;
+    }, "whitespace: Unicode spaces around $x still make a token comment");
+    CSSNode c2 = p.parse("/*$x\\u0001*/");
+    t(() -> c2.children.get(0).token == null, "whitespace: a control character after $x is not whitespace");
+    CSSNode c3 = p.parse("a{b:/*$x\\u0001*/ c}");
+    t(() -> c3.children.get(0).children.get(0).valueNode().components.get(0).token == null,
+      "whitespace: the same inside a value");
+  }
+
+  // Java only: the JS side has no JVM locale. Under a Turkish default locale
+  // String.toUpperCase/toLowerCase map i and I differently; the grammar must
+  // not depend on it.
+  protected void testJvmLocale() {
+    Locale saved = Locale.getDefault();
+    try {
+      Locale.setDefault(new Locale("tr", "TR"));
+      CSSParser p = new CSSParser();
+      CSSNode v = p.parseValue("c !important");
+      t(() -> v.important, "locale: !important matches under a Turkish JVM locale");
+      CSSNode v2 = p.parseValue("c !IMPORTANT");
+      t(() -> v2.important, "locale: !IMPORTANT matches under a Turkish JVM locale");
+      CSSNode a = p.parse("@MEDIA x;");
+      t(() -> "media".equals(a.children.get(0).name), "locale: @MEDIA is media under a Turkish JVM locale");
+    } finally {
+      Locale.setDefault(saved);
+    }
   }
   `,
 

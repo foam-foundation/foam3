@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,19 +48,39 @@ import java.util.regex.Pattern;
  *
  * The JS class also carries the narrow autocomplete grammar used by
  * foam.u2.StyleConfigurator; that part has no Java counterpart.
+ *
+ * Locale and whitespace: JS case folding and \s / trim() do not depend on
+ * the JVM locale, while Java's toUpperCase(), toLowerCase() and \s do (a
+ * Turkish JVM upper-cases 'important' with a dotted capital I) or cover a different
+ * set (\s is ASCII only). So every fold here is ASCII or Locale.ROOT, and
+ * JS_WS / jsTrim() stand in for the JS \s and trim() sets.
+ *
+ * Span and SpanValue are public because the test drives Span directly.
+ * Span is general (offsets for any foam.lib.parse grammar) and is a
+ * candidate to move to foam.lib.parse once a second grammar needs it.
  */
 public class CSSParser {
 
   // See MAX_DEPTH in CSSParser.js: past this many nested blocks, parens,
   // brackets and functions (counted together) the rest of the nested text is
-  // skipped flat, up to the next ';' or '}', as one error node, so deep input
-  // cannot overflow the stack.
+  // skipped flat, up to the next ';' or '}', as one error node. Depth 64
+  // needs roughly 300 KB of thread stack (measured: 128-256 KB stacks
+  // overflow at 64 nested blocks or 100 nested functions, 512 KB is fine);
+  // below that, parse() catches the StackOverflowError and returns the
+  // input as one 'Internal parser failure' error.
   public static final int MAX_DEPTH = 64;
 
   protected static final String  WS           = " \t\n\r\f";
   protected static final Pattern MATH_FN      = Pattern.compile("(^|-)(calc|min|max|clamp)$", Pattern.CASE_INSENSITIVE);
   protected static final Pattern HEX_COLOR    = Pattern.compile("^(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$");
-  protected static final Pattern PLACEHOLDER  = Pattern.compile("^\\s*%([A-Za-z0-9_]+)%\\s*$");
+  // The characters JS \s and String.prototype.trim() treat as whitespace.
+  // Java's \s is ASCII only and String.trim() strips everything <= U+0020
+  // (including U+0001), so '/*\u00A0%NAME%\u00A0*/' or '/*$x\u0001*/'
+  // would classify differently from the JS side without this.
+  protected static final String  JS_WS        = "\t\n\u000B\f\r \u00A0\u1680" +
+    "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A" +
+    "\u2028\u2029\u202F\u205F\u3000\uFEFF";
+  protected static final Pattern PLACEHOLDER  = Pattern.compile("^[" + JS_WS + "]*%([A-Za-z0-9_]+)%[" + JS_WS + "]*$");
   protected static final Pattern ESCAPE       = Pattern.compile("\\\\([0-9a-fA-F]{1,6})[ \\t\\n]?|\\\\\\n|\\\\([\\s\\S])|\\\\$");
 
   // ParserContext key of the per-parse nesting counter (an int[1]).
@@ -182,7 +203,24 @@ public class CSSParser {
   // ---- combinator shorthands ------------------------------------------------
 
   protected static Parser lit(String s)              { return Literal.create(s); }
-  protected static Parser litIC(String s)            { return new LiteralIC(s); }
+  // Case-insensitive literal folding ASCII letters only, like the JS
+  // literalIC does for these ASCII literals. foam.lib.parse.LiteralIC folds
+  // with Character.toUpperCase (so a dotless i, U+0131, matched 'i') and upper-cases
+  // the literal with the JVM locale (so under Turkish '!important' never
+  // matched).
+  protected static Parser litIC(String s) {
+    String lower = s.toLowerCase(Locale.ROOT);
+    return (ps, x) -> {
+      for ( int i = 0 ; i < lower.length() ; i++ ) {
+        if ( ! ps.valid() ) return null;
+        char c = ps.head();
+        if ( c >= 'A' && c <= 'Z' ) c = (char) ( c | 0x20 );
+        if ( c != lower.charAt(i) ) return null;
+        ps = ps.tail();
+      }
+      return ps.setValue(s);
+    };
+  }
   protected static Parser chars(String s)            { return new Chars(s); }
   protected static Parser notChars(String s)         { return new NotChars(s); }
   protected static Parser range(char a, char b)      { return Range.create(a, b); }
@@ -253,12 +291,12 @@ public class CSSParser {
         Matcher m = PLACEHOLDER.matcher(n.text);
         n.placeholder = m.matches() ? m.group(1) : null;
         n.tokens = hazardTokens(nodes(a[1]), "comment");
-        n.token  = n.tokens.size() == 1 && n.text.trim().equals(n.tokens.get(0).raw) ? n.tokens.get(0).raw : null;
+        n.token  = n.tokens.size() == 1 && jsTrim(n.text).equals(n.tokens.get(0).raw) ? n.tokens.get(0).raw : null;
         return true;
       }));
 
     // ---- lexical pieces
-    g.addSymbol("identStart", alt(range('a', 'z'), range('A', 'Z'), lit("_"), range('\u0080', '￿')));
+    g.addSymbol("identStart", alt(range('a', 'z'), range('A', 'Z'), lit("_"), range('\u0080', '\uFFFF')));
     g.addSymbol("identChar",  alt(g.sym("identStart"), range('0', '9'), lit("-")));
     g.addSymbol("identText",  substring(alt(
       seq(lit("--"), repeat(g.sym("identChar"))),
@@ -460,7 +498,7 @@ public class CSSParser {
       seq(lit("@"), substring(plus(g.sym("identChar"))), g.sym("prelude"), alt(lit(";"), g.sym("block"), peek(lit("}")), EOF_)),
       (n, v, str) -> {
         Object[] a = (Object[]) v;
-        n.name    = ((String) a[1]).toLowerCase();
+        n.name    = ((String) a[1]).toLowerCase(Locale.ROOT);
         n.prelude = (CSSNode) a[2];
         if ( a[3] instanceof SpanValue || a[3] instanceof CSSNode ) {
           fillBlock(n, a[3], str);
@@ -663,6 +701,14 @@ public class CSSParser {
     return out;
   }
 
+  // String.prototype.trim(): strips JS_WS from both ends.
+  protected static String jsTrim(String s) {
+    int b = 0, e = s.length();
+    while ( b < e && JS_WS.indexOf(s.charAt(b))     != -1 ) b++;
+    while ( e > b && JS_WS.indexOf(s.charAt(e - 1)) != -1 ) e--;
+    return s.substring(b, e);
+  }
+
   protected static void trimTo(CSSNode n, int start, int end, String str) {
     n.start = start;
     n.end   = end;
@@ -734,8 +780,8 @@ public class CSSParser {
       PStream r = grammar_.parse(new StringPStream(str), context(str), "START");
       tree = r == null ? null : (CSSNode) r.value();
     } catch (RuntimeException | StackOverflowError e) {
-      // Not expected since MAX_DEPTH bounds the recursion; kept so the
-      // promise 'never throws' holds.
+      // A StackOverflowError is possible on a thread stack below ~300 KB
+      // (see MAX_DEPTH); either way the promise 'never throws' holds.
       tree = null;
     }
     if ( tree == null ) {

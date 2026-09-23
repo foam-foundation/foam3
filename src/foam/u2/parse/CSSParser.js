@@ -683,7 +683,12 @@ foam.CLASS({
           function(n, v, str) {
             n.name    = v[1].toLowerCase();
             n.prelude = v[2];
-            if ( v[3] && typeof v[3] === 'object' ) {
+            // v[3] is the block's { node, start, end }, the error node that
+            // replaced a block past MAX_DEPTH, or ';' / '' / the value
+            // peek('}') passed through. Peek hands back the stream it got,
+            // whose value is the prelude node, so 'is an object' is not
+            // enough: '@x}' would read the prelude as a block.
+            if ( v[3] && ( v[3].kind === 'error' || v[3].node ) ) {
               self.fillBlock_(n, v[3], str);
             } else {
               n.children = null;

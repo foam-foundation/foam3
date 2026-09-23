@@ -57,6 +57,7 @@ foam.CLASS({
       this.testImportantPosition(x);
       this.testHazards(x);
       this.testDeepAndLargeInput(x);
+      this.testAtRuleClosedByBrace(x);
     },
 
     function errorsIn(tree) {
@@ -697,6 +698,26 @@ foam.CLASS({
       input = '[('.repeat(5000);
       r = timed(input);
       x.test(r.ms < 500 && r.t.end === input.length, '[( x 5000: parsed in ' + r.ms.toFixed(0) + ' ms');
+    },
+
+    // ---- review round 2 ---------------------------------------------------
+
+    function testAtRuleClosedByBrace(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { @apply x }';
+      var t = p.parse(input);
+      var a = t.children[0] && t.children[0].children[0];
+      x.test(a && a.kind === 'atrule' && a.name === 'apply' && a.children === null && a.prelude.raw === 'x' &&
+             p.errors(t).length === 0,
+        'at-rule closed by }: "@apply x" before } is a statement at-rule, no errors');
+      this.spansMatch(x, input, t, 'at-rule closed by }');
+
+      input = 'a{@x}b{c:d}';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'rule rule' && t.children[1].children[0].property.name === 'c' &&
+             p.errors(t).length === 0,
+        'at-rule closed by }: the next rule still parses');
+      this.spansMatch(x, input, t, 'at-rule closed by } 2');
     },
 
     // ---- autocomplete compatibility ---------------------------------------

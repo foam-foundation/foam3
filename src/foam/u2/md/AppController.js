@@ -64,7 +64,7 @@ foam.CLASS({
       background-color: unset;
       font-size: 4rem;
     }
-    //    TODO: move to toolbar ^
+    /* TODO: move to toolbar ^ */
   `,
 
   properties: [

@@ -40,7 +40,7 @@ foam.CLASS({
 
   css: `
   ^suggestions {
-    gap: 0px; // 8px gap from Parent class gets add to padding giving unbalanced spacing on top+bottom. This fixes that.
+    gap: 0px; /* 8px gap from Parent class gets add to padding giving unbalanced spacing on top+bottom. This fixes that. */
   }
   `,
 

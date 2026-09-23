@@ -23,7 +23,7 @@ foam.CLASS({
     }
     ^wrapper > *:last-child {
       flex: 1;
-      //Width needed as a start point for flex to prevent overflow;
+      /* Width needed as a start point for flex to prevent overflow */
       width: 100px;
       display: flex;
       flex-direction: column;

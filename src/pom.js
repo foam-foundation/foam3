@@ -1304,6 +1304,8 @@ foam.POM({
     { name: "foam/parse/SinkParser" },
     { name: "foam/parse/NewlineParser" },
     { name: "foam/parse/FScriptParser" },
+    { name: "foam/u2/parse/CSSNode" },
+    { name: "foam/u2/parse/CSSParser" },
     { name: "foam/parse/TestUser",                                    flags: "test" },
     { name: "foam/parse/QueryParser" },
     { name: "foam/parse/SimpleQueryParser" },

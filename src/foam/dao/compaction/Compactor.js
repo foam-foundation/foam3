@@ -62,6 +62,17 @@ foam.CLASS({
       javaCode: `
       final Logger logger = Loggers.logger(x, this, "compaction", jdao.getFilename());
 
+      // One compaction per journal at a time. Compaction rolls, and the roll
+      // has to be the only one in flight for this journal.
+      if ( ! jdao.getCompacting().compareAndSet(false, true) ) {
+        logger.info("already compacting, skipped");
+        cmd.addSkipped(jdao.getFilename());
+        return;
+      }
+
+      boolean dispatched = false;
+      try {
+
       Compaction compaction = cmd.getCompaction();
       if ( compaction == null ) {
         DAO compactionDAO = (DAO) x.get("compactionDAO");
@@ -127,10 +138,17 @@ foam.CLASS({
             fcmd.addError(fjdao.getFilename() + ": " + t.getMessage());
             Loggers.logger(x, this, "compaction").error(fjdao.getFilename(), t);
           } finally {
+            fjdao.getCompacting().set(false);
             fcmd.finished();
           }
         }
       }, "Compactor:" + jdao.getFilename());
+      dispatched = true;
+
+      } finally {
+        // Once dispatched the async job clears the flag; until then this does.
+        if ( ! dispatched ) jdao.getCompacting().set(false);
+      }
       `
     },
     {

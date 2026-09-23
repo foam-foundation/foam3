@@ -332,13 +332,15 @@ During compaction, progress is logged every 5 seconds:
 
 2. **Compaction is async** -- The snapshot runs on the thread pool. `execute()` polls for completion every 5 seconds.
 
-3. **Live traffic during compaction** -- Writes go to the fresh journal from the moment of the cutover and are never at risk; the snapshot is a separate file that only becomes visible once complete.
+3. **One compaction per journal at a time** -- a `CompactionCmd` for a journal that is already compacting is skipped and reported on the command (`getSkippedCount()`, `getSkipped()`), not queued and not an error. Overlapping triggers are expected; the next run picks it up.
 
-4. **MDAO is the source** -- Compaction reads from MDAO, not the journal file. The in-memory state is what gets written.
+4. **Live traffic during compaction** -- Writes go to the fresh journal from the moment of the cutover and are never at risk; the snapshot is a separate file that only becomes visible once complete.
 
-5. **FixedSizedDAO interaction** -- If the DAO stack includes a FixedSizedDAO, only objects retained by it are compacted.
+5. **MDAO is the source** -- Compaction reads from MDAO, not the journal file. The in-memory state is what gets written.
 
-6. **eventRecordDAO required** -- `execute()` writes to `eventRecordDAO`. Must be available in context.
+6. **FixedSizedDAO interaction** -- If the DAO stack includes a FixedSizedDAO, only objects retained by it are compacted.
+
+7. **eventRecordDAO required** -- `execute()` writes to `eventRecordDAO`. Must be available in context.
 
 ---
 

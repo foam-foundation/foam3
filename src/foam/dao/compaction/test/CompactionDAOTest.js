@@ -123,6 +123,47 @@ foam.CLASS({
 
       testZeroAwareness(x);
       testKeepSuperseded(x);
+      testBusySkipped(x);
+      `
+    },
+    {
+      documentation: `A journal already compacting is skipped, not compacted a
+        second time. Driven by setting the flag directly rather than by racing
+        two commands, so the guard is tested rather than the timing.`,
+      name: 'testBusySkipped',
+      args: 'X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "busyTestDAO";
+
+      JDAO     jdao  = new JDAO(x, User.getOwnClassInfo(), "busytest");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      User u = new User();
+      u.setId(1);
+      u.setFirstName("Busy");
+      jdao.put_(x, u);
+
+      jdao.getCompacting().set(true);
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      proxy.cmd_(x, cmd);
+
+      test( cmd.getSkippedCount() == 1, "busy: reported as skipped, got " + cmd.getSkippedCount());
+      test( cmd.getCompactedCount() == 0, "busy: nothing compacted");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "busy: an overlap is not an error");
+      test( ! x.get(Storage.class).get("busytest.1").exists(), "busy: journal was not rolled");
+
+      // Released, the next command proceeds normally.
+      jdao.getCompacting().set(false);
+      CompactionCmd again = new CompactionCmd();
+      again.setServiceName(serviceName);
+      proxy.cmd_(x, again);
+      test( again.awaitCompletion(60000), "busy: second attempt finished");
+      test( again.getCompactedCount() == 1, "busy: compacts once the flag clears");
+      test( x.get(Storage.class).get("busytest.1.snap.gz").exists(), "busy: snapshot committed after release");
       `
     },
     {

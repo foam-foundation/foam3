@@ -50,6 +50,9 @@ for ( n : daos ) {
         }
         print("");
         print("=== " + n + " (" + cmd.getCompactedCount() + " journal(s)) ===");
+        if ( cmd.getSkippedCount() > 0 ) {
+            print("SKIPPED (already compacting): " + cmd.getSkipped());
+        }
         print(cmd.getReport());
         print("");
         print("OK: Compaction complete: "+n);

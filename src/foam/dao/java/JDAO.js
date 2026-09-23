@@ -105,6 +105,15 @@ In this current implementation setDelegate must be called last.`,
       name: 'multiLineOutput'
     },
     {
+      documentation: `Set while this journal is compacting. Compaction rolls,
+        and two concurrent rolls of one journal are not safe to interleave, so
+        a second command is skipped rather than started.`,
+      class: 'Object',
+      name: 'compacting',
+      javaType: 'java.util.concurrent.atomic.AtomicBoolean',
+      javaFactory: 'return new java.util.concurrent.atomic.AtomicBoolean();'
+    },
+    {
       name: 'delegate',
       javaFactory: 'return new MDAO(getOf());',
       javaPostSet: `

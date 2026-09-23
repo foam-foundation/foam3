@@ -665,6 +665,15 @@ try {
       `
     },
     {
+      documentation: `The generation a cutover should freeze under. Must be
+        called from inside the assembly line job that does the rename -- see
+        roll.`,
+      name: 'nextGeneration',
+      args: 'X x, String filename',
+      type: 'Long',
+      javaCode: 'return new JournalGenerations(x, filename).nextGeneration();'
+    },
+    {
       documentation: `Freeze the live journal as the next generation and start a
         fresh one. Returns the frozen filename.
 
@@ -681,7 +690,7 @@ try {
       PM pm = PM.create(x, this.getClass().getSimpleName(), "roll");
 
       final AbstractF3FileJournal self   = this;
-      final String                frozen = filename + "." + new JournalGenerations(x, filename).nextGeneration();
+      final String[]              frozen = new String[1];
       final Throwable[]           failed = new Throwable[1];
 
       // Every put and remove already passes through getLine(), so running the
@@ -701,8 +710,16 @@ try {
             self.getWriter().flush();
             self.getWriter().close();
 
+            // The number is chosen HERE, not before the enqueue. It comes from
+            // a directory scan, and scanning outside the line let two
+            // concurrent rolls read the directory before either renamed, pick
+            // the same number, and have the second ATOMIC_MOVE replace the
+            // first one's generation -- losing everything in it, silently.
+            // Inside the job, scan and rename are one serialized step.
+            frozen[0] = filename + "." + nextGeneration(x, filename);
+
             Files.move(x.get(FileSystemStorage.class).get(filename).toPath(),
-              x.get(FileSystemStorage.class).get(frozen).toPath(),
+              x.get(FileSystemStorage.class).get(frozen[0]).toPath(),
               StandardCopyOption.ATOMIC_MOVE);
           } catch (Throwable t) {
             failed[0] = t;
@@ -721,8 +738,8 @@ try {
       }
 
       pm.log(x);
-      logger.info("roll", "complete", frozen);
-      return frozen;
+      logger.info("roll", "complete", frozen[0]);
+      return frozen[0];
       `
     },
     {

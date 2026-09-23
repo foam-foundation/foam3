@@ -50,6 +50,16 @@ foam.CLASS({
       name: 'compactedCount'
     },
     {
+      documentation: 'Journals that were already compacting and were left alone.',
+      class: 'String',
+      name: 'skipped'
+    },
+    {
+      documentation: 'How many journals were skipped as busy.',
+      class: 'Int',
+      name: 'skippedCount'
+    },
+    {
       documentation: `Journals dispatched but not yet finished.
 
         The command does not block: cmd_ returns once every journal has been
@@ -74,6 +84,18 @@ foam.CLASS({
         setReport(foam.util.SafetyUtil.isEmpty(getReport()) ? readable : getReport() + "\\n\\n" + readable);
         setCsv(foam.util.SafetyUtil.isEmpty(getCsv()) ? csv : getCsv() + "\\n" + csv);
         setCompactedCount(getCompactedCount() + 1);
+      `
+    },
+    {
+      documentation: `Note a journal already compacting. Overlapping triggers --
+        a nightly job meeting a partition-creation trigger -- are expected, not
+        errors: the next run picks it up.`,
+      name: 'addSkipped',
+      synchronized: true,
+      args: 'String filename',
+      javaCode: `
+        setSkipped(foam.util.SafetyUtil.isEmpty(getSkipped()) ? filename : getSkipped() + ", " + filename);
+        setSkippedCount(getSkippedCount() + 1);
       `
     },
     {

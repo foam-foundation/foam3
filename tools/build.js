@@ -384,7 +384,7 @@ function moreUsage(arg) {
     log('  RemoteInstall - configure remote host and install Java application. use: -TStandard,RemoteInstall,Java ...');
     log('  setup/Project - create a new FOAM project. use: -T+setup/Project ...');
     log('');
-    info('See --usage for examples, and documentation https://github.com/kgrgreer/foam3/blob/development/doc/guides/Build.md');
+    info('See --usage for examples, and documentation https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md');
   }
 }
 

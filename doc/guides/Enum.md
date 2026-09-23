@@ -1,3 +1,5 @@
+<flow name="Enum" category="DOC/GUIDE" spid="foam" description="Covers FOAM Enums: declaring with foam.ENUM, ordinal/label/properties/methods, usage analogous to Java enums." keywords="enum,ordinal,label,values,knowledge"/>
+
 # Enums
 
 For those familiar with Java, FOAM Enums are very similar to Java enums in

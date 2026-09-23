@@ -80,6 +80,7 @@ p({
   "serve": true,
   "authenticate":false,
   "lazy": false,
+  "lazyOrder": -1,
   "lazyClient": false,
   "boxClass":"foam.core.theme.ThemeServiceSkeleton",
   "serviceClass": "foam.core.theme.Themes",

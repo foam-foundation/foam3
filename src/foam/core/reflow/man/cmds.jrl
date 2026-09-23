@@ -2,6 +2,7 @@ p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "man",
   "description": "Man pages for REFLOW",
+  "icon": "documentation",
   "script": """
     eval_("load('manual:REFLOW')");
    """

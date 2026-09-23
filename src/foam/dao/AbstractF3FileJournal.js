@@ -213,6 +213,13 @@ foam.CLASS({
       documentation: 'Flag to create file if not present',
       value: true,
     },
+    {
+      documentation: 'Bytes the current replay has read from the journal, against the file size for a progress percentage. Reset when a new reader is opened.',
+      class: 'Object',
+      name: 'replayBytesRead',
+      javaType: 'java.util.concurrent.atomic.AtomicLong',
+      javaFactory: 'return new java.util.concurrent.atomic.AtomicLong();'
+    },
     // reader uses a getter because we want a new reader on file replay
     {
       class: 'Object',
@@ -226,6 +233,20 @@ try {
     return null;
   }
   is = decorateReplayStream(is);
+  final java.util.concurrent.atomic.AtomicLong bytesRead = getReplayBytesRead();
+  bytesRead.set(0);
+  is = new java.io.FilterInputStream(is) {
+    public int read() throws IOException {
+      int b = super.read();
+      if ( b != -1 ) bytesRead.incrementAndGet();
+      return b;
+    }
+    public int read(byte[] buf, int off, int len) throws IOException {
+      int n = super.read(buf, off, len);
+      if ( n > 0 ) bytesRead.addAndGet(n);
+      return n;
+    }
+  };
   // Setting a larger buffer size increases performance by 10-15%
   return new BufferedReader(new InputStreamReader(is), 1024 * 1024 * 2);
 } catch ( Throwable t ) {
@@ -550,7 +571,14 @@ try {
     {
       name: 'mergeFObject',
       type: 'foam.lang.FObject',
-      documentation: 'Add diff property to old property',
+      documentation: `Merge the diff's set properties into the old object and
+        return the merged row.
+
+        When the classes match the merged old object is the row: a second pass
+        copying every set property back into the diff would only fire each
+        setter again, and on an update-heavy journal that pass was half the
+        serial apply cost. When the entry changed the row's class the diff, of
+        the new class, carries the old values instead.`,
       args: ['FObject oldFObject', 'FObject diffFObject' ],
       javaCode: `
         //get PropertyInfos
@@ -561,6 +589,7 @@ try {
           PropertyInfo prop = (PropertyInfo) e.next();
           mergeProperty(oldFObject, diffFObject, prop);
         }
+        if ( oldFObject.getClass() == diffFObject.getClass() ) return oldFObject;
         // it's backwards in case when we override the "class" was changed
         return diffFObject.copyFrom(oldFObject);
       `

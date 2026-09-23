@@ -47,7 +47,7 @@ foam.CLASS({
     }
 
     ^label svg path {
-      fill: currenyColor;
+      fill: currentColor;
     }
 
     ^label:hover {

@@ -113,9 +113,15 @@ foam.CLASS({
       }
     },
 
-    function render() {
+    async function render() {
       var self = this;
       this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
+
+      if ( ! this.data && this.__context__.dao ) {
+        let default_query = await this.__context__.dao.cmd('DEFAULT_QUERY_CMD');
+        // Check .data again since it could have been updated since cmd() was called
+        if ( default_query && ! this.data ) this.data = default_query;
+      }
 
       let viewSpec = {
         class: 'foam.parse.auto.SmartView',

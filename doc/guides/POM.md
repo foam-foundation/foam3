@@ -1,3 +1,5 @@
+<flow name="POM" category="DOC/GUIDE" spid="foam" description="Reference for POM file attributes: name and version, multi-stage JS loading, flags expressions, JSLibs, sub-projects." keywords="pom,build,flags,jslibs,sub-projects,knowledge"/>
+
 # POM - Project Object Model
 
 ## Purpose

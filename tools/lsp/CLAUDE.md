@@ -21,7 +21,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `loadStringWithLines()`, `sliceEntries()`, `filterByClass()`. **A journal is not valid JavaScript** — FOAM's triple-quoted values are a syntax error, so the content is cut into entries on the grammar's entry starts and each is evaluated alone with its triple-quoted spans blanked. Evaluating the whole file as one body threw at construction and returned nothing: 68 of 78 `services.jrl` and 119 of 365 journals were silently empty |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
-| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
+| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl, but EVERY services.jrl in the workspace (`FoamIndex.getServiceJournalFiles()`, nearest-first from the asking file); entry lookups stay on the pom/source directory answer (`getJournalDirs()`); journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
 | `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Every gate routes through one shared instance — server dispatch, `DiagnosticsHandler`, and the six handlers that used to sniff with their own regex (CodeLens, Completion, Definition, Hover, MemberCompletion, Symbol), which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
@@ -63,7 +63,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 |---|---|---|
 | `getJsUsages(classId)` | classes whose JS code references the class: `this.<Short>` via requires, `.create()` receivers, `.tag(X, {})` args, `{ class: 'dotted.Id' }` spec strings | Grammar `collectAxiomPositions` per source file (memberRef / instCreateReceiver / instTagClass / instClassRef); registry `fn.toString()` scan only for file-less (runtime-registered) classes |
 | `getJavaUsages(classId)` | classes whose javaCode / javaPostSet / etc. reference the type | Same axiom walk, `javaImports` resolves short→full |
-| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `loadStringWithLines()` over the `services.jrl` in every `getJournalDirs()` directory |
+| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `loadStringWithLines()` over `getServiceJournalFiles()` — the same list the service lookup resolves against |
 | `getJrlUsages(classId)` | journal rows referencing the class: `"class"` / `"of"` values, and dotted ids inside embedded blocks (`serviceScript`, `javaCode`, client JSON) | `scanJrlClassRefs` over every `*.jrl` under the workspace root, registry-filtered so an unregistered dotted word is not a reference; embedded text is scanned, never evaluated |
 | `getMemberUsages(classId, memberName)` | per-class `this.X` usages of an own / inherited property or method | Reuses `scanFunctions_` axiom walk |
 
@@ -183,7 +183,10 @@ no symbol at all while `src/foam/core/auth/services.jrl:409` registered it.
 `pushServiceSymbols_` appends them as kind 13 (Variable — a name in the context,
 not a type), each carrying its own file and line because there is no class to
 resolve a position from. `searchSymbols` passes that `line` through and
-`WorkspaceSymbolHandler` prefers it when present.
+`WorkspaceSymbolHandler` prefers it when present. One row per registration: a
+name in several journals is several symbols (the string-usage dedupe key
+includes `file` for these class-less records), which touches 9 of 346 names in
+this repo and 32 of 786 in an app workspace with 11 deployment targets.
 
 Two things had to be true first:
 
@@ -204,18 +207,48 @@ as ordinary string values across the tree. It runs after every schema-driven
 branch has declined. `SERVICE_KEY_NAMES` lives on `JournalEntryIndex` so the two
 handlers share one copy of the convention.
 
-The `services.jrl` walk asks `FoamIndex.getJournalDirs()` — pom locations ∪
-indexed-source directories — the same set `JournalEntryIndex.findJournalFiles_`
-reads. A walk of indexed sources alone misses `src/services.jrl`, whose
-directory holds no class file. That walk answers a different question from
-`findWorkspaceJrlFiles_`, which the jrl usage index uses: directories holding a
-pom or an indexed source (110 journals here) against every journal in the
-workspace (367, the extra being almost all of `deployment/`).
+Journal discovery has two answers, on purpose:
+
+- **Services** (`getServiceLocations`, and the CSpec records behind service
+  symbols) read `FoamIndex.getServiceJournalFiles()`: every `services.jrl` the
+  workspace walk (`findWorkspaceJrlFiles_`, rooted at `process.cwd()`) reaches,
+  unioned with the `services.jrl` in each `getJournalDirs()` directory so a pom
+  location outside the root is not lost. Per-target deployment journals live in
+  directories with no pom and no class file, which is why the directory answer
+  alone saw 22 of 78 `services.jrl` here and resolved 36 of 80 `daoKey` values;
+  the walk sees all 78 and resolves 77. Results rank nearest the asking file
+  first, and inside one journal the LAST registration first.
+- **Entries** (`getEntryLocations`, a Reference property naming a journal row)
+  read `JournalEntryIndex.findJournalFiles_`, which asks `getJournalDirs()` —
+  pom locations ∪ indexed-source directories (110 journals here against the
+  walk's 367; the 257 extra are directories carrying neither, 39 of them under
+  `deployment/`, 196 under `src/`). Kept narrow because seed journals are copied
+  per deployment target: widening resolves one id to the same row in every
+  target, a longer answer, not a better one.
+
+Both readers of the services list take the same method, so the row F12 lands on
+and the symbol Go to Symbol returns cannot disagree — they did when the index
+built its own list from `getJournalDirs()`.
 
 A `.jrl` save invalidates three indexes, gathered in the `didSave` case behind
 `isJrlFile`: `journalEntryIndex.invalidate()`, `index.invalidateSymbolIndex_()`
 and `index.invalidateJrlUsageIndex(uri)`. `reindexFile` reaches none of them on
 a journal save, since it invalidates only for a file that classifies as a class.
+
+A class or pom save also calls `index.reindexPath(path)`: the class→file map
+(`fileIndex_`) is built from the POMs once at boot, so without it a file or
+pom entry added after boot is invisible to `getFilePath`, `foam/byName` and
+`workspace/symbol` until a restart. A saved pom re-indexes every file it
+names whose flags or owning pom moved; a saved class file keeps its existing
+entry's flags and pom, or takes the nearest `pom.js` up the tree with the `js`
+flag when no entry names it yet. It takes the classifier's `kind` rather than
+re-deriving it, since four poms here are not named `pom.js`. `pathIndex_` (a
+path→row map written beside every `fileIndex_` row, dropped at the top of each
+`indexFileClasses_` pass so the newest row answers) serves the "is this already
+indexed" question the skip asks, so a save of a 1500-entry pom costs one eval
+rather than 1500 file reads. `splitFlags_` takes the array form too: a loaded
+pom hands its entry flags over as `['js','java']`, and stringifying that made
+one flag named `js,java` that matched no active flag.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods

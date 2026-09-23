@@ -1,12 +1,4 @@
 p({
-  "class":"foam.flow.DocumentMenu",
-  "id":"foamdocs",
-  "label":"FOAM Documentation",
-  "handler":{"class":"foam.core.menu.ViewMenu","view":{"class":"foam.core.doc.DocumentationView"}},
-  "parent":""
-})
-
-p({
   "class":"foam.core.menu.Menu",
   "id":"sign-in",
   "authorizationStatus":"UNAUTHENTICATED",

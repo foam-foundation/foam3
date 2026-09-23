@@ -76,25 +76,29 @@ foam.CLASS({
         // Only check FileSystemStorage — ResourceStorage.get() can't produce a
         // File for a jar resource (and a jar has no directory-journals anyway).
         foam.core.fs.Storage jrlStorage = (foam.core.fs.Storage) getX().get(foam.core.fs.Storage.class);
-        if ( jrlStorage instanceof foam.core.fs.FileSystemStorage ) {
-          java.io.File jrlFile = jrlStorage.get(getFilename());
-          if ( jrlFile != null && jrlFile.isDirectory() ) {
-            getLogger().warning("Journal path is a directory; skipping replay", getFilename());
-            return;
-          }
+        java.io.File jrlFile = jrlStorage instanceof foam.core.fs.FileSystemStorage ? jrlStorage.get(getFilename()) : null;
+        if ( jrlFile != null && jrlFile.isDirectory() ) {
+          getLogger().warning("Journal path is a directory; skipping replay", getFilename());
+          return;
         }
+        // Denominator of the progress percentage; 0 (unknown) for a jar resource.
+        final long totalBytes = jrlFile != null ? jrlFile.length() : 0;
 
         // Pre-compute the parser X context once per replay. When the target
         // ClassInfo has no backing Java class (getObjClass() is null), thread
         // the ClassInfo itself through X so the parser can instantiate via
         // ci.newInstance() for entries that omit the class: prefix.
-        final foam.lang.X parseX;
+        final foam.lang.X parseX0;
         if ( dao.getOf().getObjClass() == null ) {
           getLogger().warning("Class not found for of, falling back to defaultClassInfo", dao.getOf().getId());
-          parseX = x.put("defaultClassInfo", dao.getOf());
+          parseX0 = x.put("defaultClassInfo", dao.getOf());
         } else {
-          parseX = x;
+          parseX0 = x;
         }
+        // One StringInterner per replay: a parsed string reaches the JVM table
+        // on its second sight, and the interner's maps die with the replay.
+        final foam.util.StringInterner interner = new foam.util.StringInterner();
+        final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
@@ -168,7 +172,16 @@ foam.CLASS({
                   long pass = passCount.incrementAndGet();
                   // Provide some feedback on long running replays
                   if ( pass % 100000 == 0 ) {
-                    String msg = String.format("progress,%1$s,processed,%2$d,in,%3$s", getFilename(), pass, Duration.ofMillis(pm.getTime()));
+                    // Bytes read run ahead of entries processed by the reader's
+                    // buffer, and a journal appended to mid-replay outgrows its
+                    // starting size, so cap the percentage at 100 and the
+                    // bytes left at 0.
+                    long read    = getReplayBytesRead().get();
+                    long elapsed = pm.getTime();
+                    long percent = totalBytes > 0 ? Math.min(100, 100 * read / totalBytes) : -1;
+                    // Time left at the average rate so far.
+                    long left    = percent < 0 || read == 0 ? -1 : (long) (elapsed * (double) Math.max(0, totalBytes - read) / read);
+                    String msg = String.format("progress,%1$s,processed,%2$d,%3$s,in,%4$s,eta,%5$s", getFilename(), pass, percent < 0 ? "?" : percent + "%", Duration.ofMillis(elapsed), left < 0 ? "?" : Duration.ofMillis(left));
                     if ( cspec != null )
                       cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
                     else
@@ -201,9 +214,13 @@ foam.CLASS({
             return;
           setPassCount(passCount.get());
           setFailCount(failCount.get());
+          if ( interner.calls() > 0 ) getLogger().info("Replay", "intern", interner.summary());
+          interner.release();
           String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
+          // The reload of an unloadable dao replays with no initService to
+          // write READY afterwards, so the replay itself hands the status back.
           if ( cspec != null )
-            cspec.updateStatus(CSpecStatus.REPLAYING, "Replay", msg);
+            cspec.updateStatus(CSpecStatus.READY, "Replay", msg);
           else {
             if ( getFailCount() == 0 ) {
               getLogger().info("Replay", msg);

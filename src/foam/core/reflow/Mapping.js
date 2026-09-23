@@ -72,7 +72,7 @@ foam.ENUM({
       name: 'JULIANDATE',
       label: 'Julian Date',
       parserSymbol: 'juliandate',
-      help: 'YYDDD or YDDD (e.g. 25216 = Aug 4, 2025)'
+      help: 'YYYYDDD, YYDDD or YDDD (e.g. 2025216 or 25216 = Aug 4, 2025)'
     },
     {
       name: 'YYMMDD',

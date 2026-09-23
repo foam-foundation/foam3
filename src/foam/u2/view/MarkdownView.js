@@ -19,6 +19,9 @@ foam.CLASS({
   ],
 
   css: `
+    ^ a {
+      color: $link;
+    }
     ^ {
       display: flex;
       flex-direction: column;
@@ -513,6 +516,11 @@ foam.CLASS({
     {
       class: 'String',
       name: 'data'
+    },
+    'lastGoodTokens_',
+    {
+      class: 'String',
+      name: 'renderData_'
     }
   ],
 
@@ -521,19 +529,29 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
+      this.renderData_ = this.data;
+      this.onDetach(this.data$.sub(this.updateRender));
+
       this
         .addClass()
-        .add(this.dynamic(function(data) {
+        .add(this.dynamic(function(renderData_) {
           self.markdownContext = undefined;
-          var tokens = self.markdownGrammar.parseString(data + '\n');
-          if ( tokens ) {
-            tokens.forEach(t => t.call(this));
-          } else {
-            this.start().add('PARSE ERROR');
-          }
+          var tokens = self.markdownGrammar.parseString(renderData_ + '\n');
+          if ( tokens ) self.lastGoodTokens_ = tokens;
+          else          tokens = self.lastGoodTokens_;
+          if ( tokens ) tokens.forEach(t => t.call(this));
         }));
     }
-  ]
+  ],
+
+  listeners: [
+    {
+      name: 'updateRender',
+      isMerged: true,
+      mergeDelay: 150,
+      code: function() { this.renderData_ = this.data; }
+    }
+  ],
 });
 
 
@@ -574,10 +592,51 @@ foam.CLASS({
       padding: 6px 10px;
       max-height: unset;
     }
+    ^hintTool {
+      position: relative;
+      display: inline-flex;
+    }
+    ^hintPopup {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, -200%);
+      margin-top: 6px;
+      z-index: 1000;
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      background: $white;
+      border: 1px solid $borderDefault;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    ^hintOption {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid $white;
+      background: $white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    ^hintOption:hover {
+      background: $backgroundTertiary;
+    }
+    ^hintIcon ^hintIcon svg{
+      color: $textTertiary;
+      fill: currentColor;
+      flex: 0 0 6px;
+      height: 6px;
+    }
   `,
 
   requires: [
-    'foam.u2.dialog.StyledModal'
+    'foam.u2.dialog.StyledModal',
+    'foam.u2.markdown.HintCategory'
   ],
 
   properties: [
@@ -595,6 +654,10 @@ foam.CLASS({
       class: 'String',
       name: 'lastBgColor',
       value: '#ffff00'
+    },
+    {
+      class: 'Boolean',
+      name: 'toggleHintPopup'
     }
   ],
 
@@ -649,12 +712,39 @@ foam.CLASS({
           .start(this.INSERT_EXAMPLE, { label: 'Example', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_PERMISSIONED, { label: 'Perm', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_INCLUDE, { label: 'Include', size: 'SMALL' }).addClass(this.myClass('tool')).end()
+          .start() // Hint button
+            .addClass(this.myClass('hintTool'))
+            .start(this.INSERT_HINT, { label: 'Hint', size: 'SMALL' }).addClass(this.myClass('tool')).end()
+            .add(this.toggleHintPopup$.map(function(show) { // Hint pop-up menu
+              if ( ! show ) return null;
+              return self.E().addClass(self.myClass('hintPopup')).
+                forEach(self.HintCategory.VALUES, function(c) { // Propgate with the enum values
+                  this.start('button')
+                    .addClass(self.myClass('hintOption'))
+                    .attrs({ title: c.label })
+                    .start().addClass(self.myClass('hintIcon'))
+                      .add(foam.u2.tag.Image.create({
+                        glyph: c.glyphName,
+                        embedSVG: true
+                      }))
+                    .end()
+                    .on('mousedown', function(e) {
+                      e.stopPropagation();
+                      self.insertHintTag(c);
+                      self.toggleHintPopup = false;
+                    })
+                  .end();
+                });
+            }))
+          .end()
         .end()
         .endContext()
         .start(foam.u2.tag.TextArea, {
           rows: 20,
           cols: 80,
+          onKey: true,
           data$: this.data$,
+          escapeTextArea: false,
           placeholder: 'Enter markdown text...'
         }, this.editorElement_$)
         .end();
@@ -837,6 +927,13 @@ foam.CLASS({
       }
 
       this.insertAtCursor('\n' + table + '\n');
+    },
+
+    function insertHintTag(category) {
+      this.insertTemplate(
+        '<hint category="' + category.name.toLowerCase() + '">\n$TEXT\n</hint>\n',
+        'Hint text here...',
+        'Hint text here...');
     }
   ],
 
@@ -1136,6 +1233,29 @@ foam.CLASS({
       code: function() {
         this.insertTemplate('<include src="$TEXT"></include>\n', 'filename.md', 'filename.md');
       }
+    },
+    {
+      name: 'insertHint',
+      label: 'Hint',
+      buttonStyle: 'TERTIARY',
+      toolTip: 'Insert Hint',
+      code: function() {
+        var self = this;
+        this.toggleHintPopup = ! this.toggleHintPopup;
+        if ( this.toggleHintPopup ) {
+          // Defer so this same click doesn't immediately close it.
+          setTimeout(function() {
+            self.document.addEventListener('click', self.onDocumentClick);
+          }, 0);
+        }
+      }
+    }
+  ],
+
+  listeners: [
+    function onDocumentClick() {
+      this.toggleHintPopup = false;
+      this.document.removeEventListener('click', this.onDocumentClick);
     }
   ]
 });

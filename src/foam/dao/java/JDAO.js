@@ -14,8 +14,6 @@ foam.CLASS({
 In this current implementation setDelegate must be called last.`,
 
   javaImports: [
-    'foam.lang.Agency',
-    'foam.lang.ContextAgent',
     'foam.lang.X',
     'foam.dao.BulkLoadDAO',
     'foam.dao.CompositeJournal',
@@ -64,12 +62,6 @@ In this current implementation setDelegate must be called last.`,
       class: 'FObjectProperty',
       of: 'foam.dao.Journal',
       name: 'journal'
-    },
-    {
-      documentation: `Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
-      class: 'Boolean',
-      name: 'waitReplay',
-      value: true
     },
     {
       documentation: 'Filesystem is read-only, journals updates are factilitated through some other means such as medusa.',
@@ -180,43 +172,26 @@ In this current implementation setDelegate must be called last.`,
               .setDelegates(journals)
               .build();
 
-            if ( getWaitReplay() ) {
-              // Replay into a plain map rather than the MDAO, so the index is
-              // built from every row at once instead of one put per row. Only
-              // on this branch: it runs before the DAO is published, so nothing
-              // else can read or write it while the rows are collected.
-              MDAO        mdao    = delegate instanceof MDAO ? (MDAO) delegate : null;
-              BulkLoadDAO staging = mdao == null ? null : new BulkLoadDAO(getX(), getOf());
+            // Replay into a plain map rather than the MDAO, so the index is
+            // built from every row at once instead of one put per row. This
+            // runs before the DAO is published, so nothing else can read or
+            // write it while the rows are collected.
+            MDAO        mdao    = delegate instanceof MDAO ? (MDAO) delegate : null;
+            BulkLoadDAO staging = mdao == null ? null : new BulkLoadDAO(getX(), getOf());
 
-              try {
-                F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
-                jnl.replay(getX(), staging == null ? delegate : staging);
-                if ( runtimeJrl != null ) {
-                  String lastVersion = runtimeJrl.getLastReplayVersion();
-                  if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
-                    setWriteVersionOnFirstPut(true);
-                  }
-                }
-              } finally {
-                // Whatever was collected before a replay threw is what the DAO
-                // would have held had each row been put as it was read.
-                if ( staging != null ) mdao.bulkLoad(staging.rows());
-              }
-            } else {
-              final String name = getFilename();
+            try {
               F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
-              Agency agency = (Agency) getX().get("threadPool");
-              agency.submit(getX(), new ContextAgent() {
-                public void execute(X x) {
-                  jnl.replay(getX(), delegate);
-                  if ( runtimeJrl != null ) {
-                    String lastVersion = runtimeJrl.getLastReplayVersion();
-                    if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
-                      runtimeJrl.writeVersion(x, currentVersion);
-                    }
-                  }
+              jnl.replay(getX(), staging == null ? delegate : staging);
+              if ( runtimeJrl != null ) {
+                String lastVersion = runtimeJrl.getLastReplayVersion();
+                if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
+                  setWriteVersionOnFirstPut(true);
                 }
-              }, this.getClass().getSimpleName()+"-replay");
+              }
+            } finally {
+              // Whatever was collected before a replay threw is what the DAO
+              // would have held had each row been put as it was read.
+              if ( staging != null ) mdao.bulkLoad(staging.rows());
             }
     `
     }

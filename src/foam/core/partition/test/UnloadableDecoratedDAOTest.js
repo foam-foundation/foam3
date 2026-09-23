@@ -96,20 +96,23 @@ foam.CLASS({
         UnloadableDecoratedRecord dr = new UnloadableDecoratedRecord();
         dr.setId(1);
         dr.setData(new String("dedup-data"));
-        FObject putDr = dedupDao.put(dr);
-        // dedup canonicalizes equal values to ONE instance; the canonical is the
-        // interner's, not the JVM literal pool's, so prove it with a second
-        // independently built copy rather than == against a literal.
-        test( UnloadableDecoratedRecord.DATA.get(putDr) == foam.util.StringInterner.intern(new String("dedup-data")),
-          "dedup interns the data string on the initial put" );
+        dedupDao.put(dr);
+        // a live put keeps its values as given; interning happens in the replay
+        UnloadableDecoratedRecord dr2 = new UnloadableDecoratedRecord();
+        dr2.setId(2);
+        dr2.setData(new String("dedup-data"));
+        dedupDao.put(dr2);
 
         Object dedupUnloadResult = dedupDao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
         test( Boolean.TRUE.equals(dedupUnloadResult),
           "dedup EasyDAO now also gets the NotPartitionedDAO wrapper (unloadable no longer excludes dedup)" );
 
-        FObject reloadedDr = dedupDao.find_(tx, 1L);
-        test( reloadedDr != null && UnloadableDecoratedRecord.DATA.get(reloadedDr) == foam.util.StringInterner.intern(new String("dedup-data")),
-          "rebuilt chain still dedups after reload: journal replay ran back through DeDupDAO" );
+        FObject reloadedDr  = dedupDao.find_(tx, 1L);
+        FObject reloadedDr2 = dedupDao.find_(tx, 2L);
+        test( reloadedDr != null && reloadedDr2 != null &&
+              "dedup-data".equals(UnloadableDecoratedRecord.DATA.get(reloadedDr)) &&
+              UnloadableDecoratedRecord.DATA.get(reloadedDr2) == "dedup-data".intern(),
+          "rebuilt chain still dedups after reload: the replay's second sight of the value is canonical" );
 
         test( dedupEasyDao.getMdao() != null && dedupEasyDao.getMdao().find_(tx, 1L) != null,
           "easy.getMdao() alias tracks the live (reloaded) store after unload/reload" );

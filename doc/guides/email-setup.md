@@ -1,3 +1,5 @@
+<flow name="email-setup" category="DOC/GUIDE" spid="foam" description="Step-by-step guide for configuring email: EmailServiceConfig (SMTP), EmailTemplate, and EmailConfig journal entries." keywords="email,smtp,emailtemplate,notificationdao,knowledge"/>
+
 # Email Setup Guide with Foam
 
 This step-by-step guide will help you set up and configure email notifications in your Foam application. We'll use real examples from the Foam codebase to demonstrate each step.

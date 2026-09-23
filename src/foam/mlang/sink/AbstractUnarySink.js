@@ -35,8 +35,12 @@ foam.CLASS({
     },
 
     function applyPrecision(val) {
-      if ( this.precision < 0 || typeof val !== 'number' ) return val;
-     return Number(val).toFixed(this.precision);
+      try {
+        if ( this.precision < 0 || typeof val !== 'number' ) return val;
+        return Number(val).toFixed(this.precision);
+      } catch (x) {
+        return val;
+      }
     }
   ]
 });

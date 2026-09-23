@@ -12,32 +12,32 @@ foam.ENUM({
     {
       name: 'PENDING',
       label: 'Pending',
-      color: '$orange600',
-      background: '$warn50',
+      color: '$statusWarnText',
+      background: '$statusWarnBackground',
     },
     {
       name: 'ACTIVE',
       label: 'Active',
-      color: '$success600',
-      background: '#e7f1e9',
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground',
     },
     {
       name: 'REJECTED',
       label: 'Rejected',
-      color: '$red600',
-      background: '$red50',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
     },
     {
       name: 'DELETED',
       label: 'Deleted',
-      color: '$red600',
-      background: '$red50',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
     },
     {
       name: 'DISABLED',
       label: 'Disabled',
-      color: '$textSecondary',
-      background: '$backgroundSecondary',
+      color: '$statusNeutralText',
+      background: '$statusNeutralBackground',
     }
   ]
 });

@@ -10,6 +10,11 @@ and nothing about its host.
 | Class toggle before slot before `dynamic()` | does the DOM structure change, or only a value? |
 | Wrap every `sub()` in `onDetach` | count `sub(` vs `onDetach(` |
 | PropertyBorder owns label, visibility, errors | does the view read `controllerMode` or render a label by hand? |
+| Theme a button with `buttonStyle`, never `style()` | any `background`/`color` set on an action's element? |
+| An SVG takes `fill`, not `color` | does the icon ignore the colour you set? |
+| Extend the border that exists before building one | `grep -rn "name: '<Thing>'" src/foam/u2/` before the first line |
+| Chain the build; no render-local element vars | any `var x = this.start()` held across statements? |
+| Dates format where they are declared | any `toLocaleString` or date maths inside `render()`? |
 
 ### Colours come from tokens; never a literal
 A literal cannot be themed and does not follow dark mode; named colours (`blue`, `red`) are literals too.
@@ -22,16 +27,42 @@ An unscoped class collides with `Fonts.js`; a root `height`/`width` on a reusabl
 Don't: `.row { ... }`; `^ { width: 100%; height: 300px; }` on a shared view; `!important`
 Do:    `^row { ... }` with `addClass(this.myClass('row'))`; `^pos > * { height: 100% }`; the embedder sets the footprint
 
+### A scroll pane needs `min-height: 0` on every flex ancestor with visible overflow
+A flex item will not shrink below its own content, so `flex: 1; overflow: auto` grows instead of scrolling and pushes the footer below it out of view. The pane itself is already exempt — a box whose overflow is not `visible` has an automatic minimum size of zero — so the declaration belongs on the ancestors, not on the scroll pane.
+Don't: `min-height: 0` beside `overflow-y: auto` (a no-op); a view that fills its parent via `height: 100%` when it has siblings
+Do:    `^ { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
+Review asked: "`overflow-y: auto` already makes this a scroll container, whose flex automatic minimum size is 0, so this `min-height: 0` is a no-op" (foam3 PR #5451)
+
 ### `rem` over `px`; Fonts classes over `h3`; ThemeGlyphs over a new SVG
 FOAM sets `1rem = 10px` so everything scales with font size; glyphs are already inlined.
 Don't: `width: 12px`; `<h3>` for a title; a new `icon.svg`
 Do:    `width: 1.2rem`; `addClass('h300')` from Fonts.js; `themeIcon: 'dropdown'`
 
+### An SVG is coloured with `fill`, not `color`
+`color` styles text; on an `<svg>` it does nothing, so the icon silently keeps its authored colour.
+Don't: `^icon { color: $primary500; }` on an SVG
+Do:    `^icon { fill: $primary500; }`; `stroke` for an outline glyph
+
+### Extend the border, tabs, or detail view that already exists
+A second collapsible or tab view splits every future fix in two and loses the theming and keyboard behaviour the original carries.
+Don't: a collapsible panel, a tab strip, or a section view written from scratch
+Do:    grep `src/foam/u2/` first, then extend: `foam.u2.borders.ExpandableBorder`, `foam.u2.Accordion`, `foam.u2.UnderlinedTabs`, `foam.u2.view.CollapseableDetailView`, `foam.u2.detail.TabularSectionView`
+
+### Expose a content slot; do not bake in the one child you need today
+A border that hard-codes its body is single-use; one that takes a slot serves every caller.
+Don't: a panel that renders its own fixed table
+Do:    the `ExpandableBorder` shape — a `title` and a `content$` slot the consumer fills (`src/foam/u2/borders/ExpandableBorder.js`)
+
 ### Toggle a class or bind a slot before reaching for `dynamic()`
 Each step up the ladder rebuilds more DOM; `dynamic()` is for structure changes only, and it builds into `this`.
 Don't: `this.slot(function(x) { return this.E().add(x); })`; a `dynamic()` around a whole table when one cell changes; `add(function() {...})` without `dynamic`
 Do:    `.enableClass('open', this.open$)` · `.add(this.title$)` · `.show(cond$)` · `this.add(this.dynamic(function(items) { ... }))` around the block whose children are replaced (bare `this.dynamic()` builds into the view and never removes the previous run)
-Review asked: "keep dynamic() only around the elements whose structure actually changes." (`doc/guides/ReactiveUI.md:212`)
+Review asked: "keep dynamic() only around the elements whose structure actually changes." (`doc/guides/ReactiveUI.md:209`)
+
+### Chain the build; never stash elements in render-local variables
+A held reference outlives the branch that made it, and the reader loses the tree shape the chain shows.
+Don't: `var header = this.start(); header.add(...); if ( x ) header.start()...`
+Do:    one chain with `.callIf(cond, function() { ... })` / `.callIfElse(...)` (`foam.lang.Fluent`) and `.tag()` for the branches
 
 ### Wrap every `sub()` in `onDetach`, on the view that made it
 A bare subscription outlives the view; registering it on the data it watches leaks when the data outlives the view.
@@ -53,7 +84,7 @@ Do:    `.tag(this.data.POSTAL_CODE.__, { config: { label$: this.zipLabel$ } })`
 ### Optional imports get `?`, a `?.` call, and a real default
 A framework view must render outside its usual host; a missing import must not throw or warn.
 Don't: `imports: ['stack']` then `this.stack.push(...)`
-Do:    `imports: ['stack?']` then `this.stack?.push(...)`; or a property with `factory: function() { return this.__context__.x || NullX.create(); }`
+Do:    `imports: ['stack?']` then `this.stack?.push(...)`; or a property whose `factory` supplies the fallback the view can render without
 
 ### URL state is a `memorable: true` property; navigate through the router
 Hand-managed `memento.head` and hand-built `StackBlock` configs bypass the routing the framework already owns.
@@ -64,6 +95,16 @@ Do:    `{ name: 'tab', memorable: true }`; `this.routeTo(...)` / `routeToDAO(...
 A hand-rolled modal plus a second "confirm" action duplicates what `confirmationRequired` already does.
 Don't: `actions: [ delete, confirmDelete ]` with a custom popup
 Do:    `{ name: 'delete', confirmationRequired: true, code: ... }`
+
+### Theme an action with `buttonStyle`; never hand-style its element
+`buttonStyle` is an axiom on the Action itself, so the theme supplies hover, disabled, and destructive states.
+Don't: `addClass('my-btn').style({ background: '$primary500' })` on an action's element
+Do:    `{ name: 'cancel', buttonStyle: 'TERTIARY', code: ... }` — `foam.u2.ButtonStyle` is `UNSTYLED`, `PRIMARY`, `SECONDARY`, `TERTIARY`, `TEXT`, `LINK`, `BLACK`
+
+### Dates format where they are declared, not in `render()`
+A `toLocaleString` in a view hard-codes a locale, skips the property's own formatting, and cannot be reused by a table.
+Don't: `add(new Date(d).toLocaleString('en-US'))`; a `formatDate` helper on the view
+Do:    let `DateView`/`DateTimeView` render the property; `tableCellFormatter` on the property for a column; `foam.Date.relativeDateString(d)` where recency is the point ("3 hours ago")
 
 ### Import the exported function, never `ctrl`
 `ctrl` exists for debugging and only in apps with the standard controller.

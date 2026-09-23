@@ -27,9 +27,10 @@ foam.CLASS({
       const p          = this.Parsers.create();
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
       const cmds       = (await this.commandDAO.select()).array.sort(comparator);
+      const parsers    = {};
 
       for ( let i = 0 ; i < cmds.length ; i++ ) {
-        let c      = cmds[i];
+        let c = cmds[i];
         if ( c.hidden ) continue;
         let parser = p.sug(p.literalIC(c.id), {
           text:  c.id,
@@ -39,9 +40,17 @@ foam.CLASS({
           category: 'command'});
 
         if ( c.parser ) {
-          if ( c.parser.aInit ) await c.parser.aInit();
-          // console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
-          parser = p.seq(parser, c.parser);
+          // TODO: this could be done faster if used Promise.all() somehow
+          // TODO: some sub parsers like FlowNameParser are created multiple times
+          //          console.log('*************** ADDING COMMAND PARSER', parser.toString(), c.parser.toString());
+          // TODO: doesn't work
+          if ( false && parsers[c.parser.cls_.id] ) {
+            parser = p.seq(parser, c.parser);
+          } else {
+            if ( c.parser.aInit ) await c.parser.aInit();
+            parser = p.seq(parser, c.parser);
+            parsers[c.parser.cls_.id] = c.parser;
+          }
         }
 
         this.alt.args.push(parser);

@@ -37,6 +37,9 @@ foam.CLASS({
   javaImports: [
     'foam.core.auth.AuthService',
     'foam.core.auth.AuthorizationException',
+    'foam.core.logger.Logger',
+    'foam.core.logger.Loggers',
+    'foam.core.logger.StdoutLogger',
     'foam.core.script.BeanShellExecutor',
     'foam.core.script.JShellExecutor',
     'foam.core.script.Language',
@@ -149,7 +152,7 @@ foam.CLASS({
       class: 'Int',
       name: 'lazyOrder',
       tableWidth: 65,
-      documentation: 'Order non-lazy DAO invocation from low (0) to high.  Essential DAOs such as users, grants, ... should be low order, 0, with larger DAOs which take minutes to load should be a higher order value'
+      documentation: 'Order non-lazy service invocation from low to high. Boot submits non-lazy services to the threadPool in this order; once every pool thread is busy, the remaining services wait for a running one to finish. Framework services (http, logger, threadPools, ...) use -1 so they always start ahead of application data; application services default to 0; anything that must load after other data uses a higher value.'
     },
     {
       class: 'Boolean',
@@ -404,7 +407,14 @@ foam.CLASS({
       name: 'updateStatus',
       args: 'Object... vargs',
       javaCode: `
-        foam.core.logger.Logger logger = foam.core.logger.StdoutLogger.instance();
+        // Same resolution as CSpecFactory.buildService: the context logger, so
+        // the status reaches logMessageDAO, and stdout only for the two
+        // services the logger itself is built from.
+        Logger logger = null;
+        if ( ! "logger".equals(getId()) && ! "PM".equals(getId()) )
+          logger = Loggers.logger(getX());
+        if ( logger == null )
+          logger = StdoutLogger.instance();
         Throwable t = null;
         CSpecStatus status = null;
         StringBuilder sb = new StringBuilder();

@@ -25,6 +25,12 @@ foam.CLASS({
   coded colour: a $token, a legacy %THEME% placeholder, var(), url() and
   !important.
 
+  A $token in a declaration is checked as well: a name that is declared
+  neither in src/foam/u2/CSSTokens.js nor in the owning class' (or an
+  ancestor's) cssTokens: never resolves, so the declaration ships whatever
+  fallback the token machinery has - a typo is invisible until someone looks
+  at the rendered page.
+
   foam.u2.parse.CSSParser is the CSS grammar the GUI style editor uses. It is a
   js-flagged class and this audit runs on the server (it walks the filesystem),
   so the grammar below is read from the same shapes but implemented in Java.
@@ -53,8 +59,10 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     'java.nio.file.attribute.BasicFileAttributes',
     'java.util.ArrayList',
     'java.util.Arrays',
+    'java.util.HashMap',
     'java.util.HashSet',
     'java.util.List',
+    'java.util.Map',
     'java.util.Set',
     'java.util.concurrent.atomic.AtomicInteger'
   ],
@@ -411,6 +419,269 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return null;
   }
 
+  // ColorToken installs a derived token per state on the class it is declared
+  // on, so $primary400$hover and $buttonPrimaryColor$hover$foreground resolve
+  // through the name before the first '$'.
+  protected static final Set<String> DERIVED_SUFFIXES = new HashSet(Arrays.asList(
+    "hover", "active", "disabled", "foreground"
+  ));
+
+  protected static boolean isTokenChar(char c) {
+    return isIdentifierChar(c) || c == '-';
+  }
+
+  // The $tokens a declaration's value refers to, without their '$'. Mirrors
+  // the pattern foam.CSS.replaceTokens expands with: a name may carry '-' and
+  // '$', and '.' joins the segments of a class scoped $some.Class.token.
+  protected static List<String> tokensIn(String value) {
+    List<String> out = new ArrayList();
+    int          n   = value.length();
+    int          i   = 0;
+
+    while ( i < n ) {
+      if ( value.charAt(i) != '$' ) { i++; continue; }
+      int j = i + 1;
+      while ( j < n && isTokenChar(value.charAt(j)) ) j++;
+      if ( j == i + 1 ) { i++; continue; }
+      while ( j + 1 < n && value.charAt(j) == '.' && isTokenChar(value.charAt(j + 1)) ) {
+        j++;
+        while ( j < n && isTokenChar(value.charAt(j)) ) j++;
+      }
+      out.add(value.substring(i + 1, j));
+      i = j;
+    }
+    return out;
+  }
+
+  // One brace walk over a .js file for what a $token lookup needs: every
+  // foam.CLASS/ENUM/INTERFACE literal - its id, what it extends and the span
+  // it covers - and every cssTokens: declaration, with the object literal its
+  // names are visible in. An inner class under classes: declares its own
+  // tokens, and that literal is the scope. Comments and strings are walked
+  // past. Returns { models, regions } where a model is
+  // { id, extendsId, start, end } and a region is { start, end, names }.
+  protected static Object[] scanStructure(String src) {
+    List<Object[]> models  = new ArrayList();
+    List<Object[]> regions = new ArrayList();
+    List<Object[]> stack   = new ArrayList();   // frame: { start, isModel, pkg, name, extends, refines, names }
+    int            n       = src.length();
+    int            i       = 0;
+    boolean        opensModel  = false;
+    int            collectAt   = -1;            // stack depth the cssTokens: value ends at
+    Object[]       collectInto = null;
+
+    while ( i < n ) {
+      char c = src.charAt(i);
+      if ( c == '/' && i + 1 < n && src.charAt(i + 1) == '/' ) {
+        while ( i < n && src.charAt(i) != '\\n' ) i++;
+        continue;
+      }
+      if ( c == '/' && i + 1 < n && src.charAt(i + 1) == '*' ) {
+        int j = src.indexOf("*/", i + 2);
+        i = j < 0 ? n : j + 2;
+        continue;
+      }
+
+      if ( c == 'f' ) {
+        int len = keyAt(src, i, "foam.CLASS")     ? 10 :
+                  keyAt(src, i, "foam.ENUM")      ?  9 :
+                  keyAt(src, i, "foam.INTERFACE") ? 14 : 0;
+        if ( len > 0 ) {
+          int j = i + len;
+          while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+          if ( j < n && src.charAt(j) == '(' ) {
+            j++;
+            while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+            if ( j < n && src.charAt(j) == '{' ) {
+              opensModel = true;
+              i = j;
+              continue;
+            }
+          }
+          i += len;
+          continue;
+        }
+      }
+
+      if ( c == '{' || c == '[' ) {
+        // An array element that is itself an array is the [ name, value ] form
+        // of a token.
+        if ( c == '[' && collectInto != null && stack.size() > collectAt ) {
+          int j = i + 1;
+          while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+          if ( j < n && isQuote(src.charAt(j)) ) {
+            Object[] lit = readLiteral(src, j);
+            if ( lit != null ) ((Set<String>) collectInto[6]).add((String) lit[0]);
+          }
+        }
+        stack.add(new Object[] { Integer.valueOf(i), Boolean.valueOf(c == '{' && opensModel),
+                                 null, null, null, null, null });
+        opensModel = false;
+        i++;
+        continue;
+      }
+      if ( c == '}' || c == ']' ) {
+        if ( ! stack.isEmpty() ) {
+          Object[] frame = stack.remove(stack.size() - 1);
+          if ( frame[6] != null ) {
+            regions.add(new Object[] { frame[0], Integer.valueOf(i), frame[6] });
+          }
+          if ( ((Boolean) frame[1]).booleanValue() ) {
+            String pkg  = (String) frame[2];
+            String name = (String) frame[3];
+            String ref  = (String) frame[5];
+            String id   = ref != null ? ref
+                        : ( pkg != null && name != null ? pkg + "." + name : name );
+            if ( id != null ) {
+              models.add(new Object[] { id, frame[4], frame[0], Integer.valueOf(i),
+                                        frame[6] });
+            }
+          }
+        }
+        if ( collectInto != null && stack.size() < collectAt ) {
+          collectInto = null;
+          collectAt   = -1;
+        }
+        i++;
+        continue;
+      }
+      if ( c == ',' && collectInto != null && stack.size() == collectAt ) {
+        collectInto = null;
+        collectAt   = -1;
+        i++;
+        continue;
+      }
+
+      // A key: an identifier or a quoted name followed by ':'.
+      int keyEnd = -1;
+      String key = null;
+      if ( Character.isLetter(c) || c == '_' ) {
+        int j = i;
+        while ( j < n && isIdentifierChar(src.charAt(j)) ) j++;
+        key    = src.substring(i, j);
+        keyEnd = j;
+      } else if ( isQuote(c) ) {
+        Object[] lit = readLiteral(src, i);
+        if ( lit == null ) { i++; continue; }
+        key    = (String) lit[0];
+        keyEnd = ((Integer) lit[1]).intValue();
+      }
+      if ( key == null ) { i++; continue; }
+
+      int j = keyEnd;
+      while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+      if ( j >= n || src.charAt(j) != ':' ) {
+        i = keyEnd;
+        continue;
+      }
+      j++;
+      while ( j < n && Character.isWhitespace(src.charAt(j)) ) j++;
+
+      Object[] top = stack.isEmpty() ? null : stack.get(stack.size() - 1);
+      if ( key.equals("cssTokens") && top != null ) {
+        if ( top[6] == null ) top[6] = new HashSet();
+        collectInto = top;
+        collectAt   = stack.size();
+        i = j;
+        continue;
+      }
+      if ( collectInto != null && key.equals("name") && stack.size() > collectAt &&
+           j < n && isQuote(src.charAt(j)) ) {
+        Object[] lit = readLiteral(src, j);
+        if ( lit != null ) {
+          ((Set<String>) collectInto[6]).add((String) lit[0]);
+          i = ((Integer) lit[1]).intValue();
+          continue;
+        }
+      }
+      if ( top != null && ((Boolean) top[1]).booleanValue() && j < n && isQuote(src.charAt(j)) ) {
+        int slot = key.equals("package") ? 2 : key.equals("name")    ? 3 :
+                   key.equals("extends") ? 4 : key.equals("refines") ? 5 : -1;
+        if ( slot > 0 ) {
+          Object[] lit = readLiteral(src, j);
+          if ( lit != null ) {
+            if ( top[slot] == null ) top[slot] = lit[0];
+            i = ((Integer) lit[1]).intValue();
+            continue;
+          }
+        }
+      }
+      i = j;
+    }
+    return new Object[] { models, regions };
+  }
+
+  // Resolves a $token the way the runtime does: the names lexically in scope
+  // where the css: is written, then the owning class and its ancestors, then
+  // the global foam.u2.CSSTokens.
+  protected static boolean tokenDeclared(String name, String classId, Set<String> lexical,
+                                         Map<String, String> extendsOf,
+                                         Map<String, Set<String>> tokensOf,
+                                         Set<String> globals) {
+    String base = name;
+    if ( base.indexOf('$') > 0 ) {
+      String[] parts = base.split("\\\\$");
+      for ( int i = 1 ; i < parts.length ; i++ ) {
+        if ( ! DERIVED_SUFFIXES.contains(parts[i]) ) return false;
+      }
+      base = parts[0];
+    }
+
+    String owner = classId;
+    String token = base;
+    int    dot   = base.lastIndexOf('.');
+    if ( dot > 0 ) {
+      owner = base.substring(0, dot);
+      token = base.substring(dot + 1);
+    } else if ( lexical != null && lexical.contains(token) ) {
+      return true;
+    }
+
+    Set<String> seen = new HashSet();
+    String      cls  = owner;
+    while ( cls != null && seen.add(cls) ) {
+      Set<String> declared = tokensOf.get(cls);
+      if ( declared != null && declared.contains(token) ) return true;
+      cls = extendsOf.get(cls);
+    }
+    return globals.contains(token);
+  }
+
+  // The declared name closest to a misspelt one, so a typo reads as a typo.
+  protected static String didYouMean(String name, Set<String> candidates) {
+    String best     = null;
+    int    bestCost = 3;
+    for ( String c : candidates ) {
+      if ( Math.abs(c.length() - name.length()) >= bestCost ) continue;
+      int cost = editDistance(name, c, bestCost);
+      if ( cost < bestCost ) {
+        bestCost = cost;
+        best     = c;
+      }
+    }
+    return best;
+  }
+
+  protected static int editDistance(String a, String b, int limit) {
+    int[] prev = new int[b.length() + 1];
+    int[] cur  = new int[b.length() + 1];
+    for ( int j = 0 ; j <= b.length() ; j++ ) prev[j] = j;
+    for ( int i = 1 ; i <= a.length() ; i++ ) {
+      cur[0] = i;
+      int rowMin = cur[0];
+      for ( int j = 1 ; j <= b.length() ; j++ ) {
+        int sub = prev[j - 1] + ( a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1 );
+        cur[j] = Math.min(sub, Math.min(prev[j] + 1, cur[j - 1] + 1));
+        rowMin = Math.min(rowMin, cur[j]);
+      }
+      if ( rowMin >= limit ) return limit;
+      int[] swap = prev;
+      prev = cur;
+      cur  = swap;
+    }
+    return prev[b.length()];
+  }
+
   protected static int lineOf(String src, int offset) {
     int line = 1;
     for ( int i = 0 ; i < offset && i < src.length() ; i++ ) {
@@ -433,6 +704,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
 
     final AtomicInteger processed = new AtomicInteger();
     final AtomicInteger blocks    = new AtomicInteger();
+
+    // A $token may be declared in a class this file only extends, so the
+    // declarations are collected first and resolved once the whole tree has
+    // been read.
+    final Map<String, String>      extendsOf = new HashMap();
+    final Map<String, Set<String>> tokensOf  = new HashMap();
+    final List<Object[]>           tokenUses = new ArrayList();
 
     try {
       Path start = Paths.get(projectHome);
@@ -486,19 +764,65 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
 
     try {
       String src = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+
+      Object[]       structure = scanStructure(src);
+      List<Object[]> models    = (List<Object[]>) structure[0];
+      List<Object[]> regions   = (List<Object[]>) structure[1];
+      for ( Object[] model : models ) {
+        String id = (String) model[0];
+        if ( model[1] != null && ! extendsOf.containsKey(id) ) {
+          extendsOf.put(id, (String) model[1]);
+        }
+        if ( model[4] != null ) {
+          Set<String> declared = tokensOf.get(id);
+          if ( declared == null ) {
+            declared = new HashSet();
+            tokensOf.put(id, declared);
+          }
+          declared.addAll((Set<String>) model[4]);
+        }
+      }
+
       for ( Object[] block : extractCSS(src) ) {
         blocks.incrementAndGet();
         String css  = (String) block[0];
         int    base = ((Integer) block[1]).intValue();
+
+        // The class the css: belongs to, and the token names in scope where it
+        // is written - a cssTokens: in the same object literal, which is how an
+        // inner class under classes: declares its own.
+        String      owner   = null;
+        int         nearest = -1;
+        for ( Object[] model : models ) {
+          int start = ((Integer) model[2]).intValue();
+          int end   = ((Integer) model[3]).intValue();
+          if ( start <= base && base <= end && start > nearest ) {
+            owner   = (String) model[0];
+            nearest = start;
+          }
+        }
+        Set<String> lexical = new HashSet();
+        for ( Object[] region : regions ) {
+          if ( ((Integer) region[0]).intValue() <= base &&
+               base <= ((Integer) region[1]).intValue() ) {
+            lexical.addAll((Set<String>) region[2]);
+          }
+        }
+
         for ( Object[] decl : declarations(css) ) {
           String property = (String) decl[0];
           String value    = ((String) decl[1]).trim();
-          String problem  = violation(property, value);
+          int    line     = lineOf(src, base + ((Integer) decl[2]).intValue());
+
+          for ( String token : tokensIn(value) ) {
+            tokenUses.add(new Object[] { relativePath, Integer.valueOf(line), owner, lexical, token });
+          }
+
+          String problem = violation(property, value);
           if ( problem == null ) {
             logger.info("ok", property, value);
             continue;
           }
-          int line = lineOf(src, base + ((Integer) decl[2]).intValue());
           test ( false, relativePath+":"+line+" - "+problem+" "+property+": "+value );
         }
       }
@@ -524,11 +848,22 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   }
 }
 );
+      Set<String> globals = tokensOf.get("foam.u2.CSSTokens");
+      if ( globals == null ) globals = new HashSet();
+      for ( Object[] use : tokenUses ) {
+        String token = (String) use[4];
+        if ( tokenDeclared(token, (String) use[2], (Set<String>) use[3], extendsOf, tokensOf, globals) ) continue;
+        String near = didYouMean(token, globals);
+        test ( false, use[0]+":"+use[1]+" - unknown CSS token '$"+token+"'"+
+          ( use[2] == null ? "" : " in "+use[2] )+"."+
+          ( near == null ? "" : " Did you mean '$"+near+"'?" )+
+          " Tokens are declared in src/foam/u2/CSSTokens.js or in the class' cssTokens:; do not invent names." );
+      }
     } catch ( IOException e ) {
       logger.error(e);
     } finally {
       if ( getFailed() == 0 ) {
-        test(true, "procesed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks");
+        test(true, "procesed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+tokenUses.size()+" token uses");
       }
     }
     `

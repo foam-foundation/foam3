@@ -29,6 +29,18 @@ foam.CLASS({
     'org.json.JSONObject'
   ],
 
+  constants: [
+    {
+      documentation: `A journal smaller than this replays with one apply thread:
+        starting a thread per shard costs more than it saves on a few thousand
+        entries, and most runtime journals are empty or small. A round number,
+        not a measured break-even.`,
+      name: 'SHARD_MIN_BYTES',
+      type: 'long',
+      value: 1048576
+    }
+  ],
+
   properties: [
     {
       class: 'foam.dao.DAOProperty',
@@ -61,15 +73,17 @@ foam.CLASS({
         parse thread, each applying the entries whose id hashes to it, so one
         id is always applied by one thread in journal order.
         Any other target keeps one apply thread, because a decorator on it may
-        have side effects across rows. Extension point for a subclass that
-        wants another shape.`,
-      args: 'Context x, foam.dao.DAO dao',
+        have side effects across rows; that includes a BulkLoadDAO wrapped by
+        NDiffJournal in an NDiffDAO. So does a journal under SHARD_MIN_BYTES.
+        bytes is the file's size, -1 when unknown (a jar resource). Extension
+        point for a subclass that wants another shape.`,
+      args: 'Context x, foam.dao.DAO dao, long bytes',
       type: 'foam.util.concurrent.AssemblyLine',
       javaCode: `
         // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
         if ( dao.getOf().getObjClass() == foam.core.boot.CSpec.class )
           return new foam.util.concurrent.SyncAssemblyLine();
-        if ( dao instanceof foam.dao.BulkLoadDAO ) {
+        if ( dao instanceof foam.dao.BulkLoadDAO && ( bytes < 0 || bytes >= SHARD_MIN_BYTES ) ) {
           int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
           return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, threads));
         }
@@ -127,13 +141,15 @@ foam.CLASS({
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
-        AssemblyLine assemblyLine = createReplayLine(x, dao);
+        // Built once the file is open, so a missing journal starts no threads.
+        AssemblyLine assemblyLine = null;
 
         boolean threw = false;
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {
             return;
           }
+          assemblyLine = createReplayLine(x, dao, jrlFile != null ? totalBytes : -1);
 
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
@@ -164,16 +180,19 @@ foam.CLASS({
               }
 
               class F3Assembly extends AbstractAssembly {
-                FObject obj;
+                FObject  obj;
+                Object[] locks;
 
                 public void executeJob() {
                   obj = getParser(parseX).parseString(strEntry, cls);
+                  if ( obj != null ) locks = new Object[] { obj.getProperty("id") };
                 }
 
                 // Entries for one id must end in journal order; a sharded line
-                // keys its shard on this. Known only once the entry is parsed.
+                // keys its shard on this, asking once per shard, so the id is
+                // read once when the entry is parsed.
                 public Object[] requestLocks() {
-                  return obj == null ? null : new Object[] { obj.getProperty("id") };
+                  return locks;
                 }
 
                 public void endJob(boolean isLast) {
@@ -187,7 +206,7 @@ foam.CLASS({
                                     // across journals are merged instead of silently dropped.
                                     // Real fix: make honorCreate configurable at EasyDAO level.
                     case OP_PUT:
-                      foam.lang.FObject old = dao.find(obj.getProperty("id"));
+                      foam.lang.FObject old = dao.find(locks[0]);
                       dao.put(old != null ? mergeFObject(old.fclone(), obj) : obj);
                       break;
 
@@ -233,7 +252,7 @@ foam.CLASS({
           else
             getLogger().error("Failed to read journal", dao.getOf().getId(), t);
         } finally {
-          assemblyLine.shutdown();
+          if ( assemblyLine != null ) assemblyLine.shutdown();
           pm.log(x);
           setLastReplayVersion(lastVersion);
           if ( threw )

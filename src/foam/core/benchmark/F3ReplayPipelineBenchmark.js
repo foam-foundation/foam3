@@ -121,7 +121,7 @@ foam.CLASS({
       }
 
       @Override
-      public AssemblyLine createReplayLine(X x, DAO dao) {
+      public AssemblyLine createReplayLine(X x, DAO dao, long bytes) {
         if ( line_.startsWith("sharded") ) return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threadsOf(line_), shardsOf(line_)));
         return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threadsOf(line_)));
       }

@@ -18,8 +18,8 @@ foam.CLASS({
 
     sheetGrammar_ (full): parses FOAM css: text into a tree of plain objects
     with offsets. See the node shapes below and the methods parseValue()
-    and parse(); walk(), declarations(), tokens() and errors() read the
-    tree.
+    and parse(); walk(), declarations(), tokens(), hazards() and errors()
+    read the tree.
 
     NODE SHAPES
     Problem: a consumer that underlines a node, or rewrites one, needs the
@@ -34,42 +34,52 @@ foam.CLASS({
                   ends before */), placeholder ('NAME' for the legacy
                   /*%NAME%*/ form, else null), token ('$name' when the
                   comment is what foam.CSS.replaceTokens leaves behind,
-                  /*$name*/, else null)
+                  /*$name*/, else null), tokens (token nodes inside it,
+                  context 'comment')
       value       components (list of the component nodes below, comments
                   included), important (true when !important is present)
       ident       value
       number      value (a JS number: '-1.5e2px' -> -150), unit ('' for a
                   bare number, 'px', '%', ...)
-      string      quote (" or '), value (escapes resolved), closed
+      string      quote (" or '), value (escapes resolved), closed,
+                  tokens (token nodes inside it, context 'string')
       hash        value (text after #), isHexColor (3, 4, 6 or 8 hex
                   digits; '#zz' is still a hash, just not a colour)
       token       name ('primary$hover' for $primary$hover), base
                   ('primary'), variants (['hover']), cls ('foam.u2.Tabs'
-                  for $foam.u2.Tabs.tabColor, else null), inCalc (true
-                  when any enclosing function is calc(); FOAM's token
-                  replacement puts a /*$name*/ comment and the resolved
-                  value into the expression, which is known to break
-                  calc(), so this is a flag to warn on, not a parse error)
+                  for $foam.u2.Tabs.tabColor, else null), inMath (true
+                  when an enclosing function is calc, min, max or clamp:
+                  a token there is resolved before the browser evaluates
+                  the maths, which a consumer may want to warn about; it
+                  is not a parse error, and FOAM's replacement keeps the
+                  rest of the expression intact), context (null for a
+                  token meant as one; 'comment', 'string' or 'url' for a
+                  $name inside one of those, see hazards())
       placeholder name ('NAME' for %NAME%)
       function    name, args (component nodes; ',' and '/' are operator
                   nodes), closed
       url         value (the address), quoted, arg (the string node when
-                  quoted, else null). url(data:a;b) keeps its ';'.
+                  quoted, else null), tokens (context 'url', unquoted
+                  only). url(data:a;b) keeps its ';'; '(' '{' '}' end an
+                  unquoted url.
       paren       components, closed: '( ... )' outside a function, as in
                   @media (min-width: 600px)
       bracket     components, closed: '[ ... ]'
       operator    value, one of , / * + - = : < >
       delim       value, any other single character ('!', '.', '&', ...)
-      important   the '!important' marker, last in value.components
+      important   the '!important' marker. Only the last non-comment
+                  component counts; an earlier one becomes an error node.
       stylesheet  children (rules, at-rules, declarations, comments,
                   errors, in input order)
       rule        selectors (selector nodes, one per comma-separated
                   item), children (declarations, nested rules, at-rules,
                   comments, errors), closed. Keyframe blocks such as
                   'from { }' and '50% { }' are rules too.
-      selector    raw text of one selector, trimmed; carets (offsets of
-                  each FOAM '^', not counting '^=' in [attr^=x]); tokens
-                  (token nodes for $name inside the selector)
+      selector    raw text of one selector, trimmed; parts (comment,
+                  string, caret and token nodes inside it, in order);
+                  carets and tokens (those parts filtered by kind)
+      caret       a FOAM '^'; inAttr is true for the '^' of '^=' in
+                  [attr^=x], which FOAM still rewrites (see hazards())
       atrule      name (lower case, without '@'), prelude, children (null
                   for a statement such as @import ...; ending at ';'),
                   closed
@@ -78,7 +88,12 @@ foam.CLASS({
                   comments between the property name and the ':')
       property    name, as written
       value       for a custom property (--foo): components is null, the
-                  text is kept raw and tokens lists the $name found in it
+                  text is kept raw; parts holds the comments, strings,
+                  tokens and name( ) functions found in it, tokens every
+                  token node at any depth. A ':' outside ( ) or [ ] in a
+                  normal value becomes an error node: it is never valid
+                  there and usually means a missing ';' merged two
+                  declarations.
       error       message; the span of the text that was skipped. Error
                   recovery: a statement that is neither a declaration,
                   a rule nor an at-rule is skipped up to the next ';' or
@@ -86,7 +101,11 @@ foam.CLASS({
                   strings and comments are balanced while skipping), and
                   parsing resumes there. A block still open at end of
                   input gets closed: false and an error spanning its '{'.
-                  A stray '}' at top level is an error of its own.
+                  A run of stray '}' at top level is one error. Nesting
+                  deeper than MAX_DEPTH (64) blocks, parens, brackets and
+                  functions together is skipped flat to the next ';' or
+                  '}' as one error, so deep input cannot overflow the
+                  stack.
       Whitespace is not a node.
 
     NESTING
@@ -359,24 +378,30 @@ foam.CLASS({
   ],
 
   constants: {
-    // Same pattern as foam.CSS.replaceTokens, so a name found here is the
-    // name FOAM would replace. Used where the text is kept raw (selectors,
-    // custom property values) instead of being parsed into components.
-    TOKEN_RE: /\$[\w$-]+(?:\.[\w$-]+)*/y,
+    // Problem: recursive descent uses one JS stack frame chain per nesting
+    // level, so ~700 nested blocks or ~1000 nested parens overflowed the
+    // stack and lost the whole tree. Past this many nested blocks, parens,
+    // brackets and functions (counted together) the rest of the nested text
+    // is skipped flat, up to the next ';' or '}', as one error node.
+    MAX_DEPTH: 64,
+    // Names of the math functions whose tokens get inMath.
+    MATH_FN_RE: /(^|-)(calc|min|max|clamp)$/i,
     HEX_COLOR_RE: /^(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
     // Which fields of each node kind hold child nodes, in input order.
     CHILD_KEYS: {
       stylesheet:  [ 'children' ],
       rule:        [ 'selectors', 'children' ],
-      selector:    [ 'tokens' ],
+      selector:    [ 'parts' ],
       atrule:      [ 'prelude', 'children' ],
       prelude:     [ 'components' ],
       declaration: [ 'property', 'comments', 'value' ],
-      value:       [ 'components', 'tokens' ],
+      value:       [ 'components', 'parts' ],
       function:    [ 'args' ],
       paren:       [ 'components' ],
       bracket:     [ 'components' ],
-      url:         [ 'arg' ]
+      url:         [ 'arg', 'tokens' ],
+      comment:     [ 'tokens' ],
+      string:      [ 'tokens' ]
     }
   },
 
@@ -384,12 +409,11 @@ foam.CLASS({
     function sheetSymbols_() {
       var self = this;
       var P    = this.Parsers.create();
-      var alt = P.alt.bind(P), anyChar = P.anyChar.bind(P), chars = P.chars.bind(P),
-          eof = P.eof.bind(P), literalIC = P.literalIC.bind(P), notChars = P.notChars.bind(P),
+      var alt = P.alt.bind(P), chars = P.chars.bind(P), eof = P.eof.bind(P),
+          literalIC = P.literalIC.bind(P), notChars = P.notChars.bind(P), not = P.not.bind(P),
           opt = P.opt.bind(P), peek = P.peek.bind(P), plus = P.plus.bind(P),
           range = P.range.bind(P), repeat = P.repeat.bind(P), seq = P.seq.bind(P),
-          seq1 = P.seq1.bind(P), substring = P.substring.bind(P), sym = P.sym.bind(P),
-          until = P.until.bind(P);
+          seq1 = P.seq1.bind(P), substring = P.substring.bind(P), sym = P.sym.bind(P);
 
       // node(kind, p, build): run p, then make { kind, start, end, raw }
       // and let build(n, value, str) add fields. build returning false
@@ -407,22 +431,55 @@ foam.CLASS({
       var nodes = this.nodes_.bind(this);
       var WS    = ' \t\n\r\f';
 
+      // deep(first, p, fallback): p is a nesting construct (block, paren,
+      // bracket, function). Below MAX_DEPTH it runs p. At MAX_DEPTH, when
+      // 'first' matches (so p would have started here), it runs the flat,
+      // non-recursive fallback instead. See MAX_DEPTH.
+      var depth = this.depth_ = { n: 0 };
+      function deep(first, p, fallback) {
+        if ( typeof first === 'string' ) first = P.literal(first);
+        return {
+          parse: function(ps, obj) {
+            if ( depth.n >= self.MAX_DEPTH ) {
+              return ps.apply(first, obj) ? ps.apply(fallback, obj) : undefined;
+            }
+            depth.n++;
+            try {
+              return ps.apply(p, obj);
+            } finally {
+              depth.n--;
+            }
+          },
+          toString: function() { return 'deep(' + p.toString() + ')'; }
+        };
+      }
+      function tooDeep(stop) {
+        return node('error', plus(alt(sym('comment'), sym('string'), notChars(stop))), function(n, v, str) {
+          n.message = 'Nested deeper than ' + self.MAX_DEPTH + ' levels: skipped';
+          self.trimEnd_(n, str);
+        });
+      }
+      var tooDeepValue    = tooDeep(';}');
+      var tooDeepSelector = tooDeep('{};');
+
       return {
         // ---- whitespace and comments ---------------------------------
         ws: plus(chars(WS)),
 
         wsc: repeat(alt(sym('ws'), sym('comment'))),
 
-        comment: node('comment', alt(
-            seq('/*', until('*/')),
-            seq('/*', repeat(anyChar()))
-          ), function(n) {
-            n.closed = n.raw.length >= 4 && n.raw.endsWith('*/');
+        // $name inside the comment is parsed as a token (context
+        // 'comment', see hazards()) because FOAM rewrites it there too.
+        comment: node('comment', seq('/*',
+            repeat(alt(sym('token'), notChars('*$'), seq('*', not('/')), '$')),
+            alt('*/', eof())
+          ), function(n, v) {
+            n.closed = v[2] === '*/';
             n.text   = n.raw.substring(2, n.closed ? n.raw.length - 2 : n.raw.length);
             var m    = /^\s*%([A-Za-z0-9_]+)%\s*$/.exec(n.text);
             n.placeholder = m ? m[1] : null;
-            m        = /^\s*(\$[\w$-]+(?:\.[\w$-]+)*)\s*$/.exec(n.text);
-            n.token  = m ? m[1] : null;
+            n.tokens = self.hazardTokens_(nodes(v[1]), 'comment');
+            n.token  = n.tokens.length === 1 && n.text.trim() === n.tokens[0].raw ? n.tokens[0].raw : null;
           }),
 
         // ---- lexical pieces ------------------------------------------
@@ -448,10 +505,20 @@ foam.CLASS({
           seq(sym('wsc'), plus(alt(sym('ws'), sym('comment'), sym('important'), sym('component')))),
           function(n, v, str) {
             var comps = nodes(v);
+            var real  = comps.filter(c => c.kind !== 'comment');
             // A value made only of comments is no value: 'color: /*x*/;'
-            if ( ! comps.some(c => c.kind !== 'comment') ) return false;
-            n.components = comps;
-            n.important  = comps.some(c => c.kind === 'important');
+            if ( ! real.length ) return false;
+            var last = real[real.length - 1];
+            n.components = comps.map(c =>
+              // 'color: red\n margin: 0;' (a missing ';') would otherwise
+              // read as one value 'red margin: 0' with no error. Outside
+              // ( ) and [ ] a ':' is never valid in a value.
+              c.kind === 'operator' && c.value === ':' ?
+                self.errorNode_(str, c.start, c.end, "':' inside a value: is a ';' missing before it?") :
+              c.kind === 'important' && c !== last ?
+                self.errorNode_(str, c.start, c.end, '!important must be the last part of a value') :
+              c);
+            n.important = last.kind === 'important';
             self.trimTo_(n, comps[0].start, comps[comps.length - 1].end, str);
           }),
 
@@ -483,36 +550,46 @@ foam.CLASS({
 
         bracketArgs: repeat(alt(sym('ws'), sym('comment'), sym('component'), node('delim', ')', this.delimValue_))),
 
-        function: node('function',
+        function: deep(seq(sym('identText'), '('), node('function',
           seq(sym('identText'), '(', sym('parenArgs'), alt(')', sym('unclosed'))),
           function(n, v) {
             n.name   = v[0];
             n.args   = nodes(v[2]);
             n.closed = v[3] === ')';
-          }),
+          }), tooDeepValue),
 
         url: node('url',
           seq(literalIC('url('), sym('wsc'), alt(sym('string'), sym('urlRaw')), sym('wsc'), ')'),
           function(n, v) {
             var a    = v[2];
-            n.quoted = typeof a !== 'string';
+            n.quoted = a.kind === 'string';
             n.arg    = n.quoted ? a : null;
-            n.value  = n.quoted ? a.value : a;
+            n.value  = n.quoted ? a.value : a.text;
+            n.tokens = n.quoted ? [] : a.tokens;
           }),
 
-        // Unquoted url() argument. Takes ';' '{' and '}' as plain text so
-        // url(data:image/svg+xml;base64,AAA=) stays one component.
-        urlRaw: substring(plus(notChars(')\'"' + WS))),
+        // Unquoted url() argument: { text, tokens }. ';' is plain text, so
+        // url(data:image/svg+xml;base64,AAA=) stays one component. '(' '{'
+        // and '}' end it (CSS Syntax makes '(' a bad url): otherwise every
+        // unclosed 'url(' in minified CSS scanned to end of input, which was
+        // quadratic ('a{b:url(x}' x 4000 = 40 KB took 2.5 s). $name inside
+        // is a token with context 'url' (see hazards()).
+        urlRaw: self.Span.create({
+          p: plus(alt(sym('token'), notChars(')(\'"{}' + WS))),
+          build: function(v, start, end, str) {
+            return { text: str.substring(start, end), tokens: self.hazardTokens_(nodes(v), 'url') };
+          }
+        }),
 
-        paren: node('paren', seq('(', sym('parenArgs'), alt(')', sym('unclosed'))), function(n, v) {
+        paren: deep('(', node('paren', seq('(', sym('parenArgs'), alt(')', sym('unclosed'))), function(n, v) {
           n.components = nodes(v[1]);
           n.closed     = v[2] === ')';
-        }),
+        }), tooDeepValue),
 
-        bracket: node('bracket', seq('[', sym('bracketArgs'), alt(']', sym('unclosed'))), function(n, v) {
+        bracket: deep('[', node('bracket', seq('[', sym('bracketArgs'), alt(']', sym('unclosed'))), function(n, v) {
           n.components = nodes(v[1]);
           n.closed     = v[2] === ']';
-        }),
+        }), tooDeepValue),
 
         // The exponent needs a digit after the 'e', so '1em' is 1 + 'em'.
         number: node('number', seq(
@@ -563,26 +640,43 @@ foam.CLASS({
 
         // '{' items '}'. Never fails once '{' is seen: end of input closes
         // it with closed: false. Value is { node: [..], start, end }.
-        block: self.Span.create({ p: seq('{',
+        // At MAX_DEPTH the value is an error node instead (see fillBlock_).
+        block: deep('{', self.Span.create({ p: seq('{',
           repeat(alt(sym('ws'), sym('comment'), sym('item'), ';')),
-          alt('}', eof())) }),
+          alt('}', eof())) }), tooDeepValue),
 
-        rule: node('rule', seq(sym('selectorText'), sym('block')), function(n, v, str) {
-          n.selectors = self.selectorNodes_(v[0].start, v[0].end, str);
+        rule: node('rule', seq(plus(sym('selector'), ','), sym('block')), function(n, v, str) {
+          n.selectors = nodes(v[0]);
           self.fillBlock_(n, v[1], str);
         }),
 
-        // Raw selector text up to '{'. ( ) [ ] strings and comments are
-        // skipped as units, so ':is(a, b)' and '[data-x="{"]' stay inside.
-        // Meeting ';' or '}' first means this was not a rule.
-        selectorText: self.Span.create({ p: plus(alt(
-          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};([\'"'))) }),
+        // One selector of a comma list, as raw text. ( ) [ ] strings and
+        // comments are units, so ':is(a, b)' and '[data-x="{"]' stay
+        // inside; FOAM's '^' and $name are nodes (parts). Meeting ';' or
+        // '}' before '{' means this was not a rule.
+        selector: node('selector',
+          plus(alt(sym('comment'), sym('string'), sym('caret'), sym('token'), sym('selParen'), sym('selBracket'),
+            notChars('{};,([\'"^'))),
+          function(n, v, str) {
+            var s = n.start, e = n.end;
+            while ( s < e && WS.indexOf(str[s])     !== -1 ) s++;
+            while ( e > s && WS.indexOf(str[e - 1]) !== -1 ) e--;
+            if ( s === e ) return false;
+            self.trimTo_(n, s, e, str);
+            n.parts  = nodes(v);
+            n.carets = n.parts.filter(c => c.kind === 'caret');
+            n.tokens = n.parts.filter(c => c.kind === 'token');
+          }),
 
-        selParen: seq('(', repeat(alt(
-          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};()[\'"'))), opt(')')),
+        // FOAM expands every '^' (foam.u2.CSS expandCSS), including the one
+        // in [class^=x], which it turns into [class.foam-Cls=x].
+        caret: node('caret', '^', function(n, v, str) { n.inAttr = str[n.end] === '='; }),
 
-        selBracket: seq('[', repeat(alt(
-          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};]([\'"'))), opt(']')),
+        selParen: deep('(', seq('(', repeat(alt(sym('comment'), sym('string'), sym('caret'), sym('token'),
+          sym('selParen'), sym('selBracket'), notChars('{};()[\'"^'))), opt(')')), tooDeepSelector),
+
+        selBracket: deep('[', seq('[', repeat(alt(sym('comment'), sym('string'), sym('caret'), sym('token'),
+          sym('selParen'), sym('selBracket'), notChars('{};]([\'"^'))), opt(']')), tooDeepSelector),
 
         atRule: node('atrule',
           seq('@', substring(plus(sym('identChar'))), sym('prelude'), alt(';', sym('block'), peek('}'), eof())),
@@ -640,9 +734,11 @@ foam.CLASS({
           }),
 
         // '--foo: anything' keeps the text raw (it may be a whole block,
-        // '{ a: b }'); only the $name references inside it are noted.
+        // '{ a: b }'). parts holds only the nodes found in it: comments,
+        // strings, tokens and name( ) functions, so tokens get inMath.
         customValue: node('value',
-          repeat(alt(sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars(';{}(\'"'))),
+          repeat(alt(sym('comment'), sym('string'), sym('token'), sym('rawFunction'), plus(sym('identChar')),
+            sym('skipParen'), sym('skipBrace'), notChars(';{}(\'"'))),
           function(n, v, str) {
             var s = n.start, e = n.end;
             while ( s < e && WS.indexOf(str[s])     !== -1 ) s++;
@@ -650,8 +746,19 @@ foam.CLASS({
             self.trimTo_(n, s, e, str);
             n.components = null;
             n.important  = false;
-            n.tokens     = self.scanTokens_(str, s, e);
+            n.parts      = nodes(v);
+            n.tokens     = [];
+            self.walk({ kind: 'value', components: n.parts }, t => { if ( t.kind === 'token' && ! t.context ) n.tokens.push(t); });
           }),
+
+        rawFunction: deep(seq(sym('identText'), '('), node('function',
+          seq(sym('identText'), '(', repeat(alt(sym('comment'), sym('string'), sym('token'), sym('rawFunction'),
+            plus(sym('identChar')), sym('skipParen'), sym('skipBrace'), notChars(')}{(\'"'))), opt(')')),
+          function(n, v) {
+            n.name   = v[0];
+            n.args   = nodes(v[2]);
+            n.closed = v[3] === ')';
+          }), tooDeepValue),
 
         // ---- error recovery --------------------------------------------
         // Skip one malformed statement: up to (and eating) the next ';', or
@@ -667,13 +774,18 @@ foam.CLASS({
 
         // A '}' at depth 0 ends a paren too, so an unbalanced '(' cannot
         // swallow the end of the enclosing block.
-        skipParen: seq('(', repeat(alt(
-          sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars(')}{(\'"'))), opt(')')),
+        skipParen: deep('(', seq('(', repeat(alt(sym('comment'), sym('string'), sym('token'),
+          sym('skipParen'), sym('skipBrace'), notChars(')}{(\'"'))), opt(')')), tooDeepValue),
 
-        skipBrace: seq('{', repeat(alt(
-          sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars('{}(\'"'))), opt('}')),
+        skipBrace: deep('{', seq('{', repeat(alt(sym('comment'), sym('string'), sym('token'),
+          sym('skipParen'), sym('skipBrace'), notChars('{}(\'"'))), opt('}')), tooDeepValue),
 
-        strayClose: node('error', '}', function(n) { n.message = 'Unexpected }'; }),
+        // A run of stray '}' (e.g. the closers left over after MAX_DEPTH) is
+        // one error, not one per brace.
+        strayClose: node('error', seq('}', repeat(alt(sym('ws'), '}'))), function(n, v, str) {
+          n.message = 'Unexpected }';
+          self.trimEnd_(n, str);
+        }),
 
         // Entry point of parseValue(): a value and nothing after it.
         valueOnly: seq1(0, sym('value'), eof())
@@ -685,15 +797,17 @@ foam.CLASS({
       // unterminated string runs to the end of input and is marked
       // closed: false instead of failing, so one missing quote cannot make
       // the grammar retry every shorter reading of the rest of the input.
+      // $name inside is a token with context 'string' (see hazards()).
       return node('string', P.seq(
           q,
-          P.repeat(P.alt(P.seq('\\', P.opt(P.anyChar())), P.notChars(q + '\\'))),
+          P.repeat(P.alt(P.sym('token'), P.seq('\\', P.opt(P.anyChar())), P.notChars(q + '\\'))),
           P.alt(q, P.eof())
         ), (n, v) => {
           n.quote  = q;
           n.closed = v[2] === q;
           var inner = n.raw.substring(1, n.closed ? n.raw.length - 1 : n.raw.length);
           n.value  = this.unescape_(inner);
+          n.tokens = this.hazardTokens_(this.nodes_(v[1]), 'string');
         });
     },
 
@@ -719,7 +833,16 @@ foam.CLASS({
       var parts  = n.name.substring(dot + 1).split('$');
       n.base     = parts[0];
       n.variants = parts.slice(1);
-      n.inCalc   = false;
+      n.inMath   = false;
+      n.context  = null;
+    },
+
+    function hazardTokens_(list, context) {
+      // Tokens found inside a comment, string or unquoted url(): FOAM's
+      // regex replacement rewrites them anyway (see hazards()).
+      var out = list.filter(t => t.kind === 'token');
+      out.forEach(t => { t.context = context; });
+      return out;
     },
 
     function trimTo_(n, start, end, str) {
@@ -743,6 +866,12 @@ foam.CLASS({
     function fillBlock_(n, block, str) {
       // block is the Span value of the 'block' symbol:
       // { node: [ '{', items, '}' or '' ], start, end }
+      // or, past MAX_DEPTH, the error node that skipped it.
+      if ( block.kind === 'error' ) {
+        n.children = [ block ];
+        n.closed   = false;
+        return;
+      }
       n.children = this.nodes_(block.node[1]);
       n.closed   = block.node[2] === '}';
       if ( ! n.closed ) {
@@ -761,87 +890,6 @@ foam.CLASS({
       this.trimTo_(n, n.start, e, str);
     },
 
-    function skipQuoted_(str, i, end) {
-      // i is at a quote; return the offset just past its closing quote.
-      var q = str[i++];
-      while ( i < end && str[i] !== q ) i += str[i] === '\\' ? 2 : 1;
-      return Math.min(i + 1, end);
-    },
-
-    function skipComment_(str, i, end) {
-      // i is at '/*'; return the offset just past '*/' (or end).
-      var j = str.indexOf('*/', i + 2);
-      return j === -1 || j + 2 > end ? end : j + 2;
-    },
-
-    function scanTokens_(str, start, end) {
-      // $name references in raw text (selectors, custom property values),
-      // skipping strings and comments. Same name rule as the token symbol.
-      // Tracks the names of open '(' so a token in '--gap: calc(2 * $x)'
-      // gets inCalc like one in a parsed value.
-      var out    = [];
-      var re     = this.TOKEN_RE;
-      var parens = [];
-      for ( var i = start ; i < end ; ) {
-        var c = str[i];
-        if ( c === '"' || c === "'" ) { i = this.skipQuoted_(str, i, end); continue; }
-        if ( c === '/' && str[i + 1] === '*' ) { i = this.skipComment_(str, i, end); continue; }
-        if ( c === '(' ) {
-          var f = i;
-          while ( f > start && /[\w-]/.test(str[f - 1]) ) f--;
-          parens.push(str.substring(f, i));
-        }
-        if ( c === ')' ) parens.pop();
-        if ( c === '$' ) {
-          re.lastIndex = i;
-          var m = re.exec(str);
-          if ( m && i + m[0].length <= end ) {
-            var n = { kind: 'token', start: i, end: i + m[0].length, raw: m[0] };
-            this.fillToken_(n);
-            n.inCalc = parens.some(f => /(^|-)calc$/i.test(f));
-            out.push(n);
-            i = n.end;
-            continue;
-          }
-        }
-        i++;
-      }
-      return out;
-    },
-
-    function selectorNodes_(start, end, str) {
-      // Split raw selector text on commas at depth 0 (outside ( ) [ ],
-      // strings and comments) into trimmed selector nodes.
-      var out = [];
-      var self = this;
-      function push(s, e) {
-        while ( s < e && ' \t\n\r\f'.indexOf(str[s])     !== -1 ) s++;
-        while ( e > s && ' \t\n\r\f'.indexOf(str[e - 1]) !== -1 ) e--;
-        var n = { kind: 'selector', start: s, end: e, raw: str.substring(s, e), carets: [] };
-        for ( var i = s ; i < e ; ) {
-          var c = str[i];
-          if ( c === '"' || c === "'" ) { i = self.skipQuoted_(str, i, e); continue; }
-          if ( c === '/' && str[i + 1] === '*' ) { i = self.skipComment_(str, i, e); continue; }
-          if ( c === '^' && str[i + 1] !== '=' ) n.carets.push(i);
-          i++;
-        }
-        n.tokens = self.scanTokens_(str, s, e);
-        out.push(n);
-      }
-      var depth = 0, from = start;
-      for ( var i = start ; i < end ; ) {
-        var c = str[i];
-        if ( c === '"' || c === "'" ) { i = this.skipQuoted_(str, i, end); continue; }
-        if ( c === '/' && str[i + 1] === '*' ) { i = this.skipComment_(str, i, end); continue; }
-        if ( c === '(' || c === '[' ) depth++;
-        else if ( ( c === ')' || c === ']' ) && depth > 0 ) depth--;
-        else if ( c === ',' && depth === 0 ) { push(from, i); from = i + 1; }
-        i++;
-      }
-      push(from, end);
-      return out;
-    },
-
     function parse(str) {
       /* Parse a whole stylesheet (or an inline declaration list) into a
          'stylesheet' node. Never throws: malformed input yields 'error'
@@ -849,10 +897,13 @@ foam.CLASS({
          error node that spans the whole input. */
       if ( typeof str !== 'string' ) str = str == null ? '' : String(str);
       var tree;
+      var g = this.sheetGrammar_;
+      this.depth_.n = 0;
       try {
-        tree = this.sheetGrammar_.parseString(str);
+        tree = g.parseString(str);
       } catch (x) {
-        console.error('CSSParser.parse', x);
+        // Not expected since MAX_DEPTH bounds the recursion; kept so the
+        // promise 'never throws' holds.
         tree = null;
       }
       if ( ! tree ) {
@@ -864,7 +915,7 @@ foam.CLASS({
         tree.children.push(this.errorNode_(str, tree.end, str.length, 'Unparsed input'));
         this.trimTo_(tree, 0, str.length, str);
       }
-      this.markCalc_(tree);
+      this.markMath_(tree);
       return tree;
     },
 
@@ -872,23 +923,21 @@ foam.CLASS({
       /* Parse one declaration value ('1px solid $border') into a value node,
          or return null when str is not a single value. Offsets are into str. */
       if ( typeof str !== 'string' ) return null;
+      var g = this.sheetGrammar_;
+      this.depth_.n = 0;
       try {
-        var v = this.sheetGrammar_.parseString(str, 'valueOnly') || null;
-        if ( v ) this.markCalc_(v);
+        var v = g.parseString(str, 'valueOnly') || null;
+        if ( v ) this.markMath_(v);
         return v;
       } catch (x) {
-        console.error('CSSParser.parseValue', x);
         return null;
       }
     },
 
-    function markCalc_(tree) {
+    function markMath_(tree) {
+      var re = this.MATH_FN_RE;
       this.walk(tree, function(n, ancestors) {
-        // Tokens from raw text (selectors, custom values) got inCalc from
-        // scanTokens_; only parsed tokens have function ancestors.
-        if ( n.kind === 'token' && ! n.inCalc ) {
-          n.inCalc = ancestors.some(a => a.kind === 'function' && /(^|-)calc$/i.test(a.name));
-        }
+        if ( n.kind === 'token' ) n.inMath = ancestors.some(a => a.kind === 'function' && re.test(a.name));
       });
     },
 
@@ -937,23 +986,45 @@ foam.CLASS({
     },
 
     function tokens(tree) {
-      /* Every $token reference as its token node ({ name, base, variants,
-         cls, inCalc, start, end, raw }), from values, selectors and custom
-         property values. Tokens inside quoted strings, comments or an
-         unquoted url() are not listed. */
+      /* Every $token reference meant as one, as its token node ({ name,
+         base, variants, cls, inMath, start, end, raw }), from values,
+         selectors and custom property values. Occurrences inside a
+         comment, string or unquoted url() are left to hazards(). */
       var out = [];
-      this.walk(tree, function(n) { if ( n.kind === 'token' ) out.push(n); });
+      this.walk(tree, function(n) { if ( n.kind === 'token' && ! n.context ) out.push(n); });
+      return out;
+    },
+
+    function hazards(tree) {
+      // Text FOAM rewrites before the CSS reaches the browser, where the
+      // rewrite breaks it:
+      // - token nodes with context 'comment', 'string' or 'url'. FOAM's
+      //   replaceTokens puts a comment plus the value in place of every
+      //   $name, so a comment 'use $primary' gains an inner comment close
+      //   and ends early, leaking the rest as CSS; a string or url($x)
+      //   gets a comment and a value pasted inside it.
+      // - caret nodes with inAttr. FOAM's expandCSS rewrites the '^' of
+      //   [class^=x] into [class.foam-Cls=x].
+      var out = [];
+      this.walk(tree, function(n) {
+        if ( ( n.kind === 'token' && n.context ) || ( n.kind === 'caret' && n.inAttr ) ) out.push(n);
+      });
       return out;
     },
 
     function errors(tree) {
       /* The 'error' nodes, plus string, comment, function, paren and
-         bracket nodes left open at end of input (closed: false). An open
-         rule or at-rule block already has an 'error' node of its own. */
+         bracket nodes left open at end of input (closed: false); only the
+         outermost of nested open nodes is listed, so '(((' is one error.
+         An open rule or at-rule block already has an 'error' node. */
       var out = [];
       this.walk(tree, function(n) {
-        if ( n.kind === 'error' ) out.push(n);
-        else if ( n.closed === false && n.kind !== 'rule' && n.kind !== 'atrule' ) out.push(n);
+        if ( n.kind === 'error' ) {
+          out.push(n);
+        } else if ( n.closed === false && n.kind !== 'rule' && n.kind !== 'atrule' ) {
+          out.push(n);
+          return false;
+        }
       });
       return out;
     },

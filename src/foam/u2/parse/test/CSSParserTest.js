@@ -53,6 +53,10 @@ foam.CLASS({
       this.testErrorsHelper(x);
       this.testAutocompleteCompat(x);
       this.testPluggableTokenNames(x);
+      this.testMissingSemicolon(x);
+      this.testImportantPosition(x);
+      this.testHazards(x);
+      this.testDeepAndLargeInput(x);
     },
 
     function errorsIn(tree) {
@@ -296,8 +300,10 @@ foam.CLASS({
              r0.selectors[0].carets.length === 1, '^ alone: one selector "^" with one caret');
       x.test(r1 && r1.selectors.map(s => s.raw).join('|') === '^title|.x ^y:not(.a, .b)|[class^=z] $sel',
         'selector list splits on top-level commas only, got ' + (r1 && r1.selectors.map(s => s.raw).join('|')));
-      x.test(r1 && r1.selectors[0].carets[0] === input.indexOf('^title'), '^title: caret offset recorded');
-      x.test(r1 && r1.selectors[2].carets.length === 0, '[class^=z]: ^= is not a FOAM caret');
+      x.test(r1 && r1.selectors[0].carets[0].start === input.indexOf('^title') && ! r1.selectors[0].carets[0].inAttr,
+        '^title: caret node at its offset');
+      x.test(r1 && r1.selectors[2].carets.length === 1 && r1.selectors[2].carets[0].inAttr,
+        '[class^=z]: the ^ of ^= is a caret with inAttr (FOAM still rewrites it)');
       x.test(r1 && r1.selectors[2].tokens.length === 1 && r1.selectors[2].tokens[0].name === 'sel',
         '$sel inside a selector is noted as a token');
       this.spansMatch(x, input, t, 'selectors');
@@ -575,15 +581,17 @@ foam.CLASS({
       var p = this.CSSParser.create();
       var input = '^$sel { width: calc(100% - 2 * $space-4); color: $primary$hover; margin: min(calc($a + 1px), $b); --g: calc(1px + $c) $d; content: "$notToken" }';
       var tk = p.tokens(p.parse(input));
-      var summary = tk.map(t => t.name + (t.inCalc ? '*' : '')).join(' ');
-      x.test(summary === 'sel space-4* primary$hover a* b c* d',
-        'tokens: names in order, * = inside calc(): got "' + summary + '"');
+      var summary = tk.map(t => t.name + (t.inMath ? '*' : '')).join(' ');
+      x.test(summary === 'sel space-4* primary$hover a* b* c* d',
+        'tokens: names in order, * = inside calc/min/max/clamp: got "' + summary + '"');
       x.test(tk.every(t => input.slice(t.start, t.end) === '$' + t.name), 'tokens: every span slices to $name');
       var hover = tk[2];
       x.test(hover.base === 'primary' && hover.variants[0] === 'hover', 'tokens: $primary$hover base and variant');
 
       var v = p.parseValue('calc(100% - 2 * $space-4)');
-      x.test(p.tokens(v)[0].inCalc === true, 'tokens: parseValue marks calc() tokens too');
+      x.test(p.tokens(v)[0].inMath === true, 'tokens: parseValue marks calc() tokens too');
+      v = p.parseValue('clamp(1px, $a, max(2px, $b)) $c');
+      x.test(p.tokens(v).map(t => t.inMath).join() === 'true,true,false', 'tokens: clamp() and max() count as math, a bare token does not');
     },
 
     function testErrorsHelper(x) {
@@ -593,6 +601,102 @@ foam.CLASS({
       x.test(e.map(n => n.kind).join() === 'error,error,string',
         'errors: malformed declaration, unclosed block and unterminated string, got ' + e.map(n => n.kind).join());
       x.test(p.errors(p.parse('^ { a: b }')).length === 0, 'errors: clean input has none');
+    },
+
+    // ---- review round 1 ---------------------------------------------------
+
+    function testMissingSemicolon(x) {
+      var p = this.CSSParser.create();
+      var input = '^ {\n  color: red\n  margin: 0;\n}';
+      var t = p.parse(input);
+      var e = p.errors(t);
+      var d = t.children[0].children;
+      x.test(d.length === 1 && d[0].kind === 'declaration' && e.length === 1 && e[0].raw === ':' &&
+             e[0].message.indexOf("';' missing") !== -1,
+        'missing ;: the merged declaration reports one error on the stray :, got ' + e.map(n => JSON.stringify(n.raw)).join());
+      this.spansMatch(x, input, t, 'missing ;');
+
+      input = '@media (min-width: 600px) and (a: b) { ^ { background: f(x: y) [a:b]; } }';
+      t = p.parse(input);
+      x.test(p.errors(t).length === 0, 'missing ;: a : inside @media ( ), a function or [ ] is not an error');
+    },
+
+    function testImportantPosition(x) {
+      var p = this.CSSParser.create();
+      var v = p.parseValue('red !important blue');
+      var e = p.errors(v);
+      x.test(v && v.important === false && e.length === 1 && e[0].raw === '!important',
+        '!important followed by more value: an error node and important false');
+      v = p.parseValue('c !important!important');
+      e = p.errors(v);
+      x.test(v && v.important === true && e.length === 1 && e[0].start === 2,
+        'doubled !important: the first is an error, the last still counts');
+      v = p.parseValue('c !important /* note */');
+      x.test(v && v.important === true && p.errors(v).length === 0, '!important followed only by a comment is still last');
+    },
+
+    function testHazards(x) {
+      var p = this.CSSParser.create();
+      var input = 'a{b:$x;} ^$y{c:"$z"} /*$w*/ d{e:url($u)} [class^=q]{f:g} h{--v: "$s"}';
+      var t = p.parse(input);
+      x.test(p.tokens(t).map(n => n.name).join() === 'x,y', 'hazards: tokens() keeps only the meaningful x and y');
+      var h = p.hazards(t).map(n => n.kind === 'token' ? n.name + ':' + n.context : 'caret:' + n.inAttr).join(' ');
+      x.test(h === 'z:string w:comment u:url caret:true s:string',
+        'hazards: string, comment, url tokens and the ^= caret, got "' + h + '"');
+      x.test(p.hazards(t).every(n => input.slice(n.start, n.end) === n.raw), 'hazards: every hazard span slices back');
+      x.test(p.errors(t).length === 0, 'hazards: none of them is a parse error');
+      var c = t.children[2];
+      x.test(c.kind === 'comment' && c.token === '$w' && c.tokens[0].context === 'comment',
+        'hazards: /*$w*/ keeps its token field and lists the token');
+      this.spansMatch(x, input, t, 'hazards');
+    },
+
+    function testDeepAndLargeInput(x) {
+      var p = this.CSSParser.create();
+      function timed(s) {
+        var t0 = performance.now();
+        var t  = p.parse(s);
+        return { t: t, ms: performance.now() - t0 };
+      }
+
+      // Unclosed url( in minified CSS used to rescan to end of input for
+      // each one: quadratic, 2.5 s at 40 KB.
+      var input = 'a{b:url(x}'.repeat(4000);
+      var r = timed(input);
+      x.test(r.ms < 500 && r.t.end === input.length && r.t.children.length === 4000,
+        'unclosed url(: 40 KB of a{b:url(x} parses to 4000 rules in ' + r.ms.toFixed(0) + ' ms (< 500 ms)');
+
+      input = 'url('.repeat(2000);
+      r = timed(input);
+      x.test(r.ms < 500 && r.t.end === input.length && ! p.errors(r.t).some(e => e.message === 'Internal parser failure'),
+        'url( x 2000: parsed without losing the tree, ' + r.ms.toFixed(0) + ' ms');
+      this.spansMatch(x, input, r.t, 'url( x 2000');
+
+      input = 'a{'.repeat(2000);
+      r = timed(input);
+      var deepErr = p.errors(r.t).filter(e => e.message.indexOf('Nested deeper') === 0);
+      x.test(r.ms < 500 && deepErr.length === 1 && ! p.errors(r.t).some(e => e.message === 'Internal parser failure'),
+        '2000 nested blocks: one "nested deeper" error, no internal failure, ' + r.ms.toFixed(0) + ' ms');
+
+      input = 'a{'.repeat(200) + 'b:c' + '}'.repeat(200);
+      r = timed(input);
+      var stray = p.errors(r.t).filter(e => e.message === 'Unexpected }');
+      x.test(r.t.end === input.length && stray.length === 1, '200 balanced nested blocks: the leftover closers are one error');
+      this.spansMatch(x, input, r.t, '200 nested blocks');
+
+      input = 'a{b:' + '('.repeat(200) + '}';
+      r = timed(input);
+      x.test(p.errors(r.t).length === 1 && p.errors(r.t)[0].kind === 'paren',
+        '200 unclosed parens: errors() lists only the outermost, got ' + p.errors(r.t).length);
+
+      input = 'a{b:' + '('.repeat(5000) + ')'.repeat(5000) + '}';
+      r = timed(input);
+      x.test(r.ms < 500 && r.t.end === input.length && ! p.errors(r.t).some(e => e.message === 'Internal parser failure'),
+        '5000 nested parens: no stack overflow, ' + r.ms.toFixed(0) + ' ms');
+
+      input = '[('.repeat(5000);
+      r = timed(input);
+      x.test(r.ms < 500 && r.t.end === input.length, '[( x 5000: parsed in ' + r.ms.toFixed(0) + ' ms');
     },
 
     // ---- autocomplete compatibility ---------------------------------------

@@ -125,6 +125,62 @@ foam.CLASS({
         PartitionIndexDAO migrated = newDAO(tx, "pidxm" + System.nanoTime() + "/");
         migrated.migrateFrom(tx, legacy);
         test(count(migrated, EQ(PartitionStrRecord.DATA, "m1")) == 2, "migrated rows are reachable through the index, got " + count(migrated, EQ(PartitionStrRecord.DATA, "m1")));
+
+        testPruneRacingAPut(x);
+      `
+    },
+    {
+      name: 'testPruneRacingAPut',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      documentation: `A remove prunes its value's entry once it counts the leaf
+        empty, while a put of the same value goes into the same leaf. Both
+        orders are forced through hooks on the partitioned DAO:
+        - the put starts inside the remove's count, on another thread given one
+          second before the remove goes on;
+        - the whole remove runs after the put checked the entry and before its
+          row is written.
+        Either way the new row must still be found through the index.`,
+      javaCode: `
+        X      tx      = newStorageContext(x);
+        String dirName = "pidxr" + System.nanoTime() + "/";
+        java.util.concurrent.atomic.AtomicReference<Runnable> afterCount = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<Runnable> beforePut  = new java.util.concurrent.atomic.AtomicReference<>();
+
+        RegionDatePartitionedDAO inner = new RegionDatePartitionedDAO(
+          tx, PartitionStrRecord.getOwnClassInfo(), dirName, PartitionStrRecord.REGION, PartitionStrRecord.DATE) {
+          public foam.dao.Sink select_(X sx, foam.dao.Sink sink, long skip, long limit, foam.mlang.order.Comparator order, foam.mlang.predicate.Predicate predicate) {
+            foam.dao.Sink ret  = super.select_(sx, sink, skip, limit, order, predicate);
+            Runnable      hook = sink instanceof Count ? afterCount.getAndSet(null) : null;
+            if ( hook != null ) hook.run();
+            return ret;
+          }
+          public foam.lang.FObject put_(X px, foam.lang.FObject obj) {
+            Runnable hook = beforePut.getAndSet(null);
+            if ( hook != null ) hook.run();
+            return super.put_(px, obj);
+          }
+        };
+        PartitionIndexDAO dao = new PartitionIndexDAO(tx, inner).index(PartitionStrRecord.DATA, 1);
+
+        foam.lang.FObject first  = dao.put(row(1, 2026, 0, 15, 5, "r1"));
+        Thread            putter = new Thread(() -> dao.put(row(1, 2026, 0, 16, 5, "r1")));
+        afterCount.set(() -> {
+          putter.start();
+          try { putter.join(1000); } catch ( InterruptedException e ) { Thread.currentThread().interrupt(); }
+        });
+        dao.remove(first);
+        putter.join();
+
+        long found = count(dao, EQ(PartitionStrRecord.DATA, "r1"));
+        test(found == 1, "a put that starts during the prune's count is still found through the index, got " + found);
+
+        foam.lang.FObject older = dao.put(row(1, 2026, 0, 15, 5, "r2"));
+        beforePut.set(() -> dao.remove(older));
+        dao.put(row(1, 2026, 0, 16, 5, "r2"));
+
+        found = count(dao, EQ(PartitionStrRecord.DATA, "r2"));
+        test(found == 1, "a put whose row lands after a whole prune is still found through the index, got " + found);
       `
     },
     {

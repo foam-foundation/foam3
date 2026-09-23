@@ -15,7 +15,7 @@ import foam.lang.X;
 import foam.mlang.Expr;
 
 /**
- * Test fixture mirroring com.paytic.dao.partition.PADDAO: level 1 partitions
+ * Test fixture for a two-level partitioned DAO: level 1 partitions
  * by {@code regionProperty}, each region's delegate is a DatePartitionedDAO
  * (depth + 1) by month over {@code dateProperty}, whose delegates are the leaf
  * journals.

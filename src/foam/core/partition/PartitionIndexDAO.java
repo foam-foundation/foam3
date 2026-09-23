@@ -114,16 +114,31 @@ public class PartitionIndexDAO
   }
 
   public FObject put_(X x, FObject obj) {
-    if ( ! specs_.isEmpty() ) {
-      PartitionedDAO pdao = getPartitioned();
-      String         leaf = pdao.leafPath(obj);
-      FObject        key  = null;
+    if ( specs_.isEmpty() ) return getDelegate().put_(x, obj);
 
-      for ( Spec spec : specs_.values() ) {
-        if ( ! spec.prop.isSet(obj) || spec.prop.get(obj) == null ) continue;
+    // Written before the row, so a crash between the two leaves a spare
+    // entry, never a missing one; and checked again after it, because a
+    // prune that counted the leaf before this row landed may have removed it.
+    addEntries(x, obj);
+    FObject ret = getDelegate().put_(x, obj);
+    addEntries(x, ret);
+    return ret;
+  }
 
-        String value = String.valueOf(spec.prop.get(obj));
-        String id    = entryId(spec, value, leaf);
+  /** Write the (value, leaf) entry for each indexed value obj carries, unless
+      it exists. Locked on the entry id, as prune is, so the check and the
+      write cannot straddle a prune's count and remove. */
+  protected void addEntries(X x, FObject obj) {
+    PartitionedDAO pdao = getPartitioned();
+    String         leaf = pdao.leafPath(obj);
+    FObject        key  = null;
+
+    for ( Spec spec : specs_.values() ) {
+      if ( ! spec.prop.isSet(obj) || spec.prop.get(obj) == null ) continue;
+
+      String value = String.valueOf(spec.prop.get(obj));
+      String id    = entryId(spec, value, leaf);
+      synchronized ( id.intern() ) {
         if ( spec.index.find_(x, id) != null ) continue;
 
         if ( key == null ) key = pdao.partitionKey(obj);
@@ -135,8 +150,6 @@ public class PartitionIndexDAO
         spec.index.put_(x, entry);
       }
     }
-
-    return getDelegate().put_(x, obj);
   }
 
   public FObject remove_(X x, FObject obj) {
@@ -156,13 +169,16 @@ public class PartitionIndexDAO
     for ( Spec spec : specs_.values() ) {
       if ( ! spec.prop.isSet(removed) || spec.prop.get(removed) == null ) continue;
 
-      Object              value = spec.prop.get(removed);
-      PartitionIndexEntry entry = (PartitionIndexEntry) spec.index.find_(x, entryId(spec, String.valueOf(value), leaf));
-      if ( entry == null ) continue;
+      Object value = spec.prop.get(removed);
+      String id    = entryId(spec, String.valueOf(value), leaf);
+      synchronized ( id.intern() ) {
+        PartitionIndexEntry entry = (PartitionIndexEntry) spec.index.find_(x, id);
+        if ( entry == null ) continue;
 
-      Count count = (Count) getDelegate().select_(x, new Count(), 0, MAX_SAFE_INTEGER, null,
-        AND(pdao.partitionPredicate(entry.getKey()), EQ(spec.prop, value)));
-      if ( count.getValue() == 0 ) spec.index.remove_(x, entry);
+        Count count = (Count) getDelegate().select_(x, new Count(), 0, MAX_SAFE_INTEGER, null,
+          AND(pdao.partitionPredicate(entry.getKey()), EQ(spec.prop, value)));
+        if ( count.getValue() == 0 ) spec.index.remove_(x, entry);
+      }
     }
   }
 

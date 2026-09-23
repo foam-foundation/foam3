@@ -47,7 +47,6 @@ foam.CLASS({
     }
     div.foam-core-reflow-Console-CONSOLE ^.block:hover:not(:has(.block:hover)) {
       background: $backgroundSecondary; }
-    }
     ^ .foam-u2-ReadWriteView { padding-right: 8px; }
     ^content {
       overflow-x: auto;

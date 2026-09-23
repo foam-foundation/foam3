@@ -116,7 +116,7 @@ foam.CLASS({
   css: `
     ^ {
       width: 100%;
-      display; flex;
+      display: flex;
       flex-direction: column;
       gap: 0.4rem;
     }

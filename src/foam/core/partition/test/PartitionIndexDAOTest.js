@@ -52,6 +52,10 @@ foam.CLASS({
         for ( int i = 0 ; i < 2 ; i++ ) dao.put(row(1, 2026, 1, 15, 6, "f1"));
         for ( int i = 0 ; i < 2 ; i++ ) dao.put(row(2, 2026, 0, 15, 5, "f2"));
 
+        // getPartitions() lists every directory under dirName, so the index must live elsewhere.
+        String parts = java.util.Arrays.toString(dao.getPartitioned().getPartitions());
+        test(parts.equals("[1, 2]"), "the index directory is not listed as a partition, got " + parts);
+
         // The index is itself partitioned by bucket, so its rows are counted through that key.
         DAO dataIndex   = dao.getIndex(PartitionStrRecord.DATA).where(EQ(PartitionIndexEntry.BUCKET, 0));
         DAO bucketIndex = dao.getIndex(PartitionStrRecord.BUCKET).where(IN(PartitionIndexEntry.BUCKET, new Object[] { 0, 1, 2, 3 }));

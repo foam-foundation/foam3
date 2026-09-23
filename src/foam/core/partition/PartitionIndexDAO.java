@@ -26,7 +26,8 @@ import static foam.mlang.MLang.EQ;
  *
  * Per indexed property the decorator keeps one PartitionIndexEntry for each
  * distinct (value, leaf partition) pair, in its own PartitionedDAO of small
- * journals under "<dirName>index/<property>/", bucketed by a hash of the value.
+ * journals under "index-<dirName>/<property>/" beside the partitioned DAO's
+ * directory, bucketed by a hash of the value.
  * A select or removeAll whose predicate carries EQ or IN on an indexed property,
  * alone or inside AND, is rewritten: for every leaf holding the value, the
  * leaf's own partition-key terms (PartitionedDAO.partitionPredicate) are ANDed
@@ -70,11 +71,22 @@ public class PartitionIndexDAO
     spec.prop    = prop;
     spec.buckets = Math.max(1, buckets);
     spec.index   = new PartitionedDAO(getX(), PartitionIndexEntry.getOwnClassInfo(),
-      getPartitioned().getDirName() + "index/" + prop.getName() + "/", PartitionIndexEntry.BUCKET);
+      indexDirName(prop), PartitionIndexEntry.BUCKET);
     spec.index.cmd_(getX(), indexCommand(PartitionIndexEntry.VALUE));
     getDelegate().cmd_(getX(), indexCommand(prop));
     specs_.put(prop.getName(), spec);
     return this;
+  }
+
+  /** Where `prop`'s index journals live: beside the partitioned DAO's
+      directory, neither inside it nor under its prefix, because
+      PartitionedDAO.getPartitions() reads every directory there as a
+      partition. "tx/" and a flat "tx" both give "index-tx/<prop>/". */
+  protected String indexDirName(PropertyInfo prop) {
+    String dir   = getPartitioned().getDirName();
+    String base  = dir.endsWith("/") ? dir.substring(0, dir.length() - 1) : dir;
+    int    slash = base.lastIndexOf('/');
+    return base.substring(0, slash + 1) + "index-" + base.substring(slash + 1) + "/" + prop.getName() + "/";
   }
 
   /** The index DAO kept for `prop`; null when it is not indexed. */

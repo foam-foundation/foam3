@@ -58,6 +58,8 @@ foam.CLASS({
       this.testHazards(x);
       this.testDeepAndLargeInput(x);
       this.testAtRuleClosedByBrace(x);
+      this.testDeepSkipBalances(x);
+      this.testCaretHazards(x);
     },
 
     function errorsIn(tree) {
@@ -681,14 +683,15 @@ foam.CLASS({
 
       input = 'a{'.repeat(200) + 'b:c' + '}'.repeat(200);
       r = timed(input);
-      var stray = p.errors(r.t).filter(e => e.message === 'Unexpected }');
-      x.test(r.t.end === input.length && stray.length === 1, '200 balanced nested blocks: the leftover closers are one error');
+      x.test(r.t.end === input.length && this.kinds(p.errors(r.t)) === 'error' &&
+             p.errors(r.t)[0].message.indexOf('Nested deeper') === 0,
+        '200 balanced nested blocks: the skip balances the closers, one depth error, got ' + this.kinds(p.errors(r.t)));
       this.spansMatch(x, input, r.t, '200 nested blocks');
 
       input = 'a{b:' + '('.repeat(200) + '}';
       r = timed(input);
-      x.test(p.errors(r.t).length === 1 && p.errors(r.t)[0].kind === 'paren',
-        '200 unclosed parens: errors() lists only the outermost, got ' + p.errors(r.t).length);
+      x.test(this.kinds(p.errors(r.t)) === 'paren error',
+        '200 unclosed parens: errors() lists the outermost open paren and the depth error inside it, got ' + this.kinds(p.errors(r.t)));
 
       input = 'a{b:' + '('.repeat(5000) + ')'.repeat(5000) + '}';
       r = timed(input);
@@ -718,6 +721,39 @@ foam.CLASS({
              p.errors(t).length === 0,
         'at-rule closed by }: the next rule still parses');
       this.spansMatch(x, input, t, 'at-rule closed by } 2');
+    },
+
+    // ---- review round 3 ---------------------------------------------------
+
+    function testDeepSkipBalances(x) {
+      var p = this.CSSParser.create();
+      var input = 'a{'.repeat(70) + '}'.repeat(70) + ' z{q:r}';
+      var t = p.parse(input);
+      var last = t.children[t.children.length - 1];
+      x.test(this.kinds(p.errors(t)) === 'error' && p.errors(t)[0].message.indexOf('Nested deeper') === 0,
+        'depth skip: 70 nested blocks give one depth error and no stray }, got ' + this.kinds(p.errors(t)));
+      x.test(this.kinds(t.children) === 'rule rule' && last.selectors[0].raw === 'z' && last.children[0].property.name === 'q',
+        'depth skip: the rule after the nested blocks parses at top level');
+      this.spansMatch(x, input, t, 'depth skip blocks');
+
+      input = 'a{b:' + 'f('.repeat(100) + ')'.repeat(100) + '}';
+      t = p.parse(input);
+      x.test(this.kinds(p.errors(t)) === 'error' && p.errors(t)[0].message.indexOf('Nested deeper') === 0,
+        'depth skip: 100 balanced f( report the depth error, not an unclosed function, got ' + this.kinds(p.errors(t)));
+      this.spansMatch(x, input, t, 'depth skip functions');
+    },
+
+    function testCaretHazards(x) {
+      var p = this.CSSParser.create();
+      var input = 'a{content:"^x"} /* ^y */ /*^\n*/ b{c:"^"}';
+      var t = p.parse(input);
+      var h = p.hazards(t).map(n => n.kind + ':' + n.context).join(' ');
+      x.test(h === 'caret:string caret:comment caret:string',
+        'caret hazards: a ^ in a string or comment is a hazard, one before a line break is not, got "' + h + '"');
+      x.test(t.children[0].children[0].value.components[0].carets.length === 1 && t.children[1].carets[0].start === input.indexOf('^y'),
+        'caret hazards: the string and comment list their carets');
+      x.test(p.errors(t).length === 0, 'caret hazards: none of them is a parse error');
+      this.spansMatch(x, input, t, 'caret hazards');
     },
 
     // ---- autocomplete compatibility ---------------------------------------

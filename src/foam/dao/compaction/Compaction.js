@@ -54,9 +54,15 @@ Used in conjuction with a custom compaction sink, the compaction process can fac
 
         Costs disk only. Replay skips a superseded generation by name, so a
         retained one is never opened, decompressed or replayed, and startup
-        time is unaffected. Retained generations can also be gzipped in place.`,
+        time is unaffected. Retained generations can also be gzipped in place.
+
+        Defaults to true while compaction is being proven in production: if a
+        snapshot turns out to be wrong, the generations it was built from are
+        still on disk and the data is recoverable. Flip to false once there is
+        confidence, and compaction reclaims the disk again.`,
       name: 'keepSupersededGenerations',
-      class: 'Boolean'
+      class: 'Boolean',
+      value: true
     },
     {
       documentation: 'Name for JDAO creation during loading. Default is best gues. Required when nspec has JDAO setup outside of EasyDAO.',

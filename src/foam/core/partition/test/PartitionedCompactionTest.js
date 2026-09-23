@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.compaction.CompactionCmd',
+    'foam.dao.compaction.Compaction',
     'foam.lang.X',
     'java.io.File',
     'java.util.Arrays',
@@ -65,6 +66,10 @@ foam.CLASS({
 
         CompactionCmd cmd = new CompactionCmd();
         cmd.setServiceName("partitionedCompactionTestDAO");
+        // Opt out of the retention default so the cleanup path stays covered.
+        Compaction reclaim = new Compaction();
+        reclaim.setKeepSupersededGenerations(false);
+        cmd.setCompaction(reclaim);
         dao.cmd_(px, cmd);
         // Dispatch is synchronous even though the work is not, so by now the
         // pending count is final and there is nothing to race with.

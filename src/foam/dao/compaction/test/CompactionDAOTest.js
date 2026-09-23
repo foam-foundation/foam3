@@ -77,6 +77,11 @@ foam.CLASS({
       // DAOCompaction script does. The JDAO underneath is what handles it.
       CompactionCmd cmd = new CompactionCmd();
       cmd.setServiceName(serviceName);
+      // Opt out of the retention default so the cleanup path stays covered.
+      Compaction reclaim = new Compaction();
+      reclaim.setCSpec(serviceName);
+      reclaim.setKeepSupersededGenerations(false);
+      cmd.setCompaction(reclaim);
       try {
         proxyDAO.cmd_(x, cmd);
         // The command dispatches and returns; a test wants the outcome.
@@ -228,9 +233,10 @@ foam.CLASS({
       `
     },
     {
-      documentation: `keepSupersededGenerations retains the frozen generation
-        for auditing. The point of the flag is that it costs disk only, so the
-        test also proves replay still ignores what it kept.`,
+      documentation: `Superseded generations are retained by default, so a bad
+        snapshot never destroys the data it was built from. The point of the
+        flag is that it costs disk only, so this also proves replay ignores
+        what it kept.`,
       name: 'testKeepSuperseded',
       args: 'X x',
       javaCode: `
@@ -250,7 +256,7 @@ foam.CLASS({
 
       Compaction conf = new Compaction();
       conf.setCSpec(serviceName);
-      conf.setKeepSupersededGenerations(true);
+      // Not set: retention is the default while compaction is being proven.
 
       CompactionCmd cmd = new CompactionCmd();
       cmd.setServiceName(serviceName);

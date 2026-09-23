@@ -104,7 +104,7 @@ This optimization is automatic when a `.0` file exists. It works with both files
 |---------|---------|---------|
 | `compactible` | `true` | All DAOs are compacted by default |
 | `discardLifecycleDeleted` | `true` | Objects marked DELETED are not written to the new journal |
-| `keepSupersededGenerations` | `false` | Keep the generations a snapshot supersedes, for auditing |
+| `keepSupersededGenerations` | `true` | Keep the generations a snapshot supersedes. True while compaction is being proven |
 
 If no `Compaction` record exists for a DAO, default settings are used: the DAO is compacted with lifecycle-deleted objects discarded.
 
@@ -165,7 +165,7 @@ p({
 | `cSpec` | Reference | (required) | CSpec ID of the DAO to configure |
 | `compactible` | Boolean | `true` | If true, objects are compacted to new journal. If false, entries are discarded |
 | `discardLifecycleDeleted` | Boolean | `true` | Discard objects with lifecycleState=DELETED |
-| `keepSupersededGenerations` | Boolean | `false` | Keep superseded generations instead of deleting them. Costs disk only -- replay skips them by name, so startup time is unaffected and they can be gzipped in place |
+| `keepSupersededGenerations` | Boolean | `true` | Keep superseded generations instead of deleting them. Defaults true while compaction is being proven, so a bad snapshot never destroys what it was built from. Costs disk only -- replay skips them by name, so startup time is unaffected and they can be gzipped in place |
 | `journalName` | String | auto | Journal filename. Defaults to CSpec name with "DAO" removed + "s" |
 
 ---

@@ -273,16 +273,18 @@ public class CSSParser {
   protected Grammar buildGrammar() {
     Grammar g = new Grammar();
 
-    Parser tooDeepValue    = tooDeep(g, ";}");
-    Parser tooDeepSelector = tooDeep(g, "{};");
+    Parser tooDeepValue    = tooDeep(g, false);
+    Parser tooDeepSelector = tooDeep(g, true);
     Build  delimValue      = (n, v, str) -> { n.value = n.raw; return true; };
 
     // ---- whitespace and comments
     g.addSymbol("ws",  plus(chars(WS)));
     g.addSymbol("wsc", repeat(alt(g.sym("ws"), g.sym("comment"))));
 
+    // $name and ^ inside the comment are token and caret nodes (context
+    // 'comment', see hazards()) because FOAM rewrites them there too.
     g.addSymbol("comment", node("comment", seq(lit("/*"),
-        repeat(alt(g.sym("token"), notChars("*$"), seq(lit("*"), not(lit("/"))), lit("$"))),
+        repeat(alt(g.sym("token"), g.sym("textCaret"), notChars("*$^"), seq(lit("*"), not(lit("/"))), lit("$"), lit("^"))),
         alt(lit("*/"), EOF_)),
       (n, v, str) -> {
         Object[] a = (Object[]) v;
@@ -290,10 +292,18 @@ public class CSSParser {
         n.text   = n.raw.substring(2, n.closed ? n.raw.length() - 2 : n.raw.length());
         Matcher m = PLACEHOLDER.matcher(n.text);
         n.placeholder = m.matches() ? m.group(1) : null;
-        n.tokens = hazardTokens(nodes(a[1]), "comment");
+        fillParts(n, nodes(a[1]), "comment");
         n.token  = n.tokens.size() == 1 && jsTrim(n.text).equals(n.tokens.get(0).raw) ? n.tokens.get(0).raw : null;
         return true;
       }));
+
+    // A '^' inside a string or comment. foam.u2.CSS expandCSS rewrites
+    // /\^(.)/g, a '^' followed by any character but a line break, so only
+    // that '^' becomes a node.
+    g.addSymbol("textCaret", node("caret", seq(lit("^"), peek(notChars("\n\r\u2028\u2029"))), (n, v, str) -> {
+      n.inAttr = n.end < str.length() && str.charAt(n.end) == '=';
+      return true;
+    }));
 
     // ---- lexical pieces
     g.addSymbol("identStart", alt(range('a', 'z'), range('A', 'Z'), lit("_"), range('\u0080', '\uFFFF')));
@@ -383,11 +393,13 @@ public class CSSParser {
       }));
 
     // Unquoted url() argument. ';' is plain text; '(' '{' '}' end it so an
-    // unclosed 'url(' in minified CSS does not scan to end of input.
+    // unclosed 'url(' in minified CSS does not scan to end of input. Quote
+    // an SVG data URL: unquoted, one with braces inside ends at the first
+    // '{' and the rest parses as a function plus a made-up rule.
     g.addSymbol("urlRaw", new Span(plus(alt(g.sym("token"), notChars(")(\"'{}" + WS))), (v, start, end, str) -> {
       UrlRaw u = new UrlRaw();
       u.text   = str.substring(start, end);
-      u.tokens = hazardTokens(nodes(v), "url");
+      u.tokens = hazardParts(nodes(v), "url");
       return u;
     }));
 
@@ -484,7 +496,8 @@ public class CSSParser {
 
     // FOAM expands every '^', including the one in [class^=x].
     g.addSymbol("caret", node("caret", lit("^"), (n, v, str) -> {
-      n.inAttr = n.end < str.length() && str.charAt(n.end) == '=';
+      n.inAttr  = n.end < str.length() && str.charAt(n.end) == '=';
+      n.context = null;
       return true;
     }));
 
@@ -624,8 +637,35 @@ public class CSSParser {
     return g;
   }
 
-  protected static Parser tooDeep(Grammar g, String stop) {
-    return node("error", plus(alt(g.sym("comment"), g.sym("string"), notChars(stop))), (n, v, str) -> {
+  // The MAX_DEPTH fallback: skip the too-deep construct with a loop that
+  // counts ( [ and { against their closers instead of recursing, so the
+  // enclosing levels still close normally. It stops, unconsumed, at a closer
+  // it did not open, at ';' outside its own brackets and, for selectors, at
+  // any { } ;. Once it has opened something it stops right after the closer
+  // that balances it. Comments and strings are skipped whole. Same loop as
+  // tooDeep in CSSParser.js.
+  protected static Parser tooDeep(Grammar g, boolean selector) {
+    Parser comment = g.sym("comment");
+    Parser string  = g.sym("string");
+    Parser skip = (ps, x) -> {
+      int     paren = 0, brace = 0, start = ps.pos();
+      boolean opened = false;
+      PStream r;
+      while ( ps.valid() ) {
+        if ( ( r = ps.apply(comment, x) ) != null || ( r = ps.apply(string, x) ) != null ) { ps = r; continue; }
+        char c = ps.head();
+        if ( selector && ( c == '{' || c == '}' || c == ';' ) ) break;
+        if ( c == ';' && paren == 0 && brace == 0 ) break;
+        if ( c == '(' || c == '[' ) { paren++; opened = true; }
+        else if ( c == '{' ) { brace++; opened = true; }
+        else if ( c == ')' || c == ']' ) { if ( paren == 0 ) break; paren--; }
+        else if ( c == '}' ) { if ( brace == 0 ) break; brace--; }
+        ps = ps.tail();
+        if ( opened && paren == 0 && brace == 0 ) break;
+      }
+      return ps.pos() > start ? ps.setValue(null) : null;
+    };
+    return node("error", skip, (n, v, str) -> {
       n.message = "Nested deeper than " + MAX_DEPTH + " levels: skipped";
       trimEnd(n, str);
       return true;
@@ -635,19 +675,20 @@ public class CSSParser {
   // A backslash escapes the next character, including the quote. An
   // unterminated string runs to the end of input with closed false instead of
   // failing, so one missing quote cannot make the grammar retry every shorter
-  // reading of the rest. $name inside is a token with context 'string'.
+  // reading of the rest. $name and ^ inside are token and caret nodes with
+  // context 'string'.
   protected static Parser stringParser(Grammar g, char q) {
     String qs = String.valueOf(q);
     return node("string", seq(
         lit(qs),
-        repeat(alt(g.sym("token"), seq(lit("\\"), opt(AnyChar.instance())), notChars(qs + "\\"))),
+        repeat(alt(g.sym("token"), g.sym("textCaret"), seq(lit("\\"), opt(AnyChar.instance())), notChars(qs + "\\"))),
         alt(lit(qs), EOF_)),
       (n, v, str) -> {
         Object[] a = (Object[]) v;
         n.quote  = qs;
         n.closed = qs.equals(a[2]);
         n.value  = unescape(n.raw.substring(1, n.closed ? n.raw.length() - 1 : n.raw.length()));
-        n.tokens = hazardTokens(nodes(a[1]), "string");
+        fillParts(n, nodes(a[1]), "string");
         return true;
       });
   }
@@ -687,12 +728,23 @@ public class CSSParser {
     n.context  = null;
   }
 
-  // Tokens inside a comment, string or unquoted url(): FOAM's regex
-  // replacement rewrites them anyway (see hazards()).
-  protected static List<CSSNode> hazardTokens(List<CSSNode> list, String context) {
-    List<CSSNode> out = ofKind(list, "token");
-    for ( CSSNode t : out ) t.context = context;
+  // Tokens and carets inside a comment, string or unquoted url(): FOAM's
+  // regex rewrites rewrite them anyway (see hazards()).
+  protected static List<CSSNode> hazardParts(List<CSSNode> list, String context) {
+    List<CSSNode> out = new ArrayList<>();
+    for ( CSSNode t : list ) {
+      if ( "token".equals(t.kind) || "caret".equals(t.kind) ) {
+        t.context = context;
+        out.add(t);
+      }
+    }
     return out;
+  }
+
+  protected static void fillParts(CSSNode n, List<CSSNode> list, String context) {
+    n.parts  = hazardParts(list, context);
+    n.tokens = ofKind(n.parts, "token");
+    n.carets = ofKind(n.parts, "caret");
   }
 
   protected static List<CSSNode> ofKind(List<CSSNode> list, String kind) {
@@ -893,36 +945,45 @@ public class CSSParser {
 
   /**
    * Text FOAM rewrites before the CSS reaches the browser, where the rewrite
-   * breaks it: token nodes with context 'comment', 'string' or 'url', and
+   * breaks it: token nodes with context 'comment', 'string' or 'url'; caret
+   * nodes with context 'string' or 'comment' (expandCSS rewrites every '^'
+   * in the css text, so content: "^" becomes class selector text); and
    * caret nodes with inAttr (the '^' of [class^=x]). See hazards() in
    * CSSParser.js for the details of each rewrite.
    */
   public static List<CSSNode> hazards(CSSNode tree) {
     List<CSSNode> out = new ArrayList<>();
     walk(tree, (n, a) -> {
-      if ( ( "token".equals(n.kind) && n.context != null ) || ( "caret".equals(n.kind) && n.inAttr ) ) out.add(n);
+      if ( ( "token".equals(n.kind) || "caret".equals(n.kind) ) && n.context != null ) out.add(n);
+      else if ( "caret".equals(n.kind) && n.inAttr ) out.add(n);
       return true;
     });
     return out;
   }
 
   /**
-   * The 'error' nodes, plus string, comment, function, paren and bracket
-   * nodes left open at end of input (closed false); only the outermost of
-   * nested open nodes is listed. An open rule or at-rule block already has
-   * an 'error' node.
+   * Every 'error' node, plus string, comment, function, paren and bracket
+   * nodes left open (closed false). Of nested open nodes only the outermost
+   * is listed, but 'error' nodes inside it (a MAX_DEPTH skip, a misplaced
+   * !important) still are. An open rule or at-rule block already has an
+   * 'error' node.
    */
   public static List<CSSNode> errors(CSSNode tree) {
     List<CSSNode> out = new ArrayList<>();
-    walk(tree, (n, a) -> {
+    walk(tree, (n, ancestors) -> {
       if ( "error".equals(n.kind) ) {
         out.add(n);
-      } else if ( Boolean.FALSE.equals(n.closed) && ! "rule".equals(n.kind) && ! "atrule".equals(n.kind) ) {
-        out.add(n);
-        return false;
+      } else if ( isOpen(n) ) {
+        boolean inOpen = false;
+        for ( CSSNode a : ancestors ) if ( isOpen(a) ) inOpen = true;
+        if ( ! inOpen ) out.add(n);
       }
       return true;
     });
     return out;
+  }
+
+  protected static boolean isOpen(CSSNode n) {
+    return Boolean.FALSE.equals(n.closed) && ! "rule".equals(n.kind) && ! "atrule".equals(n.kind);
   }
 }

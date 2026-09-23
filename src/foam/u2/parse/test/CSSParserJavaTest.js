@@ -188,6 +188,8 @@ foam.CLASS({
     testHazards();
     testDeepAndLargeInput();
     testAtRuleClosedByBrace();
+    testDeepSkipBalances();
+    testCaretHazards();
     testCaseAndWhitespace();
     testJvmLocale();
   }
@@ -855,14 +857,15 @@ foam.CLASS({
 
     String  i4 = repeat("a{", 200) + "b:c" + repeat("}", 200);
     CSSNode r4 = p.parse(i4);
-    int     stray = 0;
-    for ( CSSNode e : CSSParser.errors(r4) ) if ( "Unexpected }".equals(e.message) ) stray++;
-    test(r4.end == i4.length() && stray == 1, "200 balanced nested blocks: the leftover closers are one error");
+    List<CSSNode> e4 = CSSParser.errors(r4);
+    t(() -> r4.end == i4.length() && kinds(e4).equals("error") && e4.get(0).message.startsWith("Nested deeper"),
+      "200 balanced nested blocks: the skip balances the closers, one depth error, got " + kinds(e4));
     spansMatch(i4, r4, "200 nested blocks");
 
     CSSNode r5 = p.parse("a{b:" + repeat("(", 200) + "}");
     List<CSSNode> e5 = CSSParser.errors(r5);
-    t(() -> e5.size() == 1 && "paren".equals(e5.get(0).kind), "200 unclosed parens: errors() lists only the outermost, got " + e5.size());
+    t(() -> kinds(e5).equals("paren error"),
+      "200 unclosed parens: errors() lists the outermost open paren and the depth error inside it, got " + kinds(e5));
 
     String  i6 = "a{b:" + repeat("(", 5000) + repeat(")", 5000) + "}";
     t0 = System.nanoTime();
@@ -897,11 +900,49 @@ foam.CLASS({
     spansMatch(i2, t2, "at-rule closed by } 2");
   }
 
+  // ---- review round 3 ---------------------------------------------------------------
+
+  protected void testDeepSkipBalances() {
+    CSSParser p = new CSSParser();
+    String  input = repeat("a{", 70) + repeat("}", 70) + " z{q:r}";
+    CSSNode tr    = p.parse(input);
+    List<CSSNode> e = CSSParser.errors(tr);
+    t(() -> kinds(e).equals("error") && e.get(0).message.startsWith("Nested deeper"),
+      "depth skip: 70 nested blocks give one depth error and no stray }, got " + kinds(e));
+    t(() -> { CSSNode last = tr.children.get(tr.children.size() - 1);
+      return kinds(tr.children).equals("rule rule") && "z".equals(last.selectors.get(0).raw) && "q".equals(last.children.get(0).property.name); },
+      "depth skip: the rule after the nested blocks parses at top level");
+    spansMatch(input, tr, "depth skip blocks");
+
+    String  i2 = "a{b:" + repeat("f(", 100) + repeat(")", 100) + "}";
+    CSSNode t2 = p.parse(i2);
+    List<CSSNode> e2 = CSSParser.errors(t2);
+    t(() -> kinds(e2).equals("error") && e2.get(0).message.startsWith("Nested deeper"),
+      "depth skip: 100 balanced f( report the depth error, not an unclosed function, got " + kinds(e2));
+    spansMatch(i2, t2, "depth skip functions");
+  }
+
+  protected void testCaretHazards() {
+    CSSParser p = new CSSParser();
+    String  input = "a{content:\\"^x\\"} /* ^y */ /*^\\n*/ b{c:\\"^\\"}";
+    CSSNode tr    = p.parse(input);
+    List<String> hs = new ArrayList<>();
+    for ( CSSNode n : CSSParser.hazards(tr) ) hs.add(n.kind + ":" + n.context);
+    String h = String.join(" ", hs);
+    test(h.equals("caret:string caret:comment caret:string"),
+      "caret hazards: a ^ in a string or comment is a hazard, one before a line break is not, got \\"" + h + "\\"");
+    t(() -> tr.children.get(0).children.get(0).valueNode().components.get(0).carets.size() == 1 &&
+            tr.children.get(1).carets.get(0).start == input.indexOf("^y"),
+      "caret hazards: the string and comment list their carets");
+    t(() -> CSSParser.errors(tr).isEmpty(), "caret hazards: none of them is a parse error");
+    spansMatch(input, tr, "caret hazards");
+  }
+
   protected void testCaseAndWhitespace() {
     CSSParser p = new CSSParser();
     CSSNode v = p.parseValue("c !\\u0131mportant");
     t(() -> ! v.important && kinds(v.components).equals("ident delim ident"),
-      "case: !\\\\u0131mportant (dotless i) is not !important");
+      "case: ! + dotless i (U+0131) + mportant is not !important");
     CSSNode a = p.parse("@MEDIA x;");
     t(() -> "media".equals(a.children.get(0).name), "case: @MEDIA has the name media");
 
@@ -925,7 +966,8 @@ foam.CLASS({
   protected void testJvmLocale() {
     Locale saved = Locale.getDefault();
     try {
-      Locale.setDefault(new Locale("tr", "TR"));
+      // The default locale is JVM-wide; the finally below restores it.
+      Locale.setDefault(Locale.forLanguageTag("tr-TR"));
       CSSParser p = new CSSParser();
       CSSNode v = p.parseValue("c !important");
       t(() -> v.important, "locale: !important matches under a Turkish JVM locale");

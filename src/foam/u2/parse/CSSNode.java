@@ -41,7 +41,7 @@ public class CSSNode {
   public String       base;        // token
   public List<String> variants;    // token
   public String       cls;         // token: class of a class-scoped token
-  public String       context;     // token: null, 'comment', 'string' or 'url'
+  public String       context;     // token: null, 'comment', 'string' or 'url'; caret: null, 'string' or 'comment'
   public String       message;     // error
   public Boolean      closed;      // null where the kind cannot be left open
   public boolean      isHexColor;  // hash
@@ -57,8 +57,8 @@ public class CSSNode {
   public CSSNode       arg;        // url: the string node when quoted
   public List<CSSNode> children;   // stylesheet, rule, atrule (null for a statement at-rule)
   public List<CSSNode> selectors;  // rule
-  public List<CSSNode> parts;      // selector; custom property value
-  public List<CSSNode> carets;     // selector: parts filtered to kind 'caret'
+  public List<CSSNode> parts;      // selector; custom property value; comment, string: tokens and carets inside
+  public List<CSSNode> carets;     // selector, comment, string: parts filtered to kind 'caret'
   public List<CSSNode> tokens;     // selector, custom value: token parts; comment, string, url: tokens inside
   public List<CSSNode> components; // value, prelude, paren, bracket
   public List<CSSNode> args;       // function
@@ -94,7 +94,7 @@ public class CSSNode {
       case "bracket":     add(out, components); break;
       case "url":         add(out, arg); add(out, tokens); break;
       case "comment":
-      case "string":      add(out, tokens); break;
+      case "string":      add(out, parts); break;
       default:            break;
     }
     return out;

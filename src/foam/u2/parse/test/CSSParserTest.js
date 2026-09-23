@@ -772,7 +772,7 @@ foam.CLASS({
       var p = this.CSSParser.create();
       var v = p.parseValue('c !\u0131mportant');
       x.test(v && ! v.important && this.kinds(v.components) === 'ident delim ident',
-        'case: !\\u0131mportant (dotless i) is not !important');
+        'case: ! + dotless i (U+0131) + mportant is not !important');
       var a = p.parse('@MEDIA x;');
       x.test(a.children[0].name === 'media', 'case: @MEDIA has the name media');
 

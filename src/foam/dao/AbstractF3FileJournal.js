@@ -182,6 +182,12 @@ foam.CLASS({
     {
       class: 'Object',
       name: 'line',
+      // Built lazily by the first put or remove, which is after the DAO is
+      // live and reachable -- nothing in construction touches it, and replay
+      // uses its own local line. Two concurrent first-writes would otherwise
+      // each run the factory and get their own SyncAssemblyLine, hence their
+      // own lock, and stop being ordered against each other or the cutover.
+      synchronized: true,
       javaType: 'foam.util.concurrent.AssemblyLine',
       javaFactory: 'return new foam.util.concurrent.SyncAssemblyLine(getX());'
     },
@@ -293,6 +299,11 @@ try {
     {
       class: 'Object',
       name: 'writer',
+      // One writer for the journal's lifetime only holds if the lazy factory
+      // cannot run twice: two concurrent first-writes would otherwise open two
+      // BufferedWriters on the same file. roll clears this property, so the
+      // reopen after a cutover races the same way.
+      synchronized: true,
       javaType: 'java.io.BufferedWriter',
       javaFactory: `
 try {

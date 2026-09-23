@@ -20,6 +20,15 @@ foam.CLASS({
   name: 'Foam',
   extends: 'foam.u2.View',
 
+  documentation: `
+    The <foam> tag as it appears in markdown - flow documents included.
+
+    Note that the <foam> tags in a page's static HTML are handled separately,
+    by foam.u2.FoamTagLoader, which supports the same pauseoffscreen attribute.
+  `,
+
+  requires: [ 'foam.u2.borders.VisibilityBorder' ],
+
   properties: [
     {
       class: 'String',
@@ -30,23 +39,44 @@ foam.CLASS({
       class: 'Map',
       name: 'attributes'
     },
+    {
+      class: 'Boolean',
+      name: 'pauseOffscreen',
+      documentation: `
+        Set by the pauseoffscreen attribute. Wraps the View in a
+        VisibilityBorder, so its timers and animations suspend while it is
+        scrolled out of the viewport - letting a document carry many live
+        components without paying for the ones nobody is looking at.
+
+        Off by default, for backwards compatibility.
+      `
+    },
     'proxyEl_'
   ],
 
   methods: [
     function render() {
       var self = this;
-      this.add(this.dynamic(function(cls, attrs) {
+      this.add(this.dynamic(function(cls, attrs, pauseOffscreen) {
         cls = foam.maybeLookup(cls);
         if ( cls ) {
-          this.start(cls, attrs, self.proxyEl_$)
+          // The View is started inside the Border so that it is created in the
+          // Border's sub-Context, which is where the decorated timers live.
+          var parent = pauseOffscreen ? this.start(self.VisibilityBorder) : this;
+          parent.start(cls, attrs, self.proxyEl_$)
         } else {
           this.add('UNKNOWN CLASS:', cls);
         }
-      }, this.class$, this.attributes$));
+      }, this.class$, this.attributes$, this.pauseOffscreen$));
     },
     function setAttribute(key, value) {
       if ( key === 'class' ) { this.class = value; return; }
+      if ( key === 'pauseoffscreen' ) {
+        // Present-and-not-"false" enables it, per HTML boolean attribute convention.
+        this.pauseOffscreen =
+          value == null || String(value).trim().toLowerCase() !== 'false';
+        return;
+      }
       if ( ! this.proxyEl_ ) { this.attributes$set(key, value); return; }
       if ( this.proxyEl_.setAttribute )
         this.proxyEl_.setAttribute(key, value);

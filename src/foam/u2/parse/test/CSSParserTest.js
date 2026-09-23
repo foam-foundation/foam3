@@ -47,6 +47,12 @@ foam.CLASS({
       this.testUnclosedBlock(x);
       this.testLongLine(x);
       this.testNeverThrows(x);
+      this.testWalk(x);
+      this.testDeclarationsHelper(x);
+      this.testTokensHelper(x);
+      this.testErrorsHelper(x);
+      this.testAutocompleteCompat(x);
+      this.testPluggableTokenNames(x);
     },
 
     function errorsIn(tree) {
@@ -525,6 +531,131 @@ foam.CLASS({
       x.test(uncovered === 0, 'never throws: every tree spans its whole input (' + uncovered + ' did not)');
       x.test(badSpan === 0, 'never throws: every node span matches its raw text (' + badSpan + ' did not)');
       x.test(slow === 0, 'never throws: no input took over 200 ms (' + slow + ' did)');
+    },
+
+    // ---- API helpers ------------------------------------------------------
+
+    function testWalk(x) {
+      var p = this.CSSParser.create();
+      var input = '/*c*/ @media x { ^a, ^b { color: rgb(1, $t, 3) } }';
+      var t = p.parse(input);
+      var seen = [];
+      p.walk(t, n => { seen.push(n); });
+      var mine = this.allNodes(t);
+      x.test(seen.length === mine.length && mine.every(n => seen.indexOf(n) !== -1),
+        'walk: visits every node (' + seen.length + ' of ' + mine.length + ')');
+      var starts = seen.filter(n => n.kind !== 'stylesheet').map(n => n.start);
+      x.test(starts.every((s, i) => i === 0 || s >= starts[i - 1]),
+        'walk: nodes arrive in input order');
+
+      var depthOfT = -1;
+      p.walk(t, (n, ancestors) => { if ( n.kind === 'token' ) depthOfT = ancestors.map(a => a.kind).join('>'); });
+      x.test(depthOfT === 'stylesheet>atrule>rule>declaration>value>function',
+        'walk: ancestors of $t are stylesheet>atrule>rule>declaration>value>function, got ' + depthOfT);
+
+      var count = 0;
+      p.walk(t, n => { count++; return n.kind !== 'atrule'; });
+      x.test(count === 3, 'walk: returning false skips children (stylesheet, comment, atrule = 3), got ' + count);
+    },
+
+    function testDeclarationsHelper(x) {
+      var p = this.CSSParser.create();
+      var input = 'top: 0; ^title, ^x { color: red } @media (max-width: 600px) { ^ { margin: 0 !important; --gap: 4px } }';
+      var d = p.declarations(p.parse(input));
+      x.test(d.map(e => e.property).join() === 'top,color,margin,--gap', 'declarations: all four in input order');
+      x.test(d[0].path.length === 0, 'declarations: a top-level declaration has an empty path');
+      x.test(d[1].path.join('|') === '^title, ^x' && d[1].value === 'red', 'declarations: rule path is its selector list');
+      x.test(d[2].path.join('|') === '@media (max-width: 600px)|^' && d[2].important,
+        'declarations: nested path is at-rule then rule, important carried');
+      x.test(d[3].custom && d[3].value === '4px' && d[3].ancestors.length === 2 && d[3].node.kind === 'declaration',
+        'declarations: custom property entry, ancestors and node');
+    },
+
+    function testTokensHelper(x) {
+      var p = this.CSSParser.create();
+      var input = '^$sel { width: calc(100% - 2 * $space-4); color: $primary$hover; margin: min(calc($a + 1px), $b); --g: calc(1px + $c) $d; content: "$notToken" }';
+      var tk = p.tokens(p.parse(input));
+      var summary = tk.map(t => t.name + (t.inCalc ? '*' : '')).join(' ');
+      x.test(summary === 'sel space-4* primary$hover a* b c* d',
+        'tokens: names in order, * = inside calc(): got "' + summary + '"');
+      x.test(tk.every(t => input.slice(t.start, t.end) === '$' + t.name), 'tokens: every span slices to $name');
+      var hover = tk[2];
+      x.test(hover.base === 'primary' && hover.variants[0] === 'hover', 'tokens: $primary$hover base and variant');
+
+      var v = p.parseValue('calc(100% - 2 * $space-4)');
+      x.test(p.tokens(v)[0].inCalc === true, 'tokens: parseValue marks calc() tokens too');
+    },
+
+    function testErrorsHelper(x) {
+      var p = this.CSSParser.create();
+      var t = p.parse('^a { color: #zz;; background red } ^b { content: "open');
+      var e = p.errors(t);
+      x.test(e.map(n => n.kind).join() === 'error,error,string',
+        'errors: malformed declaration, unclosed block and unterminated string, got ' + e.map(n => n.kind).join());
+      x.test(p.errors(p.parse('^ { a: b }')).length === 0, 'errors: clean input has none');
+    },
+
+    // ---- autocomplete compatibility ---------------------------------------
+
+    function suggestLabels(p, symbol, input) {
+      // Same bookkeeping as foam.parse.auto.SmartView's apply callback: keep
+      // the suggestions offered at the furthest position the parse reached.
+      var maxPos = 0, sugs = {};
+      var apply = function(pp, grammar) {
+        if ( pp.suggest && this.pos >= maxPos ) {
+          var s = pp.suggest();
+          if ( s ) {
+            var label = s.tooltip || s.text;
+            if ( this.pos > maxPos ) { sugs = {}; maxPos = this.pos; }
+            if ( ! sugs[label] ) sugs[label] = s;
+          }
+        }
+        var r = pp.parse(this, grammar);
+        if ( r && r.pos > maxPos ) sugs = {};
+        return r;
+      };
+      p.grammar_.getSymParser(symbol).parseString(input, null, apply);
+      return Object.keys(sugs);
+    },
+
+    function testAutocompleteCompat(x) {
+      // StyleConfigurator builds SmartViews on grammar_.getSymParser(
+      // 'colorPropertyValue') and ('borderValue'). Expected lists were
+      // recorded from the grammar before this change.
+      var p = this.CSSParser.create();
+      x.test(this.suggestLabels(p, 'colorPropertyValue', '').join() === '$,,transparent',
+        'autocomplete: empty colour offers $, hex colour picker, transparent');
+      var names = p.tokenNames();
+      var afterDollar = this.suggestLabels(p, 'colorPropertyValue', '$');
+      x.test(afterDollar.length === names.length && names.every(n => afterDollar.indexOf(n) !== -1),
+        'autocomplete: after $ every CSSTokens name is offered (' + afterDollar.length + ')');
+      x.test(this.suggestLabels(p, 'borderValue', '').join() === 'Size value with optional unit,thin,medium,thick',
+        'autocomplete: empty border offers a size or thin/medium/thick');
+      x.test(this.suggestLabels(p, 'borderValue', '1px ').join() === 'none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset',
+        'autocomplete: after a width, border styles are offered');
+      x.test(this.suggestLabels(p, 'borderValue', '1px solid ').join() === '$,,transparent',
+        'autocomplete: after a style, colour choices are offered');
+      x.test(p.grammar_.getSymParser('borderValue').parseString('thin dashed transparent') !== undefined,
+        'autocomplete: a full border value still parses');
+    },
+
+    function testPluggableTokenNames(x) {
+      // CSSParser is a Singleton, so the plugged function is restored after.
+      var p = this.CSSParser.create();
+      var saved = p.tokenNames;
+      try {
+        p.tokenNames = () => [ 'brandInk', 'brandInkMuted' ];
+        var labels = this.suggestLabels(p, 'colorPropertyValue', '$');
+        x.test(labels.join() === 'brandInkMuted,brandInk', 'tokenNames: suggestions come from the plugged function, longest first');
+        var ps = this.StringPStream.create();
+        ps.setString('$brandInk');
+        var r = p.grammar_.getSymParser('colorPropertyValue').parse(ps);
+        x.test(r && r.pos === 9, 'tokenNames: a plugged name parses as a whole token');
+      } finally {
+        p.tokenNames = saved;
+      }
+      x.test(this.suggestLabels(p, 'colorPropertyValue', '$').length === p.tokenNames().length,
+        'tokenNames: restoring the default brings back the CSSTokens list');
     }
   ]
 });

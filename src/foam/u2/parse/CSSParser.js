@@ -18,7 +18,8 @@ foam.CLASS({
 
     sheetGrammar_ (full): parses FOAM css: text into a tree of plain objects
     with offsets. See the node shapes below and the methods parseValue()
-    and parse().
+    and parse(); walk(), declarations(), tokens() and errors() read the
+    tree.
 
     NODE SHAPES
     Problem: a consumer that underlines a node, or rewrites one, needs the
@@ -44,8 +45,11 @@ foam.CLASS({
                   digits; '#zz' is still a hash, just not a colour)
       token       name ('primary$hover' for $primary$hover), base
                   ('primary'), variants (['hover']), cls ('foam.u2.Tabs'
-                  for $foam.u2.Tabs.tabColor, else null), inCalc (false
-                  until tokens() or parse() marks it, see there)
+                  for $foam.u2.Tabs.tabColor, else null), inCalc (true
+                  when any enclosing function is calc(); FOAM's token
+                  replacement puts a /*$name*/ comment and the resolved
+                  value into the expression, which is known to break
+                  calc(), so this is a flag to warn on, not a parse error)
       placeholder name ('NAME' for %NAME%)
       function    name, args (component nodes; ',' and '/' are operator
                   nodes), closed
@@ -288,9 +292,11 @@ foam.CLASS({
       name: 'tokensGrammar_',
       value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
         repeat, repeat0, seq, seq1, str, sug, sym, until) {
-          // Only loading base, maybe add tokens from all classes
           let tokenProps = [];
-          let allTokens  = foam.u2.CSSTokens.getAxiomsByClass(foam.u2.CSSToken);
+          let allTokens  = this.tokenNames().map(name => {
+            let axiom = foam.u2.CSSTokens.getAxiomByName(name);
+            return foam.u2.CSSToken.isInstance(axiom) ? axiom : foam.u2.CSSToken.create({ name: name });
+          });
           let token      = (token) => sug(literal(token.name, token), { text: token.name, view: { class: 'foam.parse.auto.CSSTokenSuggester', token: token }, prependSpaceOnSelect: false });
 
           allTokens.sort((o1, o2) => {
@@ -304,20 +310,26 @@ foam.CLASS({
           });
 
           return alt.apply(null, tokenProps);
-          // Load current theme tokens if they exist
-          // Can this work?? Do we need this??
-          // if ( this.cssTokenOverrideService ) {
-          //   let map = this.cssTokenOverrideService.tokenCache[this.importedTheme.id];
-          //   if ( ! map ) return;
-          //   let themeTokens = Object.keys(map).map(v => {
-          //     return foam.u2.CSSToken.create({ name: v, value: map[v] });
-          //   })
-          // }
+      }
+    },
+    {
+      class: 'Function',
+      name: 'tokenNames',
+      documentation: `
+        Returns the token names ($ omitted) that autocomplete offers after
+        '$'. Defaults to the global foam.u2.CSSTokens. Problem: a theme or an
+        app with its own tokens got no suggestions for them, since the list
+        was fixed to that one class. Set this to add or replace names; a
+        name that is not a foam.u2.CSSTokens axiom is suggested without a
+        preview. grammar_ is rebuilt when this changes.
+      `,
+      value: function() {
+        return foam.u2.CSSTokens.getAxiomsByClass(foam.u2.CSSToken).map(t => t.name);
       }
     },
     {
       name: 'grammar_',
-      factory: function() {
+      expression: function(tokenNames) {
         let base       = foam.Function.withArgs(this.baseGrammar_,   this.Parsers.create(), this);
         let tokens     = foam.Function.withArgs(this.tokensGrammar_, this.Parsers.create(), this);
         let grammar    = {
@@ -351,7 +363,21 @@ foam.CLASS({
     // name FOAM would replace. Used where the text is kept raw (selectors,
     // custom property values) instead of being parsed into components.
     TOKEN_RE: /\$[\w$-]+(?:\.[\w$-]+)*/y,
-    HEX_COLOR_RE: /^(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+    HEX_COLOR_RE: /^(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
+    // Which fields of each node kind hold child nodes, in input order.
+    CHILD_KEYS: {
+      stylesheet:  [ 'children' ],
+      rule:        [ 'selectors', 'children' ],
+      selector:    [ 'tokens' ],
+      atrule:      [ 'prelude', 'children' ],
+      prelude:     [ 'components' ],
+      declaration: [ 'property', 'comments', 'value' ],
+      value:       [ 'components', 'tokens' ],
+      function:    [ 'args' ],
+      paren:       [ 'components' ],
+      bracket:     [ 'components' ],
+      url:         [ 'arg' ]
+    }
   },
 
   methods: [
@@ -751,18 +777,28 @@ foam.CLASS({
     function scanTokens_(str, start, end) {
       // $name references in raw text (selectors, custom property values),
       // skipping strings and comments. Same name rule as the token symbol.
-      var out = [];
-      var re  = this.TOKEN_RE;
+      // Tracks the names of open '(' so a token in '--gap: calc(2 * $x)'
+      // gets inCalc like one in a parsed value.
+      var out    = [];
+      var re     = this.TOKEN_RE;
+      var parens = [];
       for ( var i = start ; i < end ; ) {
         var c = str[i];
         if ( c === '"' || c === "'" ) { i = this.skipQuoted_(str, i, end); continue; }
         if ( c === '/' && str[i + 1] === '*' ) { i = this.skipComment_(str, i, end); continue; }
+        if ( c === '(' ) {
+          var f = i;
+          while ( f > start && /[\w-]/.test(str[f - 1]) ) f--;
+          parens.push(str.substring(f, i));
+        }
+        if ( c === ')' ) parens.pop();
         if ( c === '$' ) {
           re.lastIndex = i;
           var m = re.exec(str);
           if ( m && i + m[0].length <= end ) {
             var n = { kind: 'token', start: i, end: i + m[0].length, raw: m[0] };
             this.fillToken_(n);
+            n.inCalc = parens.some(f => /(^|-)calc$/i.test(f));
             out.push(n);
             i = n.end;
             continue;
@@ -828,6 +864,7 @@ foam.CLASS({
         tree.children.push(this.errorNode_(str, tree.end, str.length, 'Unparsed input'));
         this.trimTo_(tree, 0, str.length, str);
       }
+      this.markCalc_(tree);
       return tree;
     },
 
@@ -836,11 +873,89 @@ foam.CLASS({
          or return null when str is not a single value. Offsets are into str. */
       if ( typeof str !== 'string' ) return null;
       try {
-        return this.sheetGrammar_.parseString(str, 'valueOnly') || null;
+        var v = this.sheetGrammar_.parseString(str, 'valueOnly') || null;
+        if ( v ) this.markCalc_(v);
+        return v;
       } catch (x) {
         console.error('CSSParser.parseValue', x);
         return null;
       }
+    },
+
+    function markCalc_(tree) {
+      this.walk(tree, function(n, ancestors) {
+        // Tokens from raw text (selectors, custom values) got inCalc from
+        // scanTokens_; only parsed tokens have function ancestors.
+        if ( n.kind === 'token' && ! n.inCalc ) {
+          n.inCalc = ancestors.some(a => a.kind === 'function' && /(^|-)calc$/i.test(a.name));
+        }
+      });
+    },
+
+    function walk(tree, fn) {
+      /* Visit every node depth-first in input order. fn(node, ancestors)
+         gets the chain of enclosing nodes, outermost first; returning false
+         skips that node's children. */
+      var keys = this.CHILD_KEYS;
+      function visit(n, ancestors) {
+        if ( ! n || fn(n, ancestors) === false ) return;
+        var ks = keys[n.kind];
+        if ( ! ks ) return;
+        var next = ancestors.concat([n]);
+        for ( var i = 0 ; i < ks.length ; i++ ) {
+          var c = n[ks[i]];
+          if ( Array.isArray(c) ) c.forEach(k => visit(k, next));
+          else if ( c ) visit(c, next);
+        }
+      }
+      visit(tree, []);
+    },
+
+    function declarations(tree) {
+      /* Flat list of declarations, each as
+           { node, property, value, important, custom, path, ancestors }
+         property and value are text; path names the enclosing rules and
+         at-rules outermost first, e.g. [ '@media (max-width: 600px)', '^title, ^x' ]. */
+      var out = [];
+      this.walk(tree, function(n, ancestors) {
+        if ( n.kind !== 'declaration' ) return;
+        var enclosing = ancestors.filter(a => a.kind === 'rule' || a.kind === 'atrule');
+        out.push({
+          node:      n,
+          property:  n.property.name,
+          value:     n.value.raw,
+          important: n.important,
+          custom:    n.custom,
+          ancestors: enclosing,
+          path:      enclosing.map(a => a.kind === 'rule' ?
+            a.selectors.map(s => s.raw).join(', ') :
+            '@' + a.name + ( a.prelude.raw ? ' ' + a.prelude.raw : '' ))
+        });
+        return false;
+      });
+      return out;
+    },
+
+    function tokens(tree) {
+      /* Every $token reference as its token node ({ name, base, variants,
+         cls, inCalc, start, end, raw }), from values, selectors and custom
+         property values. Tokens inside quoted strings, comments or an
+         unquoted url() are not listed. */
+      var out = [];
+      this.walk(tree, function(n) { if ( n.kind === 'token' ) out.push(n); });
+      return out;
+    },
+
+    function errors(tree) {
+      /* The 'error' nodes, plus string, comment, function, paren and
+         bracket nodes left open at end of input (closed: false). An open
+         rule or at-rule block already has an 'error' node of its own. */
+      var out = [];
+      this.walk(tree, function(n) {
+        if ( n.kind === 'error' ) out.push(n);
+        else if ( n.closed === false && n.kind !== 'rule' && n.kind !== 'atrule' ) out.push(n);
+      });
+      return out;
     },
 
     function parseString(str, opt_name, opt_apply) {

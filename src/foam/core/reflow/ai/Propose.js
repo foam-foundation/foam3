@@ -63,11 +63,11 @@ foam.CLASS({
       background: $success50;
     }
     ^reject {
-      background: $error50;
-      color: $error700;
+      background: $destructive50;
+      color: $destructive700;
     }
     ^reject:hover {
-      background: $error50;
+      background: $destructive50;
     }
   `,
 

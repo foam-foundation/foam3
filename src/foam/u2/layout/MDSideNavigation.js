@@ -140,7 +140,7 @@ foam.CLASS({
       height: 109em;
       overflow-x: hidden;
       position: relative;
-      background-color: $backgrounTertiary;
+      background-color: $backgroundTertiary;
     }
 
     ^ .foam-u2-layout-MDToolbarView {

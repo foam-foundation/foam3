@@ -22,7 +22,6 @@ For a journal named `foo`:
 | `foo.N.snap.gz` | compaction | `FileSystemStorage` | yes, and supersedes everything at or below N |
 | `foo` | the running app, append-only | `FileSystemStorage` | yes, last |
 | `*.tmp` | transiently, mid-write | -- | no |
-| `foo.gz` | legacy, by hand | `FileSystemStorage` | yes, before all generations |
 
 Generations start at 1. The live journal is **always** `foo` -- it is never numbered, so nothing has to migrate and an existing deployment works untouched.
 
@@ -45,13 +44,14 @@ A half-written file is always **derived data** -- a snapshot is a rewrite of sta
 `JDAO` assembles the journals in `delegate`'s `javaPostSet` and replays them through a `CompositeJournal`:
 
 ```
-foo.0            repo journal, from the jar            JDAO.js:142-144
-foo.gz           legacy hand-compressed journal        JDAO.js:147-155
-foo.N ascending  generations, superseded ones skipped  JDAO.js:161-166
-foo              the live journal                      JDAO.js:196
+foo.0                     repo journal, from the jar
+foo.N | .gz | .snap.gz    generations ascending, superseded ones skipped
+foo                       the live journal
 ```
 
 Later entries win, so the order is the whole point: the live journal must apply after everything it amends.
+
+A generation appears in one of three forms and replays the same way in each: `foo.N` as `roll` leaves it, `foo.N.gz` if compressed by hand, `foo.N.snap.gz` if written by compaction. Ordering is by generation number, so the form never changes where it replays.
 
 The generation list is derived at boot by listing the directory (`JournalGenerations.java:138`). Generation 0 is not in it -- it is a jar resource read through `Storage`, and a dev tree without a resource jar has it on disk too, where counting it would replay it twice (`JournalGenerations.java:120`).
 

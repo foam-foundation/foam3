@@ -155,17 +155,6 @@ In this current implementation setDelegate must be called last.`,
               .setFilename(getFilename() + ".0")
               .build());
 
-            // Legacy compressed journal: a hand-gzipped runtime journal from
-            // before generations existed. Predates the numbering, so it sorts
-            // ahead of every generation.
-            String gzFilename = getFilename() + ".gz";
-            if ( getX().get(foam.core.fs.FileSystemStorage.class).get(gzFilename).exists() ) {
-              preRuntime.add(new ReadOnlyF3FileJournal.Builder(runtimeStorageX)
-                .setFilename(gzFilename)
-                .setGzip(true)
-                .build());
-            }
-
             // Generations frozen by previous cutovers, ascending, skipping
             // whatever a snapshot has superseded. Derived from the filesystem,
             // so nothing has to be remembered between runs.

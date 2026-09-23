@@ -49,6 +49,16 @@ Used in conjuction with a custom compaction sink, the compaction process can fac
       value: true
     },
     {
+      documentation: `Keep the generations a snapshot supersedes instead of
+        deleting them, so the journal history survives for auditing.
+
+        Costs disk only. Replay skips a superseded generation by name, so a
+        retained one is never opened, decompressed or replayed, and startup
+        time is unaffected. Retained generations can also be gzipped in place.`,
+      name: 'keepSupersededGenerations',
+      class: 'Boolean'
+    },
+    {
       documentation: 'Name for JDAO creation during loading. Default is best gues. Required when nspec has JDAO setup outside of EasyDAO.',
       name: 'journalName',
       class: 'String',

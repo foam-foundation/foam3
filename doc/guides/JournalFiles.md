@@ -121,6 +121,12 @@ Nothing is blocked at any step. The MDAO's index is a functional data structure 
 
 Step 3 is the **only commit point**. Before it the frozen generations are still the record; after it they are dead weight.
 
+Step 4 is optional: `keepSupersededGenerations` on the `Compaction` config
+retains them for auditing. It costs disk only -- `replayOrder()` skips a
+superseded generation by name, whether or not it is still there, so a retained
+one is never opened, decompressed or replayed. Retained generations can be
+gzipped in place and stay skipped.
+
 Full detail in [Compaction.md](Compaction.md).
 
 ### Crash windows

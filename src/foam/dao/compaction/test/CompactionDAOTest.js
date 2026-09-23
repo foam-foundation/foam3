@@ -122,6 +122,52 @@ foam.CLASS({
       test( "PostCompaction".equals(fetched.getFirstName()), "New entry has correct data");
 
       testZeroAwareness(x);
+      testKeepSuperseded(x);
+      `
+    },
+    {
+      documentation: `keepSupersededGenerations retains the frozen generation
+        for auditing. The point of the flag is that it costs disk only, so the
+        test also proves replay still ignores what it kept.`,
+      name: 'testKeepSuperseded',
+      args: 'X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "keepTestDAO";
+
+      JDAO     jdao  = new JDAO(x, User.getOwnClassInfo(), "keeptest");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      for ( int i = 1 ; i <= 3 ; i++ ) {
+        User u = new User();
+        u.setId(i);
+        u.setFirstName("Keep" + i);
+        jdao.put_(x, u);
+      }
+
+      Compaction conf = new Compaction();
+      conf.setCSpec(serviceName);
+      conf.setKeepSupersededGenerations(true);
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      cmd.setCompaction(conf);
+      proxy.cmd_(x, cmd);
+      test( cmd.awaitCompletion(60000), "keep: compaction finished");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "keep: no error");
+
+      test( x.get(Storage.class).get("keeptest.1.snap.gz").exists(), "keep: snapshot committed");
+      test( x.get(Storage.class).get("keeptest.1").exists(), "keep: superseded generation retained for audit");
+
+      // Retained is not replayed: a fresh JDAO must see three users, not six,
+      // and must not resurrect anything the snapshot settled.
+      JDAO reloaded = new JDAO(x, User.getOwnClassInfo(), "keeptest");
+      MDAO mdao     = (MDAO) reloaded.getDelegate();
+      Count count   = (Count) mdao.select(new Count());
+      test( ((Long) count.getValue()) == 3, "keep: replay ignored the retained generation, got " + count.getValue());
+      User u1 = (User) mdao.find_(x, 1L);
+      test( u1 != null && "Keep1".equals(u1.getFirstName()), "keep: data intact after reload");
       `
     },
     {

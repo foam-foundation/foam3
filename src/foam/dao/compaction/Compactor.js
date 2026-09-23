@@ -287,10 +287,16 @@ foam.CLASS({
       }
 
       // Past the commit point the superseded generations are dead weight.
-      // Replay already skips them, so failing to delete one costs disk only.
-      for ( String dead : new JournalGenerations(x, filename).superseded() ) {
-        File f = storage.get(dead);
-        if ( f != null && f.exists() && ! f.delete() ) logger.warning("could not remove superseded", dead);
+      // Replay already skips them by name, so deleting them reclaims disk and
+      // nothing else -- which is why keeping them is safe, and why failing to
+      // delete one is only logged.
+      if ( compaction.getKeepSupersededGenerations() ) {
+        logger.info("keeping superseded generations", new JournalGenerations(x, filename).superseded().size());
+      } else {
+        for ( String dead : new JournalGenerations(x, filename).superseded() ) {
+          File f = storage.get(dead);
+          if ( f != null && f.exists() && ! f.delete() ) logger.warning("could not remove superseded", dead);
+        }
       }
 
       long compacted = journalSink.getCount();

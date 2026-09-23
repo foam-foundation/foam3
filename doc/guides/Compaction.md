@@ -90,7 +90,7 @@ After compaction:
 2. For each object in the main MDAO, compare against the `.0` version
 3. **Identical** -- skip (`.0` provides it on startup)
 4. **Modified or new** -- write to the compacted journal
-5. **Deleted at runtime** (exists in `.0` but not in MDAO) -- write a `remove` entry to prevent resurrection on next startup
+5. **Deleted at runtime** -- write a `remove` entry to prevent resurrection on next startup. That covers both a row removed outright and a `LifecycleAware` row soft-deleted to `DELETED`: the latter is still in the MDAO, so `find_` sees it, while `discardLifecycleDeleted` keeps it out of the snapshot. Without the remove, `.0` would bring it back -- a snapshot supersedes the generations, never `.0`
 
 ### No configuration needed
 

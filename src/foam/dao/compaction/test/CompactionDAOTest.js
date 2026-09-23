@@ -124,6 +124,67 @@ foam.CLASS({
       testZeroAwareness(x);
       testKeepSuperseded(x);
       testBusySkipped(x);
+      testZeroSoftDeleteStaysDeleted(x);
+      `
+    },
+    {
+      documentation: `A row shipped in .0 and soft-deleted at runtime must stay
+        deleted across a compaction and restart.
+
+        .0 is replayed on every boot and a snapshot never supersedes it, so a
+        row the snapshot omits is a row .0 brings back. A soft delete leaves
+        the row in the MDAO with state DELETED, where find_ still sees it while
+        the lifecycle filter drops it from the snapshot -- so it was omitted
+        and never removed.`,
+      name: 'testZeroSoftDeleteStaysDeleted',
+      args: 'foam.lang.X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "softDeleteTestDAO";
+
+      // A .0 shipping two records.
+      F3FileJournal zeroJournal = new F3FileJournal.Builder(x)
+        .setFilename("softdelete.0")
+        .setCreateFile(true)
+        .build();
+      DAO nullDAO = new NullDAO(x, LifecycleTestRecord.getOwnClassInfo());
+      for ( int i = 1 ; i <= 2 ; i++ ) {
+        LifecycleTestRecord r = new LifecycleTestRecord();
+        r.setId(i);
+        r.setName("Zero" + i);
+        zeroJournal.put(x, "", nullDAO, r);
+      }
+
+      JDAO     jdao  = new JDAO(x, LifecycleTestRecord.getOwnClassInfo(), "softdelete");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      Count count = (Count) ((MDAO) jdao.getDelegate()).select(new Count());
+      test( ((Long) count.getValue()) == 2, "softDelete: .0 replayed two records");
+
+      // Soft-delete record 1 the way LifecycleAwareDAO would: state DELETED,
+      // written as a put, so the row stays in the MDAO.
+      LifecycleTestRecord r1 = (LifecycleTestRecord) ((LifecycleTestRecord) jdao.find_(x, 1L)).fclone();
+      r1.setLifecycleState(foam.core.auth.LifecycleState.DELETED);
+      jdao.put_(x, r1);
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      proxy.cmd_(x, cmd);
+      test( cmd.awaitCompletion(60000), "softDelete: compaction finished");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "softDelete: no error");
+
+      // Restart: .0 plus the snapshot. The deleted row must not come back.
+      JDAO reloaded = new JDAO(x, LifecycleTestRecord.getOwnClassInfo(), "softdelete");
+      MDAO mdao     = (MDAO) reloaded.getDelegate();
+
+      LifecycleTestRecord back = (LifecycleTestRecord) mdao.find_(x, 1L);
+      boolean gone = back == null ||
+        back.getLifecycleState() == foam.core.auth.LifecycleState.DELETED;
+      test( gone, "softDelete: row deleted at runtime stays deleted after compaction and restart");
+
+      LifecycleTestRecord kept = (LifecycleTestRecord) mdao.find_(x, 2L);
+      test( kept != null && "Zero2".equals(kept.getName()), "softDelete: the other .0 row survived");
       `
     },
     {

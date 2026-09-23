@@ -27,6 +27,8 @@ foam.CLASS({
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
+    'foam.core.auth.LifecycleAware',
+    'foam.core.auth.LifecycleState',
     'foam.core.logger.Loggers',
     'foam.core.logger.Logger',
     'foam.lang.Agency',
@@ -266,15 +268,30 @@ foam.CLASS({
       sourceDAO.select(fsink);
       logger.info("select", "end", "duration", Duration.ofMillis(System.currentTimeMillis() - startTime));
 
-      // Write remove entries for objects that exist in .0 but were deleted at runtime
+      // Anything .0 supplies that the snapshot will not carry needs an explicit
+      // remove, or the next replay brings it back: .0 is always replayed, and
+      // the snapshot only supersedes the generations, never .0.
       long removedFromZero = 0;
       if ( finalZeroMDAO != null ) {
         java.util.List zeroObjects = ((ArraySink) finalZeroMDAO.select(new ArraySink())).getArray();
         DAO nullDAO = new foam.dao.NullDAO(x, mdao.getOf());
         for ( Object zeroObj : zeroObjects ) {
           FObject fobj = (FObject) zeroObj;
-          Object id = fobj.getProperty("id");
-          if ( mdao.find_(x, id) == null ) {
+          Object  id   = fobj.getProperty("id");
+          FObject cur  = mdao.find_(x, id);
+
+          // Absent from the MDAO is the obvious case. The other is a soft
+          // delete: LifecycleAwareDAO turns a remove into a DELETED put, so
+          // the row is still here and find_ sees it, while the lifecycle
+          // filter drops it from the snapshot. Checking find_ alone left such
+          // a row unmentioned by the snapshot and alive in .0 -- deleted at
+          // runtime, resurrected by the next restart.
+          boolean discarded = cur != null &&
+            compaction.getDiscardLifecycleDeleted() &&
+            cur instanceof LifecycleAware &&
+            ((LifecycleAware) cur).getLifecycleState() == LifecycleState.DELETED;
+
+          if ( cur == null || discarded ) {
             snapshotJournal.remove(x, "", nullDAO, fobj);
             removedFromZero++;
           }

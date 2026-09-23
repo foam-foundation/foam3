@@ -2096,6 +2096,63 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.java',
+  name: 'FloatArrayJavaRefinement',
+  refines: 'foam.lang.FloatArray',
+
+  properties: [
+    ['javaType',       'float[]'],
+    ['javaInfoType',   'foam.lang.AbstractArrayPropertyInfo'],
+    ['javaJSONParser', 'foam.lib.json.ArrayParser.instance()'],
+    ['javaFactory',    'return new float[0];']
+  ],
+
+  methods: [
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+
+      info.method({
+        name: 'of',
+        visibility: 'public',
+        type: 'String',
+        body: 'return "Float";'
+      });
+
+      var cast = info.getMethod('cast');
+      cast.body = `
+        if ( o instanceof float[] ) return (float[]) o;
+        Object[] arr = (Object[]) o;
+        if ( arr == null ) return new float[0];
+        float[] ret = new float[arr.length];
+        for ( int i = 0; i < arr.length; i++ ) ret[i] = ((Number) arr[i]).floatValue();
+        return ret;
+      `;
+
+      var compare = info.getMethod('compare');
+      compare.body = `
+        float[] v1 = get_(o1);
+        float[] v2 = get_(o2);
+        if ( v1 == null && v2 == null ) return 0;
+        if ( v2 == null ) return  1;
+        if ( v1 == null ) return -1;
+        if ( v1.length != v2.length ) return v1.length - v2.length;
+        for ( int i = 0; i < v1.length; i++ ) {
+          int c = Float.compare(v1[i], v2[i]);
+          if ( c != 0 ) return c;
+        }
+        return 0;
+      `;
+
+      var isDefaultValue = info.getMethod('isDefaultValue');
+      if ( isDefaultValue ) isDefaultValue.body = 'return java.util.Arrays.equals(get_(o), null);';
+
+      return info;
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
   name: 'StringArrayJavaRefinement',
   refines: 'foam.lang.StringArray',
   // flags: ['java'],

@@ -1,4 +1,4 @@
-<flow name="Compaction" category="DOC/GUIDE" spid="foam" description="Covers FOAM journal compaction: the five-step process that rewrites delta entries into one entry per object." keywords="compaction,journal,replay,rollback"/>
+<flow name="Compaction" category="DOC/GUIDE" spid="foam" description="Covers FOAM journal compaction: the five-step process that rewrites delta entries into one entry per object." keywords="compaction,journal,replay,rollback,knowledge"/>
 
 # Journal Compaction
 
@@ -9,12 +9,11 @@
 4. [Configuration](#configuration)
 5. [Invoking Compaction](#invoking-compaction)
 6. [Running Programmatically](#running-programmatically)
-7. [Filtering and Archiving](#filtering-and-archiving)
-8. [Custom Compaction Sinks](#custom-compaction-sinks)
-9. [Rollback](#rollback)
-10. [Monitoring](#monitoring)
-11. [Gotchas](#gotchas)
-12. [Key Files](#key-files)
+7. [Deciding what survives](#deciding-what-survives)
+8. [Rollback](#rollback)
+9. [Monitoring](#monitoring)
+10. [Gotchas](#gotchas)
+11. [Key Files](#key-files)
 
 ---
 
@@ -22,7 +21,7 @@
 
 Each DAO operation on the same object generates a journal entry containing just the changed fields. Over time a single object may have hundreds of entries, slowing **replay** since replay time is proportional to journal line count. **Compaction** writes each object to a new journal file in its entirety, reducing many entries to one and dramatically improving replay time.
 
-Used in conjunction with custom compaction sinks, the compaction process can also facilitate **archiving** by only writing recent or active objects to the new journal.
+Compaction does **not** decide what data should exist -- it writes whatever the MDAO currently holds. Archiving and TTL are separate, and are expressed as a `removeAll()` on their own schedule, or by dropping a partition directory. See [Deciding what survives](#deciding-what-survives).
 
 ---
 
@@ -32,34 +31,39 @@ Compaction follows a five-step process:
 
 ```
 +--------------------------------------------------------------------+
-|                    CompactionDAO.execute()                          |
+|             CompactionCmd -> JDAO.cmd_ -> Compactor                 |
 |                                                                    |
-|  1. BLOCK         All DAO operations are paused                    |
+|  1. ROLL          foo renamed to the next generation, foo.N        |
+|       |           A fresh foo takes live traffic immediately       |
 |       |                                                            |
-|  2. ROLL          Journal copied to backup (.1, .2, etc.)          |
-|       |           Original truncated (new empty journal)           |
+|  2. SNAPSHOT      Read all objects from MDAO (a functional         |
+|       |           snapshot -- later writes cannot disturb it)      |
+|       |           Write full copies to                             |
+|       |           foo.N.snap.gz.tmp, beside live traffic           |
 |       |                                                            |
-|  3. UNBLOCK       DAO operations resume                            |
-|       |           New traffic writes to the new empty journal      |
+|  3. COMMIT        Close (writes the gzip trailer), then rename     |
+|       |           into place. This is the only commit point.       |
 |       |                                                            |
-|  4. COMPACT       Read all objects from MDAO (in-memory)           |
-|       |           Write full copies through sink chain             |
-|       |           to the new journal (concurrent with traffic)     |
+|  4. CLEAN UP      Delete generations <= N, now superseded          |
 |       |                                                            |
 |  5. COMPLETE      Log statistics, record EventRecord               |
 +--------------------------------------------------------------------+
 ```
 
+**Nothing is blocked at any step.** Reads and writes continue throughout. See
+[JournalFiles.md](JournalFiles.md) for the naming, the ordering guarantee and
+the crash windows.
+
 **Journal files after compaction:**
 ```
 Before:                     After first compaction:
-  users (large, many        users (compacted + new traffic)
-   delta entries)            users.1 (backup of original)
+  users (large, many        users (new traffic only)
+   delta entries)            users.1.snap.gz (compacted state)
 ```
 
-The roll step uses **copy + truncate** (not rename) because on Linux, renaming only updates the inode. The JVM file operations continue against the original inode, so a rename would leave the writer pointing at the backup file.
+The roll step is an **atomic rename**, run as a job on the journal's own assembly line so that it is ordered against every put and remove without blocking them. A rename moves no data, so the cutover costs the same at any journal size. (It used to be a copy + truncate, because a rename leaves an open writer pointing at the renamed file; the line lets the writer be closed first and reopened after.)
 
-**Key point:** Live traffic continues during step 4. New writes go to the new journal alongside compacted entries. This is why compaction should run during low-traffic periods.
+**Key point:** live traffic never stops. It writes to the fresh `users` from the instant of the rename, while the snapshot is built separately.
 
 ---
 
@@ -76,8 +80,8 @@ Before compaction:
 
 After compaction:
   users.0 (22,000 objects, unchanged)
-  users   (926 entries -- only modified/new objects)
-  users.1 (backup of original runtime journal)
+  users.1.snap.gz (926 entries -- only modified/new objects)
+  users   (new traffic only)
 ```
 
 ### How it works
@@ -86,7 +90,7 @@ After compaction:
 2. For each object in the main MDAO, compare against the `.0` version
 3. **Identical** -- skip (`.0` provides it on startup)
 4. **Modified or new** -- write to the compacted journal
-5. **Deleted at runtime** (exists in `.0` but not in MDAO) -- write a `remove` entry to prevent resurrection on next startup
+5. **Deleted at runtime** -- write a `remove` entry to prevent resurrection on next startup. That covers both a row removed outright and a `LifecycleAware` row soft-deleted to `DELETED`: the latter is still in the MDAO, so `find_` sees it, while `discardLifecycleDeleted` keeps it out of the snapshot. Without the remove, `.0` would bring it back -- a snapshot supersedes the generations, never `.0`
 
 ### No configuration needed
 
@@ -100,9 +104,7 @@ This optimization is automatic when a `.0` file exists. It works with both files
 |---------|---------|---------|
 | `compactible` | `true` | All DAOs are compacted by default |
 | `discardLifecycleDeleted` | `true` | Objects marked DELETED are not written to the new journal |
-| `predicate` | none | No filtering -- all objects are compacted |
-| `createdSince` | none | No date filter on creation time |
-| `lastModifiedSince` | none | No date filter on modification time |
+| `keepSupersededGenerations` | `true` | Keep the generations a snapshot supersedes. True while compaction is being proven |
 
 If no `Compaction` record exists for a DAO, default settings are used: the DAO is compacted with lifecycle-deleted objects discarded.
 
@@ -163,14 +165,14 @@ p({
 | `cSpec` | Reference | (required) | CSpec ID of the DAO to configure |
 | `compactible` | Boolean | `true` | If true, objects are compacted to new journal. If false, entries are discarded |
 | `discardLifecycleDeleted` | Boolean | `true` | Discard objects with lifecycleState=DELETED |
-| `predicate` | Predicate | null | Custom filter -- only matching objects are compacted |
-| `createdSince` | DateTime | null | Only compact objects created on/after this date |
-| `lastModifiedSince` | DateTime | null | Only compact objects modified on/after this date |
+| `keepSupersededGenerations` | Boolean | `true` | Keep superseded generations instead of deleting them. Defaults true while compaction is being proven, so a bad snapshot never destroys what it was built from. Costs disk only -- replay skips them by name, so startup time is unaffected and they can be gzipped in place |
 | `journalName` | String | auto | Journal filename. Defaults to CSpec name with "DAO" removed + "s" |
 
 ---
 
 ## Invoking Compaction
+
+Compaction is a **command sent through the DAO stack**, so it reaches whichever JDAOs are underneath: one for an ordinary DAO, one per partition for a partitioned one. Each appends its own report to the command.
 
 Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`.
 
@@ -186,8 +188,8 @@ Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`
 
 ### Considerations
 
-- Schedule compaction during a **maintenance window** with low traffic
-- Compaction can fail, requiring manual intervention (see Rollback)
+- Compaction no longer needs a maintenance window: nothing is blocked, and it can run as slowly as it likes beside live traffic
+- A held MDAO snapshot retains every row version superseded while it runs, so memory grows with write churn during compaction -- pace long runs by write volume, not wall clock
 - If the DAO stack contains a `FixedSizedDAO`, only retained records are compacted
 
 ---
@@ -197,15 +199,25 @@ Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`
 ### Full compaction (roll + rewrite)
 
 ```java
-import foam.dao.compaction.CompactionDAO;
+import foam.dao.compaction.CompactionCmd;
 
-CompactionDAO compactor = new CompactionDAO(x, "myDAO");
-compactor.execute(x);
+CompactionCmd cmd = new CompactionCmd();
+cmd.setServiceName("myDAO");
+((DAO) x.get("myDAO")).cmd(cmd);
+print(cmd.getReport());
 ```
 
 ### Roll only (no compaction)
 
 If you only need to back up the current journal and start a fresh one:
+
+From a BeanShell script, where `x` is already in scope, this is a one-liner:
+
+```java
+x.get("somethingDAO").cmd(new foam.dao.FileRollCmd());
+```
+
+Or, keeping the result to read the archive name back:
 
 ```java
 import foam.dao.FileRollCmd;
@@ -216,112 +228,56 @@ cmd = (FileRollCmd) dao.cmd_(x, cmd);
 // cmd.getRolledFilename() = "mymodel.1"
 ```
 
-**Warning:** Roll-only does NOT compact. The backup retains all delta entries. The new journal only contains writes after the roll.
+**Warning:** Roll-only does NOT compact. The frozen generation retains all delta entries, and is replayed on every startup. The new journal only contains writes after the roll.
+
+Roll-only is safe on a live system: the cutover is ordered against journal writes by the assembly line. See [JournalFiles.md](JournalFiles.md#rolling-manually).
 
 ---
 
-## Filtering and Archiving
+## Deciding what survives
 
-Compaction sinks allow filtering which objects are written to the new journal. Objects not matching the filter are discarded, effectively archiving them.
+Compaction writes whatever the MDAO currently holds. **Deciding what should be
+in it is a separate concern** -- run it on its own schedule and compaction will
+reflect it the next time it runs.
 
-### Sink Chain
+| policy | how |
+|---|---|
+| date TTL | drop the partition's directory (see [JournalFiles.md](JournalFiles.md)) |
+| age, status, anything else | a CRON calling `removeAll()` with the predicate you want |
+| lifecycle-deleted tombstones | `discardLifecycleDeleted` (below) |
 
-```
-+-------------------+     +----------------------+     +-------------+
-| CompactionSink    |---->| Filter Sink(s)       |---->| JournalSink |
-| (faceted lookup)  |     | (optional per config)|     | (writes)    |
-+-------------------+     +----------------------+     +-------------+
-```
+Compaction used to take a `predicate`, `createdSince` or `lastModifiedSince` and
+drop non-matching objects as it rewrote. Those are gone, along with the
+per-model `{ModelId}CompactionSink` faceted lookup. Two reasons:
 
-### Filter options
+1. **A filtered row stayed live until compaction ran.** It was in the MDAO,
+   queries returned it, listeners had seen it -- and then one day compaction
+   silently dropped it. A `removeAll()` deletes when the policy says to, writes
+   `r()` entries, fires events, and is visible to readers immediately.
+2. **It duplicated the DAO.** Predicate matching is what `removeAll_` already
+   does; the filters carried a second copy plus config plumbing.
 
-**1. By predicate** -- Only objects matching the predicate are kept:
+The cost of a `removeAll()` is one journal entry per removed row, and those land
+in a generation the next compaction supersedes and deletes -- transient disk,
+not permanent.
 
-```
-p({
-  class: "foam.dao.compaction.Compaction",
-  cSpec: "approvalRequestDAO",
-  compactible: true,
-  predicate: {
-    class: "foam.mlang.predicate.FScriptPredicate",
-    query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
-  }
-})
-```
-
-**2. By creation date** -- Only objects created after the date are kept:
-
-```
-p({
-  class: "foam.dao.compaction.Compaction",
-  cSpec: "transactionDAO",
-  compactible: true,
-  createdSince: "2024-01-01T00:00:00.000Z"
-})
-```
-
-**3. By last modified date** -- Only recently modified objects are kept:
-
-```
-p({
-  class: "foam.dao.compaction.Compaction",
-  cSpec: "logDAO",
-  compactible: true,
-  lastModifiedSince: "2024-06-01T00:00:00.000Z"
-})
-```
-
-**Note:** Predicate, createdSince, and lastModifiedSince are mutually exclusive. Only one is used (checked in that order).
-
----
-
-## Custom Compaction Sinks
-
-For per-model filtering logic, create a faceted sink class. The system auto-discovers classes named `{ModelClassId}CompactionSink` via FacetManager.
-
-```javascript
-foam.CLASS({
-  package: 'com.example',
-  name: 'MyModelCompactionSink',
-  extends: 'foam.dao.ProxySink',
-  implements: ['foam.lang.ContextAware'],
-
-  methods: [
-    {
-      name: 'put',
-      javaCode: `
-      MyModel model = (MyModel) obj;
-      if ( model.getStatus() == Status.ACTIVE ) {
-        getDelegate().put(obj, sub);  // Keep: forward to journal
-      }
-      // Discard: don't forward
-      `
-    }
-  ]
-});
-```
-
-See `deployment/compaction/compactions.jrl` for working examples including `TicketCompactionSink` and `ApprovalRequestCompactionSink`.
+**`discardLifecycleDeleted` stays**, because it is not substitutable: for a
+`LifecycleAware` object, `LifecycleAwareDAO.remove_` converts a remove into a
+`setLifecycleState(DELETED)` **put** (`LifecycleAwareDAO.js:144-147`). A CRON
+`removeAll` against the served DAO therefore re-marks tombstones rather than
+purging them; doing it properly means aiming below that decorator.
 
 ---
 
 ## Rollback
 
-Should compaction fail, the system should be considered in an **unknown state**. Live traffic must be halted immediately. Operations that occurred during compaction will be lost.
+**There is no rollback procedure, because a failed compaction is not a state to recover from.** The snapshot only becomes visible at the rename; until then the frozen generations are still the record, and live traffic has been landing in the current journal the whole time. A failure leaves a `.tmp` that the next boot ignores and anything may delete.
 
-### Rollback Steps
+If compaction throws, check the EventRecord for the cause and run it again. Nothing is lost and nothing needs restoring.
 
-1. **Halt the system** -- Stop all traffic
-2. **Restore the journal** -- Discard the new journal file and rename the highest-numbered backup back to the original name:
-   ```
-   rm journals/users
-   mv journals/users.1 journals/users
-   ```
-3. **Restart the system** -- The restored journal will replay on startup
+### Reverting a completed compaction
 
-### Data loss
-
-Any writes that occurred between the roll and the failure are lost. This is why compaction should be scheduled during maintenance windows with minimal traffic.
+A committed snapshot supersedes the generations it covers, and cleanup deletes them, so there is nothing to revert to afterwards. To keep that option, take a copy of the generation files before running compaction -- they are ordinary files and can be restored by putting them back and deleting the snapshot.
 
 ---
 
@@ -355,7 +311,7 @@ Compaction Report
 |-------|-------------|
 | processed | Total objects read from MDAO |
 | compacted | Objects written to new journal |
-| filtered | Percentage of objects removed by sink filters |
+| filtered | Percentage of objects not written -- lifecycle-deleted tombstones, when `discardLifecycleDeleted` is set |
 | journal entries | Line count before vs after compaction |
 | journal size | File size before vs after compaction |
 | skipped (.0) | Objects identical to `.0` version (not written) |
@@ -365,28 +321,26 @@ Compaction Report
 
 During compaction, progress is logged every 5 seconds:
 ```
-[INFO] CompactionDAO compaction progress processed=25000 50%
+[INFO] Compactor compaction progress processed=25000 50%
 ```
 
 ---
 
 ## Gotchas
 
-1. **Roll-only does NOT compact** -- `FileRollCmd` only copies the journal and truncates. Use `CompactionDAO.execute()` for full compaction.
+1. **Roll-only does NOT compact** -- `FileRollCmd` only freezes the journal as a generation. Send a `CompactionCmd` for full compaction.
 
-2. **ProxyDAO requirement** -- `CompactionDAO.roll()` casts `x.get(serviceName)` to `ProxyDAO`. The DAO must be wrapped in a ProxyDAO or roll will fail.
+2. **Compaction is async** -- The snapshot runs on the thread pool. `execute()` polls for completion every 5 seconds.
 
-3. **Compaction is async** -- The compaction step runs on the thread pool. `execute()` polls for completion every 5 seconds.
+3. **One compaction per journal at a time** -- a `CompactionCmd` for a journal that is already compacting is skipped and reported on the command (`getSkippedCount()`, `getSkipped()`), not queued and not an error. Overlapping triggers are expected; the next run picks it up.
 
-4. **Live traffic during compaction** -- After the roll, DAO operations resume. New writes go to the new journal. If compaction fails, these writes are lost on rollback.
+4. **Live traffic during compaction** -- Writes go to the fresh journal from the moment of the cutover and are never at risk; the snapshot is a separate file that only becomes visible once complete.
 
 5. **MDAO is the source** -- Compaction reads from MDAO, not the journal file. The in-memory state is what gets written.
 
 6. **FixedSizedDAO interaction** -- If the DAO stack includes a FixedSizedDAO, only objects retained by it are compacted.
 
 7. **eventRecordDAO required** -- `execute()` writes to `eventRecordDAO`. Must be available in context.
-
-8. **Filter mutual exclusivity** -- Only one of predicate/createdSince/lastModifiedSince is applied (checked in that order as if/else if).
 
 ---
 
@@ -395,15 +349,13 @@ During compaction, progress is logged every 5 seconds:
 | File | Purpose |
 |------|---------|
 | `foam/dao/compaction/Compaction.js` | Configuration model |
-| `foam/dao/compaction/CompactionDAO.js` | Orchestrator (roll + compact) |
-| `foam/dao/compaction/BlockingDAO.js` | Thread synchronization during roll |
-| `foam/dao/compaction/CompactionSink.js` | Faceted sink discovery |
-| `foam/dao/compaction/LifecycleDeletedCompactionSink.js` | Filter deleted objects |
-| `foam/dao/compaction/PredicateCompactionSink.js` | Filter by predicate |
-| `foam/dao/compaction/CreatedCompactionSink.js` | Filter by creation date |
-| `foam/dao/compaction/LastModifiedCompactionSink.js` | Filter by modification date |
+| `foam/dao/compaction/CompactionCmd.js` | Command sent through the DAO stack; config in, report out |
+| `foam/dao/compaction/Compactor.js` | Roll + snapshot for one JDAO's journal |
+| `foam/dao/compaction/LifecycleDeletedCompactionSink.js` | Discard lifecycle-deleted tombstones |
 | `foam/dao/FileRollCmd.js` | Command to trigger journal roll |
 | `foam/dao/AbstractF3FileJournal.js` | Journal roll implementation |
+| `foam/dao/JournalGenerations.java` | Derives the generation set from the filesystem |
+| `doc/guides/JournalFiles.md` | Journal naming, numbering and rolling scheme |
 | `deployment/compaction/services.jrl` | compactionDAO service definition |
 | `deployment/compaction/compactions.jrl` | Per-DAO compaction configuration |
 | `deployment/compaction/scripts.jrl` | DAOCompaction script |

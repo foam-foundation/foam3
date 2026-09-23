@@ -18,6 +18,9 @@ import foam.core.fs.Storage;
 import java.io.File;
 import java.lang.ref.SoftReference;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static foam.mlang.MLang.EQ;
 
@@ -27,12 +30,55 @@ public class PartitionedDAO
 
   protected final static String NO_PART = "".intern();
 
+  /** Every partition owns a directory, and its journal lives inside under this
+      fixed name. That keeps two namespaces apart structurally rather than by
+      delimiter: the partition value is a directory name, and the journal's own
+      bookkeeping -- generations, snapshots, half-written temps -- are file
+      names beneath it. A partition value can then be anything the filesystem
+      accepts, and removing a partition is removing its directory. */
+  public final static String PART_JOURNAL = "journal";
+
   // Doesn't need to be concurrent since the getDelgate() method synchronizes on it explicitly
   protected final HashMap<String, SoftReference<DAO>> delegates_ = new HashMap<>();
 
   // Partitions currently mid-replay in getDelegate(). Concurrent so peeks
   // (isLoading, publishQueued) never wait on a partition lock during a load.
   protected final java.util.Set<String> loading_ = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+  // A Sink decorator which allows the delegate Sink to be fed to the select()
+  // method of multiple DAOs. If one of the DAOs detaches the isDetached()
+  // method will return true. This means the Sink doesn't need to be passed
+  // to the remaining DAOs. The eof() method is NOP-ed but needs to be called
+  // at the end of feeding the Sink to multiple DAOs.
+  public static class DetachableSink extends ProxySink implements Detachable {
+
+    protected boolean isDetached_ = false;
+
+    public DetachableSink(Sink delegate) {
+      super(delegate);
+    }
+
+    public void put(Object obj, Detachable sub) {
+      if ( isDetached() ) return;
+
+      getDelegate().put(obj, this);
+
+      if ( isDetached() && sub != null ) sub.detach();
+    }
+
+    public void eof() {
+      // NOP because will be fed to multiple DAOs
+    }
+
+    public boolean isDetached() {
+      return isDetached_;
+    }
+
+    public void detach() {
+      // System.err.println("***************** DETACHING SINK");
+      isDetached_ = true;
+    }
+  } // DetachableSink
 
   public PartitionedDAO(X x) {
     setX(x);
@@ -115,6 +161,31 @@ public class PartitionedDAO
     return ref != null && ref.get() != null;
   }
 
+  /** Compaction is per-journal, and each partition has one. Forwarding rather
+      than handling means every partition is compacted and each one's report is
+      accumulated on the command.
+
+      Partitions are independent journals, so one that cannot be compacted must
+      not strand the others. Its failure is recorded on the command -- which
+      already carries per-partition results -- and the loop continues. Only the
+      synchronous half of compaction can throw here; once dispatched, the
+      rewrite records its own errors the same way. */
+  public Object cmd_(X x, Object cmd) {
+    if ( cmd instanceof foam.dao.compaction.CompactionCmd ) {
+      foam.dao.compaction.CompactionCmd cc = (foam.dao.compaction.CompactionCmd) cmd;
+      for ( String part : getPartitions() ) {
+        try {
+          getDelegate(part).cmd_(x, cc);
+        } catch ( Throwable t ) {
+          cc.addError(journalNameFor(part) + ": " + t.getMessage());
+          Loggers.logger(getX(), this).error("compaction", part, t);
+        }
+      }
+      return cc;
+    }
+    return super.cmd_(x, cmd);
+  }
+
   public String getID(FObject o) {
     return (String) getIdProperty().f(o);
   }
@@ -143,15 +214,18 @@ public class PartitionedDAO
     return a[getDepth()-1];
   }
 
-  /** Filename-escaped journal name for a raw partition value, exactly as
-      createDAO builds it for the JDAO -- the '_' escape is for the FILENAME
-      only; callers needing the id-prefix / cache key should keep using the
-      raw, unescaped part (see getPartition_'s round-trip). */
+  /** Journal name for a raw partition value, exactly as createDAO builds it
+      for the JDAO: the partition's own directory plus PART_JOURNAL. Callers
+      needing the id-prefix / cache key should keep using the raw part (see
+      getPartition_'s round-trip). */
   protected String journalNameFor(String part) {
-    if ( part.startsWith("_") || part.equals("") ) {
-      part = "_" + part;
-    }
-    return getDirName() + part;
+    return partitionDirFor(part) + PART_JOURNAL;
+  }
+
+  /** The directory a partition owns. Chained levels build their child's
+      dirName from this, so every level is the same shape. */
+  protected String partitionDirFor(String part) {
+    return getDirName() + part + "/";
   }
 
   public DAO createDAO(String part) {
@@ -257,30 +331,148 @@ public class PartitionedDAO
     return getDelegate(part).find_(x, id);
   }
 
-  public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+  /** Every partition with a journal on disk, sorted by name.
+
+      Unlike DatePartitionedDAO, whose partition names are computable by
+      stepping a Calendar, a partition keyed on something like a programId can
+      only be discovered, so this reads the directory. Names are recovered by
+      inverting createDAO's naming: a partition's journal is "<dirName><part>"
+      every partition -- leaf or chained -- owns a directory, so the entries
+      that are directories are the partitions and their names are the partition
+      values. Nothing has to be parsed. */
+  public String[] getPartitions() {
+    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
+    String  dirName = getDirName();
+    File[]  entries;
+    String  prefix  = "";
+
+    if ( dirName.endsWith("/") ) {
+      // dirName owns its directory, so every entry in it is one of ours.
+      File dir = storage.get(dirName);
+      if ( dir == null || ! dir.isDirectory() ) return new String[0];
+      entries = dir.listFiles();
+    } else {
+      // A flat dirName shares its parent with unrelated journals, so only
+      // entries carrying its basename as a prefix are ours.
+      File probe = storage.get(dirName);
+      File dir   = probe == null ? null : probe.getParentFile();
+      if ( dir == null || ! dir.isDirectory() ) return new String[0];
+      prefix = probe.getName();
+      final String p = prefix;
+      entries = dir.listFiles((d, name) -> name.startsWith(p));
+    }
+
+    if ( entries == null ) return new String[0];
+
+    Set<String> names = new HashSet<>();
+    for ( File f : entries ) {
+      // A partition is a directory. Loose files beside them -- an unrelated
+      // journal sharing the parent, a stray temp -- are not partitions.
+      if ( f.isDirectory() ) names.add(f.getName());
+    }
+
+    Set<String> parts = new TreeSet<>();
+    for ( String name : names ) {
+      parts.add(name.substring(prefix.length()));
+    }
+
+    return parts.toArray(new String[0]);
+  }
+
+  /** The partitions a select has to visit: every one of them when the
+      predicate carries an AllPartitions naming this level's property,
+      otherwise the single one an EQ routes to. */
+  public String[] resolvePartitions(Predicate predicate) {
+    if ( hasAllPartitions(predicate) ) return getPartitions();
+
     Object part = extractPredicateValue(predicate);
 
     if ( part == null ) {
-      // No partition term: nothing can be routed. Answer empty and say so,
-      // rather than creating and caching a partition literally named "null".
-      Loggers.logger(x, this).info("No partition term in predicate, nothing selected", getDirName(), predicate);
-      sink.eof();
-      return sink;
+      String prop = ((PropertyInfo) getPartitionProperty()).getName();
+      // Previously this fell through to getDelegate(String.valueOf(null)),
+      // which loaded a partition literally named "null" -- an empty result
+      // plus a stray journal file. A fully partitioned DAO requires the
+      // selector in the query (see design.md), so say so.
+      throw new UnsupportedOperationException(
+        "select() on " + getDirName() + " needs '" + prop +
+        "' in the query to pick a partition, or AllPartitions(" + prop +
+        ") to visit every partition.");
     }
 
-    if ( ! ( part instanceof Object[] ) ) {
-      return getDelegate(String.valueOf(part)).select_(x, sink, skip, limit, order, predicate);
-    }
+    if ( ! ( part instanceof Object[] ) ) return new String[] { String.valueOf(part) };
 
     // IN over the partition property: one partition per listed value, same
-    // fan-out as DatePartitionedDAO over a date range.
-    Sink                                  s2 = decorateSink(x, sink, skip, limit, order, predicate);
-    DatePartitionedDAO.DetachableSink     s3 = new DatePartitionedDAO.DetachableSink(s2);
-    for ( Object p : (Object[]) part ) {
-      getDelegate(String.valueOf(p)).select_(x, s3, 0, MAX_SAFE_INTEGER, null, null);
+    // fan-out as AllPartitions. A repeated value still names one partition.
+    Set<String> parts = new java.util.LinkedHashSet<>();
+    for ( Object p : (Object[]) part ) parts.add(String.valueOf(p));
+    return parts.toArray(new String[0]);
+  }
+
+  /** True when the predicate asks for every partition of THIS level. Mirrors
+      extractPredicateValue's traversal: a bare term, or any arg of an AND.
+      Comparing arg1 by reference matches how extractPredicateValue matches the
+      partition property. */
+  protected boolean hasAllPartitions(Predicate predicate) {
+    if ( predicate instanceof AllPartitions )
+      return ((AllPartitions) predicate).getArg1() == getPartitionProperty();
+
+    if ( predicate instanceof And ) {
+      for ( Predicate arg : ((And) predicate).getArgs() ) {
+        if ( hasAllPartitions(arg) ) return true;
+      }
+    }
+
+    return false;
+  }
+
+  public foam.dao.Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+    String[] parts = resolvePartitions(predicate);
+
+    // One partition: hand the whole query down so the delegate can use its
+    // indices, exactly as before.
+    if ( parts.length == 1 )
+      return getDelegate(parts[0]).select_(x, sink, skip, limit, order, predicate);
+
+    Sink s2 = decorateSink(null, sink, skip, limit, order, predicate);
+
+    // decorateSink only inserts an OrderedSink when the ordering would really
+    // be applied -- it skips one for Count/Sum/Min/Max/Average, where order is
+    // meaningless -- so look for the sink it actually built rather than just
+    // testing order != null.
+    //
+    // An OrderedSink buffers every record fed to it and sorts on eof(), so
+    // ordering across N partitions would hold all N partitions' matching
+    // records in memory at once, and the LimitedSink nested inside it could
+    // never detach early to cut the walk short. Refuse instead: unordered, the
+    // walk streams one partition at a time and a limit still stops it early.
+    // Walk only the links decorateSink added (stop at the caller's own sink,
+    // which may legitimately be a ProxySink of its own).
+    if ( parts.length > 1 ) {
+      for ( Sink s = s2 ; s != sink && s instanceof ProxySink ; s = ((ProxySink) s).getDelegate() ) {
+        if ( s instanceof OrderedSink )
+          throw new UnsupportedOperationException(
+            "Cannot order a select() spanning " + parts.length + " partitions of " +
+            getDirName() + ": ordering would have to load them all at once. Drop " +
+            "the order, or narrow the query to a single partition.");
+      }
+    }
+
+    DetachableSink s3 = new DetachableSink(s2);
+
+    for ( int i = 0 ; i < parts.length ; i++ ) {
+      // Pass the predicate down, but not skip/limit/order: those apply to the
+      // merged stream and s2 already owns them, whereas each partition would
+      // otherwise apply its own. The predicate has to go down because a
+      // delegate may itself be a partitioned DAO that routes on it (PADDAO's
+      // inner DatePartitionedDAO would otherwise see no predicate and fall
+      // back to its default time window); a leaf delegate can also use it to
+      // hit an index. s2's PredicatedSink filters again, which is harmless.
+      getDelegate(parts[i]).select_(x, s3, 0, AbstractDAO.MAX_SAFE_INTEGER, null, predicate);
       if ( s3.isDetached() ) break;
     }
+
     s2.eof();
+
     return sink;
   }
 

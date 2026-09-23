@@ -1,4 +1,4 @@
-<flow name="Notification" category="DOC/DEV" spid="foam" description="Notification system overview: Notifications, NotificationTemplates, email templates, and GoogleChat webhook integration." keywords="notification,template,email,googlechat"/>
+<flow name="Notification" category="DOC/DEV" spid="foam" description="Notification system overview: Notifications, NotificationTemplates, email templates, and GoogleChat webhook integration." keywords="notification,template,email,googlechat,knowledge"/>
 
 # Notification System
 

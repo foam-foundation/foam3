@@ -1,4 +1,4 @@
-<flow name="MixinsAndImplements" category="DOC/GUIDE" spid="foam" description="Compares implements: (safe override via axiomMap) vs mixins: (direct unconditional axiom copy)." keywords="mixins,implements,axiommap,override,inheritance"/>
+<flow name="MixinsAndImplements" category="DOC/GUIDE" spid="foam" description="Compares implements: (safe override via axiomMap) vs mixins: (direct unconditional axiom copy)." keywords="mixins,implements,axiommap,override,inheritance,knowledge"/>
 
 **Summary**
 - `implements:` declares intent to implement an interface or mix in a model, with special handling to avoid property override conflicts by inserting an intermediate axiom map level.
@@ -39,4 +39,4 @@ foam.CLASS({
 - `implements:` can also be used for pure interfaces (properties without implementation), while `mixins:` always copies all axioms.
 - The `Implements` axiom has higher priority (200) than `Mixin` (19), affecting installation order.
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)

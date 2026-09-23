@@ -1,4 +1,4 @@
-<flow name="MultiPartKeys" category="DOC/GUIDE" spid="foam" description="Explains composite primary keys via the ids array: typed ID class generation and multi-part key lookups." keywords="multi-part keys,ids,composite key,primary key"/>
+<flow name="MultiPartKeys" category="DOC/GUIDE" spid="foam" description="Explains composite primary keys via the ids array: typed ID class generation and multi-part key lookups." keywords="multi-part keys,ids,composite key,primary key,knowledge"/>
 
 # MultiPart Keys (Composite Primary Keys)
 

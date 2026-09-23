@@ -1,4 +1,4 @@
-<flow name="DesignPatterns" category="DOC/GUIDE" spid="foam" description="Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Facade, Template Method, Observer, Composite." keywords="design patterns,decorator,strategy,proxy,composite"/>
+<flow name="DesignPatterns" category="DOC/GUIDE" spid="foam" description="Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Facade, Template Method, Observer, Composite." keywords="design patterns,decorator,strategy,proxy,composite,knowledge"/>
 
 # Design Patterns in FOAM
 

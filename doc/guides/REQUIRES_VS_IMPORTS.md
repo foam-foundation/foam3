@@ -1,4 +1,4 @@
-<flow name="REQUIRES_VS_IMPORTS" category="DOC/GUIDE" spid="foam" description="Explains requires: (class dependencies) vs imports: (runtime DI from context)." keywords="requires,imports,dependency injection,context"/>
+<flow name="REQUIRES_VS_IMPORTS" category="DOC/GUIDE" spid="foam" description="Explains requires: (class dependencies) vs imports: (runtime DI from context)." keywords="requires,imports,dependency injection,context,knowledge"/>
 
 # FOAM3 Dependencies: `requires` vs `imports`
 

@@ -1,4 +1,4 @@
-<flow name="NDiff" category="DOC/GUIDE" spid="foam" description="Covers NDiff, a debugging tool that captures initial journal state and compares it to runtime state for CSpecs." keywords="ndiff,debugging,journal,cspec,diff"/>
+<flow name="NDiff" category="DOC/GUIDE" spid="foam" description="Covers NDiff, a debugging tool that captures initial journal state and compares it to runtime state for CSpecs." keywords="ndiff,debugging,journal,cspec,diff,knowledge"/>
 
 # NDiff - CSpec Change Tracking System
 

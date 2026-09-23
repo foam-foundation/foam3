@@ -8,6 +8,8 @@ foam.POM({
     { name: 'SingleToPartitionMigratorTest',      flags: 'js&test|java&test' },
     { name: 'ReferenceMigratorTest',              flags: 'js&test|java&test' },
     { name: 'DatePartitioningSchemeTest',         flags: 'js&test|java&test' },
+    { name: 'DatePartitionedSelectTest',          flags: 'js&test|java&test' },
+    { name: 'DatePartitionedPreloadTest',         flags: 'js&test|java&test' },
     { name: 'PartitionLoadReporterTest',          flags: 'js&test|java&test' },
     { name: 'PartitionLoadReplayTest',            flags: 'js&test|java&test' },
     { name: 'PartitionLoadStatusIntegrationTest', flags: 'js&test|java&test' },
@@ -19,7 +21,9 @@ foam.POM({
     { name: 'PartitionedDAOListenTest',           flags: 'js&test|java&test' },
     { name: 'TwoLevelUnsetIdTest',                flags: 'js&test|java&test' },
     { name: 'PartitionedDAORoutingTest',          flags: 'js&test|java&test' },
-    { name: 'PartitionIndexDAOTest',              flags: 'js&test|java&test' }
+    { name: 'PartitionIndexDAOTest',              flags: 'js&test|java&test' },
+    { name: 'PartitionedDAOSelectTest',           flags: 'js&test|java&test' },
+    { name: 'PartitionedCompactionTest',          flags: 'js&test|java&test' }
   ],
 
   javaFiles: [

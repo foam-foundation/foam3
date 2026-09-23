@@ -1,4 +1,4 @@
-<flow name="Notifications" category="DOC/GUIDE" spid="foam" description="Overview of the notification system: notificationDAO, custom notification types, bell icon display, citation views." keywords="notifications,notificationdao,bell icon,citation view"/>
+<flow name="Notifications" category="DOC/GUIDE" spid="foam" description="Overview of the notification system: notificationDAO, custom notification types, bell icon display, citation views." keywords="notifications,notificationdao,bell icon,citation view,knowledge"/>
 
 # FOAM Notification System Overview
 

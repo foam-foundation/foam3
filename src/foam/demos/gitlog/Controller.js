@@ -960,7 +960,7 @@ var commits = this.commits.filter(c => this.match(c, this.query, this.author, '/
           start('th').add('Subject').end().
           start('th').show(self.embedFiles$).add('Files').end().
         end().forEach(self.commits, function(d) {
-          var href = 'https://github.com/kgrgreer/foam3/commit/' + d.id;
+          var href = 'https://github.com/foam-foundation/foam3/commit/' + d.id;
           this.start('tr').
             enableClass('selected', self.selection$.map(s => { return s && s === d; })).
             on('click', () => {

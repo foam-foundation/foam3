@@ -1,4 +1,4 @@
-<flow name="AsyncUtils" category="DOC/DEV" spid="foam" label="foam.util.async" description="The Sequence class: executes ordered async steps, each able to import context exported by the previous step." keywords="sequence,async,fluent,contextagent"/>
+<flow name="AsyncUtils" category="DOC/DEV" spid="foam" label="foam.util.async" description="The Sequence class: executes ordered async steps, each able to import context exported by the previous step." keywords="sequence,async,fluent,contextagent,knowledge"/>
 
 # Sequence
 
@@ -15,7 +15,7 @@ finish running and exports a recipient for a greeting message. The second step
 imports a recipient for a greeting message and displays "Hello {recipient}!" in
 a popup view.
 
-<foam class="foam.flow.widgets.TryItSnippet" language="JS">
+<example>
 foam.CLASS({
   package: 'example',
   name: 'StepOne',
@@ -47,7 +47,7 @@ var seq = foam.util.async.Sequence.create()
   .add(example.StepOne)
   .add(example.StepTwo);
 seq.execute();
-</foam>
+</example>
 
 The following example has 10 steps created using a fluent foreach. In this
 example, `addAs` is being used instead of `add`. The only difference between
@@ -56,7 +56,7 @@ specifying a name for the step. By default, the step is named after its class,
 however; here the same class is used for each step, so it helps to distinguish
 them by some unique value.
 
-<foam class="foam.flow.widgets.TryItSnippet" language="JS">
+<example>
 foam.CLASS({
   package: 'example',
   name: 'QuickMessage',
@@ -84,13 +84,13 @@ var seq = foam.util.async.Sequence.create()
     }
   );
 seq.execute();
-</foam>
+</example>
 
 The next example is similar to the first, but the sequence is modified after
 using `reconfigure` and `addBefore`. Sequences can be cloned and mutated,
 which allows a lot of extensibility for existing sequences.
 
-<foam class="foam.flow.widgets.TryItSnippet" language="JS">
+<example>
 foam.CLASS({
   package: 'example',
   name: 'QuickMessage',
@@ -135,6 +135,6 @@ seq
   })
   ;
 seq.execute();
-</foam>
+</example>
 
 test

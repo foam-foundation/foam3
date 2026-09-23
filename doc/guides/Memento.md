@@ -1,4 +1,4 @@
-<flow name="Memento" category="DOC/GUIDE" spid="foam" description="Explains foam.u2.memento.Memento's URL-hash state sync, the route path special case, WindowHashMemento, and foam.u2.Router." keywords="memento,routing,url hash,router,navigation"/>
+<flow name="Memento" category="DOC/GUIDE" spid="foam" description="Explains foam.u2.memento.Memento's URL-hash state sync, the route path special case, WindowHashMemento, and foam.u2.Router." keywords="memento,routing,url hash,router,navigation,knowledge"/>
 
 # Memento & Routing
 
@@ -186,7 +186,7 @@ foam.CLASS({
   | `'create'` | `CreateView` — new object form |
   | Any record ID | `DetailView` — view/edit of that record |
 
-- **`foam.comics.v3.CreateView`** and **`foam.core.doc.DocumentationView`** both mix in `foam.u2.Router` for their own sub-navigation.
+- **`foam.comics.v3.CreateView`** mixes in `foam.u2.Router` for its own sub-navigation.
 
 - **`foam.comics.v2.DAOUpdateView`** mixes in `foam.u2.memento.Memorable` directly (no `Router`) — a class that wants URL-synced state but not the breadcrumb/stack machinery should follow this pattern rather than pulling in `Router`.
 

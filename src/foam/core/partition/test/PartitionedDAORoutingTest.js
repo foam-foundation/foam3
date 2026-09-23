@@ -11,7 +11,7 @@ foam.CLASS({
 
   documentation: `PartitionedDAO.select_ fans an IN over the partition property
     out to one partition per value, and a predicate with no partition term
-    selects nothing instead of creating a partition named "null".`,
+    is refused instead of creating a partition named "null".`,
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -44,8 +44,13 @@ foam.CLASS({
         ArraySink in = (ArraySink) dao.where(IN(PartitionStrRecord.BUCKET, new Object[] { 5, 9 })).select(new ArraySink());
         test(in.getArray().size() == 2, "IN over two partitions returns their two rows, got " + in.getArray().size());
 
-        ArraySink none = (ArraySink) dao.where(EQ(PartitionStrRecord.DATA, "d7")).select(new ArraySink());
-        test(none.getArray().isEmpty(), "a predicate with no partition term selects nothing, got " + none.getArray().size());
+        boolean threw = false;
+        try {
+          dao.where(EQ(PartitionStrRecord.DATA, "d7")).select(new ArraySink());
+        } catch ( UnsupportedOperationException e ) {
+          threw = true;
+        }
+        test(threw, "a predicate with no partition term is refused");
         test(! fs.get(dirName + "null").exists(), "no journal named null is created");
         test(! dao.isLoaded("null"), "no partition named null is cached");
       `

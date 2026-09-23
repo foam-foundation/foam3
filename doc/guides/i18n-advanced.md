@@ -1,4 +1,4 @@
-<flow name="i18n-advanced" category="DOC/GUIDE" spid="foam" description="Advanced runtime i18n: messageMap/localeDAO sync at boot, Locale rows, and the message-override lifecycle." keywords="i18n,localedao,locale,runtime translation"/>
+<flow name="i18n-advanced" category="DOC/GUIDE" spid="foam" description="Advanced runtime i18n: messageMap/localeDAO sync at boot, Locale rows, and the message-override lifecycle." keywords="i18n,localedao,locale,runtime translation,knowledge"/>
 
 # FOAM i18n — Advanced & Runtime
 

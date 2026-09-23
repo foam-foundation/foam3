@@ -1,4 +1,4 @@
-<flow name="Enum" category="DOC/GUIDE" spid="foam" description="Covers FOAM Enums: declaring with foam.ENUM, ordinal/label/properties/methods, usage analogous to Java enums." keywords="enum,ordinal,label,values"/>
+<flow name="Enum" category="DOC/GUIDE" spid="foam" description="Covers FOAM Enums: declaring with foam.ENUM, ordinal/label/properties/methods, usage analogous to Java enums." keywords="enum,ordinal,label,values,knowledge"/>
 
 # Enums
 

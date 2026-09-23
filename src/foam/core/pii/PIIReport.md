@@ -1,4 +1,4 @@
-<flow name="PIIReport" category="DOC/DEV" spid="foam" label="PII Report" description="GDPR PII reporting: PIIReportTicket generation via action or settings menu, PII property tagging, and email delivery." keywords="pii,gdpr,piireportticket,privacy"/>
+<flow name="PIIReport" category="DOC/DEV" spid="foam" label="PII Report" description="GDPR PII reporting: PIIReportTicket generation via action or settings menu, PII property tagging, and email delivery." keywords="pii,gdpr,piireportticket,privacy,knowledge"/>
 
 # Personal Identifiable Information (PII)
 

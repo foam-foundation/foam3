@@ -1,4 +1,4 @@
-<flow name="demo" category="DOC/DEV" spid="foam" description="A foam.QA2 demo: a restaurant-picker decision tree driven by questions, outcomes, and predicates." keywords="qa2,demo,decision tree,questions"/>
+<flow name="demo" category="DOC/DEV" spid="foam" description="A foam.QA2 demo: a restaurant-picker decision tree driven by questions, outcomes, and predicates." keywords="qa2,demo,decision tree,questions,knowledge"/>
 
 ```js
 console.clear();

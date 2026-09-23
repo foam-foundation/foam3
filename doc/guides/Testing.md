@@ -1,4 +1,4 @@
-<flow name="Testing" category="DOC/GUIDE" spid="foam" description="Covers the FOAM test harness: running all/server/client tests, specific test IDs, exclusions, and the SUCCESS/FAILURE output format." keywords="testing,test harness,server-tests,client-tests"/>
+<flow name="Testing" category="DOC/GUIDE" spid="foam" description="Covers the FOAM test harness: running all/server/client tests, specific test IDs, exclusions, and the SUCCESS/FAILURE output format." keywords="testing,test harness,server-tests,client-tests,knowledge"/>
 
 # Testing
 

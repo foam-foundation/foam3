@@ -54,7 +54,7 @@ Setup /opt Directory
 # FOAM
 Git Clone
 
-    git clone https://github.com/kgrgreer/foam3.git
+    git clone https://github.com/foam-foundation/foam3.git
 
 # Application
 Create an example application

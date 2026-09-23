@@ -1,4 +1,4 @@
-<flow name="intro" category="DOC/DEV" spid="foam" description="Top-level FOAM introduction: Feature Oriented Active Modeller, modeling classes to generate JS, Java, and Swift code." keywords="introduction,foam,modeller,cross-platform"/>
+<flow name="intro" category="DOC/DEV" spid="foam" description="Top-level FOAM introduction: Feature Oriented Active Modeller, modeling classes to generate JS, Java, and Swift code." keywords="introduction,foam,modeller,cross-platform,knowledge"/>
 
 # FOAM Introduction
 
@@ -10,7 +10,7 @@ Build fully featured high performance apps in less time using FOAM.
 
 "Fast apps Fast"
 
-Development lives on [GitHub](https://github.com/kgrgreer/foam3)
+Development lives on [GitHub](https://github.com/foam-foundation/foam3)
 
 Community lives on [Discord](https://discord.gg/DAdyxNjP)
 

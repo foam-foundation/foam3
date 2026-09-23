@@ -164,7 +164,7 @@ public class PartitionIndexDAO
     // route carries the full original predicate, so the sink is decorated
     // for skip, limit and order only.
     Sink                              s2 = decorateSink(x, sink, skip, limit, order, null);
-    DatePartitionedDAO.DetachableSink s3 = new DatePartitionedDAO.DetachableSink(s2);
+    PartitionedDAO.DetachableSink     s3 = new PartitionedDAO.DetachableSink(s2);
     for ( Predicate route : routes ) {
       getDelegate().select_(x, s3, 0, MAX_SAFE_INTEGER, null, route);
       if ( s3.isDetached() ) break;

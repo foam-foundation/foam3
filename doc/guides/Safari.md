@@ -1,4 +1,4 @@
-<flow name="Safari" category="DOC/GUIDE" spid="foam" description="Short guide to running FOAM in Safari: building with HTTPS and trusting the certificate in Keychain." keywords="safari,https,certificate,keychain"/>
+<flow name="Safari" category="DOC/GUIDE" spid="foam" description="Short guide to running FOAM in Safari: building with HTTPS and trusting the certificate in Keychain." keywords="safari,https,certificate,keychain,knowledge"/>
 
 # Safari Debugging with HTTPS
 

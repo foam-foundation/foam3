@@ -1,4 +1,4 @@
-<flow name="CrunchForDeveloper" category="DOC/DEV" spid="foam" description="CRUNCH developer internals: CrunchController, CapabilityIntercept, and throwing intercepts for subject capabilities." keywords="crunch,capabilityintercept,crunchcontroller"/>
+<flow name="CrunchForDeveloper" category="DOC/DEV" spid="foam" description="CRUNCH developer internals: CrunchController, CapabilityIntercept, and throwing intercepts for subject capabilities." keywords="crunch,capabilityintercept,crunchcontroller,knowledge"/>
 
 # CRUNCH Developer Documentation
 
@@ -17,7 +17,7 @@ the application's main controller in an exported property named
 
 ### CrunchController methods
 
-<foam class="foam.flow.widgets.MethodShortSummary" of="foam.u2.crunch.CrunchController" />
+<foam class="foam.flow.widgets.MethodShortSummary" of="foam.u2.crunch.CrunchController"></foam>
 
 ## CapabilityIntercept
 
@@ -54,12 +54,12 @@ as a script. If this code existed in a DAO decorator or a synchronous rule
 it would result in the client handling the intercept for you before
 re-sending (or aborting) the request.
 
-<foam class="foam.flow.widgets.TryItSnippet" server="true">
+```java
 import foam.core.crunch.CapabilityIntercept;
 var ex = new CapabilityIntercept();
 ex.addCapabilityId("crunch.example");
 throw ex;
-</foam>
+```
 
 ## Client-Side: Handling a CapabilityIntercept
 
@@ -75,9 +75,9 @@ invoked manually on the client. Running this code snippet will result
 in a wizard requesting the example capability, unless your current
 user already has it granted.
 
-<foam class="foam.flow.widgets.TryItSnippet" server="true">
+<example>
 var intercept = foam.core.crunch.CapabilityIntercept.create({
   capabilities: ['crunch.example']
 });
 x.crunchController.handleIntercept(intercept);
-</foam>
+</example>

@@ -1,4 +1,4 @@
-<flow name="VsSpring" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-language, context DI) vs Spring Boot (annotation-driven, Java IoC container)." keywords="spring,comparison,ioc,java"/>
+<flow name="VsSpring" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-language, context DI) vs Spring Boot (annotation-driven, Java IoC container)." keywords="spring,comparison,ioc,java,knowledge"/>
 
 ## Overview
 
@@ -182,7 +182,7 @@ Key features:
 FOAM is a full-stack, model-driven framework with cross-language code generation and built-in data persistence, while Spring Boot is a Java-specific framework focused on convention-over-configuration and rapid application development<cite/>. FOAM's context-based dependency injection and DAO system provide a unified programming model across client and server, whereas Spring Boot requires separate frontend frameworks and relies on external databases<cite/>. FOAM has a steeper learning curve due to its unique concepts, but provides more built-in functionality for complex enterprise applications<cite/>.
 
 Wiki pages you might want to explore:
-- [FOAM Framework Overview (kgrgreer/foam3)](/wiki/kgrgreer/foam3#1)
+- [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
 
 ### Citations
 

@@ -6,6 +6,7 @@
 
 package foam.core.partition;
 
+import foam.core.COREService;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.lang.*;
@@ -21,48 +22,17 @@ import java.util.List;
 
 public class DatePartitionedDAO
   extends PartitionedDAO
+  implements COREService
 {
   public final static long DAY                 = 24 * 60 * 60 * 1000; // 1 day in ms
   public final static int  DEFAULT_TIME_WINDOW = 5 * 7;               // five weeks
 
-  // A Sink decorator which allows the delegate Sink to be fed to the select()
-  // method of multiple DAOs. If one of the DAOs detaches the isDetached()
-  // method will return true. This means the Sink doesn't need to be passed
-  // to the remaining DAOs. The eof() method is NOP-ed but needs to be called
-  // at the end of feeding the Sink to multiple DAOs.
-  public static class DetachableSink extends ProxySink implements Detachable {
+  // DetachableSink moved up to PartitionedDAO so non-date partitioned DAOs can
+  // fan a select out across partitions too. Inherited into scope here.
 
-    protected boolean isDetached_ = false;
-
-    public DetachableSink(Sink delegate) {
-      super(delegate);
-    }
-
-    public void put(Object obj, Detachable sub) {
-      if ( isDetached() ) return;
-
-      getDelegate().put(obj, this);
-
-      if ( isDetached() && sub != null ) sub.detach();
-    }
-
-    public void eof() {
-      // NOP because will be fed to multiple DAOs
-    }
-
-    public boolean isDetached() {
-      return isDetached_;
-    }
-
-    public void detach() {
-      // System.err.println("***************** DETACHING SINK");
-      isDetached_ = true;
-    }
-  } // DetachableSink
-
-
-  protected int timeWindow_ = DEFAULT_TIME_WINDOW;
-  protected DatePartitioningScheme scheme_ = DatePartitioningScheme.YYYYMM;
+  protected int                     timeWindow_ = DEFAULT_TIME_WINDOW;
+  protected boolean                 preload_    = false;
+  protected DatePartitioningScheme  scheme_     = DatePartitioningScheme.YYYYMM;
 
   public DatePartitionedDAO(X x, ClassInfo of, String dirName, Expr partitionProperty) {
     super(x, of, dirName, partitionProperty);
@@ -81,8 +51,48 @@ public class DatePartitionedDAO
     return timeWindow_;
   }
 
+  /** Load the partitions of the default query window when the service
+      starts, so the first query after a restart finds them resident instead
+      of paying their replay. Off by default: a partition otherwise opens on
+      its first touch. */
+  public void setPreload(boolean preload) {
+    preload_ = preload;
+  }
+
+  public boolean getPreload() {
+    return preload_;
+  }
+
+  /** COREService hook: CSpecFactory.initService calls start() on every
+      member of the service's delegate chain once the service is built, on
+      the boot thread for a lazy:false CSpec and on the thread pool for a
+      lazy one. A partition is either in the cache or not, and getDelegate
+      synchronizes on the partition name, so a query that arrives while the
+      pool is still loading a partition waits for that one load rather than
+      seeing part of it. */
+  public void start() {
+    if ( preload_ ) preload();
+  }
+
+  /** Open every partition the default window covers: the same set a query
+      with no date bound walks (see extractPredicateRange). */
+  public void preload() {
+    String[] parts = getPartitions(extractPredicateRange(null));
+    Loggers.logger(getX(), this).info("Preloading partitions", getDirName(), parts.length);
+    for ( String part : parts ) getDelegate(part);
+  }
+
   public String getPartition(FObject o) {
-    Date     d   = (Date) getPartitionProperty().f(o);
+    Date d = (Date) getPartitionProperty().f(o);
+
+    // Which partition a record belongs to IS its date, so an unset one has no
+    // answer -- name the DAO and the property rather than leaving a bare NPE
+    // from Calendar.setTime for whoever migrates an old journal.
+    if ( d == null ) {
+      throw new RuntimeException("DatePartitionedDAO " + getDirName() + ": record has no "
+        + ((PropertyInfo) getPartitionProperty()).getName() + ", id " + getID(o));
+    }
+
     Calendar cal = Calendar.getInstance();
     cal.setTime(d);
 
@@ -139,12 +149,27 @@ public class DatePartitionedDAO
     Sink           s2 = decorateSink(null, sink, skip, limit, order, predicate);
     DetachableSink s3 = new DetachableSink(s2);
 
+    // The query goes into each partition so its MDAO can answer it from an
+    // index instead of handing every row to s2's PredicatedSink. The
+    // predicate always: partitions hold data outside the range, s2 filters
+    // again, and a second filter only ever removes rows the first already
+    // passed. The order and limit only when the limit is bounded, as a
+    // per-partition top-(skip+limit): the partition sorts its own result,
+    // s2's OrderedSink merges those into the global order, and the rows
+    // dropped can never place inside a limit the merge respects. An
+    // unbounded select pushes neither -- every row reaches s2 anyway, so a
+    // per-partition sort would only buffer the same rows twice.
+    boolean    bounded   = limit > 0 && limit < MAX_SAFE_INTEGER && skip < MAX_SAFE_INTEGER;
+    long       partLimit = bounded ? skip + limit : MAX_SAFE_INTEGER;
+    Comparator partOrder = bounded ? order : null;
+
     List<String> queuedIds = publishQueued(x, parts);
     try {
       for ( int i = 0 ; i < parts.length ; i++ ) {
         DAO dao = getDelegate(parts[i]);
 
-        dao.select(s3);
+        // Skip stays here: it counts across partitions, so s2 owns it.
+        dao.select_(x, s3, 0, partLimit, partOrder, predicate);
         if ( s3.isDetached() ) break;
       }
 

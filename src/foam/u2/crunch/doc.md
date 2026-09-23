@@ -1,4 +1,4 @@
-<flow name="doc" category="DOC/DEV" spid="foam" label="CRUNCH UI" description="The CRUNCH wizard: invocation via CrunchController, wizard sequences, and the UCJProperty predicate property." keywords="crunch,wizard,crunchcontroller,ucjproperty"/>
+<flow name="doc" category="DOC/DEV" spid="foam" label="CRUNCH UI" description="The CRUNCH wizard: invocation via CrunchController, wizard sequences, and the UCJProperty predicate property." keywords="crunch,wizard,crunchcontroller,ucjproperty,knowledge"/>
 
 # CRUNCH Wizard
 
@@ -28,11 +28,11 @@ self-documenting.
 
 ### Sequence from createWizardSequence
 
-<foam class="foam.flow.widgets.SequenceSummary" of="foam.u2.crunch.CrunchController" method="createWizardSequence" />
+<foam class="foam.flow.widgets.SequenceSummary" of="foam.u2.crunch.CrunchController" method="createWizardSequence"></foam>
 
 ### Sequence from createCapableWizardSequence
 
-<foam class="foam.flow.widgets.SequenceSummary" of="foam.u2.crunch.CrunchController" method="createCapableWizardSequence" />
+<foam class="foam.flow.widgets.SequenceSummary" of="foam.u2.crunch.CrunchController" method="createCapableWizardSequence"></foam>
 
 ## UCJProperty
 
@@ -49,4 +49,4 @@ PredicateProperty. It adapts an object containing the keys `sourceId`,
 `targetId`, and optionally `effectiveUser`; to a Predicate that finds the UCJ
 based on these values.
 
-<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.UCJProperty" whitelist="['of', 'capability', 'view']" />
+<foam class="foam.flow.widgets.PropertyShortSummary" of="foam.core.crunch.UCJProperty" whitelist="['of', 'capability', 'view']"></foam>

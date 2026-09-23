@@ -37,12 +37,23 @@ for ( n : daos ) {
     }
 
     try {
-        c = new CompactionDAO(x, n);
         print("INFO: Compacting: "+n);
-        c.execute(x);
+        cmd = new CompactionCmd();
+        cmd.setServiceName(n);
+        // Sent through the DAO stack, so it reaches every JDAO underneath:
+        // one for an ordinary DAO, one per partition for a partitioned one.
+        d.cmd(cmd);
+        // The command does not block; an operator running this wants the
+        // report, so wait for it here rather than making every caller wait.
+        if ( ! cmd.awaitCompletion(4L * 60L * 60L * 1000L) ) {
+            print("WARNING: still running after 4h; check EventRecords for the outcome");
+        }
         print("");
-        print("=== " + n + " ===");
-        print(c.getReport());
+        print("=== " + n + " (" + cmd.getCompactedCount() + " journal(s)) ===");
+        if ( cmd.getSkippedCount() > 0 ) {
+            print("SKIPPED (already compacting): " + cmd.getSkipped());
+        }
+        print(cmd.getReport());
         print("");
         print("OK: Compaction complete: "+n);
     } catch (IllegalStateException e) {

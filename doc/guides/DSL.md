@@ -1,4 +1,4 @@
-<flow name="DSL" category="DOC/GUIDE" spid="foam" description="Argues FOAM's power comes from layered DSLs: foam.CLASS, parser combinators, AQL, and MLang, each able to introspect the one below." keywords="dsl,aql,mlang,parser combinators"/>
+<flow name="DSL" category="DOC/GUIDE" spid="foam" description="Argues FOAM's power comes from layered DSLs: foam.CLASS, parser combinators, AQL, and MLang, each able to introspect the one below." keywords="dsl,aql,mlang,parser combinators,knowledge"/>
 
 # The Power of DSLs in FOAM
 

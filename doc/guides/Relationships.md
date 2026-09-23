@@ -1,4 +1,4 @@
-<flow name="Relationships" category="DOC/GUIDE" spid="foam" description="Covers FOAM Relationships (1:many, many:many): foam.RELATIONSHIP syntax, generated FK properties, filtered DAOs, junction models." keywords="relationship,foreign key,junction,dao,cardinality"/>
+<flow name="Relationships" category="DOC/GUIDE" spid="foam" description="Covers FOAM Relationships (1:many, many:many): foam.RELATIONSHIP syntax, generated FK properties, filtered DAOs, junction models." keywords="relationship,foreign key,junction,dao,cardinality,knowledge"/>
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

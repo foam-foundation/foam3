@@ -1,4 +1,4 @@
-<flow name="foam_parsers_doc" category="DOC/GUIDE" spid="foam" description="Comprehensive reference for FOAM's grammar-based parser library: simple parsers, combinators, Grammar, semantic actions, sug()." keywords="parsers,grammar,combinators,sug,autocomplete"/>
+<flow name="foam_parsers_doc" category="DOC/GUIDE" spid="foam" description="Comprehensive reference for FOAM's grammar-based parser library: simple parsers, combinators, Grammar, semantic actions, sug()." keywords="parsers,grammar,combinators,sug,autocomplete,knowledge"/>
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -1272,5 +1272,5 @@ Once you have a running FOAM application go to [FOAM Parsers Demo Interactive Pa
 
 
 <!-- List all links here -->
-[FOAM]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[FOAM]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [Live-Examples]: http://localhost:8080/foam3/src/foam/demos/examples/index.html?modules=parsers

@@ -138,13 +138,16 @@ foam.CLASS({
         var self = this;
 
         var indicator;
+        // Legacy theme colour props (approval3, destructive3, white) are unset on
+        // token-based themes, which left the glyph black; resolve tokens instead.
+        const tok = t => foam.CSS.returnTokenValue(t, this.cls_, this.__subContext__);
         if ( this.type == this.LogLevel.ERROR ) {
           indicator = {
             size: 40,
-            backgroundColor: this.theme.destructive3,
-            borderColor: this.theme.destructive3,
+            backgroundColor: tok('$backgroundDestructive'),
+            borderColor: tok('$backgroundDestructive'),
             icon: this.theme.glyphs.exclamation.getDataUrl({
-              fill: this.theme.white
+              fill: tok('$textOnDestructive')
             })
           };
         } else if ( this.type == this.LogLevel.WARN ) {
@@ -155,10 +158,10 @@ foam.CLASS({
         } else {
           indicator = {
             size: 40,
-            backgroundColor: this.theme.approval3,
-            borderColor: this.theme.approval3,
+            backgroundColor: tok('$success400'),
+            borderColor: tok('$success400'),
             icon: this.theme.glyphs.checkmark.getDataUrl({
-              fill: this.theme.white
+              fill: tok('$white')
             })
           };
         }

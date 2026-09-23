@@ -53,6 +53,30 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'createReplayLine',
+      documentation: `The AssemblyLine a replay parses and applies through.
+
+        Into a BulkLoadDAO (the private staging map a JDAO replays into before
+        the MDAO bulk-loads it) the apply stage is sharded: one thread per
+        parse thread, each applying the entries whose id hashes to it, so one
+        id is always applied by one thread in journal order.
+        Any other target keeps one apply thread, because a decorator on it may
+        have side effects across rows. Extension point for a subclass that
+        wants another shape.`,
+      args: 'Context x, foam.dao.DAO dao',
+      type: 'foam.util.concurrent.AssemblyLine',
+      javaCode: `
+        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
+        if ( dao.getOf().getObjClass() == foam.core.boot.CSpec.class )
+          return new foam.util.concurrent.SyncAssemblyLine();
+        if ( dao instanceof foam.dao.BulkLoadDAO ) {
+          int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+          return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, threads));
+        }
+        return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay"));
+      `
+    },
+    {
       name: 'replay',
       documentation: 'Replays the journal file',
       args: 'Context x, foam.dao.DAO dao',
@@ -103,11 +127,7 @@ foam.CLASS({
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
- //       AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
-        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
-        AssemblyLine assemblyLine = dao.getOf().getObjClass() == foam.core.boot.CSpec.class ?
-          new foam.util.concurrent.SyncAssemblyLine() :
-          new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay")) ;
+        AssemblyLine assemblyLine = createReplayLine(x, dao);
 
         boolean threw = false;
         try ( BufferedReader reader = getReader() ) {
@@ -148,6 +168,12 @@ foam.CLASS({
 
                 public void executeJob() {
                   obj = getParser(parseX).parseString(strEntry, cls);
+                }
+
+                // Entries for one id must end in journal order; a sharded line
+                // keys its shard on this. Known only once the entry is parsed.
+                public Object[] requestLocks() {
+                  return obj == null ? null : new Object[] { obj.getProperty("id") };
                 }
 
                 public void endJob(boolean isLast) {

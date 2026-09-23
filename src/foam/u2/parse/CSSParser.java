@@ -24,6 +24,17 @@ import java.util.regex.Pattern;
  * offsets, so Java code (an audit, a linter) can read CSS the way the browser
  * side does instead of scanning characters.
  *
+ * KEEP IN SYNC WITH src/foam/u2/parse/CSSParser.js
+ * Problem: this grammar exists twice, here for server-side code and as
+ * sheetGrammar_ in CSSParser.js for the browser, and nothing but this note
+ * ties them. A rule fixed on one side only makes the two parse the same CSS
+ * into different trees, and no build step notices. The two implement the
+ * same node model (kinds, fields, offsets, error nodes and messages) and run
+ * the same cases: foam.u2.parse.test.CSSParserJavaTest here,
+ * foam.u2.parse.test.CSSParserTest there, with the same assertion messages.
+ * A change to one grammar lands in the same commit as the matching change to
+ * the other, plus the matching test case in both test classes.
+ *
  * The rules, node kinds and fields are those of the JS grammar in
  * src/foam/u2/parse/CSSParser.js (sheetGrammar_); its class documentation is
  * the reference for what each node kind means, for error recovery, nesting,

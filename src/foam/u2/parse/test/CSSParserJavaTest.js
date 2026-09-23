@@ -14,7 +14,9 @@ foam.CLASS({
     same cases as foam.u2.parse.test.CSSParserTest (the JS grammar), one for
     one and with the same assertion messages, so a failure names the same case
     on both sides. The JS test's autocomplete checks have no Java counterpart;
-    testTokenNames covers the pluggable token-name source instead.
+    testTokenNames covers the pluggable token-name source instead. A case
+    added or changed here gets its twin in CSSParserTest in the same commit;
+    see the sync note in CSSParser.js and CSSParser.java.
 
     Reads src/foam/u2/theme/ThemeGlyphs.js under the System property
     project.home for the long-line case, falling back to the shortened glyph

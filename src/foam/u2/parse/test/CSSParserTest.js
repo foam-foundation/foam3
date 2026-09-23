@@ -14,6 +14,11 @@ foam.CLASS({
     full CSS grammar, plus the autocomplete entry points StyleConfigurator
     uses. Every parse result is also checked with spansMatch(): each node's
     raw must equal input.slice(start, end).
+
+    foam.u2.parse.test.CSSParserJavaTest runs the same cases, with the same
+    messages, against the Java grammar (CSSParser.java). A case added or
+    changed here gets its twin there in the same commit; see the sync note
+    in CSSParser.js.
   `,
 
   requires: [

@@ -11,6 +11,19 @@ foam.CLASS({
   documentation:`
     Two grammars over CSS text.
 
+    KEEP IN SYNC WITH src/foam/u2/parse/CSSParser.java
+    Problem: the full grammar below (sheetGrammar_) exists twice, here for
+    the browser and in CSSParser.java for server-side code, and nothing but
+    this note ties them. A rule fixed on one side only makes the two parse
+    the same CSS into different trees, and no build step notices. The two
+    implement the same node model (kinds, fields, offsets, error nodes and
+    messages) and run the same cases: foam.u2.parse.test.CSSParserTest here,
+    foam.u2.parse.test.CSSParserJavaTest there, with the same assertion
+    messages. A change to one grammar lands in the same commit as the
+    matching change to the other, plus the matching test case in both test
+    classes. Symbol names match across the two files, so a rule can be found
+    on the other side by name. The autocomplete grammar_ below is JS only.
+
     grammar_ (autocomplete): the narrow grammar foam.u2.StyleConfigurator
     reads through grammar_.getSymParser('colorPropertyValue' | 'borderValue')
     to feed foam.parse.auto.SmartView suggestions. It only has to accept

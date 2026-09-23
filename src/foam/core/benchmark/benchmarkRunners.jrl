@@ -200,3 +200,19 @@ p({
   executionCount: 20,
   oneTimeSetup: true
 })
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "JournalReplayPlainRunner",
+  benchmarkId: "JournalReplayPlain",
+  threadCount: 1,
+  executionCount: 1,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "JournalReplayGzipRunner",
+  benchmarkId: "JournalReplayGzip",
+  threadCount: 1,
+  executionCount: 1,
+  oneTimeSetup: true
+})

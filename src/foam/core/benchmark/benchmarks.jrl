@@ -110,3 +110,12 @@ p({
   batchSize: 200000,
   distinct: 200000
 })
+p({
+  class: "foam.core.benchmark.GzipJournalReplayBenchmark",
+  id: "JournalReplayPlain"
+})
+p({
+  class: "foam.core.benchmark.GzipJournalReplayBenchmark",
+  id: "JournalReplayGzip",
+  gzip: true
+})

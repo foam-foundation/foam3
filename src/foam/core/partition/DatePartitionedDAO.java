@@ -99,6 +99,24 @@ public class DatePartitionedDAO
     return scheme_.getPartition(cal);
   }
 
+  /** The date range of the partition holding key's date: [start of that
+      partition, start of the next). True for every row in the partition and
+      routes to it alone through extractPredicateRange. */
+  protected Predicate levelPredicate(FObject key) {
+    Date     d   = (Date) getPartitionProperty().f(key);
+    Calendar cal = Calendar.getInstance();
+    cal.setTime(d);
+    scheme_.truncate(cal);
+    Date start = cal.getTime();
+    scheme_.step(cal);
+    // LTE on the last instant, not LT on the next start: extractPredicateRange
+    // treats its upper bound as inclusive, so LT would route to the next
+    // partition as well.
+    return foam.mlang.MLang.AND(
+      foam.mlang.MLang.GTE(getPartitionProperty(), start),
+      foam.mlang.MLang.LTE(getPartitionProperty(), new Date(cal.getTimeInMillis() - 1)));
+  }
+
   public String[] getPartitions(Date[] range) {
     Calendar cal = Calendar.getInstance();
     cal.setTime(range[0]);

@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `PartitionIndexDAO over a region-then-month partitioned DAO,
-    indexing DATA (one bucket) and BUCKET (four buckets): puts keep one entry
+    indexing DATA and BUCKET: puts keep one entry
     per (value, leaf); EQ, IN, AND and COUNT on an indexed property reach only
     the leaves holding the value, also after a restart from the journals;
     removeAll prunes the entries; an unindexed predicate is forwarded as-is;
@@ -19,6 +19,7 @@ foam.CLASS({
   javaImports: [
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
+    'foam.core.partition.AllPartitions',
     'foam.core.partition.PartitionIndexDAO',
     'foam.core.partition.PartitionIndexEntry',
     'foam.core.partition.PartitionedDAO',
@@ -56,9 +57,9 @@ foam.CLASS({
         String parts = java.util.Arrays.toString(dao.getPartitioned().getPartitions());
         test(parts.equals("[1, 2]"), "the index directory is not listed as a partition, got " + parts);
 
-        // The index is itself partitioned by bucket, so its rows are counted through that key.
-        DAO dataIndex   = dao.getIndex(PartitionStrRecord.DATA).where(EQ(PartitionIndexEntry.BUCKET, 0));
-        DAO bucketIndex = dao.getIndex(PartitionStrRecord.BUCKET).where(IN(PartitionIndexEntry.BUCKET, new Object[] { 0, 1, 2, 3 }));
+        // The index is itself partitioned by bucket, so its rows are counted across every bucket.
+        DAO dataIndex   = dao.getIndex(PartitionStrRecord.DATA).where(allBuckets());
+        DAO bucketIndex = dao.getIndex(PartitionStrRecord.BUCKET).where(allBuckets());
         test(count(dataIndex, null) == 3, "one entry per (value, leaf): f1 in two months, f2 in one, got " + count(dataIndex, null));
         test(count(bucketIndex, null) == 3, "bucket index: 5 in two leaves, 6 in one, got " + count(bucketIndex, null));
 
@@ -66,7 +67,7 @@ foam.CLASS({
         // The index handle is taken again: the first instance's in-memory
         // copy no longer sees writes made through the second.
         dao = newDAO(tx, dirName);
-        dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(EQ(PartitionIndexEntry.BUCKET, 0));
+        dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(allBuckets());
         PartitionedDAO outer = dao.getPartitioned();
 
         test(count(dao, EQ(PartitionStrRecord.DATA, "f2")) == 2, "EQ on an indexed property finds the rows after a restart");
@@ -111,9 +112,9 @@ foam.CLASS({
         test(foam.util.SafetyUtil.isEmpty(cmd.getError()), "compaction reported no error: " + cmd.getError());
         Storage fs = (Storage) tx.get(Storage.class);
         String indexDir = "index-" + dirName.substring(0, dirName.length() - 1) + "/";
-        test(fs.get(indexDir + "data/0/journal.1.snap.gz").exists(), "the data index bucket was compacted to a snapshot");
+        test(fs.get(indexDir + "data/" + PartitionIndexDAO.bucket("f1") + "/journal.1.snap.gz").exists(), "the data index bucket was compacted to a snapshot");
         dao = newDAO(tx, dirName);
-        dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(EQ(PartitionIndexEntry.BUCKET, 0));
+        dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(allBuckets());
         test(count(dataIndex, null) == 1, "after compaction and a restart the data index holds its one live entry, got " + count(dataIndex, null));
         test(count(dao, EQ(PartitionStrRecord.DATA, "f1")) == 3, "rows are still found through the compacted index, got " + count(dao, EQ(PartitionStrRecord.DATA, "f1")));
 
@@ -127,6 +128,7 @@ foam.CLASS({
         test(count(migrated, EQ(PartitionStrRecord.DATA, "m1")) == 2, "migrated rows are reachable through the index, got " + count(migrated, EQ(PartitionStrRecord.DATA, "m1")));
 
         testPruneRacingAPut(x);
+        testRoutingAndUpkeep(x);
       `
     },
     {
@@ -161,7 +163,7 @@ foam.CLASS({
             return super.put_(px, obj);
           }
         };
-        PartitionIndexDAO dao = new PartitionIndexDAO(tx, inner).index(PartitionStrRecord.DATA, 1);
+        PartitionIndexDAO dao = new PartitionIndexDAO(tx, inner).index(PartitionStrRecord.DATA);
 
         foam.lang.FObject first  = dao.put(row(1, 2026, 0, 15, 5, "r1"));
         Thread            putter = new Thread(() -> dao.put(row(1, 2026, 0, 16, 5, "r1")));
@@ -184,6 +186,71 @@ foam.CLASS({
       `
     },
     {
+      name: 'testRoutingAndUpkeep',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      documentation: `An AllPartitions left in the query does not send a route
+        to every partition; an EQ on the date inside a leaf still reaches it;
+        an update that moves a row off an indexed value prunes that value's
+        entry; rebuild indexes a row written around the decorator.`,
+      javaCode: `
+        X      tx      = newStorageContext(x);
+        String dirName = "pidxu" + System.nanoTime() + "/";
+
+        PartitionIndexDAO dao = newDAO(tx, dirName);
+        dao.put(row(1, 2026, 0, 15, 5, "g1"));
+        dao.put(row(1, 2026, 0, 20, 7, "g1"));
+        dao.put(row(2, 2026, 0, 15, 5, "h1"));
+
+        dao = newDAO(tx, dirName);
+        long found = count(dao, AND(allRegions(), EQ(PartitionStrRecord.DATA, "g1")));
+        test(found == 2, "AllPartitions plus an indexed EQ finds the value's rows, got " + found);
+        test(! dao.getPartitioned().isLoaded("2"), "the routes do not visit region 2, which holds no g1 row");
+
+        ArraySink          sel = (ArraySink) dao.where(AND(EQ(PartitionStrRecord.DATA, "g1"), EQ(PartitionStrRecord.BUCKET, 7))).select(new ArraySink());
+        PartitionStrRecord r20 = (PartitionStrRecord) sel.getArray().get(0);
+        found = count(dao, AND(EQ(PartitionStrRecord.DATA, "g1"), EQ(PartitionStrRecord.DATE, r20.getDate())));
+        test(found == 1, "an EQ on a date other than the one the entry was created with still reaches the leaf, got " + found);
+
+        DAO dataIndex = dao.getIndex(PartitionStrRecord.DATA).where(allBuckets());
+        PartitionStrRecord changed = (PartitionStrRecord) r20.fclone();
+        changed.setData("g2");
+        dao.put(changed);
+        test(count(dataIndex, EQ(PartitionIndexEntry.VALUE, "g1")) == 1, "the g1 entry stays while another row in the leaf carries g1");
+        sel = (ArraySink) dao.where(EQ(PartitionStrRecord.DATA, "g1")).select(new ArraySink());
+        changed = (PartitionStrRecord) ((PartitionStrRecord) sel.getArray().get(0)).fclone();
+        changed.setData("g2");
+        dao.put(changed);
+        test(count(dataIndex, EQ(PartitionIndexEntry.VALUE, "g1")) == 0, "the g1 entry is pruned when an update moves the leaf's last g1 row off it");
+        found = count(dao, EQ(PartitionStrRecord.DATA, "g2"));
+        test(found == 2, "both updated rows are found by their new value, got " + found);
+
+        dao.getPartitioned().put(row(1, 2026, 0, 21, 5, "k1"));
+        test(count(dao, EQ(PartitionStrRecord.DATA, "k1")) == 0, "a row written around the decorator has no entry");
+        dao.rebuild(tx, AND(allRegions(), GTE(PartitionStrRecord.DATE, date(2026, 0, 1)), LT(PartitionStrRecord.DATE, date(2026, 1, 1))));
+        found = count(dao, EQ(PartitionStrRecord.DATA, "k1"));
+        test(found == 1, "rebuild indexes it, got " + found);
+      `
+    },
+    {
+      name: 'allBuckets',
+      type: 'foam.mlang.predicate.Predicate',
+      javaCode: `
+        AllPartitions p = new AllPartitions();
+        p.setArg1(PartitionIndexEntry.BUCKET);
+        return p;
+      `
+    },
+    {
+      name: 'allRegions',
+      type: 'foam.mlang.predicate.Predicate',
+      javaCode: `
+        AllPartitions p = new AllPartitions();
+        p.setArg1(PartitionStrRecord.REGION);
+        return p;
+      `
+    },
+    {
       name: 'newDAO',
       args: 'X tx, String dirName',
       type: 'foam.core.partition.PartitionIndexDAO',
@@ -191,8 +258,8 @@ foam.CLASS({
         RegionDatePartitionedDAO inner = new RegionDatePartitionedDAO(
           tx, PartitionStrRecord.getOwnClassInfo(), dirName, PartitionStrRecord.REGION, PartitionStrRecord.DATE);
         return new PartitionIndexDAO(tx, inner)
-          .index(PartitionStrRecord.DATA, 1)
-          .index(PartitionStrRecord.BUCKET, 4);
+          .index(PartitionStrRecord.DATA)
+          .index(PartitionStrRecord.BUCKET);
       `
     },
     {

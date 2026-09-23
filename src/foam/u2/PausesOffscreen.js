@@ -105,9 +105,10 @@ foam.CLASS({
     },
     {
       class: 'Int',
-      name: 'nextId_',
+      name: 'lastId_',
       hidden: true,
-      transient: true
+      transient: true,
+      documentation: 'Counts down, so our ids are negative. See setTimeout().'
     }
   ],
 
@@ -134,10 +135,17 @@ foam.CLASS({
       /*
         Timer ids are ours, not the browser's, because a suspended interval is
         really cleared and re-registered, so its browser id changes underneath
-        an id the caller is still holding. An id we don't recognize is passed
-        through to the undecorated timer, for ids obtained outside the Context.
+        an id the caller is still holding.
+
+        Ours are negative, which no real handle ever is: HTML requires
+        setTimeout() to return an integer greater than zero, and
+        requestAnimationFrame() a long greater than zero. That keeps the three
+        cases in the clear methods apart - live id of ours, spent id of ours,
+        and an id that was never ours at all. Getting the middle one wrong
+        cancels an unrelated component's timer, since by then the caller's id
+        names something else entirely in the browser's numbering.
       */
-      var id = ++this.nextId_;
+      var id = --this.lastId_;
       var r  = { f: f };
 
       r.realId = this.setTimeout_(() => {
@@ -157,13 +165,20 @@ foam.CLASS({
 
     function clearTimeout(id) {
       var r = this.timers_.get(id);
-      if ( ! r ) { this.clearTimeout_(id); return; }
-      this.timers_.delete(id);
-      if ( r.realId ) this.clearTimeout_(r.realId);
+      if ( r ) {
+        this.timers_.delete(id);
+        if ( r.realId ) this.clearTimeout_(r.realId);
+      } else if ( ! this.ours_(id) ) {
+        // Never ours - an id taken straight from the browser, so clear it there.
+        this.clearTimeout_(id);
+      }
+      // Otherwise ours but already fired or cleared, so there is nothing left
+      // to cancel. Passing it on would cancel whatever the browser has under
+      // that number, which is some other component's timer.
     },
 
     function setInterval(f, t) {
-      var id = ++this.nextId_;
+      var id = --this.lastId_;
       var r  = { f: f, delay: t, interval: true, realId: 0 };
 
       this.timers_.set(id, r);
@@ -173,13 +188,20 @@ foam.CLASS({
 
     function clearInterval(id) {
       var r = this.timers_.get(id);
-      if ( ! r ) { this.clearInterval_(id); return; }
-      this.timers_.delete(id);
-      if ( r.realId ) this.clearInterval_(r.realId);
+      if ( r ) {
+        this.timers_.delete(id);
+        if ( r.realId ) this.clearInterval_(r.realId);
+      } else if ( ! this.ours_(id) ) {
+        // Never ours - an id taken straight from the browser, so clear it there.
+        this.clearInterval_(id);
+      }
+      // Otherwise ours but already fired or cleared, so there is nothing left
+      // to cancel. Passing it on would cancel whatever the browser has under
+      // that number, which is some other component's timer.
     },
 
     function requestAnimationFrame(f) {
-      var id = ++this.nextId_;
+      var id = --this.lastId_;
       var r  = { f: f, frame: true, realId: 0 };
 
       this.timers_.set(id, r);
@@ -190,9 +212,21 @@ foam.CLASS({
 
     function cancelAnimationFrame(id) {
       var r = this.timers_.get(id);
-      if ( ! r ) { this.cancelAnimationFrame_(id); return; }
-      this.timers_.delete(id);
-      if ( r.realId ) this.cancelAnimationFrame_(r.realId);
+      if ( r ) {
+        this.timers_.delete(id);
+        if ( r.realId ) this.cancelAnimationFrame_(r.realId);
+      } else if ( ! this.ours_(id) ) {
+        // Never ours - an id taken straight from the browser, so clear it there.
+        this.cancelAnimationFrame_(id);
+      }
+      // Otherwise ours but already fired or cleared, so there is nothing left
+      // to cancel. Passing it on would cancel whatever the browser has under
+      // that number, which is some other component's timer.
+    },
+
+    function ours_(id) {
+      /* True for an id this object handed out. See setTimeout(). */
+      return typeof id === 'number' && id < 0;
     },
 
     function requestFrame_(id, r) {

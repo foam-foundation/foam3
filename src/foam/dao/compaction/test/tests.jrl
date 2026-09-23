@@ -3,3 +3,8 @@ p({
   id:"CompactionDAOTest",
   description:"Tests CompactionDAO roll and compaction of journal files"
 })
+p({
+  class:"foam.dao.compaction.test.CompactionLifecycleDeletedTest",
+  id:"CompactionLifecycleDeletedTest",
+  description:"A LifecycleAware row shipped in .0 and deleted at runtime stays deleted after compaction and restart"
+})

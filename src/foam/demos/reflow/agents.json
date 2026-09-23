@@ -1,0 +1,273 @@
+[
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 1,
+		"label": "CSV",
+		"value": "foam.core.reflow.CSVDAOAgent",
+		"sink": true,
+		"type": "format"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 2,
+		"label": "JSON",
+		"value": "foam.core.reflow.JSONDAOAgent",
+		"sink": true,
+		"type": "format"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 3,
+		"label": "XML",
+		"value": "foam.core.reflow.XMLDAOAgent",
+		"sink": true,
+		"type": "format"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 4,
+		"label": "Table",
+		"value": "foam.core.reflow.TableDAOAgent",
+		"type": "format"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 5,
+		"label": "GridBy",
+		"value": "foam.core.reflow.GridByDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 6,
+		"label": "GroupBy",
+		"value": "foam.core.reflow.GroupByDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 7,
+		"label": "Cells",
+		"value": "foam.core.reflow.cells.CellsDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 8,
+		"label": "Citation",
+		"value": "foam.core.reflow.CitationDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 9,
+		"label": "Controller",
+		"value": "foam.core.reflow.ControllerDAOAgent",
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 10,
+		"label": "AVG",
+		"value": "foam.core.reflow.AvgDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 11,
+		"label": "COUNT",
+		"value": "foam.core.reflow.CountDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 12,
+		"label": "Duplicate",
+		"value": "foam.core.reflow.DuplicateDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 13,
+		"label": "MAX",
+		"value": "foam.core.reflow.MaxDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 14,
+		"label": "MIN",
+		"value": "foam.core.reflow.MinDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 15,
+		"label": "SUM",
+		"value": "foam.core.reflow.SumDAOAgent",
+		"sink": true,
+		"type": "calculation"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 17,
+		"label": "Row",
+		"value": "foam.core.reflow.RowDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 18,
+		"label": "Column",
+		"value": "foam.core.reflow.ColumnDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 19,
+		"label": "Script",
+		"value": "foam.core.reflow.ScriptDAOAgent",
+		"sink": true,
+		"type": "structure",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 20,
+		"label": "View",
+		"value": "foam.core.reflow.ViewDAOAgent",
+		"sink": true,
+		"type": "structure",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 21,
+		"label": "Edit",
+		"value": "foam.core.reflow.EditDAOAgent",
+		"sink": true,
+		"type": "structure",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 22,
+		"label": "All",
+		"value": "foam.core.reflow.AllDAOAgent",
+		"type": "structure",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 24,
+		"label": "Bar Chart",
+		"value": "foam.core.reflow.dashboard.DashboardBarChartDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 25,
+		"label": "Stacked Bar Chart",
+		"value": "foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 26,
+		"label": "Pie Chart",
+		"value": "foam.core.reflow.dashboard.DashboardPieChartDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 27,
+		"label": "Line Chart",
+		"value": "foam.core.reflow.dashboard.DashboardLineChartDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 28,
+		"label": "Metric",
+		"value": "foam.core.reflow.dashboard.DashboardMetricDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 29,
+		"label": "Pivot",
+		"value": "foam.core.reflow.PivotDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 30,
+		"label": "Download",
+		"value": "foam.core.reflow.DownloadDAOAgent",
+		"type": "format",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 31,
+		"label": "Labeled",
+		"value": "foam.core.reflow.LabeledDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 32,
+		"label": "Filtered",
+		"value": "foam.core.reflow.FilteredDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 33,
+		"label": "Select",
+		"value": "foam.core.reflow.ObjectSelectDAOAgent",
+		"type": "structure",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 34,
+		"label": "SET",
+		"value": "foam.core.reflow.SetDAOAgent",
+		"sink": true,
+		"type": "structure"
+	},
+	{
+		"class": "foam.core.reflow.SinkAgent",
+		"id": 40,
+		"label": "Calendar Chart",
+		"value": "foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent",
+		"sink": true,
+		"type": "chart",
+		"permissionRequired": true
+	}
+]

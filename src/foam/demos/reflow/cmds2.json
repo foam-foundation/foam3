@@ -1,0 +1,370 @@
+[
+	{
+		"class": "foam.core.reflow.ai.AgentCommand",
+		"description": "Agent shorthand to run FLOW commands",
+		"dryRun": false,
+		"id": "!",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.ai.AgentCommand",
+		"description": "Agent shorthand to preview FLOW commands",
+		"id": "?",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAOCreate",
+		"id": "add",
+		"icon": "database",
+		"linkable": false
+	},
+	{
+		"class": "foam.core.reflow.ai.AgentCommand",
+		"dryRun": false,
+		"id": "agent",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.ai.LLMCommand",
+		"id": "ai",
+		"description": "AI prompt to ask a question",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "api",
+		"description": "API documentation for a DAO",
+		"icon": "documentation",
+		"script": "\u000a    let doc = foam.doc.DIGApiDoc.create({data: args[0]}, this);\u000a    this.addValue(doc);\u000a   ",
+		"permissionRequired": true,
+		"parserClass": "foam.core.reflow.parser.DAOTargetParser"
+	},
+	{
+		"class": "foam.core.reflow.ai.AskCommand",
+		"id": "ask",
+		"description": "Ask a question and return the response to the agent",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true,
+		"hidden": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Button",
+		"id": "button",
+		"icon": "input"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Buttons",
+		"id": "buttons",
+		"icon": "input"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "canvas",
+		"description": "Insert a 2D canvas",
+		"script": "\u000a    var canvas = foam.core.reflow.canvas.Canvas.create({}, this);\u000a    this.addValue(canvas);\u000a//    this.currentBlock.value = canvas;\u000a   ",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Cells",
+		"id": "cells",
+		"icon": "/images/matrix.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "check",
+		"description": "Checkmark",
+		"icon": "checkmark",
+		"script": "var s = foam.core.reflow.Check.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Clear",
+		"id": "clear"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "clock",
+		"description": "Clock widget",
+		"icon": "clock",
+		"script": "\u000a    var clock = foam.core.reflow.Clock.create({x:110, y:110}, this);\u000a    this.addValue(clock);\u000a//    this.out.add(clock);\u000a//    this.currentBlock.value = clock;\u000a   ",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAO",
+		"id": "dao",
+		"icon": "database"
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAOFilter",
+		"id": "daofilter",
+		"icon": "database"
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAOS",
+		"id": "daos",
+		"icon": "database"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Describe",
+		"id": "describe",
+		"icon": "documentation",
+		"linkable": false
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "doc",
+		"description": "Document rich text block",
+		"icon": "/images/file-icon.svg",
+		"script": "addValue(foam.core.reflow.Doc.create({richText: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Example",
+		"id": "example",
+		"description": "Example code snippet",
+		"icon": "script"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "fetchFile",
+		"description": "Fetch a file from a URL",
+		"icon": "/images/file-icon.svg",
+		"script": "\u000a    addValue(foam.core.reflow.XHR.create({url: args[0]}, this));\u000a  ",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Flows",
+		"id": "flows",
+		"icon": "flow"
+	},
+	{
+		"class": "foam.core.reflow.cmd.From",
+		"id": "FROM",
+		"icon": "/images/ic-search.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "function",
+		"description": "Script an editable JavaScript block whose return value is the block's value",
+		"icon": "functionSign",
+		"script": "\u000a    var code = args.join(' ');\u000a    addValue(foam.core.reflow.function.Function.create(code ? {code: code, autoRun: true} : {}, this), true);\u000a  "
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "h",
+		"description": "Header",
+		"icon": "h",
+		"script": "addValue(foam.core.reflow.Header.create({text: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "h1",
+		"description": "Header 1",
+		"icon": "h1",
+		"script": "addValue(foam.core.reflow.Header.create({type:'h1', text: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "h2",
+		"description": "Header 2",
+		"icon": "h2",
+		"script": "addValue(foam.core.reflow.Header.create({type:'h2', text: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "h3",
+		"description": "Header 3",
+		"icon": "h3",
+		"script": "addValue(foam.core.reflow.Header.create({type:'h3', text: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "h4",
+		"description": "Header 4",
+		"icon": "h4",
+		"script": "addValue(foam.core.reflow.Header.create({type:'h4', text: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Help",
+		"icon": "documentation"
+	},
+	{
+		"class": "foam.core.reflow.cmd.HelpFunctions",
+		"id": "helpFn",
+		"icon": "documentation"
+	},
+	{
+		"class": "foam.core.reflow.cmd.MQLHelp",
+		"id": "helpMQL",
+		"icon": "documentation"
+	},
+	{
+		"class": "foam.core.reflow.cmd.History",
+		"id": "history",
+		"icon": "history"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "image",
+		"description": "Image",
+		"icon": "image",
+		"script": "addValue(foam.core.reflow.Image.create({}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Info",
+		"id": "info",
+		"icon": "documentation"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Input",
+		"id": "input",
+		"description": "Input from user or URL parameter",
+		"icon": "input"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Layout",
+		"id": "layout",
+		"description": "Layout block for arranging content",
+		"icon": "dashboard"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Load",
+		"id": "load",
+		"icon": "flow",
+		"linkable": false
+	},
+	{
+		"class": "foam.core.reflow.cmd.LoadPerf",
+		"id": "loadPerf",
+		"icon": "speed",
+		"linkable": false,
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Login",
+		"id": "login",
+		"icon": "/images/key.svg"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "man",
+		"description": "Man pages for REFLOW",
+		"icon": "documentation",
+		"script": "\u000a    eval_(\"load('manual:REFLOW')\");\u000a   "
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "markdown",
+		"description": "Markdown document",
+		"icon": "markdown",
+		"script": "addValue(foam.core.reflow.Markdown.create({markdown: args.join(' ')}, this));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Models",
+		"id": "models",
+		"icon": "/images/modeling.svg"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "now",
+		"description": "Now timestamp",
+		"icon": "clock",
+		"script": "var d = new Date(); var holder = foam.lang.DateTimeHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$);"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "perf",
+		"description": "Performance capture block",
+		"icon": "speed",
+		"script": "\u000a    var p = foam.core.reflow.perf.Perf.create({}, this);\u000a    this.out.add(p);\u000a    this.currentBlock.value = p.report;\u000a    p.report$.sub(() => { this.currentBlock.value = p.report; });\u000a   ",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.ai.AgentCommand",
+		"description": "Plan FLOW commands with an agent",
+		"id": "plan",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "postLoad",
+		"description": "Post-load evaluation hook with headless runner cleanup",
+		"script": "\u000a    this.block.del();\u000a    var now = Date.now();\u000a    globalThis.postLoadTime = now;\u000a    var duration = globalThis.preLoadTime ? (now - globalThis.preLoadTime) : 0;\u000a    \u000a    console.log('PostLoad executed at:', new Date(now).toISOString(), 'timestamp:', now, 'Load duration:', duration + 'ms');\u000a    \u000a    // Handle headless runner cleanup\u000a    var isHeadlessMode = this.__context__.params && this.__context__.params.headless === 'true';\u000a    var runnerId = this.__context__.params && this.__context__.params.runnerId;\u000a    \u000a    if (isHeadlessMode && runnerId) {\u000a      console.log('Headless mode detected - removing runner ID:', runnerId);\u000a      this.__context__.headlessRunnerService.removeRunner(runnerId)\u000a        .then(() => {\u000a          console.log('Successfully removed headless runner:', runnerId);\u000a        })\u000a        .catch(e => {\u000a          console.log('Error removing headless runner:', runnerId, 'Error:', e.message || e);\u000a        });\u000a    } else {\u000a      console.log('Headless runner cleanup skipped - isHeadlessMode:', isHeadlessMode, 'runnerId:', runnerId);\u000a    }\u000a  ",
+		"hidden": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "preLoad",
+		"description": "Pre-load evaluation hook",
+		"script": "\u000a    this.block.del();\u000a    var now = Date.now();\u000a    globalThis.preLoadTime = now;\u000a\u000a    console.log('PreLoad executed at:', new Date(now).toISOString(), 'timestamp:', now);\u000a\u000a    // Require all dynamic classes\u000a    return true;\u000a  ",
+		"hidden": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "propose",
+		"description": "Propose a command for execution",
+		"icon": "/images/aiAgent.svg",
+		"script": "addValue(foam.core.reflow.ai.Propose.create({command: args.join(' ')}, this));",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Save",
+		"id": "save"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "script",
+		"description": "Script an editable JavaScript block",
+		"icon": "script",
+		"script": "\u000a    var code = args.join(' ');\u000a    addValue(foam.core.reflow.Script.create({code: code, autoRun: !! code}, this), true);\u000a  "
+	},
+	{
+		"class": "foam.core.reflow.cmd.Services",
+		"id": "services",
+		"icon": "/images/lightning.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "signature",
+		"description": "Signature block",
+		"icon": "signature",
+		"script": "var s = foam.core.reflow.Signature.create({label: args[0] || ''}, this); this.out.add(s); this.currentBlock.value = s;"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "test",
+		"description": "Test an expectation",
+		"icon": "test",
+		"script": "\u000a    var results = this.__context__.scope.testResults;\u000a\u000a    // If no testResults, then create one first then rerun this command\u000a    if ( ! results ) {\u000a       results = foam.core.reflow.float.TestResults.create({}, this);\u000a       this.block.value    = results;\u000a       this.block.flowName = 'testResults';\u000a       this.block.cmd      = 'testresults';\u000a       this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});\u000a\u000a       // A delay of 100ms doesn't work, so we wait 400ms, I don't know why. KGR\u000a       setTimeout(() => {\u000a         this.__context__.eval_(`test('${args[0]}', '${args[1] || ''}')`);\u000a       }, 400);\u000a    } else {\u000a      var test = foam.core.reflow.float.Test.create({\u000a        received: args[0],\u000a        description: args[1] || ''}, this);\u000a      test.accept();\u000a\u000a      results.report(test);\u000a      this.block.value = test;\u000a      this.out.tag(foam.core.reflow.float.TestView, {data: test});\u000a      this.block.treeRowRenderer = function(e) {\u000a        e.start().style({color: test.status$.map(s => s ? 'green' : 'red')}).add(this.flowName);\u000a      };\u000a\u000a      // Listen for block detach to clean up the test from testResults\u000a      this.block.onDetach(() => results?.dao?.remove(test));\u000a    }\u000a  "
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "testresults",
+		"description": "Test results summary",
+		"icon": "/images/rules.svg",
+		"script": "\u000a    var results = foam.core.reflow.float.TestResults.create({}, this);\u000a    this.block.value = results;\u000a    this.block.flowName = 'testResults';\u000a    this.out.tag(foam.core.reflow.float.TestResultsView, {data: results});\u000a  "
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "today",
+		"description": "Today's date",
+		"icon": "calendar",
+		"script": "var d = new Date(); var holder = foam.lang.DateHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$.map(d => d.toDateString()));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "upload",
+		"description": "Upload data to a DAO",
+		"icon": "upload",
+		"script": "\u000a    var scope = this.__context__.scope;\u000a\u000a    if ( foam.String.isInstance(args[0]) && scope[args[0]] ) {\u000a      args[0] = scope[args[0]];\u000a    } else if ( foam.String.isInstance(args[0]) && scope[args[0] + 'DAO'] ) {\u000a      args[0] = scope[args[0] + 'DAO'];\u000a    }\u000a\u000a    var m = foam.dao.DAO.isInstance(args[0]) ?\u000a      { dao: args[0] } :\u000a      { daoKey: args[0] } ;\u000a    var upload = foam.core.reflow.Upload.create(m, this);\u000a\u000a    this.out.tag(foam.core.reflow.UploadView, {data: upload});\u000a  ",
+		"linkable": false,
+		"parserClass": "foam.core.reflow.parser.DAOTargetParser"
+	}
+]

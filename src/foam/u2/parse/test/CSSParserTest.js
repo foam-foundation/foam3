@@ -33,6 +33,24 @@ foam.CLASS({
       this.testTokensAndPlaceholders(x);
       this.testValueComments(x);
       this.testValueRejects(x);
+      this.testEmptyAndWhitespace(x);
+      this.testComments(x);
+      this.testRulesAndSelectors(x);
+      this.testNestedMedia(x);
+      this.testKeyframes(x);
+      this.testFontFaceAndImport(x);
+      this.testGenericAtRules(x);
+      this.testDeclarations(x);
+      this.testCustomProperty(x);
+      this.testQuotedAndUrlInRules(x);
+      this.testRecovery(x);
+      this.testUnclosedBlock(x);
+      this.testLongLine(x);
+      this.testNeverThrows(x);
+    },
+
+    function errorsIn(tree) {
+      return this.allNodes(tree).filter(n => n.kind === 'error');
     },
 
     // ---- helpers ----------------------------------------------------------
@@ -222,6 +240,291 @@ foam.CLASS({
         'hash: #zz is a hash that is not a colour, not an error');
       v = p.parseValue('rgb(1, 2');
       x.test(v && v.components[0].closed === false, 'function: unclosed at end of input has closed false');
+    },
+
+    // ---- stylesheets ------------------------------------------------------
+
+    function testEmptyAndWhitespace(x) {
+      var p = this.CSSParser.create();
+      var t = p.parse('');
+      x.test(t.kind === 'stylesheet' && t.children.length === 0 && t.start === 0 && t.end === 0,
+        'empty string: stylesheet with no children');
+      t = p.parse(' \t\n\r\n ');
+      x.test(t.children.length === 0 && this.errorsIn(t).length === 0, 'whitespace only: no children, no errors');
+      t = p.parse(null);
+      x.test(t.kind === 'stylesheet' && t.children.length === 0, 'null input: empty stylesheet');
+
+      var input = '^a\t{\n\tcolor:\tred;\n\tmargin :\n0\n}\n';
+      t = p.parse(input);
+      var r = t.children[0];
+      x.test(t.children.length === 1 && r.kind === 'rule' && r.children.length === 2 &&
+             r.children.every(c => c.kind === 'declaration'), 'tabs and newlines: one rule with two declarations');
+      x.test(r && r.children[1].property.name === 'margin' && r.children[1].value.raw === '0',
+        'tabs and newlines: "margin :\\n0" is margin = 0');
+      this.spansMatch(x, input, t, 'tabs and newlines');
+    },
+
+    function testComments(x) {
+      var p = this.CSSParser.create();
+      var input = '/* head */\n^a /* in selector */ { /* before */ color /* gap */ : /*%PRIMARY%*/ #406dea /* after */; }\n/* tail';
+      var t = p.parse(input);
+      var r = t.children[1];
+      x.test(this.kinds(t.children) === 'comment rule comment', 'comments: top level is comment rule comment, got ' + this.kinds(t.children));
+      x.test(r && r.selectors[0].raw === '^a /* in selector */', 'comments: a comment inside a selector stays in its raw text');
+      x.test(r && r.children[0].kind === 'comment' && r.children[0].text === ' before ', 'comments: comment inside a block is a child');
+      var d = r && r.children[1];
+      x.test(d && d.kind === 'declaration' && d.comments.length === 1 && d.comments[0].text === ' gap ',
+        'comments: comment between property and : is kept on the declaration');
+      x.test(d && d.value.components[0].placeholder === 'PRIMARY' && d.value.components[1].kind === 'hash',
+        'comments: legacy /*%PRIMARY%*/ #hex is a placeholder comment then a hash');
+      x.test(t.children[2].closed === false && t.children[2].text === ' tail', 'comments: unterminated comment at end has closed false');
+      this.spansMatch(x, input, t, 'comments');
+    },
+
+    function testRulesAndSelectors(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { a: b } ^title, .x ^y:not(.a, .b), [class^=z] $sel { c: d }';
+      var t = p.parse(input);
+      var r0 = t.children[0], r1 = t.children[1];
+      x.test(t.children.length === 2 && r0.selectors.length === 1 && r0.selectors[0].raw === '^' &&
+             r0.selectors[0].carets.length === 1, '^ alone: one selector "^" with one caret');
+      x.test(r1 && r1.selectors.map(s => s.raw).join('|') === '^title|.x ^y:not(.a, .b)|[class^=z] $sel',
+        'selector list splits on top-level commas only, got ' + (r1 && r1.selectors.map(s => s.raw).join('|')));
+      x.test(r1 && r1.selectors[0].carets[0] === input.indexOf('^title'), '^title: caret offset recorded');
+      x.test(r1 && r1.selectors[2].carets.length === 0, '[class^=z]: ^= is not a FOAM caret');
+      x.test(r1 && r1.selectors[2].tokens.length === 1 && r1.selectors[2].tokens[0].name === 'sel',
+        '$sel inside a selector is noted as a token');
+      this.spansMatch(x, input, t, 'selectors');
+
+      input = '^ { color: red; &:hover { color: blue } span:hover{ x: y } }';
+      t = p.parse(input);
+      var kids = t.children[0].children;
+      x.test(this.kinds(kids) === 'declaration rule rule', 'nesting: declaration then two nested rules, got ' + this.kinds(kids));
+      x.test(kids[2] && kids[2].selectors[0].raw === 'span:hover', 'nesting: "span:hover{" is a rule, not a declaration');
+      this.spansMatch(x, input, t, 'nesting');
+    },
+
+    function testNestedMedia(x) {
+      var p = this.CSSParser.create();
+      var input = '@media (max-width: 600px) and (orientation: landscape) {\n  ^ { padding: 0 }\n  @supports (display: grid) { ^grid { display: grid } }\n}';
+      var t = p.parse(input);
+      var m = t.children[0];
+      x.test(m && m.kind === 'atrule' && m.name === 'media' && m.closed, '@media: a closed at-rule');
+      x.test(m && m.prelude.raw === '(max-width: 600px) and (orientation: landscape)', '@media: prelude raw text is trimmed');
+      x.test(m && m.prelude.components[0].kind === 'paren' &&
+             m.prelude.components[0].components.some(c => c.kind === 'number' && c.value === 600),
+        '@media: (max-width: 600px) is a paren holding the number 600');
+      x.test(m && this.kinds(m.children) === 'rule atrule', '@media: holds a rule and a nested @supports');
+      var sup = m && m.children[1];
+      x.test(sup && sup.name === 'supports' && sup.children[0].selectors[0].raw === '^grid', '@supports: its rule parses');
+      this.spansMatch(x, input, t, '@media');
+
+      input = '@container card (min-width: 400px) { ^ { gap: 1rem } }';
+      t = p.parse(input);
+      x.test(t.children[0].name === 'container' && t.children[0].children[0].kind === 'rule', '@container: prelude then rules');
+    },
+
+    function testKeyframes(x) {
+      var p = this.CSSParser.create();
+      var input = '@keyframes spin { from { transform: rotate(0deg) } 50% { opacity: .5 } to { transform: rotate(360deg); } }';
+      var t = p.parse(input);
+      var k = t.children[0];
+      x.test(k && k.name === 'keyframes' && k.prelude.components[0].value === 'spin', '@keyframes: name spin in the prelude');
+      x.test(k && k.children.map(r => r.selectors[0].raw).join() === 'from,50%,to', '@keyframes: from, 50%, to are rule selectors');
+      var deg = k && k.children[2].children[0].value.components[0].args[0];
+      x.test(deg && deg.value === 360 && deg.unit === 'deg', '@keyframes: rotate(360deg) is the number 360 unit deg');
+      this.spansMatch(x, input, t, '@keyframes');
+    },
+
+    function testFontFaceAndImport(x) {
+      var p = this.CSSParser.create();
+      var input = '@charset "UTF-8";\n@import url(theme.css) screen;\n@font-face { font-family: "Inter"; src: url(inter.woff2) format("woff2") }\n@page :first { margin: 1in }';
+      var t = p.parse(input);
+      var c = t.children;
+      x.test(this.kinds(c) === 'atrule atrule atrule atrule', 'at-rules: four at-rules');
+      x.test(c[0].name === 'charset' && c[0].children === null && c[0].prelude.components[0].value === 'UTF-8',
+        '@charset: statement with a string prelude');
+      x.test(c[1].name === 'import' && c[1].children === null && c[1].raw.endsWith(';') &&
+             c[1].prelude.components[0].kind === 'url' && c[1].prelude.components[0].value === 'theme.css',
+        '@import url(theme.css): statement ending at ;, url node in prelude');
+      x.test(c[2].name === 'font-face' && c[2].children.map(d => d.property.name).join() === 'font-family,src',
+        '@font-face: a declaration block');
+      x.test(c[3].name === 'page' && c[3].prelude.raw === ':first' && c[3].children[0].property.name === 'margin',
+        '@page :first: prelude and declarations');
+      this.spansMatch(x, input, t, 'at-rules');
+    },
+
+    function testGenericAtRules(x) {
+      var p = this.CSSParser.create();
+      var input = '@foo bar baz;\n@layer base { ^ { a: b } }\n@unknown { weird: 1 }';
+      var t = p.parse(input);
+      var c = t.children;
+      x.test(c.length === 3 && c[0].name === 'foo' && c[0].children === null, 'unknown @foo: statement at-rule');
+      x.test(c[1].name === 'layer' && c[1].children[0].kind === 'rule', 'unknown @layer: block of rules');
+      x.test(c[2].name === 'unknown' && c[2].prelude.raw === '' && c[2].children[0].kind === 'declaration',
+        'unknown @unknown: empty prelude, block of declarations');
+      x.test(this.errorsIn(t).length === 0, 'unknown at-rules: no errors');
+      this.spansMatch(x, input, t, 'generic at-rules');
+    },
+
+    function testDeclarations(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { color: red !important; margin: 0 auto }';
+      var t = p.parse(input);
+      var d = t.children[0].children;
+      x.test(d.length === 2 && d[0].important && d[0].value.components.pop().kind === 'important',
+        '!important: flag set and last component is important');
+      x.test(d[0].raw === 'color: red !important;', 'declaration span includes its ;');
+      x.test(d[1].property.name === 'margin' && d[1].raw === 'margin: 0 auto' && ! d[1].important,
+        'last declaration without ; ends before }');
+      this.spansMatch(x, input, t, 'declarations');
+
+      input = 'color: red; background: $primary';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'declaration declaration', 'inline style: declarations at top level');
+    },
+
+    function testCustomProperty(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { --gap: calc( 2 * $space-4 ) ; --blob: { a: b; c: "}" }; --empty:; color: var(--gap) }';
+      var t = p.parse(input);
+      var d = t.children[0].children;
+      x.test(d.length === 4 && d[0].custom && d[0].value.raw === 'calc( 2 * $space-4 )' && d[0].value.components === null,
+        'custom property: raw value kept, trimmed, no components');
+      x.test(d[0].value.tokens.length === 1 && d[0].value.tokens[0].name === 'space-4', 'custom property: $space-4 noted in its raw value');
+      x.test(d[1].custom && d[1].value.raw === '{ a: b; c: "}" }', 'custom property: a braced value with ; and a quoted } stays whole');
+      x.test(d[2].custom && d[2].value.raw === '', 'custom property: empty value allowed');
+      x.test(! d[3].custom && d[3].value.components[0].name === 'var', 'var(--gap) in a normal declaration is a function');
+      x.test(this.errorsIn(t).length === 0, 'custom properties: no errors');
+      this.spansMatch(x, input, t, 'custom property');
+    },
+
+    function testQuotedAndUrlInRules(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { content: "a;b}c \\"q\\""; background: url(data:image/svg+xml;base64,AAA=) no-repeat; } ^next { x: y }';
+      var t = p.parse(input);
+      var d = t.children[0].children;
+      x.test(t.children.length === 2 && d.length === 2, 'quoted ; } and unquoted url ; do not end the declaration or rule');
+      x.test(d[0].value.components[0].value === 'a;b}c "q"', 'string value with ; } and escaped quotes');
+      x.test(d[1].value.components[0].kind === 'url', 'url(data:...;...) is one url component');
+      x.test(this.errorsIn(t).length === 0, 'quoted and url: no errors');
+      this.spansMatch(x, input, t, 'quoted and url');
+    },
+
+    function testRecovery(x) {
+      var p = this.CSSParser.create();
+      var input = '^a { color: #zz;; background red } ^b { color: blue; }';
+      var t = p.parse(input);
+      var errs = this.errorsIn(t);
+      x.test(errs.length === 1, 'recovery: exactly one error node, got ' + errs.length);
+      x.test(errs[0] && errs[0].raw === 'background red', 'recovery: the error spans "background red"');
+      var a = t.children[0];
+      x.test(a && a.children[0].kind === 'declaration' && a.children[0].value.components[0].isHexColor === false,
+        'recovery: "color: #zz" is kept as a declaration (a hash, not a colour)');
+      var b = t.children[1];
+      x.test(b && b.kind === 'rule' && b.selectors[0].raw === '^b' && b.children[0].value.raw === 'blue',
+        'recovery: the following rule still parses');
+      this.spansMatch(x, input, t, 'recovery');
+
+      input = '^ { a: (b; c: d } ^n { e: f }';
+      t = p.parse(input);
+      x.test(t.children.length === 2 && t.children[1].children[0].property.name === 'e',
+        'recovery: an unbalanced ( does not swallow the closing } of its block');
+
+      input = '} ^ { a: b }';
+      t = p.parse(input);
+      x.test(t.children[0].kind === 'error' && t.children[0].message === 'Unexpected }' && t.children[1].kind === 'rule',
+        'recovery: stray } at top level is one error, parsing continues');
+
+      input = '^ { color: ; margin: 0; @@@ ; padding: 1px }';
+      t = p.parse(input);
+      x.test(this.errorsIn(t).length === 2 &&
+             t.children[0].children.filter(c => c.kind === 'declaration').map(c => c.property.name).join() === 'margin,padding',
+        'recovery: empty value and junk are errors, the good declarations survive');
+      this.spansMatch(x, input, t, 'recovery 2');
+    },
+
+    function testUnclosedBlock(x) {
+      var p = this.CSSParser.create();
+      var input = '^a { color: red; ^b { margin: 0';
+      var t = p.parse(input);
+      var a = t.children[0];
+      var errs = this.errorsIn(t);
+      x.test(a && a.closed === false && a.children[0].kind === 'error' && a.children[0].raw === '{',
+        'unclosed block: closed false and an error spanning its {');
+      x.test(errs.length === 2 && errs.every(e => e.message === 'Unclosed block: missing }'),
+        'unclosed block: both open blocks report an error');
+      x.test(a && a.children[2].kind === 'rule' && a.children[2].children[1].property.name === 'margin',
+        'unclosed block: content up to end of input is still parsed');
+      x.test(t.end === input.length, 'unclosed block: the tree covers the whole input');
+      this.spansMatch(x, input, t, 'unclosed');
+    },
+
+    function testLongLine(x) {
+      // The shape of a long single-line css: value: one rule whose value
+      // embeds a whole SVG (quotes, ';', spaces) as a data URL. The SVG is
+      // read from foam.u2.theme.ThemeGlyphs when loaded, else a shortened
+      // copy of the same glyph.
+      var p   = this.CSSParser.create();
+      var svg;
+      try {
+        svg = foam.u2.theme.ThemeGlyphs.MINIMIZE.factory().template.trim();
+      } catch (e) {
+        svg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10" viewBox="0 0 20 10" fill="none"><path d="' +
+          'M15.2002 0C15.4834 3.94863e-05 15.7171 0.0920968 15.9004 0.275391L14.5 0.275391C14.6833 0.0920573 14.9169 0 15.2002 0Z'.repeat(12) +
+          '" fill="currentColor"/></svg>';
+      }
+      var decls = [];
+      for ( var i = 0 ; i < 20 ; i++ ) decls.push('--c' + i + ': $primary' + i + '; margin-' + i + ': calc(' + i + 'px + $space-' + i + ')');
+      var input = '^icon { background-image: url(\'data:image/svg+xml;utf8,' + svg + '\'); ' + decls.join('; ') +
+        '; mask: url(data:image/svg+xml;base64,' + 'QUFB'.repeat(100) + ') no-repeat center / 1rem 1rem !important }';
+      x.test(input.length > 1500, 'long line: input is ' + input.length + ' characters on one line');
+
+      var t0 = performance.now();
+      var t  = p.parse(input);
+      var ms = performance.now() - t0;
+      x.test(ms < 500, 'long line: parsed in ' + ms.toFixed(1) + ' ms (< 500 ms)');
+      var r = t.children[0];
+      x.test(t.children.length === 1 && r.kind === 'rule' && r.closed && r.children.length === 42,
+        'long line: one closed rule with 42 declarations, got ' + (r && r.children.length));
+      x.test(this.errorsIn(t).length === 0, 'long line: no errors');
+      x.test(r && r.children[0].value.components[0].kind === 'url' && r.children[0].value.components[0].value.startsWith('data:image/svg+xml;utf8,<svg'),
+        'long line: the SVG data URL is one url node');
+      this.spansMatch(x, input, t, 'long line');
+    },
+
+    function testNeverThrows(x) {
+      // Pathological and random input: parse() must return a stylesheet that
+      // covers the input, never throw, and never take long.
+      var p = this.CSSParser.create();
+      var cases = [
+        '('.repeat(300), '{'.repeat(300), '}'.repeat(50), '"'.repeat(51), '/*'.repeat(40), '[('.repeat(150),
+        '^ { a: ' + 'f('.repeat(200) + ' }', '@'.repeat(30), ';;;', '\\\\', 'a{b:c(d:e{f;g}h)i}j', 'url(' + 'x'.repeat(500)
+      ];
+      var seed = 42;
+      function rnd(n) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; }
+      var alphabet = 'ab-_$^%#@!;:{}()[]"\'/*,.0123456789 \t\n\\u(';
+      for ( var i = 0 ; i < 200 ; i++ ) {
+        var len = 1 + rnd(60), s = '';
+        for ( var j = 0 ; j < len ; j++ ) s += alphabet[rnd(alphabet.length)];
+        cases.push(s);
+      }
+      var threw = 0, uncovered = 0, badSpan = 0, slow = 0;
+      cases.forEach(c => {
+        try {
+          var t0 = performance.now();
+          var t  = p.parse(c);
+          if ( performance.now() - t0 > 200 ) slow++;
+          if ( t.kind !== 'stylesheet' || t.start !== 0 || t.end !== c.length ) uncovered++;
+          if ( this.allNodes(t).some(n => c.slice(n.start, n.end) !== n.raw) ) badSpan++;
+        } catch (e) {
+          threw++;
+        }
+      });
+      x.test(threw === 0, 'never throws: ' + cases.length + ' pathological and random inputs, ' + threw + ' threw');
+      x.test(uncovered === 0, 'never throws: every tree spans its whole input (' + uncovered + ' did not)');
+      x.test(badSpan === 0, 'never throws: every node span matches its raw text (' + badSpan + ' did not)');
+      x.test(slow === 0, 'never throws: no input took over 200 ms (' + slow + ' did)');
     }
   ]
 });

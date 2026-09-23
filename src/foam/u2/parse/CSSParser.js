@@ -57,6 +57,42 @@ foam.CLASS({
       operator    value, one of , / * + - = : < >
       delim       value, any other single character ('!', '.', '&', ...)
       important   the '!important' marker, last in value.components
+      stylesheet  children (rules, at-rules, declarations, comments,
+                  errors, in input order)
+      rule        selectors (selector nodes, one per comma-separated
+                  item), children (declarations, nested rules, at-rules,
+                  comments, errors), closed. Keyframe blocks such as
+                  'from { }' and '50% { }' are rules too.
+      selector    raw text of one selector, trimmed; carets (offsets of
+                  each FOAM '^', not counting '^=' in [attr^=x]); tokens
+                  (token nodes for $name inside the selector)
+      atrule      name (lower case, without '@'), prelude, children (null
+                  for a statement such as @import ...; ending at ';'),
+                  closed
+      prelude     components between the at-rule name and its ';' or '{'
+      declaration property, value, important, custom, comments (any
+                  comments between the property name and the ':')
+      property    name, as written
+      value       for a custom property (--foo): components is null, the
+                  text is kept raw and tokens lists the $name found in it
+      error       message; the span of the text that was skipped. Error
+                  recovery: a statement that is neither a declaration,
+                  a rule nor an at-rule is skipped up to the next ';' or
+                  '}' at its own nesting depth (braces, brackets, parens,
+                  strings and comments are balanced while skipping), and
+                  parsing resumes there. A block still open at end of
+                  input gets closed: false and an error spanning its '{'.
+                  A stray '}' at top level is an error of its own.
+      Whitespace is not a node.
+
+    NESTING
+    Problem: 'a:hover { }' starts like the declaration 'a: hover'. A
+    declaration is tried first and is only accepted when its value ends
+    at ';', '}' or end of input; when the value runs into '{' it is a
+    nested rule instead. So '^ { &:hover { } }' and 'span:hover{}' inside
+    a block are rules, 'color:red;' is a declaration. Declarations are
+    also accepted at top level, so an inline style string ('color: red')
+    parses too.
   `,
 
 
@@ -484,6 +520,135 @@ foam.CLASS({
 
         delim: node('delim', notChars(WS + ';{}()[]"\''), this.delimValue_),
 
+        // ---- statements ----------------------------------------------
+        START: sym('stylesheet'),
+
+        stylesheet: node('stylesheet',
+          repeat(alt(sym('ws'), sym('comment'), sym('item'), ';', sym('strayClose'))),
+          function(n, v) { n.children = nodes(v); }),
+
+        item: alt(
+          sym('atRule'),
+          sym('customDeclaration'),
+          sym('declaration'),
+          sym('rule'),
+          sym('recover')
+        ),
+
+        // '{' items '}'. Never fails once '{' is seen: end of input closes
+        // it with closed: false. Value is { node: [..], start, end }.
+        block: self.Span.create({ p: seq('{',
+          repeat(alt(sym('ws'), sym('comment'), sym('item'), ';')),
+          alt('}', eof())) }),
+
+        rule: node('rule', seq(sym('selectorText'), sym('block')), function(n, v, str) {
+          n.selectors = self.selectorNodes_(v[0].start, v[0].end, str);
+          self.fillBlock_(n, v[1], str);
+        }),
+
+        // Raw selector text up to '{'. ( ) [ ] strings and comments are
+        // skipped as units, so ':is(a, b)' and '[data-x="{"]' stay inside.
+        // Meeting ';' or '}' first means this was not a rule.
+        selectorText: self.Span.create({ p: plus(alt(
+          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};([\'"'))) }),
+
+        selParen: seq('(', repeat(alt(
+          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};()[\'"'))), opt(')')),
+
+        selBracket: seq('[', repeat(alt(
+          sym('comment'), sym('string'), sym('selParen'), sym('selBracket'), notChars('{};]([\'"'))), opt(']')),
+
+        atRule: node('atrule',
+          seq('@', substring(plus(sym('identChar'))), sym('prelude'), alt(';', sym('block'), peek('}'), eof())),
+          function(n, v, str) {
+            n.name    = v[1].toLowerCase();
+            n.prelude = v[2];
+            if ( v[3] && typeof v[3] === 'object' ) {
+              self.fillBlock_(n, v[3], str);
+            } else {
+              n.children = null;
+              n.closed   = true;
+            }
+            self.trimEnd_(n, str);
+          }),
+
+        prelude: node('prelude',
+          repeat(alt(sym('ws'), sym('comment'), sym('component'), node('delim', chars(')]'), this.delimValue_))),
+          function(n, v, str) {
+            n.components = nodes(v);
+            var c = n.components;
+            if ( c.length ) self.trimTo_(n, c[0].start, c[c.length - 1].end, str);
+            else self.trimTo_(n, n.start, n.start, str);
+          }),
+
+        property: node('property', sym('identText'), function(n) { n.name = n.raw; }),
+
+        declaration: node('declaration',
+          seq(sym('property'), sym('wsc'), ':', sym('value'), sym('declEnd')),
+          function(n, v, str) {
+            n.property  = v[0];
+            n.comments  = nodes(v[1]);
+            n.value     = v[3];
+            n.important = v[3].important;
+            n.custom    = false;
+            self.trimEnd_(n, str);
+          }),
+
+        // A declaration ends at ';' (kept in its span), or just before '}'
+        // or end of input. Anything else, notably '{', means it was not a
+        // declaration (see NESTING above).
+        declEnd: alt(';', peek('}'), eof()),
+
+        customProperty: node('property', substring(seq('--', repeat(sym('identChar')))),
+          function(n) { n.name = n.raw; }),
+
+        customDeclaration: node('declaration',
+          seq(sym('customProperty'), sym('wsc'), ':', sym('customValue'), sym('declEnd')),
+          function(n, v, str) {
+            n.property  = v[0];
+            n.comments  = nodes(v[1]);
+            n.value     = v[3];
+            n.important = false;
+            n.custom    = true;
+            self.trimEnd_(n, str);
+          }),
+
+        // '--foo: anything' keeps the text raw (it may be a whole block,
+        // '{ a: b }'); only the $name references inside it are noted.
+        customValue: node('value',
+          repeat(alt(sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars(';{}(\'"'))),
+          function(n, v, str) {
+            var s = n.start, e = n.end;
+            while ( s < e && WS.indexOf(str[s])     !== -1 ) s++;
+            while ( e > s && WS.indexOf(str[e - 1]) !== -1 ) e--;
+            self.trimTo_(n, s, e, str);
+            n.components = null;
+            n.important  = false;
+            n.tokens     = self.scanTokens_(str, s, e);
+          }),
+
+        // ---- error recovery --------------------------------------------
+        // Skip one malformed statement: up to (and eating) the next ';', or
+        // up to (not eating) the next '}', at the current depth.
+        recover: seq1(0,
+          node('error', plus(sym('skipAtom')), function(n, v, str) {
+            n.message = 'Not a declaration, rule or at-rule';
+            self.trimEnd_(n, str);
+          }),
+          opt(';')),
+
+        skipAtom: alt(sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars(';}')),
+
+        // A '}' at depth 0 ends a paren too, so an unbalanced '(' cannot
+        // swallow the end of the enclosing block.
+        skipParen: seq('(', repeat(alt(
+          sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars(')}{(\'"'))), opt(')')),
+
+        skipBrace: seq('{', repeat(alt(
+          sym('comment'), sym('string'), sym('skipParen'), sym('skipBrace'), notChars('{}(\'"'))), opt('}')),
+
+        strayClose: node('error', '}', function(n) { n.message = 'Unexpected }'; }),
+
         // Entry point of parseValue(): a value and nothing after it.
         valueOnly: seq1(0, sym('value'), eof())
       };
@@ -547,6 +712,123 @@ foam.CLASS({
         out.push(v);
       }
       return out;
+    },
+
+    function fillBlock_(n, block, str) {
+      // block is the Span value of the 'block' symbol:
+      // { node: [ '{', items, '}' or '' ], start, end }
+      n.children = this.nodes_(block.node[1]);
+      n.closed   = block.node[2] === '}';
+      if ( ! n.closed ) {
+        // First, so children stay in input order: the error spans the '{'.
+        n.children.unshift(this.errorNode_(str, block.start, block.start + 1, 'Unclosed block: missing }'));
+      }
+    },
+
+    function errorNode_(str, start, end, message) {
+      return { kind: 'error', start: start, end: end, raw: str.substring(start, end), message: message };
+    },
+
+    function trimEnd_(n, str) {
+      var e = n.end;
+      while ( e > n.start && ' \t\n\r\f'.indexOf(str[e - 1]) !== -1 ) e--;
+      this.trimTo_(n, n.start, e, str);
+    },
+
+    function skipQuoted_(str, i, end) {
+      // i is at a quote; return the offset just past its closing quote.
+      var q = str[i++];
+      while ( i < end && str[i] !== q ) i += str[i] === '\\' ? 2 : 1;
+      return Math.min(i + 1, end);
+    },
+
+    function skipComment_(str, i, end) {
+      // i is at '/*'; return the offset just past '*/' (or end).
+      var j = str.indexOf('*/', i + 2);
+      return j === -1 || j + 2 > end ? end : j + 2;
+    },
+
+    function scanTokens_(str, start, end) {
+      // $name references in raw text (selectors, custom property values),
+      // skipping strings and comments. Same name rule as the token symbol.
+      var out = [];
+      var re  = this.TOKEN_RE;
+      for ( var i = start ; i < end ; ) {
+        var c = str[i];
+        if ( c === '"' || c === "'" ) { i = this.skipQuoted_(str, i, end); continue; }
+        if ( c === '/' && str[i + 1] === '*' ) { i = this.skipComment_(str, i, end); continue; }
+        if ( c === '$' ) {
+          re.lastIndex = i;
+          var m = re.exec(str);
+          if ( m && i + m[0].length <= end ) {
+            var n = { kind: 'token', start: i, end: i + m[0].length, raw: m[0] };
+            this.fillToken_(n);
+            out.push(n);
+            i = n.end;
+            continue;
+          }
+        }
+        i++;
+      }
+      return out;
+    },
+
+    function selectorNodes_(start, end, str) {
+      // Split raw selector text on commas at depth 0 (outside ( ) [ ],
+      // strings and comments) into trimmed selector nodes.
+      var out = [];
+      var self = this;
+      function push(s, e) {
+        while ( s < e && ' \t\n\r\f'.indexOf(str[s])     !== -1 ) s++;
+        while ( e > s && ' \t\n\r\f'.indexOf(str[e - 1]) !== -1 ) e--;
+        var n = { kind: 'selector', start: s, end: e, raw: str.substring(s, e), carets: [] };
+        for ( var i = s ; i < e ; ) {
+          var c = str[i];
+          if ( c === '"' || c === "'" ) { i = self.skipQuoted_(str, i, e); continue; }
+          if ( c === '/' && str[i + 1] === '*' ) { i = self.skipComment_(str, i, e); continue; }
+          if ( c === '^' && str[i + 1] !== '=' ) n.carets.push(i);
+          i++;
+        }
+        n.tokens = self.scanTokens_(str, s, e);
+        out.push(n);
+      }
+      var depth = 0, from = start;
+      for ( var i = start ; i < end ; ) {
+        var c = str[i];
+        if ( c === '"' || c === "'" ) { i = this.skipQuoted_(str, i, end); continue; }
+        if ( c === '/' && str[i + 1] === '*' ) { i = this.skipComment_(str, i, end); continue; }
+        if ( c === '(' || c === '[' ) depth++;
+        else if ( ( c === ')' || c === ']' ) && depth > 0 ) depth--;
+        else if ( c === ',' && depth === 0 ) { push(from, i); from = i + 1; }
+        i++;
+      }
+      push(from, end);
+      return out;
+    },
+
+    function parse(str) {
+      /* Parse a whole stylesheet (or an inline declaration list) into a
+         'stylesheet' node. Never throws: malformed input yields 'error'
+         nodes, and an internal failure yields a stylesheet holding one
+         error node that spans the whole input. */
+      if ( typeof str !== 'string' ) str = str == null ? '' : String(str);
+      var tree;
+      try {
+        tree = this.sheetGrammar_.parseString(str);
+      } catch (x) {
+        console.error('CSSParser.parse', x);
+        tree = null;
+      }
+      if ( ! tree ) {
+        tree = { kind: 'stylesheet', start: 0, end: str.length, raw: str, children: [] };
+        if ( str.length ) tree.children.push(this.errorNode_(str, 0, str.length, 'Internal parser failure'));
+      } else if ( tree.end < str.length ) {
+        // Not expected (every character has a rule) but kept so the tree
+        // always covers the input.
+        tree.children.push(this.errorNode_(str, tree.end, str.length, 'Unparsed input'));
+        this.trimTo_(tree, 0, str.length, str);
+      }
+      return tree;
     },
 
     function parseValue(str) {

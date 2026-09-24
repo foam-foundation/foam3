@@ -734,6 +734,8 @@ foam.CLASS({
     [
       'adapt',
       function(_, v, prop) {
+        // accept typed arrays (e.g. Float32Array, Float64Array)
+        if ( ArrayBuffer.isView(v) ) v = Array.from(v);
         if ( ! Array.isArray(v) ) return [];
         var copy;
         for ( var i = 0 ; i < v.length ; i++ ) {

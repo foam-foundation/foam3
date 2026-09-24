@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 foam.CLASS({
   package: 'foam.ai.vector',
   name: 'VectorEmbedding',
@@ -18,6 +24,10 @@ foam.CLASS({
     {
       class: 'String',
       name: 'kind'       // 'class' | 'property' | 'method'
+    },
+    {
+      class: 'String',
+      name: 'embeddingModel'  // e.g. 'nomic-embed-text'
     },
     {
       class: 'foam.lang.FloatArray',

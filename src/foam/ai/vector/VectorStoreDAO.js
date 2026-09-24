@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 foam.CLASS({
   package: 'foam.ai.vector',
   name: 'VectorStoreDAO',
@@ -44,7 +50,8 @@ foam.CLASS({
       // true whenever the delegate DAO has changed and the flat index needs rebuilding
       class: 'Boolean',
       name: 'dirty',
-      value: true
+      value: true,
+      synchronized: true
     },
     {
       class: 'foam.lang.FloatArray',

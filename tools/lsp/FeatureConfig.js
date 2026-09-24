@@ -24,6 +24,7 @@ var DEFAULTS = Object.freeze({
   'diagnostics.java': true,
   'diagnostics.i18n': true,
   'diagnostics.pom': true,
+  'diagnostics.cssSyntax': true,
   'hints.i18nMissingLanguage': true,
   'completion': true,
   'hover': true,

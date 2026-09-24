@@ -416,6 +416,7 @@ all (`server.js:613-635`).
 | `diagnostics.java` | `true` | Java-block validation diagnostics |
 | `diagnostics.i18n` | `true` | Hardcoded-display-string diagnostic |
 | `diagnostics.pom` | `true` | Entry-level pom.js diagnostics (`PomValidator.validateEntries` via `DiagnosticsHandler.pomDiagnostics_`) |
+| `diagnostics.cssSyntax` | `true` | `CSS syntax:` diagnostics from the `foam.u2.parse.CSSParser` grammar over `css:` (`DiagnosticsHandler.validateCSSSyntax_`); the token, raw-colour and unused-`^class` checks read the same parse and stay on |
 | `hints.i18nMissingLanguage` | `true` | Every unsolicited offer to machine-translate: the missing-translation HINT, code actions C/D, AND the `codeLens.i18n` lens (clicking it translates) |
 | `completion` | `true` | `completionProvider` capability |
 | `hover` | `true` | `hoverProvider` capability |

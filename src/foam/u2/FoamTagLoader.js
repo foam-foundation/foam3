@@ -10,9 +10,29 @@ foam.CLASS({
   package: 'foam.u2',
   name: 'FoamTagLoader',
 
-  documentation: 'Converts <foam> tags in document into Views.',
+  documentation: `
+    Converts <foam> tags in document into Views.
+
+    A tag may opt into off-screen pausing:
+
+      <foam class="com.acme.MyView" pauseoffscreen="true"></foam>
+
+    which wraps the View in a foam.u2.borders.VisibilityBorder and creates it
+    in that Border's sub-Context, so its timers and animations suspend while it
+    is scrolled out of the viewport. Off by default.
+  `,
+
+  requires: [ 'foam.u2.borders.VisibilityBorder' ],
 
   imports: [ 'classloader', 'document', 'window' ],
+
+  constants: [
+    {
+      type: 'String',
+      name: 'PAUSE_ATTR',
+      value: 'pauseoffscreen'
+    }
+  ],
 
   methods: [
     function init() {
@@ -29,7 +49,10 @@ foam.CLASS({
     function loadTag(el) {
       var clsName = el.getAttribute('class');
       this.classloader.load(clsName).then(cls => {
-        var obj = cls.create(null, foam.__context__);
+        // Wrap the tag before the View is built, so that the View is created
+        // in the Border's sub-Context and picks up its decorated timers.
+        var x   = this.wrapTag(el);
+        var obj = cls.create(null, x);
 
         this.setAttributes(el, obj);
 
@@ -45,7 +68,7 @@ foam.CLASS({
         } else if ( ! foam.u2.Element.isInstance(obj) )  {
           // happens for U3
 //           var view = foam.u2.detail.SectionedDetailView.create({data: obj, showActions: true});
-          var view = foam.u2.DetailView.create({data: obj, showActions: true});
+          var view = foam.u2.DetailView.create({data: obj, showActions: true}, x);
           el.appendChild(view.element_);
           view.load();
 
@@ -73,9 +96,30 @@ foam.CLASS({
     function setAttributes(el, obj) {
       for ( var j = 0 ; j < el.attributes.length ; j++ ) {
         var attr = el.attributes[j];
+        if ( attr.name == this.PAUSE_ATTR ) continue;
         var p = this.findPropertyIC(obj.cls_, attr.name);
         if ( p ) p.set(obj, p.fromString(attr.value));
       }
+    },
+
+    function wrapTag(el) {
+      /*
+        If the tag opted into off-screen pausing, put a VisibilityBorder where
+        the tag is and move the tag inside it. The install paths below all
+        replace or append to 'el', so they end up inside the Border without
+        needing to know about it. Returns the Context to create the View in.
+      */
+      // Present-and-not-"false" enables it, per HTML boolean attribute convention.
+      var v = el.getAttribute(this.PAUSE_ATTR);
+      if ( v == null || v.trim().toLowerCase() === 'false' ) return foam.__context__;
+
+      var border = this.VisibilityBorder.create(null, foam.__context__);
+
+      el.parentNode.replaceChild(border.element_, el);
+      border.element_.appendChild(el);
+      border.load();
+
+      return border.__subContext__;
     }
   ],
 

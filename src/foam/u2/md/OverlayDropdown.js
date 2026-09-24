@@ -177,7 +177,7 @@ foam.CLASS({
 
     function setHeight() {
       var el = this.dropdownE_.el_?.();
-      var contentHeight = el.scrollHeight || el.offsetHeight || 0;
+      if ( ! el ) return;
       var screenHeight = this.window.innerHeight;
       let availableHeight;
       if ( this.top == 'auto' ) {
@@ -185,20 +185,16 @@ foam.CLASS({
       } else {
         availableHeight = screenHeight - this.top;
       }
-      if ( contentHeight > availableHeight ) {
-        availableHeight = Math.max(0, availableHeight - 8);
-        el.style.maxHeight = availableHeight + 'px';
-        el.style.overflowY = 'auto';
-      } else {
-        el.style.maxHeight = '';
-        el.style.overflowY = '';
-      }
+      availableHeight = Math.max(0, availableHeight - 8);
+      el.style.maxHeight = availableHeight + 'px';
+      el.style.overflowY = 'auto';
     },
 
     function close() {
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
-      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_())
+      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_());
+      this.window.removeEventListener('resize', this.onResize);
     },
 
     function render() {
@@ -270,7 +266,7 @@ foam.CLASS({
 
     function onKeyDown(e) {
       var isEsc = (e.key === 'Escape' || e.keyCode === 27);
-      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id).focus(); }
+      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id)?.focus(); }
     },
 
     function onMouseEnter(e) {
@@ -297,7 +293,6 @@ foam.CLASS({
 
     function onResize(e) {
       this.setPosition();
-      window.removeEventListener('resize', onResize);
     }
   ]
 });

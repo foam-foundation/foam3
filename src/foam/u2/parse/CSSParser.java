@@ -81,7 +81,7 @@ public class CSSParser {
     "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A" +
     "\u2028\u2029\u202F\u205F\u3000\uFEFF";
   protected static final Pattern PLACEHOLDER  = Pattern.compile("^[" + JS_WS + "]*%([A-Za-z0-9_]+)%[" + JS_WS + "]*$");
-  protected static final Pattern ESCAPE       = Pattern.compile("\\\\([0-9a-fA-F]{1,6})[ \\t\\n]?|\\\\\\n|\\\\([\\s\\S])|\\\\$");
+  protected static final Pattern ESCAPE       = Pattern.compile("\\\\([0-9a-fA-F]{1,6})[ \\t\\n]?|\\\\(?:\\r\\n|[\\n\\r\\f])|\\\\([\\s\\S])|\\\\$");
 
   // ParserContext key of the per-parse nesting counter (an int[1]).
   protected static final String DEPTH = "css.depth";
@@ -463,8 +463,19 @@ public class CSSParser {
       g.sym("atRule"),
       g.sym("customDeclaration"),
       g.sym("declaration"),
+      g.sym("placeholderStatement"),
       g.sym("rule"),
       g.sym("recover")));
+
+    // Problem: FOAM's returnExpandedCSS replaces a statement-level
+    // '%CUSTOMCSS%;' (foam.core.u2.navigation.Stack) or a whole css:
+    // '%CUSTOMCSS%' (foam.u2.layout.MDStackView) with theme CSS before the
+    // browser sees it, but it read here as 'Not a declaration, rule or
+    // at-rule'. A %NAME% standing alone is a placeholder statement; one glued
+    // to more text ('%X%.a { }') is left to rule and recover.
+    g.addSymbol("placeholderStatement", node("placeholder",
+      seq(g.sym("placeholder"), peek(alt(chars(WS + ";}"), lit("/*"), EOF_)), opt(seq(opt(g.sym("ws")), lit(";")))),
+      (n, v, str) -> { n.name = ((CSSNode) ((Object[]) v)[0]).name; return true; }));
 
     // '{' items '}'. Never fails once '{' is seen. At MAX_DEPTH the value is
     // an error node instead (see fillBlock).
@@ -672,17 +683,26 @@ public class CSSParser {
     });
   }
 
-  // A backslash escapes the next character, including the quote. An
-  // unterminated string runs to the end of input with closed false instead of
-  // failing, so one missing quote cannot make the grammar retry every shorter
-  // reading of the rest. $name and ^ inside are token and caret nodes with
-  // context 'string'.
+  // A backslash escapes the next character, including the quote and a line
+  // break (CR LF counts as one). An unterminated string is marked closed
+  // false instead of failing, so one missing quote cannot make the grammar
+  // retry every shorter reading of the rest. $name and ^ inside are token and
+  // caret nodes with context 'string'.
+  //
+  // An unterminated string ends before the next unescaped line break (LF, CR
+  // or FF), as CSS Syntax's bad-string does. Problem: running to the end of
+  // input, one stray quote hid the rest of its css: block from
+  // declarations() and tokens(), e.g. the quote before "bold;" in
+  // "font-weight': 'bold;" (DateTimePicker) took in every rule after it. Now
+  // the damage stops at the enclosing statement's next ';' or '}', where a
+  // browser recovers too, and only that statement is lost.
   protected static Parser stringParser(Grammar g, char q) {
     String qs = String.valueOf(q);
     return node("string", seq(
         lit(qs),
-        repeat(alt(g.sym("token"), g.sym("textCaret"), seq(lit("\\"), opt(AnyChar.instance())), notChars(qs + "\\"))),
-        alt(lit(qs), EOF_)),
+        repeat(alt(g.sym("token"), g.sym("textCaret"), seq(lit("\\"), opt(alt(lit("\r\n"), AnyChar.instance()))),
+          notChars(qs + "\\\n\r\f"))),
+        alt(lit(qs), peek(chars("\n\r\f")), EOF_)),
       (n, v, str) -> {
         Object[] a = (Object[]) v;
         n.quote  = qs;
@@ -696,7 +716,8 @@ public class CSSParser {
   // ---- node helpers -----------------------------------------------------------
 
   // CSS escapes: \26 or \000026 (hex, one optional trailing space),
-  // backslash-newline (line continuation, dropped), backslash-any.
+  // backslash-line-break (line continuation, dropped; the break is LF, CR LF,
+  // CR or FF, as the string grammar reads it), backslash-any.
   protected static String unescape(String s) {
     Matcher       m  = ESCAPE.matcher(s);
     StringBuilder sb = new StringBuilder();

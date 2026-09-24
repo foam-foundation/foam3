@@ -37,13 +37,13 @@ public class CSSNode {
   public String       text;        // comment: text between the delimiters
   public String       placeholder; // comment: NAME of /*%NAME%*/
   public String       token;       // comment: '$name' when the text is exactly one token
-  public String       name;        // token, placeholder, function, atrule, property
+  public String       name;        // token, placeholder (a value component or a statement), function, atrule, property
   public String       base;        // token
   public List<String> variants;    // token
   public String       cls;         // token: class of a class-scoped token
   public String       context;     // token: null, 'comment', 'string' or 'url'; caret: null, 'string' or 'comment'
   public String       message;     // error
-  public Boolean      closed;      // null where the kind cannot be left open
+  public Boolean      closed;      // null where the kind cannot be left open; string: false also when cut at a line break
   public boolean      isHexColor;  // hash
   public boolean      inMath;      // token
   public boolean      inAttr;      // caret
@@ -55,7 +55,7 @@ public class CSSNode {
   public CSSNode       property;   // declaration
   public CSSNode       prelude;    // atrule
   public CSSNode       arg;        // url: the string node when quoted
-  public List<CSSNode> children;   // stylesheet, rule, atrule (null for a statement at-rule)
+  public List<CSSNode> children;   // stylesheet, rule, atrule (null for a statement at-rule); a %NAME% statement is a placeholder child
   public List<CSSNode> selectors;  // rule
   public List<CSSNode> parts;      // selector; custom property value; comment, string: tokens and carets inside
   public List<CSSNode> carets;     // selector, comment, string: parts filtered to kind 'caret'

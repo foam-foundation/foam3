@@ -140,6 +140,14 @@ foam.CLASS({
     return String.join(sep, k);
   }
 
+  // The declarations() properties, comma-joined, as the JS test's
+  // declarations(t).map(d => d.property).join().
+  protected static String props(CSSNode tree) {
+    List<String> k = new ArrayList<>();
+    for ( CSSParser.Declaration d : CSSParser.declarations(tree) ) k.add(d.property);
+    return String.join(",", k);
+  }
+
   protected static String repeat(String s, int n) {
     StringBuilder sb = new StringBuilder();
     for ( int i = 0 ; i < n ; i++ ) sb.append(s);
@@ -191,6 +199,8 @@ foam.CLASS({
     testDeepSkipBalances();
     testCaretHazards();
     testCaseAndWhitespace();
+    testStringLineBreak();
+    testPlaceholderStatement();
     testJvmLocale();
   }
 
@@ -958,6 +968,108 @@ foam.CLASS({
     CSSNode c3 = p.parse("a{b:/*$x\\u0001*/ c}");
     t(() -> c3.children.get(0).children.get(0).valueNode().components.get(0).token == null,
       "whitespace: the same inside a value");
+  }
+
+  protected void testStringLineBreak() {
+    // CSS Syntax ends a string at an unescaped line break (a bad-string);
+    // the browser then drops the statement up to its next ';' or '}'.
+    CSSParser p = new CSSParser();
+    CSSNode v = p.parseValue("\\"ab\\ncd");
+    t(() -> {
+      CSSNode s = v.components.get(0);
+      return "string".equals(s.kind) && Boolean.FALSE.equals(s.closed) && "\\"ab".equals(s.raw) && "ab".equals(s.value) &&
+             kinds(v.components).equals("string ident");
+    }, "line break: an unclosed string ends before the line break, which is not part of it");
+    String[] breaks = { "\\"a\\rb", "\\"a\\r\\nb", "\\"a\\fb" };
+    t(() -> {
+      for ( String i : breaks ) {
+        CSSNode w = p.parseValue(i);
+        if ( ! "\\"a".equals(w.components.get(0).raw) || ! Boolean.FALSE.equals(w.components.get(0).closed) ) return false;
+      }
+      return true;
+    }, "line break: CR, CR LF and FF end a string too");
+
+    CSSNode v2 = p.parseValue("\\"a\\\\\\nb\\" 'c\\\\\\r\\nd'");
+    t(() -> {
+      if ( v2.components.size() != 2 ) return false;
+      for ( CSSNode n : v2.components ) if ( ! "string".equals(n.kind) || ! n.closed ) return false;
+      return "ab".equals(v2.components.get(0).value) && "cd".equals(v2.components.get(1).value);
+    }, "line break: a backslash before a line break keeps it in the string and drops it from value");
+
+    String  input = "^ .x {\\n  content: \\"abc\\n}\\n^ .y { color: $red; }";
+    CSSNode tr    = p.parse(input);
+    t(() -> props(tr).equals("content,color") && tr.children.size() == 2 && tr.children.get(0).closed,
+      "line break: a string cut before } leaves the block closed and the next rule parsed");
+    t(() -> kinds(CSSParser.errors(tr)).equals("string") && "\\"abc".equals(CSSParser.errors(tr).get(0).raw),
+      "line break: the cut string is the one error");
+    t(() -> names(CSSParser.tokens(tr)).equals("red"), "line break: tokens after the cut string are found");
+    spansMatch(input, tr, "line break before }");
+
+    String  i2  = "^ .label {\\n  // WHY DOESN\\"T WORK?\\n  font-size: larger;\\n  font-weight: $font-regular;\\n  color: $red300;\\n}";
+    CSSNode tr2 = p.parse(i2);
+    List<CSSNode> e2 = CSSParser.errors(tr2);
+    t(() -> kinds(e2).equals("error") && "// WHY DOESN\\"T WORK?\\n  font-size: larger".equals(e2.get(0).raw),
+      "line break: a stray quote in a // line drops that statement up to its ;, as a browser does");
+    t(() -> props(tr2).equals("font-weight,color") && CSSParser.tokens(tr2).size() == 2,
+      "line break: the declarations after that ; are parsed");
+    spansMatch(i2, tr2, "line break in a statement");
+
+    String  i3  = "a{content:\\"x\\ncolor:red;margin:0}";
+    CSSNode tr3 = p.parse(i3);
+    List<CSSParser.Declaration> d3 = CSSParser.declarations(tr3);
+    t(() -> props(tr3).equals("content,margin") && kinds(d3.get(0).node.valueNode().components).equals("string ident error ident"),
+      "line break: a declaration with a cut string runs to its ;, taking in the next line");
+    t(() -> kinds(CSSParser.errors(tr3)).equals("string error"), "line break: errors lists the cut string and the stray :");
+    spansMatch(i3, tr3, "line break in a value");
+
+    String  i4  = "a{content:\\"$primary ^b ^\\n;c:d}";
+    CSSNode tr4 = p.parse(i4);
+    List<String> hs = new ArrayList<>();
+    for ( CSSNode n : CSSParser.hazards(tr4) ) hs.add(n.kind + ":" + n.context);
+    String h = String.join(" ", hs);
+    t(() -> h.equals("token:string caret:string") && props(tr4).equals("content,c"),
+      "line break: $ and ^ in a cut string are hazards, a ^ before the break is not, got \\"" + h + "\\"");
+    spansMatch(i4, tr4, "line break hazards");
+  }
+
+  protected void testPlaceholderStatement() {
+    // %CUSTOMCSS% is filled in by returnExpandedCSS before the browser
+    // sees the CSS.
+    CSSParser p = new CSSParser();
+    CSSNode tr = p.parse("%CUSTOMCSS%");
+    t(() -> kinds(tr.children).equals("placeholder") && "CUSTOMCSS".equals(tr.children.get(0).name) && CSSParser.errors(tr).isEmpty(),
+      "placeholder statement: a whole stylesheet of %CUSTOMCSS% is one placeholder, no error");
+
+    String  input = "^ { color: red; }\\n%CUSTOMCSS%;\\n";
+    CSSNode tr2   = p.parse(input);
+    t(() -> kinds(tr2.children).equals("rule placeholder") && "%CUSTOMCSS%;".equals(tr2.children.get(1).raw) && CSSParser.errors(tr2).isEmpty(),
+      "placeholder statement: %CUSTOMCSS%; after a rule keeps its ; in the span");
+    spansMatch(input, tr2, "placeholder statement top level");
+
+    String  i3  = "a { color: red; %CUSTOMCSS% ; margin: 0 }";
+    CSSNode tr3 = p.parse(i3);
+    t(() -> {
+      CSSNode r = tr3.children.get(0);
+      return kinds(r.children).equals("declaration placeholder declaration") && "%CUSTOMCSS% ;".equals(r.children.get(1).raw) &&
+             props(tr3).equals("color,margin") && CSSParser.errors(tr3).isEmpty();
+    }, "placeholder statement: %CUSTOMCSS% ; between declarations in a block");
+    spansMatch(i3, tr3, "placeholder statement in a block");
+
+    CSSNode tr4 = p.parse("a { %CUSTOMCSS; color: red }");
+    t(() -> kinds(tr4.children.get(0).children).equals("error declaration") &&
+            "Not a declaration, rule or at-rule".equals(CSSParser.errors(tr4).get(0).message) &&
+            "%CUSTOMCSS".equals(CSSParser.errors(tr4).get(0).raw),
+      "placeholder statement: %CUSTOMCSS without the closing % is an error");
+    String[] bare = { "%", "% ;", "%%" };
+    t(() -> {
+      for ( String i : bare ) if ( ! kinds(CSSParser.errors(p.parse(i))).equals("error") ) return false;
+      return true;
+    }, "placeholder statement: a bare % or %% is an error");
+
+    CSSNode tr5 = p.parse("%X%.a { b: c } %Y% .d { e: f }");
+    t(() -> kinds(tr5.children).equals("rule placeholder rule") && "%X%.a".equals(tr5.children.get(0).selectors.get(0).raw) &&
+            ".d".equals(tr5.children.get(2).selectors.get(0).raw),
+      "placeholder statement: one glued to a selector stays in it, one followed by a space stands alone");
   }
 
   // Java only: the JS side has no JVM locale. Under a Turkish default locale

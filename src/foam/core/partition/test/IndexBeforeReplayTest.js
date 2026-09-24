@@ -15,8 +15,7 @@ foam.CLASS({
     the rows already loaded.
 
     Covers a reload, a lazy:false CSpec whose service script adds the index
-    after build(), a lazy CSpec, and the dedup path, which replays one put at a time and so
-    still adds its indexes after.`,
+    after build(), a lazy CSpec, and a dedup DAO.`,
 
   javaImports: [
     'foam.core.boot.CSpec',
@@ -118,7 +117,7 @@ foam.CLASS({
         test( bootProbe.bulkLoads == 1 && bootProbe.rows == 3 && ! bootProbe.afterReplay,
           "its first access loads it, with the index in the replay's bulk load, bulkLoads=" + bootProbe.bulkLoads + " rows=" + bootProbe.rows );
 
-        // Dedup replays one put at a time, so its indexes still go on after.
+        // DeDupDAO sits outside the journal, so a dedup DAO replays the same way.
         seed(dir, "dedup");
         ProbeIndex dedupProbe = newProbe();
         EasyDAO dedup = new EasyDAO.Builder(tx)
@@ -132,8 +131,8 @@ foam.CLASS({
         dedup.addIndex(dedupProbe);
         found = dedup.find(MLang.EQ(UnloadableDecoratedRecord.DATA, "c"));
         test( found != null && dedupProbe.rows == 3,
-          "a dedup DAO still builds the index from all 3 rows, rows=" + dedupProbe.rows );
-        test( dedupProbe.afterReplay, "a dedup DAO adds the index after the replay" );
+          "a dedup DAO builds the index from all 3 rows, rows=" + dedupProbe.rows );
+        test( ! dedupProbe.afterReplay, "a dedup DAO builds the index in the replay's bulk load" );
       `
     },
     {

@@ -146,6 +146,7 @@ foam.CLASS({
       factory: function() { return this.delegateFactory(); },
       javaFactory: `
         List<PropertyInfo> indexes = new ArrayList();
+        boolean propertyIndexed = false;
 
         // TODO: replace logger instantiation once javaFactory issue above is fixed
         Logger logger = (Logger) getX().get("logger");
@@ -170,6 +171,8 @@ foam.CLASS({
             if ( getMdao() == null ) {
               setMdao(new foam.dao.MDAO(getOf()));
             }
+            addPropertyIndexes(getMdao());
+            propertyIndexed = true;
             delegate = getMdao();
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
@@ -391,6 +394,10 @@ foam.CLASS({
           }
         }
 
+        // A chain that does not start from this EasyDAO's MDAO gets them the
+        // way addPropertyIndex sends them.
+        if ( ! propertyIndexed ) addPropertyIndexes(delegate);
+
         // see comments above regarding DAOs with init_
         ((ProxyDAO) delegate_).setDelegate(delegate);
 
@@ -410,6 +417,16 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      class: 'Object',
+      javaType: 'foam.lang.Indexer[][]',
+      name: 'propertyIndexes',
+      hidden: true,
+      documentation: `Indexes the MDAO is created with, one Indexer[] per
+        index. addPropertyIndex records its index here until the delegate is
+        built, so the index is in the MDAO before the journal replays into it
+        and the replay's bulk load builds it with the rest.`
     },
     {
       class: 'Boolean',
@@ -1061,15 +1078,31 @@ dao loading, which improves overall startup time.`,
         non-fixedSize construction, and by NotPartitionedDAO#createDAO() to
         rebuild the chain on every unload/reload.
 
-        indexes are the AddIndexCommands the new store must hold. The journal
-        replays into the MDAO as one bulk load, which builds every index the
-        MDAO already holds at once, so they go in before the replay.`,
+        indexes are the AddIndexCommands the new store must hold, on top of
+        propertyIndexes. The journal replays into the MDAO as one bulk load,
+        which builds every index the MDAO already holds at once, so they go in
+        before the replay.`,
       args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
+        addPropertyIndexes(getMdao());
         for ( Object index : indexes ) getMdao().cmd(index);
         return wrapInJDAO(x, getMdao());
+      `
+    },
+    {
+      name: 'addPropertyIndexes',
+      documentation: 'Adds each of propertyIndexes to the given DAO, the way addPropertyIndex does.',
+      args: 'foam.dao.DAO dao',
+      javaCode: `
+        if ( getPropertyIndexes() == null ) return;
+
+        for ( Indexer[] indexers : getPropertyIndexes() ) {
+          AddIndexCommand cmd = new AddIndexCommand();
+          cmd.setIndexers(indexers);
+          dao.cmd(cmd);
+        }
       `
     },
     {
@@ -1410,6 +1443,17 @@ dao loading, which improves overall startup time.`,
         return this;
       },
       javaCode: `
+        // The delegate is built on first use, and building it replays the
+        // journal. Until then the index is recorded, so it goes into the MDAO
+        // before the replay rather than being built from the loaded rows.
+        if ( ! delegateIsSet_ ) {
+          Indexer[][] recorded = getPropertyIndexes() == null ? new Indexer[0][] : getPropertyIndexes();
+          Indexer[][] all      = Arrays.copyOf(recorded, recorded.length + 1);
+          all[recorded.length] = indexers;
+          setPropertyIndexes(all);
+          return this;
+        }
+
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setIndexers(indexers);
         Object result = getDelegate().cmd_(getX(), cmd);

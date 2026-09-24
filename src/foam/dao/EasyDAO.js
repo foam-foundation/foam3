@@ -169,6 +169,7 @@ foam.CLASS({
           } else {
             if ( getMdao() == null ) {
               setMdao(new foam.dao.MDAO(getOf()));
+              addPropertyIndexes(getMdao());
             }
             delegate = getMdao();
             if ( getDedup() ) {
@@ -407,6 +408,16 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      class: 'Object',
+      javaType: 'foam.lang.Indexer[][]',
+      name: 'propertyIndexes',
+      documentation: `Indexes the MDAO is created with, one Indexer[] per
+        index, as addPropertyIndex takes them. They are in the MDAO before the
+        journal replays into it, so the replay's bulk load builds them all at
+        once. An addPropertyIndex after build() builds its index on its own,
+        from the rows already loaded.`
     },
     {
       class: 'Boolean',
@@ -966,6 +977,7 @@ dao loading, which improves overall startup time.`,
 
        if ( getInnerDAO() == null && getMdao() == null && ! getNullify() ) {
          setMdao(new foam.dao.MDAO(getOf()));
+         addPropertyIndexes(getMdao());
        }
      `
     },
@@ -1059,17 +1071,18 @@ dao loading, which improves overall startup time.`,
         NotPartitionedDAO#createDAO() to rebuild the chain on every
         unload/reload.
 
-        indexes are the AddIndexCommands the new store must hold. The journal
-        replays into a bare MDAO as one bulk load, which builds every index the
-        MDAO already holds at once, so they go in before the replay. Behind a
-        DeDupDAO the replay puts one row at a time, so there they go in after,
-        as before.`,
+        indexes are the AddIndexCommands the new store must hold, on top of
+        propertyIndexes. The journal replays into a bare MDAO as one bulk load,
+        which builds every index the MDAO already holds at once, so they go in
+        before the replay. Behind a DeDupDAO the replay puts one row at a time,
+        so there they go in after, as before.`,
       args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
 
         if ( ! getDedup() ) {
+          addPropertyIndexes(getMdao());
           for ( Object index : indexes ) getMdao().cmd(index);
           return wrapInJDAO(x, getMdao());
         }
@@ -1077,8 +1090,23 @@ dao loading, which improves overall startup time.`,
         foam.dao.DAO jdao = wrapInJDAO(x, new foam.dao.DeDupDAO.Builder(x)
           .setDelegate(getMdao())
           .build());
+        addPropertyIndexes(jdao);
         for ( Object index : indexes ) jdao.cmd(index);
         return jdao;
+      `
+    },
+    {
+      name: 'addPropertyIndexes',
+      documentation: 'Adds each of propertyIndexes to the given DAO, the way addPropertyIndex does.',
+      args: 'foam.dao.DAO dao',
+      javaCode: `
+        if ( getPropertyIndexes() == null ) return;
+
+        for ( Indexer[] indexers : getPropertyIndexes() ) {
+          AddIndexCommand cmd = new AddIndexCommand();
+          cmd.setIndexers(indexers);
+          dao.cmd(cmd);
+        }
       `
     },
     {

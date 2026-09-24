@@ -1204,6 +1204,7 @@ foam.POM({
     { name: "foam/dao/WriteOnlyFileJournal",                          flags: "js|java" },
     { name: "foam/dao/WriteOnlyF3FileJournal",                        flags: "js|java" },
     { name: "foam/dao/test/ArrayDAOTest",                             flags: "js&test|java&test" },
+    { name: "foam/dao/test/EasyDAOPropertyIndexesTest",               flags: "js&test|java&test" },
     { name: "foam/dao/test/FileRollCmdTest",                          flags: "js&test|java&test" },
     { name: "foam/dao/test/JournalGenerationsTest",                   flags: "js&test|java&test" },
     { name: "foam/dao/test/BulkLoadCommandTest",                     flags: "js&test|java&test" },

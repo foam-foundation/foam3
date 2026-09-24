@@ -304,7 +304,7 @@ Let's look briefly at the purpose of each of the elements in this file:
 <tr>
 <td width=20% align="left">excludes</td>
 <td width=80% align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
-are standard directories that we want FOAM build to ignore. The <b>*</b> turns off all defaults. The build will only include projects listed
+are standard directories that we want FOAM build to ignore. The <b>&#42;</b> turns off all defaults. The build will only include projects listed
 in the projects below.</td>
 </tr>
 <tr>

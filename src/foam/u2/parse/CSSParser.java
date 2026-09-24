@@ -919,7 +919,9 @@ public class CSSParser {
 
   /**
    * Flat list of declarations in input order, with the enclosing rules and
-   * at-rules and their labels, outermost first.
+   * at-rules and their labels, outermost first. A declaration whose value
+   * holds an error or open node (a cut string, a stray ':') is still listed
+   * although a browser drops it, so an audit cross-checks errors().
    */
   public static List<Declaration> declarations(CSSNode tree) {
     List<Declaration> out = new ArrayList<>();
@@ -987,7 +989,8 @@ public class CSSParser {
    * nodes left open (closed false). Of nested open nodes only the outermost
    * is listed, but 'error' nodes inside it (a MAX_DEPTH skip, a misplaced
    * !important) still are. An open rule or at-rule block already has an
-   * 'error' node.
+   * 'error' node. Open nodes carry no message: a listed string with closed
+   * false is one cut by a line break or the end of input.
    */
   public static List<CSSNode> errors(CSSNode tree) {
     List<CSSNode> out = new ArrayList<>();

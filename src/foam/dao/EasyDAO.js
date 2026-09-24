@@ -1037,9 +1037,6 @@ dao loading, which improves overall startup time.`,
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
             pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
             pdao.setEasyDAO(this);
-            // lazy:false promises the data is loaded at boot; NotPartitionedDAO
-            // defers replay to the first access, so load it now, on the boot thread.
-            if ( getCSpec() != null && ! getCSpec().getLazy() ) pdao.getDelegate();
             delegate = pdao;
           } else if ( getFixedSize() != null ) {
             // FixedSizeDAO already wraps the mdao/dedup chain above (see the
@@ -1047,7 +1044,7 @@ dao loading, which improves overall startup time.`,
             // journal rather than rebuilding it, or the size cap would be lost.
             delegate = wrapInJDAO(x, delegate);
           } else {
-            delegate = createJournalledDelegate(x);
+            delegate = createJournalledDelegate(x, java.util.Collections.EMPTY_LIST);
           }
         }
         return delegate;
@@ -1055,20 +1052,33 @@ dao loading, which improves overall startup time.`,
     },
     {
       name: 'createJournalledDelegate',
-      documentation: 'Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO (aliased via setMdao so getMdao() tracks the live store), optionally wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used for the initial non-unloadable, non-fixedSize construction, and by NotPartitionedDAO#createDAO() to rebuild the chain on every unload/reload.',
-      args: 'X x',
+      documentation: `Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO
+        (aliased via setMdao so getMdao() tracks the live store), optionally
+        wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used
+        for the initial non-unloadable, non-fixedSize construction, and by
+        NotPartitionedDAO#createDAO() to rebuild the chain on every
+        unload/reload.
+
+        indexes are the AddIndexCommands the new store must hold. The journal
+        replays into a bare MDAO as one bulk load, which builds every index the
+        MDAO already holds at once, so they go in before the replay. Behind a
+        DeDupDAO the replay puts one row at a time, so there they go in after,
+        as before.`,
+      args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
-        foam.dao.DAO delegate = getMdao();
 
-        if ( getDedup() ) {
-          delegate = new foam.dao.DeDupDAO.Builder(x)
-            .setDelegate(delegate)
-            .build();
+        if ( ! getDedup() ) {
+          for ( Object index : indexes ) getMdao().cmd(index);
+          return wrapInJDAO(x, getMdao());
         }
 
-        return wrapInJDAO(x, delegate);
+        foam.dao.DAO jdao = wrapInJDAO(x, new foam.dao.DeDupDAO.Builder(x)
+          .setDelegate(getMdao())
+          .build());
+        for ( Object index : indexes ) jdao.cmd(index);
+        return jdao;
       `
     },
     {

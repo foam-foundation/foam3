@@ -85,7 +85,8 @@ foam.CLASS({
         pomFileName: {}, pomFlagValue: {}, pomJavaFileName: {},
         classRef: {}, comment:  {}, documentation: {}, cssBlock: {},
         instCall: {}, instCreateReceiver: {}, instTagClass: {}, instClassRef: {},
-        instKey: {}, instValue: {}, memberRef: {}
+        instKey: {}, instValue: {}, memberRef: {},
+        headEntry: {}, requiresEntry: {}
       };
       // Kinds that allow multiple occurrences per name. Single-occurrence
       // kinds (message, value, property, method, pomFileName) keep their
@@ -105,7 +106,11 @@ foam.CLASS({
         instClassRef: true, instKey: true, instValue: true, memberRef: true,
         // pom scalar values repeat across entries ('js' in ten files:
         // rows), so unlike pomFileName these keep every span.
-        pomFlagValue: true, pomJavaFileName: true };
+        pomFlagValue: true, pomJavaFileName: true,
+        // One per model, but a file holds several models, and the record
+        // key is the entry's whole text: two models both saying
+        // `requires: [ 'foam.u2.View' ]` must keep both spans.
+        headEntry: true, requiresEntry: true };
 
       // Line-start offsets, computed once (O(n)), so each msg match resolves
       // line/col by binary search (O(log n)). Scanning text from offset 0 per
@@ -842,16 +847,22 @@ foam.CLASS({
         // === SPECIFIC ENTRIES ===
         // Hints are sourced from AxiomCatalog via topHint() — keeps the
         // descriptions in one place and reachable from HoverHandler too.
-        packageEntry: P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc, stringLiteral),
-        nameEntry:    P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc, stringLiteral),
-        extendsEntry: P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
-          quoted(P.sym('classRef'))),
+        //
+        // The identity entries (package/name/extends/refines/implements) and
+        // requires are msg-tagged so completion can write a `requires:` edit
+        // at the right spot — see MemberCompletionHandler.requiresLayout_.
+        packageEntry: P.msg(P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc, stringLiteral),
+          { kind: 'headEntry' }),
+        nameEntry:    P.msg(P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc, stringLiteral),
+          { kind: 'headEntry' }),
+        extendsEntry: P.msg(P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))), { kind: 'headEntry' }),
 
         // refines: 'foam.x.Y' — classRef-typed top-level slot. Promoted from
         // suggestion-only topLevelKey to first-class entry so go-to-def,
         // hover, and unknown-class diagnostics work the same as `extends:`.
-        refinesEntry: P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
-          quoted(P.sym('classRef'))),
+        refinesEntry: P.msg(P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))), { kind: 'headEntry' }),
 
         // sourceModel/targetModel: classRef-typed slots used by
         // foam.RELATIONSHIP({...}). Same treatment as extends/refines.
@@ -942,13 +953,13 @@ foam.CLASS({
         // FOAM allows implements to reference any class id, not just
         // foam.INTERFACE-declared ones (e.g., StringFilterView implements
         // foam.mlang.Expressions, which is a class).
-        implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+        implementsEntry: P.msg(P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
-          wsc, P.optional(P.literal(']'))),
+          wsc, P.optional(P.literal(']'))), { kind: 'headEntry' }),
 
-        requiresEntry: P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+        requiresEntry: P.msg(P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
-          wsc, P.optional(P.literal(']'))),
+          wsc, P.optional(P.literal(']'))), { kind: 'requiresEntry' }),
 
         // messages: [ { name: 'LABEL_X', message: '…' } ]
         // Each name's string content is msg-tagged so collectAxiomPositions

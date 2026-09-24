@@ -22,7 +22,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `loadStringWithLines()`, `sliceEntries()`, `filterByClass()`. **A journal is not valid JavaScript** — FOAM's triple-quoted values are a syntax error, so the content is cut into entries on the grammar's entry starts and each is evaluated alone with its triple-quoted spans blanked. Evaluating the whole file as one body threw at construction and returned nothing: 68 of 78 `services.jrl` and 119 of 365 journals were silently empty |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
 | `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl, but EVERY services.jrl in the workspace (`FoamIndex.getServiceJournalFiles()`, nearest-first from the asking file); entry lookups stay on the pom/source directory answer (`getJournalDirs()`); journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
-| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Every gate routes through one shared instance — server dispatch, `DiagnosticsHandler`, and the six handlers that used to sniff with their own regex (CodeLens, Completion, Definition, Hover, MemberCompletion, Symbol), which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
+| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Every gate routes through one shared instance — server dispatch, `DiagnosticsHandler`, and the six handlers that used to sniff with their own regex (CodeLens, Completion, Definition, Hover, MemberCompletion, Symbol), which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below; `commentSpans(text)` returns the comments that same walk skipped (no regex-literal rule: the `/*` in `/[/*]/` opens a span to the next `*/`, which only makes more text count as commented) |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -30,8 +30,8 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 ### Handlers
 | Handler | LSP Method | What It Does |
 |---|---|---|
-| `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values |
-| `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports |
+| `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values. Items carry `labelDetails` where the data is on hand — the package of a property type (`{ description: 'foam.u2' }`), the type of a column/axiom property (`{ detail: ': String' }`); every list leaves through `CompletionItem.toLSPItems`, which drops `labelDetails` unless the client declared `completionItem.labelDetailsSupport` (`completionItemSupport`, wired from `initialize`). `detail` is unchanged either way |
+| `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports, same `labelDetails` shaping. **Auto-require** (`completion.autoRequires`): `this.<Capital>` also offers registered classes the model does not require yet, inserting the short name with an `additionalTextEdits` entry that adds the id to that model's `requires:` — sorted place and the array's own quote/indent when it exists, a new `requires: [ … ]` after the last package/name/extends/refines/implements entry when it doesn't. Positions come from the grammar's `requiresEntry`/`headEntry` harvest inside the model's significant-call span, minus any record inside a comment (`FileClassifier.commentSpans` — the grammar parses a commented-out `foam.CLASS` like a live one), and no edit is written inside a comment. With two `requires:` keys the edit goes into the last, the one JS keeps. A class already required, or whose short name the model already uses, is not offered; nor is anything when no safe edit exists. The list is `isIncomplete` while the flag is on, so it re-asks as the partial grows. A model that has a `requires:` the grammar harvest never reached (it stops at the first value it cannot parse, e.g. a call in `axioms: [ foam.pattern.Faceted.create() ]`) gets no offer, since writing a second `requires:` key would lose the new require. Java-only classes (`flags: ['java']`) are offered only in a Java-only model. Inserted line breaks copy the ending of the line they are written next to (CRLF-aware, per line, so a mixed file stays consistent locally). No deprecated tag yet: FOAM does have a `deprecated:` model axiom (`src/foam/u2/DetailView.js:23`, plus `deprecated: true` on some properties), but completion does not read it |
 | `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info. A property's type carries its `of:` target — `` `Enum<ButtonStyle>` `` — except the primitive `of:` an array class already implies (`StringArray of: 'String'`) |
 | `DefinitionHandler.js` | `textDocument/definition` | File index lookup for class → file path |
 | `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models. `tags` / `relatedInformation` only when the client declared them — see "Diagnostic tags and related locations" |
@@ -112,6 +112,15 @@ line. Two things read it:
 
 A third reads it too: `FileModelCache`'s SyntaxError fallback, which
 bracket-matches and evals one block at a time when the file does not parse.
+
+**Known issue — `sourceLine_` pairing.** On the normal (eval) path
+`parseFileModels` gives the k-th EVALUATED model the line of the k-th
+significant call. A call that never runs at load time (a `foam.CLASS` inside
+a method, `src/foam/dao/Relationship.js:329`) or runs more than once
+(`[...].forEach(M => foam.CLASS(...))`) breaks the pairing for every later
+model, so `getModelAt` can answer a neighbouring model. Not fixed yet;
+`MemberCompletionHandler.modelMatchesLayout_` guards auto-require against it
+(offers nothing when the counts or the call line disagree).
 
 All three used to run their own `foam\.[A-Z]...\(` regex over the source, and a
 regex cannot tell a real call from one written in a doc comment or a test
@@ -454,6 +463,7 @@ all (`server.js:613-635`).
 | `diagnostics.pom` | `true` | Entry-level pom.js diagnostics (`PomValidator.validateEntries` via `DiagnosticsHandler.pomDiagnostics_`) |
 | `hints.i18nMissingLanguage` | `true` | Every unsolicited offer to machine-translate: the missing-translation HINT, code actions C/D, AND the `codeLens.i18n` lens (clicking it translates) |
 | `completion` | `true` | `completionProvider` capability |
+| `completion.autoRequires` | `true` | Unrequired classes under `this.<Capital>` plus the `requires:` edit that makes them resolve (`MemberCompletionHandler.autoRequireItems_`). Off: `this.` lists only what the model already requires |
 | `hover` | `true` | `hoverProvider` capability |
 | `semanticTokens` | `true` | `semanticTokensProvider` capability |
 | `signatureHelp` | `true` | `signatureHelpProvider` capability |

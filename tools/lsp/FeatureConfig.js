@@ -26,6 +26,7 @@ var DEFAULTS = Object.freeze({
   'diagnostics.pom': true,
   'hints.i18nMissingLanguage': true,
   'completion': true,
+  'completion.autoRequires': true,
   'hover': true,
   'semanticTokens': true,
   'signatureHelp': true,

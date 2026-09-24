@@ -107,6 +107,13 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.CSSTokenResolver',
       name: 'cssTokenResolver'
+    },
+    {
+      name: 'completionItemSupport',
+      documentation: `The client's textDocument.completion.completionItem
+        capability, as sent in initialize (server.js wires it). Plain object,
+        so no class:. Null means the client declared nothing, and the list
+        goes out without labelDetails — see CompletionItem.toLSPItems.`
     }
   ],
 
@@ -202,10 +209,12 @@ foam.CLASS({
         var name = props[i].name;
         if ( seen[name] ) continue;
         seen[name] = true;
+        var axiomType = props[i].cls_ && props[i].cls_.model_ ? props[i].cls_.model_.name : '';
         items.push(this.CompletionItem.create({
           label: name + ': ',
           kind: 14,
           detail: clsName + ' Property axiom',
+          labelDetails: axiomType ? { detail: axiomType } : undefined,
           insertText: name + ': ',
           sortText: '"' + name.toLowerCase()  // sort below grammar's `!`-prefixed keys
         }));
@@ -242,6 +251,7 @@ foam.CLASS({
           var insertText = isLang ? t.name : t.id;
           return {
             label: t.name, kind: 7, detail: t.id,
+            labelDetails: { description: t.id.substring(0, t.id.lastIndexOf('.')) },
             textEdit: { range: replaceRange, newText: insertText },
             filterText: t.name,
             sortText: '!' + t.name.toLowerCase()
@@ -281,6 +291,8 @@ foam.CLASS({
             items.push({
               label: name, kind: 10,
               detail: typeName + ' Property',
+              // A property the registry does not know yet has no type to show.
+              labelDetails: p.cls_ ? { detail: ': ' + typeName } : undefined,
               textEdit: { range: replaceRange, newText: name },
               sortText: '!' + name.toLowerCase()
             });
@@ -1315,17 +1327,10 @@ foam.CLASS({
 
     function toLSPItems_(items) {
       /**
-       * Normalize an items array to LSP protocol shape. Model instances
-       * (CompletionItem) are flattened via toLSP(); raw objects pass through.
+       * Normalize an items array to LSP protocol shape for this client.
        * Lets handlers mix typed and raw items during the migration.
        */
-      if ( ! items ) return items;
-      var out = new Array(items.length);
-      for ( var i = 0 ; i < items.length ; i++ ) {
-        var it = items[i];
-        out[i] = ( it && typeof it.toLSP === 'function' ) ? it.toLSP() : it;
-      }
-      return out;
+      return this.CompletionItem.toLSPItems(items, this.completionItemSupport);
     },
 
     function categoryToKind(category) {

@@ -54,6 +54,11 @@
           "default": true,
           "description": "Autocomplete. Takes effect after a server restart."
         },
+        "foam.features.completion.autoRequires": {
+          "type": "boolean",
+          "default": true,
+          "description": "After this., also offer classes the model does not require yet; picking one adds it to the model's requires: array. Takes effect after a server restart."
+        },
         "foam.features.hover": {
           "type": "boolean",
           "default": true,

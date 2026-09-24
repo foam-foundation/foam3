@@ -692,6 +692,15 @@ function start() {
         };
         codeActionHandler.featureConfig  = featureConfig;
         codeLensHandler.featureConfig    = featureConfig;
+        memberHandler.featureConfig      = featureConfig;
+        // What the client can render on a completion item (labelDetails).
+        // Both completion handlers shape their items for it, so an older
+        // client keeps getting exactly the fields it got before.
+        var completionItemSupport = params && params.capabilities &&
+          params.capabilities.textDocument && params.capabilities.textDocument.completion &&
+          params.capabilities.textDocument.completion.completionItem || null;
+        completionHandler.completionItemSupport = completionItemSupport;
+        memberHandler.completionItemSupport     = completionItemSupport;
         // Not a feature toggle: the scaffold command WRITES, and its dir
         // argument comes from whoever invoked it (an editor prompt, an agent
         // over MCP). wsRoot is the boundary it refuses to scaffold outside of.

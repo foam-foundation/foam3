@@ -39,7 +39,43 @@ foam.CLASS({
     { name: 'textEdit' },         // { range, newText }
     { class: 'String', name: 'filterText' },
     { class: 'String', name: 'sortText' },
-    { class: 'Boolean', name: 'preselect' }
+    { class: 'Boolean', name: 'preselect' },
+    { name: 'labelDetails' },     // { detail?, description? } — see toLSPItems
+    { name: 'additionalTextEdits' } // [{ range, newText }] applied with the pick
+  ],
+
+  static: [
+    function toLSPItems(items, opt_itemSupport) {
+      /**
+       * Normalize a completion list to wire shape for one client.
+       *
+       * Handlers attach `labelDetails` (`{ description: 'foam.dao' }`,
+       * `{ detail: ': String' }`) wherever they know it, but LSP only lets a
+       * server send it to a client that declared
+       * `completionItem.labelDetailsSupport` — a client that never declared it
+       * may render the object as garbage or reject the item. So the field is
+       * dropped here, in one place, unless `opt_itemSupport` (the client's
+       * `textDocument.completion.completionItem` capability) says yes. The
+       * plain `detail` string is never touched, so an older client sees the
+       * same list it always did.
+       *
+       * Model instances (CompletionItem) are flattened via toLSP(); raw
+       * objects pass through, copied only when a field has to go.
+       */
+      if ( ! items ) return items;
+      var keepLabelDetails = !! ( opt_itemSupport && opt_itemSupport.labelDetailsSupport );
+      var out = new Array(items.length);
+      for ( var i = 0 ; i < items.length ; i++ ) {
+        var it = items[i];
+        var o  = ( it && typeof it.toLSP === 'function' ) ? it.toLSP() : it;
+        if ( o && o.labelDetails && ! keepLabelDetails ) {
+          o = Object.assign({}, o);
+          delete o.labelDetails;
+        }
+        out[i] = o;
+      }
+      return out;
+    }
   ],
 
   methods: [
@@ -54,6 +90,8 @@ foam.CLASS({
       if ( this.filterText ) o.filterText = this.filterText;
       if ( this.sortText ) o.sortText = this.sortText;
       if ( this.preselect ) o.preselect = this.preselect;
+      if ( this.labelDetails ) o.labelDetails = this.labelDetails;
+      if ( this.additionalTextEdits ) o.additionalTextEdits = this.additionalTextEdits;
       return o;
     }
   ]

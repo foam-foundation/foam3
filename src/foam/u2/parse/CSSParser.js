@@ -50,9 +50,10 @@ foam.CLASS({
                   the line break keeps it inside (a line continuation,
                   dropped from value). The enclosing statement still runs
                   to its next ';' or '}', as in a browser, which drops
-                  that whole statement: with a line break after a: "x
-                  and then b: c; the declaration a takes in b: c, whose
-                  ':' becomes an error node (see value below).
+                  that whole statement: in a{content:"x<LF>color:red;margin:0}
+                  the declaration content takes in color:red, whose ':'
+                  becomes an error node (see value below), and margin
+                  parses normally.
       hash        value (text after #), isHexColor (3, 4, 6 or 8 hex
                   digits; '#zz' is still a hash, just not a colour)
       token       name ('primary$hover' for $primary$hover), base
@@ -1062,7 +1063,10 @@ foam.CLASS({
       /* Flat list of declarations, each as
            { node, property, value, important, custom, path, ancestors }
          property and value are text; path names the enclosing rules and
-         at-rules outermost first, e.g. [ '@media (max-width: 600px)', '^title, ^x' ]. */
+         at-rules outermost first, e.g. [ '@media (max-width: 600px)', '^title, ^x' ].
+         A declaration whose value holds an error or open node (a cut
+         string, a stray ':') is still listed here although a browser
+         drops it, so an audit cross-checks errors(). */
       var out = [];
       this.walk(tree, function(n, ancestors) {
         if ( n.kind !== 'declaration' ) return;
@@ -1120,7 +1124,8 @@ foam.CLASS({
          the outermost is listed, so '(((' is one open paren, but 'error'
          nodes inside it (a MAX_DEPTH skip, a misplaced !important) are
          still listed. An open rule or at-rule block already has an
-         'error' node. */
+         'error' node. Open nodes carry no message: a listed string with
+         closed: false is one cut by a line break or the end of input. */
       var out = [];
       this.walk(tree, function(n, ancestors) {
         if ( n.kind === 'error' ) {

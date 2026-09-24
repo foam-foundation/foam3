@@ -1,6 +1,8 @@
 <flow name="How to Write (Good) Documentation" category="DOC/DEV" spid="foam" description="Guide that aims to alleviate the stress of writing documentation by providing a set of clear standards and best-practices, as well as a few handy tips and tricks for understanding your audience and writing effective articles." keywords="push documentation,knowledge"/>
 
 # How to Write (Good) Documentation
+<span style="color: grey"><i>By Aurora Ryder</i></span>
+
 Good documentation is an essential part of any respectable software, but it can be quite difficult to write (especially when one's audience is inexperienced or non-technical). Worse, not everyone agrees on what makes  documentation "good" or "bad".
 
 This article aims to alleviate the stress of writing documentation by providing a set of clear standards and best-practices, as well as a few handy tips and tricks for understanding your audience and writing effective articles.
@@ -18,6 +20,10 @@ As with any other task, when writing documentation you will generally need to do
 <hint category="warning">
 If you do not have answers to all of these questions **don't start writing**! You may end up having to rework major sections of your document. If you are not sure *how* to answer the above questions, fear not— the following sections are here to help.
 </hint>
+
+
+---
+
 
 ### Identifying your Audience
 
@@ -48,6 +54,8 @@ Don't forget: product teams are the bridge between clients and engineers — if 
 
 #### Writing for a mixed audience
 When writing documentation for an audience that does not fit neatly into one of the above categories, aim to be understood by the least-informed audience member and provide supplementary resources as required. For example, if you are are writing documentation that will be used by both clients and engineers, prioritize the client's understanding in the body of your text and move technical details to isolated sections such as collapsible tabs or appendices
+
+---
 
 ### Choosing a Documentation "Type"
 When someone asks you to write documentation, it is important that you understand what form of content they are expecting; are they looking for step-by-step instructions? A general overview? How much technical detail should be present? To answer these questions, it can be useful to use the Diátaxis system (also called the Grand Unified Theory of Documentation) which divides documentation materials into the following four types:
@@ -94,6 +102,8 @@ If you have further questions about the Diátaxis system, or need advice for wri
 
 [Official Diátaxis website](https://diataxis.fr/), [Diátaxis as explained by Divio](https://docs.divio.com/documentation-system/), [Brigham Young University article on Diátaxis](https://ux.byu.edu/test-article)
 
+---
+
 ### Finding a S.A.F.E. Place for your Documentation
 An important but often overlooked part of writing "good" documentation is determining where the materials will live once they have been created. All too often genuinely useful resources find their way into hidden or inaccessible places where they are quickly forgotten. This results in wasted time on the part of the author, confusion and frustration on the part of the reader, and an inevitable duplication of work when the resources are recreated.
 
@@ -108,21 +118,48 @@ Whether it be a folder of folders or an alphabetized list, documentation should 
 - **Use titles as filenames** - if your documentation is stored in an environment that allows you to edit both the title and the filename, keep the two in sync. This makes it easy to locate specific documents and mitigates the risk of document duplication.
 - **Order logically** - should you have control over the order documentation files are stored and displayed in, order them in a way that makes logical sense. Put "beginner" or introductory documents first and ensure that topics or terms are introduced before they are used.
 - **Keep it clean** - periodically review existing documentation and ensure that old or unused files are removed or updated as soon as possible. Avoid duplication or redundancy and enforce applicable conventions as needed.
-- **Version when possible** - it is a good idea to indicate both what version of a particular piece of documentation is currently available, and what version the system was when the relevant documentation was written. It is incredibly frustrating to find out mid-process that the documentation you are referring to is for an older version of the system you are using!
+- **Version when possible** - it is a good idea to indicate both what version of a particular piece of documentation is currently available, and what version the system was when the relevant documentation was written, as it is incredibly frustrating for your reader to find out mid-process that the documentation they were referring to is for an older version of the system they're using!
 
 #### Accessible
-Documentation *must* be easily accessible to its target audience. Private repositories or local directories are useful for drafts, but final copies should not require members of the audience to make individual access requests.
+Documentation *must* be accessible to its target audience. Private repositories or local directories are useful for drafts, but final copies should not require members of the audience to make individual access requests.
 
 It may be useful, therefore, to consider saving your documentation in the same repository (but not directory) that the system it pertains to is stored in. This may require the creation of an in-app reader, but it allows you to keep your code base and documentation in one place and ensures that in the event of a company dissolution or merger, you and your clients do not lose access to the materials required to operate the system.
 
-Similarly, you may consider creating a dedicated repository, page, or platform for your documentation. In any case, please note that "accessible" does not mean "unprotected" — avoid hosting proprietary or trade-secret documents in open-access environments, and ensure that only those who *need* access to the documentation *have* it.
+Similarly, you may consider creating a dedicated repository, page, or platform for your documentation. In any case, please note that "accessible" does not mean "unprotected" — avoid hosting proprietary or trade-secret documents in open-access environments, and ensure that only those who *need* access to the documentation *have* it. 
 
 #### Frequented
+No matter how accessible or organized your documentation's "home" is, if it is not a location your audience is naturally inclined to visit, they never will. For example, consider the process that is required to check one's credit score— technically, if you have access to credit then you also have access to your credit score, but checking that score can have negative consequences. In this case you can *access* the information, but you cannot *frequent* the location it is stored in.
+
+Similarly, should you decide to store your documentation in the same repository as your code base, but do not provide your end users with a UI to access it, odds are they will not go digging through program files to find the documentation they need.
+
+Documentation needs to live somewhere that is frequently and easily accessed by its target audience or the process for doing so will quickly become more trouble than it's worth. *In other words, if your documentation requires documentation on how to access it, put it somewhere else.*
 
 #### Explainable
+Explainability will evolve naturally from a strong adherence to the other **S.A.F.E.** principles, but put simply: store your documentation with intention. You should always be able to explain...
+
+- How you decided this was the best way to store your documentation
+- Why this is the best solution for your organization
+- What your storage solution is good at and what it is bad at
+- How the storage structure is maintained and who is responsible for it
+- What the lifecycle of a given file looks like
+- Whether or not the storage structure is final or open to change
+- What parts of the structure are non-negotiable or context-dependant
+- Who has authority over the storage system and approves or rejects structural changes
+- Who has authority over the content of each document and approves or rejects new materials
+
+Documentation should be managed with the same rigour and attention to detail that you apply to any other part of your system as it is fundamental to the success of both your team and your clientele. When gauging how explainable your documentation's "home" is, think about what information a new contributor would need to have and how you would ensure that the materials they create are stored in a way that adheres to your organization's standards.
+
+In other words, if you cannot easily explain how your documentation is stored, accessed, and maintained, then the materials you create are not **S.A.F.E.** and are likely to become unusable, inaccessible, or forgotten.
+
+---
 
 ### Documentation Lifecycles
+Like all things, documentation has a lifecycle. 
+
+---
 
 ### Knowing "Why?"
+
+---
 
 ### Gauging Experience

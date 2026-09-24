@@ -16,7 +16,9 @@ import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
 import foam.core.fs.Storage;
 import java.io.File;
+import java.io.IOException;
 import java.lang.ref.SoftReference;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -226,6 +228,43 @@ public class PartitionedDAO
     return getDirName() + part + "/";
   }
 
+  /** Upgrade the pre-directory partition layout in place. Before partitions
+      owned directories, the path now used by parent was the journal itself.
+      Stage that file inside a sibling directory, then rename the complete
+      directory into place. The staging directory also makes an interrupted
+      migration resumable on the next start without overwriting either copy. */
+  protected void preparePartitionDirectory(File parent) {
+    if ( parent == null || parent.isDirectory() ) return;
+
+    File staged = new File(parent.getPath() + ".partition-migration");
+    File journal = new File(staged, PART_JOURNAL);
+
+    try {
+      if ( parent.isFile() ) {
+        if ( staged.exists() && ! staged.isDirectory() )
+          throw new IOException("Migration path is not a directory: " + staged);
+        if ( ! staged.isDirectory() && ! staged.mkdir() )
+          throw new IOException("Failed to create migration directory " + staged);
+        if ( journal.exists() )
+          throw new IOException("Migration journal already exists: " + journal);
+
+        Loggers.logger(getX(), this).warning(
+          "Migrating legacy partition journal", parent, "to", journal);
+        Files.move(parent.toPath(), journal.toPath());
+      }
+
+      // Resume a migration interrupted after the legacy file was staged.
+      if ( ! parent.exists() && journal.isFile() )
+        Files.move(staged.toPath(), parent.toPath());
+
+      if ( ! parent.isDirectory() && ! parent.mkdirs() )
+        throw new IOException("Failed to create directory " + parent);
+    } catch ( IOException e ) {
+      throw new RuntimeException(
+        "Failed to prepare partition directory " + parent, e);
+    }
+  }
+
   public DAO createDAO(String part) {
     Loggers.logger(getX(), this).info("Creating partiion " + part);
 
@@ -239,9 +278,7 @@ public class PartitionedDAO
     // mkdirs on Storage.class would target the wrong root and the write would fail.
     Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
     File    parent  = storage.get(journalName).getParentFile();
-    if ( parent != null && ! parent.isDirectory() && ! parent.mkdirs() ) {
-      throw new RuntimeException("Failed to create directory " + parent);
-    }
+    preparePartitionDirectory(parent);
 
     PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
     try {

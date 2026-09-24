@@ -28,6 +28,11 @@ public class CompoundAssembly
     return size_;
   }
 
+  /** The i-th batched Assembly, for a line that ends children one at a time. **/
+  public Assembly get(int i) {
+    return jobs_[i];
+  }
+
   public boolean isFull() {
     return size_ >= jobs_.length;
   }

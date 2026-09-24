@@ -21,6 +21,11 @@ p({
   description:"mergeFObject returns the merged old row for a same-class delta and a row of the new class when the class changed"
 })
 p({
+  class:"foam.dao.test.ShardedReplayTest",
+  id:"ShardedReplayTest",
+  description:"A sharded replay applies every id in journal order and matches the single-thread line row for row"
+})
+p({
   class:"foam.dao.test.JournalDefaultClassNameTest",
   id:"JournalDefaultClassNameTest"
 })

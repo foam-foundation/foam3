@@ -549,6 +549,9 @@ foam.POM({
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
     { name: "benchmark/GzipJournalReplayBenchmark",                   flags: "js&test|java&test" },
+    { name: "benchmark/F3ReplayPipelineBenchmark",                    flags: "js&test|java&test" },
+    { name: "benchmark/ReplayNarrowModel",                            flags: "js&test|java&test" },
+    { name: "benchmark/ReplayWideModel",                              flags: "js&test|java&test" },
     { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
     { name: "notification/NotificationGroupingDAOList",               flags: "web" },
     { name: "analytics/ChangeAnalyticEvent",                          flags: 'js|java'           }

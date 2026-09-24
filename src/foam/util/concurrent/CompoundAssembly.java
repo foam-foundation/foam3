@@ -6,9 +6,14 @@
 
 package foam.util.concurrent;
 
+import foam.core.logger.Loggers;
+import foam.lang.XLocator;
+
 /**
  * A compound Assembly that batches multiple Assemblies together.
- * Each Assembly method iterates over all children in order.
+ * Each Assembly method iterates over all children in order. A child that
+ * throws is logged and the rest of the batch carries on, as each child would
+ * had the AssemblyLine run it alone.
  **/
 public class CompoundAssembly
   extends AbstractAssembly
@@ -34,13 +39,21 @@ public class CompoundAssembly
 
   public void executeJob() {
     for ( int i = 0 ; i < size_ ; i++ ) {
-      jobs_[i].executeJob();
+      try {
+        jobs_[i].executeJob();
+      } catch (Throwable t) {
+        Loggers.logger(XLocator.get(), this).error("executeJob", t);
+      }
     }
   }
 
   public void endJob(boolean isLast) {
     for ( int i = 0 ; i < size_ ; i++ ) {
-      jobs_[i].endJob(isLast);
+      try {
+        jobs_[i].endJob(isLast);
+      } catch (Throwable t) {
+        Loggers.logger(XLocator.get(), this).error("endJob", t);
+      }
     }
   }
 }

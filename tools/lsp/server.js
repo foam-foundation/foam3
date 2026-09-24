@@ -52,7 +52,7 @@ function start() {
   var provider = foam.parse.lsp.HttpChatProvider.create();
   i18nHandler.provider = provider;
   var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
-  var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ fileClassifier: fileClassifier, cache: fileModelCache });
+  var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ fileClassifier: fileClassifier, cache: fileModelCache, grammar: grammar });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, typeTracker: typeTracker });
 
   var semanticTokenHandler = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker, cssTokenResolver: cssTokenResolver });
@@ -70,6 +70,7 @@ function start() {
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
   var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, i18nHandler: i18nHandler, featureConfig: featureConfig });
+  var inlayHintHandler       = foam.parse.lsp.handlers.InlayHintHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, grammar: grammar });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
@@ -488,9 +489,7 @@ function start() {
   }
 
   function uriToPath_(uri) {
-    if ( ! uri ) return null;
-    if ( uri.indexOf('file://') === 0 ) return decodeURIComponent(uri.substring(7));
-    return uri;
+    return require('./uri').uriToPath(uri);
   }
 
   var affectedReanalyzeTimer_ = null;
@@ -555,6 +554,8 @@ function start() {
       run: function(doc, p) { return referencesHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/codeLens':             { list: true,
       run: function(doc, p) { return codeLensHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/inlayHint':            { list: true,
+      run: function(doc, p) { return inlayHintHandler.handle(doc.text, p.range, p.textDocument.uri); } },
     'textDocument/implementation':       { list: true,
       run: function(doc, p) { return implementationHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/foldingRange':         { list: true, anyDoc: true,
@@ -761,6 +762,7 @@ function start() {
           caps.signatureHelpProvider = { triggerCharacters: ['(', ','] };
         }
         if ( featureConfig.enabled('folding') ) caps.foldingRangeProvider = true;
+        if ( featureConfig.enabled('inlayHints') ) caps.inlayHintProvider = true;
         if ( featureConfig.enabled('semanticTokens') ) {
           caps.semanticTokensProvider = {
             legend: {

@@ -115,3 +115,18 @@ test(callsText.substring(found[1].offset).indexOf('foam.ENUM(') === 0,
 test(cc.significantCalls('') .length === 0, 'significantCalls on empty text is empty');
 test(cc.significantCalls(callsText) === found,
   'the same text is answered from the memo, not re-scanned');
+
+// `nested` marks a call inside another foam call's parentheses — a class a
+// method builds at runtime. A regex literal's brackets must not count: the
+// unbalanced-looking `(\(([^)]*)\)` in src/foam/lang/stdlib.js:255 used to
+// leave every later call in that file marked nested.
+var nestText = [
+  "foam.LIB({ name: 'a', methods: [ function f(s) { return s.match(/^(\\(([^)]*)\\)[^=]*|([^=]+))=>/); } ] });",
+  "foam.CLASS({ name: 'B', methods: [ function g() { foam.CLASS({ name: 'Inner' }); } ] });",
+  "foam.CLASS({ name: 'C' });"
+].join('\n');
+var nestFound = cc.significantCalls(nestText);
+test(nestFound.length === 4 &&
+  nestFound.map(function(x) { return x.nested; }).join() === 'false,false,true,false',
+  'only the runtime call is nested; a regex literal\'s brackets are not code: ' +
+  JSON.stringify(nestFound.map(function(x) { return x.nested; })));

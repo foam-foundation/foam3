@@ -28,6 +28,27 @@ foam.CLASS({
       return { line: line, character: col };
     },
 
+    function offsetMapper(text) {
+      /**
+       * offsetToPosition for many offsets into one text. offsetToPosition
+       * walks from the start of the text on every call, so an outline of a
+       * 200-member model re-read the file 400 times; this indexes the line
+       * starts once and answers each offset by binary search.
+       */
+      var starts = [ 0 ];
+      for ( var i = 0 ; i < text.length ; i++ ) {
+        if ( text.charCodeAt(i) === 10 ) starts.push(i + 1);
+      }
+      return function(offset) {
+        var lo = 0, hi = starts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( starts[mid] <= offset ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, character: offset - starts[lo] };
+      };
+    },
+
     function positionToOffset(text, position) {
       /** Convert a { line, character } position to a character offset. */
       var lines = text.split('\n');

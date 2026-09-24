@@ -110,7 +110,8 @@ File text ──► FileModelCache.parseFileModels()
                   ├── JavaBlockValidator: model.javaImports, model.javaCode, model.properties[].javaPostSet
                   ├── HoverHandler: model.package + model.name → classId → FoamIndex
                   ├── MemberCompletionHandler: model.requires, model.imports
-                  └── SymbolHandler: model.properties, model.methods → document outline
+                  ├── SymbolHandler: model.properties, model.methods → document outline
+                  └── InlayHintHandler: model.properties, model.extends → inline notes
 ```
 
 ## Features
@@ -184,13 +185,23 @@ File text ──► FileModelCache.parseFileModels()
 - **Missing translations**: a `messages:` entry short of a configured language gets a "N translations missing" lens; clicking it translates (`codeLens.i18n`, on by default — also needs `hints.i18nMissingLanguage`, since clicking is a translate)
 - **Subclass counts**: each class gets a "N subclasses" lens (`codeLens.hierarchy`, off by default — informational only, nothing to click yet)
 
+### Inlay Hints
+Short read-only notes drawn inline in a model file (`inlayHints`, on by default):
+- `×N refinements` after a class's `name:` — N other files refine the class
+- `: String` after a property's name when it has no `class:` of its own — the type it inherits
+- `overrides View` after a property's name when a superclass already declares it
+
+Types and overrides come from the booted class registry, so a property added
+since the server started gets no hint until the class is reloaded. Journals
+(`.jrl`) get none.
+
 ### New Class
 - `foam.scaffold.newClass` builds a new FOAM class file plus its `pom.js` `files:` entry as a single WorkspaceEdit — one undo step, nothing written server-side
 - The license header is copied verbatim from a sibling `.js` in the same folder, and the package is derived from the path below `src/` (or below the nearest `pom.js`)
 - Refuses to scaffold outside the workspace root the client opened
 
 ### Feature toggles
-- Every noisy feature above can be turned off: diagnostics, hints, completion, hover, semantic tokens, signature help, folding, and each CodeLens
+- Every noisy feature above can be turned off: diagnostics, hints, completion, hover, semantic tokens, signature help, folding, inlay hints, and each CodeLens
 - Three layers, lowest precedence first: built-in defaults, a `foam-lsp.json` at the workspace root (team defaults, checked in), then the client's own `initializationOptions.foam` (one developer's editor settings)
 - Read once at `initialize` — changing a flag takes effect on the next server restart
 - See **Feature toggles** in `CLAUDE.md` for the full flag table
@@ -200,7 +211,7 @@ File text ──► FileModelCache.parseFileModels()
 - **Folding Ranges**: fold properties/methods/requires/etc. blocks
 - **Code Actions**: "Did you mean X?" for unknown classes, fix wrong imports
 - **TextMate Grammar**: Java syntax highlighting in `javaCode` blocks
-- **Document Symbols**: outline of properties/methods/actions
+- **Document Symbols**: outline of properties/methods, each with its full extent — breadcrumbs, sticky scroll and "select symbol" know where a member ends
 
 ## Feature toggles
 

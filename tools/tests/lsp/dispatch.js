@@ -228,6 +228,7 @@ module.exports.done = (async function() {
     { m: 'textDocument/documentSymbol',       list: true },
     { m: 'textDocument/references',           list: true },
     { m: 'textDocument/codeLens',             list: true },
+    { m: 'textDocument/inlayHint',            list: true },
     { m: 'textDocument/implementation',       list: true },
     { m: 'textDocument/foldingRange',         list: true, anyDoc: true },
     { m: 'textDocument/documentHighlight',    list: true, anyDoc: true },

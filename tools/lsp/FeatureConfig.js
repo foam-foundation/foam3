@@ -31,7 +31,8 @@ var DEFAULTS = Object.freeze({
   'signatureHelp': true,
   'folding': true,
   'codeLens.i18n': true,
-  'codeLens.hierarchy': false
+  'codeLens.hierarchy': false,
+  'inlayHints': true
 });
 
 // The i18n keys this module understands. Same role as DEFAULTS for the

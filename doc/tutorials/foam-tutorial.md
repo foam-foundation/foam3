@@ -289,7 +289,7 @@ foam.POM({
 
 Let's look briefly at the purpose of each of the elements in this file:
 
-<table>
+<table markdown="0">
 <thead>
 <tr>
 <th width=20%>Name</th>

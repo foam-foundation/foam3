@@ -63,7 +63,8 @@ foam.CLASS({
     {
       name: 'isAvailablePromise',
       factory: () => Promise.resolve(),
-      hidden: true
+      hidden: true,
+      transient: true
     },
     {
       name: 'isAvailable',
@@ -95,6 +96,7 @@ foam.CLASS({
     {
       name: 'wao',
       hidden: true,
+      transient: true,
       factory: function () {
         return this.ProxyWAO.create({}, this.__context__);
       }

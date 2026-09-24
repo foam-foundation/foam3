@@ -874,6 +874,36 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     return null;
   }
 
+  // Every string value a journal row holds under a key. A journal is written
+  // in either of two forms: JSON style with the key quoted ("class":"x"), or
+  // JS object style with it bare (class:"x", the form an application journal
+  // commonly uses), with or without whitespace around the ':'. Matching only
+  // the quoted form read zero CSSTokenOverride rows from a journal written
+  // the second way, so every token it declares was reported unknown.
+  // The key has to stand alone: 'source' inside sourceClass: or inside a
+  // value such as "source" (no ':' after it) is not a match.
+  protected static List<String> valuesOf(String row, String key) {
+    List<String> out = new ArrayList();
+    int          n   = row.length();
+    for ( int k = row.indexOf(key) ; k >= 0 ; k = row.indexOf(key, k + 1) ) {
+      int     before = k - 1;
+      int     after  = k + key.length();
+      boolean quoted = before >= 0 && row.charAt(before) == '"' && after < n && row.charAt(after) == '"';
+      if ( quoted ) {
+        before--;
+        after++;
+      }
+      if ( before >= 0 && ( isIdentifierChar(row.charAt(before)) || row.charAt(before) == '"' ) ) continue;
+      if ( after < n && isIdentifierChar(row.charAt(after)) ) continue;
+      int j = after;
+      while ( j < n && Character.isWhitespace(row.charAt(j)) ) j++;
+      if ( j >= n || row.charAt(j) != ':' ) continue;
+      String value = quotedValueAt(row, j);
+      if ( value != null ) out.add(value);
+    }
+    return out;
+  }
+
   // The tokens an application declares outside JS: every
   // foam.core.theme.customisation.CSSTokenOverride row in a journal
   // contributes its source: as a token name. At runtime
@@ -924,21 +954,34 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       // The row's own class:, not any class name that happens to appear in
       // it: the CSpec that serves the CSSTokenOverride DAO names the same
       // class under "of", and that entry declares no token.
-      boolean isOverride = false;
-      for ( int k = row.indexOf("\\"class\\"") ; k >= 0 ; k = row.indexOf("\\"class\\"", k + 7) ) {
-        if ( "foam.core.theme.customisation.CSSTokenOverride".equals(quotedValueAt(row, k + 7)) ) {
-          isOverride = true;
-          break;
-        }
-      }
-      if ( ! isOverride ) continue;
+      if ( ! valuesOf(row, "class").contains("foam.core.theme.customisation.CSSTokenOverride") ) continue;
       // source: may be written before or after class:, so the whole row is
       // searched rather than the text after the class name.
-      int k = row.indexOf("\\"source\\"");
-      if ( k < 0 ) continue;
-      String name = quotedValueAt(row, k + 8);
-      if ( name != null && name.length() > 0 ) out.add(name);
+      for ( String name : valuesOf(row, "source") ) {
+        if ( name.length() > 0 ) out.add(name);
+      }
     }
+  }
+
+  // Problem: collectJournalTokens once matched only a quoted "class": key, so
+  // a journal written with bare keys (class:"...") contributed zero tokens
+  // and nothing failed - the tokens it declared were simply reported as
+  // unknown elsewhere. This reads one row of each form, plus a row of another
+  // class and a CSpec naming the class under of:, and checks exactly the two
+  // override names come back.
+  protected void checkJournalReader() {
+    String journal =
+      "p({\\"class\\":\\"foam.core.theme.customisation.CSSTokenOverride\\",\\"source\\":\\"quotedKeyToken\\",\\"target\\":\\"#fff\\"})\\n" +
+      "p({class:\\"foam.core.theme.customisation.CSSTokenOverride\\", source : \\"bareKeyToken\\", target:\\"#000\\"})\\n" +
+      "p({\\n  class: \\"foam.core.theme.customisation.CSSTokenOverride\\",\\n  theme: \\"t\\",\\n  source: \\"multiLineToken\\"\\n})\\n" +
+      "p({class:\\"foam.core.boot.CSpec\\", name:\\"cssTokenOverrideDAO\\", of:\\"foam.core.theme.customisation.CSSTokenOverride\\", source:\\"notAToken\\"})\\n" +
+      "p({class:\\"foam.core.theme.Theme\\", sourceClass:\\"x\\", source:\\"alsoNotAToken\\"})\\n";
+    Set<String> found = new HashSet();
+    collectJournalTokens(journal, found);
+    Set<String> expected = new HashSet(Arrays.asList("quotedKeyToken", "bareKeyToken", "multiLineToken"));
+    test(found.equals(expected),
+      "collectJournalTokens reads CSSTokenOverride rows with quoted and bare keys: expected " +
+      expected + ", read " + found);
   }
 
   // Whether a directory - given as its path relative to project.home, so it
@@ -1174,6 +1217,8 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       report(colourFailures, "colour");
       report(fontFailures,   "font");
       report(tokenFailures,  "unknown token");
+
+      checkJournalReader();
 
       if ( getFailed() == 0 ) {
         test(true, summary);

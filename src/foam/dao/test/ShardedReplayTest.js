@@ -49,7 +49,7 @@ foam.CLASS({
     /** Today's line: parallel parse, one apply thread. The reference. **/
     static class SingleApplyJournal extends F3FileJournal {
       @Override
-      public AssemblyLine createReplayLine(X x, DAO dao, long bytes) {
+      public AssemblyLine createReplayLine(X x, DAO dao) {
         return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay"));
       }
     }
@@ -57,22 +57,14 @@ foam.CLASS({
     /** The sharded line at a shard count other than the default. **/
     static class ThreeShardJournal extends F3FileJournal {
       @Override
-      public AssemblyLine createReplayLine(X x, DAO dao, long bytes) {
+      public AssemblyLine createReplayLine(X x, DAO dao) {
         return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", Math.max(1, Runtime.getRuntime().availableProcessors() - 1), 3));
-      }
-    }
-
-    /** F3FileJournal's own line, as for a journal past SHARD_MIN_BYTES: these test journals are smaller. **/
-    static class DefaultShardJournal extends F3FileJournal {
-      @Override
-      public AssemblyLine createReplayLine(X x, DAO dao, long bytes) {
-        return super.createReplayLine(x, dao, SHARD_MIN_BYTES);
       }
     }
 
     /** The line F3FileJournal picks for a BulkLoadDAO, at the default shard count or at 3. **/
     static F3FileJournal sharded(X x, String file, boolean three) {
-      F3FileJournal j = three ? new ThreeShardJournal() : new DefaultShardJournal();
+      F3FileJournal j = three ? new ThreeShardJournal() : new F3FileJournal();
       j.setX(x);
       j.setFilename(file);
       return j;

@@ -14,9 +14,9 @@ foam.CLASS({
 
     - line: simple (parallel parse, one apply thread, the line before this
       change), sharded (parallel parse, one apply thread per id shard, the
-      line F3FileJournal now picks for a BulkLoadDAO), floor (a NullDAO
-      target: the parse pipeline with nothing to apply). A -P suffix sets
-      the parse thread count, a further -K the shard count (default P).
+      line F3FileJournal now picks for a BulkLoadDAO), parseOnly (a NullDAO
+      target: the parse pipeline with nothing to apply). parseThreads and
+      shards set the thread counts.
     - merge: old (merge, then a second full copyFrom pass) or new (return
       the merged row when the class is unchanged).
     - shape: the share of entries that are updates: unique (0%), half-dup
@@ -69,8 +69,18 @@ foam.CLASS({
     {
       class: 'String',
       name: 'lines',
-      documentation: 'floor, simple[-P], sharded[-P[-K]]; P parse threads, default cores - 1; K shards, default P.',
+      documentation: 'Lines to compare, comma-separated: simple, sharded, parseOnly.',
       value: 'simple,sharded'
+    },
+    {
+      class: 'Int',
+      name: 'parseThreads',
+      documentation: 'Parse threads on every line; 0 means cores - 1.'
+    },
+    {
+      class: 'Int',
+      name: 'shards',
+      documentation: 'Apply threads on the sharded line; 0 means the same as parseThreads.'
     },
     {
       class: 'String',
@@ -101,17 +111,15 @@ foam.CLASS({
     protected List<long[]>      reader_ = new ArrayList<>();
     protected boolean[]         oldMerge_;
 
-    static int threadsOf(String line) {
-      String[] parts = line.split("-");
-      return parts.length > 1 ? Integer.parseInt(parts[1]) : Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+    int threads() {
+      return getParseThreads() > 0 ? getParseThreads() : Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
-    static int shardsOf(String line) {
-      String[] parts = line.split("-");
-      return parts.length > 2 ? Integer.parseInt(parts[2]) : threadsOf(line);
+    int shardCount() {
+      return getShards() > 0 ? getShards() : threads();
     }
 
-    static class VariantF3FileJournal extends F3FileJournal {
+    class VariantF3FileJournal extends F3FileJournal {
       final String  line_;
       final boolean oldMerge_;
 
@@ -121,9 +129,9 @@ foam.CLASS({
       }
 
       @Override
-      public AssemblyLine createReplayLine(X x, DAO dao, long bytes) {
-        if ( line_.startsWith("sharded") ) return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threadsOf(line_), shardsOf(line_)));
-        return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threadsOf(line_)));
+      public AssemblyLine createReplayLine(X x, DAO dao) {
+        if ( "sharded".equals(line_) ) return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threads(), shardCount()));
+        return new BatchingAssemblyLine(new SimpleAsyncAssemblyLine(x, "replay", threads()));
       }
 
       // The merge before this change: a second full copyFrom pass after the merge.
@@ -308,17 +316,17 @@ foam.CLASS({
         System.out.println(String.format("%-11s %-5s %-8s %-6s %8s %8s %6s %8s", "line", "merge", "shape", "model", "wall ms", "cpu ms", "cpu/w", "reader"));
         for ( int i = 0 ; i < cells ; i++ ) {
           int cell = (i + round * 7) % cells;
-          boolean   floor = "floor".equals(lineOf(cell));
-          ClassInfo of    = classOf(modelOf(cell));
+          boolean   parseOnly = "parseOnly".equals(lineOf(cell));
+          ClassInfo of        = classOf(modelOf(cell));
           DAO dao;
-          if ( floor ) {
+          if ( parseOnly ) {
             NullDAO n = new NullDAO();
             n.setOf(of);
             dao = n;
           } else {
             dao = new BulkLoadDAO(getX(), of);
           }
-          F3FileJournal journal = new VariantF3FileJournal(floor ? "simple" : lineOf(cell), oldOf(cell));
+          F3FileJournal journal = new VariantF3FileJournal(parseOnly ? "simple" : lineOf(cell), oldOf(cell));
           journal.setX(fsX);
           journal.setFilename(fileOf(cell));
 
@@ -333,7 +341,7 @@ foam.CLASS({
 
           if ( journal.getPassCount() != getEntryCount() || journal.getFailCount() != 0 )
             throw new RuntimeException(label(cell) + ": passed " + journal.getPassCount() + " failed " + journal.getFailCount());
-          if ( ! floor ) {
+          if ( ! parseOnly ) {
             int expectRows = uniqueIds(shapeOf(cell), getEntryCount());
             int rows = ((BulkLoadDAO) dao).rows().length;
             if ( rows != expectRows ) throw new RuntimeException(label(cell) + ": " + rows + " rows, expected " + expectRows);

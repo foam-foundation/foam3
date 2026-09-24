@@ -40,6 +40,9 @@ public class SimpleAsyncAssemblyLine
     this(x, name, Math.max(1, Runtime.getRuntime().availableProcessors()-1));
   }
 
+  /** One shard: a single end thread ending every job in enqueue order, as
+      before shards existed. Only a caller whose jobs need order per lock, not
+      overall, asks for more. **/
   public SimpleAsyncAssemblyLine(X x, String name, int numberOfThreads) {
     this(x, name, numberOfThreads, 1);
   }

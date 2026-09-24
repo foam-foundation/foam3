@@ -29,18 +29,6 @@ foam.CLASS({
     'org.json.JSONObject'
   ],
 
-  constants: [
-    {
-      documentation: `A journal smaller than this replays with one apply thread:
-        starting a thread per shard costs more than it saves on a few thousand
-        entries, and most runtime journals are empty or small. A round number,
-        not a measured break-even.`,
-      name: 'SHARD_MIN_BYTES',
-      type: 'long',
-      value: 1048576
-    }
-  ],
-
   properties: [
     {
       class: 'foam.dao.DAOProperty',
@@ -74,16 +62,15 @@ foam.CLASS({
         id is always applied by one thread in journal order.
         Any other target keeps one apply thread, because a decorator on it may
         have side effects across rows; that includes a BulkLoadDAO wrapped by
-        NDiffJournal in an NDiffDAO. So does a journal under SHARD_MIN_BYTES.
-        bytes is the file's size, -1 when unknown (a jar resource). Extension
-        point for a subclass that wants another shape.`,
-      args: 'Context x, foam.dao.DAO dao, long bytes',
+        NDiffJournal in an NDiffDAO. Extension point for a subclass that wants
+        another shape.`,
+      args: 'Context x, foam.dao.DAO dao',
       type: 'foam.util.concurrent.AssemblyLine',
       javaCode: `
         // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
         if ( dao.getOf().getObjClass() == foam.core.boot.CSpec.class )
           return new foam.util.concurrent.SyncAssemblyLine();
-        if ( dao instanceof foam.dao.BulkLoadDAO && ( bytes < 0 || bytes >= SHARD_MIN_BYTES ) ) {
+        if ( dao instanceof foam.dao.BulkLoadDAO ) {
           int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
           return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, threads));
         }
@@ -149,7 +136,7 @@ foam.CLASS({
           if ( reader == null ) {
             return;
           }
-          assemblyLine = createReplayLine(x, dao, jrlFile != null ? totalBytes : -1);
+          assemblyLine = createReplayLine(x, dao);
 
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();

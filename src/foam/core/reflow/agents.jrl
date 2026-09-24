@@ -22,6 +22,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 34, "label":"SET",       "value":
 p({"class":"foam.core.reflow.SinkAgent", "id": 13, "label":"MAX",       "value":"foam.core.reflow.MaxDAOAgent",        "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 14, "label":"MIN",       "value":"foam.core.reflow.MinDAOAgent",        "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 15, "label":"SUM",       "value":"foam.core.reflow.SumDAOAgent",        "sink":true,  "type":"calculation"})
+p({"class":"foam.core.reflow.SinkAgent", "id": 34, "label":"Calculate", "value":"foam.core.reflow.CalculationDAOAgent", "sink":true,  "type":"calculation"})
 p({"class":"foam.core.reflow.SinkAgent", "id": 24, "label":"Bar Chart", "value":"foam.core.reflow.dashboard.DashboardBarChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 25, "label":"Stacked Bar Chart", "value":"foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 26, "label":"Pie Chart", "value":"foam.core.reflow.dashboard.DashboardPieChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})

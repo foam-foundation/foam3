@@ -18,7 +18,7 @@ As with any other task, when writing documentation you will generally need to do
 - **How** familiar are you and your audience with the topic? Do you need to do a bit of "studying-up" before you start writing? Can you identify common problems and provide solutions? Will you be referencing concepts or terminology that your audience may not be familiar with?
 
 <hint category="warning">
-If you do not have answers to all of these questions **don't start writing**! You may end up having to rework major sections of your document. If you are not sure *how* to answer the above questions, fear not— the following sections are here to help.
+If you do not have answers to all of these questions **don't start writing**! You may end up having to rework major sections of your document. If you are not sure how to answer the above questions, fear not— the following sections are here to help.
 </hint>
 
 
@@ -154,7 +154,35 @@ In other words, if you cannot easily explain how your documentation is stored, a
 ---
 
 ### Documentation Lifecycles
-Like all things, documentation has a lifecycle. 
+A common mistake authors make when writing documentation is to forget that the materials you are creating are living documents that require periodic updates. Documentation does not follow a straight path from creation to destruction, rather its lifecycle is one of cyclic reinvention.
+
+Take a look at the image below. This diagram describes the lifecycle of a "healthy" or "good" piece of documentation.
+
+![DocumentationLifecycle](images/DocumentationLifecycle.svg)
+
+First, we **identify** a topic or problem that requires documentation, then we start **writing** it. Once we've finished, we send the documentation off to the appropriate **reviewers**. Your first draft is rarely your final copy, so we then take our **reviewers** feedback into consideration and **rewrite** as needed. Once all parties sign off on the finished version, we **publish** the documentation to the appropriate audience(s) and move on to the next task.
+
+Now, inevitably your documentation will become invalid or outdated in some way and you will need to do some revision. When this happens, we  once again **identify** what needs to be reworked and either restart the cycle by **rewriting** the documentation, or **archive** it until it has become certifiably obsolete.
+
+<hint category="hint">
+Note that in this context to **archive** something is to store it in a secondary location that is still accessible to those who need it, but does not pollute the primary storage environment with materials whose contents are incorrect or unsupported. This is useful for things like documentation describing newly deprecated features or older versions of a system that are still in use.
+</hint>
+
+Notice that we only **destroy** documentation that has first been **archived**. As with any other aspect of a system, "good" documentation should have an end-of-life plan that provides its audience with meaningful alternatives and addresses all dependencies. Just as you would not blindly remove the supports from a bridge, you must not carelessly **delete** documentation that someone else may be depending on. Indeed, some organizations choose not to **delete** any of their documentation at all— a valid option if you have the resources for it.
+
+#### How often is "periodically"?
+While exactly how often you should review a piece of documentation to ensure it is still up-to-date varies based on a number of things (who uses it, what it concerns, when major updates are performed, etc.), as a general rule, you should review existing documentation...
+
+- When the feature/functionality it refers to has been updated
+- When UI changes may noticeably impact screenshot or videos
+- When multiple audience members indicate an issue or area of confusion
+- When your system undergoes a major version upgrade or significant changes
+- When your organization adds additional language support or accessibility options
+- When your organization changes its documentation standards or storage structure
+- When your organization changes its branding or theme
+
+#### Rework, redo, or remove?
+
 
 ---
 

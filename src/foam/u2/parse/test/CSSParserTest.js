@@ -60,6 +60,7 @@ foam.CLASS({
       this.testErrorsHelper(x);
       this.testAutocompleteCompat(x);
       this.testAutocompleteSuggestions(x);
+      this.testAutocompleteDataError(x);
       this.testPluggableTokenNames(x);
       this.testMissingSemicolon(x);
       this.testImportantPosition(x);
@@ -1188,6 +1189,44 @@ foam.CLASS({
       a = this.autocomplete(p, 'borderValue', '1.5px dashed #000000');
       x.test(a.keys.length === 0 && a.pos === 20,
         'autocomplete border: a decimal width and a six-digit hex parse (full-grammar number and hash)');
+    },
+
+    function dataError(p, symbol, input) {
+      // Same rule as foam.parse.auto.SmartView's onDataChange: the field
+      // shows an error when the parse fails or no parser was applied at or
+      // past the end of the text. Returns the error offset, or null.
+      var maxPos = 0;
+      var apply  = function(pp, grammar) {
+        maxPos = Math.max(maxPos, this.pos);
+        return pp.parse(this, grammar);
+      };
+      var ps = this.StringPStream.create({ str: input + String.fromCharCode(26), apply: apply });
+      var r  = p.grammar_.getSymParser(symbol).parse(ps);
+      return r == null || maxPos < input.length ? maxPos : null;
+    },
+
+    function testAutocompleteDataError(x) {
+      var p     = this.CSSParser.create();
+      var name  = '$' + p.tokenNames()[0];
+      var ok    = {
+        colorPropertyValue: [ '#fff', '#ffff', '#ffffffff', 'transparent', 'TRANSPARENT', name ],
+        borderValue:        [ '1px solid #fff', '1px solid ' + name, '1px solid transparent', '1.5px  dashed #000000', 'thin double #abc' ]
+      };
+      var bad   = {
+        colorPropertyValue: [ '#fffff', '#fffg', '$notATokenName', 'transparentX' ],
+        borderValue:        [ '1px solid', '-1px solid #fff', '1cm solid #fff' ]
+      };
+      Object.keys(ok).forEach(sym => ok[sym].forEach(i => {
+        var e = this.dataError(p, sym, i);
+        x.test(e === null, 'autocomplete field: ' + sym + ' "' + i + '" shows no error' + ( e === null ? '' : ' (error at ' + e + ')' ));
+      }));
+      Object.keys(bad).forEach(sym => bad[sym].forEach(i => {
+        x.test(this.dataError(p, sym, i) !== null, 'autocomplete field: ' + sym + ' "' + i + '" shows an error');
+      }));
+
+      var sheet = p.sheetSymbols_();
+      var clash = Object.keys(p.autocompleteSymbols_([ 'a' ])).filter(k => sheet[k]);
+      x.test(clash.length === 0, 'autocomplete symbols never shadow a full-grammar symbol (' + clash.join() + ')');
     },
 
     function testPluggableTokenNames(x) {

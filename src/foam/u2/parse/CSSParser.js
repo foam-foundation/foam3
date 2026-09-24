@@ -227,8 +227,11 @@ foam.CLASS({
       expression: function(tokenNames) {
         var sheet = this.sheetSymbols_();
         var ac    = this.autocompleteSymbols_(tokenNames());
-        Object.keys(ac).forEach(k => foam.assert(! sheet[k],
-          'CSSParser: autocomplete symbol', k, 'would replace a full-grammar symbol'));
+        // foam.assert only logs; a shadowed full-grammar symbol would
+        // silently change what the full grammar parses, so fail loudly.
+        Object.keys(ac).forEach(k => {
+          if ( sheet[k] ) throw new Error('CSSParser: autocomplete symbol ' + k + ' would replace a full-grammar symbol');
+        });
         return this.Grammar.create({ symbols: Object.assign(sheet, ac) });
       }
     },
@@ -789,11 +792,21 @@ foam.CLASS({
       // wiped the unit suggestions offered after '1'. So the symbol runs on
       // a copy of the stream without SmartView's apply hook, and only the
       // lexeme's overall result passes through the hook, as a literal's did.
-      function lexeme(name, test) {
+      // Problem that creates: SmartView's onDataChange marks the field as an
+      // error when no parser was applied at or past the end of the text, and
+      // the hidden run reached the end unseen, so a valid '#fff' showed as
+      // an error at 0. After a match, REACH (zero width) is applied at the
+      // end through the hook, so the reach is recorded. quiet skips that,
+      // for afterNumber, which only looks ahead.
+      var REACH = { parse: function(ps) { return ps; }, toString: function() { return 'reach()'; } };
+      function lexeme(name, test, quiet) {
         var p = sym(name);
         return {
           parse: function(ps, obj) {
             var r;
+            // A StringPStream (the stream SmartView and parseString make)
+            // keeps its text in a one-element array; any other stream runs
+            // the symbol through its own apply, hook and all.
             if ( ps.str && ps.str.length === 1 ) {
               var q   = self.StringPStream.create();
               q.str   = ps.str;
@@ -806,6 +819,7 @@ foam.CLASS({
             if ( ! r || ( test && ! test(r.value) ) ) return undefined;
             var out = ps;
             while ( out.pos < r.pos ) out = out.tail;
+            if ( ! quiet ) out.apply(REACH, obj);
             return out.setValue(r.value);
           },
           toString: function() { return 'lexeme(' + name + ')'; }
@@ -825,7 +839,9 @@ foam.CLASS({
       // afterNumber(p): when a full-grammar number starts here, applies p
       // at the offset where its unit starts ('1' in '1px', '1.5' in '1.5p'),
       // so unit suggestions land after the digits. Consumes nothing.
-      var number = lexeme('number');
+      // sizeValue runs number twice per position, here and to accept it:
+      // a few characters of input, so left simple.
+      var number = lexeme('number', null, true);
       function afterNumber(p) {
         return {
           parse: function(ps, obj) {

@@ -9,11 +9,12 @@ foam.CLASS({
   name: 'EasyDAOPropertyIndexesTest',
   extends: 'foam.core.test.Test',
 
-  documentation: `An index given to EasyDAO.propertyIndexes is in the MDAO
-    before the journal replays into it, so the replay's bulk load builds it.
-    Covers a journalled DAO, an unloadable one and its reload, a dedup one,
-    which replays one put at a time and so still adds it after, and one with
-    no journal.`,
+  documentation: `A service script calls addPropertyIndex after build(), before
+    anything reads the DAO. The index is in the MDAO before the journal
+    replays into it, so the replay's bulk load builds it. Covers a journalled
+    DAO, an unloadable one and its reload, a dedup one, which replays one put
+    at a time and so still adds it after, one with no journal, and an index
+    added after first use.`,
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -44,7 +45,7 @@ foam.CLASS({
         // A journalled DAO: the replay builds the index.
         seed(dir, "journalled");
         ProbeIndexer probe = new ProbeIndexer(IndexKeyRecord.NAME);
-        EasyDAO dao = builder(tx, "journalled", probe).build();
+        EasyDAO dao = build(tx, "journalled", probe, false, false);
         test( count(dao) == 2, "the index answers its query, count=" + count(dao) );
         test( probe.built && ! probe.afterReplay, "a journalled DAO builds the index in the replay's bulk load" );
         test( ((MDAO) dao.getMdao()).getIndexCount() == 3, "the MDAO holds both indexes, count=" + ((MDAO) dao.getMdao()).getIndexCount() );
@@ -52,7 +53,7 @@ foam.CLASS({
         // An unloadable DAO: its first access and every reload build it.
         seed(dir, "unloadable");
         probe = new ProbeIndexer(IndexKeyRecord.NAME);
-        dao = builder(tx, "unloadable", probe).setUnloadable(true).build();
+        dao = build(tx, "unloadable", probe, true, false);
         test( count(dao) == 2 && probe.built && ! probe.afterReplay,
           "an unloadable DAO builds the index in the replay's bulk load" );
         dao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
@@ -64,7 +65,7 @@ foam.CLASS({
         // Dedup replays one put at a time, so the index still goes on after.
         seed(dir, "dedup");
         probe = new ProbeIndexer(IndexKeyRecord.NAME);
-        dao = builder(tx, "dedup", probe).setDedup(true).build();
+        dao = build(tx, "dedup", probe, false, true);
         test( count(dao) == 2 && probe.built && probe.afterReplay, "a dedup DAO adds the index after the replay" );
 
         // No journal: the index is there for the first put.
@@ -72,24 +73,39 @@ foam.CLASS({
         dao = new EasyDAO.Builder(tx)
           .setAuthorize(false)
           .setOf(IndexKeyRecord.getOwnClassInfo())
-          .setPropertyIndexes(new Indexer[][] { { probe }, { IndexKeyRecord.GROUP_ID } })
-          .build();
+          .build()
+          .addPropertyIndex(new Indexer[] { probe })
+          .addPropertyIndex(new Indexer[] { IndexKeyRecord.GROUP_ID });
         for ( int i = 1 ; i <= 3 ; i++ ) dao.put(record(i));
         test( ((MDAO) dao.getMdao()).getIndexCount() == 3 && count(dao) == 2,
           "a DAO with no journal holds both indexes, count=" + ((MDAO) dao.getMdao()).getIndexCount() );
+
+        // After first use the rows are in, so the index is built from them.
+        seed(dir, "late");
+        probe = new ProbeIndexer(IndexKeyRecord.NAME);
+        dao = build(tx, "late", new ProbeIndexer(IndexKeyRecord.NAME), false, false);
+        count(dao);
+        dao.addPropertyIndex(new Indexer[] { probe });
+        test( probe.built && probe.afterReplay && ((MDAO) dao.getMdao()).getIndexCount() == 4,
+          "an index added after first use is built from the loaded rows, count=" + ((MDAO) dao.getMdao()).getIndexCount() );
       `
     },
     {
-      name: 'builder',
-      args: 'X x, String journalName, ProbeIndexer probe',
-      javaType: 'EasyDAO.Builder',
+      name: 'build',
+      args: 'X x, String journalName, ProbeIndexer probe, boolean unloadable, boolean dedup',
+      javaType: 'EasyDAO',
+      documentation: 'Built the way a service script builds one: addPropertyIndex after build().',
       javaCode: `
         return new EasyDAO.Builder(x)
           .setAuthorize(false)
           .setOf(IndexKeyRecord.getOwnClassInfo())
           .setJournalType(JournalType.SINGLE_JOURNAL)
           .setJournalName(journalName)
-          .setPropertyIndexes(new Indexer[][] { { probe }, { IndexKeyRecord.GROUP_ID } });
+          .setUnloadable(unloadable)
+          .setDedup(dedup)
+          .build()
+          .addPropertyIndex(new Indexer[] { probe })
+          .addPropertyIndex(new Indexer[] { IndexKeyRecord.GROUP_ID });
       `
     },
     {

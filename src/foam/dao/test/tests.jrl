@@ -44,4 +44,4 @@ p({
 })
 p({"class":"foam.dao.test.BulkLoadCommandTest","id":"BulkLoadCommandTest","description":"a bulk load sent down cmd_ numbers its rows and stores them as the same puts would"})
 p({"class":"foam.dao.test.JournalGenerationsTest","id":"JournalGenerationsTest","description":"journal generations are derived from the filesystem: ordering, snapshots superseding, .tmp ignored"})
-p({"class":"foam.dao.test.EasyDAOPropertyIndexesTest","id":"EasyDAOPropertyIndexesTest","description":"indexes given to EasyDAO.propertyIndexes are built in the replay bulk load"})
+p({"class":"foam.dao.test.EasyDAOPropertyIndexesTest","id":"EasyDAOPropertyIndexesTest","description":"an index a service script adds after build() is built in the replay bulk load"})

@@ -326,6 +326,29 @@ test(! rawWarns.some(function(d) { return d.message.indexOf('#000') !== -1; }),
 test(rawWarns.some(function(d) { return d.message.indexOf('rgb(0, 0, 0)') !== -1 && d.range.start.line === 6; }),
   'css grammar: rgb() in border: is reported');
 
+// Every raw colour in a value is reported, not just the first (the old
+// regex stopped after one), including those inside a gradient function.
+var everyRaw = withMsg(cssDiags('CssEveryRaw', [
+  '^ { border: 1px solid #fff; background: #aaa linear-gradient(#bbb, rgb(1,2,3)); }'
+]), /raw color/i);
+test(everyRaw.length === 4,
+  'css grammar: all 4 raw colours in border/background are reported (got ' + everyRaw.length + ')');
+
+// Only selector carets name a class: a '^' in a comment, a string or the
+// '^=' of an attribute selector is not an unused class.
+var ghosts = cssDiags('CssGhostCarets', [
+  '/* ^ghost */',
+  '^ { content: "^ghost2"; }',
+  '[class^=ghost3] { color: $primary400; }'
+]);
+test(withMsg(ghosts, /Unused CSS class/).length === 0,
+  'css grammar: carets in a comment, a string and [class^=x] are not unused classes');
+
+// A '//' inside a quoted attribute value is a string, not a line comment.
+var quotedSlashes = cssDiags('CssQuotedSlashes', [ '^ a[href^="//cdn"] { color: $primary400; }' ]);
+test(withMsg(quotedSlashes, /^CSS syntax:/).length === 0,
+  'css grammar: // inside a quoted attribute selector is no CSS syntax diagnostic');
+
 // (d) syntax errors, each on its own line
 var lineComment = withMsg(cssDiags('CssSlashes', [
   '^ {',

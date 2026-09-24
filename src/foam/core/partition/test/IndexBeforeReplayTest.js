@@ -165,9 +165,9 @@ foam.CLASS({
     /** Read by the service script, which has no other way to reach the test. */
     public static ProbeIndex bootProbe;
 
-    /** Records each bulkLoad: how many rows, and whether AltIndex.addIndex
-        made the call, which it does only for an index added to a DAO that
-        already holds its rows. */
+    /** Records each bulkLoad: how many rows, and whether AltIndex.addIndex or
+        addIndexes made the call, which they do only for an index added to a
+        DAO that already holds its rows. */
     public static class ProbeIndex extends ProxyIndex {
       public int     bulkLoads   = 0;
       public long    rows        = 0;
@@ -181,7 +181,7 @@ foam.CLASS({
         bulkLoads++;
         rows        = hi - lo + 1;
         afterReplay = StackWalker.getInstance().walk(frames -> frames.anyMatch(f ->
-          "foam.dao.index.AltIndex".equals(f.getClassName()) && "addIndex".equals(f.getMethodName())));
+          "foam.dao.index.AltIndex".equals(f.getClassName()) && f.getMethodName().startsWith("addIndex")));
         return getDelegate().bulkLoad(a, lo, hi);
       }
     }

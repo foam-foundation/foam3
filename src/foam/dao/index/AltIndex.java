@@ -39,35 +39,52 @@ public class AltIndex
   }
 
   public Object addIndex(Object state, Index i) {
-    // Adding an index bulk-loads the whole DAO into it and every later put
-    // maintains it, and there is no removeIndex to undo either cost. Callers
-    // that cannot know what already exists rely on this being a no-op.
-    if ( covers(i) ) {
-      logCovered(i);
-      return state;
+    List<Index> indexes = new ArrayList<>(1);
+    indexes.add(i);
+    return addIndexes(state, indexes);
+  }
+
+  /**
+   * Add several indexes at once. The rows are read out of the first index
+   * once, and every new index is built from them together, as bulkLoad builds
+   * them, rather than one read and one build per index.
+   */
+  public Object addIndexes(Object state, List<Index> indexes) {
+    List<Index> added = new ArrayList<>();
+
+    for ( Index i : indexes ) {
+      // Adding an index bulk-loads the whole DAO into it and every later put
+      // maintains it, and there is no removeIndex to undo either cost. Callers
+      // that cannot know what already exists rely on this being a no-op.
+      if ( covers(i) ) {
+        logCovered(i);
+        continue;
+      }
+      delegates_.add(i);
+      added.add(i);
     }
 
-    delegates_.add(i);
-
-    // No data to copy when just adding first index
-    if ( delegates_.size() == 1 ) return state;
+    // No data to copy when nothing was added or these are the first indexes
+    if ( added.isEmpty() || added.size() == delegates_.size() ) return state;
 
     // No state means no data to copy
     if ( state == null ) return state;
 
-    // Copy all data from the first index into the new one. Reading the rows out
-    // to an array first lets the new index build itself from them in one pass,
-    // rather than being descended into - and cloning the path it descends - once
-    // per row. The keys an index cannot derive are already tolerated where they
-    // are derived, so this needs no per-row catch of its own.
+    // Copy all data from the first index into the new ones. Reading the rows
+    // out to an array first lets each new index build itself from them in one
+    // pass, rather than being descended into - and cloning the path it
+    // descends - once per row. The keys an index cannot derive are already
+    // tolerated where they are derived, so this needs no per-row catch of its
+    // own.
     final Object[] sa = cloneState(state);
 
     try {
       ArraySink sink = new ArraySink();
       delegates_.get(0).planSelect(sa[0], sink, 0, Long.MAX_VALUE, null, null).select(sa[0], sink, 0, Long.MAX_VALUE, null, null);
 
-      List rows = sink.getArray();
-      sa[sa.length-1] = i.bulkLoad((FObject[]) rows.toArray(new FObject[rows.size()]), 0, rows.size()-1);
+      List      rows  = sink.getArray();
+      Object[]  built = bulkLoad(added, (FObject[]) rows.toArray(new FObject[rows.size()]), 0, rows.size()-1);
+      System.arraycopy(built, 0, sa, sa.length - built.length, built.length);
     } catch (Throwable t) {
       t.printStackTrace();
     }
@@ -121,12 +138,16 @@ public class AltIndex
    * on the calling thread.
    */
   public Object bulkLoad(FObject[] a, int lo, int hi) {
-    final Object[] s = cloneState(null);
+    return bulkLoad(delegates_, a, lo, hi);
+  }
+
+  protected static Object[] bulkLoad(List<Index> indexes, FObject[] a, int lo, int hi) {
+    final Object[] s = new Object[indexes.size()];
 
     // A lone index has no one to share the rows with, so it needs no copy.
     if ( s.length == 1 ) {
       try {
-        s[0] = delegates_.get(0).bulkLoad(a, lo, hi);
+        s[0] = indexes.get(0).bulkLoad(a, lo, hi);
       } catch (Throwable t) {
         t.printStackTrace();
       }
@@ -138,7 +159,7 @@ public class AltIndex
 
     for ( int i = 1 ; i < s.length ; i++ ) {
       final int   j     = i;
-      final Index index = delegates_.get(i);
+      final Index index = indexes.get(i);
 
       threads[i] = new Thread(() -> {
         foam.lang.XLocator.set(x);
@@ -155,7 +176,7 @@ public class AltIndex
     if ( s.length > 0 ) {
       try {
         FObject[] copy = Arrays.copyOfRange(a, lo, hi+1);
-        s[0] = delegates_.get(0).bulkLoad(copy, 0, copy.length-1);
+        s[0] = indexes.get(0).bulkLoad(copy, 0, copy.length-1);
       } catch (Throwable t) {
         t.printStackTrace();
       }

@@ -387,6 +387,7 @@ foam.POM({
     { name: "foam/dao/index/TreeIndexInJsTest",                       flags: "js&test|java&test" },
     { name: "foam/dao/index/test/IndexKeyRecord",                     flags: "js&test|java&test" },
     { name: "foam/dao/index/test/MDAOIndexKeyTest",                   flags: "js&test|java&test" },
+    { name: "foam/dao/index/test/MDAOPendingIndexTest",               flags: "js&test|java&test" },
     { name: "foam/dao/index/test/TreeNodeBench",                      flags: "js&test|java&test" },
     { name: "foam/dao/index/test/JournalReplayBench",                 flags: "js&test|java&test" },
     { name: "foam/dao/index/test/MDAOBulkLoadTest",                   flags: "js&test|java&test" },

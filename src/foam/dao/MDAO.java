@@ -75,6 +75,14 @@ public class MDAO
   protected Set      unindexed_ = new HashSet();
 
   /**
+   * Indexes added while the MDAO already held rows, not built yet. A service
+   * script adds its indexes one call at a time after the journal has loaded,
+   * so they are held here and built together, from one read of the rows, by
+   * LOAD_CMD or by whichever read or write comes first.
+   */
+  protected volatile List<Index> pending_ = null;
+
+  /**
    * DAO Command to retrieve current MDAO state. Intented
    * to be used in Command WhenCmd
    */
@@ -109,17 +117,38 @@ public class MDAO
 
   public void addIndex(Index index) {
     synchronized ( writeLock_ ) {
-      setState(index_.addIndex(state_, index));
+      // An empty MDAO has nothing to build, so the index goes straight in.
+      if ( state_ == null ) {
+        setState(index_.addIndex(state_, index));
+        return;
+      }
+
+      List<Index> pending = pending_ == null ? new ArrayList<>() : new ArrayList<>(pending_);
+      pending.add(index);
+      pending_ = pending;
+    }
+  }
+
+  /** Build the indexes added since the MDAO filled, all in one pass. **/
+  public void buildPendingIndexes() {
+    if ( pending_ == null ) return;
+
+    synchronized ( writeLock_ ) {
+      if ( pending_ == null ) return;
+      setState(index_.addIndexes(state_, pending_));
+      pending_ = null;
     }
   }
 
   /** Number of indexes held, counting the primary. **/
   public int getIndexCount() {
+    buildPendingIndexes();
     synchronized ( writeLock_ ) { return index_.getIndexCount(); }
   }
 
   // Add Index which skips bulkload
   public void addStoreIndex(Index index) {
+    buildPendingIndexes();
     synchronized ( writeLock_ ) {
       setState(index_.addStoreIndex(state_, index));
     }
@@ -203,6 +232,7 @@ public class MDAO
   public FObject put_(X x, FObject obj) {
     // Clone and freeze outside of lock to minimize time spent under lock
     obj = objIn(obj);
+    buildPendingIndexes();
 
     synchronized ( writeLock_ ) {
       FObject oldValue = find_(x, obj);
@@ -221,6 +251,7 @@ public class MDAO
 
   public FObject remove_(X x, FObject obj) {
     if ( obj == null ) return null;
+    buildPendingIndexes();
 
     FObject found;
 
@@ -242,6 +273,7 @@ public class MDAO
   public FObject find_(X x, Object o) {
     Object state;
 
+    buildPendingIndexes();
     state = getState();
 
     if ( o == null ) return null;
@@ -263,6 +295,7 @@ public class MDAO
     // use partialEval to wipe out such useless predicate such as: And(EQ()) ==> EQ(), And(And(EQ()),GT()) ==> And(EQ(),GT())
     if ( predicate != null ) simplePredicate = predicate.partialEval();
 
+    buildPendingIndexes();
     Object state = getState();
 
     // We handle OR logic by seperate request from MDAO. We return different plan for each parameter of OR logic.
@@ -307,6 +340,7 @@ public class MDAO
   }
 
   public void removeAll_(X x, long skip, long limit, Comparator order, Predicate predicate) {
+    buildPendingIndexes();
     if ( predicate == null && skip == 0 && limit == MAX_SAFE_INTEGER ) {
       synchronized ( writeLock_ ) {
         setState(null);
@@ -320,7 +354,14 @@ public class MDAO
     if ( DAO.LAST_CMD.equals(cmd) ) {
       return this;
     }
+    // Sent once the service script has returned, so every index it added is
+    // pending by now.
+    if ( DAO.LOAD_CMD.equals(cmd) ) {
+      buildPendingIndexes();
+      return true;
+    }
     if ( MDAO.NOW_CMD.equals(cmd) ) {
+      buildPendingIndexes();
       return now();
     }
     if ( cmd instanceof MDAO.WhenCmd ) {

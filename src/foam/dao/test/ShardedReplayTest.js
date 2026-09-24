@@ -70,6 +70,20 @@ foam.CLASS({
       }
     }
 
+    /** Simulates a validating DAO rejecting one replay entry. **/
+    static class RejectOneBulkLoadDAO extends BulkLoadDAO {
+      RejectOneBulkLoadDAO(X x) {
+        super(x, User.getOwnClassInfo());
+      }
+
+      @Override
+      public FObject put_(X x, FObject obj) {
+        if ( Long.valueOf(64L).equals(obj.getProperty("id")) )
+          throw new RuntimeException("expected replay rejection for id 64");
+        return super.put_(x, obj);
+      }
+    }
+
     /** The line F3FileJournal picks for a BulkLoadDAO, at the default shard count or at 3. **/
     static F3FileJournal sharded(X x, String file, boolean three) {
       F3FileJournal j = three ? new ThreeShardJournal() : new DefaultShardJournal();
@@ -118,10 +132,12 @@ foam.CLASS({
 
           checkStringIds(fsX, storage);
           checkCompoundIds(fsX, storage);
+          checkRejectedEntryDoesNotDropBatch(fsX, storage);
 
           storage.get("users").delete();
           storage.get("groups").delete();
           storage.get("junctions").delete();
+          storage.get("rejectedEntry").delete();
           dir.delete();
         } catch (Exception e) {
           test(false, "unexpected: " + e);
@@ -151,6 +167,38 @@ foam.CLASS({
               w.newLine();
             }
           }
+        }
+      `
+    },
+    {
+      name: 'checkRejectedEntryDoesNotDropBatch',
+      documentation: `A put failure in one child of a 128-entry batch must not
+        prevent later children in that batch, or later batches, from applying.
+        Cover both the small-journal single apply thread and the sharded path.`,
+      args: 'X fsX, FileSystemStorage storage',
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        try ( BufferedWriter w = new BufferedWriter(new OutputStreamWriter(storage.getOutputStream("rejectedEntry"))) ) {
+          for ( int id = 1 ; id <= 260 ; id++ ) {
+            w.write("p({class:\\"foam.core.auth.User\\",id:" + id + ",userName:\\"user" + id + "\\"})");
+            w.newLine();
+          }
+        }
+
+        for ( boolean sharded : new boolean[] { false, true } ) {
+          String               label = sharded ? "sharded" : "single apply";
+          RejectOneBulkLoadDAO dao   = new RejectOneBulkLoadDAO(fsX);
+          F3FileJournal        jrl   = sharded ? new DefaultShardJournal() : new F3FileJournal();
+          jrl.setX(fsX);
+          jrl.setFilename("rejectedEntry");
+          jrl.replay(fsX, dao);
+
+          test(dao.rows().length == 259, label + ": only the rejected entry is absent, " + dao.rows().length + " rows");
+          test(dao.find(64L) == null, label + ": rejected entry is absent");
+          test(dao.find(65L) != null && dao.find(128L) != null,
+            label + ": entries after the failure in the same 128-entry batch survive");
+          test(dao.find(129L) != null && dao.find(260L) != null,
+            label + ": following batches survive");
         }
       `
     },

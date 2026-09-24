@@ -92,14 +92,18 @@ public class NotPartitionedDAO
     try {
       reporter.start(journalSize(journalName));
       X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
-      jdao = easy_ != null ?
-        easy_.createJournalledDelegate(loadX) :
-        new JDAO(loadX, getOf(), journalName);
+      if ( easy_ != null ) {
+        jdao = easy_.createJournalledDelegate(loadX, getIndices());
+      } else {
+        // The indexes go in before the JDAO replays into the MDAO, so its bulk
+        // load builds them all at once instead of each one after the fact.
+        MDAO mdao = new MDAO(getOf());
+        addIndices(mdao);
+        jdao = new JDAO(loadX, mdao, journalName);
+      }
     } finally {
       reporter.done();
     }
-
-    addIndices(jdao);
 
     return jdao;
   }
@@ -137,6 +141,10 @@ public class NotPartitionedDAO
       unload();
       return true;
     }
+
+    // Sent once the service script has returned, so every index it added is
+    // recorded and goes into the replay's bulk load.
+    if ( DAO.LOAD_CMD.equals(cmd) ) return getDelegate().cmd_(x, cmd);
 
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);

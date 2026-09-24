@@ -11,6 +11,7 @@ p({"class":"foam.core.partition.test.UnloadableDecoratedDAOTest","id":"Unloadabl
 p({"class":"foam.core.partition.test.UnloadableAddIndexTest","id":"UnloadableAddIndexTest"})
 p({"class":"foam.core.partition.test.UnloadableNDiffReplayTest","id":"UnloadableNDiffReplayTest"})
 p({"class":"foam.core.partition.test.UnloadableCSpecStatusTest","id":"UnloadableCSpecStatusTest"})
+p({"class":"foam.core.partition.test.IndexBeforeReplayTest","id":"IndexBeforeReplayTest"})
 p({"class":"foam.core.partition.test.PartitionedDAOListenTest","id":"PartitionedDAOListenTest"})
 p({"class":"foam.core.partition.test.PartitionedDAOLegacyLayoutTest","id":"PartitionedDAOLegacyLayoutTest"})
 p({"class":"foam.core.partition.test.PartitionedDAOSelectTest","id":"PartitionedDAOSelectTest"})

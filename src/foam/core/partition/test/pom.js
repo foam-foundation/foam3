@@ -18,6 +18,7 @@ foam.POM({
     { name: 'UnloadableAddIndexTest',             flags: 'js&test|java&test' },
     { name: 'UnloadableNDiffReplayTest',          flags: 'js&test|java&test' },
     { name: 'UnloadableCSpecStatusTest',          flags: 'js&test|java&test' },
+    { name: 'IndexBeforeReplayTest',              flags: 'js&test|java&test' },
     { name: 'PartitionedDAOListenTest',           flags: 'js&test|java&test' },
     { name: 'PartitionedDAOLegacyLayoutTest',     flags: 'js&test|java&test' },
     { name: 'PartitionedDAOSelectTest',           flags: 'js&test|java&test' },

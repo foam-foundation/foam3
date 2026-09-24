@@ -57,8 +57,8 @@ foam.CLASS({
       documentation: `The AssemblyLine a replay parses and applies through.
 
         Into a BulkLoadDAO (the private staging map a JDAO replays into before
-        the MDAO bulk-loads it) the apply stage is sharded: one thread per
-        parse thread, each applying the entries whose id hashes to it, so one
+        the MDAO bulk-loads it) the apply stage is sharded: one thread per two
+        parse threads, each applying the entries whose id hashes to it, so one
         id is always applied by one thread in journal order.
         Any other target keeps one apply thread, because a decorator on it may
         have side effects across rows; that includes a BulkLoadDAO wrapped by
@@ -72,7 +72,7 @@ foam.CLASS({
           return new foam.util.concurrent.SyncAssemblyLine();
         if ( dao instanceof foam.dao.BulkLoadDAO ) {
           int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
-          return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, threads));
+          return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, Math.max(1, threads / 2)));
         }
         return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay"));
       `

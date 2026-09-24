@@ -80,7 +80,7 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'shards',
-      documentation: 'Apply threads on the sharded line; 0 means the same as parseThreads.'
+      documentation: 'Apply threads on the sharded line; 0 means half of parseThreads, as F3FileJournal picks.'
     },
     {
       class: 'String',
@@ -116,7 +116,7 @@ foam.CLASS({
     }
 
     int shardCount() {
-      return getShards() > 0 ? getShards() : threads();
+      return getShards() > 0 ? getShards() : Math.max(1, threads() / 2);
     }
 
     class VariantF3FileJournal extends F3FileJournal {

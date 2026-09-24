@@ -292,36 +292,36 @@ Let's look briefly at the purpose of each of the elements in this file:
 <table markdown="0">
 <thead>
 <tr>
-<th width=20%>Name</th>
-<th width=80%>Description</th>
+<th width="20%">Name</th>
+<th width="80%">Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td width=20% align="left">name</td>
-<td width=80% align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
+<td width="20%" align="left">name</td>
+<td width="80%" align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
 </tr>
 <tr>
-<td width=20% align="left">excludes</td>
-<td width=80% align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
+<td width="20%" align="left">excludes</td>
+<td width="80%" align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
 are standard directories that we want FOAM build to ignore. The <b>&#42;</b> turns off all defaults. The build will only include projects listed
 in the projects below.</td>
 </tr>
 <tr>
-<td width=20% align="left">projects</td>
-<td width=80% align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
+<td width="20%" align="left">projects</td>
+<td width="80%" align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
 </tr>
 <tr>
-<td width=20% align="left">licenses</td>
-<td width=80% align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
+<td width="20%" align="left">licenses</td>
+<td width="80%" align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
 </tr>
 <tr>
-<td width=20% align="left">envs.version</td>
-<td width=80% align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
+<td width="20%" align="left">envs.version</td>
+<td width="80%" align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
 </tr>
 <tr>
-<td width=20% align="left">tasks</td>
-<td width=80% align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
+<td width="20%" align="left">tasks</td>
+<td width="80%" align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
 </tr>
 </tbody>
 </table>

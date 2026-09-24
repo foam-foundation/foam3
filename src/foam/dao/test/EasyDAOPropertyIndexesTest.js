@@ -12,9 +12,8 @@ foam.CLASS({
   documentation: `A service script calls addPropertyIndex after build(), before
     anything reads the DAO. The index is in the MDAO before the journal
     replays into it, so the replay's bulk load builds it. Covers a journalled
-    DAO, an unloadable one and its reload, a dedup one, which replays one put
-    at a time and so still adds it after, one with no journal, and an index
-    added after first use.`,
+    DAO, an unloadable one and its reload, a dedup one, one with no journal,
+    and an index added after first use.`,
 
   javaImports: [
     'foam.core.fs.FileSystemStorage',
@@ -62,11 +61,11 @@ foam.CLASS({
           "its reload builds the index in the replay's bulk load again" );
         test( ((MDAO) dao.getMdao()).getIndexCount() == 3, "the reloaded MDAO holds both indexes, count=" + ((MDAO) dao.getMdao()).getIndexCount() );
 
-        // Dedup replays one put at a time, so the index still goes on after.
+        // DeDupDAO sits outside the journal, so a dedup DAO replays the same way.
         seed(dir, "dedup");
         probe = new ProbeIndexer(IndexKeyRecord.NAME);
         dao = build(tx, "dedup", probe, false, true);
-        test( count(dao) == 2 && probe.built && probe.afterReplay, "a dedup DAO adds the index after the replay" );
+        test( count(dao) == 2 && probe.built && ! probe.afterReplay, "a dedup DAO builds the index in the replay's bulk load" );
 
         // No journal: the index is there for the first put.
         probe = new ProbeIndexer(IndexKeyRecord.NAME);

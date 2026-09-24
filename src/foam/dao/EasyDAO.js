@@ -174,11 +174,6 @@ foam.CLASS({
             addPropertyIndexes(getMdao());
             propertyIndexed = true;
             delegate = getMdao();
-            if ( getDedup() ) {
-              delegate = new foam.dao.DeDupDAO.Builder(getX())
-                .setDelegate(delegate)
-                .build();
-            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
@@ -188,6 +183,14 @@ foam.CLASS({
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
             delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
+
+            // Outside the journal: a replay goes straight into the MDAO as one
+            // bulk load, and the JSON parser already interns what it reads.
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
           }
         }
 
@@ -1070,34 +1073,22 @@ dao loading, which improves overall startup time.`,
     {
       name: 'createJournalledDelegate',
       documentation: `Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO
-        (aliased via setMdao so getMdao() tracks the live store), optionally
-        wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used
-        for the initial non-unloadable, non-fixedSize construction, and by
-        NotPartitionedDAO#createDAO() to rebuild the chain on every
-        unload/reload.
+        (aliased via setMdao so getMdao() tracks the live store) wrapped in a
+        JDAO over getJournalName(). Used for the initial non-unloadable,
+        non-fixedSize construction, and by NotPartitionedDAO#createDAO() to
+        rebuild the chain on every unload/reload.
 
         indexes are the AddIndexCommands the new store must hold, on top of
-        propertyIndexes. The journal replays into a bare MDAO as one bulk load,
+        propertyIndexes. The journal replays into the MDAO as one bulk load,
         which builds every index the MDAO already holds at once, so they go in
-        before the replay. Behind a DeDupDAO the replay puts one row at a time,
-        so there they go in after, as before.`,
+        before the replay.`,
       args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
-
-        if ( ! getDedup() ) {
-          addPropertyIndexes(getMdao());
-          for ( Object index : indexes ) getMdao().cmd(index);
-          return wrapInJDAO(x, getMdao());
-        }
-
-        foam.dao.DAO jdao = wrapInJDAO(x, new foam.dao.DeDupDAO.Builder(x)
-          .setDelegate(getMdao())
-          .build());
-        addPropertyIndexes(jdao);
-        for ( Object index : indexes ) jdao.cmd(index);
-        return jdao;
+        addPropertyIndexes(getMdao());
+        for ( Object index : indexes ) getMdao().cmd(index);
+        return wrapInJDAO(x, getMdao());
       `
     },
     {

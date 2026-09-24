@@ -104,7 +104,7 @@ foam.CLASS({
     function cmd_(x, obj) {
       if ( foam.dao.DAO.PURGE_CMD === obj ) {
         this.purgeCache();
-        return true;
+        return this.SUPER(x, obj) || true;
       }
 
       return this.SUPER(x, obj);

@@ -60,6 +60,8 @@ foam.CLASS({
       this.testAtRuleClosedByBrace(x);
       this.testDeepSkipBalances(x);
       this.testCaretHazards(x);
+      this.testStringLineBreak(x);
+      this.testPlaceholderStatement(x);
     },
 
     function errorsIn(tree) {
@@ -754,6 +756,91 @@ foam.CLASS({
         'caret hazards: the string and comment list their carets');
       x.test(p.errors(t).length === 0, 'caret hazards: none of them is a parse error');
       this.spansMatch(x, input, t, 'caret hazards');
+    },
+
+    function testStringLineBreak(x) {
+      // CSS Syntax ends a string at an unescaped line break (a bad-string);
+      // the browser then drops the statement up to its next ';' or '}'.
+      var p = this.CSSParser.create();
+      var v = p.parseValue('"ab\ncd');
+      var s = v && v.components[0];
+      x.test(s && s.kind === 'string' && s.closed === false && s.raw === '"ab' && s.value === 'ab' &&
+             this.kinds(v.components) === 'string ident',
+        'line break: an unclosed string ends before the line break, which is not part of it');
+      x.test([ '"a\rb', '"a\r\nb', '"a\fb' ].every(i => { var w = p.parseValue(i); return w && w.components[0].raw === '"a' && w.components[0].closed === false; }),
+        'line break: CR, CR LF and FF end a string too');
+
+      v = p.parseValue('"a\\\nb" \'c\\\r\nd\'');
+      x.test(v && v.components.length === 2 && v.components.every(n => n.kind === 'string' && n.closed) &&
+             v.components[0].value === 'ab' && v.components[1].value === 'cd',
+        'line break: a backslash before a line break keeps it in the string and drops it from value');
+
+      var input = '^ .x {\n  content: "abc\n}\n^ .y { color: $red; }';
+      var t = p.parse(input);
+      x.test(p.declarations(t).map(d => d.property).join() === 'content,color' && t.children.length === 2 && t.children[0].closed,
+        'line break: a string cut before } leaves the block closed and the next rule parsed');
+      x.test(this.kinds(p.errors(t)) === 'string' && p.errors(t)[0].raw === '"abc', 'line break: the cut string is the one error');
+      x.test(p.tokens(t).map(n => n.name).join() === 'red', 'line break: tokens after the cut string are found');
+      this.spansMatch(x, input, t, 'line break before }');
+
+      input = '^ .label {\n  // WHY DOESN"T WORK?\n  font-size: larger;\n  font-weight: $font-regular;\n  color: $red300;\n}';
+      t = p.parse(input);
+      var e = p.errors(t);
+      x.test(this.kinds(e) === 'error' && e[0].raw === '// WHY DOESN"T WORK?\n  font-size: larger',
+        'line break: a stray quote in a // line drops that statement up to its ;, as a browser does');
+      x.test(p.declarations(t).map(d => d.property).join() === 'font-weight,color' && p.tokens(t).length === 2,
+        'line break: the declarations after that ; are parsed');
+      this.spansMatch(x, input, t, 'line break in a statement');
+
+      input = 'a{content:"x\ncolor:red;margin:0}';
+      t = p.parse(input);
+      var d = p.declarations(t);
+      x.test(d.map(n => n.property).join() === 'content,margin' && this.kinds(d[0].node.value.components) === 'string ident error ident',
+        'line break: a declaration with a cut string runs to its ;, taking in the next line');
+      x.test(this.kinds(p.errors(t)) === 'string error', 'line break: errors lists the cut string and the stray :');
+      this.spansMatch(x, input, t, 'line break in a value');
+
+      input = 'a{content:"$primary ^b ^\n;c:d}';
+      t = p.parse(input);
+      var h = p.hazards(t).map(n => n.kind + ':' + n.context).join(' ');
+      x.test(h === 'token:string caret:string' && p.declarations(t).map(n => n.property).join() === 'content,c',
+        'line break: $ and ^ in a cut string are hazards, a ^ before the break is not, got "' + h + '"');
+      this.spansMatch(x, input, t, 'line break hazards');
+    },
+
+    function testPlaceholderStatement(x) {
+      // %CUSTOMCSS% is filled in by returnExpandedCSS before the browser
+      // sees the CSS.
+      var p = this.CSSParser.create();
+      var t = p.parse('%CUSTOMCSS%');
+      x.test(this.kinds(t.children) === 'placeholder' && t.children[0].name === 'CUSTOMCSS' && p.errors(t).length === 0,
+        'placeholder statement: a whole stylesheet of %CUSTOMCSS% is one placeholder, no error');
+
+      var input = '^ { color: red; }\n%CUSTOMCSS%;\n';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'rule placeholder' && t.children[1].raw === '%CUSTOMCSS%;' && p.errors(t).length === 0,
+        'placeholder statement: %CUSTOMCSS%; after a rule keeps its ; in the span');
+      this.spansMatch(x, input, t, 'placeholder statement top level');
+
+      input = 'a { color: red; %CUSTOMCSS% ; margin: 0 }';
+      t = p.parse(input);
+      var r = t.children[0];
+      x.test(r && this.kinds(r.children) === 'declaration placeholder declaration' && r.children[1].raw === '%CUSTOMCSS% ;' &&
+             p.declarations(t).map(d => d.property).join() === 'color,margin' && p.errors(t).length === 0,
+        'placeholder statement: %CUSTOMCSS% ; between declarations in a block');
+      this.spansMatch(x, input, t, 'placeholder statement in a block');
+
+      t = p.parse('a { %CUSTOMCSS; color: red }');
+      x.test(this.kinds(t.children[0].children) === 'error declaration' &&
+             p.errors(t)[0].message === 'Not a declaration, rule or at-rule' && p.errors(t)[0].raw === '%CUSTOMCSS',
+        'placeholder statement: %CUSTOMCSS without the closing % is an error');
+      x.test([ '%', '% ;', '%%' ].every(i => this.kinds(p.errors(p.parse(i))) === 'error'),
+        'placeholder statement: a bare % or %% is an error');
+
+      t = p.parse('%X%.a { b: c } %Y% .d { e: f }');
+      x.test(this.kinds(t.children) === 'rule placeholder rule' && t.children[0].selectors[0].raw === '%X%.a' &&
+             t.children[2].selectors[0].raw === '.d',
+        'placeholder statement: one glued to a selector stays in it, one followed by a space stands alone');
     },
 
     // ---- autocomplete compatibility ---------------------------------------

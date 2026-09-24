@@ -44,7 +44,15 @@ foam.CLASS({
                   bare number, 'px', '%', ...)
       string      quote (" or '), value (escapes resolved), closed,
                   parts, tokens, carets (as for comment, context
-                  'string')
+                  'string'). As in CSS, a string ends at an unescaped
+                  line break (\\n, \\r or \\f) with closed: false, and the
+                  line break is left to what follows. A backslash before
+                  the line break keeps it inside (a line continuation,
+                  dropped from value). The enclosing statement still runs
+                  to its next ';' or '}', as in a browser, which drops
+                  that whole statement: with a line break after a: "x
+                  and then b: c; the declaration a takes in b: c, whose
+                  ':' becomes an error node (see value below).
       hash        value (text after #), isHexColor (3, 4, 6 or 8 hex
                   digits; '#zz' is still a hash, just not a colour)
       token       name ('primary$hover' for $primary$hover), base
@@ -57,7 +65,11 @@ foam.CLASS({
                   rest of the expression intact), context (null for a
                   token meant as one; 'comment', 'string' or 'url' for a
                   $name inside one of those, see hazards())
-      placeholder name ('NAME' for %NAME%)
+      placeholder name ('NAME' for %NAME%). Also a statement: a %NAME%
+                  in a stylesheet or block, followed by whitespace, ';',
+                  '}', a comment or the end of input, is a placeholder
+                  node whose span includes a following ';' (the legacy
+                  '%CUSTOMCSS%;' that returnExpandedCSS fills in).
       function    name, args (component nodes; ',' and '/' are operator
                   nodes), closed
       url         value (the address), quoted, arg (the string node when
@@ -71,12 +83,12 @@ foam.CLASS({
       delim       value, any other single character ('!', '.', '&', ...)
       important   the '!important' marker. Only the last non-comment
                   component counts; an earlier one becomes an error node.
-      stylesheet  children (rules, at-rules, declarations, comments,
-                  errors, in input order)
+      stylesheet  children (rules, at-rules, declarations, placeholders,
+                  comments, errors, in input order)
       rule        selectors (selector nodes, one per comma-separated
                   item), children (declarations, nested rules, at-rules,
-                  comments, errors), closed. Keyframe blocks such as
-                  'from { }' and '50% { }' are rules too.
+                  placeholders, comments, errors), closed. Keyframe
+                  blocks such as 'from { }' and '50% { }' are rules too.
       selector    raw text of one selector, trimmed; parts (comment,
                   string, caret and token nodes inside it, in order);
                   carets and tokens (those parts filtered by kind)
@@ -686,9 +698,20 @@ foam.CLASS({
           sym('atRule'),
           sym('customDeclaration'),
           sym('declaration'),
+          sym('placeholderStatement'),
           sym('rule'),
           sym('recover')
         ),
+
+        // Problem: FOAM's returnExpandedCSS replaces a statement-level
+        // '%CUSTOMCSS%;' (foam.core.u2.navigation.Stack) or a whole css:
+        // '%CUSTOMCSS%' (foam.u2.layout.MDStackView) with theme CSS before
+        // the browser sees it, but it read here as 'Not a declaration, rule
+        // or at-rule'. A %NAME% standing alone is a placeholder statement;
+        // one glued to more text ('%X%.a { }') is left to rule and recover.
+        placeholderStatement: node('placeholder',
+          seq(sym('placeholder'), peek(alt(chars(WS + ';}'), '/*', eof())), opt(seq(opt(sym('ws')), ';'))),
+          function(n, v) { n.name = v[0].name; }),
 
         // '{' items '}'. Never fails once '{' is seen: end of input closes
         // it with closed: false. Value is { node: [..], start, end }.
@@ -853,16 +876,25 @@ foam.CLASS({
     },
 
     function stringParser_(P, node, q) {
-      // A backslash escapes the next character, including the quote. An
-      // unterminated string runs to the end of input and is marked
+      // A backslash escapes the next character, including the quote and a
+      // line break (CR LF counts as one). An unterminated string is marked
       // closed: false instead of failing, so one missing quote cannot make
       // the grammar retry every shorter reading of the rest of the input.
       // $name and ^ inside are token and caret nodes with context
       // 'string' (see hazards()).
+      //
+      // An unterminated string ends before the next unescaped line break,
+      // as CSS Syntax's bad-string does. Problem: running to the end of
+      // input, one stray quote hid the rest of its css: block from
+      // declarations() and tokens(), e.g. the quote before "bold;" in
+      // "font-weight': 'bold;" (DateTimePicker) took in every rule after
+      // it. Now the damage stops at the enclosing statement's next ';' or
+      // '}', where a browser recovers too, and only that statement is lost.
       return node('string', P.seq(
           q,
-          P.repeat(P.alt(P.sym('token'), P.sym('textCaret'), P.seq('\\', P.opt(P.anyChar())), P.notChars(q + '\\'))),
-          P.alt(q, P.eof())
+          P.repeat(P.alt(P.sym('token'), P.sym('textCaret'), P.seq('\\', P.opt(P.alt('\r\n', P.anyChar()))),
+            P.notChars(q + '\\\n\r\f'))),
+          P.alt(q, P.peek(P.chars('\n\r\f')), P.eof())
         ), (n, v) => {
           n.quote  = q;
           n.closed = v[2] === q;
@@ -874,8 +906,9 @@ foam.CLASS({
 
     function unescape_(s) {
       // CSS escapes: \\26 or \\000026 (hex, one optional trailing space),
-      // backslash-newline (line continuation, dropped), backslash-any.
-      return s.replace(/\\([0-9a-fA-F]{1,6})[ \t\n]?|\\\n|\\([\s\S])|\\$/g, function(m, hex, ch) {
+      // backslash-line-break (line continuation, dropped; the break is LF,
+      // CR LF, CR or FF, as the string grammar reads it), backslash-any.
+      return s.replace(/\\([0-9a-fA-F]{1,6})[ \t\n]?|\\(?:\r\n|[\n\r\f])|\\([\s\S])|\\$/g, function(m, hex, ch) {
         if ( hex ) return String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF) || 0xFFFD);
         return ch || '';
       });

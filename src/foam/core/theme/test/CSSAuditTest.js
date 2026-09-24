@@ -305,7 +305,10 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       final Finding f = new Finding();
       f.kind     = "declaration";
       f.property = d.property;
-      f.value    = d.value.trim();
+      // One line per failure: the test runner keeps only lines that start
+      // with FAILURE, so a multi-line value (a gradient, a cut string) would
+      // lose everything after its first line break.
+      f.value    = d.value.replaceAll("\\\\s+", " ").trim();
       f.offset   = d.node.start;
       // context null: a $name inside a string, comment or url() is text,
       // not a reference the token machinery resolves.
@@ -967,7 +970,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   // a journal written with bare keys (class:"...") contributed zero tokens
   // and nothing failed - the tokens it declared were simply reported as
   // unknown elsewhere. This reads one row of each form, plus a row of another
-  // class and a CSpec naming the class under of:, and checks exactly the two
+  // class and a CSpec naming the class under of:, and checks exactly the three
   // override names come back.
   protected void checkJournalReader() {
     String journal =

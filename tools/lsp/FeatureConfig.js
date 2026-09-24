@@ -30,6 +30,8 @@ var DEFAULTS = Object.freeze({
   'semanticTokens': true,
   'signatureHelp': true,
   'folding': true,
+  'documentColor': true,
+  'documentLink': true,
   'codeLens.i18n': true,
   'codeLens.hierarchy': false
 });

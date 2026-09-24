@@ -25,6 +25,8 @@ foam.POM({
     { name: 'CallHierarchyHandler', flags: 'js' },
     { name: 'PomValidator', flags: 'js' },
     { name: 'CodeLensHandler', flags: 'js' },
-    { name: 'ScaffoldHandler', flags: 'js' }
+    { name: 'ScaffoldHandler', flags: 'js' },
+    { name: 'DocumentColorHandler', flags: 'js' },
+    { name: 'DocumentLinkHandler', flags: 'js' }
   ]
 });

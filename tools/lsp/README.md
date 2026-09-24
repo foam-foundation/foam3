@@ -175,6 +175,16 @@ File text ──► FileModelCache.parseFileModels()
 - Highlights typed variables (assigned from `.create()`) as class tokens
 - VS Code renders these with theme-aware colors for better readability
 
+### Colour Swatches
+- A swatch next to every CSS `$token` in a `css:` block whose resolved value is a colour (hex, `rgb()`/`rgba()`, `hsl()`/`hsla()`), and next to raw colour values written in declarations
+- A token that does not resolve, or resolves to a non-colour, gets no swatch
+- Picking a colour on a `$token` swatch leaves the token as written — the editor never replaces a token with a hex value. Raw values are offered back as hex, `rgb()` or `hsl()` (`documentColor`, on by default)
+
+### Document Links
+- Class ids in `extends:` / `requires:` / `implements:` / `refines:` / `of:` / `class:` / `view:` strings are clickable and open the class's file at its declaration
+- In `.jrl` journals, `"class"` values, other string values naming a class (`"of"`), and class ids inside `serviceScript`/`javaCode`/client JSON are clickable too
+- Unknown ids and classes with no file on record get no link (`documentLink`, on by default)
+
 ### i18n Translation
 - Hardcoded `.add('...')` display strings get an "Extract to messages:" code action (plain, or with a seeded `messageMap`)
 - With a reachable translation model, extraction can also translate on the spot, and a HINT flags `messages:` entries missing a configured language with a one-click translate fix
@@ -190,7 +200,7 @@ File text ──► FileModelCache.parseFileModels()
 - Refuses to scaffold outside the workspace root the client opened
 
 ### Feature toggles
-- Every noisy feature above can be turned off: diagnostics, hints, completion, hover, semantic tokens, signature help, folding, and each CodeLens
+- Every noisy feature above can be turned off: diagnostics, hints, completion, hover, semantic tokens, signature help, folding, colour swatches, document links, and each CodeLens
 - Three layers, lowest precedence first: built-in defaults, a `foam-lsp.json` at the workspace root (team defaults, checked in), then the client's own `initializationOptions.foam` (one developer's editor settings)
 - Read once at `initialize` — changing a flag takes effect on the next server restart
 - See **Feature toggles** in `CLAUDE.md` for the full flag table

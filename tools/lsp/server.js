@@ -81,6 +81,8 @@ function start() {
   // the user explicitly invoked the command, so there is nothing to suppress
   // — unlike the lenses/diagnostics, which the server offers unasked.
   var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
+  var documentColorHandler   = foam.parse.lsp.handlers.DocumentColorHandler.create({ fileClassifier: fileClassifier, index: index, cssTokenResolver: cssTokenResolver });
+  var documentLinkHandler    = foam.parse.lsp.handlers.DocumentLinkHandler.create({ fileClassifier: fileClassifier, index: index, jrlGrammar: jrlHandler.jrlGrammar });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -574,7 +576,16 @@ function start() {
     'textDocument/typeDefinition':       {
       run: function(doc, p) { return typeDefinitionHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/prepareCallHierarchy': {
-      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } }
+      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/documentColor':        { list: true,
+      run: function(doc, p) { return documentColorHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/colorPresentation':    { list: true,
+      run: function(doc, p) { return documentColorHandler.presentations(doc.text, p); } },
+    // anyDoc because links are offered in journals too, and the class-file
+    // guard would refuse every .jrl. The handler classifies the document
+    // itself and answers [] for anything that is neither.
+    'textDocument/documentLink':         { list: true, anyDoc: true,
+      run: function(doc, p) { return documentLinkHandler.handle(doc.text, p.textDocument.uri); } }
   };
 
   function answerDocRequest_(method, route, params, id) {
@@ -761,6 +772,10 @@ function start() {
           caps.signatureHelpProvider = { triggerCharacters: ['(', ','] };
         }
         if ( featureConfig.enabled('folding') ) caps.foldingRangeProvider = true;
+        if ( featureConfig.enabled('documentColor') ) caps.colorProvider = true;
+        if ( featureConfig.enabled('documentLink') ) {
+          caps.documentLinkProvider = { resolveProvider: false };
+        }
         if ( featureConfig.enabled('semanticTokens') ) {
           caps.semanticTokensProvider = {
             legend: {

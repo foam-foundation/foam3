@@ -351,7 +351,7 @@ var bootDone = h.withServerLane(async function() {
       capabilities: { window: { workDoneProgress: true } },
       initializationOptions: { foam: { features: {
         hover: false, semanticTokens: false, signatureHelp: false,
-        folding: false, 'diagnostics.i18n': false,
+        folding: false, documentColor: false, documentLink: false, 'diagnostics.i18n': false,
         'codeLens.i18n': false, 'codeLens.hierarchy': false } } } } });
     var offRes = await waitFor(function(f) { return f.id === 1 && f.result; }, 'the initialize response');
     var offCaps = offRes.result.capabilities;
@@ -359,6 +359,8 @@ var bootDone = h.withServerLane(async function() {
     test(offCaps.semanticTokensProvider === undefined, 'semanticTokens: false omits semanticTokensProvider');
     test(offCaps.signatureHelpProvider === undefined,  'signatureHelp: false omits signatureHelpProvider');
     test(offCaps.foldingRangeProvider === undefined,   'folding: false omits foldingRangeProvider');
+    test(offCaps.colorProvider === undefined,          'documentColor: false omits colorProvider');
+    test(offCaps.documentLinkProvider === undefined,   'documentLink: false omits documentLinkProvider');
     test(offCaps.codeLensProvider === undefined,
       'codeLens.i18n: false + codeLens.hierarchy: false (its own default) omits codeLensProvider');
     test(!! offCaps.completionProvider, 'a flag left at its default keeps its capability (completion)');
@@ -501,7 +503,8 @@ var bootDone = h.withServerLane(async function() {
     var onRes = await waitFor(function(f) { return f.id === 2 && f.result; }, 'the second initialize response');
     var onCaps = onRes.result.capabilities;
     test(onCaps.hoverProvider === true && !! onCaps.semanticTokensProvider &&
-         !! onCaps.signatureHelpProvider && onCaps.foldingRangeProvider === true,
+         !! onCaps.signatureHelpProvider && onCaps.foldingRangeProvider === true &&
+         onCaps.colorProvider === true && !! onCaps.documentLinkProvider,
       'defaults keep every provider phase 1 omitted — the omission came from the flag');
     test(!! onCaps.codeLensProvider,
       'codeLens.i18n at its default (on) keeps codeLensProvider even with codeLens.hierarchy left off');

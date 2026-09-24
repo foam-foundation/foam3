@@ -237,7 +237,14 @@ module.exports.done = (async function() {
     { m: 'textDocument/rename'         },
     { m: 'textDocument/prepareTypeHierarchy' },
     { m: 'textDocument/typeDefinition' },
-    { m: 'textDocument/prepareCallHierarchy' }
+    { m: 'textDocument/prepareCallHierarchy' },
+    { m: 'textDocument/documentColor',        list: true },
+    { m: 'textDocument/colorPresentation',    list: true },
+    // documentLink's row IS anyDoc, but its handler answers [] for a plain
+    // doc (it links only in class files and journals), so the plain-doc
+    // answer here is the empty one. The .jrl request further down is what
+    // proves the row lets a non-class document through.
+    { m: 'textDocument/documentLink',         list: true }
   ];
 
   // The context carries a real diagnostic because codeAction is diagnostic-
@@ -299,6 +306,17 @@ module.exports.done = (async function() {
     { textDocument: { uri: PLAIN_URI }, position: { line: 0, character: 5 } });
   test(Array.isArray(hl.result) && hl.result.length > 1,
     'documentHighlight runs on a NON-class doc and finds both uses of alpha');
+
+  // documentLink's anyDoc proof: a journal is not a class doc, so a row that
+  // lost anyDoc answers [] here instead of the link on the "class" value.
+  var LINK_JRL_URI = 'file://' + path.join(root, 'links.jrl');
+  send('textDocument/didOpen', { textDocument: {
+    uri: LINK_JRL_URI, languageId: 'javascript', version: 1,
+    text: 'p({"class":"foam.dao.MDAO"})\n' } });
+  var jl = await request('textDocument/documentLink', { textDocument: { uri: LINK_JRL_URI } });
+  test(Array.isArray(jl.result) && jl.result.length === 1 &&
+       /MDAO\.js#L\d+$/.test(jl.result[0].target),
+    'documentLink runs on a .jrl doc and links its "class" value to the class file');
 
   // pom-file-missing is a DISK check, so the save that clears it is the save
   // creating the named file — a file the pom's own axiom state knows nothing

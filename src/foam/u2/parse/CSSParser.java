@@ -46,8 +46,8 @@ import java.util.regex.Pattern;
  * the nesting counter live in the ParserContext each parse() creates, so one
  * instance can be shared.
  *
- * The JS class also carries the narrow autocomplete grammar used by
- * foam.u2.StyleConfigurator; that part has no Java counterpart.
+ * The autocomplete symbols of CSSParser.js (autocompleteSymbols_(), used by
+ * foam.u2.StyleConfigurator) are JS only and have no twin here.
  *
  * Locale and whitespace: JS case folding and \s / trim() do not depend on
  * the JVM locale, while Java's toUpperCase(), toLowerCase() and \s do (a

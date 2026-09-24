@@ -18,7 +18,9 @@ foam.CLASS({
     foam.u2.parse.test.CSSParserJavaTest runs the same cases, with the same
     messages, against the Java grammar (CSSParser.java). A case added or
     changed here gets its twin there in the same commit; see the sync note
-    in CSSParser.js.
+    in CSSParser.js. The autocomplete cases (testAutocompleteCompat,
+    testAutocompleteSuggestions, testPluggableTokenNames) are JS only, like
+    the autocomplete symbols they test.
   `,
 
   requires: [
@@ -57,6 +59,7 @@ foam.CLASS({
       this.testTokensHelper(x);
       this.testErrorsHelper(x);
       this.testAutocompleteCompat(x);
+      this.testAutocompleteSuggestions(x);
       this.testPluggableTokenNames(x);
       this.testMissingSemicolon(x);
       this.testImportantPosition(x);
@@ -1094,6 +1097,97 @@ foam.CLASS({
         'autocomplete: after a style, colour choices are offered');
       x.test(p.grammar_.getSymParser('borderValue').parseString('thin dashed transparent') !== undefined,
         'autocomplete: a full border value still parses');
+    },
+
+    function autocomplete(p, symbol, input) {
+      // Drives the parser exactly as foam.parse.auto.SmartView's
+      // onPreviewChange does: input plus the EOF character (26), parsed
+      // through getSymParser(symbol).parse with SmartView's apply callback.
+      // Returns the suggestions (in the order offered), the furthest
+      // position a suggestion was offered at (SmartView's maxPos, where a
+      // picked suggestion is inserted) and where the parse ended (null when
+      // it failed).
+      var maxPos = 0, sugs = {};
+      var apply = function(pp, grammar) {
+        if ( pp.suggest && this.pos >= maxPos ) {
+          var s = pp.suggest();
+          if ( s ) {
+            var label = s.tooltip || s.text;
+            if ( this.pos > maxPos ) { sugs = {}; maxPos = this.pos; }
+            if ( ! sugs[label] ) sugs[label] = s;
+          }
+        }
+        var r = pp.parse(this, grammar);
+        if ( r && r.pos > maxPos ) sugs = {};
+        return r;
+      };
+      var ps = this.StringPStream.create({ str: input + String.fromCharCode(26), apply: apply });
+      var r  = p.grammar_.getSymParser(symbol).parse(ps);
+      return { keys: Object.keys(sugs), sugs: sugs, maxPos: maxPos, pos: r ? r.pos : null };
+    },
+
+    function testAutocompleteSuggestions(x) {
+      // The autocomplete symbols are built from the full grammar's token,
+      // hash, number and ident. What a user sees while typing into
+      // StyleConfigurator's Background and Border fields, input by input.
+      var p     = this.CSSParser.create();
+      var names = p.tokenNames();
+      var view  = s => s.view && ( s.view.class || s.view );
+      var COLOUR = '$,,transparent';
+      var a;
+
+      a = this.autocomplete(p, 'colorPropertyValue', '');
+      x.test(a.keys.join() === COLOUR && a.maxPos === 0 && a.pos === null,
+        'autocomplete "": $ token, hex colour picker and transparent, at 0');
+      x.test(a.sugs['$'].label === 'CSS Token' && a.sugs[''].label === 'Hex Color' &&
+             view(a.sugs['']) === 'foam.parse.auto.ColorSuggester' && a.sugs.transparent.text === 'transparent',
+        'autocomplete "": labels and the colour suggester view');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '$');
+      x.test(a.maxPos === 1 && a.pos === null && a.keys.length === names.length &&
+             names.every(n => a.sugs[n] && view(a.sugs[n]) === 'foam.parse.auto.CSSTokenSuggester'),
+        'autocomplete "$": every token name, previewed, offered after the $');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '$pri');
+      x.test(a.maxPos === 1 && a.pos === null && a.keys.length === names.length,
+        'autocomplete "$pri": still every name at 1 (the view filters by "pri"); an unknown name does not parse');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '$' + names[0]);
+      x.test(a.keys.length === 0 && a.pos === names[0].length + 1,
+        'autocomplete "$<name>": a known token parses whole and clears the suggestions');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '#');
+      x.test(a.keys.join() === COLOUR && a.maxPos === 0 && a.pos === null,
+        'autocomplete "#": the colour suggester stays offered at 0');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '#ff');
+      x.test(a.keys.join() === COLOUR && a.maxPos === 0 && a.pos === null,
+        'autocomplete "#ff": the colour suggester stays offered while a hex is incomplete');
+
+      a = this.autocomplete(p, 'colorPropertyValue', '#fff');
+      x.test(a.keys.length === 0 && a.pos === 4,
+        'autocomplete "#fff": a hex colour parses and clears the suggestions');
+
+      a = this.autocomplete(p, 'borderValue', '');
+      x.test(a.keys.join() === 'Size value with optional unit,thin,medium,thick' && a.maxPos === 0 && a.pos === null,
+        'autocomplete border "": a size or thin/medium/thick, at 0');
+
+      a = this.autocomplete(p, 'borderValue', '1');
+      x.test(a.keys.join() === 'px,em,rem,%,vh,vw,vmin,in,pt,ch' && a.maxPos === 1 && a.pos === null,
+        'autocomplete border "1": units offered after the digits');
+
+      a = this.autocomplete(p, 'borderValue', '1px ');
+      x.test(a.keys.join() === 'none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset' &&
+             a.maxPos === 4 && a.pos === null,
+        'autocomplete border "1px ": border styles, at 4');
+
+      a = this.autocomplete(p, 'borderValue', '1px solid ');
+      x.test(a.keys.join() === COLOUR && a.maxPos === 10 && a.pos === null,
+        'autocomplete border "1px solid ": colour choices, at 10');
+
+      a = this.autocomplete(p, 'borderValue', '1.5px dashed #000000');
+      x.test(a.keys.length === 0 && a.pos === 20,
+        'autocomplete border: a decimal width and a six-digit hex parse (full-grammar number and hash)');
     },
 
     function testPluggableTokenNames(x) {

@@ -6,7 +6,6 @@
 
 package foam.core.partition;
 
-import foam.core.COREService;
 import foam.core.boot.CSpec;
 import foam.core.boot.CSpecStatus;
 import foam.core.logger.Loggers;
@@ -31,7 +30,6 @@ import java.util.HashMap;
  */
 public class NotPartitionedDAO
   extends AbstractPartitionedDAO
-  implements COREService
 {
   protected SoftReference<DAO> delegate_ = null;
   protected EasyDAO easy_;
@@ -69,15 +67,6 @@ public class NotPartitionedDAO
     }
 
     return dao;
-  }
-
-  /** COREService hook: CSpecFactory.initService calls start() once the
-      service script has returned, so every index it added is recorded by
-      now and goes into the replay's bulk load. lazy:false promises the data
-      is loaded at boot, and for such a CSpec start() runs on the boot thread;
-      a lazy one loads on its first access. */
-  public void start() {
-    if ( getCSpec() != null && ! getCSpec().getLazy() ) getDelegate();
   }
 
   public synchronized void unload() {
@@ -152,6 +141,10 @@ public class NotPartitionedDAO
       unload();
       return true;
     }
+
+    // Sent once the service script has returned, so every index it added is
+    // recorded and goes into the replay's bulk load.
+    if ( DAO.LOAD_CMD.equals(cmd) ) return getDelegate().cmd_(x, cmd);
 
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);

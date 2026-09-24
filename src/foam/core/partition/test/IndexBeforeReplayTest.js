@@ -15,7 +15,7 @@ foam.CLASS({
     the rows already loaded.
 
     Covers a reload, a lazy:false CSpec whose service script adds the index
-    after build(), and the dedup path, which replays one put at a time and so
+    after build(), a lazy CSpec, and the dedup path, which replays one put at a time and so
     still adds its indexes after.`,
 
   javaImports: [
@@ -101,6 +101,22 @@ foam.CLASS({
           "a lazy:false DAO is loaded when its service is created, bulkLoads=" + bootProbe.bulkLoads + " rows=" + bootProbe.rows );
         test( ! bootProbe.afterReplay,
           "an index the service script adds after build() is built in the replay's bulk load" );
+
+        // A lazy CSpec still loads on its first access, not when it is created.
+        seed(dir, "lazy");
+        bootProbe = newProbe();
+        CSpec lazySpec = new CSpec();
+        lazySpec.setX(tx);
+        lazySpec.setName("indexBeforeReplayLazyDAO");
+        lazySpec.setCSpecDAO(cSpecDAO);
+        lazySpec.setServiceScript(spec.getServiceScript().replace("\\"boot\\"", "\\"lazy\\""));
+        cSpecDAO.put(lazySpec);
+
+        DAO lazy = (DAO) new CSpecFactory(new ProxyX(tx), lazySpec).create(tx);
+        test( bootProbe.bulkLoads == 0, "a lazy DAO is not loaded when its service is created, bulkLoads=" + bootProbe.bulkLoads );
+        lazy.find(1L);
+        test( bootProbe.bulkLoads == 1 && bootProbe.rows == 3 && ! bootProbe.afterReplay,
+          "its first access loads it, with the index in the replay's bulk load, bulkLoads=" + bootProbe.bulkLoads + " rows=" + bootProbe.rows );
 
         // Dedup replays one put at a time, so its indexes still go on after.
         seed(dir, "dedup");

@@ -10,6 +10,7 @@ foam.POM({
     { name: 'MarkdownChunkerService', flags: 'js|java' }
   ],
   javaFiles: [
+    { name: 'MarkdownChunkParser'         },
     { name: 'MarkdownChunkerServiceImpl' }
   ],
   projects: [

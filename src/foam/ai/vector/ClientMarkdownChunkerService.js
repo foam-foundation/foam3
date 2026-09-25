@@ -9,6 +9,8 @@ foam.CLASS({
   name: 'ClientMarkdownChunkerService',
   implements: ['foam.ai.vector.ChunkerService'],
 
+  requires: ['foam.ai.vector.MarkdownChunkParser'],
+
   properties: [
     {
       class: 'Int',
@@ -19,59 +21,33 @@ foam.CLASS({
 
   methods: [
     async function chunk(x, source) {
-      const chunks = [];
-      const lines  = source.split('\n');
-      const crumbs = [];
-      let   buf    = '';
+      var sections = this.MarkdownChunkParser.create().parseString(source);
+      var chunks   = [];
 
-      const stripMarkdown = s => s
-        .replace(/^#+ ?/gm,                '')
-        .replace(/^> ?/gm,                 '')
-        .replace(/\*\*|__/g,               '')
-        .replace(/`/g,                     '')
-        .replace(/!\[[^\]]*\]\([^)]*\)/g,  '')
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
+      for ( var i = 0; i < sections.length; i++ ) {
+        var body = sections[i].body;
+        if ( ! body ) continue;
 
-      const buildCrumb = depth =>
-        crumbs.slice(0, depth).filter(Boolean).join(' > ');
-
-      const addChunk = (raw, depth) => {
-        const clean = stripMarkdown(raw).trim();
-        if ( ! clean ) return;
-        const crumb = buildCrumb(depth);
-        chunks.push(crumb ? crumb + '\n\n' + clean : clean);
-      };
-
-      const flush = depth => {
-        if ( buf.trim() ) addChunk(buf, depth);
-      };
-
-      let depth = 0;
-      for ( const line of lines ) {
-        const m = line.match(/^(#{1,6}) /);
-        if ( m ) {
-          flush(depth);
-          buf = '';
-          depth = m[1].length;
-          crumbs[depth - 1] = line.slice(depth + 1).trim();
-          crumbs.length = depth;
-          continue;
-        }
-
-        buf += line + '\n';
-
-        if ( buf.length > this.maxChunkChars ) {
-          const split = buf.lastIndexOf('\n\n', this.maxChunkChars);
-          if ( split > 0 ) {
-            addChunk(buf.slice(0, split), depth);
-            buf = buf.slice(split);
-          } else {
-            flush(depth);
-            buf = '';
+        if ( body.length <= this.maxChunkChars ) {
+          chunks.push(body);
+        } else {
+          // section exceeds limit — split on paragraph breaks
+          var paras = body.split('\n\n');
+          var buf   = '';
+          for ( var j = 0; j < paras.length; j++ ) {
+            var para = paras[j].trim();
+            if ( ! para ) continue;
+            if ( buf && buf.length + para.length + 2 > this.maxChunkChars ) {
+              chunks.push(buf);
+              buf = para;
+            } else {
+              buf = buf ? buf + '\n\n' + para : para;
+            }
           }
+          if ( buf ) chunks.push(buf);
         }
       }
-      flush(depth);
+
       return chunks;
     }
   ]

@@ -49,7 +49,7 @@ foam.CLASS({
         return foam.ai.vector.VectorEmbedding.create({
           text:           text,
           embeddingModel: this.model,
-          vector:         out.data
+          vector:         Array.from(out.data)
         });
       }));
     }

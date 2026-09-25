@@ -31,8 +31,7 @@ foam.CLASS({
     },
     {
       class: 'foam.lang.FloatArray',
-      name: 'vector',
-      networkTransient: true  // large; server-only, never sent to client
+      name: 'vector'
     }
   ],
 

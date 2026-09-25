@@ -58,6 +58,23 @@ foam.CLASS({
       `
     },
     {
+      name: 'toString',
+      code: function() {
+        var v = this.queryVector;
+        return 'CosineComparator(' + (v ? v.join(',') : '') + ')';
+      },
+      javaCode: `
+        float[] v = getQueryVector();
+        if ( v == null || v.length == 0 ) return "CosineComparator()";
+        java.lang.StringBuilder sb = new java.lang.StringBuilder("CosineComparator(");
+        for ( int i = 0; i < v.length; i++ ) {
+          if ( i > 0 ) sb.append(',');
+          sb.append(v[i]);
+        }
+        return sb.append(')').toString();
+      `
+    },
+    {
       name: 'createStatement',
       type: 'String',
       code:     function()  { return ''; },

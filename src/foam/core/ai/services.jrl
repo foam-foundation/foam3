@@ -33,3 +33,37 @@ p({
 // In deployment.cfg or environment:
 //   foam.core.ai.ClaudeLLMService.apiKey = sk-ant-api03-xxxxx
 //   foam.core.ai.OpenAILLMService.apiKey = sk-xxxxx
+
+// ── Embedding service — default provider: Ollama ──
+// To swap provider, replace OllamaEmbeddingServiceImpl with another EmbeddingService impl.
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"embeddingService",
+  "lazy":true,
+  "serve":true,
+  "authenticate":false,
+  "boxClass":"foam.ai.vector.EmbeddingServiceSkeleton",
+  "serviceScript":"return new foam.core.ai.vector.provider.OllamaEmbeddingServiceImpl(x);",
+  "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\"}"
+})
+
+// ── Vector store DAO — persisted embedding index ──
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"vectorStoreDAO",
+  "lazy":true,
+  "serve":true,
+  "authenticate":false,
+  "client":"{\"of\":\"foam.ai.vector.VectorEmbedding\"}",
+  "serviceScript":"""
+    foam.dao.DAO jdao = new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.ai.vector.VectorEmbedding.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .build();
+    return new foam.ai.vector.VectorStoreDAO.Builder(x)
+      .setDelegate(jdao)
+      .build();
+  """
+})

@@ -754,6 +754,7 @@ foam.POM({
     { name: "foam/u2/view/FileView",                                  flags: "web" },
     { name: "foam/u2/view/ImageBlobView",                             flags: "web" },
     { name: "foam/u2/view/StringArrayView",                           flags: "web" },
+    { name: "foam/u2/view/FloatArrayView",                            flags: "web" },
     // { name: "foam/u2/view/SimpleStringArrayView",                     flags: "web" }, // Not used, uncomment if needed
     { name: "foam/u2/view/ImageView",                                 flags: "web" },
     { name: "foam/u2/view/ExprView",                                  flags: "web" },

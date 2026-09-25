@@ -35,35 +35,35 @@ foam.CLASS({
 
   css: `
     ^ { font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; overflow: hidden; background: #fff; }
-    ^bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 8px; border-bottom: 1px solid #ccc; flex: none; }
+    ^bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 8px; border-bottom: 1px solid $foam.parse.rail.RailTheme.line; flex: none; }
     ^title { font-weight: bold; margin-right: 6px; }
     ^main { flex: 1; min-height: 0; display: flex; }
     ^left { flex: 1; min-width: 0; position: relative; }
     ^host { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
     ^ribbon canvas { display: block; }
     ^legendPanel { position: absolute; left: 8px; bottom: 8px; max-width: 62%; max-height: 70%; overflow: auto; background: rgba(255,255,255,0.96);
-                   border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #444; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+                   border: 1px solid $foam.parse.rail.RailTheme.line; border-radius: 6px; padding: 8px 10px; font-size: 12px; color: $foam.parse.rail.RailTheme.inkSecondary; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
     ^legendGroup { display: flex; flex-wrap: wrap; gap: 3px 12px; align-items: baseline; margin: 2px 0 6px; }
     ^right { flex: none; display: flex; flex-direction: column; min-height: 0; }
-    ^split { flex: none; width: 7px; cursor: col-resize; background: #eee; border-left: 1px solid #ccc; border-right: 1px solid #ccc; }
+    ^split { flex: none; width: 7px; cursor: col-resize; background: #eee; border-left: 1px solid $foam.parse.rail.RailTheme.line; border-right: 1px solid $foam.parse.rail.RailTheme.line; }
     ^split:hover { background: #d6e8f5; }
-    .foam-u2-TooltipView { background: rgba(34, 34, 34, 0.92); color: #fff; }   /* u2 turns title= into a tooltip whose colours come from theme tokens; the demo has no theme */
-    ^section { padding: 6px 8px; border-bottom: 1px solid #e4e4e4; flex: none; }
+    .foam-u2-TooltipView { background: rgba(34, 34, 34, 0.92); color: $foam.parse.rail.RailTheme.inkOnDark; }   /* u2 turns title= into a tooltip whose colours come from theme tokens; the demo has no theme */
+    ^section { padding: 6px 8px; border-bottom: 1px solid $foam.parse.rail.RailTheme.lineSoft; flex: none; }
     ^row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     ^row select, ^row input[type=text] { min-width: 0; flex: 1; }
-    ^gram textarea { width: 100%; box-sizing: border-box; font: 12px monospace; height: 140px; margin: 6px 0 4px; }
-    ^input { width: 100%; box-sizing: border-box; font: 13px monospace; height: 30px; resize: vertical; }
+    ^gram textarea { width: 100%; box-sizing: border-box; font-size: 12px; font-family: monospace; height: 140px; margin: 6px 0 4px; }
+    ^input { width: 100%; box-sizing: border-box; font-size: 13px; font-family: monospace; height: 30px; resize: vertical; }
     ^transport { display: flex; gap: 4px; margin: 6px 0 4px; }
     ^transport button { flex: 1; padding: 3px 0; white-space: nowrap; }
     ^slider { width: 100%; margin: 0; }
-    ^ribbon { flex: none; overflow: hidden; border-bottom: 1px solid #e4e4e4; }
-    ^doc { flex: 1 1 45%; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid #ccc; }
+    ^ribbon { flex: none; overflow: hidden; border-bottom: 1px solid $foam.parse.rail.RailTheme.lineSoft; }
+    ^doc { flex: 1 1 45%; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid $foam.parse.rail.RailTheme.line; }
     ^docToggle { font-size: 12px; margin-left: auto; white-space: nowrap; }
-    ^status { font: 12px monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; padding: 4px 8px; border-bottom: 1px solid #ccc; background: #fafafa; flex: none; }
+    ^status { font-size: 12px; font-family: monospace; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 2.6em; padding: 4px 8px; border-bottom: 1px solid $foam.parse.rail.RailTheme.line; background: #fafafa; flex: none; }
     ^panel { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; }
     ^swatch { font-weight: bold; }
-    ^toggle { cursor: pointer; color: #0072B2; font-size: 12px; user-select: none; }
-    ^hint { color: #666; font-size: 12px; }
+    ^toggle { cursor: pointer; color: $foam.parse.rail.RailTheme.matched; font-size: 12px; user-select: none; }
+    ^hint { color: $foam.parse.rail.RailTheme.inkMuted; font-size: 12px; }
   `,
 
   messages: [

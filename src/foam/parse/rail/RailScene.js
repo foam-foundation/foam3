@@ -49,7 +49,7 @@ foam.CLASS({
     ^world.animate { transition: transform 220ms ease-out; }
     ^strip { position: absolute; overflow: visible; }
     ^overlay { position: absolute; user-select: text; cursor: auto; }
-    ^divider { position: absolute; left: 0; border-top: 1px dashed #777; }
+    ^divider { position: absolute; left: 0; border-top: 1px dashed $foam.parse.rail.RailTheme.inkMuted; }
     ^tip { position: absolute; z-index: 2; pointer-events: none; white-space: pre; padding: 4px 7px; border-radius: 4px;
            box-shadow: 0 2px 8px rgba(0,0,0,0.2); max-width: 60%; }
     ^tip[hidden] { display: none; }

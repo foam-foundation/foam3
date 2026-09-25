@@ -53,6 +53,26 @@ foam.CLASS({
     RULE_LABEL_FLASH_ALPHA: 0.35
   },
 
+  cssTokens: [
+    // Colours for the HTML panels around the diagram (page, derivation, document view),
+    // referenced as $foam.parse.rail.RailTheme.<name> so every panel shares one palette.
+    // The outcome colours repeat the Okabe-Ito values in colors below, so a panel row
+    // and the box it points at always match.
+    { name: 'ink',            value: '#222' },     // body text
+    { name: 'inkSecondary',   value: '#444' },     // headings, legend text
+    { name: 'inkMuted',       value: '#6b6b6b' },  // hints, spans, counts
+    { name: 'inkUnreached',   value: '#888' },     // document text the parse never reached
+    { name: 'inkOnDark',      value: '#fff' },     // text on a coloured chip or the tooltip
+    { name: 'line',           value: '#ccc' },     // panel borders
+    { name: 'lineSoft',       value: '#e4e4e4' },  // section dividers
+    { name: 'matched',        value: '#0072B2' },  // Outcome MATCHED
+    { name: 'trying',         value: '#E69F00' },  // Outcome TRYING
+    { name: 'tryingText',     value: '#B87A00' },  // TRYING as text: darker, readable on white
+    { name: 'failed',         value: '#D55E00' },  // Outcome FAILED
+    { name: 'terminalBorder', value: '#d9c98d' },  // edge of a terminal chip (fill is colors.terminalBg)
+    { name: 'filterBorder',   value: '#f0d890' }   // edge of the derivation filter bar
+  ],
+
   properties: [
     {
       name: 'colors',

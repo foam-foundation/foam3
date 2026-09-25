@@ -23,25 +23,25 @@ foam.CLASS({
   requires: [ 'foam.parse.rail.RailTheme' ],
 
   css: `
-    ^ { display: flex; flex-direction: column; min-height: 0; font: 13px sans-serif; color: #222; }
-    ^legend { flex: none; display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: baseline; padding: 4px 8px; font-size: 12px; color: #444; border-bottom: 1px solid #eee; }
+    ^ { display: flex; flex-direction: column; min-height: 0; font-size: 13px; font-family: sans-serif; color: $foam.parse.rail.RailTheme.ink; }
+    ^legend { flex: none; display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: baseline; padding: 4px 8px; font-size: 12px; color: $foam.parse.rail.RailTheme.inkSecondary; border-bottom: 1px solid $foam.parse.rail.RailTheme.lineSoft; }
     ^legend b { font-weight: normal; padding: 0 3px; }
     ^body { flex: 1; min-height: 0; overflow: auto; padding: 4px 8px 8px; }
-    ^line { position: relative; font: 13px/1.5 monospace; white-space: pre; color: #222; min-height: 1.5em; }
+    ^line { position: relative; font-size: 13px; line-height: 1.5; font-family: monospace; white-space: pre; color: $foam.parse.rail.RailTheme.ink; min-height: 1.5em; }
     ^consumed { background: #d6e8f5; }
     ^open { background: #fff1cc; }
-    ^probe { outline: 2px solid #E69F00; outline-offset: -1px; }
-    ^died { background: #f8d9c4; outline: 2px solid #D55E00; outline-offset: -1px; }
-    ^unreached { color: #888; }
-    ^rule { border-bottom: 2px solid #0072B2; }   /* colour overridden per depth */
-    ^pending { border-bottom-style: dashed; border-bottom-color: #E69F00 !important; }
+    ^probe { outline: 2px solid $foam.parse.rail.RailTheme.trying; outline-offset: -1px; }
+    ^died { background: #f8d9c4; outline: 2px solid $foam.parse.rail.RailTheme.failed; outline-offset: -1px; }
+    ^unreached { color: $foam.parse.rail.RailTheme.inkUnreached; }
+    ^rule { border-bottom: 2px solid $foam.parse.rail.RailTheme.matched; }   /* colour overridden per depth */
+    ^pending { border-bottom-style: dashed; border-bottom-color: $foam.parse.rail.RailTheme.trying !important; }
     ^hot { background: #cfe0f5; }
     ^at { position: absolute; }
-    ^chip { display: inline-block; font: 11px/1.2 sans-serif; color: #fff; background: #0072B2; border-radius: 3px; padding: 1px 5px; cursor: pointer; white-space: nowrap; border: 2px solid transparent; }
-    ^chip:hover { outline: 2px solid #222; }
-    ^chipPending { border: 2px dashed #E69F00; }
-    ^depths b { color: #fff; padding: 0 5px; border-radius: 3px; margin-right: 2px; }
-    ^empty { color: #666; padding: 4px 8px; }
+    ^chip { display: inline-block; font-size: 11px; line-height: 1.2; font-family: sans-serif; color: $foam.parse.rail.RailTheme.inkOnDark; background: $foam.parse.rail.RailTheme.matched; border-radius: 3px; padding: 1px 5px; cursor: pointer; white-space: nowrap; border: 2px solid transparent; }
+    ^chip:hover { outline: 2px solid $foam.parse.rail.RailTheme.ink; }
+    ^chipPending { border: 2px dashed $foam.parse.rail.RailTheme.trying; }
+    ^depths b { color: $foam.parse.rail.RailTheme.inkOnDark; padding: 0 5px; border-radius: 3px; margin-right: 2px; }
+    ^empty { color: $foam.parse.rail.RailTheme.inkMuted; padding: 4px 8px; }
   `,
 
   messages: [

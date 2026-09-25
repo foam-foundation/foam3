@@ -99,6 +99,26 @@ documents in named volumes:
 to the build (`docker` is always included), and `JAVA_OPTS` sizes the heap.
 
 
+### Deploy to Google Cloud Run with one click
+
+The project also includes an `app.json` for the
+[Cloud Run Button](https://github.com/GoogleCloudPlatform/cloud-run-button).
+It builds the `Dockerfile` and runs it on one instance (`max-instances`), so
+logins work as on a server. It needs a Google Cloud project with billing
+enabled.
+
+[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run?git_repo=https://github.com/foam-foundation/foam3-template)
+
+Cost, 1 vCPU and 2 GiB in us-central1, from the Cloud Run pricing page:
+
+| Traffic | Month |
+| --- | --- |
+| A demo visited now and then; the instance scales to zero after idle | free tier (180,000 vCPU-s, 360,000 GiB-s) |
+| Requests every second all month | about $71 |
+| Kept warm with `min-instances 1` and CPU always allocated | about $53 |
+
+The first visit after idle waits for the JVM to boot.
+
 <!--
 ## Running Application Controller
 

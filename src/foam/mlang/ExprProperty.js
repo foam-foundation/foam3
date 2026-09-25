@@ -21,6 +21,11 @@ foam.CLASS({
       name: 'of',
       value: 'foam.mlang.Expr'
     },
+    {
+      name: 'javaInfoType',
+      value: 'foam.lang.PolymorphicFObjectPropertyInfo',
+      flags: ['java']
+    },
     ['javaJSONParser', 'foam.lib.json.ExprParser.instance()'],
     {
       name: 'view',

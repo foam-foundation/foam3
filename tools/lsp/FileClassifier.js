@@ -157,7 +157,13 @@ foam.CLASS({
     function significantCalls(text) {
       /**
        * Every foam.NAME( call in `text` that sits outside comments and string
-       * literals, in source order: { name, offset, line }.
+       * literals, in source order: { name, offset, line, nested }.
+       *
+       * `nested` is true for a call inside another foam call's parentheses —
+       * a class a method builds at runtime (src/foam/core/Boot.js:263,
+       * src/foam/core/reflow/Mapping.js:249). Such a call is part of the model
+       * around it, not the next model, so anything asking where a model ENDS
+       * skips it.
        *
        * This is the same walk classify() runs, just not stopped at the first
        * hit. Anything that needs to know where a file's models START or END
@@ -203,9 +209,17 @@ foam.CLASS({
       var len      = text.length;
       var pos      = 0;
       var calls    = [];
+      // Open brackets, each marked with whether it is a foam call's own '(';
+      // foamOpen counts the marked ones still open.
+      var open     = [];
+      var foamOpen = 0;
 
       while ( pos < len ) {
         var c = text.charCodeAt(pos);
+        if ( c === 47 /* / */ && this.regexCanStart_(text, pos) ) {
+          var rEnd = this.regexEnd_(text, pos);
+          if ( rEnd !== -1 ) { pos = rEnd; continue; }
+        }
         if ( c === 47 /* / */ || c === 39 /* ' */ || c === 34 /* " */ || c === 96 /* ` */ ) {
           var advanced = false;
           for ( var i = 0 ; i < skips.length ; i++ ) {
@@ -218,15 +232,63 @@ foam.CLASS({
         if ( c === 102 /* f */ && text.startsWith('foam.', pos) ) {
           var res = callName.parse(this.streamAt_(text, pos));
           if ( res && res.value ) {
-            calls.push({ name: res.value, offset: pos, line: 0 });
+            calls.push({ name: res.value, offset: pos, line: 0, nested: foamOpen > 0 });
             if ( stopAtFirst ) return calls;
+            // callName consumed the call's '(' itself.
+            open.push(true);
+            foamOpen++;
             pos = res.pos;
             continue;
           }
         }
+        if ( c === 40 /* ( */ || c === 91 /* [ */ || c === 123 /* { */ ) {
+          open.push(false);
+        } else if ( c === 41 /* ) */ || c === 93 /* ] */ || c === 125 /* } */ ) {
+          if ( open.length && open.pop() ) foamOpen--;
+        }
         pos++;
       }
       return calls;
+    },
+
+    function regexCanStart_(text, pos) {
+      /**
+       * Whether a '/' at `pos` opens a regex literal rather than dividing:
+       * true after an operator or opening bracket, or the keyword `return`
+       * (the usual previous-token rule). Needed for bracket counting: the
+       * `(\(([^)]*)\)` in src/foam/lang/stdlib.js:255 is unbalanced once
+       * its escapes are ignored, and read as code it left every later call
+       * in that file "nested" inside the one before.
+       */
+      var i = pos - 1;
+      while ( i >= 0 && ' \t\r\n'.indexOf(text.charAt(i)) !== -1 ) i--;
+      if ( i < 0 ) return true;
+      var p = text.charAt(i);
+      if ( '(,=:[!&|?{};+-*%<>~^'.indexOf(p) !== -1 ) return true;
+      return i >= 5 && text.substring(i - 5, i + 1) === 'return' &&
+        ( i < 6 || this.UPPER_REST.indexOf(text.charAt(i - 6).toUpperCase()) === -1 );
+    },
+
+    function regexEnd_(text, pos) {
+      /** Offset just past the regex literal opening at `pos` (flags
+       *  included), or -1 when the line ends first — then it was no regex.
+       *  A '/' inside a [...] class does not close it. */
+      var next = text.charAt(pos + 1);
+      if ( next === '/' || next === '*' ) return -1; // a comment
+      var inClass = false;
+      for ( var i = pos + 1 ; i < text.length ; i++ ) {
+        var ch = text.charAt(i);
+        if ( ch === '\n' || ch === '\r' ) return -1;
+        if ( ch === '\\' ) { i++; continue; }
+        if ( ch === '[' ) inClass = true;
+        else if ( ch === ']' ) inClass = false;
+        else if ( ch === '/' && ! inClass ) {
+          i++;
+          while ( i < text.length && 'dgimsuvy'.indexOf(text.charAt(i)) !== -1 ) i++;
+          return i;
+        }
+      }
+      return -1;
     },
 
     function streamAt_(text, pos) {

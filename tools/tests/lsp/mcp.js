@@ -66,6 +66,10 @@ var docOut = mcp.shapeDocumentSymbols(docSyms, ROOT);
 test(docOut.indexOf('com.x.Foo [class] @17') === 0, 'shapeDocumentSymbols: class line');
 test(docOut.indexOf('  bar [property] @20') !== -1, 'shapeDocumentSymbols: indented child property');
 test(docOut.indexOf('  baz [method] @30') !== -1, 'shapeDocumentSymbols: indented child method');
+// A property's range starts at its `{` line; the name sits on selectionRange.
+var spanOut = mcp.shapeDocumentSymbols([ { name: 'qux', kind: 7,
+  range: { start: { line: 40 } }, selectionRange: { start: { line: 41 } } } ], ROOT);
+test(spanOut === 'qux [property] @41', 'shapeDocumentSymbols: prints the name line (selectionRange), not the range start');
 
 var wsHits = [
   { name: 'data', kind: 7, containerName: 'foam.u2.DetailView',

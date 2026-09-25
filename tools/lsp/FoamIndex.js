@@ -53,6 +53,10 @@ foam.CLASS({
     {
       name: 'refinementIndex_',
       documentation: 'Refined class ID → array of { path, line, endLine } — every file that refines that class, with the refining model\'s own line range. Built alongside fileIndex_. A refined class keeps its own file as its definition site, so without this a member DECLARED in a refinement resolves back to the refined class\'s declaration line instead of to the line that declares it.'
+    },
+    {
+      name: 'refinedBy_',
+      documentation: 'File path → the class ids its refinements target: the reverse of refinementIndex_, so re-indexing one file drops exactly its own rows.'
     }
   ],
 
@@ -780,6 +784,7 @@ foam.CLASS({
       this.fileIndex_ = {};
       this.libIndex_ = {};
       this.refinementIndex_ = {};
+      this.refinedBy_ = {};
       this.pomProjectFlags_ = {};
       this.pathIndex_ = {};
       var path_ = require('path');
@@ -874,6 +879,14 @@ foam.CLASS({
         // The first row THIS pass writes owns the path. Without the drop the
         // boot row answers findOwnerEntry_ forever, so a pom save that
         // changes an entry's flags is undone by the next save of the file.
+        //
+        // The same goes for the file's refinement rows: they were pushed, never
+        // replaced, so each save of a refining file added its rows again and
+        // `getRefinements` counted one refinement three times after two saves.
+        // Unconditional, not gated on pathIndex_: a file whose only models are
+        // nameless refinements never gets a pathIndex_ row, and gating on it
+        // let that file's count go 1 -> 2 -> 4.
+        this.dropRefinementsFrom_(filePath);
         if ( this.pathIndex_ ) delete this.pathIndex_[filePath];
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
@@ -900,6 +913,8 @@ foam.CLASS({
               ? next.sourceLine_ : Infinity;
             var refs = this.refinementIndex_[m.refines];
             if ( ! refs ) refs = this.refinementIndex_[m.refines] = [];
+            if ( ! this.refinedBy_ ) this.refinedBy_ = {};
+            ( this.refinedBy_[filePath] || ( this.refinedBy_[filePath] = [] ) ).push(m.refines);
             refs.push({ path: filePath, line: m.sourceLine_ || 0, endLine: endLine });
 
             // The refined class keeps its own file as its definition site;
@@ -1229,6 +1244,36 @@ foam.CLASS({
       var rec = bucket && bucket[memberName];
       if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
       return rec || null;
+    },
+
+    function dropRefinementsFrom_(filePath) {
+      /** Remove every refinementIndex_ row that `filePath` contributed, ahead
+       *  of that file being indexed again. refinedBy_ (path -> refined ids)
+       *  names the rows to touch, so the call costs nothing for the ~4000
+       *  files at boot that refine nothing. */
+      var targets = this.refinedBy_ && this.refinedBy_[filePath];
+      if ( ! targets ) return;
+      delete this.refinedBy_[filePath];
+      var idx = this.refinementIndex_ || {};
+      for ( var i = 0 ; i < targets.length ; i++ ) {
+        var rows = idx[targets[i]];
+        if ( ! rows ) continue;
+        rows = rows.filter(function(r) { return r.path !== filePath; });
+        if ( rows.length ) idx[targets[i]] = rows; else delete idx[targets[i]];
+      }
+    },
+
+    function getRefinements(classId) {
+      /**
+       * Every refinement of `classId` the file index knows of, as
+       * [ { path, line, endLine } ] — one row per refining model, so a file
+       * that refines the class twice gives two. A copy; callers may filter it.
+       * Built by the POM walk (refinementIndex_), so a refinement in a file no
+       * POM names is not here.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var refs = this.refinementIndex_ && this.refinementIndex_[classId];
+      return refs ? refs.slice() : [];
     },
 
     function refinementMemberPosition_(classId, memberName, kind) {

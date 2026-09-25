@@ -1029,3 +1029,30 @@ test(defHit && defHit.uri && defHit.uri.indexOf('FObject.js') !== -1,
   'gate probe: Definition resolves the extends target through the shared classifier');
 test(gateDefOff.handle(EXT_MODEL, EXT_AT, 'file:///GateProbe.js') === null,
   'DefinitionHandler asks the classifier, not a regex of its own');
+
+
+// === Model extents survive what used to end the parse ===
+//
+// Each shape below used to stop the grammar partway through a class body, and
+// every position after it — outline extents, go-to-definition targets — was
+// silently dropped. The probe is the member declared AFTER the shape: it must
+// still get an extent.
+
+section('Model extents survive the parse-stopping shapes');
+function extentHas(text, member) {
+  var ex = grammar.collectModelExtents(text);
+  return ex.length === 1 && ex[0].methods.concat(ex[0].properties)
+    .some(function(m) { return m.name === member; });
+}
+test(extentHas("foam.CLASS({\n  name: 'P',\n  methods: [\n" +
+  "    function a(o) { return Object.prototype.hasOwnProperty.call(o, 'x') && o.toString(); },\n" +
+  "    function after() {}\n  ]\n});", 'after'),
+  'a toString/hasOwnProperty name in code no longer throws away the rest of the harvest');
+test(extentHas("foam.CLASS({\n  name: 'R',\n  constants: [ { name: 'RE', value: /^[\\w/-]*$/i } ],\n" +
+  "  properties: [ 'after' ]\n});", 'after'),
+  'a regex-literal value, / inside a [class] included, is read whole');
+test(extentHas("foam.CLASS({\n  name: 'Q',\n  requires: [ 'foam.lang.FObject as Base', { path: 'foam.dao.DAO', flags: ['js'] } ],\n" +
+  "  properties: [ 'after' ]\n});", 'after'),
+  'aliased and object-form requires both parse');
+test(extentHas("foam.CLASS({\n  name: 'S',\n  properties: [ ['nodeName', 'DIV'], 'after' ]\n});", 'after'),
+  'the [ name, value ] property pair parses as a property');

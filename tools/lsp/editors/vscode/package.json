@@ -84,6 +84,11 @@
           "default": false,
           "description": "CodeLens annotations for class hierarchy (subclass/implementor counts). Takes effect after a server restart."
         },
+        "foam.features.inlayHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inline notes in model files: refinement counts after a class name, the inherited type and overridden superclass after a property name. Takes effect after a server restart."
+        },
         "foam.i18n.languages": {
           "type": "array",
           "items": { "type": "string" },

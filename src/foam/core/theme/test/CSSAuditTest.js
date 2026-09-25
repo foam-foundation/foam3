@@ -36,9 +36,10 @@ foam.CLASS({
 
   An application can also declare a token outside JS entirely, as a
   foam.core.theme.customisation.CSSTokenOverride row in a .jrl journal, which
-  CSSTokenOverrideService.getTokenValue resolves by bare name before the axiom
-  lookup - so the audit reads every .jrl under project.home too and counts the
-  source: of each such row as declared; see collectJournalTokens below.
+  CSSTokenOverrideService.getTokenValue resolves before the axiom lookup, by
+  bare name or as "<class id>.<name>" - so the audit reads every .jrl under
+  project.home too and counts the source: of each such row as declared, a
+  class-qualified one for that class only; see collectJournalTokens below.
 
   The CSS itself is read by foam.u2.parse.CSSParser, the server-side CSS
   grammar (src/foam/u2/parse/CSSParser.java), into rules, at-rules and
@@ -966,6 +967,17 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     }
   }
 
+  // Whether the journal rows declare $token for a css: written in classId.
+  // A bare-name row applies to every class, since getTokenValue reaches the
+  // rows by bare name whatever class the $token was written in; a row whose
+  // source: is class-qualified ("my.Cls.tok") is reached as
+  // cls.id + '.' + name (CSSTokenOverrideService.getTokenValue), so it
+  // declares the token for that class only.
+  protected static boolean journalDeclares(Set<String> journalTokens, String token, String classId) {
+    return journalTokens.contains(token) ||
+      ( classId != null && journalTokens.contains(classId + "." + token) );
+  }
+
   // Problem: collectJournalTokens once matched only a quoted "class": key, so
   // a journal written with bare keys (class:"...") contributed zero tokens
   // and nothing failed - the tokens it declared were simply reported as
@@ -985,6 +997,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     test(found.equals(expected),
       "collectJournalTokens reads CSSTokenOverride rows with quoted and bare keys: expected " +
       expected + ", read " + found);
+
+    Set<String> rows = new HashSet(Arrays.asList("bareToken", "my.Cls.scopedToken"));
+    test(journalDeclares(rows, "bareToken", "other.Cls") && journalDeclares(rows, "bareToken", null),
+      "journalDeclares: a bare-name row declares the token for every class");
+    test(journalDeclares(rows, "scopedToken", "my.Cls") && ! journalDeclares(rows, "scopedToken", "other.Cls") &&
+         ! journalDeclares(rows, "scopedToken", null),
+      "journalDeclares: a class-qualified row declares the token for that class only");
   }
 
   // Whether a directory - given as its path relative to project.home, so it
@@ -1035,10 +1054,11 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     final Map<String, Map<String, Boolean>> tokensOf  = new HashMap();
     final List<Object[]>                    tokenUses = new ArrayList();
 
-    // Token names an application declares as CSSTokenOverride journal rows.
-    // Collected in the same walk as the .js files and resolved with them, at
-    // the end, because a journal anywhere under project.home declares the
-    // name for every class - see collectJournalTokens.
+    // The source: of every CSSTokenOverride journal row: a bare token name,
+    // or a class-qualified "my.Cls.name". Collected in the same walk as the
+    // .js files and resolved with them, at the end, because a journal
+    // anywhere under project.home declares the name - see
+    // collectJournalTokens and journalDeclares.
     final Set<String>                       journalTokens = new HashSet();
 
     // Failures are collected by kind and printed at the end, grouped, after a
@@ -1189,11 +1209,9 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         String token = (String) use[3];
         if ( tokenDeclared(token, (String) use[2], extendsOf, mixinsOf, tokensOf, globals) ) continue;
         // After the class chain and CSSTokens.js, because a journal row is
-        // the weakest kind of declaration the audit knows: it carries no
-        // class and no ColorToken-ness, only the name. It applies to every
-        // class, since getTokenValue reaches the rows by bare name whatever
-        // class the $token was written in.
-        if ( journalTokens.contains(token) ) continue;
+        // the weakest kind of declaration the audit knows: no ColorToken-ness,
+        // only a name, and for a bare name no class either.
+        if ( journalDeclares(journalTokens, token, (String) use[2]) ) continue;
         String near = didYouMean(token, globals.keySet());
         tokenFailures.add(use[0]+":"+use[1]+" - unknown CSS token '$"+token+"'"+
           ( use[2] == null ? "" : " in "+use[2] )+"."+

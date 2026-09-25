@@ -201,6 +201,10 @@ foam.CLASS({
     testCaseAndWhitespace();
     testStringLineBreak();
     testPlaceholderStatement();
+    testStraySemicolon();
+    testLineComment();
+    testUrlBraces();
+    testCustomImportant();
     testJvmLocale();
   }
 
@@ -1070,6 +1074,209 @@ foam.CLASS({
     t(() -> kinds(tr5.children).equals("rule placeholder rule") && "%X%.a".equals(tr5.children.get(0).selectors.get(0).raw) &&
             ".d".equals(tr5.children.get(2).selectors.get(0).raw),
       "placeholder statement: one glued to a selector stays in it, one followed by a space stands alone");
+  }
+
+  // ---- review round 4 -------------------------------------------------------
+  // Expected results match what Chromium keeps of the same CSS.
+
+  protected void testStraySemicolon() {
+    CSSParser p   = new CSSParser();
+    String    msg = "';' between rules: the browser drops the rule after it";
+    String  input = "a{color:red};b{color:blue}";
+    CSSNode tr    = p.parse(input);
+    List<CSSNode> e = CSSParser.errors(tr);
+    t(() -> kinds(tr.children).equals("rule error rule") && e.size() == 1 && ";".equals(e.get(0).raw) && msg.equals(e.get(0).message),
+      "stray ;: a ';' between top-level rules is an error node, got " + s(() -> kinds(tr.children)));
+    spansMatch(input, tr, "stray ; top level");
+
+    String  i2  = "@media all { a{color:red}; b{color:blue} }";
+    CSSNode tr2 = p.parse(i2);
+    t(() -> {
+      CSSNode m = tr2.children.get(0);
+      return kinds(m.children).equals("rule error rule") && msg.equals(m.children.get(1).message) &&
+             m.children.get(1).start == i2.indexOf(';') && CSSParser.errors(tr2).size() == 1;
+    }, "stray ;: a ';' between rules in @media is an error node, got " + s(() -> kinds(tr2.children.get(0).children)));
+    spansMatch(i2, tr2, "stray ; in @media");
+
+    String  i3  = "b{;color:blue;;}";
+    CSSNode tr3 = p.parse(i3);
+    t(() -> kinds(tr3.children.get(0).children).equals("declaration") && CSSParser.errors(tr3).isEmpty(),
+      "stray ;: a ';' inside a style rule's block is not an error");
+    spansMatch(i3, tr3, "stray ; in a rule");
+
+    String  i4  = "b{ &:hover{color:red}; color:blue }";
+    CSSNode tr4 = p.parse(i4);
+    t(() -> kinds(tr4.children.get(0).children).equals("rule declaration") && CSSParser.errors(tr4).isEmpty(),
+      "stray ;: a ';' after a nested rule in a style block is not an error");
+    spansMatch(i4, tr4, "stray ; after a nested rule");
+
+    String  i5  = "@font-face{font-family:x;;src:url(a.woff)} @page { margin:1in;; }";
+    CSSNode tr5 = p.parse(i5);
+    t(() -> kinds(tr5.children.get(0).children).equals("declaration declaration") && CSSParser.errors(tr5).isEmpty(),
+      "stray ;: a ';' in @font-face or @page (declaration blocks) is not an error");
+    spansMatch(i5, tr5, "stray ; in declaration at-rules");
+
+    String  i6  = "@layer x { a{}; b{} } @supports (color:red) { a{}; b{} } @keyframes k { from{top:0}; to{top:1px} } @media all { color:red;; b{color:blue} }";
+    CSSNode tr6 = p.parse(i6);
+    List<CSSNode> e6 = CSSParser.errors(tr6);
+    t(() -> {
+      for ( CSSNode n : e6 ) if ( ! ";".equals(n.raw) || ! msg.equals(n.message) ) return false;
+      List<String> k = new ArrayList<>();
+      for ( CSSNode a : tr6.children ) k.add(kinds(a.children));
+      return e6.size() == 4 && String.join("|", k).equals("rule error rule|rule error rule|rule error rule|declaration error rule");
+    }, "stray ;: a ';' between rules in top-level @layer, @supports, @keyframes and @media is an error, got " + e6.size());
+    spansMatch(i6, tr6, "stray ; in rule-list at-rules");
+
+    String  i7  = "x{ @media all { a{color:red}; b{color:blue} } } x{ @media all { color:red;; b{color:blue} } } x{ @media a { @supports b { c{}; d{} } } }";
+    CSSNode tr7 = p.parse(i7);
+    t(() -> {
+      List<String> k = new ArrayList<>();
+      for ( CSSNode r : tr7.children ) k.add(kinds(r.children.get(0).children));
+      return CSSParser.errors(tr7).isEmpty() && String.join("|", k).equals("rule rule|declaration rule|atrule");
+    }, "stray ;: a ';' in an at-rule nested in a style rule, at any depth, is not an error");
+    spansMatch(i7, tr7, "stray ; in nested at-rules");
+
+    String[] silent = { "a{};", "@media all { a{}; }", "color:red;;margin:0", ";color:red", "a{}; /* c */" };
+    t(() -> {
+      for ( String i : silent ) if ( ! CSSParser.errors(p.parse(i)).isEmpty() ) return false;
+      return true;
+    }, "stray ;: a ';' with no rule or at-rule after it is not an error");
+    String  i8  = "a{};/* c */b{}";
+    CSSNode tr8 = p.parse(i8);
+    t(() -> kinds(tr8.children).equals("rule error comment rule") && CSSParser.errors(tr8).size() == 1,
+      "stray ;: a comment between the ';' and the next rule does not hide it, got " + s(() -> kinds(tr8.children)));
+    spansMatch(i8, tr8, "stray ; before a comment");
+
+    String[] declBlocks = { "@page { @top-left { content:\\"x\\";; } }", "@font-feature-values F { @swash { a:1;; } }",
+      "@page { @top-left { a:1;; b{} } }", "@position-try --p { top:0;; b{} }" };
+    t(() -> {
+      for ( String i : declBlocks ) if ( ! CSSParser.errors(p.parse(i)).isEmpty() ) return false;
+      return true;
+    }, "stray ;: an at-rule inside @page counts as a declaration block, and so does @position-try");
+  }
+
+  protected void testLineComment() {
+    // A browser drops the whole statement a '//' starts: a line break does
+    // not end it; the next ';', a '{ }' block or the enclosing '}' does.
+    CSSParser p   = new CSSParser();
+    String    msg = "'//' is not a CSS comment: the browser drops the statement it starts; use /* */";
+    String  input = "// note\\n^ { color: red }";
+    CSSNode tr    = p.parse(input);
+    t(() -> kinds(tr.children).equals("error") && input.equals(tr.children.get(0).raw) && msg.equals(tr.children.get(0).message),
+      "// line: at top level the error runs through the next rule, nothing is kept, got " + s(() -> kinds(tr.children)));
+    spansMatch(input, tr, "// line top level");
+
+    String  i2  = "^ { // note\\n color: blue }";
+    CSSNode tr2 = p.parse(i2);
+    t(() -> {
+      CSSNode r = tr2.children.get(0);
+      return r.closed && kinds(r.children).equals("error") && "// note\\n color: blue".equals(r.children.get(0).raw) &&
+             msg.equals(r.children.get(0).message) && CSSParser.errors(tr2).size() == 1;
+    }, "// line: in a block the error runs over the line break up to the closing }, got " + s(() -> kinds(tr2.children.get(0).children)));
+    spansMatch(i2, tr2, "// line in a block");
+
+    String  i5  = "^ { // note;\\n color: blue }";
+    CSSNode tr5 = p.parse(i5);
+    t(() -> kinds(tr5.children.get(0).children).equals("error declaration") && "// note".equals(tr5.children.get(0).children.get(0).raw) &&
+            CSSParser.errors(tr5).size() == 1,
+      "// line: a ';' ends it and is skipped in a style block, got " + s(() -> kinds(tr5.children.get(0).children)));
+    spansMatch(i5, tr5, "// line ended by ;");
+
+    String  i6  = "^ { color:red; // x }\\nb { color: blue }";
+    CSSNode tr6 = p.parse(i6);
+    t(() -> {
+      CSSNode r = tr6.children.get(0);
+      return kinds(tr6.children).equals("rule rule") && r.closed && kinds(r.children).equals("declaration error") &&
+             "// x".equals(r.children.get(1).raw) && CSSParser.errors(tr6).size() == 1;
+    }, "// line: a '}' still closes the block, got " + s(() -> kinds(tr6.children)));
+    spansMatch(i6, tr6, "// line ended by }");
+
+    String  i7  = "// x; ^ { }";
+    CSSNode tr7 = p.parse(i7);
+    t(() -> kinds(tr7.children).equals("error error rule") && "// x".equals(tr7.children.get(0).raw) && msg.equals(tr7.children.get(0).message) &&
+            ";".equals(tr7.children.get(1).raw) && tr7.children.get(1).message.startsWith("';'"),
+      "// line: at top level the ';' after it is its own error, then the rule parses, got " + s(() -> kinds(tr7.children)));
+    spansMatch(i7, tr7, "// line then ; at top level");
+
+    String  i3  = "^ { b: c }\\n// a\\r\\n// end";
+    CSSNode tr3 = p.parse(i3);
+    t(() -> kinds(tr3.children).equals("rule error") && "// a\\r\\n// end".equals(tr3.children.get(1).raw),
+      "// line: a line break does not end it, end of input does, got " + s(() -> kinds(tr3.children)));
+    spansMatch(i3, tr3, "// line ends");
+
+    String  i8  = "a { // ^ .x\\n { color: red; }\\n margin: 0 }";
+    CSSNode tr8 = p.parse(i8);
+    t(() -> {
+      CSSNode r = tr8.children.get(0);
+      return kinds(tr8.children).equals("rule") && r.closed && kinds(r.children).equals("error declaration") &&
+             "// ^ .x\\n { color: red; }".equals(r.children.get(0).raw) && "margin".equals(r.children.get(1).property.name) &&
+             CSSParser.errors(tr8).size() == 1;
+    }, "// line: a commented-out rule is one error through its block, and the next declaration parses, got " + s(() -> kinds(tr8.children.get(0).children)));
+    spansMatch(i8, tr8, "// line with a block");
+
+    String  i9  = "a { // f(;) \\"b;}\\" /* ;} */ c\\n ; d: e }";
+    CSSNode tr9 = p.parse(i9);
+    t(() -> kinds(tr9.children.get(0).children).equals("error declaration") &&
+            "// f(;) \\"b;}\\" /* ;} */ c".equals(tr9.children.get(0).children.get(0).raw) && CSSParser.errors(tr9).size() == 1,
+      "// line: a ';' or '}' inside ( ), a string or a comment does not end it, got " + s(() -> kinds(tr9.children.get(0).children)));
+    spansMatch(i9, tr9, "// line skips units");
+
+    CSSNode tr4 = p.parse("a { content: \\"x // y\\"; background: url(//cdn.x/a.png) } /* // z */");
+    t(() -> CSSParser.errors(tr4).isEmpty(), "// line: a '//' inside a string, an unquoted url or a comment is not an error");
+  }
+
+  protected void testUrlBraces() {
+    CSSParser p = new CSSParser();
+    String  svg   = "data:image/svg+xml;utf8,<svg><style>a{fill:red}</style></svg>";
+    String  input = "url(" + svg + ") no-repeat";
+    CSSNode v     = p.parseValue(input);
+    t(() -> {
+      CSSNode u = v.components.get(0);
+      return "url".equals(u.kind) && ! u.quoted && svg.equals(u.value) && kinds(v.components).equals("url ident");
+    }, "url braces: an unquoted SVG data URL with braces is one url node");
+    spansMatch(input, v, "url braces value");
+
+    String  i2  = "b{background:url(q{w}e)}";
+    CSSNode tr2 = p.parse(i2);
+    List<CSSParser.Declaration> d = CSSParser.declarations(tr2);
+    t(() -> d.size() == 1 && "url(q{w}e)".equals(d.get(0).value) && "q{w}e".equals(d.get(0).node.valueNode().components.get(0).value) &&
+            CSSParser.errors(tr2).isEmpty(),
+      "url braces: url(q{w}e) in a rule keeps its braces, no errors");
+    spansMatch(i2, tr2, "url braces rule");
+  }
+
+  protected void testCustomImportant() {
+    CSSParser p = new CSSParser();
+    String  input = "^ { --gap: 4px !important; --a: 1 ! /* c */ IMPORTANT }";
+    CSSNode tr    = p.parse(input);
+    List<CSSNode> d = tr.children.get(0).children;
+    t(() -> d.size() == 2 && d.get(0).important && d.get(0).valueNode().important && "4px".equals(d.get(0).valueNode().raw) &&
+            d.get(0).valueNode().end == input.indexOf(" !important"),
+      "custom !important: important is set and the value span ends before the !");
+    t(() -> d.get(1).important && "1".equals(d.get(1).valueNode().raw), "custom !important: any case, a comment between ! and important");
+    t(() -> {
+      List<String> k = new ArrayList<>();
+      for ( CSSParser.Declaration e : CSSParser.declarations(tr) ) k.add(e.value + ( e.important ? "!" : "" ));
+      return String.join(",", k).equals("4px!,1!");
+    }, "custom !important: declarations() lists the value without it and important true");
+    t(() -> CSSParser.errors(tr).isEmpty(), "custom !important: no errors");
+    spansMatch(input, tr, "custom !important");
+
+    String  i2  = "--x: a !important b";
+    CSSNode tr2 = p.parse(i2);
+    t(() -> {
+      CSSNode c = tr2.children.get(0);
+      return ! c.important && "a !important b".equals(c.valueNode().raw) && CSSParser.errors(tr2).isEmpty();
+    }, "custom !important: one followed by more text stays in the raw value, important false");
+    spansMatch(i2, tr2, "custom !important not last");
+
+    String  i3  = "b{--x: a !important /* c */}";
+    CSSNode tr3 = p.parse(i3);
+    t(() -> {
+      CSSNode c = tr3.children.get(0).children.get(0);
+      return c.important && "a".equals(c.valueNode().raw) && CSSParser.errors(tr3).isEmpty();
+    }, "custom !important: comments after it still leave it last");
+    spansMatch(i3, tr3, "custom !important then a comment");
   }
 
   // Java only: the JS side has no JVM locale. Under a Turkish default locale

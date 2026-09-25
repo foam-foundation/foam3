@@ -81,6 +81,10 @@ public class CSSParser {
     "\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A" +
     "\u2028\u2029\u202F\u205F\u3000\uFEFF";
   protected static final Pattern PLACEHOLDER  = Pattern.compile("^[" + JS_WS + "]*%([A-Za-z0-9_]+)%[" + JS_WS + "]*$");
+  // At-rules whose block holds declarations, not rules, so a stray ';' in
+  // it is harmless (see fillSemicolons). Lower case.
+  protected static final List<String> DECLARATION_AT_RULES = Arrays.asList("font-face", "page", "counter-style", "property",
+    "font-palette-values", "color-profile", "view-transition", "position-try");
   protected static final Pattern ESCAPE       = Pattern.compile("\\\\([0-9a-fA-F]{1,6})[ \\t\\n]?|\\\\(?:\\r\\n|[\\n\\r\\f])|\\\\([\\s\\S])|\\\\$");
 
   // ParserContext key of the per-parse nesting counter (an int[1]).
@@ -123,7 +127,7 @@ public class CSSParser {
   /**
    * Wraps a parser and records where its match starts and ends. No
    * foam.lib.parse combinator reports offsets; this reads ps.pos() before and
-   * after the delegate, like foam.u2.parse.Span on the JS side. Without a
+   * after the delegate, like foam.parse.Span on the JS side. Without a
    * build function the value is a SpanValue; with one, the value is whatever
    * build(value, start, end, str) returns (str is the whole input), and
    * build returning null fails the parse. Needs a StringPStream, which is
@@ -392,11 +396,13 @@ public class CSSParser {
         return true;
       }));
 
-    // Unquoted url() argument. ';' is plain text; '(' '{' '}' end it so an
-    // unclosed 'url(' in minified CSS does not scan to end of input. Quote
-    // an SVG data URL: unquoted, one with braces inside ends at the first
-    // '{' and the rest parses as a function plus a made-up rule.
-    g.addSymbol("urlRaw", new Span(plus(alt(g.sym("token"), notChars(")(\"'{}" + WS))), (v, start, end, str) -> {
+    // Unquoted url() argument. ';' and braces are plain text, as in a
+    // browser, so an SVG data URL with a style inside
+    // (url(data:image/svg+xml;utf8,<svg><style>a{fill:red}...)) parses whole
+    // up to the first whitespace or ')'; it used to end at the first '{'.
+    // '(' still ends it, so an unclosed 'url(' in minified CSS stops at the
+    // next 'url(' instead of scanning to end of input (quadratic).
+    g.addSymbol("urlRaw", new Span(plus(alt(g.sym("token"), notChars(")(\"'" + WS))), (v, start, end, str) -> {
       UrlRaw u = new UrlRaw();
       u.text   = str.substring(start, end);
       u.tokens = hazardParts(nodes(v), "url");
@@ -456,7 +462,7 @@ public class CSSParser {
     g.addSymbol("START", g.sym("stylesheet"));
 
     g.addSymbol("stylesheet", node("stylesheet",
-      repeat(alt(g.sym("ws"), g.sym("comment"), g.sym("item"), lit(";"), g.sym("strayClose"))),
+      repeat(alt(g.sym("ws"), g.sym("comment"), g.sym("item"), g.sym("semicolon"), g.sym("strayClose"))),
       (n, v, str) -> { n.children = nodes(v); return true; }));
 
     g.addSymbol("item", alt(
@@ -464,8 +470,33 @@ public class CSSParser {
       g.sym("customDeclaration"),
       g.sym("declaration"),
       g.sym("placeholderStatement"),
+      g.sym("lineComment"),
       g.sym("rule"),
       g.sym("recover")));
+
+    // A ';' between statements, which no statement took as its end. A marker
+    // node here; once the tree is built, fillSemicolons turns it into an
+    // error node or drops it, by where it stands.
+    g.addSymbol("semicolon", node("semicolon", lit(";"), null));
+
+    // Problem: CSS has no '//' comments. A browser reads '// note' as
+    // the start of a selector or declaration and drops that whole
+    // statement: '// note\nb{color:blue}' loses the b rule and
+    // 'b{ // note\n color:blue }' loses color. Here the first parsed as
+    // one rule whose selector began with '// note', with no error. Now
+    // the statement the '//' starts is one error node spanning what the
+    // browser drops: up to the next ';', through a '{ }' block, or up to
+    // the '}' that closes the enclosing block. A line break does not end
+    // it. Strings, comments and ( ) inside are skipped whole, so a ';' or
+    // '}' in them does not end it. A '//' inside a string, comment or
+    // url() is text of that node.
+    g.addSymbol("lineComment", node("error",
+      seq(lit("//"), repeat(alt(g.sym("comment"), g.sym("string"), g.sym("skipParen"), notChars(";{}"))), opt(g.sym("skipBrace"))),
+      (n, v, str) -> {
+        n.message = "'//' is not a CSS comment: the browser drops the statement it starts; use /* */";
+        trimEnd(n, str);
+        return true;
+      }));
 
     // Problem: FOAM's returnExpandedCSS replaces a statement-level
     // '%CUSTOMCSS%;' (foam.core.u2.navigation.Stack) or a whole css:
@@ -480,7 +511,7 @@ public class CSSParser {
     // '{' items '}'. Never fails once '{' is seen. At MAX_DEPTH the value is
     // an error node instead (see fillBlock).
     g.addSymbol("block", deep(lit("{"), new Span(seq(lit("{"),
-      repeat(alt(g.sym("ws"), g.sym("comment"), g.sym("item"), lit(";"))),
+      repeat(alt(g.sym("ws"), g.sym("comment"), g.sym("item"), g.sym("semicolon"))),
       alt(lit("}"), EOF_))), tooDeepValue));
 
     g.addSymbol("rule", node("rule", seq(new Repeat(g.sym("selector"), lit(","), 1), g.sym("block")), (n, v, str) -> {
@@ -573,7 +604,7 @@ public class CSSParser {
         n.property  = (CSSNode) a[0];
         n.comments  = nodes(a[1]);
         n.value     = a[3];
-        n.important = false;
+        n.important = ((CSSNode) a[3]).important;
         n.custom    = true;
         trimEnd(n, str);
         return true;
@@ -581,17 +612,28 @@ public class CSSParser {
 
     // '--foo: anything' keeps the text raw; parts holds the comments,
     // strings, tokens and name( ) functions found in it.
+    //
+    // Problem: '--gap: 4px !important' read as important false with the value
+    // '4px !important', although a browser applies it as important with the
+    // value 4px. A !important followed only by whitespace, comments and the
+    // declaration's end is split off: important is true and the value's span
+    // ends before the '!' (the comments after it are not kept). One followed
+    // by more text stays raw text.
     g.addSymbol("customValue", node("value",
-      repeat(alt(g.sym("comment"), g.sym("string"), g.sym("token"), g.sym("rawFunction"), plus(g.sym("identChar")),
-        g.sym("skipParen"), g.sym("skipBrace"), notChars(";{}(\"'"))),
+      seq(
+        repeat(new Not(g.sym("trailingImportant"), alt(g.sym("comment"), g.sym("string"), g.sym("token"), g.sym("rawFunction"),
+          plus(g.sym("identChar")), g.sym("skipParen"), g.sym("skipBrace"), notChars(";{}(\"'")))),
+        opt(g.sym("trailingImportant"))),
       (n, v, str) -> {
-        int s = n.start, e = n.end;
+        Object[] a   = (Object[]) v;
+        CSSNode  imp = (CSSNode) a[1];
+        int s = n.start, e = imp != null ? imp.start : n.end;
         while ( s < e && WS.indexOf(str.charAt(s))     != -1 ) s++;
         while ( e > s && WS.indexOf(str.charAt(e - 1)) != -1 ) e--;
         trimTo(n, s, e, str);
         n.components = null;
-        n.important  = false;
-        n.parts      = nodes(v);
+        n.important  = imp != null;
+        n.parts      = nodes(a[0]);
         List<CSSNode> toks = new ArrayList<>();
         CSSNode holder = new CSSNode("value", 0, 0, "");
         holder.components = n.parts;
@@ -602,6 +644,10 @@ public class CSSParser {
         n.tokens = toks;
         return true;
       }));
+
+    // The important node, when only whitespace and comments separate it
+    // from the end of the declaration (see customValue).
+    g.addSymbol("trailingImportant", seq1(0, g.sym("important"), g.sym("wsc"), peek(alt(chars(";}"), EOF_))));
 
     g.addSymbol("rawFunction", deep(seq(g.sym("identText"), lit("(")), node("function",
       seq(g.sym("identText"), lit("("), repeat(alt(g.sym("comment"), g.sym("string"), g.sym("token"), g.sym("rawFunction"),
@@ -794,6 +840,49 @@ public class CSSParser {
     trimTo(n, n.start, e, str);
   }
 
+  // Problem: a ';' where a rule may start is not skipped by a browser:
+  // it becomes the first token of the next rule's selector, so
+  // 'a{color:red};b{color:blue}' loses the b rule (Chromium keeps only
+  // a), and so do '@media all { a{}; b{} }', @layer, @supports and
+  // @keyframes. Where declarations may stand the browser skips it:
+  // 'b{;color:blue;;}', 'b{ &:hover{}; color:blue }',
+  // '@font-face{font-family:x;;src:url(a.woff)}', an at-rule nested in
+  // a style rule, 'x{ @media all { a{}; b{} } }', and one nested in a
+  // declaration at-rule, '@page { @top-left { a:1;; } }'. A ';' with no
+  // rule after it ('a{};', 'color:red;;margin:0') loses nothing.
+  // So a 'semicolon' marker the grammar leaves in children becomes an
+  // error node when the next child that is not a comment is a rule or
+  // at-rule, and the marker stands at stylesheet level or in the block
+  // of an at-rule not in DECLARATION_AT_RULES with no style rule or
+  // DECLARATION_AT_RULES at-rule around it. Every other marker is
+  // dropped. Run on the finished tree because the enclosing nodes are
+  // only known once the whole tree is built.
+  protected static void fillSemicolons(CSSNode tree, String str) {
+    walk(tree, (n, ancestors) -> {
+      if ( n.children == null ) return true;
+      boolean keep = "stylesheet".equals(n.kind);
+      if ( "atrule".equals(n.kind) && ! DECLARATION_AT_RULES.contains(n.name) ) {
+        keep = true;
+        for ( CSSNode a : ancestors ) {
+          if ( "rule".equals(a.kind) || ( "atrule".equals(a.kind) && DECLARATION_AT_RULES.contains(a.name) ) ) keep = false;
+        }
+      }
+      List<CSSNode> kids = n.children, out = new ArrayList<>();
+      for ( int i = 0 ; i < kids.size() ; i++ ) {
+        CSSNode c = kids.get(i);
+        if ( ! "semicolon".equals(c.kind) ) { out.add(c); continue; }
+        if ( ! keep ) continue;
+        int j = i + 1;
+        while ( j < kids.size() && "comment".equals(kids.get(j).kind) ) j++;
+        if ( j < kids.size() && ( "rule".equals(kids.get(j).kind) || "atrule".equals(kids.get(j).kind) ) ) {
+          out.add(errorNode(str, c.start, c.end, "';' between rules: the browser drops the rule after it"));
+        }
+      }
+      n.children = out;
+      return true;
+    });
+  }
+
   protected static CSSNode errorNode(String str, int start, int end, String message) {
     CSSNode n = new CSSNode("error", start, end, str.substring(start, end));
     n.message = message;
@@ -867,6 +956,7 @@ public class CSSParser {
       tree.children.add(errorNode(str, tree.end, str.length(), "Unparsed input"));
       trimTo(tree, 0, str.length(), str);
     }
+    fillSemicolons(tree, str);
     markMath(tree);
     return tree;
   }

@@ -12,7 +12,7 @@ foam.CLASS({
   requires: ['foam.u2.ModuleLib'],
 
   constants: {
-    CDN: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2'
+    CDN: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
   },
 
   properties: [
@@ -30,8 +30,11 @@ foam.CLASS({
   methods: [
     async function ensurePipeline_() {
       if ( ! this.pipeline_ ) {
-        const { pipeline } = await this.ModuleLib.create({ src: this.CDN }).installLib();
-        this.pipeline_ = await pipeline('feature-extraction', this.model);
+        const mod = await this.ModuleLib.create({ src: this.CDN }).installLib();
+        if ( ! mod ) throw new Error('Failed to load Transformers.js from ' + this.CDN);
+        // only fetch from HuggingFace; skip the localhost /models/ probe
+        mod.env.allowLocalModels = false;
+        this.pipeline_ = await mod.pipeline('feature-extraction', this.model);
       }
     },
 

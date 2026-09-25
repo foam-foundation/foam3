@@ -297,6 +297,19 @@ test(extLink.length === 1 && extLink[0].target === linkTarget('foam.u2.View'),
 test(linkOn(links, 6).length === 0,
   'DocumentLink: an unknown id gets no link — not even one for its registered prefix foam.u2.View');
 
+var aliasText = "foam.CLASS({\n  package: 'test.link',\n  name: 'Aliased',\n  requires: [\n" +
+  "    'foam.dao.MDAO',\n" +                               // 4
+  "    'foam.u2.View as V',\n" +                           // 5
+  "    'foam.u2.ViewNoSuchZq9 as Q'\n" +                   // 6
+  "  ]\n});\n";
+var aliasLinks = linkHandler.handle(aliasText, 'file:///tmp/lsp-link/Aliased.js');
+var aliasLink = linkOn(aliasLinks, 5);
+test(aliasLink.length === 1 && aliasLink[0].target === linkTarget('foam.u2.View') &&
+     aliasLink[0].range.end.character === 5 + 'foam.u2.View'.length,
+  'DocumentLink: a requires: \'id as Alias\' entry links the id, not the alias');
+test(linkOn(aliasLinks, 6).length === 0,
+  'DocumentLink: an unknown id with an alias still gets no link for its registered prefix');
+
 var jrlText = 'p({"class":"foam.dao.MDAO","of":"foam.u2.View"})\n' +
               'p({"class":"no.such.ClazzZq9"})\n';
 var jrlLinks = linkHandler.handle(jrlText, 'file:///tmp/lsp-link/x.jrl');

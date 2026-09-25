@@ -128,7 +128,12 @@ foam.CLASS({
 
     function isQuotedWhole_(text, start, end) {
       var q = text.charAt(start - 1);
-      return ( q === '\'' || q === '"' || q === '`' ) && text.charAt(end) === q;
+      if ( q !== '\'' && q !== '"' && q !== '`' ) return false;
+      if ( text.charAt(end) === q ) return true;
+      // A requires entry can rename the class: 'foam.u2.DetailView as DV'.
+      // The id is still the whole reference; ` as DV` sits before the quote.
+      var m = /^[ \t]+as[ \t]+[A-Za-z_$][\w$]*/.exec(text.substr(end, 120));
+      return !! m && text.charAt(end + m[0].length) === q;
     },
 
     function toLinks_(text, spans) {

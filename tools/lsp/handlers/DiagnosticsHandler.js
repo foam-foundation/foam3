@@ -74,6 +74,19 @@ foam.CLASS({
       documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
     },
     {
+      name: 'clientDiagnosticCaps',
+      documentation: `The client's textDocument.publishDiagnostics capability
+        object, e.g. { relatedInformation: true, tagSupport: { valueSet: [1, 2] } }.
+        server.js sets it at initialize. Diagnostic.toLSP reads it to decide
+        whether tags and relatedInformation go on the wire. Null (a bare
+        handler in a test, or a client that declared nothing) sends neither.`
+    },
+    {
+      name: 'rawModelFiles_',
+      documentation: 'Raw file models of OTHER classes read for their deprecated: marker, keyed by file path: { mtimeMs, models }. See rawModelOf_.',
+      factory: function() { return {}; }
+    },
+    {
       name: 'pomValidator',
       documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
     },
@@ -104,7 +117,9 @@ foam.CLASS({
       return ! this.featureConfig || this.featureConfig.enabled(flag);
     },
 
-    function handle(text, opt_uri) {
+    function handle(text, opt_uri, opt_caps) {
+      // opt_caps: client diagnostic capabilities for THIS answer (the pull
+      // lane's own); defaults to clientDiagnosticCaps (the push lane's).
       // One classifier, shared with the server dispatch, decides the lane —
       // never a local sniff (a local regex here and a different one in
       // dispatch is exactly how the pom lane shipped unreachable). The
@@ -178,7 +193,17 @@ foam.CLASS({
       this.validateInstantiations_(text, diagnostics);
 
       this.prevResults_[uri] = { text: text, modelKeys: prev ? prev.modelKeys : {} };
-      return this.toLSPDiagnostics_(diagnostics);
+      return this.toLSPDiagnostics_(diagnostics, opt_caps || this.clientDiagnosticCaps);
+    },
+
+    function isWholeClassRef_(text, start, end) {
+      /** True when [start, end) is a whole quoted string, or a requires
+       *  entry that renames its class: 'foam.u2.DetailView as DV'. */
+      var q = text.charAt(start - 1);
+      if ( q !== '\'' && q !== '"' ) return false;
+      if ( text.charAt(end) === q ) return true;
+      var m = /^[ \t]+as[ \t]+[A-Za-z_$][\w$]*/.exec(text.substr(end, 120));
+      return !! m && text.charAt(end + m[0].length) === q;
     },
 
     function collectGrammarDiagnostics_(text, diagnostics) {
@@ -188,16 +213,29 @@ foam.CLASS({
        * matched text. All positions come from parser offsets — no regex.
        */
       var records = this.grammar.collectDiagnostics(text);
+      // A registered class matches the `classRef` arm; one known only to the
+      // file index (flag-filtered) falls through to `unknownClassRef`. Both
+      // can name a deprecated class, and backtracking can record one span
+      // twice, so deprecation is checked once per start offset.
+      var depSeen = {};
       for ( var i = 0 ; i < records.length ; i++ ) {
         var r = records[i];
         var matched = text.substring(r.startPos, r.endPos);
         if ( ! matched ) continue;
 
-        if ( r.msg && r.msg.type === 'unknownClassRef' ) {
-          if ( ! this.classKnown_(matched) ) {
-            this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
-              "Unknown class: '" + matched + "'");
+        var knownRef = r.msg && ( r.msg.kind === 'classRef' ||
+          ( r.msg.type === 'unknownClassRef' && this.classKnown_(matched) ) );
+        if ( knownRef ) {
+          // The grammar records a registered prefix before it checks the
+          // closing quote: 'foam.u2.DetailViewNope' leaves a record for
+          // foam.u2.DetailView. Only a whole string names the class.
+          if ( ! depSeen[r.startPos] && this.isWholeClassRef_(text, r.startPos, r.endPos) ) {
+            depSeen[r.startPos] = true;
+            this.addDeprecatedClassDiag_(diagnostics, text, r.startPos, matched);
           }
+        } else if ( r.msg && r.msg.type === 'unknownClassRef' ) {
+          this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
+            "Unknown class: '" + matched + "'");
         } else if ( r.msg && r.msg.type === 'doubleQuotedClassRef' ) {
           // FOAM convention is single-quoted class refs. Parse the value
           // anyway (lenient) but surface a hint with the corrected form so
@@ -250,6 +288,9 @@ foam.CLASS({
 
         for ( var e = 0 ; e < inst.entries.length ; e++ ) {
           var entry = inst.entries[e];
+          // Deprecation is about the key, whatever the value is, so it is
+          // checked before the literals-only filter below.
+          if ( entry.keyPos ) this.addDeprecatedPropertyDiag_(diagnostics, text, classId, entry);
           if ( ! entry.valueText || ! entry.valuePos ) continue;
           var v = entry.valueText;
           var c0 = v.charAt(0);
@@ -270,7 +311,10 @@ foam.CLASS({
             var names = info.enumValues.map(function(x) { return x.name; });
             if ( names.indexOf(inner) === -1 ) {
               this.addDiag_(diagnostics, text, off, len, 2,
-                "'" + inner + "' is not a valid " + info.enumId + " value. Expected: " + names.join(', '));
+                "'" + inner + "' is not a valid " + info.enumId + " value. Expected: " + names.join(', '),
+                undefined,
+                { relatedInformation: this.relatedAt_(info.enumId, null, 0,
+                    info.enumId + ' values are declared here') });
             }
           } else if ( info.primitiveKind === 'int' || info.primitiveKind === 'float' ) {
             if ( isStr ) {
@@ -357,13 +401,13 @@ foam.CLASS({
       return out;
     },
 
-    function toLSPDiagnostics_(diagnostics) {
+    function toLSPDiagnostics_(diagnostics, caps) {
       /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
       if ( ! diagnostics ) return diagnostics;
       var out = new Array(diagnostics.length);
       for ( var i = 0 ; i < diagnostics.length ; i++ ) {
         var d = diagnostics[i];
-        out[i] = ( d && typeof d.toLSP === 'function' ) ? d.toLSP() : d;
+        out[i] = ( d && typeof d.toLSP === 'function' ) ? d.toLSP(caps) : d;
       }
       return out;
     },
@@ -799,8 +843,11 @@ foam.CLASS({
         var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
         if ( re.test(hay) ) continue;
         for ( var j = 0 ; j < defs[name].length ; j++ ) {
+          // UNNECESSARY: the rule is dead CSS, so the editor fades it out
+          // on top of the warning squiggle.
           this.addDiag_(diagnostics, text, defs[name][j].offset, defs[name][j].len, 2,
-            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call",
+            undefined, { tags: [ this.Diagnostic.UNNECESSARY ] });
         }
       }
     },
@@ -1097,7 +1144,8 @@ foam.CLASS({
       return match.index + match[0].indexOf(value);
     },
 
-    function addDiag_(diagnostics, text, offset, length, severity, message, opt_code) {
+    function addDiag_(diagnostics, text, offset, length, severity, message, opt_code, opt_extra) {
+      /** opt_extra: { tags, relatedInformation } — both optional. */
       var pos = this.analyzer.offsetToPosition(text, offset);
       diagnostics.push(this.Diagnostic.create({
         range: {
@@ -1106,8 +1154,144 @@ foam.CLASS({
         },
         severity: severity,
         message: message,
-        code: opt_code
+        code: opt_code,
+        tags: ( opt_extra && opt_extra.tags ) || [],
+        relatedInformation: ( opt_extra && opt_extra.relatedInformation ) || []
       }));
+    },
+
+    function addDeprecatedClassDiag_(diagnostics, text, offset, classId) {
+      /**
+       * FOAM has no runtime deprecation flag. Authors mark a class with a
+       * plain `deprecated:` key on its model — foam.u2.DetailView carries
+       * `deprecated: 'Use SectionedDetailView or VerticalDetailView.'` — and
+       * the Model class does not declare that key, so the registry drops it
+       * and nothing warned a file that still extends or requires the class.
+       * Read the marker from the class's own source file instead, and flag
+       * the reference as a HINT tagged DEPRECATED (the editor strikes it
+       * through), pointing back at the class declaration.
+       */
+      var dep = this.deprecationOf_(classId, null);
+      if ( dep === null ) return;
+      this.addDiag_(diagnostics, text, offset, classId.length, this.Diagnostic.HINT,
+        "'" + classId + "' is deprecated" + ( dep ? ': ' + dep : '' ),
+        'deprecated-class',
+        { tags: [ this.Diagnostic.DEPRECATED ],
+          relatedInformation: this.relatedAt_(classId, null, 0, classId + ' is declared deprecated here') });
+    },
+
+    function addDeprecatedPropertyDiag_(diagnostics, text, classId, entry) {
+      /**
+       * Same marker on a property — StepWizardConfig.wizardView is declared
+       * `{ deprecated: true, ... }` — flagged at the key of a
+       * X.create({ wizardView: ... }) or .tag(this.X, { ... }) entry. The
+       * property may be inherited, so the classes up the extends chain are
+       * checked in turn; the first one declaring the property decides.
+       */
+      var owner = this.propertyOwner_(classId, entry.key);
+      if ( ! owner ) return;
+      var dep = this.deprecationOf_(owner, entry.key);
+      if ( dep === null ) return;
+      var off = entry.keyPos.startPos;
+      this.addDiag_(diagnostics, text, off, entry.keyPos.endPos - off, this.Diagnostic.HINT,
+        "'" + entry.key + "' is deprecated on " + owner + ( dep ? ': ' + dep : '' ),
+        'deprecated-property',
+        { tags: [ this.Diagnostic.DEPRECATED ],
+          relatedInformation: this.relatedAt_(owner, entry.key, 7 /* SymbolKind.Property */,
+            owner + '.' + entry.key + ' is declared deprecated here') });
+    },
+
+    function propertyOwner_(classId, propName) {
+      /**
+       * The nearest class up classId's extends chain whose model declares
+       * propName, or null. Refinements are not consulted.
+       *
+       * Asked of the registry, not of the raw files: rawModelOf_ reports a
+       * file without the word 'deprecated' as having no models, so walking
+       * raw files would skip a subclass that re-declares an ancestor's
+       * deprecated property and flag the ancestor's marker instead. The
+       * registry knows every class's own properties; only the owner's raw
+       * file is then read, for the marker the registry drops.
+       */
+      var id = classId, guard = 0;
+      while ( id && guard++ < 32 ) {
+        var cls = this.index.getClass(id);
+        if ( ! cls || ! cls.model_ ) return null;
+        var props = cls.model_.properties || [];
+        for ( var i = 0 ; i < props.length ; i++ ) {
+          var p = props[i];
+          if ( ( typeof p === 'string' ? p : p && p.name ) === propName ) return id;
+        }
+        id = cls.model_.extends;
+      }
+      return null;
+    },
+
+    function rawProperty_(raw, propName) {
+      var props = raw.properties || [];
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var p = props[i];
+        if ( p && typeof p === 'object' && p.name === propName ) return p;
+      }
+      return null;
+    },
+
+    function deprecationOf_(classId, opt_propName) {
+      /**
+       * The `deprecated:` marker of a class (or of one of its own
+       * properties) as written in its source: '' for `deprecated: true`, the
+       * text for `deprecated: 'Use X'`, null when not deprecated or unknown.
+       */
+      var raw = this.rawModelOf_(classId);
+      if ( ! raw ) return null;
+      var holder = opt_propName ? this.rawProperty_(raw, opt_propName) : raw;
+      var dep = holder && holder.deprecated;
+      if ( ! dep ) return null;
+      return typeof dep === 'string' ? dep : '';
+    },
+
+    function rawModelOf_(classId) {
+      /**
+       * The raw (pre-registry) model object for classId, parsed from its
+       * source file, or null. Cached per file on mtime.
+       *
+       * Most files never mention the marker, and parsing a file evaluates
+       * it, so a file whose text lacks the word 'deprecated' is cached as
+       * having no models without being parsed — a class with dozens of
+       * requires otherwise evaluated every one of their files.
+       */
+      var filePath = this.index.getFilePath(classId);
+      if ( ! filePath ) return null;
+      var fs = require('fs');
+      var entry = this.rawModelFiles_[filePath];
+      try {
+        var mtime = fs.statSync(filePath).mtimeMs;
+        if ( ! entry || entry.mtimeMs !== mtime ) {
+          var src = fs.readFileSync(filePath, 'utf8');
+          entry = { mtimeMs: mtime,
+            models: src.indexOf('deprecated') === -1 ? [] : this.cache.parseFileModels(src) };
+          this.rawModelFiles_[filePath] = entry;
+        }
+      } catch ( e ) {
+        require('../logError').logLspError('rawModelOf_ for ' + classId, e);
+        return null;
+      }
+      // A refinement of the class can share its file and answers to the same
+      // id; only the declaration carries the class's own marker.
+      for ( var i = 0 ; i < entry.models.length ; i++ ) {
+        var m = entry.models[i];
+        if ( ! m.refines && this.cache.getClassId(m) === classId ) return m;
+      }
+      return null;
+    },
+
+    function relatedAt_(classId, memberName, kind, message) {
+      /** One-element relatedInformation list pointing at a class (or its
+       *  member) declaration; empty when the class has no file. */
+      var pos = this.index.getSymbolPosition(classId, memberName, kind);
+      if ( ! pos || ! pos.uri ) return [];
+      var at = { line: pos.line || 0, character: pos.character || 0 };
+      return [ { location: { uri: pos.uri, range: { start: at, end: at } }, message: message } ];
     }
   ]
 });

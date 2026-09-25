@@ -34,7 +34,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports |
 | `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info. A property's type carries its `of:` target — `` `Enum<ButtonStyle>` `` — except the primitive `of:` an array class already implies (`StringArray of: 'String'`) |
 | `DefinitionHandler.js` | `textDocument/definition` | File index lookup for class → file path |
-| `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models |
+| `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models. `tags` / `relatedInformation` only when the client declared them — see "Diagnostic tags and related locations" |
 | `JavaBlockValidator.js` | (called by Diagnostics) | Java import validation, getter/setter validation via model fields |
 | `SymbolHandler.js` | `textDocument/documentSymbol` | Document outline via model objects |
 | `WorkspaceAnalyzer.js` | `foam/analyzeWorkspace` | Full codebase scan |
@@ -332,6 +332,39 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 3. Use `this.classKnown_(id)` to check class existence (respects flags)
 4. Use `this.findInText_()` + `this.addDiag_()` for position-aware diagnostics
 5. Add test case in tools test
+
+### Diagnostic tags and related locations
+`Diagnostic` carries `tags` (`UNNECESSARY` 1 = faded, `DEPRECATED` 2 = struck
+through) and `relatedInformation` (`[{ location, message }]`); pass them as
+`addDiag_`'s last argument, `{ tags, relatedInformation }`. `toLSP(caps)` puts
+them on the wire only as far as the client declared in
+`textDocument.publishDiagnostics` at `initialize` — tags filtered to
+`tagSupport.valueSet`, related info only for `relatedInformation: true`.
+`server.js` hands that object to both diagnostics handlers (its own and the
+workspace analyzer's) as `clientDiagnosticCaps`. The pull lane passes its own
+caps to `handle(text, uri, caps)`: each field `textDocument.diagnostic`
+declares wins, an undeclared one falls back to `publishDiagnostics`. A
+bare handler (tests, other tooling) has none and sends neither. The MCP
+client declares `relatedInformation: false` and no `tagSupport`, so agents
+see neither.
+
+| Code / message | tags | relatedInformation |
+|---|---|---|
+| `Unused CSS class '^x'` | UNNECESSARY | — |
+| `deprecated-class` (HINT) — any class reference the grammar sees (extends/requires/of/implements/class:) to a class whose source model has `deprecated:` | DEPRECATED | the class declaration |
+| `deprecated-property` (HINT) — a key of `X.create({…})` / `.tag(this.X, {…})` naming a property declared `deprecated:` on X or an ancestor | DEPRECATED | the property declaration |
+| `'V' is not a valid <Enum> value` | — | the enum declaration |
+
+`deprecated:` is an author convention, not a Model property — the registry
+drops it (`foam.u2.DetailView`'s `model_.deprecated` is undefined), so
+`DiagnosticsHandler.rawModelOf_` re-reads the class's source file with
+`FileModelCache.parseFileModels`, mtime-cached; a file whose text lacks the
+word `deprecated` is cached as markerless without being evaluated. So a
+property's OWNER is found in the registry (`cls.model_.properties` up the
+extends chain) and only that owner's file is read — a subclass re-declaring
+an ancestor's deprecated property owns it and gets no hint.
+`true` and a string (`'Use X instead.'`, appended to the message) both count.
+No `codeDescription`: foam3 has no per-code documentation URL to point at.
 
 ### Adding to the grammar
 1. Add rule in `FoamClassGrammar.buildGrammar_()`

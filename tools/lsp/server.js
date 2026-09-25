@@ -65,6 +65,8 @@ function start() {
   });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+  // Client capabilities for textDocument/diagnostic answers, set at initialize.
+  var pullDiagCaps = null;
 
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
@@ -665,6 +667,29 @@ function start() {
         });
         featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
         diagnosticsHandler.featureConfig = featureConfig;
+        // Diagnostic tags (faded unused code, struck-through deprecated
+        // references) and relatedInformation (a second location) are
+        // optional in the protocol. A client that did not declare them in
+        // textDocument.publishDiagnostics may show them as noise or reject
+        // the notification, so both handlers that produce diagnostics —
+        // the per-document one and the workspace scan's own — learn what
+        // the client declared and send only that.
+        var clientTD    = params && params.capabilities && params.capabilities.textDocument;
+        var pubDiagCaps = ( clientTD && clientTD.publishDiagnostics ) || null;
+        diagnosticsHandler.clientDiagnosticCaps = pubDiagCaps;
+        workspaceAnalyzer.diagnosticsHandler.clientDiagnosticCaps = pubDiagCaps;
+        // The pull lane (textDocument/diagnostic) has its own capability
+        // block, and LSP 3.18 lets a client declare relatedInformation /
+        // tagSupport there. A client may pull with a different consumer than
+        // it pushes to, e.g. push says tagSupport [1, 2] and pull says [2].
+        // Each field declared on the pull block wins; an undeclared one
+        // falls back to what publishDiagnostics said.
+        var pullDecl = ( clientTD && clientTD.diagnostic ) || {};
+        pullDiagCaps = {
+          relatedInformation: pullDecl.relatedInformation !== undefined ?
+            pullDecl.relatedInformation : ( pubDiagCaps && pubDiagCaps.relatedInformation ),
+          tagSupport: pullDecl.tagSupport || ( pubDiagCaps && pubDiagCaps.tagSupport )
+        };
         codeActionHandler.featureConfig  = featureConfig;
         codeLensHandler.featureConfig    = featureConfig;
         // Not a feature toggle: the scaffold command WRITES, and its dir
@@ -1291,7 +1316,7 @@ function start() {
           } else if ( dKind === 'class' || dKind === 'pom' ) {
             // 'pom' included: the pull path used to share the push lanes'
             // unreachable-pom bug (isFoamFile excludes POM by design).
-            items = diagnosticsHandler.handle(dText, dUri);
+            items = diagnosticsHandler.handle(dText, dUri, pullDiagCaps);
           } else {
             items = [];
           }

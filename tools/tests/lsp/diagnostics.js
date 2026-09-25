@@ -1024,3 +1024,227 @@ test(colActDiags.some(function(d) { return d.message.indexOf("Property 'reflow'"
   'searchColumns: action name IS flagged (properties only)');
 test(!colActDiags.some(function(d) { return d.message.indexOf("'name'") !== -1; }),
   'both arrays: property name not flagged');
+
+
+// === Diagnostic tags + relatedInformation, gated on client capability ===
+// Diagnostics used to carry only range/severity/code/source/message. Three
+// checks now say more: an unused ^class rule is tagged UNNECESSARY (faded),
+// a reference to a class or property marked `deprecated:` in its source is
+// tagged DEPRECATED (struck through) and points at the declaration, and a bad
+// enum literal points at the enum. The extra fields go out only when the
+// client declared them in textDocument.publishDiagnostics.
+section('Diagnostics — tags + relatedInformation (client-capability gated)');
+(function() {
+  var ALL_CAPS = { relatedInformation: true, tagSupport: { valueSet: [ 1, 2 ] } };
+  function handlerWith(caps) {
+    var dh = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+    dh.clientDiagnosticCaps = caps;
+    return dh;
+  }
+  function byCode(ds, code) { return ds.filter(function(d) { return d.code === code; }); }
+  function relFile(d) {
+    var r = d.relatedInformation && d.relatedInformation[0];
+    return r ? r.location.uri.split('/').pop() : null;
+  }
+
+  // Diagnostic.toLSP — the gate itself.
+  var D = foam.parse.lsp.Diagnostic;
+  var rel = [ { location: { uri: 'file:///x.js', range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } } }, message: 'here' } ];
+  var d = D.create({ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+    message: 'm', tags: [ D.UNNECESSARY, D.DEPRECATED ], relatedInformation: rel });
+  var bare = d.toLSP();
+  test(! ( 'tags' in bare ) && ! ( 'relatedInformation' in bare ),
+    'toLSP with no client caps: neither tags nor relatedInformation is sent');
+  test(JSON.stringify(d.toLSP(ALL_CAPS).tags) === '[1,2]' && d.toLSP(ALL_CAPS).relatedInformation === rel,
+    'toLSP with full caps: both tags and relatedInformation are sent');
+  test(JSON.stringify(d.toLSP({ tagSupport: { valueSet: [ 2 ] } }).tags) === '[2]',
+    'toLSP filters tags to the client-declared valueSet');
+  test(! ( 'relatedInformation' in d.toLSP({ relatedInformation: false, tagSupport: { valueSet: [ 1, 2 ] } }) ),
+    'toLSP: relatedInformation: false keeps relatedInformation off the wire');
+  test(! ( 'tags' in D.create({ message: 'plain' }).toLSP(ALL_CAPS) ),
+    'toLSP: a diagnostic with no tags sends no empty tags array');
+
+  // Deprecated class reference: foam.u2.DetailView declares
+  // `deprecated: 'Use SectionedDetailView or VerticalDetailView.'`.
+  var depSrc = "foam.CLASS({\n  package: 'test',\n  name: 'DepUser',\n" +
+    "  extends: 'foam.u2.DetailView',\n" +
+    "  requires: [ 'foam.u2.wizard.StepWizardConfig', 'foam.lang.FObject' ],\n" +
+    "  methods: [ function f() {\n" +
+    "    this.StepWizardConfig.create({ wizardView: 'x', allowSkipping: true });\n  } ]\n})";
+  var full = handlerWith(ALL_CAPS).handle(depSrc, '');
+  var depCls = byCode(full, 'deprecated-class');
+  test(depCls.length === 1 && depCls[0].range.start.line === 3 &&
+       depCls[0].message.indexOf('Use SectionedDetailView') !== -1,
+    'deprecated-class: extends foam.u2.DetailView flagged once, on its line, with the marker text');
+  test(depCls.length === 1 && depCls[0].severity === 4 && JSON.stringify(depCls[0].tags) === '[2]',
+    'deprecated-class: HINT tagged DEPRECATED (2)');
+  test(depCls.length === 1 && relFile(depCls[0]) === 'DetailView.js',
+    'deprecated-class: relatedInformation points at DetailView.js');
+  test(! full.some(function(x) { return /FObject/.test(x.message); }),
+    'deprecated-class: a non-deprecated class reference is not flagged');
+
+  // The grammar records the registered prefix of an unknown id; that
+  // record must not borrow the prefix class's deprecation.
+  var prefixSrc = depSrc.replace("extends: 'foam.u2.DetailView'", "extends: 'foam.u2.DetailViewNope'");
+  test(byCode(handlerWith(ALL_CAPS).handle(prefixSrc, ''), 'deprecated-class').length === 0,
+    'deprecated-class: an unknown id that starts with a deprecated class id is not flagged');
+  var aliasSrc = "foam.CLASS({\n  package: 'test',\n  name: 'DepAlias',\n" +
+    "  requires: [ 'foam.u2.DetailView as DV' ]\n})";
+  test(byCode(handlerWith(ALL_CAPS).handle(aliasSrc, ''), 'deprecated-class').length === 1,
+    'deprecated-class: a requires entry renaming the deprecated class is still flagged');
+
+  // Deprecated property: StepWizardConfig.wizardView is `deprecated: true`.
+  var depProp = byCode(full, 'deprecated-property');
+  test(depProp.length === 1 && depProp[0].message.indexOf("'wizardView'") !== -1 &&
+       depProp[0].range.start.line === 6,
+    'deprecated-property: the wizardView key in .create({}) is flagged (allowSkipping is not)');
+  test(depProp.length === 1 && JSON.stringify(depProp[0].tags) === '[2]' &&
+       relFile(depProp[0]) === 'StepWizardConfig.js',
+    'deprecated-property: tagged DEPRECATED, related to StepWizardConfig.js');
+
+  // A subclass that re-declares an ancestor's deprecated property owns it:
+  // no HINT. The fixture subclass is registered for real, since the owner is
+  // looked up in the registry.
+  foam.CLASS({ package: 'test.dep', name: 'WizOverride',
+    extends: 'foam.u2.wizard.StepWizardConfig',
+    properties: [ { class: 'String', name: 'wizardView' } ] });
+  var overSrc = "foam.CLASS({\n  package: 'test',\n  name: 'OverUser',\n" +
+    "  requires: [ 'test.dep.WizOverride' ],\n  methods: [ function f() {\n" +
+    "    this.WizOverride.create({ wizardView: 'x' });\n  } ]\n})";
+  test(byCode(handlerWith(ALL_CAPS).handle(overSrc, ''), 'deprecated-property').length === 0,
+    'deprecated-property: a subclass re-declaring the deprecated property is not flagged');
+  foam.CLASS({ package: 'test.dep', name: 'WizInherit', extends: 'foam.u2.wizard.StepWizardConfig' });
+  var inhSrc = overSrc.replace(/WizOverride/g, 'WizInherit');
+  test(byCode(handlerWith(ALL_CAPS).handle(inhSrc, ''), 'deprecated-property').length === 1,
+    'deprecated-property: a subclass inheriting it unchanged is still flagged');
+
+  // Unused ^class rule: tagged UNNECESSARY.
+  var cssSrc = "foam.CLASS({\n  package: 'test',\n  name: 'TagCss',\n" +
+    "  css: `\n    ^live { color: red; }\n    ^dead { color: blue; }\n  `,\n" +
+    "  methods: [ function render() { this.addClass(this.myClass('live')); } ]\n})";
+  var cssFull = handlerWith(ALL_CAPS).handle(cssSrc, '').filter(function(x) { return /Unused CSS class/.test(x.message); });
+  test(cssFull.length === 1 && JSON.stringify(cssFull[0].tags) === '[1]',
+    'unused CSS class: tagged UNNECESSARY (1)');
+  var cssOnly2 = handlerWith({ tagSupport: { valueSet: [ 2 ] } }).handle(cssSrc, '')
+    .filter(function(x) { return /Unused CSS class/.test(x.message); });
+  test(cssOnly2.length === 1 && ! ( 'tags' in cssOnly2[0] ),
+    'unused CSS class: a client supporting only DEPRECATED gets no tags on it');
+
+  // Bad enum literal: related to the enum declaration.
+  var enumSrc = "foam.CLASS({\n  requires: ['foam.core.app.Health'],\n  methods: [ function f() {\n" +
+    "    this.Health.create({ status: 'BOGUS' });\n  } ]\n})";
+  var enumDiag = handlerWith(ALL_CAPS).handle(enumSrc, '')
+    .filter(function(x) { return /not a valid foam.core.app.HealthStatus/.test(x.message); });
+  test(enumDiag.length === 1 && relFile(enumDiag[0]) === 'HealthStatus.js',
+    'bad enum value: relatedInformation points at the enum declaration');
+
+  // No caps: same diagnostics, no extra fields.
+  var none = handlerWith(null).handle(depSrc, '');
+  test(byCode(none, 'deprecated-class').length === 1 && byCode(none, 'deprecated-property').length === 1,
+    'no client caps: the deprecation diagnostics are still reported');
+  test(! none.some(function(x) { return 'tags' in x || 'relatedInformation' in x; }),
+    'no client caps: no diagnostic carries tags or relatedInformation');
+})();
+
+// Over the wire: initialize is where server.js learns the client's
+// publishDiagnostics capability, so a didOpen after an initialize that
+// declared it carries tags, and one after an initialize that did not, does not.
+module.exports.done = h.withServerLane(async function() {
+  section('server.js — publishDiagnostics tags follow the client capability');
+  var origWrite = process.stdout.write;
+  var wsDir = null;
+  try {
+    var frames = [], inBuf = Buffer.alloc(0);
+    process.stdout.write = function(chunk) {
+      inBuf = Buffer.concat([ inBuf, Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8') ]);
+      for ( ; ; ) {
+        var hEnd = inBuf.indexOf('\r\n\r\n');
+        if ( hEnd === -1 ) break;
+        var m = /Content-Length:\s*(\d+)/i.exec(inBuf.slice(0, hEnd).toString('utf8'));
+        if ( ! m ) { inBuf = inBuf.slice(hEnd + 4); continue; }
+        var len = parseInt(m[1], 10);
+        if ( inBuf.length < hEnd + 4 + len ) break;
+        try { frames.push(JSON.parse(inBuf.slice(hEnd + 4, hEnd + 4 + len).toString('utf8'))); } catch (e) {}
+        inBuf = inBuf.slice(hEnd + 4 + len);
+      }
+      return true;
+    };
+    function send(msg) {
+      var json = JSON.stringify(msg);
+      process.stdin.emit('data', Buffer.from('Content-Length: ' + Buffer.byteLength(json) + '\r\n\r\n' + json, 'utf8'));
+    }
+    function waitFor(pred, what) {
+      return new Promise(function(resolve, reject) {
+        var deadline = Date.now() + 20000;
+        (function poll() {
+          for ( var i = 0 ; i < frames.length ; i++ ) if ( pred(frames[i]) ) return resolve(frames[i]);
+          if ( Date.now() > deadline ) return reject(new Error('timed out waiting for ' + what));
+          setTimeout(poll, 10);
+        })();
+      });
+    }
+    function boot() {
+      process.stdin.removeAllListeners('data');
+      require('../../lsp/server').start();
+      process.stdin.removeAllListeners('end');
+      frames = []; inBuf = Buffer.alloc(0);
+    }
+
+    wsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flsp-tags-'));
+    var file = path.join(wsDir, 'TagTarget.js');
+    var src  = "foam.CLASS({\n  package: 'test',\n  name: 'TagTarget',\n  extends: 'foam.u2.DetailView'\n})";
+    fs.writeFileSync(file, src);
+    var uri = 'file://' + file;
+
+    async function openWith(id, caps) {
+      boot();
+      send({ jsonrpc: '2.0', id: id, method: 'initialize', params: { rootUri: 'file://' + wsDir, capabilities: caps } });
+      await waitFor(function(f) { return f.id === id && f.result; }, 'initialize ' + id);
+      send({ jsonrpc: '2.0', method: 'textDocument/didOpen', params: {
+        textDocument: { uri: uri, languageId: 'javascript', version: 1, text: src } } });
+      var pub = await waitFor(function(f) {
+        return f.method === 'textDocument/publishDiagnostics' && f.params.uri === uri;
+      }, 'publishDiagnostics ' + id);
+      return pub.params.diagnostics.filter(function(x) { return x.code === 'deprecated-class'; });
+    }
+
+    var withCaps = await openWith(1, { textDocument: { publishDiagnostics: {
+      relatedInformation: true, tagSupport: { valueSet: [ 1, 2 ] } } } });
+    test(withCaps.length === 1 && JSON.stringify(withCaps[0].tags) === '[2]' &&
+         withCaps[0].relatedInformation && withCaps[0].relatedInformation.length === 1,
+      'client declaring tagSupport + relatedInformation gets both on the pushed diagnostic');
+
+    var without = await openWith(2, {});
+    test(without.length === 1 && ! ( 'tags' in without[0] ) && ! ( 'relatedInformation' in without[0] ),
+      'client declaring neither gets the same diagnostic without tags or relatedInformation');
+
+    // Pull lane: textDocument.diagnostic's own declaration wins field by
+    // field; an undeclared field falls back to publishDiagnostics.
+    async function pull(id) {
+      send({ jsonrpc: '2.0', id: id, method: 'textDocument/diagnostic', params: { textDocument: { uri: uri } } });
+      var res = await waitFor(function(f) { return f.id === id && f.result; }, 'pull ' + id);
+      return res.result.items.filter(function(x) { return x.code === 'deprecated-class'; });
+    }
+    await openWith(3, { textDocument: {
+      publishDiagnostics: { relatedInformation: true, tagSupport: { valueSet: [ 1, 2 ] } },
+      diagnostic: { relatedInformation: false, tagSupport: { valueSet: [ 1 ] } } } });
+    var pulledOwn = await pull(4);
+    test(pulledOwn.length === 1 && ! ( 'tags' in pulledOwn[0] ) && ! ( 'relatedInformation' in pulledOwn[0] ),
+      'pull lane: textDocument.diagnostic declarations override publishDiagnostics');
+    await openWith(5, { textDocument: {
+      publishDiagnostics: { relatedInformation: true, tagSupport: { valueSet: [ 2 ] } },
+      diagnostic: { dynamicRegistration: false } } });
+    var pulledFallback = await pull(6);
+    test(pulledFallback.length === 1 && JSON.stringify(pulledFallback[0].tags) === '[2]' &&
+         pulledFallback[0].relatedInformation && pulledFallback[0].relatedInformation.length === 1,
+      'pull lane: undeclared fields fall back to publishDiagnostics');
+  } catch (e) {
+    test(false, 'publishDiagnostics capability lane threw: ' + ( e && e.stack ? e.stack : e ));
+  } finally {
+    process.stdout.write = origWrite;
+    process.stdin.removeAllListeners('data');
+    process.stdin.removeAllListeners('end');
+    process.stdin.pause();
+    if ( wsDir ) { try { fs.rmSync(wsDir, { recursive: true, force: true }); } catch (e) {} }
+  }
+});

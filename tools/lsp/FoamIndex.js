@@ -431,6 +431,29 @@ foam.CLASS({
           }
         } catch ( e ) {}
       }
+
+      // A `refines:` model never reaches `getAllClassIds` above: `foam.CLASS`
+      // returns right after calling `registerFactory` for a normal class, but
+      // for a refinement it calls `CLASS(m)` and returns BEFORE that call
+      // (`EndBoot.js`), so the refinement's id never lands in
+      // `foam.__context__.__cache__`, which `getAllClassIds` walks. Its own
+      // `requires:` is real — the refined class's `model_` is untouched — so
+      // a refiner-only requirer was invisible here. `foam.USED` still carries
+      // every refinement model keyed by its own id, so walk that directly.
+      for ( var refId in foam.USED ) {
+        var refModel = foam.USED[refId];
+        // Nameless refinements can only occur pre-boot, before EndBoot.js's
+        // override (which throws on a missing name) starts populating
+        // `foam.USED` — so this is defensive, not reachable today.
+        if ( ! refModel || ! refModel.refines || ! refModel.name ) continue;
+        var refReqs = refModel.requires || [];
+        for ( var k = 0 ; k < refReqs.length ; k++ ) {
+          var rr = refReqs[k];
+          var rpath = typeof rr === 'string' ? rr.split(/\s+as\s+/)[0].trim() : (rr.path || '');
+          if ( rpath === classId ) { result.push(refId); break; }
+        }
+      }
+
       this.cache_['req_' + classId] = result;
       return result;
     },
@@ -732,10 +755,40 @@ foam.CLASS({
       var prop = cls.getAxiomByName(propName);
       if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return null;
 
-      var md = '**' + propName + '** (' + (prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property') + ')\n\n';
+      var typeName = prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property';
+      var of       = this.ofName_(prop);
+      var typeStr  = of ? typeName + '<' + of + '>' : typeName;
+
+      // Wrapped in a code span: `<ButtonStyle>` inside a bare `(...)` reads
+      // as an HTML tag and markdown renderers drop it — same reason the
+      // class-table path (`HoverHandler.propTypeName_`) wraps its type name.
+      var md = '**' + propName + '** (`' + typeStr + '`)\n\n';
       if ( prop.documentation ) md += prop.documentation + '\n\n';
       if ( prop.value !== undefined && prop.value !== '' ) md += 'Default: `' + prop.value + '`\n';
       return md;
+    },
+
+    function ofName_(p) {
+      /**
+       * Short name of a property's `of:` target, or '' when there is nothing
+       * worth printing. Single implementation shared by `getPropertyDoc` (the
+       * by-name single-property hover) and `HoverHandler.propTypeName_` (the
+       * class-level property table, #5406) — the two used to disagree because
+       * only the table path resolved `of:`.
+       *
+       * `of` arrives either as a resolved class (an object with an id) or as
+       * the raw string from the model. The raw strings are of two kinds: a
+       * class id, and a primitive — `StringArray` carries `of: 'String'` and
+       * `IntegerArray` carries `of: 'Int'`, which say nothing the type name
+       * has not already said. A dot is what separates the two (185 of the
+       * repo's `of:` strings are the primitive kind, and all of them are
+       * undotted).
+       */
+      var of = p.of;
+      if ( ! of ) return '';
+      if ( typeof of !== 'string' ) return of.id ? of.id.split('.').pop() : '';
+      if ( of.indexOf('.') === -1 ) return '';
+      return of.split('.').pop();
     },
 
     function invalidate(classId) {

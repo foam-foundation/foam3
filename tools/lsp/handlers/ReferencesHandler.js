@@ -225,8 +225,12 @@ foam.CLASS({
       /**
        * Collect files to scan — the defining class + every subclass (they
        * inherit the member and commonly reference it) + classes that REQUIRE
-       * or have `of: classId` (they access it through a typed variable) —
-       * then emit every call-site Location for `word` across that set.
+       * or have `of: classId` (they access it through a typed variable) +
+       * classes whose javaCode names the class through javaImports (an
+       * `EQ(User.EMAIL, v)` inside a service's javaCode is the common
+       * server-side member reference, and such a class rarely requires the
+       * model it queries) — then emit every call-site Location for `word`
+       * across that set.
        */
       var seen = {};
       var filesToScan = [];
@@ -242,6 +246,12 @@ foam.CLASS({
       var ofs  = this.index.getOfUsers(classId);
       for ( var i = 0 ; i < reqs.length ; i++ ) addFile(reqs[i]);
       for ( var i = 0 ; i < ofs.length ; i++ )   addFile(ofs[i]);
+      try {
+        var javaUses = this.index.getJavaUsages(classId);
+        for ( var i = 0 ; i < javaUses.length ; i++ ) addFile(javaUses[i].sourceClassId);
+      } catch (e) {
+        require('../logError').logLspError('getJavaUsages for ' + classId, e);
+      }
 
       // Ids are deduped above, but several ids can map to ONE file, which
       // then gets scanned once per id and would repeat every row — the sink
@@ -355,6 +365,7 @@ foam.CLASS({
        *   • `'propName'`         — quoted (tableColumns, searchColumns, aliases)
        *   • `getPropName(`       — Java getter
        *   • `setPropName(`       — Java setter
+       *   • `.CONSTANT_NAME`     — mlang predicate site, e.g. `EQ(User.EMAIL, v)`
        * Skips any match whose match-position is inside a line/block comment
        * (detected via preceding-line state).
        */
@@ -380,6 +391,23 @@ foam.CLASS({
         [ new RegExp('\\bget' + capEsc + '\\s*\\(', 'g'),         3 + cap.length,  0 ],
         [ new RegExp('\\bset' + capEsc + '\\s*\\(', 'g'),         3 + cap.length,  0 ]
       ];
+
+      // mlang predicate call sites reference a property by its CONSTANT form
+      // (`foam.String.constantize`, e.g. 'firstName' -> 'FIRST_NAME'): code
+      // writes `EQ(User.EMAIL, v)`, never `EQ(User.email, v)`, so none of the
+      // five patterns above ever match it. Skip when the constant equals the
+      // property name verbatim — an already-all-caps name would make this
+      // pattern identical to the `.propName` entry above; `seen[hitIdx]`
+      // below already dedups identical hits across patterns, so skipping
+      // here doesn't prevent a double-count, it just saves running a
+      // redundant regex pass over the file.
+      var constant = foam.String.constantize(propName);
+      if ( constant !== propName ) {
+        var constEsc = constant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        patterns.push(
+          [ new RegExp('\\.' + constEsc + '\\b', 'g'), constant.length, 1 ]
+        );
+      }
 
       var commentMask = this.buildCommentMask_(content);
       var uri = 'file://' + filePath;

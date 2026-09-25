@@ -34,8 +34,8 @@ foam.CLASS({
         directId = this.cache.resolveShortName(opt_uri, text, segment, position.line);
       }
       if ( directId && this.index.classExists(directId) ) {
-        var filePath = this.index.getFilePath(directId);
-        if ( filePath ) return this.location_(filePath);
+        var directLoc = this.location_(directId);
+        if ( directLoc ) return directLoc;
       }
 
       // Case B: segment is a property name on the current class — jump to its
@@ -48,17 +48,23 @@ foam.CLASS({
         if ( props[i].name !== segment ) continue;
         var propClassId = props[i].cls_ && props[i].cls_.id;
         if ( ! propClassId ) continue;
-        var filePath = this.index.getFilePath(propClassId);
-        if ( filePath ) return this.location_(filePath);
+        var propLoc = this.location_(propClassId);
+        if ( propLoc ) return propLoc;
       }
 
       return null;
     },
 
-    function location_(filePath) {
+    function location_(classId) {
+      /** Location of a class's declaration — file path from the file index,
+       *  line from `getClassLine` (0 when unknown, same fallback the
+       *  'implementation' case in server.js uses). */
+      var filePath = this.index.getFilePath(classId);
+      if ( ! filePath ) return null;
+      var line = this.index.getClassLine(classId);
       return {
         uri: 'file://' + filePath,
-        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }
+        range: { start: { line: line, character: 0 }, end: { line: line, character: 0 } }
       };
     }
   ]

@@ -168,7 +168,8 @@ foam.CLASS({
       if ( ! text ) return [];
       if ( this.callsMemo_ && this.callsMemo_.text === text ) return this.callsMemo_.calls;
 
-      var calls = this.scanCalls_(text, false);
+      var comments = [];
+      var calls    = this.scanCalls_(text, false, comments);
 
       // Line numbers in one pass over the text, not one pass per call.
       var line = 0;
@@ -179,8 +180,21 @@ foam.CLASS({
       }
       while ( ci < calls.length ) calls[ci++].line = line;
 
-      this.callsMemo_ = { text: text, calls: calls };
+      this.callsMemo_ = { text: text, calls: calls, comments: comments };
       return calls;
+    },
+
+    function commentSpans(text) {
+      /**
+       * Every comment in `text` as { start, end }, in source order — the
+       * same walk significantCalls() runs, so the two agree on what is
+       * commented out. A caller that writes into the file asks here before
+       * trusting a position: a grammar harvest can match `name: 'X'` inside
+       * a commented-out foam.CLASS as readily as in a live one.
+       */
+      if ( ! text ) return [];
+      this.significantCalls(text);
+      return this.callsMemo_.comments;
     },
 
     function firstSignificantCall_(text) {
@@ -189,14 +203,16 @@ foam.CLASS({
       return calls.length ? calls[0].name : null;
     },
 
-    function scanCalls_(text, stopAtFirst) {
+    function scanCalls_(text, stopAtFirst, opt_comments) {
       /**
        * Walk `text` collecting { name, offset } for each foam.NAME( call
        * outside comments and strings. The cursor only stops at characters
        * that can open something interesting — '/', a quote, or 'f' —
        * everything else advances without a parser attempt, which is what
        * keeps this near the substring scan's cost instead of the full
-       * parse's. `line` is filled in by significantCalls().
+       * parse's. `line` is filled in by significantCalls(). When
+       * `opt_comments` is given, each comment skipped is pushed onto it as
+       * { start, end }.
        */
       var skips    = this.parsers_.skips;
       var callName = this.parsers_.callName;
@@ -210,7 +226,11 @@ foam.CLASS({
           var advanced = false;
           for ( var i = 0 ; i < skips.length ; i++ ) {
             var ps = skips[i].parse(this.streamAt_(text, pos));
-            if ( ps ) { pos = ps.pos; advanced = true; break; }
+            if ( ps ) {
+              // skips[0] and skips[1] are the block and line comment parsers.
+              if ( opt_comments && i < 2 ) opt_comments.push({ start: pos, end: ps.pos });
+              pos = ps.pos; advanced = true; break;
+            }
           }
           if ( ! advanced ) pos++;
           continue;

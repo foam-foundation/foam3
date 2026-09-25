@@ -351,6 +351,45 @@ module.exports.done = (async function() {
   test(Array.isArray(wsSym.result) && wsSym.result.some(function(r) {
       return r.location && r.location.uri === CREATED_URI; }),
     'workspace/symbol lists the class created after boot');
+
+  // Completion over the wire: server.js hands memberHandler its feature
+  // config and the client's completionItem capability at initialize. This
+  // client declared no capabilities, so the auto-require item (flag on by
+  // default) arrives with its requires edit and without labelDetails.
+  var AR_URI = 'file://' + path.join(root, 'D.js');
+  var AR_SRC = "foam.CLASS({\n  package: 'd',\n  name: 'D',\n  methods: [\n" +
+    "    function go() {\n      this.DAOControllerV\n    }\n  ]\n});\n";
+  send('textDocument/didOpen', { textDocument: {
+    uri: AR_URI, languageId: 'javascript', version: 1, text: AR_SRC } });
+  await diagsFor(AR_URI, 'the didOpen push for the auto-require fixture');
+  var comp = await request('textDocument/completion',
+    { textDocument: { uri: AR_URI }, position: { line: 5, character: 23 } });
+  var arItems = ( comp.result && comp.result.items ) || [];
+  var arPick  = arItems.filter(function(i) { return i.detail === 'foam.comics.DAOControllerView'; })[0];
+  test(!! arPick && Array.isArray(arPick.additionalTextEdits) &&
+       arPick.additionalTextEdits[0].newText.indexOf("'foam.comics.DAOControllerView'") !== -1,
+    'completion over the wire: unrequired class carries its requires edit');
+  test(! arItems.some(function(i) { return i.labelDetails; }),
+    'completion over the wire: no labelDetails for a client that did not declare labelDetailsSupport');
+
+  // foam/byName op:'typeDefinition' on a Class.member used to have no case in
+  // byNameResult's switch. The MCP symbol-mode foam_type_definition tool
+  // never sent 'typeDefinition' to it — it sent op:'definition' explicitly
+  // (`editors/mcp/server.js`), so a Class.member request resolved to the
+  // property's OWN declaration line, not its type. Now the tool sends
+  // 'typeDefinition' and this case resolves it to the property's type class.
+  // User.email's type is foam.lang.EMail, declared in foam/lang/types.js;
+  // the returned location's line must also be inside that file, not line 0.
+  var tdByName = await request('foam/byName',
+    { name: 'foam.core.auth.User.email', op: 'typeDefinition' });
+  var tdLoc = tdByName.result && tdByName.result[0];
+  var tdUri = tdLoc && tdLoc.uri;
+  test(!! tdUri && tdUri.replace(/\\/g, '/').indexOf('foam/lang/types.js') !== -1,
+    'foam/byName typeDefinition on User.email resolves to the EMail property class (types.js), got: ' +
+    JSON.stringify(tdUri));
+  test(!! tdLoc && tdLoc.range && tdLoc.range.start.line > 0,
+    'foam/byName typeDefinition on User.email resolves to a real line, not the location_ line-0 default, got: ' +
+    JSON.stringify(tdLoc && tdLoc.range));
 })().catch(function(e) {
   test(false, 'dispatch tests failed — ' + e.message);
 }).then(function() {

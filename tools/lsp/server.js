@@ -304,6 +304,23 @@ function start() {
         }
         return referencesHandler.referencesForClassId(classId);
       }
+      case 'typeDefinition': {
+        // Distinct from 'definition': for a property member, jump to the
+        // PROPERTY'S CLASS (e.g. foam.lang.EMail), not to where the property
+        // is declared. Mirrors TypeDefinitionHandler's cursor-position
+        // Case B (`handlers/TypeDefinitionHandler.js`). No memberName, or a
+        // memberName that isn't a Property axiom, falls back to 'definition'.
+        if ( info.memberName ) {
+          var tdCls = index.getClass(classId);
+          var tdProp = tdCls ? tdCls.getAxiomByName(info.memberName) : null;
+          if ( tdProp && foam.lang.Property.isInstance(tdProp) ) {
+            var tdPropClassId = tdProp.cls_ && tdProp.cls_.id;
+            var tdLoc = tdPropClassId ? typeDefinitionHandler.location_(tdPropClassId) : null;
+            if ( tdLoc ) return [ tdLoc ];
+          }
+        }
+        return byNameResult(info, 'definition');
+      }
       case 'implementation': {
         var targets = index.isInterface(classId) ?
           index.getImplementors(classId) : index.getSubclasses(classId);
@@ -692,6 +709,15 @@ function start() {
         };
         codeActionHandler.featureConfig  = featureConfig;
         codeLensHandler.featureConfig    = featureConfig;
+        memberHandler.featureConfig      = featureConfig;
+        // What the client can render on a completion item (labelDetails).
+        // Both completion handlers shape their items for it, so an older
+        // client keeps getting exactly the fields it got before.
+        var completionItemSupport = params && params.capabilities &&
+          params.capabilities.textDocument && params.capabilities.textDocument.completion &&
+          params.capabilities.textDocument.completion.completionItem || null;
+        completionHandler.completionItemSupport = completionItemSupport;
+        memberHandler.completionItemSupport     = completionItemSupport;
         // Not a feature toggle: the scaffold command WRITES, and its dir
         // argument comes from whoever invoked it (an editor prompt, an agent
         // over MCP). wsRoot is the boundary it refuses to scaffold outside of.
@@ -1072,8 +1098,8 @@ function start() {
 
       case 'foam/byName':
         // Custom request: name-addressed navigation by class id. params:
-        // { name, op } where op ∈ definition|hover|references|implementation|
-        // typeHierarchy|callHierarchy. Returns the same shapes as the
+        // { name, op } where op ∈ definition|typeDefinition|hover|references|
+        // implementation|typeHierarchy|callHierarchy. Returns the same shapes as the
         // cursor-driven LSP methods so MCP reuses its shapers. null if the
         // name can't be resolved.
         try {

@@ -93,7 +93,7 @@ foam.CLASS({
       line-height: 32pt;
       font-size: 24pt;
       margin-left: 15pt;
-      color: /*%PRIMARY3*/ #604aff;
+      color: $textBrand;
     }
   `,
 

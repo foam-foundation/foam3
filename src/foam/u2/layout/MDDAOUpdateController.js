@@ -149,7 +149,7 @@ foam.CLASS({
       margin: 2rem 4rem;
       bottom: 0;
       background-color: unset;
-      border: 2px solid red!important;
+      border: 2px solid $destructive!important;
       border-radius: 73px;
     }
     ^ .main-container {

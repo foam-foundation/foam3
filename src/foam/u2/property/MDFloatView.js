@@ -15,7 +15,7 @@ foam.CLASS({
   css: `
     ^:read-only:not(:disabled) {
       border: none;
-      background: rgba(0,0,0,0);
+      background: transparent;
     }
   `,
 

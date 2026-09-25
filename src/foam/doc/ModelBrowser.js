@@ -12,9 +12,8 @@ foam.CLASS({
   imports: [ 'query' ],
 
   css: `
-  ^list { font-size: smaller; width: 440px; overflow-y: auto; height: calc(100vh - 170px)!important; border: 1px solid gray; padding: 0 2; }
+  ^list { font-size: smaller; width: 440px; overflow-y: auto; height: calc(100vh - 170px)!important; border: 1px solid $borderDefault; padding: 0 2; }
   ^selected { background: $backgroundInverseTertiary; }
-  // ^row:hover { border: 1px solid red; }
   `,
 
   properties: [

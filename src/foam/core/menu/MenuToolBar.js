@@ -48,10 +48,10 @@ foam.CLASS({
       padding-top: 15px;
       border-radius: 3px;
       box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #edf0f5;
+      border: solid 1px $borderLight;
     }
     ^option:hover {
-      border: solid 1px #604aff;
+      border: solid 1px $borderBrand;
       cursor: pointer;
     }
     ^option-title {

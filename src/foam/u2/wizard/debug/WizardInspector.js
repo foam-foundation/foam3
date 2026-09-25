@@ -56,7 +56,7 @@ foam.CLASS({
       gap: 4px;
     }
     ^ .foam-u2-borders-Block {
-      border-color: $borderInverse;
+      border-color: $borderStrong;
       border-left-size: 6px;
     }
     ^current.foam-u2-borders-Block {

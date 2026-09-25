@@ -290,7 +290,13 @@ foam.CLASS({
     { name: 'header-sm', value: '2rem' },
     { name: 'header-xs', value: '1.6rem' },
     { name: 'header-xxs', value: '1.4rem' },
-    // { name: 'header-xxxs', value: '1.2rem' }
+    { name: 'header-xxxs', value: '1.2rem' },
+
+    // Body copy. The header ramp stops at 1.4rem; body-md is the 1.4rem
+    // Fonts.js already sets on body, body-sm the step below it, so a view
+    // asking for body text does not have to reach for a header token.
+    { name: 'body-md', value: '1.4rem' },
+    { name: 'body-sm', value: '1.2rem' }
   ]),
 
   javaCode: `

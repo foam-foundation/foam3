@@ -21,7 +21,7 @@ foam.CLASS({
       margin-left: 6px;
       border-radius: 3px;
       overflow: hidden;
-      border: 3px solid white;
+      border: 3px solid $backgroundDefault;
     }
     ^ .label {
       color: $textDefault;

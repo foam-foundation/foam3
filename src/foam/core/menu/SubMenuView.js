@@ -39,9 +39,9 @@ foam.CLASS({
       border-bottom-right-radius: 5px;
     }
     ^inner div:hover {
-      background: $borderPrimaryLight !important;
-      border-left: solid 1px $borderPrimaryLight;
-      border-right: solid 1px $borderPrimaryLight;
+      background: $borderBrandLight !important;
+      border-left: solid 1px $borderBrandLight;
+      border-right: solid 1px $borderBrandLight;
     }
   `,
 

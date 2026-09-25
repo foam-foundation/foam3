@@ -84,7 +84,7 @@ foam.CLASS({
     ^operand^key {
       background-color: $backgroundInverseSecondary;
       color: $grey100;
-      font-weight: $fond-medium;
+      font-weight: $font-medium;
     }
   `,
 

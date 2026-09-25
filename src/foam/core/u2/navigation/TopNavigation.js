@@ -37,7 +37,7 @@ foam.CLASS({
 
   css: `
     ^ {
-      background: $background;
+      background: $backgroundBrand;
       width: 100%;
       min-width: 992px;
       height: 60px;
@@ -82,7 +82,7 @@ foam.CLASS({
     ^ .menuItem:hover, ^ .menuItem.hovered {
       cursor: pointer;
       padding-bottom: 5px;
-      border-bottom: 1px solid white;
+      border-bottom: 1px solid $white;
     }
     ^ .selected {
       border-bottom: 4px solid $borderBrandXLight!important;

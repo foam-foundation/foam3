@@ -9,30 +9,43 @@ foam.CLASS({
   name: 'CSSParser',
 
   documentation:`
-    Two grammars over CSS text.
+    One CSS grammar in two layers.
+
+    Full grammar (sheetGrammar_, JS and Java): parses FOAM css: text into
+    a tree of plain objects with offsets. See the node shapes below and
+    the methods parseValue() and parse(); walk(), declarations(),
+    tokens(), hazards() and errors() read the tree. Its symbols come from
+    sheetSymbols_().
+
+    Autocomplete layer (grammar_, JS only): foam.u2.StyleConfigurator
+    reads grammar_.getSymParser('colorPropertyValue' | 'borderValue') to
+    feed foam.parse.auto.SmartView suggestions. grammar_ holds the full
+    grammar's symbols plus the ones from autocompleteSymbols_(), which
+    accept text through the full grammar's components (token, hash with
+    isHexColor, number with its unit, ident, ws) and add the sug()
+    wrappers SmartView reads. The JS-only symbols are tokenName,
+    tokenValue, hexColor, colorKeyword, colorPropertyValue, sizeUnit,
+    sizeValue, borderWidth, borderStyle and borderValue. Problem this
+    split solves: a separate autocomplete grammar re-declared numbers,
+    hex colours and tokens with its own looser rules ('#fffff' was a
+    colour, '1.5px' was not a size). sug() lives only in these symbols,
+    never in a sheetSymbols_() rule, so the full grammar has no JS-only
+    behaviour to mirror.
 
     KEEP IN SYNC WITH src/foam/u2/parse/CSSParser.java
-    Problem: the full grammar below (sheetGrammar_) exists twice, here for
-    the browser and in CSSParser.java for server-side code, and nothing but
-    this note ties them. A rule fixed on one side only makes the two parse
-    the same CSS into different trees, and no build step notices. The two
-    implement the same node model (kinds, fields, offsets, error nodes and
-    messages) and run the same cases: foam.u2.parse.test.CSSParserTest here,
-    foam.u2.parse.test.CSSParserJavaTest there, with the same assertion
-    messages. A change to one grammar lands in the same commit as the
-    matching change to the other, plus the matching test case in both test
-    classes. Symbol names match across the two files, so a rule can be found
-    on the other side by name. The autocomplete grammar_ below is JS only.
-
-    grammar_ (autocomplete): the narrow grammar foam.u2.StyleConfigurator
-    reads through grammar_.getSymParser('colorPropertyValue' | 'borderValue')
-    to feed foam.parse.auto.SmartView suggestions. It only has to accept
-    what a user types into one of those fields.
-
-    sheetGrammar_ (full): parses FOAM css: text into a tree of plain objects
-    with offsets. See the node shapes below and the methods parseValue()
-    and parse(); walk(), declarations(), tokens(), hazards() and errors()
-    read the tree.
+    Problem: the full grammar exists twice, here for the browser and in
+    CSSParser.java for server-side code, and nothing but this note ties
+    them. A rule fixed on one side only makes the two parse the same CSS
+    into different trees, and no build step notices. The two implement
+    the same node model (kinds, fields, offsets, error nodes and
+    messages) and run the same cases: foam.u2.parse.test.CSSParserTest
+    here, foam.u2.parse.test.CSSParserJavaTest there, with the same
+    assertion messages. A change to a sheetSymbols_() rule lands in the
+    same commit as the matching change to the Java grammar, plus the
+    matching test case in both test classes. Symbol names match across
+    the two files, so a rule can be found on the other side by name. The
+    autocomplete symbols have no Java twin and need none: nothing in the
+    full grammar refers to them.
 
     NODE SHAPES
     Problem: a consumer that underlines a node, or rewrites one, needs the
@@ -189,204 +202,6 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'baseGrammar_',
-      value: function(alt, anyChar, literal, not, opt, range, repeat, repeat0, seq, seq1, str, sug, sym) {
-        // Override sug to add prepend overrides
-        let oldSug = sug;
-        sug = (v, opt) => { return oldSug(v, { prependSpaceOnSelect: false, ...opt}) };
-        // Add a literal sug
-        let sugl = v => sug(v, { text: v});
-
-        return {
-          START: sym('css'),
-          ws: repeat0(' '),
-          css: repeat(
-            alt(
-              sym('mediaQuery'),
-              sym('block')
-            )
-          ),
-          block: seq(
-            sym('selector'),
-            opt(sym('ws')),
-            '{',
-            opt(sym('ws')),
-            repeat(
-              sym('property')
-            ),
-            opt(sym('ws')),
-            '}'
-          ),
-          mediaQuery: seq(
-            '@media',
-            opt(sym('ws')),
-            sym('mediaCondition'),
-            opt(sym('ws')),
-            '{',
-            repeat(
-              sym('block')
-            ),
-            '}'
-          ),
-          mediaCondition: repeat(not('{', anyChar()), null, 1),
-          selector: repeat(not('{', sym('selectorName')), null, 1),
-          selectorName: repeat(not(',', seq(opt('^'), str(repeat(anyChar())))), null, 1),
-          property: seq(
-            sym('propertyName'),
-            opt(sym('ws')),
-            ':',
-            opt(sym('ws')),
-            sym('propertyValue'),
-            opt(sym('ws')),
-            opt('!important'),
-            opt(sym('ws')),
-            ';'
-          ),
-          propertyName: str(repeat(not(':', anyChar()), null, 1)),
-          propertyValue: repeat(not(alt('!important', ';'), anyChar()), null, 1),
-          genericPropertyValue: repeat(not(alt(' ', ';', '\n', '\r', ','), anyChar()), null, 1),
-          typedPropertyValue: alt(
-            sym('tokenValue'),
-            sym('paddingValue'),
-            sym('marginValue'),
-            sym('borderValue'),
-            sym('colorPropertyValue'),
-            sym('genericPropertyValue')
-          ),
-          // Token suggestions
-          tokenValue: sym('tokens'),
-          // CSS property value suggestions
-          tokenIdentifier: repeat(not(alt(' ', ';', '\n', '\r', ','), anyChar())),
-          // Padding suggestions
-          paddingValue: seq(
-            repeat(
-              sym('sizeValue')
-            )
-          ),
-          sizeValue: sug(seq(
-            sym('number'),
-            opt(sym('sizeUnit'))
-          ), { tooltip: 'Size value with optional unit' }),
-          number: repeat(
-            range('0', '9'), null, 1
-          ),
-          sizeUnit: alt(
-            sugl('px'),
-            sugl('em'),
-            sugl('rem'),
-            sugl('%'),
-            sugl('vh'),
-            sugl('vw'),
-            sugl('vmin'),
-            sugl('vmin'),
-            sugl('in'),
-            sugl('pt'),
-            sugl('ch')
-          ),
-          // Margin suggestions
-          marginValue: seq(
-            repeat(
-              sym('sizeValue')
-            )
-          ),
-          // Border suggestions
-          borderValue: seq(
-            sym('borderWidth'),
-            ' ',
-            sym('borderStyle'),
-            ' ',
-            sym('colorPropertyValue')
-          ),
-          borderWidth: alt(
-            sym('sizeValue'),
-            sugl('thin'),
-            sugl('medium'),
-            sugl('thick')
-          ),
-          borderStyle: alt(
-            sugl('none'),
-            sugl('hidden'),
-            sugl('dotted'),
-            sugl('dashed'),
-            sugl('solid'),
-            sugl('double'),
-            sugl('groove'),
-            sugl('ridge'),
-            sugl('inset'),
-            sugl('outset')
-          ),
-          // Color value suggestions
-          hexValue: str(seq(
-            '#', repeat(
-              sym('hexDigit'), null, 3, 6
-            )
-          )),
-          hexDigit: alt(
-            range('0', '9'),
-            range('a', 'f'),
-            range('A', 'F')
-          ),
-          rbgValue: seq(
-            alt('rgb', 'rgba'),
-            '(',
-            sym('rgbNumber'), ',', sym('rgbNumber'), ',', sym('rgbNumber'),
-            opt(seq(',', sym('alphaValue'))),
-            ')'
-          ),
-          rgbNumber: range('0', '255'),
-          alphaValue: seq(
-            '0.', repeat(
-              range('0', '9'), null, 1
-            )
-          ),
-          hslValue: seq(
-            alt('hsl', 'hsla'),
-            '(',
-            sym('hue'), ',', sym('percentage'), ',', sym('percentage'),
-            opt(seq(',', sym('alphaValue'))),
-            ')'
-          ),
-          hue: range('0', '360'),
-          percentage: seq(
-            range('0', '100'),
-            '%'
-          ),
-          colorPropertyValue: alt(
-            str(seq(sug(literal('$'), { text: '$', label: 'CSS Token', prependSpaceOnSelect: false }), sym('tokenValue'))),
-            sug(sym('hexValue'), { view: 'foam.parse.auto.ColorSuggester', label: 'Hex Color' }),
-            // Only one is required
-            // sug(sym('rbgValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'RGB Color' }),
-            // sug(sym('hslValue'), { view: 'foam.parse.auto.ColorSuggester', text: 'HSL Color' }),
-            sug('transparent', { text: 'transparent' })
-          )
-        };
-      }
-    },
-    {
-      name: 'tokensGrammar_',
-      value: function(action, alt, nyChar, eof, join, literal, literalIC, not, notChars, optional, range,
-        repeat, repeat0, seq, seq1, str, sug, sym, until) {
-          let tokenProps = [];
-          let allTokens  = this.tokenNames().map(name => {
-            let axiom = foam.u2.CSSTokens.getAxiomByName(name);
-            return foam.u2.CSSToken.isInstance(axiom) ? axiom : foam.u2.CSSToken.create({ name: name });
-          });
-          let token      = (token) => sug(literal(token.name, token), { text: token.name, view: { class: 'foam.parse.auto.CSSTokenSuggester', token: token }, prependSpaceOnSelect: false });
-
-          allTokens.sort((o1, o2) => {
-            o1 = o1.name;
-            o2 = o2.name;
-            return (o2.length - o1.length) || foam.util.compare(o1, o2);
-          });
-
-          allTokens.forEach(v => {
-            tokenProps.push(token(v));
-          });
-
-          return alt.apply(null, tokenProps);
-      }
-    },
-    {
       class: 'Function',
       name: 'tokenNames',
       documentation: `
@@ -403,24 +218,21 @@ foam.CLASS({
     },
     {
       name: 'grammar_',
+      documentation: `
+        The full grammar's symbols plus the JS-only autocomplete symbols
+        (see autocompleteSymbols_()), for foam.u2.StyleConfigurator.
+        Rebuilt when tokenNames changes: the token suggestions, and the
+        names a token must have, come from it.
+      `,
       expression: function(tokenNames) {
-        let base       = foam.Function.withArgs(this.baseGrammar_,   this.Parsers.create(), this);
-        let tokens     = foam.Function.withArgs(this.tokensGrammar_, this.Parsers.create(), this);
-        let grammar    = {
-          __proto__: base,
-          tokens: tokens
-        };
-        let self       = this;
-        let g = this.Grammar.create({
-          symbols: grammar
+        var sheet = this.sheetSymbols_();
+        var ac    = this.autocompleteSymbols_(tokenNames());
+        // foam.assert only logs; a shadowed full-grammar symbol would
+        // silently change what the full grammar parses, so fail loudly.
+        Object.keys(ac).forEach(k => {
+          if ( sheet[k] ) throw new Error('CSSParser: autocomplete symbol ' + k + ' would replace a full-grammar symbol');
         });
-
-        // let actions    = {
-        //   'colorPropertyValue': function (a) {
-        //   }
-        // };
-        // g.addActions(actions);
-        return g;
+        return this.Grammar.create({ symbols: Object.assign(sheet, ac) });
       }
     },
     {
@@ -956,6 +768,165 @@ foam.CLASS({
       };
     },
 
+    function autocompleteSymbols_(names) {
+      /* The JS-only autocomplete layer: the symbols StyleConfigurator reads
+         (colorPropertyValue, borderValue) and the ones they use. Each one
+         accepts text through a full-grammar component (token, hash, number,
+         ident, ws) and adds sug() wrappers for foam.parse.auto.SmartView.
+         No sheetGrammar_ rule refers to these, so the full grammar and its
+         Java twin are unchanged by them. */
+      var self = this;
+      var P    = this.Parsers.create();
+      var alt = P.alt.bind(P), literal = P.literal.bind(P), seq = P.seq.bind(P),
+          seq1 = P.seq1.bind(P), sym = P.sym.bind(P);
+
+      // Picking a suggestion must not insert a space: '1' + 'px', '$' + name.
+      var sug  = (p, s) => P.sug(p, Object.assign({ prependSpaceOnSelect: false }, s));
+      var sugl = v => sug(literal(v), { text: v });
+
+      // lexeme(name, test): the full-grammar symbol 'name', accepted when
+      // test(node) is true, seen by SmartView as one step.
+      // Problem: SmartView drops the suggestions it has collected whenever
+      // any parser, however deep, matches past the furthest suggestion
+      // point. 'number' matches '1p' before its unit is rejected, which
+      // wiped the unit suggestions offered after '1'. So the symbol runs on
+      // a copy of the stream without SmartView's apply hook, and only the
+      // lexeme's overall result passes through the hook, as a literal's did.
+      // Problem that creates: SmartView's onDataChange marks the field as an
+      // error when no parser was applied at or past the end of the text, and
+      // the hidden run reached the end unseen, so a valid '#fff' showed as
+      // an error at 0. After a match, REACH (zero width) is applied at the
+      // end through the hook, so the reach is recorded. quiet skips that,
+      // for afterNumber, which only looks ahead.
+      var REACH = { parse: function(ps) { return ps; }, toString: function() { return 'reach()'; } };
+      function lexeme(name, test, quiet) {
+        var p = sym(name);
+        return {
+          parse: function(ps, obj) {
+            var r;
+            // A StringPStream (the stream SmartView and parseString make)
+            // keeps its text in a one-element array; any other stream runs
+            // the symbol through its own apply, hook and all.
+            if ( ps.str && ps.str.length === 1 ) {
+              var q   = self.StringPStream.create();
+              q.str   = ps.str;
+              q.pos   = ps.pos;
+              q.apply = function(p2, o) { return p2.parse(this, o); };
+              r = q.apply(p, obj);
+            } else {
+              r = ps.apply(p, obj);
+            }
+            if ( ! r || ( test && ! test(r.value) ) ) return undefined;
+            var out = ps;
+            while ( out.pos < r.pos ) out = out.tail;
+            if ( ! quiet ) out.apply(REACH, obj);
+            return out.setValue(r.value);
+          },
+          toString: function() { return 'lexeme(' + name + ')'; }
+        };
+      }
+
+      // probe(p): applies p only for the suggestions it offers, then
+      // succeeds where it started. An accepting lexeme after it may match
+      // past the suggestion point and so clear them, as the old grammar did.
+      function probe(p) {
+        return {
+          parse: function(ps, obj) { ps.apply(p, obj); return ps; },
+          toString: function() { return 'probe(' + p.toString() + ')'; }
+        };
+      }
+
+      // afterNumber(p): when a full-grammar number starts here, applies p
+      // at the offset where its unit starts ('1' in '1px', '1.5' in '1.5p'),
+      // so unit suggestions land after the digits. Consumes nothing.
+      // sizeValue runs number twice per position, here and to accept it:
+      // a few characters of input, so left simple.
+      var number = lexeme('number', null, true);
+      function afterNumber(p) {
+        return {
+          parse: function(ps, obj) {
+            var r = number.parse(ps, obj);
+            // sizeValue refuses a negative number, so offering px/em/rem
+            // after '-1' only led to '-1px' and a red field.
+            if ( r && r.value.value >= 0 ) {
+              var at = ps, k = r.value.raw.length - r.value.unit.length;
+              while ( k-- ) at = at.tail;
+              at.apply(p, obj);
+            }
+            return ps;
+          },
+          toString: function() { return 'afterNumber(' + p.toString() + ')'; }
+        };
+      }
+
+      // keyword(list): one of the listed idents, any case, each offered
+      // as a suggestion.
+      function keyword(list) {
+        return alt.apply(null, list.map(k =>
+          sug(lexeme('ident', n => n.value.toLowerCase() === k), { text: k })));
+      }
+
+      var UNITS = [ 'px', 'em', 'rem', '%', 'vh', 'vw', 'vmin', 'in', 'pt', 'ch' ];
+
+      // Longest first, so a name is not offered as a prefix match of a
+      // longer one ('brandInk' before 'brandInkMuted' would win on
+      // '$brandInkMuted').
+      var tokens = names.map(name => {
+        var axiom = foam.u2.CSSTokens.getAxiomByName(name);
+        return foam.u2.CSSToken.isInstance(axiom) ? axiom : foam.u2.CSSToken.create({ name: name });
+      });
+      tokens.sort((o1, o2) => ( o2.name.length - o1.name.length ) || foam.util.compare(o1.name, o2.name));
+      var known = Object.create(null);
+      names.forEach(n => { known[n] = true; });
+
+      return {
+        // One suggestion per name, previewed by CSSTokenSuggester.
+        tokenName: alt.apply(null, tokens.map(t => sug(literal(t.name, t), {
+          text: t.name,
+          view: { class: 'foam.parse.auto.CSSTokenSuggester', token: t }
+        }))),
+
+        // '$' is offered first, then every name after it. Accepts a full
+        // $token whose base name is one of names ($name or $name$variant).
+        tokenValue: seq1(1,
+          probe(seq(sug(literal('$'), { text: '$', label: 'CSS Token' }), sym('tokenName'))),
+          lexeme('token', n => ! n.cls && known[n.base] === true)),
+
+        hexColor: sug(lexeme('hash', n => n.isHexColor),
+          { view: 'foam.parse.auto.ColorSuggester', label: 'Hex Color' }),
+
+        colorKeyword: keyword([ 'transparent' ]),
+
+        colorPropertyValue: alt(
+          sym('tokenValue'),
+          sym('hexColor'),
+          sym('colorKeyword')
+        ),
+
+        sizeUnit: alt.apply(null, UNITS.map(sugl)),
+
+        // A number, bare or with one of UNITS; the units are offered after
+        // its digits. Negative sizes are refused: a border or padding width
+        // below zero is invalid CSS, which a browser drops.
+        sizeValue: sug(seq1(1,
+          afterNumber(sym('sizeUnit')),
+          lexeme('number', n => n.value >= 0 && ( n.unit === '' || UNITS.indexOf(n.unit) !== -1 ))
+        ), { tooltip: 'Size value with optional unit' }),
+
+        borderWidth: alt(sym('sizeValue'), keyword([ 'thin', 'medium', 'thick' ])),
+
+        borderStyle: keyword([ 'none', 'hidden', 'dotted', 'dashed', 'solid', 'double', 'groove', 'ridge', 'inset', 'outset' ]),
+
+        borderValue: seq(
+          sym('borderWidth'),
+          sym('ws'),
+          sym('borderStyle'),
+          sym('ws'),
+          sym('colorPropertyValue')
+        )
+      };
+    },
+
     function stringParser_(P, node, q) {
       // A backslash escapes the next character, including the quote and a
       // line break (CR LF counts as one). An unterminated string is marked
@@ -1255,13 +1226,6 @@ foam.CLASS({
         }
       });
       return out;
-    },
-
-    function parseString(str, opt_name, opt_apply) {
-      let query = this.grammar_.parseString(str, opt_name, opt_apply);
-      // if we can simplify the query, do so now (something AND FALSE -> FALSE)
-      query = query && query.partialEval ? query.partialEval() : query;
-      return query;
     }
   ]
 });

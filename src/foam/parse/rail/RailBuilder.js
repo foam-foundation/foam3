@@ -127,11 +127,16 @@ foam.CLASS({
     },
 
     function badgeFor(p) {
-      /** Bounds badge for a Repeat-family parser. Repeat0 extends Repeat, so it is checked first. */
-      var P = foam.parse;
-      if ( P.Repeat0.isInstance(p) ) return '∅';
-      if ( P.Plus.isInstance(p) )    return '×1+';
-      return p.minimum ? '×' + p.minimum + '+' : '';
+      /**
+       * Bounds badge for a Repeat-family parser, from both bounds: ×4 (exactly), ×1–2 (range),
+       * ×3+ (at least), nothing when unbounded with no minimum. Repeat0 (value-less) adds ∅ in front.
+       */
+      var min = p.minimum || 0, max = p.maximum;
+      var bounded = max !== undefined && max < Number.MAX_SAFE_INTEGER;
+      var bounds = bounded ? ( min === max ? '×' + max : '×' + min + '–' + max )
+        : min ? '×' + min + '+' : '';
+      if ( ! foam.parse.Repeat0.isInstance(p) ) return bounds;
+      return bounds ? '∅ ' + bounds : '∅';
     },
 
     function literalBox(s, path) {

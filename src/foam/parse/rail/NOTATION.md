@@ -21,9 +21,9 @@ choice, first match wins) and **loops are greedy** (never give back).
 | `Sequence0` | straight track with badge | `∅` |
 | `Alternate` | branches stacked top-down | `①②③` priority |
 | `Optional` | bypass track above the item | |
-| `Repeat` | loop-back under the item, delimiter on the return track | `×n+` when a minimum is set |
+| `Repeat` | loop-back under the item, delimiter on the return track | `×4` exactly, `×1–2` range, `×3+` at least; none when unbounded |
 | `Plus` | as Repeat | `×1+` |
-| `Repeat0` | as Repeat | `∅` |
+| `Repeat0` | as Repeat | `∅`, followed by the bounds when set (`∅ ×3+`) |
 | `Until` / `UntilLiteral` | `…` box then the terminator | `…` |
 | `Until0` / `UntilLiteral0` | as Until, badge | `∅` |
 | `Not` | dashed grey frame with a barrier, then the else child if any | `⊘` |

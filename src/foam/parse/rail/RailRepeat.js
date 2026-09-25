@@ -24,7 +24,7 @@ foam.CLASS({
   properties: [
     { name: 'item' },
     { name: 'delim', documentation: 'Delimiter element on the return track, or null.' },
-    { class: 'String', name: 'badge', documentation: 'Bounds: "×1+" (plus), "×n+" (minimum), "∅" (may match nothing), or empty.' }
+    { class: 'String', name: 'badge', documentation: 'Bounds: "×4" (exactly), "×1–2" (range), "×3+" (at least; plus is "×1+"), "∅" in front for Repeat0, or empty.' }
   ],
 
   methods: [

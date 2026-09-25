@@ -45,7 +45,10 @@ foam.CLASS({
           a: plus(literal('a')),
           b: repeat(literal('b'), literal(','), 2),
           c: repeat(literal('c')),
-          d: repeat0(literal('d'))
+          d: repeat0(literal('d')),
+          e: repeat(literal('e'), null, 4, 4),
+          f: repeat(literal('f'), null, 1, 2),
+          g: repeat0(literal('g'), null, 3)
         };
       } });
       var b = this.RailBuilder.create({ grammar: g, theme: T, measure: m });
@@ -54,6 +57,9 @@ foam.CLASS({
       x.test(s[1].track.badge === '×2+' && s[1].track.delim && s[1].track.delim.text === '","', 'repeat with min and delimiter');
       x.test(s[2].track.badge === '',                                                 'unbounded repeat has no badge');
       x.test(s[3].track.badge === '∅',                                                'repeat0 (may match nothing) shows the empty badge');
+      x.test(s[4].track.badge === '×4',                                               'exactly four -> ×4, not ×4+');
+      x.test(s[5].track.badge === '×1–2',                                             'one to two -> ×1–2');
+      x.test(s[6].track.badge === '∅ ×3+',                                            'repeat0 keeps ∅ beside its minimum');
     }
   ]
 });

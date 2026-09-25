@@ -151,7 +151,10 @@ function shapeDocumentSymbols(res, projectRoot) {
   var lines = [];
   function walk(sym, depth) {
     var indent = '  '.repeat(depth);
-    var line = ( sym.range && sym.range.start ) ? sym.range.start.line : 0;
+    // range covers the whole definition (a property's `{` line); the name's
+    // own line is selectionRange, which is what a caller wants to jump to.
+    var at   = sym.selectionRange || sym.range;
+    var line = ( at && at.start ) ? at.start.line : 0;
     lines.push(indent + sym.name + ' [' + kindName(sym.kind) + '] @' + line);
     if ( Array.isArray(sym.children) ) {
       for ( var i = 0 ; i < sym.children.length ; i++ ) walk(sym.children[i], depth + 1);

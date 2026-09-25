@@ -11,6 +11,10 @@ p({
   id: "F3JournalReplayBenchmark"
 })
 p({
+  class: "foam.core.benchmark.F3ReplayPipelineBenchmark",
+  id: "F3ReplayPipelineBenchmark"
+})
+p({
   class: "foam.core.benchmark.FUIDBenchmark",
   id: "FUIDBenchmark"
 })
@@ -49,4 +53,69 @@ p({
 p({
   class: "foam.core.benchmark.UUIDBenchmark",
   id: "UUIDBenchmark"
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerCachedDup20xBenchmark",
+  mode: "CACHED",
+  batchSize: 200000,
+  distinct: 10000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerCachedUniqueBenchmark",
+  mode: "CACHED",
+  batchSize: 200000,
+  distinct: 200000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerJvmDup20xBenchmark",
+  mode: "JVM",
+  batchSize: 200000,
+  distinct: 10000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerJvmUniqueBenchmark",
+  mode: "JVM",
+  batchSize: 200000,
+  distinct: 200000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerLegacyDup20xBenchmark",
+  mode: "LEGACY",
+  batchSize: 200000,
+  distinct: 10000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerLegacyUniqueBenchmark",
+  mode: "LEGACY",
+  batchSize: 200000,
+  distinct: 200000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerRawDup20xBenchmark",
+  mode: "RAW",
+  batchSize: 200000,
+  distinct: 10000
+})
+p({
+  class: "foam.core.benchmark.StringInternerBenchmark",
+  id: "StringInternerRawUniqueBenchmark",
+  mode: "RAW",
+  batchSize: 200000,
+  distinct: 200000
+})
+p({
+  class: "foam.core.benchmark.GzipJournalReplayBenchmark",
+  id: "JournalReplayPlain"
+})
+p({
+  class: "foam.core.benchmark.GzipJournalReplayBenchmark",
+  id: "JournalReplayGzip",
+  gzip: true
 })

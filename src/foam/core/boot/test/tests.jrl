@@ -1,0 +1,1 @@
+p({"class":"foam.core.boot.test.CSpecStatusTest","id":"CSpecStatusTest","description":"CSpec.updateStatus reports through the context logger so service status reaches logMessageDAO"})

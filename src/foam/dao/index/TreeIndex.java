@@ -321,14 +321,6 @@ public class TreeIndex
     return null;
   }
 
-  public boolean isSafeToRemoveOrder(Sink sink) {
-    // Counts and GroupBys of only GroupBys and Counts are safe to ignore the order
-    if ( sink instanceof Count   ) return true;
-    // TODO? same for SUM(), MIN(), MAX(), ... if there is no limit
-    if ( sink instanceof GroupBy ) return isSafeToRemoveOrder(((GroupBy) sink).getArg2());
-    return false;
-  }
-
   /**
    * This function tries to return an optimal plan based on its arguments.
    */
@@ -352,7 +344,7 @@ public class TreeIndex
 
     // Remove order if possible
     if ( order != null ) {
-      if ( limit == AbstractDAO.MAX_SAFE_INTEGER && isSafeToRemoveOrder(sink) ) {
+      if ( limit == AbstractDAO.MAX_SAFE_INTEGER && sink.isOrderIndependent() ) {
         order = null;
       } else if ( order.toString().equals(indexer_.toString()) ) {
         // The ScanPlan already performs this check, but doint it here will possibly

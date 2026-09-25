@@ -42,6 +42,15 @@ foam.INTERFACE({
       value: 'PURGE_CMD'
     },
     {
+      name: 'LOAD_CMD',
+      documentation: `Command CSpecFactory sends to a lazy:false DAO service once
+        its service script has returned, so the load the CSpec promises at boot
+        happens after every index the script added. A DAO that defers its load
+        does it now; the rest pass it on.`,
+      type: 'String',
+      value: 'LOAD_CMD'
+    },
+    {
       name: 'COUNT_LISTENERS_CMD',
       documentation: 'Command to request a DAO to provide number of listeners.',
       type: 'String',

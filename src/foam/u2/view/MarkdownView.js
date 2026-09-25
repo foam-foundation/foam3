@@ -19,6 +19,9 @@ foam.CLASS({
   ],
 
   css: `
+    ^ a {
+      color: $link;
+    }
     ^ {
       display: flex;
       flex-direction: column;
@@ -527,6 +530,7 @@ foam.CLASS({
       var self = this;
 
       this.renderData_ = this.data;
+      this.onDetach(this.data$.sub(this.updateRender));
 
       this
         .addClass()
@@ -740,6 +744,7 @@ foam.CLASS({
           cols: 80,
           onKey: true,
           data$: this.data$,
+          escapeTextArea: false,
           placeholder: 'Enter markdown text...'
         }, this.editorElement_$)
         .end();

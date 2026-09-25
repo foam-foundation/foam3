@@ -56,8 +56,8 @@ Do:    the `ExpandableBorder` shape — a `title` and a `content$` slot the cons
 ### Toggle a class or bind a slot before reaching for `dynamic()`
 Each step up the ladder rebuilds more DOM; `dynamic()` is for structure changes only, and it builds into `this`.
 Don't: `this.slot(function(x) { return this.E().add(x); })`; a `dynamic()` around a whole table when one cell changes; `add(function() {...})` without `dynamic`
-Do:    `.enableClass('open', this.open$)` · `.add(this.title$)` · `.show(cond$)` · `this.dynamic(function(items) { ... })` around the block whose children are replaced
-Review asked: "keep dynamic() only around the elements whose structure actually changes." (`doc/guides/ReactiveUI.md:207`)
+Do:    `.enableClass('open', this.open$)` · `.add(this.title$)` · `.show(cond$)` · `this.add(this.dynamic(function(items) { ... }))` around the block whose children are replaced (bare `this.dynamic()` builds into the view and never removes the previous run)
+Review asked: "keep dynamic() only around the elements whose structure actually changes." (`doc/guides/ReactiveUI.md:209`)
 
 ### Chain the build; never stash elements in render-local variables
 A held reference outlives the branch that made it, and the reader loses the tree shape the chain shows.

@@ -57,20 +57,42 @@
       - [`style()`](#style)
     - [CSS Scoping with `^`](#css-scoping-with-%5E)
   - [Layer 2: Views](#layer-2-views)
-    - [View vs Controller](#view-vs-controller)
     - [Reactive Slots](#reactive-slots)
+    - [When the Stock UI Isn't Enough](#when-the-stock-ui-isnt-enough)
+      - [Why the defaults fall short](#why-the-defaults-fall-short)
+      - [Two options](#two-options)
+    - [Customizing the IngredientAmount View](#customizing-the-ingredientamount-view)
+      - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
+      - [A picker for `ingredient`: `targetProperty`](#a-picker-for-ingredient-targetproperty)
+      - [Browse: the table and `tableCellFormatter`](#browse-the-table-and-tablecellformatter)
+      - [A picker for `alternative`](#a-picker-for-alternative)
   - [Layer 3: Controllers (Comics)](#layer-3-controllers-comics)
-  - [Customizing the IngredientAmount View](#customizing-the-ingredientamount-view)
-    - [The problem with the default reference view](#the-problem-with-the-default-reference-view)
-    - [A picker for `alternative`](#a-picker-for-alternative)
-    - [Customizing a relationship-generated reference: `targetProperty`](#customizing-a-relationship-generated-reference-targetproperty)
-    - [Browse: the table and `tableCellFormatter`](#browse-the-table-and-tablecellformatter)
   - [The Generated CRUD Screen: Detail and Create](#the-generated-crud-screen-detail-and-create)
     - [Detail: view and edit modes](#detail-view-and-edit-modes)
     - [Configuring the DAOController from the menu](#configuring-the-daocontroller-from-the-menu)
-  - [Creating a Custom Controller — RecipeCreateView](#creating-a-custom-controller--recipecreateview)
-- [Nano Services (Coming Soon)](#nano-services-coming-soon)
-- [Notifications (Coming Soon)](#notifications-coming-soon)
+  - [The Recipe Screen: Putting It All Together](#the-recipe-screen-putting-it-all-together)
+    - [The ingredient amounts picker for a step: `RecipeStepIngredientAmountsView`](#the-ingredient-amounts-picker-for-a-step-recipestepingredientamountsview)
+    - [Working state on `Recipe`: `editSteps` and `loadedStepIds`](#working-state-on-recipe-editsteps-and-loadedstepids)
+    - [`RecipeView`](#recipeview)
+      - [`init()` — following context](#init--following-context)
+      - [`render()` — composing recipe fields and step cards](#render--composing-recipe-fields-and-step-cards)
+        - [① `self` vs `this`](#%E2%91%A0-self-vs-this)
+        - [② ExpressionSlots: `dynamic()`](#%E2%91%A1-expressionslots-dynamic)
+        - [③ Recipe fields via `SectionedDetailView`](#%E2%91%A2-recipe-fields-via-sectioneddetailview)
+        - [④ `callIf` — conditional DOM](#%E2%91%A3-callif--conditional-dom)
+        - [⑤ Slot chaining: `data$editSteps`](#%E2%91%A4-slot-chaining-dataeditsteps)
+      - [The payoff: composition over complexity](#the-payoff-composition-over-complexity)
+- [NanoServices](#nanoservices)
+  - [How It Works: The Stub/Skeleton Pattern](#how-it-works-the-stubskeleton-pattern)
+    - [What Gets Generated](#what-gets-generated)
+  - [Define Request and Response Models](#define-request-and-response-models)
+  - [Define the Service Interface](#define-the-service-interface)
+  - [Implement the Server Side](#implement-the-server-side)
+  - [Register the Service](#register-the-service)
+- [Putting It All Together](#putting-it-all-together)
+  - [Wiring It as the Default Landing Page](#wiring-it-as-the-default-landing-page)
+  - [Testing with the Demo User](#testing-with-the-demo-user)
+- [Where to Go from Here](#where-to-go-from-here)
 - [Appendix](#appendix)
   - [FOAM Model Reference](#foam-model-reference)
     - [Properties](#properties)
@@ -138,14 +160,18 @@ already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> inst
 
 > 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
-By following this tutorial you will learn to:
-1. Initialize a new FOAM application 
-1. Define FOAM models
-1. Familiarize with DAOs
-1. Understand journals
-1. ...
+By following this tutorial you will be able to:
+1. Scaffold a working full-stack web application in minutes
+1. Describe your data once and get storage, validation, and UI for free
+1. Query, filter, and persist data without writing database boilerplate
+1. Connect related data — lists, lookups, and many-to-many joins — automatically
+1. Build reactive UIs where the screen stays in sync with the data without manual DOM updates
+1. Generate complete browse, create, and edit screens from your data model and customize only what needs to differ
+1. Add server-side business logic as lightweight, reusable services
 
 This tutorial is best suited for FOAM beginners as well as experienced FOAM developers who wish to understand the underlying architecture in more depth.
+
+> 📦 **Companion repository.** The fully built application from this tutorial is available at [github.com/foam-foundation/FOAM-Recipes](https://github.com/foam-foundation/FOAM-Recipes). You can clone it to run the finished app, compare your work, or get unstuck when something does not match. That said, we strongly encourage you to build the project step by step rather than reaching for the finished code first — the understanding you build by working through each concept, making mistakes, and seeing things break and recover is not something you get by reading a completed codebase. The companion repo is a safety net, not a shortcut.
 
 
 # Initial Setup
@@ -166,11 +192,11 @@ cd <project root>
 git init
 ```
 
-One of the conveniences of FOAM is that allows customizations (called "refinements") to the predefined models. For that reason, FOAM is included in your project as a GIT sub-module, instead of a package.
-Therefore our next step is to go to the [FOAM Repository][foam-repo] and grab the repository's URL, then link to it as a sub-module for our project. Here is an example how to do it using the ssh github link:
+FOAM is included directly from its repository. The example below uses a git sub-module, which is one common way to bring it in. Go to the [FOAM Repository][foam-repo] and grab the repository's URL. The example uses SSH — if you haven't set up SSH keys with GitHub yet, see the [GitHub SSH guide][github-ssh]:
 
 ```
-git submodule add git@github.com:kgrgreer/foam3.git
+# using SSH
+git submodule add git@github.com:foam-foundation/foam3.git
 git submodule update --init --recursive --rebase --force
 ```
 
@@ -184,8 +210,9 @@ cd foam3/
 
 # Generate Application
 
-The easiest way to create a FOAM application is to use the foam build script <code>foam3/tools/build.js</code> and generate the application structure and the main application model. To create your application this way,
-while still in the *foam3* directory, execute the following:
+With the repository cloned, the sub-module linked, and the npm dependencies installed, everything is in place. We are now ready to generate our application skeleton.
+
+The easiest way to create a FOAM application is to use the project generator, which scaffolds the application structure and the main application model for you. From the *foam3* directory, run:
 
 ```
 # from foam3 directory
@@ -194,7 +221,12 @@ while still in the *foam3* directory, execute the following:
 cd ..
 ```
 
-In this case, we named the application and the top model _Recipe_ and placed it in the _com.foamdev.cook_ package.
+| Argument | Description |
+|----------|-------------|
+| `-T+setup/Project` | Runs the built-in project scaffolding task |
+| `--appName:Recipe` | The name of the application to generate and its top-level model class |
+| `--package:com.foamdev.cook` | The Java-style package namespace for all generated source files |
+| `--adminPassword:badpassword` | The initial password for the generated admin user — change this before any real deployment |
 
 ## Application Structure
 
@@ -222,13 +254,13 @@ One of the generated files is *build.sh* with the following content:
 node foam3/tools/build.js "$@"
 ```
 
-This is a convenience script to make the application builds easier. Before you use it, make sure that the script has executable privileges:
+This script is your entry point to the FOAM build tools — every build, test, and generator command you run throughout this tutorial goes through it. Before you use it, make sure that the script has executable privileges:
 
 ```
 chmod +x build.sh
 ```
 
-The next file to take a look at is the Project Object Model (POM) file for our project, named pom.js. Note that this file is a meta project file that will be used by FOAM to generate the traditional POM.xml used by build tools. The file should have the following content:
+The next file to take a look at is the Project Object Model (POM) file for our project, named `pom.js`. The `.js` extension is intentional — rather than a static XML descriptor, this is a live JavaScript file that FOAM evaluates at build time to produce the traditional `pom.xml` that build tools expect. Writing it in JavaScript means you can use variables, functions, and conditions to express build configuration that XML simply cannot. The file should have the following content:
 
 ```
 foam.POM({
@@ -257,39 +289,39 @@ foam.POM({
 
 Let's look briefly at the purpose of each of the elements in this file:
 
-<table>
+<table markdown="0">
 <thead>
 <tr>
-<th width=20%>Name</th>
-<th width=80%>Description</th>
+<th width="20%">Name</th>
+<th width="80%">Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td width=20% align="left">name</td>
-<td width=80% align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
+<td width="20%" align="left">name</td>
+<td width="80%" align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
 </tr>
 <tr>
-<td width=20% align="left">excludes</td>
-<td width=80% align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
-are standard directories that we want FOAM build to ignore. The <b>*</b> turns off all defaults. The build will only include projects listed
+<td width="20%" align="left">excludes</td>
+<td width="80%" align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
+are standard directories that we want FOAM build to ignore. The <b>&#42;</b> turns off all defaults. The build will only include projects listed
 in the projects below.</td>
 </tr>
 <tr>
-<td width=20% align="left">projects</td>
-<td width=80% align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
+<td width="20%" align="left">projects</td>
+<td width="80%" align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
 </tr>
 <tr>
-<td width=20% align="left">licenses</td>
-<td width=80% align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
+<td width="20%" align="left">licenses</td>
+<td width="80%" align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
 </tr>
 <tr>
-<td width=20% align="left">VERSION</td>
-<td width=80% align="left">The version that will be attached to some built files. Should be updated when you make a new release so that old cached code isn't used.</td>
+<td width="20%" align="left">envs.version</td>
+<td width="80%" align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
 </tr>
 <tr>
-<td width=20% align="left">tasks</td>
-<td width=80% align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
+<td width="20%" align="left">tasks</td>
+<td width="80%" align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
 </tr>
 </tbody>
 </table>
@@ -360,7 +392,9 @@ from two interfaces, <code>foam.core.auth.CreatedAware</code> and <code>foam.cor
 
 ### Understanding FOAM Models
 
-A FOAM model is a high-level specification that FOAM compiles into executable code for multiple languages (JavaScript, Java, Swift). The `foam.CLASS()` declaration defines everything about a class in one place - its data, behavior, relationships, and metadata.
+A FOAM model is a high-level specification that FOAM compiles into executable code for multiple languages (JavaScript, Java, Swift). The `foam.CLASS()` declaration defines everything about a class in one place — its data, behavior, relationships, and metadata. Every model produces a class that extends **FObject** (Feature Object), FOAM's universal base class. FObject is what gives all modeled objects their superpowers out of the box: automatic getters/setters, reactive property change notification, JSON serialization, cloning, comparison, and hashing — without writing any of that yourself.
+
+> 🤖 **A note on LLM-assisted development.** Because a FOAM model is a complete, structured specification — data, behavior, validation, and UI hints all in one declaration — it is an ideal target for prompt-driven generation. Describe your model in plain English, and an LLM can produce the full `foam.CLASS()` definition. Because that definition compiles to both JavaScript and Java, one prompt yields a working full-stack implementation rather than scaffolded boilerplate in each language separately.
 
 Here's the anatomy of a FOAM class definition:
 
@@ -420,7 +454,7 @@ So context answers two questions at once: **"where do I look up classes"** and *
 `requires` declares the **classes** you intend to create instances of. It does two things:
 
 1. Resolves each fully-qualified name against the context's class registry.
-2. Gives you a short alias on `this`, so you can construct it *context-aware* — the new instance automatically inherits your context.
+2. Gives you a short alias on `this`, so you can construct it *context-aware* — the new instance automatically inherits your context. Without this, you would have to pass the context manually: `com.foamdev.cook.RecipeStep.create({ ... }, this.__subContext__)`.
 
 ```javascript
 requires: ['foam.dao.ArraySink', 'com.foamdev.cook.RecipeStep'],
@@ -431,6 +465,8 @@ methods: [
   }
 ]
 ```
+
+> ⚠️ **Context matters.** Creating an object without a context — `com.foamdev.cook.RecipeStep.create({ ... })` — gives the new instance the global root context. For plain value objects that carry no dependencies this is fine. But if the object ever tries to reach a DAO, a nano-service, or any other context-injected dependency, it won't find it and will either fail silently or throw. When in doubt, use `requires` and let FOAM handle context propagation for you.
 
 Without `requires` you'd have to reference the full path and wire the context in by hand. So: **`requires` = "classes I will `.create()`."**
 
@@ -452,12 +488,12 @@ So: **`imports` = "services/values I expect to be handed to me via context."** I
 
 #### `requires` vs `imports` at a glance
 
-| | `requires` | `imports` |
-|---|---|---|
-| What it names | Classes | Instances / values / services |
-| What you do with it | `.create()` new instances | Use what already exists |
-| Direction | You build it | It's injected into you |
-| Analogy | Import a *type* so you can `new` it | Constructor-injected dependency |
+| | `requires` | `imports` | `exports` |
+|---|---|---|---|
+| What it names | Classes | Instances / values / services | Properties or values on this object |
+| What you do with it | `.create()` new instances | Use what already exists | Make them available to child objects |
+| Direction | You build it | It's injected into you | You publish it into the context |
+| Analogy | Import a *type* so you can `new` it | Constructor-injected dependency | Context provider |
 
 A quick mental model: `requires` is like importing a *type* so you can instantiate it; `imports` is like receiving a *dependency* someone else already built and placed in your context.
 
@@ -511,7 +547,11 @@ We will explore each of these concepts in detail as we develop our Recipe applic
 
 ## FOAM Journals
 
- A journal is a simple JSON-like configuration file used to store application data. Journal files are suitable for simple configuration data containing only a few records, and for larger in-memory databases, potentially containing millions of records. Journal files are append-only, meaning when data is added, updated, or removed, changes are only appended to the end of the file, but none of its contents are updated or removed. Updates are performed by recording, or journalling, a list of desired changes. These changes will appear in the journal as either "create" lines:
+> 📓 **Journals are your database — and your version control.** Every `.jrl` file is a plain-text, append-only log of commands. The data you add through the UI, the services you configure, the menus and themes you wire — all of it lands in a journal. That means your entire application state is human-readable, diffable, and committable to git. You can hand-craft entries, share seed data across the team, or swap journal sets for different deployment targets — no database migrations, no SQL scripts.
+
+Journals are the default storage layer and work well for most applications, but FOAM is not limited to them. `EasyDAO` — the DAO factory used throughout the framework — can switch any model to PostgreSQL or any JDBC-compatible database (MySQL, etc.) with a single configuration flag. Query performance and search indexing then scale with whatever the backing store supports natively. This tutorial uses journals throughout, but the same model definitions work unchanged against a production database. Deeper coverage of storage backends is a topic for more specialized guides.
+
+A journal is a simple JSON-like configuration file used to store application data. Journal files are suitable for simple configuration data containing only a few records, and for larger in-memory databases, potentially containing millions of records. Journal files are append-only, meaning when data is added, updated, or removed, changes are only appended to the end of the file, but none of its contents are updated or removed. Updates are performed by recording, or journalling, a list of desired changes. These changes will appear in the journal as either "create" lines:
 ```
   c({<json-data-here>});
 ```
@@ -538,7 +578,7 @@ database hosting or configuration, and provide excellent performance for many us
 ### What's in the `journals/` Directory
 
 When you generated the project, the setup script didn't just create your `Recipe` model — it
-also wrote a small set of journal files under <code>journals/</code> that bootstrap a
+also wrote a small set of journal files under <code>journals/</code> directory that bootstrap a
 complete, working application: who can log in, what they're allowed to do, what appears in
 the navigation, and which back-end services exist. Every one of these is an ordinary
 append-only journal of the `c()`/`p()`/`r()` form we just described; they simply hold
@@ -550,7 +590,11 @@ human-readable, and edited the same way you'd edit any other record.
 
 ### FOAM DAO Service
 
-The <code>journals/services.jrl</code> file is where an application declares its back-end **services** — each record is a recipe for wiring up one service at boot time, and FOAM registers it into the application's context so the rest of the system can look it up by name. Let's focus on the entry that sets up one of the most important FOAM services, the DAO:
+The `journals/services.jrl` file is where an application declares its back-end **services**. Each entry is a `CSpec` — a Component Specification — which is FOAM's way of saying "at boot time, build this thing and register it under this name." Once registered, any part of the application can look the service up from the context by that name, without knowing how it was built or where it lives.
+
+This is the same context system introduced earlier — the one that powers `imports`, `exports`, and nano-service injection. `services.jrl` is where those services are *defined*; FOAM reads the file at startup and registers each one into the context. We will come back to services in much more depth in the NanoServices chapter, where we build and register one from scratch.
+
+One of the most important services in any FOAM application is the **DAO service** — the bridge between your model and persistent storage. Let's walk through what that entry looks like:
 
 ```
 p({
@@ -575,7 +619,15 @@ p({
 The FOAM core comes with a number of out-of-the-box services, with DAO service being one of them, that you'll become more 
 familiar with time. With the journal above, we add the recipes DAO service to FOAM.
 
-A DAO, or Data Access Object, is an object which provides access to a collection of data. Here is a simplified pseudo code for the DAO interface:
+A **DAO** (Data Access Object) is one of the most important concepts in FOAM. It is an abstraction layer that sits between your code and wherever the data actually lives. Instead of writing code that talks directly to a file, a database, or a remote server, you talk to a DAO — and the DAO handles the rest.
+
+This means your application code never needs to know whether data is stored in a journal file on disk, a PostgreSQL database, an in-memory cache, or fetched over the network from a server. You call the same methods either way. Swap the backing storage without touching a single line of business logic. Add caching, authorization checks, or real-time notifications by wrapping one DAO with another — each decorator adds a behaviour, and the calling code is never aware.
+
+FOAM's DAO is not just a CRUD wrapper. It is a composable, queryable, listenable interface that the entire framework — the UI components, the relationship system, the authorization layer — is built on top of.
+
+> 🗄️ **The DAO is FOAM's single most powerful abstraction.** Write your code against the DAO interface once, and the framework can swap the backing store, add a caching layer, enforce authorization rules, or push real-time updates to connected clients — without your code changing at all. This is not a convenience; it is the architectural foundation that makes everything else in FOAM composable.
+
+Here is the interface in simplified form:
 
 ```
 interface DAO {
@@ -607,13 +659,6 @@ interface Sink {
 }
 ```
 
-FObject (Feature Object) is the base class for all FOAM modeled objects. When you define a model with `foam.CLASS()`, FOAM generates a class that extends FObject. FObjects provide:
-
-- **Properties** with automatic getters/setters, validation, and change notification
-- **Methods** that can be implemented in JavaScript, Java, or both
-- **Serialization** to/from JSON for storage and network transfer
-- **Cloning, comparison, and hashing** out of the box
-
 With a DAO you can do everything you might want to do with a collection of data. The above interface is surprisingly general and powerful, despite its relatively small size. Also note that a DAO is an interface, not a specific implementation. There are many DAO implementations that let you
 store your data in different underlying databases or other storage mechanisms. No mater which DAO implementation you're using, they all have the same interface and your client code can work with any implementation without change. Journal files, for example, are accessed through the "JDAO" DAO implementation.
 
@@ -622,7 +667,7 @@ Learn more about DAOs in the [Introduction to FOAM Programming][foam-intro] and 
 
 ### Menu Navigation 
 
-Let's look at one more file, <code>journals/menus.jrl</code> before we run our application. A **menu** is used to make our entity
+Let's look at one more generated journal file, <code>journals/menus.jrl</code> before we run our application. A **menu** is used to make our entity
 visible in FOAM. Upon initial creation the file should have the following content:
 
 ```
@@ -680,9 +725,7 @@ p({
 ```
 
 The predicates here are FOAM **mLang** expressions — the same query language DAOs use for
-<code>where()</code> — evaluated against the context rather than a database record. We'll
-meet mLang properly later; for now the takeaway is that menu routing itself can be data-driven
-and context-aware.
+<code>where()</code> — evaluated against the context rather than a database record. mLang is a deep topic in its own right and will be covered in a future [FOAM Foundations](../foundations/README.md) series. For now, the [MLang guide][foam-mlang] and [AutoQueryParser guide][foam-autoquery] are good starting points, and the appendix in this tutorial also covers the predicate basics. The takeaway for now is that menu routing itself can be data-driven and context-aware.
 
 Once we start building custom views later in the tutorial, a handler like
 <code>ViewMenu</code> is how you'd surface one of them from the navigation.
@@ -704,17 +747,19 @@ $ ./build.sh -Jdemo
 ```
 
 This will trigger the build and start the server. You can open your application in the web browser at http://localhost:8080/. 
-Use one of the following credentials at the logging screen:
+Use the following credentials at the login screen:
 
 ```
 # administrator - full access
 user: admin
 password: badpassword
 
-# regular non-priveledged user - can only interact with Recipes.
+# regular non-privileged user - can only interact with Recipes
 user: demo
 password: demopassword
 ```
+
+> 💡 **Use the admin account throughout this tutorial.** The demo user exists but requires group permissions that are only configured at the very end of the tutorial. Log in as `admin` for now — we will test the demo user once everything is wired up.
 
 Clicking on the Recipe in the left navigation menu should bring you to the Recipe screen:
 
@@ -729,6 +774,8 @@ You can create your own journals that you can use this way, by going to the runt
 a different file, then including it at startup with the <code>-J</code> option. For more info see the chapter on [Journal Merging](#Journal-Merging).
 
 > 💡 **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
+
+> ⚡ **Hot reload — no rebuild needed for UI changes.** A full rebuild (`./build.sh -Jdemo`) is only required when you change **Java code** or **journals** — anything that needs compilation or a server-side data change. For pure JavaScript and CSS changes (views, models, actions, CSS blocks), the server keeps running; just do a **hard reload in the browser** (`Cmd+Shift+R` / `Ctrl+Shift+R`) and the browser re-fetches the JS files and picks up your changes immediately. You will do this constantly while iterating on the UI, so it is worth knowing early.
 
 # Testing
 
@@ -932,8 +979,7 @@ foam.POM({
     { name: 'test/pom', flags: 'test' }
   ],
   files: [
-    { name: 'Recipe',         flags: 'js|java' },
-    { name: 'RecipeCategory', flags: 'js|java' }
+    { name: 'Recipe',         flags: 'js|java' }
   ]
 });
 ```
@@ -944,7 +990,7 @@ The `flags: 'test'` ensures the test directory is only included when running tes
 
 If tests require additional configuration (test data, mock services, etc.), place those journals in `deployment/test/`. The build automatically includes this deployment directory when running tests.
 
-For more details, see the [FOAM Testing Guide][foam-testing-guide].
+For more details, see the [FOAM Testing Guide][foam-testing-guide]. When things go wrong, the [Debugging Guide][foam-debugging] is a good companion.
 
 # Modify FOAM Recipe Model
 
@@ -1171,7 +1217,7 @@ foam.RELATIONSHIP({
 
 In our recipe app, the <code>alternative</code> property on <code>IngredientAmount</code> is a Reference because it's a **self-reference** (IngredientAmount pointing to another IngredientAmount), navigation is one-way, and it's optional metadata. The Recipe-to-RecipeStep link is a Relationship because we need <code>recipe.steps</code> to get all steps **and** <code>step.recipe</code> to navigate back — it's a core part of the domain structure.
 
-> 💡 **Aside — there's a simpler route.** FOAM also lets you model a recipe's steps as an <code>FObjectArray</code> of <code>RecipeStep</code>, storing them **inline on the Recipe** instead of as their own DAO records linked by a Relationship. That route skips much of the custom work this tutorial takes on — no junction handling, no saving the parent before you can link children, no custom pickers — and it's a perfectly good choice when steps are only ever created and edited as part of their recipe. The trade-off is **flexibility**: inline steps aren't independently queryable records, there's no <code>step.recipe</code> back-navigation, and the data isn't normalized (steps can't be shared or reported on on their own). We deliberately continue with the Relationship and a normalized schema throughout this tutorial: the goal here is to **demonstrate FOAM's capabilities**, not to reach the result the fastest.
+> 💡 **Aside — there's a simpler route.** FOAM also lets you model a recipe's steps as an <code>FObjectArray</code> of <code>RecipeStep</code>, storing them **inline on the Recipe** instead of as their own DAO records linked by a Relationship. That route skips much of the custom work this tutorial takes on — no junction handling, no saving the parent before you can link children, no custom pickers — and it's a perfectly good choice when steps are only ever created and edited as part of their recipe. The trade-off is **flexibility**: inline steps aren't independently queryable records, there's no <code>step.recipe</code> back-navigation, and the data isn't normalized (steps cannot be reported on, on their own). We deliberately continue with the Relationship and a normalized schema throughout this tutorial: the goal here is to **demonstrate FOAM's capabilities**, not to reach the result the fastest.
 
 ## Defining Relationships
 
@@ -1379,13 +1425,55 @@ Order matters: models must be declared before the relationships that reference t
 
 ## Adding Menu Navigation
 
-To make the Ingredients DAO accessible from the application UI, add a menu entry in <code>deployment/default/menus.jrl</code>:
+Now that we have multiple DAOs, it is a good time to organise the sidebar. Rather than top-level menu items scattered around, we will group them under a **Cook Book** parent menu. Add the following entries to `journals/menus.jrl`:
 
-```
-p({"class":"foam.nanos.menu.Menu","id":"ingredient","label":"Ingredients","handler":{"class":"foam.nanos.menu.DAOMenu","daoKey":"ingredientDAO"}})
+First, create the parent group:
+
+```javascript
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook",
+  "label": "Cook Book",
+  "authenticate": true,
+  "handler": { "class": "foam.core.menu.SubMenu", "title": "Cook Book" }
+})
 ```
 
-We only add a menu for Ingredients because RecipeSteps and IngredientAmounts are accessed through their parent relationships rather than browsed independently. If you ever need to inspect those DAOs for debugging, you can search for them by name using the search bar in the left menu to navigate directly to the DAO.
+Then add the **Recipes** entry as a child by setting `parent` to `"cookbook"`:
+
+```javascript
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook.recipe",
+  "parent": "cookbook",
+  "label": "Recipes",
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": { "class": "foam.comics.v2.DAOControllerConfig", "daoKey": "recipeDAO" }
+  }
+})
+```
+
+And the **Ingredients** entry, also under `"cookbook"`:
+
+```javascript
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "cookbook.ingredientAmount",
+  "parent": "cookbook",
+  "label": "Ingredients",
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": { "class": "foam.comics.v2.DAOControllerConfig", "daoKey": "ingredientAmountDAO" }
+  }
+})
+```
+
+The `parent` field is what nests a menu item — FOAM resolves the hierarchy at startup and renders the sidebar accordingly. RecipeSteps and IngredientAmounts are accessed through their parent relationships rather than browsed independently, so we leave them out.
+
+> 🔍 **Every DAO is reachable from the search bar — no menu entry required.** Type any DAO key (e.g. `recipeStepDAO`, `ingredientAmountDAO`) into the search bar in the left sidebar and FOAM will navigate directly to its full browse/CRUD screen. This works for *any* registered DAO in the application, including internal ones you never wired into a menu. It is an incredibly useful trick for debugging, inspecting data mid-development, or exploring what the framework has registered — and most FOAM developers take a while to discover it.
 
 ## Build and Verify
 
@@ -1400,6 +1488,26 @@ After starting the application, you should see the new menu items. When you open
 For a comprehensive reference on FOAM relationships, including advanced configuration options like custom property settings, custom DAO keys, and one-way relationships, see the [FOAM Relationships Guide][foam-relationships].
 
 # Custom Views
+
+Before diving in, extract the archive that accompanies this chapter. From your project root:
+
+```bash
+tar -xzf foam3/doc/tutorials/resources/custom-views.tar.gz
+```
+
+This places the following files where they belong:
+
+| File | Destination |
+|------|-------------|
+| `IngredientPickerView.js` | `src/com/foamdev/cook/` |
+| `AlternativePickerView.js` | `src/com/foamdev/cook/` |
+| `RecipeStepIngredientAmountsView.js` | `src/com/foamdev/cook/` |
+| `RecipeView.js` | `src/com/foamdev/cook/` |
+| `RecipeCreateView2.js` | `src/com/foamdev/cook/` |
+| `UnitConversionPage.js` | `src/com/foamdev/cook/` |
+| `groupPermissionJunctions.jrl` | `journals/` |
+
+The journal file adds the permissions the demo user needs to access everything you build in this chapter — it will be needed at the very end when you test the demo login. The JS files are covered one by one throughout the chapter; you don't need to register them in `pom.js` yet — each section will tell you when to do that.
 
 Out of the box, FOAM turns a model into a working UI — the tables, forms, and browse-create-edit screens you've already seen — so you can **browse and edit your data with no UI code at all**. That default carries most apps a long way. But the stock views are a starting point, not a ceiling: you can **customize** them field by field, **swap in your own views**, and when a screen needs to be exactly right, assemble a **fully custom screen** — all from the same building blocks.
 
@@ -1985,7 +2093,7 @@ targetProperty: {
 
 `view` is the key line: it tells FOAM to render this property with `AlternativePickerView` instead of the stock reference view.
 
-`AlternativePickerView` is built on the exact same pattern as `IngredientPickerView`: extend `ReferencePropertyView`, add a `newAlternative` action, and in `createAlternative()` open a popup — but instead of a simple name/category form it reuses `IngredientAmount`'s own `main` section via `VerticalDetailView` with `useSections: ['main']`, so the popup inherits the model's fields and validation for free. The file is provided in the project zip; copy `AlternativePickerView.js` into `src/com/foamdev/cook/` and register it in `pom.js`:
+`AlternativePickerView` is built on the exact same pattern as `IngredientPickerView`: extend `ReferencePropertyView`, add a `newAlternative` action, and in `createAlternative()` open a popup — but instead of a simple name/category form it reuses `IngredientAmount`'s own `main` section via `VerticalDetailView` with `useSections: ['main']`, so the popup inherits the model's fields and validation for free. The file is provided in `custom-views.tar.gz`; copy `AlternativePickerView.js` into `src/com/foamdev/cook/` and register it in `pom.js`:
 
 ```javascript
 { name: 'AlternativePickerView', flags: 'js' }
@@ -2119,7 +2227,7 @@ Just as we built `IngredientPickerView` for the ingredient reference on `Ingredi
 
 It is worth pausing on why this relationship exists at all. We could have made `RecipeStep` hold its ingredient amounts directly as an `FObjectArray` property — simpler, no junction table, no extra DAO. The trade-off is that we would lose normalization: the same ingredient amount could not be reused across steps, and the full-text search, filtering, and sorting that a dedicated DAO gives us would be gone. Both approaches are valid; we are sticking with the normalized model here precisely to illustrate how FOAM handles it.
 
-The `RecipeStep → IngredientAmount` relationship is `*:*`, so FOAM generates a junction table automatically. The default view for this kind of property is **hidden** — FOAM does not know what UI to render for a many-to-many, so it opts out. Unlike the two pickers above, where we could subclass `foam.u2.view.ReferencePropertyView` and get searching for free, there is no stock base class for a many-to-many list with attach, create, and remove affordances. We wire in `foam.u2.view.RichChoiceView` at a lower level ourselves and build the rest by hand — which will also give us a chance to demonstrate FOAM's **transient fields**. The full `RecipeStepIngredientAmountsView` is provided in the zip file; copy it into `src/com/foamdev/cook/` and add an entry for it in `pom.js`. Below we cover only the wiring and the parts worth calling out.
+The `RecipeStep → IngredientAmount` relationship is `*:*`, so FOAM generates a junction table automatically. The default view for this kind of property is **hidden** — FOAM does not know what UI to render for a many-to-many, so it opts out. Unlike the two pickers above, where we could subclass `foam.u2.view.ReferencePropertyView` and get searching for free, there is no stock base class for a many-to-many list with attach, create, and remove affordances. We wire in `foam.u2.view.RichChoiceView` at a lower level ourselves and build the rest by hand — which will also give us a chance to demonstrate FOAM's **transient fields**. The full `RecipeStepIngredientAmountsView` is provided in `custom-views.tar.gz`; copy it into `src/com/foamdev/cook/` and add an entry for it in `pom.js`. Below we cover only the wiring and the parts worth calling out.
 
 Add the relationship to `Relationships.js`:
 
@@ -2157,22 +2265,49 @@ A few things worth calling out from the implementation.
 
 **Hand-rolled reactivity with `invalidate`.** Mutations go through the junction DAO, which does not propagate events to the relationship's target DAO — so there is no DAO event the list can subscribe to directly. One solution is a Boolean `invalidate` property used as a dirty flag. An alternative would be to subscribe to `step.ingredientAmounts.junctionDAO.on` events inside the render block — but since this view owns every mutation, the dirty flag is simpler and equally correct.
 
-The list is rendered inside a `dynamic()` block. `dynamic()` is FOAM's **ExpressionSlot for the DOM**: it inspects the argument names of the function you pass in, resolves each one as a slot on the view, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes. Here `invalidate` is the only argument, so the block re-runs exactly when we want it to:
+The list is rendered inside a `dynamic()` block. `dynamic()` is FOAM's **ExpressionSlot for the DOM**: it inspects the argument names of the function you pass in, resolves each one as a slot on the view, and re-runs the function — rebuilding the DOM subtree — whenever any of those slots changes. Here `invalidate` is the only argument, so the block re-runs exactly when we want it to.
+
+The reset back to `false` lives on the property itself via `postSet`, not inside the `dynamic()` block. Putting it inside the block would cause a second re-render immediately after every mutation — once for `true`, once for `false`. With `postSet` the reset happens synchronously within the setter, before the slot fires, so `dynamic()` sees only the `true` transition and runs once:
 
 ```javascript
 // property
-{ class: 'Boolean', name: 'invalidate' }
+{
+  class: 'Boolean',
+  name: 'invalidate',
+  postSet: function(_, newValue) {
+    if ( newValue ) this.invalidate = false;
+  }
+}
 
-// in render()
-.add(this.dynamic(function(invalidate) {
-  self.invalidate = false;   // mark as rendered
+// dynamic block re-runs on every invalidate = true
+.add(self.dynamic(function(invalidate) {
   var step = self.__context__.objData;
-  this.select(step.ingredientAmounts.dao, function(ia) { ... });
+  if ( ! step || ! step.id ) {
+    this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    return;
+  }
+  this.select(step.ingredientAmounts.dao, function(ia) {
+    this.start().addClass(self.myClass('row'))...
+  }, {
+    onEmpty: function() {
+      this.start().addClass(self.myClass('empty')).add(self.EMPTY_MESSAGE).end();
+    }
+  });
 }))
 
-// after every add / remove / edit:
+// after each mutation — bump the flag to re-render:
 self.invalidate = true;
 ```
+
+The empty state message is defined once using FOAM's `messages` axiom — a built-in i18n-aware string constant — and referenced as `self.EMPTY_MESSAGE`:
+
+```javascript
+messages: [
+  { name: 'EMPTY_MESSAGE', message: 'No ingredients yet.' }
+]
+```
+
+There are two distinct empty paths: the step has no `id` yet (just added, not yet persisted — no junction DAO to query), and the step is saved but all its amounts have been removed (the DAO query returns empty, so `onEmpty` fires). Both show the same message.
 
 
 **`RichChoiceView` — reusing the framework's own picker component.** For a `Reference` property (a foreign key), FOAM's `ReferenceView` generates a searchable dropdown automatically. Under the hood, `ReferenceView` delegates to `RichChoiceView` — the same component that powers every relationship picker in the framework. For a `*:*` list there is no generated equivalent: the framework cannot assume whether you want a picker, a multi-select table, tag chips, or something else entirely. So we reach for `RichChoiceView` directly — the same building block the framework uses internally, just configured and wired by hand:
@@ -2220,7 +2355,27 @@ Open `src/com/foamdev/cook/Recipe.js` and add two transient, hidden properties t
 
 `transient` means neither property is stored or sent over the network — they exist only in the client's in-memory object for the duration of an edit session. `hidden` keeps them out of any auto-generated form.
 
-Next, add two helper methods to the `methods` array. These do the heavy lifting for the action overrides below:
+Before adding helpers to `Recipe.js`, add one helper method to `RecipeStep.js`. Open `src/com/foamdev/cook/RecipeStep.js` and add a `methods` array to the class:
+
+```javascript
+methods: [
+  // Delete this step's *:* junction rows, then the step itself.
+  // IngredientAmounts are reusable records so they are kept.
+  // x supplies recipeStepDAO.
+  async function removeWithJunctions(x) {
+    if ( ! this.id ) return;
+    var sink = await this.ingredientAmounts.dao.select();
+    for ( var i = 0 ; i < sink.array.length ; i++ ) {
+      await this.ingredientAmounts.remove(sink.array[i]);
+    }
+    await x.recipeStepDAO.remove(this);
+  }
+]
+```
+
+`ingredientAmounts.remove()` deletes the junction row (not the `IngredientAmount` record itself — amounts are reusable across steps). Only after all junctions are gone do we remove the step, avoiding dangling references.
+
+Next, add two helper methods to the `methods` array of `Recipe.js`. These do the heavy lifting for the action overrides below:
 
 ```javascript
 // Persist editSteps linked to recipeId, in list order.
@@ -2309,7 +2464,7 @@ actions: [
 
 ### `RecipeView`
 
-`RecipeView` is the centrepiece of the app. The full file is provided in the zip — copy it to `src/com/foamdev/cook/RecipeView.js` and add it to `pom.js`:
+`RecipeView` is the centrepiece of the app. The full file is provided in `custom-views.tar.gz` — copy it to `src/com/foamdev/cook/RecipeView.js` and add it to `pom.js`:
 
 ```javascript
 { name: 'RecipeView', flags: 'js' }
@@ -2463,33 +2618,497 @@ Step back and look at what `render()` actually contains: roughly 30 lines for a 
 
 `SectionedDetailView` handles layout, labels, validation display, and visibility rules for both the recipe fields and each step form. `RecipeStepIngredientAmountsView` handles the entire ingredient amounts interaction — and because it is already wired to the `ingredientAmounts` relationship in `Relationships.js`, the standard step form includes the picker automatically with no extra code here. `ComicsAction` overrides handle save and cancel orchestration. None of that logic lives in `RecipeView` — it was written once, in the right place, and composed here.
 
-This is the payoff of FOAM's philosophy: build small, focused pieces that know their own concern, wire them together with relationships and context, and the top-level view stays thin. The complexity does not disappear — it is distributed to where it belongs.
+This is the payoff of FOAM's philosophy: build small, focused pieces that know their own concern, wire them together with relationships and context, and the top-level view stays thin. ***The complexity does not disappear — it is distributed to where it belongs.***
 
-> 💡 **Compare with `RecipeCreate2`.** The zip file includes `RecipeCreate2` — a fully custom create screen included for comparison, with its own layout, field wiring, and step management. Open it alongside `RecipeView` and compare the two.
+> 💡 **Compare with `RecipeCreate2`.** `custom-views.tar.gz` includes `RecipeCreate2` — a fully custom create screen included for comparison, with its own layout, field wiring, and step management. Open it alongside `RecipeView` and compare the two.
 >
 > The key distinction is **view vs controller**. `RecipeCreate2` is a **controller** — it owns its own data, manages its own lifecycle, and only handles the create case. `RecipeView` is a **view** — it receives `data` from the Comics shell, follows the shell's `controllerMode`, and adapts its rendering to VIEW, EDIT, and CREATE in a single component. The controller does more but knows less about the surrounding system; the view does less but integrates seamlessly with Comics' routing, toolbar, and mode management.
 >
 > `RecipeCreate2` would need a separate screen for view and edit. `RecipeView` handles all three modes with no duplication — that is exactly what the Comics shell and `controllerMode` buy you.
 
-# Nano Services (Coming Soon)
+# NanoServices
 
-// Coming soon
-[foam-nanoservices]
+Every real application depends on services: authentication, email, push notifications, AI inference, translation, currency formatting. These are not about storing records — they take a request, do something, and return a result. FOAM treats all of them through the same mechanism: the **nano-service**.
 
-# Notifications (Coming Soon)
+FOAM ships with many built-in nano-services covering the most common platform needs. Before writing a new service, always check whether one already exists. Notable built-ins include:
 
-// TODO - shopping list, menu generated, 
+| Service | Context name | What it does |
+|---|---|---|
+| `AuthService` | `auth` | Login, logout, password change, user lookup |
+| `AppConfigService` | `appConfigService` | Fetches application configuration for the current theme/tenant |
+| `TranslationService` | `translationService` | Internationalization — looks up translated strings by key |
+| `LLMService` | `llmService` | Large language model inference (AI completions) |
+| `Notification` | `notificationDAO` | In-app and push notifications |
+| `OTPAuthService` | `twofactor` | Google Authenticator / TOTP two-factor authentication |
+| `ResetPasswordService` | `resetPasswordService` | Password reset flow via token or code |
+| `GlobalSearchService` | `globalSearchService` | Full-text cross-model search |
+| `ThemeService` | `themes` | Theme resolution and multi-tenancy |
 
+When you do need to build your own, FOAM's nano-service architecture solves a fundamental problem in distributed systems: **how do you write code that works identically whether services are local (same JVM/process) or remote (across a network)?**
 
+The answer is **location-agnostic design** through three mechanisms:
 
+1. **Context-based dependency injection** — services are accessed by name, not by direct instantiation
+2. **Box-based messaging** — a minimal transport abstraction that hides network details
+3. **Stub/Skeleton RPC** — automatic generation of client proxies and server handlers
 
-// TODO - to be continued ...
+The calling code is identical in all three cases:
 
-* generate the app again to adjust the structure for changes
-* add a section on the high level system structure and some core services
-* add a section on debugging tips
-* add some recipes and package journals for them
-* test the clone mode (the already generated application) and write up README.md how to run if you do not follow along
+![NanoService transport diagram](images/nanoservice-transport.svg)
+
+## How It Works: The Stub/Skeleton Pattern
+
+FOAM achieves location-agnostic services through three mechanisms working together:
+
+1. **Context-based dependency injection** — the service is accessed by name (`imports: ['conversionService']`), not by direct instantiation. The context provides the right implementation automatically.
+2. **Box-based messaging** — a minimal transport abstraction (`Box.send(envelope)`) that hides whether the call goes in-process or over the network.
+3. **Stub/Skeleton code generation** — from a single interface definition, FOAM generates a client-side stub that marshals calls into messages, and a server-side skeleton that receives those messages and dispatches them to the real implementation.
+
+![Stub/Skeleton pattern](images/nanoservice-stubskeleton.svg)
+
+The flow for a single call:
+
+1. Your code calls a method on the stub: `this.conversionService.convert(x, request)`
+2. The stub marshals the call into an `RPCMessage` (method name + arguments) and wraps it in an `Envelope`
+3. A `Box` sends the envelope — over HTTP, WebSocket, or directly in-process depending on configuration
+4. The skeleton on the server receives the envelope, unpacks the `RPCMessage`, and calls the real implementation
+5. The result travels back through the same chain in reverse
+
+You write the interface. FOAM generates steps 2–4 in both languages.
+
+### What Gets Generated
+
+When you set `skeleton: true` and `client: true` on a `foam.INTERFACE`, the build produces two files automatically:
+
+- **`Client<ServiceName>.js`** — the browser-side stub. Every method becomes an async function that packages the call into an `RPCMessage`, sends it through the configured `Box`, and resolves or rejects the returned promise based on the reply.
+- **`<ServiceName>Skeleton.java`** — the server-side dispatcher. It receives incoming messages, switches on the method name, calls your real implementation, and sends the result back.
+
+Neither file is ever edited. They regenerate whenever the interface changes — adding a method, renaming an argument, or changing a return type is a single edit in one place.
+
+## Define Request and Response Models
+
+Let's see it in action. We'll build a unit conversion service for the Recipe app — something that converts between cups, grams, millilitres, and the other units cooks actually use. Step by step, from the interface definition all the way to a working UI.
+
+The first thing any nano-service needs is a typed contract: a request object that the caller fills in, and a response object that the service returns. These are ordinary FOAM models — nothing special about them except that all their properties must be serializable standard types so they can cross the wire.
+
+Create a new file `src/com/foamdev/cook/ConversionService.js`. We will put the models and the interface in the same file.
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionRequest',
+
+  documentation: 'Request object for unit conversion.',
+
+  properties: [
+    { class: 'Float',                             name: 'amount'   },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'fromUnit' },
+    { class: 'Enum', of: 'com.foamdev.cook.Unit', name: 'toUnit'   }
+  ]
+});
+
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'ConversionResponse',
+
+  documentation: 'Response object containing the converted amount and an optional server note.',
+
+  properties: [
+    { class: 'Float',  name: 'amount'  },
+    { class: 'String', name: 'message' }
+  ]
+});
+```
+
+Beyond the numeric result, `ConversionResponse` carries an optional `message` string — a slot for the server to pass any note it wants the user to see. We'll leave what goes there up to the implementation.
+
+The key constraint on request and response models is that all properties must be serializable standard FOAM types (`String`, `Float`, `Enum`, `Boolean`, etc.). That is the only requirement — everything else is regular FOAM modelling.
+
+## Define the Service Interface
+
+Immediately after the models in the same file, define the interface:
+
+```javascript
+foam.INTERFACE({
+  package: 'com.foamdev.cook',
+  name: 'ConversionService',
+
+  documentation: `
+    A nano-service for converting between measurement units.
+    Demonstrates the nano-service pattern: pure business logic,
+    no database dependency, location-agnostic calling.
+  `,
+
+  skeleton: true,   // generate ConversionServiceSkeleton.java
+  client:   true,   // generate ClientConversionService.js
+
+  methods: [
+    {
+      name:  'convert',
+      async: true,
+      type:  'com.foamdev.cook.ConversionResponse',
+      args: [
+        { name: 'x',       type: 'Context'                            },
+        { name: 'request', type: 'com.foamdev.cook.ConversionRequest' }
+      ]
+    }
+  ]
+});
+```
+
+The two flags are everything. `skeleton: true` tells the build to generate the Java skeleton; `client: true` generates the JavaScript stub. The interface itself has no implementation — it is a pure contract.
+
+Notice the first argument: `x: Context`. Every nano-service method takes the caller's context as its first argument. The server uses this context for authentication checks, for accessing other services, and for passing it along to further calls. This is what makes the whole system composable — context flows end-to-end.
+
+Now add the file to `pom.js`:
+
+```javascript
+{ name: 'com.foamdev.cook.ConversionService', flags: 'js' }
+```
+
+## Implement the Server Side
+
+Create `src/com/foamdev/cook/ServerConversionService.java`. This class provides the actual business logic. It extends `ContextAwareSupport` (which gives it access to the FOAM context) and implements the generated `ConversionService` interface.
+
+```java
+package com.foamdev.cook;
+
+import foam.lang.ContextAwareSupport;
+import foam.lang.X;
+import java.util.HashMap;
+import java.util.Map;
+
+public class ServerConversionService extends ContextAwareSupport
+    implements ConversionService {
+
+  // Volume units: everything converts to/from millilitres
+  private static final Map<Unit, Double> VOLUME_TO_ML    = new HashMap<>();
+
+  // Weight units: everything converts to/from grams
+  private static final Map<Unit, Double> WEIGHT_TO_GRAMS = new HashMap<>();
+
+  static {
+    VOLUME_TO_ML.put(Unit.TEA_SPOON,   4.929);
+    VOLUME_TO_ML.put(Unit.TABLE_SPOON, 14.787);
+    VOLUME_TO_ML.put(Unit.CUP,         236.588);
+    VOLUME_TO_ML.put(Unit.MILLILITER,  1.0);
+    VOLUME_TO_ML.put(Unit.LITER,       1000.0);
+    VOLUME_TO_ML.put(Unit.PINCH,       0.6161);   // 1/8 teaspoon
+
+    WEIGHT_TO_GRAMS.put(Unit.GRAM,     1.0);
+    WEIGHT_TO_GRAMS.put(Unit.KILOGRAM, 1000.0);
+    WEIGHT_TO_GRAMS.put(Unit.OUNCE,    28.3495);
+    WEIGHT_TO_GRAMS.put(Unit.POUND,    453.592);
+  }
+
+  public ServerConversionService(X x) { setX(x); }
+
+  @Override
+  public ConversionResponse convert(X x, ConversionRequest request) {
+    var response = new ConversionResponse();
+    var from     = request.getFromUnit();
+    var to       = request.getToUnit();
+    var amount   = request.getAmount();
+
+    // Trivial case
+    if ( from == to ) {
+      response.setAmount((float) amount);
+      return response;
+    }
+
+    var volumeUnits = VOLUME_TO_ML.keySet();
+    var weightUnits = WEIGHT_TO_GRAMS.keySet();
+
+    // Volume → volume: convert to ml, then to target
+    if ( volumeUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / VOLUME_TO_ML.get(to)));
+      return response;
+    }
+
+    // Weight → weight: convert to grams, then to target
+    if ( weightUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      return response;
+    }
+
+    // Cross-dimension: bridge via water density (1 ml ≈ 1 g)
+    if ( volumeUnits.contains(from) && weightUnits.contains(to) ) {
+      response.setAmount((float) (amount * VOLUME_TO_ML.get(from) / WEIGHT_TO_GRAMS.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+    if ( weightUnits.contains(from) && volumeUnits.contains(to) ) {
+      response.setAmount((float) (amount * WEIGHT_TO_GRAMS.get(from) / VOLUME_TO_ML.get(to)));
+      response.setMessage("Approximate — based on water density (1 ml = 1 g).");
+      return response;
+    }
+
+    throw new RuntimeException(String.format(
+      "Cannot convert between %s and %s", from.getLabel(), to.getLabel()));
+  }
+}
+```
+
+A few things to notice in this implementation.
+
+**All intelligence is on the server.** The client sends a request and gets back either a result (with an optional note) or an exception. It never reasons about whether units are compatible or what assumptions were made — all of that lives here. This is a deliberate design: the server is the single source of truth for domain logic, and the client is a thin display layer.
+
+**The note mechanism.** When we convert between volume and weight (which are not directly comparable), we use water density as a bridge approximation and set `response.setMessage(...)`. The client will surface that message to the user without needing to understand why. If you later add ingredient-specific densities to make the approximation more accurate, you update only this file — the client and interface stay the same.
+
+**Throwing on incompatible units.** If two units genuinely cannot be converted (a future unit type that fits neither dimension), we throw a `RuntimeException`. FOAM's skeleton catches it and sends it back as a rejection on the client promise. The client never receives a `ConversionResponse` — it receives an error.
+
+Add `ServerConversionService` to `pom.js`. Entries in `files` are FOAM models — when the `java` flag is set, the build generates a Java counterpart from the model. `ServerConversionService` is a hand-written Java class that does not go through that pipeline; `javaFiles` is the place for classes like that:
+
+```javascript
+foam.POM({
+  // ...
+  files: [
+    // ... existing entries ...
+  ],
+
+  javaFiles: [
+    { name: 'ServerConversionService' }
+  ]
+});
+```
+
+## Register the Service
+
+Services are registered in `journals/services.jrl` using a `CSpec` — the same file and the same mechanism we used earlier to register the DAO services for our models. The difference is that instead of wiring up a DAO, this `CSpec` wires up an RPC service. Add the following entry:
+
+```javascript
+p({
+  "class":         "foam.core.boot.CSpec",
+  "name":          "conversionService",
+  "serve":         true,
+  "authenticate":  true,
+  "boxClass":      "com.foamdev.cook.ConversionServiceSkeleton",
+  "serviceScript": """
+    return new com.foamdev.cook.ServerConversionService(x);
+  """,
+  "client": """
+    {
+      "class": "com.foamdev.cook.ClientConversionService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/conversionService"
+        }
+      }
+    }
+  """
+})
+```
+
+The CSpec has two halves. The `serviceScript` runs on the server at startup and creates the implementation. The `client` block is JSON that gets sent to the browser; the browser evaluates it and registers the result as `conversionService` in the client context.
+
+What the client gets is a `ClientConversionService` (the generated stub, which knows how to make `convert` calls) wrapping a `SessionClientBox` (which adds the current session ID to every request for authentication) wrapping an `HTTPBox` (which POSTs to `service/conversionService`). All of this happens transparently — application code just calls `this.conversionService.convert(...)` and gets a promise.
+
+The CSpec properties that matter here:
+
+| Property | Purpose |
+|---|---|
+| `name` | How the service is accessed in context — `imports: ['conversionService']` |
+| `serve: true` | Expose over the network via the skeleton |
+| `authenticate: true` | Require a valid session; anonymous requests are rejected |
+| `boxClass` | The generated skeleton class that receives RPC messages |
+| `serviceScript` | Server-side construction (runs in the FOAM context `x`) |
+| `client` | JSON description of what to create on the client side |
+
+# Putting It All Together
+
+Everything in this tutorial has been building toward this moment. We modeled our domain, built reactive UIs, wired up FOAM's CRUD engine, and now have a live server-side service. Time to pull it all together into a small example landing page that puts the conversion service to work.
+
+Copy `UnitConversionPage.js` from `custom-views.tar.gz` into `src/com/foamdev/cook/` and add it to `pom.js`:
+
+```javascript
+{ name: 'UnitConversionPage', flags: 'js' }
+```
+
+Here is the complete file (CSS omitted for brevity — the full version is in `custom-views.tar.gz`):
+
+```javascript
+foam.CLASS({
+  package: 'com.foamdev.cook',
+  name: 'UnitConversionPage',
+  extends: 'foam.u2.Controller',
+
+  requires: [
+    'com.foamdev.cook.ConversionRequest',
+    'com.foamdev.cook.Unit'
+  ],
+
+  imports: ['conversionService'],
+
+  sections: [{ name: 'converter', title: '' }],
+
+  properties: [
+    {
+      class: 'Float',
+      name: 'amount',
+      value: 1,
+      min: 0,
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'fromUnit',
+      factory: function() { return this.Unit.CUP; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    {
+      class: 'Enum', of: 'com.foamdev.cook.Unit',
+      name: 'toUnit',
+      factory: function() { return this.Unit.MILLILITER; },
+      section: 'converter',
+      gridColumns: { columns: 4, xsColumns: 2 }
+    },
+    { class: 'Float',   name: 'result',  precision: 2, hidden: true },
+    { class: 'Boolean', name: 'hasResult',        hidden: true },
+    { class: 'String',  name: 'conversionError',  hidden: true },
+    { class: 'Boolean', name: 'converting',       hidden: true },
+    { class: 'String',  name: 'resultMessage',    hidden: true }
+  ],
+
+  css: `/* ... see custom-views.tar.gz ... */`,
+
+  actions: [{
+    name:      'convert',
+    label:     'Convert',
+    section:   'converter',
+    isEnabled: function(converting, amount) { return ! converting && amount > 0; },
+    code: async function() {
+      this.converting      = true;
+      this.conversionError = '';
+      this.hasResult       = false;
+      try {
+        var request  = this.ConversionRequest.create({
+          amount:   this.amount,
+          fromUnit: this.fromUnit,
+          toUnit:   this.toUnit
+        });
+        var response     = await this.conversionService.convert(this.__subContext__, request);
+        this.result        = response.amount;
+        this.resultMessage = response.message || '';
+        this.hasResult     = true;
+      } catch(e) {
+        this.conversionError = (e && (e.message || e.toString())) || 'Conversion failed.';
+      } finally {
+        this.converting = false;
+      }
+    }
+  }],
+
+  methods: [
+    function render() {
+      var self = this;
+      this.SUPER();
+
+      this.addClass()
+        .start().addClass(this.myClass('header'))
+          .start('h2').add('Unit Converter').end()
+          .start('p')
+            .add('Convert between volume and weight units used in recipes. ')
+            .add('Enter an amount, choose the units, and click Convert.')
+          .end()
+        .end()
+        .start().addClass(this.myClass('card'))
+          .tag({
+            class:       'foam.u2.detail.SectionView',
+            data:        self,
+            of:          'com.foamdev.cook.UnitConversionPage',
+            sectionName: 'converter',
+            showTitle:   false
+          })
+          .add(this.dynamic(function(hasResult, result, conversionError, fromUnit, toUnit, amount, resultMessage) {
+            if ( conversionError ) {
+              this.start().addClass(self.myClass('error')).add(conversionError).end();
+              return;
+            }
+            if ( hasResult ) {
+              var fmt = new Intl.NumberFormat(foam.locale, { maximumFractionDigits: self.RESULT.precision }).format(result);
+              this.start().addClass(self.myClass('result'))
+                .start().addClass(self.myClass('result-value'))
+                  .add(fmt + ' ' + toUnit.label)
+                .end()
+                .start().addClass(self.myClass('result-label'))
+                  .add(amount + ' ' + fromUnit.label + ' = ' + fmt + ' ' + toUnit.label)
+                .end()
+                .callIf(resultMessage, function() {
+                  this.start('p').addClass(self.myClass('note')).add(resultMessage).end();
+                })
+              .end();
+            }
+          }))
+        .end();
+    }
+  ]
+});
+```
+
+The `render()` method reuses everything from the Custom UI chapter — `hidden: true` state properties, `SectionView` for the form, `gridColumns` for the responsive layout, `converting` as a submission lock, and `dynamic()` for the reactive result area. If any of those feel unfamiliar, take a quick look back at that section. You may also notice `Intl.NumberFormat(foam.locale, ...)` — a small teaser for FOAM's internationalization support, where the active locale flows through the context and all formatting adapts automatically. That is out of scope here but will be covered in more specialized tutorials.
+
+The interesting part here is the `convert` action, which is where the service call happens:
+
+- **`this.__subContext__`** is passed as the first argument to every nano-service call. It carries the session and security context the server needs to authenticate the request.
+- **`try / finally`** ensures `converting` is always reset — even if the call throws — so the button never stays permanently disabled.
+- **`conversionError`** is populated from the exception message and displayed as-is — errors like incompatible units surface directly to the user.
+- **`response.message`** carries an optional note from the server — such as a density assumption if needed for some conversions — displayed below the result.
+
+## Wiring It as the Default Landing Page
+
+As a wrap, one more trick. So far we have wired views as regular menu items that appear in the sidebar. This time we will do something different: wire the Unit Converter as the landing page — the first screen users see when they log in. If they navigate away to the recipe cookbook or any other section, they can always get back by clicking the FOAM icon in the top left. The wiring takes just two journal entries.
+
+**In `journals/menus.jrl`**, add a menu entry with `parent: "hidden"`. The `"hidden"` parent is a FOAM convention: the menu exists and is navigable, but does not appear in the sidebar navigation:
+
+```javascript
+p({
+  "class":        "foam.core.menu.Menu",
+  "id":           "welcome",
+  "parent":       "hidden",
+  "label":        "Unit Converter",
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.ViewMenu",
+    "view":  { "class": "com.foamdev.cook.UnitConversionPage" }
+  }
+})
+```
+
+**In `journals/themes.jrl`**, set `"defaultMenu"` to point at that menu's id:
+
+```javascript
+"defaultMenu": ["welcome"]
+```
+
+Rebuild and restart — the default menu controls only where the app begins, not what else is available, so the cookbook is still reachable from the sidebar.
+
+## Testing with the Demo User
+
+Now is a good time to verify everything works for a regular non-privileged user. When you extracted `custom-views.tar.gz` at the start of this chapter, it also placed an updated `groupPermissionJunctions.jrl` into `journals/` — this file grants the `recipes` group permission to access all the Cook Book DAOs and menus we added throughout the tutorial — recipes, ingredients, ingredient amounts, recipe steps, the conversion service, and the `welcome` landing page. Log in as `demo` / `demopassword` — you should land directly on the Unit Converter and have access to the full cookbook menu. Notice that the left navigation is clean: only the Cook Book items you created are visible. The admin-only sections (user management, data management, and other system menus) are absent entirely — FOAM's permission system filters the sidebar automatically based on what the current user's group is allowed to see.
+
+![Unit Converter landing page](images/screen10.png)
+
+# Where to Go from Here
+
+You have come a long way. Starting from an empty project, you modeled a domain, built reactive UIs, let FOAM generate browse, create, and edit screens from your data model, composed custom views for the cases where auto-generation was not enough, and finally designed and deployed a nano-service that runs across JVM, HTTP, and WebSocket without a single change to the calling code.
+
+Congratulations — you now have everything you need to start building real FOAM applications and to dive into the more advanced topics this platform has to offer.
+
+And a lot comes for free that this tutorial did not cover. A few things worth knowing are already in your application, waiting to be configured:
+
+- **User management and authentication** — FOAM ships with a full user model, login flows, password reset, and session handling out of the box.
+- **Role-based access control** — rules on DAOs and services can be made conditional on the current user's roles and groups, with no changes to the business logic.
+- **Multi-factor authentication** — built-in support for TOTP and other second factors, wired through the same nano-service architecture you just used.
+- **Theming and branding** — colors, logos, fonts, and layout are all controlled through the theme journal you already touched when setting the default menu.
+- **Audit logging** — every DAO write can be logged automatically, giving you a full history of who changed what and when.
+- **Internationalization** — the `foam.locale` teased in the Unit Converter flows through the entire framework; labels, dates, numbers, and currency all adapt automatically.
+- **Email and push notifications** — built-in services for transactional email and real-time push, registered and called exactly like `conversionService`.
+
+The FOAM ecosystem is large. Explore, read the source, and look for the service you need before writing it from scratch — chances are it already exists.
 
 
 # Appendix
@@ -2929,7 +3548,7 @@ actions: [
 
 ## Source-to-Sink Architecture
 
-In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://kgrgreer.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
+In **FOAM**, DAOs and Sinks are explicitly separated. A **Sink** is an interface used specifically with the `select()` operation to process query results as they stream from the data source. See [DAO-Sink Flow Diagram](https://foam-foundation.github.io/foam3/tutorials/html/dao_sink_flow.html) for a visual representation.
 
 ### The Sink Interface
 
@@ -3551,11 +4170,11 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 
 <!-- List all links here -->
 
-[foam-repo]: https://github.com/kgrgreer/foam3
-[foam-pom-spec]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/POM.md
-[foam-build-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Build.md
-[foam-testing-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Testing.md
-[foam-install]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[foam-repo]: https://github.com/foam-foundation/foam3
+[foam-pom-spec]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/POM.md
+[foam-build-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md
+[foam-testing-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Testing.md
+[foam-install]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [foam-intro]: https://docs.google.com/presentation/d/1yT6Yb5aJJ3OXD3n_8GKC_vtTs_rxJpzOQRgU1Oa_1r4/edit?usp=sharing
 [github-docs-repo]: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
 [app-screen-1]: images/screen1.png
@@ -3566,10 +4185,13 @@ Visibility can be a static value or a function that returns a DisplayMode based 
 [app-screen-6]: images/screen6.png
 [recipe-schema]: images/RecipeDBSchema.png
 [github-ssh]: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-[foam-dao]: https://github.com/kgrgreer/foam3/blob/development/src/foam/dao/DAO.js
-[foam-guides]: https://github.com/kgrgreer/foam3/tree/development/doc/guides
-[foam-relationships]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/Relationships.md
-[foam-nanoservices]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/NanoServices.md
-[foam-dsl-guide]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/DSL.md
-[foam-reactive-ui]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ReactiveUI.md
-[foam-visibility]: https://github.com/kgrgreer/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md
+[foam-dao]: https://github.com/foam-foundation/foam3/blob/development/src/foam/dao/DAO.js
+[foam-guides]: https://github.com/foam-foundation/foam3/tree/development/doc/guides
+[foam-relationships]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Relationships.md
+[foam-nanoservices]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/NanoServices.md
+[foam-dsl-guide]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/DSL.md
+[foam-reactive-ui]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ReactiveUI.md
+[foam-visibility]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/ControllerModeAndVisibility.md
+[foam-mlang]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/MLang.md
+[foam-autoquery]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/AutoQueryParser.md
+[foam-debugging]: https://github.com/foam-foundation/foam3/blob/development/doc/guides/Debugging.md

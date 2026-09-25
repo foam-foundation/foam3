@@ -45,13 +45,17 @@ foam.CLASS({
       activeModifier: -15
     },
     {
+      // LIGHTEN clamps the grey level to 150 before scaling (colorlib
+      // lighten), so on the $black500 surface it cannot move far: -40 gives
+      // #363636, 1.59:1 on #0F0F0F, under the 3:1 floor for a non-text edge.
+      // Dark uses the semantic strong border token instead, so it follows
+      // whatever dark value $borderStrong carries.
+      // Light keeps LIGHTEN(-40) = #999999 on white.
       name: 'buttonSecondaryBorderColor',
       variantKey: 'color',
       value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) },
       variants: {
-        dark: {
-          value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), 40) }
-        }
+        dark: { value: '$borderStrong' }
       }
     },
     {
@@ -112,6 +116,24 @@ foam.CLASS({
       max-height: 100%;
       vertical-align: middle;
     }
+    /* Embedded icon files (images/*.svg) paint their shapes with a fixed
+       fill="#494F59" attribute, which wins over a fill set on the <svg>; so
+       point every shape at currentColor and let the button's text colour,
+       and its dark variant, drive the icon. fill="none" outlines are kept.
+       Sketch exports wrap the icon in <g fill="none"> with an unfilled
+       bounding <polygon>, <rect> or <path d="M0 0h24v24H0z"> that inherits
+       that none, placed first or last in its group; painting it would draw
+       a solid square, and no selector tells it from unfilled art, so shapes
+       without their own fill inside such a group are left alone (25 of the
+       57 shipped svg files have one). Art must carry its own fill to be
+       painted; list-view.svg and tree-view.svg were given one.
+       The loading spinner is excluded: its <path> carries no fill and takes
+       the per-state colour the ^loading rules below set on its <svg>, and a
+       fill on the path itself would override them (the disabled states
+       differ from currentColor). */
+    ^ svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])):not(^loading *) {
+      fill: currentColor;
+    }
 
     ^.material-icons {
       cursor: pointer;
@@ -129,10 +151,6 @@ foam.CLASS({
       background-color: $buttonPrimaryColor;
       box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
       color: $buttonPrimaryColor$foreground;
-    }
-
-    ^primary svg {
-      fill: currentColor;
     }
 
     ^primary:hover:not(:disabled) {
@@ -179,8 +197,6 @@ foam.CLASS({
       color: $buttonSecondaryColor$foreground;
     }
 
-    ^secondary svg { fill: currentColor; }
-
     ^secondary:hover:not(:disabled):not(:active) {
       background-color: $buttonSecondaryColor$hover;
       color: $buttonSecondaryColor$hover$foreground;
@@ -207,8 +223,6 @@ foam.CLASS({
       color: $textOnDestructive;
     }
 
-    ^secondary-destructive svg { fill: currentColor; }
-
     ^secondary-destructive:hover:not(:disabled) {
       background-color: $backgroundDestructive$hover;
       color: $backgroundDestructive$hover$foreground;
@@ -234,8 +248,6 @@ foam.CLASS({
       color: $buttonSecondaryColor$foreground;
     }
 
-    ^tertiary svg { fill: currentColor; }
-
     ^tertiary:hover:not(:disabled) {
       background-color: $buttonSecondaryColor$hover;
     }
@@ -246,7 +258,7 @@ foam.CLASS({
     }
 
     ^tertiary:disabled {
-      color: $textBrandTertiary;
+      color: $textTertiary;
     }
 
     /* Tertiary destructive */
@@ -256,8 +268,6 @@ foam.CLASS({
       border-color: transparent;
       color: $destructive400;
     }
-
-    ^tertiary-destructive svg { fill: currentColor; }
 
     ^tertiary-destructive:hover:not(:disabled):not(:active) {
       background-color: $buttonSecondaryColor$hover;
@@ -269,7 +279,7 @@ foam.CLASS({
     }
 
     ^tertiary-destructive:disabled {
-      color: $buttonSecondaryColor$disabled;
+      color: $textTertiary;
     }
 
     /* Link */
@@ -298,8 +308,6 @@ foam.CLASS({
       color: $textDefault;
     }
 
-    ^black svg { fill: currentColor; }
-
     ^black:hover:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       color: $textDefault;
@@ -311,7 +319,7 @@ foam.CLASS({
     }
 
     ^black:disabled {
-      color: $buttonSecondaryColor$active;
+      color: $textTertiary;
     }
 
     /* Text */
@@ -321,8 +329,6 @@ foam.CLASS({
       border: 1px solid transparent;
       color: $buttonPrimaryColor;
     }
-
-    ^text svg { fill: currentColor; }
 
     ^text:hover:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
@@ -335,7 +341,7 @@ foam.CLASS({
     }
 
     ^text:disabled {
-      color: $buttonSecondaryColor$active;
+      color: $textTertiary;
     }
 
     /* Sizes */
@@ -435,6 +441,16 @@ foam.CLASS({
     }
     ^text > ^loading svg, ^text:disabled > ^loading svg {
       fill: $buttonPrimaryColor;
+    }
+    /* The spinner sets fill on its own <svg> from the backgroundBrand token, so a style
+       with no ^loading rule shows a brand-blue spinner whatever its text
+       colour. These follow the button's colour like their icons do. */
+    ^secondary-destructive ^loading svg, ^tertiary-destructive ^loading svg, ^black ^loading svg,
+    ^secondary-destructive:disabled ^loading svg, ^tertiary-destructive:disabled ^loading svg, ^black:disabled ^loading svg {
+      fill: currentColor;
+    }
+    ^primary-destructive ^loading svg, ^primary-destructive:disabled > ^loading svg {
+      fill: $textOnDestructive;
     }
   `,
 

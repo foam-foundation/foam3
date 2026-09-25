@@ -1,4 +1,5 @@
-<flow name="UserLifecycleTicket" category="DOC/DEV" spid="foam" label="UserLifecycleTicket"/>
+<flow name="UserLifecycleTicket" category="DOC/DEV" spid="foam" label="UserLifecycleTicket" description="UserLifecycleTicket manages user deletion: orphaned associations, self-deletion rules, and blocking reactivation." keywords="user lifecycle,ticket,deletion,ucj,knowledge"/>
+
 # Incomplete
 
 UserLifecycleTicket is a ticket which helps manage user deletion.

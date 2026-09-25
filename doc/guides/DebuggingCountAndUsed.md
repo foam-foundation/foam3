@@ -1,4 +1,5 @@
-<flow name="DebuggingCountAndUsed" category="DOC/GUIDE" spid="foam"/>
+<flow name="DebuggingCountAndUsed" category="DOC/GUIDE" spid="foam" description="Explains cls.count_ (instance creation count per class) and foam.USED (registry of instantiated classes this session)." keywords="debugging,count,used,unused,classes,knowledge"/>
+
 # FOAM3 Debugging: `count_` and `foam.USED`
 
 This document explains two important debugging mechanisms in FOAM3 for tracking class usage and object instantiation in JS.

@@ -1,4 +1,5 @@
-<flow name="WhyFOAM" category="DOC/GUIDE" spid="foam"/>
+<flow name="WhyFOAM" category="DOC/GUIDE" spid="foam" description="Twelve principles behind FOAM's model-driven design: no edited generated code, fine-grained composition, RISC-y APIs, self-modelling." keywords="philosophy,design principles,model-driven,code generation,composability,knowledge"/>
+
 # Why FOAM? What Makes It Different?
 
 > *"Many people have tried to build a practical model-based programming environment, but these efforts always seem to collapse under their own weight. What are you doing differently this time?"*

@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.u2.wizard',
   name: 'IncrementalStepWizardView',
   extends: 'foam.u2.View',
+  mixins: ['foam.u2.wizard.WizardletRenderUtils'],
 
   documentation: `Displays wizardlets in individual screens.`,
 
@@ -60,7 +61,7 @@ foam.CLASS({
       max-width: 100vw;
     }
     ^status {
-      background-color: %WHITE%;
+      background-color: $backgroundDefault;
       padding: 50px;
       padding-top: 100px;
       overflow-y: auto;
@@ -69,7 +70,7 @@ foam.CLASS({
       justify-content: space-between;
     }
     ^hide-X-status {
-      background-color: %WHITE%;
+      background-color: $backgroundDefault;
       padding: 50px;
       overflow-y: auto;
       display: none;
@@ -102,7 +103,7 @@ foam.CLASS({
       padding-bottom: 0;
     }
     ^rightside ^bottom-buttons {
-      background-color: %GREY6%;
+      background-color: $backgroundSecondary;
       padding: 0 50px 25px 50px;
       text-align: right;
     }
@@ -234,8 +235,8 @@ foam.CLASS({
                 .start(this.CircleIndicator, {
                   label: 'X',
                   borderThickness: 2,
-                  borderColor: this.theme.grey2,
-                  borderColorHover: this.theme.primary1,
+                  borderColor: this.tok('$textTertiary'),
+                  borderColorHover: this.tok('$borderBrand'),
                   clickable: true
                 })
                 .on('click', () => this.showExitPrompt())

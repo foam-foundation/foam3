@@ -1,0 +1,53 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+foam.CLASS({
+  package: 'foam.core.reflow',
+  name: 'FlowHistoryRuleAction',
+
+  documentation: `Runs after each flowDAO put and appends a FlowHistoryRecord
+    to localFlowHistoryDAO listing the storage properties that changed. A put
+    that changed nothing writes no record.`,
+
+  implements: [ 'foam.core.ruler.RuleAction' ],
+
+  javaImports: [
+    'foam.core.auth.Subject',
+    'foam.dao.DAO',
+    'foam.dao.history.HistoryDAO',
+    'foam.dao.history.PropertyUpdate',
+    'foam.lang.ContextAgent',
+    'foam.lang.X',
+    'java.util.Date'
+  ],
+
+  methods: [
+    {
+      name: 'applyAction',
+      javaCode: `
+        PropertyUpdate[] updates = oldObj == null ? new PropertyUpdate[0] : HistoryDAO.diff(x, oldObj, obj);
+        if ( oldObj != null && updates.length == 0 ) return;
+
+        FlowHistoryRecord record = new FlowHistoryRecord();
+        record.setObjectId((String) obj.getProperty("id"));
+        record.setTimestamp(new Date());
+        record.setUpdates(updates);
+
+        Subject subject = (Subject) x.get("subject");
+        if ( subject != null && subject.getUser() != null ) {
+          record.setUser(subject.getUser().toSummary());
+        }
+
+        agency.submit(x, new ContextAgent() {
+          @Override
+          public void execute(X x) {
+            ((DAO) x.get("localFlowHistoryDAO")).put_(x, record);
+          }
+        }, "Recording flow history");
+      `
+    }
+  ]
+});

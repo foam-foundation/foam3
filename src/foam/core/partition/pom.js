@@ -8,6 +8,7 @@ foam.POM({
   files: [
     { name: "DatePartitioningScheme",       flags: "java" },
     { name: "All",                          flags: "js|java" },
+    { name: "AllPartitions",                flags: "js|java" },
     { name: "AbstractPartitionedDAO",       flags: "java" },
     { name: "PartitionedSequenceNumberDAO", flags: "java" },
     { name: "PartitionLoadStatus",          flags: "js|java" },

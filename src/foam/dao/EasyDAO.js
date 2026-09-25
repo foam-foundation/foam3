@@ -146,6 +146,7 @@ foam.CLASS({
       factory: function() { return this.delegateFactory(); },
       javaFactory: `
         List<PropertyInfo> indexes = new ArrayList();
+        boolean propertyIndexed = false;
 
         // TODO: replace logger instantiation once javaFactory issue above is fixed
         Logger logger = (Logger) getX().get("logger");
@@ -170,12 +171,9 @@ foam.CLASS({
             if ( getMdao() == null ) {
               setMdao(new foam.dao.MDAO(getOf()));
             }
+            addPropertyIndexes(getMdao());
+            propertyIndexed = true;
             delegate = getMdao();
-            if ( getDedup() ) {
-              delegate = new foam.dao.DeDupDAO.Builder(getX())
-                .setDelegate(delegate)
-                .build();
-            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
@@ -185,6 +183,14 @@ foam.CLASS({
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
             delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
+
+            // Outside the journal: a replay goes straight into the MDAO as one
+            // bulk load, and the JSON parser already interns what it reads.
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
           }
         }
 
@@ -252,7 +258,7 @@ foam.CLASS({
         if ( getDecorator() != null ) {
           if ( ! ( getDecorator() instanceof ProxyDAO) ) {
             logger.error(getName(), "delegateDAO", getDecorator(), "not instanceof ProxyDAO");
-            reportFatalDAOError();
+            throw new RuntimeException("not instanceof ProxyDAO");
           }
           // The decorator dao may be a proxy chain
           ProxyDAO proxy = (ProxyDAO) getDecorator();
@@ -388,6 +394,10 @@ foam.CLASS({
           }
         }
 
+        // A chain that does not start from this EasyDAO's MDAO gets them the
+        // way addPropertyIndex sends them.
+        if ( ! propertyIndexed ) addPropertyIndexes(delegate);
+
         // see comments above regarding DAOs with init_
         ((ProxyDAO) delegate_).setDelegate(delegate);
 
@@ -407,6 +417,16 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      class: 'Object',
+      javaType: 'foam.lang.Indexer[][]',
+      name: 'propertyIndexes',
+      hidden: true,
+      documentation: `Indexes the MDAO is created with, one Indexer[] per
+        index. addPropertyIndex records its index here until the delegate is
+        built, so the index is in the MDAO before the journal replays into it
+        and the replay's bulk load builds it with the rest.`
     },
     {
       class: 'Boolean',
@@ -541,11 +561,10 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'unloadable',
+      name: 'unloadable'
       // Unloadable-by-default is intended: SINGLE_JOURNAL EasyDAOs get memory
       // management via lazy journal reload (NotPartitionedDAO) unless explicitly
       // opted out; wrappers that can't safely rebuild (e.g. fixedSize) exclude themselves.
-      value: true
     },
     {
       documentation: 'Sets the inner dao to a nullDAO',
@@ -605,20 +624,18 @@ foam.CLASS({
       name: 'multiLineOutput'
     },
     {
-      documentation: `See JDAO.  Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
+      documentation: `REMOVED. Journal replay is always synchronous: the
+service is published only after every row is in the MDAO and the index is
+bulk loaded once. waitReplay:false replayed on a thread-pool thread after the
+service was published, so reads saw partial data, puts raced the replay, the
+index was built one put per row, and the replay reporter could not tell when
+the DAO had finished loading.`,
       class: 'Boolean',
       name: 'waitReplay',
       value: true,
-      javaGetter: `
-        if ( getSeqNo() ) return true;
-        if ( getFuid() ) {
-          foam.lang.PropertyInfo pInfo = (foam.lang.PropertyInfo) getOf().getAxiomByName("id");
-          if ( pInfo instanceof foam.lang.AbstractLongPropertyInfo )
-            return true;
-        }
-        if ( waitReplayIsSet_ )
-          return waitReplay_;
-        return true;
+      javaSetter: `
+        if ( ! val )
+          Loggers.logger(getX(), this).warning(getName(), "waitReplay:false support has been removed, replay is synchronous");
       `
     },
     {
@@ -963,17 +980,8 @@ dao loading, which improves overall startup time.`,
          if ( logger == null ) {
            logger = foam.core.logger.StdoutLogger.instance();
          }
-
-         logger = new PrefixLogger(new Object[] {
-           this.getClass().getSimpleName()
-         }, logger);
-
-         if ( logger != null ) {
-           logger.error("EasyDAO", getName(), "'of' not set.", new Exception("of not set"));
-         } else {
-           System.err.println("EasyDAO " + getName() + " 'of' not set.");
-         }
-         reportFatalDAOError();
+         logger.error("EasyDAO", getName(), "'of' not set.");
+         throw new RuntimeException("of not set");
        }
 
        if ( getInnerDAO() == null && getMdao() == null && ! getNullify() ) {
@@ -985,11 +993,11 @@ dao loading, which improves overall startup time.`,
       name: 'reportFatalDAOError',
       type: 'void',
       javaCode: `
-        Thread.dumpStack();
-        System.err.println("------------------------------------------------------ EasyDAO Shutting Down");
-        System.err.println("---- Due to inability to create DAO. Fix DAO specification.");
-
-        System.exit(-1);
+         Logger logger = (Logger) getX().get("logger");
+         if ( logger == null ) {
+           logger = foam.core.logger.StdoutLogger.instance();
+         }
+         logger.error("Failed to create DAO. Invalid DAO specification", getName(), new Exception("stacktrace"));
       `
     },
     {
@@ -1000,6 +1008,7 @@ dao loading, which improves overall startup time.`,
         try {
           var jdbcSpec = x.get("JDBCConnectionSpec");
           if ( jdbcSpec == null ) {
+            Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), "No JDBCConnectionSpec");
             throw new RuntimeException("No JDBCConnectionSpec");
           }
 
@@ -1032,7 +1041,6 @@ dao loading, which improves overall startup time.`,
           ddao.setDatabaseType(getDatabaseType());
           ddao.setDatabaseTableName(getDatabaseTableName());
           ddao.setJournalName(getJournalName());
-          ddao.setWaitReplay(getWaitReplay());
           ddao.setDelegate(delegate);
           delegate = ddao;
         } else if ( getJournalType().equals(JournalType.SINGLE_JOURNAL) ) {
@@ -1049,9 +1057,6 @@ dao loading, which improves overall startup time.`,
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
             pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
             pdao.setEasyDAO(this);
-            // lazy:false promises the data is loaded at boot; NotPartitionedDAO
-            // defers replay to the first access, so load it now, on the boot thread.
-            if ( getCSpec() != null && ! getCSpec().getLazy() ) pdao.getDelegate();
             delegate = pdao;
           } else if ( getFixedSize() != null ) {
             // FixedSizeDAO already wraps the mdao/dedup chain above (see the
@@ -1059,7 +1064,7 @@ dao loading, which improves overall startup time.`,
             // journal rather than rebuilding it, or the size cap would be lost.
             delegate = wrapInJDAO(x, delegate);
           } else {
-            delegate = createJournalledDelegate(x);
+            delegate = createJournalledDelegate(x, java.util.Collections.EMPTY_LIST);
           }
         }
         return delegate;
@@ -1067,25 +1072,42 @@ dao loading, which improves overall startup time.`,
     },
     {
       name: 'createJournalledDelegate',
-      documentation: 'Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO (aliased via setMdao so getMdao() tracks the live store), optionally wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used for the initial non-unloadable, non-fixedSize construction, and by NotPartitionedDAO#createDAO() to rebuild the chain on every unload/reload.',
-      args: 'X x',
+      documentation: `Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO
+        (aliased via setMdao so getMdao() tracks the live store) wrapped in a
+        JDAO over getJournalName(). Used for the initial non-unloadable,
+        non-fixedSize construction, and by NotPartitionedDAO#createDAO() to
+        rebuild the chain on every unload/reload.
+
+        indexes are the AddIndexCommands the new store must hold, on top of
+        propertyIndexes. The journal replays into the MDAO as one bulk load,
+        which builds every index the MDAO already holds at once, so they go in
+        before the replay.`,
+      args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
-        foam.dao.DAO delegate = getMdao();
+        addPropertyIndexes(getMdao());
+        for ( Object index : indexes ) getMdao().cmd(index);
+        return wrapInJDAO(x, getMdao());
+      `
+    },
+    {
+      name: 'addPropertyIndexes',
+      documentation: 'Adds each of propertyIndexes to the given DAO, the way addPropertyIndex does.',
+      args: 'foam.dao.DAO dao',
+      javaCode: `
+        if ( getPropertyIndexes() == null ) return;
 
-        if ( getDedup() ) {
-          delegate = new foam.dao.DeDupDAO.Builder(x)
-            .setDelegate(delegate)
-            .build();
+        for ( Indexer[] indexers : getPropertyIndexes() ) {
+          AddIndexCommand cmd = new AddIndexCommand();
+          cmd.setIndexers(indexers);
+          dao.cmd(cmd);
         }
-
-        return wrapInJDAO(x, delegate);
       `
     },
     {
       name: 'wrapInJDAO',
-      documentation: 'Wraps delegate in a JDAO over getJournalName(), applying the cluster/waitReplay/ndiff settings shared by every SINGLE_JOURNAL construction path.',
+      documentation: 'Wraps delegate in a JDAO over getJournalName(), applying the cluster/ndiff settings shared by every SINGLE_JOURNAL construction path.',
       args: 'X x, foam.dao.DAO delegate',
       type: 'foam.dao.DAO',
       javaCode: `
@@ -1097,7 +1119,6 @@ dao loading, which improves overall startup time.`,
         jdao.setX(x.put(CSpec.CSPEC_CTX_KEY, getCSpec()));
         jdao.setFilename(getJournalName());
         jdao.setCluster(getCluster() && !getSaf());
-        jdao.setWaitReplay(getWaitReplay());
         jdao.setNdiff(getNdiff());
         jdao.setMultiLineOutput(getMultiLineOutput());
         // Setting of delegate must be last as it triggers replay
@@ -1422,6 +1443,17 @@ dao loading, which improves overall startup time.`,
         return this;
       },
       javaCode: `
+        // The delegate is built on first use, and building it replays the
+        // journal. Until then the index is recorded, so it goes into the MDAO
+        // before the replay rather than being built from the loaded rows.
+        if ( ! delegateIsSet_ ) {
+          Indexer[][] recorded = getPropertyIndexes() == null ? new Indexer[0][] : getPropertyIndexes();
+          Indexer[][] all      = Arrays.copyOf(recorded, recorded.length + 1);
+          all[recorded.length] = indexers;
+          setPropertyIndexes(all);
+          return this;
+        }
+
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setIndexers(indexers);
         Object result = getDelegate().cmd_(getX(), cmd);

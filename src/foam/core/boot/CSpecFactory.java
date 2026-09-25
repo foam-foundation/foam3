@@ -148,6 +148,9 @@ public class CSpecFactory
           ns = null;
         }
       }
+      // lazy:false promises the data is loaded at boot. The service script has
+      // returned by now, so every index it added goes into that load.
+      if ( ! spec_.getLazy() && ns_ instanceof DAO ) ((DAO) ns_).cmd(DAO.LOAD_CMD);
       spec_.updateStatus(CSpecStatus.READY, "Initialized", (ns_ != null && ! ( ns_ instanceof ProxyDAO)) ? ns_.getClass().getSimpleName() : null);
     } catch (Throwable t) {
       spec_.updateStatus("Initializing", t);

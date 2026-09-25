@@ -19,6 +19,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'Window',
 
+  implements: [ 'foam.lang.Timers' ],
+
   documentation: `
     Encapsulates top-level window/document features.
 
@@ -48,13 +50,14 @@ foam.CLASS({
     'cancelAnimationFrame',
     'clearInterval',
     'clearTimeout',
+    'colorScheme',
     'columnStorage',
     'console',
     'debug',
     'delayed',
     'document',
     'error',
-    'framed',
+    'framed_ as framed',
     'getElementById',
     'getElementsByClassName',
     'idled',
@@ -73,9 +76,43 @@ foam.CLASS({
     'window'
   ],
 
+  constants: [
+    {
+      name: 'COLOR_SCHEME_KEY',
+      value: 'foam.colorScheme',
+      documentation: 'localStorage key behind colorScheme. Only Window reads or writes it.'
+    }
+  ],
+
   properties: [
     [ 'name', 'window' ],
     'window',
+    {
+      class: 'String',
+      name: 'colorScheme',
+      documentation: `The colour scheme the user picked in-app: 'light', 'dark',
+        or '' to follow the OS prefers-color-scheme query. Kept in localStorage
+        under COLOR_SCHEME_KEY so it outlives the page and the OS setting.
+        Setting it writes (or clears) the key and re-applies
+        theme.activeVariants.color for the current theme, so a control such as
+        foam.u2.theme.ColorSchemeToggle only ever sets this property.`,
+      factory: function() {
+        var v = null;
+        try { v = this.window.localStorage?.getItem(this.COLOR_SCHEME_KEY); } catch (_) {}
+        return v === 'light' || v === 'dark' ? v : '';
+      },
+      postSet: function(_, n) {
+        // Persist only. populateDefaultThemeVariants subscribes to
+        // colorScheme$ and re-applies, the same way it listens to the OS query.
+        try {
+          if ( n ) {
+            this.window.localStorage.setItem(this.COLOR_SCHEME_KEY, n);
+          } else {
+            this.window.localStorage.removeItem(this.COLOR_SCHEME_KEY);
+          }
+        } catch (_) {}
+      }
+    },
     {
       name: 'columnStorage',
       factory: function() { return localStorage; }
@@ -127,25 +164,29 @@ foam.CLASS({
     function populateDefaultThemeVariants(theme, ctx) {
       // WARNING: IN DEVELOPMENT
       // SET useVariants TO TRUE ON THEME TO ENABLE MODE SWITCHING
-      let colorSchemeQuery = this.window.matchMedia('(prefers-color-scheme: dark)');
       let fn = () => {
         if ( ! theme.useVariants ) return;
-        if ( this.window.matchMedia('(prefers-color-scheme: dark)').matches ) {
+        // A scheme picked in-app wins over the OS setting; with no pick the
+        // app follows the OS.
+        let dark = this.colorScheme ? this.colorScheme === 'dark' : this.window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if ( dark ) {
           theme.activeVariants$set('color', 'dark');
         } else {
           theme.activeVariants$remove('color');
         }
       }
-      // Every time this is called, remove the listener in case there is one for the old theme
-      colorSchemeQuery.removeEventListener('change', fn);
-      if ( this.getPrivate_('currentWindowThemeListener' ) ) this.getPrivate_('currentWindowThemeListener').detach();
-      if ( ! theme.useVariants ) return;
-      if ( this.window.matchMedia ) {
-        colorSchemeQuery.addEventListener('change', fn);
-        fn();
-        let themeListener = theme.onDetach(theme.activeVariants$.sub(() => { foam.u2.CSS.reloadStyles(ctx); }))
-        this.setPrivate_('currentWindowThemeListener', themeListener);
-      }
+      // The previous theme's three inputs (OS query, in-app pick, variant
+      // change) are held in one detachable so they go together.
+      this.getPrivate_('variantInputs')?.detach();
+      if ( ! theme.useVariants || ! this.window.matchMedia ) return;
+      let mql    = this.window.matchMedia('(prefers-color-scheme: dark)');
+      let inputs = foam.lang.FObject.create();
+      mql.addEventListener('change', fn);
+      inputs.onDetach(() => mql.removeEventListener('change', fn));
+      inputs.onDetach(this.colorScheme$.sub(fn));
+      inputs.onDetach(theme.activeVariants$.sub(() => { foam.u2.CSS.reloadStyles(ctx); }));
+      this.setPrivate_('variantInputs', inputs);
+      fn();
     },
 
     function getElementById(id) {
@@ -174,98 +215,6 @@ foam.CLASS({
 
     function warn() {
       this.console.warn.apply(this.console, arguments);
-    },
-
-    function async(l) {
-      /* Decorate a listener so that the event is delivered asynchronously. */
-      return this.delayed(l, 0);
-    },
-
-    function delayed(l, delay) {
-      /* Decorate a listener so that events are delivered 'delay' ms later. */
-      return () => {
-        this.setTimeout(
-          function() { l.apply(this, arguments); },
-          delay);
-      };
-    },
-
-    function merged(l, opt_delay) {
-      var delay = opt_delay || 16;
-      var ctx   = this;
-
-      return foam.Function.setName(function() {
-        var triggered = false;
-        var lastArgs  = null;
-        function mergedListener() {
-          triggered = false;
-          var args = Array.from(lastArgs);
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function() {
-          lastArgs = arguments;
-
-          if ( ! triggered ) {
-            triggered = true;
-            ctx.setTimeout(mergedListener, delay);
-          }
-        };
-
-        return f;
-      }(), 'merged(' + l.name + ')');
-    },
-
-    function idled(l, opt_delay) {
-      var delay = opt_delay || 16;
-      var ctx   = this;
-
-      return foam.Function.setName(function() {
-        var lastArgs = null;
-        var timeout;
-        function idledListener() {
-          timeout  = undefined;
-          var args = Array.from(lastArgs);
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function() {
-          lastArgs = arguments;
-
-          timeout && ctx.clearTimeout(timeout);
-          timeout = ctx.setTimeout(idledListener, delay);
-        };
-
-        return f;
-      }(), 'idled(' + l.name + ')');
-    },
-
-    function framed(l) {
-      var ctx = this;
-
-      return foam.Function.setName(function() {
-        var triggered = false;
-        var lastArgs  = null;
-        function frameFired() {
-          triggered = false;
-          var args = lastArgs;
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function framed() {
-          lastArgs = arguments;
-
-          if ( ! triggered ) {
-            triggered = true;
-            ctx.requestAnimationFrame(frameFired);
-          }
-        };
-
-        return f;
-      }(), 'framed(' + l.name + ')');
     },
 
     function setTimeout(f, t) {

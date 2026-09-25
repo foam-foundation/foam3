@@ -9,6 +9,7 @@ foam.POM({
 
   files: [
     { name: 'TestRecord',        flags: 'js&test|java&test' },
+    { name: 'LifecycleTestRecord',        flags: 'js&test|java&test' },
     { name: 'CompactionDAOTest', flags: 'js&test|java&test' }
   ],
 

@@ -16,6 +16,16 @@ p({
   id:"F3FileJournalTest"
 })
 p({
+  class:"foam.dao.test.MergeFObjectTest",
+  id:"MergeFObjectTest",
+  description:"mergeFObject returns the merged old row for a same-class delta and a row of the new class when the class changed"
+})
+p({
+  class:"foam.dao.test.ShardedReplayTest",
+  id:"ShardedReplayTest",
+  description:"A sharded replay applies every id in journal order and matches the single-thread line row for row"
+})
+p({
   class:"foam.dao.test.JournalDefaultClassNameTest",
   id:"JournalDefaultClassNameTest"
 })
@@ -33,3 +43,5 @@ p({
   description:"An index covered by an existing one must not be added"
 })
 p({"class":"foam.dao.test.BulkLoadCommandTest","id":"BulkLoadCommandTest","description":"a bulk load sent down cmd_ numbers its rows and stores them as the same puts would"})
+p({"class":"foam.dao.test.JournalGenerationsTest","id":"JournalGenerationsTest","description":"journal generations are derived from the filesystem: ordering, snapshots superseding, .tmp ignored"})
+p({"class":"foam.dao.test.EasyDAOPropertyIndexesTest","id":"EasyDAOPropertyIndexesTest","description":"an index a service script adds after build() is built in the replay bulk load"})

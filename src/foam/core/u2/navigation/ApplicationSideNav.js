@@ -59,7 +59,10 @@ foam.CLASS({
     }
     ^bottom-container {
       bottom: 0;
-      transition: all 0.2s ease;
+      /* Only the collapse/expand animates (^collapse, ^expand, ^padding);
+         'all' would also cross-fade background and color over 200ms while
+         the rest of the page flips colour scheme in one frame. */
+      transition: flex 0.2s ease, padding 0.2s ease;
     }
     ^top-container {
       top: 0;
@@ -67,9 +70,12 @@ foam.CLASS({
     ^bottom-container > * + * {
       margin-top: 4px;
     }
+    ^scheme-toggle {
+      padding: 0 8px;
+    }
     ^menu-container {
       flex: 1;
-      transition: all 0.2s ease;
+      transition: flex 0.2s ease, padding 0.2s ease;
     }
     ^logo {
       flex: 1;
@@ -130,6 +136,19 @@ foam.CLASS({
           // TODO: make this enableClass based on scroll pos
           .addClass(this.myClass('divider'))
           .enableClass(this.myClass('expand'), this.bottomRoot_$.map(v => !! v))
+          // Below MD the top nav hides its right-hand controls, so this is
+          // the only place a small screen can switch colour scheme.
+          // Drilling into a bottom row (user settings) replaces the row
+          // list with that submenu; the toggle sits outside the tree, so
+          // hide it with the rows or it stays above the "< back" header.
+          // The toggle also hides itself when the theme has no variants;
+          // both gates follow shown$, so a second show() on the same element
+          // would let whichever fired last win. The wrapper keeps them apart.
+          .start()
+            .addClass(this.myClass('scheme-toggle'))
+            .show(this.bottomRoot_$.map(v => ! v))
+            .tag({ class: 'foam.u2.theme.ColorSchemeToggle', showText: true })
+          .end()
           .start({
             class: 'foam.u2.view.NestedTreeView',
             data: self.menuDAO.where(self.EQ(self.Menu.ENABLED, true)),

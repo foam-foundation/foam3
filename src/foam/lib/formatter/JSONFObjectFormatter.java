@@ -377,6 +377,38 @@ public class JSONFObjectFormatter
         output((byte[][]) value);
       } else if ( value instanceof byte[] ) {
         output((byte[]) value);
+      } else if ( value instanceof float[] ) {
+        float[] arr = (float[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof double[] ) {
+        double[] arr = (double[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof int[] ) {
+        int[] arr = (int[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof long[] ) {
+        long[] arr = (long[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
       } else {
         output((Object[]) value);
       }

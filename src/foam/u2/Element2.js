@@ -1994,6 +1994,17 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.u2',
+  name: 'FloatArrayViewRefinement',
+  refines: 'foam.lang.FloatArray',
+  requires: [ 'foam.u2.view.FloatArrayView' ],
+  properties: [
+    [ 'view', { class: 'foam.u2.view.FloatArrayView' } ]
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
   name: 'DateViewRefinement',
   refines: 'foam.lang.Date',
   requires: [ 'foam.u2.view.DateView' ],

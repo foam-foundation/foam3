@@ -43,6 +43,13 @@ foam.CLASS({
       var end = tr.at(tr.length());
       x.test(end.finished && end.matched && end.pos === 7 && end.failPos === -1, 'finished, matched all 7 chars');
       x.test(end.summary().indexOf('matched all 7 chars') > 0, 'summary states the match');
+
+      // A start rule that stops early matched, but only part of the input.
+      var digits = this.Grammar.create({ symbols: function(plus, range) { return { START: plus(range('0', '9')) }; } });
+      var part = this.ParseTrace.create({ grammar: digits, startSymbol: 'START', input: '123abc' }).record();
+      var partEnd = part.at(part.length());
+      x.test(partEnd.matched && partEnd.matchedTo === 3, 'a partial match stops at 3');
+      x.test(partEnd.summary().indexOf('matched 3 of 6 chars') > 0, 'summary says 3 of 6, not all 6');
       var s0 = tr.at(0);
       x.test(! s0.finished && s0.pos === 0 && s0.derivation === null && s0.lastEvent === null, 'step 0: nothing applied');
       x.test(tr.at(1).lastEvent.type === 'try' && tr.at(1).lastEvent.root === true, 'the first event is the synthetic root try');

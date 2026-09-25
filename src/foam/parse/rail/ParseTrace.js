@@ -12,11 +12,13 @@ foam.CLASS({
     Records one parse of one input through the PStream apply hook, then
     answers "what is true after the first n events?" as a TraceSnapshot,
     computed in ONE walk. Two events per attempt: try on entry, done on exit.
-    Grammar.parseString calls the start rule directly (not through apply), so
-    its pair is synthesised here; without it the root never lights.
+    The start rule is called directly (not through apply), so its pair is
+    synthesised here; without it the root never lights. The root's end is the
+    stream position the start rule returns, so a parse that stops before the
+    end of the input reports how far it got.
   `,
 
-  requires: [ 'foam.parse.rail.Runaway', 'foam.parse.rail.TraceSnapshot' ],
+  requires: [ 'foam.parse.StringPStream', 'foam.parse.rail.Runaway', 'foam.parse.rail.TraceSnapshot' ],
 
   constants: {
     MIN_EVENT_CAP:   10000,   // floor so tiny inputs still get a fair budget
@@ -46,9 +48,9 @@ foam.CLASS({
       };
       var startP = this.grammar.getSymbol(this.startSymbol), result, err;
       events.push({ type: 'try', p: startP, start: 0, end: null, root: true });
-      try { result = this.grammar.parseString(this.input, this.startSymbol, apply); }
+      try { result = startP.parse(this.StringPStream.create({ apply: apply, str: this.input }), this.grammar); }
       catch (x) { err = this.explain(x, events); }
-      events.push({ type: 'done', p: startP, start: 0, end: result !== undefined ? this.input.length : null, root: true });
+      events.push({ type: 'done', p: startP, start: 0, end: result ? result.pos : null, root: true });
       this.events_ = events;
       this.error_  = err;
       return this;
@@ -110,7 +112,7 @@ foam.CLASS({
       n = Math.max(0, Math.min(events.length, n));
       var outcomes = new Map(), stack = new Set(), runs = new Map(), matches = new Map();
       var path = [], keys = [], open = [], frames = [];
-      var root = null, pos = 0, deepest = -1, rootMatched = false;
+      var root = null, pos = 0, deepest = -1, rootMatched = false, rootEnd = -1;
 
       for ( var i = 0 ; i < n ; i++ ) {
         var ev = events[i];
@@ -138,7 +140,7 @@ foam.CLASS({
           var node = frames.pop();
           node.pending = false; node.end = ev.end;
           if ( ok ) { if ( frames.length ) frames[frames.length - 1].kids.push(node); else root = node; }   // a failed done discards its subtree
-          if ( ev.root ) rootMatched = ok;
+          if ( ev.root ) { rootMatched = ok; rootEnd = ok ? ev.end : -1; }
           else if ( ! ok && ev.start > deepest ) deepest = ev.start;
           pos = ok ? ev.end : ev.start;
         }
@@ -148,7 +150,7 @@ foam.CLASS({
       var finished = n === events.length, failed = finished && ! rootMatched, last = n ? events[n - 1] : null;
       return this.TraceSnapshot.create({
         step: n, total: events.length, input: this.input, startSymbol: this.startSymbol,
-        finished: finished, matched: finished && rootMatched,
+        finished: finished, matched: finished && rootMatched, matchedTo: finished ? rootEnd : -1,
         pos: failed ? deepest : pos,
         tryStart: open.length ? open[open.length - 1] : -1,
         failPos: failed ? deepest : -1,

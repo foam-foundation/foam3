@@ -28,6 +28,7 @@ foam.CLASS({
     { class: 'String',  name: 'startSymbol' },
     { class: 'Boolean', name: 'finished', documentation: 'step === total.' },
     { class: 'Boolean', name: 'matched',  documentation: 'The start rule succeeded (meaningful once finished).' },
+    { class: 'Int',     name: 'matchedTo', value: -1, documentation: 'Where the start rule stopped when it matched; less than the input length when the rest was left unread.' },
     { class: 'Int',     name: 'pos',      documentation: 'Stream position after the applied events; the failure position once finished and failed.' },
     { class: 'Int',     name: 'tryStart', value: -1, documentation: 'Start of the innermost open attempt, or -1.' },
     { class: 'Int',     name: 'failPos',  value: -1, documentation: 'Deepest failure position, or -1 while unfinished or when matched.' },
@@ -84,7 +85,7 @@ foam.CLASS({
         : this.describe(ev) );
       var line2 = ! this.finished ? ''
         : this.error   ? this.error
-        : this.matched ? 'matched all ' + this.input.length + ' chars'
+        : this.matched ? ( this.matchedTo < this.input.length ? 'matched ' + this.matchedTo + ' of ' + this.input.length + ' chars' : 'matched all ' + this.input.length + ' chars' )
         : 'failed at ' + this.failPos + ' near "' + this.input.substring(Math.max(0, this.failPos - this.NEAR_CHARS), this.failPos + this.NEAR_CHARS) + '"';
       return line1 + '\n' + line2;
     },

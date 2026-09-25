@@ -1,0 +1,50 @@
+:root {
+  --bg: #fff; --fg: #202124; --muted: #5f6368; --err: #c5221f;
+  --border: #dadce0; --btn-bg: #f1f3f4; --input-bg: #fff; --hover: #f1f3f4;
+}
+:root.dark {
+  --bg: #202124; --fg: #e8eaed; --muted: #9aa0a6; --err: #f28b82;
+  --border: #3c4043; --btn-bg: #3c4043; --input-bg: #292a2d; --hover: #3c4043;
+}
+body { background: var(--bg); color: var(--fg); font: 12px system-ui, sans-serif; margin: 8px; }
+.muted { color: var(--muted); }
+.err { color: var(--err); }
+#tabs { display: flex; gap: 6px; align-items: center; padding-bottom: 4px; }
+#tabs .tab { border-radius: 4px 4px 0 0; border-bottom: none; padding: 3px 12px; }
+#tabs #status { margin-left: auto; }
+/* Tree-only controls; the Why tab has nothing to reveal or fold */
+#toolbar { display: none; gap: 10px; align-items: center; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 0; margin-bottom: 6px; }
+body.tree-tab #toolbar { display: flex; }
+#toolbar label { user-select: none; white-space: nowrap; }
+#toolbar .hint { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button { background: var(--btn-bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; white-space: nowrap; flex: none; }
+#tabs #status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tabs .tab.active { font-weight: 600; border-color: var(--fg); }
+.record { font-weight: 600; margin: 4px 0 8px; white-space: pre; display: flex; gap: 12px; align-items: center; }
+details { margin: 8px 0; }
+details > summary { cursor: pointer; font-size: 12px; margin: 6px 0 2px; color: var(--muted); font-weight: 600; user-select: none; }
+details > summary:hover { color: var(--fg); }
+table { border-collapse: collapse; width: 100%; }
+th, td { border-bottom: 1px solid var(--border); padding: 2px 8px; text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.val { font-family: ui-monospace, monospace; }
+.mode.HIDDEN { color: var(--err); }
+.mode.RO, .mode.DISABLED { color: var(--muted); }
+.mode.ERR { color: var(--err); font-weight: 600; }
+textarea.copy { width: 100%; box-sizing: border-box; background: var(--input-bg); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 4px; font-family: ui-monospace, monospace; }
+
+.flash { animation: flashbg 0.6s ease-out; }
+@keyframes flashbg { from { background: var(--btn-bg); } to { background: transparent; } }
+
+.node { cursor: pointer; padding: 1px 4px; border-radius: 3px; white-space: nowrap; }
+.node:hover { background: var(--hover); }
+.node.selected { background: var(--btn-bg); }
+.node.selected .cls { font-weight: 700; }
+.node.hidden { color: var(--muted); }
+/* a wrapper row is plumbing: greyed and tagged, so what "hide wrappers" folds is visible before folding */
+.node.wrapper .cls { color: var(--muted); font-style: italic; }
+.tag { color: var(--muted); font-size: 10px; border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-right: 6px; vertical-align: 1px; }
+.node .tog { display: inline-block; width: 12px; color: var(--muted); user-select: none; }
+.node .cls { margin-right: 8px; }
+.node .bind { margin-right: 8px; font-family: ui-monospace, monospace; }

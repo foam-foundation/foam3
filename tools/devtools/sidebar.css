@@ -1,0 +1,19 @@
+:root {
+  --bg: #fff; --fg: #202124; --muted: #5f6368; --err: #c5221f; --hover: #f1f3f4;
+  --border: #dadce0; --input-bg: #fff;
+}
+:root.dark {
+  --bg: #202124; --fg: #e8eaed; --muted: #9aa0a6; --err: #f28b82; --hover: #3c4043;
+  --border: #3c4043; --input-bg: #292a2d;
+}
+body { background: var(--bg); color: var(--fg); font: 12px system-ui, sans-serif; margin: 8px; }
+.muted { color: var(--muted); }
+.err { color: var(--err); }
+.layer { cursor: pointer; padding: 2px 4px; border-radius: 3px; white-space: nowrap; }
+.layer:hover { background: var(--hover); }
+.layer.selected .cls { font-weight: bold; }
+.layer .cls { margin-right: 8px; }
+.layer .bind { margin-right: 8px; font-family: ui-monospace, monospace; }
+.path { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 4px;
+  background: var(--input-bg); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 6px; font-family: ui-monospace, monospace; }

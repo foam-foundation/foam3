@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "FOAM DevTools",
+  "version": "2.6.0",
+  "description": "FOAM3 inspector: the u2 view stack behind any DOM node, the live view tree of the current screen, and why each field, action and section is shown, hidden or disabled.",
+  "devtools_page": "devtools.html"
+}

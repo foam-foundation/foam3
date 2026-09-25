@@ -1177,6 +1177,10 @@ foam.CLASS({
       x.test(a.keys.join() === 'px,em,rem,%,vh,vw,vmin,in,pt,ch' && a.maxPos === 1 && a.pos === null,
         'autocomplete border "1": units offered after the digits');
 
+      a = this.autocomplete(p, 'borderValue', '-1');
+      x.test(a.keys.indexOf('px') === -1 && a.maxPos === 0 && a.pos === null,
+        'autocomplete border "-1": no units after a negative number (sizeValue refuses it); nothing offered past 0');
+
       a = this.autocomplete(p, 'borderValue', '1px ');
       x.test(a.keys.join() === 'none,hidden,dotted,dashed,solid,double,groove,ridge,inset,outset' &&
              a.maxPos === 4 && a.pos === null,

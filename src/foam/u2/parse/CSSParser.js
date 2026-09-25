@@ -846,7 +846,9 @@ foam.CLASS({
         return {
           parse: function(ps, obj) {
             var r = number.parse(ps, obj);
-            if ( r ) {
+            // sizeValue refuses a negative number, so offering px/em/rem
+            // after '-1' only led to '-1px' and a red field.
+            if ( r && r.value.value >= 0 ) {
               var at = ps, k = r.value.raw.length - r.value.unit.length;
               while ( k-- ) at = at.tail;
               at.apply(p, obj);

@@ -291,6 +291,126 @@ foam.CLASS({
     { name: 'header-xs', value: '1.6rem' },
     { name: 'header-xxs', value: '1.4rem' },
     // { name: 'header-xxxs', value: '1.2rem' }
+  ])
+  // SPACING SCALE (padding, margin, gap, inset)
+  // Tailwind-named so anyone who has used Tailwind can guess the token: $space-4 is
+  // Tailwind's 4. Fractional steps use an underscore because '.' separates class from
+  // token in a $reference: Tailwind's 0.5 is $space-0_5.
+  // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
+  // 62.5%), so one Tailwind unit = 4px = 0.4rem here, not Tailwind's own 0.25rem.
+  //   padding: $space-2 $space-4;  gap: $space-3;
+  // The scale stops at space-24 (96px). Tailwind continues to 96 (384px), but those
+  // steps size widths and heights, and no padding, margin or gap in src/foam/u2 goes
+  // past 96px; every extra name is one more for a reader or a code assistant to pick
+  // from or invent. If a larger step is ever needed, the full list is in commit
+  // 0713bfa941 (space-28 .. space-96, 0.4rem per unit).
+  .concat([
+    // SPACING (padding, margin, gap, inset)
+    // variantKey 'density' lets a theme serve compact/relaxed spacing through
+    // theme.activeVariants.density, the same rail dark mode uses for 'color'.
+    // No variants are defined yet; every token resolves to its value below.
+    { name: 'space-0',   value: '0' },
+    { name: 'space-px',  value: '1px' },
+    { name: 'space-0_5', value: '0.2rem' }, // 2px
+    { name: 'space-1',   value: '0.4rem' }, // 4px
+    { name: 'space-1_5', value: '0.6rem' }, // 6px
+    { name: 'space-2',   value: '0.8rem' }, // 8px
+    { name: 'space-2_5', value: '1rem' },  // 10px
+    { name: 'space-3',   value: '1.2rem' }, // 12px
+    { name: 'space-3_5', value: '1.4rem' }, // 14px
+    { name: 'space-4',   value: '1.6rem' }, // 16px
+    { name: 'space-5',   value: '2rem' },  // 20px
+    { name: 'space-6',   value: '2.4rem' }, // 24px
+    { name: 'space-7',   value: '2.8rem' }, // 28px
+    { name: 'space-8',   value: '3.2rem' }, // 32px
+    { name: 'space-9',   value: '3.6rem' }, // 36px
+    { name: 'space-10',  value: '4rem' },  // 40px
+    { name: 'space-11',  value: '4.4rem' }, // 44px
+    { name: 'space-12',  value: '4.8rem' }, // 48px
+    { name: 'space-14',  value: '5.6rem' }, // 56px
+    { name: 'space-16',  value: '6.4rem' }, // 64px
+    { name: 'space-20',  value: '8rem' },  // 80px
+    { name: 'space-24',  value: '9.6rem' }  // 96px
+  ].map(v => { v.variantKey = 'density'; return v; }))
+  // BORDER RADIUS SCALE, Tailwind-named ($radius is Tailwind's unsuffixed 'rounded').
+  // Values are rem on FOAM's 10px root (foam.core.controller.Fonts sets :root to
+  // 62.5%), so one Tailwind unit = 4px = 0.4rem here, not Tailwind's own 0.25rem.
+  //   border-radius: $radius-lg;
+  .concat([
+    // BORDER RADIUS ($radius is Tailwind's unsuffixed 'rounded')
+    { name: 'radius-none', value: '0' },
+    { name: 'radius-sm',   value: '0.2rem' }, // 2px
+    { name: 'radius',      value: '0.4rem' }, // 4px
+    { name: 'radius-md',   value: '0.6rem' }, // 6px
+    { name: 'radius-lg',   value: '0.8rem' }, // 8px
+    { name: 'radius-xl',   value: '1.2rem' }, // 12px
+    { name: 'radius-2xl',  value: '1.6rem' }, // 16px
+    { name: 'radius-3xl',  value: '2.4rem' }, // 24px
+    { name: 'radius-full', value: '9999px' }
+  ])
+  // ELEVATION SCALE, Tailwind-named. px on purpose: shadows should not grow with the
+  // font size. Dark surfaces need a stronger shadow to read as raised, so each token
+  // carries a dark variant (variantKey 'color' is what makes that variant apply).
+  //   box-shadow: $shadow-md;
+  .concat([
+    // ELEVATION (px on purpose: shadows should not grow with the font size)
+    { name: 'shadow-none',  value: '0 0 #0000' },
+    { name: 'shadow-sm',    value: '0 1px 2px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: '0 1px 2px 0 rgb(0 0 0 / 0.3)' } } },
+    { name: 'shadow',       value: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 1px 3px 0 rgb(0 0 0 / 0.35), 0 1px 2px -1px rgb(0 0 0 / 0.3)' } } },
+    { name: 'shadow-md',    value: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.35)' } } },
+    { name: 'shadow-lg',    value: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.4)' } } },
+    { name: 'shadow-xl',    value: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)', variantKey: 'color', variants: { dark: { value: '0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.45)' } } },
+    { name: 'shadow-2xl',   value: '0 25px 50px -12px rgb(0 0 0 / 0.25)', variantKey: 'color', variants: { dark: { value: '0 25px 50px -12px rgb(0 0 0 / 0.6)' } } },
+    { name: 'shadow-inner', value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)', variantKey: 'color', variants: { dark: { value: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.3)' } } }
+  ])
+  // Z-INDEX SCALE, Tailwind-named (0..50 in tens), for stacking inside one view:
+  // a sticky header over its rows, a label under its input. Every honest local value
+  // in src/foam/u2 is 10 or less.
+  //   z-index: $z-10;
+  .concat([
+    // Z-INDEX, local
+    { name: 'z-0',  value: '0' },
+    { name: 'z-10', value: '10' },
+    { name: 'z-20', value: '20' },
+    { name: 'z-30', value: '30' },
+    { name: 'z-40', value: '40' },
+    { name: 'z-50', value: '50' }
+  ])
+  // Z-INDEX LAYERS, for elements that float over the whole page. Without these,
+  // 18 views set z-index: 1000 by hand (modals, dropdowns, a loading overlay, a side
+  // nav, a toast) and the DOM order decides which one shows on top.
+  // The order comes from how FOAM renders: foam.u2.dialog.Popup is position: fixed
+  // with its own z-index, so it starts a stacking context and anything inside a modal
+  // competes only with its siblings, never with the page. A popup opened inside a
+  // modal therefore does not need to outrank the modal. Tooltips and toasts are the
+  // exception: they are written straight onto document.body, leave the modal's
+  // context, and must sit above $z-modal on their own.
+  // Gaps of 100 leave room for a local $z-10 on top of a layer.
+  //   z-index: $z-modal;
+  .concat([
+    // Z-INDEX, page layers
+    { name: 'z-nav',     value: '100' }, // app chrome: top nav, menu bar, side nav
+    { name: 'z-popup',   value: '200' }, // anchored to a control: dropdown, menu, date picker
+    { name: 'z-modal',   value: '300' }, // full-viewport scrim: dialog, loading, drag overlay
+    { name: 'z-tooltip', value: '400' }, // appended to document.body, must clear a modal
+    { name: 'z-toast',   value: '500' }  // reports the outcome of a modal action, so above it
+  ])
+  // MOTION SCALE, Tailwind-named durations and easings.
+  //   transition: opacity $duration-150 $ease-in-out;
+  .concat([
+    // MOTION
+    { name: 'duration-75',   value: '75ms' },
+    { name: 'duration-100',  value: '100ms' },
+    { name: 'duration-150',  value: '150ms' },
+    { name: 'duration-200',  value: '200ms' },
+    { name: 'duration-300',  value: '300ms' },
+    { name: 'duration-500',  value: '500ms' },
+    { name: 'duration-700',  value: '700ms' },
+    { name: 'duration-1000', value: '1000ms' },
+    { name: 'ease-linear',   value: 'linear' },
+    { name: 'ease-in',       value: 'cubic-bezier(0.4, 0, 1, 1)' },
+    { name: 'ease-out',      value: 'cubic-bezier(0, 0, 0.2, 1)' },
+    { name: 'ease-in-out',   value: 'cubic-bezier(0.4, 0, 0.2, 1)' }
   ]),
 
   javaCode: `

@@ -1083,6 +1083,16 @@ section('Diagnostics — tags + relatedInformation (client-capability gated)');
   test(! full.some(function(x) { return /FObject/.test(x.message); }),
     'deprecated-class: a non-deprecated class reference is not flagged');
 
+  // The grammar records the registered prefix of an unknown id; that
+  // record must not borrow the prefix class's deprecation.
+  var prefixSrc = depSrc.replace("extends: 'foam.u2.DetailView'", "extends: 'foam.u2.DetailViewNope'");
+  test(byCode(handlerWith(ALL_CAPS).handle(prefixSrc, ''), 'deprecated-class').length === 0,
+    'deprecated-class: an unknown id that starts with a deprecated class id is not flagged');
+  var aliasSrc = "foam.CLASS({\n  package: 'test',\n  name: 'DepAlias',\n" +
+    "  requires: [ 'foam.u2.DetailView as DV' ]\n})";
+  test(byCode(handlerWith(ALL_CAPS).handle(aliasSrc, ''), 'deprecated-class').length === 1,
+    'deprecated-class: a requires entry renaming the deprecated class is still flagged');
+
   // Deprecated property: StepWizardConfig.wizardView is `deprecated: true`.
   var depProp = byCode(full, 'deprecated-property');
   test(depProp.length === 1 && depProp[0].message.indexOf("'wizardView'") !== -1 &&

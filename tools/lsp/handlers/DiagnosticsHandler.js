@@ -196,6 +196,16 @@ foam.CLASS({
       return this.toLSPDiagnostics_(diagnostics, opt_caps || this.clientDiagnosticCaps);
     },
 
+    function isWholeClassRef_(text, start, end) {
+      /** True when [start, end) is a whole quoted string, or a requires
+       *  entry that renames its class: 'foam.u2.DetailView as DV'. */
+      var q = text.charAt(start - 1);
+      if ( q !== '\'' && q !== '"' ) return false;
+      if ( text.charAt(end) === q ) return true;
+      var m = /^[ \t]+as[ \t]+[A-Za-z_$][\w$]*/.exec(text.substr(end, 120));
+      return !! m && text.charAt(end + m[0].length) === q;
+    },
+
     function collectGrammarDiagnostics_(text, diagnostics) {
       /**
        * Consume msg-tagged records from grammar parse. For each record,
@@ -216,7 +226,10 @@ foam.CLASS({
         var knownRef = r.msg && ( r.msg.kind === 'classRef' ||
           ( r.msg.type === 'unknownClassRef' && this.classKnown_(matched) ) );
         if ( knownRef ) {
-          if ( ! depSeen[r.startPos] ) {
+          // The grammar records a registered prefix before it checks the
+          // closing quote: 'foam.u2.DetailViewNope' leaves a record for
+          // foam.u2.DetailView. Only a whole string names the class.
+          if ( ! depSeen[r.startPos] && this.isWholeClassRef_(text, r.startPos, r.endPos) ) {
             depSeen[r.startPos] = true;
             this.addDeprecatedClassDiag_(diagnostics, text, r.startPos, matched);
           }

@@ -413,8 +413,8 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.PropertyBorder' ],
 
   css: `
-   // ^ { margin: inherit !important; }
-   // ^ table { width: auto !important; }
+   /* ^ { margin: inherit !important; } */
+   /* ^ table { width: auto !important; } */
    ^title input { font-size: large; }
    ^title { font-size: large; }
    ^collapsePropertyViews .com-google-flow-PropertyBorder-propHolder { width: auto; display: inline-flex; }

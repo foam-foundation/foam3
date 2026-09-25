@@ -66,7 +66,7 @@ foam.CLASS({
     ^row {
       margin-left: 30px;
     }
-  //  ^row:hover { border: 1px solid $red300;  }
+  /* ^row:hover { border: 1px solid $red300; } */
   `,
 
   properties: [

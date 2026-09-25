@@ -35,7 +35,7 @@ foam.CLASS({
       border: 1px solid $borderXLight;
       height: fit-content;
     }
-//    TODO: move to calendar
+    /* TODO: move to calendar */
     ^ .foam-u2-property-MDCalendar-heading {
       padding-bottom: 1rem;
     }

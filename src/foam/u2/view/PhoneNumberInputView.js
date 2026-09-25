@@ -33,7 +33,7 @@ foam.CLASS({
   
   ^country {
     height: 100%;
-    display; flex;
+    display: flex;
   }
   `,
 

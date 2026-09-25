@@ -34,7 +34,7 @@ foam.CLASS({
     }
     /* Base table styling */
     ^table {
-      // Needed as otherwise there is jitter during scrolling with sticky rows
+      /* Needed as otherwise there is jitter during scrolling with sticky rows */
       border-collapse: separate;
       border-spacing: 0;
     }

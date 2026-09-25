@@ -76,8 +76,8 @@ foam.CLASS({
     }
 
     ^ .colon {
-      padding': '0 4px';
-      font-weight': 'bold;
+      padding: 0 4px;
+      font-weight: $font-semi-bold;
     }
 
     ^ .year {

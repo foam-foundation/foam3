@@ -87,7 +87,7 @@ foam.CLASS({
     }
 
     ^sticky-headers tr:first-child th:first-child {
-      z-index: 100;
+      z-index: $z-10;
     }
   `,
 

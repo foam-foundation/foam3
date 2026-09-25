@@ -188,7 +188,7 @@ foam.CLASS({
       width: 100%;
       border-radius: $inputBorderRadius;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      z-index: 1000;
+      z-index: $z-popup;
       position: relative;
     }
 

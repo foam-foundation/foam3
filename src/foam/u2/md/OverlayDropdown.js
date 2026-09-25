@@ -24,7 +24,8 @@ foam.CLASS({
   css: `
     ^overlay {
       position: absolute;
-      z-index: 1009;
+      /* click-away scrim: over the page, under the dropdown rendered after it */
+      z-index: $z-nav;
     }
 
     ^ {
@@ -32,7 +33,7 @@ foam.CLASS({
       overflow-x: hidden;
       overflow-y: hidden;
       position: absolute;
-      z-index: 1010;
+      z-index: $z-popup;
       max-width: 100%;
     }
 
@@ -63,9 +64,6 @@ foam.CLASS({
       right: initial;
     }
 
-    ^parents {
-      z-index: 1000 !important;
-    }
     @media print {
       ^ { display: none !important; }
     }

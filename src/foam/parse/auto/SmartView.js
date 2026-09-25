@@ -275,7 +275,7 @@ foam.CLASS({
       width: 100%;
       gap: 4px;
       overflow-y: auto;
-      z-index: 1000;
+      z-index: $z-popup;
     }
     ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
     ^error { border: 1px solid red !important; }

@@ -57,7 +57,7 @@ foam.CLASS({
       overflow: auto;
       position: absolute;
       top: var(--topbar-height);
-      z-index: 100;
+      z-index: $z-nav;
     }
 
     ^stack-view {

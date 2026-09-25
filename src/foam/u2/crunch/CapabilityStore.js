@@ -115,7 +115,7 @@ foam.CLASS({
       cursor: pointer;
       padding-top: 70px;
       margin-left: -20px;
-      z-index: 10000;
+      z-index: $z-10;
       position: relative;
       -webkit-transition: padding 2s;
     }

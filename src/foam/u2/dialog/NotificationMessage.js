@@ -45,7 +45,7 @@ foam.CLASS({
       min-width: calc(max(30vw, 30rem) - 3.2rem);
       right: 1.6rem;
       top: 2.4rem;
-      z-index: 15000;
+      z-index: $z-toast;
     }
     ^inner {
       align-items: center;

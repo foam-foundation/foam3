@@ -189,7 +189,7 @@ foam.CLASS({
       font-size: 1.2rem;
 
       position: absolute;
-      z-index: 101;
+      z-index: $z-10;
       bottom: -115%;
       right: calc(100% + 16px);
 

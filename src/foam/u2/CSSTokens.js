@@ -376,15 +376,17 @@ foam.CLASS({
     { name: 'z-40', value: '40' },
     { name: 'z-50', value: '50' }
   ])
-  // Z-INDEX LAYERS, for elements that float over the whole page. Without these,
+  // Z-INDEX LAYERS, for elements that float over the whole page. Before these,
   // 18 views set z-index: 1000 by hand (modals, dropdowns, a loading overlay, a side
-  // nav, a toast) and the DOM order decides which one shows on top.
+  // nav, a toast) and the DOM order decided which one showed on top.
   // The order comes from how FOAM renders: foam.u2.dialog.Popup is position: fixed
   // with its own z-index, so it starts a stacking context and anything inside a modal
   // competes only with its siblings, never with the page. A popup opened inside a
   // modal therefore does not need to outrank the modal. Tooltips and toasts are the
   // exception: they are written straight onto document.body, leave the modal's
   // context, and must sit above $z-modal on their own.
+  // A click-away scrim that belongs to a popup also uses $z-nav: it has to cover the
+  // page, and the popup rendered after it has to cover the scrim.
   // Gaps of 100 leave room for a local $z-10 on top of a layer.
   //   z-index: $z-modal;
   .concat([

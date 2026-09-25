@@ -88,7 +88,7 @@ foam.CLASS({
       position: sticky;
       text-align: center;
       top: 0;
-      z-index: 1000;
+      z-index: $z-10;
     }
 
     ^hide {

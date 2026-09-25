@@ -50,13 +50,13 @@ foam.CLASS({
       right: 0;
       top: 0;
       width: 100%;
-      z-index: 1000;
+      z-index: $z-modal;
     }
     ^X {
       position: absolute;
       top: min(10%, 16px);
       right: min(10%, 16px);
-      z-index: 1000;
+      z-index: $z-10;
       cursor: pointer;
       transition: all ease-in 0.1s;
       padding: 0;

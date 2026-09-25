@@ -160,7 +160,8 @@ foam.CLASS({
       width: 100vw;
       max-height: 100vh;
       max-width: 100vw;
-      z-index: 950;
+      /* a full-screen page, not a dialog: above the chrome, below any dialog it opens */
+      z-index: $z-popup;
       margin: 0;
       padding: 0;
     }

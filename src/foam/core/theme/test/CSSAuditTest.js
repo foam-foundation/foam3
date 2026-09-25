@@ -68,6 +68,9 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       list.add("/tools");
       list.add("/webroot");
       list.add("src/foam/core/servlet"); // VirtualHostRoutingServlet
+      // The CSS grammar and its tests hold CSS as text fixtures and doc
+      // examples (a hex colour in a test input), not styles the browser gets.
+      list.add("src/foam/u2/parse");
 
       // TODO: Lower priority
       list.add("src/foam/support");

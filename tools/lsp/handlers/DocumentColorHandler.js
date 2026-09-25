@@ -37,6 +37,13 @@ foam.CLASS({
     },
     {
       class: 'FObjectProperty',
+      of: 'foam.parse.lsp.FileModelCache',
+      name: 'cache',
+      documentation: `Finds the class each css: block belongs to, so a token
+        declared by more than one class resolves against the right one.`
+    },
+    {
+      class: 'FObjectProperty',
       of: 'foam.parse.lsp.FileClassifier',
       name: 'fileClassifier',
       factory: function() { return this.FileClassifier.create(); }
@@ -75,12 +82,14 @@ foam.CLASS({
       var lineStarts = this.lineStarts_(text);
       var out = [];
       for ( var i = 0 ; i < blocks.length ; i++ ) {
-        this.collectBlock_(text, blocks[i], lineStarts, out);
+        var classId = this.cache ?
+          this.cache.getClassIdAt(uri, text, this.toPosition_(lineStarts, blocks[i].startPos).line) : null;
+        this.collectBlock_(text, blocks[i], lineStarts, out, classId);
       }
       return out;
     },
 
-    function collectBlock_(text, block, lineStarts, out) {
+    function collectBlock_(text, block, lineStarts, out, opt_classId) {
       // Comments are blanked to spaces (offsets unchanged) before anything
       // else scans the block. Otherwise the apostrophe in `/* don't */` opens
       // a "string" that swallows the real `color: #ff0000;` after it, and
@@ -101,7 +110,7 @@ foam.CLASS({
       var re = new RegExp(this.TOKEN_RE.source, 'g');
       var m;
       while ( ( m = re.exec(css) ) !== null ) {
-        var color = this.tokenColor_(m[1]);
+        var color = this.tokenColor_(m[1], opt_classId);
         if ( color ) push(m.index, m[0].length, color);
       }
 
@@ -115,11 +124,11 @@ foam.CLASS({
       }
     },
 
-    function tokenColor_(name) {
+    function tokenColor_(name, opt_classId) {
       if ( ! this.cssTokenResolver ) return null;
       var value;
       try {
-        value = this.cssTokenResolver.resolveTokenValue(name);
+        value = this.cssTokenResolver.resolveTokenValue(name, opt_classId);
       } catch ( e ) {
         require('../logError').logLspError('documentColor: resolving $' + name, e);
         return null;

@@ -167,7 +167,7 @@ test(lns.indexOf(6) !== -1, 'the real this.Suggestion on line 6 is still tokeniz
 
 section('DocumentColorHandler');
 var colorHandler = foam.parse.lsp.handlers.DocumentColorHandler.create({
-  index: index, cssTokenResolver: cssTokenResolver
+  index: index, cssTokenResolver: cssTokenResolver, cache: cache
 });
 var COLOR_URI = 'file:///tmp/lsp-color/Swatch.js';
 
@@ -243,6 +243,25 @@ test(hslSw.length === 1 && hslPres.length === 3 && hslPres[0].label === 'hsla(0,
 var hsl = colorHandler.parseColor('hsla(0 0% 100% / 0.9)');
 test(hsl && hsl.red === 1 && hsl.blue === 1 && Math.abs(hsl.alpha - 0.9) < 1e-9,
   'DocumentColor: parses the modern hsla(h s% l% / a) form tokens resolve to');
+// Tabs and SegmentedTabs both declare tabActiveColor with different values;
+// each css: block's swatch must show its own class's value, as the page does.
+var tabsPath = require('path').join(__dirname, '../../../src/foam/u2/Tabs.js');
+var tabsText = require('fs').readFileSync(tabsPath, 'utf8');
+var tabsLines = tabsText.split('\n');
+var tabsSw = colorHandler.handle(tabsText, 'file://' + tabsPath).filter(function(s) {
+  return tabsLines[s.range.start.line].indexOf('$tabActiveColor') !== -1;
+});
+var segLine = tabsText.substring(0, tabsText.indexOf("name: 'SegmentedTabs'")).split('\n').length - 1;
+var hexIn = function(id) {
+  return foam.CSS.returnTokenValue('$tabActiveColor', foam.lookup(id), foam.__context__).toLowerCase();
+};
+test(hexIn('foam.u2.Tabs') !== hexIn('foam.u2.SegmentedTabs'),
+  'DocumentColor: Tabs and SegmentedTabs declare different tabActiveColor values');
+test(tabsSw.length >= 2 && tabsSw.every(function(s) {
+    var id = s.range.start.line > segLine ? 'foam.u2.SegmentedTabs' : 'foam.u2.Tabs';
+    return colorHandler.toHex_(s.color) === hexIn(id);
+  }),
+  'DocumentColor: a token two classes declare resolves against the class whose css: block uses it');
 test(colorHandler.parseColor('2px solid') === null && colorHandler.parseColor('function(...)') === null,
   'DocumentColor: non-colour token values parse to null');
 

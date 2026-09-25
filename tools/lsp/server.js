@@ -81,7 +81,7 @@ function start() {
   // the user explicitly invoked the command, so there is nothing to suppress
   // — unlike the lenses/diagnostics, which the server offers unasked.
   var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
-  var documentColorHandler   = foam.parse.lsp.handlers.DocumentColorHandler.create({ fileClassifier: fileClassifier, index: index, cssTokenResolver: cssTokenResolver });
+  var documentColorHandler   = foam.parse.lsp.handlers.DocumentColorHandler.create({ fileClassifier: fileClassifier, index: index, cssTokenResolver: cssTokenResolver, cache: fileModelCache });
   var documentLinkHandler    = foam.parse.lsp.handlers.DocumentLinkHandler.create({ fileClassifier: fileClassifier, index: index, jrlGrammar: jrlHandler.jrlGrammar });
 
   var documents = {};

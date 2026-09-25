@@ -55,7 +55,7 @@ foam.CLASS({
     }
 
     ^ .background-container {
-      --parent-mainfill: linear-gradient(#604aff, #2e2379);
+      --parent-mainfill: linear-gradient($primary300, $primary600);
       background-image: var(--parent-mainfill);
       height: 40%;
       display: flex;

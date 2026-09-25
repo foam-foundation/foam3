@@ -92,7 +92,7 @@ The following table provides a quick summary of each of the four documentation t
 |  | Tutorials | How-to Guides | Explanations | References |
 |------|------|------|------|------|
 |   Orientation   |   Learning   |   Goals   |   Understanding   |   Information   |
-|   Purpose   |   Starting point for beginners   |   Instructions for completing a task   |   Discussions that provide context   |   Descriptions of technical terms and machinery   |
+|   Purpose   |   Starting point for beginners   |   Instructions for completing a task   |   Discussions that provide context   |   Descriptions of technical tools/interfaces and how to operate them correctly   |
 |   Form   |   Lessons, small projects, interactive examples   |   Sets of steps or directions   |   Articles, asides, or blog posts   |   Specifications, command lists, language/library catalogs   |
 |   Goal   |   Teach   |   Direct   |   Explain   |   Describe   |
 | Required Experience | None | Some (provided by tutorials) | Varies, often none | Varies, never none |
@@ -182,11 +182,55 @@ While exactly how often you should review a piece of documentation to ensure it 
 - When your organization changes its branding or theme
 
 #### Rework, redo, or remove?
+When a piece of documentation is discovered to be out-of-date or incorrect, the next step is to determine what should be done to address the issue. For the purposes of this article...
+- **Reworking** documentation involves changing specific sections while leaving the majority of the material untouched.
+- **Redoing** documentation involves creating a new material and keeping little to none of the original content.
+- **Removing** documentation involves marking the documentation as deprecated and **archiving** it.
 
+Which path to take is ultimately a judgement call on the part of you or your superior, but the table below provides some general guidelines that may assist you.
+
+| When... | Rework | Redo | Remove |
+|------|------|------|------|
+|   Most, if not all, content is incorrect   |      |   X   |   X   |
+|   Specific sections/images are incorrect  |   X   |      |      |
+|   Newer or logically equivalent documentation exists   |      |      |   X   |
+|   Content/delivery standards have changed   |      |   X   |   X   |
+|   Stylistic/visual standards have changed   |   X   |      |      |
+|   Localization or accessibility changes are required   |    X   |      |      |
+
+Notice that when documentation needs to be **redone**, the older version should be **removed**.
+
+<hint category="success">
+Put simply: if it will be faster to **rework** sections of the documentation than it would be to **redo** it entirely, do not waste effort on starting from scratch. Likewise, if **reworking** existing materials will require significant changes or restructuring, **redo** and **remove** rather than wasting effort.
+</hint>
 
 ---
 
 ### Knowing "Why?"
+As mentioned previously, knowing *why* a given bit of documentation is required can help you determine what topics/problems it needs to cover, who is in the target audience, and which "type" of documentation would be most appropriate. Now, oftentimes we assume that we know "why" a piece of documentation is required (whomever requested it has likely told us why they want it), but as is often the case with clients of any sort, what they *ask* for and what they *need* may be different things.
+
+For example, let's pretend that you write the documentation for a digital art program, and a superior sends you the following message:
+
+<i> 
+> "Our clients are complaining that it takes too long to draw squares because they're drawing each line by hand rather than using our square tool. Can you make a tutorial on how to use the square tool, please?"
+</i>
+
+If we break down what the superior asked for, they want a **tutorial for clients about using the square tool**. Recall from the *Choosing a Documentation "Type"*, however, that tutorials are
+
+<i>
+> "...learning-oriented, practical materials that provide readers with a clear goal and the means to achieve it ... they assume that the reader is a complete beginner [who knows] ... absolutely nothing about absolutely everything."
+</i>
+
+In this case, our client is capable of using the system independently to achieve the desired result (albeit inefficiently). In other words, our client is **not** a beginner and they do **not** need a **tutorial** — they need a **how-to guide**.
+
+Even that, however, may be inaccurate. Compare the purposes of a **how-to guide** and a **reference**:
+
+
+| Type | Purpose |
+|------|------|
+|   How-to Guides   |   Instructions for completing a task   |
+|   References   |   Descriptions of technical tools/interfaces and how to operate them correctly   |
+
 
 ---
 

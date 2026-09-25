@@ -907,6 +907,21 @@ var arLowerLine  = arLowerLines.findIndex(function(l) { return l.indexOf('this.d
 var arLowerRes   = arHandler.handle(arLower, { line: arLowerLine, character: arLowerLines[arLowerLine].indexOf('this.daoCon') + 11 }, 'file:///ar.js');
 test(! arLowerRes.items.some(function(i) { return i.additionalTextEdits; }), 'lowercase partial: no auto-require items');
 
+// 11b. A name the class already has without requiring it is not offered:
+// Expressions supplies GroupBy (what GROUP_BY() builds), and an inner class
+// owns its own short name. Requiring another class there changes the name.
+var arExpr = "foam.CLASS({\n  package: 'test',\n  name: 'ArExpr',\n" +
+  "  implements: [ 'foam.mlang.Expressions' ],\n  requires: [ 'foam.u2.View' ],\n" +
+  "  methods: [\n    function go() {\n      this.GroupB\n    }\n  ]\n});";
+var arExprLines = arExpr.split('\n');
+var arExprLine  = arExprLines.findIndex(function(l) { return l.indexOf('this.GroupB') !== -1; });
+var arExprRes   = arHandler.handle(arExpr, { line: arExprLine, character: arExprLines[arExprLine].indexOf('this.GroupB') + 11 }, 'file:///ar.js');
+test(! arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupBy'; }) &&
+     arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupByView'; }),
+  'a short name an implemented interface already supplies (GroupBy) is not offered; others still are');
+var arInner = arSorted.replace("  requires: [", "  classes: [ { name: 'DAOControllerView' } ],\n  requires: [");
+test(! arItem(arComplete(arInner)), 'a short name an inner class owns is not offered');
+
 // 12. Flag off — today's list: required classes only, complete.
 var arOff = foam.parse.lsp.handlers.MemberCompletionHandler.create({
   index: index,

@@ -301,6 +301,8 @@ foam.CLASS({
        * is a member), and a class whose short name the file already uses —
        * required as itself or as another class — is skipped: requiring a
        * second `DetailView` would silently change what the first one means.
+       * The same holds for a name the class already has without requiring
+       * it (inheritedNameTaken_).
        *
        * A Java-only class (`flags: ['java']`, e.g. foam.dao.F3FileJournal)
        * has no JS side for `this.X` to reach, so it is offered only when the
@@ -315,6 +317,8 @@ foam.CLASS({
         taken[requiresMap[alias]] = true;
       }
 
+      var inherited = this.inheritedNameTaken_(ownClassId, model);
+
       var lower = partial.toLowerCase();
       var ids   = this.index.getAllClassIds();
       var hits  = [];
@@ -322,7 +326,7 @@ foam.CLASS({
         var id    = ids[i];
         var short = id.substring(id.lastIndexOf('.') + 1);
         if ( short.toLowerCase().indexOf(lower) !== 0 ) continue;
-        if ( taken[short] || taken[id] || id === ownClassId ) continue;
+        if ( taken[short] || taken[id] || id === ownClassId || inherited(short) ) continue;
         if ( ! ownJavaOnly ) {
           var cls = this.index.getClass(id);
           if ( cls && cls.model_ && this.isJavaOnly_(cls.model_.flags) ) continue;
@@ -365,6 +369,43 @@ foam.CLASS({
         });
       }
       return items;
+    },
+
+    function inheritedNameTaken_(ownClassId, model) {
+      /**
+       * Returns fn(short) → true when `this.<short>` already means something
+       * in this class without a `requires:` entry of its own.
+       *
+       * Problem: a class implementing foam.mlang.Expressions gets `GroupBy`
+       * from that interface's requires (it is what GROUP_BY() builds). The
+       * offer listed foam.dashboard.model.GroupBy first; picking it added
+       * that require, and GROUP_BY() then built a dashboard GroupBy.
+       *
+       * Fix: ask the classes the name could come from — the class itself
+       * when registered, its parent and each implemented interface (read off
+       * the model, since the registry lags an unsaved edit) — for an axiom
+       * of that name, and check the model's own inner classes.
+       */
+      var self   = this;
+      var owners = [];
+      var add    = function(id) {
+        var cls = id && self.index.getClass(id);
+        if ( cls && cls.getAxiomByName ) owners.push(cls);
+      };
+      add(ownClassId);
+      if ( model ) {
+        add(model.extends || 'foam.lang.AbstractFObject');
+        ( model.implements || [] ).forEach(function(i) { add(typeof i === 'string' ? i : i && i.path); });
+      }
+      var inner = {};
+      ( model && model.classes || [] ).forEach(function(c) { if ( c && c.name ) inner[c.name] = true; });
+      return function(short) {
+        if ( inner[short] ) return true;
+        for ( var i = 0 ; i < owners.length ; i++ ) {
+          if ( owners[i].getAxiomByName(short) ) return true;
+        }
+        return false;
+      };
     },
 
     function requiresLayout_(text, offset) {

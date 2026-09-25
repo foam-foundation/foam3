@@ -152,6 +152,7 @@ File text ──► FileModelCache.parseFileModels()
 - Unknown property type (both short and full names)
 - Wrong Java imports (`foam.nanos.*` → suggests correct package)
 - Invalid getter/setter in `javaCode` (bare calls on `this`)
+- `css:` blocks, read through the CSS grammar (comments and strings are skipped): unknown `$tokens`, raw colours, unused `^classes`, and syntax errors such as a missing `;` or a `//` line
 - Flag-aware: test/swift/node classes known but not flagged
 
 ### Find References

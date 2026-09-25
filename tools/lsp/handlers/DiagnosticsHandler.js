@@ -78,6 +78,19 @@ foam.CLASS({
       documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
     },
     {
+      name: 'cssParser_',
+      documentation: `The shared foam.u2.parse.CSSParser (a Singleton) the css:
+        checks read, or null when the booted registry lacks it. Problem: the
+        css: checks used to scan the text with regexes that could not tell a
+        comment or a string from CSS, so '/* $old */' reported an unknown token
+        and '#fff' inside url(...) a raw colour. Null keeps every css: check
+        silent instead of throwing, for tooling that boots a smaller registry.`,
+      factory: function() {
+        var cls = foam.maybeLookup('foam.u2.parse.CSSParser');
+        return cls ? cls.create() : null;
+      }
+    },
+    {
       name: 'fileClassifier',
       documentation: `Routes handle() by file kind. server.js wires its own
         shared instance so dispatch and handler can never disagree; the
@@ -97,6 +110,20 @@ foam.CLASS({
       }
     }
   ],
+
+  constants: {
+    // Properties whose value the raw-colour check reads (lower case).
+    RAW_COLOR_PROPERTIES: {
+      'color': true, 'background': true, 'background-color': true,
+      'border': true, 'border-color': true, 'outline-color': true,
+      'border-top': true, 'border-bottom': true, 'border-left': true, 'border-right': true,
+      'border-top-color': true, 'border-bottom-color': true,
+      'border-left-color': true, 'border-right-color': true
+    },
+    // CSS functions that spell a raw colour (lower case).
+    RAW_COLOR_FUNCTIONS: { rgb: true, rgba: true, hsl: true, hsla: true },
+    LINE_COMMENT_MESSAGE: "'//' is not a CSS comment: the browser drops this statement; use /* */"
+  },
 
   methods: [
     function featureOn_(flag) {
@@ -382,18 +409,24 @@ foam.CLASS({
         this.javaValidator.validateModel(m, classId, diagnostics, text);
       }
 
+      // One parse of css: feeds the four css checks below.
+      var css = this.parseCSS_(m, text);
+
       // Validate CSS token references
-      this.validateCSS_(m, text, diagnostics);
+      this.validateCSS_(m, text, css, diagnostics);
 
       // Validate tableColumns/searchColumns
       // tableColumns/searchColumns validation is now emitted from the grammar's
       // columnName rule via P.msg — see collectGrammarDiagnostics_.
 
       // Validate raw CSS values
-      this.validateRawCSSValues_(m, text, diagnostics);
+      this.validateRawCSSValues_(m, text, css, diagnostics);
 
       // Warn about ^classname rules in css: that aren't applied from JS
-      this.validateUnusedCSSClasses_(m, text, diagnostics);
+      this.validateUnusedCSSClasses_(m, text, css, diagnostics);
+
+      // Report what the CSS grammar could not parse
+      this.validateCSSSyntax_(text, css, diagnostics);
 
       // Validate expression parameters
       this.validateExpressions_(m, text, diagnostics);
@@ -577,35 +610,52 @@ foam.CLASS({
       return text.substring(start, end).indexOf('i18n-ignore') !== -1;
     },
 
-    function validateCSS_(model, text, diagnostics) {
+    function parseCSS_(model, text) {
+      /**
+       * Parse model.css once for the css checks of one validateModel_ pass.
+       * Returns { parser, tree, base } (base: offset of the css text in the
+       * file, so file offset = base + node.start), or null when there is no
+       * css: string, it cannot be located in the file, or the registry has
+       * no CSS grammar.
+       */
+      var cssStr = model.css;
+      if ( ! cssStr || typeof cssStr !== 'string' ) return null;
+      var parser = this.cssParser_;
+      if ( ! parser ) return null;
+      var base = text.indexOf(cssStr);
+      if ( base === -1 ) return null;
+      return { parser: parser, tree: parser.parse(cssStr), base: base };
+    },
+
+    function validateCSS_(model, text, css, diagnostics) {
       /**
        * Validate $token references inside css: template strings.
        * Reports unknown CSS token names as warnings.
        * Tokens declared in the model's own cssTokens: [...] array or
        * inherited from the extends chain are recognized as valid.
+       *
+       * tokens() holds only the $names FOAM replaces as tokens: a $name in
+       * a comment, a string or an unquoted url() is left out (hazards()
+       * covers those). Its name is the full chain, so a ColorToken suffix
+       * like $primary400$foreground validates as one name.
        */
-      if ( ! this.cssTokenResolver ) return;
-
-      var cssStr = model.css;
-      if ( ! cssStr || typeof cssStr !== 'string' ) return;
-
-      var baseOffset = text.indexOf(cssStr);
-      if ( baseOffset === -1 ) return;
+      if ( ! this.cssTokenResolver || ! css ) return;
 
       var localTokens = this.collectLocalCssTokens_(model);
-
-      // Match the full chain — `$base`, then 0+ `$suffix` segments — so
-      // ColorToken-installed suffixes like `$primary400$foreground` validate
-      // as a single name rather than splitting into `$primary400` (known)
-      // and `$foreground` (unknown).
-      var tokenPattern = /\$([a-zA-Z][a-zA-Z0-9_\-]*(?:\$[a-zA-Z][a-zA-Z0-9_\-]*)*)/g;
-      var tm;
-      while ( ( tm = tokenPattern.exec(cssStr) ) !== null ) {
-        var tokenName = tm[1];
-        if ( localTokens[tokenName] ) continue;
-        if ( ! this.cssTokenResolver.tokenExists(tokenName) ) {
-          this.addDiag_(diagnostics, text, baseOffset + tm.index, tm[0].length, 2,
-            "Unknown CSS token: '$" + tokenName + "'");
+      var tokens      = css.parser.tokens(css.tree);
+      for ( var i = 0 ; i < tokens.length ; i++ ) {
+        var t = tokens[i];
+        // Class-scoped form: $foam.u2.Tabs.tabColor. Problem: the resolver
+        // is keyed by bare token name and the old regex stopped at the
+        // first '.', so this form reported a false "Unknown CSS token:
+        // '$foam'". FOAM resolves it through the named class at runtime,
+        // which this check cannot see, so it is skipped: no report beats
+        // a wrong one.
+        if ( t.cls ) continue;
+        if ( localTokens[t.name] ) continue;
+        if ( ! this.cssTokenResolver.tokenExists(t.name) ) {
+          this.addDiag_(diagnostics, text, css.base + t.start, t.end - t.start, 2,
+            "Unknown CSS token: '$" + t.name + "'");
         }
       }
     },
@@ -660,32 +710,36 @@ foam.CLASS({
       return set;
     },
 
-    function validateRawCSSValues_(m, text, diagnostics) {
+    function validateRawCSSValues_(m, text, css, diagnostics) {
       /**
        * Warn when raw color values are used where CSS tokens should be.
        * Checks css: template strings and color properties on enum values.
        * Consistent with CSSAuditTest.js detection patterns.
+       *
+       * In css:, a raw colour is a hex hash (#fff, #ffffffff) or an
+       * rgb/rgba/hsl/hsla function in the value of a colour property. A
+       * var() is not searched: its fallback is not used while the custom
+       * property is set. Comments, strings and url() text are not value
+       * components, so a '#fff' in them is never reported.
        */
-      var colorProps = /(?:^|[;{}\s])\s*(color|background(?:-color)?|border(?:-color)?|border-(?:top|bottom|left|right)(?:-color)?|outline-color)\s*:\s*([^;}\n$]+)/g;
       var rawColorValue = /#[0-9a-fA-F]{3,8}\b|rgba?\s*\(|hsla?\s*\(/;
       var localTokenValues = this.collectLocalCssTokenValueMap_(m);
 
       // Check css: template string
-      var cssStr = m.css;
-      if ( cssStr && typeof cssStr === 'string' ) {
-        var baseOffset = text.indexOf(cssStr);
-        if ( baseOffset !== -1 ) {
-          var match;
-          while ( ( match = colorProps.exec(cssStr) ) !== null ) {
-            var valueStr = match[2].trim();
-            if ( rawColorValue.test(valueStr) ) {
-              var rawMatch = valueStr.match(/#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]*\)|hsla?\s*\([^)]*\)/);
-              var rawVal = rawMatch ? rawMatch[0] : valueStr;
-              var offset = baseOffset + match.index + match[0].indexOf(valueStr);
-              this.addDiag_(diagnostics, text, offset, rawVal.length, 2,
-                this.rawColorMessage_(rawVal, localTokenValues));
+      if ( css ) {
+        var self  = this;
+        var decls = css.parser.declarations(css.tree);
+        for ( var d = 0 ; d < decls.length ; d++ ) {
+          if ( decls[d].custom || ! this.RAW_COLOR_PROPERTIES[decls[d].property.toLowerCase()] ) continue;
+          css.parser.walk(decls[d].node.value, function(n) {
+            var fn = n.kind === 'function' && n.name.toLowerCase();
+            if ( fn === 'var' ) return false;
+            if ( ( n.kind === 'hash' && n.isHexColor ) || self.RAW_COLOR_FUNCTIONS[fn] ) {
+              self.addDiag_(diagnostics, text, css.base + n.start, n.end - n.start, 2,
+                self.rawColorMessage_(n.raw, localTokenValues));
+              return false;
             }
-          }
+          });
         }
       }
 
@@ -743,7 +797,7 @@ foam.CLASS({
       return map;
     },
 
-    function validateUnusedCSSClasses_(model, text, diagnostics) {
+    function validateUnusedCSSClasses_(model, text, css, diagnostics) {
       /**
        * Flag ^classname rules in css: that no JS code applies via
        * this.myClass('name') / myClass("name") / myClass(`name`).
@@ -752,24 +806,31 @@ foam.CLASS({
        * argument to myClass(…) — too many false positives when class
        * names are computed (e.g. myClass(state), myClass(this.tag)).
        */
-      var cssStr = model.css;
-      if ( ! cssStr || typeof cssStr !== 'string' ) return;
-      var baseOffset = text.indexOf(cssStr);
-      if ( baseOffset === -1 ) return;
+      if ( ! css ) return;
 
-      // Collect ^name tokens that look like class selectors (letter-start).
+      // Collect ^name carets from selectors whose name looks like a class
+      // (letter-start). Only selector carets count: a '^' in a comment, a
+      // string or the '^=' of [class^=x] names no class of this model.
       // Keep EVERY occurrence per name: an unused class is flagged at each
       // selector it appears in — ^foo, ^foo:hover, ^foo p — not just the
       // first (issue #5092: pseudo-selector occurrences escaped the warning).
-      var defs = {};
+      var defs  = {};
       var order = [];
-      var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
-      var dm;
-      while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
-        var n = dm[1];
-        if ( ! defs[n] ) { defs[n] = []; order.push(n); }
-        defs[n].push({ offset: baseOffset + dm.index, len: dm[0].length });
-      }
+      var src   = css.tree.raw;
+      css.parser.walk(css.tree, function(n) {
+        if ( n.kind !== 'selector' ) return;
+        for ( var c = 0 ; c < n.carets.length ; c++ ) {
+          var caret = n.carets[c];
+          if ( caret.context || caret.inAttr ) continue;
+          var e = caret.end;
+          if ( ! /[a-zA-Z]/.test(src[e] || '') ) continue;
+          while ( e < src.length && /[a-zA-Z0-9_\-]/.test(src[e]) ) e++;
+          var name = src.substring(caret.end, e);
+          if ( ! defs[name] ) { defs[name] = []; order.push(name); }
+          defs[name].push({ offset: css.base + caret.start, len: e - caret.start });
+        }
+        return false;
+      });
       if ( order.length === 0 ) return;
 
       // Build haystack from methods/listeners/actions source.
@@ -803,6 +864,55 @@ foam.CLASS({
             "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
         }
       }
+    },
+
+    function validateCSSSyntax_(text, css, diagnostics) {
+      /**
+       * Report what the CSS grammar could not parse. Problem: a browser
+       * silently drops a statement it cannot parse, so a missing ';' or a
+       * '//' line in css: lost a rule with no sign in the editor. Error
+       * nodes are ERRORs ('CSS syntax: <message>'); a string, comment,
+       * function, paren or bracket left open is a WARNING ('CSS syntax:
+       * Unclosed <kind>'). The underline stops at the end of the line the
+       * node starts on, so an error that swallowed a block does not paint
+       * the rest of the file. Gated by diagnostics.cssSyntax.
+       */
+      if ( ! css || ! this.featureOn_('diagnostics.cssSyntax') ) return;
+      var self = this;
+      var add  = function(start, end, severity, message) {
+        var off = css.base + start;
+        var eol = text.indexOf('\n', off);
+        if ( eol === -1 ) eol = text.length;
+        self.addDiag_(diagnostics, text, off, Math.max(1, Math.min(end - start, eol - off)),
+          severity, 'CSS syntax: ' + message);
+      };
+
+      var errors = css.parser.errors(css.tree);
+      for ( var i = 0 ; i < errors.length ; i++ ) {
+        var e = errors[i];
+        if ( e.kind !== 'error' ) {
+          add(e.start, e.end, 2, 'Unclosed ' + e.kind);
+        } else if ( e.raw.substring(0, 2) === '//' ) {
+          add(e.start, e.end, 1, this.LINE_COMMENT_MESSAGE);
+        } else {
+          add(e.start, e.end, 1, e.message);
+        }
+      }
+
+      // A '//' line just before a rule is no error to the grammar: it reads
+      // as part of that rule's selector ('// note\n^title { }' has the
+      // selector '// note ^title'), which a browser rejects with the whole
+      // rule. A '//' inside a selector's comment or string is left alone.
+      css.parser.walk(css.tree, function(n) {
+        if ( n.kind !== 'selector' ) return;
+        for ( var at = n.raw.indexOf('//') ; at !== -1 ; at = n.raw.indexOf('//', at + 2) ) {
+          var pos = n.start + at;
+          if ( n.parts.some(function(p) { return pos >= p.start && pos < p.end; }) ) continue;
+          add(pos, n.end, 1, self.LINE_COMMENT_MESSAGE);
+          break;
+        }
+        return false;
+      });
     },
 
     function escapeRegex_(s) {

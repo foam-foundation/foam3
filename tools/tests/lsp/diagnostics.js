@@ -265,6 +265,141 @@ var hex3CssText = "foam.CLASS({\n  package: 'test',\n  name: 'Hex3Test',\n  css:
 var hex3Diags = diagHandler.handle(hex3CssText);
 test(hex3Diags.some(function(d) { return /raw color/i.test(d.message); }), 'Raw CSS: 3-char hex flagged');
 
+// === css: checks read the CSS grammar ===
+section('DiagnosticsHandler — css via grammar');
+
+var cssGrammarDiag = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index, cssTokenResolver: cssTokenResolver
+});
+// css: starts on line 3, so its first line is line 4 (0-based).
+function cssModel(name, lines) {
+  return "foam.CLASS({\n  package: 'test',\n  name: '" + name + "',\n  css: `\n" +
+    lines.map(function(l) { return '    ' + l; }).join('\n') + "\n  `\n})";
+}
+function cssDiags(name, lines, opt_handler) {
+  return ( opt_handler || cssGrammarDiag ).handle(cssModel(name, lines));
+}
+function withMsg(diags, re) { return diags.filter(function(d) { return re.test(d.message); }); }
+
+test(foam.maybeLookup('foam.u2.parse.CSSParser') != null,
+  'css grammar: foam.u2.parse.CSSParser is in the registry the LSP boots');
+
+// (a) a $name in a comment or a string is not a token reference
+var hidden = cssDiags('CssHidden', [
+  '^ { color: $primary400; /* was $noSuchTokenA */ content: "$noSuchTokenB"; }'
+]);
+test(withMsg(hidden, /Unknown CSS token/).length === 0,
+  'css grammar: $name inside /* comment */ and "string" is not an unknown token');
+
+// (b) chain still one name; a real unknown still reported at its own span
+var chain = cssDiags('CssChain', [
+  '^ { color: $primary400$foreground; background: $noSuchTokenC; }'
+]);
+var chainUnknown = withMsg(chain, /Unknown CSS token/);
+test(chainUnknown.length === 1 && chainUnknown[0].message.indexOf("'$noSuchTokenC'") !== -1,
+  'css grammar: $primary400$foreground passes, $noSuchTokenC is the only unknown');
+var chainLine = '    ^ { color: $primary400$foreground; background: $noSuchTokenC; }';
+test(chainUnknown.length === 1 && chainUnknown[0].range.start.line === 4 &&
+  chainUnknown[0].range.start.character === chainLine.indexOf('$noSuchTokenC') &&
+  chainUnknown[0].range.end.character === chainLine.indexOf('$noSuchTokenC') + '$noSuchTokenC'.length,
+  'css grammar: unknown token range covers exactly $noSuchTokenC');
+
+// Class-scoped token: resolved through the named class at runtime, which
+// the name-keyed resolver cannot see, so no report (the old regex said '$foam').
+var scoped = cssDiags('CssScoped', [ '^ { color: $foam.u2.Tabs.tabActiveColor; }' ]);
+test(withMsg(scoped, /Unknown CSS token/).length === 0,
+  'css grammar: class-scoped $foam.u2.Tabs.tabActiveColor is not reported');
+
+// (c) raw colours: value components only
+var raw = cssDiags('CssRaw', [
+  '^ { color: #fff; }',
+  '^x { background: url(data:image/svg+xml;utf8,#fff) no-repeat; }',
+  '^y { color: var(--ink, #000); border: 1px solid rgb(0, 0, 0); }'
+]);
+var rawWarns = withMsg(raw, /raw color/i);
+test(rawWarns.some(function(d) { return d.message.indexOf("'#fff'") !== -1 && d.range.start.line === 4; }),
+  'css grammar: raw #fff in color: is reported');
+test(! rawWarns.some(function(d) { return d.range.start.line === 5; }),
+  'css grammar: #fff inside url(data:...) is not reported');
+test(! rawWarns.some(function(d) { return d.message.indexOf('#000') !== -1; }),
+  'css grammar: #000 as a var() fallback is not reported');
+test(rawWarns.some(function(d) { return d.message.indexOf('rgb(0, 0, 0)') !== -1 && d.range.start.line === 6; }),
+  'css grammar: rgb() in border: is reported');
+
+// Every raw colour in a value is reported, not just the first (the old
+// regex stopped after one), including those inside a gradient function.
+var everyRaw = withMsg(cssDiags('CssEveryRaw', [
+  '^ { border: 1px solid #fff; background: #aaa linear-gradient(#bbb, rgb(1,2,3)); }'
+]), /raw color/i);
+test(everyRaw.length === 4,
+  'css grammar: all 4 raw colours in border/background are reported (got ' + everyRaw.length + ')');
+
+// Only selector carets name a class: a '^' in a comment, a string or the
+// '^=' of an attribute selector is not an unused class.
+var ghosts = cssDiags('CssGhostCarets', [
+  '/* ^ghost */',
+  '^ { content: "^ghost2"; }',
+  '[class^=ghost3] { color: $primary400; }'
+]);
+test(withMsg(ghosts, /Unused CSS class/).length === 0,
+  'css grammar: carets in a comment, a string and [class^=x] are not unused classes');
+
+// A '//' inside a quoted attribute value is a string, not a line comment.
+var quotedSlashes = cssDiags('CssQuotedSlashes', [ '^ a[href^="//cdn"] { color: $primary400; }' ]);
+test(withMsg(quotedSlashes, /^CSS syntax:/).length === 0,
+  'css grammar: // inside a quoted attribute selector is no CSS syntax diagnostic');
+
+// (d) syntax errors, each on its own line
+var lineComment = withMsg(cssDiags('CssSlashes', [
+  '^ {',
+  '  // old rule',
+  '  color: red;',
+  '}',
+  '// note',
+  '^title { color: red; }'
+]), /^CSS syntax:/);
+test(lineComment.length === 2 && lineComment[0].range.start.line === 5 && lineComment[1].range.start.line === 8,
+  'css grammar: a // line in a block and before a rule are both CSS syntax diagnostics (lines ' +
+    lineComment.map(function(d) { return d.range.start.line; }) + ')');
+test(lineComment.every(function(d) { return d.severity === 1 && d.message.indexOf("'//'") !== -1; }),
+  'css grammar: // diagnostics are errors that name the // comment');
+test(lineComment.every(function(d) { return d.range.start.line === d.range.end.line; }),
+  'css grammar: a syntax diagnostic stays on one line');
+
+var missingSemi = withMsg(cssDiags('CssNoSemi', [
+  '^ {',
+  '  color: red',
+  '  margin: 0;',
+  '}'
+]), /^CSS syntax:/);
+test(missingSemi.length === 1 && missingSemi[0].range.start.line === 6 && missingSemi[0].severity === 1,
+  'css grammar: missing ; before the next declaration reported on that declaration\'s line');
+
+var stray = withMsg(cssDiags('CssStray', [
+  '^ { color: red; }',
+  '}'
+]), /^CSS syntax:/);
+test(stray.length === 1 && stray[0].range.start.line === 5 && /Unexpected \}/.test(stray[0].message),
+  'css grammar: stray } reported on its line');
+
+var openStr = withMsg(cssDiags('CssOpenString', [ '^ { content: "abc; }' ]), /^CSS syntax:/);
+test(openStr.some(function(d) { return d.message === 'CSS syntax: Unclosed string' && d.severity === 2; }),
+  'css grammar: an unclosed string is a WARNING "Unclosed string"');
+
+// (e) statement-level %CUSTOMCSS% is a placeholder, not an error
+var placeholder = cssDiags('CssPlaceholder', [ '^ { color: $primary400; }', '%CUSTOMCSS%' ]);
+test(withMsg(placeholder, /^CSS syntax:|Unknown CSS token/).length === 0,
+  'css grammar: statement-level %CUSTOMCSS% produces no diagnostic');
+
+// diagnostics.cssSyntax: false silences only the syntax diagnostics
+var cssSyntaxOff = foam.parse.lsp.handlers.DiagnosticsHandler.create({
+  index: index, cssTokenResolver: cssTokenResolver,
+  featureConfig: { enabled: function(f) { return f !== 'diagnostics.cssSyntax'; } }
+});
+var offDiags = cssDiags('CssSyntaxOff', [ '^ { color: #fff }', '}' ], cssSyntaxOff);
+test(withMsg(offDiags, /^CSS syntax:/).length === 0 && withMsg(offDiags, /raw color/i).length === 1,
+  'css grammar: diagnostics.cssSyntax off drops syntax diagnostics, raw-colour check stays');
+
 // === EXPRESSION PARAMETER VALIDATION ===
 
 

@@ -39,6 +39,11 @@
           "default": true,
           "description": "Diagnostics for malformed pom.js entries: whitespace in name/flags values, unknown flag tokens, entries pointing at missing files. Takes effect after a server restart."
         },
+        "foam.features.diagnostics.cssSyntax": {
+          "type": "boolean",
+          "default": true,
+          "description": "Diagnostics for css: text the CSS grammar cannot parse: a missing ';', a stray '}', a '//' line, an unclosed string or comment. Takes effect after a server restart."
+        },
         "foam.features.diagnostics.i18n": {
           "type": "boolean",
           "default": true,

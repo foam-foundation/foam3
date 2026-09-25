@@ -382,7 +382,7 @@ foam.CLASS({
        * that require, and GROUP_BY() then built a dashboard GroupBy.
        *
        * Fix: ask the classes the name could come from — the class itself
-       * when registered, its parent and each implemented interface (read off
+       * when registered, its parent and each implemented interface or mixin (read off
        * the model, since the registry lags an unsaved edit) — for an axiom
        * of that name, and check the model's own inner classes.
        */
@@ -395,7 +395,10 @@ foam.CLASS({
       add(ownClassId);
       if ( model ) {
         add(model.extends || 'foam.lang.AbstractFObject');
-        ( model.implements || [] ).forEach(function(i) { add(typeof i === 'string' ? i : i && i.path); });
+        // mixins: copies axioms in the same way implements: does.
+        ( model.implements || [] ).concat(model.mixins || []).forEach(function(i) {
+          add(typeof i === 'string' ? i : i && i.path);
+        });
       }
       var inner = {};
       ( model && model.classes || [] ).forEach(function(c) { if ( c && c.name ) inner[c.name] = true; });

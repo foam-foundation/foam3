@@ -919,6 +919,11 @@ var arExprRes   = arHandler.handle(arExpr, { line: arExprLine, character: arExpr
 test(! arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupBy'; }) &&
      arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupByView'; }),
   'a short name an implemented interface already supplies (GroupBy) is not offered; others still are');
+var arMixin = arExpr.replace('ArExpr', 'ArMixin').replace('implements:', 'mixins:');
+var arMixinRes = arHandler.handle(arMixin, { line: arExprLine, character: arExprLines[arExprLine].indexOf('this.GroupB') + 11 }, 'file:///ar.js');
+test(! arMixinRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupBy'; }) &&
+     arMixinRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupByView'; }),
+  'a short name a mixin already supplies (GroupBy) is not offered; others still are');
 var arInner = arSorted.replace("  requires: [", "  classes: [ { name: 'DAOControllerView' } ],\n  requires: [");
 test(! arItem(arComplete(arInner)), 'a short name an inner class owns is not offered');
 

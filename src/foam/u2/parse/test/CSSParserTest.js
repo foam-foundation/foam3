@@ -14,6 +14,11 @@ foam.CLASS({
     full CSS grammar, plus the autocomplete entry points StyleConfigurator
     uses. Every parse result is also checked with spansMatch(): each node's
     raw must equal input.slice(start, end).
+
+    foam.u2.parse.test.CSSParserJavaTest runs the same cases, with the same
+    messages, against the Java grammar (CSSParser.java). A case added or
+    changed here gets its twin there in the same commit; see the sync note
+    in CSSParser.js.
   `,
 
   requires: [
@@ -60,6 +65,7 @@ foam.CLASS({
       this.testAtRuleClosedByBrace(x);
       this.testDeepSkipBalances(x);
       this.testCaretHazards(x);
+      this.testCaseAndWhitespace(x);
       this.testStringLineBreak(x);
       this.testPlaceholderStatement(x);
       this.testStraySemicolon(x);
@@ -760,6 +766,23 @@ foam.CLASS({
         'caret hazards: the string and comment list their carets');
       x.test(p.errors(t).length === 0, 'caret hazards: none of them is a parse error');
       this.spansMatch(x, input, t, 'caret hazards');
+    },
+
+    function testCaseAndWhitespace(x) {
+      var p = this.CSSParser.create();
+      var v = p.parseValue('c !\u0131mportant');
+      x.test(v && ! v.important && this.kinds(v.components) === 'ident delim ident',
+        'case: ! + dotless i (U+0131) + mportant is not !important');
+      var a = p.parse('@MEDIA x;');
+      x.test(a.children[0].name === 'media', 'case: @MEDIA has the name media');
+
+      var c1 = p.parse('/*\u00a0%NAME%\u00a0*/');
+      x.test(c1.children[0].placeholder === 'NAME', 'whitespace: no-break spaces around %NAME% still make a placeholder');
+      x.test([ '/*\u3000$x\u3000*/', '/*\ufeff$x*/', '/*\u2028$x*/' ].every(s => p.parse(s).children[0].token === '$x'),
+        'whitespace: Unicode spaces around $x still make a token comment');
+      x.test(p.parse('/*$x\u0001*/').children[0].token === null, 'whitespace: a control character after $x is not whitespace');
+      var c3 = p.parse('a{b:/*$x\u0001*/ c}');
+      x.test(c3.children[0].children[0].value.components[0].token === null, 'whitespace: the same inside a value');
     },
 
     function testStringLineBreak(x) {

@@ -74,6 +74,16 @@
           "default": true,
           "description": "Code folding for properties:/methods:/requires:/etc. arrays. Takes effect after a server restart."
         },
+        "foam.features.documentColor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Colour swatches for CSS $tokens and raw colour values inside css: blocks. Picking a colour on a $token never replaces it. Takes effect after a server restart."
+        },
+        "foam.features.documentLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Clickable class ids in extends:/requires:/implements:/refines:/of:/class:/view: strings and in .jrl journals, opening the class's file. Takes effect after a server restart."
+        },
         "foam.features.codeLens.i18n": {
           "type": "boolean",
           "default": true,

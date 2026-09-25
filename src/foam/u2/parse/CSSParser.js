@@ -75,8 +75,8 @@ foam.CLASS({
                   nodes), closed
       url         value (the address), quoted, arg (the string node when
                   quoted, else null), tokens (context 'url', unquoted
-                  only). url(data:a;b) keeps its ';'; '(' '{' '}' end an
-                  unquoted url.
+                  only). url(data:a;b) keeps its ';' and url(q{w}e) its
+                  braces; whitespace, a quote or '(' ends an unquoted url.
       paren       components, closed: '( ... )' outside a function, as in
                   @media (min-width: 600px)
       bracket     components, closed: '[ ... ]'
@@ -101,13 +101,20 @@ foam.CLASS({
                   for a statement such as @import ...; ending at ';'),
                   closed
       prelude     components between the at-rule name and its ';' or '{'
-      declaration property, value, important, custom, comments (any
-                  comments between the property name and the ':')
+      declaration property, value, important (from the value; for a
+                  custom property, a trailing !important), custom,
+                  comments (any comments between the property name and
+                  the ':')
       property    name, as written
       value       for a custom property (--foo): components is null, the
                   text is kept raw; parts holds the comments, strings,
                   tokens and name( ) functions found in it, tokens every
-                  token node at any depth. A ':' outside ( ) or [ ] in a
+                  token node at any depth. A !important with only
+                  whitespace and comments after it sets important and is
+                  left out of the span, so '--gap: 4px !important' has
+                  the value '4px' (comments after it are not kept); one
+                  followed by more text stays in the raw text, with
+                  important false. A ':' outside ( ) or [ ] in a
                   normal value becomes an error node: it is never valid
                   there and usually means a missing ';' merged two
                   declarations.
@@ -124,6 +131,23 @@ foam.CLASS({
                   not recursion, so deep input cannot overflow the stack;
                   the loop still balances ( [ { against their closers, so
                   the enclosing levels close normally after it.
+                  A ';' where a rule may start, with a rule or at-rule
+                  after it (comments aside), is an error node of its own:
+                  a browser reads the ';' as the start of that rule's
+                  selector and drops the rule. That is a ';' at
+                  stylesheet level, or directly in the block of an
+                  at-rule that holds rules (@media, @supports, @layer,
+                  @keyframes, an unknown name) with no style rule or
+                  DECLARATION_AT_RULES at-rule around it. Elsewhere (a
+                  style rule's block, @font-face, @page and the other
+                  DECLARATION_AT_RULES, any at-rule inside those) a ';' is
+                  harmless and is not a node.
+                  A '//' where a statement starts is an error node
+                  spanning the statement a browser drops with it, since
+                  CSS has no // comments: up to the next ';', through a
+                  '{ }' block, or up to the '}' that closes the enclosing
+                  block. The ';' or '}' is left to the enclosing
+                  stylesheet or block, and what follows parses as usual.
       Whitespace is not a node.
 
     NESTING
@@ -143,7 +167,7 @@ foam.CLASS({
     'foam.parse.Suggest',
     'foam.parse.Parsers',
     'foam.parse.StringPStream',
-    'foam.u2.parse.Span'
+    'foam.parse.Span'
   ],
 
   axioms: [
@@ -405,6 +429,10 @@ foam.CLASS({
     // Names of the math functions whose tokens get inMath.
     MATH_FN_RE: /(^|-)(calc|min|max|clamp)$/i,
     HEX_COLOR_RE: /^(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
+    // At-rules whose block holds declarations, not rules, so a stray ';'
+    // in it is harmless (see fillSemicolons_). Lower case.
+    DECLARATION_AT_RULES: [ 'font-face', 'page', 'counter-style', 'property', 'font-palette-values',
+      'color-profile', 'view-transition', 'position-try' ],
     // Which fields of each node kind hold child nodes, in input order.
     CHILD_KEYS: {
       stylesheet:  [ 'children' ],
@@ -630,17 +658,18 @@ foam.CLASS({
           }),
 
         // Unquoted url() argument: { text, tokens }. ';' is plain text, so
-        // url(data:image/svg+xml;base64,AAA=) stays one component. '(' '{'
-        // and '}' end it (CSS Syntax makes '(' a bad url): otherwise every
-        // unclosed 'url(' in minified CSS scanned to end of input, which was
-        // quadratic ('a{b:url(x}' x 4000 = 40 KB took 2.5 s). $name inside
-        // is a token with context 'url' (see hazards()).
-        // Quote an SVG data URL: unquoted, one with braces inside
-        // (url(data:image/svg+xml;utf8,<svg><style>a{fill:red}</style>...))
-        // ends at the first '{' and the rest parses as a function plus a
-        // made-up rule. FOAM's own css: quotes them.
+        // url(data:image/svg+xml;base64,AAA=) stays one component. Braces
+        // are plain text too, as in a browser: an SVG data URL with a style
+        // inside, url(data:image/svg+xml;utf8,<svg><style>a{fill:red}...),
+        // parses whole up to the first whitespace or ')'. It used to end at
+        // the first '{', and the rest parsed as a function plus a made-up
+        // rule. '(' still ends it (CSS Syntax makes '(' a bad url): that is
+        // what stops an unclosed 'url(' at the next 'url(' instead of
+        // scanning to end of input, which was quadratic ('a{b:url(x}' x
+        // 4000 = 40 KB took 2.5 s). $name inside is a token with context
+        // 'url' (see hazards()).
         urlRaw: self.Span.create({
-          p: plus(alt(sym('token'), notChars(')(\'"{}' + WS))),
+          p: plus(alt(sym('token'), notChars(')(\'"' + WS))),
           build: function(v, start, end, str) {
             return { text: str.substring(start, end), tokens: self.hazardParts_(nodes(v), 'url') };
           }
@@ -692,7 +721,7 @@ foam.CLASS({
         START: sym('stylesheet'),
 
         stylesheet: node('stylesheet',
-          repeat(alt(sym('ws'), sym('comment'), sym('item'), ';', sym('strayClose'))),
+          repeat(alt(sym('ws'), sym('comment'), sym('item'), sym('semicolon'), sym('strayClose'))),
           function(n, v) { n.children = nodes(v); }),
 
         item: alt(
@@ -700,9 +729,33 @@ foam.CLASS({
           sym('customDeclaration'),
           sym('declaration'),
           sym('placeholderStatement'),
+          sym('lineComment'),
           sym('rule'),
           sym('recover')
         ),
+
+        // A ';' between statements, which no statement took as its end. A
+        // marker node here; once the tree is built, fillSemicolons_ turns
+        // it into an error node or drops it, by where it stands.
+        semicolon: node('semicolon', ';'),
+
+        // Problem: CSS has no '//' comments. A browser reads '// note' as
+        // the start of a selector or declaration and drops that whole
+        // statement: '// note\nb{color:blue}' loses the b rule and
+        // 'b{ // note\n color:blue }' loses color. Here the first parsed as
+        // one rule whose selector began with '// note', with no error. Now
+        // the statement the '//' starts is one error node spanning what the
+        // browser drops: up to the next ';', through a '{ }' block, or up to
+        // the '}' that closes the enclosing block. A line break does not end
+        // it. Strings, comments and ( ) inside are skipped whole, so a ';' or
+        // '}' in them does not end it. A '//' inside a string, comment or
+        // url() is text of that node.
+        lineComment: node('error',
+          seq('//', repeat(alt(sym('comment'), sym('string'), sym('skipParen'), notChars(';{}'))), opt(sym('skipBrace'))),
+          function(n, v, str) {
+            n.message = "'//' is not a CSS comment: the browser drops the statement it starts; use /* */";
+            self.trimEnd_(n, str);
+          }),
 
         // Problem: FOAM's returnExpandedCSS replaces a statement-level
         // '%CUSTOMCSS%;' (foam.core.u2.navigation.Stack) or a whole css:
@@ -718,7 +771,7 @@ foam.CLASS({
         // it with closed: false. Value is { node: [..], start, end }.
         // At MAX_DEPTH the value is an error node instead (see fillBlock_).
         block: deep('{', self.Span.create({ p: seq('{',
-          repeat(alt(sym('ws'), sym('comment'), sym('item'), ';')),
+          repeat(alt(sym('ws'), sym('comment'), sym('item'), sym('semicolon'))),
           alt('}', eof())) }), tooDeepValue),
 
         rule: node('rule', seq(plus(sym('selector'), ','), sym('block')), function(n, v, str) {
@@ -812,7 +865,7 @@ foam.CLASS({
             n.property  = v[0];
             n.comments  = nodes(v[1]);
             n.value     = v[3];
-            n.important = false;
+            n.important = v[3].important;
             n.custom    = true;
             self.trimEnd_(n, str);
           }),
@@ -820,20 +873,34 @@ foam.CLASS({
         // '--foo: anything' keeps the text raw (it may be a whole block,
         // '{ a: b }'). parts holds only the nodes found in it: comments,
         // strings, tokens and name( ) functions, so tokens get inMath.
+        //
+        // Problem: '--gap: 4px !important' read as important false with
+        // the value '4px !important', although a browser applies it as
+        // important with the value 4px. A !important followed only by
+        // whitespace, comments and the declaration's end is split off:
+        // important is true and the value's span ends before the '!' (the
+        // comments after it are not kept). One followed by more text
+        // ('--x: a !important b') stays raw text.
         customValue: node('value',
-          repeat(alt(sym('comment'), sym('string'), sym('token'), sym('rawFunction'), plus(sym('identChar')),
-            sym('skipParen'), sym('skipBrace'), notChars(';{}(\'"'))),
+          seq(
+            repeat(not(sym('trailingImportant'), alt(sym('comment'), sym('string'), sym('token'), sym('rawFunction'),
+              plus(sym('identChar')), sym('skipParen'), sym('skipBrace'), notChars(';{}(\'"')))),
+            opt(sym('trailingImportant'))),
           function(n, v, str) {
-            var s = n.start, e = n.end;
+            var s = n.start, e = v[1] ? v[1].start : n.end;
             while ( s < e && WS.indexOf(str[s])     !== -1 ) s++;
             while ( e > s && WS.indexOf(str[e - 1]) !== -1 ) e--;
             self.trimTo_(n, s, e, str);
             n.components = null;
-            n.important  = false;
-            n.parts      = nodes(v);
+            n.important  = !! v[1];
+            n.parts      = nodes(v[0]);
             n.tokens     = [];
             self.walk({ kind: 'value', components: n.parts }, t => { if ( t.kind === 'token' && ! t.context ) n.tokens.push(t); });
           }),
+
+        // The important node, when only whitespace and comments separate
+        // it from the end of the declaration (see customValue).
+        trailingImportant: seq1(0, sym('important'), sym('wsc'), peek(alt(chars(';}'), eof()))),
 
         rawFunction: deep(seq(sym('identText'), '('), node('function',
           seq(sym('identText'), '(', repeat(alt(sym('comment'), sym('string'), sym('token'), sym('rawFunction'),
@@ -981,6 +1048,44 @@ foam.CLASS({
       }
     },
 
+    function fillSemicolons_(tree, str) {
+      // Problem: a ';' where a rule may start is not skipped by a browser:
+      // it becomes the first token of the next rule's selector, so
+      // 'a{color:red};b{color:blue}' loses the b rule (Chromium keeps only
+      // a), and so do '@media all { a{}; b{} }', @layer, @supports and
+      // @keyframes. Where declarations may stand the browser skips it:
+      // 'b{;color:blue;;}', 'b{ &:hover{}; color:blue }',
+      // '@font-face{font-family:x;;src:url(a.woff)}', an at-rule nested in
+      // a style rule, 'x{ @media all { a{}; b{} } }', and one nested in a
+      // declaration at-rule, '@page { @top-left { a:1;; } }'. A ';' with no
+      // rule after it ('a{};', 'color:red;;margin:0') loses nothing.
+      // So a 'semicolon' marker the grammar leaves in children becomes an
+      // error node when the next child that is not a comment is a rule or
+      // at-rule, and the marker stands at stylesheet level or in the block
+      // of an at-rule not in DECLARATION_AT_RULES with no style rule or
+      // DECLARATION_AT_RULES at-rule around it. Every other marker is
+      // dropped. Run on the finished tree because the enclosing nodes are
+      // only known once the whole tree is built.
+      var self = this, decl = this.DECLARATION_AT_RULES;
+      this.walk(tree, function(n, ancestors) {
+        if ( ! n.children ) return;
+        var keep = n.kind === 'stylesheet' || ( n.kind === 'atrule' && decl.indexOf(n.name) === -1 &&
+          ! ancestors.some(a => a.kind === 'rule' || ( a.kind === 'atrule' && decl.indexOf(a.name) !== -1 )) );
+        var kids = n.children, out = [];
+        for ( var i = 0 ; i < kids.length ; i++ ) {
+          var c = kids[i];
+          if ( c.kind !== 'semicolon' ) { out.push(c); continue; }
+          if ( ! keep ) continue;
+          var j = i + 1;
+          while ( j < kids.length && kids[j].kind === 'comment' ) j++;
+          if ( j < kids.length && ( kids[j].kind === 'rule' || kids[j].kind === 'atrule' ) ) {
+            out.push(self.errorNode_(str, c.start, c.end, "';' between rules: the browser drops the rule after it"));
+          }
+        }
+        n.children = out;
+      });
+    },
+
     function errorNode_(str, start, end, message) {
       return { kind: 'error', start: start, end: end, raw: str.substring(start, end), message: message };
     },
@@ -1015,6 +1120,7 @@ foam.CLASS({
         tree.children.push(this.errorNode_(str, tree.end, str.length, 'Unparsed input'));
         this.trimTo_(tree, 0, str.length, str);
       }
+      this.fillSemicolons_(tree, str);
       this.markMath_(tree);
       return tree;
     },

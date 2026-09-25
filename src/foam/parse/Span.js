@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.u2.parse',
+  package: 'foam.parse',
   name: 'Span',
   extends: 'foam.parse.ParserDecorator',
 

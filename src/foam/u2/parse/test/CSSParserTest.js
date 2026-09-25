@@ -20,7 +20,7 @@ foam.CLASS({
     'foam.parse.Parsers',
     'foam.parse.StringPStream',
     'foam.u2.parse.CSSParser',
-    'foam.u2.parse.Span'
+    'foam.parse.Span'
   ],
 
   methods: [
@@ -62,6 +62,10 @@ foam.CLASS({
       this.testCaretHazards(x);
       this.testStringLineBreak(x);
       this.testPlaceholderStatement(x);
+      this.testStraySemicolon(x);
+      this.testLineComment(x);
+      this.testUrlBraces(x);
+      this.testCustomImportant(x);
     },
 
     function errorsIn(tree) {
@@ -841,6 +845,188 @@ foam.CLASS({
       x.test(this.kinds(t.children) === 'rule placeholder rule' && t.children[0].selectors[0].raw === '%X%.a' &&
              t.children[2].selectors[0].raw === '.d',
         'placeholder statement: one glued to a selector stays in it, one followed by a space stands alone');
+    },
+
+    // ---- review round 4 ---------------------------------------------------
+    // Expected results match what Chromium keeps of the same CSS.
+
+    function testStraySemicolon(x) {
+      var p   = this.CSSParser.create();
+      var msg = "';' between rules: the browser drops the rule after it";
+      var input = 'a{color:red};b{color:blue}';
+      var t = p.parse(input);
+      var e = p.errors(t);
+      x.test(this.kinds(t.children) === 'rule error rule' && e.length === 1 && e[0].raw === ';' && e[0].message === msg,
+        "stray ;: a ';' between top-level rules is an error node, got " + this.kinds(t.children));
+      this.spansMatch(x, input, t, 'stray ; top level');
+
+      input = '@media all { a{color:red}; b{color:blue} }';
+      t = p.parse(input);
+      var m = t.children[0];
+      x.test(m && this.kinds(m.children) === 'rule error rule' && m.children[1].message === msg &&
+             m.children[1].start === input.indexOf(';') && p.errors(t).length === 1,
+        "stray ;: a ';' between rules in @media is an error node, got " + (m && this.kinds(m.children)));
+      this.spansMatch(x, input, t, 'stray ; in @media');
+
+      input = 'b{;color:blue;;}';
+      t = p.parse(input);
+      x.test(this.kinds(t.children[0].children) === 'declaration' && p.errors(t).length === 0,
+        "stray ;: a ';' inside a style rule's block is not an error");
+      this.spansMatch(x, input, t, 'stray ; in a rule');
+
+      input = 'b{ &:hover{color:red}; color:blue }';
+      t = p.parse(input);
+      x.test(this.kinds(t.children[0].children) === 'rule declaration' && p.errors(t).length === 0,
+        "stray ;: a ';' after a nested rule in a style block is not an error");
+      this.spansMatch(x, input, t, 'stray ; after a nested rule');
+
+      input = '@font-face{font-family:x;;src:url(a.woff)} @page { margin:1in;; }';
+      t = p.parse(input);
+      x.test(this.kinds(t.children[0].children) === 'declaration declaration' && p.errors(t).length === 0,
+        "stray ;: a ';' in @font-face or @page (declaration blocks) is not an error");
+      this.spansMatch(x, input, t, 'stray ; in declaration at-rules');
+
+      input = '@layer x { a{}; b{} } @supports (color:red) { a{}; b{} } @keyframes k { from{top:0}; to{top:1px} } @media all { color:red;; b{color:blue} }';
+      t = p.parse(input);
+      e = p.errors(t);
+      x.test(e.length === 4 && e.every(n => n.raw === ';' && n.message === msg) &&
+             t.children.map(a => this.kinds(a.children)).join('|') === 'rule error rule|rule error rule|rule error rule|declaration error rule',
+        "stray ;: a ';' between rules in top-level @layer, @supports, @keyframes and @media is an error, got " + e.length);
+      this.spansMatch(x, input, t, 'stray ; in rule-list at-rules');
+
+      input = 'x{ @media all { a{color:red}; b{color:blue} } } x{ @media all { color:red;; b{color:blue} } } x{ @media a { @supports b { c{}; d{} } } }';
+      t = p.parse(input);
+      x.test(p.errors(t).length === 0 && t.children.map(r => this.kinds(r.children[0].children)).join('|') === 'rule rule|declaration rule|atrule',
+        "stray ;: a ';' in an at-rule nested in a style rule, at any depth, is not an error");
+      this.spansMatch(x, input, t, 'stray ; in nested at-rules');
+
+      x.test([ 'a{};', '@media all { a{}; }', 'color:red;;margin:0', ';color:red', 'a{}; /* c */' ].every(i => p.errors(p.parse(i)).length === 0),
+        "stray ;: a ';' with no rule or at-rule after it is not an error");
+      input = 'a{};/* c */b{}';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'rule error comment rule' && p.errors(t).length === 1,
+        "stray ;: a comment between the ';' and the next rule does not hide it, got " + this.kinds(t.children));
+      this.spansMatch(x, input, t, 'stray ; before a comment');
+
+      x.test([ '@page { @top-left { content:"x";; } }', '@font-feature-values F { @swash { a:1;; } }',
+               '@page { @top-left { a:1;; b{} } }', '@position-try --p { top:0;; b{} }' ].every(i => p.errors(p.parse(i)).length === 0),
+        "stray ;: an at-rule inside @page counts as a declaration block, and so does @position-try");
+    },
+
+    function testLineComment(x) {
+      // A browser drops the whole statement a '//' starts: a line break does
+      // not end it; the next ';', a '{ }' block or the enclosing '}' does.
+      var p   = this.CSSParser.create();
+      var msg = "'//' is not a CSS comment: the browser drops the statement it starts; use /* */";
+      var input = '// note\n^ { color: red }';
+      var t = p.parse(input);
+      x.test(this.kinds(t.children) === 'error' && t.children[0].raw === input && t.children[0].message === msg,
+        '// line: at top level the error runs through the next rule, nothing is kept, got ' + this.kinds(t.children));
+      this.spansMatch(x, input, t, '// line top level');
+
+      input = '^ { // note\n color: blue }';
+      t = p.parse(input);
+      var r = t.children[0];
+      x.test(r && r.closed && this.kinds(r.children) === 'error' && r.children[0].raw === '// note\n color: blue' &&
+             r.children[0].message === msg && p.errors(t).length === 1,
+        '// line: in a block the error runs over the line break up to the closing }, got ' + (r && this.kinds(r.children)));
+      this.spansMatch(x, input, t, '// line in a block');
+
+      input = '^ { // note;\n color: blue }';
+      t = p.parse(input);
+      r = t.children[0];
+      x.test(r && this.kinds(r.children) === 'error declaration' && r.children[0].raw === '// note' && p.errors(t).length === 1,
+        "// line: a ';' ends it and is skipped in a style block, got " + (r && this.kinds(r.children)));
+      this.spansMatch(x, input, t, '// line ended by ;');
+
+      input = '^ { color:red; // x }\nb { color: blue }';
+      t = p.parse(input);
+      r = t.children[0];
+      x.test(this.kinds(t.children) === 'rule rule' && r.closed && this.kinds(r.children) === 'declaration error' &&
+             r.children[1].raw === '// x' && p.errors(t).length === 1,
+        "// line: a '}' still closes the block, got " + this.kinds(t.children));
+      this.spansMatch(x, input, t, '// line ended by }');
+
+      input = '// x; ^ { }';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'error error rule' && t.children[0].raw === '// x' && t.children[0].message === msg &&
+             t.children[1].raw === ';' && t.children[1].message.indexOf("';'") === 0,
+        "// line: at top level the ';' after it is its own error, then the rule parses, got " + this.kinds(t.children));
+      this.spansMatch(x, input, t, '// line then ; at top level');
+
+      input = '^ { b: c }\n// a\r\n// end';
+      t = p.parse(input);
+      x.test(this.kinds(t.children) === 'rule error' && t.children[1].raw === '// a\r\n// end',
+        '// line: a line break does not end it, end of input does, got ' + this.kinds(t.children));
+      this.spansMatch(x, input, t, '// line ends');
+
+      input = 'a { // ^ .x\n { color: red; }\n margin: 0 }';
+      t = p.parse(input);
+      r = t.children[0];
+      x.test(this.kinds(t.children) === 'rule' && r.closed && this.kinds(r.children) === 'error declaration' &&
+             r.children[0].raw === '// ^ .x\n { color: red; }' && r.children[1].property.name === 'margin' && p.errors(t).length === 1,
+        '// line: a commented-out rule is one error through its block, and the next declaration parses, got ' + (r && this.kinds(r.children)));
+      this.spansMatch(x, input, t, '// line with a block');
+
+      input = 'a { // f(;) "b;}" /* ;} */ c\n ; d: e }';
+      t = p.parse(input);
+      r = t.children[0];
+      x.test(r && this.kinds(r.children) === 'error declaration' && r.children[0].raw === '// f(;) "b;}" /* ;} */ c' &&
+             p.errors(t).length === 1,
+        "// line: a ';' or '}' inside ( ), a string or a comment does not end it, got " + (r && this.kinds(r.children)));
+      this.spansMatch(x, input, t, '// line skips units');
+
+      input = 'a { content: "x // y"; background: url(//cdn.x/a.png) } /* // z */';
+      t = p.parse(input);
+      x.test(p.errors(t).length === 0, "// line: a '//' inside a string, an unquoted url or a comment is not an error");
+    },
+
+    function testUrlBraces(x) {
+      var p = this.CSSParser.create();
+      var svg   = 'data:image/svg+xml;utf8,<svg><style>a{fill:red}</style></svg>';
+      var input = 'url(' + svg + ') no-repeat';
+      var v = p.parseValue(input);
+      var u = v && v.components[0];
+      x.test(u && u.kind === 'url' && ! u.quoted && u.value === svg && this.kinds(v.components) === 'url ident',
+        'url braces: an unquoted SVG data URL with braces is one url node');
+      this.spansMatch(x, input, v, 'url braces value');
+
+      input = 'b{background:url(q{w}e)}';
+      var t = p.parse(input);
+      var d = p.declarations(t);
+      x.test(d.length === 1 && d[0].value === 'url(q{w}e)' && d[0].node.value.components[0].value === 'q{w}e' &&
+             p.errors(t).length === 0,
+        'url braces: url(q{w}e) in a rule keeps its braces, no errors');
+      this.spansMatch(x, input, t, 'url braces rule');
+    },
+
+    function testCustomImportant(x) {
+      var p = this.CSSParser.create();
+      var input = '^ { --gap: 4px !important; --a: 1 ! /* c */ IMPORTANT }';
+      var t = p.parse(input);
+      var d = t.children[0].children;
+      x.test(d.length === 2 && d[0].important && d[0].value.important && d[0].value.raw === '4px' &&
+             d[0].value.end === input.indexOf(' !important'),
+        'custom !important: important is set and the value span ends before the !');
+      x.test(d[1] && d[1].important && d[1].value.raw === '1', 'custom !important: any case, a comment between ! and important');
+      x.test(p.declarations(t).map(e => e.value + (e.important ? '!' : '')).join() === '4px!,1!',
+        'custom !important: declarations() lists the value without it and important true');
+      x.test(p.errors(t).length === 0, 'custom !important: no errors');
+      this.spansMatch(x, input, t, 'custom !important');
+
+      input = '--x: a !important b';
+      t = p.parse(input);
+      var c = t.children[0];
+      x.test(c && c.important === false && c.value.raw === 'a !important b' && p.errors(t).length === 0,
+        'custom !important: one followed by more text stays in the raw value, important false');
+      this.spansMatch(x, input, t, 'custom !important not last');
+
+      input = 'b{--x: a !important /* c */}';
+      t = p.parse(input);
+      c = t.children[0].children[0];
+      x.test(c && c.important && c.value.raw === 'a' && p.errors(t).length === 0,
+        'custom !important: comments after it still leave it last');
+      this.spansMatch(x, input, t, 'custom !important then a comment');
     },
 
     // ---- autocomplete compatibility ---------------------------------------

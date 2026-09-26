@@ -10,9 +10,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Hands a parsed string to the JVM's string table, String.intern(), only on
- * its second sight, so values that appear once -- ids, references,
- * timestamps -- never enter the table.
+ * Hands a parsed string to the next interner (the delegate, by default the
+ * JVM's string table through JvmInterner) only on its second sight, so values
+ * that appear once -- ids, references, timestamps -- never reach it.
  *
  * The table costs about 22 bytes an entry off the heap, but it stops growing
  * at 2^24 buckets; past that every GC makes the service thread rescan it and a
@@ -21,12 +21,17 @@ import java.util.concurrent.atomic.LongAdder;
  * are what must stay out.
  *
  * Two maps: seenOnce holds the first instance of each value seen once,
- * seenMany the canonical of each value seen twice. Second sight interns the
- * FIRST instance: String.intern() keeps the instance it is given, so the
- * record that brought the value in already holds the canonical and no second
- * copy is left behind.
+ * seenMany the canonical of each value seen twice. Second sight hands the
+ * delegate the FIRST instance: a delegate seeing the value for the first time
+ * keeps the instance it is given, so the record that brought the value in
+ * already holds the canonical and no second copy is left behind.
  *
- * One interner per journal replay. F3FileJournal creates it, publishes it
+ * A first sight asks the delegate's find() before parking the value, so a
+ * value another replay already made canonical is shared from its first
+ * record on.
+ *
+ * One interner per journal replay. F3FileJournal creates it with
+ * Interner.GLOBAL as the delegate, publishes it
  * under CTX_KEY so JSONParser hands it to StringParser, and releases it when
  * the replay completes. Until then both maps hold every distinct value of the
  * replay, about 42 bytes each; release() gives that back. Parsing outside a
@@ -38,7 +43,7 @@ import java.util.concurrent.atomic.LongAdder;
  * the value returned is always equal to the one passed in. Never compare
  * strings with ==; identity belongs to the table, not to the value.
  */
-public final class StringInterner {
+public final class StringInterner implements Interner {
 
   /** Key under which F3FileJournal publishes the replay's interner in X, and JSONParser in the ParserContext. */
   public static final String CTX_KEY = "stringInterner";
@@ -52,10 +57,16 @@ public final class StringInterner {
   protected final LongAdder[] hit_      = adders();   // sightings that got the canonical
   protected final LongAdder[] miss_     = adders();   // first sightings, parked
   protected final LongAdder[] hitChars_ = adders();
-  protected final LongAdder[] interned_ = adders();   // values sent to the JVM table
+  protected final LongAdder[] interned_ = adders();   // values sent to the delegate
+
+  protected final Interner delegate_;
+
+  public StringInterner() { this(JvmInterner.INSTANCE); }
+
+  public StringInterner(Interner delegate) { delegate_ = delegate; }
 
   /**
-   * s itself on first sight; the JVM canonical from the second sight on.
+   * s itself on first sight; the delegate's canonical from the second sight on.
    * Null passes through. After release() every call returns s.
    */
   public String intern(String s) {
@@ -66,17 +77,19 @@ public final class StringInterner {
     String c = many.get(s);
     if ( c != null ) { hit(b, s); return c; }
 
-    // second sight: intern the FIRST instance, the one already parked
+    // second sight: hand the delegate the FIRST instance, the one already parked
     String first = once.remove(s);
     if ( first != null ) {
-      c = first.intern();
+      c = delegate_.intern(first);
       many.put(c, c);
       interned_[b].increment();
       hit(b, s);
       return c;
     }
 
-    // first sight: park it, hand it back raw
+    // first sight: take the delegate's canonical if it holds one, else park s raw
+    c = delegate_.find(s);
+    if ( c != null ) { many.put(c, c); hit(b, s); return c; }
     once.put(s, s);
     miss_[b].increment();
     return s;

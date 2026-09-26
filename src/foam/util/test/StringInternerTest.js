@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'StringInternerTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'foam.util.StringInterner: intern on second sight -- first sight stays raw, second sight interns the first instance, values that never repeat never reach the JVM table; release, analytics, and the parser with and without a replay context.',
+  documentation: 'foam.util.StringInterner: intern on second sight -- first sight stays raw, second sight interns the first instance, values that never repeat never reach the JVM table; the delegate sees only second sights; release, analytics, and the parser with and without a replay context.',
 
   javaImports: [
     'foam.util.StringInterner',
@@ -92,6 +92,18 @@ foam.CLASS({
         foam.core.auth.User u4 = (foam.core.auth.User) q.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":4,\\"spid\\":\\"" + sq + "\\"}");
         test(u3 != null && u4 != null && sq.equals(u4.getSpid()) && u3.getSpid() != u4.getSpid(),
           "parser with no replay context keeps each record's value as parsed");
+
+        // a delegate sees only second sights, and gets the first instance
+        final String[] handed = { null };
+        final int[] delegated = { 0 };
+        StringInterner dl = new StringInterner(v2 -> { delegated[0]++; handed[0] = v2; return v2; });
+        String d1 = new String("delegate-" + tag);
+        dl.intern(d1);
+        test(delegated[0] == 0, "first sight does not reach the delegate");
+        test(dl.intern(new String("delegate-" + tag)) == d1 && delegated[0] == 1 && handed[0] == d1,
+          "second sight hands the delegate the first instance and returns what the delegate returns");
+        dl.intern(new String("delegate-" + tag));
+        test(delegated[0] == 1, "later sights are answered by the maps (delegate calls " + delegated[0] + ")");
 
         // identity is a property of the table, not the value: consumers compare with equals()
         String pv1 = new String("per-record-value"), pv2 = new String("per-record-value");

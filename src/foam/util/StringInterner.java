@@ -10,21 +10,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Hands a parsed string to the JVM's string table, String.intern(), only on
- * its second sight, so values that appear once -- ids, references,
- * timestamps -- never enter the table.
- *
- * The table costs about 22 bytes an entry off the heap, but it stops growing
- * at 2^24 buckets; past that every GC makes the service thread rescan it and a
- * lookup of a value already in it climbs from ~1 us to 30-100 us (measured at
- * 151M entries). Most distinct values in a large store are one-offs, so they
- * are what must stay out.
+ * Deduplicates the strings one journal replay parses, so every record of the
+ * replay that carries a value shares one instance of it.
  *
  * Two maps: seenOnce holds the first instance of each value seen once,
- * seenMany the canonical of each value seen twice. Second sight interns the
- * FIRST instance: String.intern() keeps the instance it is given, so the
- * record that brought the value in already holds the canonical and no second
- * copy is left behind.
+ * seenMany the canonical of each value seen twice. On the second sight the
+ * FIRST instance becomes the canonical, so the record that brought the value
+ * in already holds it and no second copy is left behind. Values that appear
+ * once -- ids, references, timestamps -- never leave seenOnce.
+ *
+ * Nothing goes to the JVM string table. Another replay's first sight of a
+ * value keeps its own copy whatever the table holds, so the table would save
+ * no memory, and past 2^24 buckets it stops growing and every GC makes it
+ * rescan itself.
  *
  * One interner per journal replay. F3FileJournal creates it, publishes it
  * under CTX_KEY so JSONParser hands it to StringParser, and releases it when
@@ -36,7 +34,7 @@ import java.util.concurrent.atomic.LongAdder;
  * ConcurrentHashMaps. Two threads sighting a value at the same instant can
  * each keep their own copy, or leave a stale entry in seenOnce until release;
  * the value returned is always equal to the one passed in. Never compare
- * strings with ==; identity belongs to the table, not to the value.
+ * strings with ==; identity belongs to the replay, not to the value.
  */
 public final class StringInterner {
 
@@ -52,10 +50,10 @@ public final class StringInterner {
   protected final LongAdder[] hit_      = adders();   // sightings that got the canonical
   protected final LongAdder[] miss_     = adders();   // first sightings, parked
   protected final LongAdder[] hitChars_ = adders();
-  protected final LongAdder[] interned_ = adders();   // values sent to the JVM table
+  protected final LongAdder[] interned_ = adders();   // values made canonical on their second sight
 
   /**
-   * s itself on first sight; the JVM canonical from the second sight on.
+   * s itself on first sight; the first instance from the second sight on.
    * Null passes through. After release() every call returns s.
    */
   public String intern(String s) {
@@ -66,10 +64,9 @@ public final class StringInterner {
     String c = many.get(s);
     if ( c != null ) { hit(b, s); return c; }
 
-    // second sight: intern the FIRST instance, the one already parked
-    String first = once.remove(s);
-    if ( first != null ) {
-      c = first.intern();
+    // second sight: the FIRST instance, the one already parked, becomes the canonical
+    c = once.remove(s);
+    if ( c != null ) {
       many.put(c, c);
       interned_[b].increment();
       hit(b, s);

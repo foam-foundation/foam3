@@ -73,13 +73,16 @@ foam.CLASS({
         StringInterner c1 = new StringInterner();
         AtomicLong wrong = new AtomicLong(), thrown = new AtomicLong();
         Set<String> instances = sweep(c1, values, THREADS, CALLS, wrong, thrown, null);
+        // after the run, each value has one canonical, and it is one of the instances handed out
+        Set<String> canon = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        for ( String v : values ) canon.add(c1.intern(new String(v)));
         int canonical = 0;
-        for ( String s : instances ) if ( s.intern() == s ) canonical++;
+        for ( String s : canon ) if ( instances.contains(s) ) canonical++;
         test(wrong.get() == 0 && thrown.get() == 0, "shared: every call returned a string equal to its input and nothing threw (wrong " + wrong.get() + ", thrown " + thrown.get() + ")");
         test(instances.size() >= DISTINCT && instances.size() <= DISTINCT * THREADS,
           "shared: " + THREADS + " threads x " + CALLS + " calls over " + DISTINCT + " values handed out " + instances.size() + " instances (ideal " + DISTINCT + ", bound " + DISTINCT * THREADS + ")");
-        test(c1.interned() >= DISTINCT && c1.interned() <= DISTINCT * THREADS, "shared: every value was interned, " + c1.interned() + " promotions for " + DISTINCT + " values");
-        test(canonical == DISTINCT, "shared: one JVM canonical per value among the instances handed out (" + canonical + " of " + instances.size() + ")");
+        test(c1.interned() >= DISTINCT && c1.interned() <= DISTINCT * THREADS, "shared: every value was made canonical, " + c1.interned() + " promotions for " + DISTINCT + " values");
+        test(canon.size() == DISTINCT && canonical == DISTINCT, "shared: one canonical per value, each among the instances handed out (" + canonical + " of " + canon.size() + ")");
 
         // ---- release() while the threads are still running --------------------
         final StringInterner c3 = new StringInterner();

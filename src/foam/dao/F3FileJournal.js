@@ -120,8 +120,8 @@ foam.CLASS({
         } else {
           parseX0 = x;
         }
-        // One StringInterner per replay: a parsed string reaches the JVM table
-        // on its second sight, and the interner's maps die with the replay.
+        // One StringInterner per replay: a parsed string seen twice is shared by
+        // every record of the replay, and the interner's maps die with it.
         final foam.util.StringInterner interner = new foam.util.StringInterner();
         final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 

@@ -112,8 +112,8 @@ foam.CLASS({
         FObject reloadedDr2 = dedupDao.find_(tx, 2L);
         test( reloadedDr != null && reloadedDr2 != null &&
               "dedup-data".equals(UnloadableDecoratedRecord.DATA.get(reloadedDr)) &&
-              UnloadableDecoratedRecord.DATA.get(reloadedDr2) == "dedup-data".intern(),
-          "rebuilt chain still dedups after reload: the replay's second sight of the value is canonical" );
+              UnloadableDecoratedRecord.DATA.get(reloadedDr2) == UnloadableDecoratedRecord.DATA.get(reloadedDr),
+          "rebuilt chain still dedups after reload: the replay's second sight shares the first record's instance" );
 
         test( dedupEasyDao.getMdao() != null && dedupEasyDao.getMdao().find_(tx, 1L) != null,
           "easy.getMdao() alias tracks the live (reloaded) store after unload/reload" );

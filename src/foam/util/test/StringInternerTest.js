@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'StringInternerTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'foam.util.StringInterner: intern on second sight -- first sight stays raw, second sight interns the first instance, values that never repeat never reach the JVM table; release, analytics, and the parser with and without a replay context.',
+  documentation: 'foam.util.StringInterner: dedup on second sight -- first sight stays raw, the first instance becomes the canonical, nothing reaches the JVM table; release, analytics, and the parser with and without a replay context.',
 
   javaImports: [
     'foam.util.StringInterner',
@@ -26,20 +26,20 @@ foam.CLASS({
         // first sight: the value comes back as itself, nothing reaches the table
         String v  = "usd-" + tag;
         String a  = new String(v);
-        test(c.intern(a) == a && c.interned() == 0, "first sight returns the raw instance and sends nothing to the JVM table");
+        test(c.intern(a) == a && c.interned() == 0, "first sight returns the raw instance and makes nothing canonical");
 
-        // second sight interns the FIRST instance: the record that brought the value in already holds the canonical
+        // second sight makes the FIRST instance canonical: the record that brought the value in already holds it
         String b  = new String(v);
         String ib = c.intern(b);
         test(ib == a && ib != b, "second sight returns the first instance, not the second");
-        test(a.intern() == a, "the first instance is the JVM canonical");
         test(c.intern(new String(v)) == a, "third sight returns the same canonical");
         test(c.hits() == 2 && c.calls() == 3 && c.interned() == 1,
           "two hits of three calls, one value interned (hits " + c.hits() + ", calls " + c.calls() + ", interned " + c.interned() + ")");
 
-        // a value already in the JVM table (a literal): second sight returns the table's instance
-        c.intern(new String("USD"));
-        test(c.intern(new String("USD")) == "USD", "a value the JVM already holds interns to the existing canonical");
+        // nothing goes to the JVM table, not even a value it already holds (a literal)
+        String usd = new String("USD");
+        c.intern(usd);
+        test(c.intern(new String("USD")) == usd && usd != "USD", "a value the JVM table holds still takes the replay's first instance");
 
         // no length gate: a repeated 182-char value interns like any other
         StringBuilder gb = new StringBuilder();
@@ -55,7 +55,7 @@ foam.CLASS({
         // a value seen once, however many other values go by, is never interned
         StringInterner once = new StringInterner();
         for ( int i = 0 ; i < 10000 ; i++ ) once.intern("id-" + tag + "-" + i);
-        test(once.interned() == 0 && once.calls() == 10000, "10,000 values seen once put nothing in the JVM table");
+        test(once.interned() == 0 && once.calls() == 10000, "10,000 values seen once make nothing canonical");
 
         // release: maps drop, calls return the raw value and count nothing
         StringInterner rel = new StringInterner();
@@ -81,7 +81,7 @@ foam.CLASS({
         test(u1 != null && pi.interned() == 0, "one record carrying a value leaves it uninterned (interned " + pi.interned() + ")");
         // the second record's sight interns the first record's instance, so both records share it
         foam.core.auth.User u2 = (foam.core.auth.User) p.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":2,\\"spid\\":\\"" + sp + "\\"}");
-        test(u2 != null && u2.getSpid() == u1.getSpid() && u1.getSpid() == sp.intern(),
+        test(u2 != null && u2.getSpid() == u1.getSpid(),
           "parser with a replay interner: the second record shares the first record's instance, which is the canonical");
 
         // parser with no replay context keeps values as parsed

@@ -17,7 +17,7 @@ package foam.util;
 public interface Interner {
 
   /** The shared chain replays hand their second sights to. */
-  Interner GLOBAL = new LruInterner(1 << 16, 16, JvmInterner.INSTANCE);
+  Interner GLOBAL = new LruInterner(1 << 20, 16, JvmInterner.INSTANCE);
 
   String intern(String s);
 

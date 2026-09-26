@@ -132,6 +132,9 @@ foam.POM({
       templateMerge(TEMPLATE_DIR, 'Dockerfile', `${PROJECT_DIR}`, 'Dockerfile');
       templateMerge(TEMPLATE_DIR, 'dockerignore', `${PROJECT_DIR}`, '.dockerignore');
       templateMerge(TEMPLATE_DIR, 'docker-compose.yml', `${PROJECT_DIR}`, 'docker-compose.yml');
+      // one-shot install on a VM, e.g. Oracle Cloud Always Free
+      templateMerge(TEMPLATE_DIR, 'vmSetup.sh', `${PROJECT_DIR}/deployment/vm`, 'setup.sh');
+      this.execSync(`chmod u+x ${PROJECT_DIR}/deployment/vm/setup.sh`);
 
       // gitignore.execSync('sudo chown -R $USER /opt')
     }],

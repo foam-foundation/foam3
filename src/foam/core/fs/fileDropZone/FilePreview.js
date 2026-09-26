@@ -54,6 +54,21 @@ foam.CLASS({
     object-fit: contain;
     object-position: center;
   }
+
+  ^tiffGallery {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+  }
+
+  ^tiffPage {
+    max-width: 100%;
+    height: auto;
+  }
   `,
 
   properties: [
@@ -137,6 +152,12 @@ foam.CLASS({
       div.style.display       = 'none';
       p.style.visibility      = 'hidden';
 
+      // Reset any multi-page TIFF gallery from a previous render and restore the
+      // single <img> the non-tiff branches rely on.
+      let priorTiff = div.getElementsByClassName(this.myClass('tiffGallery'))[0];
+      if ( priorTiff ) priorTiff.remove();
+      if ( image ) image.style.display = '';
+
       let data;
       if ( Array.isArray(this.data) ) {
         if ( this.selected == undefined || this.selected == this.data.length ) {
@@ -174,11 +195,77 @@ foam.CLASS({
         p.style.display    = 'block';
         p.style.height     = '100%';
         p.style.width      = '100%';
+      } else if ( data.mimeType === 'image/tiff' && await this.renderTiff_(url, div, image, d && d.blob) ) {
+        // Handled: every TIFF page rendered as its own canvas. A browser <img>
+        // shows only the first IFD of a multi-page TIFF (or nothing at all), so
+        // the remaining pages would otherwise be invisible.
       } else {
         image.src            = url;
         div.style.visibility = 'visible';
         div.style.display    = 'flex';
       }
+    },
+
+    // Decode and paint every page of a (multi-page) TIFF. Returns true when at
+    // least one page was rendered; false on any failure so the caller falls back
+    // to the single <img> path (which still shows page one where the browser can).
+    async function renderTiff_(url, div, image, blob) {
+      try {
+        if ( ! await this.ensureUtif_() ) return false;
+
+        // Prefer the in-memory blob (inline file data) so we never fetch the
+        // object URL — a blob: fetch needs connect-src blob:, which the default
+        // policy omits. Only fall back to fetching when the file is remote (an
+        // address with no loaded data).
+        let buffer = blob
+          ? await blob.arrayBuffer()
+          : await fetch(url, { credentials: 'include' }).then(r => r.arrayBuffer());
+        let pages  = UTIF.decode(buffer);
+        if ( ! pages || ! pages.length ) return false;
+
+        let gallery = document.createElement('div');
+        gallery.className = this.myClass('tiffGallery');
+        for ( let i = 0 ; i < pages.length ; i++ ) {
+          let page = pages[i];
+          UTIF.decodeImage(buffer, page);
+          let rgba   = UTIF.toRGBA8(page);
+          let width  = page.width  || ( page.t256 && page.t256[0] );
+          let height = page.height || ( page.t257 && page.t257[0] );
+          if ( ! width || ! height ) continue;
+
+          let canvas       = document.createElement('canvas');
+          canvas.className = this.myClass('tiffPage');
+          canvas.width     = width;
+          canvas.height    = height;
+          canvas.getContext('2d').putImageData(
+            new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+          gallery.appendChild(canvas);
+        }
+        if ( ! gallery.childElementCount ) return false;
+
+        if ( image ) image.style.display = 'none';
+        div.appendChild(gallery);
+        div.style.visibility = 'visible';
+        div.style.display    = 'flex';
+        return true;
+      } catch ( e ) {
+        return false;
+      }
+    },
+
+    // Load UTIF (TIFF decoder) on demand. We use utif2, a maintained fork:
+    // the original utif@3.x mis-decodes 1-bit LZW TIFFs (the scanned-document
+    // format the schemes return) — it renders the first rows then desyncs into
+    // noise/black. utif2 keeps the same UTIF global and API. Its CDN URL is
+    // whitelisted in src/cspdirectives.jrl under the 'tiff' script-src key.
+    // installLib resolves even when the script fails to load, so confirm the
+    // global before use.
+    async function ensureUtif_() {
+      if ( typeof UTIF !== 'undefined' ) return true;
+      await foam.u2.JsLib.create({
+        src: 'https://cdn.jsdelivr.net/npm/utif2@4.1.0/UTIF.min.js'
+      }).installLib();
+      return typeof UTIF !== 'undefined';
     }
   ]
 });

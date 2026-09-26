@@ -71,7 +71,7 @@ public final class StringInterner implements Interner {
    */
   public String intern(String s) {
     ConcurrentHashMap<String, String> once = seenOnce_, many = seenMany_;
-    if ( s == null || once == null ) return s;
+    if ( s == null || once == null || many == null ) return s;   // release() may null one map between the two reads
     int b = bucket(s.length());
 
     String c = many.get(s);

@@ -664,7 +664,17 @@ foam.CLASS({
       gridColumns: 6,
       value: foam.core.auth.LifecycleState.ACTIVE,
       writePermissionRequired: false,
-      documentation: 'Recommend using state change actions'
+      documentation: `Recommend using state change actions.
+      To permission:
+      - add group permissions for pending, active, rejected, disabled
+      p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"lifecyclestate.read.active"})
+      - refine this view in application
+      searchView: {
+        class: 'foam.u2.EnumView',
+        of: foam.core.auth.LifecycleState,
+        permissioned: true
+      }
+      `
     },
     {
       class: 'Reference',

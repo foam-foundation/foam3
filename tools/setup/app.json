@@ -1,0 +1,10 @@
+{
+  "name": "{app}",
+  "options": {
+    "allow-unauthenticated": true,
+    "memory": "2Gi",
+    "cpu": "1",
+    "port": 8080,
+    "max-instances": 1
+  }
+}

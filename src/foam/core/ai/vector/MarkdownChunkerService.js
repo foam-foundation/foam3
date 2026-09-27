@@ -27,6 +27,11 @@ foam.CLASS({
       value: 2000
     },
     {
+      class: 'Int',
+      name: 'maxDepth',
+      value: 2
+    },
+    {
       class: 'Enum',
       of: 'foam.core.ai.vector.SourceType',
       name: 'sourceType',

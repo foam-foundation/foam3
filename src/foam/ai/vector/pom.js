@@ -16,6 +16,8 @@ foam.POM({
     { name: 'ClientMarkdownChunkerService',  flags: 'js'      }
   ],
   projects: [
-    { name: 'provider/pom' }
+    { name: 'provider/pom' },
+    { name: 'test/pom',     flags: 'test' },
+    { name: 'demos/pom',    flags: 'js'   }
   ]
 });

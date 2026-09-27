@@ -53,13 +53,13 @@ p({
   "name":"vectorStoreDAO",
   "lazy":true,
   "serve":true,
-  "authenticate":false,
+  "authenticate":true,
   "client":"{\"of\":\"foam.ai.vector.VectorEmbedding\"}",
   "serviceScript":"""
     foam.dao.DAO jdao = new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.ai.vector.VectorEmbedding.getOwnClassInfo())
       .setPm(true)
-      .setAuthorize(false)
+      .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .build();
     return new foam.ai.vector.VectorStoreDAO.Builder(x)

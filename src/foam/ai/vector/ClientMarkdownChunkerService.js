@@ -11,22 +11,31 @@ foam.CLASS({
 
   requires: ['foam.ai.vector.MarkdownChunkParser'],
 
+  imports: [ 'info' ],
+
   properties: [
     {
       class: 'Int',
       name: 'maxChunkChars',
       value: 2000
+    },
+    {
+      class: 'Int',
+      name: 'maxDepth',
+      value: 2
     }
   ],
 
   methods: [
     async function chunk(x, source) {
-      var sections = this.MarkdownChunkParser.create().parseString(source);
+      var sections = this.MarkdownChunkParser.create({ maxDepth: this.maxDepth }).parseString(source);
       var chunks   = [];
 
       for ( var i = 0; i < sections.length; i++ ) {
-        var body = sections[i].body;
+        var body = sections[i].payload;
         if ( ! body ) continue;
+
+        this.info('section', i, 'level', sections[i].level, 'heading', sections[i].heading, 'length', body.length);
 
         if ( body.length <= this.maxChunkChars ) {
           chunks.push(body);

@@ -27,11 +27,11 @@ public class MarkdownChunkerServiceImpl extends MarkdownChunkerService {
       }
     }
 
-    List<MarkdownChunkParser.Section> sections = MarkdownChunkParser.getInstance().parseString(source);
+    List<MarkdownChunkParser.Section> sections = new MarkdownChunkParser(getMaxDepth()).parseString(source);
     List<String> result = new ArrayList<>();
 
     for ( MarkdownChunkParser.Section section : sections ) {
-      String body = section.body;
+      String body = section.payload;
       if ( body.isBlank() ) continue;
 
       if ( body.length() <= getMaxChunkChars() ) {

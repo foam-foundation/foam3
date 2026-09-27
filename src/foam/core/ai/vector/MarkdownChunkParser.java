@@ -13,17 +13,17 @@ import java.util.regex.Pattern;
 /**
  * Splits a markdown string into sections at heading boundaries.
  * Body text is collected as a flat string in O(n), then inline markup
- * (images, links, bold, italic, code spans) is stripped in the grammar
- * actions via stripInline().
+ * (images, links, bold, italic, code spans, deep headings) is stripped
+ * in the grammar actions via stripInline().
  *
  * Returns a List of Section objects:
  *   level   — heading depth (0 = preamble before the first heading)
  *   heading — plain-text heading title (empty for level-0 preamble)
- *   body    — heading text + section body, plain text, trimmed
+ *   payload — heading text + section body, plain text, trimmed
  *
  * Usage:
  *   List<MarkdownChunkParser.Section> chunks =
- *       MarkdownChunkParser.getInstance().parseString(markdown);
+ *       new MarkdownChunkParser(maxDepth).parseString(markdown);
  */
 public class MarkdownChunkParser {
 
@@ -32,30 +32,30 @@ public class MarkdownChunkParser {
   public static final class Section {
     public final int    level;
     public final String heading;
-    public final String body;
+    public final String payload;
 
-    public Section(int level, String heading, String body) {
+    public Section(int level, String heading, String payload) {
       this.level   = level;
       this.heading = heading;
-      this.body    = body;
+      this.payload = payload;
     }
 
     @Override
     public String toString() {
-      return "Section{level=" + level + ", heading=\"" + heading + "\", body.len=" + body.length() + "}";
+      return "Section{level=" + level + ", heading=\"" + heading + "\", payload.len=" + payload.length() + "}";
     }
   }
 
-  // ── Singleton ────────────────────────────────────────────────────────────
+  // ── Instance ─────────────────────────────────────────────────────────────
 
-  private static final MarkdownChunkParser INSTANCE = new MarkdownChunkParser();
-
-  public static MarkdownChunkParser getInstance() { return INSTANCE; }
-
+  private final int                    maxDepth;
   private final foam.lib.parse.Grammar grammar_;
 
-  private MarkdownChunkParser() {
-    grammar_ = buildGrammar();
+  public MarkdownChunkParser() { this(2); }
+
+  public MarkdownChunkParser(int maxDepth) {
+    this.maxDepth = maxDepth;
+    this.grammar_ = buildGrammar(maxDepth);
   }
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -63,7 +63,8 @@ public class MarkdownChunkParser {
   public List<Section> parseString(String markdown) {
     if ( markdown == null || markdown.isEmpty() ) return Collections.emptyList();
 
-    String s = markdown.endsWith("\n") ? markdown : markdown + "\n";
+    // prepend \n so the first heading is recognised by the anchored grammar
+    String s = "\n" + (markdown.endsWith("\n") ? markdown : markdown + "\n");
 
     StringPStream ps = new StringPStream();
     ps.setString(s);
@@ -73,23 +74,23 @@ public class MarkdownChunkParser {
     if ( result == null ) return Collections.emptyList();
 
     Object val = result.value();
-    if ( val instanceof List ) {
-      @SuppressWarnings("unchecked")
-      List<Section> list = (List<Section>) val;
-      return list;
-    }
-    return Collections.emptyList();
+    if ( ! (val instanceof List) ) return Collections.emptyList();
+
+    @SuppressWarnings("unchecked")
+    List<Section> sections = (List<Section>) val;
+    return sections;
   }
 
   // ── Grammar construction ─────────────────────────────────────────────────
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private foam.lib.parse.Grammar buildGrammar() {
+  private foam.lib.parse.Grammar buildGrammar(int maxDepth) {
     foam.lib.parse.Grammar g = new foam.lib.parse.Grammar();
 
-    // headingStart: lookahead — marks where body/preamble stop
+    // headingStart: lookahead anchored to \n — prevents matching inside deeper sequences
     g.addSymbol("headingStart", new Seq(
-      new Repeat(Literal.create("#"), null, 1, 6),
+      Literal.create("\n"),
+      new Repeat(Literal.create("#"), null, 1, maxDepth),
       Literal.create(" ")
     ));
 
@@ -97,21 +98,22 @@ public class MarkdownChunkParser {
     g.addSymbol("preamble",
       new Join(new Repeat(new Not(g.sym("headingStart"), AnyChar.instance()), 1)));
 
-    g.addSymbol("body",
+    g.addSymbol("payload",
       new Join(new Repeat(new Not(g.sym("headingStart"), AnyChar.instance()))));
 
     g.addSymbol("headingText",
       new Join(new Repeat(new Not(Literal.create("\n"), AnyChar.instance()))));
 
-    // heading: hashes + space + headingText + optional newline
+    // heading: \n + hashes + space + headingText + optional newline
     g.addSymbol("heading", new Seq(
-      new Join(new Repeat(Literal.create("#"), null, 1, 6)),
+      Literal.create("\n"),
+      new Join(new Repeat(Literal.create("#"), null, 1, maxDepth)),
       Literal.create(" "),
       g.sym("headingText"),
       new foam.lib.parse.Optional(Literal.create("\n"))
     ));
 
-    g.addSymbol("section", new Seq(g.sym("heading"), g.sym("body")));
+    g.addSymbol("section", new Seq(g.sym("heading"), g.sym("payload")));
 
     g.addSymbol("START", new Seq(
       new foam.lib.parse.Optional(g.sym("preamble")),
@@ -123,12 +125,13 @@ public class MarkdownChunkParser {
     // inline markup stripped in the action, not by a sub-grammar
     g.addAction("preamble",    (val, x) -> stripInline(val != null ? val.toString() : ""));
     g.addAction("headingText", (val, x) -> stripInline(val != null ? val.toString() : ""));
-    g.addAction("body",        (val, x) -> stripInline(val != null ? val.toString() : ""));
+    g.addAction("payload",     (val, x) -> stripInline(val != null ? val.toString() : ""));
 
     g.addAction("heading", (val, x) -> {
       Object[] v      = (Object[]) val;
-      String   hashes = (String) v[0];
-      String   title  = v[2] != null ? v[2].toString() : "";
+      // v[0]="\n", v[1]=hashes, v[2]=" ", v[3]=headingText, v[4]=optional"\n"
+      String   hashes = v[1] != null ? v[1].toString() : "";
+      String   title  = v[3] != null ? v[3].toString() : "";
       return new Object[] { hashes.length(), title };
     });
 
@@ -138,8 +141,8 @@ public class MarkdownChunkParser {
       String   rawBody = v[1] != null ? v[1].toString() : "";
       int      level   = (int)    h[0];
       String   heading = (String) h[1];
-      String   body    = (heading + "\n" + rawBody).strip();
-      return new Section(level, heading, body);
+      String   payload = (heading + "\n" + rawBody).strip();
+      return new Section(level, heading, payload);
     });
 
     g.addAction("START", (val, x) -> {
@@ -165,13 +168,14 @@ public class MarkdownChunkParser {
 
   // ── Inline markup stripping ───────────────────────────────────────────────
 
-  private static final Pattern IMG      = Pattern.compile("!\\[[^\\]]*\\]\\([^)]*\\)");
-  private static final Pattern LINK     = Pattern.compile("\\[([^\\]]*)\\]\\([^)]*\\)");
-  private static final Pattern BOLD2    = Pattern.compile("\\*\\*([^*]*)\\*\\*");
-  private static final Pattern BOLD_    = Pattern.compile("__([^_]*)__");
-  private static final Pattern ITALIC2  = Pattern.compile("\\*([^*]*)\\*");
-  private static final Pattern ITALIC_  = Pattern.compile("_([^_]*)_");
-  private static final Pattern CODE     = Pattern.compile("`([^`]*)`");
+  private static final Pattern IMG     = Pattern.compile("!\\[[^\\]]*\\]\\([^)]*\\)");
+  private static final Pattern LINK    = Pattern.compile("\\[([^\\]]*)\\]\\([^)]*\\)");
+  private static final Pattern BOLD2   = Pattern.compile("\\*\\*([^*]*)\\*\\*");
+  private static final Pattern BOLD_   = Pattern.compile("__([^_]*)__");
+  private static final Pattern ITALIC2 = Pattern.compile("\\*([^*]*)\\*");
+  private static final Pattern ITALIC_ = Pattern.compile("_([^_]*)_");
+  private static final Pattern CODE    = Pattern.compile("`([^`]*)`");
+  private static final Pattern HEADING = Pattern.compile("^#+\\s+", Pattern.MULTILINE);
 
   private static String stripInline(String text) {
     text = IMG    .matcher(text).replaceAll("");
@@ -182,6 +186,7 @@ public class MarkdownChunkParser {
     text = ITALIC_.matcher(text).replaceAll("$1");
     text = CODE   .matcher(text).replaceAll("$1");
     text = text.replace("\n> ", "\n");
+    text = HEADING.matcher(text).replaceAll("");
     return text;
   }
 }

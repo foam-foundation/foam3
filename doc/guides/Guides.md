@@ -113,6 +113,9 @@ Explains `foam.u2.memento.Memento`, FOAM's hierarchical URL-hash state sync (`me
 **[U3](U3.md)**
 Documents U3 (`foam.u2`), FOAM's wrapped-DOM reactive GUI library: history (U1 templates → U2 virtual DOM → U3 direct DOM), the Node class hierarchy (Text/SlotNode/FunctionNode/Element), DOM building via `start`/`end`/`add`/`tag`, `add()` polymorphism, CSS scoping with `^`, reactive slots, ControllerMode/DisplayMode/visibility pipeline, `onDetach` cleanup, and the `render()` method contract.
 
+**[CSSTokens](CSSTokens.md)**
+How to think about CSS tokens: where a `$token`'s value comes from (class, shared list, theme row), a `value` is the fallback and a mode entry wins, the `color` and `density` axes in `activeVariants`, what `useVariants` gates, which class to declare (`ColorToken` vs `CSSToken` + `variantKey` vs plain), how to add a token and the spacing/radius/shadow/z-index/motion scales, and theme override rows.
+
 **[ReactiveUI](ReactiveUI.md)**
 Explains FOAM's four reactive UI patterns from lightest to heaviest: slot binding (`prop$`), `slot.dot()` for nested properties, `slot.map()` for value transforms, and `dynamic()` for DOM-structure rebuilds. Includes a decision framework for choosing the right pattern.
 

@@ -99,15 +99,15 @@ Light is a named value, the same as dark. That is what lets a theme row change t
 
 ## 5. Which class to declare
 
-**How it works.** Three shapes cover every token. The class is chosen by what the token needs, not by what it stores.
+**How it works.** Three shapes cover every token. The class is chosen by what the value is, not by what the view happens to need from it today.
 
 | need | declare | why |
 |---|---|---|
-| a colour that needs hover, active, disabled, or a foreground pair | `foam.u2.ColorToken` | installs `$x$hover`, `$x$active`, `$x$disabled`, `$x$foreground` and sets `variantKey: 'color'` for you |
+| a colour, always | `foam.u2.ColorToken` | sets `variantKey: 'color'` for you and installs `$x$hover`, `$x$active`, `$x$disabled`, `$x$foreground`; they are lazy, so an unused one costs nothing |
 | anything else that flips with the colour mode: a shadow, a keyword, an image | `CSSToken` + `variantKey: 'color'` | a shadow has no hover; the key is all it needs |
 | padding, radius, z-index, duration: nothing to switch | `CSSToken` with neither | no key, no map |
 
-**One case.** `shadow-md` is a shadow that must go darker in dark mode. It is a plain `CSSToken` with `variantKey: 'color'` and a `dark` entry. Making it a `ColorToken` would install `$shadow-md$hover`, which means nothing.
+**One case.** `shadow-md` is a shadow that must go darker in dark mode. It contains a colour but is not one, so it is a plain `CSSToken` with `variantKey: 'color'` and a `dark` entry. Making it a `ColorToken` would install `$shadow-md$hover`, which means nothing. A border colour, on the other hand, is a colour and is a `ColorToken` even when nothing hovers over it yet: the day something does, `$x$hover` is already there and the token does not change class.
 
 **The rule the engine enforces.** A `variants` map without a `variantKey` is an error at class load:
 
@@ -151,7 +151,7 @@ placed inside the block that ends with the `ColorToken` stamp. It gets `variantK
 
 1. Does a token already say this? Read `CSSTokens.js` first.
 2. Shared list or the view's class?
-3. Needs hover/foreground → `ColorToken`. Flips with mode but no hover → `variantKey: 'color'`. Neither → plain.
+3. A colour → `ColorToken`. Not a colour but flips with mode → `CSSToken` + `variantKey: 'color'`. Neither → plain.
 4. A `variants` map has a `variantKey`, or the class will not load.
 5. Value points at a token or is rem. Never px.
 6. Dark entry present if the value is a colour.

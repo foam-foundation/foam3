@@ -132,6 +132,10 @@ foam.POM({
       templateMerge(TEMPLATE_DIR, 'Dockerfile', `${PROJECT_DIR}`, 'Dockerfile');
       templateMerge(TEMPLATE_DIR, 'dockerignore', `${PROJECT_DIR}`, '.dockerignore');
       templateMerge(TEMPLATE_DIR, 'docker-compose.yml', `${PROJECT_DIR}`, 'docker-compose.yml');
+      // Vercel variant of the image, see https://vercel.com/docs/functions/container-images
+      templateMerge(TEMPLATE_DIR, 'Dockerfile.vercel', `${PROJECT_DIR}`, 'Dockerfile.vercel');
+      templateMerge(TEMPLATE_DIR, 'vercelRun.sh', `${PROJECT_DIR}/deployment/vercel`, 'run.sh');
+      this.execSync(`chmod u+x ${PROJECT_DIR}/deployment/vercel/run.sh`);
 
       // gitignore.execSync('sudo chown -R $USER /opt')
     }],

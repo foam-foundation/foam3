@@ -184,7 +184,8 @@ foam.CLASS({
         with ( this.globalScope ) {
           with ( scope ) {
             try {
-              eval(self.code);
+              // 'this' in example code is the output, like the bare start() above.
+              (function() { eval(self.code); }).call(self.dom);
               // if ( self.dom.children.length ) self.showOutput = true;
             } catch (x) {
               scope.log(x.toString?.() ?? x);

@@ -47,9 +47,13 @@ foam.CLASS({
       x.test(ex && ex.code === "log('one');", 'single-line example captures its code, got ' + ( ex && ex.code ));
       v.remove();
 
-      v  = await render("<example>\nlog('one');\n\nlog('two');\n</example>");
+      v  = await render("<example>\nlog('one');\n\nthis.start().add('two').end();\n</example>");
       ex = example(v);
-      x.test(ex && ex.code === "log('one');\n\nlog('two');", 'multi-line example captures its code, got ' + ( ex && ex.code ));
+      x.test(ex && ex.code === "log('one');\n\nthis.start().add('two').end();", 'multi-line example captures its code, got ' + ( ex && ex.code ));
+      // The code runs on the next animation frame.
+      await new Promise(r => setTimeout(r, 100));
+      var out = ex && ex.dom.el_().textContent;
+      x.test(out === 'onetwo', 'log() and this.start() both write into the output, got ' + out);
       v.remove();
 
       v = await render('<details>\n**bold**\n</details>');

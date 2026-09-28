@@ -1,6 +1,7 @@
 p({
   
   name:"SimilaritySearch",
+  spid:"foam",
   version:11,
   script:[
     {

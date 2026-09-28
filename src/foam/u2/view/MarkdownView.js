@@ -492,7 +492,12 @@ foam.CLASS({
           let fs = this.markdownGrammar.parseString(v);
           if ( ! fs ) return function() { this.add(v); };
 
-          return function() { fs.forEach(f => this.call(f)); };
+          // An element with an innerText property, like <example>, takes its
+          // content as source text, which markdown would split into paragraphs.
+          return function() {
+            if ( this.cls_.getAxiomByName('innerText') ) this.add(v);
+            else fs.forEach(f => this.call(f));
+          };
         },
 
         function text(v) {

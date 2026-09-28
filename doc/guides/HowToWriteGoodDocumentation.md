@@ -3,9 +3,11 @@
 # How to Write (Good) Documentation
 <span style="color: grey"><i>By Aurora Ryder</i></span>
 
-Good documentation is an essential part of any respectable software, but it can be quite difficult to write (especially when one's audience is inexperienced or non-technical). Worse, not everyone agrees on what makes  documentation "good" or "bad".
+Good documentation is an essential part of any respectable software, but it can be quite difficult to write as not everyone agrees on what makes  documentation "good" or "bad".
 
-This article aims to alleviate the stress of writing documentation by providing a set of clear standards and best-practices, as well as a few handy tips and tricks for understanding your audience and writing effective articles.
+This article aims to alleviate the stress of writing documentation by providing a set of clear standards and best-practices, as well as a few handy tips and tricks for understanding your audience, assessing their needs, and avoiding common documentation "gotchas".
+
+Please note that this article is not a writing lesson: it is concerned with the structure and maintenance of strong documentation, not the rudimentaries of writing and grammatical correctness. *"Good" documentation is "good" writing, but "good" writing is not always "good" documentation— I can't teach both at the same time.*
 
 ## Getting Started
 As with any other task, when writing documentation you will generally need to do a bit of preparation beforehand. Specifically, you should be able to answer "who", "what", "where", "when", "why" and "how":
@@ -209,7 +211,7 @@ Put simply: if it will be faster to **rework** sections of the documentation tha
 ### Knowing "Why?"
 As mentioned previously, knowing *why* a given bit of documentation is required can help you determine what topics/problems it needs to cover, who is in the target audience, and which "type" of documentation would be most appropriate. Now, oftentimes we assume that we know "why" a piece of documentation is required (whomever requested it has likely told us why they want it), but as is often the case with clients of any sort, what they *ask* for and what they *need* may be different things.
 
-For example, let's pretend that you write the documentation for a digital art program, and a superior sends you the following message:
+For example, let's pretend that you write documentation for a digital art program and a superior sends you the following message:
 
 <i> 
 > "Our clients are complaining that it takes too long to draw squares because they're drawing each line by hand rather than using our square tool. Can you make a tutorial on how to use the square tool, please?"
@@ -231,7 +233,32 @@ Even that, however, may be inaccurate. Compare the purposes of a **how-to guide*
 |   How-to Guides   |   Instructions for completing a task   |
 |   References   |   Descriptions of technical tools/interfaces and how to operate them correctly   |
 
+If the ask is to provide documentation on how to correctly use the square tool, then a **reference** is more applicable than a **how-to guide** as the client is not looking for instructions on how to create a square— they're looking for the manual for an unfamiliar tool.
+
+<hint category="success">
+Taking a few moments to understand the reasoning behind a request can save you time and trouble in the long run, particularly when dealing with something as broad and, at times, nebulous as documentation.
+</hint>
+
+In this particular case, it may also be a good idea to follow-up with your superior and ask if there are other "basic" tools that the client is unaware of.  A **tutorial** on how to use a square tool may be overkill, but a **tutorial** on how to use a system's "basic" tools is a must-have.
 
 ---
 
 ### Gauging Experience
+One of the hardest parts of writing documentation is meeting your audience where they're at— providing information that is tailored to their needs and experience, and does not make them feel overwhelmed or infantilized.
+
+The ability to estimate your audience's experience level is a skill that you will build with time as you become more familiar with the needs and expectations of your organization and its clientele, but the following advice may help you get started.
+
+#### Assign meaning to experience
+It is easy to say that a given bit of documentation is "for beginners" or "covers advanced topics" — but what does that actually mean? Working with your clients and organization to establish clear standards for what knowledge beginners, experts, and the average user are expected to have can provide you with a baseline to fall back on when you're not sure how experienced with a given topic your audience actually is.
+
+Ideally, you should have a set of general knowledge and characteristics established for  **beginners**, **standard users**, **advanced users**, and **experts**, while allowing for some variation within each category. Also, keep in mind that audience members will often fall into different categories based on the topic being discussed— an **expert** in one area may be a **beginner** in another.
+
+#### Assume ignorance over expertise
+As a general rule, if you are not positive that your audience understands a given term, topic, concept, or tool, assume that the information is new or somewhat unfamiliar to the user rather than assuming that they are familiar with it. This ensures that you are not needlessly confusing **beginners** and provides experienced users with a handy refresher.
+
+Please note that this does not mean you ought to be constantly re-explaining yourself. Oftentimes, a quick summary or definition is enough to indicate that the user is expected to be familiar with a given bit of knowledge; for best results, include a link to wherever the knowledge was originally shared and indicate what background-information you are expecting the reader to have at the beginning of each article/material.
+
+#### Ask an amateur
+A good way to check that your documentation is clear and understandable is to have someone with little-to-no experience review it. You should always be asking for a second opinion before publishing new documentation, but if that second opinion is a peer with roughly the same level of experience and understanding as yourself, the two of you may not be able to identify areas that **beginners** find confusing. Similarly, you may struggle to recognize areas where you have misexplained or misled readers if you do not consult those with more experience than you.
+
+When seeking a primary review, ask someone with roughly the same experience level as your audience members, ask an expert who is familiar with the topic or tool, and ask an amateur who knows nothing about the topic but can detect if something is confusing or hard to follow.

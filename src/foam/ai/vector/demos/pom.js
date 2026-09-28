@@ -6,6 +6,9 @@
 
 foam.POM({
   name: 'demos',
+  files: [
+    { name: 'SearchPage', flags: 'js' }
+  ],
   journalFiles: [
     { name: 'flows' }
   ]

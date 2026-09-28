@@ -33,7 +33,12 @@ import java.util.*;
  *   Date date = parser.parseString("2025-01-15");
  *   Date datetime = parser.parseString("2025-01-15T14:30:45");
  */
-public class DateParser {
+public class DateParser
+{
+  private final static DateParser instance__ = new DateParser();
+
+  public static DateParser instance() { return instance__; }
+
 
   public enum DateParseMode { DATE, STRING, DATETIME, DATETIME_UTC }
 
@@ -1304,12 +1309,21 @@ public class DateParser {
 
     // ========== Julian Date Formats ==========
 
-    // Combined Julian date parser - tries YYDDD first (5 digits), then YDDD (4 digits)
+    // Combined Julian date parser - tries YYYYDDD (7 digits), then YYDDD (5 digits), then YDDD (4 digits)
+    // Longest first, since YYDDD also matches the first five digits of a YYYYDDD value
     // Use opt_name='juliandate' in mapping configurations
     grammar.addSymbol("juliandate", new Alt(
-      grammar.sym("yyddd"),   // Try 5-digit format first (more specific)
+      grammar.sym("yyyyddd"), // Try 7-digit format first (longest)
+      grammar.sym("yyddd"),   // Then 5-digit format
       grammar.sym("yddd")     // Fall back to 4-digit format
     ));
+
+    // YYYYDDD format: 7-digit Julian date (4-digit year + 3-digit day of year)
+    // e.g., "2025216" = Year 2025, Day 216 = August 4, 2025
+    grammar.addSymbol("yyyyddd", new Join(new Seq(
+      grammar.sym("year4"),      // YYYY: 4-digit year
+      grammar.sym("dayOfYear")   // DDD: day of year (001-366)
+    )));
 
     // YYDDD format: 5-digit Julian date (2-digit year + 3-digit day of year)
     // e.g., "25216" = Year 2025, Day 216 = August 4, 2025
@@ -1846,6 +1860,27 @@ public class DateParser {
         Integer.parseInt(dateStr.substring(0, 2)) - 1,
         Integer.parseInt(dateStr.substring(2, 4)),
         val);
+    });
+
+    // YYYYDDD Julian date action: "2025216" (7 digits)
+    // 4-digit year + 3-digit day of year
+    grammar.addAction("yyyyddd", (val, x) -> {
+      String v = (String) val;
+      DateParseMode mode = (DateParseMode) x.get("dateParseMode");
+      int year = Integer.parseInt(v.substring(0, 4));
+      int dayOfYear = Integer.parseInt(v.substring(4));
+
+      // Convert day-of-year to month and day using Calendar
+      Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+      cal.clear();
+      cal.set(Calendar.YEAR, year);
+      cal.set(Calendar.DAY_OF_YEAR, dayOfYear);
+
+      return buildDate(x, mode,
+        cal.get(Calendar.YEAR),
+        cal.get(Calendar.MONTH),
+        cal.get(Calendar.DAY_OF_MONTH),
+        -1, -1, -1, -1, null);
     });
 
     // YYDDD Julian date action: "25216" (5 digits)

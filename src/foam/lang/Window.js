@@ -19,6 +19,8 @@ foam.CLASS({
   package: 'foam.lang',
   name: 'Window',
 
+  implements: [ 'foam.lang.Timers' ],
+
   documentation: `
     Encapsulates top-level window/document features.
 
@@ -55,7 +57,7 @@ foam.CLASS({
     'delayed',
     'document',
     'error',
-    'framed',
+    'framed_ as framed',
     'getElementById',
     'getElementsByClassName',
     'idled',
@@ -213,98 +215,6 @@ foam.CLASS({
 
     function warn() {
       this.console.warn.apply(this.console, arguments);
-    },
-
-    function async(l) {
-      /* Decorate a listener so that the event is delivered asynchronously. */
-      return this.delayed(l, 0);
-    },
-
-    function delayed(l, delay) {
-      /* Decorate a listener so that events are delivered 'delay' ms later. */
-      return () => {
-        this.setTimeout(
-          function() { l.apply(this, arguments); },
-          delay);
-      };
-    },
-
-    function merged(l, opt_delay) {
-      var delay = opt_delay || 16;
-      var ctx   = this;
-
-      return foam.Function.setName(function() {
-        var triggered = false;
-        var lastArgs  = null;
-        function mergedListener() {
-          triggered = false;
-          var args = Array.from(lastArgs);
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function() {
-          lastArgs = arguments;
-
-          if ( ! triggered ) {
-            triggered = true;
-            ctx.setTimeout(mergedListener, delay);
-          }
-        };
-
-        return f;
-      }(), 'merged(' + l.name + ')');
-    },
-
-    function idled(l, opt_delay) {
-      var delay = opt_delay || 16;
-      var ctx   = this;
-
-      return foam.Function.setName(function() {
-        var lastArgs = null;
-        var timeout;
-        function idledListener() {
-          timeout  = undefined;
-          var args = Array.from(lastArgs);
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function() {
-          lastArgs = arguments;
-
-          timeout && ctx.clearTimeout(timeout);
-          timeout = ctx.setTimeout(idledListener, delay);
-        };
-
-        return f;
-      }(), 'idled(' + l.name + ')');
-    },
-
-    function framed(l) {
-      var ctx = this;
-
-      return foam.Function.setName(function() {
-        var triggered = false;
-        var lastArgs  = null;
-        function frameFired() {
-          triggered = false;
-          var args = lastArgs;
-          lastArgs = null;
-          l.apply(this, args);
-        }
-
-        var f = function framed() {
-          lastArgs = arguments;
-
-          if ( ! triggered ) {
-            triggered = true;
-            ctx.requestAnimationFrame(frameFired);
-          }
-        };
-
-        return f;
-      }(), 'framed(' + l.name + ')');
     },
 
     function setTimeout(f, t) {

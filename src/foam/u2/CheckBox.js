@@ -63,7 +63,7 @@ foam.CLASS({
       content: url("/images/checkmark-white.svg");
     }
     ^ input:focus + label::before {
-      content: ''
+      content: '';
       box-shadow: 0 0 0 3px $checkboxColor$active;
     }
     ^:hover:not(:disabled) {

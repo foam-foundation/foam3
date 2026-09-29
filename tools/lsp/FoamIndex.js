@@ -53,6 +53,10 @@ foam.CLASS({
     {
       name: 'refinementIndex_',
       documentation: 'Refined class ID → array of { path, line, endLine } — every file that refines that class, with the refining model\'s own line range. Built alongside fileIndex_. A refined class keeps its own file as its definition site, so without this a member DECLARED in a refinement resolves back to the refined class\'s declaration line instead of to the line that declares it.'
+    },
+    {
+      name: 'refinedBy_',
+      documentation: 'File path → the class ids its refinements target: the reverse of refinementIndex_, so re-indexing one file drops exactly its own rows.'
     }
   ],
 
@@ -431,6 +435,29 @@ foam.CLASS({
           }
         } catch ( e ) {}
       }
+
+      // A `refines:` model never reaches `getAllClassIds` above: `foam.CLASS`
+      // returns right after calling `registerFactory` for a normal class, but
+      // for a refinement it calls `CLASS(m)` and returns BEFORE that call
+      // (`EndBoot.js`), so the refinement's id never lands in
+      // `foam.__context__.__cache__`, which `getAllClassIds` walks. Its own
+      // `requires:` is real — the refined class's `model_` is untouched — so
+      // a refiner-only requirer was invisible here. `foam.USED` still carries
+      // every refinement model keyed by its own id, so walk that directly.
+      for ( var refId in foam.USED ) {
+        var refModel = foam.USED[refId];
+        // Nameless refinements can only occur pre-boot, before EndBoot.js's
+        // override (which throws on a missing name) starts populating
+        // `foam.USED` — so this is defensive, not reachable today.
+        if ( ! refModel || ! refModel.refines || ! refModel.name ) continue;
+        var refReqs = refModel.requires || [];
+        for ( var k = 0 ; k < refReqs.length ; k++ ) {
+          var rr = refReqs[k];
+          var rpath = typeof rr === 'string' ? rr.split(/\s+as\s+/)[0].trim() : (rr.path || '');
+          if ( rpath === classId ) { result.push(refId); break; }
+        }
+      }
+
       this.cache_['req_' + classId] = result;
       return result;
     },
@@ -732,10 +759,40 @@ foam.CLASS({
       var prop = cls.getAxiomByName(propName);
       if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return null;
 
-      var md = '**' + propName + '** (' + (prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property') + ')\n\n';
+      var typeName = prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property';
+      var of       = this.ofName_(prop);
+      var typeStr  = of ? typeName + '<' + of + '>' : typeName;
+
+      // Wrapped in a code span: `<ButtonStyle>` inside a bare `(...)` reads
+      // as an HTML tag and markdown renderers drop it — same reason the
+      // class-table path (`HoverHandler.propTypeName_`) wraps its type name.
+      var md = '**' + propName + '** (`' + typeStr + '`)\n\n';
       if ( prop.documentation ) md += prop.documentation + '\n\n';
       if ( prop.value !== undefined && prop.value !== '' ) md += 'Default: `' + prop.value + '`\n';
       return md;
+    },
+
+    function ofName_(p) {
+      /**
+       * Short name of a property's `of:` target, or '' when there is nothing
+       * worth printing. Single implementation shared by `getPropertyDoc` (the
+       * by-name single-property hover) and `HoverHandler.propTypeName_` (the
+       * class-level property table, #5406) — the two used to disagree because
+       * only the table path resolved `of:`.
+       *
+       * `of` arrives either as a resolved class (an object with an id) or as
+       * the raw string from the model. The raw strings are of two kinds: a
+       * class id, and a primitive — `StringArray` carries `of: 'String'` and
+       * `IntegerArray` carries `of: 'Int'`, which say nothing the type name
+       * has not already said. A dot is what separates the two (185 of the
+       * repo's `of:` strings are the primitive kind, and all of them are
+       * undotted).
+       */
+      var of = p.of;
+      if ( ! of ) return '';
+      if ( typeof of !== 'string' ) return of.id ? of.id.split('.').pop() : '';
+      if ( of.indexOf('.') === -1 ) return '';
+      return of.split('.').pop();
     },
 
     function invalidate(classId) {
@@ -780,6 +837,9 @@ foam.CLASS({
       this.fileIndex_ = {};
       this.libIndex_ = {};
       this.refinementIndex_ = {};
+      this.refinedBy_ = {};
+      this.pomProjectFlags_ = {};
+      this.pathIndex_ = {};
       var path_ = require('path');
       var fs_ = require('fs');
 
@@ -806,12 +866,49 @@ foam.CLASS({
       for ( var f = 0 ; f < files.length ; f++ ) {
         var file = files[f];
         var filePath = path_.resolve(location, file.name + '.js');
-        var fileFlags = file.flags ? String(file.flags).split('|').map(function(s) {
-          return s.split('&');
-        }).reduce(function(a, b) { return a.concat(b); }, []) : ['js'];
+        var fileFlags = this.pomFileFlags_(file, pomFile);
 
         this.indexFileClasses_(filePath, fileFlags, pomFile, file.name, fs_);
       }
+    },
+
+    function splitFlags_(raw) {
+      /** 'js&test|java&test' → ['js', 'test', 'java', 'test']; '' → [].
+       *  A loaded pom hands its entry flags over as an array already, and
+       *  stringifying that joins on a comma — one flag named 'js,java'
+       *  rather than two — so the array form is rejoined, not stringified. */
+      if ( ! raw ) return [];
+      if ( Array.isArray(raw) ) raw = raw.join('|');
+      return String(raw).split('|').map(function(s) {
+        return s.split('&');
+      }).reduce(function(a, b) { return a.concat(b); }, []);
+    },
+
+    function indexEntry_(filePath, line, flags, pomFile, pomEntryName) {
+      /** One file-index row, and the path→row entry that answers
+       *  findOwnerEntry_ — written together so a row can never exist
+       *  under one and not the other. Classes sharing a file share a
+       *  path, and every caller of findOwnerEntry_ reads only the
+       *  file-level fields, so the first row wins. */
+      var entry = {
+        path:         filePath,
+        line:         line,
+        flags:        flags,
+        pomFile:      pomFile,
+        pomEntryName: pomEntryName
+      };
+      if ( ! this.pathIndex_ ) this.pathIndex_ = {};
+      this.pathIndex_[filePath] = this.pathIndex_[filePath] || entry;
+      return entry;
+    },
+
+    function pomFileFlags_(file, pomFile) {
+      /** A file entry's own flags plus the flags its pom carries as a
+       *  sub-project of its parent. `['js']` for an entry that declares
+       *  none, the build's default. */
+      var flags   = file.flags ? this.splitFlags_(file.flags) : ['js'];
+      var project = this.pomProjectFlags_ && this.pomProjectFlags_[pomFile];
+      return project && project.length ? flags.concat(project) : flags;
     },
 
     function indexFileClasses_(filePath, fileFlags, pomFile, pomEntryName, fs_) {
@@ -832,6 +929,18 @@ foam.CLASS({
         if ( ! this.libIndex_ ) this.libIndex_ = {};
         var models = foam.parse.lsp.FileModelCache.create().parseFileModels(content);
         if ( ! this.refinementIndex_ ) this.refinementIndex_ = {};
+        // The first row THIS pass writes owns the path. Without the drop the
+        // boot row answers findOwnerEntry_ forever, so a pom save that
+        // changes an entry's flags is undone by the next save of the file.
+        //
+        // The same goes for the file's refinement rows: they were pushed, never
+        // replaced, so each save of a refining file added its rows again and
+        // `getRefinements` counted one refinement three times after two saves.
+        // Unconditional, not gated on pathIndex_: a file whose only models are
+        // nameless refinements never gets a pathIndex_ row, and gating on it
+        // let that file's count go 1 -> 2 -> 4.
+        this.dropRefinementsFrom_(filePath);
+        if ( this.pathIndex_ ) delete this.pathIndex_[filePath];
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
 
@@ -857,18 +966,15 @@ foam.CLASS({
               ? next.sourceLine_ : Infinity;
             var refs = this.refinementIndex_[m.refines];
             if ( ! refs ) refs = this.refinementIndex_[m.refines] = [];
+            if ( ! this.refinedBy_ ) this.refinedBy_ = {};
+            ( this.refinedBy_[filePath] || ( this.refinedBy_[filePath] = [] ) ).push(m.refines);
             refs.push({ path: filePath, line: m.sourceLine_ || 0, endLine: endLine });
 
             // The refined class keeps its own file as its definition site;
             // this only fills in when nothing else claims the id.
             if ( ! this.fileIndex_[m.refines] ) {
-              this.fileIndex_[m.refines] = {
-                path:         filePath,
-                line:         m.sourceLine_ || 0,
-                flags:        fileFlags,
-                pomFile:      pomFile,
-                pomEntryName: pomEntryName
-              };
+              this.fileIndex_[m.refines] = this.indexEntry_(
+                filePath, m.sourceLine_ || 0, fileFlags, pomFile, pomEntryName);
             }
           }
 
@@ -876,13 +982,8 @@ foam.CLASS({
 
           // Index the model's own identity (package + name).
           var ownId = m.package ? m.package + '.' + m.name : m.name;
-          if ( ownId ) this.fileIndex_[ownId] = {
-            path:         filePath,
-            line:         m.sourceLine_ || 0,
-            flags:        fileFlags,
-            pomFile:      pomFile,
-            pomEntryName: pomEntryName
-          };
+          if ( ownId ) this.fileIndex_[ownId] = this.indexEntry_(
+            filePath, m.sourceLine_ || 0, fileFlags, pomFile, pomEntryName);
         }
       } catch ( e ) {
         require('./logError').logLspError('indexFileClasses ' + filePath, e);
@@ -1023,6 +1124,11 @@ foam.CLASS({
           if ( ! projName ) continue;
 
           var projPomPath = path_.resolve(location, projName + '.js');
+          // Only the PARENT pom knows a sub-project's flags, and reindexPath
+          // is handed the sub-pom alone — remember them here, keyed by the
+          // sub-pom's path, so a save of it rebuilds the same flag set.
+          if ( ! this.pomProjectFlags_ ) this.pomProjectFlags_ = {};
+          this.pomProjectFlags_[projPomPath] = this.splitFlags_(projFlags);
           var alreadyLoaded = foam.poms.some(function(p) { return p.path === projPomPath; });
           if ( alreadyLoaded ) continue;
           if ( ! fs_.existsSync(projPomPath) ) continue;
@@ -1036,13 +1142,7 @@ foam.CLASS({
               for ( var f = 0 ; f < projFiles.length ; f++ ) {
                 var file = projFiles[f];
                 if ( ! file || ! file.name ) continue;
-                var rawFlags = file.flags || '';
-                var fileFlags = rawFlags ? rawFlags.split('|').map(function(s) {
-                  return s.split('&');
-                }).reduce(function(a, b) { return a.concat(b); }, []) : [];
-                if ( projFlags ) fileFlags = fileFlags.concat(projFlags.split('|').map(function(s) {
-                  return s.split('&');
-                }).reduce(function(a, b) { return a.concat(b); }, []));
+                var fileFlags = this.pomFileFlags_(file, projPomPath);
 
                 var filePath = path_.resolve(projLocation, file.name + '.js');
                 this.indexFileClasses_(filePath, fileFlags, projPomPath, file.name, fs_);
@@ -1197,6 +1297,36 @@ foam.CLASS({
       var rec = bucket && bucket[memberName];
       if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
       return rec || null;
+    },
+
+    function dropRefinementsFrom_(filePath) {
+      /** Remove every refinementIndex_ row that `filePath` contributed, ahead
+       *  of that file being indexed again. refinedBy_ (path -> refined ids)
+       *  names the rows to touch, so the call costs nothing for the ~4000
+       *  files at boot that refine nothing. */
+      var targets = this.refinedBy_ && this.refinedBy_[filePath];
+      if ( ! targets ) return;
+      delete this.refinedBy_[filePath];
+      var idx = this.refinementIndex_ || {};
+      for ( var i = 0 ; i < targets.length ; i++ ) {
+        var rows = idx[targets[i]];
+        if ( ! rows ) continue;
+        rows = rows.filter(function(r) { return r.path !== filePath; });
+        if ( rows.length ) idx[targets[i]] = rows; else delete idx[targets[i]];
+      }
+    },
+
+    function getRefinements(classId) {
+      /**
+       * Every refinement of `classId` the file index knows of, as
+       * [ { path, line, endLine } ] — one row per refining model, so a file
+       * that refines the class twice gives two. A copy; callers may filter it.
+       * Built by the POM walk (refinementIndex_), so a refinement in a file no
+       * POM names is not here.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var refs = this.refinementIndex_ && this.refinementIndex_[classId];
+      return refs ? refs.slice() : [];
     },
 
     function refinementMemberPosition_(classId, memberName, kind) {
@@ -1754,6 +1884,78 @@ foam.CLASS({
       this.grammar_          = null;
     },
 
+    function reindexPath(filePath, kind) {
+      /**
+       * Refresh the class→file map for one file saved after boot.
+       * buildFileIndex walks the POMs once, so a class file or a pom
+       * entry added later is unknown to getFilePath, getClassForPomEntry
+       * and every name-addressed lookup until the server restarts.
+       *
+       * `kind` is the classifier's answer ('pom' or 'class'), passed in
+       * rather than re-derived: four poms in this repo are not named
+       * pom.js, and the classifier reads the foam.POM call.
+       *
+       * A saved pom re-indexes the files it names whose flags or owning pom
+       * changed — a class added to a file the pom already names arrives on
+       * that file's own save, so re-reading all of them costs a second on a
+       * 1500-entry pom and finds nothing. A saved class file is indexed
+       * under the pom that already owns it, or, before its pom entry
+       * exists, under the nearest pom.js up the tree with the js flag.
+       */
+      if ( ! filePath ) return;
+      var path_ = require('path');
+      var fs_   = require('fs');
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+
+      if ( kind === 'pom' ) {
+        var content = fs_.readFileSync(filePath, 'utf8');
+        var files   = this.parsePomFiles_(content) || [];
+        var dir     = path_.dirname(filePath);
+        for ( var f = 0 ; f < files.length ; f++ ) {
+          var file = files[f];
+          if ( ! file || ! file.name ) continue;
+          var fileFlags = this.pomFileFlags_(file, filePath);
+          var target    = path_.resolve(dir, file.name + '.js');
+          var indexed   = this.findOwnerEntry_(target);
+          if ( indexed && indexed.pomFile === filePath &&
+               indexed.flags.join('|') === fileFlags.join('|') ) continue;
+          this.indexFileClasses_(target, fileFlags, filePath, file.name, fs_);
+        }
+        return;
+      }
+
+      var owner = this.findOwnerEntry_(filePath);
+      if ( ! owner ) {
+        var pomFile = this.findNearestPom_(path_.dirname(filePath), path_, fs_);
+        if ( ! pomFile ) return;
+        var relative = path_.relative(path_.dirname(pomFile), filePath);
+        owner = {
+          flags:        ['js'],
+          pomFile:      pomFile,
+          pomEntryName: relative.replace(/\.js$/, '')
+        };
+      }
+      this.indexFileClasses_(
+        filePath, owner.flags, owner.pomFile, owner.pomEntryName, fs_);
+    },
+
+    function findOwnerEntry_(filePath) {
+      /** The indexed row for a path, so a re-save keeps the flags and pom
+       *  the boot walk recorded. Null for a file indexed nowhere yet. */
+      return ( this.pathIndex_ && this.pathIndex_[filePath] ) || null;
+    },
+
+    function findNearestPom_(dir, path_, fs_) {
+      /** Walk up from dir to the filesystem root for the closest pom.js. */
+      for ( ; ; ) {
+        var candidate = path_.join(dir, 'pom.js');
+        if ( fs_.existsSync(candidate) ) return candidate;
+        var parent = path_.dirname(dir);
+        if ( parent === dir ) return null;
+        dir = parent;
+      }
+    },
+
     function invalidatePomCache(pomFile) {
       /** Drop a single pom.js's cached entry positions. Called by the server
        *  when a pom.js is saved — the cache is keyed by pom path, so a
@@ -2258,19 +2460,21 @@ foam.CLASS({
        * dot-directories skipped.
        *
        * Deliberately NOT getJournalDirs(). That one answers "which
-       * directories hold a pom or an indexed source", which is the right
-       * question for resolving a service name to its services.jrl row, and
-       * JournalEntryIndex shares it so those two cannot drift. It is a
-       * different question from "where is every journal in the workspace":
-       * measured on this repo, the directory answer reaches 110 journals and
-       * this walk reaches 367, a strict superset — the 257 it adds are almost
-       * all of deployment/, which holds no indexed source and no pom.
+       * directories hold a pom or an indexed source"; this one answers "where
+       * is every journal in the workspace". Measured here: the directory
+       * answer reaches 110 journals, this walk 367, a strict superset.
        *
-       * Cost of the gap: 5ms for the directory scan against 91ms cold / 81ms
-       * warm here. Widening journal discovery to this walk would give
-       * go-to-definition the deployment journals too, at the price of every
-       * JournalEntryIndex lookup reading 367 files instead of 110 — worth
-       * doing, worth measuring, and not part of restoring this index.
+       * The 257 it adds are journals in directories carrying no pom and no
+       * indexed source. An earlier version of this comment called them
+       * "almost all of deployment/" — measured, deployment/ is 39 of the 257
+       * and src/ is 196, so the rule is the pom-and-source one above, not a
+       * directory name.
+       *
+       * Cost: 5ms for the directory scan against 91ms cold / 81ms warm here.
+       * getServiceJournalFiles() below serves the services.jrl slice of this
+       * walk to JournalEntryIndex and to buildStringUsageIndex_; the general
+       * entry lookup still uses the narrow directory answer on purpose (see
+       * that method).
        */
       var fs_   = require('fs');
       var path_ = require('path');
@@ -2329,10 +2533,15 @@ foam.CLASS({
         // Strip the `?` optional-marker that FOAM allows on import names.
         name = name.replace(/\?$/, '');
         var arr = byName[name] || (byName[name] = []);
+        // Dedupe key: class + axiom + kind, plus file for the class-less
+        // cspec records — a service registered in two journals is two
+        // registrations (each a symbol), not one seen twice. Without `file`
+        // every cspec row after the first for a name was dropped.
         for ( var k = 0 ; k < arr.length ; k++ ) {
           if ( arr[k].sourceClassId === entry.sourceClassId &&
                arr[k].axiomName     === entry.axiomName &&
-               arr[k].kind          === entry.kind ) return;
+               arr[k].kind          === entry.kind &&
+               arr[k].file          === entry.file ) return;
         }
         arr.push(entry);
       }
@@ -2380,17 +2589,12 @@ foam.CLASS({
       try {
         var jrlLoader = foam.parse.lsp.JrlLoader.create();
         var fs_       = require('fs');
-        var path_     = require('path');
-        // getJournalDirs, not getIndexedDirs: src/services.jrl — 38 rows,
-        // `file`, `blobStore`, `httpServer` among them — sits in a directory
-        // holding no class file at all, so a walk of indexed sources never
-        // reaches it. The pom locations do.
-        var services = [];
-        var svcDirs  = this.getJournalDirs();
-        for ( var d = 0 ; d < svcDirs.length ; d++ ) {
-          var svc = path_.join(svcDirs[d], 'services.jrl');
-          if ( fs_.existsSync(svc) ) services.push(svc);
-        }
+        // The same list the service lookup resolves against, so the symbol
+        // a palette search returns and the row F12 lands on cannot disagree.
+        // An earlier version built this list from getJournalDirs() and did
+        // disagree: F12 on a daoKey registered only in a per-target journal
+        // found the row while Go to Symbol returned nothing.
+        var services = this.getServiceJournalFiles();
         for ( var s = 0 ; s < services.length ; s++ ) {
           try {
             // With lines, because a CSpec row is worth pointing AT: it is the
@@ -2425,14 +2629,74 @@ foam.CLASS({
       this.stringUsageIndex_ = { byName: byName };
     },
 
+    function getServiceJournalFiles() {
+      /**
+       * Every services.jrl in the workspace — the WIDE answer. Both readers
+       * of "where is a service registered" take it: JournalEntryIndex to
+       * resolve a service name, and buildStringUsageIndex_ for the CSpec
+       * records that pushServiceSymbols_ publishes as workspace symbols.
+       * Measured 2026-09-16 (`git ls-files '*services.jrl'`, CSpec `name`
+       * values per file): this repo 346 service names, 9 in more than one
+       * journal, widest 4; an app workspace with 11 deployment targets 786
+       * names, 32 in more than one journal, widest 21. A palette shows one
+       * row per registration for those names and is otherwise unchanged.
+       *
+       * Why this and not getJournalDirs(): a FOAM app keeps per-target
+       * deployment journals (deployment/<target>/services.jrl) in directories
+       * that hold no class file and register no pom, so the directory answer
+       * never reaches them. This repo has 11 such targets, 9 carrying a
+       * services.jrl. Measured here: the directory answer sees 22 of the 78
+       * services.jrl in the tree and resolves 36 of the 80 daoKey values
+       * written across src/ and deployment/; this walk sees all 78 and
+       * resolves 77.
+       *
+       * Only the SERVICES lookup is widened. The general entry lookup
+       * (getEntryLocations — a Reference property naming a journal row) stays
+       * on findJournalFiles_'s directory answer, because seed journals are
+       * copied per deployment target: widening it makes one id resolve to the
+       * same row in every target, which is a longer answer, not a better one.
+       *
+       * Unioned with the directory answer, because the walk is rooted at
+       * process.cwd() and a pom location may sit outside it — walk-only lost
+       * a services.jrl registered that way (the jrl-save wire test keeps its
+       * journal in os.tmpdir() and went dark on the first version of this).
+       *
+       * Not cached here — JournalEntryIndex caches the result and drops it in
+       * invalidate(), so a .jrl save re-runs the walk exactly once.
+       */
+      var fs_   = require('fs');
+      var path_ = require('path');
+      var seen  = {};
+      var out   = [];
+      function add(p) {
+        var real;
+        try { real = fs_.realpathSync(p); } catch (e) { return; }
+        if ( seen[real] ) return;
+        seen[real] = true;
+        out.push(real);
+      }
+      var all = this.findWorkspaceJrlFiles_();
+      for ( var i = 0 ; i < all.length ; i++ ) {
+        if ( path_.basename(all[i]) === 'services.jrl' ) add(all[i]);
+      }
+      var dirs = this.getJournalDirs();
+      for ( var d = 0 ; d < dirs.length ; d++ ) {
+        var svc = path_.join(dirs[d], 'services.jrl');
+        if ( fs_.existsSync(svc) ) add(svc);
+      }
+      return out;
+    },
+
     function getJournalDirs() {
       /**
-       * Every directory a .jrl may live in: the pom locations plus the
-       * directories of indexed sources. THE one answer to that question —
-       * JournalEntryIndex asks it for journal discovery and
-       * buildStringUsageIndex_ asks it for services.jrl, and when those two
-       * were separate walks they disagreed: the index missed the 38
-       * registrations in src/services.jrl that the journal lookup found.
+       * Every directory a pom or an indexed source lives in — the NARROW
+       * journal answer. JournalEntryIndex.findJournalFiles_ asks it for the
+       * general entry lookup (getEntryLocations), which stays narrow on
+       * purpose: seed journals are copied per deployment target, and the
+       * wide walk would resolve one id to the same row in every target.
+       *
+       * Not the services answer. services.jrl discovery — the lookup AND the
+       * symbol/usage index — is getServiceJournalFiles() above.
        *
        * Not cached: foam.poms is mutable at runtime.
        */
@@ -2456,10 +2720,9 @@ foam.CLASS({
 
     function getIndexedDirs() {
       /**
-       * Unique directories containing indexed source files. Used by
-       * JournalEntryIndex to discover journal (.jrl) files alongside
-       * sources — the same walk buildStringUsageIndex_ does for
-       * services.jrl, exposed as an interface.
+       * Unique directories containing indexed source files. One half of
+       * getJournalDirs() (the other being the pom locations), which is what
+       * JournalEntryIndex.findJournalFiles_ reads.
        */
       var path_ = require('path');
       var fileIndex = this.fileIndex_ || {};

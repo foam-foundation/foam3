@@ -22,6 +22,14 @@ foam.CLASS({
       }
       return i + 1 - wSkipped;
     },
+    function tok(t) {
+      // Legacy theme colour props (approval3, grey2, black, white) are unset
+      // on token-based themes; resolve tokens for the indicator props and
+      // inline styles, which the $token CSS expansion does not reach.
+      // Shared by every view that mixes this in (steps list, incremental
+      // and scrolling wizards) so the helper is written once.
+      return foam.CSS.returnTokenValue(t, this.cls_, this.__subContext__);
+    },
     function configureIndicator(wizardlet, isCurrent, number) {
       var args = {
         size: 24, borderThickness: 2,
@@ -29,11 +37,11 @@ foam.CLASS({
       if ( wizardlet.indicator == this.WizardletIndicator.COMPLETED ) {
         args = {
           ...args,
-          borderColor: this.theme.approval3,
-          backgroundColor: this.theme.approval3,
-          borderColorHover: this.theme.approval3,
+          borderColor: this.tok('$success400'),
+          backgroundColor: this.tok('$success400'),
+          borderColorHover: this.tok('$success400'),
           icon: this.theme.glyphs.checkmark.getDataUrl({
-            fill: this.theme.white
+            fill: this.tok('$white')
           }),
         };
       } else if (
@@ -49,16 +57,16 @@ foam.CLASS({
       } else {
         args = {
           ...args,
-          borderColor: this.theme.grey2,
-          borderColorHover: this.theme.grey2,
+          borderColor: this.tok('$textTertiary'),
+          borderColorHover: this.tok('$textTertiary'),
           label: '' + number
         };
       }
       if ( isCurrent ) {
         args = {
           ...args,
-          borderColor: this.theme.black,
-          borderColorHover: this.theme.black
+          borderColor: this.tok('$textDefault'),
+          borderColorHover: this.tok('$textDefault')
         };
       }
       return args;
@@ -216,7 +224,7 @@ foam.CLASS({
                       .start('p').addClass(self.myClass('title'))
                         .translate(wizardlet.id+'.name', wizardlet.title)
                         .style({
-                          'color': isCurrent ? this.theme.black : this.theme.grey2
+                          'color': isCurrent ? self.tok('$textDefault') : self.tok('$textTertiary')
                         })
                       .end()
                       ;
@@ -281,8 +289,8 @@ foam.CLASS({
       return elem
         .style({
           'color': isCurrent
-            ? this.theme.black
-            : this.theme.grey2
+            ? this.tok('$textDefault')
+            : this.tok('$textTertiary')
         })
         .translate(title, title);
     },

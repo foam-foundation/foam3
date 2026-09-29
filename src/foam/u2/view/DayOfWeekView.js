@@ -3,6 +3,7 @@
  * Copyright 2021 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
+
 foam.CLASS({
   package: 'foam.u2.view',
   name: 'DayOfWeekView',
@@ -39,10 +40,11 @@ foam.CLASS({
       value: 7
     }
   ],
+
   methods: [
     function init() {
-      this.SUPER();
       this.choices = this.DayOfWeek.VALUES.map(v => [v, v.shortName]);
+      this.SUPER();
     }
   ]
 });

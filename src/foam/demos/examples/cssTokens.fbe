@@ -487,7 +487,7 @@ All FOAM apps that have useVariants set to true provide one activeVariant for co
 <br><br>
 Eg:
 <br>
-The "color" token responds to the user's device's mode: in light mode it has no value and in dark mode activeVariants.color will return 'dark'.
+The "color" token responds to the user's device's mode: activeVariants.color is 'light' in light mode and 'dark' in dark mode. A token's value is the fallback; an entry in its variants map wins for that mode.
 <br><br>
 Below is the code for how to configure a cssToken to respond to this activeVariant change using the same class as the very first example of CSSToken. Try changing your device's mode from light to dark to see the change
 --

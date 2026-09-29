@@ -124,7 +124,6 @@ foam.CLASS({
       color: $white;
       right: 0;
       width: 0%;
-//      transition: 1s;
       position: absolute;
     }
 

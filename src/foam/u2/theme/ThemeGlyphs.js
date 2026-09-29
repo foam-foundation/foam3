@@ -1371,6 +1371,136 @@ foam.CLASS({
         </svg>
         ` };
       }
+    },
+    // Hint icons for Markdown
+    {
+      name: 'hintInfo',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7.5v.01" fill="none"/>
+          <path d="M12 11v5.5" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintWarning',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M12 7v5.6" fill="none"/>
+          <path d="M12 16.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintDanger',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <path d="M12.9 4.3l8.5 14.8a1.1 1.1 0 0 1-.9 1.6H3.5a1.1 1.1 0 0 1-.9-1.6L11.1 4.3a1.05 1.05 0 0 1 1.8 0z" fill="none"/>
+          <path d="M12 9.6v4.4" fill="none"/>
+          <path d="M12 17.4v.01" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'hintSuccess',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+        <svg width="100%" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+             xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="9" fill="none"/>
+          <path d="M7.8 12.3l2.9 2.9 5.5-6.2" fill="none"/>
+        </svg>
+        ` };
+      }
+    },
+    {
+      name: 'lightMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'darkMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      name: 'systemMode',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'A ring with its right half filled: the colour scheme follows the OS.',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="/*%FILL%*/ #ffffff" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20zM12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 4a8 8 0 0 1 0 16z"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      // Bootstrap Icons "translate", MIT.
+      name: 'translate',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="/*%FILL%*/ #ffffff" viewBox="0 0 16 16">
+            <path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/>
+            <path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/>
+          </svg>
+        ` };
+      }
+    },
+    {
+      // Bootstrap Icons "clipboard-data", MIT.
+      name: 'analytics',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      factory: () => {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="/*%FILL%*/ #ffffff" viewBox="0 0 16 16">
+            <path d="M4 11a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0zm6-4a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0zM7 9a1 1 0 0 1 2 0v3a1 1 0 1 1-2 0z"/>
+            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/>
+            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/>
+          </svg>
+        ` };
+      }
     }
   ]
 });

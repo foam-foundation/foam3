@@ -23,7 +23,6 @@ foam.CLASS({
       background-color: $backgroundInverse;
     }
     ^ .label {
-      // WHY DOESN"T WORK?
       font-size: larger;
       font-weight: $font-regular;
       color: $red300;

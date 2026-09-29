@@ -44,7 +44,7 @@ foam.CLASS({
       width: 100%;
 
       border-radius: 3px;
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderDefault;
       background-color: $backgroundDefault;
     }
 
@@ -55,7 +55,7 @@ foam.CLASS({
       margin-top: 16px;
 
       border-radius: 3px;
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderDefault;
       background-color: $backgroundDefault;
     }
 

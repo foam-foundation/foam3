@@ -49,7 +49,8 @@ public class ScanPlan
       if ( order_.toString().equals(indexer.toString()) ) {
         // If the index is same with the property we would like to order, the order could be set to null. Because the order is already correct in the tree set.
         order_ = null;
-      } else if ( order_ instanceof Desc && ((Desc) order_).getArg1().toString().equals(indexer.toString()) && predicate_ == null ) {
+      } else if ( order_ instanceof Desc && ((Desc) order_).getArg1().toString().equals(indexer.toString()) ) {
+        // The reverse walk applies the predicate as it goes, so no sort is needed either way.
         reverse_ = true;
         order_   = null;
       } else {

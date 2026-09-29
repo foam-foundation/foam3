@@ -10,6 +10,7 @@ foam.CLASS({
   documentation: 'Long-id test model for UnloadableDecoratedDAOTest. A Long id (rather than PartitionStrRecord\'s String id) is required so SequenceNumberDAO can stamp it.',
   properties: [
     { class: 'Long',   name: 'id' },
-    { class: 'String', name: 'data' }
+    { class: 'String', name: 'data' },
+    { class: 'String', name: 'data2' }
   ]
 });

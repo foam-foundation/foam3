@@ -14,27 +14,34 @@ foam.CLASS({
   static: [
     function OPEN() {
       var title = this.TITLE;
-      var w = globalThis.window.open("", title, "width=800,height=800,scrollbars=no", true);
+      var w     = ctrl.window.open("", title, "width=800,height=800,scrollbars=no", true);
 
       // I would like to close 'w' when the parent window is reloaded, but it doesn't work.
-      document.body.addEventListener('beforeunload', () => w.close());
+      ctrl.document.body.addEventListener('beforeunload', () => w.close());
 
       // Reset the document to remove old content and styles
       // Reset $UID so that new styles will be re-installed
       w.document.body.innerText = '';
       w.document.head.innerHTML = '<title>' + title + '</title>';
-      w.document.$UID = foam.next$UID();
+      w.document.$UID           = foam.next$UID();
 
       var window = foam.lang.Window.create({window: w}, ctrl);
       var v      = this.create({}, window);
       v.write(window.document);
 
       foam.lang.I18NString.GETTER__ = function(proto, prop, obj, key) {
-        if ( obj.sourceCls_ ) {
-          var source      = obj.sourceCls_.id + '.' + obj.name + '.' + prop.name;
+        if ( v.feedback_ ) return;
+//        console.log('****************************** I18NString:', proto.cls_.id, prop.name, obj, key);
+
+        var cls    = obj.sourceCls_ ? obj.sourceCls_.id : obj.cls_.id;
+        var source = cls + '.' + obj.name + '.' + prop.name;
+
+        if ( ! v.seen_[source] ) {
           var translation = v.translationService.getTranslation(v.locale, source, '');
+
           v.onTranslation(null, null, foam.locale, source, translation, obj.instance_[key]);
         }
+
         return obj.instance_[key];
       };
     }
@@ -224,7 +231,7 @@ foam.CLASS({
         }
       ],
 
-      tableColumns: [ 'shortSource', 'defaultText', 'text', 'update' ],
+      tableColumns: [ 'source', 'shortSource', 'defaultText', 'text', 'update' ],
 
       ids: [ 'source' ],
 
@@ -252,6 +259,9 @@ foam.CLASS({
           class: 'String',
           name: 'defaultText',
           label: { en: 'Default / English', fr: 'Par défaut / anglais' },
+          tableCellFormatter: function(val, obj) {
+            this.attrs({ title: val }).add(val);
+          },
           displayWidth: 300
         },
         {
@@ -259,6 +269,7 @@ foam.CLASS({
           name: 'text',
           label: { en: 'Translation', fr: 'Traduction' },
           projectionSafe: false,
+          view: 'foam.u2.TextField',
           tableCellFormatter: function(val, obj, prop) {
             this.startContext({ controllerMode: foam.u2.ControllerMode.CREATE, data: obj }).add(prop).endContext();
           },
@@ -270,11 +281,11 @@ foam.CLASS({
       actions: [
         {
           name: 'update',
-          label: { en: 'Save for selected locale', fr: 'Enregistrer pour la locale sélectionnée' },
+          label: 'Save', //{ en: 'Save for selected locale', fr: 'Enregistrer pour la locale sélectionnée' },
           code: async function() {
             // TODO: Look into handling theme-specific translations
             var selectedLocale = this.parsedLocale;
-            var activeVariant = this.translationService.variant || '';
+            var activeVariant  = this.translationService.variant || '';
 
             // Row saves always target the locale currently selected in the console,
             // not the app's global foam.locale.
@@ -310,7 +321,7 @@ foam.CLASS({
     'localeDAO',
     'notify?',
     'translationService',
-    'window'    // todo - replace this with better CONFIRMATION dialog
+    'window'
   ],
 
   exports: [ 'locale', 'parsedLocale' ],
@@ -372,6 +383,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'locale',
+      adapt: function(_, n) {
+        if ( foam.core.auth.LanguageId.isInstance(n) ) {
+          let s = n.code;
+          if ( n.variant ) s = s + '-' + n.variant;
+          n = s;
+        }
+        return n;
+      },
       // TODO: On locale change, reload saved translations automatically. Current
       // UX footgun: users can edit discovered rows before loading the selected
       // locale's saved values.
@@ -392,6 +411,11 @@ foam.CLASS({
       name: 'showOnlyUntranslated',
       label: { en: 'Show missing/default translations', fr: 'Afficher les traductions manquantes/par défaut' },
       documentation: 'Filters the visible table to rows with no translation or rows where the translation still matches the default text. Discovery and saving still work normally.'
+    },
+    {
+      // source strings already seen to avoid redundant adding
+      name: 'seen_',
+      factory: function() { return {}; }
     }
   ],
 
@@ -538,19 +562,30 @@ foam.CLASS({
         if ( ! this.window.confirm(this.CLEAR_CONFIRM) ) return;
         this.discoveredDAO.removeAll();
         this.dao.removeAll();
+        this.seen_ = {};
       }
     }
   ],
 
   listeners: [
     function onTranslation(_, __, locale, source, txt, defaultText) {
+      if ( ! defaultText ) return;
+
+      if ( this.seen_[source] ) return;
+
+      this.seen_[source] = true;
+
+//      console.log('********** translation', locale, source, txt, defaultText);
+
       // Translation events are the discovery path. Store them both in the visible
       // table and in the session baseline used when reloading saved translations.
+
       var row = this.Row.create({
         source:      source,
         text:        txt,
         defaultText: defaultText
       });
+
       this.discoveredDAO.put(row);
       this.dao.put(row);
     }

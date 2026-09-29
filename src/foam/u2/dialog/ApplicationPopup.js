@@ -37,7 +37,7 @@ foam.CLASS({
 
   css: `
     ^header-action {
-      z-index: 1000;
+      z-index: $z-10;
       cursor: pointer;
       transition: all ease-in 0.1s;
     }

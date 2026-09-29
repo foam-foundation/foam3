@@ -10,7 +10,8 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   imports: [
-    'fileDAO'
+    'fileDAO',
+    'window'
   ],
 
   css: `
@@ -18,7 +19,7 @@ foam.CLASS({
         overflow-y: auto;
         height: 500px;
         width: 100%;
-        border: 1px solid #DDD;
+        border: 1px solid $borderLight;
         padding: 10px;
     }
 
@@ -42,7 +43,7 @@ foam.CLASS({
 //      let file = await this.fileDAO.find(this.fileId);
 //      if ( file ) {
 //        if ( file.mimeType === "application/pdf" ) {
-          const url = window.location.origin + "/service/file/" + this.fileId;
+          const url = this.window.location.origin + "/service/file/" + this.fileId;
 
             this.addClass(this.myClass("pdf"))
             .start('embed')

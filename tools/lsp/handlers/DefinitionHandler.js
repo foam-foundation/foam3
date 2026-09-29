@@ -185,13 +185,13 @@ foam.CLASS({
       // must be one of SERVICE_KEY_NAMES. The lookup alone does not bound it:
       // `file` and `blobStore` are registered service names that also occur
       // as ordinary string values all over the tree.
-      var svcJump = this.serviceNameJump_(text, position);
+      var svcJump = this.serviceNameJump_(text, position, opt_uri);
       if ( svcJump ) return svcJump;
 
       return null;
     },
 
-    function serviceNameJump_(text, position) {
+    function serviceNameJump_(text, position, opt_uri) {
       /**
        * A SERVICE-KEY value whose whole content names a registered service
        * -> its services.jrl row. Null when there is no journal index wired,
@@ -208,7 +208,9 @@ foam.CLASS({
       if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(key) === -1 ) return null;
       var value = this.analyzer.getEnclosingStringContent(text, position);
       if ( ! value ) return null;
-      var locs = this.journalEntryIndex.getServiceLocations(value);
+      // opt_uri orders a multi-file answer nearest-first; without it the
+      // order is still stable, just not relative to anything.
+      var locs = this.journalEntryIndex.getServiceLocations(value, opt_uri);
       if ( ! locs || ! locs.length ) return null;
       var out = locs.map(function(l) {
         return {

@@ -196,7 +196,14 @@ foam.CLASS({
           <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">""");
       }
 
-      // Loading screen styles
+      // Loading screen styles. The splash follows the OS only: its
+      // prefers-color-scheme rule below is static CSS, and nothing in this
+      // page reads localStorage before the app boots, so the scheme a user
+      // picked in-app (foam.lang.Window COLOR_SCHEME_KEY, set by
+      // foam.u2.theme.ColorSchemeToggle) cannot reach it. A light pick on a
+      // dark OS shows a dark splash until the app takes over. Fixing it means
+      // an inline script (with the CSP nonce) that reads the key before first
+      // paint and a selector the rule below can key off.
       String nonce = getCspNonce();
       if ( ! SafetyUtil.isEmpty(nonce) ) {
         out.println("<meta name=\\"csp-nonce\\" content=\\"" + nonce + "\\">");

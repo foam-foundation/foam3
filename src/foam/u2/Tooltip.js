@@ -131,7 +131,7 @@ foam.CLASS({
       color: $white;
       padding: 5px 8px;
       position: absolute;
-      z-index: 2000;
+      z-index: $z-tooltip;
     }
   `,
 

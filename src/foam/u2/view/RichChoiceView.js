@@ -188,7 +188,7 @@ foam.CLASS({
       width: 100%;
       border-radius: $inputBorderRadius;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      z-index: 1000;
+      z-index: $z-popup;
       position: relative;
     }
 
@@ -306,7 +306,7 @@ foam.CLASS({
     }
 
     ^section:not(:last-child) {
-      border-bottom: 1px solid #f4f4f9;
+      border-bottom: 1px solid $borderXLight;
     }
 
     ^container .highlighted {
@@ -630,6 +630,12 @@ foam.CLASS({
                           .addClass(self.myClass('selectable-item'))
                           .attr('disabled', section.disabled)
                           .attr('role', 'option')
+                          // Option rows had no id-bearing attribute, so recorders/tests
+                          // could only address them by list position, which breaks on
+                          // any reorder. Carry the choice id as data-value, the same
+                          // attribute the root element uses for its chosen value; name
+                          // stays on the root, where it is the field name.
+                          .attrs({ 'data-value': foam.util.isPrimitive(obj.id) ? obj.id : obj.id?.toString?.() ?? obj.id })
                           .enableClass('disabled', section.disabled)
                           .enableClass('highlighted', self.highlightedIndex_$.map(v => v === itemIndex))
                           .callIf(! section.disabled, function() {

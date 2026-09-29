@@ -62,7 +62,7 @@ foam.CLASS({
       flex-direction: column;
       gap: 1.6rem;
       z-index: 2;
-      // sort of a hack to make css think this element is not always at the top;
+      /* sort of a hack to make css think this element is not always at the top */
       position: sticky;
       top: -1px;
       transition: all 0.2s ease;

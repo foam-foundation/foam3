@@ -61,12 +61,12 @@ foam.CLASS({
       min-height: 304px;
       text-align: center;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderLight;
       border-radius: 5px;
       background-color: $backgroundDefault;
       padding-bottom: 25px;
       margin-top: 16px;
-      z-index: 100002;
+      z-index: $z-popup;
       position: absolute;
     }
 
@@ -76,8 +76,8 @@ foam.CLASS({
     }
 
     ^ .colon {
-      padding': '0 4px';
-      font-weight': 'bold;
+      padding: 0 4px;
+      font-weight: $font-semi-bold;
     }
 
     ^ .year {
@@ -141,9 +141,9 @@ foam.CLASS({
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient(#ffffff, #e7eaec);
+      background-image: linear-gradient($backgroundDefault, $backgroundTertiary);
       text-align: center;
-      border: 1px solid #cbcfd4;
+      border: 1px solid $borderDefault;
     }
 
     ^ .arrow-container-left{
@@ -179,7 +179,8 @@ foam.CLASS({
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      /* click-away scrim: over the page, under the picker and its clear icon */
+      z-index: $z-nav;
     }
 
     ^ .date-display-box {
@@ -217,7 +218,7 @@ foam.CLASS({
     }
 
     ^ .date-display-image-cancel {
-      z-index: 10001;
+      z-index: $z-popup;
     }
 
     ^ {

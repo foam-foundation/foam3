@@ -3,6 +3,7 @@ p({
   "name":"ndiffDAO",
   "serve":true,
   "lazy":false,
+  "lazyOrder":-1,
   "serviceScript": """
     dao  = new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.ndiff.NDiff.getOwnClassInfo())

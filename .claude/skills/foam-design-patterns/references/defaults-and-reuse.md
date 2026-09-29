@@ -26,7 +26,7 @@ Review asked: "You can just do this.addClass(), since if no arg is provided it d
 ### Extend the class that exists; never build a parallel one
 A second class with the same job splits every future fix in two and loses theme, permission, and a11y behaviour the original already carries.
 Don't: a new TimeUnit enum; a second `button` command when `cmds.jrl` has one; a tabs view with its own CSS; a hand-rolled `getTransactions` beside a Relationship; a filter view copied from StringFilterView
-Do:    grep first: `grep -rn "name: '<Thing>'" src/`, `grep -n '"id": *"<cmd>"' cmds.jrl`; then refine `foam.nanos.TimeUnit`; extend the existing command; `extends: 'foam.u2.UnderlinedTabs'`; the Relationship's accessor; `extends: 'foam.u2.filter.properties.StringFilterView'`
+Do:    grep first: `grep -rn "name: '<Thing>'" src/`, `grep -n '"id": *"<cmd>"' cmds.jrl`; then refine `foam.time.TimeUnit`; extend the existing command; `extends: 'foam.u2.UnderlinedTabs'`; the Relationship's accessor; `extends: 'foam.u2.filter.properties.StringFilterView'`
 Review asked: "Foam already has a TimeUnit enum, can you just refine that instead?" (PR #4049); "the getTransactions(x) was removed as it is already provided by the Relationship. This is a feature of foam."; "How is this different than the DAONameParser?"
 
 ### The diff contains only the change

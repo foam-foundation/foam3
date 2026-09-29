@@ -89,6 +89,10 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Every heading shares the same action, so the button's DOM name
+              // would be 'onClickFunctions' for all of them; use the menu id so
+              // recorders/tests get a stable, unique selector per heading.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewHeading.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL'
@@ -158,6 +162,8 @@ foam.CLASS({
               self.selection = obj;
               isFirstSet = true;
             }
+            // Unless specified, stop nesting after one level
+            let drillsIn = this.continueNesting || ! currentRoot;
             let t = {
               class:        foam.u2.view.TreeViewRow,
               data:         obj,
@@ -165,8 +171,10 @@ foam.CLASS({
               expanded:     self.startExpanded,
               formatter:    self.formatter,
               query:        self.query,
-              // Unless specified, stop nesting after one level
-              onClickAddOn: this.continueNesting || ! currentRoot ? self.onClickAddOn1 : self.onClickAddOn,
+              onClickAddOn: drillsIn ? self.onClickAddOn1 : self.onClickAddOn,
+              // A drill-in row replaces the list on click, so it is not a
+              // disclosure and TreeViewRow leaves aria-expanded off it.
+              drillsIn:     drillsIn,
               level:        1
             }
             this.tag(t);

@@ -767,3 +767,311 @@ test(!searchItems.some(function(i) { return i.label === 'reflow'; }),
   'searchColumns completion does NOT include actions');
 test(searchItems.some(function(i) { return i.label === 'name'; }),
   'searchColumns completion includes properties');
+
+// === Auto-require on `this.<Capital>` ===
+// Picking a class the model does not require yet inserts its short name AND
+// adds the id to that model's requires:, via additionalTextEdits. Each case
+// applies the edit and re-reads the result through the eval-intercept cache,
+// so "the edit is valid JS and the model now requires the class" is checked,
+// not just the edit's text.
+section('MemberCompletionHandler — auto-require via additionalTextEdits');
+
+var AR_ID = 'foam.comics.DAOControllerView';
+var arHandler = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index });
+
+// Cursor at the end of the line holding `this.DAOCon`.
+function arComplete(src, opt_handler) {
+  var lines = src.split('\n');
+  for ( var l = 0 ; l < lines.length ; l++ ) {
+    var c = lines[l].indexOf('this.DAOCon');
+    if ( c !== -1 ) return ( opt_handler || arHandler ).handle(src, { line: l, character: c + 'this.DAOCon'.length }, 'file:///ar.js');
+  }
+  throw new Error('fixture has no this.DAOCon');
+}
+function arItem(res) {
+  return res.items.filter(function(i) { return i.detail === AR_ID && i.additionalTextEdits; })[0];
+}
+function arApply(src, edits) {
+  var lineStarts = [ 0 ];
+  for ( var i = 0 ; i < src.length ; i++ ) if ( src.charAt(i) === '\n' ) lineStarts.push(i + 1);
+  var sorted = edits.slice().sort(function(a, b) {
+    return ( lineStarts[b.range.start.line] + b.range.start.character ) -
+           ( lineStarts[a.range.start.line] + a.range.start.character );
+  });
+  sorted.forEach(function(e) {
+    var from = lineStarts[e.range.start.line] + e.range.start.character;
+    var to   = lineStarts[e.range.end.line]   + e.range.end.character;
+    src = src.substring(0, from) + e.newText + src.substring(to);
+  });
+  return src;
+}
+function arRequires(src, opt_model) {
+  var models = foam.parse.lsp.FileModelCache.create().parseFileModels(src);
+  return ( models[opt_model || 0] || {} ).requires || [];
+}
+function arMethod(indent) {
+  return indent + 'methods: [\n' +
+         indent + '  function go() {\n' +
+         indent + '    this.DAOCon\n' +
+         indent + '  }\n' +
+         indent + ']\n';
+}
+
+test(index.getAllClassIds().indexOf(AR_ID) !== -1, 'fixture class ' + AR_ID + ' is registered');
+
+// 1. Sorted multi-line array — goes in at its sorted place, same indent.
+var arSorted = "foam.CLASS({\n  package: 'test',\n  name: 'ArSorted',\n  requires: [\n" +
+  "    'foam.u2.DetailView',\n    'foam.u2.View'\n  ],\n" + arMethod('  ') + "});";
+var arRes = arComplete(arSorted);
+var arIt  = arItem(arRes);
+test(!! arIt && arIt.label === 'DAOControllerView', 'sorted: short name offered with an edit');
+test(arRes.isIncomplete === true, 'this.<Partial> list is isIncomplete so the client re-asks');
+var arOut = arIt ? arApply(arSorted, arIt.additionalTextEdits) : '';
+test(arOut.indexOf("  requires: [\n    '" + AR_ID + "',\n    'foam.u2.DetailView',\n    'foam.u2.View'\n  ],") !== -1,
+  'sorted: id inserted first, one per line, 4-space indent');
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID, 'foam.u2.DetailView', 'foam.u2.View' ]),
+  'sorted: edited file evaluates with the id required');
+
+// 2. Unsorted array — appended last.
+var arUnsorted = arSorted.replace("    'foam.u2.DetailView',\n    'foam.u2.View'", "    'foam.u2.View',\n    'foam.u2.DetailView'");
+arIt = arItem(arComplete(arUnsorted));
+arOut = arIt ? arApply(arUnsorted, arIt.additionalTextEdits) : '';
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ 'foam.u2.View', 'foam.u2.DetailView', AR_ID ]),
+  'unsorted: id appended at the end');
+
+// 3. Single-line array, double quotes — stays on one line, keeps the quote.
+var arInline = 'foam.CLASS({\n  package: "test",\n  name: "ArInline",\n  requires: [ "foam.u2.View" ],\n' + arMethod('  ') + '});';
+arIt = arItem(arComplete(arInline));
+arOut = arIt ? arApply(arInline, arIt.additionalTextEdits) : '';
+test(arOut.indexOf('requires: [ "' + AR_ID + '", "foam.u2.View" ],') !== -1,
+  'single-line: inserted inline with the file\'s double quotes');
+
+// 4. No requires array — a new one after the last identity entry.
+var arNone = "foam.CLASS({\n  package: 'test',\n  name: 'ArNone',\n  extends: 'foam.u2.View',\n\n" + arMethod('  ') + "});";
+arIt = arItem(arComplete(arNone));
+arOut = arIt ? arApply(arNone, arIt.additionalTextEdits) : '';
+test(arOut.indexOf("  extends: 'foam.u2.View',\n  requires: [\n    '" + AR_ID + "'\n  ],\n") !== -1,
+  'no requires: new array after extends, matching indentation');
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID ]),
+  'no requires: edited file evaluates with the id required');
+
+// 4b. The identity entry is the last one in the model — the comma goes before.
+var arNoneLast = "foam.CLASS({\n" + arMethod('  ').replace(/\n$/, ',\n') + "  name: 'ArNoneLast'\n});";
+arIt = arItem(arComplete(arNoneLast));
+arOut = arIt ? arApply(arNoneLast, arIt.additionalTextEdits) : '';
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID ]),
+  'no requires, name last: array appended after name with a leading comma');
+
+// 5. Empty array.
+var arEmpty = "foam.CLASS({\n  name: 'ArEmpty',\n  requires: [],\n" + arMethod('  ') + "});";
+arIt = arItem(arComplete(arEmpty));
+arOut = arIt ? arApply(arEmpty, arIt.additionalTextEdits) : '';
+test(arOut.indexOf("  requires: [\n    '" + AR_ID + "'\n  ],") !== -1, 'empty array: filled one entry per line');
+
+// 6. Already required — offered only as the plain required alias, no edit.
+var arHave = arSorted.replace("    'foam.u2.DetailView',", "    '" + AR_ID + "',\n    'foam.u2.DetailView',");
+var arHaveRes = arComplete(arHave);
+test(! arItem(arHaveRes), 'already required: no item carries a requires edit');
+test(arHaveRes.items.some(function(i) { return i.label === 'DAOControllerView' && ! i.additionalTextEdits; }),
+  'already required: still listed as a required class');
+
+// 7. Short name already used by another class — not offered (would change its meaning).
+var arClash = arSorted.replace("'foam.u2.View'", "'foam.u2.View as DAOControllerView'");
+test(! arItem(arComplete(arClash)), 'short name taken by an alias: not offered');
+
+// 8. Multi-model file — the edit goes to the model holding the cursor.
+var arMulti = "foam.CLASS({\n  package: 'test',\n  name: 'First',\n  requires: [ 'foam.u2.View' ]\n});\n\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'Second',\n  requires: [\n    'foam.u2.DetailView'\n  ],\n" + arMethod('  ') + "});";
+arIt = arItem(arComplete(arMulti));
+arOut = arIt ? arApply(arMulti, arIt.additionalTextEdits) : '';
+test(JSON.stringify(arRequires(arOut, 0)) === JSON.stringify([ 'foam.u2.View' ]),
+  'multi-model: first model untouched');
+test(JSON.stringify(arRequires(arOut, 1)) === JSON.stringify([ AR_ID, 'foam.u2.DetailView' ]),
+  'multi-model: second model (cursor) gains the require');
+
+// 9. Nested model (IIFE) — a new array uses the file's own indent unit.
+var arNested = "(function() {\n  foam.CLASS({\n    package: 'test',\n    name: 'ArNested',\n" + arMethod('    ') + "  });\n})();";
+arIt = arItem(arComplete(arNested));
+arOut = arIt ? arApply(arNested, arIt.additionalTextEdits) : '';
+test(arOut.indexOf("    name: 'ArNested',\n    requires: [\n      '" + AR_ID + "'\n    ],\n") !== -1,
+  'nested model: keys at 4, entries at 6');
+
+// 10. Array holding { path: … } objects — no safe edit, so nothing offered.
+var arObj = arSorted.replace("'foam.u2.View'", "{ path: 'foam.u2.View' }");
+test(! arItem(arComplete(arObj)), 'object entry in requires: nothing offered');
+
+// 11. Lowercase partial is a member, not a class.
+var arLower = arSorted.replace('this.DAOCon', 'this.daoCon');
+var arLowerLines = arLower.split('\n');
+var arLowerLine  = arLowerLines.findIndex(function(l) { return l.indexOf('this.daoCon') !== -1; });
+var arLowerRes   = arHandler.handle(arLower, { line: arLowerLine, character: arLowerLines[arLowerLine].indexOf('this.daoCon') + 11 }, 'file:///ar.js');
+test(! arLowerRes.items.some(function(i) { return i.additionalTextEdits; }), 'lowercase partial: no auto-require items');
+
+// 11b. A name the class already has without requiring it is not offered:
+// Expressions supplies GroupBy (what GROUP_BY() builds), and an inner class
+// owns its own short name. Requiring another class there changes the name.
+var arExpr = "foam.CLASS({\n  package: 'test',\n  name: 'ArExpr',\n" +
+  "  implements: [ 'foam.mlang.Expressions' ],\n  requires: [ 'foam.u2.View' ],\n" +
+  "  methods: [\n    function go() {\n      this.GroupB\n    }\n  ]\n});";
+var arExprLines = arExpr.split('\n');
+var arExprLine  = arExprLines.findIndex(function(l) { return l.indexOf('this.GroupB') !== -1; });
+var arExprRes   = arHandler.handle(arExpr, { line: arExprLine, character: arExprLines[arExprLine].indexOf('this.GroupB') + 11 }, 'file:///ar.js');
+test(! arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupBy'; }) &&
+     arExprRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupByView'; }),
+  'a short name an implemented interface already supplies (GroupBy) is not offered; others still are');
+var arMixin = arExpr.replace('ArExpr', 'ArMixin').replace('implements:', 'mixins:');
+var arMixinRes = arHandler.handle(arMixin, { line: arExprLine, character: arExprLines[arExprLine].indexOf('this.GroupB') + 11 }, 'file:///ar.js');
+test(! arMixinRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupBy'; }) &&
+     arMixinRes.items.some(function(i) { return i.additionalTextEdits && i.label === 'GroupByView'; }),
+  'a short name a mixin already supplies (GroupBy) is not offered; others still are');
+var arInner = arSorted.replace("  requires: [", "  classes: [ { name: 'DAOControllerView' } ],\n  requires: [");
+test(! arItem(arComplete(arInner)), 'a short name an inner class owns is not offered');
+
+// 12. Flag off — today's list: required classes only, complete.
+var arOff = foam.parse.lsp.handlers.MemberCompletionHandler.create({
+  index: index,
+  featureConfig: require(path.resolve(__dirname, '../../lsp/FeatureConfig')).load({
+    initOptions: { features: { 'completion.autoRequires': false } } })
+});
+var arOffRes = arComplete(arSorted, arOff);
+test(! arOffRes.items.some(function(i) { return i.additionalTextEdits; }), 'flag off: no auto-require items');
+test(arOffRes.isIncomplete === false, 'flag off: list is complete, as before');
+
+// 13. requires: after an entry the grammar cannot parse. The harvest stops
+// at the call inside `axioms:`, so the existing requires: has no span —
+// writing a second requires: key would lose the new require (the later
+// duplicate key wins). Nothing may be offered.
+var arAxioms = "foam.CLASS({\n  package: 'test',\n  name: 'ArAxioms',\n" +
+  "  axioms: [ foam.pattern.Faceted.create() ],\n  requires: [\n    'foam.u2.View'\n  ],\n" + arMethod('  ') + "});";
+var arAxiomsRes = arComplete(arAxioms);
+test(! arItem(arAxiomsRes), 'requires: after an unparseable axioms: entry — nothing offered');
+test(! arAxiomsRes.items.some(function(i) {
+    return ( i.additionalTextEdits || [] ).some(function(e) { return e.newText.indexOf('requires:') !== -1; }); }),
+  'requires: after an unparseable axioms: entry — no second requires: key is written');
+
+// 14. Java-only classes: not offered to a JS model, offered to a Java-only one.
+var JO_ID = 'foam.dao.F3FileJournal';
+function joItems(src) {
+  var ls = src.split('\n');
+  var l  = ls.findIndex(function(x) { return x.indexOf('this.F3FileJ') !== -1; });
+  return arHandler.handle(src, { line: l, character: ls[l].indexOf('this.F3FileJ') + 12 }, 'file:///jo.js').items;
+}
+var joJs = arSorted.replace('this.DAOCon', 'this.F3FileJ');
+test(! joItems(joJs).some(function(i) { return i.detail === JO_ID; }), 'Java-only class not offered in a JS model');
+var joJava = joJs.replace("  name: 'ArSorted',\n", "  name: 'ArSorted',\n  flags: [ 'java' ],\n");
+test(joItems(joJava).some(function(i) { return i.detail === JO_ID && i.additionalTextEdits; }),
+  'Java-only class offered in a Java-only model');
+
+// 15. CRLF file — inserted line breaks are CRLF too.
+var arCrlf = arSorted.replace(/\n/g, '\r\n');
+arIt = arItem(arComplete(arCrlf));
+arOut = arIt ? arApply(arCrlf, arIt.additionalTextEdits) : '';
+test(!! arIt && arOut.indexOf("'" + AR_ID + "',\r\n    'foam.u2.DetailView'") !== -1, 'CRLF: entry inserted with CRLF');
+test(!! arIt && ! /[^\r]\n/.test(arOut), 'CRLF: no bare LF left in the edited file');
+var arNoneCrlf = arNone.replace(/\n/g, '\r\n');
+arIt = arItem(arComplete(arNoneCrlf));
+arOut = arIt ? arApply(arNoneCrlf, arIt.additionalTextEdits) : '';
+test(!! arIt && ! /[^\r]\n/.test(arOut) && JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID ]),
+  'CRLF, no requires: new array uses CRLF and evaluates');
+
+// 16. Multi-model: the SECOND model already requires the class. Its own
+// requires decide, not the first model's — no second copy is offered.
+var arMultiHave = "foam.CLASS({\n  package: 'test',\n  name: 'First',\n  requires: [ 'foam.u2.View' ]\n});\n\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'Second',\n  requires: [\n    '" + AR_ID + "'\n  ],\n" + arMethod('  ') + "});";
+var arMultiHaveRes = arComplete(arMultiHave);
+test(! arItem(arMultiHaveRes), 'multi-model: class the cursor model already requires is not offered again');
+test(arMultiHaveRes.items.some(function(i) { return i.label === 'DAOControllerView' && ! i.additionalTextEdits; }),
+  'multi-model: the cursor model\'s own requires are listed');
+
+// 17. A commented-out model after the cursor's model: its `name:` must not
+// be taken as the anchor, or the new requires: lands inside the comment.
+var arCommented = "foam.CLASS({\n  package: 'test',\n  name: 'Live',\n" + arMethod('  ') + "});\n\n" +
+  "/*\nfoam.CLASS({\n  package: 'test',\n  name: 'Dead'\n});\n*/\n";
+arIt = arItem(arComplete(arCommented));
+arOut = arIt ? arApply(arCommented, arIt.additionalTextEdits) : '';
+test(!! arIt && arOut.indexOf("  name: 'Live',\n  requires: [\n    '" + AR_ID + "'\n  ],\n") !== -1,
+  'commented-out model: new requires: goes after the live name:');
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID ]),
+  'commented-out model: edited file evaluates with the id required');
+
+// 18. Two requires: keys — JS keeps the last one, so the edit goes there.
+var arTwo = "foam.CLASS({\n  name: 'ArTwo',\n  requires: [ 'foam.u2.View' ],\n" +
+  "  requires: [ 'foam.u2.DetailView' ],\n" + arMethod('  ') + "});";
+arIt = arItem(arComplete(arTwo));
+arOut = arIt ? arApply(arTwo, arIt.additionalTextEdits) : '';
+test(JSON.stringify(arRequires(arOut)) === JSON.stringify([ AR_ID, 'foam.u2.DetailView' ]),
+  'two requires: keys — the id lands in the last one, which JS keeps');
+
+// 19. Mixed endings: one CRLF elsewhere does not make an LF insert CRLF.
+var arMixed = "// header\r\n" + arSorted;
+arIt = arItem(arComplete(arMixed));
+arOut = arIt ? arApply(arMixed, arIt.additionalTextEdits) : '';
+test(!! arIt && arOut.indexOf("'" + AR_ID + "',\n    'foam.u2.DetailView'") !== -1,
+  'mixed endings: insert on an LF line uses LF');
+
+// 20. A foam.CLASS inside a method never runs at load time, so
+// parseFileModels pairs each later model with the previous call's line
+// (src/foam/dao/Relationship.js:329). The cursor sits in Second, which
+// already requires AR_ID; getModelAt answers Third, whose requires lack it.
+// Offering AR_ID would add it to Second a second time — nothing is offered.
+var arShift = "foam.CLASS({\n  package: 'test',\n  name: 'First',\n  methods: [\n" +
+  "    function later() {\n      foam.CLASS({ package: 'test', name: 'NeverRuns' });\n    }\n  ]\n});\n\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'Second',\n  requires: [\n    '" + AR_ID + "'\n  ],\n" + arMethod('  ') + "});\n\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'Third'\n});";
+var arShiftModels = foam.parse.lsp.FileModelCache.create().parseFileModels(arShift);
+test(arShiftModels.length === 3 && arShiftModels[1].name === 'Second' &&
+     arShiftModels[1].sourceLine_ !== arShift.split('\n').indexOf("  name: 'Second',") - 2,
+  'fixture reproduces the shifted sourceLine_ (known parseFileModels issue)');
+var arShiftRes = arComplete(arShift);
+test(! arShiftRes.items.some(function(i) {
+    return ( i.additionalTextEdits || [] ).some(function(e) { return e.newText.indexOf(AR_ID) !== -1; }); }),
+  'shifted model lines: no edit adds a require the cursor model already has');
+
+// === labelDetails, gated on the client's completionItem capability ===
+section('Completion — labelDetails only for clients that declared labelDetailsSupport');
+
+var ldSrc = "foam.CLASS({\n  package: 'test',\n  name: 'LdDemo',\n  requires: [ 'foam.u2.View' ],\n" +
+  "  properties: [ { class: 'String', name: 'title' } ],\n" + arMethod('  ').replace('this.DAOCon', 'this.') + "});";
+var ldLine = ldSrc.split('\n').findIndex(function(l) { return /this\.$/.test(l); });
+var ldPos  = { line: ldLine, character: ldSrc.split('\n')[ldLine].length };
+
+var ldPlain = foam.parse.lsp.handlers.MemberCompletionHandler.create({ index: index }).handle(ldSrc, ldPos, 'file:///ld.js');
+test(! ldPlain.items.some(function(i) { return i.labelDetails; }), 'no capability: no item carries labelDetails');
+test(ldPlain.items.some(function(i) { return i.label === 'View' && i.detail === 'foam.u2.View'; }),
+  'no capability: detail unchanged (required class shows its id)');
+
+var ldRich = foam.parse.lsp.handlers.MemberCompletionHandler.create({
+  index: index, completionItemSupport: { labelDetailsSupport: true }
+}).handle(ldSrc, ldPos, 'file:///ld.js');
+var ldView = ldRich.items.filter(function(i) { return i.label === 'View'; })[0];
+test(ldView && ldView.labelDetails && ldView.labelDetails.description === 'foam.u2',
+  'capability: required class shows its package as labelDetails.description');
+test(ldView && ldView.detail === 'foam.u2.View', 'capability: detail still sent');
+// Property items with a known type: `this.View.create({ ▊` lists View's properties.
+var ldCreateSrc = ldSrc.replace(/this\.$/m, 'this.View.create({ ');
+var ldCreateLine = ldCreateSrc.split('\n')[ldLine];
+var ldCreate = foam.parse.lsp.handlers.MemberCompletionHandler.create({
+  index: index, completionItemSupport: { labelDetailsSupport: true }
+}).handle(ldCreateSrc, { line: ldLine, character: ldCreateLine.length }, 'file:///ld.js');
+var ldProp = ldCreate.items.filter(function(i) { return i.label === 'data'; })[0];
+test(!! ldProp && ldProp.labelDetails && /^: \w+$/.test(ldProp.labelDetails.detail),
+  'capability: property shows ": <Type>" as labelDetails.detail');
+
+var arRich = arComplete(arSorted, foam.parse.lsp.handlers.MemberCompletionHandler.create({
+  index: index, completionItemSupport: { labelDetailsSupport: true } }));
+arIt = arItem(arRich);
+test(arIt && arIt.labelDetails && arIt.labelDetails.description === 'foam.comics',
+  'capability: auto-require item shows its package');
+
+// CompletionHandler: property-type list (`class: '▊'`).
+var ldTypeSrc = "foam.CLASS({\n  name: 'LdType',\n  properties: [ { class: '', name: 'x' } ]\n})";
+var ldTypePos = { line: 2, character: ldTypeSrc.split('\n')[2].indexOf("''") + 1 };
+var ldTypePlain = foam.parse.lsp.handlers.CompletionHandler.create({ index: index, grammar: grammar }).handle(ldTypeSrc, ldTypePos);
+test(ldTypePlain.items.length > 0 && ! ldTypePlain.items.some(function(i) { return i.labelDetails; }),
+  'CompletionHandler, no capability: property types carry no labelDetails');
+var ldTypeRich = foam.parse.lsp.handlers.CompletionHandler.create({
+  index: index, grammar: grammar, completionItemSupport: { labelDetailsSupport: true }
+}).handle(ldTypeSrc, ldTypePos);
+var ldStr = ldTypeRich.items.filter(function(i) { return i.label === 'String'; })[0];
+test(ldStr && ldStr.labelDetails && ldStr.labelDetails.description === 'foam.lang',
+  'CompletionHandler, capability: String type shows package foam.lang');

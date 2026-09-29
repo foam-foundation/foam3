@@ -141,7 +141,7 @@ and maybe [some other complications](https://github.com/foam-framework/foam2/pul
 but eventually it worked really well,
 except for those times that [it didn't](https://github.com/foam-framework/foam2/pull/5083/files) and we
 [needed to make exceptions](https://github.com/foam-framework/foam2/pull/5086/files)
-in [various ways](https://github.com/kgrgreer/foam3/pull/45/files).
+in [various ways](https://github.com/foam-foundation/foam3/pull/45/files).
 I'm very glad we're not using this anymore.
 
 We had a very complicated use-case once where the user would update a property and
@@ -150,26 +150,26 @@ by the user. It was important for the user to see the information in its new sta
 and also for the user not to be able to continue updating the data once the request
 was made (otherwise the update from the server would result in loss of data)
 
-The solution for this was [Loading Border](https://github.com/kgrgreer/foam3/pull/97)
+The solution for this was [Loading Border](https://github.com/foam-foundation/foam3/pull/97)
 but there was much dispute about how it worked so it was
-[updated](https://github.com/kgrgreer/foam3/pull/119).
+[updated](https://github.com/foam-foundation/foam3/pull/119).
 
 #### Some PRs that followed...
-- [the ability to search wizardlets](https://github.com/kgrgreer/foam3/pull/357)
+- [the ability to search wizardlets](https://github.com/foam-foundation/foam3/pull/357)
   - was only ever used in scrolling wizards; may not work in other wizards
-- [SequenceMenu and first efforts for non-CRUNCH wizards](https://github.com/kgrgreer/foam3/pull/1313) (first 2022 PR)
-- [transient wizard sequences](https://github.com/kgrgreer/foam3/pull/1375)
-- [building wizardlet graph on the client](https://github.com/kgrgreer/foam3/pull/1401)
-- [wizard inspector added](https://github.com/kgrgreer/foam3/pull/1417)
-- [first attempt to support "lifting"](https://github.com/kgrgreer/foam3/pull/1430)
+- [SequenceMenu and first efforts for non-CRUNCH wizards](https://github.com/foam-foundation/foam3/pull/1313) (first 2022 PR)
+- [transient wizard sequences](https://github.com/foam-foundation/foam3/pull/1375)
+- [building wizardlet graph on the client](https://github.com/foam-foundation/foam3/pull/1401)
+- [wizard inspector added](https://github.com/foam-foundation/foam3/pull/1417)
+- [first attempt to support "lifting"](https://github.com/foam-foundation/foam3/pull/1430)
   - this never worked as intended
-  - here's a [further attempt](https://github.com/kgrgreer/foam3/pull/1479)
-  - also tried to fix lifting [in this one](https://github.com/kgrgreer/foam3/pull/1498)
-  - [this was definitely related](https://github.com/kgrgreer/foam3/pull/1503)
-  - and [this one](https://github.com/kgrgreer/foam3/pull/1504)
-  - and [this one](https://github.com/kgrgreer/foam3/pull/1510)
-- all wizards [are in popups now](https://github.com/kgrgreer/foam3/pull/1531)
-- this [network failure handling](https://github.com/kgrgreer/foam3/pull/200)
+  - here's a [further attempt](https://github.com/foam-foundation/foam3/pull/1479)
+  - also tried to fix lifting [in this one](https://github.com/foam-foundation/foam3/pull/1498)
+  - [this was definitely related](https://github.com/foam-foundation/foam3/pull/1503)
+  - and [this one](https://github.com/foam-foundation/foam3/pull/1504)
+  - and [this one](https://github.com/foam-foundation/foam3/pull/1510)
+- all wizards [are in popups now](https://github.com/foam-foundation/foam3/pull/1531)
+- this [network failure handling](https://github.com/foam-foundation/foam3/pull/200)
   - screenshot is an example of a capability where the response from the server
     updates the data that was entered, so it's possible that's why I was testing
     this screen the most frequently.
@@ -177,17 +177,17 @@ but there was much dispute about how it worked so it was
 ### Focus Wizard
 
 The Focus Wizard started with
-[WizardForm and FlexibleWizardFormView](https://github.com/kgrgreer/foam3/pull/1549)
-(and [another related PR](https://github.com/kgrgreer/foam3/pull/1542/files)).
-[These were later renamed](https://github.com/kgrgreer/foam3/pull/1580)
+[WizardForm and FlexibleWizardFormView](https://github.com/foam-foundation/foam3/pull/1549)
+(and [another related PR](https://github.com/foam-foundation/foam3/pull/1542/files)).
+[These were later renamed](https://github.com/foam-foundation/foam3/pull/1580)
 to **WizardController** and **FlexibleWizardContentsView**
 (which maybe should have been named "FlexibleContentsWizardView",
 because it's [*] a wizardview *(conceptually (i.e. no WizardView interface exists (because it's not needed))).
 
 #### Some PRs that followed...
 
-- [PathProperty was added](https://github.com/kgrgreer/foam3/pull/1572)
-- [AlternateFlow + AlternateFlowAction were added](https://github.com/kgrgreer/foam3/pull/1604)
-- [tests capability-defined wizards](https://github.com/kgrgreer/foam3/pull/1617)
-- [foam.u2.wizard was organized into sub-packages](https://github.com/kgrgreer/foam3/pull/1630)
-- [SplitWAO and foam.u2.wizard.data was introduced](https://github.com/kgrgreer/foam3/pull/1646)
+- [PathProperty was added](https://github.com/foam-foundation/foam3/pull/1572)
+- [AlternateFlow + AlternateFlowAction were added](https://github.com/foam-foundation/foam3/pull/1604)
+- [tests capability-defined wizards](https://github.com/foam-foundation/foam3/pull/1617)
+- [foam.u2.wizard was organized into sub-packages](https://github.com/foam-foundation/foam3/pull/1630)
+- [SplitWAO and foam.u2.wizard.data was introduced](https://github.com/foam-foundation/foam3/pull/1646)

@@ -48,6 +48,15 @@ foam.INTERFACE({
           type: 'foam.lang.Detachable'
         }
       ]
+    },
+    {
+      name: 'isOrderIndependent',
+      type: 'Boolean',
+      documentation: `True when the result does not depend on the order objects are
+        put, so an index may drop the ORDER BY of an unlimited select instead of
+        collecting and sorting every matching row. Defaults to false: a wrong
+        false costs a sort, a wrong true returns rows in the wrong order.`,
+      javaCode: 'return false;'
     }
   ]
 });

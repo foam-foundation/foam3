@@ -11,7 +11,7 @@ foam.CLASS({
 
   documentation: `
     Regression guard for the parser-primitive micro-optimizations:
-    arithmetic DoubleParser, String.intern()-free StringParser, inlined
+    arithmetic DoubleParser, StringInterner-cached StringParser, inlined
     whitespace skip, inline property+comma in ModelParserFactory, CharLiteral
     specialization, and the StringParser indexOf fast path. Each test
     captures a behavior that the optimizations must preserve exactly.

@@ -10,8 +10,8 @@ foam.CLASS({
   extends: 'foam.core.analytics.AnalyticEvent',
 
   messages: [
-    { name: 'UNKNOWN_USER_MSG', message: 'Admin' },
-    { name: 'SYSTEM_USER_MSG',  message: 'System' }
+    { name: 'UNKNOWN_USER_MSG', message: 'admin' },
+    { name: 'SYSTEM_USER_MSG',  message: 'system' }
   ],
 
   css: `
@@ -50,6 +50,12 @@ foam.CLASS({
       min-height: 1em;
       width: 100%;
       color: $textTertiary;
+    }
+    ^stack {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      width: 100%;
     }
   `,
 
@@ -124,15 +130,23 @@ foam.CLASS({
       // Overload userId to display the user's name, instead
       name: 'userId',
       label: 'Actor',
-      tableCellFormatter: function(value) {
+      tableCellFormatter: function(value, obj) {
         this.style({
           'font-weight': foam.CSS.returnTokenValue('$font-medium', this.cls_, this.__subContext__)
         });
+
+        var cls = foam.core.analytics.ChangeAnalyticEvent;
+
+        if ( value === 1 ) {
+          this.add(cls.SYSTEM_USER_MSG);
+          return;
+        }
+
         this.__context__.userDAO.find(value).then((result) => {
           if ( ! result ) {
-            this.add(this.data.UNKNOWN_USER_MSG);
+            this.add(cls.UNKNOWN_USER_MSG);
           } else {
-            this.add(result.firstName == "system" ? this.data.SYSTEM_USER_MSG : result.firstName[0] + ". " + result.lastName);
+            this.add(result.userName);
           }
         });
       }
@@ -154,10 +168,12 @@ foam.CLASS({
         return getField() + " · " + getName();
       `,
       tableCellFormatter: function(value, obj) {
-        var cls    = foam.String.cssClassize(obj.cls_.id);
-        var parts  = ( value || '' ).split(' · ');
-        this.start().addClass(cls + '-label').add(parts[0] || '').end();
-        this.start().addClass(cls + '-supportingLabel').add(parts[1] || '').end();
+        var cls   = foam.String.cssClassize(obj.cls_.id);
+        var parts = ( value || '' ).split(' · ');
+        this.start().addClass(cls + '-stack')
+          .start().addClass(cls + '-supportingLabel').add(parts[0] || '').end()
+          .start().addClass(cls + '-label').add(parts[1] || '').end()
+        .end();
       }
     },
     {
@@ -184,8 +200,10 @@ foam.CLASS({
       tableCellFormatter: function(value, obj) {
         var cls   = foam.String.cssClassize(obj.cls_.id);
         var parts = ( value || '' ).split(' · ');
-        this.start().addClass(cls + '-supportingLabel').add(parts[0] || '').end();
-        this.start().addClass(cls + '-label').add(parts[1] || '').end();
+        this.start().addClass(cls + '-stack')
+          .start().addClass(cls + '-supportingLabel').add(parts[0] || '').end()
+          .start().addClass(cls + '-label').add(parts[1] || '').end()
+        .end();
       }
     }
   ]

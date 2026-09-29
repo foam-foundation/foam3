@@ -90,7 +90,7 @@ foam.CLASS({
       border: 1px solid $borderLight;
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      z-index: 1000;
+      z-index: $z-popup;
       padding: 4px 0;
       min-width: 120px;
     }

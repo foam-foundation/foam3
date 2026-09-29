@@ -9,10 +9,6 @@ foam.CLASS({
   name: 'Controller',
   extends: 'foam.u2.Element',
 
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
   requires: [
     'foam.demos.heroes.CitationView',
     'foam.demos.heroes.DashboardCitationView',

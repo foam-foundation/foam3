@@ -13,34 +13,35 @@ foam.CLASS({
     'foam.core.COREService'
   ],
 
-  documentation: `Monitor directory for the apperance of a file,
-process the file name as a 'request',
-and finally remove the file if it was 'handled'.
-`,
+  documentation: `Watch a directory for files that appear. Each one's name is a
+'request': handleRequest gets it when acceptRequest agrees, then postCleanup
+runs, which by default deletes the file. postCleanup runs for a rejected
+request too.
+
+watch() is the loop: java.nio.WatchService on watchDir itself, event-driven and
+the right tool for one request directory. PollingWatcher overrides it with a
+stat poll that can walk a tree.`,
 
   javaImports: [
     'foam.core.app.AppConfig',
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
-    'foam.dao.DAO',
-    'foam.lang.Agency',
     'foam.lang.AgencyTimerTask',
-    'foam.lang.ContextAgent',
-    'foam.lang.FObject',
     'foam.lang.X',
     'foam.util.SafetyUtil',
-    'java.util.Timer',
     'java.io.File',
     'java.io.IOException',
+    'java.nio.file.ClosedWatchServiceException',
+    'java.nio.file.FileSystems',
     'java.nio.file.Files',
     'java.nio.file.Path',
     'java.nio.file.Paths',
-    'java.nio.file.FileSystem',
-    'java.nio.file.FileSystems',
+    'java.nio.file.StandardWatchEventKinds',
     'java.nio.file.WatchEvent',
     'java.nio.file.WatchKey',
     'java.nio.file.WatchService',
-    'java.nio.file.StandardWatchEventKinds'
+    'java.util.Timer',
+    'java.util.concurrent.atomic.AtomicBoolean'
   ],
 
   properties: [
@@ -83,6 +84,22 @@ and finally remove the file if it was 'handled'.
       class: 'Object',
       visibility: 'HIDDEN',
       networkTransient: true
+    },
+    {
+      name: 'running',
+      class: 'Object',
+      javaType: 'java.util.concurrent.atomic.AtomicBoolean',
+      javaFactory: 'return new AtomicBoolean();',
+      visibility: 'HIDDEN',
+      networkTransient: true
+    },
+    {
+      documentation: 'Set by watch() so stop() can close it, which unblocks a WatchService.take() that is currently waiting.',
+      name: 'watchService',
+      class: 'Object',
+      javaType: 'java.nio.file.WatchService',
+      visibility: 'HIDDEN',
+      networkTransient: true
     }
  ],
 
@@ -91,6 +108,11 @@ and finally remove the file if it was 'handled'.
       documentation: 'Start as a COREService',
       name: 'start',
       javaCode: `
+      if ( SafetyUtil.isEmpty(getWatchDir()) ) {
+        Loggers.logger(getX(), this).info("watchDir not set, not watching");
+        return;
+      }
+      getRunning().set(true);
       Timer timer = new Timer(this.getClass().getSimpleName(), true);
       setTimer(timer);
       timer.schedule(
@@ -99,50 +121,87 @@ and finally remove the file if it was 'handled'.
       `
     },
     {
+      name: 'stop',
+      javaCode: `
+      getRunning().set(false);
+      if ( getTimer() != null ) ((Timer) getTimer()).cancel();
+      if ( getWatchService() != null ) {
+        try {
+          getWatchService().close();
+        } catch (IOException e) {
+          // already closing
+        }
+      }
+      `
+    },
+    {
       name: 'execute',
       args: 'Context x',
       javaCode: `
       Logger logger = Loggers.logger(x, this);
-      logger.info("execute", getWatchDir());
-
+      Path   root   = Paths.get(getWatchDir()).toAbsolutePath().normalize();
+      logger.info("execute", root);
 
       try {
         mkdirs(x, getWatchDir());
-
         preCleanup(x);
+        watch(x, root);
+      } finally {
+        logger.info("exit");
+      }
+      `
+    },
+    {
+      documentation: 'The loop: java.nio.WatchService on root, ENTRY_CREATE only. Runs until stop().',
+      name: 'watch',
+      args: 'X x, Path root',
+      javaCode: `
+      Logger logger = Loggers.logger(x, this);
+      try ( WatchService ws = FileSystems.getDefault().newWatchService() ) {
+        setWatchService(ws);
+        root.register(ws, StandardWatchEventKinds.ENTRY_CREATE);
 
-        WatchService watchService = FileSystems.getDefault().newWatchService();
-        Path path = Paths.get(getWatchDir());
-        path.register(
-          watchService,
-          StandardWatchEventKinds.ENTRY_CREATE
-        );
+        while ( getRunning().get() ) {
+          WatchKey key;
+          try {
+            key = ws.take();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            break;
+          } catch (ClosedWatchServiceException e) {
+            // stop() closed ws to unblock this take()
+            break;
+          }
+          if ( ! getRunning().get() ) break;
 
-        WatchKey key;
-        while ((key = watchService.take()) != null) {
-          for (WatchEvent<?> event : key.pollEvents()) {
+          for ( WatchEvent<?> event : key.pollEvents() ) {
             if ( event.kind() == StandardWatchEventKinds.ENTRY_CREATE ) {
-              String request = event.context().toString();
-              logger.info("Detected", request);
-              try {
-                if ( acceptRequest(x, request) ) {
-                  handleRequest(x, request);
-                } else {
-                  logger.warning("Rejected", request);
-                }
-                postCleanup(x, request);
-              } catch (Throwable t) {
-                logger.warning(t);
-              }
+              request(x, event.context().toString());
             }
           }
           key.reset();
         }
-        logger.info("exit");
       } catch (IOException e) {
-        logger.error("exit", e);
-      } catch (InterruptedException e) {
-        // noop
+        logger.error("watch", e);
+      }
+      `
+    },
+    {
+      documentation: 'One detected request: handle it when acceptRequest agrees, then postCleanup. A failure in either is logged and the loop goes on.',
+      name: 'request',
+      args: 'X x, String request',
+      javaCode: `
+      Logger logger = Loggers.logger(x, this);
+      logger.info("Detected", request);
+      try {
+        if ( acceptRequest(x, request) ) {
+          handleRequest(x, request);
+        } else {
+          logger.warning("Rejected", request);
+        }
+        postCleanup(x, request);
+      } catch (Throwable t) {
+        logger.warning(request, t);
       }
       `
     },

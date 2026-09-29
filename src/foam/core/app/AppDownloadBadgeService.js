@@ -26,7 +26,8 @@ foam.CLASS({
     'initLayout',
     'loginSuccess',
     'theme',
-    'params'
+    'params',
+    'window'
   ],
   messages: [
     { name: 'APP_DOWNLOAD_TITLE', message: 'Fast and Free Money Transfers, directly from your phone'},
@@ -61,7 +62,7 @@ foam.CLASS({
       class: 'Boolean',
       name: 'referralToken',
       factory: function() {
-        var searchParams = new URLSearchParams(location.search);
+        var searchParams = new URLSearchParams(this.window.location.search);
         return searchParams.get('referral');
       },
       hidden: true
@@ -95,10 +96,10 @@ foam.CLASS({
             this.popup.open();
 
             // Remove the referral token from the URL
-            let url = new URL(window.location.href);
+            let url = new URL(this.window.location.href);
             url.searchParams.delete('referral');
             url.searchParams.delete('utm_id');
-            window.history.replaceState('', '', url);
+            this.window.history.replaceState('', '', url);
 
           }})
         }

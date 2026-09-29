@@ -454,7 +454,7 @@ var byNameHoverDone = h.withServerLane(async function() {
     section('byName hover — a property answers about itself');
 
     // foam.core.auth.User.email resolves as kind 7 with getPropertyDoc
-    // '**email** (EMail)'; the class hover for User is ~5.3k characters.
+    // '**email** (`EMail`)'; the class hover for User is ~5.3k characters.
     var propRes = await request('foam/byName',
       { name: 'foam.core.auth.User.email', op: 'hover' }, 'byName property hover');
     var propVal = ( propRes && propRes.result && propRes.result.contents &&
@@ -463,7 +463,7 @@ var byNameHoverDone = h.withServerLane(async function() {
     test(propVal.indexOf('**email**') === 0,
       'byName hover on User.email opens with the property, got: ' +
       JSON.stringify(propVal.slice(0, 40)));
-    test(propVal.indexOf('(EMail)') !== -1,
+    test(propVal.indexOf('(`EMail`)') !== -1,
       'byName hover on User.email names its property type');
     // The bug was a whole-class dump. Assert the shape it must NOT have:
     // the class hover carries other properties' names and runs into the
@@ -471,6 +471,19 @@ var byNameHoverDone = h.withServerLane(async function() {
     test(propVal.length < 1000,
       'byName hover on User.email is the property, not the class dump (' +
       propVal.length + ' chars)');
+
+    // getPropertyDoc (the by-name single-property path) used to drop `of:`
+    // entirely — '**buttonStyle** (Enum)' with no hint of WHICH enum, even
+    // though the class-table path (ActionEnumRefinement assertion above)
+    // already rendered it as Enum<ButtonStyle>. Both paths now share
+    // FoamIndex.ofName_.
+    var buttonStyleRes = await request('foam/byName',
+      { name: 'foam.lang.Action.buttonStyle', op: 'hover' }, 'byName buttonStyle hover');
+    var buttonStyleVal = ( buttonStyleRes && buttonStyleRes.result &&
+      buttonStyleRes.result.contents && buttonStyleRes.result.contents.value ) || '';
+    test(buttonStyleVal.indexOf('Enum<ButtonStyle>') !== -1,
+      'byName hover on Action.buttonStyle names its enum via the single-property path, got: ' +
+      JSON.stringify(buttonStyleVal.slice(0, 40)));
 
     // Non-regression: a class with no member still gets the class hover.
     var clsRes = await request('foam/byName',

@@ -1,3 +1,5 @@
+<flow name="Reflow" category="DOC/GUIDE" spid="foam" description="Overview of Reflow, FOAM's Jupyter-style interactive console: Console, Flow documents, Block execution, command system, dashboards." keywords="reflow,console,flow,block,dashboard,knowledge"/>
+
 ## Overview
 
 Reflow is FOAM's **notebook-style interactive console** that enables creation of interactive documents, data analysis workflows, and visual programming environments<cite />. It provides a command-line interface where you can execute commands, visualize data, create reusable flows, and build interactive documents similar to Jupyter notebooks<cite />.
@@ -42,7 +44,7 @@ The system includes several specialized UI components:
 Reflow essentially provides an interactive programming environment within FOAM applications, similar to how Jupyter notebooks work for Python<cite />. It's particularly useful for data exploration, prototyping, and creating interactive documentation that combines code execution with rich output visualization<cite />. The system integrates deeply with FOAM's DAO system, allowing direct manipulation and visualization of data collections through the console interface<cite />.
 
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 
@@ -382,7 +384,6 @@ foam.CLASS({
     'foam.core.reflow.FlowableTree',
     'foam.core.reflow.Layout',
     'foam.dao.ArrayDAO',
-    'foam.flow.Document',
     'foam.u2.Link'
   ],
 

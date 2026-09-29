@@ -17,7 +17,6 @@ p({
       .setSaf(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("analyticEvents")
-      .setWaitReplay(false)
       .setDecorator(
         new foam.core.analytics.AnalyticEventOMDAO.Builder(x).setDelegate(
         new foam.core.analytics.AnalyticEventTimestampDAO.Builder(x).setDelegate(

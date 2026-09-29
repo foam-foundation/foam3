@@ -14,15 +14,15 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | File | Purpose | Key Functions |
 |---|---|---|
 | `logError.js` | The one logging idiom for a degraded-but-not-fatal failure — see "A fallback leaves a trace" below | `logLspError(context, err)` |
-| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()`. `sourceLine_` on each model comes from `FileClassifier.significantCalls()` |
-| `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `getClassLine()`, `getSymbolPosition()`, `resolveSymbol()`, `buildFileIndex()` |
-| `FoamClassGrammar.js` | Grammar parser for completion `sug()` only | Skip-and-match pattern, dynamic `sug()` from registry |
-| `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
+| `FileModelCache.js` | Eval-intercept model extraction + caching | `getModels()`, `getModelAt()`, `parseFileModels()`. `sourceLine_` and `sourceOffset_` on each model come from `FileClassifier.significantCalls()`; the offset only breaks ties when `FoamClassGrammar.modelEntryFor` pairs a model with its extent by name |
+| `FoamIndex.js` | Query layer over FOAM registry | `getAllClassIds()`, `getProperties()`, `getFilePath()`, `getClassLine()`, `getSymbolPosition()`, `resolveSymbol()`, `buildFileIndex()`, `getRefinements()` |
+| `FoamClassGrammar.js` | Grammar parser: completion `sug()` plus the single-parse position harvest | Skip-and-match pattern, dynamic `sug()` from registry; `collectAxiomPositions()`, `collectModelExtents()`, `modelEntryFor()` — see "Grammar-harvested positions" |
+| `CursorAnalyzer.js` | Shared text/position utilities + regex fallback | `offsetToPosition()`, `offsetMapper()` (many offsets, one text), `resolveClassId()`, `parseRequires()`, `findCreateContext()` |
 | `TypeTracker.js` | Variable type resolution from `.create()` assignments | `getVariableTypes()` |
 | `JrlLoader.js` | Load and parse .jrl (journal) files containing FOAM FObject records | `loadString()`, `loadStringWithLines()`, `sliceEntries()`, `filterByClass()`. **A journal is not valid JavaScript** — FOAM's triple-quoted values are a syntax error, so the content is cut into entries on the grammar's entry starts and each is evaluated alone with its triple-quoted spans blanked. Evaluating the whole file as one body threw at construction and returned nothing: 68 of 78 `services.jrl` and 119 of 365 journals were silently empty |
 | `JrlGrammar.js` | Position-harvesting grammar for .jrl files (entry heads, embedded class refs, triple-string spans) | `collectJrlPositions()` |
-| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl; journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
-| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Every gate routes through one shared instance — server dispatch, `DiagnosticsHandler`, and the six handlers that used to sniff with their own regex (CodeLens, Completion, Definition, Hover, MemberCompletion, Symbol), which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line }` — see "Model positions" below |
+| `JournalEntryIndex.js` | Query-driven journal lookup: service name / model-entry id → journal file + line. Entry slicing is `JrlLoader.sliceEntries()`; this class only adds ordered ops + a per-entry key. Service lookups touch only services.jrl, but EVERY services.jrl in the workspace (`FoamIndex.getServiceJournalFiles()`, nearest-first from the asking file); entry lookups stay on the pom/source directory answer (`getJournalDirs()`); journals over maxFileSize skipped; raw-text pre-gate skips parsing non-matching files; per-entry eval isolates malformed entries; per-file parses cached by mtime+size; invalidated on .jrl save | `getServiceLocations()`, `getEntryLocations()`, `invalidate()` |
+| `FileClassifier.js` | The ONE answer to "what kind of file is this", and the ONE scan for where a file's `foam.<X>(` calls are | `classify(uri, text)`. `.jrl` and `pom.js` are decided by FILENAME; everything else by PARSE — the first significant `foam.UPPERCASE(` call, where significant means outside comments and string literals. Every gate routes through one shared instance — server dispatch, `DiagnosticsHandler`, and the six handlers that used to sniff with their own regex (CodeLens, Completion, Definition, Hover, MemberCompletion, Symbol), which is also what makes its per-URI memo effective. `significantCalls(text)` returns every such call as `{ name, offset, line, nested }` — `nested` marks a call inside another foam call's parentheses (a class a method builds at runtime); the bracket count skips regex literals by the previous-token rule — see "Model positions" below; `commentSpans(text)` returns the comments that same walk skipped, so it shares the regex-literal rule: the `/*` in `var re = /[/*]/;` is part of the regex, not a comment |
 | `server.js` | JSON-RPC main loop | Message dispatch, handler creation, helper functions |
 | `lsp-start.js` | Entry point | Console redirect, buildlib globals, pmake invocation |
 | `LSPMaker.js` | Build Maker for pmake | Sets flags, builds file index, starts server |
@@ -30,13 +30,14 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 ### Handlers
 | Handler | LSP Method | What It Does |
 |---|---|---|
-| `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values |
-| `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports |
+| `CompletionHandler.js` | `textDocument/completion` | Grammar-based + context fallback for partial values. Items carry `labelDetails` where the data is on hand — the package of a property type (`{ description: 'foam.u2' }`), the type of a column/axiom property (`{ detail: ': String' }`); every list leaves through `CompletionItem.toLSPItems`, which drops `labelDetails` unless the client declared `completionItem.labelDetailsSupport` (`completionItemSupport`, wired from `initialize`). `detail` is unchanged either way |
+| `MemberCompletionHandler.js` | (routed from completion) | `this.` members, `.create({})` properties, requires/imports, same `labelDetails` shaping. **Auto-require** (`completion.autoRequires`): `this.<Capital>` also offers registered classes the model does not require yet, inserting the short name with an `additionalTextEdits` entry that adds the id to that model's `requires:` — sorted place and the array's own quote/indent when it exists, a new `requires: [ … ]` after the last package/name/extends/refines/implements entry when it doesn't. Positions come from the grammar's `requiresEntry`/`headEntry` harvest inside the model's significant-call span, minus any record inside a comment (`FileClassifier.commentSpans` — the grammar parses a commented-out `foam.CLASS` like a live one), and no edit is written inside a comment. With two `requires:` keys the edit goes into the last, the one JS keeps. A class already required, or whose short name the model already uses, is not offered; nor is anything when no safe edit exists. The list is `isIncomplete` while the flag is on, so it re-asks as the partial grows. A model that has a `requires:` the grammar harvest never reached (it stops at the first value it cannot parse, e.g. a call in `axioms: [ foam.pattern.Faceted.create() ]`) gets no offer, since writing a second `requires:` key would lose the new require. Java-only classes (`flags: ['java']`) are offered only in a Java-only model. Inserted line breaks copy the ending of the line they are written next to (CRLF-aware, per line, so a mixed file stays consistent locally). No deprecated tag yet: FOAM does have a `deprecated:` model axiom (`src/foam/u2/DetailView.js:23`, plus `deprecated: true` on some properties), but completion does not read it |
 | `HoverHandler.js` | `textDocument/hover` | Class docs, method signatures, property types, create info. A property's type carries its `of:` target — `` `Enum<ButtonStyle>` `` — except the primitive `of:` an array class already implies (`StringArray of: 'String'`) |
 | `DefinitionHandler.js` | `textDocument/definition` | File index lookup for class → file path |
-| `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models |
+| `DiagnosticsHandler.js` | `textDocument/{publishDiagnostics,diagnostic}` | Push + pull diagnostic models. `tags` / `relatedInformation` only when the client declared them — see "Diagnostic tags and related locations" |
 | `JavaBlockValidator.js` | (called by Diagnostics) | Java import validation, getter/setter validation via model fields |
-| `SymbolHandler.js` | `textDocument/documentSymbol` | Document outline via model objects |
+| `SymbolHandler.js` | `textDocument/documentSymbol` | Document outline via model objects. `range` is the whole definition (the `foam.CLASS({...})` call, a property's `{...}` or `'name'`, a method's `function ... {}`), `selectionRange` just the name inside it, both from `collectModelExtents`. A member the grammar could not reach keeps the old zero-width point at its name |
+| `InlayHintHandler.js` | `textDocument/inlayHint` | `×N refinements` after a class name (`FoamIndex.getRefinements`, other files only), `: Type` after a property with no `class:` (the registry's resolved axiom; plain `Property` skipped), `overrides Parent` after a property a superclass declares (the parent axiom's `sourceCls_`). Type hints are kind 1 (Type); the other two carry no kind. Only hints inside the requested range; none on `.jrl`. Gated by `inlayHints` |
 | `WorkspaceAnalyzer.js` | `foam/analyzeWorkspace` | Full codebase scan |
 | `SemanticTokenHandler.js` | `textDocument/semanticTokens/full` | Highlights resolved class refs and typed variables |
 | `ReferencesHandler.js` | `textDocument/references` | Subclasses, implementors, requires, of-users + JS/Java/string/journal usages |
@@ -54,6 +55,8 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 | `CallHierarchyHandler.js` | `textDocument/prepareCallHierarchy` + `callHierarchy/{incomingCalls,outgoingCalls}` | Who calls / who's called for any FOAM method |
 | `PomValidator.js` | `foam/validatePoms` (+ called by Diagnostics on pom.js files) | Orphan files, missing POM entries, duplicate registrations; `validateEntries(text, pomPath)` adds entry-level checks — whitespace in name/flags values (`pom-name-whitespace`/`pom-flag-whitespace` ERROR), unknown flag tokens (`pom-flag-unknown` WARNING, vocabulary drifts), entries pointing at missing files (`pom-file-missing` ERROR). Positions come from the grammar harvest (`pomFileName`/`pomJavaFileName`/`pomFlagValue` kinds), never regex; `validate()` rolls them up as `entryIssues`. An OPEN pom is re-pushed on EVERY save (`reindexFile`), not gated on the affected-class set the class lane uses: `pom-file-missing` resolves each entry against disk, so the save that clears one is the save creating a file the pom names — a file whose class the pom's axiom state knows nothing about |
 | `CodeLensHandler.js` | `textDocument/codeLens` | Two independent, feature-toggled lenses: `codeLens.i18n` (missing-translation counts, delegates to `I18nHandler.scanMissingLanguages` — so it inherits that entry point's `translationReady` gate AND its test/demo/mock URI exemption; also requires `hints.i18nMissingLanguage`, since clicking translates) and `codeLens.hierarchy` (subclass counts, informational — anchored on the advertised no-op command `foam.lens.info`; a click is answered with null). Both bail on a multi-model file. |
+| `DocumentColorHandler.js` | `textDocument/{documentColor,colorPresentation}` | Swatches for `$token`s and raw colour values inside `css:` blocks. Block spans come from the grammar's `cssBlock` records (`FoamClassGrammar.collectCssBlocks`), not `text.indexOf(model.css)`; tokens resolve through `CSSTokenResolver.resolveTokenValue` against the class whose `css:` block uses them (Tabs and SegmentedTabs both declare `tabActiveColor`, with different values), and a token that does not resolve to a colour gets no swatch. A raw literal counts only on the value side of a declaration and outside `url(...)` and quoted strings, so `#add` selectors, `url(#abc)` and `content: '#fff'` get no swatch. Raw literals are offered back as hex, rgb and hsl, with the author's current form first. `colorPresentation` on a `$token` answers the token's own text, so picking a colour never rewrites a token into a literal |
+| `DocumentLinkHandler.js` | `textDocument/documentLink` | Clickable class ids, target `file://<class file>#L<declaration line>`. Model files: the grammar's `classRef` + `instClassRef` records, kept only when the span is a WHOLE quoted string (a requires rename, `'foam.u2.DetailView as DV'`, counts: the alias sits between id and quote) — the grammar records a registered prefix before it checks the closing quote, so `'foam.u2.ViewXYZ'` leaves a `foam.u2.View` record that would link the wrong class. Journals: `FoamIndex.scanJrlClassRefs` (the semantic-token refs) plus `JrlGrammar` string refs that name a registered class, deduped by span. The `JrlGrammar` pass is skipped (and logged) above `maxJrlGrammarSize` (1 MB, the `JournalEntryIndex.maxFileSize` line): on a 4.6 MB data journal it cost ~5.5 s per request; the scan-only path takes ~120 ms. The grammar instance is JrlHandler's, so both share one parse cache. No file on record, no link |
 | `ScaffoldHandler.js` | `workspace/executeCommand` `foam.scaffold.newClass` | Builds a `WorkspaceEdit` (new class file + pom.js `files:` append) from `{ dir, name }`. Nothing written to disk server-side — the client applies the edit. No `featureConfig` — the command only runs when explicitly invoked. Containment: `wsRoot` and the target dir are both `fs.realpathSync`'d before comparison (a lexical compare let `ln -s / <ws>/escape` target `/etc`), and with `requireWsRoot` set and no `rootUri` from the client it refuses outright rather than inheriting `process.cwd()`. The derived package is validated as a dotted identifier path — a folder named `it's` is refused, not emitted into `package: '…'`. |
 
 ### Workspace usage indexes
@@ -63,7 +66,7 @@ The LSP boots the FOAM runtime via `pmake` (same as `build.sh`), loading all mod
 |---|---|---|
 | `getJsUsages(classId)` | classes whose JS code references the class: `this.<Short>` via requires, `.create()` receivers, `.tag(X, {})` args, `{ class: 'dotted.Id' }` spec strings | Grammar `collectAxiomPositions` per source file (memberRef / instCreateReceiver / instTagClass / instClassRef); registry `fn.toString()` scan only for file-less (runtime-registered) classes |
 | `getJavaUsages(classId)` | classes whose javaCode / javaPostSet / etc. reference the type | Same axiom walk, `javaImports` resolves short→full |
-| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `loadStringWithLines()` over the `services.jrl` in every `getJournalDirs()` directory |
+| `getStringUsages(name)` | classes importing the name + Producer classes exporting it + services.jrl CSpec entries | `cls.getOwnAxiomsByClass(foam.lang.Import/Export)` + `loadStringWithLines()` over `getServiceJournalFiles()` — the same list the service lookup resolves against |
 | `getJrlUsages(classId)` | journal rows referencing the class: `"class"` / `"of"` values, and dotted ids inside embedded blocks (`serviceScript`, `javaCode`, client JSON) | `scanJrlClassRefs` over every `*.jrl` under the workspace root, registry-filtered so an unregistered dotted word is not a reference; embedded text is scanned, never evaluated |
 | `getMemberUsages(classId, memberName)` | per-class `this.X` usages of an own / inherited property or method | Reuses `scanFunctions_` axiom walk |
 
@@ -110,6 +113,15 @@ line. Two things read it:
 
 A third reads it too: `FileModelCache`'s SyntaxError fallback, which
 bracket-matches and evals one block at a time when the file does not parse.
+
+**Known issue — `sourceLine_` pairing.** On the normal (eval) path
+`parseFileModels` gives the k-th EVALUATED model the line of the k-th
+significant call. A call that never runs at load time (a `foam.CLASS` inside
+a method, `src/foam/dao/Relationship.js:329`) or runs more than once
+(`[...].forEach(M => foam.CLASS(...))`) breaks the pairing for every later
+model, so `getModelAt` can answer a neighbouring model. Not fixed yet;
+`MemberCompletionHandler.modelMatchesLayout_` guards auto-require against it
+(offers nothing when the counts or the call line disagree).
 
 All three used to run their own `foam\.[A-Z]...\(` regex over the source, and a
 regex cannot tell a real call from one written in a doc comment or a test
@@ -166,6 +178,18 @@ indexed. `DefinitionHandler.buildLocationAtProperty` takes the class id for the
 same reason — when the class's own file does not declare the property, it asks
 the index instead of landing on line 0.
 
+`getRefinements(classId)` hands out a copy of those rows (one per refining
+model) — the inlay hint's refinement count. Every index pass over a file drops
+that file's rows first (`dropRefinementsFrom_`, driven by the reverse map
+`refinedBy_`); rows used to be appended on every save, so two saves of a
+refining file counted its refinement three times. The drop is unconditional:
+gating it on `pathIndex_` missed a file whose only models are nameless
+refinements, which never gets a `pathIndex_` row.
+
+Known gap (predates this): deleting or renaming a refining file leaves its rows
+behind until restart. Nothing re-indexes a path that no longer exists — the
+server has no `workspace/didChangeWatchedFiles` handler.
+
 Cost: a lookup that misses parses each refining file once, mtime-cached.
 `foam.lang.Property` is the worst case in this repo at 26 refining files —
 181ms cold, 0ms warm, 0.11ms per warm hit.
@@ -183,7 +207,10 @@ no symbol at all while `src/foam/core/auth/services.jrl:409` registered it.
 `pushServiceSymbols_` appends them as kind 13 (Variable — a name in the context,
 not a type), each carrying its own file and line because there is no class to
 resolve a position from. `searchSymbols` passes that `line` through and
-`WorkspaceSymbolHandler` prefers it when present.
+`WorkspaceSymbolHandler` prefers it when present. One row per registration: a
+name in several journals is several symbols (the string-usage dedupe key
+includes `file` for these class-less records), which touches 9 of 346 names in
+this repo and 32 of 786 in an app workspace with 11 deployment targets.
 
 Two things had to be true first:
 
@@ -204,18 +231,48 @@ as ordinary string values across the tree. It runs after every schema-driven
 branch has declined. `SERVICE_KEY_NAMES` lives on `JournalEntryIndex` so the two
 handlers share one copy of the convention.
 
-The `services.jrl` walk asks `FoamIndex.getJournalDirs()` — pom locations ∪
-indexed-source directories — the same set `JournalEntryIndex.findJournalFiles_`
-reads. A walk of indexed sources alone misses `src/services.jrl`, whose
-directory holds no class file. That walk answers a different question from
-`findWorkspaceJrlFiles_`, which the jrl usage index uses: directories holding a
-pom or an indexed source (110 journals here) against every journal in the
-workspace (367, the extra being almost all of `deployment/`).
+Journal discovery has two answers, on purpose:
+
+- **Services** (`getServiceLocations`, and the CSpec records behind service
+  symbols) read `FoamIndex.getServiceJournalFiles()`: every `services.jrl` the
+  workspace walk (`findWorkspaceJrlFiles_`, rooted at `process.cwd()`) reaches,
+  unioned with the `services.jrl` in each `getJournalDirs()` directory so a pom
+  location outside the root is not lost. Per-target deployment journals live in
+  directories with no pom and no class file, which is why the directory answer
+  alone saw 22 of 78 `services.jrl` here and resolved 36 of 80 `daoKey` values;
+  the walk sees all 78 and resolves 77. Results rank nearest the asking file
+  first, and inside one journal the LAST registration first.
+- **Entries** (`getEntryLocations`, a Reference property naming a journal row)
+  read `JournalEntryIndex.findJournalFiles_`, which asks `getJournalDirs()` —
+  pom locations ∪ indexed-source directories (110 journals here against the
+  walk's 367; the 257 extra are directories carrying neither, 39 of them under
+  `deployment/`, 196 under `src/`). Kept narrow because seed journals are copied
+  per deployment target: widening resolves one id to the same row in every
+  target, a longer answer, not a better one.
+
+Both readers of the services list take the same method, so the row F12 lands on
+and the symbol Go to Symbol returns cannot disagree — they did when the index
+built its own list from `getJournalDirs()`.
 
 A `.jrl` save invalidates three indexes, gathered in the `didSave` case behind
 `isJrlFile`: `journalEntryIndex.invalidate()`, `index.invalidateSymbolIndex_()`
 and `index.invalidateJrlUsageIndex(uri)`. `reindexFile` reaches none of them on
 a journal save, since it invalidates only for a file that classifies as a class.
+
+A class or pom save also calls `index.reindexPath(path)`: the class→file map
+(`fileIndex_`) is built from the POMs once at boot, so without it a file or
+pom entry added after boot is invisible to `getFilePath`, `foam/byName` and
+`workspace/symbol` until a restart. A saved pom re-indexes every file it
+names whose flags or owning pom moved; a saved class file keeps its existing
+entry's flags and pom, or takes the nearest `pom.js` up the tree with the `js`
+flag when no entry names it yet. It takes the classifier's `kind` rather than
+re-deriving it, since four poms here are not named `pom.js`. `pathIndex_` (a
+path→row map written beside every `fileIndex_` row, dropped at the top of each
+`indexFileClasses_` pass so the newest row answers) serves the "is this already
+indexed" question the skip asks, so a save of a 1500-entry pom costs one eval
+rather than 1500 file reads. `splitFlags_` takes the array form too: a loaded
+pom hands its entry flags over as `['js','java']`, and stringifying that made
+one flag named `js,java` that matched no active flag.
 
 ### Interfaces
 - FOAM interfaces (`foam.INTERFACE`) define properties/methods
@@ -298,6 +355,39 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 4. Use `this.findInText_()` + `this.addDiag_()` for position-aware diagnostics
 5. Add test case in tools test
 
+### Diagnostic tags and related locations
+`Diagnostic` carries `tags` (`UNNECESSARY` 1 = faded, `DEPRECATED` 2 = struck
+through) and `relatedInformation` (`[{ location, message }]`); pass them as
+`addDiag_`'s last argument, `{ tags, relatedInformation }`. `toLSP(caps)` puts
+them on the wire only as far as the client declared in
+`textDocument.publishDiagnostics` at `initialize` — tags filtered to
+`tagSupport.valueSet`, related info only for `relatedInformation: true`.
+`server.js` hands that object to both diagnostics handlers (its own and the
+workspace analyzer's) as `clientDiagnosticCaps`. The pull lane passes its own
+caps to `handle(text, uri, caps)`: each field `textDocument.diagnostic`
+declares wins, an undeclared one falls back to `publishDiagnostics`. A
+bare handler (tests, other tooling) has none and sends neither. The MCP
+client declares `relatedInformation: false` and no `tagSupport`, so agents
+see neither.
+
+| Code / message | tags | relatedInformation |
+|---|---|---|
+| `Unused CSS class '^x'` | UNNECESSARY | — |
+| `deprecated-class` (HINT) — any class reference the grammar sees (extends/requires/of/implements/class:) to a class whose source model has `deprecated:` | DEPRECATED | the class declaration |
+| `deprecated-property` (HINT) — a key of `X.create({…})` / `.tag(this.X, {…})` naming a property declared `deprecated:` on X or an ancestor | DEPRECATED | the property declaration |
+| `'V' is not a valid <Enum> value` | — | the enum declaration |
+
+`deprecated:` is an author convention, not a Model property — the registry
+drops it (`foam.u2.DetailView`'s `model_.deprecated` is undefined), so
+`DiagnosticsHandler.rawModelOf_` re-reads the class's source file with
+`FileModelCache.parseFileModels`, mtime-cached; a file whose text lacks the
+word `deprecated` is cached as markerless without being evaluated. So a
+property's OWNER is found in the registry (`cls.model_.properties` up the
+extends chain) and only that owner's file is read — a subclass re-declaring
+an ancestor's deprecated property owns it and gets no hint.
+`true` and a string (`'Use X instead.'`, appended to the message) both count.
+No `codeDescription`: foam3 has no per-code documentation URL to point at.
+
 ### Adding to the grammar
 1. Add rule in `FoamClassGrammar.buildGrammar_()`
 2. Use `P.sug()` for completions, `P.sym()` for rule references
@@ -306,7 +396,16 @@ watchdog is 240s (up from a sync-only 80s baseline) to cover it
 ### Grammar-harvested positions (single-parse `P.msg` records)
 `FoamClassGrammar` emits position-tagged `P.msg` records harvested by the `apply` hook in one parse. Beyond axiom positions (`collectAxiomPositions`):
 - `collectRanges(text)` → `{comment, documentation}` spans (`P.msg({kind:'comment'|'documentation'})`). Drives comment/doc suppression in `HoverHandler` (no hover inside) and `SemanticTokenHandler` (no non-comment tokens inside).
+- `collectCssBlocks(text)` → content spans of every top-level `css:` value (`P.msg({kind:'cssBlock'})` on the backtick string, backticks excluded). Drives `DocumentColorHandler`.
 - `collectInstantiations(text)` → grouped `X.create({…})` / `.tag(this.X,{…})` calls with receiver class + key/value spans (`instCall`/`instCreateReceiver`/`instTagClass`/`instKey`/`instValue` kinds). The receiver chain uses `P.not` negative lookahead so only real create/tag calls match — generic `foo.bar(...)` emits nothing. Drives enum value completion (`MemberCompletionHandler`) and value diagnostics (`DiagnosticsHandler`).
+- `collectModelExtents(text)` → one entry per top-level model call (calls the significant-call scan also sees): `{ startPos, endPos, windowEnd, closed, headEnd, name, package, refines, nameStart, nameEnd, properties, methods, propertyPoints, methodPoints }`, each member `{ name, startPos, endPos, nameStart, nameEnd }`. Built from SPAN kinds (`modelCall`, `modelName`, `modelPackage`, `modelRefines`, `propertyDef`, `methodDef`, and the closer kinds below) stored as plain lists, not keyed by name — a name key for a whole `foam.CLASS({...})` would be the class's text. Drives `SymbolHandler` ranges and `InlayHintHandler` positions (the latter only on closed entries).
+- **Only spans that closed.** The grammar's closing `}` / `)` / `]` are optional (completion needs that mid-edit), so a parse that gives up partway still ends a span wherever it stopped: 338 of 3895 class ranges under `src/` once ended mid-body (`demos/snake/Snake.js`'s Game at line 296, methods past 391). Each optional closer is tagged with its owner's kind (`callClose`, `bodyClose`, `propClose`, `methodClose`, `close` for generic array/object). An entry is `closed` only when its body `}` and call `)` both matched. When code (not whitespace, `;` or comments) follows it before the next top-level call, `modelEntryFor` also checks the model's own members: a member the extent does not list, named after its end, means the extent closed too early — an arrow function in `src/foam/box/KeepAliveBox.js` made the class "close" on a `}))` inside `send`, at 86:8, with `resetIdle` still to come at 88:4. Plain script code after a finished class (`src/foam/lang/stdlib.js`, most demos) keeps the extent; refusing on code alone had cost 16 models their extents and inlay hints, and 4 are refused now (KeepAliveBox, EventSource, ModeAltView, ApplicationSideNav). Members (`properties`/`methods`) are listed only for closed entries, and only when their own closer matched (or their rule cannot succeed without one: a quoted shorthand, `function ... {}`). Known corner: a `[ name, value ]` pair that is unclosed but ends in a nested array's `]` still reads as closed.
+- **Pairing by identity.** `modelEntryFor(text, model)` matches an entry's `name:` (and `package:` / `refines:` wherever either side has one) against the FileModelCache model; the call offset only breaks ties. Pairing by `sourceOffset_` broke on `src/foam/dao/Relationship.js:329`, a `foam.CLASS` run inside a method: the significant-call scan counts it but eval never captures it, so every later model took the previous call's offset (junctionDAO 517:6 -> 396:0). `parseFileModels` itself is unchanged. Only top-level calls (`nested: false`) become entries, and `windowEnd` is the next top-level one: a runtime `foam.CLASS` inside a method (`src/foam/core/reflow/Mapping.js:249`, `src/foam/core/Boot.js:263`) had ended the member search there and put every later member on the model's own line (Mapping `process` L136 instead of L415).
+- **How `SymbolHandler` places a member**, best first: its closed extent (the whole definition); the grammar's name position inside its model (`propertyPoints`/`methodPoints`, which exist even where the parse later gave up — a name token, not a point); the old name regex inside its model's window, then (for a model without a closed extent) from its call to the end of the file, logged per model through `logLspError`; the model's call. The window keeps the regex out of other models (the whole-file search put Snake.js Food's `init` at Snake's line 21) and the grammar-first order keeps it out of nested classes (`DAOConfigSummaryView.render` at the inner class's L112 instead of L229). A model the grammar cannot pair falls back to exactly the pre-extent behavior: whole-file regex, 0:0 on a miss. A class with no closed extent gets a synthesized range — from its call (or class point when unpaired) to its furthest member, covering every member — instead of its members being clamped onto one point, which had moved 4233 of them to the class line. Nothing is clamped any more; containment holds by construction.
+- **Measured over `src/`** against an acorn parse of every file (the member's name-token line is the truth; 18722 of 18790 members have one): 0 where the branch is wrong and origin/development was right, 4835 where the branch is right and development was wrong, 286 wrong on both; 0 children outside their parent, 0 selections outside their range. 3383 of 3910 models have a closed extent.
+- **Known overlap:** `src/foam/demos/m0/M0.js` stamps classes out in a loop — several models share one `foam.CLASS(` call, so their ranges coincide (8 overlaps). Left as is.
+- The name-keyed buckets are `Object.create(null)`. A plain `{}` already answered `toString` / `hasOwnProperty` / `constructor`, so the first such name in a file's code (`o.hasOwnProperty(k)`, `x.toString()`) was read as an existing MULTI record, `arr.push` threw, and the catch kept only what had been harvested so far. Across `src/`: 506 of 3910 models and 5307 of 18790 members had no extent; after the fix 15 and 2627.
+- Three shapes that ended a class body now have arms: `[ 'name', value ]` property pairs, regex-literal values (`value: /^[\w-]*$/`), and aliased (`'X as Y'`) or object-form (`{ path, flags }`) requires. Members without an extent: 2627 → 2397 of 18790. The rest are further unparsed shapes (quoted object keys, `new X()` / call expressions as values); `Element2.js`, `ThemeGlyphs.js`, `Relationship.js` lead.
 - `FoamIndex.getRelationships(classId)` (relationship hover, #5091) and `FoamIndex.getPropertyInfo(classId, prop)` (enum/primitive value resolution, #5093) back the index-side lookups.
 
 ## Dispatch: a table for the uniform requests, a switch for the rest
@@ -383,14 +482,19 @@ all (`server.js:613-635`).
 | `diagnostics.java` | `true` | Java-block validation diagnostics |
 | `diagnostics.i18n` | `true` | Hardcoded-display-string diagnostic |
 | `diagnostics.pom` | `true` | Entry-level pom.js diagnostics (`PomValidator.validateEntries` via `DiagnosticsHandler.pomDiagnostics_`) |
+| `diagnostics.cssSyntax` | `true` | `CSS syntax:` diagnostics from the `foam.u2.parse.CSSParser` grammar over `css:` (`DiagnosticsHandler.validateCSSSyntax_`); the token, raw-colour and unused-`^class` checks read the same parse and stay on |
 | `hints.i18nMissingLanguage` | `true` | Every unsolicited offer to machine-translate: the missing-translation HINT, code actions C/D, AND the `codeLens.i18n` lens (clicking it translates) |
 | `completion` | `true` | `completionProvider` capability |
+| `completion.autoRequires` | `true` | Unrequired classes under `this.<Capital>` plus the `requires:` edit that makes them resolve (`MemberCompletionHandler.autoRequireItems_`). Off: `this.` lists only what the model already requires |
 | `hover` | `true` | `hoverProvider` capability |
 | `semanticTokens` | `true` | `semanticTokensProvider` capability |
 | `signatureHelp` | `true` | `signatureHelpProvider` capability |
 | `folding` | `true` | `foldingRangeProvider` capability |
+| `documentColor` | `true` | `colorProvider` capability (swatches + colour presentations) |
+| `documentLink` | `true` | `documentLinkProvider` capability |
 | `codeLens.i18n` | `true` | i18n lens in `CodeLensHandler` — requires `hints.i18nMissingLanguage` as well, since the lens is itself a translate offer |
 | `codeLens.hierarchy` | `false` | Subclass-count lens in `CodeLensHandler` — OFF by default: it's informational-only (no click action yet) and adds a lens to every class file |
+| `inlayHints` | `true` | `inlayHintProvider` capability (`InlayHintHandler`) |
 
 `i18n.*` config (`languages`, `sourceLanguage`, `endpoint`, `model`) rides the
 same three-layer merge but is a separate top-level key (`featureConfig.i18n`)

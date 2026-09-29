@@ -28,12 +28,12 @@ foam.CLASS({
     }
     ^command input {
       width: 100%;
-      border: 1px solid #ddd;
+      border: 1px solid $borderLight;
       border-radius: 4px;
       padding: 4px 8px;
       font-family: monospace;
       font-size: 13px;
-      background: #fff;
+      background: $backgroundDefault;
       outline: none;
     }
     ^command input:focus {
@@ -63,11 +63,11 @@ foam.CLASS({
       background: $success50;
     }
     ^reject {
-      background: $error50;
-      color: $error700;
+      background: $destructive50;
+      color: $destructive700;
     }
     ^reject:hover {
-      background: $error50;
+      background: $destructive50;
     }
   `,
 

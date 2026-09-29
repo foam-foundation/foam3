@@ -21,7 +21,7 @@ foam.CLASS({
     .foam-parse-auto-SuggestionView-command  { color: $green300; }
     .foam-parse-auto-SuggestionView-custom   { color: $red400; }
     .foam-parse-auto-SuggestionView-flow     { color: $orange400; }
-    .foam-parse-auto-SuggestionView-history  { color: $brown400; }
+    .foam-parse-auto-SuggestionView-history  { color: $purple400; }
     .foam-parse-auto-SuggestionView-standard { color: $blue400; }
 
     ^promptHolder button.foam-u2-ActionView { margin-right: 8px; }

@@ -192,13 +192,20 @@ foam.CLASS({
       // that mentions foam.CLASS( onto the comment's line.
       var calls      = this.classifier_.significantCalls(text);
       var classLines = [];
+      var classOffs  = [];
       var libLines   = [];
+      var libOffs    = [];
       for ( var ci = 0 ; ci < calls.length ; ci++ ) {
         var callName = calls[ci].name;
         // POM and SCRIPT never enter `models` (their overrides are no-ops) and
         // LIB is counted separately, so neither may shift the class index.
-        if ( callName === 'LIB' ) libLines.push(calls[ci].line);
-        else if ( callName !== 'POM' && callName !== 'SCRIPT' ) classLines.push(calls[ci].line);
+        if ( callName === 'LIB' ) {
+          libLines.push(calls[ci].line);
+          libOffs.push(calls[ci].offset);
+        } else if ( callName !== 'POM' && callName !== 'SCRIPT' ) {
+          classLines.push(calls[ci].line);
+          classOffs.push(calls[ci].offset);
+        }
       }
 
       // The SyntaxError fallback evaluates one call at a time and knows exactly
@@ -207,12 +214,21 @@ foam.CLASS({
       // and the fallback used to find its blocks with a regex of its own, which
       // happily evaluated a call written inside a comment and shifted every
       // real model behind it.
-      var evalState = { forcedLine: -1 };
+      //
+      // sourceOffset_ rides along with sourceLine_, with the same caveat: it
+      // is the Nth significant call for the Nth captured model, so a call
+      // eval never captures (a foam.CLASS inside a method) shifts every later
+      // model's offset. FoamClassGrammar.modelEntryFor therefore pairs models
+      // with extents by name and uses the offset only to break ties.
+      var evalState = { forcedLine: -1, forcedOffset: -1 };
 
       var captureClass = function(m) {
         m.sourceLine_ = evalState.forcedLine >= 0
           ? evalState.forcedLine
           : ( classLines[modelCount] || 0 );
+        m.sourceOffset_ = evalState.forcedOffset >= 0
+          ? evalState.forcedOffset
+          : classOffs[modelCount];
         m.type_ = m.type_ || 'CLASS';
         models.push(m);
         modelCount++;
@@ -261,6 +277,9 @@ foam.CLASS({
           m.sourceLine_ = evalState.forcedLine >= 0
             ? evalState.forcedLine
             : ( libLines[libIndex] || 0 );
+          m.sourceOffset_ = evalState.forcedOffset >= 0
+            ? evalState.forcedOffset
+            : libOffs[libIndex];
           models.push(m);
         }
       };
@@ -329,14 +348,16 @@ foam.CLASS({
           }
         }
         if ( end === -1 ) continue;
-        evalState.forcedLine = calls[ci].line;
+        evalState.forcedLine   = calls[ci].line;
+        evalState.forcedOffset = calls[ci].offset;
         try {
           with ( context ) { eval(text.substring(start, end)); }
         } catch (e2) {
           // This block is incomplete/broken — skip it
         }
       }
-      evalState.forcedLine = -1;
+      evalState.forcedLine   = -1;
+      evalState.forcedOffset = -1;
     }
   ]
 });

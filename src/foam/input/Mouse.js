@@ -19,6 +19,8 @@ foam.CLASS({
   package: 'foam.input',
   name: 'Mouse',
 
+  imports: [ 'window' ],
+
   topics: [
     'down',
     'move',
@@ -76,8 +78,8 @@ foam.CLASS({
 
         // While the mouse is down, track the movements and mouseup on the
         // entire window so it's tracked if/when the mouse leaves the element.
-        window.addEventListener('mouseup',   this.onMouseUp);
-        window.addEventListener('mousemove', this.onMouseMove);
+        this.window.addEventListener('mouseup',   this.onMouseUp);
+        this.window.addEventListener('mousemove', this.onMouseMove);
       }
     },
     {
@@ -90,8 +92,8 @@ foam.CLASS({
           this.lastTouch = undefined;
         }
 
-        window.removeEventListener('mouseup',   this.onMouseUp);
-        window.removeEventListener('mousemove', this.onMouseMove);
+        this.window.removeEventListener('mouseup',   this.onMouseUp);
+        this.window.removeEventListener('mousemove', this.onMouseMove);
       }
     },
     {

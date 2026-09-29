@@ -145,6 +145,7 @@ foam.CLASS({
                 buttonStyle: 'UNSTYLED'
               }).show(notifications).end();
             }))
+            .tag({ class: 'foam.u2.theme.ColorSchemeToggle' })
             .add(self.slot(function(hasLanguagePerm) {
               // Only render the LanguageChoiceView if the user has the correct permission(s)
               if ( hasLanguagePerm ) {

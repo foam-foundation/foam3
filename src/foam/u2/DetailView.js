@@ -107,7 +107,7 @@ foam.CLASS({
 
         ^ .foam-u2-borders-ExpandableBorder-container p { margin-top: 4px; margin-bottom: 0; }
 
-        // ^ input { width: 90% }
+        /* ^ input { width: 90% } */
 
         ^ input[type!='checkbox'] { width: auto; }
       `,

@@ -34,7 +34,7 @@ foam.CLASS({
     }
     /* Base table styling */
     ^table {
-      // Needed as otherwise there is jitter during scrolling with sticky rows
+      /* Needed as otherwise there is jitter during scrolling with sticky rows */
       border-collapse: separate;
       border-spacing: 0;
     }
@@ -87,7 +87,7 @@ foam.CLASS({
     }
 
     ^sticky-headers tr:first-child th:first-child {
-      z-index: 100;
+      z-index: $z-10;
     }
   `,
 

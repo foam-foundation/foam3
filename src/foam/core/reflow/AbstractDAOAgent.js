@@ -555,19 +555,25 @@ foam.CLASS({
   name: 'GroupByDAOAgent',
   extends: 'foam.core.reflow.AbstractSinkDAOAgent',
 
-  imports: [ 'eval_' ],
-
   requires: [
     'foam.core.reflow.parse.GroupByParser',
     'foam.mlang.sink.GroupBySortOrder',
     'foam.mlang.sink.TopNGroupBy'
   ],
 
+  imports: [ 'eval_' ],
+
   properties: [
     {
       name: 'prop',
       label: 'Property',
       validateObj: function(prop) { if ( ! prop ) return 'Required'; },
+      xxxview: function(_, X) {
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: foam.ascript.AScriptParser.create({of: X.data.of}, X)
+        };
+      },
       view: function(_, X) {
         return { class: 'foam.core.reflow.PropertyExprView', forCls: X.data.of };
       }
@@ -670,6 +676,7 @@ foam.CLASS({
     },
     function value(s) { return s; },
     function createSink() {
+      //      var expr = foam.ascript.AScriptParser.PARSE(this.__context__.dao.of, this.prop);
       var expr = this.prop;
       var innerSink = this.sink.createSink();
 
@@ -805,17 +812,33 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.Pivot' ],
 
+  imports: [ 'eval_' ],
+
   properties: [
     {
-      name: 'xProps',
-      view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyListView', forCls$: X.data.of$ };
+      name: 'exprParser',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return foam.parse.Parsers.create().repeat(foam.ascript.AScriptParser.create({of: this.of}, this), ',', 1);
       }
     },
     {
-      name: 'yProps',
+      name: 'xs',
       view: function(_, X) {
-       return { class: 'foam.core.reflow.PropertyListView', forCls$: X.data.of$ };
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: X.data.exprParser
+        };
+      }
+    },
+    {
+      name: 'ys',
+      view: function(_, X) {
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: X.data.exprParser
+        };
       }
     },
     { name: 'sink',
@@ -837,18 +860,34 @@ foam.CLASS({
   methods: [
     function value(s) { return s; },
     function createSink() {
-      var xProps = this.xProps.length ? [...new Set(this.xProps.split(','))].map(p => this.of?.axiomMap_[p]) : null;
-      var yProps = this.yProps.length ? [...new Set(this.yProps.split(','))].map(p => this.of?.axiomMap_[p]) : null;
+      let xProps = this.exprParser.parseString(this.xs), yProps = this.exprParser.parseString(this.ys);
+
+//      var xProps = this.xProps; // this.xProps.length ? [...new Set(this.xProps.split(','))].map(p => this.of?.axiomMap_[p]) : null;
+//      var yProps = this.yProps; // this.yProps.length ? [...new Set(this.yProps.split(','))].map(p => this.of?.axiomMap_[p]) : null;
       this.sink = this.sink || foam.core.reflow.CountDAOAgent.create();
       return this.Pivot.create({
-        yFunc: xProps,
-        xFunc: yProps,
+        yFunc: yProps,
+        xFunc: xProps,
         acc:   this.sink.createSink(),
         stickyHeaders: this.stickyHeaders
       });
     },
     function addToE(e) {
-      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.X_PROPS, this.Y_PROPS, this.SINK, this.STICKY_HEADERS.__);
+      e.startContext({data: this}).start().style({paddingLeft: '12px', display: 'flex'}).add(this.YS, this.XS, this.SINK, this.STICKY_HEADERS.__);
+    }
+  ],
+
+  actions: [
+    {
+      name: 'browse',
+      // isAvailable: function(browseEnabled) { return browseEnabled; },
+      code: async function() {
+        var block = this.block || this.__context__.currentBlock; // ??? Why needed?
+        var cls   = block?.value?.value?.cls_;
+
+        await block.value.waitForRun();
+        this.eval_(`dao('${block.flowName}.valueDAO', '${block.flowName}Pivot')`);
+      }
     }
   ]
 });
@@ -1074,6 +1113,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 
 foam.CLASS({

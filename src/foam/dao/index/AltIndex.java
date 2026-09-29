@@ -11,6 +11,7 @@ import foam.dao.Sink;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.Predicate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** Note this class is not thread safe because ArrayList isn't thread-safe. Needs to be made safe by containment. **/
@@ -114,19 +115,60 @@ public class AltIndex
   }
 
   /**
-   * Build every alternative from the same rows. Each one sorts the range into
-   * its own key order as it goes, so they run one after another rather than
-   * over copies.
+   * Build every alternative from the same rows, each on its own thread. Each
+   * one sorts the range into its own key order as it goes, so each takes its
+   * own copy of the range and the original is only ever read. The first runs
+   * on the calling thread.
    */
   public Object bulkLoad(FObject[] a, int lo, int hi) {
-    Object[] s = cloneState(null);
+    final Object[] s = cloneState(null);
 
-    for ( int i = 0 ; i < delegates_.size() ; i++ )
+    // A lone index has no one to share the rows with, so it needs no copy.
+    if ( s.length == 1 ) {
       try {
-        s[i] = delegates_.get(i).bulkLoad(a, lo, hi);
+        s[0] = delegates_.get(0).bulkLoad(a, lo, hi);
       } catch (Throwable t) {
         t.printStackTrace();
       }
+      return s;
+    }
+
+    final foam.lang.X x       = ((foam.lang.ProxyX) foam.lang.XLocator.get()).getX();
+    final Thread[]    threads = new Thread[s.length];
+
+    for ( int i = 1 ; i < s.length ; i++ ) {
+      final int   j     = i;
+      final Index index = delegates_.get(i);
+
+      threads[i] = new Thread(() -> {
+        foam.lang.XLocator.set(x);
+        try {
+          FObject[] copy = Arrays.copyOfRange(a, lo, hi+1);
+          s[j] = index.bulkLoad(copy, 0, copy.length-1);
+        } catch (Throwable t) {
+          t.printStackTrace();
+        }
+      }, "AltIndex.bulkLoad-" + i);
+      threads[i].start();
+    }
+
+    if ( s.length > 0 ) {
+      try {
+        FObject[] copy = Arrays.copyOfRange(a, lo, hi+1);
+        s[0] = delegates_.get(0).bulkLoad(copy, 0, copy.length-1);
+      } catch (Throwable t) {
+        t.printStackTrace();
+      }
+    }
+
+    for ( int i = 1 ; i < threads.length ; i++ ) {
+      try {
+        threads[i].join();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+    }
 
     return s;
   }

@@ -9,12 +9,13 @@ Which hook, which type, and the three mistakes that produce shared state, stale 
 | A server-created object never runs a JS hook | who creates this: Java or the browser? |
 | Type the property to the domain | is a number, date, code, or currency stored as `String`? |
 | A derived value is transient with paired `factory`/`javaFactory` | would a stored copy go stale? |
+| One property per instant; a `Date` into a `Date` predicate | any date split across two properties, or a timestamp in an mlang? |
 
 ### Pick the hook by what the code does
 Each hook has one timing; using another produces a value that is stale, shared, or undefined.
 Don't: `factory:` for a value that depends on other properties; `preSet:` that side-effects; `postSet:` that computes this property's own value
 Do:    `value:` literal scalar · `factory:` per-instance object or needs `this` · `expression:` pure function of the named properties · `adapt:` coerce input · `postSet:` detach the old, subscribe the new, on other objects
-Review asked: "Don't use expression: and factory: interchangeably." (`doc/guides/claude.md:1059`)
+Review asked: "Don't use expression: and factory: interchangeably." (`doc/guides/claude.md:1629`)
 
 ### `value: []` shares one array across every instance
 `value` is evaluated once at class definition; every instance points at the same object.
@@ -43,6 +44,21 @@ Do:    `normalize: async function() { ... }` on the property
 A `String` column defeats indexing, arithmetic, comparison, the query parser, and journal size; `Float` loses cents.
 Don't: `class: 'String'` for an amount, a date, a direction code, an ISO currency
 Do:    `Double` for money, `Enum` + `of:` for codes, `Date`/`DateTimeUTC` for timestamps, `CurrencyCode`, `Int` for ISO numerics
+
+### One date property, not a date beside a time beside a raw millisecond count
+Splitting an instant across properties means every reader reassembles it, and each one picks a different timezone.
+Don't: `startDate: Date` next to `startTime: String`; a `lookbackMs` the caller converts by hand
+Do:    one `DateTime`/`DateTimeUTC` property; `foam.lang.Duration` for a window — a Long of milliseconds that renders in shorthand units (`3d 4h`) via `TableCellFormatter`
+
+### Pass a `Date` to a `Date`-typed predicate, never a timestamp
+`Date.adapt` normalizes a bare `Date` to noon UTC so a day comparison is stable across timezones (`foam/lang/types.js`, the `Date` property's `adapt`). A raw number reaches the predicate before that, and an off-by-one day appears only for users west of UTC.
+Don't: `GTE(Model.CREATED, Date.now())`
+Do:    `GTE(Model.CREATED, new Date(...))`
+
+### A creation stamp is a `factory`, not a value the view sets
+A stamp written in a view is absent on every other path — API, batch import, journal replay — and disagrees with the server clock.
+Don't: `dateReceived: new Date()` assigned in a create view
+Do:    `factory: function() { return new Date(); }` with a paired `javaFactory`. It fires only when the property is unset, so it defaults a value — it does not defend one.
 
 ### A derived value is transient with paired `factory` and `javaFactory`
 A stored copy of something computable goes stale the moment its inputs change.

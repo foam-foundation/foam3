@@ -168,7 +168,7 @@ foam.CLASS({
 
     ^popup {
       position: absolute;
-      z-index: 1000;
+      z-index: $z-popup;
       background: $white;
       border: 1px solid $borderDefault;
       border-radius: 6px;

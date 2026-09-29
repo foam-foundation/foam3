@@ -28,7 +28,6 @@ foam.CLASS({
       display: flex;
       justify-content: space-between;
       align-items: center;
-      // margin: 8px 0;
     }
     ^button-flex{
       display: flex;

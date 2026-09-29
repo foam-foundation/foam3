@@ -109,7 +109,7 @@ Light is a named value, the same as dark. That is what lets a theme row change t
 
 **One case.** `shadow-md` is a shadow that must go darker in dark mode. It contains a colour but is not one, so it is a plain `CSSToken` with `variantKey: 'color'` and a `dark` entry. Making it a `ColorToken` would install `$shadow-md$hover`, which means nothing. A border colour, on the other hand, is a colour and is a `ColorToken` even when nothing hovers over it yet: the day something does, `$x$hover` is already there and the token does not change class.
 
-**The rule the engine enforces.** A `variants` map without a `variantKey` is an error at class load:
+**The rule the engine enforces.** A `variants` map without a `variantKey` logs a warning at class load, and the token renders its base value in every mode. A CSS audit check that fails CI on the same case is tracked in #5614. The warning reads:
 
 ```
 CSSToken foam.u2.Example.color declares variants (dark) but no variantKey;

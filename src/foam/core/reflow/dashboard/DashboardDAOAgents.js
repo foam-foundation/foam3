@@ -1180,9 +1180,9 @@ foam.CLASS({
     // Define visibility for periodCount (from mixin)
     {
       name: 'periodCount',
-      visibility: function(hasDateSource_) {
+      visibility: function(isDateXProp_) {
         // Only show for date/time properties on X-axis
-        return hasDateSource_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+        return isDateXProp_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -1348,25 +1348,14 @@ foam.CLASS({
         return this.validateDateRange_(toggleCustomXScale && isDateXProp_, xDateAxisMinScale, xDateAxisMaxScale);
       }
     },
-    // Taken from Claude
     { name: 'sink_', transient: true, visibility: 'HIDDEN' },
     {
       class: 'Boolean',
       name: 'isDateXProp_',
       transient: true,
       visibility: 'HIDDEN',
-      expression: function(xProp) {
-        return !! xProp && ( foam.lang.Date.isInstance(xProp) || foam.lang.DateTime.isInstance(xProp) );
-      }
-    },
-    // Claude says: keeps the delegate aware behaviour for the DAO date filter
-    {
-      class: 'Boolean',
-      name: 'hasDateSource_',
-      transient: true,
-      visibility: 'HIDDEN',
-      expression: function(xProp) { return this.isDateProp(xProp); }
-    },
+      expression: function(xProp) { return !! this.isDateProp(xProp); }
+    }
   ],
 
   methods: [

@@ -60,6 +60,16 @@ foam.CLASS({
     {
       class: 'String',
       name: 'systemPrompt'
+    },
+    {
+      class: 'String',
+      name: 'streamId',
+      documentation: `
+        When set, a provider that streams writes the reply so far to
+        llmStreamDAO under this id while the call runs (LLMStreamWriter),
+        so a client can show it being written. The call still returns the
+        whole reply. Pick an id no one can guess, such as a UUID.
+      `
     }
   ]
 });

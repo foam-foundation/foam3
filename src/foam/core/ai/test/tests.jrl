@@ -1,0 +1,1 @@
+p({"class":"foam.core.ai.test.LLMStreamTest","id":"LLMStreamTest","description":"ClaudeLLMService.readStream parses an event stream into the reply and writes it through LLMStreamWriter; LLMStream is read only by its owner"})

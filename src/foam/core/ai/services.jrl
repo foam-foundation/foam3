@@ -26,6 +26,30 @@ p({
 })
 
 
+// ── Streamed replies — LLMOptions.streamId, written by LLMStreamWriter ──
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"llmStreamDAO",
+  "description":"Replies of streamed llmService calls while they are written. In memory; each row is read only by the user who made the call.",
+  "serve":true,
+  "authenticate":true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.LLMStream.getOwnClassInfo())
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .build();
+  """,
+  "client":"""
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/llmStreamDAO",
+      "daoType": "CLIENT",
+      "of": "foam.core.ai.LLMStream"
+    }
+  """
+})
+
 // ── To swap to OpenAI, just change serviceClass: ──
 // p({"class":"foam.core.boot.CSpec", "name":"llmService", "lazy":true, "serve":true, "authenticate":true, "boxClass":"foam.core.ai.LLMServiceSkeleton", "serviceClass":"foam.core.ai.OpenAILLMService", "client":"{\"class\":\"foam.core.ai.LLMServiceClientService\"}", "serviceScript":"return new foam.core.ai.LoggingLLMService.Builder(x).setDelegate(new foam.core.ai.PMLLMService.Builder(x).setDelegate(delegate).build()).build();"})
 

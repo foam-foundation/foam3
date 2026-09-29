@@ -14,6 +14,10 @@ foam.CLASS({
     Anthropic Claude implementation of LLMService.
     API key is injected via CSpec config — never exposed to client.
     Server-side only (Java).
+
+    With LLMOptions.streamId set, the request streams (SSE) and the reply is
+    written to llmStreamDAO as it arrives (LLMStreamWriter); the call still
+    returns the whole reply.
   `,
 
   javaImports: [
@@ -106,6 +110,9 @@ foam.CLASS({
           body.put("system", systemPrompt);
         }
 
+        LLMStreamWriter writer = LLMStreamWriter.forOptions(x, options);
+        if ( writer != null ) body.put("stream", true);
+
         // HTTP request
         HttpURLConnection conn = null;
         try {
@@ -131,6 +138,15 @@ foam.CLASS({
             err.close();
             throw new RuntimeException(
               "Claude API error (" + status + "): " + sb.toString());
+          }
+
+          if ( writer != null ) {
+            try ( BufferedReader stream = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), "UTF-8")) ) {
+              CompletionResponse response = readStream(stream, writer, model);
+              writer.finish(null);
+              return response;
+            }
           }
 
           // Read response
@@ -168,12 +184,57 @@ foam.CLASS({
 
           return response;
         } catch ( RuntimeException e ) {
+          if ( writer != null ) writer.finish(e.getMessage());
           throw e;
         } catch ( Exception e ) {
+          if ( writer != null ) writer.finish(e.getMessage());
           throw new RuntimeException("Claude API request failed: " + e.getMessage(), e);
         } finally {
           if ( conn != null ) conn.disconnect();
         }
+      `
+    },
+    {
+      name: 'readStream',
+      documentation: `
+        Reads a Messages API event stream: text deltas go to the writer as they
+        arrive; the model, token counts and stop reason fill the response.
+        Thinking deltas are not text and are skipped.
+      `,
+      type: 'foam.core.ai.CompletionResponse',
+      args: [
+        { name: 'reader', javaType: 'java.io.BufferedReader' },
+        { name: 'writer', javaType: 'foam.core.ai.LLMStreamWriter' },
+        { name: 'model',  type: 'String' }
+      ],
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        CompletionResponse response = new CompletionResponse();
+        response.setModel(model);
+        String line;
+        while ( ( line = reader.readLine() ) != null ) {
+          if ( ! line.startsWith("data:") ) continue;
+          JSONObject event = new JSONObject(line.substring(5).trim());
+          String     type  = event.optString("type");
+          if ( "message_start".equals(type) ) {
+            JSONObject message = event.getJSONObject("message");
+            response.setModel(message.optString("model", model));
+            JSONObject usage = message.optJSONObject("usage");
+            if ( usage != null ) response.setInputTokens(usage.optInt("input_tokens", 0));
+          } else if ( "content_block_delta".equals(type) ) {
+            JSONObject delta = event.getJSONObject("delta");
+            if ( "text_delta".equals(delta.optString("type")) ) writer.append(delta.optString("text"));
+          } else if ( "message_delta".equals(type) ) {
+            JSONObject delta = event.optJSONObject("delta");
+            if ( delta != null && delta.has("stop_reason") ) response.setStopReason(delta.optString("stop_reason"));
+            JSONObject usage = event.optJSONObject("usage");
+            if ( usage != null ) response.setOutputTokens(usage.optInt("output_tokens", 0));
+          } else if ( "error".equals(type) ) {
+            throw new RuntimeException("Claude API stream error: " + event.optJSONObject("error"));
+          }
+        }
+        response.setContent(writer.text());
+        return response;
       `
     }
   ]

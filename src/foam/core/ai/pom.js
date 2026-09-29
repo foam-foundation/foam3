@@ -2,16 +2,19 @@ foam.POM({
   name: 'ai',
 
   projects: [
-    { name: 'vector/pom' }
+    { name: 'vector/pom' },
+    { name: 'test/pom', flags: 'test' }
   ],
 
   javaFiles: [
-    { name: 'mcp/MCPWebAgent' }
+    { name: 'mcp/MCPWebAgent' },
+    { name: 'LLMStreamWriter' }
   ],
 
   files: [
     // Interface (generates Skeleton, Client, Proxy)
     { name: 'LLMService',               flags: 'js|java' },
+    { name: 'LLMStream',                flags: 'js|java' },
 
     // Implementations
     { name: 'OllamaLLMService',         flags: 'js|java' },

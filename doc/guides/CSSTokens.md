@@ -78,7 +78,7 @@ The axes are independent. Dark plus compact, light plus compact, dark plus norma
 
 | axis | values | who writes it | shipped values |
 |---|---|---|---|
-| `color` | `light`, `dark` | `foam.lang.Window`, from the OS setting or an in-app pick | 53 shared colour tokens carry a `dark` entry |
+| `color` | `light`, `dark` | `foam.lang.Window`, from the OS setting or an in-app pick | most semantic colour tokens (`$textDefault`, `$borderLight`, ...) carry a `dark` entry; palette ramps such as `$blue500` do not |
 | `density` | `compact` | nothing yet (foam3 issue #5620) | none yet; every `$space-*` token has the key |
 
 An axis is only a name in the map. A new axis costs nothing on the engine side: give the tokens the key, and write the value into `activeVariants` from wherever the app decides it. One axis per token is a design choice; a token that must react to two axes gets a function value (see "Function Tokens" in the demo) or JS in the view.
@@ -152,7 +152,7 @@ placed inside the block that ends with the `ColorToken` stamp. It gets `variantK
 1. Does a token already say this? Read `CSSTokens.js` first.
 2. Shared list or the view's class?
 3. A colour → `ColorToken`. Not a colour but flips with mode → `CSSToken` + `variantKey: 'color'`. Neither → plain.
-4. A `variants` map has a `variantKey`, or the class will not load.
+4. A `variants` map has a `variantKey`, or the token never switches (the class logs a warning).
 5. Value points at a token or is rem. Never px.
 6. Dark entry present if the value is a colour.
 

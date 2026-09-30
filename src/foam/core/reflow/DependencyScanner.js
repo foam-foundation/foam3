@@ -293,6 +293,17 @@ foam.CLASS({
         }
       }
       walkBlocksForRewrite(blocks || []);
+    },
+
+    function freeName(name, isTaken) {
+      /** First "base + i + suffix" (i = 1, 2, ...) for which isTaken is false. */
+      var m      = /^(.*?)(\d*)(DAO)?$/.exec(name);
+      var base   = m[1];
+      var suffix = m[3] || '';
+      for ( var i = 1 ;  ; i++ ) {
+        var cand = base + i + suffix;
+        if ( ! isTaken(cand) ) return cand;
+      }
     }
   ]
 });

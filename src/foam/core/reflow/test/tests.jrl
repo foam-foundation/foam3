@@ -18,6 +18,12 @@ p({
   "id": "DependencyScannerTest",
   "language": 0
 })
+
+p({
+  "class": "foam.core.reflow.test.FlowGraphLayoutTest",
+  "id": "FlowGraphLayoutTest",
+  "language": 0
+})
 p({
   "class": "foam.core.reflow.test.MarkdownExampleTagTest",
   "id": "MarkdownExampleTagTest",

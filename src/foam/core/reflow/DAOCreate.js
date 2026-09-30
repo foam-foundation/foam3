@@ -48,6 +48,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.daoKey; },
+
     async function render() {
       this.SUPER();
 

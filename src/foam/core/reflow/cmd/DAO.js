@@ -17,6 +17,8 @@ foam.CLASS({
 
   properties: [
     [ 'description', 'DAO data browser' ],
+    [ 'category', 'dao' ],
+    [ 'color', '$primary400' ],
     [ 'parserClass', 'foam.core.reflow.parser.DAOTargetParser' ]
   ],
 
@@ -46,6 +48,8 @@ foam.CLASS({
 
   properties: [
     [ 'description', 'From query on a DAO' ],
+    [ 'category', 'dao' ],
+    [ 'color', '$primary400' ],
     {
       name: 'parser',
       factory: function() { return this.FromParser.create(); }

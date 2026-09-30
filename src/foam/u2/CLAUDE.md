@@ -21,4 +21,4 @@ Most of these fail quietly: the page renders, just wrong. Paths that do not star
 - **Table sort order never reaches the URL.** `UnstyledTableView` reads a `memento` it never imports (`table/UnstyledTableView.js:39`, `:332`). See `doc/guides/Memento.md`.
 - **Enum status needs no hand-made pill.** Colour the enum values and `ReadOnlyEnumView` draws the badge. See `doc/guides/Enum.md`.
 
-Longer guides for these: `doc/guides/CurrencyAndUnits.md`, `doc/guides/CSSLayout.md`, `doc/guides/QA2.md` (the questionnaire engine in `qa/`), `doc/guides/Slots.md`, `doc/guides/Memento.md`.
+Longer guides for these: `doc/guides/CurrencyAndUnits.md`, `doc/guides/CSSLayout.md`, `doc/guides/Slots.md`, `doc/guides/Memento.md`.

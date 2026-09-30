@@ -134,9 +134,6 @@ Describes the modal component hierarchy: `Popup` (base, full-screen overlay), `S
 **[CSSLayout](CSSLayout.md)**
 What a `css:` block goes through before the browser sees it (installed on first create, the `^` and `$token` text rewrites), which box scrolls and how to pin a header, hiding with `shown`, and how popups, modals and the z-index layers stack.
 
-**[QA2](QA2.md)**
-The `foam.QA2` decision-matrix questionnaire engine: AQL predicates, "answered" meaning a stored value, how the next question is chosen, custom question views, and the shape of the generated class.
-
 **[Notifications](Notifications.md)**
 Overview of the notification system: creating `Notification` objects via `notificationDAO`, extending the base class for custom types, display via the bell icon and `NotificationCitationView`, and how to write custom citation views.
 

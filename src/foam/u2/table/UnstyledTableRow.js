@@ -14,6 +14,7 @@ foam.CLASS({
   requires: [
     'foam.lang.SimpleSlot',
     'foam.u2.CheckBox',
+    'foam.u2.DisplayMode',
     'foam.u2.tag.Image',
     'foam.u2.view.OverlayActionListView',
     'foam.u2.table.UnstyledTableRowComponent'
@@ -61,7 +62,7 @@ foam.CLASS({
         self
           .start('')
             .addClass(self.table.myClass('td'))
-            .tag(self.CheckBox, { }, slot)
+            .tag(self.CheckBox, self.table.isSelectionEnabled(obj) ? {} : { mode: self.DisplayMode.DISABLED }, slot)
           .end()
           .enableClass(self.table.myClass('selected'), slot.value$.dot('data'));
 

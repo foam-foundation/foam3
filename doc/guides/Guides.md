@@ -131,6 +131,12 @@ Documents the three-layer pipeline — ControllerMode (CREATE/VIEW/EDIT), per-pr
 **[Modals](Modals.md)**
 Describes the modal component hierarchy: `Popup` (base, full-screen overlay), `StyledModal` (title/description/action bar), `ConfirmationModal` (primary/secondary actions), and `ApplicationPopup` (wizard flows with progress bar and branding). Includes usage guidance for each.
 
+**[CSSLayout](CSSLayout.md)**
+What a `css:` block goes through before the browser sees it (installed on first create, the `^` and `$token` text rewrites), which box scrolls and how to pin a header, hiding with `shown`, and how popups, modals and the z-index layers stack.
+
+**[QA2](QA2.md)**
+The `foam.QA2` decision-matrix questionnaire engine: AQL predicates, "answered" meaning a stored value, how the next question is chosen, custom question views, and the shape of the generated class.
+
 **[Notifications](Notifications.md)**
 Overview of the notification system: creating `Notification` objects via `notificationDAO`, extending the base class for custom types, display via the bell icon and `NotificationCitationView`, and how to write custom citation views.
 
@@ -257,6 +263,9 @@ Migration guide from FOAM1 to FOAM2/FOAM3: key API renames (`CLASS` → `foam.CL
 
 **[DateTimeUTC](DateTimeUTC.md)**
 Documents the `DateTimeUTC` property type: UTC storage, UTC parsing, and UTC display guarantees, how it differs from `Date` and `DateTime`, supported input formats, and the utility classes (`DateUtil`, `DateParser`) that back it.
+
+**[CurrencyAndUnits](CurrencyAndUnits.md)**
+Money and unit values: `UnitValue` (minor units) versus `DoubleUnitValue` (major units), `Currency.format` and `minorAmount`, the read and write faces of `CurrencyView` and the `objData` they need, and why a money column stops derived columns exporting their server value.
 
 **[i18n](i18n.md)**
 Beginner guide to FOAM i18n: declaring translatable strings with `messages:`/`messageMap` in model code, multi-language messageMap fallback rules, and inline localized labels. Runtime Locale rows and localeDAO are covered in the advanced guide.

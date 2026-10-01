@@ -1,6 +1,6 @@
 # tools — build tooling
 
-Guides: `doc/guides/Build.md`, `doc/guides/POM.md`, `doc/guides/Testing.md`. The language server has its own notes in `tools/lsp/CLAUDE.md`.
+Guides: `doc/guides/Build.md`, `doc/guides/POM.md`, `doc/guides/Testing.md`. The language server lives in FOAM-LSP (`doc/guides/LSP.md`), with its own notes in that repo's `CLAUDE.md`.
 
 ## Traps
 

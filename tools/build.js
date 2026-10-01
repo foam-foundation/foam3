@@ -864,6 +864,9 @@ pom();
 if ( SHOW_ENVS )
   moreUsage();
 
+// Keep an installed FOAM-LSP clone current (JSTooling lspRefresh).
+if ( findTask(TOOLING_TASKS, 'lspRefresh') ) execute('lspRefresh');
+
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');
   execute(s[0], s[1]);

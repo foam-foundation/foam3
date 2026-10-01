@@ -13,7 +13,8 @@ foam.POM({
 
   options: {
     timestampFoamBin: [ 'g', 'timestamp-foam-bin', 'TIMESTAMP_FOAM_BIN', 'Use --timestamp-foam-bin:false to not timestamp foam-bin javascript file to retain breakpoints during development cycle.', true, function(arg) { TIMESTAMP_FOAM_BIN = arg ? this.bool(arg) : false; } ],
-    withoutStages: [ 'w', 'without-stages', 'WITHOUT_STAGES', 'Generate a single foam-bin file.', false, function(arg) { WITHOUT_STAGES = arg ? this.bool(arg) : true; } ]
+    withoutStages: [ 'w', 'without-stages', 'WITHOUT_STAGES', 'Generate a single foam-bin file.', false, function(arg) { WITHOUT_STAGES = arg ? this.bool(arg) : true; } ],
+    lspAutoUpdate: [ '', 'lsp-auto-update', 'LSP_AUTO_UPDATE', 'Use --lsp-auto-update:false to skip updating the FOAM-LSP clone in this build. FOAM_LSP_AUTOUPDATE=0 turns it off for good.', true, function(arg) { LSP_AUTO_UPDATE = arg ? this.bool(arg) : true; } ]
   },
 
   tasks: {
@@ -26,10 +27,23 @@ foam.POM({
       FOAM_BIN_VERSION = `${VERSION}` + (TIMESTAMP_FOAM_BIN ? `-${TIMESTAMP}` : '');
     }],
 
-    lspInstall: ['lsp-install', 'Install FOAM LSP editor or MCP-agent integration. Editors: lsp-install:vscode, lsp-install:emacs, lsp-install:zed. MCP agents (shared server): lsp-install:claude-code, lsp-install:codex, lsp-install:gemini, lsp-install:cursor, lsp-install:pi.', [], function(args) {
-      var editor = args || '';
-      var script = this.join(__dirname, 'lsp/install.sh');
-      require('child_process').execSync(`${script} ${editor}`, { stdio: 'inherit' });
+    lspInstall: ['lsp-install', 'Clone FOAM-LSP into $FOAM_LSP_HOME (default ~/.foam/lsp) and install an editor or MCP-agent integration. Editors: lsp-install:vscode, lsp-install:emacs, lsp-install:zed. MCP agents: lsp-install:claude-code, lsp-install:codex, lsp-install:gemini, lsp-install:cursor, lsp-install:pi.', [], function(args) {
+      var dir = require('./lspClone').install(process.env);
+      require('child_process').execSync(`"${dir}/install.sh" ${args || ''}`, { stdio: 'inherit' });
+    }],
+
+    lspUpdate: ['lsp-update', 'Fast-forward the FOAM-LSP clone now.', [], function() {
+      this.info('[lsp] ' + require('./lspClone').update(process.env, { force: true }));
+    }],
+
+    lspRefresh: ['lsp-refresh', 'Fast-forward the FOAM-LSP clone, at most once a day. Runs before every build; does nothing when FOAM-LSP is not installed.', [], function() {
+      if ( ! LSP_AUTO_UPDATE || process.env.FOAM_LSP_AUTOUPDATE === '0' ) return;
+      try {
+        var status = require('./lspClone').update(process.env, {});
+        if ( status === 'updated' ) this.info('[lsp] FOAM-LSP updated');
+      } catch (e) {
+        this.warning('[lsp] FOAM-LSP update skipped: ' + String(e.message).split('\n')[0]);
+      }
     }],
 
     genJS: ['gen-js', 'Build foam-bin.js', ['cleanFOAM', 'genFoamBinVersion'], function() {

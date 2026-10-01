@@ -842,9 +842,17 @@ dao loading, which improves overall startup time.`,
     {
       class: 'Boolean',
       name: 'saf',
-      // refined in foam-saf
+      // refined in https://github.com/kgrgreer/foam-saf
       documentation: 'Store and forward this DAO',
-      value: false
+      // NOTE: SAF does not support PartitionedDAO.
+      // emailMessageDAO, notificationDAO, eventRecordDAO were some
+      // of main reasons for SAF.
+      // EasyDAO has no knowledge if a DAO is using Partitioning, so
+      // it is unable to issue a warning.
+      // Disabling for now.
+      // value: false;
+      javaGetter: 'return false;',
+      getter: function() { return false; }
     },
     {
       documentation: 'Simpler alternative than providing serverBox.',

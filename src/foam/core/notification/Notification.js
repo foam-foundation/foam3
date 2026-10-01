@@ -90,7 +90,7 @@ foam.CLASS({
       updateVisibility: 'RO'
     },
     {
-      class: 'Long',
+      class: 'String',
       name: 'id',
       createVisibility: 'RW',
       updateVisibility: 'RO'

@@ -183,6 +183,33 @@ public class PartitionedDAO
       }
       return cc;
     }
+
+    // super records the index for partitions opened later; one already open
+    // never reads that list again, so it gets the index here. A partition
+    // still replaying is waited on through its lock rather than missed, and
+    // may end up with the index twice, which is harmless. Same as
+    // NotPartitionedDAO.
+    if ( cmd instanceof foam.dao.index.AddIndexCommand ) {
+      super.cmd_(x, cmd);
+
+      Set<String> parts = new HashSet<>(loading_);
+      synchronized ( delegates_ ) {
+        parts.addAll(delegates_.keySet());
+      }
+
+      for ( String part : parts ) {
+        synchronized ( part.intern() ) {
+          SoftReference<DAO> ref;
+          synchronized ( delegates_ ) {
+            ref = delegates_.get(part);
+          }
+          DAO dao = ref != null ? ref.get() : null;
+          if ( dao != null ) dao.cmd_(x, cmd);
+        }
+      }
+      return true;
+    }
+
     return super.cmd_(x, cmd);
   }
 
@@ -205,11 +232,13 @@ public class PartitionedDAO
 
   /** Attempt to extract partition from a SEPARATOR-delimited primary key.
       Chained partitions (e.g. "<a>~<b>~<key>") read their own segment by
-      depth: depth 1 reads <a>, depth 2 reads <b>. **/
+      depth: depth 1 reads <a>, depth 2 reads <b>. An id with no segment
+      past this level's, like the empty id of a record not yet put, has no
+      partition. **/
   public String getPartition_(String id) {
     String[] a = id.split(SEPARATOR);
 
-    if ( a.length < getDepth() ) return null;
+    if ( a.length <= getDepth() ) return null;
 
     return a[getDepth()-1];
   }

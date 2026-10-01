@@ -30,22 +30,22 @@ foam.CLASS({
       gap: 8px;
       padding: 12px 16px;
       border-radius: 4px;
-      border: 1px solid $border-neutral-light;
-      background: $surface-neutral-lighter;
+      border: 1px solid $borderDefault;
+      background: $backgroundDefault;
       transition: all 0.2s ease;
       white-space: nowrap;
       flex: 1 1 0;
       min-width: 0;
     }
     ^:hover:not(.disabled) {
-      border-color: $border-primary-normal;
+      border-color: $borderBrand;
     }
     ^.active {
-      border-color: $border-primary-normal;
+      border-color: $borderBrand;
       background: $backgroundBrandTertiary;
     }
     ^.completed {
-      border-color: $border-primary-normal;
+      border-color: $borderBrand;
     }
     ^.disabled {
       opacity: 0.5;
@@ -63,17 +63,17 @@ foam.CLASS({
       flex-shrink: 0;
     }
     ^circle.pending {
-      background: $surface-neutral-light;
+      background: $backgroundSecondary;
       color: $textTertiary;
-      border: 2px solid $border-neutral-light;
+      border: 2px solid $borderDefault;
     }
     ^circle.active {
-      background: $surface-primary-normal;
-      color: $surface-neutral-lighter;
+      background: $backgroundBrand;
+      color: $textOnBrand;
     }
     ^circle.completed {
-      background: $surface-primary-normal;
-      color: $surface-neutral-lighter;
+      background: $backgroundBrand;
+      color: $textOnBrand;
     }
     ^icon svg {
       display: block;
@@ -207,8 +207,8 @@ foam.CLASS({
       justify-content: space-between;
       gap: 8px;
       padding: 16px 24px;
-      background: $surface-neutral-light;
-      border-bottom: 1px solid $border-neutral-light;
+      background: $backgroundSecondary;
+      border-bottom: 1px solid $borderDefault;
       overflow: hidden;
       flex-wrap: nowrap;
       min-width: 0;
@@ -219,10 +219,10 @@ foam.CLASS({
       min-width: 8px;
       max-width: 32px;
       height: 2px;
-      background: $border-neutral-light;
+      background: $borderDefault;
     }
     ^connector.completed {
-      background: $surface-primary-normal;
+      background: $backgroundBrand;
     }
     @media (max-width: 1100px) {
       ^ {
@@ -344,7 +344,7 @@ foam.CLASS({
     ^section-title {
       font-size: 20px;
       font-weight: $font-semi-bold;
-      color: $surface-neutral-dark;
+      color: $textDefault;
       margin-bottom: 8px;
     }
     ^section-description {
@@ -493,7 +493,7 @@ foam.CLASS({
       display: flex;
       flex-direction: column;
       height: 100%;
-      background: $surface-neutral-lighter;
+      background: $backgroundDefault;
       border-radius: 8px;
     }
     ^content {
@@ -502,15 +502,15 @@ foam.CLASS({
       padding: 24px;
     }
     ^content-card {
-      background: $surface-neutral-lighter;
+      background: $backgroundDefault;
     }
     ^footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 16px 24px;
-      border-top: 1px solid $border-neutral-light;
-      background: $surface-neutral-light;
+      border-top: 1px solid $borderDefault;
+      background: $backgroundSecondary;
     }
     ^step-counter {
       font-size: $body-md;

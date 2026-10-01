@@ -20,7 +20,7 @@ foam.CLASS({
       imports: ['FSMClass'],
       css: `
         ^sub {
-          font: monospace;
+          font-family: monospace;
         }
         ^lifecycle-content {
           display: flex;

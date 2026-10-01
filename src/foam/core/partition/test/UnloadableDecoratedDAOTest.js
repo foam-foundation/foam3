@@ -98,11 +98,13 @@ foam.CLASS({
         dr.setId(1);
         dr.setData(new String("dedup-data"));
         dedupDao.put(dr);
-        // a live put keeps its values as given; interning happens in the replay
+        // a live put goes through DeDupDAO: equal values share one instance
         UnloadableDecoratedRecord dr2 = new UnloadableDecoratedRecord();
         dr2.setId(2);
         dr2.setData(new String("dedup-data"));
         dedupDao.put(dr2);
+        test( UnloadableDecoratedRecord.DATA.get(dedupDao.find_(tx, 2L)) == UnloadableDecoratedRecord.DATA.get(dedupDao.find_(tx, 1L)),
+          "live puts through DeDupDAO share one instance of an equal value" );
 
         Object dedupUnloadResult = dedupDao.cmd(AbstractPartitionedDAO.UNLOAD_CMD);
         test( Boolean.TRUE.equals(dedupUnloadResult),
@@ -112,8 +114,8 @@ foam.CLASS({
         FObject reloadedDr2 = dedupDao.find_(tx, 2L);
         test( reloadedDr != null && reloadedDr2 != null &&
               "dedup-data".equals(UnloadableDecoratedRecord.DATA.get(reloadedDr)) &&
-              UnloadableDecoratedRecord.DATA.get(reloadedDr2) == "dedup-data".intern(),
-          "rebuilt chain still dedups after reload: the replay's second sight of the value is canonical" );
+              UnloadableDecoratedRecord.DATA.get(reloadedDr2) == UnloadableDecoratedRecord.DATA.get(reloadedDr),
+          "rebuilt chain still dedups after reload: the replay's second sight shares the first record's instance" );
 
         test( dedupEasyDao.getMdao() != null && dedupEasyDao.getMdao().find_(tx, 1L) != null,
           "easy.getMdao() alias tracks the live (reloaded) store after unload/reload" );

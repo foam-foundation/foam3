@@ -56,13 +56,19 @@ var pmake = function(...args) {
 
   /** 'makers' format: task1,task2,task3(args),... where args are optional **/
   var makers = X.makers.split(',').map(m => {
-    var maker;
-    var [_, makerName, _, makerArgs] = m.match(/([a-zA-Z0-9]*)(\((.*)\))?/);
+    var maker, loc, makerArgs;
 
-    var loc = path_.join(__dirname, X.path, makerName + "Maker.js");
+    if ( path_.isAbsolute(m) ) {
+      // An external maker given by its file path, e.g. FOAM-LSP's LSPMaker.
+      loc = m;
+    } else {
+      var [_, makerName, _, args] = m.match(/([a-zA-Z0-9]*)(\((.*)\))?/);
+      makerArgs = args;
+      loc = path_.join(__dirname, X.path, makerName + "Maker.js");
 
-    if (!fs_.existsSync(loc)) {
-      loc = path_.join(process.cwd(), X.path, makerName + "Maker.js");
+      if (!fs_.existsSync(loc)) {
+        loc = path_.join(process.cwd(), X.path, makerName + "Maker.js");
+      }
     }
     maker = require(loc);
     if ( maker ) maker.name = m;
@@ -154,5 +160,8 @@ var pmake = function(...args) {
   });
   return map;
 };
+
+// Lets external tools (FOAM-LSP) check that -makers accepts an absolute path.
+pmake.ABSOLUTE_MAKERS = true;
 
 module.exports = pmake;

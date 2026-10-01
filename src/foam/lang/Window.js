@@ -127,6 +127,7 @@ foam.CLASS({
     function populateDefaultThemeVariants(theme, ctx) {
       // WARNING: IN DEVELOPMENT
       // SET useVariants TO TRUE ON THEME TO ENABLE MODE SWITCHING
+      if ( ! this.window.matchMedia ) return;
       let colorSchemeQuery = this.window.matchMedia('(prefers-color-scheme: dark)');
       let fn = () => {
         if ( ! theme.useVariants ) return;

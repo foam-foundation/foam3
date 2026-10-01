@@ -14,7 +14,7 @@ foam.POM({
   options: {
     timestampFoamBin: [ 'g', 'timestamp-foam-bin', 'TIMESTAMP_FOAM_BIN', 'Use --timestamp-foam-bin:false to not timestamp foam-bin javascript file to retain breakpoints during development cycle.', true, function(arg) { TIMESTAMP_FOAM_BIN = arg ? this.bool(arg) : false; } ],
     withoutStages: [ 'w', 'without-stages', 'WITHOUT_STAGES', 'Generate a single foam-bin file.', false, function(arg) { WITHOUT_STAGES = arg ? this.bool(arg) : true; } ],
-    lspAutoUpdate: [ '', 'lsp-auto-update', 'LSP_AUTO_UPDATE', 'Use --lsp-auto-update:false to skip updating the FOAM-LSP clone in this build. FOAM_LSP_AUTOUPDATE=0 turns it off for good.', true, function(arg) { LSP_AUTO_UPDATE = arg ? this.bool(arg) : true; } ]
+    lspAutoUpdate: [ '', 'lsp-auto-update', 'LSP_AUTO_UPDATE', 'Use --lsp-auto-update:false to stop builds updating the FOAM-LSP clone; the setting is saved until --lsp-auto-update:true.', true, function(arg) { LSP_AUTO_UPDATE = arg ? this.bool(arg) : true; require('./lspClone').setAutoUpdate(process.env, LSP_AUTO_UPDATE); } ]
   },
 
   tasks: {
@@ -37,7 +37,7 @@ foam.POM({
     }],
 
     lspRefresh: ['lsp-refresh', 'Fast-forward the FOAM-LSP clone, at most once a day. Runs before every build; does nothing when FOAM-LSP is not installed.', [], function() {
-      if ( ! LSP_AUTO_UPDATE || process.env.FOAM_LSP_AUTOUPDATE === '0' ) return;
+      if ( ! LSP_AUTO_UPDATE ) return;
       try {
         var status = require('./lspClone').update(process.env, {});
         if ( status === 'updated' ) this.info('[lsp] FOAM-LSP updated');

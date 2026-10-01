@@ -35,6 +35,7 @@ var stamp = path.join(env.FOAM_LSP_HOME, '.git', 'foam-lsp-last-update');
 function age() { var old = new Date(Date.now() - 2 * 24 * 3600 * 1000); fs.utimesSync(stamp, old, old); }
 
 test(lsp.update(env, {}) === 'not-installed', 'no clone: update does nothing');
+lsp.setAutoUpdate(env, false);   // nothing to save into yet; must not throw
 
 test(lsp.install(env) === env.FOAM_LSP_HOME && fs.existsSync(path.join(env.FOAM_LSP_HOME, 'one')), 'install clones');
 test(lsp.install(env) === env.FOAM_LSP_HOME, 'install twice keeps the clone');
@@ -53,6 +54,13 @@ fs.unlinkSync(path.join(env.FOAM_LSP_HOME, 'local-edit'));
 git(env.FOAM_LSP_HOME, 'checkout', '-q', '-b', 'feature');
 test(lsp.update(env, {}) === 'off-default-branch', 'feature branch: left alone');
 git(env.FOAM_LSP_HOME, 'checkout', '-q', 'main');
+
+age(); push('four'); lsp.setAutoUpdate(env, false);
+test(lsp.update(env, {}) === 'disabled' && ! fs.existsSync(path.join(env.FOAM_LSP_HOME, 'four')), 'turned off: the setting is saved and update skips');
+test(git(env.FOAM_LSP_HOME, 'status', '--porcelain') === '', 'turned off: the saved setting leaves the clone clean');
+test(lsp.update(env, { force: true }) === 'updated', 'turned off: lsp-update still updates by hand');
+age(); push('five'); lsp.setAutoUpdate(env, true);
+test(lsp.update(env, {}) === 'updated' && fs.existsSync(path.join(env.FOAM_LSP_HOME, 'five')), 'turned back on: update runs again');
 
 age(); git(env.FOAM_LSP_HOME, 'remote', 'set-url', 'origin', path.join(tmp, 'missing.git'));
 var threw = false; try { lsp.update(env, {}); } catch (e) { threw = true; }

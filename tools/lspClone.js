@@ -32,9 +32,21 @@ function install(env) {
   return dir;
 }
 
+// --lsp-auto-update:false saves itself as this file. It sits in .git so the
+// clone never reads as dirty, and it goes away with the clone.
+function offFile(dir) { return path.join(dir, '.git', 'foam-lsp-no-autoupdate'); }
+
+function setAutoUpdate(env, on) {
+  var dir = home(env);
+  if ( ! fs.existsSync(path.join(dir, '.git')) ) return;
+  if ( on ) fs.rmSync(offFile(dir), { force: true });
+  else      fs.writeFileSync(offFile(dir), '');
+}
+
 function update(env, opts) {
   var dir = home(env);
   if ( ! fs.existsSync(path.join(dir, '.git')) ) return 'not-installed';
+  if ( ! opts.force && fs.existsSync(offFile(dir)) ) return 'disabled';
 
   var stamp = path.join(dir, '.git', 'foam-lsp-last-update');
   if ( ! opts.force ) {
@@ -51,4 +63,4 @@ function update(env, opts) {
   return 'updated';
 }
 
-module.exports = { home: home, install: install, update: update };
+module.exports = { home: home, install: install, setAutoUpdate: setAutoUpdate, update: update };

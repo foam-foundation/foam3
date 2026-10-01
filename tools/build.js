@@ -864,8 +864,10 @@ pom();
 if ( SHOW_ENVS )
   moreUsage();
 
-// Keep an installed FOAM-LSP clone current (JSTooling lspRefresh).
-if ( findTask(TOOLING_TASKS, 'lspRefresh') ) execute('lspRefresh');
+// Keep an installed FOAM-LSP clone current (JSTooling lspRefresh). Called
+// directly, not through execute(), so a build with no clone logs nothing.
+var lspRefresh = findTask(TOOLING_TASKS, 'lspRefresh');
+if ( lspRefresh ) lspRefresh.f.call(Object.assign({}, EXPORTS));
 
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');

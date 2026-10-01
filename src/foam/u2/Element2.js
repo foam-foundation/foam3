@@ -4,12 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// U3 is now the default, to use U2 instead:
-// either include ?u3=true in URL or include "setFlags: { u3: true }" in your POM.
-
-// You can determine if your code is running in U3 with:
-// foam.u2.Element.U3, which will eval to true if you are.
-
 /*
 TODO:
  - Remove use of E() and replace with create-ing axiom to add same behaviour.
@@ -103,7 +97,19 @@ foam.CLASS({
   documentation: 'U3 Text Node',
 
   properties: [
-    { class: 'String', name: 'text' },
+    {
+      class: 'String',
+      name: 'text',
+      adapt: function(o, v, prop) {
+        if ( foam.String.isInstance(v) ) return v;
+        // The String adapt reads an object as a locale map, which a Date has no
+        // key in, and treats a false Boolean as empty, so either one would
+        // leave this node blank.
+        if ( foam.Date.isInstance(v) )    return foam.util.DateUtil.format(v);
+        if ( foam.Boolean.isInstance(v) ) return String(v);
+        return foam.lang.String.ADAPT.value.call(this, o, v, prop);
+      }
+    },
     {
       name: 'element_',
       factory: function() { return this.document.createTextNode(this.text); }
@@ -165,7 +171,7 @@ foam.CLASS({
           if ( val === undefined || val === null ) {
             n = foam.u2.Text.create({}, this);
           } else if ( this.isLiteral(val) ) {
-            n = foam.u2.Text.create({text: '' + val}, this);
+            n = foam.u2.Text.create({text: val}, this);
           } else if ( foam.u2.Element.isInstance(val) ) {
             n = val;
           } else if ( foam.Array.isInstance(val) ) {
@@ -182,7 +188,6 @@ foam.CLASS({
             n = val.toE({}, this);
           } else {
             console.log('Unknown slot type: ', typeof val);
-            debugger;
           }
 
           this.element_.parentNode.replaceChild(n.element_, this.element_);
@@ -336,6 +341,7 @@ foam.CLASS({
   properties: [
     'dao',
     'code',
+    'config',
     {
       class: 'Int',
       name: 'batch',
@@ -350,14 +356,18 @@ foam.CLASS({
       factory: function() {
         var self = this;
         return this.dynamic(function(data_) {
-          data_.forEach(d => {
-            var e = this.code.call(this, d);
-            if ( e ) {
-              // TODO: remove after port from U2 to U3
-              console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
-              this.tag(e);
-            }
-          })
+          if ( data_.length ) {
+            data_.forEach(d => {
+              var e = this.code.call(this, d);
+              if ( e ) {
+                // TODO: remove after port from U2 to U3
+                console.log('Deprecated use of select({return E}). Just do self.start() instead in DAOSelectNode.', this.code);
+                this.tag(e);
+              }
+            });
+          } else if ( this.config && this.config.onEmpty ) {
+            this.config.onEmpty.call(this);
+          }
         });
       }
     }
@@ -475,7 +485,8 @@ foam.CLASS({
 
   constants: [
     {
-      // TODO: document
+      // The class shorthand in css: blocks. '^' is the older spelling and is
+      // deprecated.
       name: 'CSS_SELF',
       value: '<<'
     },
@@ -722,6 +733,7 @@ foam.CLASS({
 
     function detach() {
       this.SUPER();
+      this.document.u2Roots?.delete(this);
       this.childNodes = [];
       this.children   = [];
       this.private_ = this.parentNode = this.__subSubContext__ = this.instance_.subContext__ = undefined;
@@ -743,6 +755,12 @@ foam.CLASS({
     },
 
     function load() {
+      // An Element loaded with no parentNode is a root: written to the
+      // document by write(), a Popup or a ModalOverlay. document.u2Roots,
+      // when something created it (foam.u2.ViewReloader does), lists them
+      // so a walk of the on-screen tree can start from every one.
+      if ( ! this.parentNode ) this.document.u2Roots?.add(this);
+
       // Needed for OverlayDropdown which overrides add(), but shouldn't.
       // TODO: Fix OverlayDropdown to use content$ and then remove this.
       var customAdd = this.add != foam.u2.Element.prototype.add;
@@ -1179,18 +1197,14 @@ foam.CLASS({
         l();
       } else {
         enabled = negate(enabled, opt_negate);
-        var parts = cls.split(' ');
-        for ( var i = 0 ; i < parts.length ; i++ ) {
-          this.classes[parts[i]] = enabled;
-          if ( ! this.element_.classList ) {
-            console.warn("Can't set class of document fragments.");
-          } else {
-            if ( enabled ) {
-              this.element_.classList.add(parts[i]);
-            } else {
-              this.element_.classList.remove(parts[i]);
-            }
-          }
+        cls = this.sanitizeClassName_(cls);
+        this.classes[cls] = enabled;
+        if ( ! this.element_.classList ) {
+          console.warn("Can't set class of document fragments.");
+        } else if ( enabled ) {
+          this.element_.classList.add(cls);
+        } else {
+          this.element_.classList.remove(cls);
         }
       }
       return this;
@@ -1199,6 +1213,7 @@ foam.CLASS({
     function removeClass(cls) {
       /* Remove specified CSS class. */
       if ( cls ) {
+        cls = this.sanitizeClassName_(cls);
         delete this.classes[cls];
         this.element_.classList.remove(cls);
       }
@@ -1481,11 +1496,13 @@ foam.CLASS({
      * return an Element that represents the view of the record passed to it.
      * @param {Boolean} update True if you'd like changes to each record to be put to
      * the DAO
+     * @param congig { onEmpty: function() { } }
      */
-    function select(dao, f) {
+    function select(dao, f, opt_config) {
       this.add(foam.u2.DAOSelectNode.create({
         dao:  dao,
         code: f,
+        config: opt_config
       }, this));
       return this;
     },
@@ -1513,15 +1530,23 @@ foam.CLASS({
       return this;
     },
 
+    function sanitizeClassName_(cls) {
+      /*
+        Return cls conformed to CSS_CLASSNAME_PATTERN: characters which aren't
+        legal in a classname become '-', and a leading digit is prefixed with
+        '_'. Names which are already valid are returned unchanged.
+      */
+      if ( this.CSS_CLASSNAME_PATTERN.test(cls) ) return cls;
+      var s = ( '' + cls ).replace(/[^a-z\d_-]/gi, '-');
+      return /^\d/.test(s) ? '_' + s : s;
+    },
+
     function addClass_(oldClass, newClass) {
       /* Replace oldClass with newClass. Called by cls(). */
       if ( oldClass === newClass ) return;
       if ( oldClass ) this.removeClass(oldClass);
       if ( newClass ) {
-        if ( ! this.CSS_CLASSNAME_PATTERN.test(newClass) ) {
-          console.log('Invalid CSS ClassName: ', newClass);
-          throw "Invalid CSS classname";
-        }
+        newClass = this.sanitizeClassName_(newClass);
         this.classes[newClass] = true;
         // Could be a FunctionNode which only has a comment
         if ( this.element_ && this.element_.classList )
@@ -1643,9 +1668,9 @@ foam.CLASS({
   ],
 
   properties: [
-  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH', 
+  // This code dynamically adds property properties for initObject and postSet for properties with attribute: 'BOTH',
   // ensuring model and DOM attribute synchronization.
-  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in 
+  // The adapts are needed to ensure the sync stays in place in case the property properties are overriden in
   // subclasses
     ...[
       [
@@ -1970,6 +1995,17 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.u2',
+  name: 'FloatArrayViewRefinement',
+  refines: 'foam.lang.FloatArray',
+  requires: [ 'foam.u2.view.FloatArrayView' ],
+  properties: [
+    [ 'view', { class: 'foam.u2.view.FloatArrayView' } ]
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
   name: 'DateViewRefinement',
   refines: 'foam.lang.Date',
   requires: [ 'foam.u2.view.DateView' ],
@@ -2059,7 +2095,7 @@ foam.CLASS({
       expression: function(label, checkboxLabelFormatter) {
         return {
           class: 'foam.u2.CheckBox',
-          label: this.help,
+          label: this.placeholder,
           labelFormatter: checkboxLabelFormatter
         };
       }
@@ -2114,7 +2150,7 @@ foam.CLASS({
   properties: [
     {
       name: 'view',
-      value: { class: 'foam.u2.view.FObjectPropertyView' },
+      value: { class: 'foam.u2.view.FObjectPropertyView' }
     },
     {
       name: 'validationTextVisible',
@@ -2128,6 +2164,30 @@ foam.CLASS({
     {
       name: 'validationStyleEnabled',
       value: false
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'GlyphViewRefinement',
+  refines: 'foam.lang.GlyphProperty',
+
+  requires: [
+    'foam.u2.view.FObjectView',
+    'foam.u2.view.GlyphView',
+    'foam.u2.view.ModeAltView'
+  ],
+
+  properties: [
+    {
+      name: 'view',
+      value: {
+        class: 'foam.u2.view.ModeAltView',
+        readView: { class: 'foam.u2.view.GlyphView' },
+        writeView: { class: 'foam.u2.view.FObjectView', of: 'foam.lang.Glyph' }
+      }
     }
   ]
 });
@@ -2407,6 +2467,17 @@ foam.CLASS({
       // Template method, to be implemented in sub-models
     },
 
+    // Hands the view the property it belongs to. A view spec does not know
+    // which property it was declared on, so this is where the view picks up
+    // the property's name, placeholder and width. Called once, right after the
+    // view is built and before render().
+    //
+    // An input applies it to itself. A view that only wraps an input passes it
+    // down to that input instead - see foam.u2.ClearableSearchField.
+    //
+    // When overriding, copy only what the view does not already have, so
+    // anything set in the view spec still wins. foam.u2.TextField is the
+    // example.
     function fromProperty(p) {
       this.attr('name', p.name);
     }

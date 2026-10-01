@@ -36,7 +36,7 @@ foam.CLASS({
       cursor: pointer;
     }
     ^ .foam-core-menu-SubMenuView-inner {
-      z-index: 10001;
+      z-index: $z-popup;
     }
   `,
 

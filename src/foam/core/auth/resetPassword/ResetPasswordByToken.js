@@ -23,6 +23,30 @@
     'foam.core.auth.User'
   ],
 
+  messages: [
+    {
+      name: 'INVALID_TOKEN',
+      messageMap: {
+        en: 'Invalid token',
+        fr: 'Jeton invalide'
+      }
+    },
+    {
+      name: 'TOKEN_ALREADY_USED',
+      messageMap: {
+        en: 'Token already used',
+        fr: 'Jeton déjà utilisé'
+      }
+    },
+    {
+      name: 'TOKEN_EXPIRED',
+      messageMap: {
+        en: 'Token expired',
+        fr: 'Jeton expiré'
+      }
+    }
+  ],
+
   properties: [
     {
       class: 'String',
@@ -35,10 +59,19 @@
     }
   ],
 
+  methods: [
+    function init() {
+      this.resetPasswordToken.validateToken(null, this.token)
+        .catch((err) => {
+          this.loadingError = this[err.message] || err.message;
+        });
+    },
+  ],
+
   actions: [
     {
       name: 'resetPassword',
-      label: 'Confirm',
+      label: { en: 'Confirm', fr: 'Confirmer' },
       buttonStyle: 'PRIMARY',
       section: 'resetPasswordSection',
       isEnabled: function(errors_) {

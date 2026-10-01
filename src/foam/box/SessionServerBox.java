@@ -139,11 +139,6 @@ public class SessionServerBox
         return;
       }
 
-      if ( session.getContext().get("localLocalSettingDAO") == null && session.getUserId() != 0 ) {
-        DAO localLocalSettingDAO = new foam.dao.MDAO(foam.core.session.LocalSetting.getOwnClassInfo());
-        session.setContext(session.getContext().put("localLocalSettingDAO", localLocalSettingDAO));
-      }
-
       X effectiveContext = session.applyTo(x);
 
       // Make context available to thread-local XLocator

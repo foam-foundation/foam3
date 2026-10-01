@@ -9,7 +9,27 @@ foam.CLASS({
   name: 'Example',
   extends: 'foam.u2.Controller',
 
+  implements: [ 'foam.lang.Timers', 'foam.u2.PausesOffscreen' ],
+
+  documentation: `
+    An <example> block: runnable source plus the output it produces.
+
+    Mixes in PausesOffscreen so that a document full of live examples only
+    animates the ones on screen. Example code reaches the decorated timers two
+    ways: elements it creates land in this Example's sub-Context (requires:
+    passes 'this' as the context, foam/lang/Requires.js:35), and the bare
+    setTimeout/setInterval/requestAnimationFrame it calls resolve out of the
+    'scope' object the code is eval'd under, below.
+  `,
+
+  requires: [
+    'foam.core.u2.navigation.Stack',
+    'foam.u2.stack.BreadcrumbManager'
+  ],
+
   imports: [ 'scope as globalScope' ],
+
+  exports: ['stack_ as stack', 'breadcrumbs_ as breadcrumbs'],
 
   css: `
     ^ {
@@ -55,6 +75,18 @@ foam.CLASS({
       hidden: true,
       // visibility: 'HIDDEN',
       transient: true
+    },
+    {
+      name: 'stack_',
+      factory: function() {
+        return this.Stack.create();
+      }
+    },
+    {
+      name: 'breadcrumbs_',
+      factory: function() {
+        return this.BreadcrumbManager.create();
+      }
     }
   ],
 
@@ -67,13 +99,13 @@ foam.CLASS({
       this.
         addClass(this.myClass()).
         add(this.CODE).
-          start('span').addClass('h500').add('Output:').end().
-            start().
-              addClass(this.myClass('output')).
-              tag('div', {}, this.dom$).
-            end().
-          end();
-
+        start('span').addClass('h500').add('Output:').end().
+        add(this.stack_).
+        end();
+      this.stack_.addClass(this.myClass('output'));
+      // Set the parentMemento_ instead of setting memento_ to null so that it doesn't install a new WindowMemento() and break navigation.
+      this.stack_.push(this.E().startContext({ stack: this.stack_, breadcrumbs: this.breadcrumbs_, parentMemento_: foam.u2.memento.Memento.create() }).
+        tag('div', {}, this.dom$)).endContext();
       this.runListener();
       this.onDetach(this.code$.sub(this.runListener));
     },
@@ -100,7 +132,18 @@ foam.CLASS({
       code: function() {
         var self = this;
         this.dom.removeAllChildren();
+        // Timers registered by the previous run belong to output we just
+        // removed, so drop them rather than leaving duplicates running.
+        this.clearAll_();
         var scope = {
+          // Shadow the globals inside the with(scope) below, so that example
+          // code written as a bare setInterval() call still pauses off-screen.
+          setTimeout:            this.setTimeout.bind(this),
+          clearTimeout:          this.clearTimeout.bind(this),
+          setInterval:           this.setInterval.bind(this),
+          clearInterval:         this.clearInterval.bind(this),
+          requestAnimationFrame: this.requestAnimationFrame.bind(this),
+          cancelAnimationFrame:  this.cancelAnimationFrame.bind(this),
           E: function(opt_nodeName) {
             return self.Element.create({nodeName: opt_nodeName});
           },
@@ -132,7 +175,7 @@ foam.CLASS({
             return self.dom.start.apply(self.dom, arguments);
           },
           tag: function() {
-            return self.dom.start.apply(self.dom, arguments);
+            return self.dom.tag.apply(self.dom, arguments);
           }
         };
 

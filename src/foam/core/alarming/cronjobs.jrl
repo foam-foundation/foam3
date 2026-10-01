@@ -2,12 +2,8 @@ p({
   "class":"foam.core.cron.Cron",
   "schedule":{
     "class":"foam.core.cron.CronSchedule",
-    "minute":-1,
-    "hour":-1,
-    "dayOfMonth":-1,
-    "month":-1,
-    "dayOfWeek":-1,
-    "second":0
+    "daysOfWeek":[],
+    "monthsOfYear":[]
   },
   "enabled":false,
   "id":"Alarming and Monitoring",

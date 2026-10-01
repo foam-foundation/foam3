@@ -374,8 +374,8 @@ foam.CLASS({
       }
 
       var perms =  await Promise.all(permissionedProperties.map( async p =>
-        await this.auth.check(ctrl.__subContext__, modelName + '.rw.' + p) ||
-        await this.auth.check(ctrl.__subContext__, modelName + '.ro.' + p)
+        await this.auth.check(ctrl.__subContext__, modelName + '.rw.' + p.toLowerCase()) ||
+        await this.auth.check(ctrl.__subContext__, modelName + '.ro.' + p.toLowerCase())
       ));
       var grantedProperties   = permissionedProperties.filter((_v, index) => perms[index]);
       var unorderedProperties = grantedProperties.concat(unpermissionedProperties);
@@ -430,7 +430,7 @@ foam.CLASS({
         if ( ! this.auth || ! p.columnPermissionRequired )
           availableProps.push(p);
         else
-          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name}`).then(v => v && availableProps.push(p))
+          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name.toLowerCase()}`).then(v => v && availableProps.push(p))
       }));
       return availableProps.length > 0;
     }

@@ -22,6 +22,8 @@ foam.CLASS({
     'static foam.mlang.MLang.*'
   ],
 
+  documentation: 'A GroupBy-like Sink which only delegates where there is more than one value found. Useful for detecting duplicates. Ex. regionDAO.select(Duplicate(name, ArraySink))',
+
   properties: [
     {
       class: 'foam.mlang.ExprProperty',

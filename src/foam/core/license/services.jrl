@@ -1,0 +1,18 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"licenseDAO",
+  "serve":true,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setRuler(true)
+      .setAuthorize(false)
+      .setContextualize(true)
+      .setOf(foam.core.license.License.getOwnClassInfo())
+      .setFuid(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("licenses")
+      .build();
+    `,
+  "client":"{\"of\":\"foam.core.license.License\"}"
+})

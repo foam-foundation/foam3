@@ -83,4 +83,14 @@ public class StringPStream
   public int pos() {
     return pos;
   }
+
+  /** Return the underlying string. Used by optimized parsers for indexOf(). */
+  public CharSequence getString() {
+    return str.get();
+  }
+
+  /** Create a new StringPStream at the given position sharing the same string. */
+  public StringPStream createAt(int newPos) {
+    return new StringPStream(str, newPos);
+  }
 }

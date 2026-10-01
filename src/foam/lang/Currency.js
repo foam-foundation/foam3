@@ -163,7 +163,10 @@ foam.CLASS({
         // Not using foam locale as foam locale can be reset to a different value mid-session based on translation available
         // using browser default formatting when available
         if ( navigator.language ) {
-          amount = Number(amount);
+          // format takes MINOR units (cents) on every path — the declared arg
+          // type, the javaCode, and the legacy branch below all already do;
+          // this branch previously expected major units, which is issue #5298
+          amount = this.floatAmount(Number(amount));
           let opts = {
             minimumFractionDigits: this.precision,
             maximumFractionDigits: this.precision,
@@ -341,6 +344,22 @@ foam.CLASS({
       },
       javaCode: `
         return Double.valueOf(amount) / (double) Math.pow(10, getPrecision());
+      `
+    },
+    {
+      name: 'minorAmount',
+      args: 'Double amount',
+      type: 'Long',
+      documentation: `
+        Convert from the currency's major units to the internal minor-unit
+        long format that 'format' takes — the inverse of floatAmount.
+        Rounding kills float-multiply drift (123.45 * 100 = 12344.999...).
+      `,
+      code: function(amount) {
+        return Math.round(amount * Math.pow(10, this.precision));
+      },
+      javaCode: `
+        return Math.round(amount * Math.pow(10, getPrecision()));
       `
     }
   ]

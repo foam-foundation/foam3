@@ -27,11 +27,6 @@ foam.CLASS({
           d => d ? d.toLocaleTimeString('en-us') : ''
         ];
       }
-    },
-    {
-      class: 'Boolean',
-      name: 'addUnits',
-      value: true
     }
   ],
 
@@ -40,7 +35,7 @@ foam.CLASS({
       name: 'returnStringValueForProperty',
       type: 'String',
       documentation: 'Method that converts value to string',
-      code: async function(x, prop, val, unitPropName, addUnitPropValueToStr) {
+      code: async function(x, prop, val, unitPropName, formattedValues) {
         if ( val == 0 || val ) {
           if ( foam.Array.isInstance(val) ) {
             var stringArr = [];
@@ -49,13 +44,11 @@ foam.CLASS({
             }
             return stringArr.join(' ');
           }
-          if ( foam.lang.UnitValue.isInstance(prop) ) {
-            if ( unitPropName ) {
-              if ( prop.unitPropValueToString ) {
-                return await prop.unitPropValueToString(x, val, unitPropName, ! addUnitPropValueToStr);
-              }
-              return val.toString();
-            }
+          if ( prop.unitPropValueToString && unitPropName ) {
+            // 'Formatted values' unchecked: bare spreadsheet-parseable number
+            if ( ! formattedValues && prop.unitPropValueToPlainString )
+              return await prop.unitPropValueToPlainString(x, val, unitPropName);
+            return await prop.unitPropValueToString(x, val, unitPropName, ! formattedValues);
           }
           if ( foam.lang.DateTime.isInstance(prop) ) {
             return this.dateTimeToString(val);
@@ -66,17 +59,28 @@ foam.CLASS({
           if ( foam.lang.Time.isInstance(prop) ) {
             return this.timeToString(val);
           }
-          return await this.valueToString(val);
+          return await this.valueToString(val, formattedValues);
         }
         return '';
       }
     },
 
-    async function valueToString(val) {
+    async function valueToString(val, opt_formattedValues) {
       // JS RefSummary.f() returns a Promise resolving to { id, summary }.
       if ( val && typeof val.then === 'function' ) {
         val = await val;
         if ( val == null ) return '';
+      }
+      // Export with 'Formatted values' unchecked: a reference column (e.g. a
+      // CurrencyCode like transactionCurrency) carries a { id, summary }
+      // RefSummary map. The summary is a display label ("USD - US Dollar"); the
+      // id is the bare, spreadsheet-parseable code ("USD"). Emit the id in plain
+      // mode, mirroring how DoubleUnitValue drops its unit. Only when the flag is
+      // explicitly false — it is absent on other call paths, which keep the
+      // summary so existing exports are unchanged.
+      if ( opt_formattedValues === false && foam.Object.isInstance(val) &&
+           val.id !== undefined && val.summary !== undefined ) {
+        return val.id == null ? '' : val.id.toString();
       }
       if ( val.toSummary ) {
         if ( val.toSummary() instanceof Promise )
@@ -104,19 +108,23 @@ foam.CLASS({
 
     {
       name: 'arrayOfValuesToArrayOfStrings',
-      code: async function(x, props, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr) {
+      code: async function(x, props, values, lengthOfPrimaryPropsRequested, formattedValues) {
         var stringValues = [];
         for ( var value of values ) {
           var stringArrayForValue = [];
           for ( var i = 0 ; i < lengthOfPrimaryPropsRequested ; i++ ) {
-            if ( foam.lang.UnitValue.isInstance(props[i]) ) {
+            if ( props[i].unitPropValueToString ) {
               var indexOfUnitProp = props.findIndex(p => p.name === props[i].unitPropName);
               if ( indexOfUnitProp !== -1 ) {
-                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], value[indexOfUnitProp], addUnitPropValueToStr));
+                var unitPropValue = value[indexOfUnitProp];
+                // Reference-typed unit props (e.g. CurrencyCode) project as RefSummary
+                // {id, summary} maps, not code strings; currencyDAO.find needs the id
+                if ( unitPropValue && typeof unitPropValue === 'object' ) unitPropValue = unitPropValue.id;
+                stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], unitPropValue, formattedValues));
                 continue;
               }
             }
-            stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i]));
+            stringArrayForValue.push(await this.returnStringValueForProperty(x, props[i], value[i], undefined, formattedValues));
           }
           stringValues.push(stringArrayForValue);
         }
@@ -133,18 +141,18 @@ foam.CLASS({
     },
     {
       name: 'objectToTable',
-      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested) {
+      code: async function(x, of, propNames, obj, lengthOfPrimaryPropsRequested, formattedValues) {
         var values = await this.objToArrayOfStringValues(x, of, propNames, obj);
-        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested);
+        return this.returnTable(x, of, propNames, values, lengthOfPrimaryPropsRequested, formattedValues);
       }
     },
     {
       name: 'returnTable',
-      code: async function(x, of, propNames, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr) {
+      code: async function(x, of, propNames, values, lengthOfPrimaryPropsRequested, formattedValues) {
         var columnConfig = x.columnConfigToPropertyConverter;
         var props = columnConfig.returnProperties(of, propNames);
         var table =  [ this.getColumnHeaders(x, of, propNames.slice(0, lengthOfPrimaryPropsRequested)) ];
-        var values = await this.arrayOfValuesToArrayOfStrings(x, props, values, lengthOfPrimaryPropsRequested, addUnitPropValueToStr);
+        var values = await this.arrayOfValuesToArrayOfStrings(x, props, values, lengthOfPrimaryPropsRequested, formattedValues);
         table = table.concat(values);
         return table;
       }

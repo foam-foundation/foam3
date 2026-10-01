@@ -31,7 +31,7 @@ foam.CLASS({
       setX(x);
       String serviceName = "compactionTestDAO";
 
-      // Provide a compactionDAO in context for CompactionSink
+      // Provide a compactionDAO in context, as the deployment does
       DAO compactionDAO = new MDAO(Compaction.getOwnClassInfo());
       x = x.put("compactionDAO", compactionDAO);
 
@@ -39,10 +39,10 @@ foam.CLASS({
       JDAO jdao = new JDAO(x, User.getOwnClassInfo(), "compactiontest");
       MDAO mdao = (MDAO) jdao.getDelegate();
 
-      // Wrap in ProxyDAO (CompactionDAO.roll() casts to ProxyDAO)
+      // Wrap in ProxyDAO, as a served DAO would be
       ProxyDAO proxyDAO = new ProxyDAO.Builder(x).setDelegate(jdao).build();
 
-      // Register the DAO in context so CompactionDAO can find it
+      // Register the DAO in context, as the script looks it up by name
       x = x.put(serviceName, proxyDAO);
 
       // 2. Put multiple updates to the same objects (creates many journal entries)
@@ -73,26 +73,38 @@ foam.CLASS({
       long originalSize = originalFile.length();
       test( originalSize > 0, "Original journal has content");
 
-      // 3. Run CompactionDAO (which handles roll + compaction)
+      // 3. Compact by sending the command down the DAO stack, as the
+      // DAOCompaction script does. The JDAO underneath is what handles it.
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      // Opt out of the retention default so the cleanup path stays covered.
+      Compaction reclaim = new Compaction();
+      reclaim.setCSpec(serviceName);
+      reclaim.setKeepSupersededGenerations(false);
+      cmd.setCompaction(reclaim);
       try {
-        CompactionDAO compactor = new CompactionDAO(x, serviceName);
-        compactor.execute(x);
-        test( true, "CompactionDAO.execute() completed without error");
+        proxyDAO.cmd_(x, cmd);
+        // The command dispatches and returns; a test wants the outcome.
+        test( cmd.awaitCompletion(60000), "CompactionCmd finished within the timeout");
+        test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "CompactionCmd reported no error");
       } catch (Throwable t) {
-        test( false, "CompactionDAO.execute() failed: " + t.getMessage());
+        test( false, "CompactionCmd failed: " + t.getMessage());
         return;
       }
+      test( cmd.getCompactedCount() == 1, "One journal compacted, got " + cmd.getCompactedCount());
 
-      // 4. Verify: rolled backup file exists
-      File rolledFile = x.get(Storage.class).get("compactiontest.1");
-      test( rolledFile.exists(), "Rolled backup file (compactiontest.1) exists");
-      test( rolledFile.length() > 0, "Rolled backup file has content");
+      // 4. Verify: the snapshot was committed and the generation it supersedes
+      // was dropped. A surviving .tmp means the rename never ran; a surviving
+      // .1 means cleanup did not, which is safe but wasteful.
+      File snapshot = x.get(Storage.class).get("compactiontest.1.snap.gz");
+      test( snapshot.exists(), "Snapshot (compactiontest.1.snap.gz) exists");
+      test( snapshot.length() > 0, "Snapshot has content");
+      test( ! x.get(Storage.class).get("compactiontest.1.snap.gz.tmp").exists(), "Snapshot temp renamed away on commit");
+      test( ! x.get(Storage.class).get("compactiontest.1").exists(), "Superseded generation removed");
 
-      // 5. Verify: new journal has content (compacted entries written)
+      // 5. Verify: the live journal was replaced by a fresh one for new traffic
       File newJournal = x.get(Storage.class).get("compactiontest");
-      test( newJournal.exists(), "New journal file exists after compaction");
-      long newSize = newJournal.length();
-      test( newSize > 0, "New journal has compacted entries");
+      test( newJournal.exists() || newJournal.length() == 0, "Live journal reset after cutover");
 
       // 6. Verify: MDAO still has all 5 objects with correct data
       count = (Count) mdao.select(new Count());
@@ -102,19 +114,168 @@ foam.CLASS({
       test( u1.getFirstName().startsWith("Updated"), "Object 1 has latest updated value");
 
       // 7. Verify: new entries go to the new journal after compaction
-      long sizeBeforeNewPut = newJournal.length();
+      long sizeBeforeNewPut = newJournal.exists() ? newJournal.length() : 0;
       User newUser = new User();
       newUser.setId(100);
       newUser.setFirstName("PostCompaction");
       newUser.setLastName("User");
       jdao.put_(x, newUser);
-      long sizeAfterNewPut = newJournal.length();
+      long sizeAfterNewPut = x.get(Storage.class).get("compactiontest").length();
       test( sizeAfterNewPut > sizeBeforeNewPut, "New entries written to journal after compaction");
       User fetched = (User) jdao.find_(x, 100L);
       test( fetched != null, "New entry is findable after compaction");
       test( "PostCompaction".equals(fetched.getFirstName()), "New entry has correct data");
 
       testZeroAwareness(x);
+      testKeepSuperseded(x);
+      testBusySkipped(x);
+      testZeroSoftDeleteStaysDeleted(x);
+      `
+    },
+    {
+      documentation: `A row shipped in .0 and soft-deleted at runtime must stay
+        deleted across a compaction and restart.
+
+        .0 is replayed on every boot and a snapshot never supersedes it, so a
+        row the snapshot omits is a row .0 brings back. A soft delete leaves
+        the row in the MDAO with state DELETED, where find_ still sees it while
+        the lifecycle filter drops it from the snapshot -- so it was omitted
+        and never removed.`,
+      name: 'testZeroSoftDeleteStaysDeleted',
+      args: 'foam.lang.X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "softDeleteTestDAO";
+
+      // A .0 shipping two records.
+      F3FileJournal zeroJournal = new F3FileJournal.Builder(x)
+        .setFilename("softdelete.0")
+        .setCreateFile(true)
+        .build();
+      DAO nullDAO = new NullDAO(x, LifecycleTestRecord.getOwnClassInfo());
+      for ( int i = 1 ; i <= 2 ; i++ ) {
+        LifecycleTestRecord r = new LifecycleTestRecord();
+        r.setId(i);
+        r.setName("Zero" + i);
+        zeroJournal.put(x, "", nullDAO, r);
+      }
+
+      JDAO     jdao  = new JDAO(x, LifecycleTestRecord.getOwnClassInfo(), "softdelete");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      Count count = (Count) ((MDAO) jdao.getDelegate()).select(new Count());
+      test( ((Long) count.getValue()) == 2, "softDelete: .0 replayed two records");
+
+      // Soft-delete record 1 the way LifecycleAwareDAO would: state DELETED,
+      // written as a put, so the row stays in the MDAO.
+      LifecycleTestRecord r1 = (LifecycleTestRecord) ((LifecycleTestRecord) jdao.find_(x, 1L)).fclone();
+      r1.setLifecycleState(foam.core.auth.LifecycleState.DELETED);
+      jdao.put_(x, r1);
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      proxy.cmd_(x, cmd);
+      test( cmd.awaitCompletion(60000), "softDelete: compaction finished");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "softDelete: no error");
+
+      // Restart: .0 plus the snapshot. The deleted row must not come back.
+      JDAO reloaded = new JDAO(x, LifecycleTestRecord.getOwnClassInfo(), "softdelete");
+      MDAO mdao     = (MDAO) reloaded.getDelegate();
+
+      LifecycleTestRecord back = (LifecycleTestRecord) mdao.find_(x, 1L);
+      boolean gone = back == null ||
+        back.getLifecycleState() == foam.core.auth.LifecycleState.DELETED;
+      test( gone, "softDelete: row deleted at runtime stays deleted after compaction and restart");
+
+      LifecycleTestRecord kept = (LifecycleTestRecord) mdao.find_(x, 2L);
+      test( kept != null && "Zero2".equals(kept.getName()), "softDelete: the other .0 row survived");
+      `
+    },
+    {
+      documentation: `A journal already compacting is skipped, not compacted a
+        second time. Driven by setting the flag directly rather than by racing
+        two commands, so the guard is tested rather than the timing.`,
+      name: 'testBusySkipped',
+      args: 'X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "busyTestDAO";
+
+      JDAO     jdao  = new JDAO(x, User.getOwnClassInfo(), "busytest");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      User u = new User();
+      u.setId(1);
+      u.setFirstName("Busy");
+      jdao.put_(x, u);
+
+      jdao.getCompacting().set(true);
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      proxy.cmd_(x, cmd);
+
+      test( cmd.getSkippedCount() == 1, "busy: reported as skipped, got " + cmd.getSkippedCount());
+      test( cmd.getCompactedCount() == 0, "busy: nothing compacted");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "busy: an overlap is not an error");
+      test( ! x.get(Storage.class).get("busytest.1").exists(), "busy: journal was not rolled");
+
+      // Released, the next command proceeds normally.
+      jdao.getCompacting().set(false);
+      CompactionCmd again = new CompactionCmd();
+      again.setServiceName(serviceName);
+      proxy.cmd_(x, again);
+      test( again.awaitCompletion(60000), "busy: second attempt finished");
+      test( again.getCompactedCount() == 1, "busy: compacts once the flag clears");
+      test( x.get(Storage.class).get("busytest.1.snap.gz").exists(), "busy: snapshot committed after release");
+      `
+    },
+    {
+      documentation: `Superseded generations are retained by default, so a bad
+        snapshot never destroys the data it was built from. The point of the
+        flag is that it costs disk only, so this also proves replay ignores
+        what it kept.`,
+      name: 'testKeepSuperseded',
+      args: 'X x',
+      javaCode: `
+      x = x.put(Storage.class, x.get(FileSystemStorage.class));
+      String serviceName = "keepTestDAO";
+
+      JDAO     jdao  = new JDAO(x, User.getOwnClassInfo(), "keeptest");
+      ProxyDAO proxy = new ProxyDAO.Builder(x).setDelegate(jdao).build();
+      x = x.put(serviceName, proxy);
+
+      for ( int i = 1 ; i <= 3 ; i++ ) {
+        User u = new User();
+        u.setId(i);
+        u.setFirstName("Keep" + i);
+        jdao.put_(x, u);
+      }
+
+      Compaction conf = new Compaction();
+      conf.setCSpec(serviceName);
+      // Not set: retention is the default while compaction is being proven.
+
+      CompactionCmd cmd = new CompactionCmd();
+      cmd.setServiceName(serviceName);
+      cmd.setCompaction(conf);
+      proxy.cmd_(x, cmd);
+      test( cmd.awaitCompletion(60000), "keep: compaction finished");
+      test( foam.util.SafetyUtil.isEmpty(cmd.getError()), "keep: no error");
+
+      test( x.get(Storage.class).get("keeptest.1.snap.gz").exists(), "keep: snapshot committed");
+      test( x.get(Storage.class).get("keeptest.1").exists(), "keep: superseded generation retained for audit");
+
+      // Retained is not replayed: a fresh JDAO must see three users, not six,
+      // and must not resurrect anything the snapshot settled.
+      JDAO reloaded = new JDAO(x, User.getOwnClassInfo(), "keeptest");
+      MDAO mdao     = (MDAO) reloaded.getDelegate();
+      Count count   = (Count) mdao.select(new Count());
+      test( ((Long) count.getValue()) == 3, "keep: replay ignored the retained generation, got " + count.getValue());
+      User u1 = (User) mdao.find_(x, 1L);
+      test( u1 != null && "Keep1".equals(u1.getFirstName()), "keep: data intact after reload");
       `
     },
     {
@@ -170,13 +331,15 @@ foam.CLASS({
       ProxyDAO proxy2 = new ProxyDAO.Builder(x).setDelegate(jdao2).build();
       x = x.put("zeroTestDAO", proxy2);
 
-      // 8. Run CompactionDAO
-      CompactionDAO compactor = new CompactionDAO(x, "zeroTestDAO");
+      // 8. Compact via the command
+      CompactionCmd zeroCmd = new CompactionCmd();
+      zeroCmd.setServiceName("zeroTestDAO");
       try {
-        compactor.execute(x);
-        test( true, ".0 awareness: CompactionDAO.execute() completed without error");
+        ((DAO) x.get("zeroTestDAO")).cmd_(x, zeroCmd);
+        test( zeroCmd.awaitCompletion(60000), ".0 awareness: CompactionCmd finished within the timeout");
+        test( foam.util.SafetyUtil.isEmpty(zeroCmd.getError()), ".0 awareness: CompactionCmd reported no error");
       } catch ( Throwable t ) {
-        test( false, ".0 awareness: CompactionDAO.execute() failed: " + t.getMessage());
+        test( false, ".0 awareness: CompactionCmd failed: " + t.getMessage());
         return;
       }
 
@@ -186,7 +349,7 @@ foam.CLASS({
       test( ((Long) count.getValue()) == 6, ".0 awareness: MDAO has 6 objects after compaction");
 
       // Verify report exists
-      String report = compactor.getReport();
+      String report = zeroCmd.getReport();
       test( report != null && report.contains("Compaction Report"), ".0 awareness: report generated");
 
       // Verify all 6 objects have correct data

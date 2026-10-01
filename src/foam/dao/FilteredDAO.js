@@ -109,7 +109,7 @@ return try delegate.listen_(
     And_create(["args": [self.predicate, predicate]]) :
     predicate)
       `,
-      javaCode: 'super.listen_(x, sink, predicate == null ? getPredicate() : foam.mlang.MLang.AND(getPredicate(), predicate));'
+      javaCode: 'super.listen_(x, sink, predicate == null ? predicateIn(x) : foam.mlang.MLang.AND(predicateIn(x), predicate));'
     },
   ]
 });

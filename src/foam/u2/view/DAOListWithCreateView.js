@@ -98,8 +98,15 @@ foam.CLASS({
           code: function() {
             if ( this.dao.targetProperty ) {
               // Relationship
+              var targetDAO = this.__subContext__[this.dao.targetDAOKey];
+              if ( ! targetDAO ) {
+                console.error('DAOListWithCreateView: targetDAOKey "' +
+                  this.dao.targetDAOKey + '" is not in the context; cannot ' +
+                  'remove the relationship entry.');
+                return;
+              }
               this.value[this.dao.targetProperty.name] = null;
-              this.__subContext__[this.dao.targetDAOKey].put(this.value);
+              targetDAO.put(this.value);
             } else {
               // DAO
               this.dao.remove(this.value);

@@ -22,6 +22,7 @@ public interface ClassInfo
   ClassInfo   addAxiom(Axiom a);
 
   boolean     isInstance(Object o);
+
   // TODO: should return FObject
   Object      newInstance() throws IllegalAccessException, InstantiationException;
 

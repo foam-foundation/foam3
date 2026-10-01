@@ -19,7 +19,7 @@ foam.CLASS({
     {
       class: 'Reference',
       of: 'foam.core.reflow.Flow',
-      name: 'flow',
+      name: 'flow'
     }
   ],
 

@@ -5,6 +5,7 @@ import foam.lang.ContextAwareAgent;
 import foam.lang.X;
 import foam.dao.ArraySink;
 import foam.dao.DAO;
+import foam.dao.MDAO;
 import foam.mlang.predicate.Predicate;
 import foam.core.auth.LifecycleState;
 import foam.core.auth.User;
@@ -45,6 +46,237 @@ public class RulerDAOTest extends Test {
     removeData(x);
     testCompositeRuleAction(x);
     removeData(x);
+    testAfterRules(x);
+    testThrowingRuleBlocksPut(x);
+    testAgencyThrowBlocksPut(x);
+    testNoAfterRuleWritesOnce(x);
+  }
+
+  /**
+   * put_ only clones a second time and deep-compares when an 'after' rule can
+   * run. Both sides of that branch have to keep behaving: no rule returns the
+   * object untouched, and a rule that mutates still gets written back.
+   */
+  public void testAfterRules(X x) {
+    // Its own dao key, so the rules the rest of this test registers against
+    // localUserDAO cannot reach it and 'no after rule' really means none.
+    DAO afterDAO = new RulerDAO(x, new MDAO(User.getOwnClassInfo()), "afterUserDAO");
+
+    // Nothing targets this dao key yet, so the 'after' block has no work.
+    User quiet = new User();
+    quiet.setId(20);
+    quiet.setFirstName("Nadia");
+    quiet.setLastName("Original");
+    quiet = (User) afterDAO.put_(x, quiet);
+    test(quiet != null, "A put with no 'after' rule returns the object");
+    test(quiet.getLastName().equals("Original"),
+      "A put with no 'after' rule returns it unchanged");
+
+    RuleGroup rg = new RuleGroup();
+    rg.setId("users:after rule");
+    rgDAO.put(rg);
+
+    Rule afterRule = new Rule();
+    afterRule.setId("after1");
+    afterRule.setName("rule. after rule renames");
+    afterRule.setRuleGroup("users:after rule");
+    afterRule.setDaoKey("afterUserDAO");
+    afterRule.setOperation(Operation.CREATE);
+    afterRule.setAfter(true);
+    afterRule.setLifecycleState(LifecycleState.ACTIVE);
+    afterRule.setAction((x1, obj, oldObj, ruler, rule, agent) -> ((User) obj).setLastName("Renamed"));
+    afterRule = (Rule) localRuleDAO.put_(x, afterRule);
+
+    User renamed = new User();
+    renamed.setId(21);
+    renamed.setFirstName("Omar");
+    renamed.setLastName("Original");
+    renamed = (User) afterDAO.put_(x, renamed);
+    test(renamed.getLastName().equals("Renamed"),
+      "An 'after' rule mutation shows on the returned object");
+
+    // The mutation happens on a clone, so it only survives if put_ noticed the
+    // change and wrote it back to the delegate.
+    User found = (User) afterDAO.find_(x, 21L);
+    test(found != null && found.getLastName().equals("Renamed"),
+      "An 'after' rule mutation is written back to the delegate");
+
+    localRuleDAO.remove_(x, afterRule);
+  }
+
+  /**
+   * A rule that throws has to stop the put. The 'before' phase runs ahead of
+   * the delegate put, so nothing may reach the delegate.
+   */
+  public void testThrowingRuleBlocksPut(X x) {
+    DAO throwDAO = new RulerDAO(x, new MDAO(User.getOwnClassInfo()), "throwUserDAO");
+
+    RuleGroup rg = new RuleGroup();
+    rg.setId("users:throwing rule");
+    rgDAO.put(rg);
+
+    Rule thrower = new Rule();
+    thrower.setId("throw1");
+    thrower.setName("rule. before rule rejects the put");
+    thrower.setRuleGroup("users:throwing rule");
+    thrower.setDaoKey("throwUserDAO");
+    thrower.setOperation(Operation.CREATE);
+    // Both defaults, spelled out: the rule runs ahead of the delegate put and
+    // its action runs inline, so the exception reaches the caller of put().
+    thrower.setAfter(false);
+    thrower.setAsync(false);
+    thrower.setLifecycleState(LifecycleState.ACTIVE);
+    thrower.setAction((x1, obj, oldObj, ruler, rule, agent) -> {
+      throw new RuntimeException("rejected by rule");
+    });
+    thrower = (Rule) localRuleDAO.put_(x, thrower);
+
+    User rejected = new User();
+    rejected.setId(22);
+    rejected.setFirstName("Yasmine");
+    try {
+      throwDAO.put_(x, rejected);
+      test(false, "A throwing 'before' rule makes put_ throw");
+    } catch ( RuntimeException e ) {
+      test("rejected by rule".equals(e.getMessage()),
+        "A throwing 'before' rule makes put_ throw: " + e.getMessage());
+    }
+    test(throwDAO.find_(x, 22L) == null,
+      "A throwing 'before' rule leaves nothing in the delegate");
+
+    localRuleDAO.remove_(x, thrower);
+
+    // An 'after' rule runs once the delegate already holds the object, so the
+    // same throw cannot unwind the write. Pinned here so a change to that
+    // ordering shows up as a test failure rather than as stored rows.
+    Rule lateThrower = new Rule();
+    lateThrower.setId("throw2");
+    lateThrower.setName("rule. after rule throws");
+    lateThrower.setRuleGroup("users:throwing rule");
+    lateThrower.setDaoKey("throwUserDAO");
+    lateThrower.setOperation(Operation.CREATE);
+    lateThrower.setAfter(true);
+    lateThrower.setAsync(false);
+    lateThrower.setLifecycleState(LifecycleState.ACTIVE);
+    lateThrower.setAction((x1, obj, oldObj, ruler, rule, agent) -> {
+      throw new RuntimeException("too late");
+    });
+    lateThrower = (Rule) localRuleDAO.put_(x, lateThrower);
+
+    User late = new User();
+    late.setId(24);
+    late.setFirstName("Selim");
+    try {
+      throwDAO.put_(x, late);
+      test(false, "A throwing 'after' rule makes put_ throw");
+    } catch ( RuntimeException e ) {
+      test("too late".equals(e.getMessage()),
+        "A throwing 'after' rule makes put_ throw: " + e.getMessage());
+    }
+    test(throwDAO.find_(x, 24L) != null,
+      "A throwing 'after' rule leaves the delegate write in place");
+
+    localRuleDAO.remove_(x, lateThrower);
+  }
+
+  /**
+   * An action that hands its work to the agency runs where the agency runs it,
+   * not inline, so its exception surfaces after the action returns. It still
+   * has to reach the caller: a rule that fails is a put that failed, however
+   * the action chose to run its work.
+   */
+  public void testAgencyThrowBlocksPut(X x) {
+    DAO agencyDAO = new RulerDAO(x, new MDAO(User.getOwnClassInfo()), "agencyUserDAO");
+
+    RuleGroup rg = new RuleGroup();
+    rg.setId("users:agency rule");
+    rgDAO.put(rg);
+
+    Rule agencyRule = new Rule();
+    agencyRule.setId("agency1");
+    agencyRule.setName("rule. action throws inside the agency");
+    agencyRule.setRuleGroup("users:agency rule");
+    agencyRule.setDaoKey("agencyUserDAO");
+    agencyRule.setOperation(Operation.CREATE);
+    agencyRule.setAfter(false);
+    agencyRule.setAsync(false);
+    agencyRule.setLifecycleState(LifecycleState.ACTIVE);
+    agencyRule.setAction((x1, obj, oldObj, ruler, rule, agency) ->
+      agency.submit(x1, y -> { throw new RuntimeException("thrown in the agency"); }, "throwing agent"));
+    agencyRule = (Rule) localRuleDAO.put_(x, agencyRule);
+
+    User submitted = new User();
+    submitted.setId(25);
+    submitted.setFirstName("Hala");
+    try {
+      agencyDAO.put_(x, submitted);
+      test(false, "An agency exception makes put_ throw");
+    } catch ( RuntimeException e ) {
+      Throwable cause = e.getCause();
+      test(cause != null && "thrown in the agency".equals(cause.getMessage()),
+        "An agency exception makes put_ throw, carrying the cause: " + ( cause == null ? "no cause" : cause.getMessage() ));
+    }
+    // The agency runs as the 'before' phase finishes, so the throw still lands
+    // ahead of the delegate write.
+    test(agencyDAO.find_(x, 25L) == null,
+      "An agency exception leaves nothing in the delegate");
+
+    localRuleDAO.remove_(x, agencyRule);
+  }
+
+  /**
+   * With no 'after' rule there is nothing to write back, so the delegate must
+   * see exactly one put. put_ decides that by cloning the result and deep
+   * comparing it, which only answers 'unchanged' while a property setter is
+   * idempotent - a setter that rewrites its value on every set (a Date
+   * normalized with a division that rounds the wrong way for pre-epoch
+   * values, say) makes the clone differ from its source and every put write
+   * twice.
+   */
+  public void testNoAfterRuleWritesOnce(X x) {
+    CountingDAO counting = new CountingDAO(new MDAO(User.getOwnClassInfo()));
+    DAO countDAO = new RulerDAO(x, counting, "countUserDAO");
+
+    User u = new User();
+    u.setId(23);
+    u.setFirstName("Tarek");
+    // 1900-01-01: getTime() is negative, where a truncating day floor rounds
+    // toward zero instead of down.
+    u.setBirthday(new java.util.Date(-2208988800000L));
+
+    test(u.equals(u.fclone()), "A pre-epoch Date survives fclone unchanged");
+
+    counting.puts = 0;
+    User ret = (User) countDAO.put_(x, u);
+    test(counting.puts == 1,
+      "A put with no 'after' rule reaches the delegate once, was " + counting.puts);
+
+    User found = (User) countDAO.find_(x, 23L);
+    test(found != null && found.getBirthday().equals(ret.getBirthday()),
+      "put_ returns the Date the delegate stored");
+
+    // Re-putting what came back must not move the value either.
+    counting.puts = 0;
+    User again = (User) countDAO.put_(x, found);
+    test(again.getBirthday().equals(found.getBirthday()),
+      "Re-putting the stored object leaves its Date alone");
+    test(counting.puts == 1,
+      "Re-putting with no 'after' rule reaches the delegate once, was " + counting.puts);
+  }
+
+  /** Counts the puts that make it past the ruler. */
+  static class CountingDAO extends foam.dao.ProxyDAO {
+    int puts = 0;
+
+    CountingDAO(DAO delegate) {
+      setDelegate(delegate);
+    }
+
+    @Override
+    public foam.lang.FObject put_(X x, foam.lang.FObject obj) {
+      puts++;
+      return getDelegate().put_(x, obj);
+    }
   }
 
   public void testUsers(X x) {

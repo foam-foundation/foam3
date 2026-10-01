@@ -217,8 +217,7 @@ foam.CLASS({
           // or if their next scheduled execution time is > 5s away
           // Delay at least a little bit to avoid blocking in case of a script error.
           Date minDate = (Date) min.getValue();
-          if( minDate != null &&
-              getEnabled() ) {
+          if( minDate != null && getEnabled() ) {
             delay = Math.abs(minDate.getTime() - System.currentTimeMillis());
             delay = Math.min(getCronDelay(), delay);
             delay = Math.max(500, delay);
@@ -231,7 +230,11 @@ foam.CLASS({
         }
       }
     } catch (Throwable t) {
-      ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, this, "execute", null, LogLevel.ERROR, t));
+      try {
+        ((DAO) x.get("eventRecordDAO")).put(new EventRecord(x, this, "execute", null, LogLevel.ERROR, t));
+      } catch (Throwable t2) {
+        // The time must flow
+      }
     }
     `
     }

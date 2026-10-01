@@ -4,8 +4,10 @@ foam.POM({
   files: [
     { name: 'CommandParser',     flags: 'js' },
     { name: 'DAONameParser',     flags: 'js' },
+    { name: 'DAOTargetParser',   flags: 'js' },
     { name: 'FlowNameParser',    flags: 'js' },
     { name: 'FromParser',        flags: 'js' },
+    { name: 'GroupByParser',     flags: 'js' },
     { name: 'HistoryParser',     flags: 'js' },
     { name: 'PropertyParser',    flags: 'js' },
     { name: 'SinkParser',        flags: 'js' }

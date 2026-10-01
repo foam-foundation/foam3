@@ -17,15 +17,15 @@ foam.CLASS({
   css: `
     ^ { font-family: system-ui, sans-serif; max-width: 900px; }
     ^section { margin: 24px 0; }
-    ^endpoint { background: #f5f5f5; padding: 12px; border-radius: 4px; font-family: monospace; }
-    ^example { background: #1e1e1e; color: #d4d4d4; padding: 16px; border-radius: 4px; overflow-x: auto; white-space: pre; font-family: monospace; font-size: 13px; }
+    ^endpoint { background: $backgroundTertiary; padding: 12px; border-radius: 4px; font-family: monospace; }
+    ^example { background: $backgroundInverse; color: $textOnInverse; padding: 16px; border-radius: 4px; overflow-x: auto; white-space: pre; font-family: monospace; font-size: 13px; }
     ^table { border-collapse: collapse; width: 100%; }
-    ^table th, ^table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    ^table th { background: #f5f5f5; }
+    ^table th, ^table td { border: 1px solid $borderLight; padding: 8px; text-align: left; }
+    ^table th { background: $backgroundTertiary; }
     ^method { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; margin-right: 8px; }
-    ^put { background: #49cc90; color: white; }
-    ^select { background: #61affe; color: white; }
-    ^remove { background: #f93e3e; color: white; }
+    ^put { background: $statusSuccessBackground; color: $statusSuccessText; }
+    ^select { background: $statusInfoBackground; color: $statusInfoText; }
+    ^remove { background: $statusDangerBackground; color: $statusDangerText; }
   `,
 
   properties: [

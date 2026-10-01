@@ -15,6 +15,7 @@ FOAM_REMOTE_OUTPUT=/tmp/tar_extract
 BACKUP=true
 CLUSTER=false
 UNIQUE=true
+RESTART=true
 
 MACOS='darwin*'
 LINUXOS='linux-gnu'
@@ -51,7 +52,8 @@ function usage {
     info "  -T <path>         : Remote location of tarball"
     info "  -E <path>         : Remote directory tarball is extracted to, default to /tmp/tar_extract"
     info "  -N <app-name>     : Application name, also prefix of jar file"
-    info "  -Q <true | false> : Create a unique /mnt point for nfs using the hostname/ip. Defaults to true"
+    info "  -Q <true | false | path> : Persistent mnt path. true uses /mnt/name/HOSTNAME, false uses /mnt/name, path uses exact value. Defaults to true"
+    info "  -R <true | false> : Issue systemd restart on succesful deployment, defaults to true"
     info "  -U user name      : Configure to run application under this user (and group)"
     info "  -Y user id        : Confiugre to run application under this user id (and group id)"
     info "  -V version        : Application version"
@@ -59,7 +61,7 @@ function usage {
     info ""
 }
 
-while getopts "A:B:C:E:N:Q:T:U:V:W:Y:" opt ; do
+while getopts "A:B:C:E:N:Q:R:T:U:V:W:Y:" opt ; do
     case $opt in
         A) APP_HOME=${OPTARG};;
         B) BACKUP=${OPTARG};;
@@ -67,6 +69,7 @@ while getopts "A:B:C:E:N:Q:T:U:V:W:Y:" opt ; do
         E) FOAM_REMOTE_OUTPUT=$OPTARG;;
         N) APP_NAME=${OPTARG};;
         Q) UNIQUE=${OPTARG};;
+        R) RESTART=${OPTARG};;
         T) FOAM_TARBALL=${OPTARG};;
         U) USER=${OPTARG};;
         V) VERSION=${OPTARG};;
@@ -83,10 +86,13 @@ fi
 info "FOAM_ROOT [$FOAM_ROOT]"
 FOAM_HOME=${FOAM_ROOT}-${VERSION}
 MNT_HOME=/mnt/${APP_NAME}
-if [[ ${UNIQUE} = "true" ]]; then
+if [[ -z "${UNIQUE}" || ${UNIQUE} = "false" ]]; then
+    UNIQUE_HOME=${MNT_HOME}
+elif [[ ${UNIQUE} = "true" ]]; then
     UNIQUE_HOME=${MNT_HOME}/$HOSTNAME
 else
-    UNIQUE_HOME=${MNT_HOME}
+    UNIQUE_HOME=${UNIQUE%/}
+    MNT_HOME=$(dirname "${UNIQUE_HOME}")
 fi
 SHARED_HOME=${MNT_HOME}
 FILES_HOME=${MNT_HOME}/files
@@ -404,6 +410,7 @@ setupUser
 if [ "${BACKUP}" == "true" ]; then
     backupFiles
 fi
+
 cleanupFiles
 
 installFiles
@@ -412,6 +419,8 @@ setupSymLink
 
 setupSystemd
 
-restart
+if [ "${RESTART}" == "true" ]; then
+    restart
+fi
 
 exit 0

@@ -1,4 +1,4 @@
-Claude Prompt: Write an introduction document to FOAM for a developer who knows nothing about it.
+<flow name="Intro" category="DOC/GUIDE" spid="foam" description="Developer introduction to FOAM: cross-platform MDD framework for JS/Java/Swift, reactive binding, built-in UI, DAOs." keywords="introduction,mdd,cross-platform,reactive,dao,knowledge"/>
 
 # Introduction to FOAM for Developers
 

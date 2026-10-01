@@ -77,7 +77,7 @@ foam.CLASS({
           class: 'foam.u2.view.FnFormatter',
           f: function(value, obj, axiom) {
             if ( axiom.name !== 'id' && foam.Number.isInstance(value) && axiom.formatValue ) {
-              value = Number(value).toLocaleString(navigator.locale);
+              value = Number(value).toLocaleString(foam.util.getClientLocale());
             }
             this.add(value);
           }
@@ -91,6 +91,19 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'tableWidth'
+    },
+    {
+      documentation: `When truthy, table cells for this column and the property's
+        read-only detail-view rows render a copy-to-clipboard button. true copies the
+        displayed text; a function(value, obj) returning a string copies its result
+        instead — use for cells that render icons or objects.
+        In tables the function only sees properties the table queried for its visible
+        columns (projection), so reading another property returns its unset default
+        unless that property is also a column; in detail views it sees the full object.
+        In detail views, true reads the read-only view's rendered text — a property
+        whose explicit view stays an input in read-only mode (e.g. foam.u2.TextField)
+        renders no text to read, so use the function form there.`,
+      name: 'copyable'
     },
     {
       class: 'Boolean',
@@ -171,10 +184,11 @@ foam.CLASS({
     {
       class: 'foam.u2.view.TableCellFormatter',
       name: 'tableCellFormatter',
-      value: function(value) {
+      value: function(value, obj, axiom) {
         if ( value ) {
           this
-            .tag(foam.u2.view.ReadOnlyEnumView, { data: value });
+            .startContext({ data: obj })
+            .tag(axiom);
         } else {
           this.start().
             add('-').
@@ -353,7 +367,9 @@ foam.CLASS({
     function format(e, value, obj, axiom) {
       e.start()
         .call(function() {
-          if ( value ) { e.style({color: 'green'}); }
+          if ( value ) {
+            e.style({color: foam.CSS.returnTokenValue('$success500', e.cls_, e.__subContext__)});
+          }
         })
         .add(value ? ' Y' : '-')
       .end();
@@ -441,9 +457,15 @@ foam.CLASS({
       value: function(date) {
         // allow the browser to deal with this since we are technically using the user's preference
         if ( date ) {
-          var formattedDate = date.toLocaleDateString(foam.locale);
+          var locale = foam.util.getClientLocale();
+          var formattedDate = date.toLocaleDateString(locale);
+          var tooltipDate = date.toLocaleDateString(locale, {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     },
@@ -468,8 +490,17 @@ foam.CLASS({
       value: function(date, obj, axiom) {
         if ( date ) {
           var formattedDate = axiom.formatLocale(date);
+          var tooltipDate = date.toLocaleString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     },
@@ -494,8 +525,18 @@ foam.CLASS({
       value: function(date, obj, axiom) {
         if ( date ) {
           var formattedDate = axiom.formatLocale(date);
+          var tooltipDate = date.toLocaleString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: 'UTC',
+            timeZoneName: 'short'
+          });
           this.add(formattedDate);
-          this.tooltip = formattedDate;
+          this.tooltip = tooltipDate;
         }
       }
     }

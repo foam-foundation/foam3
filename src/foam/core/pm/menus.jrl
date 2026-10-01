@@ -8,7 +8,6 @@ p({
     "config":{
       "class":"foam.comics.v2.DAOControllerConfig",
       "browseTitle":"Performance",
-      "searchMode":2,
       "summaryView":{"class":"foam.core.pm.PMTableView"},
       "createPredicate":{"class":"foam.mlang.predicate.False"},
       "daoKey":"pmInfoDAO",

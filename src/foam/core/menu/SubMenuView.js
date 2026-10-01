@@ -39,9 +39,9 @@ foam.CLASS({
       border-bottom-right-radius: 5px;
     }
     ^inner div:hover {
-      background: $borderPrimaryLight !important;
-      border-left: solid 1px $borderPrimaryLight;
-      border-right: solid 1px $borderPrimaryLight;
+      background: $borderBrandLight !important;
+      border-left: solid 1px $borderBrandLight;
+      border-right: solid 1px $borderBrandLight;
     }
   `,
 
@@ -57,6 +57,9 @@ foam.CLASS({
           self.start('div').call(function() {
             var e = this;
             this
+              // Menu id as the entry's name, the same hook MenuView carries,
+              // so the user dropdown is addressable too.
+              .attrs({ name: menu.id })
               .on('click', function() {
                 // TODO: if a submenu, don't close until child closed
                 self.close();

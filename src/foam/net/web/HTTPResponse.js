@@ -47,7 +47,7 @@ foam.CLASS({
         switch ( this.responseType ) {
           case 'text':        return this.resp.text();
           case 'blob':        return this.resp.blob();
-          case 'arraybuffer': return this.resp.arraybuffer();
+          case 'arraybuffer': return this.resp.arrayBuffer();
           case 'json':        return this.resp.json();
         }
 
@@ -75,13 +75,24 @@ foam.CLASS({
           this.copyHeadersEdge_(r);
         }
         this.status = r.status;
+        if ( r.redirected )
+          this.redirect_to_url = r.url;
       }
+    },
+    {
+      class: 'String',
+      name: 'redirect_to_url'
+    },
+    {
+      name: 'reader_',
+      hidden: true,
+      transient: true
     }
   ],
 
   methods: [
     function start() {
-      var reader = this.resp.body.getReader();
+      var reader = this.reader_ = this.resp.body.getReader();
       this.streaming = true;
 
       var onError = e => {
@@ -105,6 +116,11 @@ foam.CLASS({
 
     function stop() {
       this.streaming = false;
+      // Clearing the flag only stops us reading further chunks; the reader
+      // still holds a lock on an open body stream, so cancel it to release
+      // the connection. cancel() rejects on an already errored stream.
+      this.reader_?.cancel().catch(() => {});
+      this.reader_ = null;
     },
 
     function copyHeaders_(r) {

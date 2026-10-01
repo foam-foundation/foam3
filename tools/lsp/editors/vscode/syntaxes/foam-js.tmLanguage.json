@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/tc39-proposal-tagged-template-literal-grammars/master/vscode-extension/schema.json",
   "scopeName": "foam.js.injection",
-  "injectionSelector": "L:source.js",
+  "injectionSelector": "L:source.js -comment -string",
   "patterns": [
     {
       "comment": "Java injection into backtick template literals for all FOAM Java properties",

@@ -30,7 +30,6 @@ foam.CLASS({
     }
     ^input {
       border: none;
-      padding-left: 0;
       padding-right: 0;
       width: 100%;
     }

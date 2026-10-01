@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'ClipboardAccess',
   documentation: `Mixin that provides functionality to access web clipboard`,
 
-  imports: ['ctrl','notify'],
+  imports: ['ctrl?'],
 
   methods: [
     function copy(data, provideNotifications = true) {
@@ -18,13 +18,11 @@ foam.CLASS({
                   navigator.clipboard.writeText(data):
                   Promise.reject(new Error('No Clipboard Found')) ;
         if ( provideNotifications ) {
-          res.then(function() {
-            if ( provideNotifications )
-              this.ctrl.notify?.('Copied', '', 'INFO', true);
+          res.then(() => {
+            this.ctrl?.notify?.('Copied', '', 'INFO', true);
           }, (e) => {
-            console.log(e); 
-            if ( provideNotifications )
-              this.ctrl.notify?.('Copy Failed', '', 'ERROR', true);
+            console.log(e);
+            this.ctrl?.notify?.('Copy Failed', '', 'ERROR', true);
           })
         }
         return res;
@@ -35,7 +33,7 @@ foam.CLASS({
             return tryCopy();
           }
           if ( provideNotifications )
-            this.ctrl.notify?.('Copy Failed', 'Permission Denied', 'ERROR', true);
+            this.ctrl?.notify?.('Copy Failed', 'Permission Denied', 'ERROR', true);
           return Promise.reject(new Error('Permission Denied')) ;
         })
       } else {

@@ -71,6 +71,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.demos.u2',
   name: 'AllViews',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.dao.EasyDAO',
@@ -81,9 +82,22 @@ foam.CLASS({
     'foam.u2.view.ReferenceView'
    ],
 
+  imports: [ 'window' ],
+
   exports: [ 'sampleDataDAO', 'displayWidth' ],
 
+  messages: [
+    { name: 'TITLE', message: 'All Views' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       class: 'String',
       name: 'markdownView',
@@ -96,7 +110,7 @@ foam.CLASS({
         ###### Heading 6
         text # not a heading
 
-        [a link](https://github.com/kgrgreer/foam3)
+        [a link](https://github.com/foam-foundation/foam3)
 
         normal _italics_ **bold** \`code\`
         \`\`\`
@@ -114,7 +128,7 @@ foam.CLASS({
       factory: function() {
         return this.DisplayWidth.VALUES
           .sort((a, b) => b.minWidth - a.minWidth)
-          .find(o => o.minWidth <= window.innerWidth);
+          .find(o => o.minWidth <= this.window.innerWidth);
       }
     },
     {
@@ -841,19 +855,29 @@ foam.CLASS({
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfWeek',
       name: 'dayOfWeekView',
       view: {
         class: 'foam.u2.view.DayOfWeekView'
       }
     },
     {
-      class: 'String',
+      class: 'FObjectArray',
+      of: 'foam.time.DayOfMonth',
       name: 'dayOfMonthView',
       view: {
-        class: 'foam.u2.view.DayOfMonthView'}
-      
-    },
+        class: 'foam.u2.view.DayOfMonthView'
+      }
+    }
+  ],
+
+  methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    }
   ],
 
   listeners: [

@@ -32,17 +32,17 @@ foam.CLASS({
         width: 100%;
       }
 
-      .foam-u2-TextInputCSS:hover {
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only) {
         border-color: $borderStrong;
       }
 
-      .foam-u2-TextInputCSS:hover::placeholder,
-      .foam-u2-TextInputCSS:hover:-ms-input-placeholder,
-      .foam-u2-TextInputCSS:hover::-ms-input-placeholder {
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only)::placeholder,
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only):-ms-input-placeholder,
+      .foam-u2-TextInputCSS:hover:not(:disabled):not(:read-only)::-ms-input-placeholder {
         color: $textTertiary;
       }
 
-      .foam-u2-TextInputCSS:focus-visible {
+      .foam-u2-TextInputCSS:focus-visible:not(:disabled):not(:read-only) {
         outline: none;
         border: 1px solid $borderBrand;
       }
@@ -58,12 +58,6 @@ foam.CLASS({
         background-color: $backgroundDestructiveTertiary;
         border-color: $destructive400;
       }
-
-      @media (prefers-color-scheme: dark) {
-        .allowVariants input {
-          color-scheme: dark;
-        }
-      }
       `,
       name: 'CSS-TextInputCSS',
       expands_: false
@@ -75,7 +69,6 @@ foam.CLASS({
       this.SUPER();
       this.CSS.maybeInstallInDocument(this.__context__, {id: 'foam.u2.TextInputCSS'});
       this.addClass('foam-u2-TextInputCSS');
-      this.enableClass('allowVariants', this.__context__.theme$.dot('allowVariants'));
     }
   ]
 });

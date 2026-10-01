@@ -13,9 +13,9 @@ foam.CLASS({
     ^ { font-family: system-ui, sans-serif; max-width: 1200px; }
     ^section { margin: 24px 0; }
     ^table { border-collapse: collapse; width: 100%; }
-    ^table th, ^table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    ^table th { background: #f5f5f5; }
-    ^code { font-family: monospace; font-size: 13px; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; }
+    ^table th, ^table td { border: 1px solid $borderLight; padding: 8px; text-align: left; }
+    ^table th { background: $backgroundSecondary; }
+    ^code { font-family: monospace; font-size: 13px; background: $backgroundSecondary; padding: 2px 6px; border-radius: 3px; }
     ^predicate { font-family: monospace; font-size: 12px; white-space: pre-wrap; max-width: 500px; }
   `,
 
@@ -86,7 +86,10 @@ foam.CLASS({
         if ( list ) {
           this.add(list);
         } else {
-          this.start('span').style({color: 'red'}).add('UNUSED');
+          this.start('span').
+            style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+            add('UNUSED').
+          end();
         }
       }
 
@@ -121,12 +124,14 @@ foam.CLASS({
             .start('table').addClass(self.myClass('table'))
               .start('tr')
                 .start('th').add('Property').end()
+                .start('th').add('Priority').end()
                 .start('th').add('Prompt').end()
               .end()
               .forEach(questions, function(q) {
                 try {
                 this.start('tr')
                   .start('td').start('code').add(q.name).end().end()
+                  .start('td').add(q.priority || 100).end()
                   .start('td')
                   .add(q.prompt || '-').tag('br')
                   .callIf(

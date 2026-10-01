@@ -106,7 +106,7 @@ Otherwise, using AsyncAssemblyLine waits for all calls to fail before reporting 
       if ( getIsSecure() ) {
         SslContextFactory contextFactory = (SslContextFactory) getX().get("sslContextFactory");
         if ( contextFactory != null && contextFactory.getEnableSSL() ) {
-          SSLContext sslContext = contextFactory.getSSLContext();
+          SSLContext sslContext = contextFactory.getSSLContext(getX());
           builder = builder.sslContext(sslContext);
         } else if ( contextFactory == null ) {
           new foam.core.logger.StdoutLogger(getX()).warning("BroadcastWebAgent", "sslContextFactory", "not found");

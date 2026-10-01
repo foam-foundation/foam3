@@ -2,6 +2,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "ping",
   "lazy": false,
+  "lazyOrder": -1,
   "authenticate": false,
   "serviceClass": "foam.core.http.PingService"
 })
@@ -10,6 +11,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "uptime",
   "lazy": false,
+  "lazyOrder": -1,
   "authenticate": false,
   "serviceClass": "foam.core.http.UptimeWebAgent"
 })

@@ -1,6 +1,14 @@
 foam.POM({
   name: 'ai',
 
+  projects: [
+    { name: 'vector/pom' }
+  ],
+
+  javaFiles: [
+    { name: 'mcp/MCPWebAgent' }
+  ],
+
   files: [
     // Interface (generates Skeleton, Client, Proxy)
     { name: 'LLMService',               flags: 'js|java' },

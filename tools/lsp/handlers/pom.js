@@ -13,6 +13,21 @@ foam.POM({
     { name: 'DocumentHighlightHandler', flags: 'js' },
     { name: 'RenameHandler', flags: 'js' },
     { name: 'WorkspaceAnalyzer', flags: 'js' },
-    { name: 'JrlHandler', flags: 'js' }
+    { name: 'JrlHandler', flags: 'js' },
+    { name: 'SignatureHelpHandler', flags: 'js' },
+    { name: 'FoldingRangeHandler', flags: 'js' },
+    { name: 'CodeActionHandler', flags: 'js' },
+    { name: 'I18nHandler', flags: 'js' },
+    { name: 'WorkspaceSymbolHandler', flags: 'js' },
+    { name: 'TypeHierarchyHandler', flags: 'js' },
+    { name: 'ImplementationHandler', flags: 'js' },
+    { name: 'TypeDefinitionHandler', flags: 'js' },
+    { name: 'CallHierarchyHandler', flags: 'js' },
+    { name: 'PomValidator', flags: 'js' },
+    { name: 'CodeLensHandler', flags: 'js' },
+    { name: 'InlayHintHandler', flags: 'js' },
+    { name: 'ScaffoldHandler', flags: 'js' },
+    { name: 'DocumentColorHandler', flags: 'js' },
+    { name: 'DocumentLinkHandler', flags: 'js' }
   ]
 });

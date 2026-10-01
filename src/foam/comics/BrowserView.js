@@ -19,6 +19,7 @@ foam.CLASS({
   package: 'foam.comics',
   name: 'BrowserView',
   extends: 'foam.u2.View',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.comics.DAOController',
@@ -47,6 +48,17 @@ foam.CLASS({
       expression: function(data$of) {
         return data$of.model_.plural;
       }
+    },
+    {
+      class: 'String',
+      name: 'viewTitle',
+      expression: function(title) {
+        return title;
+      }
+    },
+    {
+      class: 'Boolean',
+      name: 'manageBreadcrumbs'
     },
     {
       class: 'String',
@@ -172,6 +184,14 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      if ( this.manageBreadcrumbs ) {
+        this.addCrumb();
+        this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+      }
+    },
+
     function render() {
       this
         .addClass(this.myClass())

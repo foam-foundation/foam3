@@ -775,7 +775,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }
@@ -1159,7 +1159,7 @@ foam.CLASS({
             },
             datalabels: {
               display: true,
-              color: 'white',
+              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
               font: {
                 weight: 'bold'
               }
@@ -1340,6 +1340,12 @@ foam.CLASS({
     'foam.core.reflow.dashboard.LegendPosition'
   ],
 
+  messages: [
+    { name: 'MIN_EQ_MAX', message: 'Min and max values cannot be equal' },
+    { name: 'MIN_GT_MAX', message: 'Min cannot be greater than max' },
+    { name: 'INVALID_DATE', message: 'Invalid date' }
+  ],
+
   properties: [
     // Line-specific rendering properties (display & colors come from mixins)
     { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
@@ -1358,6 +1364,87 @@ foam.CLASS({
         return showPoints ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       } },
     { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Custom axis scaling. Each sink defines isTimeScale from its x-axis property.
+    { class: 'Boolean', name: 'isTimeScale', hidden: true, transient: true },
+    { class: 'Boolean', name: 'toggleCustomXScale', label: 'Custom X Scale',
+      help: 'Toggles custom scale for the X axis' },
+    {
+      class: 'Double', name: 'xAxisMinScale', label: 'X Axis Min',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( ! isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isTimeScale) {
+        if ( toggleCustomXScale && ! isTimeScale && this.hasOwnProperty('xAxisMinScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    {
+      class: 'Double', name: 'xAxisMaxScale', label: 'X Axis Max',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( ! isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isTimeScale) {
+        if ( toggleCustomXScale && ! isTimeScale && this.hasOwnProperty('xAxisMaxScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    {
+      class: 'DateTime', name: 'xDateAxisMinScale', label: 'X Axis Min',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isTimeScale, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isTimeScale, xDateAxisMinScale, xDateAxisMaxScale);
+      }
+    },
+    {
+      class: 'DateTime', name: 'xDateAxisMaxScale', label: 'X Axis Max',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isTimeScale, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isTimeScale, xDateAxisMinScale, xDateAxisMaxScale);
+      }
+    },
+    { class: 'Boolean', name: 'toggleCustomYScale', label: 'Custom Y Scale',
+      help: 'Toggles custom scale for the Y axis' },
+    {
+      class: 'Double', name: 'yAxisMinScale', label: 'Y Axis Min',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    {
+      class: 'Double', name: 'yAxisMaxScale', label: 'Y Axis Max',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    { class: 'Boolean', name: 'autoSkip', label: 'Hide Overlapping Labels', value: true },
+    // Data range of the last render; seeds unset scale bounds and the reset actions
+    { class: 'DateTime', name: 'dataXMin_', hidden: true, transient: true },
+    { class: 'DateTime', name: 'dataXMax_', hidden: true, transient: true },
+    { name: 'xScaleType_', hidden: true, transient: true },
+    { name: 'dataXNumMin_', hidden: true, transient: true },
+    { name: 'dataXNumMax_', hidden: true, transient: true },
+    { name: 'dataYNumMin_', hidden: true, transient: true },
+    { name: 'dataYNumMax_', hidden: true, transient: true },
     // Internal-only sizing props (hidden)
     { class: 'Boolean', name: 'responsive', hidden: true, value: true },
     { class: 'Int', name: 'width', hidden: true, value: 400 }
@@ -1367,7 +1454,9 @@ foam.CLASS({
     function createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                responsive, maintainAspectRatio, showLegend, legendPosition,
                                showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                               xPropForLabels, yPropForLabels) {
+                               xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale,
+                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                               xDateAxisMinScale,xDateAxisMaxScale, labels) {
       var chartJSOptions = {
         responsive: responsive,
         maintainAspectRatio: maintainAspectRatio,
@@ -1398,10 +1487,13 @@ foam.CLASS({
           x: {
             title: {
               display: !!xAxisLabel || !!(xPropForLabels && xPropForLabels.label),
-              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : '')
+              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : ''),
             },
             grid: {
               display: showGridLines
+            },
+            ticks: {
+              autoSkip: autoSkip
             }
           },
           y: {
@@ -1411,7 +1503,9 @@ foam.CLASS({
             },
             grid: {
               display: showGridLines
-            }
+            },
+            min: toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ? yAxisMinScale : undefined,
+            max: toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ? yAxisMaxScale : undefined
           }
         }
       };
@@ -1427,13 +1521,58 @@ foam.CLASS({
         if ( timeUnit.displayFormat ) {
           chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
         }
+
+        if ( toggleCustomXScale ) {
+          if ( xDateAxisMinScale ) chartJSOptions.scales.x.min = xDateAxisMinScale;
+          if ( xDateAxisMaxScale ) chartJSOptions.scales.x.max = xDateAxisMaxScale;
+        }
+
+      } else {
+        chartJSOptions.scales.x.type = this.xScaleType_ || 'category';
+
+        if ( toggleCustomXScale ) {
+          if ( this.hasOwnProperty('xAxisMinScale') ) chartJSOptions.scales.x.min = xAxisMinScale;
+          if ( this.hasOwnProperty('xAxisMaxScale') ) chartJSOptions.scales.x.max = xAxisMaxScale;
+        }
       }
 
       return this.Line2.create({
-        data: { datasets: datasets },
+        data: { labels: labels || [], datasets: datasets },
         options: chartJSOptions,
         width$: this.width$,
         height$: this.height$
+      });
+    },
+
+    function parseXValue(prop, xValue, isTimeScale) {
+      if ( ! isTimeScale ) {
+        return ( prop && prop.chartJsFormatter ) ? prop.chartJsFormatter(xValue) : xValue;
+      }
+      if ( xValue instanceof Date ) return xValue;
+      var d = ( typeof xValue === 'number' ) ? new Date(xValue) : new Date(String(xValue));
+      return isNaN(d.getTime()) ? null : d;
+    },
+
+    function validateDateRange_(enabled, minDate, maxDate) {
+      if ( ! enabled ) return;
+      // Either end unset means the range isn't fully specified yet — nothing to compare.
+      if ( ! minDate || ! maxDate ) return;
+
+      var min = minDate.getTime ? minDate.getTime() : new Date(minDate).getTime();
+      var max = maxDate.getTime ? maxDate.getTime() : new Date(maxDate).getTime();
+
+      if ( isNaN(min) || isNaN(max) ) return this.INVALID_DATE;
+      if ( min === max ) return this.MIN_EQ_MAX;
+      if ( min > max )   return this.MIN_GT_MAX;
+    },
+
+    function seedScaleFromData_() {
+      // Fill each unset scale bound with the data range of the last render
+      var self = this;
+      [ [ 'xDateAxisMinScale', 'dataXMin_' ],    [ 'xDateAxisMaxScale', 'dataXMax_' ],
+        [ 'xAxisMinScale',     'dataXNumMin_' ], [ 'xAxisMaxScale',     'dataXNumMax_' ],
+        [ 'yAxisMinScale',     'dataYNumMin_' ], [ 'yAxisMaxScale',     'dataYNumMax_' ] ].forEach(function(p) {
+        if ( self[p[1]] != null && ! self.hasOwnProperty(p[0]) ) self[p[0]] = self[p[1]];
       });
     },
 
@@ -1476,6 +1615,41 @@ foam.CLASS({
           this.clearProperty('chart_');
         }
       }
+    },
+    {
+      name: 'onDataRangeChange',
+      isFramed: true,
+      on: [
+        'this.propertyChange.dataXMin_',    'this.propertyChange.dataXMax_',
+        'this.propertyChange.dataXNumMin_', 'this.propertyChange.dataXNumMax_',
+        'this.propertyChange.dataYNumMin_', 'this.propertyChange.dataYNumMax_'
+      ],
+      code: function() { this.seedScaleFromData_(); }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'resetXScale',
+      label: 'Reset X Scale',
+      isAvailable: function(toggleCustomXScale) { return toggleCustomXScale; },
+      code: function() {
+        this.clearProperty('xDateAxisMinScale');
+        this.clearProperty('xDateAxisMaxScale');
+        this.clearProperty('xAxisMinScale');
+        this.clearProperty('xAxisMaxScale');
+        this.seedScaleFromData_();
+      }
+    },
+    {
+      name: 'resetYScale',
+      label: 'Reset Y Scale',
+      isAvailable: function(toggleCustomYScale) { return toggleCustomYScale; },
+      code: function() {
+        this.clearProperty('yAxisMinScale');
+        this.clearProperty('yAxisMaxScale');
+        this.seedScaleFromData_();
+      }
     }
   ]
 });
@@ -1497,7 +1671,10 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+                   'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
+                   'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
+      actions: ['resetXScale', 'resetYScale'] },
     { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
       properties: ['colors'] }
   ],
@@ -1550,6 +1727,12 @@ foam.CLASS({
     { name: 'responsive', hidden: true },
     { name: 'width', hidden: true },
     {
+      name: 'isTimeScale',
+      expression: function(arg1) {
+        return !! arg1 && ( foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1) );
+      }
+    },
+    {
     name: 'chart_',
     hidden: true,
     transient: true,
@@ -1557,7 +1740,9 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !arg1 || !arg2 ) return null;
 
@@ -1567,20 +1752,14 @@ foam.CLASS({
       }
 
       var data = [];
+      var labels = [];
+      var minX = null, maxX = null;
+      var minY = null, maxY = null;
+      var minXNum = null, maxXNum = null, allNumeric = true;
       var sortedKeys = this.sortedKeys ? this.sortedKeys() : Object.keys(groups);
 
-      // Check if arg1 is a date property for period range display
-      var isDateAxis = false;
-      if ( arg1 ) {
-        if ( foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1) ) {
-          isDateAxis = true;
-        } else if ( arg1.delegate && (foam.lang.Date.isInstance(arg1.delegate) || foam.lang.DateTime.isInstance(arg1.delegate)) ) {
-          isDateAxis = true;
-        }
-      }
-
       // Apply period range if enabled (periodCount > 0) and x-axis is a date
-      if ( periodCount > 0 && isDateAxis ) {
+      if ( periodCount > 0 && isTimeScale ) {
         sortedKeys = this.fillTimeGapKeys(sortedKeys, groups, periodCount, arg1);
       }
 
@@ -1590,20 +1769,50 @@ foam.CLASS({
         var aggregatedSink = groups[xValue];
         var yValue = aggregatedSink ? aggregatedSink.value : 0;
 
-        // Format x value for Chart.js
-        var xVal = xValue;
-        if ( arg1 && arg1.chartJsFormatter ) {
-          xVal = arg1.chartJsFormatter(xValue);
-        } else if ( foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1) ) {
-          if ( typeof xValue === 'number' ) {
-            xVal = new Date(xValue);
-          } else if ( typeof xValue === 'string' ) {
-            xVal = new Date(xValue);
+        // Taken from Claude -----------------------------------------
+        var xVal = this.parseXValue(arg1, xValue, isTimeScale);
+        if ( xVal === null ) continue;
+
+        if ( isTimeScale ) {
+          if ( ! minX || xVal.getTime() < minX.getTime() ) minX = xVal;
+          if ( ! maxX || xVal.getTime() > maxX.getTime() ) maxX = xVal;
+        } else {
+          var n = Number(xVal);
+          if ( xVal === '' || xVal == null || isNaN(n) ) {
+            allNumeric = false;
+          } else {
+            if ( minXNum === null || n < minXNum ) minXNum = n;
+            if ( maxXNum === null || n > maxXNum ) maxXNum = n;
           }
         }
+        // ------------------------------------------------------------
 
+        labels.push(xVal);
         data.push({ x: xVal, y: yValue });
+        var yn = Number(yValue);
+        if ( ! isNaN(yn) ) {
+          if ( minY === null || yn < minY ) minY = yn;
+          if ( maxY === null || yn > maxY ) maxY = yn;
+        }
       }
+
+      // Pre-set the date range
+      if ( isTimeScale ) {
+        this.xScaleType_ = 'time';
+        this.dataXMin_ = minX;
+        this.dataXMax_ = maxX;
+      } else if ( allNumeric && data.length ) {
+        this.xScaleType_ = 'linear';
+        this.dataXNumMin_ = minXNum;
+        this.dataXNumMax_ = maxXNum;
+      } else {
+        this.xScaleType_ = 'category';
+        this.dataXNumMin_ = 0;
+        this.dataXNumMax_ = Math.max(0, labels.length - 1);
+      }
+
+      this.dataYNumMin_ = minY;
+      this.dataYNumMax_ = maxY;
 
       // Create single dataset
       var datasetConfig = {
@@ -1630,13 +1839,14 @@ foam.CLASS({
       }
 
       var datasets = [datasetConfig];
-      var isTimeScale = arg1 && (foam.lang.Date.isInstance(arg1) || foam.lang.DateTime.isInstance(arg1));
 
       // Use the mixin method instead of duplicating chart options
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   arg1, arg2);
+                                   arg1, arg2, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
+                                   isTimeScale ? null : labels);
     }
 
   }
@@ -1706,7 +1916,10 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+                   'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
+                   'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
+      actions: ['resetXScale', 'resetYScale'] },
     { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
       properties: ['colors'] }
   ],
@@ -1754,6 +1967,12 @@ foam.CLASS({
     { name: 'responsive', hidden: true },
     { name: 'width', hidden: true },
     {
+      name: 'isTimeScale',
+      expression: function(xFunc) {
+        return !! xFunc && ( foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc) );
+      }
+    },
+    {
     name: 'chart_',
     hidden: true,
     transient: true,
@@ -1761,7 +1980,9 @@ foam.CLASS({
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
                         responsive, maintainAspectRatio, showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width) {
+                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1779,19 +2000,52 @@ foam.CLASS({
       var sortedColKeys = cols && cols.sortedKeys ? cols.sortedKeys() : Object.keys(colGroups);
       var sortedRowKeys = rows && rows.sortedKeys ? rows.sortedKeys() : Object.keys(rowGroups);
 
-      // Check if xFunc is a date property for period range display
-      var isDateAxis = false;
-      if ( xFunc ) {
-        if ( foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc) ) {
-          isDateAxis = true;
-        } else if ( xFunc.delegate && (foam.lang.Date.isInstance(xFunc.delegate) || foam.lang.DateTime.isInstance(xFunc.delegate)) ) {
-          isDateAxis = true;
-        }
+      // Apply period range if enabled (periodCount > 0) and x-axis is a date
+      if ( periodCount > 0 && isTimeScale ) {
+        sortedColKeys = this.fillTimeGapKeys(sortedColKeys, colGroups, periodCount, xFunc);
       }
 
-      // Apply period range if enabled (periodCount > 0) and x-axis is a date
-      if ( periodCount > 0 && isDateAxis ) {
-        sortedColKeys = this.fillTimeGapKeys(sortedColKeys, colGroups, periodCount, xFunc);
+      // Parse the column keys once — they're shared by every line
+      var xVals = [], colKeys = [], labels = [];
+      var minX = null, maxX = null;
+      var minY = null, maxY = null;
+      var minXNum = null, maxXNum = null, allNumeric = true;
+
+      for ( var i = 0; i < sortedColKeys.length; i++ ) {
+        var xValue = sortedColKeys[i];
+        var xVal = this.parseXValue(xFunc, xValue, isTimeScale);
+        if ( xVal === null ) continue;
+
+        if ( isTimeScale ) {
+          if ( ! minX || xVal.getTime() < minX.getTime() ) minX = xVal;
+          if ( ! maxX || xVal.getTime() > maxX.getTime() ) maxX = xVal;
+        } else {
+          var n = Number(xVal);
+          if ( xVal === '' || xVal == null || isNaN(n) ) {
+            allNumeric = false;
+          } else {
+            if ( minXNum === null || n < minXNum ) minXNum = n;
+            if ( maxXNum === null || n > maxXNum ) maxXNum = n;
+          }
+        }
+
+        colKeys.push(xValue);   // original group key, for lookups
+        xVals.push(xVal);       // parsed value, for the chart
+        labels.push(xVal);
+      }
+
+      if ( isTimeScale ) {
+        this.xScaleType_ = 'time';
+        this.dataXMin_ = minX;
+        this.dataXMax_ = maxX;
+      } else if ( allNumeric && xVals.length ) {
+        this.xScaleType_ = 'linear';
+        this.dataXNumMin_ = minXNum;
+        this.dataXNumMax_ = maxXNum;
+      } else {
+        this.xScaleType_ = 'category';
+        this.dataXNumMin_ = 0;
+        this.dataXNumMax_ = Math.max(0, labels.length - 1);
       }
 
       // Create a dataset for each line (row group)
@@ -1800,27 +2054,18 @@ foam.CLASS({
         var rowGroup = rowGroups[lineKey];
         var data = [];
 
-        for ( var i = 0; i < sortedColKeys.length; i++ ) {
-          var xValue = sortedColKeys[i];
+        for ( var i = 0; i < xVals.length; i++ ) {
           var yValue = 0;
-
-          if ( rowGroup && rowGroup.groups && rowGroup.groups[xValue] ) {
-            yValue = rowGroup.groups[xValue].value || 0;
+          if ( rowGroup && rowGroup.groups && rowGroup.groups[colKeys[i]] ) {
+            yValue = rowGroup.groups[colKeys[i]].value || 0;
           }
+          data.push({ x: xVals[i], y: yValue });
 
-          // Format x value for Chart.js
-          var xVal = xValue;
-          if ( xFunc && xFunc.chartJsFormatter ) {
-            xVal = xFunc.chartJsFormatter(xValue);
-          } else if ( foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc) ) {
-            if ( typeof xValue === 'number' ) {
-              xVal = new Date(xValue);
-            } else if ( typeof xValue === 'string' ) {
-              xVal = new Date(xValue);
-            }
+          var yn = Number(yValue);
+          if ( ! isNaN(yn) ) {
+            if ( minY === null || yn < minY ) minY = yn;
+            if ( maxY === null || yn > maxY ) maxY = yn;
           }
-
-          data.push({ x: xVal, y: yValue });
         }
 
         var datasetConfig = {
@@ -1850,13 +2095,16 @@ foam.CLASS({
         colorIndex++;
       }
 
-      var isTimeScale = xFunc && (foam.lang.Date.isInstance(xFunc) || foam.lang.DateTime.isInstance(xFunc));
+      this.dataYNumMin_ = minY;
+      this.dataYNumMax_ = maxY;
 
       // Use the mixin method instead of duplicating chart options
       return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
                                    responsive, maintainAspectRatio, showLegend, legendPosition,
                                    showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   xFunc, yFunc);
+                                   xFunc, yFunc, toggleCustomXScale, toggleCustomYScale,
+                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
+                                   xDateAxisMinScale, xDateAxisMaxScale, isTimeScale ? null : labels);
       }
     }
 

@@ -47,11 +47,7 @@ foam.INTERFACE({
       documentation: `Datetime of when capability is no longer valid. Explicitly set, or calculated from period and periodTimeUnit`,
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      expiry_ = val;
-      expiryIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       name: 'expiryPeriod',
@@ -61,11 +57,7 @@ foam.INTERFACE({
       aliases: ['duration'],
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      expiryPeriod_ = val;
-      expiryPeriodIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       documentation: 'Unit of Duration',
@@ -75,11 +67,7 @@ foam.INTERFACE({
       value: 'DAY',
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      expiryPeriodTimeUnit_ = val;
-      expiryPeriodTimeUnitIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       name: 'gracePeriod',
@@ -87,11 +75,7 @@ foam.INTERFACE({
       documentation: `Time capability can be renewed after capability expires.  User keeps permissions granted by the capability during the grace period, afterwhich the UCJ status will be EXPIRED.`,
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      gracePeriod_ = val;
-      gracePeriodIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       documentation: 'Unit of Grace Period',
@@ -101,11 +85,7 @@ foam.INTERFACE({
       value: 'DAY',
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      gracePeriodTimeUnit_ = val;
-      gracePeriodTimeUnitIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       documentation: 'Can this Capability be renewed at some time',
@@ -147,11 +127,7 @@ foam.INTERFACE({
       value: 30,
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      renewalPeriod_ = val;
-      renewalPeriodIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       documentation: 'Unit of Grace Period',
@@ -161,11 +137,7 @@ foam.INTERFACE({
       value: 'DAY',
       includeInDigest: true,
       section: 'renewableSection',
-      javaSetter: `
-      renewalPeriodTimeUnit_ = val;
-      renewalPeriodTimeUnitIsSet_ = true;
-      reset();
-      `
+      javaPostSet: 'reset();'
     },
     {
       name:'lastNotification',

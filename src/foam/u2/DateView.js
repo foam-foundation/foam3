@@ -18,7 +18,7 @@ foam.CLASS({
   mixins: [ 'foam.u2.TextInputCSS' ],
 
   css: `
-    ^:read-only:not(:disabled) { border: none; background: rgba(0,0,0,0); margin-left: -8px; }
+    ^:read-only:not(:disabled) { border: none; background: transparent; margin-left: -8px; }
     ^ { height: $inputHeight; min-width: 130px; }
   `,
 
@@ -58,7 +58,6 @@ foam.CLASS({
       var slot    = this.attrSlot(); //null, this.onKey ? 'input' : null);
 
       function updateSlot() {
-        if ( focused ) return;
         var date = self.data;
         if ( foam.Number.isInstance(date) ) date = new Date(date);
         if ( ! date ) {
@@ -69,6 +68,7 @@ foam.CLASS({
       }
 
       function updateData() {
+        if ( focused ) return;
         var value = slot.get();
 
         var date;
@@ -85,7 +85,7 @@ foam.CLASS({
       if ( this.onKey ) {
         var focused = false;
         this.on('focus', () => { focused = true; });
-        this.on('blur',  () => { focused = false; });
+        this.on('blur',  () => { focused = false; updateData(); });
         this.on('change', updateData);
       } else {
         this.on('blur', updateData);

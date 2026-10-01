@@ -313,7 +313,7 @@ public class FScriptParser {
 
       Expr[] args = new Expr[vals.length];
       for ( int i = 0 ; i < vals.length ; i++ ) {
-        args[i] = (Expr)vals[i];
+        args[i] = (Expr) vals[i];
       }
       Formula formula = new Add();
       formula.setArgs(args);

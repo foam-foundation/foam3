@@ -154,7 +154,7 @@
         code: function(X) {
           var self = X.rowView;
           var userClone = self.subject.user.clone();
-  
+
           // check if disabledTopic already exists
           userClone.disabledTopics.push(self.data.notificationType);
           self.userDAO.put(userClone).then(user => {
@@ -163,7 +163,7 @@
             X.myNotificationDAO.cmd(foam.dao.DAO.PURGE_CMD);
           }).catch(e => {
             self.throwError.pub(e);
-  
+
             if ( e.exception && e.exception.userFeedback  ) {
               var currentFeedback = e.exception.userFeedback;
               while ( currentFeedback ) {
@@ -188,6 +188,7 @@
             self.notificationDAO.put(self.data).then(_ => {
               self.finished.pub();
               self.ctrl.notify(self.MARK_AS_READ_MSG, '', this.LogLevel.INFO, true);
+              X.myNotificationDAO.cmd(foam.dao.DAO.PURGE_CMD);
             }).catch((e) => {
               self.data.read = false;
               self.ctrl.notify(self.FAILED_MARK_AS_READ_MSG, e.message, this.LogLevel.ERROR, true);

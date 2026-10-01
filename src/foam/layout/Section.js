@@ -73,14 +73,15 @@ foam.CLASS({
       name: 'subTitle'
     },
     {
+      class: 'I18NString',
       name: 'navTitle',
       expression: function (title) {
         return title;
       }
     },
     {
-      documentation: 'function and string',
-      name: 'help'
+      name: 'help',
+      documentation: 'function and string'
     },
     {
       class: 'foam.u2.ViewSpec',
@@ -140,9 +141,16 @@ foam.CLASS({
       // If a isnt already a section axiom, make it one
       if ( ! this.SectionAxiom.isInstance(a) ) {
         a = this.SectionAxiom.create(a);
-        
+
       }
       this.copyFrom(a);
+      // copyFrom() skips 'view' here: Section and SectionAxiom are different classes, so
+      // copyFrom() takes its cross-class path, which respects each property's copyValueFrom
+      // hook -- and foam.u2.ViewSpec (the class of 'view') hardcodes copyValueFrom to always
+      // return false. That's correct for typical clone/copy use (don't let a view spec leak
+      // across unrelated objects), but wrong here: transferring the axiom's declared view is
+      // the whole point of fromSectionAxiom, so carry it across explicitly.
+      if ( a.hasOwnProperty('view') ) this.view = a.view;
       this.copyFrom({
         createIsAvailableFor: a.createIsAvailableFor.bind(a),
         fromClass: a.sourceCls_?.name || cls.name,

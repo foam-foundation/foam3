@@ -1062,8 +1062,7 @@ foam.CLASS({
         boolean anonymous = ((AuthService)x.get("auth")).isUserAnonymous(x, getId());
 
         // check if user login enabled
-        if ( ! getLoginEnabled() &&
-             ! anonymous ) {
+        if ( ! getLoginEnabled() && ! anonymous ) {
           throw new AccessDeniedException();
         }
 
@@ -1085,6 +1084,7 @@ foam.CLASS({
 
   actions: [
     {
+      class: 'foam.comics.v3.ComicsAction',
       name: 'deleteUser',
       label: 'Delete',
       toolTip:'Open ticket to delete a user and all associated entities',

@@ -14,7 +14,8 @@ foam.CLASS({
     'foam.core.auth.CreatedByAware',
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
-    'foam.core.auth.ServiceProviderAware'
+    'foam.core.auth.ServiceProviderAware',
+    'foam.mlang.Expressions'
   ],
 
   javaImports: [
@@ -27,7 +28,9 @@ foam.CLASS({
   ],
 
 
-  imports: [ 'flowDAO' ],
+  requires: [ 'foam.core.reflow.FlowHistoryRecord' ],
+
+  imports: [ 'flowDAO', 'flowHistoryDAO?' ],
 
   ids: [ 'name' ],
 /*
@@ -60,8 +63,14 @@ foam.CLASS({
       name: 'scriptSection',
       title: 'Script',
       collapsable: true,
-      permissionRequired: true, // requires foam.core.reflow.flow.section.scriptSection to access
+      permissionRequired: true, // requires flow.section.scriptsection to access
       properties: [ 'preLoadScript', 'script' ]
+    },
+    {
+      name: 'historySection',
+      title: 'History',
+      collapsable: true,
+      properties: [ 'history' ]
     }
   ],
 
@@ -102,9 +111,9 @@ foam.CLASS({
       section: 'general',
       tableCellFormatter: function(value, obj) {
         if ( value.startsWith('PASSED') ) {
-          this.style({color: 'green'});
+          this.style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)});
         } else if ( value.startsWith('FAILED') ) {
-          this.style({color: 'red'});
+          this.style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)});
         }
         this.add(value);
       },
@@ -202,8 +211,51 @@ foam.CLASS({
       value: '[\n\t\n]', // Is needed so that mementoMgr doesn't get confused on the first state
       preSet: function(o, n) { return n.trim(); },
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 60 },
-      toJSON: function (value, outputter) {
+      // Serialize the script as real JSON rather than one escaped string, so
+      // journals and exports show the block structure and nested code /
+      // markdown strings serialize as plain strings (triple-quoted blocks
+      // under a multi-line outputter). Unparseable (hand-edited) script falls
+      // back to the string forms; parsers accept both shapes.
+      toJSON: function(value, outputter) {
+        try { return JSON.parse(value); } catch (e) {}
+        // Triple-quoted output does its own escaping, and pre-escaping here
+        // would hide the newlines it selects on.
+        if ( outputter.multiLineOutput ) return value;
         return outputter.escape(value, true);
+      },
+      fromJSON: function(value, ctx, prop, json) {
+        return foam.String.isInstance(value) ? value : foam.json.PrettyStrict.stringify(value);
+      },
+      javaJSONParser: 'foam.core.reflow.ScriptParser.instance()',
+      javaFormatJSON: `
+        Object v = foam.core.reflow.ScriptParser.parseData(get_(obj));
+        if ( v == null ) formatter.output(get_(obj)); else formatter.output(v)
+      `,
+      javaObjToJSON: `
+        String s = get_(obj);
+        Object v = foam.core.reflow.ScriptParser.parseData(s);
+        if ( v == null ) outputter.output(s); else outputter.output(v)
+      `
+    },
+    {
+      class: 'foam.dao.DAOProperty',
+      name: 'history',
+      label: '',
+      section: 'historySection',
+      transient: true,
+      storageTransient: true,
+      networkTransient: true,
+      createVisibility: 'HIDDEN',
+      visibility: 'RO',
+      expression: function(name) {
+        var dao = this.flowHistoryDAO;
+        if ( ! dao || ! name ) return null;
+        return dao.
+          where(this.EQ(this.FlowHistoryRecord.OBJECT_ID, name)).
+          orderBy(this.DESC(this.FlowHistoryRecord.TIMESTAMP));
+      },
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.FlowHistoryView', flowName: X.data.name };
       }
     }
   ],

@@ -392,7 +392,14 @@ foam.CLASS({
       name: 'updateReferenceObjectsArray',
       code: function() {
         if ( ! this.daoContents || this.daoContents.groupKeys.length === 0 ) return;
-        this.__subContext__[this.targetDAOName].where(this.IN(this.property.of.ID, this.daoContents.groupKeys)).select().then((results) => {
+        var dao = this.__subContext__[this.targetDAOName];
+        if ( ! dao ) {
+          console.error('ReferenceFilterView: targetDAOName "' +
+            this.targetDAOName + '" is not in the context; reference labels ' +
+            'cannot be resolved for property "' + this.property.name + '".');
+          return;
+        }
+        dao.where(this.IN(this.property.of.ID, this.daoContents.groupKeys)).select().then((results) => {
           this.referenceObjectsArray = results.array;
         });
       }

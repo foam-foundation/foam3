@@ -11,7 +11,7 @@ foam.CLASS({
 
   requires: [
     'foam.parse.Alternate',
-    'foam.parse.Parsers'
+    'foam.parse.Parsers' // ????
   ],
 
   imports: [
@@ -22,14 +22,31 @@ foam.CLASS({
 
   methods: [
     async function aInit() {
-      const p          = this.Parsers.create();
+      const p          = this.Parsers.create(); // ???
       const comparator = (a, b) => b.length - a.length || foam.util.compare(a, b);
 
       (await this.agentDAO.select()).array.sort(comparator).forEach(a => {
-        this.alt.args.push(p.sug(p.literalIC(a.label, a), {
+        let parser = p.sug(p.literalIC(a.label, a), {
           text: a.label,
           prependSpaceOnSelect: false,
-          category: 'target'}));
+          category: 'target'});
+
+        try {
+
+          // TODO: move to sinkAgent object
+          let cls  = foam.lookup(a.value);
+          let sink = cls.create({}, this);
+
+          if ( sink.parser ) {
+            parser = p.seq(parser, ' ', sink.parser);
+          } else {
+            //          parser = p.seq(parser);
+          }
+        } catch (e) {
+          console.error('*************** ',e);
+        }
+
+        this.alt.args.push(parser);
       });
     },
 
@@ -37,6 +54,24 @@ foam.CLASS({
       return {
         START: this.alt
       };
+    },
+
+    function STARTAction(v) {
+      try {
+        // return foam.lookup(v.value).create({}, this);
+        //        console.log('*************V:', v, v[0]?.value);
+        debugger;
+        if ( foam.Array.isInstance(v) ) {
+          return v[2];
+        }
+        if ( foam.core.reflow.SinkAgent.isInstance(v) ) {
+          return foam.lookup(v.value).create({}, this);
+        }
+        return v;
+      } catch (x) {
+        debugger;
+        return v;
+      }
     }
   ]
 });

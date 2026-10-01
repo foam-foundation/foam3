@@ -97,10 +97,20 @@ foam.CLASS({
         colors: ['$l'], alignment: 'LEFT', maintainAspectRatio: true,
         height: 280, showLegend: false, legendPosition: 'RIGHT',
         showTooltips: true, showTooltipSum: true, animate: false,
-        animationDuration: 300, periodCount: 24
+        animationDuration: 300, periodCount: 24,
+        toggleCustomXScale: true, xAxisMinScale: 1, xAxisMaxScale: 9,
+        toggleCustomYScale: true, yAxisMinScale: 5, yAxisMaxScale: 2, autoSkip: false
       }, x);
       // Line's displaySink type depends on groupBy; call createSink to populate it.
       a.createSink();
+      var s = a.displaySink;
+      x.test(s && s.toggleCustomXScale === true, 'Line.toggleCustomXScale forwarded');
+      x.test(s && s.xAxisMinScale === 1 && s.xAxisMaxScale === 9, 'Line x scale bounds forwarded');
+      x.test(s && s.toggleCustomYScale === true, 'Line.toggleCustomYScale forwarded');
+      x.test(s && s.autoSkip === false, 'Line.autoSkip forwarded');
+      var errors = ( s && s.getErrors() ) || [];
+      x.test(errors.some(function(e) { return e[0].name === 'yAxisMinScale' && e[1] === s.MIN_GT_MAX; }),
+        'Line sink rejects y min greater than y max');
       x.test(a.displaySink != null, 'Line displaySink populated');
       x.test(a.displaySink && a.displaySink.fill === true, 'Line.fill forwarded');
       x.test(a.displaySink && a.displaySink.tension === 0.5, 'Line.tension forwarded');

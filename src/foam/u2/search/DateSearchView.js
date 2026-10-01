@@ -98,7 +98,7 @@ foam.CLASS({
     ^carrot {
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid black;
+      border-top: 5px solid $textDefault;
       position: absolute;
       right: 8px;
       top: 18px;
@@ -108,7 +108,7 @@ foam.CLASS({
     ^ input, ^ select {
       background-color: $backgroundDefault;
       border-radius: 2px;
-      border: 1px solid #dce0e7;
+      border: 1px solid $borderLight;
       color: $textDefault;
       height: 40px;
       padding: 0 8px;

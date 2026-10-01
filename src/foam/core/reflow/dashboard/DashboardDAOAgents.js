@@ -744,7 +744,25 @@ foam.CLASS({
     { name: 'animate', hidden: true, transient: true,
       setter: function(v) { this.displaySink.animate = v; } },
     { name: 'animationDuration', hidden: true, transient: true,
-      setter: function(v) { this.displaySink.animationDuration = v; } }
+      setter: function(v) { this.displaySink.animationDuration = v; } },
+    { name: 'toggleCustomXScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.toggleCustomXScale = v; } },
+    { name: 'xAxisMinScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xAxisMinScale = v; } },
+    { name: 'xAxisMaxScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xAxisMaxScale = v; } },
+    { name: 'xDateAxisMinScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xDateAxisMinScale = v; } },
+    { name: 'xDateAxisMaxScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.xDateAxisMaxScale = v; } },
+    { name: 'toggleCustomYScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.toggleCustomYScale = v; } },
+    { name: 'yAxisMinScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.yAxisMinScale = v; } },
+    { name: 'yAxisMaxScale', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.yAxisMaxScale = v; } },
+    { name: 'autoSkip', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.autoSkip = v; } }
   ],
 
   methods: [
@@ -774,8 +792,11 @@ foam.CLASS({
         [ 'periodCount', 'timeUnit', 'xAxisLabel', 'yAxisLabel', 'fill', 'tension', 'stepped',
           'showPoints', 'pointRadius', 'showGridLines', 'colors', 'alignment', 'maintainAspectRatio',
           'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
-          'animate', 'animationDuration' ].forEach(function(p) {
-          if ( old && old[p] !== undefined ) next[p] = old[p];
+          'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale',
+          'xDateAxisMinScale', 'xDateAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale',
+          'yAxisMaxScale', 'autoSkip' ].forEach(function(p) {
+          // hasOwnProperty, so an unset scale bound stays unset on the new sink
+          if ( old && old.hasOwnProperty(p) ) next[p] = old[p];
         });
         this.displaySink = next;
       }

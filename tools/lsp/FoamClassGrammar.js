@@ -13,6 +13,7 @@ foam.CLASS({
 
   requires: [
     'foam.parse.lsp.AxiomCatalog',
+    'foam.parse.lsp.FileClassifier',
     'foam.parse.lsp.FoamIndex'
   ],
 
@@ -28,6 +29,11 @@ foam.CLASS({
       of: 'foam.parse.lsp.AxiomCatalog',
       name: 'catalog',
       factory: function() { return this.AxiomCatalog.create(); }
+    },
+    {
+      name: 'classifier_',
+      documentation: 'Supplies the significant-call scan collectModelExtents keeps its model calls to.',
+      factory: function() { return this.FileClassifier.create(); }
     },
     {
       name: 'classRefParser_',
@@ -59,18 +65,20 @@ foam.CLASS({
     function collectAxiomPositions(text) {
       /**
        * Single-parse axiom-position index driven by the grammar itself.
-       * The `messageNameValue` / `enumValueName` / (future) propertyName /
-       * methodName rules are wrapped in `P.msg({kind: '...'})`. On successful
-       * match their msg is emitted with the parser's start/end position —
-       * exactly the info callers need to go-to-definition or build hover
-       * targets.
+       * The `messageNameValue` / `enumValueName` / `propertyNameValue` /
+       * `methodNameValue` rules are wrapped in `P.msg({kind: '...'})`. On
+       * successful match their msg is emitted with the parser's start/end
+       * position — exactly the info callers need to go-to-definition or build
+       * hover targets.
        *
        * Returns:
        *   {
        *     message:  { NAME: { line, col, startPos, endPos } },
        *     value:    { NAME: { … } },
-       *     property: { name: { … } },       // future
-       *     method:   { name: { … } }        // future
+       *     property: { name: { … } },
+       *     method:   { name: { … } },
+       *     modelCall / modelName / propertyDef / methodDef:
+       *               [ { line, col, startPos, endPos } ]   (extents)
        *   }
        *
        * Cached by text identity on the grammar instance.
@@ -80,25 +88,117 @@ foam.CLASS({
       }
 
       var self = this;
-      var map = { message: {}, value: {}, property: {}, method: {} };
+      // Name-keyed buckets have no prototype. A plain {} already "holds"
+      // toString, hasOwnProperty and constructor, so the first
+      // `hasOwnProperty.call(...)` or `x.toString()` in a file's code read
+      // the inherited function as a MULTI record, `arr.push` threw, and the
+      // catch below kept whatever had been harvested so far — every position
+      // after that call was silently gone. src/foam/u2/DetailView.js lost its
+      // whole class, src/foam/dao/EasyDAO.js every member.
+      var bucket = function() { return Object.create(null); };
+      var map = {
+        message:     bucket(), value:    bucket(), property: bucket(), method:  bucket(),
+        pomFileName: bucket(), pomFlagValue: bucket(), pomJavaFileName: bucket(),
+        classRef: bucket(), comment:  bucket(), documentation: bucket(), cssBlock: bucket(),
+        instCall: bucket(), instCreateReceiver: bucket(), instTagClass: bucket(), instClassRef: bucket(),
+        instKey: bucket(), instValue: bucket(), memberRef: bucket(),
+        headEntry: bucket(), requiresEntry: bucket(),
+        modelCall: [], modelName: [], modelPackage: [], modelRefines: [],
+        propertyDef: [], methodDef: [],
+        callClose: [], bodyClose: [], propClose: [], methodClose: [], close: []
+      };
+      // Kinds that record an EXTENT rather than a name. A name-keyed record
+      // would key a whole `foam.CLASS({...})` by its own text, so these are
+      // plain lists of { line, col, startPos, endPos }, one per span start.
+      var SPAN = { modelCall: true, modelName: true, modelPackage: true, modelRefines: true,
+        propertyDef: true, methodDef: true,
+        callClose: true, bodyClose: true, propClose: true, methodClose: true, close: true };
+      var spanAt = {};
+      // Kinds that allow multiple occurrences per name. Single-occurrence
+      // kinds (message, value, property, method, pomFileName) keep their
+      // first sighting as the record — a model defines each name once. Class
+      // references DO repeat (requires + extends + ofs + raw strings + …),
+      // so collect every position.
+      //
+      // "Once" is true per MODEL, and this map covers a FILE. A file of
+      // refinements declares the same member once per refinement:
+      // src/foam/core/reflow/FromCsvRefines.js declares `fromCSV` six times,
+      // for six different classes. So a single-occurrence record also carries
+      // `also` — the later sightings — which a caller that knows which model
+      // it is asking about can pick from. Readers that just want a position
+      // see the same first record they always did.
+      var MULTI = { classRef: true, comment: true, documentation: true, cssBlock: true,
+        instCall: true, instCreateReceiver: true, instTagClass: true,
+        instClassRef: true, instKey: true, instValue: true, memberRef: true,
+        // pom scalar values repeat across entries ('js' in ten files:
+        // rows), so unlike pomFileName these keep every span.
+        pomFlagValue: true, pomJavaFileName: true,
+        // One per model, but a file holds several models, and the record
+        // key is the entry's whole text: two models both saying
+        // `requires: [ 'foam.u2.View' ]` must keep both spans.
+        headEntry: true, requiresEntry: true };
+
+      // Line-start offsets, computed once (O(n)), so each msg match resolves
+      // line/col by binary search (O(log n)). Scanning text from offset 0 per
+      // match would be O(startPos) — quadratic over a file with many matches,
+      // and matches dominate the workspace usage scan.
+      var lineStarts = [ 0 ];
+      for ( var ls = 0 ; ls < text.length ; ls++ ) {
+        if ( text.charCodeAt(ls) === 10 ) lineStarts.push(ls + 1);
+      }
+      var posToLineCol = function(pos) {
+        var lo = 0, hi = lineStarts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( lineStarts[mid] <= pos ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, col: pos - lineStarts[lo] };
+      };
 
       var apply = function(p, grammar) {
         var startPos = this.pos;
         var result = p.parse(this, grammar);
         if ( result && typeof p.msg === 'function' ) {
           var m = p.msg();
-          if ( m && m.kind && map[m.kind] !== undefined ) {
+          if ( m && m.kind && SPAN[m.kind] ) {
+            // Backtracking can re-run a span at the same start; one record
+            // per start, keeping the furthest end any attempt reached.
+            var spanKey = m.kind + ':' + startPos;
+            var seen    = spanAt[spanKey];
+            if ( seen ) {
+              if ( result.pos > seen.endPos ) seen.endPos = result.pos;
+            } else if ( result.pos > startPos ) {
+              var slc = posToLineCol(startPos);
+              seen = spanAt[spanKey] = { line: slc.line, col: slc.col, startPos: startPos, endPos: result.pos };
+              map[m.kind].push(seen);
+            }
+          } else if ( m && m.kind && map[m.kind] !== undefined ) {
             var endPos = result.pos;
             var name = text.substring(startPos, endPos);
-            if ( name && ! map[m.kind][name] ) {
-              var line = 0, col = 0;
-              for ( var i = 0 ; i < startPos ; i++ ) {
-                if ( text.charCodeAt(i) === 10 ) { line++; col = 0; } else col++;
-              }
-              map[m.kind][name] = {
-                line: line, col: col,
+            if ( name ) {
+              var lc = posToLineCol(startPos);
+              var rec = {
+                line: lc.line, col: lc.col,
                 startPos: startPos, endPos: endPos
               };
+              if ( MULTI[m.kind] ) {
+                var arr = map[m.kind][name] || (map[m.kind][name] = []);
+                arr.push(rec);
+              } else {
+                var first = map[m.kind][name];
+                if ( ! first ) {
+                  map[m.kind][name] = rec;
+                } else if ( first.startPos !== startPos ) {
+                  // Backtracking re-runs apply at the same offset, so the same
+                  // sighting can arrive more than once — dedupe on startPos.
+                  if ( ! first.also ) first.also = [];
+                  var dup = false;
+                  for ( var a = 0 ; a < first.also.length ; a++ ) {
+                    if ( first.also[a].startPos === startPos ) { dup = true; break; }
+                  }
+                  if ( ! dup ) first.also.push(rec);
+                }
+              }
             }
           }
         }
@@ -116,10 +216,400 @@ foam.CLASS({
       return map;
     },
 
+    function collectRanges(text) {
+      /** Comment + documentation-value spans, harvested from the grammar's
+       *  P.msg(comment)/P.msg(documentation) emissions in a single parse.
+       *  Dedupes by startPos (wsc is retried at the same offset during
+       *  backtracking, so a comment can be recorded more than once). */
+      var map = this.collectAxiomPositions(text);
+      function flatten(byName) {
+        var out = [], seen = {};
+        for ( var name in byName ) {
+          var arr = byName[name];
+          if ( ! Array.isArray(arr) ) arr = [arr];
+          for ( var i = 0 ; i < arr.length ; i++ ) {
+            var rec = arr[i];
+            if ( seen[rec.startPos] ) continue;
+            seen[rec.startPos] = true;
+            out.push({ startPos: rec.startPos, endPos: rec.endPos });
+          }
+        }
+        return out;
+      }
+      return { comment: flatten(map.comment), documentation: flatten(map.documentation) };
+    },
+
+    function collectCssBlocks(text) {
+      /** Spans of every top-level `css:` value's CONTENT (backticks excluded),
+       *  from the grammar's P.msg(cssBlock) records, sorted by start. Deduped
+       *  by startPos for the same backtracking reason as collectRanges. */
+      var byName = this.collectAxiomPositions(text).cssBlock;
+      var out = [], seen = {};
+      for ( var name in byName ) {
+        var arr = byName[name];
+        for ( var i = 0 ; i < arr.length ; i++ ) {
+          var rec = arr[i];
+          if ( seen[rec.startPos] ) continue;
+          seen[rec.startPos] = true;
+          out.push({ startPos: rec.startPos + 1, endPos: rec.endPos - 1 });
+        }
+      }
+      return out.sort(function(a, b) { return a.startPos - b.startPos; });
+    },
+
+    function collectInstantiations(text) {
+      /** Groups instKey/instValue under each instCall (by innermost span) and
+       *  resolves the view class from instCreateReceiver (the receiver) or
+       *  instTagClass (the .tag first arg). Grammar-driven — no regex.
+       *  Returns [{ classText, isTag, callSpan, entries:[{ key, keyPos,
+       *  valueText, valuePos }] }]. */
+      var map = this.collectAxiomPositions(text);
+      function recs(kind) {
+        var byName = map[kind] || {}, out = [];
+        for ( var n in byName ) {
+          var a = byName[n];
+          if ( ! Array.isArray(a) ) a = [a];
+          for ( var i = 0 ; i < a.length ; i++ ) {
+            out.push({ text: n, startPos: a[i].startPos, endPos: a[i].endPos });
+          }
+        }
+        return out;
+      }
+      var calls = recs('instCall'), creators = recs('instCreateReceiver'),
+          tags = recs('instTagClass'), classRefs = recs('instClassRef'),
+          keys = recs('instKey'), vals = recs('instValue');
+      function within(r, span) { return r.startPos >= span.startPos && r.endPos <= span.endPos; }
+      function innermost(r) {
+        var best = null;
+        for ( var c = 0 ; c < calls.length ; c++ ) {
+          if ( within(r, calls[c]) ) {
+            if ( ! best || ( calls[c].endPos - calls[c].startPos ) < ( best.endPos - best.startPos ) ) {
+              best = calls[c];
+            }
+          }
+        }
+        return best;
+      }
+      function firstIn(list, span) {
+        var best = null;
+        for ( var i = 0 ; i < list.length ; i++ ) {
+          if ( within(list[i], span) && ( ! best || list[i].startPos < best.startPos ) ) best = list[i];
+        }
+        return best;
+      }
+      var out = [];
+      for ( var c = 0 ; c < calls.length ; c++ ) {
+        var span = calls[c];
+        var tag = firstIn(tags, span);
+        var classRef = firstIn(classRefs, span);   // { class: 'X', ... } form
+        var creator = firstIn(creators, span);
+        var classText = tag ? tag.text : ( classRef ? classRef.text : ( creator ? creator.text : null ) );
+        if ( ! classText ) continue;
+        if ( classText.indexOf('this.') === 0 ) classText = classText.substring(5);
+        // keys/values that belong to THIS call (innermost containing call)
+        var kIn = keys.filter(function(k) { var ic = innermost(k); return ic && ic.startPos === span.startPos; })
+                      .sort(function(a, b) { return a.startPos - b.startPos; });
+        var vIn = vals.filter(function(v) { var ic = innermost(v); return ic && ic.startPos === span.startPos; })
+                      .sort(function(a, b) { return a.startPos - b.startPos; });
+        var entries = [];
+        for ( var i = 0 ; i < kIn.length ; i++ ) {
+          var val = null;
+          for ( var j = 0 ; j < vIn.length ; j++ ) {
+            if ( vIn[j].startPos > kIn[i].startPos ) { val = vIn[j]; break; }
+          }
+          entries.push({
+            key: kIn[i].text,
+            keyPos: { startPos: kIn[i].startPos, endPos: kIn[i].endPos },
+            valueText: val ? val.text : null,
+            valuePos: val ? { startPos: val.startPos, endPos: val.endPos } : null
+          });
+        }
+        out.push({ classText: classText, isTag: !! ( tag || classRef ),
+          callSpan: { startPos: span.startPos, endPos: span.endPos }, entries: entries });
+      }
+      return out;
+    },
+
     function findAxiomPosition(text, kind, name) {
       /** Convenience: lookup single axiom position. kind ∈ {'message','value','property','method'}. */
       var map = this.collectAxiomPositions(text);
       return ( map[kind] && map[kind][name] ) || null;
+    },
+
+    function collectModelExtents(text) {
+      /**
+       * Where each model and each of its members starts AND ends.
+       *
+       * The name records above are points: `property.foo` says where the word
+       * `foo` is, not where `{ name: 'foo', ... }` closes. An outline built
+       * from points gives every symbol a zero-width range, so an editor's
+       * breadcrumbs, sticky scroll and "select symbol" cannot tell which member
+       * the cursor is in. This pairs the grammar's extent spans (modelCall,
+       * propertyDef, methodDef) with the name records inside them, from the
+       * same single parse.
+       *
+       * Returns, in source order:
+       *   [ { startPos, endPos,             // the whole foam.X({...}) call
+       *       headEnd,                      // just past the call's '('
+       *       nameStart, nameEnd,           // the `name:` string, quotes
+       *                                     //   excluded; null when absent
+       *       properties: [ member ],
+       *       methods:    [ member ] } ]
+       *   member = { name, startPos, endPos, nameStart, nameEnd }
+       *
+       * A member whose definition carries no name the grammar can see (an
+       * object with a computed name, or one only balancedBraces could skip)
+       * is left out rather than guessed; callers treat a missing member as
+       * "no extent known".
+       *
+       * Only spans that CLOSED are returned. The grammar treats a closing
+       * `}` / `)` / `]` as optional so completion works mid-edit, so a parse
+       * that gives up halfway still ends a span — at wherever it stopped.
+       * src/foam/demos/snake/Snake.js's Game class used to end at line 296
+       * while its methods run past 391. A model is kept only when its body's
+       * `}` and the call's `)` were both matched (bodyClose, callClose); a
+       * member only when its own closer was (propClose, methodClose, `close`
+       * for the `[ name, value ]` pair) or its rule cannot succeed without
+       * one (a quoted shorthand, a `function ... {}`). Everything else is
+       * left out, and callers fall back to a point at the name.
+       */
+      if ( this.extentsCache_ && this.extentsCache_.text === text ) {
+        return this.extentsCache_.extents;
+      }
+      var map = this.collectAxiomPositions(text);
+      var byStart = function(a, b) { return a.startPos - b.startPos; };
+      var inside  = function(r, span) { return r.startPos >= span.startPos && r.endPos <= span.endPos; };
+
+      // Every sighting of a name kind as { name, startPos, endPos }, `also`
+      // included, since one file can declare a name once per model.
+      function sightings(kind) {
+        var out = [], byName = map[kind] || {};
+        for ( var n in byName ) {
+          var rec = byName[n];
+          var all = rec.also ? [ rec ].concat(rec.also) : [ rec ];
+          for ( var i = 0 ; i < all.length ; i++ ) {
+            out.push({ name: n, startPos: all[i].startPos, endPos: all[i].endPos });
+          }
+        }
+        return out.sort(byStart);
+      }
+
+      var propNames   = sightings('property');
+      var methodNames = sightings('method');
+
+      // endPos -> true for each closer kind; a definition closed when its own
+      // closer is the last thing it consumed.
+      function endsOf(kind) {
+        var ends = {};
+        map[kind].forEach(function(r) { ends[r.endPos] = r; });
+        return ends;
+      }
+      var callEnds = endsOf('callClose'), bodyEnds = endsOf('bodyClose'),
+          propEnds = endsOf('propClose'), methodEnds = endsOf('methodClose'),
+          anyEnds  = endsOf('close');
+
+      function closed(d, isProperty) {
+        var c = text.charAt(d.startPos);
+        if ( isProperty ) {
+          if ( c === "'" || c === '"' || c === '`' ) return true;
+          if ( c === '{' ) return !! propEnds[d.endPos];
+          if ( c === '[' ) return !! anyEnds[d.endPos];
+          return false;
+        }
+        if ( c === '{' ) return !! methodEnds[d.endPos];
+        // namedFunctionBody ends in a mandatory balancedBraces.
+        return text.startsWith('function', d.startPos) || text.startsWith('async', d.startPos);
+      }
+
+      function members(defs, names, span, shorthandIsString) {
+        var out = [];
+        for ( var i = 0 ; i < defs.length ; i++ ) {
+          var d = defs[i];
+          if ( ! inside(d, span) ) continue;
+          if ( ! closed(d, shorthandIsString) ) continue;
+          var q = text.charAt(d.startPos);
+          if ( shorthandIsString && ( q === "'" || q === '"' || q === '`' ) ) {
+            // `properties: [ 'foo' ]` — the definition IS the name string.
+            out.push({ name: text.substring(d.startPos + 1, d.endPos - 1),
+              startPos: d.startPos, endPos: d.endPos,
+              nameStart: d.startPos + 1, nameEnd: d.endPos - 1 });
+            continue;
+          }
+          for ( var j = 0 ; j < names.length ; j++ ) {
+            if ( ! inside(names[j], d) ) continue;
+            out.push({ name: names[j].name, startPos: d.startPos, endPos: d.endPos,
+              nameStart: names[j].startPos, nameEnd: names[j].endPos });
+            break;
+          }
+        }
+        return out;
+      }
+
+      // Only calls the significant-call scan also sees: the grammar's START
+      // walks comments and strings too, so a `foam.CLASS(` in a doc comment
+      // is a modelCall to it but a model to nobody.
+      // Only top-level ones: a call nested inside another model's call is
+      // code of that model (a class built at runtime), never a model START
+      // and never where the previous model ends.
+      var significant = this.classifier_.significantCalls(text).filter(function(c) { return ! c.nested; });
+      var callStarts  = {};
+      for ( var si = 0 ; si < significant.length ; si++ ) callStarts[significant[si].offset] = si;
+
+      // True when nothing but whitespace, ';' and comments sits in
+      // [from, to). Code after an extent is only a hint that it closed too
+      // early — ordinary script code follows a finished class in stdlib.js and
+      // most demos — so modelEntryFor decides with the model's members in hand.
+      function onlyTrivia(from, to) {
+        for ( var i = from ; i < to ; ) {
+          var ch = text.charAt(i);
+          if ( ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === ';' ) { i++; continue; }
+          if ( ch === '/' && text.charAt(i + 1) === '/' ) {
+            var nl = text.indexOf('\n', i);
+            i = nl === -1 ? to : nl + 1;
+            continue;
+          }
+          if ( ch === '/' && text.charAt(i + 1) === '*' ) {
+            var close = text.indexOf('*/', i + 2);
+            if ( close === -1 ) return false;
+            i = close + 2;
+            continue;
+          }
+          return false;
+        }
+        return true;
+      }
+
+      // The string inside the first span of `list` within `span`, quotes
+      // stripped; null when there is none.
+      function stringIn(list, span) {
+        for ( var k = 0 ; k < list.length ; k++ ) {
+          if ( inside(list[k], span) ) return text.substring(list[k].startPos + 1, list[k].endPos - 1);
+        }
+        return null;
+      }
+
+      // First grammar position of each member name inside `span`, from the
+      // name records (object and function forms) and the quoted shorthand
+      // definitions. These exist even where the parse later gave up.
+      function namePoints(names, defs, span, withShorthand) {
+        var out = Object.create(null);
+        for ( var k = 0 ; k < names.length ; k++ ) {
+          var r = names[k];
+          if ( inside(r, span) && ! out[r.name] ) out[r.name] = { nameStart: r.startPos, nameEnd: r.endPos };
+        }
+        if ( withShorthand ) {
+          for ( var d = 0 ; d < defs.length ; d++ ) {
+            var q = text.charAt(defs[d].startPos);
+            if ( ! inside(defs[d], span) || ( q !== "'" && q !== '"' ) ) continue;
+            var n = text.substring(defs[d].startPos + 1, defs[d].endPos - 1);
+            if ( ! out[n] ) out[n] = { nameStart: defs[d].startPos + 1, nameEnd: defs[d].endPos - 1 };
+          }
+        }
+        return out;
+      }
+
+      var calls  = map.modelCall.slice().sort(byStart);
+      var pDefs  = map.propertyDef.slice().sort(byStart);
+      var mDefs  = map.methodDef.slice().sort(byStart);
+      var mNames = map.modelName.slice().sort(byStart);
+      var mPkgs  = map.modelPackage.slice().sort(byStart);
+      var mRefs  = map.modelRefines.slice().sort(byStart);
+      var out    = [];
+      for ( var c = 0 ; c < calls.length ; c++ ) {
+        var span = calls[c];
+        var sIdx = callStarts[span.startPos];
+        if ( sIdx === undefined ) continue;
+        // The window runs to the next top-level call; nested ones were
+        // filtered out above.
+        var windowEnd = sIdx + 1 < significant.length ? significant[sIdx + 1].offset : text.length;
+
+        var call = callEnds[span.endPos];
+        var isClosed = false;
+        for ( var be in bodyEnds ) {
+          if ( call && inside(bodyEnds[be], span) && bodyEnds[be].endPos <= call.startPos ) { isClosed = true; break; }
+        }
+        var trailingCode = isClosed && ! onlyTrivia(span.endPos, windowEnd);
+
+        var nameRec = null;
+        for ( var k = 0 ; k < mNames.length ; k++ ) {
+          if ( inside(mNames[k], span) ) { nameRec = mNames[k]; break; }
+        }
+        out.push({
+          startPos:   span.startPos,
+          endPos:     span.endPos,
+          windowEnd:  windowEnd,
+          closed:     isClosed && ! trailingCode,
+          closedByTokens: isClosed,
+          trailingCode:   trailingCode,
+          headEnd:    text.indexOf('(', span.startPos) + 1,
+          name:       nameRec ? text.substring(nameRec.startPos + 1, nameRec.endPos - 1) : null,
+          package:    stringIn(mPkgs, span),
+          refines:    stringIn(mRefs, span),
+          nameStart:  nameRec ? nameRec.startPos + 1 : null,
+          nameEnd:    nameRec ? nameRec.endPos - 1   : null,
+          properties: isClosed ? members(pDefs, propNames,   span, true)  : [],
+          methods:    isClosed ? members(mDefs, methodNames, span, false) : [],
+          propertyPoints: namePoints(propNames,   pDefs, span, true),
+          methodPoints:   namePoints(methodNames, mDefs, span, false)
+        });
+      }
+      this.extentsCache_ = { text: text, extents: out };
+      return out;
+    },
+
+    function modelEntryFor(text, model) {
+      /**
+       * The collectModelExtents() entry for `model` (a FileModelCache model),
+       * or null. Paired by identity: the entry's `name:` must equal the
+       * model's, and its package and refines must agree wherever either side
+       * has one.
+       *
+       * Pairing by call offset was wrong whenever the model cache's count of
+       * calls drifted from the text: a foam.CLASS run at runtime inside a
+       * method (src/foam/dao/Relationship.js:329) is captured as a model but
+       * is no top-level call, so every later model took the offset of the
+       * one before it. The offset now only breaks ties — classes stamped out
+       * in a loop share one call (src/foam/demos/m0/M0.js).
+       */
+      var extents = this.collectModelExtents(text);
+      var hits = extents.filter(function(e) {
+        // A nameless call is a refinement or a relationship (whose name the
+        // model cache synthesizes); anything else must name itself.
+        if ( e.name ? e.name !== model.name : ! ( model.refines || model.type_ === 'RELATIONSHIP' ) ) return false;
+        if ( ( e.refines || model.refines ) && e.refines !== model.refines ) return false;
+        if ( e.package && e.package !== model.package ) return false;
+        return true;
+      });
+      var hit = hits.length === 1 ? hits[0] : null;
+      for ( var i = 0 ; ! hit && i < hits.length ; i++ ) {
+        if ( hits[i].startPos === model.sourceOffset_ ) hit = hits[i];
+      }
+      if ( ! hit || ! hit.trailingCode ) return hit;
+      return this.pastEndCheck_(text, hit, model);
+    },
+
+    function pastEndCheck_(text, entry, model) {
+      /**
+       * `entry` closed on its tokens but code follows it. Script code after a
+       * finished class is ordinary (src/foam/lang/stdlib.js, most demos); a
+       * class that "closed" on a `}))` inside one of its own methods is not
+       * (src/foam/box/KeepAliveBox.js ended at 86:8 with resetIdle still to
+       * come at 88:4). Tell them apart by the model's own members: refuse the
+       * extent when one it does not list is named between its end and the
+       * next top-level call. A refused entry is returned as a copy, since the
+       * cached entry can serve several models.
+       */
+      var listed = Object.create(null);
+      entry.properties.concat(entry.methods).forEach(function(e) { listed[e.name] = true; });
+      var tail = text.substring(entry.endPos, entry.windowEnd);
+      var own  = ( model.properties || [] ).concat(model.methods || []);
+      for ( var i = 0 ; i < own.length ; i++ ) {
+        var n = typeof own[i] === 'string' ? own[i] : ( own[i] && own[i].name );
+        if ( n && ! listed[n] && tail.indexOf(n) !== -1 ) {
+          return Object.assign({}, entry, { closed: false, properties: [], methods: [] });
+        }
+      }
+      return Object.assign({}, entry, { closed: true });
     },
 
     function collectDiagnostics(text) {
@@ -269,8 +759,13 @@ foam.CLASS({
           hint: doc.substring(0, 80)
         }));
       });
-      this.classRefParser_ = classRefParsers.length > 0 ?
+      // Wrap with P.msg so collectAxiomPositions records every class
+      // reference's position. Each msg carries `kind: 'classRef'`; the apply
+      // hook routes those into `map.classRef[classId] = [positions...]` so
+      // references handlers can find exact occurrences without text scan.
+      var rawClassRef = classRefParsers.length > 0 ?
         P.alt.apply(P, classRefParsers) : P.literal('foam.lang.FObject');
+      this.classRefParser_ = P.msg(rawClassRef, { kind: 'classRef' });
 
       // Class-typed axiom slot names — any axiom whose value is a class id.
       // Used by classTypedSlotEntry so a custom property like FSM `next`
@@ -316,9 +811,9 @@ foam.CLASS({
 
       // Whitespace primitives. `ws` is whitespace-only; `wsc` is the
       // whitespace + comments form used between grammar tokens.
-      var lineComment = P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
-        P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r')));
-      var blockComment = P.seq(P.literal('/*'), P.str(P.until(P.literal('*/'))));
+      var lineComment = P.msg(P.seq(P.literal('//'), P.str(P.repeat(P.notChars('\n\r'), null, 0)),
+        P.alt(P.literal('\r\n'), P.literal('\n'), P.literal('\r'))), { kind: 'comment' });
+      var blockComment = P.msg(P.seq(P.literal('/*'), P.str(P.until(P.literal('*/')))), { kind: 'comment' });
       var wsChar = P.chars(' \t\n\r');
       var ws  = P.repeat0(wsChar);
       var wsc = P.repeat0(P.alt(wsChar, lineComment, blockComment));
@@ -346,6 +841,28 @@ foam.CLASS({
       var identifier = P.str(P.repeat(identChars, null, 1));
       var dottedId   = P.str(P.repeat(dottedIdentChars, null, 1));
 
+      // === INSTANTIATION (F3) ===
+      // Receiver chain for `X.create(` / `el.tag(`: (this.)? seg (.seg)*
+      // that STOPS before the trailing `.create(` / `.tag(`. Negative
+      // lookahead (P.not) keeps the rule from matching generic calls.
+      var instMethodAhead = P.seq(P.alt(P.literal('create'), P.literal('tag')), wsc, P.literal('('));
+      var classSeg = P.str(P.repeat(identChars, null, 1));
+      var instReceiverChain = P.str(P.seq(
+        P.optional(P.seq(P.literal('this'), P.literal('.'))),
+        classSeg,
+        P.repeat0(P.seq(P.literal('.'), P.seq(P.not(instMethodAhead), classSeg)))
+      ));
+
+      // A closing token that the rule treats as optional, tagged so
+      // collectModelExtents() can tell a definition that closed from one the
+      // parse gave up on. The closer is optional so completion still works on
+      // a half-typed body, but a span that stopped at `{ name: 'x', val`
+      // otherwise looks exactly like a finished one. Each owner gets its own
+      // kind, so a nested object's '}' cannot vouch for its parent.
+      function closer(ch, kind) {
+        return P.msg(P.literal(ch), { kind: kind });
+      }
+
       // Identifier-as-msg helper. The grammar has many `name: ` slots
       // that must emit a position-tagged msg for downstream handlers
       // (axiom-position lookups, references, definition jumps). All of
@@ -367,6 +884,37 @@ foam.CLASS({
             text: name + ': ', category: category, hint: hint || ''
           }));
         };
+      }
+
+      // String-value rule helper — the canonical shape for any axiom
+      // whose value is a quoted scalar inside the grammar (file names,
+      // flag combinations, subproject paths, Java dep ids, etc.).
+      //
+      // Two responsibilities:
+      //   1. At cursor — emit a Suggestion via P.sug(sentinel) so the
+      //      completion handler knows what category to offer.
+      //   2. Off cursor — match the value text up to the closing quote.
+      //      stopChars defaults to BOTH quote styles so the same value
+      //      parser works whether the caller used single or double
+      //      quotes around it. Forgetting one quote was the source of
+      //      a runaway-match bug that swallowed entire POM files.
+      //
+      // If `msgKind` is provided the off-cursor branch is wrapped in
+      // P.msg({kind}) so collectAxiomPositions records the value span.
+      function stringValueRule(opts) {
+        opts = opts || {};
+        var stopChars = opts.stopChars || "'\"";
+        var capture   = P.str(P.repeat(P.notChars(stopChars), null, 0));
+        if ( opts.msgKind ) capture = P.msg(capture, { kind: opts.msgKind });
+        if ( ! opts.category ) return capture;
+        return P.alt(
+          P.sug(P.literal(''), foam.parse.Suggestion.create({
+            text:     '__ctx_' + opts.category + '__',
+            category: opts.category,
+            hint:     opts.hint || ''
+          })),
+          capture
+        );
       }
       var key           = makeKeyHelper('key');
       var topKey        = makeKeyHelper('topKey');
@@ -435,10 +983,26 @@ foam.CLASS({
         ));
       }
 
+      // A regex literal as a value — `value: /^[\w-]*$/`. With no arm for
+      // it the value failed, and the entry, the list and the class body all
+      // stopped there: src/foam/core/auth/User.js lost 51 of its 53 members
+      // to one constant. In value position a leading '/' can only open a
+      // regex (wsc has already eaten `//` and `/*` comments), and a class
+      // [...] is read whole because a '/' inside one does not close it.
+      var regexEscape  = P.seq(P.literal('\\'), P.anyChar());
+      var regexLiteral = P.seq(
+        P.literal('/'), P.not(P.alt(P.literal('/'), P.literal('*'))),
+        P.repeat(P.alt(
+          regexEscape,
+          P.seq(P.literal('['), P.repeat0(P.alt(regexEscape, P.notChars(']\n\r'))), P.literal(']')),
+          P.notChars('/\n\r')
+        ), null, 1),
+        P.literal('/'), P.repeat0(P.range('a', 'z')));
+
       var anyValue = P.alt(
         stringLiteral, number, booleanLiteral,
         P.sym('functionBody'),  // BEFORE dottedId — 'function' would match as identifier otherwise
-        P.sym('array'), P.sym('object'), dottedId
+        P.sym('array'), P.sym('object'), regexLiteral, dottedId
       );
 
       return {
@@ -458,13 +1022,17 @@ foam.CLASS({
         // Captures `foam.<UPPER>(<classBody>)` for any uppercase identifier
         // other than POM. The captured name is preserved by `foamCallName`
         // so handlers can branch (e.g., FSM-specific completions) if needed.
-        foamGenericCall: P.seq(
+        //
+        // The whole call is msg-tagged as a 'modelCall' span so
+        // collectModelExtents() knows where each model ENDS, not just where
+        // it starts — the document outline's class range is this span.
+        foamGenericCall: P.msg(P.seq(
           P.literal('foam.'),
           P.sym('foamCallName'),
           wsc, P.literal('('), wsc,
           P.sym('classBody'),
-          wsc, P.optional(P.literal(')'))
-        ),
+          wsc, P.optional(closer(')', 'callClose'))
+        ), { kind: 'modelCall' }),
 
         foamCallName: P.str(P.repeat(P.alt(
           P.range('A', 'Z'), P.range('0', '9'), P.literal('_')
@@ -553,69 +1121,40 @@ foam.CLASS({
           wsc, P.optional(P.literal('}'))),
 
         pomFileObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFileName'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFileName'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
         pomJavaFileObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomJavaFileName'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomJavaFileName'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
         pomProjectObjEntry: P.alt(
-          P.seq(pomKeyHelper('name'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomProjectPath'), P.optional(P.literal("'"))),
-          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc,
-            P.literal("'"), P.sym('pomFlagValue'), P.optional(P.literal("'"))),
+          P.seq(pomKeyHelper('name'),  wsc, P.literal(':'), wsc, quotedAny(P.sym('pomProjectPath'))),
+          P.seq(pomKeyHelper('flags'), wsc, P.literal(':'), wsc, quotedAny(P.sym('pomFlagValue'))),
           P.sym('genericEntry')
         ),
 
         // Context markers — each alternative's sug(literal('\u0002')) fails
-        // at cursor and emits a category marker. The str(repeat) fallback
-        // handles the actual token parse.
-        pomFileName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomFileName__', category: 'pomFileName', hint: 'file name'
-          })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
-        ),
-        pomJavaFileName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomJavaFileName__', category: 'pomJavaFileName', hint: 'Java file name'
-          })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
-        ),
-        pomProjectPath: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomProjectPath__', category: 'pomProjectPath', hint: 'subproject path'
-          })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
-        ),
-        pomFlagValue: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomFlagValue__', category: 'pomFlagValue', hint: 'flag combination'
-          })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
-        ),
-        pomJavaDep: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_pomJavaDep__', category: 'pomJavaDep', hint: 'Java dependency'
-          })),
-          P.str(P.repeat(P.notChars("'"), null, 0))
-        ),
+        // at cursor and emits a category marker. stringValueRule() drives the
+        // shape, including the "stop at either quote" rule that prevents the
+        // value parser from running past its closing quote into the next
+        // entry. Adding a new POM scalar value is a one-liner now.
+        pomFileName:     stringValueRule({ category: 'pomFileName',     hint: 'file name',          msgKind: 'pomFileName' }),
+        pomJavaFileName: stringValueRule({ category: 'pomJavaFileName', hint: 'Java file name',     msgKind: 'pomJavaFileName' }),
+        pomProjectPath:  stringValueRule({ category: 'pomProjectPath',  hint: 'subproject path' }),
+        pomFlagValue:    stringValueRule({ category: 'pomFlagValue',    hint: 'flag combination',   msgKind: 'pomFlagValue' }),
+        pomJavaDep:      stringValueRule({ category: 'pomJavaDep',      hint: 'Java dependency' }),
 
         // Skip one character — catch-all that lets START consume the whole file
         ignoredContent: P.anyChar(),
 
         // === CLASS BODY ===
         classBody: P.seq(P.literal('{'), wsc,
-          P.optional(P.sym('classEntries')), wsc, P.optional(P.literal('}'))),
+          P.optional(P.sym('classEntries')), wsc, P.optional(closer('}', 'bodyClose'))),
 
         classEntries: repeatList(P.sym('classEntry')),
 
@@ -652,16 +1191,27 @@ foam.CLASS({
         // === SPECIFIC ENTRIES ===
         // Hints are sourced from AxiomCatalog via topHint() — keeps the
         // descriptions in one place and reachable from HoverHandler too.
-        packageEntry: P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc, stringLiteral),
-        nameEntry:    P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc, stringLiteral),
-        extendsEntry: P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
-          quoted(P.sym('classRef'))),
+        //
+        // The identity entries (package/name/extends/refines/implements) and
+        // requires are msg-tagged so completion can write a `requires:` edit
+        // at the right spot — see MemberCompletionHandler.requiresLayout_.
+        // Inside them, the model's `package:` and `refines:` strings are
+        // spans too, so an extent can be paired with its model by identity
+        // rather than by position (see modelEntryFor).
+        packageEntry: P.msg(P.seq(key('package',  topHint('package')),  wsc, P.literal(':'), wsc,
+          P.msg(stringLiteral, { kind: 'modelPackage' })), { kind: 'headEntry' }),
+        // The model's own `name:` string (quotes included) is a 'modelName'
+        // span: the outline selects it, and inlay hints sit right after it.
+        nameEntry:    P.msg(P.seq(key('name',     topHint('name')),     wsc, P.literal(':'), wsc,
+          P.msg(stringLiteral, { kind: 'modelName' })), { kind: 'headEntry' }),
+        extendsEntry: P.msg(P.seq(key('extends',  topHint('extends')),  wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef'))), { kind: 'headEntry' }),
 
         // refines: 'foam.x.Y' — classRef-typed top-level slot. Promoted from
         // suggestion-only topLevelKey to first-class entry so go-to-def,
         // hover, and unknown-class diagnostics work the same as `extends:`.
-        refinesEntry: P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
-          quoted(P.sym('classRef'))),
+        refinesEntry: P.msg(P.seq(key('refines', topHint('refines')), wsc, P.literal(':'), wsc,
+          P.msg(quoted(P.sym('classRef')), { kind: 'modelRefines' })), { kind: 'headEntry' }),
 
         // sourceModel/targetModel: classRef-typed slots used by
         // foam.RELATIONSHIP({...}). Same treatment as extends/refines.
@@ -680,7 +1230,8 @@ foam.CLASS({
           wsc, P.literal(':'), wsc,
           quoted(P.sym('classRef'))
         ),
-        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc, stringLiteral),
+        documentationEntry: P.seq(key('documentation', topHint('documentation')), wsc, P.literal(':'), wsc,
+          P.msg(stringLiteral, { kind: 'documentation' })),
         abstractEntry: P.seq(key('abstract', topHint('abstract')), wsc, P.literal(':'), wsc, booleanLiteral),
         flagsEntry: P.seq(key('flags', topHint('flags')), wsc, P.literal(':'), wsc, P.sym('array')),
         // actions/listeners/sections — array-of-object axioms. Each gets a
@@ -707,8 +1258,20 @@ foam.CLASS({
         ),
 
         listenersArray: P.seq(P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.sym('listenerObject'), wsc)),
+          repeatList(P.seq(wsc, P.sym('listenerDef'), wsc)),
           wsc, P.optional(P.literal(']'))),
+        // Listeners come in two forms — the bare named-function form
+        // (`function click(e){...}`, a common idiom) and the object form
+        // (`{ name, code }`). Without the bare-function arm, listenersArray's
+        // object-only rule "succeeds" on just `[` (empty optional list + optional
+        // `]`), leaving `function click(){}], methods:[...]` to be misparsed as
+        // class entries — silently dropping every axiom after the listeners block.
+        // namedFunctionBody also emits the 'method' axiom position so go-to-def /
+        // hover resolve on the listener name (parity with methodDef).
+        listenerDef: P.alt(
+          P.sym('namedFunctionBody'),
+          P.sym('listenerObject')
+        ),
         listenerObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('listenerObjEntry')),
           wsc, P.optional(P.literal('}'))),
@@ -727,15 +1290,34 @@ foam.CLASS({
           P.seq(catalogAlt('sectionKey'), wsc, P.literal(':'), wsc, anyValue),
           P.sym('genericEntry')
         ),
-        cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc, backtickString),
+        // The css: value is msg-tagged so a handler that works inside the
+        // block (DocumentColorHandler's swatches) gets its exact span from
+        // this parse. The alternative, text.indexOf(model.css), finds the
+        // first copy of the text, which is the wrong block when two models in
+        // one file share a css body. The span includes both backticks.
+        cssEntry: P.seq(key('css', topHint('css')), wsc, P.literal(':'), wsc,
+          P.msg(backtickString, { kind: 'cssBlock' })),
 
-        implementsEntry: P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+        // implements: ['foam.x.Y'] — same classRef parsing as extends.
+        // FOAM allows implements to reference any class id, not just
+        // foam.INTERFACE-declared ones (e.g., StringFilterView implements
+        // foam.mlang.Expressions, which is a class).
+        implementsEntry: P.msg(P.seq(key('implements', topHint('implements')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
           repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
-          wsc, P.optional(P.literal(']'))),
+          wsc, P.optional(P.literal(']'))), { kind: 'headEntry' }),
 
-        requiresEntry: P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
-          repeatList(P.seq(wsc, quoted(P.sym('classRef')), wsc)),
-          wsc, P.optional(P.literal(']'))),
+        // A require is a class-id string, optionally aliased
+        // ('foam.mlang.expr.ABS as Absolute'), or a `{ path, name?, flags? }`
+        // object. Neither the alias nor the object form had an arm, so the
+        // first one ended the class body — src/foam/dao/EasyDAO.js lost all
+        // 104 members to an object require, src/foam/mlang/Expressions.js
+        // everything after its first alias.
+        requiresEntry: P.msg(P.seq(key('requires', topHint('requires')), wsc, P.literal(':'), wsc, P.literal('['), wsc,
+          repeatList(P.seq(wsc, P.alt(
+            quoted(P.seq(P.sym('classRef'),
+              P.optional(P.seq(P.repeat(wsChar, null, 1), P.literal('as'), P.repeat(wsChar, null, 1), identifier)))),
+            P.sym('object')), wsc)),
+          wsc, P.optional(P.literal(']'))), { kind: 'requiresEntry' }),
 
         // messages: [ { name: 'LABEL_X', message: '…' } ]
         // Each name's string content is msg-tagged so collectAxiomPositions
@@ -794,28 +1376,40 @@ foam.CLASS({
         // Real suggestions come from the model (this class's properties).
         tableColumnsEntry: P.seq(topKey('tableColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('tableColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
         searchColumnsEntry: P.seq(topKey('searchColumns'), wsc, P.literal(':'), wsc,
           P.literal('['), wsc,
-          repeatList(P.seq(wsc, P.literal("'"), P.sym('columnName'),
+          repeatList(P.seq(wsc, P.literal("'"), P.sym('searchColumnName'),
             P.optional(P.literal("'")), wsc)),
           wsc, P.optional(P.literal(']'))),
 
         // Context marker: the sug here always fails (matches \u0002 which
         // doesn't appear in source) so it fires during suggestion collection.
         // The id-shaped fallback is msg-wrapped so validation can flag
-        // unknown column names (property names not on the class).
-        columnName: P.alt(
-          P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
-            text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
-          })),
+        // unknown column names. tableColumns and searchColumns emit distinct
+        // msg types because tableColumns also accepts action names (rendered
+        // as row buttons — see foam.u2.table.UnstyledTableView) while
+        // searchColumns filters on properties only.
+        columnNameMarker: P.sug(P.literal('\u0002'), foam.parse.Suggestion.create({
+          text: '__ctx_columnName__', category: 'columnName', hint: 'property name'
+        })),
+        tableColumnName: P.alt(
+          P.sym('columnNameMarker'),
           P.msg(
-            P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
-            { type: 'columnName' }
+            P.sym('columnNameIdent'),
+            { type: 'tableColumnName' }
           )
         ),
+        searchColumnName: P.alt(
+          P.sym('columnNameMarker'),
+          P.msg(
+            P.sym('columnNameIdent'),
+            { type: 'searchColumnName' }
+          )
+        ),
+        columnNameIdent: P.str(P.repeat(P.alt(alphaNum, P.chars('_.')), null, 1)),
 
         importsEntry: P.seq(key('imports', topHint('imports')), wsc, P.literal(':'), wsc, P.sym('array')),
 
@@ -908,9 +1502,18 @@ foam.CLASS({
 
         // === PROPERTY DEFINITIONS ===
         // Try structured parse first, fall back to balanced braces if it fails
-        propertyDef: P.alt(stringLiteral, P.sym('propertyObject'), P.sym('balancedBraces')),
+        // The whole definition — `{ ... }`, the shorthand `'name'`, or the
+        // `[ 'name', value ]` pair — is a 'propertyDef' span, the member's
+        // extent in collectModelExtents().
+        //
+        // The pair form had no arm, so `['nodeName', 'DIV']` stopped the
+        // properties list, and with it the whole class body: in
+        // src/foam/u2/DetailView.js every method after it went unparsed.
+        propertyDef: P.msg(
+          P.alt(stringLiteral, P.sym('propertyObject'), P.sym('balancedBraces'), P.sym('array')),
+          { kind: 'propertyDef' }),
         propertyObject: P.seq(P.literal('{'), wsc,
-          P.optional(P.sym('propEntries')), wsc, P.optional(P.literal('}'))),
+          P.optional(P.sym('propEntries')), wsc, P.optional(closer('}', 'propClose'))),
         propEntries: repeatList(P.sym('propEntry')),
 
         propEntry: P.alt(
@@ -932,14 +1535,15 @@ foam.CLASS({
             wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
           // view: 'com.acme.MyView' — treat the string form exactly like `of:`
           // so class suggestions (including view classes) surface in viewSpec
-          // positions. The { class: '...' } object form is covered by the
-          // normal propEntry/class rule inside that object.
+          // positions. The `view: { class: '...' }` object form routes through
+          // viewSpecObject so the class id emits a classRef position too.
           P.seq(P.sug(P.literal('view'), foam.parse.Suggestion.create({
             text: 'view', category: 'key' })),
-            wsc, P.literal(':'), wsc, quoted(P.sym('classRef'))),
+            wsc, P.literal(':'), wsc,
+            P.alt(quoted(P.sym('classRef')), P.sym('viewSpecObject'))),
           P.seq(P.sug(P.literal('documentation'), foam.parse.Suggestion.create({
             text: 'documentation', category: 'key' })),
-            wsc, P.literal(':'), wsc, stringLiteral),
+            wsc, P.literal(':'), wsc, P.msg(stringLiteral, { kind: 'documentation' })),
           P.seq(P.sug(P.literal('hidden'), foam.parse.Suggestion.create({
             text: 'hidden', category: 'key' })),
             wsc, P.literal(':'), wsc, booleanLiteral),
@@ -969,11 +1573,15 @@ foam.CLASS({
         //   { name: 'foo', code: function... }   — object with name
         // Both forms emit a 'method' axiom position so DefinitionHandler
         // can jump straight to the declaration without text-scan regex.
-        methodDef: P.alt(
+        //
+        // The whole definition is a 'methodDef' span, from `function` (or
+        // `{`) to the closing brace — the member's extent in
+        // collectModelExtents().
+        methodDef: P.msg(P.alt(
           P.sym('namedFunctionBody'),
           P.sym('methodObject'),
           P.sym('object')
-        ),
+        ), { kind: 'methodDef' }),
 
         namedFunctionBody: P.seq(
           P.optional(P.literal('async')), wsc,
@@ -984,7 +1592,7 @@ foam.CLASS({
 
         methodObject: P.seq(P.literal('{'), wsc,
           repeatList(P.sym('methodObjEntry')),
-          wsc, P.optional(P.literal('}'))),
+          wsc, P.optional(closer('}', 'methodClose'))),
 
         // The first two arms emit a 'method' axiom position from the
         // string value (used by buildLocationAtMethod). Catalog-driven
@@ -1009,11 +1617,11 @@ foam.CLASS({
         // === STRUCTURAL ===
         array: P.seq(P.literal('['), wsc,
           repeatList(P.seq(wsc, anyValue, wsc)),
-          wsc, P.optional(P.literal(']'))),
+          wsc, P.optional(closer(']', 'close'))),
 
         object: P.seq(P.literal('{'), wsc,
           repeatList(P.seq(wsc, P.sym('genericEntry'), wsc)),
-          wsc, P.optional(P.literal('}'))),
+          wsc, P.optional(closer('}', 'close'))),
 
         functionBody: P.seq(
           P.optional(P.literal('async')), wsc,
@@ -1028,9 +1636,101 @@ foam.CLASS({
         ), null, 0)), P.literal(')')),
 
         balancedBraces: P.seq(P.literal('{'), P.str(P.repeat(P.alt(
-          P.sym('balancedBraces'), stringLiteral, backtickString,
-          lineComment, blockComment, P.notChars('{}')
-        ), null, 0)), P.literal('}'))
+          P.sym('instClassObject'), P.sym('balancedBraces'), stringLiteral, backtickString,
+          lineComment, blockComment, P.sym('instantiationCall'), P.sym('thisMemberRef'),
+          P.notChars('{}')
+        ), null, 0)), P.literal('}')),
+
+        // `this.Ident` / `self.Ident` member access inside code — the FOAM
+        // idiom for using a required class (or property/method) in render,
+        // init, listeners. Emits the full `this.Ident` span; ReferencesHandler
+        // maps the trailing identifier to a class via requires. Runs after
+        // instantiationCall so `this.X.create(...)` / `.tag(this.X, ...)` are
+        // claimed by their own rules first.
+        thisMemberRef: P.msg(P.seq(
+          P.alt(P.literal('this'), P.literal('self')),
+          P.literal('.'),
+          P.str(P.repeat(identChars, null, 1))
+        ), { kind: 'memberRef' }),
+
+        balancedBrackets: P.seq(P.literal('['), P.str(P.repeat(P.alt(
+          P.sym('balancedBrackets'), P.sym('balancedBraces'), P.sym('balancedParens'),
+          stringLiteral, backtickString, lineComment, blockComment, P.notChars('[]')
+        ), null, 0)), P.literal(']')),
+
+        // === INSTANTIATION RULES (F3) ===
+        instCreateCall: P.msg(P.seq(
+          P.msg(instReceiverChain, { kind: 'instCreateReceiver' }),
+          P.literal('.create'), wsc, P.literal('('), wsc,
+          repeatList(P.alt(P.sym('instObject'), anyValue)),
+          wsc, P.optional(P.literal(')'))
+        ), { kind: 'instCall' }),
+
+        // Generic argument-call form: ANY call that passes a class reference
+        // immediately followed by an object literal — `.tag(this.X, {...})`,
+        // `.add(this.X, {...})`, `helper(this.X, {...})`, `[this.X, {...}]`,
+        // etc. The class is the arg before the object; the method name is
+        // irrelevant, so the LSP works it out without per-helper knowledge.
+        // Anchored on `classRef, {` adjacency. Non-class refs are dropped later
+        // by resolution (classExists), so matching broadly is safe.
+        instArgCall: P.msg(P.seq(
+          P.msg(dottedId, { kind: 'instTagClass' }),
+          wsc, P.literal(','), wsc,
+          P.sym('instObject'),
+          wsc, P.optional(P.literal(')'))
+        ), { kind: 'instCall' }),
+
+        // Inline ViewSpec object: `{ class: 'X', prop: ... }` — the class is
+        // named by the `class:` key (required first), siblings are X's props.
+        // Only reached inside code (balancedBraces); property/axiom specs in
+        // `properties:`/`actions:`/etc. arrays are parsed by their own object
+        // rules and never hit this, so `{ class: 'String', name: 'x' }` defs
+        // are untouched.
+        instClassObject: P.msg(P.seq(
+          P.literal('{'), wsc,
+          P.literal('class'), wsc, P.literal(':'), wsc,
+          quotedAny(P.msg(P.str(P.repeat(P.alt(alphaNum, P.chars('._')), null, 1)),
+            { kind: 'instClassRef' })),
+          P.repeat0(P.seq(comma, P.sym('instEntry'))),
+          P.optional(comma),
+          wsc, P.optional(P.literal('}'))
+        ), { kind: 'instCall' }),
+
+        // Object-form ViewSpec in a property definition:
+        // `view: { class: 'foam.u2.view.X', … }`. Emits a plain classRef for
+        // the class id (find-references / definition / unknown-class
+        // diagnostics) WITHOUT the instCall record instClassObject adds —
+        // property-def specs must not trigger instantiation-value diagnostics.
+        viewSpecObject: P.seq(
+          P.literal('{'), wsc,
+          P.literal('class'), wsc, P.literal(':'), wsc,
+          quoted(P.sym('classRef')),
+          P.repeat0(P.seq(comma, P.sym('genericEntry'))),
+          P.optional(comma),
+          wsc, P.optional(P.literal('}'))
+        ),
+
+        instantiationCall: P.alt(P.sym('instCreateCall'), P.sym('instArgCall')),
+
+        instObject: P.seq(P.literal('{'), wsc,
+          repeatList(P.sym('instEntry')),
+          wsc, P.optional(P.literal('}'))),
+
+        instEntry: P.alt(
+          P.seq(P.msg(identifier, { kind: 'instKey' }), wsc, P.literal(':'), wsc,
+            P.msg(P.sym('instValueExpr'), { kind: 'instValue' })),
+          P.sym('genericEntry')),
+
+        // A property value: a primary token plus any call/index/member trailers,
+        // so call expressions (this.slot(...)), slots (this.x$), nested objects
+        // and arrays parse as ONE value instead of stopping at `this.slot` and
+        // desyncing the rest of the object literal.
+        instValueExpr: P.seq(
+          P.alt(stringLiteral, number, booleanLiteral, P.sym('functionBody'),
+            P.sym('object'), P.sym('array'), dottedId),
+          P.repeat0(P.alt(P.sym('balancedParens'), P.sym('balancedBrackets'),
+            P.seq(P.literal('.'), dottedId)))
+        )
       };
     }
   ]

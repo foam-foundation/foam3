@@ -182,7 +182,7 @@ foam.CLASS({
       }
       console.error(
         '%cAre you configuring a new wizard?%c%s',
-        'color:red;font-size:30px', '',
+        'font-size:30px', '',
         'you need to add explicit support for ' +
           (isInline ? 'inline-' : '')+wizardType.name +
           ' wizards in WizardRunner.js; ' +

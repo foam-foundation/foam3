@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'MDIntView',
   extends: 'foam.u2.property.MDTextField',
 
-  css: '^:read-only:not(:disabled) { border: none; background: rgba(0,0,0,0); }',
+  css: '^:read-only:not(:disabled) { border: none; background: transparent; }',
 
   properties: [
     [ 'type', 'number' ],

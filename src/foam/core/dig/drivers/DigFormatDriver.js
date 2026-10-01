@@ -143,6 +143,7 @@ foam.CLASS({
       Command   command   = (Command) p.get(Command.class);
       String   id         = p.getParameter("id");
       String   q          = p.getParameter("q");
+      String   predicate  = p.getParameter("predicate");
       String   cols       = p.getParameter("columns");
       String   limit      = p.getParameter("limit");
       String   skip       = p.getParameter("skip");
@@ -169,6 +170,18 @@ foam.CLASS({
       final ClassInfo cInfoFinal = cInfo;
 
       Predicate pred = new WebAgentQueryParser(cInfo).parse(x, q);
+
+      // 'predicate' carries a serialized foam.mlang Predicate, used directly —
+      // the exact predicate the caller's view filtered with, no query-language
+      // parsing involved. 'q' stays MQL for existing consumers; both AND together.
+      if ( ! SafetyUtil.isEmpty(predicate) ) {
+        Object po = x.create(foam.lib.json.JSONParser.class).parseString(predicate);
+        if ( ! ( po instanceof Predicate ) ) {
+          throw new IllegalArgumentException("failed to parse predicate [" + predicate + "]");
+        }
+        pred = MLang.AND(pred, (Predicate) po);
+      }
+
       getLogger().debug(pred.toString());
       dao = dao.where(pred);
 

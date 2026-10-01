@@ -1,0 +1,26 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "jobDAO",
+  "description": "Long-running, client-submitted tasks. In-memory: a Job is a request in flight, not a record, and does not survive a restart. Submitting returns the generated UUID immediately and a foam_core_job_SubmitJob rule runs the Job on the threadPool; the submitter polls find(id) to watch it. Reads are scoped to the submitter by Job's Authorizable methods.",
+  "serve": true,
+  "keywords": [ "job" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setRuler(true)
+      .setGuid(true)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .setOf(foam.core.job.Job.getOwnClassInfo())
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/jobDAO",
+      "daoType": "CLIENT",
+      "cache": false,
+      "loadProgress": false,
+      "of": "foam.core.job.Job"
+    }
+  """
+})

@@ -102,7 +102,7 @@ foam.CLASS({
           // Trust our own server, but force other servers to go through
           // whitelist.
           creationContext: this.url.indexOf(':') == -1 ?
-            this.__context__     :
+            this.__context__.createSubContext({__DO_NOT_WARN_MISSING_CONTEXT_VALUE__: true})     :
             this.creationContext
         });
       },
@@ -205,6 +205,11 @@ foam.CLASS({
         }, function(r) {
           var msg;
           if ( r ) {
+            if ( r.redirect_to_url ) {
+              this.window.location = r.redirect_to_url;
+              return;
+            }
+
             // catch situations in which the load fails for some reason
             // and replace it with a nicely formatted message instead
             // of the browser default.

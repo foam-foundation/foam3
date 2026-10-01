@@ -26,6 +26,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'fileClassifier',
+      documentation: `The one answer to "is this a FOAM class file". server.js
+        wires its own shared instance so guard and handler cannot disagree and
+        the per-uri memo stays warm; the factory keeps handler-direct tests
+        working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.FoamIndex',
       name: 'index',
@@ -63,10 +71,43 @@ foam.CLASS({
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! this.analyzer.isFoamFile(text) ) return null;
+      if ( this.fileClassifier.classify(opt_uri || '', text) !== 'class' ) return null;
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
+
+      // F1: suppress hover inside comments and documentation values. Detection
+      // is grammar-driven via collectRanges (no regex). The documentation KEY
+      // sits before its value span, so axiom-key hover is unaffected.
+      var grammar = this.index.getGrammar && this.index.getGrammar();
+      if ( grammar && grammar.collectRanges ) {
+        var hoverOffset = this.analyzer.positionToOffset(text, position);
+        var ncRanges = grammar.collectRanges(text);
+        if ( this.offsetInRanges_(hoverOffset, ncRanges.comment) ||
+             this.offsetInRanges_(hoverOffset, ncRanges.documentation) ) {
+          return null;
+        }
+      }
+
+      // Inside a string literal, only the WHOLE string may be a reference. A
+      // sub-word of a label like 'Reset Password' must not resolve to a type
+      // (e.g. foam.lang.Password) — that is data, not a code reference.
+      var strContent = this.analyzer.getEnclosingStringContent(text, position);
+      if ( strContent !== null && word !== strContent.trim() ) return null;
+
+      // Hovering a class's own `name:` value shows that class (info +
+      // relationships) — same result as hovering a reference to it elsewhere.
+      // Gated on the `name:` line + a match against the model's own name so a
+      // property or variable sharing the name never false-triggers.
+      var selfLine = ( text.split('\n')[position.line] || '' );
+      if ( /^\s*name\s*:/.test(selfLine) ) {
+        var selfModel = this.cache.getModelAt(opt_uri || '', text, position.line);
+        var selfSeg = this.analyzer.getSegmentAtPosition(text, position);
+        if ( selfModel && selfSeg && selfSeg === selfModel.name ) {
+          var selfHover = this.buildClassHover(this.cache.getClassId(selfModel));
+          if ( selfHover ) return selfHover;
+        }
+      }
 
       // Axiom key hover: cursor on `requires:`, `properties:`, `messages:`,
       // `sections:`, `searchColumns:`, etc. — show the description from
@@ -117,11 +158,8 @@ foam.CLASS({
         if ( resolved ) {
           return this.buildClassHover(resolved);
         }
-        // Fallback to text-based requires parsing
-        resolved = this.analyzer.resolveShortName(text, segment);
-        if ( resolved ) {
-          return this.buildClassHover(resolved);
-        }
+        // No regex fallback — resolveFromModel_ already consults the cached
+        // model's requires axiom. If that misses, there's nothing left to try.
       }
 
       // Try as typed variable (var x = this.Foo.create())
@@ -159,7 +197,7 @@ foam.CLASS({
 
       // Try as property inside .create({}) block — resolve the target class
       var lookupName = segment || word;
-      var createClassId = this.resolveCreateContext_(text, position);
+      var createClassId = this.resolveCreateContext_(text, position, opt_uri);
       if ( createClassId ) {
         var createPropDoc = this.index.getPropertyDoc(createClassId, lookupName);
         if ( createPropDoc ) {
@@ -208,6 +246,14 @@ foam.CLASS({
       if ( ! model ) return null;
       var requiresMap = this.cache.buildRequiresMap(model);
       return requiresMap[shortName] || null;
+    },
+
+    function offsetInRanges_(off, ranges) {
+      /** True when `off` falls inside any [startPos, endPos) span. */
+      for ( var i = 0 ; i < ranges.length ; i++ ) {
+        if ( off >= ranges[i].startPos && off < ranges[i].endPos ) return true;
+      }
+      return false;
     },
 
     function axiomKeyHover_(text, position) {
@@ -482,13 +528,14 @@ foam.CLASS({
       if ( ! cssCtx || ! cssCtx.partial ) return null;
 
       // Get the full word (including text after cursor) for exact matching.
-      // Extend left one char to catch leading `$`/`^` which aren't in the
+      // Extend left to catch a leading `$`, `^` or `<<`, which aren't in the
       // CSS word-char set but are part of the token/selector semantics.
       var wordStart = cssCtx.replaceRange.start;
       var wordEnd   = cssCtx.replaceRange.end;
-      var leadChar  = wordStart > 0 ? line.charAt(wordStart - 1) : '';
-      var fullWord  = ( leadChar === '$' || leadChar === '^' ? leadChar : '' )
-                      + line.substring(wordStart, wordEnd);
+      var lead      = line.substring(wordStart - 2, wordStart) === '<<' ? '<<' :
+                      wordStart > 0 ? line.charAt(wordStart - 1) : '';
+      if ( lead !== '$' && lead !== '^' && lead !== '<<' ) lead = '';
+      var fullWord  = lead + line.substring(wordStart, wordEnd);
 
       // $tokenName — resolve via CSSTokenResolver
       if ( fullWord.charAt(0) === '$' ) {
@@ -497,16 +544,16 @@ foam.CLASS({
         if ( md ) return { contents: { kind: 'markdown', value: md } };
       }
 
-      // ^name — FOAM myClass shorthand. This is a CSS selector, NOT a
-      // reference to the class property of the same name — always takes
+      // ^name or <<name — FOAM myClass shorthand. This is a CSS selector, NOT
+      // a reference to the class property of the same name — always takes
       // precedence over property-doc lookup to prevent false hovers.
-      if ( fullWord.charAt(0) === '^' ) {
-        var suffix = fullWord.substring(1);
+      if ( lead === '^' || lead === '<<' ) {
+        var suffix = fullWord.substring(lead.length);
         var model = this.cache.getModelAt(opt_uri || '', text, position.line);
         var pkg = model && model.package ? model.package.replace(/\./g, '-') : '';
         var cls = model && model.name || '';
         var expanded = '.' + pkg + ( pkg ? '-' : '' ) + cls + ( suffix ? '-' + suffix : '' );
-        var md = '**`^' + suffix + '`** — FOAM CSS scope selector\n\n' +
+        var md = '**`' + lead + suffix + '`** — FOAM CSS scope selector\n\n' +
                  'Expands to `' + expanded + '` (scoped to this class\'s DOM).\n\n' +
                  '*Not a reference to the `' + suffix + '` property.*';
         return { contents: { kind: 'markdown', value: md } };
@@ -665,6 +712,30 @@ foam.CLASS({
         }
       }
 
+      // 6. Relationships — to / from this class (foam.dao.Relationship axioms),
+      //    grouped by direction. The model name and cardinality go in backticks
+      //    so `*:*` renders literally instead of being eaten as markdown italics.
+      var rels = this.index.getRelationships ? this.index.getRelationships(classId) : [];
+      if ( rels && rels.length > 0 ) {
+        var outs = rels.filter(function(x) { return x.dir === 'out'; });
+        var ins  = rels.filter(function(x) { return x.dir === 'in'; });
+        md += '\n**Relationships**\n\n';
+        if ( outs.length > 0 ) {
+          md += '*Outgoing*\n';
+          for ( var o = 0 ; o < outs.length ; o++ ) {
+            var oShort = outs[o].other ? outs[o].other.split('.').pop() : '?';
+            md += '- `' + outs[o].name + '` → `' + oShort + '` `' + outs[o].card + '`\n';
+          }
+        }
+        if ( ins.length > 0 ) {
+          md += ( outs.length > 0 ? '\n' : '' ) + '*Incoming*\n';
+          for ( var n = 0 ; n < ins.length ; n++ ) {
+            var iShort = ins[n].other ? ins[n].other.split('.').pop() : '?';
+            md += '- `' + ins[n].name + '` ← `' + iShort + '`\n';
+          }
+        }
+      }
+
       return { contents: { kind: 'markdown', value: md } };
     },
 
@@ -681,8 +752,22 @@ foam.CLASS({
     },
 
     function propTypeName_(p) {
-      /** Short, readable property type name. */
-      return p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+      /**
+       * Short, readable property type name, carrying the `of:` target when the
+       * property has one: `Enum<ButtonStyle>`, `FObjectProperty<Glyph>`,
+       * `Reference<User>`.
+       *
+       * The bare class name alone is the one thing about such a property
+       * nobody needs told — every enum property reads `Enum`, and which enum
+       * it is was the actual question. Rendered inside a code span because
+       * `<Name>` in a markdown table cell is read as an HTML tag and dropped.
+       */
+      // `of`-resolution lives on FoamIndex (`ofName_`) — shared with
+      // `getPropertyDoc`'s single-property hover path (#5406 follow-up) so
+      // there is one implementation, not two that can drift apart.
+      var name = p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
+      var of   = this.index.ofName_(p);
+      return '`' + ( of ? name + '<' + of + '>' : name ) + '`';
     },
 
     function briefDoc_(doc) {
@@ -693,10 +778,9 @@ foam.CLASS({
       return first.replace(/\|/g, '\\|');
     },
 
-    function resolveCreateContext_(text, position) {
+    function resolveCreateContext_(text, position, opt_uri) {
       /** Find if cursor is inside a .create({}) block, return the target class ID. */
-      var lines = text.split('\n');
-      return this.analyzer.findCreateContext(lines, position.line, text, this.index);
+      return this.analyzer.findCreateContext(text, position.line, this.cache, this.index, opt_uri);
     },
 
     function buildCreateHover_(text, position, opt_uri) {
@@ -706,7 +790,7 @@ foam.CLASS({
       var match = line.match(/(?:this\.)?(\w[\w.]*)\.create/);
       if ( ! match ) return null;
       var name = match[1];
-      var resolved = this.analyzer.resolveShortName(text, name);
+      var resolved = this.cache.resolveShortName(opt_uri, text, name, position.line);
       if ( ! resolved && this.index.classExists(name) ) resolved = name;
       if ( ! resolved ) return null;
 

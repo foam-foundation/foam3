@@ -16,6 +16,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'fileClassifier',
+      documentation: `The one answer to "is this a FOAM class file". server.js
+        wires its own shared instance so guard and handler cannot disagree and
+        the per-uri memo stays warm; the factory keeps handler-direct tests
+        working unwired.`,
+      factory: function() { return foam.parse.lsp.FileClassifier.create(); }
+    },
+    {
       class: 'FObjectProperty',
       of: 'foam.parse.lsp.FoamIndex',
       name: 'index',
@@ -32,13 +40,34 @@ foam.CLASS({
       of: 'foam.parse.lsp.CursorAnalyzer',
       name: 'analyzer',
       factory: function() { return this.CursorAnalyzer.create(); }
+    },
+    {
+      name: 'journalEntryIndex',
+      documentation: `Optional. Supplies services.jrl lookups so a service
+        name written in a .js model navigates to the row that registers it.
+        Absent (tests constructing this handler bare) simply skips that
+        branch — no service jump, everything else unchanged.`,
+      value: null
     }
   ],
 
   methods: [
     function handle(text, position, opt_uri) {
-      if ( ! this.analyzer.isFoamFile(text) ) return null;
       var uri = opt_uri || '';
+
+      // POM ↔ class jumps. In a pom.js file, go-to-def on a file-entry
+      // name navigates to the class file. In a class file, go-to-def on
+      // the class's own `name:` value navigates to its POM entry.
+      if ( this.isPomFile_(uri) ) {
+        var pomJump = this.handlePomToClass_(text, position, uri);
+        if ( pomJump ) return pomJump;
+        return null;
+      }
+
+      var classToPomJump = this.handleClassToPom_(text, position, uri);
+      if ( classToPomJump ) return classToPomJump;
+
+      if ( this.fileClassifier.classify(uri || '', text) !== 'class' ) return null;
 
       var word = this.analyzer.getDottedWordAtPosition(text, position);
       if ( ! word ) return null;
@@ -124,7 +153,7 @@ foam.CLASS({
               var defClass = this.findPropertyDefiner_(cls, segment);
               if ( defClass ) {
                 filePath = this.index.getFilePath(defClass);
-                if ( filePath ) return this.buildLocationAtProperty(filePath, segment);
+                if ( filePath ) return this.buildLocationAtProperty(filePath, segment, defClass);
               }
             }
             // Check if it's a message axiom — `this.LABEL_X`
@@ -136,14 +165,125 @@ foam.CLASS({
           }
         }
 
-        // Try as short name from requires
-        var resolved = this.analyzer.resolveShortName(text, segment);
+        // Try as short name from requires (via the captured model — no regex).
+        var resolved = this.cache.resolveShortName(uri, text, segment, position.line);
         if ( resolved ) {
           filePath = this.index.getFilePath(resolved);
           if ( filePath ) return this.buildLocation(filePath, resolved);
         }
       }
 
+
+      // Last resort: a string literal that names a REGISTERED SERVICE jumps to
+      // the services.jrl row registering it. `daoKey: 'localUserDAO'` in a .js
+      // model resolved to nothing at all — JrlHandler had the rule, but only
+      // fires when the cursor is inside a .jrl file.
+      //
+      // Schema-blind on purpose, the way JrlHandler's own service rule is:
+      // nothing in a model declares that daoKey points at a journal. What
+      // bounds it is the same thing that bounds JrlHandler's rule — the KEY
+      // must be one of SERVICE_KEY_NAMES. The lookup alone does not bound it:
+      // `file` and `blobStore` are registered service names that also occur
+      // as ordinary string values all over the tree.
+      var svcJump = this.serviceNameJump_(text, position, opt_uri);
+      if ( svcJump ) return svcJump;
+
+      return null;
+    },
+
+    function serviceNameJump_(text, position, opt_uri) {
+      /**
+       * A SERVICE-KEY value whose whole content names a registered service
+       * -> its services.jrl row. Null when there is no journal index wired,
+       * the cursor is not inside a string, the string is not the value of a
+       * key in SERVICE_KEY_NAMES, or the name is not registered.
+       */
+      if ( ! this.journalEntryIndex ) return null;
+      // Gated on the key, exactly as JrlHandler's rule is. Without it the
+      // rule is not "a service key's value" but "any quoted word that spells
+      // a service name": `attrs({ type: 'file' })` in BlobView.js jumped to
+      // the `file` CSpec in src/services.jrl, and so did an array element.
+      var key = this.analyzer.getEnclosingKey(text, position);
+      if ( ! key ) return null;
+      if ( this.journalEntryIndex.SERVICE_KEY_NAMES.indexOf(key) === -1 ) return null;
+      var value = this.analyzer.getEnclosingStringContent(text, position);
+      if ( ! value ) return null;
+      // opt_uri orders a multi-file answer nearest-first; without it the
+      // order is still stable, just not relative to anything.
+      var locs = this.journalEntryIndex.getServiceLocations(value, opt_uri);
+      if ( ! locs || ! locs.length ) return null;
+      var out = locs.map(function(l) {
+        return {
+          uri: 'file://' + l.file,
+          range: { start: { line: l.line, character: 0 }, end: { line: l.line, character: 0 } }
+        };
+      });
+      return out.length === 1 ? out[0] : out;
+    },
+
+    function isPomFile_(uri) {
+      return /\bpom\.js$/.test(uri || '');
+    },
+
+    function handlePomToClass_(text, position, uri) {
+      // Cursor inside a pom.js — if it lands on `name: 'X'` jump to X.js.
+      var lines  = text.split('\n');
+      var line   = lines[position.line] || '';
+      // Match `name: 'foo'` or `name: "foo"` (FOAM POM convention).
+      var nameRe = /\bname\s*:\s*(['"])([^'"]+)\1/g;
+      var m;
+      while ( ( m = nameRe.exec(line) ) !== null ) {
+        var valStart = m.index + m[0].lastIndexOf(m[2]);
+        var valEnd   = valStart + m[2].length;
+        if ( position.character >= valStart && position.character <= valEnd ) {
+          var pomPath  = uri.indexOf('file://') === 0 ? decodeURIComponent(uri.slice(7)) : uri;
+          var classId  = this.index.getClassForPomEntry(pomPath, m[2]);
+          if ( classId ) {
+            var filePath = this.index.getFilePath(classId);
+            if ( filePath ) return this.buildLocation(filePath, classId);
+          }
+          // Fall back to opening the .js file even without a registered class.
+          var path_    = require('path');
+          var jsPath   = path_.resolve(path_.dirname(pomPath), m[2] + '.js');
+          var fs_      = require('fs');
+          if ( fs_.existsSync(jsPath) ) {
+            return { uri: 'file://' + jsPath, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } };
+          }
+          return null;
+        }
+      }
+      return null;
+    },
+
+    function handleClassToPom_(text, position, uri) {
+      // Cursor inside a class file — if it lands on the class's own
+      // `name: 'X'` axiom value, jump to the POM entry that registers it.
+      var lines = text.split('\n');
+      var line  = lines[position.line] || '';
+      var nameRe = /\bname\s*:\s*(['"])([^'"]+)\1/g;
+      var m;
+      while ( ( m = nameRe.exec(line) ) !== null ) {
+        var valStart = m.index + m[0].lastIndexOf(m[2]);
+        var valEnd   = valStart + m[2].length;
+        if ( position.character >= valStart && position.character <= valEnd ) {
+          var model = this.cache.getModelAt(uri, text, position.line);
+          if ( ! model ) return null;
+          var ownClassId = this.cache.getClassId(model);
+          if ( ! ownClassId ) return null;
+          // Only fire when the cursor matched THIS class's name axiom, not a
+          // nested property's name string.
+          if ( model.name !== m[2] ) return null;
+          var loc = this.index.getPomLocationForClass(ownClassId);
+          if ( ! loc ) return null;
+          return {
+            uri: 'file://' + loc.pomFile,
+            range: {
+              start: { line: loc.line, character: loc.character },
+              end:   { line: loc.line, character: loc.character + m[2].length }
+            }
+          };
+        }
+      }
       return null;
     },
 
@@ -267,7 +407,7 @@ foam.CLASS({
         var defClass = this.findPropertyDefiner_(cls, name);
         if ( defClass ) {
           var filePath = this.index.getFilePath(defClass);
-          if ( filePath ) return this.buildLocationAtProperty(filePath, name);
+          if ( filePath ) return this.buildLocationAtProperty(filePath, name, defClass);
         }
       }
 
@@ -400,7 +540,7 @@ foam.CLASS({
       return this.grammarInstance_;
     },
 
-    function buildLocationAtProperty(filePath, propName) {
+    function buildLocationAtProperty(filePath, propName, opt_classId) {
       /**
        * Jump to a property definition within a file. Uses the grammar's
        * axiom-position index (`kind: 'property'` emitted by `propertyNameValue`
@@ -426,6 +566,23 @@ foam.CLASS({
           };
         }
       } catch ( e ) {}
+      // The class's own file may not declare the property at all — a
+      // refinement in another file can, and the index knows where those are.
+      // Without this, User.twoFactorEnabled navigated to User.js line 0 while
+      // the same member looked up through the index answered
+      // UserRefinements.js:14.
+      if ( opt_classId ) {
+        var idxPos = this.index.getSymbolPosition(opt_classId, propName, 7);
+        if ( idxPos && idxPos.uri && idxPos.uri !== 'file://' + filePath ) {
+          return {
+            uri: idxPos.uri,
+            range: {
+              start: { line: idxPos.line, character: idxPos.character },
+              end:   { line: idxPos.line, character: idxPos.character + propName.length }
+            }
+          };
+        }
+      }
       return this.buildLocation(filePath);
     },
 
@@ -472,7 +629,7 @@ foam.CLASS({
                 var defClass = this.findPropertyDefiner_(cls, propName);
                 if ( defClass ) {
                   var filePath = this.index.getFilePath(defClass);
-                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName);
+                  if ( filePath ) return this.buildLocationAtProperty(filePath, propName, defClass);
                 }
               }
             }

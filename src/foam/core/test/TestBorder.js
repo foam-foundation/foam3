@@ -129,8 +129,6 @@ foam.CLASS({
 
       console.log('Testing starting');
       var startTime = Date.now();
-      var count     = (await dao.select(this.Count.create())).value;
-      var visited   = 0;
       var testRun   = null;
       if ( this.testRunId ) {
         testRun = await this.testRunDAO.find(this.testRunId);
@@ -142,56 +140,63 @@ foam.CLASS({
         }
       }
 
-      dao.select({
-        put: async function(t) {
-          try {
-            self.status = 'Testing: ' + t.id;
+      // Snapshot first: a test writes itself back into this DAO when it finishes,
+      // so the run must not iterate it live. Then one test at a time, each awaited:
+      // run() resolves once the test has finished and stored its results, so
+      // passed/failed below describe a finished test, not one still in flight.
+      var tests = (await dao.select()).array;
 
-            // When running a lot of unit tests at once, we don't want to get flooded
-            // with notifications, so turn them off in this context
-            t = t.clone(t.__context__.createSubContext({
-              notificationDAO: foam.dao.NullDAO.create(),
-              myNotificationDAO: foam.dao.NullDAO.create()
-            }));
+      // Reported after every test so a watcher can tell a run that is still making
+      // progress from one that has stalled; completed only once the loop is done.
+      var report = async function(completed) {
+        if ( ! testRun ) return;
+        testRun.cases     = tests.length;
+        testRun.passed    = self.passed;
+        testRun.failed    = self.failed;
+        testRun.tests     = self.passed + self.failed;
+        testRun.completed = completed;
+        await self.testRunDAO.put(testRun);
+      };
 
-            t.run();
-            t.copyFrom(await dao.put(t));
-            self.passed += t.passed;
-            if ( t.failed ) {
-              self.failed += t.failed;
-              if ( testRun ) {
-                testRun.failures.push(t.id);
-                if ( t.output ) {
-                  var lines = t.output.split('\n');
-                  for ( var i = 0 ; i < lines.length ; i++ ) {
-                    if ( lines[i].startsWith('FAILURE') ) {
-                      testRun.failures.push(lines[i]);
-                    }
+      for ( var i = 0 ; i < tests.length ; i++ ) {
+        var t = tests[i];
+        try {
+          self.status = 'Testing: ' + t.id;
+
+          // When running a lot of unit tests at once, we don't want to get flooded
+          // with notifications, so turn them off in this context
+          t = t.clone(t.__context__.createSubContext({
+            notificationDAO: foam.dao.NullDAO.create(),
+            myNotificationDAO: foam.dao.NullDAO.create()
+          }));
+
+          await t.run();
+          self.passed += t.passed;
+          if ( t.failed ) {
+            self.failed += t.failed;
+            if ( testRun ) {
+              testRun.failures.push(t.id);
+              if ( t.output ) {
+                var lines = t.output.split('\n');
+                for ( var j = 0 ; j < lines.length ; j++ ) {
+                  if ( lines[j].startsWith('FAILURE') ) {
+                    testRun.failures.push(lines[j]);
                   }
                 }
               }
             }
-          } catch (e) {
-            console.error('Test failed', t.id, e);
-            self.failed += 1;
-          } finally {
-            visited += 1;
-            if ( visited == count ) {
-              if ( testRun ) {
-                testRun.cases     = self.total;
-                testRun.passed    = self.passed;
-                testRun.failed    = self.failed;
-                testRun.tests     = self.passed + self.failed;
-                testRun.completed = true;
-                self.testRunDAO.put(testRun);
-              }
-              var duration = (Date.now() - startTime) / 1000;
-              self.status = `${self.passed + self.failed} tests run in ${duration.toFixed(2)} seconds`;
-              console.log('Testing complete.', self.status);
-            }
           }
+        } catch (e) {
+          console.error('Test failed', t.id, e);
+          self.failed += 1;
         }
-      });
+        await report(false);
+      }
+      await report(true);
+
+      var duration = (Date.now() - startTime) / 1000;
+      self.status = `${self.passed + self.failed} tests run in ${duration.toFixed(2)} seconds`;
+      console.log('Testing complete.', self.status);
     }
   ],
 

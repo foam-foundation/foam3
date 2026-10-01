@@ -94,6 +94,52 @@ foam.CLASS({
       formatter.output(foam.test.TestEnum.CUSTOM);
       json = formatter.builder().toString();
       test ( ! SafetyUtil.isEmpty(json) && ! json.contains("$"), testId+" -- do not output java anonymous class name: " + json);
+
+      // test multi-line indentation
+      testId = "MultiLineIndentation";
+      user = new User();
+      user.setId(12345L);
+      var address = new Address();
+      address.setCity("TestCity");
+      user.setAddress(address);
+
+      formatter = new JSONFObjectFormatter();
+      formatter.setOutputDefaultValues(false);
+      formatter.setMultiLine(true);
+      formatter.output(user, user.getClassInfo());
+      json = formatter.builder().toString();
+
+      test ( json.startsWith("{\\n  "), testId+" -- outer opening brace followed by 2-space indented property");
+      test ( json.endsWith("\\n}"), testId+" -- outer closing brace at column 0");
+      test ( json.contains("\\n  id:12345"), testId+" -- id property at column 2");
+      test ( json.contains("address:{\\n    "), testId+" -- nested address opening brace followed by 4-space indented property");
+      test ( json.contains("\\n    city:\\"TestCity\\""), testId+" -- nested city property at column 4");
+      test ( json.contains("\\n  }"), testId+" -- nested address closing brace at column 2");
+
+      // verify multi-line output still parses round-trip
+      try {
+        Object parsed = new JSONParser().parseString(json, User.class);
+        test ( parsed != null, testId+" -- multi-line output parses successfully");
+      } catch ( Throwable t ) {
+        test ( false, testId+" -- multi-line output parse error: " + t.getMessage() );
+      }
+
+      // test multi-line indentation for FObject arrays
+      testId = "MultiLineFObjectArrayIndentation";
+      var u1 = new User(); u1.setId(1L);
+      var u2 = new User(); u2.setId(2L);
+      var users = new User[] { u1, u2 };
+
+      formatter = new JSONFObjectFormatter();
+      formatter.setOutputDefaultValues(false);
+      formatter.setMultiLine(true);
+      formatter.output((Object[]) users);
+      json = formatter.builder().toString();
+
+      test ( json.startsWith("[\\n  "), testId+" -- array opening bracket followed by 2-space indented element");
+      test ( json.endsWith("\\n]"), testId+" -- array closing bracket at column 0");
+      test ( json.contains("\\n  }"), testId+" -- first element closing brace at column 2");
+      test ( json.contains("},{"), testId+" -- elements separated by comma on same line");
       `
     },
     {

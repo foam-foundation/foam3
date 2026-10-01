@@ -12,9 +12,8 @@ foam.CLASS({
   imports: [ 'query' ],
 
   css: `
-  ^list { font-size: smaller; width: 440px; overflow-y: auto; height: calc(100vh - 170px)!important; border: 1px solid gray; padding: 0 2; }
+  ^list { font-size: smaller; width: 440px; overflow-y: auto; height: calc(100vh - 170px)!important; border: 1px solid $borderDefault; padding: 0 2; }
   ^selected { background: $backgroundInverseTertiary; }
-  // ^row:hover { border: 1px solid red; }
   `,
 
   properties: [
@@ -67,7 +66,7 @@ foam.CLASS({
     ^row {
       margin-left: 30px;
     }
-  //  ^row:hover { border: 1px solid $red300;  }
+  /* ^row:hover { border: 1px solid $red300; } */
   `,
 
   properties: [
@@ -115,6 +114,7 @@ foam.CLASS({
   package: 'foam.doc',
   name: 'ModelBrowser',
   extends: 'foam.u2.Controller',
+  mixins: ['foam.u2.Router'],
   documentation: 'Show UML & properties for passed in models',
 
   requires: [
@@ -133,6 +133,10 @@ foam.CLASS({
   imports: [ 'params' ],
 
   exports: [ 'conventionalUML', 'modelDAO', 'package', 'path as browserPath', 'query' ],
+
+  messages: [
+    { name: 'TITLE', message: 'UML API Models' }
+  ],
 
   css: `
     ^ {
@@ -165,8 +169,15 @@ foam.CLASS({
   properties: [
     {
       class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
+    {
+      class: 'String',
       name: 'query',
-      view: { class: 'foam.u2.SearchField', onKey: true }
+      view: { class: 'foam.u2.ClearableSearchField', onKey: true }
     },
     {
       class: 'String',
@@ -229,6 +240,12 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render() {
       this.SUPER();
       var self = this;

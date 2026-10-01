@@ -20,6 +20,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function addToE(e) { e.start('pre').add(this.xml); }
+    function addToE(e) { e.start('pre').style({margin: 0, maxHeight: '600px'}).add(this.xml); }
   ]
 });

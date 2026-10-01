@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.core.notification.broadcast',
   name: 'SendNotificationView',
   extends: 'foam.u2.View',
+  mixins: ['foam.u2.Router'],
 
   requires: [
     'foam.core.notification.broadcast.BroadcastNotificationFacade',
@@ -39,7 +40,18 @@ foam.CLASS({
     }
   `,
 
+  messages: [
+    { name: 'TITLE', message: 'Send Notification' }
+  ],
+
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.TITLE;
+      }
+    },
     {
       name: 'notificationType',
       class: 'Class',
@@ -66,6 +78,12 @@ foam.CLASS({
     }
   ],
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     function render() {
       this.data.created = new Date();
       this
@@ -91,4 +109,3 @@ foam.CLASS({
     }
   ]
 });
-

@@ -31,6 +31,8 @@ foam.CLASS({
     'foam.u2.search.FilterController'
   ],
 
+  imports: [ 'window' ],
+
 
   css: `
     ^ {
@@ -76,7 +78,7 @@ foam.CLASS({
           method: 'GET'
         });
 //        xhr.fromUrl('http://localhost:8080/foam3/src/foam/demos/olympics/MedalData.json');
-        xhr.fromUrl(window.location.href.replace('index.html', 'MedalData.json'));
+        xhr.fromUrl(this.window.location.href.replace('index.html', 'MedalData.json'));
         var self = this;
         xhr.send().then(function(res) {
           return res.payload;

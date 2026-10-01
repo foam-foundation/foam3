@@ -15,6 +15,10 @@ foam.CLASS({
     'foam.core.auth.EnabledAware'
   ],
 
+  javaImports: [
+    'static foam.mlang.MLang.*'
+  ],
+
   properties: [
     {
       name: 'enabled',
@@ -38,10 +42,20 @@ foam.CLASS({
           String ip = foam.net.IPSupport.instance().getRemoteIp(x);
           foam.core.logger.StdoutLogger.instance().warning("Failed login", identifier, ip, message);
 
+          // Need to do a userDAO lookup to find the spid tied to the account the login failed on
+          foam.core.auth.User user = null;
+          foam.dao.DAO userDAO = (foam.dao.DAO) getX().get("userDAO");
+          if ( userDAO != null ) {
+            user = (foam.core.auth.User) userDAO.find(EQ(foam.core.auth.User.USER_NAME, identifier));
+          } else {
+            foam.core.logger.StdoutLogger.instance().warning("FailedLoginAuthService could not find userDAO");
+          }
+
           LoginAttempt attempt = new LoginAttempt();
           attempt.setIdentifier(identifier);
           attempt.setIpAddress(ip);
           attempt.setFailureMessage(message);
+          if ( user != null ) attempt.setSpid(user.getSpid()); // Defaults to "foam" if there is no user
           ((foam.dao.DAO) getX().get("loginAttemptDAO")).put_(getX(), attempt);
         }
         throw e;

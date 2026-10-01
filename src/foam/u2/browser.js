@@ -177,7 +177,7 @@ foam.CLASS({
   css: `
     ^ {
       align-items: center;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid $borderLight;
       box-sizing: border-box;
       display: flex;
       min-height: 48px;

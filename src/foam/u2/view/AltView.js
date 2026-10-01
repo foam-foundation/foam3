@@ -26,9 +26,8 @@ foam.CLASS({
     }
     ^ > div:last-child {
       flex: 1;
-      // This min-height: 0 is required as it sets the base height for the height of the contents rendered by
-      // altview. This means the above flex: 1 doesnt make the content overflow this div
-      // I love CSS :)
+      /* This min-height: 0 is required as it sets the base height for the height of the contents rendered by
+         altview. This means the above flex: 1 doesnt make the content overflow this div */
       min-height: 0;
     }
     ^ .property-selectedView { margin-bottom: 6px; }

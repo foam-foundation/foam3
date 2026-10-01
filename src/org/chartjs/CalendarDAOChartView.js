@@ -5,8 +5,8 @@ foam.CLASS({
   documentation: 'Dashboard calendar-table, fully props-driven and tokenized, like Pie/Bar.',
   css: `
     ^table        { border-collapse: collapse; border: 1px solid $borderLight; width:100%; max-width:100%; table-layout: fixed; }
-    ^th           { border: 1px solid $borderLight; padding: 10px; background: $backgroundSectionHeader; }
-    ^td           { border: 1px solid $borderLight; padding: 10px; max-width: 320px; background: $backgroundTableBody; vertical-align: top; min-height: 40px; }
+    ^th           { border: 1px solid $borderLight; padding: 10px; background: $backgroundSecondary; }
+    ^td           { border: 1px solid $borderLight; padding: 10px; max-width: 320px; background: $backgroundDefault; vertical-align: top; min-height: 40px; }
     ^cellStack    { display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
     ^block        { padding: 5px; border-radius: 5px; font-weight: bold; min-width: 30px; color: $textDefault; background: $backgroundTertiary; }
     ^legend       { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
@@ -86,8 +86,9 @@ foam.CLASS({
                         .callIf(vals.length > 0, function(){
                           this.forEach(vals, function(val, idx){
                             var color = resolvedColors[idx] || '#b3cde0';
-                            this.start().addClass(self.myClass('block')).style({ background: color })
-                              .add(val > 0 ? val.toLocaleString() : (val === 0 ? '0' : ''))
+                            var value = Number(val) ? Math.round(val * 100) / 100 : val != 0 ? '' : 0;
+                            this.start().addClass(self.myClass('block')).style({ background: color }).attr('title', `${val}`)
+                              .add(value)
                             .end();
                           });
                         })

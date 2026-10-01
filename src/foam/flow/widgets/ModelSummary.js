@@ -11,16 +11,16 @@ foam.ENUM({
   values: [
     {
       name: 'CLASS',
-      background: '#D57D11',
-      color: '#FFFFFF'
+      background: '$orange500',
+      color: '$white'
     },
     {
       name: 'ENUM',
-      color: '#865300'
+      color: '$warn700'
     },
     {
       name: 'INTERFACE',
-      color: '#007328'
+      color: '$success700'
     }
   ]
 });

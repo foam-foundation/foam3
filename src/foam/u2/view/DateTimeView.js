@@ -18,8 +18,10 @@ foam.CLASS({
 
   constants: [
     {
-      // Choose the writeView delegate based on browser compatibility.
-      // Safari doesn't support date input types.
+      // Choose the delegate based on browser compatibility. The DateTimePicker
+      // arm is dead: this once covered Safari, which has supported
+      // <input type="date"> since 14.1 (2021), so no current browser takes it.
+      // TODO: drop the branch and the DateTimePicker class.
       name: 'READ_DELEGATE',
       factory: function() {
         var e = document.createElement('input');
@@ -30,8 +32,10 @@ foam.CLASS({
       }
     },
     {
-      // Choose the writeView delegate based on browser compatibility.
-      // Safari doesn't support date input types.
+      // Choose the delegate based on browser compatibility. The DateTimePicker
+      // arm is dead: this once covered Safari, which has supported
+      // <input type="date"> since 14.1 (2021), so no current browser takes it.
+      // TODO: drop the branch and the DateTimePicker class.
       name: 'WRITE_DELEGATE',
       factory: function() {
         var e = document.createElement('input');

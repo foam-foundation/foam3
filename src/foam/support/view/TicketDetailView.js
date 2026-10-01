@@ -54,7 +54,7 @@ foam.CLASS({
       padding: 0 !important;
       width: 165px;
       background: #ffffff;
-      z-index: 10000;
+      z-index: $z-popup;
       box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.19);
     }
     ^ .popUpDropDown > div > div {
@@ -62,7 +62,6 @@ foam.CLASS({
       box-sizing:border-box;
       width: 165px;
       height: 35px;
-      z-index: 10000
       text-align: left;
       color: $textDefault;
     }

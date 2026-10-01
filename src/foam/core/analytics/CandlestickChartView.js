@@ -12,7 +12,7 @@ foam.CLASS({
   documentation: 'A chart which shows candlestick dao data as line graph.  Supports showing two candlesticks. It is expected they share a common close value times.',
   
   implements: [ 'foam.mlang.Expressions' ],
-  mixins: [ 'foam.u2.memento.Memorable' ],
+  mixins: [ 'foam.u2.Router' ],
 
   requires: [
     'foam.dao.ArrayDAO',
@@ -41,6 +41,13 @@ foam.CLASS({
   ],
 
   properties: [
+    {
+      class: 'String',
+      name: 'viewTitle',
+      factory: function() {
+        return this.VIEW_HEADER;
+      }
+    },
     {
       documentation: `The Candlestick DAO to graph.`,
       class: 'Reference',
@@ -207,6 +214,12 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      this.addCrumb();
+      this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+    },
+
     async function render() {
       this.SUPER();
       

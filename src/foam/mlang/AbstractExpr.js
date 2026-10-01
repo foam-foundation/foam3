@@ -13,6 +13,12 @@ foam.CLASS({
   documentation: 'Abstract Expr base-class.',
 
   methods: [
+    // Safe to NOP fclone since Expressions should be stateless
+    {
+      type: 'FObject',
+      name: 'fclone',
+      javaCode: 'return this;'
+    },
     {
       name: 'partialEval',
       code: function partialEval() { return this; },

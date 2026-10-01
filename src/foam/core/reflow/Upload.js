@@ -220,7 +220,7 @@ foam.CLASS({
           files$: X.data.uploadedFiles$,
           supportedFormats: X.data.SUPPORTED_FORMATS,
           isMultipleFiles: false,
-          maxSize: 50,
+          maxSize: { '*' : 50 },
           title: 'Drag and drop a file here or click to browse',
           onFilesChanged: X.data.onFilesChanged.bind(X.data)
         };
@@ -564,7 +564,9 @@ foam.CLASS({
         this.format = this.SUPPORTED_FORMATS[firstFile.mimeType] || 'AUTO';
       } catch (e) {
         console.error('Error processing uploaded files:', e);
-        this.output += '<span style="color:red">Error reading uploaded file: ' + e.message + '</span><br>';
+        this.output += '<span style="color:' +
+          foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__) +
+          '">Error reading uploaded file: ' + e.message + '</span><br>';
       }
     },
 
@@ -662,7 +664,9 @@ foam.CLASS({
         } catch (e) {
           console.error('Upload eof error:', e);
           var errorMessage = e.message || 'Unknown error during upload completion';
-          self.output += '<span style="color:red">ERROR: ' + errorMessage + '</span><br>';
+          self.output += '<span style="color:' +
+            foam.CSS.returnTokenValue('$destructive500', self.cls_, self.__subContext__) +
+            '">ERROR: ' + errorMessage + '</span><br>';
           latch.reject(e);
         }
       };
@@ -901,9 +905,7 @@ foam.CLASS({
 
           await sink.put(obj);
           /*
-          if ( ids[obj.id] ) {
-            this.output += '<span style="color:red">Duplicate Records for id "' + obj.id + '":<br>' + ids[obj.id] + '<br>' + row + '</span>';
-          }
+          if ( ids[obj.id] ) this.output += 'Duplicate Records for id "' + obj.id + '":<br>' + ids[obj.id] + '<br>' + row;
           ids[obj.id] = row;
           */
         }
@@ -911,7 +913,9 @@ foam.CLASS({
         sink.eof();
       } catch (x) {
         console.error('Error processing uploaded files:', x);
-        this.output += '<span style="color:red">ERROR: ' + x + '</span>';
+        this.output += '<span style="color:' +
+          foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__) +
+          '">ERROR: ' + x + '</span>';
       }
     }
   ],

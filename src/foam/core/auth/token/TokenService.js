@@ -73,24 +73,9 @@ foam.INTERFACE({
       ]
     },
     {
-      name: 'isTokenValid',
+      name: 'validateToken',
       async: true,
-      type: 'Boolean',
-      swiftThrows: true,
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        },
-        {
-          name: 'user',
-          type: 'foam.core.auth.User'
-        },
-        {
-          name: 'token',
-          type: 'String'
-        }
-      ]
+      args: 'Context x, String token'
     }
   ]
 });

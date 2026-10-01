@@ -1,0 +1,20 @@
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"grantDAO",
+  "serve":true,
+  "authenticate": true,
+  "serviceScript":`
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setRuler(true)
+      .setContextualize(true)
+      .setAuthorize(false)
+      .setOf(foam.core.grant.GrantAssignment.getOwnClassInfo())
+      .setFuid(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("grants")
+      .build();
+    `,
+  "client":"{\"of\":\"foam.core.grant.GrantAssignment\"}"
+})

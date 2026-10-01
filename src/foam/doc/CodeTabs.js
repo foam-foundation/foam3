@@ -18,7 +18,7 @@ foam.CLASS({
     ^tabRow { height: 30px; }
     ^tab {
       background: $backgroundInverseTertiary;
-      border: 1px solid black;
+      border: 1px solid $borderDefault;
       border-radius: 3px 3px 0 0;
       display: inline-block;
       height: -2px;

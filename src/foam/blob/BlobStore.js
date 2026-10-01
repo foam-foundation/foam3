@@ -160,8 +160,14 @@ foam.CLASS({
       },
       javaCode: `String path = this.tmp_ + File.separator + (name++);
 File file = x.get(FileSystemStorage.class).get(path);
-if ( file.exists() ) {
-  return allocateTmp(x, name);
+// createNewFile is the exclusive create the JS version gets from open(path, 'wx'):
+// the existence check and the creation are one atomic step, so two concurrent
+// puts can never be handed the same tmp file. A plain exists() check lets both
+// through, and the second FileOutputStream truncates the first's bytes.
+try {
+  if ( ! file.createNewFile() ) return allocateTmp(x, name);
+} catch ( java.io.IOException e ) {
+  throw new RuntimeException("Could not allocate blob tmp file " + path, e);
 }
 return file;`
     },

@@ -132,7 +132,7 @@ public abstract class AbstractJDBCDAO
       } catch ( SQLException e ) {
         Logger logger = (Logger) x.get("logger");
         logger.error(e);
-      } 
+      }
     }
   }
 
@@ -351,6 +351,9 @@ public abstract class AbstractJDBCDAO
   }
 
   public Object cmd_(X x, Object cmd) {
+    if ( foam.dao.DAO.LAST_CMD.equals(cmd) ) {
+      return this;
+    }
     if ( cmd instanceof AddIndexCommand ) {
       AddIndexCommand indexCmd = (AddIndexCommand) cmd;
       try {

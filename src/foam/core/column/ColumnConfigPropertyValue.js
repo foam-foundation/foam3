@@ -39,12 +39,20 @@ foam.CLASS({
       code: function(of, propNames) {
         var props = of.getAxiomsByClass(foam.lang.Property);
         var allColumnNames = props.map(p => p.name);
+        var isExportableProperty = propName => {
+          var prop = this.returnProperty(of, propName);
+          return prop &&
+            ! foam.dao.DAOProperty.isInstance(prop) &&
+            ! foam.dao.OneToManyRelationshipProperty.isInstance(prop) &&
+            ! foam.dao.ManyToManyRelationshipProperty.isInstance(prop);
+        };
 
         if ( ! propNames )
-          return props.map(p => p.name);
+          return props.map(p => p.name).filter(isExportableProperty);
 
         return propNames.filter(n => {
-          return allColumnNames.includes(n.split('.')[0]);
+          return allColumnNames.includes(n.split('.')[0]) &&
+            isExportableProperty(n);
         });
       }
     },

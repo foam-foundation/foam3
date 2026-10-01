@@ -15,9 +15,6 @@ foam.CLASS({
     // TODO
   `,
 
-  css: `
-    ^content, ^content > *  { height: 100%; }
-  `,
   imports: [
     'auth',
     'currentMenu?',
@@ -30,6 +27,7 @@ foam.CLASS({
     'config',
     'click'
   ],
+
   requires: [
     'foam.comics.v2.DAOBrowserView',
     'foam.u2.borders.CardBorder',
@@ -37,6 +35,10 @@ foam.CLASS({
     'foam.u2.stack.Stack',
     'foam.u2.stack.DesktopStackView'
   ],
+
+  css: `
+    ^content, ^content > *  { height: 100%; }
+  `,
 
   properties: [
     {
@@ -83,7 +85,13 @@ foam.CLASS({
       }
     },
     'sub_',
-    'emptyRouteParams_'
+    'emptyRouteParams_',
+    {
+      name: 'createView_',
+      documentation: `The create view pushed onto the stack for the 'create' route.
+        Tracked so it can be popped when the route changes away from 'create' — it's a
+        stack push, not a child, so removeAllChildren() won't remove it.`
+    }
   ],
 
   methods: [
@@ -115,6 +123,14 @@ foam.CLASS({
           self.sub_.detach();
           self.sub_ = null;
         }
+        // The create view is a stack push (not a child of this controller), so
+        // removeAllChildren() below can't remove it. Pop it explicitly whenever we
+        // leave the 'create' route, otherwise it lingers on top of the stack and hides
+        // the browse/detail we render inline (e.g. after save routes to the new record).
+        if ( self.createView_ && route != 'create' ) {
+          self.stack.jump(self.createView_.stackPos - 1);
+          self.createView_ = null;
+        }
         self.removeAllChildren();
         self.addClass(self.myClass('content'));
         if ( route == 'create' ) {
@@ -123,7 +139,7 @@ foam.CLASS({
             this.route = '';
           }
           if ( this.config.createController ) {
-            this.stack.push({
+            self.createView_ = this.stack.push({
                 data: (this.config.factory || this.data.of).create({ mode: 'create'}, this),
                 config$: this.config$,
                 title: 'Create ' + this.data.of.id,

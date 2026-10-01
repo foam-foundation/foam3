@@ -33,14 +33,24 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      this.start().
+      this.start('div', {
+          tooltip$: this.data$.map(d => d ? new Date(d).toLocaleString(foam.util.getClientLocale(), {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short'
+          }) : foam.u2.DateTimeView.DATE_FORMAT)
+        }).
         addClass(this.myClass()).
         add(this.data$.map(d => {
           if ( ! d ) return foam.u2.DateTimeView.DATE_FORMAT;
           if ( self.prop && self.prop.formatLocale ) {
             return self.prop.formatLocale(d);
           }
-          return new Date(d).toLocaleString(foam.locale, self.options);
+          return new Date(d).toLocaleString(foam.util.getClientLocale(), self.options);
         })).
       end();
     }

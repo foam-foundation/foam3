@@ -12,7 +12,8 @@ foam.CLASS({
   documentation: `View to display various app store badges`,
   
   imports: [
-    'appConfig'
+    'appConfig',
+    'window'
   ],
 
   css: `
@@ -68,7 +69,7 @@ foam.CLASS({
       name: 'showBadges',
       expression: function() { 
         return (this.appConfig.playLink || this.appConfig.appLink) &&
-        (! (navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) ) && 
+        (! (navigator.standalone || this.window.matchMedia('(display-mode: standalone)').matches) ) &&
         (! this.isReferral);
       }
     },

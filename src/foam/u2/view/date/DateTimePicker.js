@@ -10,14 +10,33 @@ foam.CLASS({
   extends: 'foam.u2.view.date.AbstractDateView',
 
   documentation: `
-  This is a simple date time picker for browsers that do not have their own implementation.
-  The date picker will automatically be used if it a browser does not support date, see Element.js`,
+  A hand-rolled date/time picker for browsers with no native <input type="date">.
+
+  DEAD CODE as of 2026. DateView and DateTimeView select it only when a test
+  input reports type 'text' instead of 'date'; every current browser supports
+  the native type, Safari since 14.1 (2021), so this widget no longer renders
+  anywhere. It has rotted accordingly - the popup dismisses itself as soon as
+  it opens, undiagnosed.
+
+  TODO: decide whether to delete this class along with the feature-detect
+  branches in DateView.js and DateTimeView.js, or restore it to working order.
+  Do not assume it works; nothing exercises it.`,
 
   requires: [
     'foam.u2.view.date.CalendarDatePicker',
     'foam.u2.view.date.Month',
     'foam.u2.view.ChoiceView'
   ],
+
+  constants: {
+    // The trailing adornment doubles as the clear affordance: it becomes an X
+    // once a date is set and the picker is open. Named so the icon expression,
+    // the CSS toggle and clearDate cannot drift apart - clearDate previously
+    // compared against a copy of this path that was missing its leading slash,
+    // so it never cleared.
+    CALENDAR_ICON: '/images/calendar.svg',
+    CANCEL_ICON:   '/images/cancel-round.svg'
+  },
 
   css: `
     ^next_btn, ^prev_btn {
@@ -42,12 +61,12 @@ foam.CLASS({
       min-height: 304px;
       text-align: center;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderLight;
       border-radius: 5px;
       background-color: $backgroundDefault;
       padding-bottom: 25px;
       margin-top: 16px;
-      z-index: 100002;
+      z-index: $z-popup;
       position: absolute;
     }
 
@@ -57,8 +76,8 @@ foam.CLASS({
     }
 
     ^ .colon {
-      padding': '0 4px';
-      font-weight': 'bold;
+      padding: 0 4px;
+      font-weight: $font-semi-bold;
     }
 
     ^ .year {
@@ -122,9 +141,9 @@ foam.CLASS({
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient(#ffffff, #e7eaec);
+      background-image: linear-gradient($backgroundDefault, $backgroundTertiary);
       text-align: center;
-      border: 1px solid #cbcfd4;
+      border: 1px solid $borderDefault;
     }
 
     ^ .arrow-container-left{
@@ -160,7 +179,8 @@ foam.CLASS({
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      /* click-away scrim: over the page, under the picker and its clear icon */
+      z-index: $z-nav;
     }
 
     ^ .date-display-box {
@@ -198,7 +218,7 @@ foam.CLASS({
     }
 
     ^ .date-display-image-cancel {
-      z-index: 10001;
+      z-index: $z-popup;
     }
 
     ^ {
@@ -253,7 +273,7 @@ foam.CLASS({
       class: 'String',
       name: 'icon',
       expression: function(isOpen_) {
-        return this.data && isOpen_ ? '/images/cancel-round.svg' : '/images/calendar.svg';
+        return this.data && isOpen_ ? this.CANCEL_ICON : this.CALENDAR_ICON;
       }
     }
   ],
@@ -287,7 +307,7 @@ foam.CLASS({
               .end()
               .start()
                 .addClass('date-display-image').enableClass('date-display-image-cancel', self.slot(function(icon) {
-                  return icon === '/images/cancel-round.svg';
+                  return icon === self.CANCEL_ICON;
                 }))
                 .start('img')
                   .attrs({ src: self.icon$ })
@@ -413,7 +433,7 @@ foam.CLASS({
     },
 
     function clearDate(event) {
-      if ( this.icon === 'images/cancel-round.svg' ) {
+      if ( this.icon === this.CANCEL_ICON ) {
         event.stopPropagation();
         this.data    = null;
         this.isOpen_ = false;

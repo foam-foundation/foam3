@@ -20,6 +20,10 @@ foam.CLASS({
   name: 'DeDupDAO',
   extends: 'foam.dao.ProxyDAO',
 
+  javaImports: [
+    'foam.lang.FObject'
+  ],
+
   documentation: `
     DeDupDAO is a decorator that internalizes strings in put() objects to save memory.
     Useful for indexed or cached data.
@@ -28,22 +32,38 @@ foam.CLASS({
    `,
 
   methods: [
-    /** Scan each object for strings and internalize them. */
-    function put_(x, obj) {
-      this.dedup(obj);
-      return this.delegate.put_(x, obj);
+    {
+      name: 'put_',
+      code: function(x, obj) {
+        this.dedup(obj);
+        return this.delegate.put_(x, obj);
+      },
+      javaCode: `
+        dedup(obj);
+        return getDelegate().put_(x, obj);
+      `
     },
-
-    /** Internalizes strings in the given object.
-      @private */
-    function dedup(obj) {
-      var inst = obj.instance_;
-      for ( var key in inst ) {
-        var val = inst[key];
-        if ( typeof val === 'string' ) {
-          inst[key] = foam.String.intern(val);
+    {
+      name: 'dedup',
+      args: [
+        {
+          name: 'obj',
+          type: 'FObject'
         }
-      }
+      ],
+      code: function(obj) {
+        var inst = obj.instance_;
+        for ( var key in inst ) {
+          var val = inst[key];
+          if ( typeof val === 'string' ) {
+            inst[key] = foam.String.intern(val);
+          }
+        }
+      },
+      javaCode: `
+        // Server-side strings are interned while a journal replays
+        // (foam.util.StringInterner); a live put keeps its values as given.
+      `
     }
   ]
 });

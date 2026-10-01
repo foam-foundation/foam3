@@ -40,7 +40,7 @@ foam.CLASS({
       background-repeat: no-repeat;
       border-radius: 3px;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
-      border: solid 1px #e7eaec;
+      border: solid 1px $borderLight;
       background-color: $backgroundDefault;
       background-position: 50% 50%;
     }
@@ -189,7 +189,7 @@ foam.CLASS({
       font-size: 1.2rem;
 
       position: absolute;
-      z-index: 101;
+      z-index: $z-10;
       bottom: -115%;
       right: calc(100% + 16px);
 

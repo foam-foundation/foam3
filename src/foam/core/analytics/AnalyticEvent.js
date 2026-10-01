@@ -18,7 +18,8 @@ foam.CLASS({
     'foam.core.auth.AuthorizationException',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
-    'foam.core.session.Session'
+    'foam.core.session.Session',
+    'foam.core.auth.ServiceProviderAware'
   ],
 
   properties: [

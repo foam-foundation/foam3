@@ -186,7 +186,7 @@ public class MLang
   public static Expr DOT(Expr o1, Predicate o2) {
     Dot dot = new Dot();
     dot.setArg1(o1);
-    dot.setArg2(new PredicatedExpr(o2));
+    dot.setArg2(new PredicateExpr(o2));
     return dot;
   }
 
@@ -237,7 +237,7 @@ public class MLang
 
   // used by AuthorizationDAO
   public static Predicate HAS_PERMISSION(X userContext, Boolean remove, String permissionPrefix) {
-    return remove? IS_AUTHORIZED_TO_DELETE(userContext, new foam.core.auth.StandardAuthorizer(permissionPrefix))
+    return remove ? IS_AUTHORIZED_TO_DELETE(userContext, new foam.core.auth.StandardAuthorizer(permissionPrefix))
       : IS_AUTHORIZED_TO_READ(userContext, new foam.core.auth.StandardAuthorizer(permissionPrefix));
   }
 
@@ -262,9 +262,12 @@ public class MLang
     return dotF;
   }
 
+  public static Predicate AQL(String query) {
+    return AQLExpr.create(query);
+  }
+
   public static Predicate MQL(String query) {
-    MQLExpr mql = MQLExpr.create(query);
-    return mql;
+    return MQLExpr.create(query);
   }
 
   public static Expr[] toExprArray(Object... args) {

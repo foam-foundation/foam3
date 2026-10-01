@@ -52,7 +52,7 @@ foam.CLASS({
     },
     {
       name: 'sink',
-      view: 'foam.core.reflow.SinkView',
+      view: { class: 'foam.core.reflow.SinkView', choice: 'foam.core.reflow.CountDAOAgent' },
       documentation: 'The sink to delegate filtered objects to'
     }
   ],

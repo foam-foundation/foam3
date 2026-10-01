@@ -110,7 +110,10 @@ foam.CLASS({
       name: 'passed',
       visibility: 'RO',
       tableCellFormatter: function(value) {
-        if ( value ) this.start().style({ color: '#3a3', 'font-weight': 'bold' }).add(value).end();
+        if ( value ) this.start().style({
+          color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__),
+          'font-weight': 'bold'
+        }).add(value).end();
       },
       tableWidth: 85
     },
@@ -119,7 +122,10 @@ foam.CLASS({
       name: 'failed',
       visibility: 'RO',
       tableCellFormatter: function(value) {
-        if ( value ) this.start().style({ color: '#a33', 'font-weight': 'bold' }).add(value).end();
+        if ( value ) this.start().style({
+          color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__),
+          'font-weight': 'bold'
+        }).add(value).end();
       },
       tableWidth: 85
     },

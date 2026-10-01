@@ -1,0 +1,1 @@
+c({"id":"group-admin","grant":{"class":"foam.core.grant.SuperUserGrant"}})

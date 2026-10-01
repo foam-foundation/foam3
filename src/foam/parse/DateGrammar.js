@@ -42,16 +42,25 @@ foam.CLASS({
           sym('timestamp')       // Unix/JS timestamps (10-13 digits, must not match date formats)
         ),
 
-        // Julian date formats (YYDDD and YDDD) - day-of-year formats
+        // Julian date formats (YYYYDDD, YYDDD and YDDD) - day-of-year formats
         // These are NOT in main dateOrDatetime to avoid ambiguity with other formats.
-        // Use opt_name='juliandate' for auto-detection, or 'yyddd'/'yddd' for explicit format.
+        // Use opt_name='juliandate' for auto-detection, or 'yyyyddd'/'yyddd'/'yddd' for explicit format.
         //
-        // Combined Julian date parser - tries YYDDD first (5 digits), then YDDD (4 digits)
+        // Combined Julian date parser - tries YYYYDDD (7 digits), then YYDDD (5 digits), then YDDD (4 digits)
+        // Longest first, since YYDDD also matches the first five digits of a YYYYDDD value
         // Use this in mapping configurations: opt_name='juliandate'
         juliandate: alt(
-          sym('yyddd'),   // Try 5-digit format first (more specific)
+          sym('yyyyddd'), // Try 7-digit format first (longest)
+          sym('yyddd'),   // Then 5-digit format
           sym('yddd')     // Fall back to 4-digit format
         ),
+
+        // YYYYDDD format: 7-digit Julian date (4-digit year + 3-digit day of year)
+        // e.g., "2025216" = Year 2025, Day 216 = August 4, 2025
+        yyyyddd: str(seq(
+          sym('year4'),                                    // YYYY: 4-digit year
+          sym('dayOfYear')                                 // DDD: day of year (001-366)
+        )),
 
         // YYDDD format: 5-digit Julian date (2-digit year + 3-digit day of year)
         // e.g., "25216" = Year 2025, Day 216 = August 4, 2025
@@ -99,11 +108,15 @@ foam.CLASS({
           sym('jsdatetostring'),
           // Support: DDD MMM DD HH:MM:SS TZ YYYY (e.g., "Tue Apr 01 05:17:59 GMT 2025")
           sym('unixdatetostring'),
+          // Support: MMM dd yyyy hh:mm:ss(AM|PM) (e.g., Jun 30 2026 02:59:02AM)
+          // Must precede mmmddyyyyspace so the full match wins over the date-only prefix
+          sym('mmmddyyyyspacetime'),
           // Support: MMM dd yyyy (e.g., Jan 02 2025)
           sym('mmmddyyyyspace'),
           // Support: DD MMM YYYY (e.g., 15 JAN 2025)
           sym('ddmmmyyyyspace'),
           sym('ddmmmyyyysep'),
+          sym('ddmmmyysep'),        // DD-MMM-YY (2-digit year, e.g. 14-MAY-26)
           sym('yyyyddmmmsep'),
           sym('yyyyddmmmcompact'),  // Try this before ddmmmyyyycompact
           sym('ddmmmyyyycompact')
@@ -198,10 +211,19 @@ foam.CLASS({
         // MMDDYYYY - tries all variants (compact, separated)
         // Covers: MMDDYYYY, MM-DD-YYYY, MM/DD/YYYY with optional time
         mmddyyyy: alt(
+          sym('mmddyyyyampm'),  // MM/DD/YYYY hh:mm:ss(AM|PM), e.g. "3/8/2026 12:00:00 AM" - must precede plain sep
           sym('mmddyyyycompact'),
           sym('mmddyyyysep'),
           sym('mmddyysep'),
           sym('mmddyycompact')
+        ),
+
+        // MM/DD/YYYY with 12-hour clock time: "3/8/2026 12:00:00 AM"
+        // Meridiem optionally space-separated from the seconds
+        mmddyyyyampm: seq(
+          sym('monthFlexible'), chars('-/'), sym('dayFlexible'), chars('-/'), sym('year4'),
+          sym('datetimesep'), sym('hour12'), ':', sym('minute2'), ':', sym('second2'),
+          optional(' '), sym('meridiem')
         ),
 
         // MMDDYYYY with separators and optional time
@@ -591,6 +613,12 @@ foam.CLASS({
           sym('dayFlexible'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year4')
         ),
 
+        // DDMMMYY with separators: DD-MMM-YY, DD/MMM/YY (2-digit year)
+        // Supports single-digit days (e.g., 5-JAN-25, 14-MAY-26)
+        ddmmmyysep: seq(
+          sym('dayFlexible'), chars('-/'), sym('month3alpha'), chars('-/'), sym('year2')
+        ),
+
         // DDMMMYYYY compact: DDMMMYYYY (no separators, like 31JAN2025)
         ddmmmyyyycompact: seq(
           sym('day2'), sym('month3alpha'), sym('year4')
@@ -601,6 +629,23 @@ foam.CLASS({
         mmmddyyyyspace: seq(
           sym('month3alpha'), ' ', sym('dayFlexible'), ' ', sym('year4')
         ),
+
+        // MMM dd yyyy hh:mm:ss(AM|PM) with spaces: "Jun 30 2026 02:59:02AM"
+        // 12-hour clock, meridiem fused to the seconds (no space), no timezone
+        mmmddyyyyspacetime: seq(
+          sym('month3alpha'), ' ', sym('dayFlexible'), ' ', sym('year4'), ' ',
+          sym('hour12'), ':', sym('minute2'), ':', sym('second2'), optional(' '), sym('meridiem')
+        ),
+
+        // 12-hour clock hour: 1-12 or 01-12 (single- or two-digit)
+        hour12: alt(
+          str(seq('1', range('0', '2'))),  // 10, 11, 12
+          str(seq('0', range('1', '9'))),  // 01-09
+          range('1', '9')                  // 1-9
+        ),
+
+        // Meridiem indicator (case-insensitive)
+        meridiem: alt(literalIC('AM'), literalIC('PM')),
 
         // DD MMM YYYY with spaces: "15 JAN 2025" or "5 JAN 2025"
         // Supports single-digit days

@@ -36,7 +36,8 @@ foam.CLASS({
       margin-top: 0;
     }
     ^ .buttons {
-      padding: 24px;
+      padding: 2.4rem;
+      gap: 0.5em;
       box-sizing: border-box;
       display: flex;
       justify-content: flex-end;

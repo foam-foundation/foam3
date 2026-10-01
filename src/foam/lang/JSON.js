@@ -214,6 +214,11 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'multiLineOutput',
+      help: 'If true, multiline strings will be outputted as triple-quoted blocks rather than a single escaped line. Matches foam.lib.json.Outputter.setMultiLineOutput().'
+    },
+    {
+      class: 'Boolean',
       name: 'alwaysQuoteKeys',
       help: 'If true, keys are always quoted, as required by the JSON standard. If false, only quote keys which aren\'tvalid JS identifiers.',
       value: true
@@ -345,6 +350,23 @@ foam.CLASS({
       return result;
     },
 
+    /**
+     * Escape a string for triple-quoted output.
+     *
+     * @param {string} str - The string to escape.
+     * @returns {string} The escaped string.
+     *
+     * @description
+     * Only backslashes are doubled; the delimiter does not terminate on a lone
+     * quote and control characters are legal inside the block. The reader
+     * (foam.lib.json.StringParser) halves them again, so a payload's own
+     * "\n" / "\uXXXX" / '\"' sequences survive verbatim.
+     * Mirrors foam.lib.json.Outputter.escapeMultiline().
+     */
+    function escapeMultiline(str) {
+      return str.replace(/\\/g, '\\\\');
+    },
+
     function maybeEscapeKey(str) {
       return this.alwaysQuoteKeys || ! /^[a-zA-Z\$_][0-9a-zA-Z$_]*$/.test(str) ?
         '"' + str + '"' :
@@ -415,7 +437,12 @@ foam.CLASS({
     },
 
     function outputString(str) {
-      if ( this.useTemplateLiterals && str.indexOf('\n') != -1 ) {
+      if ( this.multiLineOutput && str.indexOf('\n') != -1 ) {
+        // Drop the postColonStr padding so the block starts as `"key":\n"""`,
+        // byte-identical to the Java journal writer's styled output.
+        this.buf_ = this.buf_.replace(/[ \t]+$/, '');
+        this.out('\n', '"""', this.escapeMultiline(str), '"""');
+      } else if ( this.useTemplateLiterals && str.indexOf('\n') != -1 ) {
         this.out('`', str.replace(/`/g, '\\`'), '`');
       } else {
         this.out('"', this.escape(str), '"');
@@ -524,7 +551,8 @@ foam.CLASS({
         Undefined: function(o) { this.out('null'); },
         Null:      function(o) { this.out('null'); },
         String:    function(o) { this.outputString(o); },
-        Number:    function(o) { this.out(o); },
+        // JSON has no NaN / Infinity literal; emit null for non-finite numbers.
+        Number:    function(o) { this.out(Number.isFinite(o) ? o : 'null'); },
         Boolean:   function(o) { this.out(o); },
         Date:      function(o) { this.outputDate(o); },
         Function:  function(o) { this.outputFunction(o); },

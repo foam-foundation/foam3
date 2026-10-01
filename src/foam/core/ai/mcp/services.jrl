@@ -1,0 +1,5 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "mcp",
+  "serviceClass": "foam.core.ai.mcp.MCPWebAgent"
+})

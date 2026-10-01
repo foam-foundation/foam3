@@ -27,6 +27,7 @@ foam.CLASS({
     'foam.dao.ProxyDAO',
     'foam.dao.Sink',
     'foam.mlang.sink.Count',
+    'foam.mlang.predicate.Predicate',
     'foam.mlang.sink.Sequence',
     'foam.core.auth.Group',
     'foam.core.auth.LifecycleState',
@@ -35,7 +36,6 @@ foam.CLASS({
     'foam.core.logger.Loggers',
     'foam.core.pm.PM',
     'foam.util.SafetyUtil',
-    'foam.core.auth.Subject',
     'static foam.mlang.MLang.*'
   ],
 
@@ -44,23 +44,28 @@ foam.CLASS({
       name: 'put_',
       javaCode: `
         Logger logger = Loggers.logger(x, this);
-        DAO userDAO = (DAO) x.get("localUserDAO");
+        DAO userDAO = (DAO) x.get("userDAO");
         Notification notif = (Notification) obj;
-
         if (getDelegate().find(notif.getId()) != null)
           return getDelegate().put(notif);
 
         if ( notif.getBroadcasted() ) {
+          Predicate predicate = EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE);
+          if ( ! SafetyUtil.isEmpty(notif.getBroadcastSpid()) ) {
+            predicate = AND(
+              predicate,
+              EQ(User.SPID, notif.getBroadcastSpid())
+            );
+          }
+          final Predicate broadcastPredicate = predicate;
           Agency agency = (Agency) x.get("threadPool");
           agency.submit(x, new ContextAgent() {
             @Override
             public void execute(X x) {
               PM pm = PM.create(x, "Notification:broadcast");
-              userDAO.where(
-                AND(
-                  EQ(User.LIFECYCLE_STATE, LifecycleState.ACTIVE),
-                  HAS(User.GROUP)
-              )).select(new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO")));
+              userDAO.inX(x).where(
+                broadcastPredicate
+              ).select(new UserNotificationSink(notif, (DAO) x.get("userNotificationDAO")));
               pm.log(x);
             }
           }, "Notification Broadcast");

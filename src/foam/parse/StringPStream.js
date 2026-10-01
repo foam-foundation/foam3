@@ -30,7 +30,7 @@ foam.CLASS({
       name: 'tail',
       getter: function() {
         if ( ! this.instance_.tail ) {
-          var ps   = this.cls_.create();
+          var ps   = this.fastClone_();
           ps.str   = this.str;
           ps.pos   = this.pos + 1;
           ps.apply = this.apply;
@@ -68,13 +68,28 @@ foam.CLASS({
       }
     },
 
+    function fastClone_() {
+      // Allocation fast path for parse nodes. Parsing creates a PStream node per
+      // position/value; the full cls_.create() runs initArgs, init agents, and
+      // init() — all no-ops for this class (no imports, listeners, or init).
+      // Object.create keeps the same prototype (getters, methods) at a fraction
+      // of the cost, which matters when a grammar parse allocates millions of
+      // nodes (e.g. bulk CSV import).
+      var ps = Object.create(this.cls_.prototype);
+      ps.instance_ = {};
+      return ps;
+    },
+
     function setValue(value) {
       // Force undefined values to null so that hasOwnProperty checks are faster.
       if ( value === undefined ) value = null;
-      var ps = this.cls_.create();
+      var ps = this.fastClone_();
       ps.str   = this.str;
       ps.pos   = this.pos;
-      ps.tail  = this.tail;
+      // Share the cached tail if one was already materialized; reading this.tail
+      // here would force-allocate a tail node the caller may never walk. The new
+      // node lazily creates an identical tail on demand otherwise.
+      if ( this.instance_.tail ) ps.instance_.tail = this.instance_.tail;
       ps.apply = this.apply;
       ps.value = value;
       return ps;

@@ -97,7 +97,7 @@ foam.CLASS({
     },
 
     function toString() {
-      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc})`;
+      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc.toString()})`;
     }
   ]
 });

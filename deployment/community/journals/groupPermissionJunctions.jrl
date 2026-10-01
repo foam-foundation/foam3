@@ -1,6 +1,4 @@
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"menu.read.foamdocs"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"flow.read.*"})
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"anonymous",targetId:"service.documentDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"menu.read.foamdocs"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"flow.read.*"})
-p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.documentDAO"})

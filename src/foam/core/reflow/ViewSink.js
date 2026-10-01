@@ -9,13 +9,13 @@ foam.CLASS({
   name: 'ViewSink',
   extends: 'foam.dao.ArraySink',
 
-  imports: [ 'block' ],
+  imports: [ 'block?' ],
 
   methods: [
     function addToE(e) {
       var self = this;
 
-      e.add(this.block.value.dynamic(function(columns) {
+      function render(columns) {
         e = this.startContext({controllerMode: foam.u2.ControllerMode.VIEW});
 
         self.array.forEach(o => {
@@ -25,7 +25,15 @@ foam.CLASS({
           }
           e.tag(foam.u2.DetailView, args);
         });
-      }));
+      };
+
+      if ( this.block && this.block.value ) {
+        e.add(this.block.value.dynamic(function(columns) {
+          render.call(this, columns);
+        }));
+      } else {
+        render.call(e);
+      }
     }
   ]
 });

@@ -12,8 +12,10 @@ p({
   description: "Expire sessions based on ttl",
   code:
   """
-    import foam.core.session.cron.ExpireSessionsCron;
-    cron = new ExpireSessionsCron();
-    cron.execute(x);
+    // Refresh OAuth tokens
+    new foam.core.oauth.OAuthTokenRefreshCron().execute(x);
+
+    // Remove expired sessions
+    new foam.core.session.cron.ExpireSessionsCron().execute(x);
   """
 })

@@ -58,8 +58,6 @@ foam.CLASS({
       white-space: nowrap;
       writing-mode: unset;
       color: $textDefault;
-      // position: absolute;
-
       font-weight: $font-regular;
     }
   `,

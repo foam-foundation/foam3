@@ -7,7 +7,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1") (lsp-mode "8.0.0"))
 ;; Keywords: languages lsp foam
-;; URL: https://github.com/kgrgreer/foam3
+;; URL: https://github.com/foam-foundation/foam3
 
 ;;; Commentary:
 
@@ -40,7 +40,7 @@
 (defgroup lsp-foam nil
   "LSP support for FOAM3."
   :group 'lsp-mode
-  :link '(url-link "https://github.com/kgrgreer/foam3")
+  :link '(url-link "https://github.com/foam-foundation/foam3")
   :tag "FOAM3 LSP")
 
 (defcustom lsp-foam-server-command '("node" "foam3/tools/lsp-start.js")

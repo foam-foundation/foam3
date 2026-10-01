@@ -1,0 +1,72 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionedRegionDAO",
+  "description": "Test Partitioned Region data.",
+  "serve": true,
+  "authenticate": true,
+  "keywords": [ "partition", "test" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+//      .setSeqNo(true)
+      .setAuthorize(false)
+//      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+//      .setJournalName("regions")
+      .setOf(foam.core.auth.Region.getOwnClassInfo())
+      .setDelegate(
+        new foam.core.partition.PartitionedDAO(
+          x,
+          foam.core.auth.Region.getOwnClassInfo(),
+          "partitionedRegion/",
+          foam.core.auth.Region.COUNTRY_ID))
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionedRegionDAO",
+      "daoType": "CLIENT",
+      "of": "foam.core.auth.Region"
+    }
+  """
+})
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionLoadStatusDAO",
+  "description": "In-progress partition load status (ephemeral). Server-side writers (PartitionLoadReporter, queued-partition rows) put/remove freely; the client DAO wraps itself in ReadOnlyDAO since browsers only ever read progress.",
+  "serve": true,
+  "authenticate": true,
+  "keywords": [ "partition" ],
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .setOf(foam.core.partition.PartitionLoadStatus.getOwnClassInfo())
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/partitionLoadStatusDAO",
+      "daoType": "CLIENT",
+      "cache": false,
+      "retryBoxMaxAttempts": 0,
+      "loadProgress": false,
+      "decorators": [ { "class": "foam.dao.ReadOnlyDAO" } ],
+      "of": "foam.core.partition.PartitionLoadStatus"
+    }
+  """
+})
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "partitionLoadToastStack",
+  "description": "Client-side context service rendering partition-load progress toasts. Client-only, but must be served: ClientBuilderServer only sends serve:true CSpecs to the browser.",
+  "serve": true,
+  "authenticate": true,
+  "lazyClient": false,
+  "client": """
+    {
+      "class": "foam.core.partition.PartitionLoadToastStack"
+    }
+  """
+})

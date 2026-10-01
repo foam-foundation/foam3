@@ -13,7 +13,9 @@ foam.CLASS({
   requires: [
     'foam.u2.UnderlinedTabs',
     'foam.u2.Tab',
+    'foam.u2.LoadingSpinner',
     'foam.core.boot.CSpec',
+    'foam.core.reflow.Flow',
     'foam.core.reflow.CommandItemView'
   ],
 
@@ -42,6 +44,11 @@ foam.CLASS({
       border-bottom: 1px solid $borderLight;
       padding-bottom: 5px;
     }
+    ^loading {
+      display: flex;
+      justify-content: center;
+      padding: 20px 0;
+    }
   `,
 
   properties: [
@@ -62,29 +69,30 @@ foam.CLASS({
     {
       name: 'collections',
       value: []
+    },
+    {
+      class: 'Boolean',
+      name: 'isLoading',
+      value: true
     }
   ],
 
   methods: [
-    async function render() {
+    function render() {
       var self = this;
-      if ( this.dataType == 'collections' ) {
-        const collectionsSink = await this.cSpecDAO.where(this.CSpec.DAOS).select();
-        this.collections = collectionsSink.array;
-      } else if ( this.dataType == 'flows' ) {
-        const flowsSink = await this.flowDAO.select();
-        this.collections = flowsSink.array;
-      } else {
-        this.collections = [];
-      }
-
       this.addClass()
         .start().addClass(this.myClass('container'))
           .start().addClass(this.myClass('header'))
             .add(this.header)
           .end()
           .tag(this.FILTER_SEARCH, { data$: this.filterSearch$ })
-          .add(this.dynamic(function(filterSearch, collections) {
+          .add(this.dynamic(function(isLoading, filterSearch, collections) {
+            if ( isLoading ) {
+              this.start().addClass(self.myClass('loading'))
+                .tag(self.LoadingSpinner, { size: 28 })
+              .end();
+              return;
+            }
             var search = (filterSearch || '').toLowerCase();
             var filtered = collections.filter(c =>
               !search || (c.name && c.name.toLowerCase().includes(search))
@@ -100,6 +108,23 @@ foam.CLASS({
             .end();
           }))
         .end();
+
+      this.loadData();
+    },
+
+    // Fetch only the name of each entry via a projection — the command tiles
+    // need nothing else, so this avoids pulling each flow's full script/blocks.
+    async function loadData() {
+      if ( this.dataType == 'collections' ) {
+        const sink = await this.cSpecDAO.where(this.CSpec.DAOS).select(this.PROJECTION(this.CSpec.NAME));
+        this.collections = sink.projection.map(r => ({ name: r[0] }));
+      } else if ( this.dataType == 'flows' ) {
+        const sink = await this.flowDAO.select(this.PROJECTION(this.Flow.NAME));
+        this.collections = sink.projection.map(r => ({ name: r[0] }));
+      } else {
+        this.collections = [];
+      }
+      this.isLoading = false;
     }
   ]
 });

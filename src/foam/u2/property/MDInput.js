@@ -234,7 +234,6 @@ foam.CLASS({
     }
     ^ .error-msg {
       opacity: 1;
-//      transition: opacity 3s;
     }
   `
 });

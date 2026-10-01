@@ -21,7 +21,8 @@ foam.CLASS({
   requires: [
     'foam.lang.Latch',
     'foam.dao.MDAO',
-    'foam.i18n.Locale'
+    'foam.i18n.Locale',
+    'foam.i18n.MessageTemplateParser'
   ],
 
   topics: [ 'translation' ],
@@ -123,8 +124,15 @@ foam.CLASS({
       name: 'getTranslation',
       args: [ 'String locale', 'String source', 'String defaultText' ],
       type: 'String',
-      code: function(locale, source, defaultText) {
-        var txt = this.localeEntries[source];
+      code: function(locale, source, defaultText, replacementMap) {
+        var txt = this.localeEntries[source] || defaultText;
+        if ( txt && replacementMap ) {
+          let parser = this.MessageTemplateParser.create({
+            value: txt
+          });
+          let valueParser = parser.valueParserResults;
+          txt = valueParser.reduce(function(ret, v) { return ret + v(replacementMap); }, '');
+        }
         this.translation.pub(locale, source, txt, defaultText);
         return txt ?? defaultText;
       }

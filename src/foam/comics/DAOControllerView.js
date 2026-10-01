@@ -246,7 +246,8 @@ foam.CLASS({
     {
       name: 'onCreate',
       on: [
-        'data.create'
+        // Create does not pub('create'); the action framework publishes action.create.
+        'data.action.create'
       ],
       code: function() {
         this.stack.push(this.createControllerView, this.__subContext__);

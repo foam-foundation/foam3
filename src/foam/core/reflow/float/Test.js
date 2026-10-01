@@ -17,9 +17,13 @@ foam.CLASS({
       this.style({display: 'inline'});
       this.add(this.dynamic(function(data) {
         if ( data ) {
-          this.start('span').style({color: 'green'}).add('PASSED');
+          this.start('span').
+            style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)}).
+            add('PASSED');
         } else {
-          this.start('span').style({color: 'red'}).add('FAILED');
+          this.start('span').
+            style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+            add('FAILED');
         }
       }));
     }
@@ -158,9 +162,13 @@ foam.CLASS({
       this.start('h3').
         add(function(status) {
           if ( status ) {
-            this.start('span').style({color: 'green'}).add('TEST PASSED: ');
+            this.start('span').
+              style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)}).
+              add('TEST PASSED: ');
           } else {
-            this.start('span').style({color: 'red'}).add('TEST FAILED: ');
+            this.start('span').
+              style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
+              add('TEST FAILED: ');
           }
         }).
         add(this.data.description$);
@@ -194,17 +202,17 @@ foam.CLASS({
 
           start().
             show(this.data.passed$).
-            style({color: 'green'}).
+            style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)}).
             add('PASSED: ', this.data.passed$).
           end().
           start().
             show(this.data.failed$).
-            style({color: 'red'}).
+            style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
             add('FAILED: ',   this.data.failed$).
           end().
           start().
             show(this.data.missing$).
-            style({color: 'red'}).
+            style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)}).
             add('MISSING: ',  this.data.missing$).
           end().
           start('b').add('TOTAL: ', this.data.total$);

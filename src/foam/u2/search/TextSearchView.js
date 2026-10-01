@@ -25,6 +25,7 @@ foam.CLASS({
   requires: [
     'foam.comics.SearchMode',
     'foam.parse.QueryRouter',
+    'foam.u2.borders.ClearableSearchBorder',
     'foam.u2.tag.Input'
   ],
 
@@ -37,7 +38,13 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'LABEL_SEARCH', message: 'Search' }
+    {
+      name: 'LABEL_SEARCH',
+      messageMap: {
+        en: 'Search',
+        fr: 'Recherche'
+      }
+    }
   ],
 
   properties: [
@@ -106,9 +113,15 @@ foam.CLASS({
       }
     },
 
-    function render() {
+    async function render() {
       var self = this;
       this.__subContext__.register(foam.u2.SearchField, 'foam.u2.TextField');
+
+      if ( ! this.data && this.__context__.dao ) {
+        let default_query = await this.__context__.dao.cmd('DEFAULT_QUERY_CMD');
+        // Check .data again since it could have been updated since cmd() was called
+        if ( default_query && ! this.data ) this.data = default_query;
+      }
 
       let viewSpec = {
         class: 'foam.parse.auto.SmartView',
@@ -117,17 +130,25 @@ foam.CLASS({
 
       this
         .addClass(this.myClass())
-        .start(viewSpec, {
-          label$:      this.label$,
-          ariaLabel$:  this.label$,
-          onKey:       this.onKey,
-          mode$:       this.mode$,
-          placeholder: 'Search...'
-        }, this.view$)
-        .call(function() {
-          return self.property && this.fromProperty?.(self.property);
+        .start(this.ClearableSearchBorder, {
+          textSlot: this.view$.dot('preview'),
+          onClear: function() {
+            self.clear();
+            self.view.preview = '';
+            self.view.focus();
+          }
         })
-          .attrs({ name: this.name$ })
+          .start(viewSpec, {
+            label$:      this.label$,
+            ariaLabel$:  this.label$,
+            onKey:       this.onKey,
+            mode$:       this.mode$
+          }, this.view$)
+          .call(function() {
+            return self.property && this.fromProperty?.(self.property);
+          })
+            .attrs({ name: this.name$ })
+          .end()
         .end();
 
       this.view.data$.sub(this.updateValue);

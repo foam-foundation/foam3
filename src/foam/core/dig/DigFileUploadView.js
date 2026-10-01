@@ -80,7 +80,7 @@ foam.CLASS({
       color: $textBrand;
     }
     ^ .boxless-for-drag-drop {
-      border: dashed 4px #a4b3b8;
+      border: dashed 4px $borderDefault;
       width: 90%;
       height: 50px;
       padding: 10px 10px;

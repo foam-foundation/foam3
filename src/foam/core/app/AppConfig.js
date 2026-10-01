@@ -8,12 +8,6 @@ foam.CLASS({
   package: 'foam.core.app',
   name: 'AppConfig',
 
-  javaImports: [
-    'foam.core.theme.Theme',
-    'foam.core.theme.Themes',
-    'org.eclipse.jetty.server.Request'
-  ],
-
   properties: [
     {
       class: 'String',
@@ -114,6 +108,8 @@ foam.CLASS({
 
   methods: [
     {
+      // A Template method which can be overridden in a sub-class or refined from another
+      // package that uses FOAM.
       name: 'configure',
       args: [
         {

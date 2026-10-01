@@ -79,11 +79,7 @@ foam.CLASS({
       o.out(')');
 
       if ( this.throws.length > 0 ) {
-        o.out(" throws ");
-        for ( var i = 0 ; i < this.throws.length ; i++ ) {
-          o.out(this.throws[i]);
-          if ( i < this.throws.length - 1 ) o.out(", ");
-        }
+        o.out(" throws ", this.throws.join(", "));
       }
 
       if ( ! this.body ) {

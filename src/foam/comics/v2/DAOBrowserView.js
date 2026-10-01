@@ -115,9 +115,11 @@ foam.CLASS({
   `,
 
   messages: [
-    { name: 'LAST_REFRESHED', message: 'Last refreshed' },
-    { name: 'REFRESH_MSG',    message: 'Refresh Requested... ' },
-    { name: 'ACTIONS',        message: 'Actions' }
+    { name: 'LAST_REFRESHED', messageMap: { en: 'Last refreshed', fr: 'Dernière mise à jour' } },
+    { name: 'REFRESH_MSG',    messageMap: { en: 'Refresh Requested... ', fr: 'Mise à jour demandé...' } },
+    { name: 'ACTIONS_MSG',    messageMap: { en: 'Actions', fr: 'Actions' } },
+    { name: 'EXPORT_MSG',     messageMap: { en: 'Export', fr: 'Exportation' } },
+    { name: 'IMPORT_MSG',     messageMap: { en: 'Import', fr: 'Importation' } }
   ],
 
   imports: [
@@ -357,7 +359,7 @@ foam.CLASS({
                           .start(foam.u2.ButtonGroup, {
                             overlaySpec: {
                               obj: self,
-                              label: 'Actions', size: 'SMALL'
+                              label: self.ACTIONS_MSG, size: 'SMALL'
                             }
                           })
                             .addClass(self.myClass('buttons'))
@@ -385,7 +387,6 @@ foam.CLASS({
   actions: [
     {
       name: 'export',
-      label: 'Export',
       buttonStyle: 'PRIMARY',
       toolTip: 'Export Table Data',
       icon: 'images/export-arrow-icon.svg',
@@ -401,7 +402,7 @@ foam.CLASS({
           foam.Object.forEach(this.config.summaryView.selectedObjects, function(y) { adao.put(y) })
         }
 
-        this.StyledModal.create({ title: 'Export', maxWidth: '90vw'}, X).tag({
+        this.StyledModal.create({ title: this.EXPORT_MSG, maxWidth: '90vw'}, X).tag({
           class: 'foam.u2.ExportModal',
           exportData: adao ? adao : this.predicatedDAO$proxy,
           predicate: this.config.filterExportPredicate
@@ -433,7 +434,7 @@ foam.CLASS({
         return config.importPredicate.f();
       },
       code: function(X) {
-        this.StyledModal.create({ title: 'Import', maxWidth: '90vw'}, X).tag(this.importModal).open();
+        this.StyledModal.create({ title: this.IMPORT_MSG, maxWidth: '90vw'}, X).tag(this.importModal).open();
       }
     }
   ]

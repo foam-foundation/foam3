@@ -245,6 +245,12 @@ foam.CLASS({
       var classToData = c => {
         if ( ! c ) return undefined;
         var m = c && this.__context__.maybeLookup(c);
+        if ( ! m ) {
+          console.error('FObjectView: class "' + c + '" is not registered, ' +
+            'so no data can be created for it. Check the class id and that ' +
+            'the model is included in the pom.');
+          return undefined;
+        }
         const o = m.create(this.data ? this.copyOldData(this.data) : null, this);
         if ( this.defaultValues.hasOwnProperty(m.id) ) {
           let copyData = m.create(this.defaultValues[m.id]);

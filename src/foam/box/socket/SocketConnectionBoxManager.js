@@ -186,7 +186,7 @@ foam.CLASS({
           SslContextFactory contextFactory = (SslContextFactory) getX().get("sslContextFactory");
 
           if ( contextFactory != null && contextFactory.getEnableSSL() ) {
-            SSLContext sslContext = contextFactory.getSSLContext();
+            SSLContext sslContext = contextFactory.getSSLContext(getX());
             socket = (SSLSocket)sslContext.getSocketFactory().createSocket();
           } else {
             socket = new Socket();

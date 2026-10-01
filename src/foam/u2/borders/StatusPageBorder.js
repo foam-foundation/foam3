@@ -37,7 +37,7 @@ foam.CLASS({
       right: 0;
       top: 0;
       width: 100%;
-      z-index: 1000;
+      z-index: $z-modal;
     }
     ^header {
       background: $backgroundDefault;

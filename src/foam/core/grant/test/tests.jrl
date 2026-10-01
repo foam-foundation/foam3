@@ -1,0 +1,2 @@
+p({"class":"foam.core.grant.test.GrantTest","id":"GrantTest","description":"Grant framework JS tests", "language": 0})
+p({"class":"foam.core.grant.test.GrantJavaTest","id":"GrantJavaTest","description":"Grant framework Java tests"})

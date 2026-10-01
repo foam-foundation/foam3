@@ -131,7 +131,7 @@ foam.CLASS({
         this.isOverLimit = false;
 
         var pred = this.search && this.search.trim().length > 0
-          ? this.STARTS_WITH(this.property, this.search)
+          ? this.STARTS_WITH_IC(this.property, this.search)
           : this.TRUE;
 
         this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), 21)).then((results) => {
@@ -317,7 +317,7 @@ foam.CLASS({
         this.isOverLimit = false;
         this.isLoading = true;
         var pred = this.search && this.search.trim().length > 0
-          ? this.STARTS_WITH(this.property, this.search)
+          ? this.STARTS_WITH_IC(this.property, this.search)
           : this.TRUE;
 
         this.dao.where(pred).select(this.GROUP_BY(this.property, this.COUNT(), 21)).then((results) => {

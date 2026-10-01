@@ -33,8 +33,19 @@ foam.CLASS({
 
         // Service property check
         if ( emailConfig == null ) {
-          logger.error("EmailConfig not found", "spid", emailMessage.getSpid());
-          return emailMessage;
+          // Support hiearchical spids.
+          String spid = emailMessage.getSpid();
+          while ( emailConfig == null &&
+                  spid.indexOf(".") > 0 ) {
+            spid = spid.substring(0, spid.lastIndexOf("."));
+            emailConfig = (EmailConfig) ((DAO) x.get("emailConfigDAO")).find(spid);
+          }
+          if ( emailConfig == null ) {
+            logger.error("EmailConfig not found", "spid", emailMessage.getSpid());
+            return emailMessage;
+          } else {
+            logger.debug("EmailConfig found in spid hierarchy", emailMessage.getSpid(), spid);
+          }
         }
 
         // REPLY TO:

@@ -179,6 +179,13 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
+      name: 'drillsIn',
+      documentation: `True when clicking a row with children replaces the list
+        with that row's children (NestedTreeView) instead of expanding them in
+        place. Such a row is not a disclosure, so it carries no aria-expanded.`
+    },
+    {
+      class: 'Boolean',
       name: 'doesThisIncludeSearch',
       value: false
     },
@@ -315,13 +322,26 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Every menu row shares the same action, so the button's DOM name
+              // would be 'onClickFunctions' for all of them; use the menu id so
+              // recorders/tests get a stable, unique selector per menu.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
               themeIcon$: self.data$.dot('themeIcon') || '',
               icon$: self.data$.dot('icon') || ''
             }).
-              attrs({ title: self.data$.dot('tooltip').map(t => t || labelString) }).
+              attrs({
+                title: self.data$.dot('tooltip').map(t => t || labelString),
+                // Rows that expand in place announce open/closed to screen
+                // readers. Leaf rows and rows that drill in (NestedTreeView
+                // replaces the list) must not carry aria-expanded at all, or they
+                // would be read as "collapsed"; undefined removes the attribute.
+                'aria-expanded': self.slot(function(hasChildren, drillsIn, expanded) {
+                  return hasChildren && ! drillsIn ? String(expanded) : undefined;
+                })
+              }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().
@@ -339,6 +359,9 @@ foam.CLASS({
                 showRootOnSearch: self.showThisRootOnSearch$,
                 query:            controlledSearchSlot,
                 onClickAddOn:     self.onClickAddOn,
+                // Inline children of a drill-in row (startExpanded) share its
+                // click handler, so a click on one replaces the list too.
+                drillsIn:         self.drillsIn,
                 level:            self.level + 1
               }, self)).addClass('child-menu');
             });

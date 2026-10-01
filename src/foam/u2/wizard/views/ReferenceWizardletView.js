@@ -18,7 +18,15 @@ foam.CLASS({
     {
       name: 'selectedID',
       factory: function() {
-        return this.data?.[this.viewArgs.idProperty || 'id'] ;
+        if ( ! this.data ) return undefined;
+        var idProp = this.viewArgs.idProperty || 'id';
+        var id = this.data[idProp];
+        if ( id === undefined ) {
+          console.warn('ReferenceWizardletView: idProperty "' + idProp +
+            '" did not resolve on ' + this.data.cls_.id + ', so no initial ' +
+            'selection will be shown. Pass a bare property name (e.g. \'name\').');
+        }
+        return id;
       }
     },
     {

@@ -8,7 +8,10 @@ foam.CLASS({
   package: 'foam.dashboard.view',
   name: 'DashboardView',
   extends: 'foam.dashboard.view.Dashboard',
-  mixins: ['foam.u2.layout.ContainerWidth'],
+  mixins: [
+    'foam.u2.Router',
+    'foam.u2.layout.ContainerWidth'
+  ],
 
   imports: [
     'menuDAO',
@@ -120,6 +123,14 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      if ( this.main ) {
+        this.addCrumb();
+        this.onDetach(this.stack?.setTitle(this.viewTitle$, this));
+      }
+    },
+
     async function render() {
       this.SUPER();
       this.initContainer();
@@ -201,4 +212,3 @@ foam.CLASS({
     }
   ]
 });
-

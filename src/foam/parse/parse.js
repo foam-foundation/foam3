@@ -88,8 +88,9 @@ foam.CLASS({
       class: 'String',
       name: 'category'
     },
-    { name: 'label',
+    {
       class: 'String',
+      name: 'label',
       documentation: 'Label to display in the UI. If not set, text will be used.',
       expression: function(text) { return text; }
     },
@@ -105,10 +106,23 @@ foam.CLASS({
       name: 'prependSpaceOnSelect',
       documentation: 'Adds a whitespace before appending suggestion.',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'showText',
+      documentation: 'If true the suggestion will show both the text and label.',
+      value: true
     }
   ],
 
   methods: [
+    // An optionally async function which adds Suggestions to an array.
+    // In the normal case it just adds 'this', but if gives the Suggestion
+    // to add a different Suggestion or Suggestions
+    // delta -- the remaining text
+    function expand(a, delta) {
+      if ( this.view || ! this.text || this.matches(delta) ) a.push(this);
+    },
     function matches(str) {
       /** Return true iff this suggestions matches the partially typed str input. **/
 
@@ -236,7 +250,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'ParserDecorator',
-  implements: ['foam.parse.JSParser'],
+  extends: 'foam.parse.AbstractParser',
   abstract: true,
 
   properties: [
@@ -1200,8 +1214,7 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'debug',
-//      value: true
+      name: 'debug'
     }
   ],
 

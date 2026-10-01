@@ -44,7 +44,13 @@ foam.CLASS({
       this.SUPER(prop);
       if ( ! this.dao ) {
         // name$dao is added by foam.lang.Reference
-        this.dao = this.__context__[prop.targetDAOKey] || this.__context__.data[prop.name + '$dao'];
+        this.dao = this.__context__[prop.targetDAOKey] || this.__context__.data?.[prop.name + '$dao'];
+        if ( ! this.dao ) {
+          console.error('ReferenceView: could not resolve a DAO for property "' +
+            prop.name + '". targetDAOKey "' + prop.targetDAOKey + '" is not in ' +
+            'the context and there is no ' + prop.name + '$dao relationship ' +
+            'fallback, so the dropdown will render empty.');
+        }
       }
     }
   ]

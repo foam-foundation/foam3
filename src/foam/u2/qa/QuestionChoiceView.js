@@ -47,7 +47,7 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      let viewSpec = this.choices.length > 5 ? { class: 'foam.u2.view.ChoiceView', placeholder$: this.placeholder$ } : { class: 'foam.u2.view.RadioView', isHorizontal: false };
+      let viewSpec = this.choices.length > 15 ? { class: 'foam.u2.view.ChoiceView', placeholder$: this.placeholder$ } : { class: 'foam.u2.view.RadioView', isHorizontal: false };
       viewSpec.choices = this.choices;
       this.startContext({ data: this })
       this.start(this.DATA.__, { config: { label: '', view: viewSpec } }).addClass(this.myClass()).end();

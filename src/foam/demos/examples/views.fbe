@@ -684,7 +684,7 @@ foam.CLASS({
         ###### Heading 6
         text # not a heading
 
-        [a link](https://github.com/kgrgreer/foam3)
+        [a link](https://github.com/foam-foundation/foam3)
 
         normal _italics_ **bold** \`code\`
         \`\`\`

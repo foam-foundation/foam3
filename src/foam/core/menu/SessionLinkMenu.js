@@ -19,7 +19,7 @@ foam.CLASS({
     function select(X, menu) {
       var url = "";
       if ( ! this.link.includes("http") ) {
-        url = window.location.origin;
+        url = this.window.location.origin;
       }
       url += this.link;
       if ( ! this.link.includes("?") ) {

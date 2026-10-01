@@ -46,7 +46,7 @@ foam.CLASS({
         this.delegate.send(envelope);
         return;
       }
-      
+
       var delay = 100;
       var maxDelay = this.maxDelay;
       var maxAttempts = this.maxAttempts;
@@ -91,6 +91,6 @@ foam.CLASS({
 
       this.delegate.send(envelope);
     },
-    
+
   ]
 });

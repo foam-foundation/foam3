@@ -37,7 +37,9 @@ public class MapParser
     if ( ps == null ) return ps;
 
     Object[] values = (Object[]) ps.value();
-    java.util.Map map = new java.util.HashMap(values.length);
+    // LinkedHashMap: preserve document key order so JSON that is parsed and
+    // re-output round-trips without scrambling its keys.
+    java.util.Map map = new java.util.LinkedHashMap(values.length);
 
     for ( int i = 0 ; i < values.length ; i++ ) {
       Object[] item = (Object[]) values[i];

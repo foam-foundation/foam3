@@ -104,7 +104,7 @@ foam.CLASS({
         setCsv("");
       `
     },
-    function addToE(e) { e.start('pre').style({margin: 0}).add(this.csv); }
+    function addToE(e) { e.start('pre').style({margin: 0, maxHeight: '600px'}).add(this.csv); }
   ]
 });
 

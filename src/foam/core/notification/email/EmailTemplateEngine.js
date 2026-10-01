@@ -385,6 +385,7 @@ foam.CLASS({
       parserX.set("values", values);
       parserX.set("logger", x.get("logger"));
       parserX.set("alarmDAO", x.get("alarmDAO"));
+      parserX.set("x", x);
       getGrammar().parse(ps, parserX, "");
       return sb;
       `
@@ -453,26 +454,30 @@ foam.CLASS({
       args: 'Context x, String text',
       type: 'String',
       javaCode: `
-      String[] tokens = text.split("$");
+      // Claude's fix
       Theme theme = (Theme) ((Themes) x.get("themes")).findTheme(x);
       DAO overrideDAO = (DAO) x.get("cssTokenOverrideDAO");
-      CSSTokenOverride override = new CSSTokenOverride();
-      override.setTheme(theme.getId());
-      for ( int i = 0; i < tokens.length; i++ ) {
-        String token = tokens[i].trim();
-        override.setSource(token);
+      String name = text.trim();
+
+      for ( int depth = 0 ; depth < 8 ; depth++ ) {
+        String value;
+
+        CSSTokenOverride override = new CSSTokenOverride();
+        override.setTheme(theme.getId());
+        override.setSource(name);
         CSSTokenOverride replacement = (CSSTokenOverride) overrideDAO.find(override);
         if ( replacement != null ) {
-          tokens[i] = replacement.getTarget();
-        }
-        CSSToken cssToken = CSSTokens.get(x, tokens[i]);
-        if ( cssToken != null ) {
-          tokens[i] = String.valueOf(cssToken.getValue());
+          value = replacement.getTarget();
         } else {
-          tokens[i] = "/* Token not found */";
+          CSSToken cssToken = CSSTokens.get(x, name);
+          if ( cssToken == null ) return "/* Token not found: " + name + " */";
+          value = String.valueOf(cssToken.getValue());
         }
+
+        if ( ! value.startsWith("$") ) return value;
+        name = value.substring(1);
       }
-      return String.join(" ", tokens);
+      return "/* Token cycle: " + text.trim() + " */";
       `
     }
   ],

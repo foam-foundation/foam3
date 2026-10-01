@@ -104,7 +104,7 @@ foam.CLASS({
         if ( val == null )
           return new False();
 
-        return ((foam.mlang.predicate.Nary) val).partialEval();
+        return ((foam.mlang.predicate.Predicate) val).partialEval();
       `
     },
     {

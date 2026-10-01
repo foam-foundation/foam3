@@ -160,6 +160,7 @@ foam.CLASS({
           flags: this.flags,
           name: method.name,
           type: method.type,
+          javaThrows: method.javaThrows,
           property: name,
           args: method.args
         }));
@@ -171,6 +172,7 @@ foam.CLASS({
           flags: this.flags,
           name: method.name,
           type: method.type,
+          javaThrows: method.javaThrows,
           property: name,
           args: method.args,
           delegate: true
@@ -180,7 +182,7 @@ foam.CLASS({
       if ( ! this.topics || this.topics.length ) {
         axioms.push(this.ProxySub.create({
           topics: this.topics,
-          flags: this.flags,
+          flags:  this.flags,
           prop:   this.name
         }));
       }

@@ -11,6 +11,10 @@ foam.CLASS({
 
   documentation: 'View for formatting currency values. Supports both UnitValue (Long/cents) and DoubleUnitValue (Double/dollars).',
 
+  imports: [
+    'translationService'
+  ],
+
   properties: [
     ['precision', 2],
     {
@@ -52,18 +56,34 @@ foam.CLASS({
     },
 
     function textToData(text) {
-      const delim = new RegExp((this.curr_?.delimiter ?? ','), 'g');
-      let plainText = text.replace(delim, '')
+      var delimiter = this.translationService.getTranslation(foam.locale, 'Currency.delimiter', this.curr_?.delimiter ?? ',');
+      if ( delimiter == '.' )
+        delimiter = '\\.';
+
+      const delim = new RegExp(delimiter, 'g');
+      let plainText = text.replace(delim, '');
       plainText =
         ! this.hideSymbol && this.curr_.symbol && plainText.startsWith(this.curr_.symbol) ?
         plainText.substring(1) :
         plainText;
       var val = this.SUPER(plainText);
-      return this.useMinorUnits ? Math.round(val * 100) : val;
+      var scale = Math.pow(10, this.precision);
+      return this.useMinorUnits ? Math.round(val * scale) : Math.round(val * scale) / scale;
+    },
+
+    function dataToText(val) {
+      // FloatView's Intl path formats the raw stored value, but currency data
+      // may be in minor units — route through formatNumber, which converts.
+      // Without this override the field shows 12345 cents as 12,345.00 while
+      // textToData still multiplies on save (#5298 data-corruption pair).
+      return this.formatNumber(val);
     },
 
     function formatNumber(val) {
-      return this.curr_ ? this.curr_.format(val, true, this.hideSymbol) : val.toFixed(2);
+      if ( ! this.curr_ ) return val.toFixed(2);
+      // Currency.format takes minor units; mirror textToData's useMinorUnits
+      var minor = this.useMinorUnits ? val : this.curr_.minorAmount(val);
+      return this.curr_.format(minor, true, this.hideSymbol);
     },
 
     function link() {

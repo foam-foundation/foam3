@@ -18,7 +18,7 @@ foam.CLASS({
   imports: [
     'cSpecDAO',
     'selected',
-    'flowChildren'
+    'flowChildren?'
   ],
 
   properties: [
@@ -39,23 +39,23 @@ foam.CLASS({
       var flowChoices = [];
       var daoChoices  = [];
 
-      this.flowChildren.forEach( child => {
+      this.flowChildren && this.flowChildren.forEach( child => {
           child.value?.cls_ && child.value.cls_.getAxiomsByClass(foam.dao.DAOProperty).forEach( prop => flowChoices.push(child.flowName + '.' + prop.name) )
       })
 
       var allDAOs = this.cSpecDAO.where(foam.core.boot.CSpec.SERVED_DAOS)
 
       allDAOs.select().then(sink => {
-        sink.array.forEach( d => {
+        sink.array.forEach(d => {
           daoChoices.push( d.name );
         });
 
-        if ( flowChoices.length > 0 ) {
+        if ( flowChoices.length + daoChoices.length > 0 ) {
           var currentSelectedRemovedArray = Array.from(flowChoices).filter( e => {
             const dotIndex = e.indexOf(".");
             if ( dotIndex === -1 ) return true;
             return e.substring(0, dotIndex) !== this.selected?.flowName; // e.g. extracts 'match1' from 'match1.data1' to check with current selected flowName
-          })
+          });
           this.choices = [ ...currentSelectedRemovedArray, ...daoChoices ];
         }
       });

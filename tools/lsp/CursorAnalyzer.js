@@ -10,22 +10,7 @@ foam.CLASS({
 
   documentation: 'Shared text analysis utilities for LSP handlers.',
 
-  constants: {
-    // Matches the opening of any FOAM model call: foam.<UPPER_IDENT>( ... ).
-    // Generic on purpose — any extension (FSM, future model types) is picked up
-    // without changes here. POM is excluded from the default form because
-    // diagnostics aren't meaningful on POM bodies; the _POM variant includes it.
-    FOAM_CALL_REGEX: /foam\.(?!POM\b)[A-Z][A-Z0-9_]*\s*\(/,
-    FOAM_CALL_REGEX_POM: /foam\.[A-Z][A-Z0-9_]*\s*\(/
-  },
-
   methods: [
-    function isFoamFile(text, opt_includePom) {
-      /** True if the text contains any foam.<UPPER>(...) model-defining call. */
-      var re = opt_includePom ? this.FOAM_CALL_REGEX_POM : this.FOAM_CALL_REGEX;
-      return re.test(text);
-    },
-
     function classIdOf(model) {
       /** Mirror of FileModelCache.getClassId — for use where cache isn't injected. */
       if ( ! model ) return null;
@@ -41,6 +26,27 @@ foam.CLASS({
         if ( text[i] === '\n' ) { line++; col = 0; } else { col++; }
       }
       return { line: line, character: col };
+    },
+
+    function offsetMapper(text) {
+      /**
+       * offsetToPosition for many offsets into one text. offsetToPosition
+       * walks from the start of the text on every call, so an outline of a
+       * 200-member model re-read the file 400 times; this indexes the line
+       * starts once and answers each offset by binary search.
+       */
+      var starts = [ 0 ];
+      for ( var i = 0 ; i < text.length ; i++ ) {
+        if ( text.charCodeAt(i) === 10 ) starts.push(i + 1);
+      }
+      return function(offset) {
+        var lo = 0, hi = starts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( starts[mid] <= offset ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, character: offset - starts[lo] };
+      };
     },
 
     function positionToOffset(text, position) {
@@ -71,6 +77,78 @@ foam.CLASS({
       return word;
     },
 
+    function getEnclosingStringContent(text, position) {
+      /**
+       * If the cursor sits inside a quoted string literal on its line, return
+       * the string's content (between the quotes); otherwise null. Used to
+       * stop a word inside a label like 'Reset Password' from resolving to a
+       * type/class — only a string whose WHOLE content is a reference should.
+       */
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var ch = position.character;
+      var quotes = "'\"`";
+      var i = 0;
+      while ( i < line.length ) {
+        if ( quotes.indexOf(line[i]) !== -1 ) {
+          var q = line[i];
+          var start = i + 1;
+          var j = start;
+          while ( j < line.length && line[j] !== q ) {
+            if ( line[j] === '\\' ) j++;
+            j++;
+          }
+          if ( ch > start - 1 && ch <= j ) return line.substring(start, j);
+          i = j + 1;
+        } else {
+          i++;
+        }
+      }
+      return null;
+    },
+
+    function getEnclosingKey(text, position) {
+      /**
+       * The object key whose VALUE is the string literal under the cursor —
+       * `daoKey` for `daoKey: 'localUserDAO'` — or null when the cursor is
+       * not in a string, or the string is not a key's value (an argument, an
+       * array element, a nested call). Line-local, like
+       * getEnclosingStringContent, whose scan this repeats to find the same
+       * string's opening quote.
+       *
+       * Callers navigate on a CONVENTION about the key (see
+       * JournalEntryIndex.SERVICE_KEY_NAMES); without the key there is
+       * nothing holding the convention, and every quoted word that happens
+       * to spell a registered name would qualify.
+       */
+      var lines = text.split('\n');
+      var line = lines[position.line] || '';
+      var ch = position.character;
+      var quotes = "'\"`";
+      var i = 0;
+      while ( i < line.length ) {
+        if ( quotes.indexOf(line[i]) !== -1 ) {
+          var q = line[i];
+          var open = i;
+          var start = i + 1;
+          var j = start;
+          while ( j < line.length && line[j] !== q ) {
+            if ( line[j] === '\\' ) j++;
+            j++;
+          }
+          if ( ch > start - 1 && ch <= j ) {
+            var before = line.substring(0, open);
+            var m = /(?:^|[\s{,([])['"`]?([A-Za-z_$][A-Za-z0-9_$]*)['"`]?\s*:\s*$/.exec(before);
+            return m ? m[1] : null;
+          }
+          i = j + 1;
+        } else {
+          i++;
+        }
+      }
+      return null;
+    },
+
     function getSegmentAtPosition(text, position) {
       /**
        * Get just the single identifier segment under the cursor (stops at dots).
@@ -88,28 +166,42 @@ foam.CLASS({
       return line.substring(start, end);
     },
 
+    // -----------------------------------------------------------------
+    // The four methods below (resolveClassId / parseRequires / parseImports
+    // / resolveShortName) are MID-EDIT FALLBACKS only.
+    //
+    // The handlers prefer the cache-based path (cache.getClassIdAt,
+    // cache.resolveRequiresMap, cache.resolveShortName) which reads from
+    // the eval-intercepted model. When the file fails to eval (mid-edit
+    // SyntaxError, broken function bodies), the model is unavailable and
+    // these regex helpers parse axiom values directly from text so
+    // completion / hover / definition don't go dark while the user types.
+    //
+    // The eventual replacement is a grammar-driven model-field
+    // extractor — FoamClassGrammar already parses axiom positions, so
+    // the extractor can read values without `eval`. Once that lands,
+    // these methods are deletable. Until then, treat them as a single
+    // tactical surface — do NOT add new regex parsers of FOAM model
+    // structure elsewhere in the LSP.
+    // -----------------------------------------------------------------
+
     function resolveClassId(text) {
-      /** Extract the full class ID (package.name) from a foam.CLASS definition. */
-      var pkgMatch = text.match(/package\s*:\s*['"]([^'"]+)['"]/);
+      /** FALLBACK: extract `package.name` directly from text when no model is available. */
+      var pkgMatch  = text.match(/package\s*:\s*['"]([^'"]+)['"]/);
       var nameMatch = text.match(/name\s*:\s*['"]([^'"]+)['"]/);
       if ( ! nameMatch ) return null;
       return pkgMatch ? pkgMatch[1] + '.' + nameMatch[1] : nameMatch[1];
     },
 
     function parseRequires(text) {
-      /**
-       * Parse requires: [...] to build shortName -> fullId map.
-       * 'foam.u2.DetailView' -> { DetailView: 'foam.u2.DetailView' }
-       * 'foam.u2.DetailView as DV' -> { DV: 'foam.u2.DetailView' }
-       */
+      /** FALLBACK: parse the requires: array via regex when no model is available. */
       var map = {};
       var requiresMatch = text.match(/requires\s*:\s*\[([\s\S]*?)\]/);
       if ( ! requiresMatch ) return map;
-
       var regex = /['"]([a-zA-Z][\w.]+\.(\w+))(?:\s+as\s+(\w+))?['"]/g;
       var m;
       while ( ( m = regex.exec(requiresMatch[1]) ) !== null ) {
-        var fullId = m[1];
+        var fullId    = m[1];
         var shortName = m[3] || m[2];
         map[shortName] = fullId;
       }
@@ -117,41 +209,42 @@ foam.CLASS({
     },
 
     function parseImports(text) {
-      /** Parse imports: [...] to get imported names. */
+      /** FALLBACK: parse the imports: array via regex when no model is available. */
       var names = [];
       var importsMatch = text.match(/imports\s*:\s*\[([\s\S]*?)\]/);
       if ( ! importsMatch ) return names;
-
       var regex = /['"](\w[\w?]*)(?:\s+as\s+(\w+))?['"]/g;
       var m;
       while ( ( m = regex.exec(importsMatch[1]) ) !== null ) {
         var name = m[2] || m[1];
-        name = name.replace(/\?$/, '');
-        names.push(name);
+        names.push(name.replace(/\?$/, ''));
       }
       return names;
     },
 
     function resolveShortName(text, name) {
-      /** Resolve a short class name to full ID using requires. */
+      /** FALLBACK: short-name → full-id via the regex requires-parse. */
       var map = this.parseRequires(text);
       return map[name] || null;
     },
 
-    function findCreateContext(lines, lineNum, text, index) {
+    function findCreateContext(text, lineNum, cache, index, opt_uri) {
       /**
        * Scan backward from the cursor to find an enclosing `.create({` whose
        * opening `{` is at one level of brace-depth above the cursor. Uses a
        * linear scan over the full text (no line limit) with string and
-       * comment skipping, then resolves the short name via requires or index.
+       * comment skipping, then resolves the short name via the cached model's
+       * requires axiom (no regex over FOAM model structure).
        *
        * Returns the resolved class ID or null.
        *
-       * @param lines - text split by newlines (unused but kept for back-compat callers)
+       * @param text    - full source text
        * @param lineNum - current line number
-       * @param text - full source text
-       * @param index - FoamIndex instance
+       * @param cache   - FileModelCache instance (for short-name resolution)
+       * @param index   - FoamIndex instance (final fallback: registered short names)
+       * @param opt_uri - URI of the current document (passed to cache for multi-class files)
        */
+      var lines = text.split('\n');
       var cursorOffset = this.positionToOffset(text, { line: lineNum, character: (lines[lineNum] || '').length });
 
       // Walk backward from cursor, tracking brace depth and skipping strings/comments.
@@ -203,7 +296,7 @@ foam.CLASS({
                   while ( nameStart > 0 && /[\w$]/.test(text[nameStart - 1]) ) nameStart--;
                   var shortName = text.substring(nameStart, nameEnd);
                   if ( shortName ) {
-                    var resolved = this.resolveShortName(text, shortName);
+                    var resolved = cache ? cache.resolveShortName(opt_uri, text, shortName, lineNum) : null;
                     if ( resolved ) return resolved;
                     if ( index.classExists(shortName) ) return shortName;
                   }
@@ -556,7 +649,9 @@ foam.CLASS({
        */
       if ( index.classExists(typeName) ) return typeName;
 
-      var imports = model ? model.javaImports || [] : [];
+      var imports = model && index && typeof index.javaImportPaths === 'function' ?
+        index.javaImportPaths({ model_: model }) :
+        ( model ? (model.javaImports || []).filter(function(x) { return typeof x === 'string'; }) : [] );
       for ( var i = 0 ; i < imports.length ; i++ ) {
         var imp = imports[i];
         if ( imp.endsWith('.' + typeName) || imp.endsWith('.*') ) {
@@ -594,12 +689,12 @@ foam.CLASS({
 
       // Selector detection: line starts with ^, ., #, &, or contains {
       // IMPORTANT: do NOT include \w — that matches property names like "color:"
-      // Selectors use ^ (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
+      // Selectors use ^ or << (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
       var bracePos = line.indexOf('{');
       var closeBracePos = line.indexOf('}');
       var isBeforeBrace = bracePos === -1 || character <= bracePos;
       var hasBrace = bracePos !== -1;
-      var selectorStart = /^\s*[\^.#&>~+\[]/.test(line);
+      var selectorStart = /^\s*(?:<<|[\^.#&>~+\[])/.test(line);
 
       if ( selectorStart && isBeforeBrace && ( hasBrace || ! /:\s/.test(line) ) ) {
         var word = this.getWordAtChar_(line, character);

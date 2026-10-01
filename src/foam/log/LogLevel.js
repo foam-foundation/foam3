@@ -35,28 +35,32 @@ foam.ENUM({
       name: 'DEBUG',
       shortName: 'DEBG',
       label: 'Debug',
-      color: 'blue',
+      color: '$statusInfoText',
+      background: '$statusInfoBackground',
       consoleMethodName: 'debug'
     },
     {
       name: 'INFO',
       shortName: 'INFO',
       label: 'Info',
-      color: '#0000cc',
+      color: '$statusInfoText',
+      background: '$statusInfoBackground',
       consoleMethodName: 'info'
     },
     {
       name: 'WARN',
       shortName: 'WARN',
       label: 'Warn',
-      color: '#ffa500',
+      color: '$statusWarnText',
+      background: '$statusWarnBackground',
       consoleMethodName: 'warn'
     },
     {
       name: 'ERROR',
       shortName: 'ERRR',
       label: 'Error',
-      color: 'red',
+      color: '$statusDangerText',
+      background: '$statusDangerBackground',
       consoleMethodName: 'error'
     }
   ]

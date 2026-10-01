@@ -11,7 +11,31 @@ foam.INTERFACE({
   javaExtends: [ 'foam.mlang.F' ],
 
   methods: [
-    'int comparePropertyToValue(Object key, Object value)'
+    'int comparePropertyToValue(Object key, Object value)',
+    {
+      signature: 'int compare(Object o1, Object o2)',
+      documentation: `
+        Order two objects by the indexed value each holds, without extracting
+        either value.
+
+        This is the comparison a write does: it arrives holding an object, not a
+        key, so nothing needs to be materialized to place it in an index.
+        PropertyInfo already answers this through Comparator.
+      `
+    },
+    {
+      signature: 'int comparePropertyToObject(Object key, Object o)',
+      documentation: `
+        Compare a key against the object holding the indexed value, rather than
+        against a value already extracted from it.
+
+        The default extracts and delegates, which is always correct. An
+        implementation backed by a primitive field should override to read that
+        field directly, so a caller can compare without materializing the value
+        at all.
+      `,
+      javaCode: 'return comparePropertyToValue(key, f(o));'
+    }
   ]
 });
 
@@ -23,9 +47,7 @@ foam.INTERFACE({
   javaImports: [
     'foam.crypto.hash.Hasher',
     'foam.crypto.sign.Signer',
-    'foam.dao.jdbc.IndexedPreparedStatement',
     'foam.dao.SQLStatement',
-    'foam.lib.parse.Parser',
     'foam.mlang.Expr',
     'foam.mlang.order.Comparator',
     'java.util.Map',
@@ -65,10 +87,11 @@ foam.INTERFACE({
     'Object get(Object obj)',
     'void set(Object obj, Object value)',
     'void clear(Object obj)',
-    'Parser jsonParser()', // Specify parser to use for Java JSON parsing. Set javaJSONParser: 'null' (String literal) to remove parsing support.
-    'Parser queryParser()',
-    'Parser csvParser()',
+    'foam.lib.parse.Parser jsonParser()', // Specify parser to use for Java JSON parsing. Set javaJSONParser: 'null' (String literal) to remove parsing support.
+    'foam.lib.parse.Parser queryParser()',
+    'foam.lib.parse.Parser csvParser()',
     'void toJSON(foam.lib.json.Outputter outputter, Object value) { outputter.output(value); }',
+    'void objToJSON(foam.lib.json.Outputter outputter, FObject obj) { toJSON(outputter, get(obj)); }',
     'void format(foam.lib.formatter.FObjectFormatter outputter, FObject obj)',
     'void formatJSON(foam.lib.formatter.FObjectFormatter formatter, FObject obj) { format(formatter, obj); }',
     'void toCSV(X x, Object obj, foam.lib.csv.CSVOutputter outputter) { outputter.outputValue(obj != null ? get(obj) : null); }',
@@ -136,8 +159,17 @@ foam.INTERFACE({
     'boolean includeInID() { return false; }',
     'boolean isSet(Object obj)',
     'boolean isDefaultValue(Object obj)',
-    'void setStatementValue(IndexedPreparedStatement stmt, FObject o) throws java.sql.SQLException',
-    'void setFromResultSet(java.sql.ResultSet resultSet, int index, FObject o) throws java.sql.SQLException',
+    {
+      name: 'setStatementValue',
+      args: 'foam.dao.jdbc.IndexedPreparedStatement stmt, FObject o',
+      javaThrows: [ 'java.sql.SQLException' ]
+    },
+    {
+      name: 'setFromResultSet',
+      args: 'java.sql.ResultSet resultSet, int index, FObject o',
+      javaThrows: [ 'java.sql.SQLException' ]
+    },
+//    'void setFromResultSet(java.sql.ResultSet resultSet, int index, FObject o) throws java.sql.SQLException',
     'void cloneProperty(FObject source, FObject dest) { set(dest, foam.util.SafetyUtil.deepClone(get(source))); }',
     `void validateObj(foam.lang.X x, foam.lang.FObject obj) {
        /* Template Method: override in subclass if required. */

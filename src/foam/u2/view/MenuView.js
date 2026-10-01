@@ -12,21 +12,36 @@ foam.CLASS({
   imports: [
     'menu',
     // If rendered in a dropdown, close the dropdown after launching menu
-    'dropdown? as parentMenuDropdown'
+    'dropdown? as parentMenuDropdown',
+    'translationService'
   ],
 
   properties: [
     {
+      // Menu id as the button's name attribute, so recorders and a11y tools
+      // can address each menu.
+      name: 'name',
+      expression: function(menu) { return ( menu && menu.id ) || ''; }
+    },
+    {
       name: 'label',
-      expression: function(menu) { return ( menu && menu.label ) || ''; }
+      expression: function(menu) {
+        if ( menu && menu.label )
+          return this.translationService.getTranslation(foam.locale, menu.id+".label", menu.label);
+        return '';
+      }
     },
     {
       name: 'icon',
-      expression: function(menu) { return ( menu && menu.icon ) || ''; }
+      expression: function(menu) {
+        return ( menu && menu.icon ) || '';
+      }
     },
     {
       name: 'themeIcon',
-      expression: function(menu) { return ( menu && menu.themeIcon ) || ''; }
+      expression: function(menu) {
+        return ( menu && menu.themeIcon ) || '';
+      }
     },
     {
       class: 'Function',

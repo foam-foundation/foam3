@@ -51,11 +51,11 @@ foam.CLASS({
           alarm = (Alarm) alarm.fclone();
         }
         StringBuilder note = new StringBuilder();
-        if ( ! er.getMessage().equals(alarm.getNote()) ) {
+        if ( ! SafetyUtil.equals(er.getMessage(), alarm.getNote()) ) {
           note.append(er.getMessage());
           if ( er.getException() != null &&
                er.getMessage() != null &&
-               ! er.getMessage().equals(((Exception)er.getException()).getMessage()) ) {
+               ! SafetyUtil.equals(er.getMessage(), ((Exception)er.getException()).getMessage()) ) {
             note.append("\\n");
             note.append(((Exception)er.getException()).getMessage());
           }
@@ -68,7 +68,7 @@ foam.CLASS({
           alarm.setNote(note.toString());
         } else if ( ! SafetyUtil.isEmpty(alarm.getNote()) &&
                     ! SafetyUtil.isEmpty(note.toString()) &&
-                    ! note.equals(alarm.getNote()) ) {
+                    ! SafetyUtil.equals(note, alarm.getNote()) ) {
           String n = note.toString();
           note.setLength(0);
           note.append(alarm.getNote());
@@ -78,8 +78,7 @@ foam.CLASS({
         alarm.setNote(note.toString());
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
-      } else if ( alarm != null &&
-                  alarm.getIsActive() ) {
+      } else if ( alarm != null && alarm.getIsActive() ) {
         alarm = (Alarm) alarm.fclone();
         alarm.setIsActive(false);
         alarm.setNote(er.getMessage());

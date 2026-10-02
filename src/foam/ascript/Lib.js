@@ -16,6 +16,8 @@
   (SUM over a column, AVERAGE, COUNT, VLOOKUP, MATCH, regression, range-based
   finance, array ops) deliberately do NOT live here — those are the query
   layer's job (GroupBy / Count / where). n-ary SUM(a,b,c) is also absent: use +.
+  LOOKUP is the one exception that takes an array: a key-based read of a single
+  element's field (not indexing, not a range), so it stays per-record.
 
   NAMES are canonical Excel (UPPER). foam/reflow/lib.js aliases the old
   camelCase names (lPad -> LPAD, toLowerCase -> LOWER, year -> YEAR, ...) into
@@ -516,6 +518,25 @@ foam.LIB({
     { name: 'HEX2DEC', code: function(h) { /* Hex text to decimal. */         return parseInt(h, 16); } },
     { name: 'DEC2HEX', code: function(n) { /* Decimal to hex text. */         return n.toString(16).toUpperCase(); } },
     { name: 'OCT2DEC', code: function(o) { /* Octal text to decimal. */       return parseInt(o, 8); } },
-    { name: 'DEC2OCT', code: function(n) { /* Decimal to octal text. */       return n.toString(8); } }
+    { name: 'DEC2OCT', code: function(n) { /* Decimal to octal text. */       return n.toString(8); } },
+
+    // ─────────────────────────────── Lookup ───────────────────────────────
+    {
+      name: 'LOOKUP',
+      code: function(array, keyField, keyValue, valueField) { /* valueField of the first element of array whose keyField equals keyValue; null if none. */
+        if ( ! Array.isArray(array) ) return null;
+        function read(o, name) {
+          if ( o == null ) return null;
+          return o instanceof Map ? o.get(name) : o[name];
+        }
+        for ( var i = 0 ; i < array.length ; i++ ) {
+          if ( foam.util.equals(read(array[i], keyField), keyValue) ) {
+            var v = read(array[i], valueField);
+            return v === undefined ? null : v;
+          }
+        }
+        return null;
+      }
+    }
   ]
 });

@@ -28,7 +28,15 @@ foam.CLASS({
         // reactions_ / reactionError_, which are typed Map and StringArray -
         // redeclaring those as String is an axiom type conflict, not a test.
         { class: 'String', name: 'reactionAlpha' },
-        { class: 'String', name: 'reactionBeta' }
+        { class: 'String', name: 'reactionBeta' },
+        { class: 'FObjectArray', name: 'items', of: 'foam.ascript.AScriptPropertyFilterTest.Item' }
+      ]
+    },
+    {
+      name: 'Item',
+      properties: [
+        { class: 'String', name: 'code' },
+        { class: 'String', name: 'label' }
       ]
     }
   ],
@@ -39,6 +47,38 @@ foam.CLASS({
       // cached parser answers for a class it was not built from.
       foam.ascript.AScriptParser.private_.instances = {};
       return foam.ascript.AScriptParser.PARSE(this.Subject, s);
+    },
+
+    function lookup(s, subject) {
+      var e = this.parse(s);
+      return e ? e.f(subject) : undefined;
+    },
+
+    function lookupTests(x) {
+      var S = this.Subject, I = this.Item;
+      var subject = S.create({ items: [
+        I.create({ code: '00', label: 'Approved' }),
+        I.create({ code: '05', label: 'Declined' }),
+        I.create({ code: '05', label: 'Duplicate key' })
+      ] });
+      var q = 'LOOKUP(items, "code", "05", "label")';
+
+      x.test( this.lookup('LOOKUP(items, "code", "00", "label")', subject) === 'Approved',
+        'LOOKUP returns the value field of the matching element');
+      x.test( this.lookup(q, subject) === 'Declined',
+        'LOOKUP returns the first element when several match');
+      x.test( this.lookup('LOOKUP(items, "code", "99", "label")', subject) === null,
+        'LOOKUP returns null when no element matches');
+      x.test( this.lookup(q, S.create()) === null,
+        'LOOKUP returns null for an empty array');
+      x.test( this.lookup('LOOKUP(items, "code", "00", "nosuch")', subject) == null,
+        'LOOKUP returns null when the value field does not exist');
+      x.test( foam.ascript.Lib.LOOKUP([ { k: 1, v: 'a' } ], 'k', 1, 'v') === 'a',
+        'LOOKUP reads plain objects');
+      x.test( foam.ascript.Lib.LOOKUP([ new Map([ [ 'k', 1 ], [ 'v', 'a' ] ]) ], 'k', 1, 'v') === 'a',
+        'LOOKUP reads Maps');
+      x.test( foam.ascript.Lib.LOOKUP(null, 'k', 1, 'v') === null,
+        'LOOKUP returns null for a null array');
     },
 
     function runTest(x) {
@@ -58,6 +98,8 @@ foam.CLASS({
       // An unknown name has nothing to match and must not resolve.
       x.test( ! this.parse('nosuchcolumn'),
         'An unknown property does not parse');
+
+      this.lookupTests(x);
     }
   ]
 });

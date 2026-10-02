@@ -516,4 +516,27 @@ public class Lib {
   public static String DEC2OCT(long decimal) {
     return Long.toOctalString(decimal);
   }
+
+  // ─────────────────────────────── Lookup ───────────────────────────────
+
+  /** valueField of the first element of array whose keyField equals keyValue; null if none. */
+  public static Object LOOKUP(Object array, String keyField, Object keyValue, String valueField) {
+    Iterable<?> items = array instanceof Object[] ? Arrays.asList((Object[]) array)
+      : array instanceof Iterable ? (Iterable<?>) array
+      : null;
+    if ( items == null ) return null;
+    for ( Object o : items ) {
+      if ( Objects.equals(read(o, keyField), keyValue) ) return read(o, valueField);
+    }
+    return null;
+  }
+
+  private static Object read(Object o, String name) {
+    if ( o instanceof Map ) return ((Map<?, ?>) o).get(name);
+    if ( o instanceof foam.lang.FObject ) {
+      foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) ((foam.lang.FObject) o).getClassInfo().getAxiomByName(name);
+      return p == null ? null : p.get(o);
+    }
+    return null;
+  }
 }

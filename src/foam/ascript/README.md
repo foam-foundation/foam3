@@ -137,6 +137,13 @@ Identify value types.
 | `ISEVEN(num)`, `ISODD(num)` | Is even/odd? |
 | `N(value)` | Coerce to number |
 
+### Lookup (1)
+Read one field of one array element, chosen by key.
+
+| Function | Purpose |
+|----------|---------|
+| `LOOKUP(array, keyField, keyValue, valueField)` | `valueField` of the first element whose `keyField` equals `keyValue`; empty if none |
+
 ### Base Conversions (10)
 Convert between number bases.
 
@@ -202,7 +209,7 @@ foam.ascript.Lib.SUBSTITUTE("cat", "a", "o"); // → "cot"
 
 AScript intentionally excludes:
 - **Range functions** (SUM over columns, AVERAGE, COUNTIF)
-- **Lookup functions** (VLOOKUP, INDEX/MATCH, array formulas)
+- **Range lookup functions** (VLOOKUP, INDEX/MATCH, array formulas)
 - **Aggregations** (GROUP BY, HAVING)
 
 **Why?** These operations require dataset context and are the job of the query layer (GroupBy, REFLOW DAO queries, SQL). Mixing them into a scalar expression language would duplicate logic and cause confusion about where computation happens.

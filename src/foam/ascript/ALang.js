@@ -796,5 +796,19 @@ foam.ALANG([
     outputType: 'Int',
     code: function(startDate, endDate, unit) { return foam.ascript.Lib.DATEDIF(startDate, endDate, unit); },
     javaCode: 'return foam.ascript.Lib.DATEDIF(startDate, endDate, unit);'
+  },
+  {
+    name: 'LOOKUP',
+    documentation: 'Returns valueField of the first element of array whose keyField equals keyValue, or empty if none. LOOKUP(items, "code", "00", "name").',
+    args: [
+      { class: 'Object', name: 'array' },
+      { class: 'String', name: 'keyField' },
+      { class: 'Object', name: 'keyValue' },
+      { class: 'String', name: 'valueField' }
+    ],
+    code: function(array, keyField, keyValue, valueField) {
+      return foam.ascript.Lib.LOOKUP(array, keyField, keyValue, valueField);
+    },
+    javaCode: 'return foam.ascript.Lib.LOOKUP(array, keyField, keyValue, valueField);'
   }
 ]);

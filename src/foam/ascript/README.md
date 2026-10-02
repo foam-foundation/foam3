@@ -62,6 +62,7 @@ Manipulate and analyze strings.
 | Function | Purpose |
 |----------|---------|
 | `LEN(text)` | String length |
+| `TEXT(value, format)` | Text of a value. A date is formatted in UTC with `YYYY`, `YY`, `MM`, `DD` tokens (`TEXT(day, "YYMMDD")` is `250329`); every occurrence of a token is replaced. `format` is optional; with none, the plain text. A Float prints as `7` on the client and `7.0` on the server |
 | `UPPER(text)` | Convert to uppercase |
 | `LOWER(text)` | Convert to lowercase |
 | `PROPER(text)` | Capitalize each word |
@@ -113,14 +114,14 @@ Logarithms, combinatorics, base conversions.
 | `DEGREES(rad)`, `RADIANS(deg)` | Angle conversion |
 
 ### Date/Time Functions (11)
-Extract and manipulate dates.
+Extract and manipulate dates. The date parts (`YEAR` through `WEEKDAY`), `TEXT` and `DATE` all work in UTC, so a formula gives the same answer in every time zone and on the client and the server.
 
 | Function | Purpose |
 |----------|---------|
 | `YEAR(date)`, `MONTH(date)`, `DAY(date)` | Extract year, month, day |
 | `HOUR(date)`, `MINUTE(date)`, `SECOND(date)` | Extract time components |
 | `WEEKDAY(date)` | Day of week (1=Mon, 7=Sun) |
-| `DATE(year, month, day)` | Construct date |
+| `DATE(year, month, day)` | Build a Date at noon UTC of that day, the way a Date property stores a date |
 | `EDATE(date, months)` | Date ±months |
 | `EOMONTH(date, months)` | Last day of month ±months |
 | `DATEDIF(start, end, "Y"|"M"|"D")` | Difference in units |
@@ -137,12 +138,15 @@ Identify value types.
 | `ISEVEN(num)`, `ISODD(num)` | Is even/odd? |
 | `N(value)` | Coerce to number |
 
+### Nested Paths
+A dotted name reads through nested objects: `order.shipping.address.city`. The path is null-safe; if any step is unset the result is null, on the client and on the server.
+
 ### Lookup (1)
 Read one field of one array element, chosen by key.
 
 | Function | Purpose |
 |----------|---------|
-| `LOOKUP(array, keyField, keyValue, valueField)` | `valueField` of the first element whose `keyField` equals `keyValue`; empty if none |
+| `LOOKUP(array, keyField, keyValue, valueField)` | `valueField` of the first element whose `keyField` equals `keyValue`; null if none. Numbers compare by value across types (an Int field matches a Long literal) |
 
 ### Base Conversions (10)
 Convert between number bases.

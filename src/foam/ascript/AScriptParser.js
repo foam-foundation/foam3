@@ -190,9 +190,9 @@ foam.CLASS({
           power: seq(sym('primary'), opt(seq1(1, seq0(sym('ws'), '^'), sym('unary')))), // right-assoc
 
           primary: alt(
+            sym('funcall'),                                   // before field: a property named like a function (text) still allows TEXT(...)
             sym('field'),                                     // bare names -> property refs
             sym('expr_paren'),
-            sym('funcall'),
             lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
             sym('floatValue'),                               // parent 'number' already eats its own ws
             sym('number'),                                   // parent 'number' already eats its own ws

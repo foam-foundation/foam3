@@ -179,8 +179,8 @@ foam.LIB({
         if ( value == null ) return '';
         if ( ! ( value instanceof Date ) || ! format ) return String(value);
         var y = String(value.getUTCFullYear()), pad = n => String(n).padStart(2, '0');
-        return format.replace('YYYY', y).replace('YY', y.slice(-2))
-          .replace('MM', pad(value.getUTCMonth() + 1)).replace('DD', pad(value.getUTCDate()));
+        return format.replaceAll('YYYY', y).replaceAll('YY', y.slice(-2))
+          .replaceAll('MM', pad(value.getUTCMonth() + 1)).replaceAll('DD', pad(value.getUTCDate()));
       }
     },
     {
@@ -400,52 +400,53 @@ foam.LIB({
     // ─────────────────────────────── Date ───────────────────────────────
     // Singular calendar-component extractors (distinct from the duration
     // mlangs YEARS/MONTHS/DAYS/HOURS/MINUTES). Return -1 for a null date.
+    // All read UTC, like TEXT and DATE, so a formula gives the same answer in every zone.
     {
       name: 'YEAR',
       code: function(date) { /* Calendar year, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getFullYear();
+        return (date instanceof Date ? date : new Date(date)).getUTCFullYear();
       }
     },
     {
       name: 'MONTH',
       code: function(date) { /* Calendar month 1-12, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getMonth() + 1;
+        return (date instanceof Date ? date : new Date(date)).getUTCMonth() + 1;
       }
     },
     {
       name: 'DAY',
       code: function(date) { /* Day of month, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getDate();
+        return (date instanceof Date ? date : new Date(date)).getUTCDate();
       }
     },
     {
       name: 'HOUR',
       code: function(date) { /* Hour 0-23, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getHours();
+        return (date instanceof Date ? date : new Date(date)).getUTCHours();
       }
     },
     {
       name: 'MINUTE',
       code: function(date) { /* Minute 0-59, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getMinutes();
+        return (date instanceof Date ? date : new Date(date)).getUTCMinutes();
       }
     },
     {
       name: 'SECOND',
       code: function(date) { /* Second 0-59, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getSeconds();
+        return (date instanceof Date ? date : new Date(date)).getUTCSeconds();
       }
     },
     {
       name: 'WEEKDAY',
       code: function(date, returnType) { /* Day of week; returnType 1 (default): Mon=1..Sun=7. */
-        var day = (date instanceof Date ? date : new Date(date)).getDay(); // 0=Sun
+        var day = (date instanceof Date ? date : new Date(date)).getUTCDay(); // 0=Sun
         if ( returnType === 3 ) return day === 0 ? 6 : day - 1; // Mon=0..Sun=6
         return day === 0 ? 7 : day;                             // Mon=1..Sun=7
       }

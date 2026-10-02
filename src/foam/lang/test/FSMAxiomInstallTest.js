@@ -74,16 +74,11 @@ foam.CLASS({
     },
 
     function testValidateMachine(x) {
-      // Note: validateMachine on `main` references `state.onTransition` which is
-      // declared as a method, not a property factory. The validation logic ends up
-      // calling Object.keys() on a value that is null/undefined for enum values,
-      // throwing "Cannot convert undefined or null to object". We pin this down
-      // as the current behavior so we can detect if swam-all changes it.
-      var threwOnGood = false, goodMsg = '';
-      try { this.TestStateMachine.validateMachine(); }
-      catch (e) { threwOnGood = true; goodMsg = (e && e.message) || String(e); }
-      x.test(threwOnGood,
-        'validateMachine on TestStateMachine throws (current main behavior); error: ' + goodMsg);
+      var valid = false, goodMsg = '';
+      try { valid = this.TestStateMachine.validateMachine(); }
+      catch (e) { goodMsg = (e && e.message) || String(e); }
+      x.test(valid === true,
+        'validateMachine on TestStateMachine returns true without throwing; error: ' + goodMsg);
 
       foam.FSM({
         package: 'foam.lang.test',
@@ -96,7 +91,8 @@ foam.CLASS({
       var threw = false, brokenMsg = '';
       try { foam.lang.test.BrokenStateMachineNoInitial.validateMachine(); }
       catch (e) { threw = true; brokenMsg = (e && e.message) || String(e); }
-      x.test(threw, 'validateMachine throws on malformed FSM; thrown msg: ' + brokenMsg);
+      x.test(threw && brokenMsg.includes('No initial state'),
+        'validateMachine throws "No initial state" on an FSM with no initial state; thrown msg: ' + brokenMsg);
     }
   ]
 });

@@ -30,7 +30,9 @@ foam.CLASS({
         { class: 'String', name: 'reactionAlpha' },
         { class: 'String', name: 'reactionBeta' },
         { class: 'FObjectArray', name: 'items', of: 'foam.ascript.AScriptPropertyFilterTest.Item' },
-        { class: 'FObjectProperty', name: 'outer', of: 'foam.ascript.AScriptPropertyFilterTest.Outer' }
+        { class: 'FObjectProperty', name: 'outer', of: 'foam.ascript.AScriptPropertyFilterTest.Outer' },
+        { class: 'Date', name: 'day' },
+        { class: 'Int', name: 'count' }
       ]
     },
     {
@@ -59,6 +61,13 @@ foam.CLASS({
     function lookup(s, subject) {
       var e = this.parse(s);
       return e ? e.f(subject) : undefined;
+    },
+
+    function textTests(x) {
+      var subject = this.Subject.create({ day: new Date(Date.UTC(2025, 2, 29, 12)), count: 7 });
+      x.test( this.lookup('TEXT(day, "YYMMDD")', subject) === '250329', 'TEXT formats a date as YYMMDD in UTC, got ' + this.lookup('TEXT(day, "YYMMDD")', subject) );
+      x.test( this.lookup('TEXT(day, "YYYY-MM-DD")', subject) === '2025-03-29', 'TEXT formats a date as YYYY-MM-DD' );
+      x.test( this.lookup('TEXT(count, "")', subject) === '7', 'TEXT of a number is its plain text' );
     },
 
     function pathTests(x) {
@@ -116,6 +125,7 @@ foam.CLASS({
 
       this.lookupTests(x);
       this.pathTests(x);
+      this.textTests(x);
     }
   ]
 });

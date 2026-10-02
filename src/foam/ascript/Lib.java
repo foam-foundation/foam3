@@ -169,6 +169,20 @@ public class Lib {
     }
   }
 
+  /** Text of a value; a date in UTC with YYYY, YY, MM and DD tokens, anything else String.valueOf. */
+  public static String TEXT(Object value, String format) {
+    if ( value == null ) return "";
+    if ( ! ( value instanceof Date ) || format == null || format.isEmpty() ) return String.valueOf(value);
+    Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    c.setTime((Date) value);
+    String y = String.valueOf(c.get(Calendar.YEAR));
+    return format
+      .replace("YYYY", y)
+      .replace("YY", y.substring(y.length() - 2))
+      .replace("MM", String.format("%02d", c.get(Calendar.MONTH) + 1))
+      .replace("DD", String.format("%02d", c.get(Calendar.DAY_OF_MONTH)));
+  }
+
   public static String LPAD(String str, int len, String ch) {
     String s = str == null ? "" : str;
     String pad = ch == null || ch.isEmpty() ? "0" : ch;

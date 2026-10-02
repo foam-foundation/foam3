@@ -89,6 +89,18 @@ foam.ALANG = function(ms) {
 
 foam.ALANG([
   {
+    name: 'TEXT',
+    documentation: 'Text of a value. A date is formatted in UTC with YYYY, YY, MM and DD tokens: TEXT(d, "YYMMDD") of 2025-03-29 is "250329". Anything else is its plain text.',
+    args: [
+      { class: 'Object', name: 'value' },
+      { class: 'String', name: 'format' }
+    ],
+    code: function(value, format) {
+      return foam.ascript.Lib.TEXT(value, format);
+    },
+    javaCode: 'return foam.ascript.Lib.TEXT(value, format);'
+  },
+  {
     name: 'LPAD',
     documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
     args: [

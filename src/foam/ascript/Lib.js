@@ -174,6 +174,16 @@ foam.LIB({
       }
     },
     {
+      name: 'TEXT',
+      code: function(value, format) { /* Text of a value; a date in UTC with YYYY, YY, MM, DD tokens. */
+        if ( value == null ) return '';
+        if ( ! ( value instanceof Date ) || ! format ) return String(value);
+        var y = String(value.getUTCFullYear()), pad = n => String(n).padStart(2, '0');
+        return format.replace('YYYY', y).replace('YY', y.slice(-2))
+          .replace('MM', pad(value.getUTCMonth() + 1)).replace('DD', pad(value.getUTCDate()));
+      }
+    },
+    {
       name: 'LPAD',
       code: function(str, len, ch) { /* Left-pad str to len using ch (default '0'). */
         return String(str == null ? '' : str).padStart(len, ch || '0');

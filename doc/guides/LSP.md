@@ -3,6 +3,11 @@
 The FOAM language server lives in its own repo:
 https://github.com/foam-foundation/FOAM-LSP
 
-Install it from any foam3 or app checkout with `./build.sh lsp-install[:editor]`.
-Builds keep it current; `--lsp-auto-update:false` turns that off and is saved
-until `--lsp-auto-update:true`.
+```bash
+./build.sh lsp-install:<editor>       # clone it into ~/.foam/lsp and set up an editor or MCP agent
+./build.sh lsp-auto-update:false      # stop builds updating the clone (saved)
+./build.sh lsp-auto-update:true       # turn it back on
+./build.sh lsp-update                 # update by hand
+```
+
+An editor set up before the move still points at `foam3/tools/lsp-start.js`; run `./build.sh lsp-install:<editor>` again to repoint it.

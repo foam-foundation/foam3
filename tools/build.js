@@ -866,8 +866,13 @@ if ( SHOW_ENVS )
 
 // Keep an installed FOAM-LSP clone current (JSTooling lspRefresh). Called
 // directly, not through execute(), so a build with no clone logs nothing.
+// Skipped when an lsp-* task was asked for: those handle the clone themselves.
 var lspRefresh = findTask(TOOLING_TASKS, 'lspRefresh');
-if ( lspRefresh ) lspRefresh.f.call(Object.assign({}, EXPORTS));
+var lspTaskAsked = TASKS.split(TASK_SEPERATOR).some(t => {
+  var task = findTask(TOOLING_TASKS, t.split(':')[0]);
+  return task && task.name.startsWith('lsp');
+});
+if ( lspRefresh && ! DRY_RUN && ! lspTaskAsked ) lspRefresh.f.call(Object.assign({}, EXPORTS));
 
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');

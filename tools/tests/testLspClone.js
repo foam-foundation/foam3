@@ -35,12 +35,12 @@ var stamp = path.join(env.FOAM_LSP_HOME, '.git', 'foam-lsp-last-update');
 function age() { var old = new Date(Date.now() - 2 * 24 * 3600 * 1000); fs.utimesSync(stamp, old, old); }
 
 test(lsp.update(env, {}) === 'not-installed', 'no clone: update does nothing');
-lsp.setAutoUpdate(env, false);   // nothing to save into yet; must not throw
+test(lsp.setAutoUpdate(env, false) === false, 'no clone: turning it off saves nothing and says so');
 
 test(lsp.install(env) === env.FOAM_LSP_HOME && fs.existsSync(path.join(env.FOAM_LSP_HOME, 'one')), 'install clones');
-test(lsp.install(env) === env.FOAM_LSP_HOME, 'install twice keeps the clone');
+push('again'); test(lsp.install(env) === env.FOAM_LSP_HOME && fs.existsSync(path.join(env.FOAM_LSP_HOME, 'again')), 'install on an existing clone pulls it');
 
-push('two');
+age(); push('two');
 test(lsp.update(env, {}) === 'updated' && fs.existsSync(path.join(env.FOAM_LSP_HOME, 'two')), 'update fast-forwards');
 
 push('three');
@@ -49,13 +49,20 @@ test(lsp.update(env, { force: true }) === 'updated', 'force skips the throttle')
 
 age(); fs.writeFileSync(path.join(env.FOAM_LSP_HOME, 'local-edit'), 'x');
 test(lsp.update(env, {}) === 'dirty', 'local changes: left alone');
+test(lsp.update(env, {}) === 'throttled', 'local changes: reported once a day, not every build');
 fs.unlinkSync(path.join(env.FOAM_LSP_HOME, 'local-edit'));
+age();
 
 git(env.FOAM_LSP_HOME, 'checkout', '-q', '-b', 'feature');
 test(lsp.update(env, {}) === 'off-default-branch', 'feature branch: left alone');
 git(env.FOAM_LSP_HOME, 'checkout', '-q', 'main');
 
-age(); push('four'); lsp.setAutoUpdate(env, false);
+age(); git(env.FOAM_LSP_HOME, 'remote', 'set-head', 'origin', '-d');
+var noHead = false; try { lsp.update(env, {}); } catch (e) { noHead = true; }
+test(noHead && lsp.update(env, {}) === 'throttled', 'no origin/HEAD: fails once, then throttled for the day');
+git(env.FOAM_LSP_HOME, 'remote', 'set-head', 'origin', '-a');
+
+age(); push('four'); test(lsp.setAutoUpdate(env, false) === true, 'turned off: saved into the clone');
 test(lsp.update(env, {}) === 'disabled' && ! fs.existsSync(path.join(env.FOAM_LSP_HOME, 'four')), 'turned off: the setting is saved and update skips');
 test(git(env.FOAM_LSP_HOME, 'status', '--porcelain') === '', 'turned off: the saved setting leaves the clone clean');
 test(lsp.update(env, { force: true }) === 'updated', 'turned off: lsp-update still updates by hand');

@@ -13,8 +13,7 @@ foam.POM({
 
   options: {
     timestampFoamBin: [ 'g', 'timestamp-foam-bin', 'TIMESTAMP_FOAM_BIN', 'Use --timestamp-foam-bin:false to not timestamp foam-bin javascript file to retain breakpoints during development cycle.', true, function(arg) { TIMESTAMP_FOAM_BIN = arg ? this.bool(arg) : false; } ],
-    withoutStages: [ 'w', 'without-stages', 'WITHOUT_STAGES', 'Generate a single foam-bin file.', false, function(arg) { WITHOUT_STAGES = arg ? this.bool(arg) : true; } ],
-    lspAutoUpdate: [ '', 'lsp-auto-update', 'LSP_AUTO_UPDATE', 'Use --lsp-auto-update:false to stop builds updating the FOAM-LSP clone; the setting is saved until --lsp-auto-update:true.', true, function(arg) { LSP_AUTO_UPDATE = arg ? this.bool(arg) : true; require('./lspClone').setAutoUpdate(process.env, LSP_AUTO_UPDATE); } ]
+    withoutStages: [ 'w', 'without-stages', 'WITHOUT_STAGES', 'Generate a single foam-bin file.', false, function(arg) { WITHOUT_STAGES = arg ? this.bool(arg) : true; } ]
   },
 
   tasks: {
@@ -36,11 +35,15 @@ foam.POM({
       this.info('[lsp] ' + require('./lspClone').update(process.env, { force: true }));
     }],
 
+    lspAutoUpdate: ['lsp-auto-update', 'lsp-auto-update:false stops builds updating the FOAM-LSP clone; lsp-auto-update:true turns it back on. The setting is saved in the clone.', [], function(arg) {
+      if ( ! require('./lspClone').setAutoUpdate(process.env, this.bool(arg)) ) this.warning('[lsp] FOAM-LSP is not installed; nothing saved');
+    }],
+
     lspRefresh: ['lsp-refresh', 'Fast-forward the FOAM-LSP clone, at most once a day. Runs before every build; does nothing when FOAM-LSP is not installed.', [], function() {
-      if ( ! LSP_AUTO_UPDATE ) return;
       try {
         var status = require('./lspClone').update(process.env, {});
         if ( status === 'updated' ) this.info('[lsp] FOAM-LSP updated');
+        if ( status === 'dirty' || status === 'off-default-branch' ) this.info('[lsp] FOAM-LSP not updated: the clone is ' + status);
       } catch (e) {
         this.warning('[lsp] FOAM-LSP update skipped: ' + String(e.message).split('\n')[0]);
       }

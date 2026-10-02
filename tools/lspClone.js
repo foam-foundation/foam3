@@ -28,19 +28,24 @@ function install(env) {
   if ( ! fs.existsSync(path.join(dir, '.git')) ) {
     fs.mkdirSync(path.dirname(dir), { recursive: true });
     cp.execFileSync('git', [ 'clone', env.FOAM_LSP_REPO || REPO, dir ], { stdio: 'inherit' });
+  } else {
+    // Re-running lsp-install is how people upgrade, so bring the clone current first.
+    try { update(env, { force: true }); } catch (e) {}
   }
   return dir;
 }
 
-// --lsp-auto-update:false saves itself as this file. It sits in .git so the
+// ./build.sh lsp-auto-update:false saves itself as this file. It sits in .git so the
 // clone never reads as dirty, and it goes away with the clone.
 function offFile(dir) { return path.join(dir, '.git', 'foam-lsp-no-autoupdate'); }
 
+// Returns false when there is no clone to save the setting into.
 function setAutoUpdate(env, on) {
   var dir = home(env);
-  if ( ! fs.existsSync(path.join(dir, '.git')) ) return;
+  if ( ! fs.existsSync(path.join(dir, '.git')) ) return false;
   if ( on ) fs.rmSync(offFile(dir), { force: true });
   else      fs.writeFileSync(offFile(dir), '');
+  return true;
 }
 
 function update(env, opts) {
@@ -52,13 +57,14 @@ function update(env, opts) {
   if ( ! opts.force ) {
     try { if ( Date.now() - fs.statSync(stamp).mtimeMs < DAY_MS ) return 'throttled'; } catch (e) {}
   }
+
+  // Stamp first: a skip or a failure below is then reported once a day, not every build.
+  fs.writeFileSync(stamp, '');
   if ( git(dir, [ 'status', '--porcelain' ]) ) return 'dirty';
   var branch = git(dir, [ 'rev-parse', '--abbrev-ref', 'HEAD' ]);
   var main   = git(dir, [ 'rev-parse', '--abbrev-ref', 'origin/HEAD' ]).replace(/^origin\//, '');
   if ( branch !== main ) return 'off-default-branch';
 
-  // Stamp before pulling: offline, the build tries once a day, not every build.
-  fs.writeFileSync(stamp, '');
   git(dir, [ 'pull', '--ff-only', '--quiet' ]);
   return 'updated';
 }

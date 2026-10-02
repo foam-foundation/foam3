@@ -32,7 +32,11 @@ foam.CLASS({
         { class: 'FObjectArray', name: 'items', of: 'foam.ascript.AScriptPropertyFilterTest.Item' },
         { class: 'FObjectProperty', name: 'outer', of: 'foam.ascript.AScriptPropertyFilterTest.Outer' },
         { class: 'Date', name: 'day' },
-        { class: 'Int', name: 'count' }
+        // A Date property keeps only the day (noon GMT); a DateTime keeps the time of day the UTC checks need.
+        { class: 'DateTime', name: 'stamp' },
+        { class: 'Int', name: 'count' },
+        // Named like the TEXT function: TEXT(...) must parse as the call, a bare text as the field.
+        { class: 'String', name: 'text' }
       ]
     },
     {
@@ -45,7 +49,8 @@ foam.CLASS({
       name: 'Item',
       properties: [
         { class: 'String', name: 'code' },
-        { class: 'String', name: 'label' }
+        { class: 'String', name: 'label' },
+        { class: 'Int', name: 'qty' }
       ]
     }
   ],
@@ -64,12 +69,29 @@ foam.CLASS({
     },
 
     function textTests(x) {
-      var subject = this.Subject.create({ day: new Date(Date.UTC(2025, 2, 29, 12)), count: 7 });
+      var subject = this.Subject.create({ day: new Date(Date.UTC(2025, 2, 29, 12)), count: 7, text: 'hello' });
       x.test( this.lookup('TEXT(day, "YYMMDD")', subject) === '250329', 'TEXT formats a date as YYMMDD in UTC, got ' + this.lookup('TEXT(day, "YYMMDD")', subject) );
       x.test( this.lookup('TEXT(day, "YYYY-MM-DD")', subject) === '2025-03-29', 'TEXT formats a date as YYYY-MM-DD' );
       x.test( this.lookup('TEXT(count, "")', subject) === '7', 'TEXT of a number is its plain text' );
+      x.test( this.lookup('TEXT(count)', subject) === '7', 'TEXT with no format is its plain text, got ' + this.lookup('TEXT(count)', subject) );
+      x.test( this.lookup('TEXT(day, "DD/MM/YYYY DD")', subject) === '29/03/2025 29', 'TEXT replaces every occurrence of a token, got ' + this.lookup('TEXT(day, "DD/MM/YYYY DD")', subject) );
+      x.test( this.lookup('text', subject) === 'hello', 'A bare name that matches a function still parses as the property' );
+      x.test( this.lookup('LEN(TEXT(day, "YYMMDD")) + LEN(text)', subject) === 11, 'TEXT(...) parses as the call on a model with a text property' );
       var d = this.lookup('DATE(2025, 3, 29)', subject);
       x.test( d && d.getTime() === Date.UTC(2025, 2, 29, 12), 'DATE is noon UTC of that day, got ' + d );
+    },
+
+    function dateTests(x) {
+      // 23:30Z is already the next day in zones east of UTC and 18:30 or earlier west of it:
+      // a local-time read fails in at least one zone, a UTC read passes in all.
+      var subject = this.Subject.create({ stamp: new Date(Date.UTC(2025, 2, 29, 23, 30, 45)) });
+      var self = this;
+      [ [ 'YEAR(stamp)', 2025 ], [ 'MONTH(stamp)', 3 ], [ 'DAY(stamp)', 29 ], [ 'HOUR(stamp)', 23 ],
+        [ 'MINUTE(stamp)', 30 ], [ 'SECOND(stamp)', 45 ], [ 'WEEKDAY(stamp)', 6 ] ].forEach(function(c) {
+        x.test( self.lookup(c[0], subject) === c[1], c[0] + ' reads UTC, got ' + self.lookup(c[0], subject) );
+      });
+      x.test( this.lookup('TEXT(stamp, "YYMMDD")', subject) === '250329', 'TEXT reads UTC late in the day' );
+      x.test( this.lookup('HOUR(DATE(2025, 3, 29))', subject) === 12, 'DATE builds noon UTC in every zone' );
     },
 
     function pathTests(x) {
@@ -78,6 +100,8 @@ foam.CLASS({
         'A three-step path reads the last step, got ' + this.lookup('outer.inner.code', subject) );
       x.test( this.lookup('outer.inner', subject) && this.lookup('outer.inner', subject).code === '00',
         'A two-step path still reads the nested object' );
+      x.test( this.lookup('outer.inner.code', this.Subject.create()) === null,
+        'A path through an unset step is null, got ' + this.lookup('outer.inner.code', this.Subject.create()) );
     },
 
     function lookupTests(x) {
@@ -99,6 +123,9 @@ foam.CLASS({
         'LOOKUP returns null for an empty array');
       x.test( this.lookup('LOOKUP(items, "code", "00", "nosuch")', subject) == null,
         'LOOKUP returns null when the value field does not exist');
+      var withQty = S.create({ items: [ I.create({ qty: 5, label: 'Five' }) ] });
+      x.test( this.lookup('LOOKUP(items, "qty", 5, "label")', withQty) === 'Five',
+        'LOOKUP matches an Int key field against a number literal');
       x.test( foam.ascript.Lib.LOOKUP([ { k: 1, v: 'a' } ], 'k', 1, 'v') === 'a',
         'LOOKUP reads plain objects');
       x.test( foam.ascript.Lib.LOOKUP([ new Map([ [ 'k', 1 ], [ 'v', 'a' ] ]) ], 'k', 1, 'v') === 'a',
@@ -128,6 +155,7 @@ foam.CLASS({
       this.lookupTests(x);
       this.pathTests(x);
       this.textTests(x);
+      this.dateTests(x);
     }
   ]
 });

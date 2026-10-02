@@ -492,6 +492,12 @@ foam.CLASS({
     async function init() {
       this.SUPER();
 
+      // Before the dao check: a block loaded from a saved flow resolves its dao after init,
+      // and a reaction that sets aql then would otherwise never rerun it.
+      this.aql$.sub(this.maybeAutoRun);
+      this.where$.sub(this.maybeAutoRun);
+      this.order$.sub(this.maybeAutoRun);
+
       if ( ! this.dao || ! this.dao.of ) return;
 
       if ( ! this.columns ) {
@@ -504,10 +510,6 @@ foam.CLASS({
         // Check .aql again since copyFrom() could have been called since the above check
         if ( default_query && ! this.aql ) this.aql = default_query;
       }
-
-      this.aql$.sub(this.maybeAutoRun);
-      this.where$.sub(this.maybeAutoRun);
-      this.order$.sub(this.maybeAutoRun);
     },
 
     function addToE(e) {

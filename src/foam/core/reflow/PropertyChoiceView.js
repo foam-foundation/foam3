@@ -98,8 +98,8 @@ foam.CLASS({
       var self = this;
 
       // A NamedProperty names a column by propName rather than holding the axiom, as a flow
-      // does for a column whose class is rebuilt per run (a transform's output). Show that
-      // name, and keep an edit by name, so the block does not pin itself to one run's class.
+      // does when the block's DAO class is generated at run time. Show that name, and keep
+      // an edit by name, so the block does not pin itself to one run's class.
       this.data$.relateTo(
         this.propName$,
         function propToName(p) {

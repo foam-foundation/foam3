@@ -29,7 +29,14 @@ foam.CLASS({
         // redeclaring those as String is an axiom type conflict, not a test.
         { class: 'String', name: 'reactionAlpha' },
         { class: 'String', name: 'reactionBeta' },
-        { class: 'FObjectArray', name: 'items', of: 'foam.ascript.AScriptPropertyFilterTest.Item' }
+        { class: 'FObjectArray', name: 'items', of: 'foam.ascript.AScriptPropertyFilterTest.Item' },
+        { class: 'FObjectProperty', name: 'outer', of: 'foam.ascript.AScriptPropertyFilterTest.Outer' }
+      ]
+    },
+    {
+      name: 'Outer',
+      properties: [
+        { class: 'FObjectProperty', name: 'inner', of: 'foam.ascript.AScriptPropertyFilterTest.Item' }
       ]
     },
     {
@@ -52,6 +59,14 @@ foam.CLASS({
     function lookup(s, subject) {
       var e = this.parse(s);
       return e ? e.f(subject) : undefined;
+    },
+
+    function pathTests(x) {
+      var subject = this.Subject.create({ outer: this.Outer.create({ inner: this.Item.create({ code: '00' }) }) });
+      x.test( this.lookup('outer.inner.code', subject) === '00',
+        'A three-step path reads the last step, got ' + this.lookup('outer.inner.code', subject) );
+      x.test( this.lookup('outer.inner', subject) && this.lookup('outer.inner', subject).code === '00',
+        'A two-step path still reads the nested object' );
     },
 
     function lookupTests(x) {
@@ -100,6 +115,7 @@ foam.CLASS({
         'An unknown property does not parse');
 
       this.lookupTests(x);
+      this.pathTests(x);
     }
   ]
 });

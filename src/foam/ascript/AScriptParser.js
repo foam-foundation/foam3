@@ -334,8 +334,11 @@ foam.CLASS({
 
         // [ left, opName, right ] - both sides are already Exprs from `field`
         fieldCompare: function(v) { return m[v[1]].call(m, v[0], v[2]); },
-        // TODO: support nested sub-fields (a.b.c) — currently single-level only
-        subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
+        // a.b.c: each step reads the next name off what the step before returned
+        subField: function(v) {
+          var step = self.NamedProperty.create({propName: v[1]});
+          return v[2] ? m.DOT(step, v[2]) : step;
+        },
 
         fn_IF: function(v) { return m.COND(v[2], v[4], v[6]); },
 

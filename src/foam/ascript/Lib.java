@@ -378,51 +378,52 @@ public class Lib {
   }
 
   // ─────────────────────────────── Date ───────────────────────────────
+  // Date parts read UTC, like TEXT and DATE, so a formula gives the same answer on any server.
 
   public static int YEAR(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.YEAR);
   }
 
   public static int MONTH(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.MONTH) + 1;
   }
 
   public static int DAY(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.DAY_OF_MONTH);
   }
 
   public static int HOUR(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.HOUR_OF_DAY);
   }
 
   public static int MINUTE(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.MINUTE);
   }
 
   public static int SECOND(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.SECOND);
   }
 
   public static int WEEKDAY(Date date, Integer returnType) {
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     int day = cal.get(Calendar.DAY_OF_WEEK) - 1; // 0=Sun
     if (returnType != null && returnType == 3) {
@@ -542,17 +543,14 @@ public class Lib {
       : null;
     if ( items == null ) return null;
     for ( Object o : items ) {
-      if ( Objects.equals(read(o, keyField), keyValue) ) return read(o, valueField);
+      if ( foam.util.SafetyUtil.equals(read(o, keyField), keyValue) ) return read(o, valueField);
     }
     return null;
   }
 
   private static Object read(Object o, String name) {
     if ( o instanceof Map ) return ((Map<?, ?>) o).get(name);
-    if ( o instanceof foam.lang.FObject ) {
-      foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) ((foam.lang.FObject) o).getClassInfo().getAxiomByName(name);
-      return p == null ? null : p.get(o);
-    }
+    if ( o instanceof foam.lang.FObject ) return ((foam.lang.FObject) o).getProperty(name);
     return null;
   }
 }

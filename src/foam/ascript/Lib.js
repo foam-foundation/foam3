@@ -452,8 +452,8 @@ foam.LIB({
     },
     {
       name: 'DATE',
-      code: function(year, month, day) { /* Construct a date from year, 1-based month, day. */
-        return new Date(year, month - 1, day);
+      code: function(year, month, day) { /* Noon UTC of year, 1-based month, day, as a Date property stores it. */
+        return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       }
     },
     {

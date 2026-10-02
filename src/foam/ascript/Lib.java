@@ -431,9 +431,11 @@ public class Lib {
     return day == 0 ? 7 : day; // Mon=1..Sun=7
   }
 
+  /** Noon UTC of that day, as a Date property stores a date, so the same formula gives the same date on any server. */
   public static Date DATE(int year, int month, int day) {
-    Calendar cal = Calendar.getInstance();
-    cal.set(year, month - 1, day);
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    cal.clear();
+    cal.set(year, month - 1, day, 12, 0, 0);
     return cal.getTime();
   }
 

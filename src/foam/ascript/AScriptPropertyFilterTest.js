@@ -68,6 +68,8 @@ foam.CLASS({
       x.test( this.lookup('TEXT(day, "YYMMDD")', subject) === '250329', 'TEXT formats a date as YYMMDD in UTC, got ' + this.lookup('TEXT(day, "YYMMDD")', subject) );
       x.test( this.lookup('TEXT(day, "YYYY-MM-DD")', subject) === '2025-03-29', 'TEXT formats a date as YYYY-MM-DD' );
       x.test( this.lookup('TEXT(count, "")', subject) === '7', 'TEXT of a number is its plain text' );
+      var d = this.lookup('DATE(2025, 3, 29)', subject);
+      x.test( d && d.getTime() === Date.UTC(2025, 2, 29, 12), 'DATE is noon UTC of that day, got ' + d );
     },
 
     function pathTests(x) {

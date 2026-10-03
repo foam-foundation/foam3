@@ -23,3 +23,8 @@ p({
   "id": "MarkdownExampleTagTest",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.DAOPromptRunningTest",
+  "id": "DAOPromptRunningTest",
+  "language": 0
+})

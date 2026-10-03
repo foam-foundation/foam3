@@ -20,7 +20,7 @@ foam.CLASS({
   Set fullScreen to true when used inside a Popup for full-size preview.`,
 
   css: `
-  ^container {
+  <<container {
     margin: 0;
     padding: 0;
     flex-grow: 1;
@@ -31,24 +31,24 @@ foam.CLASS({
     align-items: stretch;
   }
 
-  ^fullScreen {
+  <<fullScreen {
     width: 100%;
     height: 100%;
   }
 
-  ^fullScreen ^container {
+  <<fullScreen <<container {
     width: 100% !important;
     max-height: none !important;
     height: 100%;
   }
 
-  ^fullScreen ^container iframe {
+  <<fullScreen <<container iframe {
     width: 100%;
     height: 100%;
     border: none;
   }
 
-  ^fullScreen ^container img {
+  <<fullScreen <<container img {
     width: 100%;
     height: 100%;
     object-fit: contain;

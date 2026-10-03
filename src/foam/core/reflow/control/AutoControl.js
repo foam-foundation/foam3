@@ -24,30 +24,30 @@ foam.CLASS({
     .foam-parse-auto-SuggestionView-history  { color: $purple400; }
     .foam-parse-auto-SuggestionView-standard { color: $blue400; }
 
-    ^promptHolder button.foam-u2-ActionView { margin-right: 8px; }
+    <<promptHolder button.foam-u2-ActionView { margin-right: 8px; }
 
-    :has(> ^promptHolder) {
+    :has(> <<promptHolder) {
       width: 100%;
     }
-    ^promptHolder {
+    <<promptHolder {
       display: flex;
       flex-direction: row;
       align-items: center;
       gap: 0px;
     }
-    ^promptLink {
+    <<promptLink {
       text-decoration: none !important;
       font-weight: bold;
       color: $primary500!important;
     }
-    ^input {
+    <<input {
       border: none;
       margin-right: 8px;
       padding-left: 0;
       padding-right: 0;
       width: 100%;
     }
-    ^input:focus-visible {
+    <<input:focus-visible {
       border: none;
     }
   `,

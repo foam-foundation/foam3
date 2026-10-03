@@ -32,14 +32,14 @@ foam.CLASS({
   exports: ['stack_ as stack', 'breadcrumbs_ as breadcrumbs'],
 
   css: `
-    ^ {
+    << {
       width: 100%;
     }
-    ^ .property-text { border: none; padding: 10 0; }
-    ^ .property-code { margin-bottom: 12px; }
-    ^ .property-title { float: left; }
-    ^ .property-id { float: left; margin-right: 12px; }
-    ^output {
+    << .property-text { border: none; padding: 10 0; }
+    << .property-code { margin-bottom: 12px; }
+    << .property-title { float: left; }
+    << .property-id { float: left; margin-right: 12px; }
+    <<output {
       border: 2px solid $borderDefault;
       padding: 1rem;
       margin: 0;

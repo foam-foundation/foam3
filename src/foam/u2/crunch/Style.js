@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    << {
       padding: 8px 12px 8px 12px;
       width: 216px;
       height: auto;
@@ -25,7 +25,7 @@ foam.CLASS({
       -moz-transition: background 200ms ease-in, border 200ms ease-in;
     }
 
-    ^cardpart {
+    <<cardpart {
       display: inline-block;
       /* width: 272px;
       /* height: 153px;
@@ -45,7 +45,7 @@ foam.CLASS({
       background-position: 50% 50%;
     }
 
-    ^card-title {
+    <<card-title {
       margin: 0;
       min-height: 20px;
       font-size: 1.6rem;
@@ -57,7 +57,7 @@ foam.CLASS({
       color: $textDefault;
     }
 
-    ^card-subtitle {
+    <<card-subtitle {
       margin: 0;
       font-size: 1.1rem;
       font-weight: normal;
@@ -67,16 +67,16 @@ foam.CLASS({
       color: $textTertiary;
     }
 
-    ^.state-hover {
+    <<.state-hover {
       cursor: pointer;
     }
 
-    ^mode-card.state-hover {
+    <<mode-card.state-hover {
       background-color: $backgroundHover;
       border: solid 1px $borderLight;
     }
 
-    ^icon-circle {
+    <<icon-circle {
       display: inline-block;
       width: 80px;
       height: 80px;
@@ -85,10 +85,10 @@ foam.CLASS({
       background-color: $backgroundDefault;
     }
 
-    ^mode-card {
+    <<mode-card {
     }
 
-    ^mode-circle {
+    <<mode-circle {
       display: flex;
       align-items: center;
 
@@ -105,17 +105,17 @@ foam.CLASS({
 
       transition: all 0.3s ease-out;
     }
-    ^mode-circle::not(:first-of-type) {
+    <<mode-circle::not(:first-of-type) {
       margin-left: 14px;
     }
-    ^mode-circle:hover {
+    <<mode-circle:hover {
       -webkit-box-shadow: 0 10px 6px -6px $grey200;
       -moz-box-shadow: 0 10px 6px -6px $grey200;
       box-shadow: 0 10px 6px -6px $grey200;
       border-color: $white;
     }
 
-    ^badge {
+    <<badge {
       height: 24px;
       border-radius: 12px;
       width: 79px;
@@ -133,20 +133,20 @@ foam.CLASS({
       color: $black;
     }
 
-    ^badge-neutral {
+    <<badge-neutral {
       background-color: $grey400;
     }
-    ^badge-good {
+    <<badge-good {
       background-color: $green400;
     }
-    ^badge-info {
+    <<badge-info {
       background-color: $purple400;
     }
-    ^badge-bad {
+    <<badge-bad {
       background-color: $red400;
     }
 
-    ^renewable-description {
+    <<renewable-description {
       height: 24px;
       padding: 2px 8px;
       background-color: $backgroundDefault;
@@ -164,19 +164,19 @@ foam.CLASS({
       width: fill-available;
     }
 
-    ^category {
+    <<category {
       display: inline-block;
       padding: 0;
     }
-    ^category:not(:last-child) {
+    <<category:not(:last-child) {
       margin-right: 8px;
     }
 
-    ^tooltip {
+    <<tooltip {
       position: absolute;
       bottom: 12px;
     }
-    ^tooltip ^tooltiptext {
+    <<tooltip <<tooltiptext {
       visibility: hidden;
       width: max-content;
       max-width: 300%;
@@ -200,7 +200,7 @@ foam.CLASS({
       -moz-box-shadow: 0 10px 6px -6px $grey200;
       box-shadow: 0 10px 6px -6px $grey200;
     }
-    ^tooltip ^tooltiptext::after {
+    <<tooltip <<tooltiptext::after {
       content: "";
       position: absolute;
       top: 50%;
@@ -211,13 +211,13 @@ foam.CLASS({
       border-color: transparent transparent transparent $grey600;
     }
 
-    ^tooltiptext^tooltip-bottom {
+    <<tooltiptext<<tooltip-bottom {
       max-width: 200%;
       top: calc(100% + 16px);
       bottom: auto;
       right: 0;
     }
-    ^tooltip ^tooltiptext^tooltip-bottom::after {
+    <<tooltip <<tooltiptext<<tooltip-bottom::after {
       top: 0;
       right: 17%;
       left: auto;
@@ -225,12 +225,12 @@ foam.CLASS({
       border-color: transparent transparent $grey600 transparent;
     }
 
-    ^tooltip:hover ^tooltiptext {
+    <<tooltip:hover <<tooltiptext {
       visibility: visible;
       opacity: 1;
     }
 
-    ^tooltiptext^tooltipDisabled {
+    <<tooltiptext<<tooltipDisabled {
       visibility: hidden !important;
     }
   `,

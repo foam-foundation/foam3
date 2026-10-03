@@ -4,6 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// TODO: looks like there's a bug in cSpecDAO and flowDAO.where(IN)
 foam.CLASS({
   package: 'foam.demos.reflow',
   name: 'Controller',
@@ -15,23 +16,31 @@ foam.CLASS({
     'foam.core.reflow.ToolbarControl',
     'foam.core.reflow.Console',
     'foam.core.reflow.Flow',
-    'foam.core.reflow.SinkAgent'
+    'foam.core.reflow.SinkAgent',
+    'foam.ai.vector.VectorEmbedding'
   ],
 
   exports: [
+    'as ctrl',
     'agentDAO',
     'commandDAO',
     'cSpecDAO',
     'flowDAO',
     'isMenuOpen',
     'showNav',
-    'toolbarControlDAO'
+    'toolbarControlDAO',
+    'vectorStoreDAO',
+    '__DO_NOT_WARN_MISSING_CONTEXT_VALUE__'
   ],
 
   css: `
   `,
 
   properties: [
+    {
+      name: '__DO_NOT_WARN_MISSING_CONTEXT_VALUE__',
+      value: true
+    },
     {
       class: 'Boolean',
       name: 'showNav'
@@ -45,9 +54,7 @@ foam.CLASS({
       factory: function() {
         return this.EasyDAO.create({
           of: this.Command,
-          daoType: 'MDAO',
-          testData: [
-          ]
+          daoType: 'MDAO'
         });
       }
     },
@@ -101,6 +108,15 @@ foam.CLASS({
           ]
         });
       }
+    },
+    {
+      name: 'vectorStoreDAO',
+      factory: function() {
+        return this.EasyDAO.create({
+          of: this.VectorEmbedding,
+          daoType: 'IDB'
+        });
+      }
     }
   ],
 
@@ -126,11 +142,15 @@ foam.CLASS({
     },
 
     async function render() {
+      // Install CSS
+      foam.core.controller.AppStyles.create();
+      foam.core.controller.Fonts.create();
+
       await this.loadData();
 
       this.
-        addClass();
-      this.tag(this.Console);
+        addClass().
+        tag(this.Console);
     }
   ]
 });

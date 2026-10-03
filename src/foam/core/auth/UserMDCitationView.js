@@ -17,15 +17,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
 
-    ^ .img-container img {
+    << .img-container img {
       height: 7rem;
     }
 
-    ^ .info-container {
+    << .info-container {
       padding-left: 3rem;
     }
   `,

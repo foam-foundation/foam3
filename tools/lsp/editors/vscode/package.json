@@ -129,6 +129,29 @@
           "type": "string",
           "default": "en",
           "description": "Language the bare message: value is written in."
+        },
+        "foam.lint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show registration-completeness lint findings (missing rule groups, strategy references, POM membership) as diagnostics."
+        },
+        "foam.lint.checks": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["pom-membership", "rule-group", "strategy-ref"] },
+          "default": ["rule-group", "strategy-ref"],
+          "description": "Which lint checks to run. 'pom-membership' is off by default: on a mature workspace it reports hundreds of pre-existing findings. Enable it for a debt triage pass."
+        },
+        "foam.lint.scope": {
+          "type": "string",
+          "enum": ["openFiles", "workspace"],
+          "default": "openFiles",
+          "description": "Which findings become diagnostics. 'openFiles' keeps the Problems panel about the code you are editing; 'workspace' shows every finding. The FOAM sidebar always shows workspace-wide totals."
+        },
+        "foam.lint.strategyTargets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra base classes whose implementors should have a StrategyReference entry, beyond foam.core.ruler.RuleAction. Set per project in .vscode/settings.json."
         }
       }
     },
@@ -183,6 +206,15 @@
         "icon": "$(play)"
       },
       {
+        "command": "foam.lint",
+        "title": "FOAM: Lint Registrations",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "foam.lintClear",
+        "title": "FOAM: Clear Lint Findings"
+      },
+      {
         "command": "foam.toggleFlag",
         "title": "FOAM: Toggle Flag"
       },
@@ -203,6 +235,11 @@
       "view/title": [
         {
           "command": "foam.analyzeWorkspace",
+          "when": "view == foamAnalysis",
+          "group": "navigation"
+        },
+        {
+          "command": "foam.lint",
           "when": "view == foamAnalysis",
           "group": "navigation"
         }

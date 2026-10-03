@@ -11,7 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ .foam-u2-ActionView {
+    << .foam-u2-ActionView {
       margin-left: 24px;
       height: 24px;
     }

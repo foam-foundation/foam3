@@ -15,6 +15,7 @@ import {
 } from 'vscode-languageclient/node';
 import { FoamTreeProvider } from './FoamTreeProvider';
 import { FoamAnalysisRunner } from './FoamAnalysisRunner';
+import { FoamLintRunner } from './FoamLintRunner';
 
 let client: LanguageClient;
 
@@ -141,6 +142,7 @@ export function activate(context: ExtensionContext) {
 
   // Register analyze command (runner set up after client starts)
   let runner: FoamAnalysisRunner | null = null;
+  let lintRunner: FoamLintRunner | null = null;
 
   context.subscriptions.push(
     commands.registerCommand('foam.analyzeWorkspace', async () => {
@@ -154,6 +156,22 @@ export function activate(context: ExtensionContext) {
       } catch (e: any) {
         window.showErrorMessage('FOAM analysis failed: ' + e.message);
       }
+    }),
+    commands.registerCommand('foam.lint', async () => {
+      if ( ! lintRunner ) {
+        window.showWarningMessage('FOAM LSP server not ready yet.');
+        return;
+      }
+      try {
+        await lintRunner.run();
+        window.showInformationMessage(
+          `FOAM lint complete: ${lintRunner.findingCount} finding(s).`);
+      } catch (e: any) {
+        window.showErrorMessage('FOAM lint failed: ' + e.message);
+      }
+    }),
+    commands.registerCommand('foam.lintClear', () => {
+      if ( lintRunner ) lintRunner.clear();
     })
   );
 
@@ -257,7 +275,8 @@ export function activate(context: ExtensionContext) {
 
   // Defer server start to not block activation
   setTimeout(() => {
-    startServer(context, outputChannel, lspScript, pomPath, workspaceRoot, treeProvider, (r) => { runner = r; });
+    startServer(context, outputChannel, lspScript, pomPath, workspaceRoot, treeProvider,
+      (r, l) => { runner = r; lintRunner = l; });
   }, 100);
 }
 
@@ -268,7 +287,7 @@ function startServer(
   pomPath: string,
   cwd: string,
   treeProvider: FoamTreeProvider,
-  onRunnerReady: (runner: FoamAnalysisRunner) => void
+  onRunnerReady: (runner: FoamAnalysisRunner, lintRunner: FoamLintRunner) => void
 ) {
   const status: StatusBarItem = window.createStatusBarItem();
   status.text = '$(loading~spin) FOAM: Indexing...';
@@ -299,6 +318,34 @@ function startServer(
   // Handle of the auto-analysis timer below — cleared on restart so a
   // superseded client's timer never runs against the replacement.
   let analysisTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // The lint runner of the current client. startClient() replaces it on every
+  // restart and disposes the old one, so a restart never leaves a second
+  // foam-lint DiagnosticCollection behind. The editor listeners below are
+  // registered once and always talk to whichever runner is current.
+  let lintRunner: FoamLintRunner | null = null;
+
+  // Re-lint after a save (a full pass is sub-second); repaint for free when
+  // the set of open editors or the configuration changes.
+  context.subscriptions.push(
+    workspace.onDidSaveTextDocument(doc => {
+      if ( lintRunner && /\.(js|jrl)$/.test(doc.uri.fsPath) ) lintRunner.runDebounced();
+    }),
+    workspace.onDidOpenTextDocument(() => { if ( lintRunner ) lintRunner.render(); }),
+    workspace.onDidCloseTextDocument(() => { if ( lintRunner ) lintRunner.render(); }),
+    window.onDidChangeVisibleTextEditors(() => { if ( lintRunner ) lintRunner.render(); }),
+    workspace.onDidChangeConfiguration(e => {
+      if ( ! lintRunner || ! e.affectsConfiguration('foam.lint') ) return;
+      if ( e.affectsConfiguration('foam.lint.checks') ||
+           e.affectsConfiguration('foam.lint.strategyTargets') ||
+           e.affectsConfiguration('foam.lint.enable') ) {
+        lintRunner.run().catch((e: any) => window.showErrorMessage('FOAM lint failed: ' + e.message));
+      } else {
+        lintRunner.render();
+      }
+    }),
+    { dispose: () => { if ( lintRunner ) lintRunner.dispose(); } }
+  );
 
   // Body of the status-bar quick-pick — offers the two actions that matter:
   // restart the server, or look at its log. Installed once here (startServer
@@ -395,7 +442,10 @@ function startServer(
 
       // Set up analysis runner now that client is ready
       const runner = new FoamAnalysisRunner(c, treeProvider);
-      onRunnerReady(runner);
+      if ( lintRunner ) lintRunner.dispose();
+      lintRunner = new FoamLintRunner(c, treeProvider);
+      onRunnerReady(runner, lintRunner);
+      const lint = lintRunner;
 
       // Handle progress notifications from workspace analysis
       c.onNotification('foam/analyzeProgress', (params: any) => {
@@ -411,6 +461,13 @@ function startServer(
           outputChannel.appendLine('Startup analysis complete.');
         } catch (e: any) {
           outputChannel.appendLine('Startup analysis failed: ' + e.message);
+        }
+        if ( client !== c ) return;
+        try {
+          await lint.run();
+          outputChannel.appendLine('Startup lint complete: ' + lint.findingCount + ' finding(s).');
+        } catch (e: any) {
+          outputChannel.appendLine('Startup lint failed: ' + e.message);
         }
       }, 2000);
     }).catch((err: Error) => {

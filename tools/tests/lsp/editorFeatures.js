@@ -72,6 +72,22 @@ test(
 );
 
 
+var caretQfSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'CaretQf',\n" +
+  "  css: `\n    ^a { color: red; }\n    <<b { color: blue; }\n" +
+  "    [class^=x] { color: green; }\n  `\n})";
+var caretQfDiags = h.diagHandler.handle(caretQfSrc).filter(function(d) { return d.code === 'deprecated-css-caret'; });
+var caretQfActions = caretQfDiags.reduce(function(acc, d) {
+  return acc.concat(codeActionHandler.handle(caretQfSrc, d.range, { diagnostics: [d] }, 'file:///x'));
+}, []);
+var caretQfEdit = caretQfActions.length === 1 && caretQfActions[0].edit.changes['file:///x'][0];
+test(caretQfActions.length === 1 && caretQfActions[0].title === "Replace '^' with '<<'" &&
+  caretQfEdit.newText === '<<' && caretQfEdit.range.start.line === 4 &&
+  caretQfEdit.range.start.character === 4 && caretQfEdit.range.end.line === 4 &&
+  caretQfEdit.range.end.character === 5,
+  "CodeAction: deprecated '^' gets one fix replacing exactly the ^ of ^a with '<<' (not <<b or [class^=x])");
+
+
 // === SignatureHelpHandler ===
 
 section('SignatureHelpHandler');
@@ -161,6 +177,16 @@ var lns = tokenLines(st.data);
 test(lns.indexOf(2) === -1, 'no semantic token on the documentation line (2)');
 test(lns.indexOf(5) === -1, 'no semantic token on the comment line (5)');
 test(lns.indexOf(6) !== -1, 'the real this.Suggestion on line 6 is still tokenized');
+
+// Two classes in one file with the same css: text. Each block is highlighted.
+var twinCssText =
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssA',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssB',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})";
+var twinCssLns = tokenLines(semanticHandler.handle(twinCssText, 'file:///tmp/lsptest-twin-css-st.js').data);
+test(twinCssLns.indexOf(11) !== -1,
+  'Semantic tokens: the second of two identical css: blocks is highlighted too (line 11)');
 
 
 // === DocumentSymbol extents ===

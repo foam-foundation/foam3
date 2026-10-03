@@ -91,7 +91,7 @@ foam.CLASS({
   ],
 
   css: `
-  ^ {
+  << {
       flex-direction: column;
       height: 5rem;
       position: relative;
@@ -102,25 +102,25 @@ foam.CLASS({
       border-radius: 10px;
     }
 
-    ^ .label {
+    << .label {
       transition: font-size 0.5s, top 0.5s;
       top: 20%;
       position: relative;
       color: $textSecondary;
     }
-    ^ .label-up {
+    << .label-up {
       font-weight: unset;
       top: 0;
     }
 
-    ^ .value {
+    << .value {
       flex-grow: 1;
       border-bottom: 2px solid $borderDefault;
       position: absolute;
       bottom: 0;
       width: 92%;
     }
-    ^ .down-arrow {
+    << .down-arrow {
       font-weight: $font-bold;
       float: right;
       top: 1rem;

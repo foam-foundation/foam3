@@ -4,6 +4,7 @@ foam.POM({
   files: [
     { name: "JobStatus",           flags: "js|java" },
     { name: "Job",                 flags: "js|java" },
+    { name: "Jobs",                flags: "js" },
     { name: "JobRunner",           flags: "js|java" },
     { name: "SubmitJobRuleAction", flags: "js|java" },
     { name: "RemoveOldJobsAgent",  flags: "js|java" },

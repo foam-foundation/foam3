@@ -36,41 +36,41 @@ foam.CLASS({
   ],
 
   css: `
-    ^navigator {
+    <<navigator {
       display: flex;
       align-items: center;
       color: $textSecondary;
       gap: 4px;
     }
-    ^header-container {
+    <<header-container {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    ^chevron {
+    <<chevron {
       color: $textSecondary;
     }
-    ^title input {
+    <<title input {
       border: none;
       color: $textDefault;
     }
-    ^title .foam-u2-TextInputCSS::placeholder {
+    <<title .foam-u2-TextInputCSS::placeholder {
       color: $textDefault;
       opacity: 1;
     }
-    ^header-actions {
+    <<header-actions {
       display: flex;
       gap: 5px;
       align-items: center;
     }
-    ^save-text {
+    <<save-text {
       color: $textSecondary;
     }
-    ^ .foam-u2-view-OverlayActionListView {
+    << .foam-u2-view-OverlayActionListView {
       color: $textDefault;
     }
 
-    ^separator {
+    <<separator {
       display: inline-block;
       width: 1px;
       height: 30px;
@@ -78,9 +78,9 @@ foam.CLASS({
       margin: 0 8px;
     }
 
-    ^name { width: 230px; }
+    <<name { width: 230px; }
 
-    ^name::placeholder {
+    <<name::placeholder {
       font-style: italic;
     }
   `,
@@ -360,13 +360,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
     }
-    ^title {
+    <<title {
       font-weight: $font-medium;
       color: $textDefault;
     }
@@ -420,13 +420,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: -webkit-fill-available;
     }
-    ^flex-container {
+    <<flex-container {
       display: flex;
       flex-direction: row;
       overflow: auto;
@@ -434,14 +434,14 @@ foam.CLASS({
       height: auto;
       min-height: 0;
     }
-    ^header {
+    <<header {
       padding: 5px 24px;
       height: fit-content;
       max-height: 64px;
       background-color: $backgroundDefault;
       border-bottom: 1px solid $borderLight;
     }
-    ^l {
+    <<l {
       padding: 4px;
       background-color: $backgroundDefault;
       width: 15%;
@@ -449,68 +449,68 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
       padding: 16px 16px 0 16px;
     }
-    ^middle-holder {
+    <<middle-holder {
       padding: 0;
       width: 100%;
       background-color: $backgroundTertiary;
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^m {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<m {
       border: 2px dashed $borderLight;
     }
-    ^m {
+    <<m {
       overflow-x: auto;
       background-color: $backgroundDefault;
     }
-    ^r {
+    <<r {
       overflow-y: auto;
       width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^r .foam-u2-ActionView { min-width: 40px; }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
+    <<r .foam-u2-ActionView { min-width: 40px; }
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
       height: 100%;
       z-index: 10;
     }
-    ^resize-handle:hover, ^resize-handle:active {
+    <<resize-handle:hover, <<resize-handle:active {
       background: $backgroundBrandSecondary;
     }
 
-    ^r .foam-core-reflow-SinkView, ^r .foam-u2-view-IntView {
+    <<r .foam-core-reflow-SinkView, <<r .foam-u2-view-IntView {
       width: 100%;
     }
 
-    ^ .foam-u2-RangeView-skip {
+    << .foam-u2-RangeView-skip {
       width: 100%;
     }
 
-    ^menuClosed {
+    <<menuClosed {
      width: 60px!important;
      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
     }
 
-    ^r .foam-u2-PropertyBorder-select {
+    <<r .foam-u2-PropertyBorder-select {
       padding: 5px;
       background-color: $backgroundTertiary;
       border-radius: 4px;
       gap: 10px;
     }
-    ^r .foam-u2-PropertyBorder-view {
+    <<r .foam-u2-PropertyBorder-view {
       width: 100%;
     }
-    ^r .foam-core-reflow-PropertyListView {
+    <<r .foam-core-reflow-PropertyListView {
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+      <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
         padding: 24px 24px 0 24px;
       }
     }
@@ -893,7 +893,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -902,7 +902,7 @@ foam.CLASS({
       align-items: center;
       justify-content: center;
     }
-    ^output {
+    <<output {
       flex: 1;
       overflow: auto;
       text-align: left;
@@ -910,7 +910,7 @@ foam.CLASS({
       position: relative;
       overflow-anchor: none;
     }
-    ^loading-indicator {
+    <<loading-indicator {
       position: absolute;
       top: 200px;
       left: 50%;
@@ -928,23 +928,23 @@ foam.CLASS({
       max-width: 90%;
       justify-content: center;
     }
-    ^loading-header {
+    <<loading-header {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
-    ^loading-indicator .foam-u2-ProgressView {
+    <<loading-indicator .foam-u2-ProgressView {
       width: 100%;
     }
-    ^loading-text {
+    <<loading-text {
       color: $textDefault;
       font-size: 16px;
       font-weight: $font-medium;
       text-align: center;
     }
-    ^loading-progress {
+    <<loading-progress {
       color: $textSecondary;
       font-size: 14px;
       text-align: center;
@@ -952,7 +952,7 @@ foam.CLASS({
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
       color: $orange500 !important;
     }
-    ^element-row-icon , ^element-row-icon svg {
+    <<element-row-icon , <<element-row-icon svg {
       color: $textBrand;
       fill: currentColor;
       width: 24px;

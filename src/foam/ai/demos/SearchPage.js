@@ -23,7 +23,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: center;
       background: $grey50;
       border: 1px solid #d0d0d0;
@@ -34,30 +34,30 @@ foam.CLASS({
       gap: 24px;
       padding: 40px 48px 48px;
     }
-    ^toolbar {
+    <<toolbar {
       align-items: center;
       display: flex;
       gap: 12px;
     }
-    ^status {
+    <<status {
       color: #666;
       font-style: italic;
     }
-    ^search-row {
+    <<search-row {
       display: flex;
       gap: 8px;
     }
-    ^results table {
+    <<results table {
       border-collapse: collapse;
       min-width: 700px;
     }
-    ^results th, ^results td {
+    <<results th, <<results td {
       border-bottom: 1px solid #ddd;
       padding: 6px 10px;
       text-align: left;
       vertical-align: top;
     }
-    ^results th {
+    <<results th {
       background: #f5f5f5;
       font-weight: 600;
     }

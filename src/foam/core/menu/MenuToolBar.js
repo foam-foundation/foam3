@@ -25,20 +25,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: auto;
     }
-    ^title {
+    <<title {
       margin: 24px;
     }
-    ^options {
+    <<options {
       display: flex;
       flex-direction: row;
       justify-content: center;
       align-items: center;
       padding: 0 26px 32px 26px;
     }
-    ^option {
+    <<option {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -50,14 +50,14 @@ foam.CLASS({
       box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.16);
       border: solid 1px $borderLight;
     }
-    ^option:hover {
+    <<option:hover {
       border: solid 1px $borderBrand;
       cursor: pointer;
     }
-    ^option-title {
+    <<option-title {
       text-align: center;
     }
-    ^option-icon-container {
+    <<option-icon-container {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -65,7 +65,7 @@ foam.CLASS({
       width: 62px;
       margin-bottom: 8px;
     }
-    ^option-icon {
+    <<option-icon {
       width: 50px;
       height: 50px;
     }

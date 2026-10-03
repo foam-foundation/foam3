@@ -27,6 +27,21 @@ foam.CLASS({
       x.test(layer('modal') > layer('popup'),    '$z-modal is above $z-popup');
       x.test(layer('tooltip') > layer('modal'),  '$z-tooltip is above $z-modal');
       x.test(layer('toast') > layer('tooltip'),  '$z-toast is above $z-tooltip');
+
+      // OverlayDropdown is mounted at the app root, beside any open modal, so
+      // its list and its click-away layer must both clear the modal backdrop
+      // and stay under tooltips.
+      const D    = foam.u2.md.OverlayDropdown;
+      const css  = foam.u2.CSS.create({ code: D.model_.css }, x).expandCSS(D, D.model_.css, x);
+      const zOf  = sel => {
+        const block = css.split(sel + ' {')[1].split('}')[0];
+        const expr  = block.match(/z-index:\s*([^;]+);/)[1].replace(/\/\*[^*]*\*\//g, '');
+        return expr.match(/\d+/g).reduce((a, n) => a + parseInt(n, 10), 0);
+      };
+      const list  = zOf('.foam-u2-md-OverlayDropdown');
+      const scrim = zOf('.foam-u2-md-OverlayDropdown-overlay');
+      x.test(scrim > layer('modal') && list > scrim && list < layer('tooltip'),
+        'OverlayDropdown sits above $z-modal and under $z-tooltip, got list ' + list + ', scrim ' + scrim);
     }
   ]
 });

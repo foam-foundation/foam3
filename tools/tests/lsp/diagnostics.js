@@ -235,6 +235,18 @@ var caretDiags = diagWithTokens.handle(caretSrc).filter(function(d) { return d.c
 test(caretDiags.length === 1 && caretDiags[0].range.start.line === 4 && caretDiags[0].severity === 4,
   "Deprecated '^': only the ^ of ^a is flagged, as a hint");
 
+// Two classes in one file with the same css: text. Each block gets its own hint.
+var twinCssSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssA',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssB',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})";
+var twinLines = diagWithTokens.handle(twinCssSrc, 'file:///tmp/lsptest-twin-css.js')
+  .filter(function(d) { return d.code === 'deprecated-css-caret'; })
+  .map(function(d) { return d.range.start.line; });
+test(twinLines.length === 2 && twinLines.indexOf(4) !== -1 && twinLines.indexOf(11) !== -1,
+  "Deprecated '^': two classes with the same css: each get their own hint (got lines " + twinLines.join(',') + ')');
+
 // Dynamic myClass(var) → suppress unused-class diagnostics entirely
 var dynamicSrc =
   "foam.CLASS({\n  package: 'test',\n  name: 'DynamicMyClass',\n" +

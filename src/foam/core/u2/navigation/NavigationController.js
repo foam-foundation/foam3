@@ -40,18 +40,18 @@ foam.CLASS({
     }
     ********************/
 
-    ^ {
+    << {
       display: grid;
       height: 100%;
       grid-template: auto 1fr / auto 1fr;
     }
 
 
-    ^header {
+    <<header {
       grid-column: 1 / 3;
     }
 
-    ^sideNav {
+    <<sideNav {
       grid-column: 1 / 2;
       height: calc(100% - var(--topbar-height));
       overflow: auto;
@@ -60,32 +60,32 @@ foam.CLASS({
       z-index: $z-nav;
     }
 
-    ^stack-view {
+    <<stack-view {
       grid-column: 2 / 3;
       height: 100%;
       overflow: auto;
       transition: 0.2s ease;
     }
     /*  When nav is hidden, make stack view take up all columns */
-    :not(^showNav) > ^stack-view {
+    :not(<<showNav) > <<stack-view {
       grid-column: 1/3;
       grid-row: 1/3;
     }
 
-    ^sidebar^sideNav{
+    <<sidebar<<sideNav{
       transition: 0.2s ease;
       width: var(--sidebar-width);
       box-shadow: $sidebarBoxShadow;
     }
 
-    ^sidebarClosed^sideNav{
+    <<sidebarClosed<<sideNav{
       transition: 0.2s ease;
       width: 0px;
     }
 
 
     @media only screen and (min-width: /*%DISPLAYWIDTH.LG%*/ 960px) {
-      ^sideNav{
+      <<sideNav{
         height: auto;
         position: relative;
         top: 0;

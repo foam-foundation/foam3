@@ -50,7 +50,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^groupLabel {
+    <<groupLabel {
       background-color: $backgroundTertiary;
       border: 1px solid $borderLight;
       padding-top: 4px;

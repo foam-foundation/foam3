@@ -30,6 +30,9 @@ const { spawn }   = require('child_process');
 const fs          = require('fs');
 const path        = require('path');
 const readline    = require('readline');
+// Canonical lint-check names — shared with LintHandler.ALL_CHECKS so the
+// foam_lint schema can't drift from the checks the server actually runs.
+const LINT_CHECKS = require('../../lintChecks');
 
 // --- stderr logger (stdout is reserved for MCP protocol) -----------------
 
@@ -223,6 +226,22 @@ function shapeCodeActions(res) {
   }).join('\n');
 }
 
+function shapeLintFindings(result, projectRoot) {
+  const findings = ( result && result.findings ) || [];
+  if ( ! findings.length ) return 'No lint findings.';
+  const lines = [];
+  for ( const f of findings ) {
+    lines.push(f.severity.toUpperCase().padEnd(6) + f.check.padEnd(16) +
+      relPath('file://' + f.path, projectRoot) + ':' + f.line);
+    lines.push('       ' + f.message);
+    if ( f.fix ) lines.push('       fix: ' + f.fix);
+  }
+  lines.push('---');
+  lines.push(findings.filter(f => f.severity === 'error').length + ' error(s), ' +
+             findings.filter(f => f.severity === 'warn').length + ' warn(s)');
+  return lines.join('\n');
+}
+
 // --- MCP tool schemas -----------------------------------------------------
 
 function toolSchemas() {
@@ -339,6 +358,19 @@ function toolSchemas() {
         properties: {
           file:         { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
           translations: { type: 'object', description: 'Map of message name -> { languageCode: translatedText }, e.g. { UPLOAD_COMPLETE_MSG: { fr: "Envoi terminé" } }' }
+        }
+      }
+    },
+    {
+      name:        'foam_lint',
+      description: 'Registration-completeness lint: classes missing from pom.js, Rules whose ruleGroup is undefined (rule never runs), StrategyReference entries pointing at missing classes / implementors invisible in the Rule-creation UI. Run after adding classes, rules, or jrl entries.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          scope:           { type: 'string', enum: [ 'all', 'paths' ], description: "Default 'all'. 'paths' filters findings to the given files (pass changed files for a diff-scoped run)." },
+          paths:           { type: 'array', items: { type: 'string' }, description: 'Project-relative or absolute paths (used with scope=paths)' },
+          checks:          { type: 'array', items: { type: 'string', enum: LINT_CHECKS }, description: 'Subset of: ' + LINT_CHECKS.join(', ') + '. Default: all.' },
+          strategyTargets: { type: 'array', items: { type: 'string' }, description: "Extra strategy interfaces for the strategy-ref check. Default: ['foam.core.ruler.RuleAction']." }
         }
       }
     }
@@ -838,6 +870,15 @@ async function callTool(lsp, projectRoot, name, args) {
       const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
       return relPath(uri, projectRoot) + ': ' + edits.length + ' entries updated. Warnings: ' + warn;
     }
+    case 'foam_lint': {
+      const r = await lsp.request('foam/lint', {
+        scope:           args.scope,
+        paths:           args.paths,
+        checks:          args.checks,
+        strategyTargets: args.strategyTargets
+      });
+      return shapeLintFindings(r, projectRoot);
+    }
     default:
       throw new Error('Unknown tool: ' + name);
   }
@@ -947,7 +988,7 @@ function main() {
 module.exports = {
   normalizeUri, uriToPath, relPath, kindName, severityName,
   shapeLocations, shapeHover, shapeDocumentSymbols, shapeWorkspaceSymbols,
-  shapeDiagnostics, shapeItems, shapeCodeActions,
+  shapeDiagnostics, shapeItems, shapeCodeActions, shapeLintFindings,
   toolSchemas, resolvePos, callTool, FoamLSPClient,
   applyWorkspaceEdit, posToOffset
 };

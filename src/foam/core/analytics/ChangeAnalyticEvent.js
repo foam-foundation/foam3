@@ -15,7 +15,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^pill, ^pill-before, ^pill-after, ^pill-custom-color {
+    <<pill, <<pill-before, <<pill-after, <<pill-custom-color {
       display: inline-flex;
       align-items: center;
       gap: 4px;
@@ -26,32 +26,32 @@ foam.CLASS({
       border-radius: 12px;
       white-space: nowrap;
     }
-    ^pill-before {
+    <<pill-before {
       background-color: $grey100;
       color: $grey500;
     }
-    ^pill-after {
+    <<pill-after {
       background-color: $green50;
       color: $green600;
     }
     /* Subclasses of ChangeAnalyticEvent can overload pill-custom-color to change the pill color */
-    ^pill-custom-color {
+    <<pill-custom-color {
       background-color: $grey100;
       color: $grey500;
     }
-    ^label {
+    <<label {
       line-height: 1;
       min-height: 1em;
       width: 100%;
       font-weight: $font-medium;
     }
-    ^supportingLabel {
+    <<supportingLabel {
       line-height: 1;
       min-height: 1em;
       width: 100%;
       color: $textTertiary;
     }
-    ^stack {
+    <<stack {
       display: flex;
       flex-direction: column;
       min-width: 0;

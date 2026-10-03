@@ -325,7 +325,11 @@ foam.CLASS({
       var cssStr = model.css;
       if ( ! cssStr || typeof cssStr !== 'string' ) return;
 
-      var cssIndex = text.indexOf(cssStr);
+      // Search from the model's own call. Two classes with the same css: text
+      // made a whole-file search find the first block for both.
+      var grammar  = this.index.getGrammar && this.index.getGrammar();
+      var entry    = grammar && grammar.modelEntryFor(text, model);
+      var cssIndex = text.indexOf(cssStr, entry ? entry.startPos : 0);
       if ( cssIndex === -1 ) return;
 
       // Pre-compute line offsets

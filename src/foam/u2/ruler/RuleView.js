@@ -18,14 +18,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       border: solid 0.1rem;
       border-color: $borderDefault;
     }
-    ^name {
+    <<name {
       line-height: 2.5rem;
     }
-    ^predicate {
+    <<predicate {
       display: flex;
     }
   `,

@@ -13,7 +13,7 @@ foam.CLASS({
 
   imports: ['wizardlet'],
   css: `
-    ^ {
+    << {
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -22,7 +22,7 @@ foam.CLASS({
       margin: 2rem 0;
       gap: 2rem;
     }
-    ^image img{
+    <<image img{
       width: 8rem;
     }
   `,

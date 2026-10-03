@@ -45,7 +45,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       /* No height: the embedder owns the footprint. These two say how to behave
@@ -57,17 +57,17 @@ foam.CLASS({
       min-height: 0;
       background: $backgroundDefault;
     }
-    ^header {
+    <<header {
       padding: 0px 24px 16px;
       border-bottom: 1px solid $borderLight;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
-    ^candidate-count {
+    <<candidate-count {
       color: $textSecondary;
     }
-    ^content {
+    <<content {
       flex: 1;
       padding: 24px;
       overflow-y: auto;
@@ -75,7 +75,7 @@ foam.CLASS({
       flex-direction: column;
       gap: 4px;
     }
-    ^footer {
+    <<footer {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
@@ -84,7 +84,7 @@ foam.CLASS({
       border-top: 1px solid $borderLight;
       background: $backgroundDefault;
     }
-    ^pick-hint {
+    <<pick-hint {
       color: $textTertiary;
     }
   `,

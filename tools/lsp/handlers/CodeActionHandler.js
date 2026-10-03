@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.parse.lsp.handlers',
   name: 'CodeActionHandler',
 
-  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion, hardcoded-display-string → messages: extraction, missing-language messageMap translation.',
+  documentation: 'Quick-fix code actions for FOAM diagnostics: unknown-class suggestions, wrong Java package, raw-color → $token, single-quote conversion, deprecated css ^ → <<, hardcoded-display-string → messages: extraction, missing-language messageMap translation.',
 
   properties: [
     { name: 'index' },
@@ -187,6 +187,17 @@ foam.CLASS({
               });
             }
           }
+        }
+
+        // Deprecated '^' in a css: selector → '<<'
+        if ( diag.code === 'deprecated-css-caret' ) {
+          actions.push({
+            title:       "Replace '^' with '<<'",
+            kind:        'quickfix',
+            isPreferred: true,
+            diagnostics: [diag],
+            edit: { changes: this.makeEdit_(uri, diag.range, '<<') }
+          });
         }
 
         // Wrong Java import package → replace

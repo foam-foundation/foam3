@@ -14,18 +14,18 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { font-family: $font1; }
-    ^method { margin: 16px 0; }
-    ^signature { background: $backgroundSecondary; padding: 8px 12px; border-radius: 4px; font-family: monospace; }
-    ^type { color: $primary400; }
-    ^name { color: $purple400; font-weight: bold; }
-    ^args { color: $textDefault; }
-    ^doc { margin: 8px 0 0 12px; color: $textTertiary; }
-    ^params { margin: 8px 0 0 12px; }
-    ^param { margin: 4px 0; font-size: 14px; }
-    ^paramName { font-family: monospace; font-weight: bold; }
-    ^paramType { font-family: monospace; color: $primary400; }
-    ^paramDoc { color: $textTertiary; }
+    << { font-family: $font1; }
+    <<method { margin: 16px 0; }
+    <<signature { background: $backgroundSecondary; padding: 8px 12px; border-radius: 4px; font-family: monospace; }
+    <<type { color: $primary400; }
+    <<name { color: $purple400; font-weight: bold; }
+    <<args { color: $textDefault; }
+    <<doc { margin: 8px 0 0 12px; color: $textTertiary; }
+    <<params { margin: 8px 0 0 12px; }
+    <<param { margin: 4px 0; font-size: 14px; }
+    <<paramName { font-family: monospace; font-weight: bold; }
+    <<paramType { font-family: monospace; color: $primary400; }
+    <<paramDoc { color: $textTertiary; }
   `,
 
   properties: [

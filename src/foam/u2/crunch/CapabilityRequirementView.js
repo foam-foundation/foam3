@@ -18,7 +18,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       max-width: 60vw;
       max-height: 75vh;
       overflow: auto;
@@ -26,31 +26,31 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^title {
+    <<title {
       padding-bottom: 1em;
     }
 
-    ^subTitle {
+    <<subTitle {
       color: $textSecondary;
       width: 85%;
       display: inline-block;
       padding-bottom: 1em;
     }
 
-    ^ .table-content {
+    << .table-content {
       color: $textTertiary;
       padding-left: 1.5vw;
       margin-top: -19px;
       padding-bottom: 2vh;
     }
 
-    ^ .circle-center {
+    << .circle-center {
       padding-top: 1em;
       padding-bottom: 1em;
       text-align: center;
     }
 
-    ^ .actionPosition {
+    << .actionPosition {
       float: right;
       padding: 1em;
     }

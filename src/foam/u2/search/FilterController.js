@@ -42,52 +42,52 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       overflow: hidden;
       flex-grow: 1;
       width: 100%;
     }
-    ^search-panel {
+    <<search-panel {
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
       overflow: hidden;
       min-width: 250px;
     }
-    ^adding {
+    <<adding {
       border: none;
       flex-shrink: 0;
       flex-grow: 0;
       padding: 8px;
     }
-    ^add-filter {
+    <<add-filter {
       align-items: center;
       display: flex;
       justify-content: space-between;
     }
-    ^count {
+    <<count {
       align-items: center;
       display: flex;
       justify-content: space-between;
     }
-    ^results {
+    <<results {
       display: flex;
       flex-grow: 1;
       overflow: hidden;
     }
-    ^filter-area {
+    <<filter-area {
       flex-grow: 1;
       overflow-y: auto;
     }
-    ^filter-header {
+    <<filter-header {
       align-items: center;
       display: flex;
     }
-    ^filter-label {
+    <<filter-label {
       flex-grow: 1;
     }
-    ^filter-container {
+    <<filter-container {
       margin: 6px 8px 0px;
     }
   `,

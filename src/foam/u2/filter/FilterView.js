@@ -46,16 +46,16 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       flex: 1 0 60%;
       position: relative;
     }
 
-    ^container-search {
+    <<container-search {
       display: flex;
     }
 
-    ^container-drawer {
+    <<container-drawer {
       border-color: transparent;
       border-radius: 5px;
       display: flex;
@@ -68,7 +68,7 @@ foam.CLASS({
       -moz-transition: all 0.24s linear;
     }
 
-    ^container-drawer-open {
+    <<container-drawer-open {
       max-height: -webkit-fill-available;
       max-height: -moz-available;
       overflow: auto;
@@ -76,31 +76,31 @@ foam.CLASS({
       gap: 1.2rem;
     }
 
-    ^container-filters {
+    <<container-filters {
       display: grid;
       grid-gap: 24px 16px;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       width: 100%;
     }
 
-    ^no-filters {
+    <<no-filters {
       display: flex;
       width: 100%;
       align-items: center;
     }
 
-    ^general-field {
+    <<general-field {
       margin: 0;
       flex-basis: 85%;
     }
 
-    ^general-field input {
+    <<general-field input {
       border: 1px solid $borderLight;
       height: 34px;
       width: 100%;
     }
 
-    ^container-handle {
+    <<container-handle {
       display: flex;
       box-sizing: border-box;
       height: 34px;
@@ -109,53 +109,53 @@ foam.CLASS({
       justify-content: center;
     }
 
-    ^container-handle:hover {
+    <<container-handle:hover {
       cursor: pointer;
     }
 
-    ^container-search {
+    <<container-search {
       gap: 12px;
     }
 
-    ^filter-button svg{
+    <<filter-button svg{
       fill: initial;
       transform: rotate(0deg);
       transition: all 0.5s ease;
       font-size: 0.6rem;
     }
 
-    ^filter-button-active{
+    <<filter-button-active{
       color: $textBrand;
       background: $backgroundTertiary;
     }
 
-    ^filter-search-active {
+    <<filter-search-active {
       border: 1px solid $borderBrand;
     }
 
-    ^filter-button-active svg {
+    <<filter-button-active svg {
       fill: currentColor;
       transform: rotate(180deg);
     }
 
-    ^link-mode {
+    <<link-mode {
       cursor: pointer;
     }
 
-    ^settings-wrapper {
+    <<settings-wrapper {
       display: flex;
       gap: 0.8rem;
       flex-shrink: 0;
     }
     /* tablet and desktop */
     @media only screen and (min-width: 768px) {
-      ^container-search {
+      <<container-search {
         gap: 24px;
       }
-      ^container-drawer {
+      <<container-drawer {
         flex-direction: row;
       }
-      ^settings-wrapper {
+      <<settings-wrapper {
         flex-direction: column;
       }
     }

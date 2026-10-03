@@ -31,7 +31,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       border: none;
       border-radius: 4px;
       box-sizing: border-box;

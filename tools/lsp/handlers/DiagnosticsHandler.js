@@ -669,7 +669,10 @@ foam.CLASS({
       if ( ! cssStr || typeof cssStr !== 'string' ) return null;
       var parser = this.cssParser_;
       if ( ! parser ) return null;
-      var base = text.indexOf(cssStr);
+      // Search from the model's own call. Two classes with the same css: text
+      // made a whole-file search find the first block for both.
+      var entry = this.grammar.modelEntryFor(text, model);
+      var base  = text.indexOf(cssStr, entry ? entry.startPos : 0);
       if ( base === -1 ) return null;
       return { parser: parser, tree: parser.parse(cssStr), base: base };
     },

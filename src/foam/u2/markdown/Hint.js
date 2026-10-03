@@ -15,19 +15,19 @@ foam.CLASS({
   requires: [ 'foam.u2.tag.Image' ],
 
   css: `
-    ^icon {
+    <<icon {
       color: currentColor;
       flex: 0 0 24px;
       height: 24px;
       margin-right: 8px;
     }
 
-    ^icon svg {
+    <<icon svg {
       width: 100%;
       height: 100%;
     }
 
-    ^box {
+    <<box {
       margin: 8px;
       padding: 8px;
       border: 2px solid;
@@ -35,25 +35,25 @@ foam.CLASS({
       display: flex;
     }
 
-    ^hint {
+    <<hint {
       color: $hintText;
       background-color: $hintBackground;
       border-color: $hintBorder;
     }
 
-    ^warning {
+    <<warning {
       color: $hintWarningText;
       background-color: $hintWarningBackground;
       border-color: $hintWarningBorder;
     }
 
-    ^danger {
+    <<danger {
       color: $hintDangerText;
       background-color: $hintDangerBackground;
       border-color: $hintDangerBorder;
     }
 
-    ^success {
+    <<success {
       color: $hintSuccessText;
       background-color: $hintSuccessBackground;
       border-color: $hintSuccessBorder;

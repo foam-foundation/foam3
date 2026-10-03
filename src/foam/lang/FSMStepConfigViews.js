@@ -24,7 +24,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -37,21 +37,21 @@ foam.CLASS({
       flex: 1 1 0;
       min-width: 0;
     }
-    ^:hover:not(.disabled) {
+    <<:hover:not(.disabled) {
       border-color: $borderBrand;
     }
-    ^.active {
+    <<.active {
       border-color: $borderBrand;
       background: $backgroundBrandTertiary;
     }
-    ^.completed {
+    <<.completed {
       border-color: $borderBrand;
     }
-    ^.disabled {
+    <<.disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
-    ^circle {
+    <<circle {
       width: 32px;
       height: 32px;
       border-radius: 50%;
@@ -62,36 +62,36 @@ foam.CLASS({
       font-size: $body-md;
       flex-shrink: 0;
     }
-    ^circle.pending {
+    <<circle.pending {
       background: $backgroundSecondary;
       color: $textTertiary;
       border: 2px solid $borderDefault;
     }
-    ^circle.active {
+    <<circle.active {
       background: $backgroundBrand;
       color: $textOnBrand;
     }
-    ^circle.completed {
+    <<circle.completed {
       background: $backgroundBrand;
       color: $textOnBrand;
     }
-    ^icon svg {
+    <<icon svg {
       display: block;
       height: 18px;
       width: 18px;
     }
-    ^content {
+    <<content {
       display: flex;
       flex-direction: column;
       gap: 2px;
       min-width: 0;
     }
-    ^step-label {
+    <<step-label {
       font-size: 11px;
       color: $textTertiary;
       text-transform: uppercase;
     }
-    ^step-title {
+    <<step-title {
       font-size: $body-md;
       font-weight: $font-medium;
       color: $textSecondary;
@@ -100,31 +100,31 @@ foam.CLASS({
       max-width: 100%;
     }
     @media (max-width: 1100px) {
-      ^ {
+      << {
         gap: 6px;
         padding: 10px 12px;
       }
-      ^circle {
+      <<circle {
         width: 28px;
         height: 28px;
         font-size: $body-sm;
       }
-      ^step-label {
+      <<step-label {
         font-size: 10px;
       }
-      ^step-title {
+      <<step-title {
         font-size: $body-sm;
       }
     }
     @media (max-width: 720px) {
-      ^ {
+      << {
         justify-content: center;
         padding: 8px;
       }
-      ^content {
+      <<content {
         display: none;
       }
-      ^circle {
+      <<circle {
         width: 26px;
         height: 26px;
       }
@@ -162,7 +162,7 @@ foam.CLASS({
             return !isActive && !isCompleted;
           }))
           .add(this.dynamic(function(isCompleted, stepIndex, icon) {
-            var iconPath = isCompleted ? '/images/dispute-wizard/check.svg' : icon;
+            var iconPath = isCompleted ? '/images/checkmark-white.svg' : icon;
             if ( iconPath ) {
               this
                 .start(self.Image, {
@@ -201,7 +201,7 @@ foam.CLASS({
   documentation: 'Renders the horizontal step indicator header',
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -213,7 +213,7 @@ foam.CLASS({
       flex-wrap: nowrap;
       min-width: 0;
     }
-    ^connector {
+    <<connector {
       flex: 0 1 32px;
       width: auto;
       min-width: 8px;
@@ -221,25 +221,25 @@ foam.CLASS({
       height: 2px;
       background: $borderDefault;
     }
-    ^connector.completed {
+    <<connector.completed {
       background: $backgroundBrand;
     }
     @media (max-width: 1100px) {
-      ^ {
+      << {
         gap: 6px;
         padding: 12px 16px;
       }
-      ^connector {
+      <<connector {
         flex-basis: 20px;
         max-width: 20px;
       }
     }
     @media (max-width: 720px) {
-      ^ {
+      << {
         gap: 4px;
         padding: 10px 12px;
       }
-      ^connector {
+      <<connector {
         flex-basis: 10px;
         min-width: 4px;
         max-width: 10px;
@@ -341,18 +341,18 @@ foam.CLASS({
   exports: ['fsmValue'],
 
   css: `
-    ^section-title {
+    <<section-title {
       font-size: 20px;
       font-weight: $font-semi-bold;
       color: $textDefault;
       margin-bottom: 8px;
     }
-    ^section-description {
+    <<section-description {
       font-size: $body-md;
       color: $textTertiary;
       margin-bottom: 24px;
     }
-    ^detail-container {
+    <<detail-container {
       padding: 0;
     }
   `,
@@ -489,22 +489,22 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       height: 100%;
       background: $backgroundDefault;
       border-radius: 8px;
     }
-    ^content {
+    <<content {
       flex: 1;
       overflow-y: auto;
       padding: 24px;
     }
-    ^content-card {
+    <<content-card {
       background: $backgroundDefault;
     }
-    ^footer {
+    <<footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -512,15 +512,15 @@ foam.CLASS({
       border-top: 1px solid $borderDefault;
       background: $backgroundSecondary;
     }
-    ^step-counter {
+    <<step-counter {
       font-size: $body-md;
       color: $textTertiary;
     }
-    ^nav-buttons {
+    <<nav-buttons {
       display: flex;
       gap: 12px;
     }
-    ^errors {
+    <<errors {
       align-items: center;
       background: $destructive50;
       border: 1px solid $destructive200;
@@ -533,7 +533,7 @@ foam.CLASS({
       margin-bottom: 20px;
       padding: 12px 16px;
     }
-    ^errors::before {
+    <<errors::before {
       align-items: center;
       background: $textDestructive;
       border-radius: 999px;
@@ -548,7 +548,7 @@ foam.CLASS({
       line-height: 1;
       width: 20px;
     }
-    ^errors > div {
+    <<errors > div {
       color: $textDefault;
       line-height: 1.4;
     }

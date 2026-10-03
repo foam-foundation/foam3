@@ -17,19 +17,19 @@ foam.CLASS({
   requires: ['foam.u2.crunch.wizardflow.RequestNotificationPermissionAgent'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       height: 100%;
       gap: 1rem;
     }
-    ^text-container {
+    <<text-container {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^button-container {
+    <<button-container {
       width: fit-content;
     }
   `,

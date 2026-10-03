@@ -12,7 +12,7 @@ foam.CLASS({
   requires: [ 'foam.u2.HTMLView' ],
 
   css: `
-    ^ { margin-right: 10px; }
+    << { margin-right: 10px; }
   `,
 
   methods: [

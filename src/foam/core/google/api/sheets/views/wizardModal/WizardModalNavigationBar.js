@@ -16,7 +16,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^container {
+    <<container {
       display: table;
       text-align: right;
       width: 100%;
@@ -24,9 +24,9 @@ foam.CLASS({
       box-sizing: border-box;
       background-color: $backgroundDefault;
     }
-    ^ .foam-u2-ActionView-back,
-    ^ .foam-u2-ActionView-option,
-    ^ .foam-u2-ActionView-next {
+    << .foam-u2-ActionView-back,
+    << .foam-u2-ActionView-option,
+    << .foam-u2-ActionView-next {
       display: table-cell;
       vertical-align: middle;
       height: 40px;

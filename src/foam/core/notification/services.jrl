@@ -139,6 +139,24 @@ p({
 })
 
 p({
+  "class":"foam.core.boot.CSpec",
+  "name":"notificationLocaleTemplateDAO",
+  "lazy":false,
+  "lazyOrder":-1,
+  "serve":true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("notificationLocaleTemplates")
+      .setOf(foam.core.notification.NotificationLocaleTemplate.getOwnClassInfo())
+      .build()
+    """,
+    "client":"{\"of\":\"foam.core.notification.NotificationLocaleTemplate\"}"
+})
+
+
+p({
   "class": "foam.core.boot.CSpec",
   "name": "localNotificationSettingDefaultsDAO",
   "serviceScript": """

@@ -19,7 +19,7 @@
   ],
 
   css: `
-    ^summary-box {
+    <<summary-box {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -28,25 +28,25 @@
       border-radius: 6px;
       margin-bottom: 16px;
     }
-    ^summary-deleted {
+    <<summary-deleted {
       background-color: $destructive50;
       border: 1px solid $destructive200;
     }
-    ^summary-changed {
+    <<summary-changed {
       background-color: transparent;
       border: none;
       padding-left: 0;
       padding-right: 0;
     }
-    ^summary-unchanged {
+    <<summary-unchanged {
       background-color: $success50;
       border: 1px solid $success200;
     }
-    ^summary-label {
+    <<summary-label {
       font-weight: $font-medium;
       color: $textSecondary;
     }
-    ^field-chip {
+    <<field-chip {
       display: inline-block;
       padding: 4px 10px;
       border-radius: 12px;
@@ -54,15 +54,15 @@
       background-color: $warn100;
       color: $warn700;
     }
-    ^columns {
+    <<columns {
       display: flex;
       gap: 24px;
     }
-    ^column {
+    <<column {
       flex: 1;
       min-width: 0;
     }
-    ^column-header {
+    <<column-header {
       font-weight: $font-medium;
       padding-bottom: 8px;
       margin-bottom: 8px;

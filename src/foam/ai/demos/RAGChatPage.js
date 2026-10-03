@@ -5,16 +5,16 @@
  */
 
 foam.CLASS({
-  package: 'foam.ai.vector.demos',
-  name: 'SearchPage',
+  package: 'foam.ai.demos',
+  name: 'RAGChatPage',
   extends: 'foam.u2.Controller',
+
+  documentation: 'Demo: index knowledge flows then chat with a local LLM using RAG.',
 
   requires: [
     'foam.ai.vector.ClientMarkdownChunkerService',
-    'foam.ai.vector.CosineComparator',
-    'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.provider.TransformersEmbeddingService',
-    'foam.dao.ArraySink'
+    'foam.ai.llm.RAGChat'
   ],
 
   imports: [
@@ -43,23 +43,9 @@ foam.CLASS({
       color: #666;
       font-style: italic;
     }
-    ^search-row {
-      display: flex;
-      gap: 8px;
-    }
-    ^results table {
-      border-collapse: collapse;
-      min-width: 700px;
-    }
-    ^results th, ^results td {
-      border-bottom: 1px solid #ddd;
-      padding: 6px 10px;
-      text-align: left;
-      vertical-align: top;
-    }
-    ^results th {
-      background: #f5f5f5;
-      font-weight: 600;
+    ^chat {
+      width: 700px;
+      height: 620px;
     }
   `,
 
@@ -83,20 +69,6 @@ foam.CLASS({
     {
       class: 'String',
       name: 'statusMsg'
-    },
-    {
-      class: 'String',
-      name: 'prompt',
-      view: {
-        class: 'foam.u2.TextField',
-        onKey: false,
-        placeholder: 'Ask a question…',
-        size: 60
-      }
-    },
-    {
-      name: 'results',
-      factory: function() { return []; }
     }
   ],
 
@@ -109,7 +81,6 @@ foam.CLASS({
         var self = this;
         self.indexing  = true;
         self.statusMsg = 'Loading flows…';
-        self.results   = [];
 
         try {
           var sink  = await self.flowDAO.where(self.IN(self.flowDAO.of.KEYWORDS, 'knowledge')).select();
@@ -117,15 +88,15 @@ foam.CLASS({
           var count = 0;
 
           for ( var fi = 0; fi < flows.length; fi++ ) {
-            var flow   = flows[fi];
-            var text   = self.extractText_(flow);
+            var flow = flows[fi];
+            var text = self.extractText_(flow);
             if ( ! text ) continue;
 
             self.statusMsg = 'Indexing ' + (fi + 1) + ' / ' + flows.length + ': ' + flow.name;
             var chunks = await self.chunker.chunk(x, text);
 
             for ( var ci = 0; ci < chunks.length; ci++ ) {
-              var embedding = await self.embedder.embed(x, chunks[ci]);
+              var embedding    = await self.embedder.embed(x, chunks[ci]);
               embedding.id       = flow.name + ':' + ci;
               embedding.sourceId = flow.name;
               embedding.kind     = 'flow';
@@ -141,25 +112,6 @@ foam.CLASS({
         }
 
         self.indexing = false;
-      }
-    },
-    {
-      name: 'search',
-      label: 'Search',
-      isEnabled: function(indexing) { return ! indexing; },
-      code: async function(x) {
-        var self = this;
-        var q    = self.prompt.trim();
-        if ( ! q ) { self.results = []; return; }
-
-        self.statusMsg = 'Embedding query…';
-        var qv   = await self.embedder.embed(x, q);
-        var cc   = self.CosineComparator.create({ queryVector: qv.vector });
-        var sink = await self.vectorStoreDAO
-          .where(self.EQ(self.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
-          .orderBy(cc).limit(10).select(self.ArraySink.create());
-        self.results = sink.array;
-        self.statusMsg = 'Showing top ' + self.results.length + ' results';
       }
     }
   ],
@@ -187,37 +139,15 @@ foam.CLASS({
       self.SUPER();
       self
         .addClass()
-        .start('h2').add('Similarity Search').end()
+        .start('h2').add('RAG Chat').end()
 
         .start().addClass(self.myClass('toolbar'))
           .tag(self.INDEX)
           .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
         .end()
 
-        .start().addClass(self.myClass('search-row'))
-          .tag(self.PROMPT)
-          .tag(self.SEARCH)
-        .end()
-
-        .start().addClass(self.myClass('results'))
-          .add(self.dynamic(function(results) {
-            if ( ! results.length ) return;
-            var table = this.start('table');
-            table.start('tr')
-              .start('th').add('Score').end()
-              .start('th').add('Flow').end()
-              .start('th').add('Chunk').end()
-            .end();
-            for ( var i = 0; i < results.length; i++ ) {
-              var r       = results[i];
-              var preview = r.text ? r.text.slice(0, 200) + (r.text.length > 200 ? '…' : '') : '';
-              table.start('tr')
-                .start('td').add((r.score * 100).toFixed(1) + '%').end()
-                .start('td').add(r.sourceId).end()
-                .start('td').add(preview).end()
-              .end();
-            }
-          }))
+        .start().addClass(self.myClass('chat'))
+          .tag(self.RAGChat)
         .end();
     }
   ]

@@ -110,7 +110,33 @@ The demo below indexes all flows tagged with `knowledge`, then lets you search t
 3. Results show the source flow name and a 200-character preview of the matching chunk. Try paraphrasing the same question differently to confirm that meaning, not exact wording, drives the ranking.
 
 
-<foam class="foam.ai.vector.demos.SearchPage"></foam>"""
+<foam class="foam.ai.demos.SearchPage"></foam>"""
+      },
+      "border":{"oldTitleStyle_":"h300"},
+      "padding_st":"16px"
+    },{
+      "flowName":"ragChat",
+      "cmd":"markdown",
+      "value":{
+        "class":"foam.core.reflow.Markdown",
+        "markdown":
+"""## RAG Chat
+
+Retrieval-Augmented Generation (RAG) extends similarity search by feeding the retrieved chunks into a language model as context. Instead of returning a ranked list of excerpts, the model synthesizes a direct answer grounded in the indexed content.
+
+The pipeline has three steps:
+
+1. **Retrieve** — the query is embedded and the top-k most relevant chunks are fetched from the vector store (same kNN search as above).
+2. **Augment** — the chunks are packed into the model's system prompt as context, respecting a token budget so the total stays within the model's context window.
+3. **Generate** — a local language model reads the system prompt + conversation history and produces a grounded answer.
+
+All three steps run entirely in the browser — no API key, no server round-trip. The embedding model (`Xenova/all-MiniLM-L6-v2`) and the LLM (`Xenova/Qwen1.5-0.5B-Chat`) are both loaded from a CDN and run via WebAssembly on first use.
+
+### Try it
+
+Index the flows above first (the vector store is shared), then ask questions below.
+
+<foam class="foam.ai.demos.RAGChatPage"></foam>"""
       },
       "border":{"oldTitleStyle_":"h300"},
       "padding_st":"16px"

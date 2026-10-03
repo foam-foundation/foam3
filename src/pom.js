@@ -377,6 +377,8 @@ foam.POM({
     { name: "foam/dao/AdapterDAO",                                    flags: "js" },
     { name: "foam/mlang/pom",                                         flags: "js|java" },
     { name: "foam/ai/vector/pom",                                     flags: "js|java" },
+    { name: "foam/ai/llm/pom",                                        flags: "js"      },
+    { name: "foam/ai/demos/pom",                                      flags: "js"      },
     { name: "foam/swift/refines/MLang",                               flags: "swift" },
     { name: "foam/swift/refines/Predicate",                           flags: "swift" },
     { name: "foam/swift/refines/AbstractDAO",                         flags: "swift" },

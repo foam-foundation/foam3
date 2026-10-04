@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.ai.vector.demos',
+  package: 'foam.ai.demos',
   name: 'SearchPage',
   extends: 'foam.u2.Controller',
 

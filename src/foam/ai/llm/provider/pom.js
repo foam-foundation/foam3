@@ -5,11 +5,8 @@
  */
 
 foam.POM({
-  name: 'demos',
+  name: 'provider',
   files: [
-    { name: 'SearchPage', flags: 'js' }
-  ],
-  journalFiles: [
-    { name: 'flows' }
+    { name: 'TransformersLLMService', flags: 'js' }
   ]
 });

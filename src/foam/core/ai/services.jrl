@@ -61,6 +61,7 @@ p({
       .setPm(true)
       .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("vectorEmbeddings")
       .build();
     return new foam.ai.vector.VectorStoreDAO.Builder(x)
       .setDelegate(jdao)

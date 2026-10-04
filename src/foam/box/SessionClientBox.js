@@ -15,6 +15,12 @@ foam.CLASS({
     {
       class: 'Object',
       name: 'message'
+    },
+    {
+      class: 'Boolean',
+      name: 'refreshSession',
+      documentation: 'When false, the server treats this request as background activity and does not touch the session (no sliding-TTL refresh).',
+      value: true
     }
   ]
 });
@@ -60,7 +66,7 @@ foam.CLASS({
       name: 'send',
       code: function send(envelope) {
         this.delegate.send(this.Envelope.create({
-          message: this.SessionedMessage.create({ sessionId: this.sessionID, message: envelope.message }),
+          message: this.SessionedMessage.create({ sessionId: this.sessionID, message: envelope.message, refreshSession: this.refreshSessionTimer }),
           replyBox: this.SessionReplyBox.create({
             envelope,
             clientBox: this,
@@ -80,7 +86,7 @@ msg.attributes["replyBox"] = SessionReplyBox_create([
 try delegate.send(msg)
       `,
       javaCode: `
-getDelegate().send(new foam.box.Envelope(new foam.box.SessionedMessage(getSessionID(), envelope.getMessage()), envelope.getReplyBox()));
+getDelegate().send(new foam.box.Envelope(new foam.box.SessionedMessage(getSessionID(), envelope.getMessage(), getRefreshSessionTimer()), envelope.getReplyBox()));
 `
     }
   ]

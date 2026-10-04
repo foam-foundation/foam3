@@ -64,6 +64,7 @@ an operation which will eventually set a completed flag.
     'foam.dao.DAO',
     'foam.lang.Agency',
     'foam.lang.X',
+    'foam.util.SafetyUtil',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
     'java.io.BufferedReader',
@@ -183,8 +184,8 @@ an operation which will eventually set a completed flag.
         } catch ( Throwable t ) {
           logger.error(t);
         }
-      } catch (IOException e) {
-        logger.error(e);
+      } catch (Throwable t) {
+        logger.error(t);
       } finally {
         Process process = (Process) getProcess();
         if ( process == null ) {
@@ -257,14 +258,15 @@ new BrowserAgent(...) {
     },
     {
       name: 'buildUrl',
-      args: 'X x',
+      args: 'X x, BrowserConfig bc',
       type: 'String',
       javaCode: `
-      AppConfig appConfig = (AppConfig) x.get("appConfig");
+      String baseUrl = bc.getUrl();
+      if ( SafetyUtil.isEmpty(baseUrl) ) baseUrl = ((AppConfig) x.get("appConfig")).getUrl();
       String sessionId = createSession(x);
       try {
         StringBuilder sb = new StringBuilder();
-        sb.append(appConfig.getUrl());
+        sb.append(baseUrl);
         sb.append("/?sessionId=");
         sb.append(sessionId);
         sb.append("#");
@@ -310,7 +312,7 @@ new BrowserAgent(...) {
       } else {
         list.addAll(List.of(bc.getHeadedFlags()));
       }
-      list.add(buildUrl(x));
+      list.add(buildUrl(x, bc));
       return list;
       `
     },

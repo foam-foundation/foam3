@@ -28,6 +28,27 @@ foam.CLASS({
       return { line: line, character: col };
     },
 
+    function offsetMapper(text) {
+      /**
+       * offsetToPosition for many offsets into one text. offsetToPosition
+       * walks from the start of the text on every call, so an outline of a
+       * 200-member model re-read the file 400 times; this indexes the line
+       * starts once and answers each offset by binary search.
+       */
+      var starts = [ 0 ];
+      for ( var i = 0 ; i < text.length ; i++ ) {
+        if ( text.charCodeAt(i) === 10 ) starts.push(i + 1);
+      }
+      return function(offset) {
+        var lo = 0, hi = starts.length - 1;
+        while ( lo < hi ) {
+          var mid = ( lo + hi + 1 ) >> 1;
+          if ( starts[mid] <= offset ) lo = mid; else hi = mid - 1;
+        }
+        return { line: lo, character: offset - starts[lo] };
+      };
+    },
+
     function positionToOffset(text, position) {
       /** Convert a { line, character } position to a character offset. */
       var lines = text.split('\n');
@@ -668,12 +689,12 @@ foam.CLASS({
 
       // Selector detection: line starts with ^, ., #, &, or contains {
       // IMPORTANT: do NOT include \w — that matches property names like "color:"
-      // Selectors use ^ (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
+      // Selectors use ^ or << (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
       var bracePos = line.indexOf('{');
       var closeBracePos = line.indexOf('}');
       var isBeforeBrace = bracePos === -1 || character <= bracePos;
       var hasBrace = bracePos !== -1;
-      var selectorStart = /^\s*[\^.#&>~+\[]/.test(line);
+      var selectorStart = /^\s*(?:<<|[\^.#&>~+\[])/.test(line);
 
       if ( selectorStart && isBeforeBrace && ( hasBrace || ! /:\s/.test(line) ) ) {
         var word = this.getWordAtChar_(line, character);

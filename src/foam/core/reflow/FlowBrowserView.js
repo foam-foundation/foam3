@@ -53,21 +53,21 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-filter-FilterView-container-search {
+    << .foam-u2-filter-FilterView-container-search {
       min-width: 100%;
       gap:8px;
     }
-    ^ .foam-u2-filter-FilterView-general-field {
+    << .foam-u2-filter-FilterView-general-field {
       min-width: 80%;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
       padding: 0;
       margin: 0
     }
-    ^top-bar {
+    <<top-bar {
       width: 100%;
       display: flex;
       flex-direction: row;
@@ -75,11 +75,11 @@ foam.CLASS({
       align-items: center;
       padding: 12px 0;
     }
-    ^filters{
+    <<filters{
       padding: 0 24px;
       padding-bottom: 12px;
     }
-    ^button-span {
+    <<button-span {
       width: 100%;
       display: flex;
       flex-direction: row;
@@ -197,10 +197,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: 100%;
     }
-    ^action-container {
+    <<action-container {
       display: flex;
       flex-direction: row;
       justify-content: flex-end;

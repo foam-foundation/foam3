@@ -56,6 +56,17 @@ foam.CLASS({
       var orphans   = [];
       var pomFiles  = [];
       var sourceRoots = this.detectSourceRoots_(indexedPaths);
+
+      // A pom entry, not a class id, is what puts a file in the build: a file
+      // that only declares a foam.LIB (foam/lang/lib.js) gets no class id, so
+      // the index alone reported it as in no pom. After the missing check and
+      // the source roots, so neither changes.
+      ( foam.poms || [] ).forEach(function(pom) {
+        ( pom.files || [] ).forEach(function(f) {
+          if ( f && f.name ) indexedPaths[path.resolve(pom.location || '', f.name + '.js')] = true;
+        });
+      });
+
       var FOAM_DECL = /foam\.(?:CLASS|ENUM|INTERFACE|RELATIONSHIP|LIB)\s*\(/;
 
       for ( var i = 0 ; i < sourceRoots.length ; i++ ) {

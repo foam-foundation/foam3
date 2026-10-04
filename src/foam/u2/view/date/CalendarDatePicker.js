@@ -14,40 +14,40 @@ foam.CLASS({
   ],
 
   css: `
-    ^selected_day_cell {
+    <<selected_day_cell {
       background-color: $backgroundTertiary;;
     }
-    ^prev_month_cell, ^next_month_cell {
+    <<prev_month_cell, <<next_month_cell {
       color: $grey400 !important;
     }
-    ^calendar_table td {
+    <<calendar_table td {
       text-align: center;
     }
-    ^calendar_table th {
+    <<calendar_table th {
       cursor: default;
     }
-    ^calendar_table td {
+    <<calendar_table td {
       cursor: pointer;
     }
 
-    ^calendar_table td:hover {
+    <<calendar_table td:hover {
       background-color: $backgroundHover;
     }
 
-    ^calendar_table tr > td {
+    <<calendar_table tr > td {
       border:1px solid $borderDefault;
       color: $textTertiary;
       padding: 6px 7px 6px 7px;
       font-weight: $font-light;
     }
 
-    ^calendar_table  {
+    <<calendar_table  {
       border-collapse: collapse;
       width: 224px;
       height: 160px;
     }
 
-    ^calendar_table tbody > tr > th {
+    <<calendar_table tbody > tr > th {
       color: $textTertiary;
     }
   `,

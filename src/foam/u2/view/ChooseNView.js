@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.view.UnstyledChooseNView',
 
   css: `
-    ^ .foam-u2-CheckBox {
+    << .foam-u2-CheckBox {
       display: block;
     }
   `

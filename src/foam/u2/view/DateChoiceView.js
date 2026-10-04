@@ -8,7 +8,7 @@ foam.CLASS({
   name: 'DateChoiceView',
   extends: 'foam.u2.view.DayChoiceView',
   css: `
-    ^ {
+    << {
       padding: 0.28em;
       width: 4ch;
     }

@@ -289,39 +289,39 @@ foam.POM({
 
 Let's look briefly at the purpose of each of the elements in this file:
 
-<table>
+<table markdown="0">
 <thead>
 <tr>
-<th width=20%>Name</th>
-<th width=80%>Description</th>
+<th width="20%">Name</th>
+<th width="80%">Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td width=20% align="left">name</td>
-<td width=80% align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
+<td width="20%" align="left">name</td>
+<td width="80%" align="left">The name of your project. Will be used for naming certain files and directories created by the build process.</td>
 </tr>
 <tr>
-<td width=20% align="left">excludes</td>
-<td width=80% align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
-are standard directories that we want FOAM build to ignore. The <b>*</b> turns off all defaults. The build will only include projects listed
+<td width="20%" align="left">excludes</td>
+<td width="80%" align="left">By default the FOAM build will recurse sub-directories, unless they are included in excludes. The directories listed
+are standard directories that we want FOAM build to ignore. The <b>&#42;</b> turns off all defaults. The build will only include projects listed
 in the projects below.</td>
 </tr>
 <tr>
-<td width=20% align="left">projects</td>
-<td width=80% align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
+<td width="20%" align="left">projects</td>
+<td width="80%" align="left">Points to pom files for other projects or sub-projects. At the very minimum, you need to include the foam3/pom to include foam. You can break your project into multiple pom files, or just have one top-level pom.</td>
 </tr>
 <tr>
-<td width=20% align="left">licenses</td>
-<td width=80% align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
+<td width="20%" align="left">licenses</td>
+<td width="80%" align="left">An array of license notifications. When the build creates a deployment .js file, it will include all declared licenses at the top.</td>
 </tr>
 <tr>
-<td width=20% align="left">envs.version</td>
-<td width=80% align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
+<td width="20%" align="left">envs.version</td>
+<td width="80%" align="left">The version attached to built files. Update it on each release so browsers don't serve stale cached assets.</td>
 </tr>
 <tr>
-<td width=20% align="left">tasks</td>
-<td width=80% align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
+<td width="20%" align="left">tasks</td>
+<td width="80%" align="left">Tasks are build hooks that allow the pom to modify build properties.  In this case when the build is creating the Java JAR Manifest file, this pom sets the vendor id property.</td>
 </tr>
 </tbody>
 </table>
@@ -1719,7 +1719,7 @@ foam.CLASS({
 
 The `^` prefix ensures that `.title` in this component won't conflict with `.title` in another component. The `addClass()` method with no arguments adds the base class (matching the lone `^` in CSS), and `this.myClass('title')` generates the scoped class name for `^title`.
 
-> 💡 **Why `^` — and the `<<` twist:** this symbol is officially called **`CSS_SELF`**: inside a `css` block it's replaced with the view's own class name. Its real value is actually **`<<`** (`Element.CSS_SELF === '<<'`); it began life as `^`, but CSS later adopted `^` for its own *starts-with* attribute selector (e.g. `[href^="http"]`), so FOAM switched the self-symbol to `<<` to avoid the clash. U3 still accepts the old `^` for backward compatibility, and in practice nearly all code (this tutorial included) still writes `^`. The one thing to remember: if you ever need CSS's real `^` starts-with selector in a `css` block, use `<<` for the self-reference so the `^` is left for CSS.
+> 💡 **`^` and `<<`:** this symbol is called **`CSS_SELF`**: inside a `css` block it's replaced with the view's own class name. FOAM accepts two spellings, `^` and `<<` (`Element.CSS_SELF === '<<'`). `<<` was added because CSS uses `^` for its own *starts-with* attribute selector (e.g. `[href^="http"]`). Nearly all code (this tutorial included) still writes `^`, but `^` is deprecated: FOAM stops replacing it on 2027-06-30, and from then on `[href^="http"]` works in a `css` block. New code should write `<<`.
 
 > 💡 **Theming (its own tutorial):** Scoped CSS isolates a view's styles; theming keeps them consistent across the whole app. Rather than hard-code colours and sizes, you can reference **design tokens** in a `css` block with a `$` prefix — `color: $textDefault;`, `background: $backgroundSecondary;` — resolved from a central palette (`foam.u2.CSSTokens`) that even carries dark-mode variants. The active theme is held in a **slot**, so switching it at runtime fires a `themeChange` that re-expands every view's CSS with the new values — the app re-themes live, no reload. Tokens and themes get their own tutorial; here we'll stick to plain CSS.
 

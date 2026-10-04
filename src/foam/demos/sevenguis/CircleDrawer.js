@@ -36,9 +36,9 @@ foam.CLASS({
   },
 
   css: `
-    ^ { width:600px; margin: 20px; }
-    ^ canvas { border: 1px solid black; margin-top: 10px; }
-    ^ input[type='range'] { width: 400px; }
+    << { width:600px; margin: 20px; }
+    << canvas { border: 1px solid black; margin-top: 10px; }
+    << input[type='range'] { width: 400px; }
   `,
 
   classes: [

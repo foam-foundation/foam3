@@ -20,10 +20,10 @@
   ],
 
   css: `
-    ^ {
+    << {
       height: 100%;
     }
-    ^flex {
+    <<flex {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -31,49 +31,49 @@
       gap: 3rem;
       padding-top: 5rem;
     }
-    ^sectionView{
+    <<sectionView{
       width: 100%;
       display: flex;
       justify-content: center;
     }
-    ^title {
+    <<title {
         text-align:center;
     }
-    ^subTitle {
+    <<subTitle {
       width: 75%;
       padding: 0 15px;
       text-align: center;
     }
-    ^ .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
+    << .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
       justify-content: center;
       flex-direction: column;
       gap: 0.5rem;
     }
-    ^ .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv .foam-u2-layout-Cols {
+    << .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv .foam-u2-layout-Cols {
       flex-direction: column;
     }
-    ^ .foam-u2-dialog-ApplicationPopup-bodyWrapper .subTitle {
+    << .foam-u2-dialog-ApplicationPopup-bodyWrapper .subTitle {
       text-align: center;
     }
-    ^ .foam-u2-dialog-ApplicationPopup-bodyWrapper .foam-u2-detail-SectionView-verificationCodeSection {
+    << .foam-u2-dialog-ApplicationPopup-bodyWrapper .foam-u2-detail-SectionView-verificationCodeSection {
       width: fit-content;
       align-self: center
     }
-    ^ .foam-u2-ActionView + .foam-u2-ActionView {
+    << .foam-u2-ActionView + .foam-u2-ActionView {
       margin-left: 0px;
     }
-    ^ .foam-u2-PropertyBorder-errorText {
+    << .foam-u2-PropertyBorder-errorText {
         max-width: 29rem;
         min-height: 3rem;
     }
    /* mobile */
    @media (min-width: /*%DISPLAYWIDTH.MD%*/ 786px ) {
-    ^subTitle {
+    <<subTitle {
       width: 50%;
     }
   }
   @media (min-width: /*%DISPLAYWIDTH.LG%*/ 960px ) {
-    ^subTitle {
+    <<subTitle {
       width: 25%;
     }
   }

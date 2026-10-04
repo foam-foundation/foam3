@@ -146,6 +146,7 @@ foam.CLASS({
       factory: function() { return this.delegateFactory(); },
       javaFactory: `
         List<PropertyInfo> indexes = new ArrayList();
+        boolean propertyIndexed = false;
 
         // TODO: replace logger instantiation once javaFactory issue above is fixed
         Logger logger = (Logger) getX().get("logger");
@@ -170,12 +171,9 @@ foam.CLASS({
             if ( getMdao() == null ) {
               setMdao(new foam.dao.MDAO(getOf()));
             }
+            addPropertyIndexes(getMdao());
+            propertyIndexed = true;
             delegate = getMdao();
-            if ( getDedup() ) {
-              delegate = new foam.dao.DeDupDAO.Builder(getX())
-                .setDelegate(delegate)
-                .build();
-            }
             if ( getFixedSize() != null ) {
               foam.dao.ProxyDAO fixedSizeDAO = (foam.dao.ProxyDAO) getFixedSize();
               fixedSizeDAO.setDelegate(delegate);
@@ -185,6 +183,14 @@ foam.CLASS({
             // hook for NDiff-related stuff downstream
             // code in JDAO.js is looking for cSpecName set in a subX
             delegate = getJournalDelegate(getX().put(foam.core.boot.CSpec.CSPEC_CTX_KEY, getCSpec()), delegate);
+
+            // Outside the journal: a replay goes straight into the MDAO as one
+            // bulk load, and the JSON parser already interns what it reads.
+            if ( getDedup() ) {
+              delegate = new foam.dao.DeDupDAO.Builder(getX())
+                .setDelegate(delegate)
+                .build();
+            }
           }
         }
 
@@ -245,6 +251,11 @@ foam.CLASS({
             // NOTE: this is expected on non-local DAOs.
             logger.debug(getName(), "Index not added on spid, no access to MDAO");
           }
+        }
+
+        if ( getFSMDAO() != null ) {
+          ((ProxyDAO) getFSMDAO()).setDelegate(delegate);
+          delegate = getFSMDAO();
         }
 
         delegate = getOuterDAO(delegate);
@@ -388,6 +399,10 @@ foam.CLASS({
           }
         }
 
+        // A chain that does not start from this EasyDAO's MDAO gets them the
+        // way addPropertyIndex sends them.
+        if ( ! propertyIndexed ) addPropertyIndexes(delegate);
+
         // see comments above regarding DAOs with init_
         ((ProxyDAO) delegate_).setDelegate(delegate);
 
@@ -407,6 +422,23 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      documentation: `An FSMDAO that enforces the state machine rules on puts.
+        Build it with a placeholder delegate; EasyDAO replaces the delegate
+        with its own chain.`,
+      class: 'foam.dao.DAOProperty',
+      name: 'FSMDAO'
+    },
+    {
+      class: 'Object',
+      javaType: 'foam.lang.Indexer[][]',
+      name: 'propertyIndexes',
+      hidden: true,
+      documentation: `Indexes the MDAO is created with, one Indexer[] per
+        index. addPropertyIndex records its index here until the delegate is
+        built, so the index is in the MDAO before the journal replays into it
+        and the replay's bulk load builds it with the rest.`
     },
     {
       class: 'Boolean',
@@ -810,9 +842,17 @@ dao loading, which improves overall startup time.`,
     {
       class: 'Boolean',
       name: 'saf',
-      // refined in foam-saf
+      // refined in https://github.com/kgrgreer/foam-saf
       documentation: 'Store and forward this DAO',
-      value: false
+      // NOTE: SAF does not support PartitionedDAO.
+      // emailMessageDAO, notificationDAO, eventRecordDAO were some
+      // of main reasons for SAF.
+      // EasyDAO has no knowledge if a DAO is using Partitioning, so
+      // it is unable to issue a warning.
+      // Disabling for now.
+      // value: false;
+      javaGetter: 'return false;',
+      getter: function() { return false; }
     },
     {
       documentation: 'Simpler alternative than providing serverBox.',
@@ -1037,9 +1077,6 @@ dao loading, which improves overall startup time.`,
             foam.core.partition.NotPartitionedDAO pdao = new foam.core.partition.NotPartitionedDAO(x, getOf(), getJournalName());
             pdao.setServiceName(getCSpec() != null && ! foam.util.SafetyUtil.isEmpty(getCSpec().getName()) ? getCSpec().getName() : getName());
             pdao.setEasyDAO(this);
-            // lazy:false promises the data is loaded at boot; NotPartitionedDAO
-            // defers replay to the first access, so load it now, on the boot thread.
-            if ( getCSpec() != null && ! getCSpec().getLazy() ) pdao.getDelegate();
             delegate = pdao;
           } else if ( getFixedSize() != null ) {
             // FixedSizeDAO already wraps the mdao/dedup chain above (see the
@@ -1047,7 +1084,7 @@ dao loading, which improves overall startup time.`,
             // journal rather than rebuilding it, or the size cap would be lost.
             delegate = wrapInJDAO(x, delegate);
           } else {
-            delegate = createJournalledDelegate(x);
+            delegate = createJournalledDelegate(x, java.util.Collections.EMPTY_LIST);
           }
         }
         return delegate;
@@ -1055,20 +1092,37 @@ dao loading, which improves overall startup time.`,
     },
     {
       name: 'createJournalledDelegate',
-      documentation: 'Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO (aliased via setMdao so getMdao() tracks the live store), optionally wrapped in DeDupDAO, then wrapped in a JDAO over getJournalName(). Used for the initial non-unloadable, non-fixedSize construction, and by NotPartitionedDAO#createDAO() to rebuild the chain on every unload/reload.',
-      args: 'X x',
+      documentation: `Builds a fresh SINGLE_JOURNAL inner chain: a new MDAO
+        (aliased via setMdao so getMdao() tracks the live store) wrapped in a
+        JDAO over getJournalName(). Used for the initial non-unloadable,
+        non-fixedSize construction, and by NotPartitionedDAO#createDAO() to
+        rebuild the chain on every unload/reload.
+
+        indexes are the AddIndexCommands the new store must hold, on top of
+        propertyIndexes. The journal replays into the MDAO as one bulk load,
+        which builds every index the MDAO already holds at once, so they go in
+        before the replay.`,
+      args: 'X x, java.util.List indexes',
       type: 'foam.dao.DAO',
       javaCode: `
         setMdao(new foam.dao.MDAO(getOf()));
-        foam.dao.DAO delegate = getMdao();
+        addPropertyIndexes(getMdao());
+        for ( Object index : indexes ) getMdao().cmd(index);
+        return wrapInJDAO(x, getMdao());
+      `
+    },
+    {
+      name: 'addPropertyIndexes',
+      documentation: 'Adds each of propertyIndexes to the given DAO, the way addPropertyIndex does.',
+      args: 'foam.dao.DAO dao',
+      javaCode: `
+        if ( getPropertyIndexes() == null ) return;
 
-        if ( getDedup() ) {
-          delegate = new foam.dao.DeDupDAO.Builder(x)
-            .setDelegate(delegate)
-            .build();
+        for ( Indexer[] indexers : getPropertyIndexes() ) {
+          AddIndexCommand cmd = new AddIndexCommand();
+          cmd.setIndexers(indexers);
+          dao.cmd(cmd);
         }
-
-        return wrapInJDAO(x, delegate);
       `
     },
     {
@@ -1359,7 +1413,7 @@ dao loading, which improves overall startup time.`,
               }
 
               self.log("Loading test data");
-              Promise.all(foam.json.parse(self.testData, self.of, self).map(
+              Promise.all(foam.json.parse(self.testData, self.of, self.__subContext__).map(
                 function(o) { return delegate.put(o); }
               )).then(function() {
                 self.log("Loaded", self.testData.length, "records.");
@@ -1409,6 +1463,17 @@ dao loading, which improves overall startup time.`,
         return this;
       },
       javaCode: `
+        // The delegate is built on first use, and building it replays the
+        // journal. Until then the index is recorded, so it goes into the MDAO
+        // before the replay rather than being built from the loaded rows.
+        if ( ! delegateIsSet_ ) {
+          Indexer[][] recorded = getPropertyIndexes() == null ? new Indexer[0][] : getPropertyIndexes();
+          Indexer[][] all      = Arrays.copyOf(recorded, recorded.length + 1);
+          all[recorded.length] = indexers;
+          setPropertyIndexes(all);
+          return this;
+        }
+
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setIndexers(indexers);
         Object result = getDelegate().cmd_(getX(), cmd);

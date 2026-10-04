@@ -79,9 +79,10 @@ foam.CLASS({
 
         // A dedup EasyDAO used to be excluded from the unloadable branch entirely
         // (getUnloadable() && !getDedup()), so it never got the NotPartitionedDAO
-        // wrapper at all. It now rebuilds its inner chain (mdao + DeDupDAO + JDAO)
-        // from scratch via EasyDAO#createJournalledDelegate() on every reload, so
-        // dedup must still work after an unload/reload cycle.
+        // wrapper at all. It now rebuilds its inner chain (mdao + JDAO) from
+        // scratch via EasyDAO#createJournalledDelegate() on every reload, with
+        // DeDupDAO outside it, so dedup must still work after an unload/reload
+        // cycle.
         String dedupJournalName = "unloadableDedup_" + System.nanoTime();
         DAO dedupDao = new EasyDAO.Builder(tx)
           .setAuthorize(false)

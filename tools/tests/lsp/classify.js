@@ -115,3 +115,59 @@ test(callsText.substring(found[1].offset).indexOf('foam.ENUM(') === 0,
 test(cc.significantCalls('') .length === 0, 'significantCalls on empty text is empty');
 test(cc.significantCalls(callsText) === found,
   'the same text is answered from the memo, not re-scanned');
+
+// `nested` marks a call inside another foam call's parentheses — a class a
+// method builds at runtime. A regex literal's brackets must not count: the
+// unbalanced-looking `(\(([^)]*)\)` in src/foam/lang/stdlib.js:255 used to
+// leave every later call in that file marked nested.
+var nestText = [
+  "foam.LIB({ name: 'a', methods: [ function f(s) { return s.match(/^(\\(([^)]*)\\)[^=]*|([^=]+))=>/); } ] });",
+  "foam.CLASS({ name: 'B', methods: [ function g() { foam.CLASS({ name: 'Inner' }); } ] });",
+  "foam.CLASS({ name: 'C' });"
+].join('\n');
+var nestFound = cc.significantCalls(nestText);
+test(nestFound.length === 4 &&
+  nestFound.map(function(x) { return x.nested; }).join() === 'false,false,true,false',
+  'only the runtime call is nested; a regex literal\'s brackets are not code: ' +
+  JSON.stringify(nestFound.map(function(x) { return x.nested; })));
+
+section('FileClassifier.commentSpans — the comments the call scan skipped');
+
+var cs = foam.parse.lsp.FileClassifier.create();
+function spans(text) {
+  return cs.commentSpans(text).map(function(sp) { return text.substring(sp.start, sp.end); });
+}
+
+var csBasic = "var a = 1; // line\n/* block */ var b = 2;";
+test(JSON.stringify(spans(csBasic)) === JSON.stringify([ '// line', '/* block */' ]),
+  'line and block comments, in source order: ' + JSON.stringify(spans(csBasic)));
+
+test(spans("var s = '// not a comment', t = \"/* nor this */\";").length === 0,
+  'comment markers inside quoted strings are not comments');
+test(spans("var s = 'it\\'s // still a string';").length === 0,
+  'an escaped quote does not end the string early');
+test(spans("var t = `a /* b */ ${ 1 } // c`;").length === 0,
+  'comment markers inside a template literal are not comments');
+var csAfterTpl = spans("var t = `x`; // real");
+test(csAfterTpl.length === 1 && csAfterTpl[0] === '// real', 'a comment after a template literal is found');
+
+var csCrlf = "var a = 1; // one\r\nvar b = 2; /* two\r\n */\r\n";
+var csCrlfSpans = spans(csCrlf);
+test(csCrlfSpans.length === 2 && csCrlfSpans[0].indexOf('\n') === -1 && csCrlfSpans[1] === '/* two\r\n */',
+  'CRLF: a line comment stops at the line end, a block comment spans lines: ' + JSON.stringify(csCrlfSpans));
+
+var csCommentedCall = "/*\nfoam.CLASS({ name: 'Dead' });\n*/\nfoam.CLASS({ name: 'Live' });";
+test(cs.commentSpans(csCommentedCall).length === 1 && cs.significantCalls(csCommentedCall).length === 1,
+  'a commented-out call is one comment span and not a significant call');
+
+// commentSpans shares significantCalls' walk, and with it the regex-literal
+// rule: the `/*` inside `/[/*]/` is part of the regex, not the start of a
+// block comment. Without that rule the span ran to the next real `*/` and
+// counted the live code between as commented.
+var csRegex = "var re = /[/*]/; var x = 1; /* c */";
+test(JSON.stringify(spans(csRegex)) === JSON.stringify([ '/* c */' ]),
+  'a regex literal\'s /* opens no comment; only the real one is a span: ' + JSON.stringify(spans(csRegex)));
+test(cs.commentSpans("var re = /[/*]/; var x = 1;").length === 0,
+  'a regex literal alone yields no span');
+
+test(cs.commentSpans('').length === 0, 'commentSpans on empty text is empty');

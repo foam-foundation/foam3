@@ -15,25 +15,25 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
 
-    ^item {
+    <<item {
       display: flex;
     }
 
-    ^ input[type="radio"] {
+    << input[type="radio"] {
       display: none;
     }
 
-    ^ label:has(input[type=radio]:checked) {
+    << label:has(input[type=radio]:checked) {
       border-bottom: solid 3px $borderBrand;
       font-weight: bold;
       color: $textBrand;
     }
 
-    ^ label {
+    << label {
       cursor: pointer;
       padding: 8px 24px;
     }

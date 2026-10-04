@@ -286,7 +286,7 @@ foam.CLASS({
     font-style: normal
   }
 
-  ^ {
+  << {
     font-family: "5x7_dot_matrixregular",courier,monospace;
     background: #121 !important;
     border-radius: 40px;
@@ -401,15 +401,15 @@ foam.CLASS({
   css: `
   body { font-family: sans-serif; }
 
-  ^ .property-program { display: inline-flex; }
+  << .property-program { display: inline-flex; }
 
-  ^ .property-program select { font-size: 12px !important; }
+  << .property-program select { font-size: 12px !important; }
 
-  ^ button { padding-top: 6px; }
+  << button { padding-top: 6px; }
 
-  ^ textarea { font-size: 10px; }
+  << textarea { font-size: 10px; }
 
-  ^ .property-sourceCode, ^ .property-targetCode {
+  << .property-sourceCode, << .property-targetCode {
     display: inline-flex;
     padding: 6px;
     width: 48%;

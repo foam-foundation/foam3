@@ -11,6 +11,10 @@ p({
   id: "F3JournalReplayBenchmark"
 })
 p({
+  class: "foam.core.benchmark.F3ReplayPipelineBenchmark",
+  id: "F3ReplayPipelineBenchmark"
+})
+p({
   class: "foam.core.benchmark.FUIDBenchmark",
   id: "FUIDBenchmark"
 })

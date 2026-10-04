@@ -33,7 +33,7 @@ foam.CLASS({
   ],
 
   css: `
-     ^ .foam-u2-DAOList > div {
+     << .foam-u2-DAOList > div {
       background:$backgroundDefault;
       margin-top:16px;
       min-height: 50px;
@@ -41,10 +41,10 @@ foam.CLASS({
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
       border: solid 1px $borderLight;
     }
-     ^ .notifs {
+     << .notifs {
       margin-left: 32px;
     }
-    ^ .title {
+    << .title {
       width: 208px;
       height: 40px;
       color: $textDefault;

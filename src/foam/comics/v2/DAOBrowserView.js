@@ -43,33 +43,33 @@ foam.CLASS({
   ],
 
   css: `
-    ^wrapper {
+    <<wrapper {
       box-sizing: border-box;
       height: 100%;
       justify-content: flex-start;
     }
 
-    ^top-bar {
+    <<top-bar {
       border-bottom: solid 1px $borderLight;
       align-items: center;
     }
 
-    ^query-bar {
+    <<query-bar {
       padding: 6px 8px 6px 0;
       gap: 10px;
     }
 
-    ^buttons.foam-u2-ButtonGroup{
+    <<buttons.foam-u2-ButtonGroup{
       justify-content: flex-end;
       flex: 2 0 30%;
     }
 
-    ^filters{
+    <<filters{
       padding: 0;
       padding-bottom: 12px;
     }
 
-    ^browse-view-container {
+    <<browse-view-container {
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -77,7 +77,7 @@ foam.CLASS({
       overflow: hidden;
     }
 
-    ^actions svg {
+    <<actions svg {
       height: 1em;
       width: 1em;
     }
@@ -88,27 +88,27 @@ foam.CLASS({
       This is the generalised way to do this but should be removed
       if double scroll bars start appearing
     */
-    ^browse-view-container > * {
+    <<browse-view-container > * {
       height: 100%;
       overflow: auto;
     }
 
-    ^canned-queries {
+    <<canned-queries {
       padding: 0 16px;
     }
 
-    ^ .foam-u2-view-SimpleSearch {
+    << .foam-u2-view-SimpleSearch {
       flex-grow: 1;
     }
 
-    ^ .foam-u2-view-SimpleSearch input {
+    << .foam-u2-view-SimpleSearch input {
       width: 100%;
       height: 34px;
       border-radius: 0 5px 5px 0;
       border: $borderSize;
     }
     @media only screen and (min-width:  /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^query-bar {
+      <<query-bar {
         padding: 6px 8px 6px 0;
       }
     }

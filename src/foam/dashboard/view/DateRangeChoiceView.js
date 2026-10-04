@@ -12,7 +12,7 @@ foam.CLASS({
   documentation: 'A Drop-down with predefined date ranges',
 
   css: `
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       border: none;
       color: $textTertiary;
       padding: 0;

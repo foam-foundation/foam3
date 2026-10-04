@@ -12,7 +12,10 @@ foam.CLASS({
   documentation: `A CSSTokenOverride row with theme '' (every theme) and a
     variants: { dark } value must apply while activeVariants.color is dark.
     Before the fix the service only looked up '<token>-dark' under the current
-    theme id, never under '', so a global dark override was silently ignored.`,
+    theme id, never under '', so a global dark override was silently ignored.
+    Light is a named value ('light') on the colour axis, so a row's
+    variants: { light } entry applies in light mode and a plain target stays
+    the fallback for any mode without its own entry.`,
 
   cssTokens: [
     {
@@ -61,8 +64,33 @@ foam.CLASS({
       await settle();
       x.test(val() === '#2B2B2B', "current theme's dark row wins over its plain row and the theme-less one");
 
+      // Light is a named value on the colour axis, the same as dark, so a row
+      // can carry a light entry that leaves dark alone.
+      theme.activeVariants = { color: 'light' };
+      x.test(val() === '#AAAAAA', "light with no light row takes the theme's plain row");
+
+      await tokenDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({
+        theme: 'test-theme', source: 'surface', target: '#AAAAAA', variants: { light: '#FFC0CB' }
+      }, x));
+      await settle();
+      x.test(val() === '#FFC0CB', "theme's light entry wins over its own target in light mode");
+      theme.activeVariants = { color: 'dark' };
+      x.test(val() === '#AAAAAA', "same row: dark has no entry, so its target is the fallback");
+
+      // Same (theme, source) id, so this put replaces the row above. Dark now
+      // has no theme row at all and falls through to the theme-less dark row.
+      await tokenDAO.put(foam.core.theme.customisation.CSSTokenOverride.create({
+        theme: 'test-theme', source: 'surface', variants: { light: '#FFC0CB' }
+      }, x));
+      await settle();
+      x.test(val() === '#202020', "light-only row with no target: dark falls through to the theme-less dark row");
+      theme.activeVariants = { color: 'light' };
+      x.test(val() === '#FFC0CB', "light-only row: light entry applies");
+
+      // No mode named (useVariants off): only the plain row is asked, and this
+      // row has no target, so the lookup falls through to the token.
       theme.activeVariants = {};
-      x.test(val() === '#AAAAAA', "light mode ignores both dark rows and takes the theme's plain row");
+      x.test(val() === '#FFFFFF', "no mode named and no target: token's base value");
     }
   ]
 });

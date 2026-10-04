@@ -39,6 +39,11 @@
           "default": true,
           "description": "Diagnostics for malformed pom.js entries: whitespace in name/flags values, unknown flag tokens, entries pointing at missing files. Takes effect after a server restart."
         },
+        "foam.features.diagnostics.cssSyntax": {
+          "type": "boolean",
+          "default": true,
+          "description": "Diagnostics for css: text the CSS grammar cannot parse: a missing ';', a stray '}', a '//' line, an unclosed string or comment. Takes effect after a server restart."
+        },
         "foam.features.diagnostics.i18n": {
           "type": "boolean",
           "default": true,
@@ -53,6 +58,11 @@
           "type": "boolean",
           "default": true,
           "description": "Autocomplete. Takes effect after a server restart."
+        },
+        "foam.features.completion.autoRequires": {
+          "type": "boolean",
+          "default": true,
+          "description": "After this., also offer classes the model does not require yet; picking one adds it to the model's requires: array. Takes effect after a server restart."
         },
         "foam.features.hover": {
           "type": "boolean",
@@ -74,6 +84,16 @@
           "default": true,
           "description": "Code folding for properties:/methods:/requires:/etc. arrays. Takes effect after a server restart."
         },
+        "foam.features.documentColor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Colour swatches for CSS $tokens and raw colour values inside css: blocks. Picking a colour on a $token never replaces it. Takes effect after a server restart."
+        },
+        "foam.features.documentLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Clickable class ids in extends:/requires:/implements:/refines:/of:/class:/view: strings and in .jrl journals, opening the class's file. Takes effect after a server restart."
+        },
         "foam.features.codeLens.i18n": {
           "type": "boolean",
           "default": true,
@@ -83,6 +103,11 @@
           "type": "boolean",
           "default": false,
           "description": "CodeLens annotations for class hierarchy (subclass/implementor counts). Takes effect after a server restart."
+        },
+        "foam.features.inlayHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Inline notes in model files: refinement counts after a class name, the inherited type and overridden superclass after a property name. Takes effect after a server restart."
         },
         "foam.i18n.languages": {
           "type": "array",
@@ -104,6 +129,29 @@
           "type": "string",
           "default": "en",
           "description": "Language the bare message: value is written in."
+        },
+        "foam.lint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show registration-completeness lint findings (missing rule groups, strategy references, POM membership) as diagnostics."
+        },
+        "foam.lint.checks": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["pom-membership", "rule-group", "strategy-ref"] },
+          "default": ["rule-group", "strategy-ref"],
+          "description": "Which lint checks to run. 'pom-membership' is off by default: on a mature workspace it reports hundreds of pre-existing findings. Enable it for a debt triage pass."
+        },
+        "foam.lint.scope": {
+          "type": "string",
+          "enum": ["openFiles", "workspace"],
+          "default": "openFiles",
+          "description": "Which findings become diagnostics. 'openFiles' keeps the Problems panel about the code you are editing; 'workspace' shows every finding. The FOAM sidebar always shows workspace-wide totals."
+        },
+        "foam.lint.strategyTargets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra base classes whose implementors should have a StrategyReference entry, beyond foam.core.ruler.RuleAction. Set per project in .vscode/settings.json."
         }
       }
     },
@@ -158,6 +206,15 @@
         "icon": "$(play)"
       },
       {
+        "command": "foam.lint",
+        "title": "FOAM: Lint Registrations",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "foam.lintClear",
+        "title": "FOAM: Clear Lint Findings"
+      },
+      {
         "command": "foam.toggleFlag",
         "title": "FOAM: Toggle Flag"
       },
@@ -178,6 +235,11 @@
       "view/title": [
         {
           "command": "foam.analyzeWorkspace",
+          "when": "view == foamAnalysis",
+          "group": "navigation"
+        },
+        {
+          "command": "foam.lint",
           "when": "view == foamAnalysis",
           "group": "navigation"
         }

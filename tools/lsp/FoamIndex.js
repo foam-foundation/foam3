@@ -53,6 +53,10 @@ foam.CLASS({
     {
       name: 'refinementIndex_',
       documentation: 'Refined class ID → array of { path, line, endLine } — every file that refines that class, with the refining model\'s own line range. Built alongside fileIndex_. A refined class keeps its own file as its definition site, so without this a member DECLARED in a refinement resolves back to the refined class\'s declaration line instead of to the line that declares it.'
+    },
+    {
+      name: 'refinedBy_',
+      documentation: 'File path → the class ids its refinements target: the reverse of refinementIndex_, so re-indexing one file drops exactly its own rows.'
     }
   ],
 
@@ -431,6 +435,29 @@ foam.CLASS({
           }
         } catch ( e ) {}
       }
+
+      // A `refines:` model never reaches `getAllClassIds` above: `foam.CLASS`
+      // returns right after calling `registerFactory` for a normal class, but
+      // for a refinement it calls `CLASS(m)` and returns BEFORE that call
+      // (`EndBoot.js`), so the refinement's id never lands in
+      // `foam.__context__.__cache__`, which `getAllClassIds` walks. Its own
+      // `requires:` is real — the refined class's `model_` is untouched — so
+      // a refiner-only requirer was invisible here. `foam.USED` still carries
+      // every refinement model keyed by its own id, so walk that directly.
+      for ( var refId in foam.USED ) {
+        var refModel = foam.USED[refId];
+        // Nameless refinements can only occur pre-boot, before EndBoot.js's
+        // override (which throws on a missing name) starts populating
+        // `foam.USED` — so this is defensive, not reachable today.
+        if ( ! refModel || ! refModel.refines || ! refModel.name ) continue;
+        var refReqs = refModel.requires || [];
+        for ( var k = 0 ; k < refReqs.length ; k++ ) {
+          var rr = refReqs[k];
+          var rpath = typeof rr === 'string' ? rr.split(/\s+as\s+/)[0].trim() : (rr.path || '');
+          if ( rpath === classId ) { result.push(refId); break; }
+        }
+      }
+
       this.cache_['req_' + classId] = result;
       return result;
     },
@@ -732,10 +759,40 @@ foam.CLASS({
       var prop = cls.getAxiomByName(propName);
       if ( ! prop || ! foam.lang.Property.isInstance(prop) ) return null;
 
-      var md = '**' + propName + '** (' + (prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property') + ')\n\n';
+      var typeName = prop.cls_ && prop.cls_.model_ ? prop.cls_.model_.name : 'Property';
+      var of       = this.ofName_(prop);
+      var typeStr  = of ? typeName + '<' + of + '>' : typeName;
+
+      // Wrapped in a code span: `<ButtonStyle>` inside a bare `(...)` reads
+      // as an HTML tag and markdown renderers drop it — same reason the
+      // class-table path (`HoverHandler.propTypeName_`) wraps its type name.
+      var md = '**' + propName + '** (`' + typeStr + '`)\n\n';
       if ( prop.documentation ) md += prop.documentation + '\n\n';
       if ( prop.value !== undefined && prop.value !== '' ) md += 'Default: `' + prop.value + '`\n';
       return md;
+    },
+
+    function ofName_(p) {
+      /**
+       * Short name of a property's `of:` target, or '' when there is nothing
+       * worth printing. Single implementation shared by `getPropertyDoc` (the
+       * by-name single-property hover) and `HoverHandler.propTypeName_` (the
+       * class-level property table, #5406) — the two used to disagree because
+       * only the table path resolved `of:`.
+       *
+       * `of` arrives either as a resolved class (an object with an id) or as
+       * the raw string from the model. The raw strings are of two kinds: a
+       * class id, and a primitive — `StringArray` carries `of: 'String'` and
+       * `IntegerArray` carries `of: 'Int'`, which say nothing the type name
+       * has not already said. A dot is what separates the two (185 of the
+       * repo's `of:` strings are the primitive kind, and all of them are
+       * undotted).
+       */
+      var of = p.of;
+      if ( ! of ) return '';
+      if ( typeof of !== 'string' ) return of.id ? of.id.split('.').pop() : '';
+      if ( of.indexOf('.') === -1 ) return '';
+      return of.split('.').pop();
     },
 
     function invalidate(classId) {
@@ -780,6 +837,7 @@ foam.CLASS({
       this.fileIndex_ = {};
       this.libIndex_ = {};
       this.refinementIndex_ = {};
+      this.refinedBy_ = {};
       this.pomProjectFlags_ = {};
       this.pathIndex_ = {};
       var path_ = require('path');
@@ -874,6 +932,14 @@ foam.CLASS({
         // The first row THIS pass writes owns the path. Without the drop the
         // boot row answers findOwnerEntry_ forever, so a pom save that
         // changes an entry's flags is undone by the next save of the file.
+        //
+        // The same goes for the file's refinement rows: they were pushed, never
+        // replaced, so each save of a refining file added its rows again and
+        // `getRefinements` counted one refinement three times after two saves.
+        // Unconditional, not gated on pathIndex_: a file whose only models are
+        // nameless refinements never gets a pathIndex_ row, and gating on it
+        // let that file's count go 1 -> 2 -> 4.
+        this.dropRefinementsFrom_(filePath);
         if ( this.pathIndex_ ) delete this.pathIndex_[filePath];
         for ( var i = 0 ; i < models.length ; i++ ) {
           var m = models[i];
@@ -900,6 +966,8 @@ foam.CLASS({
               ? next.sourceLine_ : Infinity;
             var refs = this.refinementIndex_[m.refines];
             if ( ! refs ) refs = this.refinementIndex_[m.refines] = [];
+            if ( ! this.refinedBy_ ) this.refinedBy_ = {};
+            ( this.refinedBy_[filePath] || ( this.refinedBy_[filePath] = [] ) ).push(m.refines);
             refs.push({ path: filePath, line: m.sourceLine_ || 0, endLine: endLine });
 
             // The refined class keeps its own file as its definition site;
@@ -1229,6 +1297,36 @@ foam.CLASS({
       var rec = bucket && bucket[memberName];
       if ( ! rec && kind === 24 && posMap.method ) rec = posMap.method[memberName];
       return rec || null;
+    },
+
+    function dropRefinementsFrom_(filePath) {
+      /** Remove every refinementIndex_ row that `filePath` contributed, ahead
+       *  of that file being indexed again. refinedBy_ (path -> refined ids)
+       *  names the rows to touch, so the call costs nothing for the ~4000
+       *  files at boot that refine nothing. */
+      var targets = this.refinedBy_ && this.refinedBy_[filePath];
+      if ( ! targets ) return;
+      delete this.refinedBy_[filePath];
+      var idx = this.refinementIndex_ || {};
+      for ( var i = 0 ; i < targets.length ; i++ ) {
+        var rows = idx[targets[i]];
+        if ( ! rows ) continue;
+        rows = rows.filter(function(r) { return r.path !== filePath; });
+        if ( rows.length ) idx[targets[i]] = rows; else delete idx[targets[i]];
+      }
+    },
+
+    function getRefinements(classId) {
+      /**
+       * Every refinement of `classId` the file index knows of, as
+       * [ { path, line, endLine } ] — one row per refining model, so a file
+       * that refines the class twice gives two. A copy; callers may filter it.
+       * Built by the POM walk (refinementIndex_), so a refinement in a file no
+       * POM names is not here.
+       */
+      if ( ! this.fileIndex_ ) this.buildFileIndex();
+      var refs = this.refinementIndex_ && this.refinementIndex_[classId];
+      return refs ? refs.slice() : [];
     },
 
     function refinementMemberPosition_(classId, memberName, kind) {

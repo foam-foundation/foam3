@@ -62,7 +62,7 @@ foam.CLASS({
       imports: [ 'cSpecDAO', 'route', 'stack' ],
 
       css: `
-        ^dao {
+        <<dao {
           display: inline-block;
           font-size: small;
           padding: 4px 8px;
@@ -71,10 +71,10 @@ foam.CLASS({
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        ^dao:hover {
+        <<dao:hover {
           background: $backgroundSecondary;
         }
-        ^section {
+        <<section {
           display: inline-grid;
           vertical-align: top;
           margin: 10px;
@@ -85,7 +85,7 @@ foam.CLASS({
           border: 1px solid $borderLight;
           overflow: hidden;
         }
-        ^header {
+        <<header {
           grid-column: 1 / -1;
           margin: -10px -10px 10px;
           padding: 4px 8px;
@@ -94,7 +94,7 @@ foam.CLASS({
           color: $textOnInverse;
           font-weight: $font-bold;
         }
-        ^footer {
+        <<footer {
           color: $textTertiary;
           padding-top: 12px;
         }

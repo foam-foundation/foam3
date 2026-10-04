@@ -12,13 +12,13 @@ foam.CLASS({
   imports: [ 'window' ],
 
   css: `
-    ^copy {
+    <<copy {
       font-size: smaller;
       padding-bottom: 6px;
       text-decoration: underline;
     }
-    ^content {
-      border: 1px gray solid;
+    <<content {
+      border: 1px $borderDefault solid;
       max-height: 800px;
       max-width: 95%;
       overflow: scroll;

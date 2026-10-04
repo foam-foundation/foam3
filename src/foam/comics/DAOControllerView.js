@@ -40,40 +40,40 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       margin: 24px auto 0 auto;
       padding: 0 32px;
     }
 
-    ^top-row {
+    <<top-row {
       align-items: center;
       margin-bottom: 10px;
     }
 
-    ^separate {
+    <<separate {
       display: flex;
       justify-content: space-between;
     }
 
-    ^title-container > * {
+    <<title-container > * {
       color: $textDefault;
       margin: 0;
     }
 
-    ^container {
+    <<container {
       padding: 0 0px;
     }
 
-    ^ .actions {
+    << .actions {
       display: inline-block;
       margin-bottom: 8px;
     }
 
-    ^ .actions button + button {
+    << .actions button + button {
       margin-left: 8px;
     }
 
-    ^full-search-container {
+    <<full-search-container {
       flex: 0 0 250px;
       padding-right: 18px;
       width: 250px;
@@ -81,7 +81,7 @@ foam.CLASS({
       padding-top: 23px;
     }
 
-    ^manual-width-adjust {
+    <<manual-width-adjust {
       width: inherit;
     }
   `,

@@ -10,14 +10,14 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
     }
-    ^shouldOverflow{
+    <<shouldOverflow{
       height: 100%;
     }
-    ^reverse {
+    <<reverse {
       width: 100%;
       display: flex;
       flex-direction: column-reverse;
@@ -26,13 +26,13 @@ foam.CLASS({
       width: 100%;
     }
     /* Extra div added by borders?? */
-    ^reverse > div:not(.edge) {
+    <<reverse > div:not(.edge) {
       flex: 1;
     }
-    ^shouldOverflow > ^reverse > div:not(.edge) {
+    <<shouldOverflow > <<reverse > div:not(.edge) {
       height: 100%;
     }
-    ^::before {
+    <<::before {
       display: block;
       opacity: 0;
       height: 7px;
@@ -40,11 +40,11 @@ foam.CLASS({
       width: 100%;
       content: '';
       z-index: 10;
-      background: linear-gradient(to bottom, #DADDE2 0, #ffffff00 7px, #ffffff00 100%);
+      background: linear-gradient(to bottom, $borderLight 0, transparent 7px, transparent 100%);
       top: 0;
       position: sticky;
     }
-    ^::after {
+    <<::after {
       display: block;
       opacity: 0;
       height: 7px;
@@ -52,14 +52,14 @@ foam.CLASS({
       width: 100%;
       content: '';
       z-index: 10;
-      background: linear-gradient(to top, #DADDE2 0, #ffffff00 7px, #ffffff00 100%);
+      background: linear-gradient(to top, $borderLight 0, transparent 7px, transparent 100%);
       bottom: 0;
       position: sticky;
     }
-    ^topShadow::before {
+    <<topShadow::before {
       opacity: 1;
     }
-    ^botShadow::after {
+    <<botShadow::after {
       opacity: 1;
     }
   `,

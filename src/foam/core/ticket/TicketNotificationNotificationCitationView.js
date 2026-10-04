@@ -22,18 +22,18 @@ foam.CLASS({
   // TODO: This css only works in v3.17. Once this change is merged to v3.17, we need to
   // readjust the css so that this view does not look off on foam dev 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: flex-end;
       gap: 1ch;
     }
 
-    ^link {
+    <<link {
       border: none;
       padding: 0;
     }
 
-    ^ .description {
+    << .description {
       line-height: 1.71
     }
 

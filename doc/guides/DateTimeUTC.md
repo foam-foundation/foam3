@@ -35,6 +35,8 @@ This eliminates timezone-related bugs where the same datetime appears differentl
 | **DateTime** | Native JS parser | Preserved as-is | None (local) | User-local events |
 | **DateTimeUTC** | Forced UTC | Preserved in UTC | All UTC | Logs, transactions, API timestamps |
 
+**What "sets to noon" means for a `Date`.** The adapt rebuilds every value as noon UTC of the value's **local** calendar day: `new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12))` (`src/foam/lang/types.js:242-250`). Two values on the same local day become exactly equal, and consecutive days are exactly 24 hours apart, so plain equality is a same-day test. The time of day is discarded, and a test fixture built as a stored date `+ 24h - 1ms` does not stay on the same day: it lands on the next day's noon. Build same-day fixtures from the same timestamp and next-day fixtures with exactly `+ 24h`. Use `DateTime` or `DateTimeUTC` when the instant matters.
+
 ---
 
 ## Input Handling

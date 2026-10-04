@@ -17,7 +17,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-stack-StackView {
+    << .foam-u2-stack-StackView {
       height: auto;
     }
   `,

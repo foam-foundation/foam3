@@ -43,8 +43,9 @@ public class DatePartitionedDAO
     scheme_ = scheme;
   }
 
-  public void setTimeWindow(int days) {
+  public DatePartitionedDAO setTimeWindow(int days) {
     timeWindow_ = days;
+    return this;
   }
 
   public int getTimeWindow() {

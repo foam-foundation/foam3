@@ -24,15 +24,15 @@ foam.CLASS({
   documentation: 'Childrens menu dropdown',
 
   css: `
-    ^ {
+    << {
       width: 100px;
       vertical-align: top;
     }
-    ^ ul{
+    << ul{
       margin-top: 20px;
       list-style-type: none;
     }
-    ^ li{
+    << li{
       margin-top: 25px;
     }
     .highlight{

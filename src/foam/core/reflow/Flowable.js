@@ -17,10 +17,10 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.TreeCellFormatter' ],
 
   css: `
-    ^dependent {
-      border: 1px solid orange !important;
+    <<dependent {
+      border: 1px solid $info !important;
     }
-    ^error {
+    <<error {
       color: $textDestructive;
     }
   `,

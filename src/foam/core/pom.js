@@ -40,6 +40,7 @@ foam.POM({
     { name: "theme/pom" },
     { name: "partition/pom" },
     { name: "job/pom" },
+    { name: "license/pom" },
     { name: "license/pom" }
   ],
   files: [
@@ -304,6 +305,8 @@ foam.POM({
     { name: "notification/Notification",                                                  flags: "js|java" },
     { name: "notification/NotificationCitationView",                                      flags: "js" },
     { name: "notification/NotificationExpansionDAO",                                      flags: "js|java" },
+    { name: "notification/NotificationLocaleTemplate",                                    flags: "js|java" },
+    { name: "notification/NotificationLocaleTemplateSupport",                             flags: "js|java" },
     { name: "notification/NotificationGoogleChatRefines",                                 flags: "js|java" },
     { name: "notification/NotificationHostnameRuleAction",                                flags: "js|java" },
     { name: "notification/NotificationMessageModal",                                      flags: "js" },
@@ -374,6 +377,7 @@ foam.POM({
     { name: "notification/test/EmailNotificationTest",                                    flags: "js&test|java&test" },
     { name: "notification/test/UserNotificationDAOTest",                                  flags: "js&test|java&test" },
     { name: "notification/test/UserNotificationDAOTestRuleAction",                        flags: "js&test|java&test" },
+    { name: "notification/test/NotificationLocaleTemplateTest",                           flags: "js&test|java&test" },
     { name: "demo/DemoObject",                                                            flags: "js|java" },
     { name: "demo/Demo",                                                                  flags: "js" },
     { name: "demo/relationship/test/RelationshipTest",                                    flags: "js&test|java&test" },
@@ -549,6 +553,9 @@ foam.POM({
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },
     { name: "benchmark/GzipJournalReplayBenchmark",                   flags: "js&test|java&test" },
+    { name: "benchmark/F3ReplayPipelineBenchmark",                    flags: "js&test|java&test" },
+    { name: "benchmark/ReplayNarrowModel",                            flags: "js&test|java&test" },
+    { name: "benchmark/ReplayWideModel",                              flags: "js&test|java&test" },
     { name: "benchmark/FileJournalBenchmark",                         flags: "js&test|java&test" },
     { name: "notification/NotificationGroupingDAOList",               flags: "web" },
     { name: "analytics/ChangeAnalyticEvent",                          flags: 'js|java'           }

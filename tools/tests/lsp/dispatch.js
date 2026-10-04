@@ -228,6 +228,7 @@ module.exports.done = (async function() {
     { m: 'textDocument/documentSymbol',       list: true },
     { m: 'textDocument/references',           list: true },
     { m: 'textDocument/codeLens',             list: true },
+    { m: 'textDocument/inlayHint',            list: true },
     { m: 'textDocument/implementation',       list: true },
     { m: 'textDocument/foldingRange',         list: true, anyDoc: true },
     { m: 'textDocument/documentHighlight',    list: true, anyDoc: true },
@@ -237,7 +238,14 @@ module.exports.done = (async function() {
     { m: 'textDocument/rename'         },
     { m: 'textDocument/prepareTypeHierarchy' },
     { m: 'textDocument/typeDefinition' },
-    { m: 'textDocument/prepareCallHierarchy' }
+    { m: 'textDocument/prepareCallHierarchy' },
+    { m: 'textDocument/documentColor',        list: true },
+    { m: 'textDocument/colorPresentation',    list: true },
+    // documentLink's row IS anyDoc, but its handler answers [] for a plain
+    // doc (it links only in class files and journals), so the plain-doc
+    // answer here is the empty one. The .jrl request further down is what
+    // proves the row lets a non-class document through.
+    { m: 'textDocument/documentLink',         list: true }
   ];
 
   // The context carries a real diagnostic because codeAction is diagnostic-
@@ -300,6 +308,17 @@ module.exports.done = (async function() {
   test(Array.isArray(hl.result) && hl.result.length > 1,
     'documentHighlight runs on a NON-class doc and finds both uses of alpha');
 
+  // documentLink's anyDoc proof: a journal is not a class doc, so a row that
+  // lost anyDoc answers [] here instead of the link on the "class" value.
+  var LINK_JRL_URI = 'file://' + path.join(root, 'links.jrl');
+  send('textDocument/didOpen', { textDocument: {
+    uri: LINK_JRL_URI, languageId: 'javascript', version: 1,
+    text: 'p({"class":"foam.dao.MDAO"})\n' } });
+  var jl = await request('textDocument/documentLink', { textDocument: { uri: LINK_JRL_URI } });
+  test(Array.isArray(jl.result) && jl.result.length === 1 &&
+       /MDAO\.js#L\d+$/.test(jl.result[0].target),
+    'documentLink runs on a .jrl doc and links its "class" value to the class file');
+
   // pom-file-missing is a DISK check, so the save that clears it is the save
   // creating the named file — a file the pom's own axiom state knows nothing
   // about, which is why the open-pom re-push can't be gated on the
@@ -333,6 +352,45 @@ module.exports.done = (async function() {
   test(Array.isArray(wsSym.result) && wsSym.result.some(function(r) {
       return r.location && r.location.uri === CREATED_URI; }),
     'workspace/symbol lists the class created after boot');
+
+  // Completion over the wire: server.js hands memberHandler its feature
+  // config and the client's completionItem capability at initialize. This
+  // client declared no capabilities, so the auto-require item (flag on by
+  // default) arrives with its requires edit and without labelDetails.
+  var AR_URI = 'file://' + path.join(root, 'D.js');
+  var AR_SRC = "foam.CLASS({\n  package: 'd',\n  name: 'D',\n  methods: [\n" +
+    "    function go() {\n      this.DAOControllerV\n    }\n  ]\n});\n";
+  send('textDocument/didOpen', { textDocument: {
+    uri: AR_URI, languageId: 'javascript', version: 1, text: AR_SRC } });
+  await diagsFor(AR_URI, 'the didOpen push for the auto-require fixture');
+  var comp = await request('textDocument/completion',
+    { textDocument: { uri: AR_URI }, position: { line: 5, character: 23 } });
+  var arItems = ( comp.result && comp.result.items ) || [];
+  var arPick  = arItems.filter(function(i) { return i.detail === 'foam.comics.DAOControllerView'; })[0];
+  test(!! arPick && Array.isArray(arPick.additionalTextEdits) &&
+       arPick.additionalTextEdits[0].newText.indexOf("'foam.comics.DAOControllerView'") !== -1,
+    'completion over the wire: unrequired class carries its requires edit');
+  test(! arItems.some(function(i) { return i.labelDetails; }),
+    'completion over the wire: no labelDetails for a client that did not declare labelDetailsSupport');
+
+  // foam/byName op:'typeDefinition' on a Class.member used to have no case in
+  // byNameResult's switch. The MCP symbol-mode foam_type_definition tool
+  // never sent 'typeDefinition' to it — it sent op:'definition' explicitly
+  // (`editors/mcp/server.js`), so a Class.member request resolved to the
+  // property's OWN declaration line, not its type. Now the tool sends
+  // 'typeDefinition' and this case resolves it to the property's type class.
+  // User.email's type is foam.lang.EMail, declared in foam/lang/types.js;
+  // the returned location's line must also be inside that file, not line 0.
+  var tdByName = await request('foam/byName',
+    { name: 'foam.core.auth.User.email', op: 'typeDefinition' });
+  var tdLoc = tdByName.result && tdByName.result[0];
+  var tdUri = tdLoc && tdLoc.uri;
+  test(!! tdUri && tdUri.replace(/\\/g, '/').indexOf('foam/lang/types.js') !== -1,
+    'foam/byName typeDefinition on User.email resolves to the EMail property class (types.js), got: ' +
+    JSON.stringify(tdUri));
+  test(!! tdLoc && tdLoc.range && tdLoc.range.start.line > 0,
+    'foam/byName typeDefinition on User.email resolves to a real line, not the location_ line-0 default, got: ' +
+    JSON.stringify(tdLoc && tdLoc.range));
 })().catch(function(e) {
   test(false, 'dispatch tests failed — ' + e.message);
 }).then(function() {

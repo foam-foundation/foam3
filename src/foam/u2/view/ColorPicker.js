@@ -21,7 +21,7 @@ foam.CLASS({
   extends: 'foam.u2.tag.Input',
 
   css: `
-    ^ {
+    << {
       height: $inputHeight;
       padding: 0;
     }

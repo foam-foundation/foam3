@@ -16,7 +16,9 @@ import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
 import foam.core.fs.Storage;
 import java.io.File;
+import java.io.IOException;
 import java.lang.ref.SoftReference;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -183,6 +185,33 @@ public class PartitionedDAO
       }
       return cc;
     }
+
+    // super records the index for partitions opened later; one already open
+    // never reads that list again, so it gets the index here. A partition
+    // still replaying is waited on through its lock rather than missed, and
+    // may end up with the index twice, which is harmless. Same as
+    // NotPartitionedDAO.
+    if ( cmd instanceof foam.dao.index.AddIndexCommand ) {
+      super.cmd_(x, cmd);
+
+      Set<String> parts = new HashSet<>(loading_);
+      synchronized ( delegates_ ) {
+        parts.addAll(delegates_.keySet());
+      }
+
+      for ( String part : parts ) {
+        synchronized ( part.intern() ) {
+          SoftReference<DAO> ref;
+          synchronized ( delegates_ ) {
+            ref = delegates_.get(part);
+          }
+          DAO dao = ref != null ? ref.get() : null;
+          if ( dao != null ) dao.cmd_(x, cmd);
+        }
+      }
+      return true;
+    }
+
     return super.cmd_(x, cmd);
   }
 
@@ -205,11 +234,13 @@ public class PartitionedDAO
 
   /** Attempt to extract partition from a SEPARATOR-delimited primary key.
       Chained partitions (e.g. "<a>~<b>~<key>") read their own segment by
-      depth: depth 1 reads <a>, depth 2 reads <b>. **/
+      depth: depth 1 reads <a>, depth 2 reads <b>. An id with no segment
+      past this level's, like the empty id of a record not yet put, has no
+      partition. **/
   public String getPartition_(String id) {
     String[] a = id.split(SEPARATOR);
 
-    if ( a.length < getDepth() ) return null;
+    if ( a.length <= getDepth() ) return null;
 
     return a[getDepth()-1];
   }
@@ -228,6 +259,43 @@ public class PartitionedDAO
     return getDirName() + part + "/";
   }
 
+  /** Upgrade the pre-directory partition layout in place. Before partitions
+      owned directories, the path now used by parent was the journal itself.
+      Stage that file inside a sibling directory, then rename the complete
+      directory into place. The staging directory also makes an interrupted
+      migration resumable on the next start without overwriting either copy. */
+  protected void preparePartitionDirectory(File parent) {
+    if ( parent == null || parent.isDirectory() ) return;
+
+    File staged = new File(parent.getPath() + ".partition-migration");
+    File journal = new File(staged, PART_JOURNAL);
+
+    try {
+      if ( parent.isFile() ) {
+        if ( staged.exists() && ! staged.isDirectory() )
+          throw new IOException("Migration path is not a directory: " + staged);
+        if ( ! staged.isDirectory() && ! staged.mkdir() )
+          throw new IOException("Failed to create migration directory " + staged);
+        if ( journal.exists() )
+          throw new IOException("Migration journal already exists: " + journal);
+
+        Loggers.logger(getX(), this).warning(
+          "Migrating legacy partition journal", parent, "to", journal);
+        Files.move(parent.toPath(), journal.toPath());
+      }
+
+      // Resume a migration interrupted after the legacy file was staged.
+      if ( ! parent.exists() && journal.isFile() )
+        Files.move(staged.toPath(), parent.toPath());
+
+      if ( ! parent.isDirectory() && ! parent.mkdirs() )
+        throw new IOException("Failed to create directory " + parent);
+    } catch ( IOException e ) {
+      throw new RuntimeException(
+        "Failed to prepare partition directory " + parent, e);
+    }
+  }
+
   public DAO createDAO(String part) {
     Loggers.logger(getX(), this).info("Creating partiion " + part);
 
@@ -241,9 +309,7 @@ public class PartitionedDAO
     // mkdirs on Storage.class would target the wrong root and the write would fail.
     Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
     File    parent  = storage.get(journalName).getParentFile();
-    if ( parent != null && ! parent.isDirectory() && ! parent.mkdirs() ) {
-      throw new RuntimeException("Failed to create directory " + parent);
-    }
+    preparePartitionDirectory(parent);
 
     PartitionLoadReporter reporter = new PartitionLoadReporter(getX(), journalName, getServiceName(), rawPart);
     try {
@@ -568,12 +634,13 @@ public class PartitionedDAO
       journals, rewrite references held by other DAOs (discovered via
       ReferencePropertyInfo when daoKey is given), validate, and archive the
       legacy journal. Delegates to SingleToPartitionMigrator. */
-  public void migrateFrom(X x, String legacyJournalName, String daoKey) {
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName, String daoKey) {
     new SingleToPartitionMigrator().run(x, legacyJournalName, this, daoKey);
+    return this;
   }
 
-  public void migrateFrom(X x, String legacyJournalName) {
-    migrateFrom(x, legacyJournalName, null);
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName) {
+    return migrateFrom(x, legacyJournalName, null);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

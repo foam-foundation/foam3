@@ -19,6 +19,7 @@ foam.CLASS({
     'foam.core.jetty.HttpServer',
     'foam.core.logger.Logger',
     'foam.core.theme.Theme',
+    'foam.core.theme.Themes',
     'foam.core.theme.ThemeDomain',
     'foam.util.SafetyUtil',
     'java.io.IOException',
@@ -262,20 +263,7 @@ foam.CLASS({
         DAO        themeDAO       = (DAO)        x.get("themeDAO");
         Logger     logger         = (Logger)     x.get("logger");
 
-        ThemeDomain themeDomain = (ThemeDomain) themeDomainDAO.find(vhost);
-        if ( themeDomain == null ) {
-          themeDomain = (ThemeDomain) themeDomainDAO.find(getDefaultHost());
-          if ( themeDomain == null ) {
-            themeDomain = (ThemeDomain) themeDomainDAO.find("localhost");
-            logger.debug("No theme domain found for default host " + getDefaultHost()+". Falling back to 'localhost'");
-          }
-        }
-
-        Theme theme = (Theme) themeDAO.find(themeDomain.getTheme());
-        if ( theme == null ) {
-          logger.error("No theme found for domain " + themeDomain);
-          theme = new Theme(x);
-        }
+        Theme theme = ((Themes) x.get("themes")).findTheme(x.put(HttpServletRequest.class, (HttpServletRequest) request));
 
         Boolean useVariants = theme.getUseVariants();
 

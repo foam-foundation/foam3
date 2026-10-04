@@ -12,15 +12,15 @@ foam.CLASS({
   documentation: 'Custom row view for PropertyOption that displays label, and property name',
 
   css: `
-    ^ {
+    << {
       border-bottom: 1px solid $borderXLight;
     }
 
-    ^:last-child {
+    <<:last-child {
       border-bottom: none;
     }
 
-    ^propertyName {
+    <<propertyName {
       font-family: monospace;
       font-size: 12px;
       color: $textSecondary;

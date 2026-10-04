@@ -528,13 +528,14 @@ foam.CLASS({
       if ( ! cssCtx || ! cssCtx.partial ) return null;
 
       // Get the full word (including text after cursor) for exact matching.
-      // Extend left one char to catch leading `$`/`^` which aren't in the
+      // Extend left to catch a leading `$`, `^` or `<<`, which aren't in the
       // CSS word-char set but are part of the token/selector semantics.
       var wordStart = cssCtx.replaceRange.start;
       var wordEnd   = cssCtx.replaceRange.end;
-      var leadChar  = wordStart > 0 ? line.charAt(wordStart - 1) : '';
-      var fullWord  = ( leadChar === '$' || leadChar === '^' ? leadChar : '' )
-                      + line.substring(wordStart, wordEnd);
+      var lead      = line.substring(wordStart - 2, wordStart) === '<<' ? '<<' :
+                      wordStart > 0 ? line.charAt(wordStart - 1) : '';
+      if ( lead !== '$' && lead !== '^' && lead !== '<<' ) lead = '';
+      var fullWord  = lead + line.substring(wordStart, wordEnd);
 
       // $tokenName — resolve via CSSTokenResolver
       if ( fullWord.charAt(0) === '$' ) {
@@ -543,16 +544,16 @@ foam.CLASS({
         if ( md ) return { contents: { kind: 'markdown', value: md } };
       }
 
-      // ^name — FOAM myClass shorthand. This is a CSS selector, NOT a
-      // reference to the class property of the same name — always takes
+      // ^name or <<name — FOAM myClass shorthand. This is a CSS selector, NOT
+      // a reference to the class property of the same name — always takes
       // precedence over property-doc lookup to prevent false hovers.
-      if ( fullWord.charAt(0) === '^' ) {
-        var suffix = fullWord.substring(1);
+      if ( lead === '^' || lead === '<<' ) {
+        var suffix = fullWord.substring(lead.length);
         var model = this.cache.getModelAt(opt_uri || '', text, position.line);
         var pkg = model && model.package ? model.package.replace(/\./g, '-') : '';
         var cls = model && model.name || '';
         var expanded = '.' + pkg + ( pkg ? '-' : '' ) + cls + ( suffix ? '-' + suffix : '' );
-        var md = '**`^' + suffix + '`** — FOAM CSS scope selector\n\n' +
+        var md = '**`' + lead + suffix + '`** — FOAM CSS scope selector\n\n' +
                  'Expands to `' + expanded + '` (scoped to this class\'s DOM).\n\n' +
                  '*Not a reference to the `' + suffix + '` property.*';
         return { contents: { kind: 'markdown', value: md } };
@@ -761,29 +762,12 @@ foam.CLASS({
        * it is was the actual question. Rendered inside a code span because
        * `<Name>` in a markdown table cell is read as an HTML tag and dropped.
        */
+      // `of`-resolution lives on FoamIndex (`ofName_`) — shared with
+      // `getPropertyDoc`'s single-property hover path (#5406 follow-up) so
+      // there is one implementation, not two that can drift apart.
       var name = p.cls_ && p.cls_.model_ ? p.cls_.model_.name : 'Property';
-      var of   = this.ofName_(p);
+      var of   = this.index.ofName_(p);
       return '`' + ( of ? name + '<' + of + '>' : name ) + '`';
-    },
-
-    function ofName_(p) {
-      /**
-       * Short name of a property's `of:` target, or '' when there is nothing
-       * worth printing.
-       *
-       * `of` arrives either as a resolved class (an object with an id) or as
-       * the raw string from the model. The raw strings are of two kinds: a
-       * class id, and a primitive — `StringArray` carries `of: 'String'` and
-       * `IntegerArray` carries `of: 'Int'`, which say nothing the type name
-       * has not already said. A dot is what separates the two (185 of the
-       * repo's `of:` strings are the primitive kind, and all of them are
-       * undotted).
-       */
-      var of = p.of;
-      if ( ! of ) return '';
-      if ( typeof of !== 'string' ) return of.id ? of.id.split('.').pop() : '';
-      if ( of.indexOf('.') === -1 ) return '';
-      return of.split('.').pop();
     },
 
     function briefDoc_(doc) {

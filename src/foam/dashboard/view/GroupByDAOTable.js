@@ -18,13 +18,13 @@
   ],
 
   css: `
-    ^no-entry {
+    <<no-entry {
       height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    ^ .table-row {
+    << .table-row {
       padding-left: 0px;
       padding-right: 0px;
     }

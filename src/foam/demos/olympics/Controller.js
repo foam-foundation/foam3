@@ -35,7 +35,7 @@ foam.CLASS({
 
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-grow: 1;
       width: 100%;

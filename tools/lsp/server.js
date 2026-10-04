@@ -52,7 +52,7 @@ function start() {
   var provider = foam.parse.lsp.HttpChatProvider.create();
   i18nHandler.provider = provider;
   var diagnosticsHandler = foam.parse.lsp.handlers.DiagnosticsHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
-  var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ fileClassifier: fileClassifier, cache: fileModelCache });
+  var symbolHandler      = foam.parse.lsp.handlers.SymbolHandler.create({ fileClassifier: fileClassifier, cache: fileModelCache, grammar: grammar });
   var memberHandler      = foam.parse.lsp.handlers.MemberCompletionHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, typeTracker: typeTracker });
 
   var semanticTokenHandler = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: fileModelCache, typeTracker: typeTracker, cssTokenResolver: cssTokenResolver });
@@ -65,11 +65,14 @@ function start() {
   });
   jrlHandler.buildJournalClassMap();
   var workspaceAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+  // Client capabilities for textDocument/diagnostic answers, set at initialize.
+  var pullDiagCaps = null;
 
   var signatureHelpHandler   = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: fileModelCache });
   var foldingRangeHandler    = foam.parse.lsp.handlers.FoldingRangeHandler.create();
   var codeActionHandler      = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler, featureConfig: featureConfig });
   var codeLensHandler        = foam.parse.lsp.handlers.CodeLensHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, i18nHandler: i18nHandler, featureConfig: featureConfig });
+  var inlayHintHandler       = foam.parse.lsp.handlers.InlayHintHandler.create({ fileClassifier: fileClassifier, index: index, cache: fileModelCache, grammar: grammar });
   var workspaceSymbolHandler = foam.parse.lsp.handlers.WorkspaceSymbolHandler.create({ index: index });
   var typeHierarchyHandler   = foam.parse.lsp.handlers.TypeHierarchyHandler.create({ index: index, cache: fileModelCache });
   var implementationHandler  = foam.parse.lsp.handlers.ImplementationHandler.create({ index: index, cache: fileModelCache });
@@ -81,6 +84,10 @@ function start() {
   // the user explicitly invoked the command, so there is nothing to suppress
   // — unlike the lenses/diagnostics, which the server offers unasked.
   var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
+  var documentColorHandler   = foam.parse.lsp.handlers.DocumentColorHandler.create({ fileClassifier: fileClassifier, index: index, cssTokenResolver: cssTokenResolver, cache: fileModelCache });
+  var documentLinkHandler    = foam.parse.lsp.handlers.DocumentLinkHandler.create({ fileClassifier: fileClassifier, index: index, jrlGrammar: jrlHandler.jrlGrammar });
+  // No featureConfig either: foam/lint only runs when a client asks for it.
+  var lintHandler            = foam.parse.lsp.handlers.LintHandler.create({ index: index, pomValidator: pomValidator });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -300,6 +307,23 @@ function start() {
         }
         return referencesHandler.referencesForClassId(classId);
       }
+      case 'typeDefinition': {
+        // Distinct from 'definition': for a property member, jump to the
+        // PROPERTY'S CLASS (e.g. foam.lang.EMail), not to where the property
+        // is declared. Mirrors TypeDefinitionHandler's cursor-position
+        // Case B (`handlers/TypeDefinitionHandler.js`). No memberName, or a
+        // memberName that isn't a Property axiom, falls back to 'definition'.
+        if ( info.memberName ) {
+          var tdCls = index.getClass(classId);
+          var tdProp = tdCls ? tdCls.getAxiomByName(info.memberName) : null;
+          if ( tdProp && foam.lang.Property.isInstance(tdProp) ) {
+            var tdPropClassId = tdProp.cls_ && tdProp.cls_.id;
+            var tdLoc = tdPropClassId ? typeDefinitionHandler.location_(tdPropClassId) : null;
+            if ( tdLoc ) return [ tdLoc ];
+          }
+        }
+        return byNameResult(info, 'definition');
+      }
       case 'implementation': {
         var targets = index.isInterface(classId) ?
           index.getImplementors(classId) : index.getSubclasses(classId);
@@ -488,9 +512,7 @@ function start() {
   }
 
   function uriToPath_(uri) {
-    if ( ! uri ) return null;
-    if ( uri.indexOf('file://') === 0 ) return decodeURIComponent(uri.substring(7));
-    return uri;
+    return require('./uri').uriToPath(uri);
   }
 
   var affectedReanalyzeTimer_ = null;
@@ -555,6 +577,8 @@ function start() {
       run: function(doc, p) { return referencesHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/codeLens':             { list: true,
       run: function(doc, p) { return codeLensHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/inlayHint':            { list: true,
+      run: function(doc, p) { return inlayHintHandler.handle(doc.text, p.range, p.textDocument.uri); } },
     'textDocument/implementation':       { list: true,
       run: function(doc, p) { return implementationHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/foldingRange':         { list: true, anyDoc: true,
@@ -574,7 +598,16 @@ function start() {
     'textDocument/typeDefinition':       {
       run: function(doc, p) { return typeDefinitionHandler.handle(doc.text, p.position, p.textDocument.uri); } },
     'textDocument/prepareCallHierarchy': {
-      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } }
+      run: function(doc, p) { return callHierarchyHandler.prepare(doc.text, p.position, p.textDocument.uri); } },
+    'textDocument/documentColor':        { list: true,
+      run: function(doc, p) { return documentColorHandler.handle(doc.text, p.textDocument.uri); } },
+    'textDocument/colorPresentation':    { list: true,
+      run: function(doc, p) { return documentColorHandler.presentations(doc.text, p); } },
+    // anyDoc because links are offered in journals too, and the class-file
+    // guard would refuse every .jrl. The handler classifies the document
+    // itself and answers [] for anything that is neither.
+    'textDocument/documentLink':         { list: true, anyDoc: true,
+      run: function(doc, p) { return documentLinkHandler.handle(doc.text, p.textDocument.uri); } }
   };
 
   function answerDocRequest_(method, route, params, id) {
@@ -654,8 +687,40 @@ function start() {
         });
         featureConfig.warnings.forEach(function(w) { console.error('[LSP] config: ' + w); });
         diagnosticsHandler.featureConfig = featureConfig;
+        // Diagnostic tags (faded unused code, struck-through deprecated
+        // references) and relatedInformation (a second location) are
+        // optional in the protocol. A client that did not declare them in
+        // textDocument.publishDiagnostics may show them as noise or reject
+        // the notification, so both handlers that produce diagnostics —
+        // the per-document one and the workspace scan's own — learn what
+        // the client declared and send only that.
+        var clientTD    = params && params.capabilities && params.capabilities.textDocument;
+        var pubDiagCaps = ( clientTD && clientTD.publishDiagnostics ) || null;
+        diagnosticsHandler.clientDiagnosticCaps = pubDiagCaps;
+        workspaceAnalyzer.diagnosticsHandler.clientDiagnosticCaps = pubDiagCaps;
+        // The pull lane (textDocument/diagnostic) has its own capability
+        // block, and LSP 3.18 lets a client declare relatedInformation /
+        // tagSupport there. A client may pull with a different consumer than
+        // it pushes to, e.g. push says tagSupport [1, 2] and pull says [2].
+        // Each field declared on the pull block wins; an undeclared one
+        // falls back to what publishDiagnostics said.
+        var pullDecl = ( clientTD && clientTD.diagnostic ) || {};
+        pullDiagCaps = {
+          relatedInformation: pullDecl.relatedInformation !== undefined ?
+            pullDecl.relatedInformation : ( pubDiagCaps && pubDiagCaps.relatedInformation ),
+          tagSupport: pullDecl.tagSupport || ( pubDiagCaps && pubDiagCaps.tagSupport )
+        };
         codeActionHandler.featureConfig  = featureConfig;
         codeLensHandler.featureConfig    = featureConfig;
+        memberHandler.featureConfig      = featureConfig;
+        // What the client can render on a completion item (labelDetails).
+        // Both completion handlers shape their items for it, so an older
+        // client keeps getting exactly the fields it got before.
+        var completionItemSupport = params && params.capabilities &&
+          params.capabilities.textDocument && params.capabilities.textDocument.completion &&
+          params.capabilities.textDocument.completion.completionItem || null;
+        completionHandler.completionItemSupport = completionItemSupport;
+        memberHandler.completionItemSupport     = completionItemSupport;
         // Not a feature toggle: the scaffold command WRITES, and its dir
         // argument comes from whoever invoked it (an editor prompt, an agent
         // over MCP). wsRoot is the boundary it refuses to scaffold outside of.
@@ -761,6 +826,11 @@ function start() {
           caps.signatureHelpProvider = { triggerCharacters: ['(', ','] };
         }
         if ( featureConfig.enabled('folding') ) caps.foldingRangeProvider = true;
+        if ( featureConfig.enabled('inlayHints') ) caps.inlayHintProvider = true;
+        if ( featureConfig.enabled('documentColor') ) caps.colorProvider = true;
+        if ( featureConfig.enabled('documentLink') ) {
+          caps.documentLinkProvider = { resolveProvider: false };
+        }
         if ( featureConfig.enabled('semanticTokens') ) {
           caps.semanticTokensProvider = {
             legend: {
@@ -999,6 +1069,17 @@ function start() {
         }
         break;
 
+      case 'foam/lint':
+        // Custom request: registration-completeness findings. Params:
+        // { scope?: 'all'|'paths', paths?, checks?, strategyTargets? }.
+        try {
+          respond(id, lintHandler.lint(params));
+        } catch (e) {
+          console.error('[LSP] foam/lint error:', e.message);
+          respondError(id, -32603, e.message);
+        }
+        break;
+
       case 'foam/analyzeWorkspace':
         // Non-blocking: analyzeAsync yields between chunks so hover/completion/
         // diagnostics keep responding while the workspace scan runs.
@@ -1032,8 +1113,8 @@ function start() {
 
       case 'foam/byName':
         // Custom request: name-addressed navigation by class id. params:
-        // { name, op } where op ∈ definition|hover|references|implementation|
-        // typeHierarchy|callHierarchy. Returns the same shapes as the
+        // { name, op } where op ∈ definition|typeDefinition|hover|references|
+        // implementation|typeHierarchy|callHierarchy. Returns the same shapes as the
         // cursor-driven LSP methods so MCP reuses its shapers. null if the
         // name can't be resolved.
         try {
@@ -1276,7 +1357,7 @@ function start() {
           } else if ( dKind === 'class' || dKind === 'pom' ) {
             // 'pom' included: the pull path used to share the push lanes'
             // unreachable-pom bug (isFoamFile excludes POM by design).
-            items = diagnosticsHandler.handle(dText, dUri);
+            items = diagnosticsHandler.handle(dText, dUri, pullDiagCaps);
           } else {
             items = [];
           }

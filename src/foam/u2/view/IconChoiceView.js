@@ -14,15 +14,15 @@ foam.CLASS({
   `,
 
   css: `
-    ^item {
+    <<item {
       display: flex;
     }
 
-    ^ input[type="radio"] {
+    << input[type="radio"] {
       display: none;
     }
 
-    ^ {
+    << {
       display: flex;
       background-color: $backgroundBrandTertiary;
       border-radius: 4px;
@@ -33,7 +33,7 @@ foam.CLASS({
       white-space: nowrap;
     }
 
-    ^label {
+    <<label {
       cursor: pointer;
       line-height: 48px;
       align-items: center;
@@ -46,28 +46,28 @@ foam.CLASS({
       padding: 7px 12px;
     }
 
-    ^label svg path {
+    <<label svg path {
       fill: currentColor;
     }
 
-    ^label:hover {
+    <<label:hover {
       background: $backgroundBrand;
       color: $textOnBrand;
       cursor: pointer;
     }
 
-    ^label:hover svg path{
+    <<label:hover svg path{
       fill: currentColor;
     }
 
-    ^label^disabled-icon {
+    <<label<<disabled-icon {
       background: $backgroundBrand;
       color: $textOnBrand;
       fill: currentColor;
       font-weight: $font-medium;
     }
 
-    ^label^disabled-icon svg path {
+    <<label<<disabled-icon svg path {
       fill: currentColor;
     }
   `,

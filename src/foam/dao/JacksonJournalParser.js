@@ -72,7 +72,7 @@ foam.CLASS({
     /** Thread-local reason for the last null from mapToFObject; surfaced through lastError. */
     private static final ThreadLocal<String> WHY = new ThreadLocal<>();
 
-    public static FObject mapToFObject(Map<String, Object> map, ClassInfo defaultCI) {
+    public FObject mapToFObject(Map<String, Object> map, ClassInfo defaultCI) {
       try {
         // Resolve class — check for explicit "class" key first
         ClassInfo ci = defaultCI;

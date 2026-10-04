@@ -376,7 +376,6 @@ foam.CLASS({
         parser.setX(x.put(foam.util.StringInterner.CTX_KEY, interner_));
         Class cls = ci.getObjClass();
         MDAO mdao = new MDAO(ci);
-        mdao.setSafeMode(false);
 
         long readNanos = 0, parseNanos = 0, putNanos = 0;
         int count = 0, comments = 0;
@@ -466,7 +465,6 @@ foam.CLASS({
         jacksonParser.setTargetClassInfo(ci);
         jacksonParser.setInterner(interner_);
         MDAO mdao = new MDAO(ci);
-        mdao.setSafeMode(false);
 
         long readNanos = 0, parseNanos = 0, putNanos = 0;
         int count = 0, comments = 0;
@@ -558,7 +556,6 @@ foam.CLASS({
         sampler_.start();
         final Class cls = ci.getObjClass();
         final MDAO mdao = new MDAO(ci);
-        mdao.setSafeMode(false);
         final AssemblyLine line = new SimpleAsyncAssemblyLine(x, "bench");
 
         // Per-thread parser because JSONParser isn't thread-safe.
@@ -669,7 +666,6 @@ foam.CLASS({
         HeapSampler sampler_ = new HeapSampler();
         sampler_.start();
         final MDAO mdao = new MDAO(ci);
-        mdao.setSafeMode(false);
         final AssemblyLine line = new SimpleAsyncAssemblyLine(x, "bench-jackson");
 
         final ThreadLocal<JacksonJournalParser> tlParser = ThreadLocal.withInitial(() -> {
@@ -779,7 +775,6 @@ foam.CLASS({
         sampler_.start();
         foam.lang.X fsX = x.put(FileSystemStorage.class, storage_).put(Storage.class, storage_);
         MDAO mdao = new MDAO(ci);
-        mdao.setSafeMode(false);
         F3FileJournal journal = new F3FileJournal.Builder(fsX)
           .setFilename(jrlName_)
           .build();

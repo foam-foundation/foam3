@@ -80,6 +80,7 @@ foam.POM({
     { name: "sink/TopNGroupBy",                     flags: "js|java" },
     { name: "sink/LabeledSink",                     flags: "js|java" },
     { name: "sink/FilteredSink",                    flags: "js|java" },
+    { name: "sink/CalculationSink",                 flags: "js|java" },
     { name: "sink/Max",                             flags: "js|java" },
     { name: "sink/Min",                             flags: "js|java" },
     { name: "sink/Sum",                             flags: "js|java" },
@@ -141,6 +142,9 @@ foam.POM({
     { name: "predicate/CapabilityAuthServicePredicate", flags: "js|java" },
     { name: "predicate/AuthPermissionPredicate",    flags: "js|java" },
     { name: "LabeledValue",                         flags: "js" }
+  ],
+  projects: [
+    { name: "sink/test/pom",                        flags: "test" }
   ],
   journalFiles: [
     { name: "tests",                                flags: "test" }

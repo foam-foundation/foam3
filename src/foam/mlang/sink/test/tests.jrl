@@ -1,0 +1,2 @@
+p({"class":"foam.mlang.sink.test.CalculationSinkTest","id":"CalculationSinkTest", language: 0})
+p({"class":"foam.mlang.sink.test.CalculationSinkJavaTest","id":"CalculationSinkJavaTest"})

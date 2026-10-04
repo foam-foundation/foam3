@@ -13,6 +13,16 @@ foam.CLASS({
 
   ids: [ 'daoKey', 'spid' ],
 
+  messages: [
+    {
+      name: 'LTE_ZERO_QUOTA_MSG',
+      messageMap: {
+        en: "The quota must be at least 1",
+        fr: "Le quota doit être d'au moins 1"
+      }
+    }
+  ],
+
   properties: [
     {
       class: 'String',
@@ -33,14 +43,27 @@ foam.CLASS({
       label: 'DAO',
       required: true,
       documentation: 'Name of the DAO this License applies to',
-      view: function(_, X) {
+      view: function(_, X) { // Need acces to service.read.ruleDAO for this to populate
         var E = foam.mlang.Expressions.create();
+
+        var promise = X.ruleDAO.select().then(function(sink) {
+          // Keep only rules whose action is a LicenseRuleAction, and collect their daoKeys
+          var daoKeys = sink.array
+            .filter(function(rule) {
+              return foam.core.license.LicenseRuleAction.isInstance(rule.action);
+            })
+            .map(function(rule) { return rule.daoKey; });
+
+          return X.cSpecDAO.where(E.IN(foam.core.boot.CSpec.ID, daoKeys));
+        });
+
         return {
           class: 'foam.u2.view.RichChoiceView',
           search: true,
           sections: [
             {
-              dao: X.cSpecDAO.where(E.ENDS_WITH(foam.core.boot.CSpec.ID, 'DAO'))
+              heading: 'Licensable DAOs',
+              dao: foam.dao.PromisedDAO.create({ promise: promise }, X)
             }
           ]
         };
@@ -52,6 +75,9 @@ foam.CLASS({
       name: 'quota',
       required: true,
       documentation: 'Maximum number of "things" that can be active at a time',
+      validateObj: function(quota) {
+        if ( quota <= 0 ) return this.LTE_ZERO_QUOTA_MSG;
+      }
     },
     {
       class: 'Boolean',

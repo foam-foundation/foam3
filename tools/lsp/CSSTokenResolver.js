@@ -410,19 +410,31 @@ foam.CLASS({
       return s;
     },
 
-    function resolveTokenValue(tokenName) {
+    function resolveTokenValue(tokenName, opt_classId) {
       /**
        * Resolve a token to its final CSS value using foam.CSS.returnTokenValue.
        * Passes the token's source class (e.g., Button for tabActiveColor) so
        * findTokenAxiom looks at the right place. Falls back to internal
        * resolution if foam.CSS is unavailable or the call doesn't reduce.
+       *
+       * Two classes can declare the same token name with different values:
+       * foam.u2.Tabs and foam.u2.SegmentedTabs both declare tabActiveColor
+       * (#011B4E and #000000). The map keeps one source per name, so a css:
+       * block in SegmentedTabs resolved to the Tabs value. Pass opt_classId,
+       * the class whose css: block uses the token, to resolve the way the
+       * page does; an unknown class falls back to the stored source.
        * @param tokenName Token name without $ prefix.
+       * @param opt_classId Id of the class whose css: block uses the token.
        * @returns Resolved CSS value string or null if token unknown.
        */
       var entry = this.tokenMap_[tokenName];
       if ( ! entry ) return null;
 
-      var ret = this.resolveTokenViaCss_(tokenName, entry, foam.__context__);
+      var ret = opt_classId && foam.maybeLookup(opt_classId) ?
+        this.resolveTokenViaCss_(tokenName, { source: opt_classId }, foam.__context__) : null;
+      if ( ret ) return ret;
+
+      ret = this.resolveTokenViaCss_(tokenName, entry, foam.__context__);
       if ( ret ) return ret;
 
       // Fallback to internal resolution

@@ -30,7 +30,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^container-property {
+    <<container-property {
       display: flex;
       box-sizing: border-box;
       height: 32px;
@@ -42,20 +42,20 @@ foam.CLASS({
       align-items: center;
     }
 
-    ^container-property:hover {
+    <<container-property:hover {
       cursor: pointer;
     }
 
-    ^container-property-filtering {
+    <<container-property-filtering {
       background-color: $backgroundBrandTertiary;
       border: 1px solid $borderBrand;
     }
 
-    ^container-property-filtering  ^label-property {
+    <<container-property-filtering  <<label-property {
       color: $textBrand;
     }
 
-    ^label-property {
+    <<label-property {
       display: inline-block; 
       margin: 0;
       color: $textTertiary;
@@ -65,14 +65,14 @@ foam.CLASS({
       text-overflow: ellipsis;
     }
 
-    ^container-filter {
+    <<container-filter {
       min-width: 216px;
       border-radius: 4px;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
       border: solid 1px $borderLight;
       background-color: $backgroundDefault;
     }
-    ^container-filter-header {
+    <<container-filter-header {
       display: flex;
       justify-content: flex-end;
       align-items: center;

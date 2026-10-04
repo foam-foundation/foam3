@@ -26,8 +26,8 @@ foam.CLASS({
   ],
 
   methods: [
-    async function aInit() {
-      await this.daoNameParser.aInit();
+    function aInit() {
+      return this.daoNameParser.aInit();
     },
 
     function grammar(seq1, sym) {

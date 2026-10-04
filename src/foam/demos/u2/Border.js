@@ -18,7 +18,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ { xxxposition: absolute; }
+    << { xxxposition: absolute; }
   `,
 
   properties: [
@@ -39,12 +39,12 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: block;
       width: 98%;
     }
-    ^tabRow { height: 40px; }
-    ^tab {
+    <<tabRow { height: 40px; }
+    <<tab {
       background: $backgroundTertiary;
       border: 1px solid $borderStrong;
       border-radius: 3px 3px 0 0;
@@ -52,13 +52,13 @@ foam.CLASS({
       height: 14px;
       padding: 8px;
     }
-    ^tab.selected {
+    <<tab.selected {
       background:$backgroundDefault;
       border-bottom: 1px solid $backgroundDefault;
       position: relative;
       z-index: 1;
     }
-    ^bottomEdge {
+    <<bottomEdge {
       background:$backgroundDefault;
       height: 2.5px;
       left: 0;
@@ -66,7 +66,7 @@ foam.CLASS({
       top: 27px;
       width: 100%;
     }
-    ^content {
+    <<content {
       background:$backgroundDefault;
       border: 1px solid $borderStrong;
       left: -4px;
@@ -149,7 +149,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       background:$backgroundDefault;
       border-radius: 3px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
@@ -157,7 +157,7 @@ foam.CLASS({
       transform-origin: top left;
       display: inline-block;
     }
-    ^content { padding: 6px; width: 300px; height: 200px; background:$backgroundDefault; }
+    <<content { padding: 6px; width: 300px; height: 200px; background:$backgroundDefault; }
   `,
 
   methods: [
@@ -179,10 +179,10 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ { background: gray; padding: 10px; display: inline-block; }
-    ^title { padding: 6px; align-content: center; background: aliceblue; }
-    ^footer { padding: 6px; align-content: left; background:$backgroundDefault; }
-    ^content { padding: 6px; width: 300px; height: 200px; background:$backgroundDefault; }
+    << { background: gray; padding: 10px; display: inline-block; }
+    <<title { padding: 6px; align-content: center; background: aliceblue; }
+    <<footer { padding: 6px; align-content: left; background:$backgroundDefault; }
+    <<content { padding: 6px; width: 300px; height: 200px; background:$backgroundDefault; }
   `,
 
   properties: [
@@ -216,11 +216,11 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: block;
       padding: 10px 4px;
     }
-    ^title {
+    <<title {
       background:$backgroundDefault;
       color: #666;
       display: inline;
@@ -229,7 +229,7 @@ foam.CLASS({
       position: relative;
       top: -20px;
     }
-    ^content {
+    <<content {
       // height: 200px;
       position: relative;
       // top: -22px;
@@ -258,11 +258,11 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: inline-block;
       padding: 10px;
     }
-    ^title {
+    <<title {
       background:$backgroundDefault;
       color: #666;
       display: inline;
@@ -270,7 +270,7 @@ foam.CLASS({
       vertical-align: top;
       width: 33%;
     }
-    ^content {
+    <<content {
       background:$backgroundDefault;
       display: inline-block;
       height: 200px;
@@ -301,18 +301,18 @@ foam.CLASS({
   requires: [ 'foam.u2.ActionView' ],
 
   css: `
-    ^ {
+    << {
       width: 98%;
       border-top: 1px solid #999;
       display: inline-block;
       padding: 10px 4px;
     }
-    ^.expanded {
+    <<.expanded {
       border: 1px solid #999;
      // padding-left: 8px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
     }
-    ^control {
+    <<control {
       background:$backgroundDefault;
       display: inline;
       float: right;
@@ -321,7 +321,7 @@ foam.CLASS({
       top: -10px;
       width: 30px;
     }
-    ^toolbar {
+    <<toolbar {
       color: #666;
       display: inline-block;
       padding: 3px;
@@ -330,14 +330,14 @@ foam.CLASS({
       top: -20px;
       width: 100%;
     }
-    ^title {
+    <<title {
       background:$backgroundDefault;
       left: 6px;
       padding: 3px;
       position: relative;
       top: -3px;
     }
-    ^content {
+    <<content {
       background:$backgroundDefault;
       display: initial;
      //  height: 200px;
@@ -345,7 +345,7 @@ foam.CLASS({
       top: -22px;
       width: 300px;
     }
-    ^ .foam-u2-ActionView-toggle {
+    << .foam-u2-ActionView-toggle {
       transform: rotate(-90deg);
       transition: transform 0.3s;
       background: transparent;
@@ -355,11 +355,11 @@ foam.CLASS({
       width: 30px;
       height: 30px;
     }
-    ^.expanded .foam-u2-ActionView-toggle {
+    <<.expanded .foam-u2-ActionView-toggle {
       transform: rotate(0deg);
       transition: transform 0.3s;
     }
-    ^ .foam-u2-ActionView-toggle:hover {
+    << .foam-u2-ActionView-toggle:hover {
       background: transparent;
     }
   `,
@@ -410,14 +410,14 @@ foam.CLASS({
   requires: [ 'foam.u2.ActionView' ],
 
   css: `
-    ^ {
+    << {
       border: 1px solid #999;
       padding-left: 8px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.38);
     }
-    ^.expanded {
+    <<.expanded {
     }
-    ^control {
+    <<control {
       background:$backgroundDefault;
       display: inline;
       float: right;
@@ -426,7 +426,7 @@ foam.CLASS({
       top: -10px;
       width: 30px;
     }
-    ^toolbar {
+    <<toolbar {
       color: #666;
       display: inline-block;
       padding: 3px;
@@ -435,18 +435,18 @@ foam.CLASS({
       top: 10px;
       width: 100%;
     }
-    ^title {
+    <<title {
       background: $backgroundDefault;
       padding: 3px;
       position: relative;
       top: -2px;
     }
-    ^content {
+    <<content {
       background: $backgroundDefault;
       height: 200px;
       width: 300px;
     }
-    ^ .foam-u2-ActionView-toggle {
+    << .foam-u2-ActionView-toggle {
       transform: rotate(-90deg);
       transition: transform 0.3s;
       background: transparent;
@@ -456,11 +456,11 @@ foam.CLASS({
       width: 30px;
       height: 30px;
     }
-    ^.expanded .foam-u2-ActionView-toggle {
+    <<.expanded .foam-u2-ActionView-toggle {
       transform: rotate(0deg);
       transition: transform 0.3s;
     }
-    ^ .foam-u2-ActionView-toggle:hover {
+    << .foam-u2-ActionView-toggle:hover {
       background: transparent;
     }
   `,
@@ -509,8 +509,8 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ { background: gray; padding: 10px; display: inline-flex; }
-    ^content { margin: 4px; padding: 6px; width: 300px; height: 200px; background: $backgroundDefault; }
+    << { background: gray; padding: 10px; display: inline-flex; }
+    <<content { margin: 4px; padding: 6px; width: 300px; height: 200px; background: $backgroundDefault; }
   `,
 
   properties: [
@@ -560,7 +560,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
   `,
@@ -577,7 +577,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: inline-block;
       padding-right: 8px;
       // padding: 4px;
@@ -601,7 +601,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
   `,

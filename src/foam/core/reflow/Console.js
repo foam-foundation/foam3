@@ -36,41 +36,41 @@ foam.CLASS({
   ],
 
   css: `
-    ^navigator {
+    <<navigator {
       display: flex;
       align-items: center;
       color: $textSecondary;
       gap: 4px;
     }
-    ^header-container {
+    <<header-container {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    ^chevron {
+    <<chevron {
       color: $textSecondary;
     }
-    ^title input {
+    <<title input {
       border: none;
       color: $textDefault;
     }
-    ^title .foam-u2-TextInputCSS::placeholder {
+    <<title .foam-u2-TextInputCSS::placeholder {
       color: $textDefault;
       opacity: 1;
     }
-    ^header-actions {
+    <<header-actions {
       display: flex;
       gap: 5px;
       align-items: center;
     }
-    ^save-text {
+    <<save-text {
       color: $textSecondary;
     }
-    ^ .foam-u2-view-OverlayActionListView {
+    << .foam-u2-view-OverlayActionListView {
       color: $textDefault;
     }
 
-    ^separator {
+    <<separator {
       display: inline-block;
       width: 1px;
       height: 30px;
@@ -78,9 +78,9 @@ foam.CLASS({
       margin: 0 8px;
     }
 
-    ^name { width: 230px; }
+    <<name { width: 230px; }
 
-    ^name::placeholder {
+    <<name::placeholder {
       font-style: italic;
     }
   `,
@@ -360,13 +360,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
     }
-    ^title {
+    <<title {
       font-weight: $font-medium;
       color: $textDefault;
     }
@@ -420,13 +420,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: -webkit-fill-available;
     }
-    ^flex-container {
+    <<flex-container {
       display: flex;
       flex-direction: row;
       overflow: auto;
@@ -434,14 +434,14 @@ foam.CLASS({
       height: auto;
       min-height: 0;
     }
-    ^header {
+    <<header {
       padding: 5px 24px;
       height: fit-content;
       max-height: 64px;
       background-color: $backgroundDefault;
       border-bottom: 1px solid $borderLight;
     }
-    ^l {
+    <<l {
       padding: 4px;
       background-color: $backgroundDefault;
       width: 15%;
@@ -449,68 +449,68 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
       padding: 16px 16px 0 16px;
     }
-    ^middle-holder {
+    <<middle-holder {
       padding: 0;
       width: 100%;
       background-color: $backgroundTertiary;
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^m {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<m {
       border: 2px dashed $borderLight;
     }
-    ^m {
+    <<m {
       overflow-x: auto;
       background-color: $backgroundDefault;
     }
-    ^r {
+    <<r {
       overflow-y: auto;
       width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^r .foam-u2-ActionView { min-width: 40px; }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
+    <<r .foam-u2-ActionView { min-width: 40px; }
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
       height: 100%;
       z-index: 10;
     }
-    ^resize-handle:hover, ^resize-handle:active {
+    <<resize-handle:hover, <<resize-handle:active {
       background: $backgroundBrandSecondary;
     }
 
-    ^r .foam-core-reflow-SinkView, ^r .foam-u2-view-IntView {
+    <<r .foam-core-reflow-SinkView, <<r .foam-u2-view-IntView {
       width: 100%;
     }
 
-    ^ .foam-u2-RangeView-skip {
+    << .foam-u2-RangeView-skip {
       width: 100%;
     }
 
-    ^menuClosed {
+    <<menuClosed {
      width: 60px!important;
      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
     }
 
-    ^r .foam-u2-PropertyBorder-select {
+    <<r .foam-u2-PropertyBorder-select {
       padding: 5px;
       background-color: $backgroundTertiary;
       border-radius: 4px;
       gap: 10px;
     }
-    ^r .foam-u2-PropertyBorder-view {
+    <<r .foam-u2-PropertyBorder-view {
       width: 100%;
     }
-    ^r .foam-core-reflow-PropertyListView {
+    <<r .foam-core-reflow-PropertyListView {
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+      <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
         padding: 24px 24px 0 24px;
       }
     }
@@ -818,10 +818,13 @@ foam.CLASS({
     this.add(self.Console.create({route: 'name of flow to load', flowMode: foam.core.reflow.FlowMode.PRESENTATION_ONLY});
   `,
 
+  implements: [ 'foam.core.reflow.TreeCellFormatter' ],
+
   requires: [
     'foam.core.ai.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
+    'foam.core.reflow.DependencyScanner',
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowMode',
     'foam.core.reflow.Flowable',
@@ -834,7 +837,7 @@ foam.CLASS({
     'foam.core.reflow.ReflowToolBar',
     'foam.core.reflow.ToolbarControl',
     'foam.dao.ArrayDAO',
-    'foam.flow.Document',
+    'foam.log.LogLevel',
     'foam.u2.Link',
     'foam.u2.dialog.ConfirmationModal'
   ],
@@ -842,6 +845,7 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'notify',
     'params',
     'setTimeout',
     'toolbarControlDAO',
@@ -877,6 +881,7 @@ foam.CLASS({
     'moveFlowChildAfter',
     'out',
     'perfCapture_',
+    'refreshFlowScope',
     'save',
     'scope',
     'scrollToBottom',
@@ -888,7 +893,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -897,7 +902,7 @@ foam.CLASS({
       align-items: center;
       justify-content: center;
     }
-    ^output {
+    <<output {
       flex: 1;
       overflow: auto;
       text-align: left;
@@ -905,7 +910,7 @@ foam.CLASS({
       position: relative;
       overflow-anchor: none;
     }
-    ^loading-indicator {
+    <<loading-indicator {
       position: absolute;
       top: 200px;
       left: 50%;
@@ -918,34 +923,40 @@ foam.CLASS({
       background: $backgroundDefault;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: $z-modal;
       width: 400px;
       max-width: 90%;
       justify-content: center;
     }
-    ^loading-header {
+    <<loading-header {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
-    ^loading-indicator .foam-u2-ProgressView {
+    <<loading-indicator .foam-u2-ProgressView {
       width: 100%;
     }
-    ^loading-text {
+    <<loading-text {
       color: $textDefault;
       font-size: 16px;
       font-weight: $font-medium;
       text-align: center;
     }
-    ^loading-progress {
+    <<loading-progress {
       color: $textSecondary;
       font-size: 14px;
       text-align: center;
     }
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
       color: $orange500 !important;
+    }
+    <<element-row-icon , <<element-row-icon svg {
+      color: $textBrand;
+      fill: currentColor;
+      width: 24px;
+      height: 24px;
     }
   `,
 
@@ -1128,7 +1139,14 @@ foam.CLASS({
         return value$label || 'Flow';
       }
     },
-    'flowErrors_'
+    'flowErrors_',
+    {
+      class: 'Boolean',
+      name: 'renaming_',
+      transient: true,
+      hidden: true,
+      documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    }
   ],
 
   methods: [
@@ -1798,39 +1816,32 @@ foam.CLASS({
       }
     },
 
-    function updateDependencies() {
-      let fc = this.flowChildren;
+    function updateDependencies(blocks) {
+      /** blocks: the parsed script JSON. The scanner's edges run from a referenced
+          block to the block referencing it, so a block's `dependencies` holds its
+          dependents -- Flowable.treeRowRenderer reads them as "Dependents:".
 
-      function hasReactionDependency(c1, c2) {
-        if ( c2.value ) {
-          for ( let r in c2.value.reactions_ ) {
-            let str = Function.prototype.toString.call(c2.value.reactions_[r]);
-            if ( str.indexOf(c1.flowName) != -1 )
-              return true;
-          }
-        }
-        return false;
-      }
+          flowChildren is flattened in the same document order the scanner walks
+          the JSON, so the two sides line up by flowName. */
+      var graph = this.DependencyScanner.create({ ignore: Object.keys(this.localScope) }).scan(blocks);
 
-      for ( let i = 0 ; i < fc.length ; i++ ) {
-        let c  = fc[i];
-        let ds = [];
+      var idToName = {};
+      graph.nodes.forEach(n => { idToName[n.id] = n.name; });
 
-        for ( let j = i+1 ; j < fc.length ; j++ ) {
-          let c2 = fc[j];
+      var dependents = {};
+      graph.edges.forEach(e => {
+        var source = idToName[e.source];
+        ( dependents[source] || ( dependents[source] = [] ) ).push(idToName[e.target]);
+      });
 
-          if ( c2.cmd.indexOf(c.flowName) != -1 || hasReactionDependency(c, c2) ) {
-            ds.push(c2.flowName);
-          }
-        }
+      var flat    = [];
+      var flatten = fs => fs.forEach(f => { flat.push(f); flatten(f.flowChildren); });
+      flatten(this.flowChildren);
 
-        c.dependencies = ds;
-      }
+      flat.forEach(f => { f.dependencies = [...new Set(dependents[f.flowName] || [])]; });
     },
 
     function generateScriptString() {
-      this.updateDependencies();
-
       var json = foam.json.Outputter.create({
         pretty: true,
         strict: true,
@@ -1840,7 +1851,15 @@ foam.CLASS({
         propertyPredicate: function(_, p) { return p.name === 'reactions_' || ( ! p.externalTransient && ! p.networkTransient ); }
       });
 
-      return json.stringify(this.flowChildren);
+      var script = json.stringify(this.flowChildren);
+
+      try {
+        this.updateDependencies(JSON.parse(script));
+      } catch (e) {
+        console.warn('Dependency scan skipped, script is not strict JSON', e);
+      }
+
+      return script;
     },
 
     function generateScript() {
@@ -1856,6 +1875,102 @@ foam.CLASS({
       } finally {
         this.feedback_ = prev;
       }
+    },
+
+    function deleteFlowChild(block) {
+      /** A block's `dependencies` names the blocks that read it. Walk them
+          breadth-first to the whole group that breaks with it, and offer to
+          remove the group in one step. Each block goes out through its parent;
+          the merged onFlowChildrenChange then writes the script once, so undo
+          brings the whole group back together. */
+      var doomed = [ block ];
+      var via    = {};
+      for ( var i = 0 ; i < doomed.length ; i++ ) {
+        doomed[i].dependencies.forEach(name => {
+          var d = this.findFlowChildByName(name);
+          if ( d && doomed.indexOf(d) == -1 ) { via[name] = doomed[i].flowName; doomed.push(d); }
+        });
+      }
+
+      var remove = () => doomed.forEach(b => {
+        b.deleted_ = true;
+        b.flowParent.removeFlowChild(b);
+      });
+
+      if ( doomed.length == 1 ) { remove(); return; }
+
+      var others = doomed.slice(1);
+      var modal  = this.ConfirmationModal.create({
+        title: 'Deleting "' + block.flowName + '"',
+        modalStyle: 'DESTRUCTIVE',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'deleteAll',
+          label: 'Delete all ' + doomed.length,
+          code: remove
+        })
+      });
+
+      modal.add(others.length + ( others.length == 1 ? ' other block depends' : ' other blocks depend' ) +
+        ' on it: ' +
+        others.map(b => b.flowName + ( via[b.flowName] === block.flowName ? '' : ' (via ' + via[b.flowName] + ')' )).join(', ') +
+        '. Remove ' + ( others.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
+    },
+
+    function renameBack_(block, name) {
+      /** Put a name back without the write re-entering onBlockRenamed. */
+      this.renaming_ = true;
+      try { block.flowName = name; } finally { this.renaming_ = false; }
+    },
+
+    function onBlockRenamed(block, oldName, newName) {
+      /** A rename changes the block's own name and nothing else -- every reference to
+          it elsewhere still spells the old one, so the flow breaks on the next load.
+          Name the blocks that reference it, and offer to rewrite them with it. */
+      if ( this.isLoading_ || this.renaming_ || ! oldName || ! newName || oldName === newName ) return;
+
+      var live = this.flattenFlow();
+
+      // Two blocks of one name collapse in the flow scope, which binds the last of
+      // them and leaves the other unreachable. Bounce the rename instead of landing it.
+      if ( live.filter(f => f.flowName === newName).length > 1 ) {
+        this.notify('"' + newName + '" is already used by another block.', '', this.LogLevel.ERROR, true);
+        this.renameBack_(block, oldName);
+        return;
+      }
+
+      // `dependencies` was last refreshed while the block still carried its old
+      // name, so it still lists the blocks that spell it.
+      var dependents = block.dependencies;
+      if ( ! dependents.length ) return;
+
+      // Put the old name back while the question is open: a confirmed rename then
+      // lands as one script write, name and references together, so undo takes it
+      // back in one step, and Cancel has nothing left to undo.
+      this.renameBack_(block, oldName);
+
+      var self  = this;
+      var modal = this.ConfirmationModal.create({
+        title: 'Renaming "' + oldName + '" to "' + newName + '"',
+        modalStyle: 'WARN',
+        maxWidth: '35vw',
+        closeable: false,
+        primaryAction: foam.lang.Action.create({
+          name: 'renameAndUpdate',
+          label: 'Rename and Update References',
+          code: function() {
+            var blocks = JSON.parse(self.generateScriptString());
+            self.DependencyScanner.create({ ignore: Object.keys(self.localScope) }).rewrite(blocks, { [oldName]: newName });
+            self.value.script = JSON.stringify(blocks);
+          }
+        })
+      });
+
+      modal.add(dependents.length + ( dependents.length == 1 ? ' other block refers' : ' other blocks refer' ) +
+        ' to this name: ' + dependents.join(', ') + '. Update ' + ( dependents.length == 1 ? 'it' : 'them' ) + ' too?');
+      this.add(modal);
     },
 
     async function checkForAutosavedScript(scriptName) {
@@ -1928,6 +2043,16 @@ foam.CLASS({
         modal.add('There are unsaved changes. Do you want to load them?');
         self.add(modal);
       });
+    },
+
+    function treeCellFormatter(e) {
+      // Add icon for the flow "block"
+      e.add(this.slot(function() {
+        return this.E().start(foam.u2.tag.Image, {
+          glyph: 'flow',
+          embedSVG: true
+        }).addClass(this.myClass('element-row-icon')).end();
+      }));
     }
   ],
 

@@ -1,3 +1,5 @@
+<flow name="Actions" category="DOC/GUIDE" spid="foam" description="Covers Actions as methods with GUI metadata (label, availability, enablement, icon, confirmation, shortcut) rendered as buttons." keywords="actions,gui,buttons,availability,enablement,knowledge"/>
+
 # Actions
 
 ## What Is an Action?

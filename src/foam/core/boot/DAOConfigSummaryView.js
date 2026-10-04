@@ -89,7 +89,7 @@ foam.CLASS({
       requires: [ 'foam.u2.stack.BreadcrumbView' ],
 
       css: `
-        ^nav {
+        <<nav {
           margin-top: 32px;
           margin-left: 32px;
           margin-bottom: 16px;
@@ -121,34 +121,34 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 6px;
     }
-    ^dao, ^header {
+    <<dao, <<header {
       display: inline-block;
       font-size: smaller;
       margin: 2px;
       padding: 2px;
       width: 220px;
     }
-    ^dao {
+    <<dao {
       color: $textTertiary;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    ^dao:hover {
+    <<dao:hover {
       background: $backgroundTertiary;
     }
-    ^section {
+    <<section {
       display: inline-grid;
       vertical-align: baseline;
     }
-    ^header {
+    <<header {
       background: $backgroundInverse;
       color:$textOnInverse;
       font-weight: $font-bold;
     }
-    ^footer {
+    <<footer {
       color: $textTertiary;
       padding-top: 12px;
     }

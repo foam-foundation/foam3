@@ -2,6 +2,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "version",
   "lazy": false,
+  "lazyOrder": -1,
   "authenticate": false,
   "serviceClass": "foam.core.app.VersionWebAgent"
 })
@@ -31,6 +32,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "health",
   "lazy": false,
+  "lazyOrder": -1,
   "authenticate": false,
   "parameters": true,
   "serviceClass": "foam.core.app.HealthWebAgent"
@@ -51,6 +53,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"healthSupport",
   "lazy":false,
+  "lazyOrder":-1,
   "service": {
     "class": "foam.core.app.HealthSupport"
   }
@@ -60,6 +63,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "healthHeartbeatService",
   "lazy": false,
+  "lazyOrder": -1,
   "enabled": false,
   "service": {
     class: "foam.core.app.HealthHeartbeatService",
@@ -72,6 +76,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "healthHeartbeatMonitor",
   "lazy": false,
+  "lazyOrder": -1,
   "enabled": false,
   "service": {
     class: "foam.core.app.HealthHeartbeatMonitor",

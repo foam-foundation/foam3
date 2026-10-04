@@ -10,15 +10,15 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^filters-container {
+    <<filters-container {
       padding: 0;
     }
-    ^filters-container .foam-u2-filter-FilterView-container-drawer-open {
+    <<filters-container .foam-u2-filter-FilterView-container-drawer-open {
       padding: 10px 0 0;
     }
   `,

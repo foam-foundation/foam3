@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'GoogleSignInButton',
   extends: "foam.u2.Element",
   css: `
-  ^{
+  <<{
     display: grid;
     box-shadow: 0 2px 4px 0 rgba(0, 0, 0, .25);
     margin: 0 2px 4px 0;
@@ -21,14 +21,14 @@ foam.CLASS({
     width: 120px;
   }
   
-  ^:active {
+  <<:active {
     background: #eee;
   }
   
-  ^icon {
+  <<icon {
   }
   
-  ^text {
+  <<text {
     font-family: Roboto, arial, sans-serif;
     font-size: 14px;
     font-weight: $font-regular;

@@ -3,32 +3,35 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "localNotificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serviceScript": """
-    mdao = new foam.dao.MDAO(foam.core.notification.Notification.getOwnClassInfo());
-    mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.GROUP_ID,foam.core.notification.Notification.READ });
-    mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.BROADCASTED,foam.core.notification.Notification.READ });
-    mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.USER_ID,foam.core.notification.Notification.READ });
-    mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.EXPIRY_DATE });
-    mdao.addIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.CREATED });
+    // partition by month and preload 1 month
+    partitioned = new foam.core.partition.DatePartitionedDAO(
+      x,
+      foam.core.notification.Notification.getOwnClassInfo(),
+      "notifications-",
+      foam.core.notification.Notification.CREATED,
+      foam.core.partition.DatePartitioningScheme.YYYYMM);
+    partitioned.setTimeWindow(30);
+    partitioned.setPreload(true);
 
-    return new foam.dao.EasyDAO.Builder(x)
+    dao = new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.notification.Notification.getOwnClassInfo())
-      .setMdao(mdao)
       .setAuthorize(false)
       .setPm(true)
       .setFuid(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("notifications")
-      .setSaf(true)
-      .setWaitReplay(false)
-      .setFixedSize(new foam.dao.FixedSizeDAO.Builder(x)
-        .setComparator(foam.mlang.MLang.COMPOUND(new foam.mlang.order.Comparator[] {
-          foam.mlang.MLang.DESC(foam.core.notification.Notification.CREATED),
-          foam.core.notification.Notification.READ
-        }))
-        .setSize(100000)
-        .build())
-      .build();
+      .setInnerDAO(partitioned)
+      .build()
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.SPID })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.CREATED })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.GROUP_ID,foam.core.notification.Notification.READ })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.BROADCASTED,foam.core.notification.Notification.READ })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.USER_ID,foam.core.notification.Notification.READ })
+      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.EXPIRY_DATE });
+      
+      partitioned.migrateFrom(x, "notifications", "notificationDAO");
+
+      return dao;
   """
 })
 
@@ -36,6 +39,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "notificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
@@ -77,6 +81,7 @@ p({
   "class": "foam.core.boot.CSpec",
   "name": "myNotificationDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serve": true,
   "serviceScript": """
     import foam.core.auth.User;
@@ -118,6 +123,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"notificationTemplateDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)
@@ -131,6 +137,24 @@ p({
     """,
     "client":"{\"of\":\"foam.core.notification.Notification\"}"
 })
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"notificationLocaleTemplateDAO",
+  "lazy":false,
+  "lazyOrder":-1,
+  "serve":true,
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("notificationLocaleTemplates")
+      .setOf(foam.core.notification.NotificationLocaleTemplate.getOwnClassInfo())
+      .build()
+    """,
+    "client":"{\"of\":\"foam.core.notification.NotificationLocaleTemplate\"}"
+})
+
 
 p({
   "class": "foam.core.boot.CSpec",

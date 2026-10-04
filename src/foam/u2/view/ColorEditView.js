@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.MultiView',
 
   css: `
-    ^container:first-child {
+    <<container:first-child {
       flex-grow: 1;
     }
   `,

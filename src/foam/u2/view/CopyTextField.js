@@ -13,11 +13,11 @@ foam.CLASS({
   mixins: ['foam.u2.util.ClipboardAccess'],
 
   css: `
-    ^ {
+    << {
       cursor: pointer;
       position:relative;
     }
-    ^:after{ 
+    <<:after{ 
       content: '';
       background: transparent;
       position: absolute;
@@ -28,7 +28,7 @@ foam.CLASS({
       width:100%;
       height: 100%;
     }
-    ^textfield {
+    <<textfield {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -39,12 +39,12 @@ foam.CLASS({
       height: 4rem;
       width: 100%;
     }
-    ^showTooltip{
+    <<showTooltip{
       transform: scaleY(0) translateX(-50%);
       left: 50%;
       top: 104%;
     }
-    ^show {
+    <<show {
       animation-name: bounce;
       animation-duration: 2s;
       text-align: center;

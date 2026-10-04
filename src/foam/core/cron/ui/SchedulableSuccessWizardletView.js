@@ -10,11 +10,11 @@ foam.CLASS({
   extends: 'foam.u2.wizard.wizardlet.SuccessWizardletView',
 
   css: `
-    ^reference-message-container {
+    <<reference-message-container {
       display: flex;
       justify-content: center;
     }
-    ^reference-message {
+    <<reference-message {
       white-space: nowrap;
       margin-right: 0.3rem;
     }

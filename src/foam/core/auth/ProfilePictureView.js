@@ -22,7 +22,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       width: 150px;
       height: 150px;
@@ -33,17 +33,17 @@ foam.CLASS({
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      background-color: $backgroundDefault
+      background-color: $backgroundDefault;
       box-sizing: border-box; /* Include padding and border in the element's total width and height */
       transition: border-color 0.3s ease, background-color 0.3s ease;
     }
 
-    ^RW:hover {
+    <<RW:hover {
       border-color: $borderStrong;
     }
 
     /* Style for the actual image displayed inside the circular container */
-    ^actual-image {
+    <<actual-image {
       width: 100%;
       height: 100%;
       border-radius: 50%; /* Ensure the inner image is also circular */
@@ -52,7 +52,7 @@ foam.CLASS({
     }
 
     /* Styles for the background when no specific image is set (e.g., placeholder) */
-    ^no-image {
+    <<no-image {
       background-size: 50%; /* Make placeholder smaller, if it's a background image */
       background-repeat: no-repeat;
       background-position: center;
@@ -60,7 +60,7 @@ foam.CLASS({
       /* placeholderImage will be set directly in render() if data is null */
     }
 
-    ^overlay {
+    <<overlay {
       position: absolute;
       top: 0;
       left: 0;
@@ -81,17 +81,17 @@ foam.CLASS({
       z-index: 2; /* Position above the image */
     }
 
-    ^RW:hover ^overlay {
+    <<RW:hover <<overlay {
       opacity: 1;
       pointer-events: all;
     }
 
-    ^drag-over {
+    <<drag-over {
       border-color: $borderStrong;
       background-color: $backgroundSecondary;
     }
 
-    ^clear-btn {
+    <<clear-btn {
       position: absolute;
       top: 5px;
       right: 5px;
@@ -112,10 +112,10 @@ foam.CLASS({
       transition: opacity 0.3s ease, background-color 0.2s ease, color 0.2s ease;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
-    ^RW:hover ^clear-btn {
+    <<RW:hover <<clear-btn {
       opacity: 1;
     }
-    ^RW ^clear-btn:hover {
+    <<RW <<clear-btn:hover {
       background: $backgroundDefault;
       color: $black
     }

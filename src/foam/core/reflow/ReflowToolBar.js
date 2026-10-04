@@ -19,7 +19,7 @@ foam.CLASS({
   imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData' ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       margin-block-end: 0;
       display: inline-flex;
@@ -31,10 +31,10 @@ foam.CLASS({
       padding: 10px 16px;
       border-top: 1px solid $borderLight;
     }
-    ^ > :lastChild {
+    << > :lastChild {
       flex-shrink: 0;
     }
-    ^input-field-container {
+    <<input-field-container {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -57,9 +57,9 @@ foam.CLASS({
     {
       class: 'String',
       name: 'promptMode',
-      postSet: function(o, n) { localStorage.promptMode = n; },
+      postSet: function(o, n) { localStorage.promptMode2 = n; },
       factory: function() {
-        return localStorage.promptMode || 'Standard';
+        return localStorage.promptMode2 || foam.core.reflow.ToolbarControl.TOOLBAR.value;
       },
       view: function(_, X) {
         return {
@@ -139,7 +139,7 @@ foam.CLASS({
           const modes = Array.from(
             new Set(
               result.array
-                .map(c => c.toolbar || 'Standard')
+                .map(c => c.toolbar || foam.core.reflow.ToolbarControl.TOOLBAR.value)
                 .filter(Boolean)
             )
           ).sort();

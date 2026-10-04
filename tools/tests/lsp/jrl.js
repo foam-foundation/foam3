@@ -682,11 +682,90 @@ try {
   test(autoFiles.indexOf(path.join(jrlnavDir, 'menus.jrl')) !== -1 &&
        autoFiles.indexOf(path.join(jrlnavDir, 'services.jrl')) !== -1,
     'JEI: auto-discovery finds .jrl files in foam.poms locations');
-  test(jeiAuto.getServiceLocations('recipeDAO') !== null,
-    'JEI: auto-discovered recipeDAO service resolves');
+  // getEntryLocations, not getServiceLocations: the service lookup now
+  // resolves through the workspace walk, which reaches this fixture with or
+  // without the pom entry, so it would pass with the push above removed.
+  // The entry lookup still reads foam.poms.
+  test(jeiAuto.getEntryLocations('foam.core.menu.Menu', 'cookbook.recipe') !== null,
+    'JEI: auto-discovered entry resolves from a foam.poms location');
 } finally {
   foam.poms.pop();
 }
+
+// A pom location OUTSIDE the workspace root (the server walks from
+// process.cwd()) must still register its services: the wide walk is a
+// superset of the directory answer only if it is unioned with it.
+var jeiOutDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lsp-jrlsvc-out-'));
+fs.writeFileSync(path.join(jeiOutDir, 'services.jrl'),
+  'p({"class":"foam.core.boot.CSpec","name":"outsideRootProbeDAO","serve":true})\n');
+foam.poms.push({ location: jeiOutDir });
+try {
+  var jeiOut = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+  test(jeiOut.getServiceLocations('outsideRootProbeDAO') !== null,
+    'JEI: a services.jrl in a pom location outside the workspace root still resolves');
+} finally {
+  foam.poms.pop();
+  try { fs.rmSync(jeiOutDir, { recursive: true, force: true }); } catch ( e ) {}
+}
+
+// --- Service discovery reaches journals with no pom and no source ---------
+// fixtures/jrlservices/* holds services.jrl files and no class file, and no
+// pom names those directories — the shape of a per-target deployment journal.
+// The directory answer (findJournalFiles_) cannot see them; the services
+// lookup must.
+var jsvcDir  = path.join(__dirname, 'fixtures', 'jrlservices');
+var jsvcAlfa = path.join(jsvcDir, 'alpha', 'services.jrl');
+var jsvcBeta = path.join(jsvcDir, 'beta', 'services.jrl');
+var jsvcDup  = path.join(jsvcDir, 'dup', 'services.jrl');
+var jeiWide  = foam.parse.lsp.JournalEntryIndex.create({ index: index });
+
+test(jeiWide.findJournalFiles_().indexOf(jsvcAlfa) === -1,
+  'JEI: the pom/source directory answer does NOT reach a pom-less services.jrl');
+
+var wideLocs = jeiWide.getServiceLocations('rankProbeDAO');
+test(wideLocs && wideLocs.length === 2,
+  'JEI: service lookup reaches services.jrl with no pom and no source: ' +
+    (wideLocs ? wideLocs.length : wideLocs));
+
+// Rule A is deliberately NOT widened: a Reference-property lookup must still
+// use the narrow answer, or one seed id resolves to a row in every deployment
+// target. alpha/menus.jrl sits beside a services.jrl the service lookup DOES
+// read, which is exactly the case that would regress.
+test(jeiWide.getEntryLocations('foam.core.menu.Menu', 'ruleAProbeMenu') === null,
+  'JEI: entry lookup stays on the narrow answer (menus.jrl beside it stays unseen)');
+
+// --- Nearest-first ordering ----------------------------------------------
+// Same name registered under two sibling directories. Asserted from BOTH
+// origins: a fixed discovery order can satisfy one direction by luck, never
+// both.
+var fromAlfa = jeiWide.getServiceLocations('rankProbeDAO',
+  path.join(jsvcDir, 'alpha', 'Caller.js'));
+test(fromAlfa && fromAlfa[0].file === jsvcAlfa,
+  'JEI rank: jumping from alpha/ puts alpha first');
+
+var fromBeta = jeiWide.getServiceLocations('rankProbeDAO',
+  path.join(jsvcDir, 'beta', 'Caller.js'));
+test(fromBeta && fromBeta[0].file === jsvcBeta,
+  'JEI rank: jumping from beta/ puts beta first');
+
+// The origin arrives from the handlers as a file:// uri, not a path.
+var fromUri = jeiWide.getServiceLocations('rankProbeDAO',
+  'file://' + path.join(jsvcDir, 'beta', 'Caller.js'));
+test(fromUri && fromUri[0].file === jsvcBeta,
+  'JEI rank: a file:// uri origin ranks the same as the bare path');
+
+// No origin: still a total order, so the answer does not depend on walk order.
+var noFrom = jeiWide.getServiceLocations('rankProbeDAO');
+test(noFrom && noFrom[0].file === jsvcAlfa && noFrom[1].file === jsvcBeta,
+  'JEI rank: without an origin, ordering falls back to path order');
+
+// --- Last registration wins inside one journal ---------------------------
+// Journal entries are ordered ops, so the LAST row for a name is the live one.
+var dupSvc = jeiWide.getServiceLocations('lastWinsProbeDAO');
+test(dupSvc && dupSvc.length === 2 && dupSvc[0].file === jsvcDup &&
+     dupSvc[0].line > dupSvc[1].line,
+  'JEI rank: two registrations in one journal put the LAST one first: ' +
+    (dupSvc ? dupSvc.map(function(l) { return l.line; }).join(',') : dupSvc));
 
 // client completion — delegation to nested JRL completion. The inner
 // JSON gets treated as a JRL entry; `"class": "…"` should suggest classes.
@@ -1213,8 +1292,12 @@ if ( require('fs').existsSync(realJrlPath) ) {
   for ( var rl = 0 ; rl < realLines.length ; rl++ ) {
     var m = realLines[rl].indexOf('.setPm(');
     if ( m === -1 ) continue;
-    var h = jrlH3.handleHover(realText, { line: rl, character: m + 3 });
-    test(h && h.contents && h.contents.value && /setPm|pm/i.test(h.contents.value),
+    // Not `h`: that is the harness at the top of this file, and the lane test
+    // near the end of the file still needs it. This block only runs when a host
+    // app's journals/ sits four levels up, so reusing the name went unnoticed
+    // until then — where it left `h.withServerLane` reading off a hover result.
+    var hovPm = jrlH3.handleHover(realText, { line: rl, character: m + 3 });
+    test(hovPm && hovPm.contents && hovPm.contents.value && /setPm|pm/i.test(hovPm.contents.value),
       'Real services.jrl: hover on .setPm at line ' + rl + ' resolves (setPm or pm in output)');
     break;
   }
@@ -1275,6 +1358,197 @@ test(gm.classRefs.every(function(r) {
 // Unquoted-key single-line FOAM format still yields an entry
 var gm2 = jrlGram.collectJrlPositions('c({summaryType:"X",id:-1})\n');
 test(gm2.entries.length === 1, 'JrlGrammar: unquoted-key single-line entry counted');
+// === jrl usage index — fixture files (issue #5264, Tier 1) ===
+//
+// buildJrlUsageIndex_ takes an explicit file list here so fixtures carry
+// no workspace assumptions; invalidate afterwards so later tests see the
+// real workspace index, not the fixture one.
+
+section('jrl usage index — fixture files (issue #5264)');
+
+try {
+  var jOs     = require('os');
+  var jTmpJrl = path.join(jOs.tmpdir(), 'foam-lsp-jrl-fixture-' + process.pid + '.jrl');
+  fs.writeFileSync(jTmpJrl,
+    'p({"class":"foam.core.boot.CSpec","id":"fixtureSvc",\n' +      // line 0
+    '  "serviceScript":"""\n' +                                      // line 1
+    '    return new foam.dao.ArraySink();\n' +                       // line 2
+    '  """})\n' +                                                    // line 3
+    '// p({"class":"foam.core.boot.CSpec","id":"commented"})\n' +    // line 4
+    'p({"class":"no.such.Klass","id":"junk"})\n');                   // line 5
+
+  index.buildJrlUsageIndex_([ jTmpJrl ]);
+
+  var jCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  // T1a: "class":"…" value indexed with exact position.
+  test(jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 0 && r.kind === 'usage-jrl'; }),
+    'fixture: "class":"foam.core.boot.CSpec" indexed at line 0');
+  test(! jCspec.some(function(r) { return r.file === jTmpJrl && r.line === 4; }),
+    'fixture: // comment line not indexed');
+
+  // T1b: class id inside a serviceScript body indexed (embedded-block path).
+  test(index.getJrlUsages('foam.dao.ArraySink').some(function(r) { return r.file === jTmpJrl && r.line === 2; }),
+    'fixture: serviceScript-embedded foam.dao.ArraySink indexed at its line');
+
+  // T1c: unregistered id never indexed (registry-verified).
+  test(index.getJrlUsages('no.such.Klass').length === 0,
+    'fixture: unregistered class id not indexed');
+
+  // Targeted invalidation: a .jrl save drops ONLY the jrl usage index —
+  // no class was re-registered, so the class-keyed indexes stay warm.
+  var jPrevUsage = index.usageIndex_;
+  index.usageIndex_ = { sentinel: true };
+  index.invalidateJrlUsageIndex();
+  test(index.jrlUsageIndex_ === null,
+    'invalidateJrlUsageIndex: jrl usage index dropped (rebuilds on next query)');
+  test(index.usageIndex_ && index.usageIndex_.sentinel === true,
+    'invalidateJrlUsageIndex: class-keyed usage index untouched');
+
+  // A services.jrl save additionally drops the string-usage index (its
+  // CSpec entries are read from services.jrl); any other journal keeps it.
+  var jPrevString = index.stringUsageIndex_;
+  index.stringUsageIndex_ = { sentinel: true };
+  index.invalidateJrlUsageIndex('/ws/journals/other.jrl');
+  test(index.stringUsageIndex_ && index.stringUsageIndex_.sentinel === true,
+    'invalidateJrlUsageIndex: non-services journal keeps string-usage index');
+  index.invalidateJrlUsageIndex('file:///ws/src/services.jrl');
+  test(index.stringUsageIndex_ === null,
+    'invalidateJrlUsageIndex: services.jrl save drops string-usage index');
+  index.stringUsageIndex_ = jPrevString;
+  index.usageIndex_ = jPrevUsage;
+
+  fs.unlinkSync(jTmpJrl);
+  index.invalidateSymbolIndex_();
+} catch (err) {
+  test(false, 'jrl fixture index threw: ' + err.message);
+}
+
+
+// === jrl file walk — symlink handling ===
+//
+// The walk dedupes by realpath: a `self -> .` cycle terminates, while a
+// journal reachable ONLY through a directory symlink is still indexed.
+
+section('jrl file walk — symlink handling');
+
+try {
+  var wOs   = require('os');
+  var wRoot = fs.mkdtempSync(path.join(wOs.tmpdir(), 'foam-lsp-walk-'));
+  fs.mkdirSync(path.join(wRoot, 'plain'));
+  fs.writeFileSync(path.join(wRoot, 'plain', 'a.jrl'), 'p({"class":"x"})\n');
+  // A journal reachable only via symlink: dot-dirs are skipped by the walk,
+  // so `.store` is invisible except through the `linked` symlink.
+  fs.mkdirSync(path.join(wRoot, '.store'));
+  fs.writeFileSync(path.join(wRoot, '.store', 'b.jrl'), 'p({"class":"y"})\n');
+  fs.symlinkSync(path.join(wRoot, '.store'), path.join(wRoot, 'linked'), 'dir');
+  // foam3-style self-cycle.
+  fs.symlinkSync('.', path.join(wRoot, 'self'), 'dir');
+  // A broken symlink is skipped, not a crash.
+  fs.symlinkSync(path.join(wRoot, 'gone'), path.join(wRoot, 'broken'), 'dir');
+  // A journal reachable both directly and through a directory symlink —
+  // must report one row at the canonical (resolved) path regardless of
+  // readdir order.
+  fs.mkdirSync(path.join(wRoot, 'intree'));
+  fs.writeFileSync(path.join(wRoot, 'intree', 'c.jrl'), 'p({"class":"z"})\n');
+  fs.symlinkSync(path.join(wRoot, 'intree'), path.join(wRoot, 'dup_link'), 'dir');
+
+  var wPrev = process.cwd();
+  var wFiles;
+  try {
+    process.chdir(wRoot);
+    wFiles = index.findWorkspaceJrlFiles_();
+  } finally {
+    process.chdir(wPrev);
+  }
+
+  // The walk returns resolved paths; the fixture root itself may sit
+  // behind a symlink (macOS /tmp), so compare against its realpath.
+  var wRealRoot = fs.realpathSync(wRoot);
+
+  test(wFiles.filter(function(f) { return f.indexOf('a.jrl') !== -1; }).length === 1,
+    'walk: plain journal indexed exactly once despite the self -> . cycle');
+  test(wFiles.some(function(f) { return f.indexOf('b.jrl') !== -1; }),
+    'walk: journal reachable only through a directory symlink is indexed');
+  var wDup = wFiles.filter(function(f) { return f.indexOf('c.jrl') !== -1; });
+  test(wDup.length === 1 && wDup[0] === path.join(wRealRoot, 'intree', 'c.jrl'),
+    'walk: dual-reachable journal reported once, at the canonical path');
+  test(wFiles.length === 3,
+    'walk: cycle + broken symlink add nothing (3 journals total)');
+
+  fs.rmSync(wRoot, { recursive: true, force: true });
+} catch (err) {
+  test(false, 'jrl walk symlink test threw: ' + err.message);
+}
+
+
+// === jrl references — real workspace acceptance (issue #5264, Tier 2) ===
+
+section('jrl references — real workspace acceptance (issue #5264)');
+
+try {
+  // T2a: index level — CSpec rows include services.jrl (issue names
+  // foam3/src/services.jrl; assert file, not a pinned line — the file churns).
+  var realCspec = index.getJrlUsages('foam.core.boot.CSpec');
+  test(realCspec.some(function(r) { return r.file.indexOf('services.jrl') !== -1; }),
+    'issue #5264 repro: CSpec jrl rows include a services.jrl');
+
+  // T2b: handler level — .jrl locations in the references output.
+  var jrlRefHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var cspecLocs = jrlRefHandler.referencesForClassId('foam.core.boot.CSpec');
+  test(cspecLocs.some(function(l) { return l.uri.indexOf('services.jrl') !== -1; }),
+    'referencesForClassId(CSpec): includes services.jrl locations');
+
+  // T2c: a serviceScript-only class stops reading as dead.
+  // PROVENANCE: foam.core.geocode.GoogleMapsAddressParser chosen because its
+  // only occurrence outside its own definition is src/services.jrl:284
+  // (`return new foam.core.geocode.GoogleMapsAddressParser.Builder(x).build();`).
+  // Grep evidence 2026-08-23:
+  //   grep -rln "GoogleMapsAddressParser" src/foam --include="*.js"
+  //     → src/foam/core/pom.js (registration) + its own model file, nothing else
+  //   grep -n "GoogleMapsAddressParser" src/services.jrl → line 284 only.
+  var deadLocs = jrlRefHandler.referencesForClassId('foam.core.geocode.GoogleMapsAddressParser');
+  test(deadLocs.some(function(l) { return l.uri.indexOf('.jrl') !== -1; }),
+    'serviceScript-only class has journal references (was: No results)');
+} catch (err) {
+  test(false, 'jrl references acceptance threw: ' + err.message);
+}
+
+// === referencesForClassId string-usage probe — full id + short name ===
+
+section('referencesForClassId — string-usage probe by full id');
+
+var refsHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+  index: index, cache: cache, analyzer: analyzer
+});
+
+// --- referencesForClassId probes string-usage index by FULL id too ---
+(function() {
+  // The cspec half of the string-usage index records ent.id — full dotted
+  // ids. A class whose SHORT name never appears as a context key is only
+  // reachable through the full-id probe.
+  //
+  // sourceClassId is a real, file-backed class (foam.core.boot.CSpec,
+  // already proven indexed above) rather than a synthetic one: buildLocations_
+  // needs a source file to resolve a location for, and a class registered
+  // only in-memory during this test has none — it would report 0 locations
+  // even once the probe correctly reaches it, masking the fix under test.
+  var stub = index.getStringUsages;
+  index.getStringUsages = function(key) {
+    if ( key === 'lsptest.probe.FullIdOnly' ) {
+      return [ { sourceClassId: 'foam.core.boot.CSpec', axiomName: 'imports.x', kind: 'usage-string' } ];
+    }
+    return [];
+  };
+  foam.CLASS({ package: 'lsptest.probe', name: 'FullIdOnly' });
+  try {
+    var locs = refsHandler.referencesForClassId('lsptest.probe.FullIdOnly');
+    test(locs.length >= 1, 'full-id string usage reached the result, got ' + locs.length);
+  } finally {
+    index.getStringUsages = stub;
+  }
+})();
 
 // === SAVE → TARGETED REANALYZE ===
 
@@ -1321,3 +1595,219 @@ var dId = navHandler.handleDefinition(
   menusText2, valuePos(menusText2, '"id":"cookbook.recipe"'),
   'file://' + path.join(jrlnavDir, 'menus.jrl'));
 test(dId === null, 'nav: dotted menu id is not a class ref -> null');
+
+// === JrlLoader: a journal is not one JavaScript program ===
+section('JrlLoader entry slicing');
+
+var jrlLoader = foam.parse.lsp.JrlLoader.create();
+
+// FOAM writes long values as triple-quoted strings. No JS engine accepts
+// those, so evaluating a whole journal as one function body throws at
+// CONSTRUCTION and collects nothing at all — not "whatever came before".
+var tripleJrl = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeAlphaDAO",',
+  '  "serviceScript":"""',
+  '    x = 1;',
+  '  """',
+  '})',
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"probeBetaDAO"',
+  '})'
+].join('\n');
+
+var tripleLoaded = jrlLoader.loadString(tripleJrl);
+test(tripleLoaded.length === 2,
+  'JrlLoader: a triple-quoted value no longer costs the whole file'
+  + ' (got ' + tripleLoaded.length + ' entries)');
+test(tripleLoaded.some(function(o) { return o.name === 'probeAlphaDAO'; }) &&
+     tripleLoaded.some(function(o) { return o.name === 'probeBetaDAO'; }),
+  'JrlLoader: both entries survive, the triple-quoted one included');
+
+// One unparseable entry drops itself and nothing else.
+var brokenJrl = [
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodOne" })',
+  'p({ "class":"foam.core.boot.CSpec", "name": })',
+  'p({ "class":"foam.core.boot.CSpec", "name":"probeGoodTwo" })'
+].join('\n');
+var brokenLoaded = jrlLoader.loadString(brokenJrl);
+test(brokenLoaded.length === 2 &&
+     brokenLoaded.map(function(o) { return o.name; }).join(',') === 'probeGoodOne,probeGoodTwo',
+  'JrlLoader: a malformed entry costs only itself'
+  + ' (got ' + brokenLoaded.map(function(o) { return o.name; }).join(',') + ')');
+
+// Lines come back with the entries — a services.jrl row is worth pointing at.
+var withLines = jrlLoader.loadStringWithLines(tripleJrl);
+test(withLines.length === 2 && withLines[0].line === 0 && withLines[1].line === 7,
+  'JrlLoader: loadStringWithLines reports each entry\'s start line'
+  + ' (got ' + withLines.map(function(e) { return e.line; }).join(',') + ')');
+
+// Not a fixture: the repo's own journal, which is the file the old loader
+// silently returned nothing for.
+var realServices = path.resolve(__dirname, '../../../src/services.jrl');
+if ( fs.existsSync(realServices) ) {
+  var realLoaded = jrlLoader.loadFile(realServices);
+  test(realLoaded.length > 0 && realLoaded.some(function(o) { return o.name === 'cSpecDAO'; }),
+    'JrlLoader: src/services.jrl loads (' + realLoaded.length + ' entries) and contains cSpecDAO');
+}
+
+// === One slice-and-blank step, shared ===
+section('JournalEntryIndex / JrlLoader share sliceEntries');
+
+// The two used to compute the same spans from the same grammar output. The
+// invariant that keeps them honest: on a journal whose triple-quoted block
+// CONTAINS a fake entry start, both must cut it in the same places, because
+// both now ask JrlLoader.sliceEntries.
+var sharedJrl = [
+  'p({',
+  '  "class":"foam.core.boot.CSpec",',
+  '  "name":"sharedAlpha",',
+  '  "serviceScript":"""',
+  '    p({ "class":"foam.core.boot.CSpec", "name":"notAnEntry" })',
+  '  """',
+  '})',
+  '',
+  'p({"class":"foam.core.boot.CSpec","name":"sharedBeta"})'
+].join('\n');
+
+var sharedLoader = foam.parse.lsp.JrlLoader.create();
+var sharedSlices = sharedLoader.sliceEntries(sharedJrl);
+test(sharedSlices.length === 2 && sharedSlices[0].line === 0 && sharedSlices[1].line === 8,
+  'sliceEntries: the fake entry head inside """...""" does not start a slice'
+  + ' (got ' + sharedSlices.length + ' slices at lines '
+  + sharedSlices.map(function(s) { return s.line; }).join(',') + ')');
+
+// Named services.jrl in its own dir: getServiceLocations only ever reads a
+// file with that basename.
+var sharedDir  = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lsp-jrl-shared-'));
+var sharedFile = path.join(sharedDir, 'services.jrl');
+fs.writeFileSync(sharedFile, sharedJrl);
+var sharedJei = foam.parse.lsp.JournalEntryIndex.create({
+  index: index, journalFiles: [ sharedFile ] });
+var sharedRecs = sharedJei.parseFile_(sharedJrl);
+test(sharedRecs.length === sharedSlices.length &&
+     sharedRecs.map(function(r) { return r.line; }).join(',') ===
+     sharedSlices.map(function(s) { return s.line; }).join(','),
+  'JournalEntryIndex cuts the same journal in the same places as JrlLoader'
+  + ' (got ' + sharedRecs.map(function(r) { return r.key + '@' + r.line; }).join(',') + ')');
+test(sharedJei.getServiceLocations('sharedAlpha') !== null &&
+     sharedJei.getServiceLocations('notAnEntry') === null,
+  'and the name inside the blanked block registers nothing');
+try { fs.rmSync(sharedDir, { recursive: true, force: true }); } catch ( e ) {}
+
+// === Saving a .jrl refreshes the SYMBOL index too, over the wire ===
+// reindexFile only reaches index.invalidate for a file that classifies as a
+// class, so before this the didSave(.jrl) branch refreshed JournalEntryIndex
+// and left symbolIndex_ (which now carries the services.jrl rows) stale: a
+// renamed service kept answering workspace/symbol under its old name.
+// Driven through the real server because the bug IS the wiring — the handler
+// and the index were both already correct.
+var os = require('os');
+var jrlSaveDone = h.withServerLane(async function() {
+  var origWrite = process.stdout.write;
+  var wsDir = null;
+  var pomPushed = false;
+  try {
+    var frames = [];
+    var inBuf  = Buffer.alloc(0);
+    function drain() {
+      while ( true ) {
+        var headerEnd = inBuf.indexOf('\r\n\r\n');
+        if ( headerEnd === -1 ) return;
+        var m = /Content-Length:\s*(\d+)/i.exec(inBuf.slice(0, headerEnd).toString('utf8'));
+        if ( ! m ) { inBuf = inBuf.slice(headerEnd + 4); continue; }
+        var len = parseInt(m[1], 10), bodyStart = headerEnd + 4;
+        if ( inBuf.length < bodyStart + len ) return;
+        var body = inBuf.slice(bodyStart, bodyStart + len).toString('utf8');
+        inBuf = inBuf.slice(bodyStart + len);
+        try { frames.push(JSON.parse(body)); } catch ( e ) {}
+      }
+    }
+    process.stdout.write = function(chunk) {
+      inBuf = Buffer.concat([ inBuf, Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8') ]);
+      drain();
+      return true;
+    };
+
+    var nextId = 1;
+    function send(method, params, wantId) {
+      var msg = { jsonrpc: '2.0', method: method, params: params };
+      if ( wantId ) msg.id = nextId++;
+      var json = JSON.stringify(msg);
+      process.stdin.emit('data', Buffer.from(
+        'Content-Length: ' + Buffer.byteLength(json) + '\r\n\r\n' + json, 'utf8'));
+      return msg.id;
+    }
+    function waitFor(pred, what) {
+      return new Promise(function(resolve, reject) {
+        var deadline = Date.now() + 20000;
+        (function poll() {
+          for ( var i = 0 ; i < frames.length ; i++ ) if ( pred(frames[i]) ) return resolve(frames[i]);
+          if ( Date.now() > deadline ) return reject(new Error('timed out waiting for ' + what));
+          setTimeout(poll, 10);
+        })();
+      });
+    }
+    function request(method, params, what) {
+      var id = send(method, params, true);
+      return waitFor(function(m) { return m.id === id; }, what);
+    }
+
+    // A journal directory the server's index will discover: getJournalDirs
+    // reads foam.poms at call time, so pushing it before the first query is
+    // enough — no class file needs to live there.
+    wsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lsp-jrlsave-'));
+    var svcPath = path.join(wsDir, 'services.jrl');
+    var svcUri  = 'file://' + svcPath;
+    fs.writeFileSync(svcPath,
+      'p({"class":"foam.core.boot.CSpec","name":"lspSaveProbeAlpha","serve":true})\n');
+    foam.poms = foam.poms || [];
+    foam.poms.push({ location: wsDir });
+    pomPushed = true;
+
+    process.stdin.removeAllListeners('data');
+    require('../../lsp/server').start();
+    process.stdin.removeAllListeners('end');
+    frames = [];
+    inBuf  = Buffer.alloc(0);
+
+    await request('initialize', { rootUri: 'file://' + wsDir, capabilities: {} },
+      'the initialize response');
+
+    function names(res) {
+      return ((res && res.result) || []).map(function(s) { return s.name; });
+    }
+
+    var before = await request('workspace/symbol', { query: 'lspSaveProbe' },
+      'the first workspace/symbol answer');
+    test(names(before).indexOf('lspSaveProbeAlpha') !== -1,
+      'jrl save: the registered service answers workspace/symbol before the edit'
+      + ' (got ' + JSON.stringify(names(before)) + ')');
+
+    // Rename on disk, then save. Nothing else changes — no .js is touched,
+    // which is exactly the case that used to leave the old name answering.
+    fs.writeFileSync(svcPath,
+      'p({"class":"foam.core.boot.CSpec","name":"lspSaveProbeBeta","serve":true})\n');
+    send('textDocument/didSave', { textDocument: { uri: svcUri } });
+
+    var after = await request('workspace/symbol', { query: 'lspSaveProbe' },
+      'the workspace/symbol answer after the save');
+    test(names(after).indexOf('lspSaveProbeBeta') !== -1,
+      'jrl save: the renamed service is findable under its new name'
+      + ' (got ' + JSON.stringify(names(after)) + ')');
+    test(names(after).indexOf('lspSaveProbeAlpha') === -1,
+      'jrl save: and no longer under the old one'
+      + ' (got ' + JSON.stringify(names(after)) + ')');
+  } finally {
+    process.stdout.write = origWrite;
+    process.stdin.removeAllListeners('data');
+    if ( pomPushed ) foam.poms.pop();
+    if ( wsDir ) { try { fs.rmSync(wsDir, { recursive: true, force: true }); } catch ( e ) {} }
+  }
+});
+
+module.exports = { done: jrlSaveDone.catch(function(e) {
+  test(false, 'jrl save lane failed — ' + ( e && e.message ? e.message : e ));
+}) };

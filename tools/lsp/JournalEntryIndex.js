@@ -13,7 +13,7 @@ foam.CLASS({
     per-model entry id. Backs JrlHandler's cross-reference
     go-to-definition (daoKey -> services.jrl, parent -> menu entry).
 
-    Positions come from JrlGrammar (parser combinators); entry
+    Positions come from JrlGrammar via JrlLoader.sliceEntries(); entry
     SEMANTICS come from evaluating each entry with p/c/r interceptors
     (JrlLoader's pattern). Each entry is evaluated ALONE, sliced on
     the grammar's entry starts, so a malformed entry costs only
@@ -28,12 +28,21 @@ foam.CLASS({
     invalidate() (wired to .jrl saves in server.js) drops the caches
     so the next query re-reads from disk.`,
 
-  requires: [ 'foam.parse.lsp.JrlGrammar' ],
+  requires: [ 'foam.parse.lsp.JrlLoader' ],
+
+  constants: {
+    // Keys whose VALUE names a registered service rather than describing one.
+    // Schema-blind by nature: nothing in the model says `daoKey` points at a
+    // services.jrl row, it is a convention. Lives here because both the
+    // journal handler and the JS definition handler navigate on it, and two
+    // copies of a convention list drift.
+    SERVICE_KEY_NAMES: [ 'daoKey' ]
+  },
 
   properties: [
     {
       name: 'index',
-      documentation: 'FoamIndex; supplies getIndexedDirs() for journal discovery.'
+      documentation: 'FoamIndex; supplies getJournalDirs() for entry-journal discovery and getServiceJournalFiles() for services.jrl discovery.'
     },
     {
       class: 'StringArray',
@@ -41,8 +50,13 @@ foam.CLASS({
       documentation: 'Explicit journal list (tests). Empty -> discover via index.'
     },
     {
-      name: 'grammar',
-      factory: function() { return this.JrlGrammar.create(); }
+      name: 'loader',
+      documentation: `Supplies sliceEntries() — the cut-on-entry-starts,
+        blank-the-triple-quotes step. Shared rather than repeated: the two
+        copies computed the same spans from the same grammar output, so a
+        change to one silently made the journal lookup and the journal
+        loader read the same file differently.`,
+      factory: function() { return this.JrlLoader.create(); }
     },
     {
       class: 'Int',
@@ -59,6 +73,13 @@ foam.CLASS({
       value: null
     },
     {
+      name: 'serviceList_',
+      documentation: `Cached services.jrl discovery — the WIDE walk, separate
+        from fileList_'s directory answer. Null until the first service query,
+        so a workspace whose journals are never looked up never pays the walk.`,
+      value: null
+    },
+    {
       name: 'fileCache_',
       documentation: 'path -> { mtimeMs, size, recs } parsed-entry cache.',
       factory: function() { return {}; }
@@ -67,17 +88,23 @@ foam.CLASS({
 
   methods: [
     function invalidate() {
-      this.fileList_  = null;
-      this.fileCache_ = {};
+      this.fileList_    = null;
+      this.serviceList_ = null;
+      this.fileCache_   = {};
     },
 
-    function getServiceLocations(name) {
+    function getServiceLocations(name, opt_from) {
       // servicesOnly: only services.jrl can answer, so no other file is
       // ever read or parsed for this lookup (daoKey names appear as data
       // inside unrelated journals).
-      return this.lookup_([ name ], function(rec) {
+      var locs = this.lookup_([ name ], function(rec) {
         return rec.key === name;
       }, true);
+      // opt_from is the file the jump started from — a path or a file:// uri.
+      // A name registered in several journals is normal (per-target
+      // deployment journals redefine appConfig, http and friends), so the
+      // answer is ordered rather than trimmed: see rankLocations_.
+      return locs ? this.rankLocations_(locs, opt_from) : null;
     },
 
     function getEntryLocations(modelId, key) {
@@ -88,37 +115,99 @@ foam.CLASS({
       });
     },
 
+    function rankLocations_(locs, opt_from) {
+      /**
+       * Orders a multi-file answer nearest-first, relative to the file the
+       * jump started from.
+       *
+       * Ranked, never trimmed: which registration is live is decided at
+       * deploy time (the target directory is an argument to the deploy step,
+       * and no pom names it), so the index cannot know which row wins. What
+       * it can do is put the one you are standing next to first.
+       *
+       * Ordering, in order:
+       *   1. most leading PATH SEGMENTS shared with the origin file's
+       *      directory — same target beats a sibling target, and a row beside
+       *      your source beats both. Segment-wise, not character-wise: a
+       *      character prefix ranks .../foobar/ as close to .../foo/.
+       *   2. path, ascending — a total order, so the answer is stable across
+       *      runs and platforms rather than left to walk order.
+       *   3. line, DESCENDING, within one file — journal entries are ordered
+       *      ops (p merges, c replaces, r removes), so when a name is
+       *      registered twice in one journal the LAST row is the effective
+       *      one and belongs at the top.
+       *
+       * No directory name is special-cased. Naming deployment/ here would
+       * bake one app layout into the framework, and the segment count already
+       * produces the same answer for it.
+       */
+      var path_    = require('path');
+      var from     = this.toPath_(opt_from);
+      var fromSegs = from ? path_.dirname(from).split(path_.sep) : null;
+
+      function shared(file) {
+        if ( ! fromSegs ) return 0;
+        var segs = path_.dirname(file).split(path_.sep);
+        var n    = 0;
+        while ( n < segs.length && n < fromSegs.length && segs[n] === fromSegs[n] ) n++;
+        return n;
+      }
+
+      var scored = locs.map(function(l) {
+        return { loc: l, score: shared(l.file) };
+      });
+      scored.sort(function(a, b) {
+        if ( a.score !== b.score )         return b.score - a.score;
+        if ( a.loc.file !== b.loc.file )   return a.loc.file < b.loc.file ? -1 : 1;
+        return b.loc.line - a.loc.line;
+      });
+      return scored.map(function(e) { return e.loc; });
+    },
+
+    function toPath_(uriOrPath) {
+      /**
+       * Accepts either, because the two callers hold a uri and the ranking
+       * works in paths. Local on purpose: every uri/path conversion in
+       * tools/lsp is still hand-rolled, and adding a 53rd hand-rolled site
+       * inside the shared module would be worse than one here. The decode is
+       * wrapped because decodeURIComponent throws on a stray '%'.
+       */
+      if ( typeof uriOrPath !== 'string' || ! uriOrPath )   return null;
+      if ( uriOrPath.indexOf('file://') !== 0 )             return uriOrPath;
+      try { return decodeURIComponent(uriOrPath.substring(7)); }
+      catch ( e ) { return uriOrPath.substring(7); }
+    },
+
     function files_() {
       if ( this.journalFiles.length ) return this.journalFiles;
       if ( ! this.fileList_ ) this.fileList_ = this.findJournalFiles_();
       return this.fileList_;
     },
 
+    function serviceFiles_() {
+      /**
+       * The file list a SERVICE lookup scans: every services.jrl in the
+       * workspace, not just the ones beside a pom or a class file.
+       *
+       * journalFiles still wins when set, so an explicit list stays an
+       * explicit list (lookup_ filters it to services.jrl as before) — the
+       * discovery difference applies only to the auto-discovered case.
+       */
+      if ( this.journalFiles.length ) return this.journalFiles;
+      if ( ! this.serviceList_ ) {
+        this.serviceList_ = ( this.index && this.index.getServiceJournalFiles &&
+                              this.index.getServiceJournalFiles() ) || [];
+      }
+      return this.serviceList_;
+    },
+
     function findJournalFiles_() {
       var fs_ = require('fs');
       var path_ = require('path');
       var files = [];
-      var seen = {};
-      var dirs = [];
-
-      // Collect directories from foam.poms locations
-      var poms = ( typeof foam !== 'undefined' && foam.poms ) || [];
-      for ( var p = 0 ; p < poms.length ; p++ ) {
-        var pomDir = poms[p] && poms[p].location;
-        if ( pomDir && ! seen[pomDir] ) {
-          seen[pomDir] = true;
-          dirs.push(pomDir);
-        }
-      }
-
-      // Collect directories from indexed source files
-      var indexDirs = ( this.index && this.index.getIndexedDirs() ) || [];
-      for ( var d = 0 ; d < indexDirs.length ; d++ ) {
-        if ( ! seen[indexDirs[d]] ) {
-          seen[indexDirs[d]] = true;
-          dirs.push(indexDirs[d]);
-        }
-      }
+      // The narrow answer, on purpose — see getServiceJournalFiles() on
+      // FoamIndex for why the services lookup is the only widened one.
+      var dirs = ( this.index && this.index.getJournalDirs() ) || [];
 
       // Read .jrl files from each directory
       for ( var i = 0 ; i < dirs.length ; i++ ) {
@@ -137,7 +226,7 @@ foam.CLASS({
       for ( var n = 0 ; n < needles.length ; n++ ) {
         if ( typeof needles[n] !== 'string' || ! needles[n] ) return null;
       }
-      var files = this.files_();
+      var files = servicesOnly ? this.serviceFiles_() : this.files_();
       var out = [];
       for ( var f = 0 ; f < files.length ; f++ ) {
         if ( servicesOnly && path_.basename(files[f]) !== 'services.jrl' ) {
@@ -190,28 +279,20 @@ foam.CLASS({
 
     function parseFile_(content) {
       /**
-       * Grammar positions -> per-entry eval. Slicing each entry on the
+       * JrlLoader.sliceEntries -> per-entry eval. Slicing each entry on the
        * grammar's own entry starts isolates syntax errors: ops[0] of a
        * slice IS that slice's entry, and a slice that fails to compile
        * drops only its own entry.
+       *
+       * The slicing itself is the loader's — this class only differs in what
+       * it does with a slice (ordered ops and a per-entry key, rather than a
+       * deduped object list), so it keeps parseEntriesOrdered_ and nothing
+       * else.
        */
       var recs = [];
-      var pos = this.grammar.collectJrlPositions(content);
-      for ( var i = 0 ; i < pos.entries.length ; i++ ) {
-        var start = pos.entries[i].startPos;
-        var end   = i + 1 < pos.entries.length ?
-          pos.entries[i + 1].startPos : content.length;
-
-        var spans = [];
-        for ( var t = 0 ; t < pos.tripleStrings.length ; t++ ) {
-          var s = pos.tripleStrings[t];
-          if ( s.startPos >= start && s.endPos <= end ) {
-            spans.push({ startPos: s.startPos - start, endPos: s.endPos - start });
-          }
-        }
-
-        var ops = this.parseEntriesOrdered_(
-          this.sanitizeContent_(content.substring(start, end), spans));
+      var slices = this.loader.sliceEntries(content);
+      for ( var i = 0 ; i < slices.length ; i++ ) {
+        var ops = this.parseEntriesOrdered_(slices[i].text);
         if ( ! ops.length || ops[0].op === 'r' ) continue;
         var obj = ops[0].obj;
         if ( ! obj || typeof obj !== 'object' ) continue;
@@ -220,26 +301,9 @@ foam.CLASS({
         var key = this.entryKey_(clsId, obj);
         if ( key === null ) continue;
 
-        recs.push({ clsId: clsId, key: key, line: pos.entries[i].line });
+        recs.push({ clsId: clsId, key: key, line: slices[i].line });
       }
       return recs;
-    },
-
-    function sanitizeContent_(content, tripleSpans) {
-      /**
-       * Replace """...""" spans (positions from JrlGrammar) with an
-       * empty JS string so the content becomes evaluable. Pure
-       * position-based string surgery — no pattern matching.
-       */
-      var out = '';
-      var last = 0;
-      for ( var i = 0 ; i < tripleSpans.length ; i++ ) {
-        var s = tripleSpans[i];
-        if ( s.startPos < last ) continue;
-        out += content.substring(last, s.startPos) + '""';
-        last = s.endPos;
-      }
-      return out + content.substring(last);
     },
 
     function parseEntriesOrdered_(content) {

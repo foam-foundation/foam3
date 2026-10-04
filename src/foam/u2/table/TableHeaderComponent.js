@@ -12,7 +12,8 @@ foam.CLASS({
   imports: [
     'colWidthUpdated?',
     'props',
-    'selectedColumnsWidth?'
+    'selectedColumnsWidth?',
+    'window'
   ],
 
   messages: [
@@ -102,7 +103,7 @@ foam.CLASS({
       var found = this.props.find(p => p.fullPropertyName === self.propName);
       var prop = found ? found.property : this.data.of.getAxiomByName(self.propName);
       var isFirstLevelProperty = this.columnHandler.canColumnBeTreatedAsAnAxiom(this.col) ? true : this.col.indexOf('.') === -1;
-      
+
       if ( ! prop ) return;
 
       var colData = this.columnConfigToPropertyConverter.returnColumnHeader(this.data.of, this.col);
@@ -261,7 +262,7 @@ foam.CLASS({
     },
 
     function inEdgeZone_() {
-      var limit   = window.innerWidth;
+      var limit   = this.window.innerWidth;
       var wrapper = this.data.tableEl_ && this.data.tableEl_.el_();
       if ( wrapper ) limit = Math.min(limit, wrapper.getBoundingClientRect().right);
       return this.lastPointerX_ >= limit - this.EDGE_AUTO_GROW_ZONE;
@@ -320,7 +321,7 @@ foam.CLASS({
         if ( ! this.autoGrowing_ && dx > 0 && this.inEdgeZone_() ) {
           this.autoGrowing_ = true;
           this.lastTickTs_ = null;
-          window.requestAnimationFrame(this.autoGrowTick);
+          this.window.requestAnimationFrame(this.autoGrowTick);
         }
       }
     },
@@ -352,7 +353,7 @@ foam.CLASS({
           if ( wrapper ) wrapper.scrollBy({ left: grow, behavior: 'instant' });
         }
         this.lastTickTs_ = ts;
-        window.requestAnimationFrame(this.autoGrowTick);
+        this.window.requestAnimationFrame(this.autoGrowTick);
       }
     },
     {

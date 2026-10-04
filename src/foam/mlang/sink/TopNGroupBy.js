@@ -240,7 +240,7 @@ return 0.0;
     {
       name: 'toString',
       code: function toString() {
-        return 'TopNGroupBy(' + this.arg1 + ',' + this.arg2 + ',' + this.groupLimit + ',' + this.topN + ',' + this.sort + ',' + this.includeOthers + ',' + this.othersLabel + ')';
+        return 'TopNGroupBy(' + this.arg1 + ',' + this.arg2.toString() + ',' + this.groupLimit + ',' + this.topN + ',' + this.sortOrder + ',' + this.includeOthers + ',' + this.othersLabel + ')';
       },
       javaCode: 'return this.getGroups().toString();'
     },

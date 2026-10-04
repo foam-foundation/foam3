@@ -2,7 +2,7 @@ p({
   class:"foam.core.menu.Menu",
   id:"admin.translationconsole",
   label:"Translation Console",
-  icon: "/images/icons8-translation-50.png",
+  themeIcon: "translate",
   handler:{
     class:"foam.core.menu.ViewMenu",
     "view":{

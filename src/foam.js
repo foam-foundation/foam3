@@ -106,7 +106,7 @@
     require: function(fn /* filename */, batch, isProject) {
       if ( fn ) {
         fn = foam.cwd + fn;
-        if ( ! isProject && foam.seen(fn) ) return;
+        if ( isProject ? foam.seenPOM(fn) : foam.seen(fn) ) return;
         scripts += '<script type="text/javascript" src="' + fn + '.js"></script>\n';
       }
       if ( ! batch || isProject ) {
@@ -133,6 +133,19 @@
         return true;
       }
       foam.loaded[fn] = true;
+      return false;
+    },
+    loadedPOMs:  {},
+    seenPOM:     function(fn) {
+      // Project paths are relative ('../../x/pom'), so normalize before
+      // comparing. Skipping the repeat here gives one warning naming the
+      // including POM instead of one per file in the repeated POM.
+      var url = new URL(fn + '.js', document.baseURI).href;
+      if ( foam.loadedPOMs[url] ) {
+        console.warn(`Duplicated load of POM '${url}' from '${document.currentScript.src}'`);
+        return true;
+      }
+      foam.loadedPOMs[url] = true;
       return false;
     },
     assertFlags: function(flags) {

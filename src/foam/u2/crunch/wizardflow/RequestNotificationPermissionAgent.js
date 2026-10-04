@@ -47,13 +47,13 @@ foam.CLASS({
         { name: 'PERMISSION_REASON', message: 'We use your on device notifications to improve the overall experience by allowing us to update you about your transaction status, latest rates & exciting promotions. Please click the button below to allow notifications to receive these updates. You can also enable notifications later from settings. ' }
       ],
       css: `
-        ^ {
+        << {
           color: $textSecondary;
           display: flex;
           flex-direction: column;
           gap: 2.4rem;
         }
-        ^buttons {
+        <<buttons {
           display: flex;
           flex-direction: column;
           gap: 1.2rem;
@@ -115,7 +115,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-dialog-StyledModal-modal-body {
+    << .foam-u2-dialog-StyledModal-modal-body {
       color: $textSecondary;
       display: flex;
       flex-direction: column;

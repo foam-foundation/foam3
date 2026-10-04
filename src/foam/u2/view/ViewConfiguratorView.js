@@ -33,7 +33,7 @@ foam.CLASS({
   },
 
   css: `
-    ^tabRow {
+    <<tabRow {
       padding: 12px 0;
       border-bottom: none;
     }

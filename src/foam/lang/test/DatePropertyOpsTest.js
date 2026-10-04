@@ -20,6 +20,7 @@ foam.CLASS({
     explicitly set to null.`,
 
   javaImports: [
+    'foam.lang.FObject',
     'foam.lang.PropertyInfo',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
@@ -55,6 +56,22 @@ foam.CLASS({
       `
     },
     {
+      name: 'fixtureRows',
+      documentation: 'Three rows on Jan 15, two on Jan 20, one on Feb 10, ids 1 to 6. A fresh array each call, since a bulk load consumes its input.',
+      type: 'foam.lang.FObject[]',
+      javaCode: `
+        long JAN_15 = 1579089600000L;
+        long JAN_20 = 1579521600000L;
+        long FEB_10 = 1581336000000L;
+        FObject[] rows = new FObject[6];
+        long id = 1;
+        for ( int i = 0 ; i < 3 ; i++ ) rows[i]     = model(id++, JAN_15);
+        for ( int i = 0 ; i < 2 ; i++ ) rows[3 + i] = model(id++, JAN_20);
+        rows[5] = model(id++, FEB_10);
+        return rows;
+      `
+    },
+    {
       name: 'countIn',
       documentation: 'Bucket count for one GroupBy key, or -1 when absent.',
       type: 'Long',
@@ -74,10 +91,7 @@ foam.CLASS({
 
         // Three records on Jan 15, two on Jan 20, one on Feb 10.
         DAO dao = new MDAO(DateTimeTestModel.getOwnClassInfo());
-        long id = 1;
-        for ( int i = 0 ; i < 3 ; i++ ) dao.put(model(id++, JAN_15));
-        for ( int i = 0 ; i < 2 ; i++ ) dao.put(model(id++, JAN_20));
-        dao.put(model(id++, FEB_10));
+        for ( FObject row : fixtureRows() ) dao.put(row);
 
         // ---- GROUP_BY on the raw date property ----
         GroupBy byDate = (GroupBy) dao.select(
@@ -243,6 +257,47 @@ foam.CLASS({
           "compare treats unset and explicitly null as the same date");
         test(prop.compare(unset, set) == prop.comparePropertyToObject(null, set),
           "compare and comparePropertyToObject order an unset date the same way");
+
+        // ---- a date the getter derives ----
+        // derivedDate stays unset until its javaGetter runs, factoryDate until
+        // its javaFactory runs; both then take regularDate. The index and the
+        // comparators read a date without calling the getter, so a row nobody
+        // has read yet has to compare and range-query by the value the getter
+        // would give, not by the unset field.
+        PropertyInfo[] lazyDates = new PropertyInfo[] {
+          DateTimeTestModel.DERIVED_DATE, DateTimeTestModel.FACTORY_DATE
+        };
+        for ( PropertyInfo lazy : lazyDates ) {
+          String name = lazy.getName();
+          DateTimeTestModel unread = model(1, JAN_15);
+          test(lazy.comparePropertyToObject(new Date(JAN_15), unread) == 0,
+            name + ": a key equals a value nobody has read yet");
+          test(lazy.compare(unread, model(2, JAN_20)) < 0,
+            name + ": two unread rows order by the values their getters give");
+          test(! lazy.isDefaultValue(unread),
+            name + ": an unread row with a source is not the unset value");
+
+          MDAO byLazy = new MDAO(DateTimeTestModel.getOwnClassInfo());
+          byLazy.addIndex(lazy);
+          for ( FObject row : fixtureRows() ) byLazy.put(row);
+          Count lazyInJan = (Count) byLazy
+            .where(AND(GTE(lazy, new Date(JAN_15)), LTE(lazy, new Date(JAN_20))))
+            .select(new Count());
+          test(lazyInJan.getValue() == 5,
+            name + ": a range finds the rows put through its index (found "
+            + lazyInJan.getValue() + ")");
+
+          // The same rows through a bulk load, the path a journal replay takes.
+          MDAO bulk = new MDAO(DateTimeTestModel.getOwnClassInfo());
+          bulk.addIndex(lazy);
+          test(bulk.bulkLoad(fixtureRows()), name + ": an empty MDAO accepts a bulk load");
+          Count lazyInJanBulk = (Count) bulk
+            .where(AND(GTE(lazy, new Date(JAN_15)), LTE(lazy, new Date(JAN_20))))
+            .select(new Count());
+          test(lazyInJanBulk.getValue() == 5,
+            name + ": a range finds the rows bulk-loaded into its index (found "
+            + lazyInJanBulk.getValue() + ")");
+        }
       `
     }
   ]

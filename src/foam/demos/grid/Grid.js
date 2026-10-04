@@ -35,40 +35,40 @@ foam.CLASS({
     body {
       color:#3a3a3a;
     }
-    ^list {
+    <<list {
       border:none;
       text-align:left;
       margin-bottom:20px;
     }
-    ^list tr th {
+    <<list tr th {
       background-color: #3b97d3;
       color: #fff;
       padding: 5px;
       border-right: solid 1px #3b97d3;
       border-left: solid 1px #fff;
     }
-    ^list tr th:first-child {
+    <<list tr th:first-child {
       border-left: solid 1px #3b97d3;
     }
-    ^list tr td {
+    <<list tr td {
       padding:5px;
       padding: 5px;
       border-right: solid 1px #d4d4d4;
     }
-    ^list tr td:first-child {
+    <<list tr td:first-child {
       border-left: solid 1px #d4d4d4;
     }
-    ^list tr:last-child td {
+    <<list tr:last-child td {
       border-bottom: solid 1px #d4d4d4;
     }
     input[type="text"] {
       height:20px;
       font-size:14px;
     }
-    ^ .foam.u2-ActionView {
+    << .foam.u2-ActionView {
       vertical-align: bottom;
     }
-    button, ^ .foam-u2-ActionView {
+    button, << .foam-u2-ActionView {
       border:none;
       color:#fff;
       background:#3b97d3;
@@ -82,10 +82,10 @@ foam.CLASS({
       -webkit-border-radius:3px;
       cursor:pointer;
     }
-    ^ button:hover {
+    << button:hover {
       background-color:#73c7ff;
     }
-    ^ .foam-u2-DetailView tr {
+    << .foam-u2-DetailView tr {
       display: inline;
     }
   `,

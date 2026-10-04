@@ -1,0 +1,121 @@
+p({
+  
+  name:"SimilaritySearch",
+  spid:"foam",
+  version:11,
+  script:[
+    {
+      "flowName":"intro",
+      "cmd":"markdown",
+      "value":{
+        "class":"foam.core.reflow.Markdown",
+        "markdown":
+"""# Similarity Search
+
+Similarity search is a vector search that finds items by meaning rather than exact wording. Content and queries are converted into numeric vectors (embeddings), and results are ranked by how close their vectors sit to the query's vector. There are four stages: vectorizing the content, vectorizing the query, running a kNN search, and scoring the results.
+
+**1. Vectorize the content** — an embedding model reads each chunk of text and outputs a fixed-length list of numbers (typically 384–3,072 dimensions). Semantically similar text lands close together in this space. Vectors are normalized to unit length and stored in an index.
+
+**2. Vectorize the query** — at search time, the query goes through the same model. Each model defines its own vector space, so query and content must always use the same model.
+
+**3. Execute the kNN search** — the index finds the k stored vectors closest to the query. Exact kNN is accurate but scans everything; approximate methods (HNSW, IVF, product quantization) trade a small amount of recall for large speed gains on large collections. Metadata filters can narrow the candidate set before or after the vector scan.
+
+**4. Score the results** — each candidate is ranked by cosine similarity, dot product, or Euclidean distance (cosine is most common for text). Raw scores are relative — threshold tuning on real queries decides what counts as a match. Hybrid search blends in keyword scores (BM25) for exact terms; re-ranking passes the top candidates through a cross-encoder for higher accuracy at higher cost.
+
+For a deeper treatment of each stage see [VectorSearch.md](https://github.com/foam-foundation/foam3/blob/development/doc/guides/VectorSearch.md).
+
+### In a Nutshell - From Content to Scored Results
+
+Content is chunked, embedded, and indexed ahead of time. At query time the query is embedded with the same model, the index returns the nearest vectors, and the candidates are scored and optionally re-ranked before being returned to the user."""
+      },
+      "border":{"oldTitleStyle_":"h300"},
+      "padding_st":"16px"
+    },{
+      "flowName":"searchFOAM",
+      "cmd":"markdown",
+      "value":{
+        "class":"foam.core.reflow.Markdown",
+        "markdown":
+"""## Similarity Search in FOAM  
+
+**Note:** WIP ... this will change as we generalize beyond knowledge content to DAO records ...
+
+..................................
+
+FOAM's vector search support is built around three layered abstractions: a data model for embeddings, a service interface for producing them, and a DAO that indexes and searches them.
+
+### VectorEmbedding
+
+`foam.ai.vector.VectorEmbedding` is the unit of storage. Each instance represents one embedded chunk of text:
+
+| Property | Type | Purpose |
+|---|---|---|
+| `id` | String | Unique identifier (e.g. `"flowName:chunkIndex"`) |
+| `text` | String | The original text that was embedded |
+| `sourceId` | String | Where the chunk came from (doc path, class id, flow name, etc.) |
+| `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
+| `embeddingModel` | String | The model that produced the vector (e.g. `'Xenova/all-MiniLM-L6-v2'`) |
+| `vector` | FloatArray | The embedding — a normalized `float[]` of fixed dimension |
+
+The `embeddingModel` field is important: vectors from different models live in incompatible spaces and cannot be compared. At query time, results are filtered to embeddings that share the query's model name, so the index can safely hold vectors from multiple models side by side.
+
+### EmbeddingService
+
+`foam.ai.vector.EmbeddingService` is a FOAM interface that decouples calling code from any particular embedding backend:
+
+```javascript
+embed(x, text)      // → VectorEmbedding
+embedAll(x, texts)  // → VectorEmbedding[]
+```
+
+The interface is declared with `skeleton: true` and `client: true`, so FOAM generates the server-side skeleton and client-side proxy automatically. An `EmbeddingService` can be called identically from JavaScript or Java, in-process or over the network.
+
+### Providers
+
+Because the interface is the only contract, the embedding backend is a configuration choice rather than a code dependency. Different providers can be registered in context and swapped without changing any calling code:
+
+| Provider | Where it runs | Notes |
+|---|---|---|
+| `foam.ai.vector.provider.TransformersEmbeddingService` | Browser (WebAssembly) | Loads a sentence-transformer via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required |
+| *(server-side providers)* | Java server | Can call OpenAI, Ollama, Cohere, or any HTTP embedding API |
+
+`TransformersEmbeddingService` defaults to `Xenova/all-MiniLM-L6-v2` (384 dimensions). The model name is a property — pointing it at a larger or domain-specific model requires only a configuration change, not a code change.
+
+### Chunking
+
+Before embedding, long documents are split into chunks. `MarkdownChunkParser` splits at heading boundaries (`maxDepth: 2` means each `##` section becomes one chunk). `ClientMarkdownChunkerService` wraps it, strips inline markup, and splits oversized sections on paragraph breaks to stay within the model's token limit.
+
+### VectorStoreDAO and Search
+
+`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds a flat `float[]` index over any backing DAO. Internally it packs all stored vectors into one contiguous array in row-major order, which keeps the cosine scan CPU-cache friendly. The index rebuilds lazily whenever the underlying data changes.
+
+Search uses `foam.ai.vector.CosineComparator` as a standard `DAO.orderBy` comparator:
+
+```javascript
+var sink = await vectorStoreDAO
+  .where(EQ(VectorEmbedding.EMBEDDING_MODEL, queryEmbedding.embeddingModel))
+  .orderBy(CosineComparator.create({ queryVector: queryEmbedding.vector }))
+  .limit(10)
+  .select();
+```
+
+The `.where()` guard ensures query and stored vectors share the same model. Everything else — filtering, ranking, pagination — composes through the standard DAO API unchanged.
+
+### Try it
+
+The demo below indexes all flows tagged with `knowledge`, then lets you search them by meaning.
+
+1. Click **Index Knowledge Flows** — the model downloads on first use (a few seconds), then each flow is chunked and embedded. Status updates show progress.
+2. Type a question in the search box and click **Search** — your query is embedded with the same model and the 10 closest chunks are returned, ranked by cosine similarity.
+3. Results show the source flow name and a 200-character preview of the matching chunk. Try paraphrasing the same question differently to confirm that meaning, not exact wording, drives the ranking.
+
+
+<foam class="foam.ai.vector.demos.SearchPage"></foam>"""
+      },
+      "border":{"oldTitleStyle_":"h300"},
+      "padding_st":"16px"
+    }
+  ],
+  lastModified:1790605497617
+})
+

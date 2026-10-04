@@ -12,16 +12,16 @@ foam.CLASS({
   imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree' ],
 
   css: `
-    ^ {
+    << {
       width: 100%;
     }
-    ^ table {
+    << table {
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
       padding-top: 8px;
     }
-    ^ table td {
+    << table td {
       display: flex;
       justify-content: space-between;
       padding: 10px 8px;
@@ -32,7 +32,7 @@ foam.CLASS({
       border-spacing: 0!important;
     }
 
-    ^ table td .close button {
+    << table td .close button {
       padding: 4px;
     }
 
@@ -41,11 +41,11 @@ foam.CLASS({
       100% { transform: rotate(360deg); }
     }
 
-    ^selected {
+    <<selected {
       background: $backgroundTertiary;
       font-weight: $font-regular;
     }
-    ^left-header {
+    <<left-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -55,23 +55,20 @@ foam.CLASS({
       font-size: 16px;
     }
 
-    ^icon-holder {
+    <<icon-holder {
       display: flex;
       justify-content: center;
       align-items: center;
     }
-    ^element-row {
+    <<element-row {
       padding: 10px;
     }
-    ^element-row-content {
+    <<element-row-content {
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    ^element-row-icon {
-      color: $textBrand;
-    }
-    ^ table td^moveTarget {
+    << table td<<moveTarget {
       background: transparent;
       border: none;
       width: 100%;
@@ -79,25 +76,25 @@ foam.CLASS({
       padding: 0;
       margin: 0;
     }
-    ^ table td^activeTarget {
+    << table td<<activeTarget {
       background: $backgroundBrandTertiary;
     }
-    ^dragTarget {
+    <<dragTarget {
       transform: translate(0, 0);
       opacity: 0.95;
       background: $backgroundDefault;
     }
-    ^context-menu {
+    <<context-menu {
       position: fixed;
       background: $backgroundDefault;
       border: 1px solid $borderLight;
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      z-index: 1000;
+      z-index: $z-popup;
       padding: 4px 0;
       min-width: 120px;
     }
-    ^context-menu-item {
+    <<context-menu-item {
       padding: 8px 16px;
       cursor: pointer;
       display: flex;
@@ -105,7 +102,7 @@ foam.CLASS({
       gap: 8px;
       font-size: 14px;
     }
-    ^context-menu-item:hover {
+    <<context-menu-item:hover {
       background: $backgroundSecondary;
     }
   `,
@@ -211,21 +208,8 @@ foam.CLASS({
             enableClass(self.myClass('selected'), self.selected$.map(s => s === data)).
             start().
               addClass(self.myClass('element-row-content')).
-              // TODO: let the Flowable provide its own Image
-              callIfElse(data.cmd && data?.cmd?.includes('dao'), function() {
-                this.start(foam.u2.tag.Image, {
-                  glyph: 'grid',
-                  embedSVG: true
-                }).addClass(self.myClass('element-row-icon')).end()
-              }, function() {
-                this.start(foam.u2.tag.Image, {
-                  glyph: 'rectangle',
-                  embedSVG: true
-                }).addClass(self.myClass('element-row-icon')).end()
-              }).
-              call(function() {
-                data.treeRowRenderer(this);
-              }).
+              call(function() { data.treeCellFormatter(this); }).
+              call(function() { data.treeRowRenderer(this); }).
             end().
             add(data?.dynamic(function(value$loading) {
               if ( value$loading )
@@ -344,7 +328,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() { this.flowParent.removeFlowChild(this); }
+      code: function() { this.flowRoot().deleteFlowChild(this); }
     },
     {
       name: 'menuControl',

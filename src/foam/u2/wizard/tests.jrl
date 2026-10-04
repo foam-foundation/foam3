@@ -96,3 +96,4 @@ p({
     await execute(x);
   """
 })
+p({"class":"foam.u2.wizard.test.WizardIndicatorTokensJSTest","id":"WizardIndicatorTokensJSTest"})

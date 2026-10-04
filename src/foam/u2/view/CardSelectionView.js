@@ -18,10 +18,10 @@ foam.CLASS({
   requires: [ 'foam.u2.view.CardSelectView' ],
 
   css: `
-    ^flexer {
+    <<flexer {
       flex-wrap: wrap;
     }
-    ^innerFlexer {
+    <<innerFlexer {
       display: inline-flex;
       padding: 4px;
       box-sizing: border-box;

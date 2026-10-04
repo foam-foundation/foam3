@@ -1,0 +1,5 @@
+p({class: "foam.i18n.Locale", locale:"fr",source:"foam.comics.v2.DAOBrowserView.EXPORT.label", target:"Exportation"})
+p({class: "foam.i18n.Locale", locale:"fr",source:"foam.comics.v2.DAOBrowserView.EXPORT.toolTip", target:"Données de table d'exportation"})
+p({class: "foam.i18n.Locale", locale:"fr",source:"foam.comics.v2.DAOBrowserView.IMPORT.label", target:"Importation"})
+p({class: "foam.i18n.Locale", locale:"fr",source:"foam.comics.v2.DAOBrowserView.IMPORT.toolTip", target:"Importation à partir d\'un tableur"})
+p({class: "foam.i18n.Locale", locale:"fr",source:"foam.comics.v2.DAOBrowserView.REFRESH.label", target:"Mise à jour"})

@@ -42,15 +42,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^action-container {
+    <<action-container {
       display: flex;
       justify-content: space-between;
       margin: 8px 0;
     }
-    ^action-container > div > div > * + * {
+    <<action-container > div > div > * + * {
       margin-left: 8px;
     }
-    ^detail-container {
+    <<detail-container {
       overflow-x: auto;
     }
   `,

@@ -12,7 +12,7 @@ foam.CLASS({
   requires: ['foam.u2.TextField'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       height: $inputHeight;
@@ -20,7 +20,7 @@ foam.CLASS({
       position: relative;
       width: 100%;
     }
-    ^placeholder.foam-u2-TextField {
+    <<placeholder.foam-u2-TextField {
       bottom: 0;
       inline-size: fit-content;
       left: 0;
@@ -31,7 +31,7 @@ foam.CLASS({
       top: 0;
       width: fit-content;
     }
-    ^real-input.foam-u2-TextField {
+    <<real-input.foam-u2-TextField {
       z-index: 1;
       background-color: transparent;
       bottom: 0;

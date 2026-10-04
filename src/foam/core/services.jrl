@@ -2,6 +2,7 @@ p({
   class: "foam.core.boot.CSpec",
   name: "serviceReloaderAgency",
   lazy: false,
+  lazyOrder: -1,
   serve: false,
   serviceScript: """
     new foam.core.pool.ThreadPoolAgency.Builder(x)

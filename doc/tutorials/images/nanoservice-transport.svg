@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', monospace">
+
+  <!-- Background -->
+  <rect width="640" height="320" fill="#f8f9fa" rx="8"/>
+
+  <!-- Application Code box -->
+  <rect x="40" y="24" width="560" height="110" rx="8" fill="#ffffff" stroke="#0055cc" stroke-width="1.5"/>
+  <rect x="40" y="24" width="560" height="28" rx="8" fill="#0055cc"/>
+  <rect x="40" y="40" width="560" height="12" fill="#0055cc"/>
+  <text x="320" y="43" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="600" letter-spacing="0.3">Application Code</text>
+
+  <text x="72" y="74" font-size="11.5">
+    <tspan fill="#666">imports: </tspan><tspan fill="#c0392b">['conversionService']</tspan>
+  </text>
+
+  <text x="72" y="95" fill="#555" font-size="11.5">...</text>
+
+  <text x="72" y="116" font-size="11.5">
+    <tspan fill="#333">this.</tspan><tspan fill="#0055cc">conversionService</tspan><tspan fill="#333">.convert(x, request)  </tspan><tspan fill="#999" font-size="11" font-style="italic">// same API everywhere</tspan>
+  </text>
+
+  <!-- Trunk line down from app box -->
+  <line x1="320" y1="134" x2="320" y2="178" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- Horizontal crossbar -->
+  <line x1="112" y1="178" x2="528" y2="178" stroke="#aaa" stroke-width="1.5"/>
+
+  <!-- Branch lines down to each box -->
+  <line x1="112" y1="178" x2="112" y2="212" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="320" y1="178" x2="320" y2="212" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="528" y1="178" x2="528" y2="212" stroke="#aaa" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- Arrow heads -->
+  <polygon points="112,212 107,202 117,202" fill="#aaa"/>
+  <polygon points="320,212 315,202 325,202" fill="#aaa"/>
+  <polygon points="528,212 523,202 533,202" fill="#aaa"/>
+
+  <!-- Local box -->
+  <rect x="40" y="212" width="144" height="80" rx="8" fill="#ffffff" stroke="#27ae60" stroke-width="1.5"/>
+  <rect x="40" y="212" width="144" height="26" rx="8" fill="#27ae60"/>
+  <rect x="40" y="226" width="144" height="12" fill="#27ae60"/>
+  <text x="112" y="230" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="600">Local</text>
+  <text x="112" y="255" text-anchor="middle" fill="#555" font-size="11">Same JVM / process</text>
+  <text x="112" y="272" text-anchor="middle" fill="#27ae60" font-size="10.5" font-weight="500">Zero network overhead</text>
+
+  <!-- HTTP box -->
+  <rect x="248" y="212" width="144" height="80" rx="8" fill="#ffffff" stroke="#e67e22" stroke-width="1.5"/>
+  <rect x="248" y="212" width="144" height="26" rx="8" fill="#e67e22"/>
+  <rect x="248" y="226" width="144" height="12" fill="#e67e22"/>
+  <text x="320" y="230" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="600">HTTP</text>
+  <text x="320" y="255" text-anchor="middle" fill="#555" font-size="11">Standard request /</text>
+  <text x="320" y="270" text-anchor="middle" fill="#555" font-size="11">response over REST</text>
+
+  <!-- WebSocket box -->
+  <rect x="456" y="212" width="144" height="80" rx="8" fill="#ffffff" stroke="#8e44ad" stroke-width="1.5"/>
+  <rect x="456" y="212" width="144" height="26" rx="8" fill="#8e44ad"/>
+  <rect x="456" y="226" width="144" height="12" fill="#8e44ad"/>
+  <text x="528" y="230" text-anchor="middle" fill="#ffffff" font-size="11.5" font-weight="600">WebSocket</text>
+  <text x="528" y="255" text-anchor="middle" fill="#555" font-size="11">Real-time,</text>
+  <text x="528" y="270" text-anchor="middle" fill="#555" font-size="11">bidirectional</text>
+
+  <!-- Caption -->
+  <text x="320" y="312" text-anchor="middle" fill="#999" font-size="10.5" font-style="italic">The calling code never changes. Transport is a configuration detail.</text>
+
+</svg>

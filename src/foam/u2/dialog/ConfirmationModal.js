@@ -16,14 +16,14 @@ foam.CLASS({
   imports: ['theme?'],
 
   css: `
-    ^lowerPadding {
+    <<lowerPadding {
       padding-bottom: 0;
     }
   `,
 
   messages: [
-    { name: 'CONFIRM_LABEL', message: 'Confirm' },
-    { name: 'CANCEL_LABEL', message: 'Cancel' }
+    { name: 'CONFIRM_LABEL', messageMap: { en: 'Confirm', fr: 'Confirmez' } },
+    { name: 'CANCEL_LABEL', messageMap: { en: 'Cancel', fr: 'Annuler' } }
   ],
 
   properties: [

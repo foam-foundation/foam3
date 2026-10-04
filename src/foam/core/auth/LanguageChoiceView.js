@@ -32,7 +32,7 @@ foam.CLASS({
   exports: [ 'as data' ],
 
   css: `
-    ^dropdown span, ^dropdown svg {
+    <<dropdown span, <<dropdown svg {
       font-weight: $font-regular;
     }
   `,

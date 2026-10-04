@@ -74,8 +74,34 @@ foam.CLASS({
       documentation: 'Optional feature-toggle config from tools/lsp/FeatureConfig (server.js wires it). Plain Node object, not an FObject, so no `class:` here. Null means "every check on" — the handler is created bare in tests and by other tooling, and an absent config must never silence a diagnostic.'
     },
     {
+      name: 'clientDiagnosticCaps',
+      documentation: `The client's textDocument.publishDiagnostics capability
+        object, e.g. { relatedInformation: true, tagSupport: { valueSet: [1, 2] } }.
+        server.js sets it at initialize. Diagnostic.toLSP reads it to decide
+        whether tags and relatedInformation go on the wire. Null (a bare
+        handler in a test, or a client that declared nothing) sends neither.`
+    },
+    {
+      name: 'rawModelFiles_',
+      documentation: 'Raw file models of OTHER classes read for their deprecated: marker, keyed by file path: { mtimeMs, models }. See rawModelOf_.',
+      factory: function() { return {}; }
+    },
+    {
       name: 'pomValidator',
       documentation: 'Optional (server.js wires it). When set, handle() runs entry-level pom checks (validateEntries) on texts containing foam.POM(, gated by diagnostics.pom; null-safe no-op otherwise.'
+    },
+    {
+      name: 'cssParser_',
+      documentation: `The shared foam.u2.parse.CSSParser (a Singleton) the css:
+        checks read, or null when the booted registry lacks it. Problem: the
+        css: checks used to scan the text with regexes that could not tell a
+        comment or a string from CSS, so '/* $old */' reported an unknown token
+        and '#fff' inside url(...) a raw colour. Null keeps every css: check
+        silent instead of throwing, for tooling that boots a smaller registry.`,
+      factory: function() {
+        var cls = foam.maybeLookup('foam.u2.parse.CSSParser');
+        return cls ? cls.create() : null;
+      }
     },
     {
       name: 'fileClassifier',
@@ -98,13 +124,29 @@ foam.CLASS({
     }
   ],
 
+  constants: {
+    // Properties whose value the raw-colour check reads (lower case).
+    RAW_COLOR_PROPERTIES: {
+      'color': true, 'background': true, 'background-color': true,
+      'border': true, 'border-color': true, 'outline-color': true,
+      'border-top': true, 'border-bottom': true, 'border-left': true, 'border-right': true,
+      'border-top-color': true, 'border-bottom-color': true,
+      'border-left-color': true, 'border-right-color': true
+    },
+    // CSS functions that spell a raw colour (lower case).
+    RAW_COLOR_FUNCTIONS: { rgb: true, rgba: true, hsl: true, hsla: true },
+    LINE_COMMENT_MESSAGE: "'//' is not a CSS comment: the browser drops this statement; use /* */"
+  },
+
   methods: [
     function featureOn_(flag) {
       /** True when `flag` is enabled, or when no featureConfig is wired at all. */
       return ! this.featureConfig || this.featureConfig.enabled(flag);
     },
 
-    function handle(text, opt_uri) {
+    function handle(text, opt_uri, opt_caps) {
+      // opt_caps: client diagnostic capabilities for THIS answer (the pull
+      // lane's own); defaults to clientDiagnosticCaps (the push lane's).
       // One classifier, shared with the server dispatch, decides the lane —
       // never a local sniff (a local regex here and a different one in
       // dispatch is exactly how the pom lane shipped unreachable). The
@@ -178,7 +220,17 @@ foam.CLASS({
       this.validateInstantiations_(text, diagnostics);
 
       this.prevResults_[uri] = { text: text, modelKeys: prev ? prev.modelKeys : {} };
-      return this.toLSPDiagnostics_(diagnostics);
+      return this.toLSPDiagnostics_(diagnostics, opt_caps || this.clientDiagnosticCaps);
+    },
+
+    function isWholeClassRef_(text, start, end) {
+      /** True when [start, end) is a whole quoted string, or a requires
+       *  entry that renames its class: 'foam.u2.DetailView as DV'. */
+      var q = text.charAt(start - 1);
+      if ( q !== '\'' && q !== '"' ) return false;
+      if ( text.charAt(end) === q ) return true;
+      var m = /^[ \t]+as[ \t]+[A-Za-z_$][\w$]*/.exec(text.substr(end, 120));
+      return !! m && text.charAt(end + m[0].length) === q;
     },
 
     function collectGrammarDiagnostics_(text, diagnostics) {
@@ -188,16 +240,29 @@ foam.CLASS({
        * matched text. All positions come from parser offsets — no regex.
        */
       var records = this.grammar.collectDiagnostics(text);
+      // A registered class matches the `classRef` arm; one known only to the
+      // file index (flag-filtered) falls through to `unknownClassRef`. Both
+      // can name a deprecated class, and backtracking can record one span
+      // twice, so deprecation is checked once per start offset.
+      var depSeen = {};
       for ( var i = 0 ; i < records.length ; i++ ) {
         var r = records[i];
         var matched = text.substring(r.startPos, r.endPos);
         if ( ! matched ) continue;
 
-        if ( r.msg && r.msg.type === 'unknownClassRef' ) {
-          if ( ! this.classKnown_(matched) ) {
-            this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
-              "Unknown class: '" + matched + "'");
+        var knownRef = r.msg && ( r.msg.kind === 'classRef' ||
+          ( r.msg.type === 'unknownClassRef' && this.classKnown_(matched) ) );
+        if ( knownRef ) {
+          // The grammar records a registered prefix before it checks the
+          // closing quote: 'foam.u2.DetailViewNope' leaves a record for
+          // foam.u2.DetailView. Only a whole string names the class.
+          if ( ! depSeen[r.startPos] && this.isWholeClassRef_(text, r.startPos, r.endPos) ) {
+            depSeen[r.startPos] = true;
+            this.addDeprecatedClassDiag_(diagnostics, text, r.startPos, matched);
           }
+        } else if ( r.msg && r.msg.type === 'unknownClassRef' ) {
+          this.addDiag_(diagnostics, text, r.startPos, matched.length, 2,
+            "Unknown class: '" + matched + "'");
         } else if ( r.msg && r.msg.type === 'doubleQuotedClassRef' ) {
           // FOAM convention is single-quoted class refs. Parse the value
           // anyway (lenient) but surface a hint with the corrected form so
@@ -250,6 +315,9 @@ foam.CLASS({
 
         for ( var e = 0 ; e < inst.entries.length ; e++ ) {
           var entry = inst.entries[e];
+          // Deprecation is about the key, whatever the value is, so it is
+          // checked before the literals-only filter below.
+          if ( entry.keyPos ) this.addDeprecatedPropertyDiag_(diagnostics, text, classId, entry);
           if ( ! entry.valueText || ! entry.valuePos ) continue;
           var v = entry.valueText;
           var c0 = v.charAt(0);
@@ -270,7 +338,10 @@ foam.CLASS({
             var names = info.enumValues.map(function(x) { return x.name; });
             if ( names.indexOf(inner) === -1 ) {
               this.addDiag_(diagnostics, text, off, len, 2,
-                "'" + inner + "' is not a valid " + info.enumId + " value. Expected: " + names.join(', '));
+                "'" + inner + "' is not a valid " + info.enumId + " value. Expected: " + names.join(', '),
+                undefined,
+                { relatedInformation: this.relatedAt_(info.enumId, null, 0,
+                    info.enumId + ' values are declared here') });
             }
           } else if ( info.primitiveKind === 'int' || info.primitiveKind === 'float' ) {
             if ( isStr ) {
@@ -357,13 +428,13 @@ foam.CLASS({
       return out;
     },
 
-    function toLSPDiagnostics_(diagnostics) {
+    function toLSPDiagnostics_(diagnostics, caps) {
       /** Flatten Diagnostic instances to LSP protocol shape; pass raws through. */
       if ( ! diagnostics ) return diagnostics;
       var out = new Array(diagnostics.length);
       for ( var i = 0 ; i < diagnostics.length ; i++ ) {
         var d = diagnostics[i];
-        out[i] = ( d && typeof d.toLSP === 'function' ) ? d.toLSP() : d;
+        out[i] = ( d && typeof d.toLSP === 'function' ) ? d.toLSP(caps) : d;
       }
       return out;
     },
@@ -382,18 +453,27 @@ foam.CLASS({
         this.javaValidator.validateModel(m, classId, diagnostics, text);
       }
 
+      // One parse of css: feeds the four css checks below.
+      var css = this.parseCSS_(m, text);
+
       // Validate CSS token references
-      this.validateCSS_(m, text, diagnostics);
+      this.validateCSS_(m, text, css, diagnostics);
 
       // Validate tableColumns/searchColumns
       // tableColumns/searchColumns validation is now emitted from the grammar's
       // columnName rule via P.msg — see collectGrammarDiagnostics_.
 
       // Validate raw CSS values
-      this.validateRawCSSValues_(m, text, diagnostics);
+      this.validateRawCSSValues_(m, text, css, diagnostics);
 
       // Warn about ^classname rules in css: that aren't applied from JS
-      this.validateUnusedCSSClasses_(m, text, diagnostics);
+      this.validateUnusedCSSClasses_(m, text, css, diagnostics);
+
+      // Strike through each selector '^', which is deprecated for '<<'
+      this.validateDeprecatedCaret_(text, css, diagnostics);
+
+      // Report what the CSS grammar could not parse
+      this.validateCSSSyntax_(text, css, diagnostics);
 
       // Validate expression parameters
       this.validateExpressions_(m, text, diagnostics);
@@ -577,37 +657,82 @@ foam.CLASS({
       return text.substring(start, end).indexOf('i18n-ignore') !== -1;
     },
 
-    function validateCSS_(model, text, diagnostics) {
+    function parseCSS_(model, text) {
+      /**
+       * Parse model.css once for the css checks of one validateModel_ pass.
+       * Returns { parser, tree, base } (base: offset of the css text in the
+       * file, so file offset = base + node.start), or null when there is no
+       * css: string, it cannot be located in the file, or the registry has
+       * no CSS grammar.
+       */
+      var cssStr = model.css;
+      if ( ! cssStr || typeof cssStr !== 'string' ) return null;
+      var parser = this.cssParser_;
+      if ( ! parser ) return null;
+      // Search from the model's own call. Two classes with the same css: text
+      // made a whole-file search find the first block for both.
+      var entry = this.grammar.modelEntryFor(text, model);
+      var base  = text.indexOf(cssStr, entry ? entry.startPos : 0);
+      if ( base === -1 ) return null;
+      return { parser: parser, tree: parser.parse(cssStr), base: base };
+    },
+
+    function validateCSS_(model, text, css, diagnostics) {
       /**
        * Validate $token references inside css: template strings.
        * Reports unknown CSS token names as warnings.
        * Tokens declared in the model's own cssTokens: [...] array or
        * inherited from the extends chain are recognized as valid.
+       *
+       * tokens() holds only the $names FOAM replaces as tokens: a $name in
+       * a comment, a string or an unquoted url() is left out (hazards()
+       * covers those). Its name is the full chain, so a ColorToken suffix
+       * like $primary400$foreground validates as one name.
        */
-      if ( ! this.cssTokenResolver ) return;
-
-      var cssStr = model.css;
-      if ( ! cssStr || typeof cssStr !== 'string' ) return;
-
-      var baseOffset = text.indexOf(cssStr);
-      if ( baseOffset === -1 ) return;
+      if ( ! this.cssTokenResolver || ! css ) return;
 
       var localTokens = this.collectLocalCssTokens_(model);
-
-      // Match the full chain — `$base`, then 0+ `$suffix` segments — so
-      // ColorToken-installed suffixes like `$primary400$foreground` validate
-      // as a single name rather than splitting into `$primary400` (known)
-      // and `$foreground` (unknown).
-      var tokenPattern = /\$([a-zA-Z][a-zA-Z0-9_\-]*(?:\$[a-zA-Z][a-zA-Z0-9_\-]*)*)/g;
-      var tm;
-      while ( ( tm = tokenPattern.exec(cssStr) ) !== null ) {
-        var tokenName = tm[1];
-        if ( localTokens[tokenName] ) continue;
-        if ( ! this.cssTokenResolver.tokenExists(tokenName) ) {
-          this.addDiag_(diagnostics, text, baseOffset + tm.index, tm[0].length, 2,
-            "Unknown CSS token: '$" + tokenName + "'");
+      var tokens      = css.parser.tokens(css.tree);
+      for ( var i = 0 ; i < tokens.length ; i++ ) {
+        var t = tokens[i];
+        // Class-scoped form: $foam.u2.Tabs.tabColor. Problem: the resolver
+        // is keyed by bare token name and the old regex stopped at the
+        // first '.', so this form reported a false "Unknown CSS token:
+        // '$foam'". FOAM resolves it through the named class at runtime,
+        // which this check cannot see, so it is skipped: no report beats
+        // a wrong one.
+        if ( t.cls ) continue;
+        if ( localTokens[t.name] ) continue;
+        if ( ! this.cssTokenResolver.tokenExists(t.name) ) {
+          this.addDiag_(diagnostics, text, css.base + t.start, t.end - t.start, 2,
+            "Unknown CSS token: '$" + t.name + "'");
         }
       }
+    },
+
+    function cssTokenEntries_(tokens) {
+      /**
+       * Normalize a raw-file cssTokens declaration to [{name, value}].
+       * CSSTokenModelRefinement's adapt accepts three author forms — the
+       * LSP reads pre-adapt file models, so it must accept the same three:
+       *   1. [ { name, value } ]   (object array; also the registry form)
+       *   2. { name: value }       (plain map)
+       *   3. [ ['name', value] ]   (pair array)
+       */
+      if ( ! tokens ) return [];
+      var out = [];
+      if ( ! Array.isArray(tokens) ) {
+        if ( typeof tokens !== 'object' ) return [];
+        for ( var key in tokens ) out.push({ name: key, value: tokens[key] });
+        return out;
+      }
+      for ( var i = 0 ; i < tokens.length ; i++ ) {
+        var t = tokens[i];
+        if ( ! t ) continue;
+        if ( Array.isArray(t) )     out.push({ name: t[0], value: t[1] });
+        else if ( t.name )          out.push({ name: t.name, value: t.value });
+      }
+      return out;
     },
 
     function collectLocalCssTokens_(model) {
@@ -617,12 +742,10 @@ foam.CLASS({
        * unknown ancestors are silently skipped.
        */
       var set = Object.create(null);
+      var self = this;
       var addFrom = function(tokens) {
-        if ( ! tokens || ! tokens.length ) return;
-        for ( var i = 0 ; i < tokens.length ; i++ ) {
-          var t = tokens[i];
-          if ( t && t.name ) set[t.name] = true;
-        }
+        var entries = self.cssTokenEntries_(tokens);
+        for ( var i = 0 ; i < entries.length ; i++ ) set[entries[i].name] = true;
       };
       addFrom(model.cssTokens);
 
@@ -637,32 +760,36 @@ foam.CLASS({
       return set;
     },
 
-    function validateRawCSSValues_(m, text, diagnostics) {
+    function validateRawCSSValues_(m, text, css, diagnostics) {
       /**
        * Warn when raw color values are used where CSS tokens should be.
        * Checks css: template strings and color properties on enum values.
        * Consistent with CSSAuditTest.js detection patterns.
+       *
+       * In css:, a raw colour is a hex hash (#fff, #ffffffff) or an
+       * rgb/rgba/hsl/hsla function in the value of a colour property. A
+       * var() is not searched: its fallback is not used while the custom
+       * property is set. Comments, strings and url() text are not value
+       * components, so a '#fff' in them is never reported.
        */
-      var colorProps = /(?:^|[;{}\s])\s*(color|background(?:-color)?|border(?:-color)?|border-(?:top|bottom|left|right)(?:-color)?|outline-color)\s*:\s*([^;}\n$]+)/g;
       var rawColorValue = /#[0-9a-fA-F]{3,8}\b|rgba?\s*\(|hsla?\s*\(/;
       var localTokenValues = this.collectLocalCssTokenValueMap_(m);
 
       // Check css: template string
-      var cssStr = m.css;
-      if ( cssStr && typeof cssStr === 'string' ) {
-        var baseOffset = text.indexOf(cssStr);
-        if ( baseOffset !== -1 ) {
-          var match;
-          while ( ( match = colorProps.exec(cssStr) ) !== null ) {
-            var valueStr = match[2].trim();
-            if ( rawColorValue.test(valueStr) ) {
-              var rawMatch = valueStr.match(/#[0-9a-fA-F]{3,8}|rgba?\s*\([^)]*\)|hsla?\s*\([^)]*\)/);
-              var rawVal = rawMatch ? rawMatch[0] : valueStr;
-              var offset = baseOffset + match.index + match[0].indexOf(valueStr);
-              this.addDiag_(diagnostics, text, offset, rawVal.length, 2,
-                this.rawColorMessage_(rawVal, localTokenValues));
+      if ( css ) {
+        var self  = this;
+        var decls = css.parser.declarations(css.tree);
+        for ( var d = 0 ; d < decls.length ; d++ ) {
+          if ( decls[d].custom || ! this.RAW_COLOR_PROPERTIES[decls[d].property.toLowerCase()] ) continue;
+          css.parser.walk(decls[d].node.value, function(n) {
+            var fn = n.kind === 'function' && n.name.toLowerCase();
+            if ( fn === 'var' ) return false;
+            if ( ( n.kind === 'hash' && n.isHexColor ) || self.RAW_COLOR_FUNCTIONS[fn] ) {
+              self.addDiag_(diagnostics, text, css.base + n.start, n.end - n.start, 2,
+                self.rawColorMessage_(n.raw, localTokenValues));
+              return false;
             }
-          }
+          });
         }
       }
 
@@ -700,13 +827,12 @@ foam.CLASS({
         }
         return s;
       };
+      var self = this;
       var addFrom = function(tokens) {
-        if ( ! tokens || ! tokens.length ) return;
-        for ( var i = 0 ; i < tokens.length ; i++ ) {
-          var t = tokens[i];
-          if ( ! t || ! t.name ) continue;
-          var n = normalize(t.value);
-          if ( n && ! map[n] ) map[n] = t.name;
+        var entries = self.cssTokenEntries_(tokens);
+        for ( var i = 0 ; i < entries.length ; i++ ) {
+          var n = normalize(entries[i].value);
+          if ( n && ! map[n] ) map[n] = entries[i].name;
         }
       };
       addFrom(model.cssTokens);
@@ -721,7 +847,25 @@ foam.CLASS({
       return map;
     },
 
-    function validateUnusedCSSClasses_(model, text, diagnostics) {
+    function validateDeprecatedCaret_(text, css, diagnostics) {
+      /**
+       * '^' is the old spelling of the class shorthand; '<<' replaces it.
+       * FOAM stops replacing '^' on 2027-06-30, so CSS's own [attr^=x]
+       * works in css: blocks. Until then each '^' in a selector gets a hint
+       * the editor strikes through. A '^' inside [attr^=x], a string or a
+       * comment is left alone: none of them is meant as the shorthand.
+       */
+      if ( ! css ) return;
+      var self = this;
+      css.parser.walk(css.tree, function(n) {
+        if ( n.kind !== 'caret' || n.raw !== '^' || n.context || n.inAttr ) return;
+        self.addDiag_(diagnostics, text, css.base + n.start, 1, self.Diagnostic.HINT,
+          "'^' is deprecated: write '<<'. FOAM stops replacing '^' on 2027-06-30.",
+          'deprecated-css-caret', { tags: [ self.Diagnostic.DEPRECATED ] });
+      });
+    },
+
+    function validateUnusedCSSClasses_(model, text, css, diagnostics) {
       /**
        * Flag ^classname rules in css: that no JS code applies via
        * this.myClass('name') / myClass("name") / myClass(`name`).
@@ -730,24 +874,31 @@ foam.CLASS({
        * argument to myClass(…) — too many false positives when class
        * names are computed (e.g. myClass(state), myClass(this.tag)).
        */
-      var cssStr = model.css;
-      if ( ! cssStr || typeof cssStr !== 'string' ) return;
-      var baseOffset = text.indexOf(cssStr);
-      if ( baseOffset === -1 ) return;
+      if ( ! css ) return;
 
-      // Collect ^name tokens that look like class selectors (letter-start).
+      // Collect ^name carets from selectors whose name looks like a class
+      // (letter-start). Only selector carets count: a '^' in a comment, a
+      // string or the '^=' of [class^=x] names no class of this model.
       // Keep EVERY occurrence per name: an unused class is flagged at each
       // selector it appears in — ^foo, ^foo:hover, ^foo p — not just the
       // first (issue #5092: pseudo-selector occurrences escaped the warning).
-      var defs = {};
+      var defs  = {};
       var order = [];
-      var declPattern = /\^([a-zA-Z][a-zA-Z0-9_\-]*)/g;
-      var dm;
-      while ( ( dm = declPattern.exec(cssStr) ) !== null ) {
-        var n = dm[1];
-        if ( ! defs[n] ) { defs[n] = []; order.push(n); }
-        defs[n].push({ offset: baseOffset + dm.index, len: dm[0].length });
-      }
+      var src   = css.tree.raw;
+      css.parser.walk(css.tree, function(n) {
+        if ( n.kind !== 'selector' ) return;
+        for ( var c = 0 ; c < n.carets.length ; c++ ) {
+          var caret = n.carets[c];
+          if ( caret.context || caret.inAttr ) continue;
+          var e = caret.end;
+          if ( ! /[a-zA-Z]/.test(src[e] || '') ) continue;
+          while ( e < src.length && /[a-zA-Z0-9_\-]/.test(src[e]) ) e++;
+          var name = src.substring(caret.end, e);
+          if ( ! defs[name] ) { defs[name] = []; order.push(name); }
+          defs[name].push({ offset: css.base + caret.start, len: e - caret.start, sym: caret.raw });
+        }
+        return false;
+      });
       if ( order.length === 0 ) return;
 
       // Build haystack from methods/listeners/actions source.
@@ -777,10 +928,62 @@ foam.CLASS({
         var re = new RegExp("myClass\\s*\\(\\s*['\"`]" + this.escapeRegex_(name) + "['\"`]\\s*\\)");
         if ( re.test(hay) ) continue;
         for ( var j = 0 ; j < defs[name].length ; j++ ) {
+          // UNNECESSARY: the rule is dead CSS, so the editor fades it out
+          // on top of the warning squiggle.
           this.addDiag_(diagnostics, text, defs[name][j].offset, defs[name][j].len, 2,
-            "Unused CSS class '^" + name + "': no matching this.myClass('" + name + "') call");
+            "Unused CSS class '" + defs[name][j].sym + name + "': no matching this.myClass('" + name + "') call",
+            undefined, { tags: [ this.Diagnostic.UNNECESSARY ] });
         }
       }
+    },
+
+    function validateCSSSyntax_(text, css, diagnostics) {
+      /**
+       * Report what the CSS grammar could not parse. Problem: a browser
+       * silently drops a statement it cannot parse, so a missing ';' or a
+       * '//' line in css: lost a rule with no sign in the editor. Error
+       * nodes are ERRORs ('CSS syntax: <message>'); a string, comment,
+       * function, paren or bracket left open is a WARNING ('CSS syntax:
+       * Unclosed <kind>'). The underline stops at the end of the line the
+       * node starts on, so an error that swallowed a block does not paint
+       * the rest of the file. Gated by diagnostics.cssSyntax.
+       */
+      if ( ! css || ! this.featureOn_('diagnostics.cssSyntax') ) return;
+      var self = this;
+      var add  = function(start, end, severity, message) {
+        var off = css.base + start;
+        var eol = text.indexOf('\n', off);
+        if ( eol === -1 ) eol = text.length;
+        self.addDiag_(diagnostics, text, off, Math.max(1, Math.min(end - start, eol - off)),
+          severity, 'CSS syntax: ' + message);
+      };
+
+      var errors = css.parser.errors(css.tree);
+      for ( var i = 0 ; i < errors.length ; i++ ) {
+        var e = errors[i];
+        if ( e.kind !== 'error' ) {
+          add(e.start, e.end, 2, 'Unclosed ' + e.kind);
+        } else if ( e.raw.substring(0, 2) === '//' ) {
+          add(e.start, e.end, 1, this.LINE_COMMENT_MESSAGE);
+        } else {
+          add(e.start, e.end, 1, e.message);
+        }
+      }
+
+      // A '//' line just before a rule is no error to the grammar: it reads
+      // as part of that rule's selector ('// note\n^title { }' has the
+      // selector '// note ^title'), which a browser rejects with the whole
+      // rule. A '//' inside a selector's comment or string is left alone.
+      css.parser.walk(css.tree, function(n) {
+        if ( n.kind !== 'selector' ) return;
+        for ( var at = n.raw.indexOf('//') ; at !== -1 ; at = n.raw.indexOf('//', at + 2) ) {
+          var pos = n.start + at;
+          if ( n.parts.some(function(p) { return pos >= p.start && pos < p.end; }) ) continue;
+          add(pos, n.end, 1, self.LINE_COMMENT_MESSAGE);
+          break;
+        }
+        return false;
+      });
     },
 
     function escapeRegex_(s) {
@@ -1075,7 +1278,8 @@ foam.CLASS({
       return match.index + match[0].indexOf(value);
     },
 
-    function addDiag_(diagnostics, text, offset, length, severity, message, opt_code) {
+    function addDiag_(diagnostics, text, offset, length, severity, message, opt_code, opt_extra) {
+      /** opt_extra: { tags, relatedInformation } — both optional. */
       var pos = this.analyzer.offsetToPosition(text, offset);
       diagnostics.push(this.Diagnostic.create({
         range: {
@@ -1084,8 +1288,144 @@ foam.CLASS({
         },
         severity: severity,
         message: message,
-        code: opt_code
+        code: opt_code,
+        tags: ( opt_extra && opt_extra.tags ) || [],
+        relatedInformation: ( opt_extra && opt_extra.relatedInformation ) || []
       }));
+    },
+
+    function addDeprecatedClassDiag_(diagnostics, text, offset, classId) {
+      /**
+       * FOAM has no runtime deprecation flag. Authors mark a class with a
+       * plain `deprecated:` key on its model — foam.u2.DetailView carries
+       * `deprecated: 'Use SectionedDetailView or VerticalDetailView.'` — and
+       * the Model class does not declare that key, so the registry drops it
+       * and nothing warned a file that still extends or requires the class.
+       * Read the marker from the class's own source file instead, and flag
+       * the reference as a HINT tagged DEPRECATED (the editor strikes it
+       * through), pointing back at the class declaration.
+       */
+      var dep = this.deprecationOf_(classId, null);
+      if ( dep === null ) return;
+      this.addDiag_(diagnostics, text, offset, classId.length, this.Diagnostic.HINT,
+        "'" + classId + "' is deprecated" + ( dep ? ': ' + dep : '' ),
+        'deprecated-class',
+        { tags: [ this.Diagnostic.DEPRECATED ],
+          relatedInformation: this.relatedAt_(classId, null, 0, classId + ' is declared deprecated here') });
+    },
+
+    function addDeprecatedPropertyDiag_(diagnostics, text, classId, entry) {
+      /**
+       * Same marker on a property — StepWizardConfig.wizardView is declared
+       * `{ deprecated: true, ... }` — flagged at the key of a
+       * X.create({ wizardView: ... }) or .tag(this.X, { ... }) entry. The
+       * property may be inherited, so the classes up the extends chain are
+       * checked in turn; the first one declaring the property decides.
+       */
+      var owner = this.propertyOwner_(classId, entry.key);
+      if ( ! owner ) return;
+      var dep = this.deprecationOf_(owner, entry.key);
+      if ( dep === null ) return;
+      var off = entry.keyPos.startPos;
+      this.addDiag_(diagnostics, text, off, entry.keyPos.endPos - off, this.Diagnostic.HINT,
+        "'" + entry.key + "' is deprecated on " + owner + ( dep ? ': ' + dep : '' ),
+        'deprecated-property',
+        { tags: [ this.Diagnostic.DEPRECATED ],
+          relatedInformation: this.relatedAt_(owner, entry.key, 7 /* SymbolKind.Property */,
+            owner + '.' + entry.key + ' is declared deprecated here') });
+    },
+
+    function propertyOwner_(classId, propName) {
+      /**
+       * The nearest class up classId's extends chain whose model declares
+       * propName, or null. Refinements are not consulted.
+       *
+       * Asked of the registry, not of the raw files: rawModelOf_ reports a
+       * file without the word 'deprecated' as having no models, so walking
+       * raw files would skip a subclass that re-declares an ancestor's
+       * deprecated property and flag the ancestor's marker instead. The
+       * registry knows every class's own properties; only the owner's raw
+       * file is then read, for the marker the registry drops.
+       */
+      var id = classId, guard = 0;
+      while ( id && guard++ < 32 ) {
+        var cls = this.index.getClass(id);
+        if ( ! cls || ! cls.model_ ) return null;
+        var props = cls.model_.properties || [];
+        for ( var i = 0 ; i < props.length ; i++ ) {
+          var p = props[i];
+          if ( ( typeof p === 'string' ? p : p && p.name ) === propName ) return id;
+        }
+        id = cls.model_.extends;
+      }
+      return null;
+    },
+
+    function rawProperty_(raw, propName) {
+      var props = raw.properties || [];
+      for ( var i = 0 ; i < props.length ; i++ ) {
+        var p = props[i];
+        if ( p && typeof p === 'object' && p.name === propName ) return p;
+      }
+      return null;
+    },
+
+    function deprecationOf_(classId, opt_propName) {
+      /**
+       * The `deprecated:` marker of a class (or of one of its own
+       * properties) as written in its source: '' for `deprecated: true`, the
+       * text for `deprecated: 'Use X'`, null when not deprecated or unknown.
+       */
+      var raw = this.rawModelOf_(classId);
+      if ( ! raw ) return null;
+      var holder = opt_propName ? this.rawProperty_(raw, opt_propName) : raw;
+      var dep = holder && holder.deprecated;
+      if ( ! dep ) return null;
+      return typeof dep === 'string' ? dep : '';
+    },
+
+    function rawModelOf_(classId) {
+      /**
+       * The raw (pre-registry) model object for classId, parsed from its
+       * source file, or null. Cached per file on mtime.
+       *
+       * Most files never mention the marker, and parsing a file evaluates
+       * it, so a file whose text lacks the word 'deprecated' is cached as
+       * having no models without being parsed — a class with dozens of
+       * requires otherwise evaluated every one of their files.
+       */
+      var filePath = this.index.getFilePath(classId);
+      if ( ! filePath ) return null;
+      var fs = require('fs');
+      var entry = this.rawModelFiles_[filePath];
+      try {
+        var mtime = fs.statSync(filePath).mtimeMs;
+        if ( ! entry || entry.mtimeMs !== mtime ) {
+          var src = fs.readFileSync(filePath, 'utf8');
+          entry = { mtimeMs: mtime,
+            models: src.indexOf('deprecated') === -1 ? [] : this.cache.parseFileModels(src) };
+          this.rawModelFiles_[filePath] = entry;
+        }
+      } catch ( e ) {
+        require('../logError').logLspError('rawModelOf_ for ' + classId, e);
+        return null;
+      }
+      // A refinement of the class can share its file and answers to the same
+      // id; only the declaration carries the class's own marker.
+      for ( var i = 0 ; i < entry.models.length ; i++ ) {
+        var m = entry.models[i];
+        if ( ! m.refines && this.cache.getClassId(m) === classId ) return m;
+      }
+      return null;
+    },
+
+    function relatedAt_(classId, memberName, kind, message) {
+      /** One-element relatedInformation list pointing at a class (or its
+       *  member) declaration; empty when the class has no file. */
+      var pos = this.index.getSymbolPosition(classId, memberName, kind);
+      if ( ! pos || ! pos.uri ) return [];
+      var at = { line: pos.line || 0, character: pos.character || 0 };
+      return [ { location: { uri: pos.uri, range: { start: at, end: at } }, message: message } ];
     }
   ]
 });

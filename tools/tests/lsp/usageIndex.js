@@ -457,6 +457,218 @@ try {
   // class references (methods keep going through callHierarchy).
   test(mrHandler.memberReferencesForClassId('foam.dao.ArraySink', 'noSuchMember') === null,
     'unknown member returns null (falls back to class references)');
+
+  // CONSTANT-case call sites: mlang predicate code writes `EQ(Ticket.CREATED_FOR, x)`,
+  // never `EQ(Ticket.createdFor, x)`. None of the five original patterns
+  // (.propName / propName: / 'propName' / getPropName( / setPropName() ever
+  // matched that CONSTANT form — though PIIReportRequestView.js is not proof
+  // of it by itself: the file already has a `createdFor: user.id` key-position
+  // hit at :41 that pattern 2 (`propName\s*:`) matches with or without the
+  // CONSTANT-case fix. Only the line-level assertion below, pinned to the
+  // `this.Ticket.CREATED_FOR` call site at :122, is specific to this change.
+  var cfLocs = mrHandler.memberReferencesForClassId('foam.core.ticket.Ticket', 'createdFor');
+
+  var cfFs    = require('fs');
+  var cfPath  = index.getFilePath('foam.core.pii.PIIReportRequestView');
+  var cfLines = cfFs.readFileSync(cfPath, 'utf8').split('\n');
+  var cfLine = -1;
+  for ( var ci = 0 ; ci < cfLines.length ; ci++ ) {
+    if ( cfLines[ci].indexOf('this.Ticket.CREATED_FOR') !== -1 ) { cfLine = ci; break; }
+  }
+  test(cfLine !== -1, 'fixture: PIIReportRequestView.js still has a this.Ticket.CREATED_FOR call site');
+  test((cfLocs || []).some(function(l) {
+    return l.uri === 'file://' + cfPath && l.range.start.line === cfLine;
+  }), 'CONSTANT-case usage LINE matched: this.Ticket.CREATED_FOR call site at line ' + cfLine);
 } catch (err) {
   test(false, 'member references section threw: ' + err.message);
+}
+
+
+// === memberScanLocations_ — javaImports-only requirer via getJavaUsages ===
+//
+// `memberScanLocations_` (ReferencesHandler.js) adds every class whose
+// javaCode names the owner through `javaImports` (`index.getJavaUsages`) to
+// the scan set, alongside subclasses and `requires:`/`of:` requirers.
+// UserPropertyAvailabilityService.js is a real, un-fixtured example: it has
+// NO `requires:` array at all, lists `foam.core.auth.User` only in
+// `javaImports`, and its javaCode calls `EQ(User.SPID, spid)`. If the
+// getJavaUsages addition were removed, this file would drop out of
+// User.spid's scan set entirely (it is not a requirer, not a subclass, not
+// an of-user).
+
+section('memberScanLocations_ — javaImports-only requirer scanned via getJavaUsages');
+
+try {
+  var jcCls = foam.maybeLookup('foam.core.auth.UserPropertyAvailabilityService');
+  test(!! jcCls, 'fixture: UserPropertyAvailabilityService is registered');
+
+  var jcModel = jcCls && jcCls.model_;
+  test(jcModel && ! jcModel.requires,
+    'precondition: UserPropertyAvailabilityService has no requires: array (User reaches it only via javaImports)');
+
+  var jcRequirers = index.getRequirers('foam.core.auth.User');
+  test(jcRequirers.indexOf('foam.core.auth.UserPropertyAvailabilityService') === -1,
+    'precondition: getRequirers(User) does not include it (confirms the requires:/of: paths do not already cover this file)');
+
+  var jcFs   = require('fs');
+  var jcPath = index.getFilePath('foam.core.auth.UserPropertyAvailabilityService');
+  var jcLines = jcFs.readFileSync(jcPath, 'utf8').split('\n');
+  var jcLine = -1;
+  for ( var ji = 0 ; ji < jcLines.length ; ji++ ) {
+    if ( jcLines[ji].indexOf('EQ(User.SPID') !== -1 ) { jcLine = ji; break; }
+  }
+  test(jcLine !== -1, 'fixture: UserPropertyAvailabilityService.js still has an EQ(User.SPID, ...) call site');
+
+  var jcLocs = mrHandler.memberReferencesForClassId('foam.core.auth.User', 'spid');
+  test((jcLocs || []).some(function(l) {
+    return l.uri === 'file://' + jcPath && l.range.start.line === jcLine;
+  }), 'memberReferencesForClassId(User, spid) includes the javaImports-only javaCode site in ' +
+    'UserPropertyAvailabilityService.js at line ' + jcLine + ' (got ' +
+    (jcLocs ? jcLocs.length : jcLocs) + ' locations)');
+} catch (err) {
+  test(false, 'javaImports-only member scan section threw: ' + err.message);
+}
+
+
+// === getRequirers — a refines: block's requires: is otherwise invisible ===
+//
+// `foam.CLASS({ refines: ... })` returns before `registerFactory` runs
+// (`src/foam/lang/EndBoot.js`), so the refinement's own id never lands in
+// `foam.__context__.__cache__`, and `getAllClassIds` (which `getRequirers`
+// walks) never sees it — a refinement's OWN `requires:` array used to be
+// invisible to `getRequirers`, even though the refined class's `model_` is
+// untouched by the refinement so the class-walk loop can't find it either
+// way. `UserRefine.js` is the real, un-fixtured miss: `PIIReportUserRefines`
+// refines `foam.core.auth.User`, `requires: [ ..., 'foam.core.ticket.Ticket' ]`,
+// and its action code calls `this.EQ(this.Ticket.CREATED_FOR, this.id)`.
+
+section('getRequirers — refines: block requires: (refinement-only requirer)');
+
+try {
+  var rfModel = foam.USED['foam.core.pii.PIIReportUserRefines'];
+  test(!! rfModel && rfModel.refines === 'foam.core.auth.User',
+    'fixture: PIIReportUserRefines is a registered refines: block for User');
+  test(!! rfModel && Array.isArray(rfModel.requires) &&
+    rfModel.requires.indexOf('foam.core.ticket.Ticket') !== -1,
+    'fixture: PIIReportUserRefines requires foam.core.ticket.Ticket');
+
+  var rfRequirers = index.getRequirers('foam.core.ticket.Ticket');
+  test(rfRequirers.indexOf('foam.core.pii.PIIReportUserRefines') !== -1,
+    'getRequirers(Ticket) includes the refinement id itself, got: ' + JSON.stringify(rfRequirers));
+
+  var rfFs   = require('fs');
+  var rfPath = index.getFilePath('foam.core.pii.PIIReportUserRefines');
+  test(!! rfPath && rfPath.indexOf('UserRefine.js') !== -1,
+    'getFilePath resolves the refinement id to UserRefine.js, got: ' + JSON.stringify(rfPath));
+
+  var rfLines = rfFs.readFileSync(rfPath, 'utf8').split('\n');
+  var rfLine = -1;
+  for ( var ri = 0 ; ri < rfLines.length ; ri++ ) {
+    if ( rfLines[ri].indexOf('this.Ticket.CREATED_FOR') !== -1 ) { rfLine = ri; break; }
+  }
+  test(rfLine !== -1, 'fixture: UserRefine.js still has a this.Ticket.CREATED_FOR call site');
+
+  var rfLocs = mrHandler.memberReferencesForClassId('foam.core.ticket.Ticket', 'createdFor');
+  test((rfLocs || []).some(function(l) {
+    return l.uri === 'file://' + rfPath && l.range.start.line === rfLine;
+  }), 'memberReferencesForClassId(Ticket, createdFor) includes the refines: block\'s call site in ' +
+    'UserRefine.js at line ' + rfLine + ' (got ' + (rfLocs ? rfLocs.length : rfLocs) + ' locations)');
+} catch (err) {
+  test(false, 'refines: requires: member scan section threw: ' + err.message);
+}
+
+
+// === memberScanLocations_ — dedup when multiple classes share a file ===
+//
+// Same dup shape as referencesForClassId's fix, but for the member scan:
+// filesToScan can list several class ids (the defining class + a subclass +
+// a requirer) that all resolve to the SAME source file, and each id is
+// scanned unconditionally — every real call-site row then repeats once per
+// class id that maps to that file.
+
+section('memberScanLocations_ — dedup when multiple classes share a file');
+
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'member-dedup-'));
+  var f = path.join(dir, 'Pair.js');
+  // TwoA extends lsptest.dedup.Base and TwoB requires it — BOTH ids resolve
+  // to this one file, which without dedup is scanned once per id, doubling
+  // every `.payload` row.
+  fs.writeFileSync(f, [
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base',",
+    "  methods: [ function m() { return this.payload; } ] });",
+    "foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB',",
+    "  requires: [ 'lsptest.dedup.Base' ],",
+    "  methods: [ function n() { var b = this.Base.create(); return b.payload; } ] });"
+  ].join('\n'));
+
+  foam.CLASS({ package: 'lsptest.dedup', name: 'Base', properties: [ 'payload' ] });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoA', extends: 'lsptest.dedup.Base' });
+  foam.CLASS({ package: 'lsptest.dedup', name: 'TwoB', requires: [ 'lsptest.dedup.Base' ] });
+
+  // Point all three classes' fileIndex entries at the one fixture file:
+  index.fileIndex_ = index.fileIndex_ || {};
+  index.fileIndex_['lsptest.dedup.Base'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoA'] = { path: f, line: 0 };
+  index.fileIndex_['lsptest.dedup.TwoB'] = { path: f, line: 2 };
+
+  var dedupMemberHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, cache: cache, analyzer: analyzer
+  });
+  var locs = dedupMemberHandler.memberScanLocations_('lsptest.dedup.Base', 'payload');
+  var keys = {};
+  var dups = 0;
+  for ( var i = 0 ; i < locs.length ; i++ ) {
+    var k = locs[i].uri + ':' + locs[i].range.start.line + ':' + locs[i].range.start.character;
+    if ( keys[k] ) dups++;
+    keys[k] = true;
+  }
+  test(locs.length > 0, 'memberScanLocations_: member scan found rows in the fixture');
+  test(dups === 0, 'memberScanLocations_: no duplicate member rows for a shared file, found ' + dups + ' dups');
+})();
+
+
+// === logLspError helper ===
+//
+// Single logging idiom for degraded-but-not-fatal LSP failures — every
+// catch-and-fallback site routes through this so a broken feature is never
+// silently indistinguishable from an empty result.
+
+section('logLspError helper');
+
+(function() {
+  var leLogLspError = require('../../lsp/logError').logLspError;
+  var leOrigErr = console.error;
+  var leCaptured = [];
+  console.error = function(msg) { leCaptured.push(msg); };
+  try {
+    leLogLspError('test op for X', new Error('boom'));
+  } finally {
+    console.error = leOrigErr;
+  }
+  test(leCaptured.length === 1 && leCaptured[0] === '[foam-lsp] test op for X: boom',
+    'logLspError formats [foam-lsp] context: message');
+})();
+
+// === locationSink_ — the dedup guard lives in the sink, not the call sites ===
+// Every collector feeding one references result pushes through this sink, so
+// a future collector can't silently reintroduce duplicate rows.
+section('ReferencesHandler.locationSink_ — gated dedup');
+
+try {
+  var sinkHandler = foam.parse.lsp.handlers.ReferencesHandler.create({
+    index: index, analyzer: analyzer, cache: cache
+  });
+  var sk = sinkHandler.locationSink_();
+  var mkLoc = function(line) {
+    return { uri: 'file:///x.js', range: { start: { line: line, character: 2 }, end: { line: line, character: 5 } } };
+  };
+  test(sk.push(mkLoc(1)) === true,  'first push of a location is kept (returns true)');
+  test(sk.push(mkLoc(1)) === false, 'second push of the same position is dropped (returns false)');
+  test(sk.push(mkLoc(2)) === true,  'different position is kept');
+  test(sk.locations.length === 2 && sk.length === 2,
+    'sink.locations holds kept rows and sink.length mirrors it (for capped collectors)');
+} catch (err) {
+  test(false, 'locationSink_ section threw: ' + err.message);
 }

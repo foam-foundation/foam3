@@ -12,7 +12,7 @@ foam.CLASS({
 
   exports: [ 'data as selected' ],
 
-  css: '^ { height: 30px; }',
+  css: '<< { height: 30px; }',
 
   properties: [
     'choices',
@@ -28,10 +28,10 @@ foam.CLASS({
       extends: 'foam.u2.View',
       imports: [ 'selected' ],
       css: `
-        ^selected {
+        <<selected {
           background: $backgroundBrandTertiary !important;
         }
-        ^ {
+        << {
           background: #ccc;
           border-radius: 10px;
           border: 1px solid #bbb;

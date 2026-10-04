@@ -14,26 +14,26 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   css: `
-    :has(> ^promptHolder) {
+    :has(> <<promptHolder) {
       width: 100%;
     }
-    ^promptHolder {
+    <<promptHolder {
       display: flex;
       flex-direction: row;
       align-items: center;
       gap: 0px;
     }
-    ^promptLink {
+    <<promptLink {
       text-decoration: none !important;
       font-weight: bold;
       color: $primary500!important;
     }
-    ^input {
+    <<input {
       border: none;
       padding-right: 0;
       width: 100%;
     }
-    ^input:focus-visible {
+    <<input:focus-visible {
       border: none;
     }
   `,

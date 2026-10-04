@@ -25,19 +25,19 @@ foam.CLASS({
   ],
 
   css: `
-    ^upper > span{
+    <<upper > span{
       margin: 0 10px 10px 0;
     }
-    ^container{
+    <<container{
       display: flex;
       flex-direction: column;
       height: 100%
     }
-    ^upper{
+    <<upper{
       flex: 0 0 0;
       margin-bottom: 10px;
     }
-    ^table{
+    <<table{
       /* Add a fixed height and let flex extend to max possible */
       flex: 1;
       height: 424px;

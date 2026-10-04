@@ -14,10 +14,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^created {
+    <<created {
       color: $textTertiary;
     }
-    ^description {
+    <<description {
       color: $textDefault;
       width: 100%;
     }

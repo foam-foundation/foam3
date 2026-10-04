@@ -62,31 +62,39 @@ foam.CLASS({
       imports: [ 'cSpecDAO', 'route', 'stack' ],
 
       css: `
-        ^dao, ^header {
+        <<dao {
           display: inline-block;
-          font-size: smaller;
-          margin: 2px;
-          padding: 2px;
+          font-size: small;
+          padding: 4px 8px;
           width: 220px;
-        }
-        ^dao {
           color: $textTertiary;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        ^dao:hover {
+        <<dao:hover {
           background: $backgroundSecondary;
         }
-        ^section {
+        <<section {
           display: inline-grid;
-          vertical-align: baseline;
+          vertical-align: top;
+          margin: 10px;
+          background: $white;
+          border-radius: 4px;
+          padding: 10px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          border: 1px solid $borderLight;
+          overflow: hidden;
         }
-        ^header {
+        <<header {
+          grid-column: 1 / -1;
+          margin: -10px -10px 10px;
+          padding: 4px 8px;
+          font-size: medium;
           background: $backgroundInverse;
-          color:$textOnInverse;
+          color: $textOnInverse;
           font-weight: $font-bold;
         }
-        ^footer {
+        <<footer {
           color: $textTertiary;
           padding-top: 12px;
         }
@@ -125,6 +133,7 @@ foam.CLASS({
         {
           class: 'String',
           name: 'search',
+          shortName: 's',
           view: {
            class: 'foam.u2.ClearableSearchField',
            onKey: true
@@ -298,7 +307,6 @@ foam.CLASS({
       x.register(this.DAOUpdateControllerView, 'foam.comics.DAOUpdateControllerView');
       // TODO: Fix route handling in this view
       x.register(this.CustomDAOSummaryView,    'foam.comics.v3.DetailView');
-      x.register(foam.u2.DetailView,           'foam.u2.DetailView');
 
       this.dynamic(function(route) {
         self.removeAllChildren(); // I don't know why this is necessary

@@ -16,11 +16,11 @@ foam.CLASS({
   documentation: "Like AltView, but for Objects instead of DAO's.",
 
   css: `
-    ^ { margin: auto; }
-    ^ .foam-u2-view-RadioView.foam-u2-view-RadioView-horizontal-radio .choice {
+    << { margin: auto; }
+    << .foam-u2-view-RadioView.foam-u2-view-RadioView-horizontal-radio .choice {
       display: inline-flex;
     }
-    ^ .property-selectedView { margin-bottom: 6px; }
+    << .property-selectedView { margin-bottom: 6px; }
   `,
 
   properties: [

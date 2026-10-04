@@ -37,24 +37,24 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       height: 250px;
       border-radius: 2px;
       background-color: $backgroundDefault;
     }
-    ^ .firstdiv {
+    << .firstdiv {
       width: 1200px;
       height: 10px;
       padding-top:20px;
     }
-    ^ .person {
+    << .person {
       width: 40px;
       height: 40px;
       object-fit: contain;
       margin-left: 10px;
       padding-left:10px;
     }
-    ^ .Public-Reply {
+    << .Public-Reply {
       text-align: left;
       color: $textDefault;
       border: none;
@@ -62,7 +62,7 @@ foam.CLASS({
       position: relative;
       top: -25;
     }
-    ^ .Internal-Note {
+    << .Internal-Note {
       text-align: left;
       color: $textDefault;
       border: none;
@@ -70,13 +70,13 @@ foam.CLASS({
       position: relative;
       top: -25;
     }
-    ^ .Internal-Note:focus{
+    << .Internal-Note:focus{
       outline: none;
     }
-    ^ .Public-Reply:focus{
+    << .Public-Reply:focus{
       outline: none;
     }
-    ^ .Rectangle {
+    << .Rectangle {
       width: 820px;
       height: 160px;
       border-radius: 2px;
@@ -85,11 +85,11 @@ foam.CLASS({
       margin-left:77px;
       margin-top:40px;
     }
-    ^ .background-color{
+    << .background-color{
       background: $backgroundInverse;
       color:white
     }
-    ^ .border{
+    << .border{
       border-bottom: 3px solid #1cc2b7;
       font-weight:bold
     }

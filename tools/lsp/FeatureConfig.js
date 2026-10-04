@@ -24,14 +24,19 @@ var DEFAULTS = Object.freeze({
   'diagnostics.java': true,
   'diagnostics.i18n': true,
   'diagnostics.pom': true,
+  'diagnostics.cssSyntax': true,
   'hints.i18nMissingLanguage': true,
   'completion': true,
+  'completion.autoRequires': true,
   'hover': true,
   'semanticTokens': true,
   'signatureHelp': true,
   'folding': true,
+  'documentColor': true,
+  'documentLink': true,
   'codeLens.i18n': true,
-  'codeLens.hierarchy': false
+  'codeLens.hierarchy': false,
+  'inlayHints': true
 });
 
 // The i18n keys this module understands. Same role as DEFAULTS for the

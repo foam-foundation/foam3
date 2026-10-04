@@ -112,11 +112,11 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ table { font-size: smaller; margin-right: 20px; }
-    ^ th { text-align: right; }
-    ^ th:first-child { text-align: left; }
-    ^ td { align: rigth; }
-    ^ .selected { background: lightskyblue; }
+    << table { font-size: smaller; margin-right: 20px; }
+    << th { text-align: right; }
+    << th:first-child { text-align: left; }
+    << td { align: rigth; }
+    << .selected { background: lightskyblue; }
   `,
 
   properties: [
@@ -268,8 +268,8 @@ foam.CLASS({
   exports: [ 'file' ],
 
   css: `
-    ^ th { text-align: left; }
-    ^ .selected { background: lightskyblue; }
+    << th { text-align: left; }
+    << .selected { background: lightskyblue; }
     .foam-u2-TextField { margin-bottom: 14px }
   `,
 
@@ -960,7 +960,7 @@ var commits = this.commits.filter(c => this.match(c, this.query, this.author, '/
           start('th').add('Subject').end().
           start('th').show(self.embedFiles$).add('Files').end().
         end().forEach(self.commits, function(d) {
-          var href = 'https://github.com/kgrgreer/foam3/commit/' + d.id;
+          var href = 'https://github.com/foam-foundation/foam3/commit/' + d.id;
           this.start('tr').
             enableClass('selected', self.selection$.map(s => { return s && s === d; })).
             on('click', () => {

@@ -21,7 +21,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       background: $backgroundInverseTertiary;
       box-shadow: 3px 3px 6px 0 gray;
       color: $white;
@@ -30,7 +30,7 @@ foam.CLASS({
       box-sizing: border-box;
       z-index: $z-popup;
     }
-    ^backdrop {
+    <<backdrop {
       position: fixed;
       width: 100%;
       height: 100%;

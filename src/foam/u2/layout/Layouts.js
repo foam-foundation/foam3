@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'Rows',
   extends: 'foam.u2.Element',
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -29,7 +29,7 @@ foam.CLASS({
   name: 'Cols',
   extends: 'foam.u2.Element',
   css: `
-    ^ {
+    << {
       display: flex;
       justify-content: space-between;
       align-items: stretch;
@@ -51,11 +51,11 @@ foam.CLASS({
   documentation: 'Element that acts as a wrapper div, can change between flex and grid based on properties',
   exports: ['layoutType', 'as layout'],
   css: `
-    ^ {
+    << {
       overflow: auto;
       align-items: stretch;
     }
-    ^debug > div {
+    <<debug > div {
       border: 1px solid $destructive;
     }
   `,

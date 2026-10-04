@@ -38,7 +38,7 @@ foam.CLASS({
   requires: ['foam.lang.Latch'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -52,7 +52,7 @@ foam.CLASS({
       width: 100%;
       z-index: $z-modal;
     }
-    ^X {
+    <<X {
       position: absolute;
       top: min(10%, 16px);
       right: min(10%, 16px);
@@ -61,10 +61,10 @@ foam.CLASS({
       transition: all ease-in 0.1s;
       padding: 0;
     }
-    ^X:hover{
+    <<X:hover{
       transform: scale(1.1)
     }
-    ^background {
+    <<background {
       background-color: $backgroundInverse;
       bottom: 0;
       left: 0;
@@ -73,7 +73,7 @@ foam.CLASS({
       right: 0;
       top: 0;
     }
-    ^inner {
+    <<inner {
       height: auto;
       width: auto;
       display: flex;
@@ -88,7 +88,7 @@ foam.CLASS({
       will-change: opacity;
     }
 
-    ^fullscreen ^inner {
+    <<fullscreen <<inner {
       height: 100%;
       width: 100%;
       border-radius: 0;

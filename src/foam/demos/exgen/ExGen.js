@@ -37,11 +37,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       color: #555;
       font-size: larger;
     }
-    ^title {
+    <<title {
       background: #eee;
       color: cornflowerblue;
       font-size: larger;
@@ -49,7 +49,7 @@ foam.CLASS({
       text-shadow: 2px 2px #bbb;
       width: 100%;
     }
-    ^row {
+    <<row {
       display: flow-root;
       padding-left: 4px;
     }
@@ -57,12 +57,12 @@ foam.CLASS({
       font-size: 1rem !important;
       vertical-align: middle !important;
     }
-    ^row:hover {
+    <<row:hover {
       background: cornflowerblue;
       color: white;
       left-margin: 4px;
     }
-    ^ .foam-u2-ProgressView {
+    << .foam-u2-ProgressView {
       width: 250px;
       background: white;
       margin-right: 4px;

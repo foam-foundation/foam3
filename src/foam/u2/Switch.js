@@ -25,7 +25,7 @@ foam.CLASS({
   inheritCSS: false,
 
   css: `
-   ^ {
+   << {
       -webkit-appearance: none;
       appearance: none;
       position: relative;
@@ -35,73 +35,73 @@ foam.CLASS({
       padding: 0px;
       transition: background-color 140ms, border-color 140ms;
     }
-    ^:disabled {
+    <<:disabled {
       border-color: $borderLight;
       background-color: $backgroundSecondary;
       cursor: not-allowed;
     }
-    ^:before {
+    <<:before {
       content: "";
       position: absolute;
       background-color: $textSecondary;
       transition: .2s ease;
       border-radius: 50%;
     }
-    ^:checked {
+    <<:checked {
       background-color: $checkboxColor;
       border-color: $checkboxColor;
       fill: white;
     }
-    ^:checked + ^ {
+    <<:checked + << {
       border: 1px solid $checkboxColor;
       background-color: $checkboxColor;
     }
-    ^:checked:disabled {
+    <<:checked:disabled {
       border-color: $checkboxColor$disabled;
       background-color: $checkboxColor$disabled;
       fill: white;
     }
-    ^:checked:before {
+    <<:checked:before {
       transform: translateX(15px);
       background-color: $checkboxColor$foreground;
     }
-    ^:checked:disabled:before {
+    <<:checked:disabled:before {
       background-color: $checkboxColor$disabled$foreground;
     }
-    ^ input:focus + label::before {
+    << input:focus + label::before {
       content: '';
       box-shadow: 0 0 0 3px $checkboxColor$active;
     }
-    ^:hover:not(:disabled) {
+    <<:hover:not(:disabled) {
       cursor: pointer
     }
-    ^label, input[type="checkbox"]{
+    <<label, input[type="checkbox"]{
       vertical-align: middle;
     }
-    ^desc {
+    <<desc {
       color: $textSecondary;
     }
-    ^medium {
+    <<medium {
       width: 40px;
       height: 24px;
     }
-    ^medium:before {
+    <<medium:before {
       height: 16px;
       width: 16px;
       left: 3px;
       top: 3px;
     }
-    ^small {
+    <<small {
       width: 32px;
       height: 14px;
     }
-    ^small:before {
+    <<small:before {
       height: 10px;
       width: 10px;
       left: 1px;
       top: 1px;
     }
-    ^small:checked:before {
+    <<small:checked:before {
       transform: translateX(18px);
     }
   `,

@@ -24,7 +24,7 @@ foam.CLASS({
 
   css: `
     /* Override a few of the styles in foam.u2.TextInputCSS */
-    ^ {
+    << {
       padding-top: $inputVerticalPadding;
       padding-bottom: $inputVerticalPadding;
     }

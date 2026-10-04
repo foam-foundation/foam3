@@ -18,16 +18,16 @@ foam.CLASS({
   ],
 
   css:`
-    ^selected {
+    <<selected {
       opacity:1 !important;
       text-shadow: 0 0 0px white, 0 0 0px white;
     }
-    ^disabled a {
+    <<disabled a {
       opacity: 0.35 !important;
       cursor: default !important;
       pointer-events: none;
     }
-    ^disabled a:hover {
+    <<disabled a:hover {
       opacity: 0.35 !important;
     }
   `,

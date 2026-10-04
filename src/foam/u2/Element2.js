@@ -1735,7 +1735,7 @@ foam.CLASS({
     {
       name: 'visibility',
       adapt: function(o, n) { if ( foam.Object.isInstance(n) ) return foam.u2.DisplayMode.create(n); return foam.String.isInstance(n) ? foam.u2.DisplayMode[n] : n; },
-      documentation: 'Exists for backwards compatability. You should set createVisibility, updateVisibility, or readVisibility instead. If this property is set, it will override the other three.'
+      documentation: 'Exists for backwards compatibility. You should set createVisibility, updateVisibility, or readVisibility instead. If this property is set, it will override the other three.'
     },
     {
       name: 'createVisibility',
@@ -2624,7 +2624,7 @@ foam.CLASS({
 
   documentation: 'View for safely displaying HTML content.',
 
-  css: '^ { padding: 6px 0; }',
+  css: '<< { padding: 6px 0; }',
 
   properties: [
     {

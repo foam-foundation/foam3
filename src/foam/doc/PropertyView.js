@@ -12,16 +12,16 @@ foam.CLASS({
   documentation: 'Displays the properties of a class for non-developers: type, name, label, and description.',
 
   css: `
-    ^ { font-family: $font1; }
-    ^title { margin-bottom: 8px; }
-    ^table { width: 100%; border-collapse: collapse; }
-    ^table th { padding: 6px 16px 6px 0; text-align: left; font-weight: bold; color: $textSecondary; border-bottom: 2px solid $borderDefault; white-space: nowrap; }
-    ^table td { padding: 8px 16px 8px 0; border-bottom: 1px solid $borderLight; vertical-align: top; }
-    ^type { font-family: monospace; color: $primary400; white-space: nowrap; }
-    ^type-detail { display: block; font-size: 0.85em; color: $textTertiary; font-family: monospace; cursor: default; }
-    ^name { font-family: monospace; color: $textDefault; white-space: nowrap; }
-    ^label { font-weight: bold; color: $textDefault; white-space: nowrap; }
-    ^doc { color: $textTertiary; }
+    << { font-family: $font1; }
+    <<title { margin-bottom: 8px; }
+    <<table { width: 100%; border-collapse: collapse; }
+    <<table th { padding: 6px 16px 6px 0; text-align: left; font-weight: bold; color: $textSecondary; border-bottom: 2px solid $borderDefault; white-space: nowrap; }
+    <<table td { padding: 8px 16px 8px 0; border-bottom: 1px solid $borderLight; vertical-align: top; }
+    <<type { font-family: monospace; color: $primary400; white-space: nowrap; }
+    <<type-detail { display: block; font-size: 0.85em; color: $textTertiary; font-family: monospace; cursor: default; }
+    <<name { font-family: monospace; color: $textDefault; white-space: nowrap; }
+    <<label { font-weight: bold; color: $textDefault; white-space: nowrap; }
+    <<doc { color: $textTertiary; }
   `,
 
   properties: [

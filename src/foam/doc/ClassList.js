@@ -15,15 +15,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ a {
+    << a {
       display: inline-block;
       padding: 2px;
       width: 220px;
     }
-    ^package {
+    <<package {
       font-weight: $font-semi-bold;
     }
-    ^indent {
+    <<indent {
       margin-left: 30px;
     }
   `,

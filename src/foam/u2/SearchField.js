@@ -28,11 +28,11 @@
   ],
 
   css: `
-    ^.foam-u2-TextInputCSS{
+    <<.foam-u2-TextInputCSS{
       border-radius: $searchRoundness;
       border-color: $borderStrong;
     }
-    ^icon{
+    <<icon{
       background-image: url("/images/ic-search.svg");
       background-repeat: no-repeat;
       background-position: left 0.5em top 50%, 0 0;

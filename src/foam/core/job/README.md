@@ -97,8 +97,13 @@ foam.CLASS({
 ```
 
 `reportProgress(x, statusMsg, progress)` sets both fields and publishes them to the `jobDAO`,
-so a poller sees them. Call it at whatever granularity is useful — it is one `put` against an
-in-memory DAO, but it is not free in a tight loop.
+so a poller sees them. A Job with no id was run directly rather than submitted, so `save()`
+skips the put and `reportProgress()` only sets the fields. Call it at whatever granularity is
+useful — it is one `put` against an in-memory DAO, but it is not free in a tight loop.
+
+`statusMsg` says what the Job is doing now, and each report replaces the last. For what should
+stay, such as a warning or a summary of the result, call `out(msg)`: it appends a line to
+`output`, which goes out with the next save.
 
 A Job that cannot tell how far along it is should leave `progress` alone. It stays at `-1`,
 which reads as *unknown*, not as *0%* — display it accordingly.
@@ -124,23 +129,38 @@ job.setFileId(fileId);
 String id = ((Job) ((DAO) x.get("jobDAO")).inX(x).put(job)).getId();
 ```
 
-Client side, where the job is usually built from a form and watched in a dialog:
+Client side, where the job is usually built from a form and watched in a dialog,
+`foam.core.job.Jobs.poll()` submits the Job to the context's `jobDAO` and polls it:
 
 ```javascript
-var job = await this.jobDAO.put(this.ImportJob.create({ fileId: fileId }));
+var job = await foam.core.job.Jobs.poll(
+  this.__subContext__,
+  this.ImportJob.create({ fileId: fileId }),
+  status => {
+    // show status.statusMsg, and status.progress when it is not -1
+  });
 
-while ( true ) {
-  job = await this.jobDAO.find(job.id);
-  if ( job.status === this.JobStatus.COMPLETED ) break;
-  if ( job.status === this.JobStatus.FAILED   ) throw job.exception;
-  // show job.statusMsg, and job.progress when it is not -1
-  await new Promise(r => setTimeout(r, 1000));
-}
+if ( job.status === this.JobStatus.FAILED ) throw job.exception;
+// take the result from job, then free it
+await this.jobDAO.remove(job);
 ```
 
-The polled object is the Job itself, so any result the Job left on its own properties comes
-back with it. Reaching `jobDAO` from a browser needs the `service.jobDAO` permission granted
-to the user's group; that grant is an application concern, not declared here.
+While the Job runs, the optional status callback gets a plain `Job` built from a projection of
+`status`, `progress`, `statusMsg`, `output` and `executionTime`, so polling does not download
+the Job's results. It polls every second unless given an interval as a fourth argument.
+
+The Promise resolves to the Job itself, fetched once it has stopped, so any result the Job
+left on its own properties comes back with it. The jobDAO holds that result until the Job is
+removed, or until the retention sweep a day later, so a submitter that has taken the result
+should `remove()` the Job. One that wants to keep a smaller record can clear the large
+properties and put it back instead.
+
+Every `save()` stores a clone of the Job, and the default clone is deep. Give a property that
+can grow large, such as a result sink, `javaCloneProperty: 'set(dest, get(source));'` so the
+clone shares it instead of copying it.
+
+Reaching `jobDAO` from a browser needs the `service.jobDAO` permission granted to the user's
+group; that grant is an application concern, not declared here.
 
 `com.paytic.flow.matcher.MatchAgent` is the worked example in this codebase: it extends `Job`,
 and names both of its DAOs by key so that it can run detached from the request that submitted

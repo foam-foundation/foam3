@@ -34,7 +34,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       margin: 30px;
     }
   `,

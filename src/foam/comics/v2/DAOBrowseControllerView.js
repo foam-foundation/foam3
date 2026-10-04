@@ -52,26 +52,26 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       padding: 36px 16px 8px 16px;
       height: 100%;
       box-sizing: border-box;
     }
 
-    ^header-container {
+    <<header-container {
       padding-bottom: 32px;
       align-items: center;
     }
 
-    ^altview-container {
+    <<altview-container {
       padding: 12px 16px;
     }
 
-    ^buttons{
+    <<buttons{
       margin-right: 8px;
     }
 
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       border: $borderSize;
       border-radius: 4px;
       box-sizing: border-box;
@@ -81,7 +81,7 @@ foam.CLASS({
     }
 
     @media only screen and (min-width: 768px) {
-      ^container {
+      <<container {
         padding: 24px 32px 16px 32px;
       }
     }

@@ -10,10 +10,10 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ { background: $backgroundTertiary; padding: 10px; display: inline-block; }
-    ^title { padding: 6px; align-content: center; background: $blue50; }
-    ^footer { padding: 6px; align-content: left; background:$backgroundDefault; }
-    ^content { padding: 6px; width: 800px; height: 600px; background:$backgroundDefault; }
+    << { background: $backgroundTertiary; padding: 10px; display: inline-block; }
+    <<title { padding: 6px; align-content: center; background: $blue50; }
+    <<footer { padding: 6px; align-content: left; background:$backgroundDefault; }
+    <<content { padding: 6px; width: 800px; height: 600px; background:$backgroundDefault; }
   `,
 
   properties: [

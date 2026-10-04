@@ -16,7 +16,7 @@ foam.CLASS({
       extends: 'foam.u2.view.TreeViewRow.LabelView',
       css: `
 
-        ^select-level {
+        <<select-level {
           justify-content: flex-start;
           gap: 8px;
         }

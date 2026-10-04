@@ -14,7 +14,7 @@ foam.CLASS({
   imports: [ 'eval_' ],
 
   css: `
-      ^ {
+      << {
         height: fit-content;
         background-color: $backgroundDefault;
         border-radius: 8px;
@@ -25,16 +25,16 @@ foam.CLASS({
         padding: 1rem;
         margin: 1rem;
       }
-      ^card {
+      <<card {
         display: flex;
         flex-direction: row;
         width: 100%;
         justify-content: space-between;
       }
-      ^left {
+      <<left {
         width: 20%;
       }
-      ^right {
+      <<right {
         width: 80%;
         overflow-x: scroll;
       }

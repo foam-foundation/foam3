@@ -25,17 +25,17 @@ foam.CLASS({
   ],
 
   css: `
-    ^header {
+    <<header {
       align-items: center;
       display: flex;
     }
-    ^label {
+    <<label {
       flex-grow: 1;
     }
-    ^container {
+    <<container {
       margin: 12px;
     }
-    ^body input {
+    <<body input {
       width: 100%;
     }
   `,

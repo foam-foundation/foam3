@@ -13,7 +13,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       padding: 8px;
       border-radius: 6px;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);

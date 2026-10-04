@@ -10,14 +10,14 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
     }
-    ^shouldOverflow{
+    <<shouldOverflow{
       height: 100%;
     }
-    ^reverse {
+    <<reverse {
       width: 100%;
       display: flex;
       flex-direction: column-reverse;
@@ -26,13 +26,13 @@ foam.CLASS({
       width: 100%;
     }
     /* Extra div added by borders?? */
-    ^reverse > div:not(.edge) {
+    <<reverse > div:not(.edge) {
       flex: 1;
     }
-    ^shouldOverflow > ^reverse > div:not(.edge) {
+    <<shouldOverflow > <<reverse > div:not(.edge) {
       height: 100%;
     }
-    ^::before {
+    <<::before {
       display: block;
       opacity: 0;
       height: 7px;
@@ -44,7 +44,7 @@ foam.CLASS({
       top: 0;
       position: sticky;
     }
-    ^::after {
+    <<::after {
       display: block;
       opacity: 0;
       height: 7px;
@@ -56,10 +56,10 @@ foam.CLASS({
       bottom: 0;
       position: sticky;
     }
-    ^topShadow::before {
+    <<topShadow::before {
       opacity: 1;
     }
-    ^botShadow::after {
+    <<botShadow::after {
       opacity: 1;
     }
   `,

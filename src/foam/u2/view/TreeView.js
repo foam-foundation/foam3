@@ -32,36 +32,36 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       inset: none;
       white-space: nowrap;
     }
 
-    ^label-container {
+    <<label-container {
       display: flex;
       align-items: center;
     }
 
-    ^heading {
+    <<heading {
       cursor: pointer;
       min-height: 40px;
       display: flex;
       align-items: center;
     }
 
-    ^disabled {
+    <<disabled {
       opacity: 0.4;
       cursor: not-allowed;
       pointer-events: none;
     }
 
-    button^button {
+    button<<button {
       padding: 8px;
       width: 100%;
       justify-content: flex-start;
     }
 
-    ^button svg { fill: currentColor; }
+    <<button svg { fill: currentColor; }
   `,
 
   classes: [
@@ -73,7 +73,7 @@ foam.CLASS({
       ],
 
       css: `
-        ^select-level {
+        <<select-level {
           display: flex;
           justify-content: space-between;
           overflow: hidden;
@@ -82,18 +82,18 @@ foam.CLASS({
           width: 100%;
         }
 
-        ^select-level > * {
+        <<select-level > * {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        ^toggle-icon {
+        <<toggle-icon {
           align-self: center;
           transition: 0.2s linear;
         }
 
-        ^toggle-icon svg {
+        <<toggle-icon svg {
           width: 0.75em;
           height: 0.75em;
         }
@@ -469,7 +469,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       overflow-y: auto;
       overflow-x: hidden;
       padding: 0 8px;

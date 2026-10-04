@@ -23,19 +23,19 @@ foam.CLASS({
   documentation: 'Navigational menu bar',
 
   css: `
-    ^ {
+    << {
       vertical-align: top;
     }
-    ^ ul {
+    << ul {
       margin-top: 20px;
       list-style-type: none;
     }
-    ^ li {
+    << li {
       margin-left: 25px;
       display: inline-block;
       cursor: pointer;
     }
-    ^ .foam-core-menu-SubMenuView-inner {
+    << .foam-core-menu-SubMenuView-inner {
       z-index: $z-popup;
     }
   `,

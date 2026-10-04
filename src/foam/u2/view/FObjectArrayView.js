@@ -17,7 +17,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^ .foam-u2-DetailView {
+    << .foam-u2-DetailView {
       border: 1px solid $borderLight;
       margin-bottom: 8px;
     }

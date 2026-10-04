@@ -19,10 +19,10 @@ foam.CLASS({
       extends: 'foam.u2.View',
       imports: ['FSMClass'],
       css: `
-        ^sub {
+        <<sub {
           font-family: monospace;
         }
-        ^lifecycle-content {
+        <<lifecycle-content {
           display: flex;
           flex-direction: column;
           gap: 4px;
@@ -52,7 +52,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^wrapper {
+    <<wrapper {
       --circle-size: 1.4rem;
       overflow: hidden;
       height: 100%;
@@ -60,19 +60,19 @@ foam.CLASS({
       flex-direction: row;
       gap: 20px;
     }
-    ^lifecycle-section, ^section, ^innerSection {
+    <<lifecycle-section, <<section, <<innerSection {
       display: flex;
       flex-direction: column;
       gap: 2rem;
     }
-    ^lifecycle-section {
+    <<lifecycle-section {
       flex: 1;
       padding: 20px;
       background: $backgroundSecondary;
       border-radius: 8px;
       overflow-y: auto;
     }
-    ^lifecycle-item {
+    <<lifecycle-item {
       display: flex;
       align-items: flex-start;
       background: $backgroundDefault;
@@ -83,51 +83,51 @@ foam.CLASS({
       border-radius: 6px;
       transition: background-color 0.2s ease;
     }
-    ^lifecycle-item:hover {
+    <<lifecycle-item:hover {
       background-color: $backgroundHover;
       border: 1px solid $borderBrand;
     }
-    ^lifecycle-item.active {
+    <<lifecycle-item.active {
       background-color: $backgroundBrandTertiary;
       border: 1px solid $borderBrandStrong;
     }
-    ^section-heading {
+    <<section-heading {
       color: $textTertiary;
       font-weight: $font-bold;
     }
-    ^status-wrapper {
+    <<status-wrapper {
       display: flex;
       gap: 1rem;
       align-items: center;
     }
-    ^status-wrapper > ^lifecycle-item {
+    <<status-wrapper > <<lifecycle-item {
       flex: 1;
     }
-    ^status-wrapper:last-child > ^circle {
+    <<status-wrapper:last-child > <<circle {
       background: $backgroundBrandTertiary;
       border: 2px solid $backgroundBrand;
     }
-    ^section:not(:first-child) {
+    <<section:not(:first-child) {
       border-top: 1px solid $borderDefault;
       padding-top: 1rem;
     }
-    ^details-section {
+    <<details-section {
       flex: 4;
       background: $backgroundDefault;
       border-radius: 4px;
       overflow: auto;
     }
-    ^circle {
+    <<circle {
       height: var(--circle-size);
       background: $backgroundBrand;
       aspect-ratio: 1;
       border-radius: 100%;
       z-index: 1;
     }
-    ^innerSection {
+    <<innerSection {
       position: relative;
     }
-    ^innerSection::before {
+    <<innerSection::before {
       content: '';
       position: absolute;
       left: calc(var(--circle-size)/2 - 1px);

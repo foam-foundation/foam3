@@ -113,20 +113,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^dropdownContainer > dropdown {
+    <<dropdownContainer > dropdown {
       display: flex;
       gap: 4px;
       flex-direction: column;
     }
-    ^disabled button {
+    <<disabled button {
       color: $buttonSecondaryColor$disabled$foreground;
     }
 
-    ^button-container {
+    <<button-container {
       display: contents;
     }
 
-    ^button-container button {
+    <<button-container button {
       border: 1px solid transparent;
       background-color: $backgroundDefault;
       justify-content: flex-start;
@@ -136,75 +136,75 @@ foam.CLASS({
       width: -webkit-fill-available;
     }
 
-    ^button-container button svg {
+    <<button-container button svg {
       fill: currentcolor;
     }
 
-    ^button-container button > img{
+    <<button-container button > img{
       height: 100%;
     }
 
-    ^disabled {
+    <<disabled {
       color: $textTertiary;
     }
 
-    ^button-container button:hover:not(:disabled) {
+    <<button-container button:hover:not(:disabled) {
       background-color: $overlayButtonHighlight;
       color: $overlayButtonHighlight$foreground;
     }
 
-    ^button-container button:focus {
+    <<button-container button:focus {
       border-color: $overlayButtonHighlight$hover;
       background-color: $overlayButtonHighlight;
       color: $overlayButtonHighlight$foreground;
     }
 
-    ^button-container button:focus:not(:focus-visible){
+    <<button-container button:focus:not(:focus-visible){
       border-color: transparent;
     }
 
-    ^button-container button:disabled {
+    <<button-container button:disabled {
       color: $buttonSecondaryColor$active;
     }
 
     /* destructive */
 
-    ^button-container .destructive{
+    <<button-container .destructive{
       color: $destructive500;
     }
 
-    ^button-container .destructive svg { fill: $destructive500; }
+    <<button-container .destructive svg { fill: $destructive500; }
 
-    ^button-container .destructive:hover:not(:disabled) {
+    <<button-container .destructive:hover:not(:disabled) {
       background-color: $destructive50;
     }
 
-    ^button-container .destructive:focus {
+    <<button-container .destructive:focus {
       border-color: $destructive500;
       background-color: $destructive50;
     }
 
-    ^button-container .destructive:disabled {
+    <<button-container .destructive:disabled {
       color: $destructive50;
     }
 
-    ^button-container .destructive:disabled svg { fill: $destructive50; }
+    <<button-container .destructive:disabled svg { fill: $destructive50; }
 
-    ^iconOnly{
+    <<iconOnly{
       padding: 0px;
     }
-    ^dropdown.foam-u2-HTMLView {
+    <<dropdown.foam-u2-HTMLView {
       padding: 0
     }
-    ^dropdown svg {
+    <<dropdown svg {
       fill: currentcolor;
     }
 
-    ^iconContainer {
+    <<iconContainer {
       margin-left: auto;
     }
     @media print {
-      ^ { display: none !important; }
+      << { display: none !important; }
     }
   `,
 

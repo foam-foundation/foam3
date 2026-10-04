@@ -12,23 +12,23 @@
   documentation: 'Adds a collapsable card div that can be triggered by any boolean value',
 
   css: `
-    ^ {
+    << {
       box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.1), 0px 4px 6px rgba(0, 0, 0, 0.05);
       display: inline-block;
       max-height: 0;
       overflow: hidden;
       transition: max-height 0.5s;
     }
-    ^.expanded { 
+    <<.expanded { 
       max-height: 500px;
     }
-    ^container{
+    <<container{
       background:$backgroundDefault; 
       border-radius: 4px;
       border: 1px solid $borderDefault;
       padding: 12px;
     }
-    ^ h6{
+    << h6{
       padding-bottom: 12px;
     }
   `,

@@ -28,19 +28,19 @@ foam.CLASS({
     on touch; override ^copy-button { opacity: 1 } to always show it.`,
 
   css: `
-    ^ {
+    << {
       align-items: center;
       display: inline-flex;
       gap: 4px;
     }
-    ^copy-button {
+    <<copy-button {
       flex-shrink: 0;
     }
     /* Only hide the copy button behind hover on devices that can hover;
        on touch devices it stays visible. */
     @media (hover: hover) {
-      ^copy-button { opacity: 0; }
-      ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+      <<copy-button { opacity: 0; }
+      <<:hover <<copy-button, <<copy-button:focus-visible { opacity: 1; }
     }
   `,
 

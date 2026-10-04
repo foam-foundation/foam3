@@ -24,12 +24,12 @@ foam.CLASS({
   ],
   
   css: `
-    ^ {
+    << {
      display: flex;
      flex-direction: column;
      gap: 0.8rem;
     }
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       padding: 24px 32px;
     }
   `,

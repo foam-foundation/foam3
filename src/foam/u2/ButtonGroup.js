@@ -20,7 +20,7 @@ foam.CLASS({
   exports: ['storeAction'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       gap: 1rem;
       align-items: center;
@@ -28,10 +28,10 @@ foam.CLASS({
       flex: 1 0 0;
       min-width: 0;
     }
-    ^vertical {
+    <<vertical {
       flex-direction: column;
     }
-    ^ .foam-u2-view-OverlayActionListView-iconOnly {
+    << .foam-u2-view-OverlayActionListView-iconOnly {
       padding: 6px;
     }
   `,

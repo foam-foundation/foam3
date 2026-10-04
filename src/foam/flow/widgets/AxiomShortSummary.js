@@ -14,14 +14,14 @@ foam.CLASS({
   `,
 
   css: `
-    ^preformatted {
+    <<preformatted {
       white-space: pre;
     }
-    ^ {
+    << {
       width: '100%';
     }
-    ^td,
-    ^th {
+    <<td,
+    <<th {
       word-break: break-all;
     }
   `,

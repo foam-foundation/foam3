@@ -25,7 +25,7 @@ foam.CLASS({
     [ 'nodeName', 'div' ],
   ],
   css: `
-^ {
+<< {
   display: flex;
   flex-wrap: wrap;
 }

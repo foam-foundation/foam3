@@ -202,7 +202,7 @@ foam.CLASS({
       margin: 0;
     }
 
-    ^ .headerTitle {
+    << .headerTitle {
       font-size: 2.4rem;
       font-weight: $font-extra-bold;
       font-style: normal;
@@ -226,7 +226,7 @@ foam.CLASS({
       line-height: 2.1em;
       text-align: center;
     }
-    ^ .generic-status {
+    << .generic-status {
       display: inline-block;
       font-size: 1.2rem;
       font-weight: $font-regular;

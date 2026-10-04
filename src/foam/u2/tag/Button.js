@@ -45,13 +45,17 @@ foam.CLASS({
       activeModifier: -15
     },
     {
+      // LIGHTEN clamps the grey level to 150 before scaling (colorlib
+      // lighten), so on the $black500 surface it cannot move far: -40 gives
+      // #363636, 1.59:1 on #0F0F0F, under the 3:1 floor for a non-text edge.
+      // Dark uses the semantic strong border token instead, so it follows
+      // whatever dark value $borderStrong carries.
+      // Light keeps LIGHTEN(-40) = #999999 on white.
+      class: 'foam.u2.ColorToken',
       name: 'buttonSecondaryBorderColor',
-      variantKey: 'color',
       value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), -40) },
       variants: {
-        dark: {
-          value: function(e) { return e.LIGHTEN(e.TOKEN('$buttonSecondaryColor'), 40) }
-        }
+        dark: { value: '$borderStrong' }
       }
     },
     {
@@ -67,7 +71,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       font: inherit;
       align-items: center;
       border: 1px solid transparent;
@@ -83,116 +87,128 @@ foam.CLASS({
       text-wrap-mode: nowrap;
     }
 
-    ^:focus-visible {
+    <<:focus-visible {
       outline: 1px solid $borderBrandStrong;
     }
 
-    ^iconAfter {
+    <<iconAfter {
       flex-direction: row-reverse;
     }
 
-    ^:hover:not(:disabled) {
+    <<:hover:not(:disabled) {
       cursor: pointer;
     }
 
-    ^:hover^:disabled {
+    <<:hover<<:disabled {
       cursor: not-allowed;
     }
 
-    ^unavailable {
+    <<unavailable {
       display: none;
     }
 
-    ^ img {
+    << img {
       vertical-align: middle;
     }
 
-    ^ svg {
+    << svg {
       width: 100%;
       max-height: 100%;
       vertical-align: middle;
     }
+    /* Embedded icon files (images/*.svg) paint their shapes with a fixed
+       fill="#494F59" attribute, which wins over a fill set on the <svg>; so
+       point every shape at currentColor and let the button's text colour,
+       and its dark variant, drive the icon. fill="none" outlines are kept.
+       Sketch exports wrap the icon in <g fill="none"> with an unfilled
+       bounding <polygon>, <rect> or <path d="M0 0h24v24H0z"> that inherits
+       that none, placed first or last in its group; painting it would draw
+       a solid square, and no selector tells it from unfilled art, so shapes
+       without their own fill inside such a group are left alone (25 of the
+       57 shipped svg files have one). Art must carry its own fill to be
+       painted; list-view.svg and tree-view.svg were given one.
+       The loading spinner is excluded: its <path> carries no fill and takes
+       the per-state colour the ^loading rules below set on its <svg>, and a
+       fill on the path itself would override them (the disabled states
+       differ from currentColor). */
+    << svg :is(path, circle, rect, polygon, ellipse, line, polyline):not([fill="none"]):not(g[fill="none"] :not([fill])):not(<<loading *) {
+      fill: currentColor;
+    }
 
-    ^.material-icons {
+    <<.material-icons {
       cursor: pointer;
     }
 
     /* Unstyled */
-    ^unstyled {
+    <<unstyled {
       background: none;
       border: none;
       color: inherit;
     }
 
     /* Primary */
-    ^primary{
+    <<primary{
       background-color: $buttonPrimaryColor;
       box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
       color: $buttonPrimaryColor$foreground;
     }
 
-    ^primary svg {
-      fill: currentColor;
-    }
-
-    ^primary:hover:not(:disabled) {
+    <<primary:hover:not(:disabled) {
       background-color: $buttonPrimaryColor$hover;
     }
 
-    ^primary:active:not(:disabled) {
+    <<primary:active:not(:disabled) {
       background-color: $buttonPrimaryColor$active;
       border-color: $buttonPrimaryColor$hover;
     }
 
-    ^primary:disabled {
+    <<primary:disabled {
       background-color: $buttonPrimaryColor$disabled;
       color: $buttonPrimaryColor$disabled$foreground;
     }
 
     /* Primary destructive */
 
-    ^primary-destructive,^primary-destructive svg {
+    <<primary-destructive,<<primary-destructive svg {
       background-color: $backgroundDestructive;
       color: $textOnDestructive;
     }
 
-    ^primary-destructive:hover:not(:disabled) {
+    <<primary-destructive:hover:not(:disabled) {
       background-color: $backgroundDestructiveSecondary;
     }
 
-    ^primary-destructive:active:not(:disabled) {
+    <<primary-destructive:active:not(:disabled) {
       background-color: $backgroundDestructiveSecondary;
       border: 1px solid $backgroundDestructiveSecondary;
       box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.06);
     }
 
-    ^primary-destructive:disabled {
+    <<primary-destructive:disabled {
       background-color: $backgroundDestructiveTertiary;
     }
 
 
     /* Secondary */
 
-    ^secondary{
+    <<secondary{
       background-color: $buttonSecondaryColor;
       border: 1px solid $buttonSecondaryBorderColor;
       color: $buttonSecondaryColor$foreground;
     }
 
-    ^secondary svg { fill: currentColor; }
-
-    ^secondary:hover:not(:disabled):not(:active) {
+    <<secondary:hover:not(:disabled):not(:active) {
       background-color: $buttonSecondaryColor$hover;
       color: $buttonSecondaryColor$hover$foreground;
     }
 
-    ^secondary:active:not(:disabled) {
+    <<secondary:active:not(:disabled) {
       color: $textBrandSecondary;
       background-color: $buttonSecondaryColor$hover;
       border: 1px solid $borderDefault;
     }
 
-    ^secondary:disabled{
+    <<secondary:disabled{
       background-color: $buttonSecondaryColor$disabled;
       border-color: $buttonSecondaryColor$disabled;
       color: $textTertiary;
@@ -201,26 +217,24 @@ foam.CLASS({
 
     /* Secondary destructive */
 
-    ^secondary-destructive{
+    <<secondary-destructive{
       background-color: $backgroundDestructive;
       border: 1px solid $backgroundDestructiveSecondary;
       color: $textOnDestructive;
     }
 
-    ^secondary-destructive svg { fill: currentColor; }
-
-    ^secondary-destructive:hover:not(:disabled) {
+    <<secondary-destructive:hover:not(:disabled) {
       background-color: $backgroundDestructive$hover;
       color: $backgroundDestructive$hover$foreground;
     }
 
-    ^secondary-destructive:active:not(:disabled) {
+    <<secondary-destructive:active:not(:disabled) {
       background-color: $backgroundDestructive$hover;
       border-color: $destructive500;
       color: $backgroundDestructive$hover$foreground;
     }
 
-    ^secondary-destructive:disabled {
+    <<secondary-destructive:disabled {
       background-color: $backgroundDestructive$disabled;
       border-color: $destructive100;
       color: $backgroundDestructive$disabled$foreground;
@@ -228,195 +242,187 @@ foam.CLASS({
 
     /* Tertiary */
 
-    ^tertiary{
+    <<tertiary{
       background: none;
       border: 1px solid transparent;
       color: $buttonSecondaryColor$foreground;
     }
 
-    ^tertiary svg { fill: currentColor; }
-
-    ^tertiary:hover:not(:disabled) {
+    <<tertiary:hover:not(:disabled) {
       background-color: $buttonSecondaryColor$hover;
     }
 
-    ^tertiary:active:not(:disabled) {
+    <<tertiary:active:not(:disabled) {
       background-color: $buttonSecondaryColor$hover;
       color: $textBrandSecondary;
     }
 
-    ^tertiary:disabled {
-      color: $textBrandTertiary;
+    <<tertiary:disabled {
+      color: $textTertiary;
     }
 
     /* Tertiary destructive */
 
-    ^tertiary-destructive{
+    <<tertiary-destructive{
       background-color: transparent;
       border-color: transparent;
       color: $destructive400;
     }
 
-    ^tertiary-destructive svg { fill: currentColor; }
-
-    ^tertiary-destructive:hover:not(:disabled):not(:active) {
+    <<tertiary-destructive:hover:not(:disabled):not(:active) {
       background-color: $buttonSecondaryColor$hover;
     }
 
-    ^tertiary-destructive:active:not(:disabled) {
+    <<tertiary-destructive:active:not(:disabled) {
       background-color: $buttonSecondaryColor$hover;
       color: $red400;
     }
 
-    ^tertiary-destructive:disabled {
-      color: $buttonSecondaryColor$disabled;
+    <<tertiary-destructive:disabled {
+      color: $textTertiary;
     }
 
     /* Link */
 
-    ^link,^link svg {
+    <<link,<<link svg {
       background: none;
       color: $buttonSecondaryColor$foreground;
       fill: currentColor;
     }
 
-    ^link:hover:not(:disabled):not(:active),^link:hover:not(:disabled):not(:active) svg {
+    <<link:hover:not(:disabled):not(:active),<<link:hover:not(:disabled):not(:active) svg {
       text-decoration: underline;
       color: $buttonSecondaryColor$active$foreground;
     }
 
-    ^link:active:not(:disabled),^link:active:not(:disabled) svg {
+    <<link:active:not(:disabled),<<link:active:not(:disabled) svg {
       color: $buttonPrimaryColor;
       text-decoration: underline;
     }
 
      /* Black */
 
-    ^black{
+    <<black{
       background: none;
       border: 1px solid transparent;
       color: $textDefault;
     }
 
-    ^black svg { fill: currentColor; }
-
-    ^black:hover:not(:disabled) {
+    <<black:hover:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       color: $textDefault;
     }
 
-    ^black:active:not(:disabled) {
+    <<black:active:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       border-color: $textDefault;
     }
 
-    ^black:disabled {
-      color: $buttonSecondaryColor$active;
+    <<black:disabled {
+      color: $textTertiary;
     }
 
     /* Text */
 
-    ^text{
+    <<text{
       background: none;
       border: 1px solid transparent;
       color: $buttonPrimaryColor;
     }
 
-    ^text svg { fill: currentColor; }
-
-    ^text:hover:not(:disabled) {
+    <<text:hover:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       color: $buttonPrimaryLightColor$foreground;
     }
 
-    ^text:active:not(:disabled) {
+    <<text:active:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       border-color: $buttonPrimaryColor;
     }
 
-    ^text:disabled {
-      color: $buttonSecondaryColor$active;
+    <<text:disabled {
+      color: $textTertiary;
     }
 
     /* Sizes */
 
-    ^small {
+    <<small {
       padding: 6px 10px;
     }
 
-    ^medium {
+    <<medium {
       padding: 8px 12px;
     }
 
-    ^large {
+    <<large {
       min-width: 100px;
       padding: 12px 12px;
     }
 
-    ^iconOnly{
+    <<iconOnly{
       padding: 8px;
       max-height: inherit;
     }
 
-    ^iconOnly^small {
+    <<iconOnly<<small {
       padding: 4px;
     }
 
-    ^link^small,
-    ^link^medium,
-    ^link^large {
+    <<link<<small,
+    <<link<<medium,
+    <<link<<large {
       padding-left: 0;
       padding-right: 0;
     }
 
-    ^link > .foam-u2-HTMLView{
+    <<link > .foam-u2-HTMLView{
       height: 1em;
     }
 
-    ^svgIcon {
+    <<svgIcon {
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
     }
-    ^svgIcon svg {
+    <<svgIcon svg {
       height: 100%;
     }
 
     /* SVGs outside themeGlyphs may have their own heights and widths,
     these ensure those are respected rather than imposing new dimensions */
-    ^imgSVGIcon {
+    <<imgSVGIcon {
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    ^imgSVGIcon svg {
+    <<imgSVGIcon svg {
       height: initial;
     }
 
-    ^small svg,
-    ^small img {
+    <<small svg,
+    <<small img {
       width: 1.15em;
       height: 1.15em;
     }
-    ^medium svg,
-    ^medium img {
+    <<medium svg,
+    <<medium img {
       width: 1.42em;
       height: 1.42em;
     }
-    ^large svg,
-    ^large img {
+    <<large svg,
+    <<large img {
       width: 1.5em;
       height: 1.5em;
     }
-    ^link svg, link img {
+    <<link svg, link img {
       width: 1em;
       height: 1em;
     }
     /* Loading indicator css */
-    ^[data-loading] > :not(^loading),  ^[data-loading] > :not(^loading) * {
+    <<[data-loading] > :not(<<loading),  <<[data-loading] > :not(<<loading) * {
       opacity: 0;
     }
-    ^loading {
+    <<loading {
       position: absolute;
       top: 0;
       bottom: 0;
@@ -426,15 +432,25 @@ foam.CLASS({
       align-items: center;
       justify-content: center;
     }
-    ^primary ^loading svg, ^primary:disabled > ^loading svg {
+    <<primary <<loading svg, <<primary:disabled > <<loading svg {
       fill: $buttonPrimaryColor$foreground;
     }
-    ^secondary ^loading svg, ^tertiary ^loading svg,  ^link ^loading svg,
-    ^secondary:disabled ^loading svg, ^tertiary:disabled ^loading svg,  ^link:disabled ^loading svg {
+    <<secondary <<loading svg, <<tertiary <<loading svg,  <<link <<loading svg,
+    <<secondary:disabled <<loading svg, <<tertiary:disabled <<loading svg,  <<link:disabled <<loading svg {
       fill: $buttonSecondaryColor$foreground;
     }
-    ^text > ^loading svg, ^text:disabled > ^loading svg {
+    <<text > <<loading svg, <<text:disabled > <<loading svg {
       fill: $buttonPrimaryColor;
+    }
+    /* The spinner sets fill on its own <svg> from the backgroundBrand token, so a style
+       with no ^loading rule shows a brand-blue spinner whatever its text
+       colour. These follow the button's colour like their icons do. */
+    <<secondary-destructive <<loading svg, <<tertiary-destructive <<loading svg, <<black <<loading svg,
+    <<secondary-destructive:disabled <<loading svg, <<tertiary-destructive:disabled <<loading svg, <<black:disabled <<loading svg {
+      fill: currentColor;
+    }
+    <<primary-destructive <<loading svg, <<primary-destructive:disabled > <<loading svg {
+      fill: $textOnDestructive;
     }
   `,
 

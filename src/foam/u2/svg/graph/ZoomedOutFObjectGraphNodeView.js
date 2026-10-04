@@ -10,10 +10,10 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    << {
       overflow: auto;
     }
-    ^view {
+    <<view {
       zoom: 0.7;
       overflow: auto;
     }

@@ -2,6 +2,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"jettyThreadPoolConfig",
   "lazy": false,
+  "lazyOrder": -1,
   "service":{"class":"foam.core.jetty.JettyThreadPoolConfig"}
 })
 p({
@@ -9,6 +10,7 @@ p({
   "name": "jettyIPAccessDAO",
   "serve": true,
   "lazy": false,
+  "lazyOrder": -1,
   "serviceScript": """
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.jetty.IPAccess.getOwnClassInfo())

@@ -11,36 +11,36 @@ foam.CLASS({
   extends: 'foam.u2.View',
   documentation: `Wraps ReferUserView in a border so it can be used around DAO views`,
   css: `
-    ^ {
+    << {
       container: outer / inline-size;
     }
-    ^wrapper {
+    <<wrapper {
       padding: 1em;
       display: flex;
       gap: 2rem;
       height: 100%;
       overflow: auto;
     }
-    ^wrapper > *:last-child {
+    <<wrapper > *:last-child {
       flex: 1;
-      //Width needed as a start point for flex to prevent overflow;
+      /* Width needed as a start point for flex to prevent overflow */
       width: 100px;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       gap: 1em;
     }
-    ^wrapper > *:first-child {
+    <<wrapper > *:first-child {
       flex: 0 0 30%;
     }
-    ^ .foam-comics-v2-DAOBrowserView-top-bar {
+    << .foam-comics-v2-DAOBrowserView-top-bar {
       padding:0
     } 
     @container outer (width < 960px) {
-      ^wrapper {
+      <<wrapper {
         flex-direction: column;
       }
-      ^wrapper > *:first-child, ^wrapper > *:last-child {
+      <<wrapper > *:first-child, <<wrapper > *:last-child {
         width: 100%;
         align-self: center;
       }

@@ -25,26 +25,12 @@ p({
 p({
   class: "foam.dao.compaction.Compaction",
   cSpec: "approvalRequestDAO",
-  compactible: true,
-  sink: {
-    class: "foam.core.approval.ApprovalRequestCompactionSink",
-    predicate: {
-      class: "foam.mlang.predicate.FScriptPredicate",
-      query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
-    }
-  }
+  compactible: true
 })
 p({
   class: "foam.dao.compaction.Compaction",
   cSpec: "approvableDAO",
-  compactible: true,
-  sink: {
-    class: "foam.core.approval.ApprovalRequestCompactionSink",
-    predicate: {
-      class: "foam.mlang.predicate.FScriptPredicate",
-      query: 'status == foam.core.approval.ApprovalStatus.REQUESTED'
-    }
-  }
+  compactible: true
 })
 p({
   class: "foam.dao.compaction.Compaction",
@@ -152,26 +138,12 @@ p({
 p({
   class: "foam.dao.compaction.Compaction",
   cSpec: "localTicketDAO",
-  compactible: true,
-  sink: {
-    class: "foam.core.ticket.TicketCompactionSink",
-    predicate: {
-      class: "foam.mlang.predicate.FScriptPredicate",
-      query: 'status != "CLOSED"'
-    }
-  }
+  compactible: true
 })
 p({
   class: "foam.dao.compaction.Compaction",
   cSpec: "localTicketCommentDAO",
-  compactible: true,
-  sink: {
-    class: "foam.core.ticket.TicketCommentCompactionSink",
-    predicate: {
-      class: "foam.mlang.predicate.FScriptPredicate",
-      query: 'status != "CLOSED"'
-    }
-  }
+  compactible: true
 })
 p({
   class: "foam.dao.compaction.Compaction",

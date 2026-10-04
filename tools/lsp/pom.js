@@ -10,6 +10,7 @@ foam.POM({
     { name: 'FoamClassGrammar', flags: 'js' },
     { name: 'JrlGrammar',       flags: 'js' },
     { name: 'CursorAnalyzer', flags: 'js' },
+    { name: 'FileClassifier', flags: 'js' },
     { name: 'CSSTokenResolver', flags: 'js' },
     { name: 'JrlLoader', flags: 'js' },
     { name: 'I18nProviders', flags: 'js' },

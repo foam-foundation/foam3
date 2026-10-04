@@ -16,19 +16,19 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       max-width: 60vw;
       max-height: 80vh;
       min-width: 30vw;
       overflow: auto;
     }
-    ^message {
+    <<message {
       white-space: pre-line;
     }
-    ^container {
+    <<container {
       width: 100%;
     }
-    ^ > ^container + ^container {
+    << > <<container + <<container {
       margin-top: 16px;
     }
   `,

@@ -21,14 +21,14 @@ foam.CLASS({
 
   ],
   css: `
-    ^sub > .foam-u2-ActionView-link {
+    <<sub > .foam-u2-ActionView-link {
       color: currentColor;
       padding: 0;
       font-weight: $font-medium;
       text-decoration: underline;
       transition: all 0.2s ease;
     }
-    ^sub > .foam-u2-ActionView-link .p {
+    <<sub > .foam-u2-ActionView-link .p {
       font-weight: $font-medium;
     }
   `,

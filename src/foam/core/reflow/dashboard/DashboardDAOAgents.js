@@ -77,110 +77,8 @@ foam.CLASS({
     // Stacked bar charts: return this.prop2 (X-axis)
     // Line charts: return this.xProp
 
-    function getPeriodCalculators_() {
-      // Configuration map for period calculations by date expression type
-      // Note: This was originally a property with factory/value, but both approaches
-      // were returning empty strings instead of the array, so using a method instead
-      return [
-        {
-          // Weekly periods
-          exprClassNames: ['foam.mlang.expr.DateToWeekExpr'],
-          calculate: function(periodCount) {
-            var minDate = new Date();
-            var maxDate = new Date();
-            // Subtract (periodCount - 1) weeks, set to start of week (Monday)
-            minDate.setDate(minDate.getDate() - ((periodCount - 1) * 7));
-            var dayOfWeek = minDate.getDay();
-            var daysToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-            minDate.setDate(minDate.getDate() - daysToMonday);
-            minDate.setHours(0, 0, 0, 0);
-            // maxDate: end of current week (Sunday)
-            var currentDayOfWeek = maxDate.getDay();
-            var daysToSunday = (currentDayOfWeek === 0 ? 0 : 7 - currentDayOfWeek);
-            maxDate.setDate(maxDate.getDate() + daysToSunday);
-            maxDate.setHours(23, 59, 59, 999);
-            return { minDate: minDate, maxDate: maxDate };
-          }
-        },
-        {
-          // Quarterly periods
-          exprClassNames: ['foam.mlang.expr.DateToQuarterExpr'],
-          calculate: function(periodCount) {
-            var minDate = new Date();
-            var maxDate = new Date();
-            // Subtract (periodCount - 1) quarters, set to start of quarter
-            minDate.setMonth(minDate.getMonth() - ((periodCount - 1) * 3));
-            var quarter = Math.floor(minDate.getMonth() / 3);
-            minDate.setMonth(quarter * 3, 1);
-            minDate.setHours(0, 0, 0, 0);
-            // maxDate: end of current quarter
-            var currentQuarter = Math.floor(maxDate.getMonth() / 3);
-            maxDate.setMonth((currentQuarter + 1) * 3, 0);
-            maxDate.setHours(23, 59, 59, 999);
-            return { minDate: minDate, maxDate: maxDate };
-          }
-        },
-        {
-          // Monthly periods
-          exprClassNames: ['foam.mlang.expr.DateToYYYYMMExpr'],
-          calculate: function(periodCount) {
-            var minDate = new Date();
-            var maxDate = new Date();
-            // Subtract (periodCount - 1) months, set to start of month
-            minDate.setMonth(minDate.getMonth() - (periodCount - 1), 1);
-            minDate.setHours(0, 0, 0, 0);
-            // maxDate: end of current month
-            maxDate.setMonth(maxDate.getMonth() + 1, 0);
-            maxDate.setHours(23, 59, 59, 999);
-            return { minDate: minDate, maxDate: maxDate };
-          }
-        },
-        {
-          // Yearly periods
-          exprClassNames: ['foam.mlang.expr.DateToYYYYExpr'],
-          calculate: function(periodCount) {
-            var minDate = new Date();
-            var maxDate = new Date();
-            // Subtract (periodCount - 1) years, set to start of year
-            minDate.setFullYear(minDate.getFullYear() - (periodCount - 1), 0, 1);
-            minDate.setHours(0, 0, 0, 0);
-            // maxDate: end of current year
-            maxDate.setFullYear(maxDate.getFullYear(), 11, 31);
-            maxDate.setHours(23, 59, 59, 999);
-            return { minDate: minDate, maxDate: maxDate };
-          }
-        },
-        {
-          // Daily periods (handles both YYYYMMDD and DayOfYear)
-          exprClassNames: ['foam.mlang.expr.DateToYYYYMMDDExpr', 'foam.mlang.expr.DateToDayOfYearExpr'],
-          calculate: function(periodCount) {
-            var minDate = new Date();
-            var maxDate = new Date();
-            // Subtract (periodCount - 1) days, set to start of day
-            minDate.setDate(minDate.getDate() - (periodCount - 1));
-            minDate.setHours(0, 0, 0, 0);
-            // maxDate: end of current day
-            maxDate.setHours(23, 59, 59, 999);
-            return { minDate: minDate, maxDate: maxDate };
-          }
-        }
-      ];
-    },
-
     function getPeriodCalculator_(dateProp) {
-      // Find matching calculator from configuration
-      var calculators = this.getPeriodCalculators_();
-      for ( var i = 0; i < calculators.length; i++ ) {
-        var config = calculators[i];
-
-        for ( var j = 0; j < config.exprClassNames.length; j++ ) {
-          var exprClass = foam.lookup(config.exprClassNames[j]);
-          if ( exprClass && exprClass.isInstance(dateProp) ) {
-            return config.calculate;
-          }
-        }
-      }
-      return null;
+      return foam.core.reflow.dashboard.DateKeys.calculatorFor(dateProp);
     },
 
     function applyDateRangeFilter() {
@@ -1180,9 +1078,9 @@ foam.CLASS({
     // Define visibility for periodCount (from mixin)
     {
       name: 'periodCount',
-      visibility: function(hasDateSource_) {
-        // Only show for date/time properties on X-axis
-        return hasDateSource_ ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      visibility: function(xProp) {
+        return foam.core.reflow.dashboard.DateKeys.isTemporal(xProp) ?
+          foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       }
     },
     {
@@ -1356,27 +1254,13 @@ foam.CLASS({
       transient: true,
       visibility: 'HIDDEN',
       expression: function(xProp) {
-        return !! xProp && ( foam.lang.Date.isInstance(xProp) || foam.lang.DateTime.isInstance(xProp) );
+        return foam.lang.Date.isInstance(xProp) ||
+          foam.core.reflow.dashboard.DateKeys.isTemporal(xProp);
       }
-    },
-    // Claude says: keeps the delegate aware behaviour for the DAO date filter
-    {
-      class: 'Boolean',
-      name: 'hasDateSource_',
-      transient: true,
-      visibility: 'HIDDEN',
-      expression: function(xProp) { return this.isDateProp(xProp); }
-    },
+    }
   ],
 
   methods: [
-    function isDateProp(p) {
-      return p && ( 
-        ( foam.lang.Date.isInstance(p) || foam.lang.DateTime.isInstance(p) ) ||
-        ( p.delegate && (foam.lang.Date.isInstance(p.delegate) || foam.lang.DateTime.isInstance(p.delegate)) )
-      );
-    },
-
     function getDatePropertyForFiltering() {
       // For line charts, the date property is 'xProp'
       return this.xProp;

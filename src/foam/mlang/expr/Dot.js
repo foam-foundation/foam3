@@ -79,6 +79,27 @@ foam.CLASS({
       javaCode: `
         return ((foam.lang.Indexer) getArg2()).comparePropertyToValue(key, value);
       `
+    },
+
+    {
+      name: 'compare',
+      type: 'int',
+      args: 'Object o1, Object o2',
+      documentation: `Order two objects by arg2 read off what arg1 resolves to.
+        An unset intermediate leaves nothing for arg2 to read, and it sorts
+        where a null value sorts.`,
+      javaCode: `
+        Object r1 = getArg1().f(o1);
+        Object r2 = getArg1().f(o2);
+
+        if ( r1 != null && r2 != null ) {
+          return ((foam.mlang.order.Comparator) getArg2()).compare(r1, r2);
+        }
+
+        return ((foam.lang.Indexer) getArg2()).comparePropertyToValue(
+          r1 == null ? null : getArg2().f(r1),
+          r2 == null ? null : getArg2().f(r2));
+      `
     }
   ]
 });

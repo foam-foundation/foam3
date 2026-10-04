@@ -14,6 +14,16 @@ var index = h.index, cache = h.cache;
 section('I18nHandler — extract (moved from DiagnosticsHandler)');
 var i18n = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
 
+section('I18nHandler — exempt-URI policy (the copy CodeLens/actions inherit)');
+
+// DiagnosticsHandler carries a twin of this predicate for its own scan;
+// each copy gets its own pin so drift in either fails the suite.
+test(i18n.isI18nExemptUri_('file:///app/src/foo/demo/Foo.js') === true,
+  'singular demo/ is exempt (was a gap: only demos/ matched)');
+test(i18n.isI18nExemptUri_('file:///app/src/foo/demos/Foo.js') === true, 'demos/ exempt');
+test(i18n.isI18nExemptUri_('file:///app/src/foo/WidgetTest.js') === true, '*Test.js exempt');
+test(i18n.isI18nExemptUri_('file:///app/src/foo/Widget.js') === false, 'product code is not exempt');
+
 var SRC = "foam.CLASS({\n  package: 'test',\n  name: 'ExtractMe',\n" +
   "  methods: [\n    function render() {\n      this.add('Upload complete');\n    }\n  ]\n});\n";
 
@@ -1262,7 +1272,10 @@ var laneMock = http.createServer(function(req, res) {
   });
 });
 
-var laneDone = (async function() {
+// Runs through the harness's server-lane mutex: the config category boots a
+// server the same way, and two lanes live at once would cross-talk over the
+// shared stdin/stdout singletons (see _harness.withServerLane).
+var laneDone = h.withServerLane(async function() {
   var origWrite = process.stdout.write;
   var laneTmp   = null;
   try {
@@ -1388,7 +1401,7 @@ var laneDone = (async function() {
     if ( laneMock.listening ) laneMock.close();
     if ( laneTmp ) { try { h.fs.unlinkSync(laneTmp); } catch (e) {} }
   }
-})();
+});
 
 
 // === PR #5318 round-1 review: per-entry missing languages + placeholder gate ===

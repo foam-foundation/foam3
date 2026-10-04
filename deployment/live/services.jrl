@@ -1,0 +1,25 @@
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"sourceChangeDAO",
+  "serve":true,
+  "authNotes": "Dev-only source reload feed. Global read so any signed-in developer receives file-change events; writes need sourcechange.create.",
+  "serviceScript":"""
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.fs.SourceChange.getOwnClassInfo())
+      .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("sourcechange"))
+      .build()
+  """,
+  "client":"""
+    {
+      "of":"foam.core.fs.SourceChange",
+      "remoteListenerSupport":true
+    }
+  """
+})
+
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"sourceWatcher",
+  "lazy":false,
+  "serviceClass":"foam.core.fs.SourceWatcher"
+})

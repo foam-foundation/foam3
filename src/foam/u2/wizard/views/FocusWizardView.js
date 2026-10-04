@@ -18,7 +18,7 @@ foam.CLASS({
   exports: [ 'showTitle' ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       flex-grow: 1;
@@ -29,17 +29,17 @@ foam.CLASS({
       */
     }
 
-    ^contents {
+    <<contents {
       flex: 1;
       min-height: 0;
     }
-    ^wizardletTitle {
+    <<wizardletTitle {
       text-align: center;
       margin-bottom: 2.4rem;
       transition: all 150ms;
     }
     @media only screen and (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^wizardletTitle {
+      <<wizardletTitle {
         font-size: 1.6rem;
       }
     }

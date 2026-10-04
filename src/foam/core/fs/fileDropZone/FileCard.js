@@ -37,7 +37,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background: $backgroundDefault;
       border: 1px solid $borderXLight;
       border-radius: 4px;
@@ -52,12 +52,12 @@ foam.CLASS({
       transition: all .15s ease-in-out;
     }
     
-    ^:hover {
+    <<:hover {
       background: $backgroundBrandTertiary;
       border-color: $borderBrand;
     }
 
-    ^label {
+    <<label {
       align-items: center;
       display: flex;
       gap: 0.5em;
@@ -65,7 +65,7 @@ foam.CLASS({
       width: 100%;
     }
 
-    ^name {
+    <<name {
       color: $textBrand;
       cursor: pointer;
       overflow: hidden;
@@ -73,36 +73,36 @@ foam.CLASS({
       white-space: nowrap;
     }
 
-    ^ .foam-u2-ActionView {
+    << .foam-u2-ActionView {
       padding: 0;
     }
 
-    ^file-action {
+    <<file-action {
       padding: 0;
     }
 
-    ^size {
+    <<size {
       color: $textTertiary;
       white-space: nowrap;
     }
 
-    ^fileButton {
+    <<fileButton {
       overflow: hidden;
       padding: 0;
       flex-grow: 1;
       justify-content: flex-start;
     }
 
-    ^fileButton.disableButton {
+    <<fileButton.disableButton {
       pointer-events: none;
     }
 
-    ^fileCard-content.foam-u2-layout-Cols {
+    <<fileCard-content.foam-u2-layout-Cols {
       gap: 8px;
       align-items: center;
     }
 
-    ^nameHolder {
+    <<nameHolder {
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -111,7 +111,7 @@ foam.CLASS({
       align-items: flex-start;
     }
 
-    ^ .foam-u2-tag-Image svg {
+    << .foam-u2-tag-Image svg {
       fill: currentColor;
       height: 1.2em;
     }

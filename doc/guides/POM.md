@@ -1,3 +1,5 @@
+<flow name="POM" category="DOC/GUIDE" spid="foam" description="Reference for POM file attributes: name and version, multi-stage JS loading, flags expressions, JSLibs, sub-projects." keywords="pom,build,flags,jslibs,sub-projects,knowledge"/>
+
 # POM - Project Object Model
 
 ## Purpose
@@ -114,6 +116,8 @@ defaultFlags: {
   web:   true
 }
 ```
+
+**`dev` is only set when running from source.** `foam.js` defaults `dev: true` for the browser (`src/foam.js:18`), but the build's own flag set (`src/foam_node.js:9-21`) has no `dev`, and a test run only adds `test` to it (`tools/JavaTooling.js:631`). So, unless you pass `dev` in the build flags yourself, an entry flagged `dev&web` is left out of every built `foam-bin.js`, **including the one a client test runs against**, and the test cannot find the class. For a dev-only browser class that has a client test, use `dev&web|web&test`: source runs and test builds include it, a production build does not (live example: `foam/u2/ViewReloader` in `src/pom.js:620`).
 
 When not running from a packaged foam-bin (ie. not including -u in your build command line)
 then you can specify flags on either the command-line or in the `script` tag that loads foam.js.

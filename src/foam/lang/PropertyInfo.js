@@ -11,7 +11,31 @@ foam.INTERFACE({
   javaExtends: [ 'foam.mlang.F' ],
 
   methods: [
-    'int comparePropertyToValue(Object key, Object value)'
+    'int comparePropertyToValue(Object key, Object value)',
+    {
+      signature: 'int compare(Object o1, Object o2)',
+      documentation: `
+        Order two objects by the indexed value each holds, without extracting
+        either value.
+
+        This is the comparison a write does: it arrives holding an object, not a
+        key, so nothing needs to be materialized to place it in an index.
+        PropertyInfo already answers this through Comparator.
+      `
+    },
+    {
+      signature: 'int comparePropertyToObject(Object key, Object o)',
+      documentation: `
+        Compare a key against the object holding the indexed value, rather than
+        against a value already extracted from it.
+
+        The default extracts and delegates, which is always correct. An
+        implementation backed by a primitive field should override to read that
+        field directly, so a caller can compare without materializing the value
+        at all.
+      `,
+      javaCode: 'return comparePropertyToValue(key, f(o));'
+    }
   ]
 });
 

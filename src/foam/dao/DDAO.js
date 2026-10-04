@@ -22,8 +22,6 @@ Use of COREService retains lazy loading until first context request.
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.dao.DAO',
-    'foam.lang.Agency',
-    'foam.lang.ContextAgent',
     'foam.lang.X'
   ],
 
@@ -48,12 +46,6 @@ Use of COREService retains lazy loading until first context request.
       documentation: '.0 journal to replay',
       class: 'String',
       name: 'journalName'
-    },
-    {
-      documentation: 'See EasyDAO.waitReplay',
-      class: 'Boolean',
-      name: 'waitReplay',
-      value: true
     },
     {
       class: 'Boolean',
@@ -87,27 +79,14 @@ Use of COREService retains lazy loading until first context request.
       jdao.setX(getX());
       jdao.setFilename(getJournalName());
       jdao.setCluster(true); // hack to only read .0 journals
-      jdao.setWaitReplay(getWaitReplay());
       jdao.setDelegate(getDelegate());
 
       // replay DB into MDAO
-      final Logger logger = Loggers.logger(getX(), this, getDatabaseTableName(), "replay");
-      if ( getWaitReplay() ) {
-        logger.info("start");
-        DAOCopySink sink = new DAOCopySink(getDelegate().getOf(), getDelegate(), false);
-        getDb().select(sink);
-        logger.info("end", sink.getCount());
-      } else {
-        Agency agency = (Agency) getX().get("threadPool");
-        agency.submit(getX(), new ContextAgent() {
-          public void execute(X x) {
-            logger.info("start");
-            DAOCopySink sink = new DAOCopySink(getDelegate().getOf(), getDelegate(), false);
-            getDb().select(sink);
-            logger.info("end", sink.getCount());
-          }
-        }, this.getClass().getSimpleName()+"-replay");
-      }
+      Logger logger = Loggers.logger(getX(), this, getDatabaseTableName(), "replay");
+      logger.info("start");
+      DAOCopySink sink = new DAOCopySink(getDelegate().getOf(), getDelegate(), false);
+      getDb().select(sink);
+      logger.info("end", sink.getCount());
       setInitialized(true);
       `
     },

@@ -4,68 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-/*
-FYI: https://exploringjs.com/impatient-js/ch_dynamic-code-evaluation.html#eval
-*/
-
-foam.CLASS({
-  package: 'foam.u2',
-  name: 'ViewReloader',
-  extends: 'foam.u2.Controller',
-
-  imports: [ 'classloader' ],
-
-  properties: [
-    {
-      class: 'foam.u2.ViewSpec',
-      name: 'view'
-    },
-    'viewArea',
-    'lastModel'
-  ],
-
-  methods: [
-    function render() {
-      this/*.add(this.RELOAD).br().br()*/.start('span',{}, this.viewArea$).tag(this.view).end();
-      //this.delayedReload();
-    }
-  ],
-
-  actions: [
-    function reload() {
-      delete foam.__context__.__cache__[this.view.class];
-      delete this.classloader.latched[this.view.class];
-      delete this.classloader.pending[this.view.class];
-      // TODO: remove old stylesheet
-
-      this.classloader.load(this.view.class).then((cls)=>{
-
-        foam.__context__.__cache__[this.view.class] = cls;
-        if ( foam.json.Compact.stringify(cls.model_.instance_) != foam.json.Compact.stringify(this.lastModel && this.lastModel.instance_) ) {
-          console.log('reload');
-          this.lastModel = cls.model_;
-          this.viewArea.removeAllChildren();
-          this.viewArea.tag(this.view);
-        } else {
-//          console.log('no reload');
-        }
-      });
-
-      this.delayedReload();
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'delayedReload',
-      isMerged: true,
-      mergeDelay: 200,
-      code: function() { this.reload(); /*this.delayedReload();*/ }
-    }
-  ]
-});
-
-
 foam.CLASS({
   package: 'foam.demos.examples',
   name: 'CodeView',
@@ -130,11 +68,11 @@ foam.CLASS({
       ],
 
       css: `
-        ^ { margin-bottom: 36px; }
-        ^ .property-text { border: none; padding: 10 0; }
-        ^ .property-code { margin-bottom: 12px; }
-        ^ .property-title { float: left; }
-        ^ .property-id { float: left; margin-right: 12px; }
+        << { margin-bottom: 36px; }
+        << .property-text { border: none; padding: 10 0; }
+        << .property-code { margin-bottom: 12px; }
+        << .property-title { float: left; }
+        << .property-id { float: left; margin-right: 12px; }
       `,
 
       methods: [
@@ -315,16 +253,16 @@ foam.CLASS({
       background: $backgroundDefault;
       color: $textDefault;
     }
-    ^index {
+    <<index {
       background: $backgroundSecondary;
       margin-right: 20px;
       min-width: 400px;
       padding: 6px 0;
     }
-    ^ .selected {
+    << .selected {
       background: $backgroundBrandTertiary;
     }
-    ^ .error {
+    << .error {
       color: red;
     }
   `,

@@ -1,3 +1,5 @@
+<flow name="ReactivePatterns" category="DOC/GUIDE" spid="foam" description="Complete reference for FOAM slot and reactive binding forms: PropertySlot, ExpressionSlot, dynamic(), linkFrom/linkTo." keywords="slots,reactive patterns,expressionslot,linkfrom,knowledge"/>
+
 # FOAM Reactive Patterns — Complete Reference
 
 All variations of slots, expressions, dynamic functions, and bindings in FOAM3.

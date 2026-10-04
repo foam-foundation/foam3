@@ -237,6 +237,14 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'javaFieldInitializer',
+      documentation: `Initial value of the backing field. Needed when
+        javaFieldType is a primitive whose Java default is a legal value of the
+        property rather than its absence, so the field has to start at whatever
+        the property reserves for "no value".`
+    },
+    {
+      class: 'String',
       name: 'javaJSONParser',
       // Set to the String literal 'null' if no JSONParser desired
       value: 'foam.lib.json.AnyParser.instance()'
@@ -513,11 +521,16 @@ if ( ! ((foam.mlang.predicate.Predicate) parser.parse(sps,px).value()).f(obj) ) 
         this.javaIsSetReadOn_ = function(obj) { return obj + '.' + isSet; };
       }
 
-      cls.field({
+      // An empty initializer can't be passed through: CodeProperty adapts the
+      // empty string into a Code object, which Field then reads as truthy and
+      // emits as a bare '='.
+      var privateField = {
         name: privateName,
         type: this.javaFieldType,
         visibility: 'protected'
-      });
+      };
+      if ( this.javaFieldInitializer ) privateField.initializer = this.javaFieldInitializer;
+      cls.field(privateField);
       if ( ! cls.packIsSet ) {
         cls.field({
           name: isSet,
@@ -1396,6 +1409,7 @@ foam.CLASS({
 
           cls.name          = this.model_.name;
           cls.package       = this.model_.package;
+          cls.source        = this.model_.source;
           cls.documentation = this.model_.documentation;
           cls.implements    = (this.implements || [])
             .concat(this.model_.javaExtends || []);
@@ -1691,6 +1705,7 @@ foam.CLASS({
 
           cls.name       = this.name;
           cls.package    = this.package;
+          cls.source     = this.model_.source;
           cls.extends    = this.extends;
           cls.values     = this.VALUES;
           cls.implements = [ 'foam.lang.FEnum' ];
@@ -1817,6 +1832,7 @@ foam.CLASS({
   properties: [
     ['javaType',        'java.util.Date' ],
     ['javaFieldType',   'long' ],
+    ['javaFieldInitializer', 'Long.MIN_VALUE;'],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'TIMESTAMP WITHOUT TIME ZONE'],
@@ -1858,6 +1874,7 @@ foam.CLASS({
   properties: [
     ['javaType',        'java.util.Date' ],
     ['javaFieldType',   'long' ],
+    ['javaFieldInitializer', 'Long.MIN_VALUE;'],
     ['javaInfoType',    'foam.lang.AbstractDatePropertyInfo'],
     ['javaJSONParser',  'foam.lib.json.DateParser.instance()'],
     ['sqlType',         'DATE'],
@@ -1910,12 +1927,24 @@ foam.CLASS({
     function createJavaPropertyInfo_(cls) {
       var info = this.SUPER(cls);
 
+      // The index and the comparators read the long behind the property
+      // through get__ so they never allocate a Date. The field only carries
+      // the value once the getter has set it: a javaFactory or a caching
+      // javaGetter fills it on first read, a value: stands in while it is
+      // unset. So read the field when it is set, and ask the getter otherwise;
+      // a getter that sets the field on the way makes every later read a
+      // field read again.
+      var obj   = '((' + cls.id + ') o)';
+      var isSet = this.javaIsSetReadOn_(obj);
+      var field = obj + '.' + this.name + '_';
       info.method({
         name: 'get__',
         type: 'long',
         visibility: 'public',
         args: [{ name: 'o', type: 'Object' }],
-        body: 'return ((' + cls.id + ') o).' + this.name + '_;'
+        body: 'if ( ' + isSet + ' ) return ' + field + ';\n' +
+          'java.util.Date d = ' + obj + '.get' + foam.String.capitalize(this.name) + '();\n' +
+          'return ' + isSet + ' ? ' + field + ' : foam.util.DateUtil.nullableDateToLong(d);'
       });
 
       // TODO: cast isn't called on setter
@@ -2163,6 +2192,63 @@ foam.CLASS({
 
   properties: [
     ['javaType',       'int[]']
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.java',
+  name: 'FloatArrayJavaRefinement',
+  refines: 'foam.lang.FloatArray',
+
+  properties: [
+    ['javaType',       'float[]'],
+    ['javaInfoType',   'foam.lang.AbstractArrayPropertyInfo'],
+    ['javaJSONParser', 'foam.lib.json.ArrayParser.instance()'],
+    ['javaFactory',    'return new float[0];']
+  ],
+
+  methods: [
+    function createJavaPropertyInfo_(cls) {
+      var info = this.SUPER(cls);
+
+      info.method({
+        name: 'of',
+        visibility: 'public',
+        type: 'String',
+        body: 'return "Float";'
+      });
+
+      var cast = info.getMethod('cast');
+      cast.body = `
+        if ( o instanceof float[] ) return (float[]) o;
+        Object[] arr = (Object[]) o;
+        if ( arr == null ) return new float[0];
+        float[] ret = new float[arr.length];
+        for ( int i = 0; i < arr.length; i++ ) ret[i] = ((Number) arr[i]).floatValue();
+        return ret;
+      `;
+
+      var compare = info.getMethod('compare');
+      compare.body = `
+        float[] v1 = get_(o1);
+        float[] v2 = get_(o2);
+        if ( v1 == null && v2 == null ) return 0;
+        if ( v2 == null ) return  1;
+        if ( v1 == null ) return -1;
+        if ( v1.length != v2.length ) return v1.length - v2.length;
+        for ( int i = 0; i < v1.length; i++ ) {
+          int c = Float.compare(v1[i], v2[i]);
+          if ( c != 0 ) return c;
+        }
+        return 0;
+      `;
+
+      var isDefaultValue = info.getMethod('isDefaultValue');
+      if ( isDefaultValue ) isDefaultValue.body = 'return java.util.Arrays.equals(get_(o), null);';
+
+      return info;
+    }
   ]
 });
 

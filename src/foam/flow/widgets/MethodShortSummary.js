@@ -18,11 +18,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^argumentRow {
+    <<argumentRow {
       display: flex;
       justify-content: space-between;
     }
-    ^rowGap {
+    <<rowGap {
       flex: 1 0 10px;
     }
   `,

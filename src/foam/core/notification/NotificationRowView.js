@@ -37,7 +37,7 @@
     ],
 
     css: `
-      ^ {
+      << {
         background:$backgroundDefault;
         border: solid 1px $borderLight;
         border-radius: 3px;
@@ -45,7 +45,7 @@
         min-height: 50px;
         padding: 8px 16px;
       }
-      ^msg {
+      <<msg {
         display: -webkit-box;
         color: $textDefault;
         overflow: hidden;
@@ -54,7 +54,7 @@
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
       }
-      ^notificationDiv {
+      <<notificationDiv {
         display: flex;
         flex-direction: row;
         justify-content: space-between;

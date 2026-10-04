@@ -107,3 +107,14 @@ if ( realCls && index.getFilePath('foam.core.controller.ApplicationController') 
 } else {
   test(true, 'method position test skipped (ApplicationController not in file index)');
 }
+
+// === itemFor_ uses the position's own uri ===
+// A method need not live in its class's file. fclone has no JS axiom on
+// foam.core.partition.All and resolves to FObject.java; pairing that line with
+// All.js pointed at line 393 of a 34-line file.
+var javaItem = ch.itemFor_('foam.core.partition.All', 'fclone');
+test(javaItem && javaItem.uri.endsWith('.java'),
+  'itemFor_: a Java-resolved method keeps the .java uri its position came from'
+  + ' (got ' + ( javaItem ? javaItem.uri.split('/').pop() : 'null' ) + ')');
+test(javaItem && javaItem.range.start.line > 0,
+  'itemFor_: and a real line inside it (@' + ( javaItem ? javaItem.range.start.line : '?' ) + ')');

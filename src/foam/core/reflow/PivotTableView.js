@@ -25,7 +25,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^tableWrapper {
+    <<tableWrapper {
       width: 100%;
       overflow: auto;
       position: relative;
@@ -33,19 +33,19 @@ foam.CLASS({
       max-height: 80vh;
     }
     /* Base table styling */
-    ^table {
-      // Needed as otherwise there is jitter during scrolling with sticky rows
+    <<table {
+      /* Needed as otherwise there is jitter during scrolling with sticky rows */
       border-collapse: separate;
       border-spacing: 0;
     }
 
     /* Row styling */
-    ^tr {
+    <<tr {
       transition: background-color 0.2s ease;
     }
 
     /* Cell styling - both TH and TD */
-    ^th, ^td {
+    <<th, <<td {
       text-align: center;
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
@@ -53,41 +53,41 @@ foam.CLASS({
     }
 
     /* Header cells */
-    ^th {
+    <<th {
       background-color: $backgroundDefault;
       font-weight: bold;
       text-wrap-mode: nowrap;
     }
 
-    ^td:hover {
+    <<td:hover {
       font-weight: $font-medium;
       background: $highlightCell;
       color: $highlightCell$foreground;
     }
 
-    ^highlighted-col {
+    <<highlighted-col {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }
 
     /* Row highlighting */
-    ^highlighted-row, ^highlighted-row > th, ^highlighted-row > td {
+    <<highlighted-row, <<highlighted-row > th, <<highlighted-row > td {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }
 
-    ^sticky-headers th {
+    <<sticky-headers th {
       position: sticky;
       z-index: 1;
     }
 
-    ^sticky-headers tr[data-type="header-row"] th {
+    <<sticky-headers tr[data-type="header-row"] th {
       position: sticky;
       z-index: 2;
     }
 
-    ^sticky-headers tr:first-child th:first-child {
-      z-index: 100;
+    <<sticky-headers tr:first-child th:first-child {
+      z-index: $z-10;
     }
   `,
 

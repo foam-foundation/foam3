@@ -28,7 +28,7 @@ foam.CLASS({
 
   css: `
 
-    ^rows {
+    <<rows {
       gap: 10px;
     }
 
@@ -36,13 +36,13 @@ foam.CLASS({
       color: $textTertiary;
     }
 
-    ^actionDiv {
+    <<actionDiv {
       justify-content: end;
     }
-    ^grid.foam-u2-layout-Grid {
+    <<grid.foam-u2-layout-Grid {
       grid-gap: 16px 12px;
     }
-    ^collapsable-title {
+    <<collapsable-title {
       display: flex;
       align-items: center;
       justify-content: space-between;

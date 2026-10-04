@@ -12,7 +12,7 @@ foam.CLASS({
   imports: [ 'eval_', 'block' ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -23,10 +23,10 @@ foam.CLASS({
       margin: 4px 0;
       font-family: monospace;
     }
-    ^command {
+    <<command {
       flex: 1;
     }
-    ^command input {
+    <<command input {
       width: 100%;
       border: 1px solid $borderLight;
       border-radius: 4px;
@@ -36,10 +36,10 @@ foam.CLASS({
       background: $backgroundDefault;
       outline: none;
     }
-    ^command input:focus {
+    <<command input:focus {
       border-color: $borderBrand;
     }
-    ^btn {
+    <<btn {
       width: 28px;
       height: 28px;
       border-radius: 50%;
@@ -52,21 +52,21 @@ foam.CLASS({
       font-weight: bold;
       transition: background 0.15s, transform 0.1s;
     }
-    ^btn:hover {
+    <<btn:hover {
       transform: scale(1.1);
     }
-    ^accept {
+    <<accept {
       background: $success50;
       color: $success700;
     }
-    ^accept:hover {
+    <<accept:hover {
       background: $success50;
     }
-    ^reject {
+    <<reject {
       background: $destructive50;
       color: $destructive700;
     }
-    ^reject:hover {
+    <<reject:hover {
       background: $destructive50;
     }
   `,

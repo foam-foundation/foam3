@@ -42,7 +42,7 @@ var CATEGORIES = [
   'config',
   'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
   'i18n', 'codelens', 'scaffold', 'pom',
-  'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
+  'navigation', 'java', 'jrl', 'lint', 'vscodeLint', 'bareCatch', 'editorFeatures', 'typeHierarchy', 'usageIndex',
   'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp', 'dispatch', 'classify'
 ];
 

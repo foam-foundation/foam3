@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.CitationView',
 
   css: `
-    ^ {
+    << {
       width: fit-content;
       height: fit-content;
       background-color: $white;
@@ -20,7 +20,7 @@ foam.CLASS({
       padding: 1rem;
       margin: 1rem;
     }
-    ^top {
+    <<top {
       width: fit-content;
       height: fit-content;
     }

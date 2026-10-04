@@ -31,12 +31,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: normal;
       position: relative;
     }
-    ^bell {
+    <<bell {
       align-items: center;
       border: 1px solid transparent;
       border-radius: $foam.u2.tag.Button.buttonRadius;
@@ -48,7 +48,7 @@ foam.CLASS({
       outline: none;
       text-align: center;
     }
-    ^ .dot {
+    << .dot {
       align-items: center;
       background: $destructive400;
       border-radius: 50%;
@@ -62,12 +62,12 @@ foam.CLASS({
       text-align: center;
       width: 15px;
     }
-    ^svgIcon {
+    <<svgIcon {
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
     }
-    ^svgIcon svg {
+    <<svgIcon svg {
       aspect-ratio: 1;
       width: 1.15em;
       fill: $textTertiary;

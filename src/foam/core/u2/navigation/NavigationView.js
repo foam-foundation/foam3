@@ -12,13 +12,13 @@ foam.CLASS({
   documentation: 'Navigation bars',
 
   css: `
-    ^top-nav {
+    <<top-nav {
       width: 100%;
       display: inline;
       z-index: $z-nav;
       position: fixed;
     }
-    ^side-nav {
+    <<side-nav {
       float:left;
       display: inline-block;
       width: 200px;

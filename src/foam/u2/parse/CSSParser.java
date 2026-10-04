@@ -301,10 +301,10 @@ public class CSSParser {
         return true;
       }));
 
-    // A '^' inside a string or comment. foam.u2.CSS expandCSS rewrites
-    // /\^(.)/g, a '^' followed by any character but a line break, so only
-    // that '^' becomes a node.
-    g.addSymbol("textCaret", node("caret", seq(lit("^"), peek(notChars("\n\r\u2028\u2029"))), (n, v, str) -> {
+    // A '^' or '<<' inside a string or comment. foam.u2.CSS expandCSS
+    // rewrites /(?:<<|\^)(.)/g, one followed by any character but a line
+    // break, so only that one becomes a node.
+    g.addSymbol("textCaret", node("caret", seq(alt(lit("<<"), lit("^")), peek(notChars("\n\r\u2028\u2029"))), (n, v, str) -> {
       n.inAttr = n.end < str.length() && str.charAt(n.end) == '=';
       return true;
     }));
@@ -536,8 +536,8 @@ public class CSSParser {
         return true;
       }));
 
-    // FOAM expands every '^', including the one in [class^=x].
-    g.addSymbol("caret", node("caret", lit("^"), (n, v, str) -> {
+    // FOAM expands every '^' and '<<', including the '^' in [class^=x].
+    g.addSymbol("caret", node("caret", alt(lit("<<"), lit("^")), (n, v, str) -> {
       n.inAttr  = n.end < str.length() && str.charAt(n.end) == '=';
       n.context = null;
       return true;

@@ -46,6 +46,7 @@ foam.CLASS({
 
   tableColumns: [
     'id',
+    'title',
     'status',
     'progress',
     'statusMsg',
@@ -63,6 +64,14 @@ foam.CLASS({
       updateVisibility: 'RO'
     },
     {
+      documentation: `What this Job is, for telling Jobs apart in the GUI.
+        Defaults to the short class name; a creator can set it explicitly.`,
+      class: 'String',
+      name: 'title',
+      factory: function() { return this.cls_.name; },
+      javaFactory: 'return getClass().getSimpleName();'
+    },
+    {
       class: 'Enum',
       of: 'foam.core.job.JobStatus',
       name: 'status',
@@ -76,6 +85,18 @@ foam.CLASS({
       name: 'statusMsg',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      documentation: `Lasting messages, such as warnings and results, appended by
+        out(). Where each statusMsg replaces the last, output keeps every line.`,
+      class: 'String',
+      name: 'output',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      view: {
+        class: 'foam.u2.view.ModeAltView',
+        readView: { class: 'foam.u2.view.PreView' }
+      }
     },
     {
       documentation: `Completion percentage, or -1 when the Job cannot determine
@@ -111,10 +132,24 @@ foam.CLASS({
       name: 'save',
       documentation: `Write this Job's current state back to the jobDAO so a
         poller can see it. The jobDAO clones on put, so this instance stays
-        mutable and can be saved again as the Job advances.`,
+        mutable and can be saved again as the Job advances.
+
+        A Job with no id was run directly, not submitted to the jobDAO, so
+        there is nothing to update. Putting it would create it in the jobDAO,
+        and the SubmitJob rule would run it a second time.`,
       args: 'X x',
       javaCode: `
+        if ( foam.util.SafetyUtil.isEmpty(getId()) ) return;
         ((DAO) x.get("jobDAO")).inX(x).put(this);
+      `
+    },
+    {
+      name: 'out',
+      documentation: `Append a line to output. It reaches the jobDAO with the next
+        save(), or when the Job stops.`,
+      args: 'String msg',
+      javaCode: `
+        setOutput(foam.util.SafetyUtil.isEmpty(getOutput()) ? msg : getOutput() + "\\n" + msg);
       `
     },
     {

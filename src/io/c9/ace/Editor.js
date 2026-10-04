@@ -33,7 +33,7 @@ foam.CLASS({
   ],
 
   css:`
-    ^ .ace_scroller {
+    << .ace_scroller {
       overscroll-behavior: contain;
     }  `, 
 

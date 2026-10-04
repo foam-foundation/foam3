@@ -22,22 +22,29 @@ foam.CLASS({
     Just $$DOC{ref:".add"} things to this container.`,
 
   css: `
-    ^overlay {
+    /*
+      Callers such as RichChoiceView mount this dropdown at the app root
+      (ctrl.add), not inside the view that opened it. When that view is a modal,
+      the dropdown and the modal's backdrop are siblings, so the dropdown must
+      sit above $z-modal or the backdrop paints over the list. Both layers stay
+      under $z-tooltip.
+    */
+    <<overlay {
       position: absolute;
-      /* click-away scrim: over the page, under the dropdown rendered after it */
-      z-index: $z-nav;
+      /* click-away scrim: over any open modal, under the dropdown */
+      z-index: calc($z-modal + 1);
     }
 
-    ^ {
+    << {
       display: block;
       overflow-x: hidden;
       overflow-y: hidden;
       position: absolute;
-      z-index: $z-popup;
+      z-index: calc($z-modal + 2);
       max-width: 100%;
     }
 
-    ^styled{
+    <<styled{
       background-color: $backgroundDefault;
       border: 1px solid $borderDefault;
       box-sizing: border-box;
@@ -46,18 +53,18 @@ foam.CLASS({
       padding: 8px;
     }
 
-    ^open {
+    <<open {
       overflow-y: auto;
     }
 
-    ^zeroOverlay {
+    <<zeroOverlay {
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
     }
 
-    ^initialOverlay {
+    <<initialOverlay {
       top: initial;
       bottom: initial;
       left: initial;
@@ -65,7 +72,7 @@ foam.CLASS({
     }
 
     @media print {
-      ^ { display: none !important; }
+      << { display: none !important; }
     }
   `,
 

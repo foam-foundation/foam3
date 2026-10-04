@@ -22,27 +22,27 @@
   if propObject.value is an FObject/Object, view goes only one layer in to display `,
 
   css: `
-    ^ .titleClass {
+    << .titleClass {
       text-align: center;
     }
-    ^ .titlePosition {
+    << .titlePosition {
       padding: 1%;
     }
-    ^ .valueProperty {
+    << .valueProperty {
       text-align: left;
       display: inline-flex;
       margin-left: 3vw;
     }
-    ^ .nameProperty {
+    << .nameProperty {
       text-align: left;
       margin-left: 2vw;
       margin-right: 0.5vw;
     }
-    ^ .containerFixed {
+    << .containerFixed {
       height: 65%;
       position:relative;
     }
-    ^ .boxBackground {
+    << .boxBackground {
       width: 80vw;
       border-radius: 6px;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
@@ -55,13 +55,13 @@
       max-height: 100%;
     }
 
-    ^ .backPosition {
+    << .backPosition {
       float: left;
       margin-left: 1.2vw;
       margin-top: 4vh;
     }
 
-    ^ .upOffsetMargin {
+    << .upOffsetMargin {
       margin-top: -5px;
     }
 

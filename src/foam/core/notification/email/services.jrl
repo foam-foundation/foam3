@@ -61,7 +61,6 @@ p({
       .setAuthorize(false)
       .setFuid(true)
       .setInnerDAO(partitioned)
-      .setSaf(true)
       .setServiceProviderAware(false)
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.notification.email.EmailMessage.CREATED});

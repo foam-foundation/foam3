@@ -13,25 +13,25 @@ foam.CLASS({
     Set width and/or height to -1 for auto-sizing based on content.`,
 
   css: `
-    ^ {
+    << {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    ^ svg {
+    << svg {
       background: linear-gradient(180deg, $backgroundDefault 0%, $backgroundTertiary 100%);
       border-radius: 12px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
-    ^ .clickable {
+    << .clickable {
       cursor: pointer;
     }
 
-    ^ .clickable:hover rect {
+    << .clickable:hover rect {
       filter: brightness(0.95);
     }
 
-    ^ .clickable:hover text {
+    << .clickable:hover text {
       fill: #1e40af;
     }
   `,

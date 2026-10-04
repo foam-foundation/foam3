@@ -20,7 +20,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ select { margin-right: 8px; padding-right: 24px; }
+    << select { margin-right: 8px; padding-right: 24px; }
   `,
 
   classes: [

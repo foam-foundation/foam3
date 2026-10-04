@@ -81,15 +81,15 @@ foam.CLASS({
 
   css: `
     body { }
-    ^ th {
+    << th {
       text-align: left;
     }
-    ^ th {
+    << th {
       width: 200px;
       padding: 10px;
       border: 1px solid gray;
     }
-    ^ td {
+    << td {
       height: 40px;
       border: 1px solid gray;
     }

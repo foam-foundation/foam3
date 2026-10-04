@@ -15,18 +15,18 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       padding: 0.8rem;
       display: flex;
       flex-direction: column;
     }
-    ^control {
+    <<control {
       display: inline;
       position: relative;
       width: 30px;
     }
-    ^toolbar {
+    <<toolbar {
       display: flex;
       flex-direction: row;
       justify-content: space-between;
@@ -35,21 +35,21 @@ foam.CLASS({
       cursor: pointer;
       width: 100%;
     }
-    ^title-section {
+    <<title-section {
       display: flex;
       gap: 0.4rem;
       align-items: center;
     }
-    ^.expanded > ^toolbar {
+    <<.expanded > <<toolbar {
       padding: 0 0 0.8rem 0;
     }
-    ^control {
+    <<control {
       transition: transform 0.3s;
     }
-    ^.expanded > ^toolbar ^control {
+    <<.expanded > <<toolbar <<control {
       transform: rotate(90deg);
     }
-    ^control svg {
+    <<control svg {
       max-height: 1em;
       max-width: 1em;
       fill: $textDefault;

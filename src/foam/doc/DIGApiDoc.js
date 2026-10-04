@@ -15,17 +15,17 @@ foam.CLASS({
   requires: [ 'foam.doc.ModelDiagramView' ],
 
   css: `
-    ^ { font-family: system-ui, sans-serif; max-width: 900px; }
-    ^section { margin: 24px 0; }
-    ^endpoint { background: $backgroundTertiary; padding: 12px; border-radius: 4px; font-family: monospace; }
-    ^example { background: $backgroundInverse; color: $textOnInverse; padding: 16px; border-radius: 4px; overflow-x: auto; white-space: pre; font-family: monospace; font-size: 13px; }
-    ^table { border-collapse: collapse; width: 100%; }
-    ^table th, ^table td { border: 1px solid $borderLight; padding: 8px; text-align: left; }
-    ^table th { background: $backgroundTertiary; }
-    ^method { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; margin-right: 8px; }
-    ^put { background: $statusSuccessBackground; color: $statusSuccessText; }
-    ^select { background: $statusInfoBackground; color: $statusInfoText; }
-    ^remove { background: $statusDangerBackground; color: $statusDangerText; }
+    << { font-family: system-ui, sans-serif; max-width: 900px; }
+    <<section { margin: 24px 0; }
+    <<endpoint { background: $backgroundTertiary; padding: 12px; border-radius: 4px; font-family: monospace; }
+    <<example { background: $backgroundInverse; color: $textOnInverse; padding: 16px; border-radius: 4px; overflow-x: auto; white-space: pre; font-family: monospace; font-size: 13px; }
+    <<table { border-collapse: collapse; width: 100%; }
+    <<table th, <<table td { border: 1px solid $borderLight; padding: 8px; text-align: left; }
+    <<table th { background: $backgroundTertiary; }
+    <<method { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; margin-right: 8px; }
+    <<put { background: $statusSuccessBackground; color: $statusSuccessText; }
+    <<select { background: $statusInfoBackground; color: $statusInfoText; }
+    <<remove { background: $statusDangerBackground; color: $statusDangerText; }
   `,
 
   properties: [

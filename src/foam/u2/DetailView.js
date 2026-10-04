@@ -45,15 +45,15 @@ foam.CLASS({
       properties: [ [ 'nodeName', 'TR' ] ],
 
       css: `
-        ^ .error input, ^ .error input:focus {
+        << .error input, << .error input:focus {
           border-color: $destructive400!important;
         }
 
-        ^colorText {
+        <<colorText {
           color: $destructive400;
         }
 
-        ^label {
+        <<label {
           min-height: 28px;
           padding-right: 20px;
           padding-top: 4px;
@@ -61,9 +61,9 @@ foam.CLASS({
           white-space: nowrap;
         }
 
-        ^view { display: inline; }
+        <<view { display: inline; }
 
-        ^errorText {
+        <<errorText {
           align-items: center;
           display: flex;
           font-size: small;
@@ -73,43 +73,43 @@ foam.CLASS({
           padding: 4px 0;
         }
 
-        ^errorText svg {
+        <<errorText svg {
           width: 1rem;
           height: 1rem;
         }
 
-        ^propHolder {
+        <<propHolder {
           display: flex;
           align-items: center;
           justify-content: space-between;
           width: 100%;
           gap: 0.2rem
         }
-        ^propHolder > :first-child {
+        <<propHolder > :first-child {
           display: flex;
           align-items: center;
           justify-content: flex-start;
           gap: 0.4rem;
           width: 100%;
         }
-        ^view {
+        <<view {
           flex-grow: 1;
           max-width: 100%;
         }
 
-        ^helper-icon { display: inline; vertical-align: middle; margin-left: 4px; }
+        <<helper-icon { display: inline; vertical-align: middle; margin-left: 4px; }
 
-        ^helper-icon svg { fill: currentColor; }
+        <<helper-icon svg { fill: currentColor; }
 
-        ^ .foam-u2-borders-ExpandableBorder-container { padding: 6px; margin-top: 4px; }
+        << .foam-u2-borders-ExpandableBorder-container { padding: 6px; margin-top: 4px; }
 
-        ^ .foam-u2-borders-ExpandableBorder-container h6 { margin: 0; padding-bottom: 0; }
+        << .foam-u2-borders-ExpandableBorder-container h6 { margin: 0; padding-bottom: 0; }
 
-        ^ .foam-u2-borders-ExpandableBorder-container p { margin-top: 4px; margin-bottom: 0; }
+        << .foam-u2-borders-ExpandableBorder-container p { margin-top: 4px; margin-bottom: 0; }
 
         /* ^ input { width: 90% } */
 
-        ^ input[type!='checkbox'] { width: auto; }
+        << input[type!='checkbox'] { width: auto; }
       `,
 
       methods: [
@@ -183,12 +183,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       border-collapse: collapse;
       width: 100%;
     }
 
-    ^title {
+    <<title {
       background: $backgroundDefault;
       border: 1px solid $borderDefault;
       color: $textSecondary;
@@ -196,14 +196,14 @@ foam.CLASS({
       margin-bottom: 10px;
       padding: 6px;
     }
-    ^ {
+    << {
       color: $textDefault;
     }
 
-    ^toolbar { margin-top: 4px; }
-    ^toolbar .foam-u2-ActionView { margin-right: 4px; }
+    <<toolbar { margin-top: 4px; }
+    <<toolbar .foam-u2-ActionView { margin-right: 4px; }
 
-    ^collapsePropertyViews .foam-u2-DetailView-PropertyBorder-propHolder { width: auto; display: inline-flex; }
+    <<collapsePropertyViews .foam-u2-DetailView-PropertyBorder-propHolder { width: auto; display: inline-flex; }
   `,
 
   properties: [

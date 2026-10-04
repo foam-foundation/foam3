@@ -28,6 +28,7 @@ foam.POM({
     { name: 'InlayHintHandler', flags: 'js' },
     { name: 'ScaffoldHandler', flags: 'js' },
     { name: 'DocumentColorHandler', flags: 'js' },
-    { name: 'DocumentLinkHandler', flags: 'js' }
+    { name: 'DocumentLinkHandler', flags: 'js' },
+    { name: 'LintHandler', flags: 'js' }
   ]
 });

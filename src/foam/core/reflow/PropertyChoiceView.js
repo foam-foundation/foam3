@@ -27,7 +27,7 @@ foam.CLASS({
   documentation: 'Citation view for properties showing label and name in a vertical stacked layout',
 
   css: `
-    ^row {
+    <<row {
       display: flex;
       overflow-x: hidden;
       width: 100%;
@@ -36,17 +36,17 @@ foam.CLASS({
       border-bottom: 1px solid $borderXLight;
     }
 
-    ^row:last-child {
+    <<row:last-child {
       border-bottom: none;
     }
 
-    ^label {
+    <<label {
       font-size: 14px;
       font-weight: $font-regular;
       line-height: 1.2;
     }
 
-    ^name {
+    <<name {
       font-family: monospace;
       font-size: 12px;
       color: $textSecondary;

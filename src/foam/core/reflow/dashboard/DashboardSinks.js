@@ -28,148 +28,36 @@ foam.CLASS({
 
   methods: [
     function fillTimeGapKeys(existingKeys, groups, periods, prop) {
-      // Detect time granularity from the property expression
-      var granularity = null;
+      var dk    = foam.core.reflow.dashboard.DateKeys;
+      var entry = dk.entryFor(prop);
 
-      // Check if prop is a date transformation expression
-      if ( prop && prop.delegate && foam.lang.Date.isInstance(prop.delegate) ) {
-        if ( foam.mlang.expr.DateToWeekExpr.isInstance(prop) ) {
-          granularity = 'week';
-        } else if ( foam.mlang.expr.DateToQuarterExpr.isInstance(prop) ) {
-          granularity = 'quarter';
-        } else if ( foam.mlang.expr.DateToDayOfYearExpr.isInstance(prop) ) {
-          granularity = 'day';
-        } else if ( foam.mlang.expr.DateToYYYYMMExpr.isInstance(prop) ) {
-          granularity = 'month';
-        } else if ( foam.mlang.expr.DateToYYYYExpr.isInstance(prop) ) {
-          granularity = 'year';
-        } else if ( foam.mlang.expr.DateToYYYYMMDDExpr.isInstance(prop) ) {
-          granularity = 'date';
-        }
+      // Not a date grouping we know how to step through.
+      if ( ! entry || ! prop.delegate ) return existingKeys;
+
+      var range = entry.calculate(periods);
+      var end   = range.maxDate.getTime();
+      var d     = entry.periodStart(range.minDate);
+
+      // Render each period's key with the expression itself, so the
+      // synthesized keys are guaranteed to match the real ones.
+      var stub = {};
+      var name = prop.delegate.name;
+      var keys = [], seen = {};
+
+      for ( var guard = 0; guard < 5000 && d.getTime() <= end; guard++ ) {
+        stub[name] = d;
+        var k = prop.f(stub);
+        if ( k !== '' && ! seen[k] ) { seen[k] = true; keys.push(k); }
+
+        var nextD = entry.next(d);
+        if ( nextD.getTime() <= d.getTime() ) break;   // never spin
+        d = nextD;
       }
 
-      if ( ! granularity ) return existingKeys; // Not a supported time expression
+      // Keep real data that falls outside the computed window.
+      existingKeys.forEach(function(k) { if ( ! seen[k] ) keys.push(k); });
 
-      // Calculate range based on periods (e.g., last 12 months from today)
-      var now = new Date();
-      var minDate = new Date(now);
-      var maxDate = new Date(now);
-
-      // Calculate start date based on granularity and periods
-      // Subtract (periods - 1) to get the correct range including current period
-      // Example: periods=12 for months means current month + 11 previous = 12 total
-      if ( granularity === 'week' ) {
-        minDate.setDate(minDate.getDate() - ((periods - 1) * 7));
-      } else if ( granularity === 'quarter' ) {
-        minDate.setMonth(minDate.getMonth() - ((periods - 1) * 3));
-      } else if ( granularity === 'month' ) {
-        minDate.setMonth(minDate.getMonth() - (periods - 1));
-      } else if ( granularity === 'year' ) {
-        minDate.setFullYear(minDate.getFullYear() - (periods - 1));
-      } else if ( granularity === 'date' || granularity === 'day' ) {
-        minDate.setDate(minDate.getDate() - (periods - 1));
-      }
-
-      // Generate keys using the property expression
-      var minKey = prop.f({ [prop.delegate.name]: minDate });
-      var maxKey = prop.f({ [prop.delegate.name]: maxDate });
-
-      // Generate all keys between min and max based on granularity
-      var allKeys = [];
-
-      if ( granularity === 'week' ) {
-        // Format: YYYY-W##
-        var match = minKey.match(/^(\d{4})-W(\d{2})$/);
-        var minYear = parseInt(match[1]);
-        var minWeek = parseInt(match[2]);
-        match = maxKey.match(/^(\d{4})-W(\d{2})$/);
-        var maxYear = parseInt(match[1]);
-        var maxWeek = parseInt(match[2]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startWeek = (y === minYear) ? minWeek : 1;
-          var endWeek = (y === maxYear) ? maxWeek : 52;
-          for ( var w = startWeek; w <= endWeek; w++ ) {
-            allKeys.push(y + '-W' + String(w).padStart(2, '0'));
-          }
-        }
-      } else if ( granularity === 'quarter' ) {
-        // Format: YYYY-Q#
-        var match = minKey.match(/^(\d{4})-Q(\d)$/);
-        var minYear = parseInt(match[1]);
-        var minQ = parseInt(match[2]);
-        match = maxKey.match(/^(\d{4})-Q(\d)$/);
-        var maxYear = parseInt(match[1]);
-        var maxQ = parseInt(match[2]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startQ = (y === minYear) ? minQ : 1;
-          var endQ = (y === maxYear) ? maxQ : 4;
-          for ( var q = startQ; q <= endQ; q++ ) {
-            allKeys.push(y + '-Q' + q);
-          }
-        }
-      } else if ( granularity === 'month' ) {
-        // Format: YYYY/MM
-        var parts = minKey.split('/');
-        var minYear = parseInt(parts[0]);
-        var minMonth = parseInt(parts[1]);
-        parts = maxKey.split('/');
-        var maxYear = parseInt(parts[0]);
-        var maxMonth = parseInt(parts[1]);
-
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          var startM = (y === minYear) ? minMonth : 1;
-          var endM = (y === maxYear) ? maxMonth : 12;
-          for ( var m = startM; m <= endM; m++ ) {
-            allKeys.push(y + '/' + String(m).padStart(2, '0'));
-          }
-        }
-      } else if ( granularity === 'year' ) {
-        // Format: YYYY
-        var minYear = parseInt(minKey);
-        var maxYear = parseInt(maxKey);
-        for ( var y = minYear; y <= maxYear; y++ ) {
-          allKeys.push(String(y));
-        }
-      } else if ( granularity === 'date' || granularity === 'day' ) {
-        // Format: YYYY/MM/DD or YYYY-###
-        if ( granularity === 'day' ) {
-          // Day of year: YYYY-###
-          var match = minKey.match(/^(\d{4})-(\d{3})$/);
-          var minYear = parseInt(match[1]);
-          var minDay = parseInt(match[2]);
-          match = maxKey.match(/^(\d{4})-(\d{3})$/);
-          var maxYear = parseInt(match[1]);
-          var maxDay = parseInt(match[2]);
-
-          for ( var y = minYear; y <= maxYear; y++ ) {
-            var daysInYear = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
-            var startD = (y === minYear) ? minDay : 1;
-            var endD = (y === maxYear) ? maxDay : daysInYear;
-            for ( var d = startD; d <= endD; d++ ) {
-              allKeys.push(y + '-' + String(d).padStart(3, '0'));
-            }
-          }
-        } else {
-          // Full date: YYYY/MM/DD
-          var parts = minKey.split('/');
-          var minDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-          parts = maxKey.split('/');
-          var maxDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-
-          var currentDate = new Date(minDate);
-          while ( currentDate <= maxDate ) {
-            var y = currentDate.getFullYear();
-            var m = String(currentDate.getMonth() + 1).padStart(2, '0');
-            var d = String(currentDate.getDate()).padStart(2, '0');
-            allKeys.push(y + '/' + m + '/' + d);
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-        }
-      }
-
-      return allKeys;
+      return keys.sort();
     }
   ]
 });
@@ -454,11 +342,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^graph-container {
+    <<graph-container {
       width: 100%;
     }
 
-    ^empty-value-message {
+    <<empty-value-message {
       width: 100%;
       display: flex;
       justify-content: center;
@@ -1356,6 +1244,12 @@ foam.CLASS({
         return ( prop && prop.chartJsFormatter ) ? prop.chartJsFormatter(xValue) : xValue;
       }
       if ( xValue instanceof Date ) return xValue;
+
+      // Grouped keys ('2026-W06', '2026/07', '2026-059') aren't parseable
+      // by Date, so read them with the expression's own parser first.
+      var parsed = foam.core.reflow.dashboard.DateKeys.parse(prop, xValue);
+      if ( parsed ) return parsed;
+
       var d = ( typeof xValue === 'number' ) ? new Date(xValue) : new Date(String(xValue));
       return isNaN(d.getTime()) ? null : d;
     },

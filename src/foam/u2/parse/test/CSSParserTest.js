@@ -69,6 +69,7 @@ foam.CLASS({
       this.testAtRuleClosedByBrace(x);
       this.testDeepSkipBalances(x);
       this.testCaretHazards(x);
+      this.testCssSelf(x);
       this.testCaseAndWhitespace(x);
       this.testStringLineBreak(x);
       this.testPlaceholderStatement(x);
@@ -770,6 +771,21 @@ foam.CLASS({
         'caret hazards: the string and comment list their carets');
       x.test(p.errors(t).length === 0, 'caret hazards: none of them is a parse error');
       this.spansMatch(x, input, t, 'caret hazards');
+    },
+
+    function testCssSelf(x) {
+      var p = this.CSSParser.create();
+      var input = '<< { a: b } <<title, .x <<y { c: d } a{content:"<<z"} /* <<w */';
+      var t = p.parse(input);
+      var r0 = t.children[0], r1 = t.children[1];
+      x.test(r0 && r0.selectors[0].raw === '<<' && r0.selectors[0].carets.length === 1 && r0.selectors[0].carets[0].raw === '<<',
+        '<< alone: one selector "<<" with one caret');
+      x.test(r1 && r1.selectors[0].carets[0].start === input.indexOf('<<title') && r1.selectors[1].carets[0].start === input.indexOf('<<y'),
+        '<<title and <<y: caret nodes at their offsets');
+      var h = p.hazards(t).map(n => n.kind + ':' + n.context).join(' ');
+      x.test(h === 'caret:string caret:comment', '<< in a string or comment is a hazard, got "' + h + '"');
+      x.test(p.errors(t).length === 0, '<<: no parse errors');
+      this.spansMatch(x, input, t, '<<');
     },
 
     function testCaseAndWhitespace(x) {

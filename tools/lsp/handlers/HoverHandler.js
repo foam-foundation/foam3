@@ -528,13 +528,14 @@ foam.CLASS({
       if ( ! cssCtx || ! cssCtx.partial ) return null;
 
       // Get the full word (including text after cursor) for exact matching.
-      // Extend left one char to catch leading `$`/`^` which aren't in the
+      // Extend left to catch a leading `$`, `^` or `<<`, which aren't in the
       // CSS word-char set but are part of the token/selector semantics.
       var wordStart = cssCtx.replaceRange.start;
       var wordEnd   = cssCtx.replaceRange.end;
-      var leadChar  = wordStart > 0 ? line.charAt(wordStart - 1) : '';
-      var fullWord  = ( leadChar === '$' || leadChar === '^' ? leadChar : '' )
-                      + line.substring(wordStart, wordEnd);
+      var lead      = line.substring(wordStart - 2, wordStart) === '<<' ? '<<' :
+                      wordStart > 0 ? line.charAt(wordStart - 1) : '';
+      if ( lead !== '$' && lead !== '^' && lead !== '<<' ) lead = '';
+      var fullWord  = lead + line.substring(wordStart, wordEnd);
 
       // $tokenName — resolve via CSSTokenResolver
       if ( fullWord.charAt(0) === '$' ) {
@@ -543,16 +544,16 @@ foam.CLASS({
         if ( md ) return { contents: { kind: 'markdown', value: md } };
       }
 
-      // ^name — FOAM myClass shorthand. This is a CSS selector, NOT a
-      // reference to the class property of the same name — always takes
+      // ^name or <<name — FOAM myClass shorthand. This is a CSS selector, NOT
+      // a reference to the class property of the same name — always takes
       // precedence over property-doc lookup to prevent false hovers.
-      if ( fullWord.charAt(0) === '^' ) {
-        var suffix = fullWord.substring(1);
+      if ( lead === '^' || lead === '<<' ) {
+        var suffix = fullWord.substring(lead.length);
         var model = this.cache.getModelAt(opt_uri || '', text, position.line);
         var pkg = model && model.package ? model.package.replace(/\./g, '-') : '';
         var cls = model && model.name || '';
         var expanded = '.' + pkg + ( pkg ? '-' : '' ) + cls + ( suffix ? '-' + suffix : '' );
-        var md = '**`^' + suffix + '`** — FOAM CSS scope selector\n\n' +
+        var md = '**`' + lead + suffix + '`** — FOAM CSS scope selector\n\n' +
                  'Expands to `' + expanded + '` (scoped to this class\'s DOM).\n\n' +
                  '*Not a reference to the `' + suffix + '` property.*';
         return { contents: { kind: 'markdown', value: md } };

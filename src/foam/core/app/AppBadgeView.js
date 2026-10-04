@@ -17,21 +17,21 @@ foam.CLASS({
   ],
 
   css: `
-  ^{
+  <<{
     display: flex;
     justify-content: center;
     flex-direction: column;
   }
-  ^badge-container{
+  <<badge-container{
     display: flex;
     gap: 2rem;
     justify-content: center;
   }
-  ^appStoreBadge > img, ^playStoreBadge > img {
+  <<appStoreBadge > img, <<playStoreBadge > img {
     width: 108px;
     height: 54px;
   }
-  ^legal {
+  <<legal {
     display: flex;
     justify-content: center;
     flex-direction: column;
@@ -42,7 +42,7 @@ foam.CLASS({
   }
 
   @media only screen and (min-width:  /*%DISPLAYWIDTH.MD%*/ 768px) {
-    ^appStoreBadge > img, ^playStoreBadge > img {
+    <<appStoreBadge > img, <<playStoreBadge > img {
       width: 125px;
       height: 62px;
     }

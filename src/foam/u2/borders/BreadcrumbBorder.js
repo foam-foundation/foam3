@@ -17,7 +17,7 @@ foam.CLASS({
   imports: ['stack?'],
   requires: ['foam.u2.stack.BreadcrumbView'],
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -25,11 +25,11 @@ foam.CLASS({
       padding: 8px;
       height: 100%
     }
-    ^content {
+    <<content {
       flex: 1;
       width: 100%;
     }
-    ^ {
+    << {
       border-left: 4px solid $borderDefault;
       padding-left: 16px;
     }

@@ -14,8 +14,8 @@ foam.CLASS({
   ],
 
   css: `
-    foreignObject^{pointer-events:none;}
-    ^div {
+    foreignObject<<{pointer-events:none;}
+    <<div {
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -28,7 +28,7 @@ foam.CLASS({
       overflow: hidden;
     }
 
-    ^segment {
+    <<segment {
       border-bottom: 1px solid $borderStrong;
       background-color: $backgroundDefault;
       padding: 8px 0;
@@ -36,7 +36,7 @@ foam.CLASS({
       margin-bottom: 8px;
       box-shadow: 0 1px 5px 0 rgba(0, 0, 0, 0.2);
     }
-    ^segment.tiny {
+    <<segment.tiny {
       width: inherit;
     }
   `,

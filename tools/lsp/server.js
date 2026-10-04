@@ -86,6 +86,8 @@ function start() {
   var scaffoldHandler        = foam.parse.lsp.handlers.ScaffoldHandler.create();
   var documentColorHandler   = foam.parse.lsp.handlers.DocumentColorHandler.create({ fileClassifier: fileClassifier, index: index, cssTokenResolver: cssTokenResolver, cache: fileModelCache });
   var documentLinkHandler    = foam.parse.lsp.handlers.DocumentLinkHandler.create({ fileClassifier: fileClassifier, index: index, jrlGrammar: jrlHandler.jrlGrammar });
+  // No featureConfig either: foam/lint only runs when a client asks for it.
+  var lintHandler            = foam.parse.lsp.handlers.LintHandler.create({ index: index, pomValidator: pomValidator });
 
   var documents = {};
   var rawBuffer = Buffer.alloc(0);
@@ -1063,6 +1065,17 @@ function start() {
           respond(id, pomValidator.validate());
         } catch (e) {
           console.error('[LSP] foam/validatePoms error:', e.message);
+          respondError(id, -32603, e.message);
+        }
+        break;
+
+      case 'foam/lint':
+        // Custom request: registration-completeness findings. Params:
+        // { scope?: 'all'|'paths', paths?, checks?, strategyTargets? }.
+        try {
+          respond(id, lintHandler.lint(params));
+        } catch (e) {
+          console.error('[LSP] foam/lint error:', e.message);
           respondError(id, -32603, e.message);
         }
         break;

@@ -15,7 +15,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^text {
+    <<text {
         overflow-y: auto;
         height: 500px;
         width: 100%;
@@ -23,7 +23,7 @@ foam.CLASS({
         padding: 10px;
     }
 
-    ^pdf embed {
+    <<pdf embed {
       width: 100%;
       height: 500px;
     }

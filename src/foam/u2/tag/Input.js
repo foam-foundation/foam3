@@ -22,7 +22,7 @@ foam.CLASS({
 
   css: `
     /* Still show outline when focused as read-only to help accessibility */
-    ^:read-only:focus { outline: 1px solid rgb(238, 238, 238); }
+    <<:read-only:focus { outline: 1px solid rgb(238, 238, 238); }
     /* Remove browser password reveal button on edge */
     ::-ms-reveal {
       display: none;

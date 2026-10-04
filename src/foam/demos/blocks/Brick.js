@@ -24,7 +24,7 @@ foam.CLASS({
       user-select: none;
     }
 
-    ^ {
+    << {
       border: 1px solid gray;
       display: table-cell;
       font-weight: bold;
@@ -33,19 +33,19 @@ foam.CLASS({
       vertical-align: middle;
       width: 60px;
     }
-    ^covered {
+    <<covered {
       background: #ccc;
       box-shadow: -2px -2px 10px rgba(0,0,0,.25) inset, 2px 2px 10px white inset;
     }
-    ^marked ^flag {
+    <<marked <<flag {
       display: block;
       color: #BD1616;
     }
-    ^removed { color: white; }
-    ^covered font { visibility: hidden; }
-    ^marked font { display: none; }
-    ^flag { display: none; }
-    ^marked { background-color: #ccc; }
+    <<removed { color: white; }
+    <<covered font { visibility: hidden; }
+    <<marked font { display: none; }
+    <<flag { display: none; }
+    <<marked { background-color: #ccc; }
   `,
 
   properties: [

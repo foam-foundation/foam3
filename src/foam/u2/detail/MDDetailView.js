@@ -26,26 +26,26 @@ foam.CLASS({
   ],
 
   css: `
-  ^ {
+  << {
         display: grid;
   }
-   ^ .property-item {
+   << .property-item {
       padding: 3rem;
       font-size: 3em;
       border: 1px solid $borderXLight;
       height: fit-content;
     }
     /* TODO: move to calendar */
-    ^ .foam-u2-property-MDCalendar-heading {
+    << .foam-u2-property-MDCalendar-heading {
       padding-bottom: 1rem;
     }
-    ^ .foam-u2-Dialog {
+    << .foam-u2-Dialog {
       background-color: unset;
     }
-    ^ .foam-u2-Dialog-body:focus {
+    << .foam-u2-Dialog-body:focus {
           outline: none;
     }
-    ^ .foam-u2-Dialog-buttons button, .foam-u2-property-MDDatePicker-switcher button {
+    << .foam-u2-Dialog-buttons button, .foam-u2-property-MDDatePicker-switcher button {
       background-color: $backgroundInverseSecondary;
     }
   `,

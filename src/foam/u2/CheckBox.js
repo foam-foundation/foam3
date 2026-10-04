@@ -31,7 +31,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       -webkit-appearance: none;
       appearance: none;
       border-radius: 2px;
@@ -42,37 +42,37 @@ foam.CLASS({
       transition: background-color 140ms, border-color 140ms;
       width: 1.275em;
     }
-    ^:disabled {
+    <<:disabled {
       border-color: $borderLight;
       background-color: $backgroundSecondary;
       cursor: not-allowed;
     }
-    ^:checked {
+    <<:checked {
       background-color: $checkboxColor;
       border-color: $checkboxColor;
       fill: white;
     }
-    ^:checked:disabled {
+    <<:checked:disabled {
       border-color: $checkboxColor$disabled;
       background-color: $checkboxColor$disabled;
       fill: white;
     }
-    ^:checked:after {
+    <<:checked:after {
       position:relative;
       top: 1px;
       content: url("/images/checkmark-white.svg");
     }
-    ^ input:focus + label::before {
+    << input:focus + label::before {
       content: '';
       box-shadow: 0 0 0 3px $checkboxColor$active;
     }
-    ^:hover:not(:disabled) {
+    <<:hover:not(:disabled) {
       cursor: pointer
     }
-    ^label, input[type="checkbox"]{
+    <<label, input[type="checkbox"]{
       vertical-align: middle;
     }
-    ^desc {
+    <<desc {
       color: $textSecondary;
     }
     `,

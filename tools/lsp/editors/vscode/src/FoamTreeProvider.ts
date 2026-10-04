@@ -5,6 +5,7 @@
  */
 
 import * as vscode from 'vscode';
+import { LintFinding, summarize } from './lintModel';
 
 export interface AnalysisResults {
   filesScanned: number;
@@ -49,6 +50,13 @@ export class FoamTreeProvider implements vscode.TreeDataProvider<FoamTreeItem> {
 
   // Cache the root items so children work on expand
   private rootCache: FoamTreeItem[] = [];
+
+  private lintFindings: LintFinding[] = [];
+
+  setLintFindings(findings: LintFinding[]): void {
+    this.lintFindings = findings;
+    this.refresh();
+  }
 
   getTreeItem(element: FoamTreeItem): vscode.TreeItem {
     return element;
@@ -109,6 +117,19 @@ export class FoamTreeProvider implements vscode.TreeDataProvider<FoamTreeItem> {
         files.children = this.buildFileChildren();
         items.push(files);
       }
+    }
+
+    // Registration lint (foam/lint) — always workspace-wide totals, even when
+    // the Problems panel is scoped to open files.
+    if ( this.lintFindings.length > 0 ) {
+      const counts = summarize(this.lintFindings);
+      const lint = new FoamTreeItem(
+        `Registration (${counts.errors} errors, ${counts.warns} warnings)`,
+        vscode.TreeItemCollapsibleState.Collapsed
+      );
+      lint.iconPath = new vscode.ThemeIcon('checklist');
+      lint.children = this.buildLintChildren();
+      items.push(lint);
     }
 
     // Patterns
@@ -229,6 +250,53 @@ export class FoamTreeProvider implements vscode.TreeDataProvider<FoamTreeItem> {
     }
 
     return children;
+  }
+
+  private buildLintChildren(): FoamTreeItem[] {
+    const children: FoamTreeItem[] = [];
+    const counts = summarize(this.lintFindings);
+
+    for ( const bucket of counts.byCheck ) {
+      const item = new FoamTreeItem(
+        bucket.check,
+        vscode.TreeItemCollapsibleState.Collapsed
+      );
+      item.description = `${bucket.count}x`;
+      item.iconPath = new vscode.ThemeIcon('checklist');
+      item.children = this.buildLintLeaves(bucket.check);
+      children.push(item);
+    }
+
+    return children;
+  }
+
+  private buildLintLeaves(check: string): FoamTreeItem[] {
+    const leaves: FoamTreeItem[] = [];
+    const findings = this.lintFindings.filter(f => f.check === check);
+
+    for ( let i = 0 ; i < Math.min(findings.length, 100) ; i++ ) {
+      const f = findings[i];
+      const fileName = f.path.split('/').pop() || f.path;
+      const item = new FoamTreeItem(f.message);
+      item.iconPath = new vscode.ThemeIcon(f.severity === 'error' ? 'error' : 'warning');
+      item.description = `${fileName}:${f.line}`;
+      item.tooltip = f.fix ? `${f.path}:${f.line}\n\nfix: ${f.fix}` : `${f.path}:${f.line}`;
+      item.command = {
+        command: 'vscode.open',
+        title: 'Open File',
+        arguments: [
+          vscode.Uri.file(f.path),
+          { selection: new vscode.Range(Math.max(0, f.line - 1), 0, Math.max(0, f.line - 1), 0) }
+        ]
+      };
+      leaves.push(item);
+    }
+
+    if ( findings.length > 100 ) {
+      leaves.push(this.makeStatItem(`… and ${findings.length - 100} more`, 'ellipsis'));
+    }
+
+    return leaves;
   }
 
   private buildPatternChildren(): FoamTreeItem[] {

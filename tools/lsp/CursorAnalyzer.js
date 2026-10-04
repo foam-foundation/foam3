@@ -689,12 +689,12 @@ foam.CLASS({
 
       // Selector detection: line starts with ^, ., #, &, or contains {
       // IMPORTANT: do NOT include \w — that matches property names like "color:"
-      // Selectors use ^ (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
+      // Selectors use ^ or << (FOAM myClass), . (class), # (id), & (parent ref), > ~ + (combinators)
       var bracePos = line.indexOf('{');
       var closeBracePos = line.indexOf('}');
       var isBeforeBrace = bracePos === -1 || character <= bracePos;
       var hasBrace = bracePos !== -1;
-      var selectorStart = /^\s*[\^.#&>~+\[]/.test(line);
+      var selectorStart = /^\s*(?:<<|[\^.#&>~+\[])/.test(line);
 
       if ( selectorStart && isBeforeBrace && ( hasBrace || ! /:\s/.test(line) ) ) {
         var word = this.getWordAtChar_(line, character);

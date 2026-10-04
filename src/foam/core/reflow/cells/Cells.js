@@ -176,20 +176,20 @@ foam.CLASS({
       `,
 
       css: `
-        ^ > span {
+        << > span {
           display: block;
           height: 15px;
           padding: 2px;
           width: 100%;
         }
-        ^ > input {
+        << > input {
           border: none;
           outline: 1px solid blue;
           outline-offset: 0;
           padding-left: 2px;
           width: 100%;
         }
-        ^ .foam-u2-HTMLView { white-space: nowrap; }
+        << .foam-u2-HTMLView { white-space: nowrap; }
       `,
 
       properties: [
@@ -235,23 +235,23 @@ foam.CLASS({
   ],
 
   css: `
-    ^ tr, ^ td, ^ th, ^ input {
+    << tr, << td, << th, << input {
       color: $grey700;
     }
-    ^ tr { height: 26px; }
-    ^cell { display: block; min-width: 82px; }
-    ^, ^ th, ^ td { border: 1px solid $borderLight; }
-    ^ td { height: 100%; background: $backgroundDefault; }
-    ^ th, ^ td {
+    << tr { height: 26px; }
+    <<cell { display: block; min-width: 82px; }
+    <<, << th, << td { border: 1px solid $borderLight; }
+    << td { height: 100%; background: $backgroundDefault; }
+    << th, << td {
       border-right: none;
       border-bottom: none;
     }
-    ^ th {
+    << th {
       background: $backgroundTertiary;
       color: $grey700;
       padding: 2px 18px;
     }
-    ^ {
+    << {
       border-left: none;
       border-top: none;
       overflow: auto;

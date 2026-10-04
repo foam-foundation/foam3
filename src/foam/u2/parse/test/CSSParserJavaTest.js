@@ -198,6 +198,7 @@ foam.CLASS({
     testAtRuleClosedByBrace();
     testDeepSkipBalances();
     testCaretHazards();
+    testCssSelf();
     testCaseAndWhitespace();
     testStringLineBreak();
     testPlaceholderStatement();
@@ -950,6 +951,22 @@ foam.CLASS({
       "caret hazards: the string and comment list their carets");
     t(() -> CSSParser.errors(tr).isEmpty(), "caret hazards: none of them is a parse error");
     spansMatch(input, tr, "caret hazards");
+  }
+
+  protected void testCssSelf() {
+    CSSParser p = new CSSParser();
+    String  input = "<< { a: b } <<title, .x <<y { c: d } a{content:\\"<<z\\"} /* <<w */";
+    CSSNode tr    = p.parse(input);
+    t(() -> { CSSNode s = tr.children.get(0).selectors.get(0); return "<<".equals(s.raw) && s.carets.size() == 1 && "<<".equals(s.carets.get(0).raw); },
+      "<< alone: one selector \\"<<\\" with one caret");
+    t(() -> { CSSNode r = tr.children.get(1); return r.selectors.get(0).carets.get(0).start == input.indexOf("<<title") && r.selectors.get(1).carets.get(0).start == input.indexOf("<<y"); },
+      "<<title and <<y: caret nodes at their offsets");
+    List<String> hs = new ArrayList<>();
+    for ( CSSNode n : CSSParser.hazards(tr) ) hs.add(n.kind + ":" + n.context);
+    String h = String.join(" ", hs);
+    test(h.equals("caret:string caret:comment"), "<< in a string or comment is a hazard, got \\"" + h + "\\"");
+    t(() -> CSSParser.errors(tr).isEmpty(), "<<: no parse errors");
+    spansMatch(input, tr, "<<");
   }
 
   protected void testCaseAndWhitespace() {

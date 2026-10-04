@@ -119,7 +119,7 @@ foam.CLASS({
       selector    raw text of one selector, trimmed; parts (comment,
                   string, caret and token nodes inside it, in order);
                   carets and tokens (those parts filtered by kind)
-      caret       a FOAM '^'; inAttr is true for the '^' of '^=' in
+      caret       a FOAM '^' or '<<'; inAttr is true for the '^' of '^=' in
                   [attr^=x], which FOAM still rewrites; context is null
                   in a selector, 'string' or 'comment' for a '^' inside
                   one of those (see hazards())
@@ -389,10 +389,10 @@ foam.CLASS({
             n.token  = n.tokens.length === 1 && n.text.trim() === n.tokens[0].raw ? n.tokens[0].raw : null;
           }),
 
-        // A '^' inside a string or comment. foam.u2.CSS expandCSS rewrites
-        // /\^(.)/g, a '^' followed by any character but a line break, so
-        // only that '^' becomes a node.
-        textCaret: node('caret', seq('^', peek(notChars('\n\r\u2028\u2029'))), function(n, v, str) {
+        // A '^' or '<<' inside a string or comment. foam.u2.CSS expandCSS
+        // rewrites /(?:<<|\^)(.)/g, one followed by any character but a line
+        // break, so only that one becomes a node.
+        textCaret: node('caret', seq(alt('<<', '^'), peek(notChars('\n\r\u2028\u2029'))), function(n, v, str) {
           n.inAttr = str[n.end] === '=';
         }),
 
@@ -622,9 +622,9 @@ foam.CLASS({
             n.tokens = n.parts.filter(c => c.kind === 'token');
           }),
 
-        // FOAM expands every '^' (foam.u2.CSS expandCSS), including the one
-        // in [class^=x], which it turns into [class.foam-Cls=x].
-        caret: node('caret', '^', function(n, v, str) {
+        // FOAM expands every '^' and '<<' (foam.u2.CSS expandCSS), including
+        // the '^' in [class^=x], which it turns into [class.foam-Cls=x].
+        caret: node('caret', alt('<<', '^'), function(n, v, str) {
           n.inAttr  = str[n.end] === '=';
           n.context = null;
         }),

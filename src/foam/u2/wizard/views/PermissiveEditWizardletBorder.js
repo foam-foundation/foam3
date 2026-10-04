@@ -24,12 +24,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^flex{
+    <<flex{
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    ^button-flex{
+    <<button-flex{
       display: flex;
       justify-content: flex-end;
       align-items: center;

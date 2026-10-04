@@ -14,11 +14,11 @@ foam.CLASS({
   ],
 
   css: `
-  ^container {
+  <<container {
     border-style: solid;
     border-width: thin;
   }
-  ^eachValue {
+  <<eachValue {
     display: inline-flex;
     padding: 12px;
     text-align: justify;

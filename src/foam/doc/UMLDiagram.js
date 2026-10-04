@@ -43,20 +43,20 @@ foam.CLASS({
   },
 
   css: `
-    ^ {
+    << {
       width: 1200px;
       margin: 20px;
     }
 
-    ^ canvas {
+    << canvas {
       border: 1px solid $borderDefault;
     }
 
-    ^ .foam-u2-ActionView- {
+    << .foam-u2-ActionView- {
       margin: 10px;
     }
 
-    ^ input[type='range'] {
+    << input[type='range'] {
       width: 400px;
     }
  `,

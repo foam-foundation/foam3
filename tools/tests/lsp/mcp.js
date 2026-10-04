@@ -106,7 +106,7 @@ section('MCP — tool schemas');
 
 var tools = mcp.toolSchemas();
 var names = tools.map(function(t) { return t.name; });
-test(tools.length === 13, 'toolSchemas: 13 tools — 7 original + 4 trace + 2 i18n (got ' + tools.length + ')');
+test(tools.length === 14, 'toolSchemas: 14 tools — 7 original + 4 trace + 2 i18n + 1 lint (got ' + tools.length + ')');
 ['foam_implementation','foam_type_definition','foam_type_hierarchy','foam_call_hierarchy'].forEach(function(n) {
   test(names.indexOf(n) !== -1, 'toolSchemas: includes new trace tool ' + n);
 });
@@ -187,3 +187,14 @@ try {
 }
 
 test(mcp.applyWorkspaceEdit({}).length === 0, 'applyWorkspaceEdit: no changes → no-op, empty result');
+
+section('MCP — foam_lint schema');
+var lintSchema = mcp.toolSchemas().filter(function(t) { return t.name === 'foam_lint'; });
+test(lintSchema.length === 1, 'foam_lint is in toolSchemas()');
+test(lintSchema[0] && lintSchema[0].inputSchema.properties.checks !== undefined,
+  'foam_lint schema exposes checks param');
+// The schema enum derives from the shared lintChecks module — assert exact
+// equality so any drift (either direction) fails loudly.
+var canonicalChecks = require('../../lsp/lintChecks');
+test(lintSchema[0] && JSON.stringify(lintSchema[0].inputSchema.properties.checks.items.enum) === JSON.stringify(canonicalChecks),
+  'foam_lint schema checks.items.enum matches the canonical lintChecks list exactly');

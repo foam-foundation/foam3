@@ -24,25 +24,25 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 32px
     }
 
-    ^topContainer{
+    <<topContainer{
       grid-gap: 32px 12px;
     }
 
-    ^ .foam-u2-ActionView-back {
+    << .foam-u2-ActionView-back {
       display: flex;
       align-self: flex-start;
     }
 
-    ^actions-header .foam-u2-ActionView {
+    <<actions-header .foam-u2-ActionView {
       margin-right: 24px;
       line-height: 1.5
     }
 
-    ^view-container {
+    <<view-container {
       margin: auto;
     }
   `,

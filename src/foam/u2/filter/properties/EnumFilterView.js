@@ -20,12 +20,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^container-search {
+    <<container-search {
       padding: 24px 16px;
       border-bottom: solid 1px $purple50;
     }
 
-    ^ .foam-u2-TextField {
+    << .foam-u2-TextField {
       width: 100%;
       height: 36px;
 
@@ -39,38 +39,38 @@ foam.CLASS({
       padding: 0 21px 0 38px;
     }
 
-    ^container-filter {
+    <<container-filter {
       max-height: 320px;
       overflow: auto;
       padding-bottom: 24px;
     }
 
-    ^label-section {
+    <<label-section {
       padding: 0 16px;
       color: $textDefault;
     }
 
-    ^container-option {
+    <<container-option {
       display: flex;
       align-items: center;
       padding: 4px 16px;
     }
 
-    ^container-option:hover {
+    <<container-option:hover {
       cursor: pointer;
       background-color: $backgroundTertiary;
     }
 
-    ^container-option .foam-u2-md-CheckBox-label {
+    <<container-option .foam-u2-md-CheckBox-label {
       position: relative;
       margin-top: 0;
     }
 
-    ^container-option .foam-u2-md-CheckBox {
+    <<container-option .foam-u2-md-CheckBox {
       border-color: $borderDefault;
     }
 
-    ^container-option .foam-u2-md-CheckBox:checked {
+    <<container-option .foam-u2-md-CheckBox:checked {
       background-color: $blue300;
       border-color: $blue300;
     }

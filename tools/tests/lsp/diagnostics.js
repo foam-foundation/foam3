@@ -215,6 +215,38 @@ test(pseudoLines.length === 3 && pseudoLines[0] !== pseudoLines[1] && pseudoLine
 test(! pseudoDiags.some(function(d) { return /Unused CSS class '\^used'/.test(d.message); }),
   'Unused ^classname #5092: ^used and ^used:hover NOT flagged (class is applied)');
 
+// << is the same shorthand as ^, so an unused <<name is flagged too, under its own spelling.
+var selfSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'SelfCss',\n" +
+  "  css: `\n    <<foo { color: red; }\n    <<bar { color: blue; }\n  `,\n" +
+  "  methods: [\n" +
+  "    function render() { this.addClass(this.myClass('foo')); }\n" +
+  "  ]\n})";
+var selfWarns = diagWithTokens.handle(selfSrc).filter(function(d) { return /Unused CSS class/.test(d.message); });
+test(selfWarns.length === 1 && selfWarns[0].message.indexOf("'<<bar'") !== -1,
+  'Unused <<classname: <<bar is flagged, <<foo (applied via myClass) is not');
+
+// A selector '^' is deprecated for '<<'; the ^ of [class^=x] and a '^' in a string are not the shorthand.
+var caretSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'CaretCss',\n" +
+  "  css: `\n    ^a { color: red; }\n    <<b { color: blue; }\n" +
+  "    [class^=x] { content: '^'; }\n  `\n})";
+var caretDiags = diagWithTokens.handle(caretSrc).filter(function(d) { return d.code === 'deprecated-css-caret'; });
+test(caretDiags.length === 1 && caretDiags[0].range.start.line === 4 && caretDiags[0].severity === 4,
+  "Deprecated '^': only the ^ of ^a is flagged, as a hint");
+
+// Two classes in one file with the same css: text. Each block gets its own hint.
+var twinCssSrc =
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssA',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})\n" +
+  "foam.CLASS({\n  package: 'test',\n  name: 'TwinCssB',\n" +
+  "  css: `\n    ^a { color: red; }\n  `\n})";
+var twinLines = diagWithTokens.handle(twinCssSrc, 'file:///tmp/lsptest-twin-css.js')
+  .filter(function(d) { return d.code === 'deprecated-css-caret'; })
+  .map(function(d) { return d.range.start.line; });
+test(twinLines.length === 2 && twinLines.indexOf(4) !== -1 && twinLines.indexOf(11) !== -1,
+  "Deprecated '^': two classes with the same css: each get their own hint (got lines " + twinLines.join(',') + ')');
+
 // Dynamic myClass(var) → suppress unused-class diagnostics entirely
 var dynamicSrc =
   "foam.CLASS({\n  package: 'test',\n  name: 'DynamicMyClass',\n" +

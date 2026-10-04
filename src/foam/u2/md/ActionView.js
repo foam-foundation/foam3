@@ -21,7 +21,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^unavailable {
+    <<unavailable {
       display: none;
     }
   `,

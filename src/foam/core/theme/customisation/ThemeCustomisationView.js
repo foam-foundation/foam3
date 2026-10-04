@@ -33,20 +33,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 32px;
     }
-    ^container > * + * {
+    <<container > * + * {
       margin-top: 32px;
     }
-    ^button {
+    <<button {
       align-self: flex-end;
     }
-    ^sectionWrapper {
+    <<sectionWrapper {
       display: flex;
       flex-direction: column;
     }
-    ^sectionWrapper > * + * {
+    <<sectionWrapper > * + * {
       margin-top: 8px;
     }
   `,

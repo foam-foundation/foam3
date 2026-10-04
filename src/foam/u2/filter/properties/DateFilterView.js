@@ -34,13 +34,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 24px 16px;
       box-sizing: border-box;
       min-width: 214px;
     }
 
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       width: 100%;
 
       border-radius: 3px;
@@ -48,7 +48,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
     }
 
-    ^ .foam-u2-DateView {
+    << .foam-u2-DateView {
       width: 100%;
       height: 36px;
 
@@ -59,7 +59,7 @@ foam.CLASS({
       background-color: $backgroundDefault;
     }
 
-    ^ .foam-u2-PropertyBorder-inclusive {
+    << .foam-u2-PropertyBorder-inclusive {
       margin-top: 16px;
     }
   `,

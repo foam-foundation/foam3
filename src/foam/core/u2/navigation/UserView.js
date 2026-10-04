@@ -32,38 +32,38 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       margin: 10 40px;
     }
-    ^ .icon-container {
+    << .icon-container {
       margin-top: 4;
       position: relative;
     }
-    ^ h1 {
+    << h1 {
       font-weight: $font-extra-light;
     }
-    ^carrot {
+    <<carrot {
       width: 0;
       height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
       border-top: 5px solid $white;
     }
-    ^ > .profile-container {
+    << > .profile-container {
       cursor: pointer;
       display: flex;
       align-items: center;
       height: 40px;
       margin-left: 10px;
     }
-    ^ > .profile-container:hover {
+    << > .profile-container:hover {
       cursor: pointer;
     }
-    ^ > .profile-container > * {
+    << > .profile-container > * {
       margin: 0 5px 5px;
     }
-    ^ .foam-core-menu-SubMenuView-inner {
+    << .foam-core-menu-SubMenuView-inner {
       position: absolute;
       float: right;
       z-index: $z-popup;
@@ -73,22 +73,22 @@ foam.CLASS({
       top: 65px;
       right: 0px;
     }
-    ^ .foam-core-menu-SubMenuView-inner > div {
+    << .foam-core-menu-SubMenuView-inner > div {
       height: 40px;
       padding-left: 50px;
       color: $textDefault;
       line-height: 25px;
     }
-    ^ .foam-core-menu-SubMenuView-inner > div:last-child {
+    << .foam-core-menu-SubMenuView-inner > div:last-child {
       background-color: $backgroundDefault;
       box-shadow: 0 -1px 0 0 $grey200;
       color: $red400;
     }
-    ^ .foam-core-menu-SubMenuView-inner > div:hover {
+    << .foam-core-menu-SubMenuView-inner > div:hover {
       background-color: $backgroundBrand;
       cursor: pointer;
     }
-    ^ .foam-core-menu-SubMenuView-inner::before {
+    << .foam-core-menu-SubMenuView-inner::before {
       content: ' ';
       position: absolute;
       height: 0;
@@ -97,7 +97,7 @@ foam.CLASS({
       -ms-transform: translate(110px, -16px);
       transform: translate(110px, -16px);
     }
-    ^ .currency-container {
+    << .currency-container {
       all:none !important;
     }
   `,

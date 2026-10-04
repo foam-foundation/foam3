@@ -35,58 +35,58 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       box-sizing: border-box;
     }
-    ^ .actions {
+    << .actions {
       width: 970px;
       height: 40px;
       margin: 0 auto;
       padding: 20px 0 20px 0;
     }
-    ^ .left-actions {
+    << .left-actions {
       display: inline-block;
       float: left;
     }
-    ^ .right-actions {
+    << .right-actions {
       display: inline-block;
       float: right;
     }
-    ^ .foam-support-view-CreateTicketView {
+    << .foam-support-view-CreateTicketView {
       margin-top:20px;
     }
-    ^ .div{
+    << .div{
       margin-top: 40px;
     }
-    ^ .label{
+    << .label{
       height: 16px;
       text-align: left;
       color: $textDefault;
       margin: 0px;
     }
-    ^ .foam-u2-TextField {
+    << .foam-u2-TextField {
       margin-bottom:20px;
       margin-top:8px;
       background-color: $backgroundDefault;
       border: solid 1px rgba(164, 179, 184, 0.5);
     }
-    ^ .foam-u2-tag-TextArea {
+    << .foam-u2-tag-TextArea {
       margin-top:8px;
     }
-    ^ .property-requestorEmail,.property-requestorName{
+    << .property-requestorEmail,.property-requestorName{
       width: 450px;
       height: 40px;
     }
-    ^ .property-message{
+    << .property-message{
       width: 940px;
       height: 240px;
       border: 1px solid lightgrey;
     }
-    ^ .property-subject{
+    << .property-subject{
       width: 940px;
       height: 40px;
     }
-    ^ .New-Ticket {
+    << .New-Ticket {
       margin-top:30px;
       width: 186px;
       height: 20px;
@@ -94,42 +94,41 @@ foam.CLASS({
       text-align: left;
       color: $textDefault;
     }
-    ^ .bg2 {
+    << .bg2 {
       margin-top:20px;
       border-radius: 2px;
       background-color: $backgroundDefault;
       padding: 20px;
     }
-    ^ .popUpDropDown {
+    << .popUpDropDown {
       padding: 0 !important;
       width: 165px;
       background: #ffffff;
-      z-index: 10000;
+      z-index: $z-popup;
       box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.19);
     }
-    ^ .popUpDropDown > div > div {
+    << .popUpDropDown > div > div {
       padding: 8px 0 0 11px;
       box-sizing:border-box;
       width: 165px;
       height: 35px;
-      z-index: 10000
       text-align: left;
       color: $textDefault;
     }
-    ^ .popUpDropDown > div > div:hover {
+    << .popUpDropDown > div > div:hover {
       background-color: rgba(89, 165, 213, 0.3);
     }
-    ^ .status{
+    << .status{
       color: white;
       display: inline-block;
       text-align: center;
     }
-    ^ .Submit-as{
+    << .Submit-as{
       float: left;
       margin-top:2px;
       margin-right:10px;
     }
-    ^ .rname {
+    << .rname {
       margin-right:20px;
       float:left;
     }

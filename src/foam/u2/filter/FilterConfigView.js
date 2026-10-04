@@ -16,14 +16,14 @@ foam.CLASS({
   imports: ['auth', 'data as filterView'],
 
   css: `
-    ^ {
+    << {
       padding: 7px;
       borderRadius: 4px;
       border: 1px solid $borderDefault;
       color: $textDefault;
       height: 100%;
     }
-    ^filter-selection {
+    <<filter-selection {
       max-height: 50vh;
       overflow: auto;
       display: flex;
@@ -70,7 +70,7 @@ foam.CLASS({
         if ( ! this.auth || ! p.columnPermissionRequired )
           availableProps.push(p);
         else
-          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name}`).then(v => v && availableProps.push(p))
+          this.auth.check(null, `${of.name.toLowerCase()}.column.${p.name.toLowerCase()}`).then(v => v && availableProps.push(p))
       }));
       props = availableProps;
       this.overlay_.start()

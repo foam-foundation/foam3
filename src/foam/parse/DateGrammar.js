@@ -42,16 +42,25 @@ foam.CLASS({
           sym('timestamp')       // Unix/JS timestamps (10-13 digits, must not match date formats)
         ),
 
-        // Julian date formats (YYDDD and YDDD) - day-of-year formats
+        // Julian date formats (YYYYDDD, YYDDD and YDDD) - day-of-year formats
         // These are NOT in main dateOrDatetime to avoid ambiguity with other formats.
-        // Use opt_name='juliandate' for auto-detection, or 'yyddd'/'yddd' for explicit format.
+        // Use opt_name='juliandate' for auto-detection, or 'yyyyddd'/'yyddd'/'yddd' for explicit format.
         //
-        // Combined Julian date parser - tries YYDDD first (5 digits), then YDDD (4 digits)
+        // Combined Julian date parser - tries YYYYDDD (7 digits), then YYDDD (5 digits), then YDDD (4 digits)
+        // Longest first, since YYDDD also matches the first five digits of a YYYYDDD value
         // Use this in mapping configurations: opt_name='juliandate'
         juliandate: alt(
-          sym('yyddd'),   // Try 5-digit format first (more specific)
+          sym('yyyyddd'), // Try 7-digit format first (longest)
+          sym('yyddd'),   // Then 5-digit format
           sym('yddd')     // Fall back to 4-digit format
         ),
+
+        // YYYYDDD format: 7-digit Julian date (4-digit year + 3-digit day of year)
+        // e.g., "2025216" = Year 2025, Day 216 = August 4, 2025
+        yyyyddd: str(seq(
+          sym('year4'),                                    // YYYY: 4-digit year
+          sym('dayOfYear')                                 // DDD: day of year (001-366)
+        )),
 
         // YYDDD format: 5-digit Julian date (2-digit year + 3-digit day of year)
         // e.g., "25216" = Year 2025, Day 216 = August 4, 2025

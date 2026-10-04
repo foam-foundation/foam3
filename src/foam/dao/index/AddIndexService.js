@@ -39,7 +39,6 @@ p({
     'foam.dao.DAO',
     'foam.dao.index.AddIndexCommand',
     'foam.lang.Indexer',
-    'foam.lang.PropertyInfo',
     'foam.lang.X',
     'java.util.Arrays',
     'java.util.List'
@@ -79,6 +78,10 @@ p({
           return;
         }
 
+        // Each index is its own request, so one that cannot be placed says so
+        // and the rest still go out. Returning here dropped every index after
+        // the first refusal, which reads in the log as if they were never asked
+        // for.
         for ( Object index : getIndexes() ) {
           AddIndexCommand cmd = new AddIndexCommand();
           cmd.setIndexers((Indexer[]) index);
@@ -86,10 +89,10 @@ p({
           if ( result == null ||
                ! ( result instanceof Boolean ) ||
             ((Boolean) result).booleanValue() != true ) {
-            logger.warning("Index not added, no access to MDAO", Arrays.toString((PropertyInfo[])index));
-            return;
+            logger.warning("Index not added, no access to MDAO", Arrays.toString((Indexer[]) index));
+            continue;
           }
-          logger.info("Index added", Arrays.toString((PropertyInfo[])index));
+          logger.info("Index added", Arrays.toString((Indexer[]) index));
         }
       `
     },

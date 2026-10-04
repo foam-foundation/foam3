@@ -72,7 +72,7 @@ foam.CLASS({
     {
       name: 'voice',
       view: function(_, X) {
-        var synth = window.speechSynthesis;
+        var synth = X.window.speechSynthesis;
         var view  = foam.u2.view.ChoiceView.create({
           choices: []
         }, X);

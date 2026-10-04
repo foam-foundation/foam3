@@ -9,10 +9,6 @@ foam.CLASS({
   name: 'Controller',
   extends: 'foam.u2.Element',
 
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
   requires: [
     'foam.demos.heroes.CitationView',
     'foam.demos.heroes.DashboardCitationView',
@@ -31,14 +27,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { width: 600px; }
-    ^ .property-filteredDAO .foam-u2-rowWrapper { padding: 2px; }
-    ^ .property-starredHeroDAO .foam-u2-rowWrapper {
+    << { width: 600px; }
+    << .property-filteredDAO .foam-u2-rowWrapper { padding: 2px; }
+    << .property-starredHeroDAO .foam-u2-rowWrapper {
       background: #607d8b;
       padding: 2px;
       margin: 4px;
     }
-    ^ .property-heroName { width: 450px; }
+    << .property-heroName { width: 450px; }
     h2 { color: #aaa; }
     h3 {
       color: #444;
@@ -48,14 +44,14 @@ foam.CLASS({
     }
     body { margin: 2em; }
     body, input[text], button { color: #888; }
-    ^starred .foam-u2-DAOList { display: flex; }
+    <<starred .foam-u2-DAOList { display: flex; }
     * { }
     input {
       font-size: 1em;
       height: 2em;
       padding-left: .4em;
     }
-    ^nav .foam-u2-ActionView {
+    <<nav .foam-u2-ActionView {
       background: #eee;
       border-radius: 4px;
       border: none;
@@ -67,10 +63,10 @@ foam.CLASS({
       margin: 10px 3px;
       padding: 10px 12px;
     }
-    ^nav .foam-u2-ActionView:hover {
+    <<nav .foam-u2-ActionView:hover {
       background-color: #cfd8dc;
     }
-    ^nav .foam-u2-ActionView:disabled {
+    <<nav .foam-u2-ActionView:disabled {
       -webkit-filter: none;
       background-color: #eee;
       color: #039be5;

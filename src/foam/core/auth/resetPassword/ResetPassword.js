@@ -20,12 +20,48 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'TITLE', message: 'Reset your password' },
-    { name: 'INSTRUCTION', message: 'Create a new password for your account' },
-    { name: 'PASSWORD_NOT_MATCH', message: 'Passwords do not match' },
-    { name: 'SUCCESS_MSG', message: 'Your password was successfully updated' },
-    { name: 'SUCCESS_MSG_TITLE', message: 'Success' },
-    { name: 'ERROR_MSG', message: 'There was a problem resetting your password' }
+    {
+      name: 'TITLE',
+      messageMap: {
+        en: 'Reset your password',
+        fr: 'Réinitialisez votre mot de passe'
+      }
+    },
+    {
+      name: 'INSTRUCTION',
+      messageMap: {
+        en: 'Create a new password for your account',
+        fr: 'Créez un nouveau mot de passe pour votre compte'
+      }
+    },
+    {
+      name: 'PASSWORD_NOT_MATCH',
+      messageMap: {
+        en: 'Passwords do not match',
+        fr: 'Les mots de passe ne correspondent pas'
+      }
+    },
+    {
+      name: 'SUCCESS_MSG',
+      messageMap: {
+        en: 'Your password was successfully updated',
+        fr: 'Votre mot de passe a été mis à jour avec succès'
+      }
+    },
+    {
+      name: 'SUCCESS_MSG_TITLE',
+      messageMap: {
+        en: 'Success',
+        fr: 'Succès'
+      }
+    },
+    {
+      name: 'ERROR_MSG',
+      messageMap: {
+        en: 'There was a problem resetting your password',
+        fr: 'Il y a eu un problème pour réinitialiser ton mot de passe'
+      }
+    }
   ],
 
   sections: [
@@ -38,6 +74,7 @@ foam.CLASS({
     {
       class: 'Password',
       name: 'newPassword',
+      label: { en: 'New Password', fr: 'Nouveau mot de passe'},
       section: 'resetPasswordSection',
       view: {
         class: 'foam.u2.view.PasswordView',
@@ -49,7 +86,7 @@ foam.CLASS({
     {
       class: 'Password',
       name: 'confirmationPassword',
-      label: 'Confirm Password',
+      label: { en: 'Confirm Password', fr: 'Confirmer le mot de passe' },
       section: 'resetPasswordSection',
       view: {
         class: 'foam.u2.view.PasswordView',

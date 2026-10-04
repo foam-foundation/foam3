@@ -39,10 +39,11 @@ if ( require.main === module ) {
 //   node foam3/tools/tests/testFoamLSP.js diagnostics      # just diagnostics
 //   node foam3/tools/tests/testFoamLSP.js hover,completion # comma- or space-separated
 var CATEGORIES = [
+  'config',
   'foamIndex', 'grammar', 'utilities', 'completion', 'hover', 'diagnostics',
-  'i18n',
-  'navigation', 'java', 'jrl', 'editorFeatures', 'typeHierarchy', 'usageIndex',
-  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp'
+  'i18n', 'codelens', 'scaffold', 'pom',
+  'navigation', 'java', 'jrl', 'lint', 'vscodeLint', 'bareCatch', 'editorFeatures', 'typeHierarchy', 'usageIndex',
+  'callHierarchy', 'pomValidation', 'pomNavigation', 'mcp', 'dispatch', 'classify'
 ];
 
 // Resolve the category list BEFORE booting the harness so an unknown name fails
@@ -66,7 +67,19 @@ var h = require('./lsp/_harness');
 // filtered out and change nothing about how they run.
 var pending = [];
 toRun.forEach(function(c){
-  var mod = require('./lsp/' + c);
+  // A category that throws while loading is one failed category, not a failed
+  // run. Without the catch the throw unwinds this forEach, every later
+  // category goes unloaded, the Promise.all below is never reached, and the
+  // process ends on an empty event loop — exit 0, no SUMMARY, and a run that
+  // covered half the suite looks the same as a green one.
+  var mod;
+  try {
+    mod = require('./lsp/' + c);
+  } catch ( e ) {
+    h.test(false, 'category ' + c + ' threw while loading — ' +
+      ( e && e.stack ? e.stack : e ));
+    return;
+  }
   if ( mod && mod.done && typeof mod.done.then === 'function' ) pending.push(mod.done);
 });
 
@@ -81,8 +94,7 @@ function printSummaryAndExit() {
 // the whole run down silently — record it as a failure via the harness
 // counter and still print SUMMARY / exit non-zero, same as any other FAIL.
 Promise.all(pending).then(printSummaryAndExit, function(err) {
-  h.counters.failures++;
-  console.error('  \x1b[31m✘ FAIL:\x1b[0m an async test category rejected — ' +
+  h.test(false, 'an async test category rejected — ' +
     ( err && err.stack ? err.stack : err ));
   printSummaryAndExit();
 });

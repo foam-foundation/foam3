@@ -95,11 +95,13 @@ public class ServiceWebAgent
 
       int read   = 0;
       int count  = 0;
+      // -1 when the body arrives chunked, without Content-Length; read to
+      // end of stream then, otherwise stop at the declared length as before.
       int length = req.getContentLength();
 
       StringBuilder builder = sb.get();
       char[] cbuffer = new char[BUFFER_SIZE];
-      while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 && count < length ) {
+      while ( ( read = reader.read(cbuffer, 0, BUFFER_SIZE)) != -1 && ( length < 0 || count < length ) ) {
         builder.append(cbuffer, 0, read);
         count += read;
       }

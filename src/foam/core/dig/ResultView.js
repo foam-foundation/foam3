@@ -18,7 +18,7 @@ foam.CLASS({
     and an HTMLView for HTML`,
 
   css: `
-    ^ {
+    << {
       margin-bottom: 5px;
       overflow-x: auto;
     }

@@ -30,6 +30,9 @@ const { spawn }   = require('child_process');
 const fs          = require('fs');
 const path        = require('path');
 const readline    = require('readline');
+// Canonical lint-check names — shared with LintHandler.ALL_CHECKS so the
+// foam_lint schema can't drift from the checks the server actually runs.
+const LINT_CHECKS = require('../../lintChecks');
 
 // --- stderr logger (stdout is reserved for MCP protocol) -----------------
 
@@ -151,7 +154,10 @@ function shapeDocumentSymbols(res, projectRoot) {
   var lines = [];
   function walk(sym, depth) {
     var indent = '  '.repeat(depth);
-    var line = ( sym.range && sym.range.start ) ? sym.range.start.line : 0;
+    // range covers the whole definition (a property's `{` line); the name's
+    // own line is selectionRange, which is what a caller wants to jump to.
+    var at   = sym.selectionRange || sym.range;
+    var line = ( at && at.start ) ? at.start.line : 0;
     lines.push(indent + sym.name + ' [' + kindName(sym.kind) + '] @' + line);
     if ( Array.isArray(sym.children) ) {
       for ( var i = 0 ; i < sym.children.length ; i++ ) walk(sym.children[i], depth + 1);
@@ -218,6 +224,22 @@ function shapeCodeActions(res) {
     var title = a.title || ( a.command && a.command.title ) || ( 'action ' + i );
     return '- ' + title;
   }).join('\n');
+}
+
+function shapeLintFindings(result, projectRoot) {
+  const findings = ( result && result.findings ) || [];
+  if ( ! findings.length ) return 'No lint findings.';
+  const lines = [];
+  for ( const f of findings ) {
+    lines.push(f.severity.toUpperCase().padEnd(6) + f.check.padEnd(16) +
+      relPath('file://' + f.path, projectRoot) + ':' + f.line);
+    lines.push('       ' + f.message);
+    if ( f.fix ) lines.push('       fix: ' + f.fix);
+  }
+  lines.push('---');
+  lines.push(findings.filter(f => f.severity === 'error').length + ' error(s), ' +
+             findings.filter(f => f.severity === 'warn').length + ' warn(s)');
+  return lines.join('\n');
 }
 
 // --- MCP tool schemas -----------------------------------------------------
@@ -336,6 +358,19 @@ function toolSchemas() {
         properties: {
           file:         { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
           translations: { type: 'object', description: 'Map of message name -> { languageCode: translatedText }, e.g. { UPLOAD_COMPLETE_MSG: { fr: "Envoi terminé" } }' }
+        }
+      }
+    },
+    {
+      name:        'foam_lint',
+      description: 'Registration-completeness lint: classes missing from pom.js, Rules whose ruleGroup is undefined (rule never runs), StrategyReference entries pointing at missing classes / implementors invisible in the Rule-creation UI. Run after adding classes, rules, or jrl entries.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          scope:           { type: 'string', enum: [ 'all', 'paths' ], description: "Default 'all'. 'paths' filters findings to the given files (pass changed files for a diff-scoped run)." },
+          paths:           { type: 'array', items: { type: 'string' }, description: 'Project-relative or absolute paths (used with scope=paths)' },
+          checks:          { type: 'array', items: { type: 'string', enum: LINT_CHECKS }, description: 'Subset of: ' + LINT_CHECKS.join(', ') + '. Default: all.' },
+          strategyTargets: { type: 'array', items: { type: 'string' }, description: "Extra strategy interfaces for the strategy-ref check. Default: ['foam.core.ruler.RuleAction']." }
         }
       }
     }
@@ -696,9 +731,10 @@ async function callTool(lsp, projectRoot, name, args) {
     case 'foam_implementation':
       return shapeLocations(await navRaw(lsp, projectRoot, args, 'implementation', 'textDocument/implementation'), projectRoot);
     case 'foam_type_definition':
-      // Symbol mode resolves the symbol's own definition; position mode jumps
-      // to the property type at the cursor.
-      return shapeLocations(await navRaw(lsp, projectRoot, args, 'definition', 'textDocument/typeDefinition'), projectRoot);
+      // Symbol mode resolves the symbol's PROPERTY TYPE (op: 'typeDefinition'
+      // routes foam/byName to the same class-jump Case B does below); position
+      // mode jumps to the property type at the cursor via the LSP method.
+      return shapeLocations(await navRaw(lsp, projectRoot, args, 'typeDefinition', 'textDocument/typeDefinition'), projectRoot);
     case 'foam_type_hierarchy': {
       const hr = await hierarchyRaw(lsp, projectRoot, args, 'type');
       if ( ! hr ) return 'No type hierarchy at this target.';
@@ -834,6 +870,15 @@ async function callTool(lsp, projectRoot, name, args) {
       const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
       return relPath(uri, projectRoot) + ': ' + edits.length + ' entries updated. Warnings: ' + warn;
     }
+    case 'foam_lint': {
+      const r = await lsp.request('foam/lint', {
+        scope:           args.scope,
+        paths:           args.paths,
+        checks:          args.checks,
+        strategyTargets: args.strategyTargets
+      });
+      return shapeLintFindings(r, projectRoot);
+    }
     default:
       throw new Error('Unknown tool: ' + name);
   }
@@ -888,9 +933,8 @@ function main() {
             'foam_* tools answer FOAM structure questions from the live registry: ' +
             'hierarchy (subclasses/implementors), definitions (even when filename != ' +
             'class name), substring symbol search, hover docs/types, javaCode usages, ' +
-            'member call-site lines. Blind spots — ' +
-            'grep instead for: .jrl string references, ' +
-            'property-usage sweeps, refined property types. ' +
+            'member call-site lines, journal (.jrl) class references. Blind spots — ' +
+            'grep instead for: property-usage sweeps, refined property types. ' +
             'Name-addressable: symbol: "DetailView", a class id, or ' +
             '"Class.member". First call boots the LSP (~10-15s). Index reflects the ' +
             'checkout, not uncommitted edits — read changed files directly.'
@@ -944,7 +988,7 @@ function main() {
 module.exports = {
   normalizeUri, uriToPath, relPath, kindName, severityName,
   shapeLocations, shapeHover, shapeDocumentSymbols, shapeWorkspaceSymbols,
-  shapeDiagnostics, shapeItems, shapeCodeActions,
+  shapeDiagnostics, shapeItems, shapeCodeActions, shapeLintFindings,
   toolSchemas, resolvePos, callTool, FoamLSPClient,
   applyWorkspaceEdit, posToOffset
 };

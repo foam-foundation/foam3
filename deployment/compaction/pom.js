@@ -11,7 +11,5 @@ foam.POM({
     { name: '../../src/foam/dao/compaction/pom' }
   ],
   files: [
-    { name: "../../src/foam/core/ticket/TicketCommentCompactionSink", flags: "js|java" },
-    { name: "../../src/foam/core/ticket/TicketCompactionSink",        flags: "js|java" }
   ]
 });

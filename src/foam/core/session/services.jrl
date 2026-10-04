@@ -58,6 +58,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"localSettingDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "authenticate": true,
   "serviceScript":"""

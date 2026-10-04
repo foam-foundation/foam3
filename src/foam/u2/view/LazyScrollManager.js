@@ -58,21 +58,21 @@ foam.CLASS({
   ],
 
   css: `
-    ^no-data {
+    <<no-data {
       display: flex;
       height: 100%;
       justify-content: center;
       align-items: center;
     }
-    ^scroll-host {
+    <<scroll-host {
       overflow-anchor: none;
     }
-    ^top-spacer, ^bottom-spacer {
+    <<top-spacer, <<bottom-spacer {
       width: 100%;
       pointer-events: none;
     }
 
-    ^table-page {
+    <<table-page {
       content-visibility: auto;
       contain-intrinsic-height: auto var(--avgPageHeight, 2400px);
       min-width: 100%;

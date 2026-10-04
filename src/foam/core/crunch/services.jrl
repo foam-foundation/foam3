@@ -146,6 +146,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"bareUserCapabilityJunctionDAO",
   "lazy": false,
+  "lazyOrder": -1,
   "serviceScript":"""
     dao = new foam.dao.EasyDAO.Builder(x)
       .setPm(true)
@@ -253,6 +254,7 @@ p({
   "description": "DAO containing any modifications made to userCapabilityJunctions",
   "serve": true,
   "lazy": false,
+  "lazyOrder": -1,
   "enabled":true,
   "authNotes": "Protected by service-level access control. This service requires the 'service.userCapabilityJunctionHistoryDAO' permission to access.",
   "serviceScript":

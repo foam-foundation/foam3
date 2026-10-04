@@ -12,7 +12,7 @@ foam.CLASS({
   documentation: '2x2 column citation view',
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -21,21 +21,21 @@ foam.CLASS({
       gap: 0.64rem;
       color: $grey500;
     }
-    ^row-1{
+    <<row-1{
       display: flex;
       justify-content: space-between;
       padding: 0.2rem;
     }
-    ^row-2{
+    <<row-2{
       display: flex;
       justify-content: space-between;
       padding: 0.2rem;
     }
-    ^row-1-section-2{
+    <<row-1-section-2{
       display: flex;
       gap: 0.5rem;
     }
-    ^primary{
+    <<primary{
       color: $textBrandSecondary;
     }
   `,

@@ -104,6 +104,7 @@ foam.POM({
     { name: "Subject",                                                flags: "js|java" },
     { name: "PriorPassword",                                          flags: "js|java" },
     { name: "UserLifecycleDeletedRuleAction",                         flags: "js|java" },
+    { name: "UserLifecycleNotActiveLogoutRuleAction",                 flags: "js|java" },
     { name: "UserLifecycleStateDAO",                                  flags: "js|java" },
     { name: "UserLifecycleTicket",                                    flags: "js|java" },
     { name: "UserLifecycleTicketSink",                                flags: "js|java" },
@@ -169,6 +170,7 @@ foam.POM({
     { name: "login/SignUp",                                           flags: "js|java" },
     { name: "login/ClientLoginService",                               flags: "js" },
     { name: "login/LoginView",                                        flags: "js" },
+    { name: "login/OIDCLoginView",                                    flags: "js" },
     { name: "email/EmailVerificationDAO",                             flags: "js|java" },
     { name: "UserPasswordHashingDAO",                                 flags: "js|java" }
   ],

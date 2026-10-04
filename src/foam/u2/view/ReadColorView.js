@@ -12,7 +12,7 @@ foam.CLASS({
   documentation: 'A view to read a colour property.',
 
   css: `
-    ^ {
+    << {
       align-items: center;
       border-radius: 3px;
       display: flex;
@@ -21,11 +21,11 @@ foam.CLASS({
       padding: 0 32px;
     }
 
-    ^black {
+    <<black {
       color: $textDefault;
     }
 
-    ^white {
+    <<white {
       color: $white;
     }
   `,

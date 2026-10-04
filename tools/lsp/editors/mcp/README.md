@@ -44,7 +44,7 @@ positions 0-based) rather than raw LSP JSON.
 |---|---|---|
 | `foam_hover` | `symbol` \| `uri`+`line`+`character` | Class docs, property types, method signatures, short-name resolution |
 | `foam_definition` | `symbol` \| `uri`+`line`+`character` | Source location for classes in `extends:`, `requires:`, `of:`, property types |
-| `foam_references` | `symbol` \| `uri`+`line`+`character` | Subclasses, interface implementors, and JS/Java/string usages |
+| `foam_references` | `symbol` \| `uri`+`line`+`character` | Subclasses, interface implementors, and JS/Java/string/journal (.jrl) usages |
 | `foam_implementation` | `symbol` \| `uri`+`line`+`character` | Concrete implementors of an interface (or direct subclasses) |
 | `foam_type_definition` | `symbol` \| `uri`+`line`+`character` | For a property usage, the property's type class |
 | `foam_type_hierarchy` | `symbol` \| position, `direction` (`subtypes`/`supertypes`/`both`) | Supertypes (extends chain) and/or subtypes (subclasses + implementors) |
@@ -55,6 +55,7 @@ positions 0-based) rather than raw LSP JSON.
 | `foam_code_actions` | `uri`, `line` (optional) | Quick fixes with ready-to-apply edits: extract hardcoded strings to `messages:` (i18n), raw color → `$token`, wrong Java package, did-you-mean class suggestions |
 | `foam_i18n_translate` | `file`, `messageName` (optional), `languages` (optional) | Translates `messages:` entries missing configured languages. Provider up: translates + writes the edit to disk. Provider down: a `needs-translations` payload for the agent to translate itself and hand back via `foam_i18n_apply` |
 | `foam_i18n_apply` | `file`, `translations` (`{ NAME: { lang: '...' } }`) | Applies agent-supplied translations, validating every placeholder survives, and writes the edit to disk |
+| `foam_lint` | `scope` (`all`/`paths`), `paths`, `checks`, `strategyTargets` (all optional) | Registration findings, one `SEVERITY  check  path:line` per finding: files in no `pom.js`, undefined rule groups, missing or dangling `StrategyReference` entries. See **Lint** in `tools/lsp/README.md` |
 
 URIs accept: absolute paths, project-relative paths, or `file://` URIs.
 `foam_i18n_translate`/`foam_i18n_apply` take `file` (same path forms) instead

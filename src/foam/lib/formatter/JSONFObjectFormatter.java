@@ -111,14 +111,27 @@ public class JSONFObjectFormatter
   }
 
   public void output(String s) {
-    append('"');
-    escapeAppend(s);
-    append('"');
+    if ( multiLineOutput_ && s != null && s.indexOf('\n') >= 0 ) {
+      append('\n');
+      append("\"\"\"");
+      append(escapeMultiline(s));
+      append("\"\"\"");
+    } else {
+      append('"');
+      escapeAppend(s);
+      append('"');
+    }
   }
 
   public void escapeAppend(String s) {
     if ( s == null ) return;
     foam.lib.json.Util.escape(s, builder());
+  }
+
+  public String escapeMultiline(String s) {
+    // Same as foam.lib.json.Outputter.escapeMultiline(): only backslashes are
+    // doubled; the parser's escape handling halves them again on replay.
+    return s.replace("\\", "\\\\");
   }
 
   public void output(short val) { append(val); }
@@ -193,6 +206,9 @@ public class JSONFObjectFormatter
     if ( map == null ) return;
 
     append('{');
+    depth_++;
+    if ( map.size() > 1 ) addInnerNewline();
+
     Iterator keys = map.keySet().iterator();
     while ( keys.hasNext() ) {
       Object key   = keys.next();
@@ -200,8 +216,14 @@ public class JSONFObjectFormatter
       output(key == null ? "" : key.toString());
       append(':');
       output(value);
-      if ( keys.hasNext() ) append(COMMA);
+      if ( keys.hasNext() ) {
+        append(COMMA);
+        addInnerNewline();
+      }
     }
+
+    depth_--;
+    if ( map.size() > 1 ) addInnerNewline();
     append('}');
   }
 
@@ -215,7 +237,10 @@ public class JSONFObjectFormatter
     Iterator iter = list.iterator();
     while ( iter.hasNext() ) {
       output(iter.next());
-      if ( iter.hasNext() ) append(COMMA);
+      if ( iter.hasNext() ) {
+        append(COMMA);
+        addInnerNewline();
+      }
     }
 
     depth_--;
@@ -352,6 +377,38 @@ public class JSONFObjectFormatter
         output((byte[][]) value);
       } else if ( value instanceof byte[] ) {
         output((byte[]) value);
+      } else if ( value instanceof float[] ) {
+        float[] arr = (float[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof double[] ) {
+        double[] arr = (double[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof int[] ) {
+        int[] arr = (int[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
+      } else if ( value instanceof long[] ) {
+        long[] arr = (long[]) value;
+        append('[');
+        for ( int i = 0; i < arr.length; i++ ) {
+          if ( i > 0 ) append(',');
+          output(arr[i]);
+        }
+        append(']');
       } else {
         output((Object[]) value);
       }

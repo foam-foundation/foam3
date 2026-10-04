@@ -1,3 +1,5 @@
+<flow name="i18n-advanced" category="DOC/GUIDE" spid="foam" description="Advanced runtime i18n: messageMap/localeDAO sync at boot, Locale rows, and the message-override lifecycle." keywords="i18n,localedao,locale,runtime translation,knowledge"/>
+
 # FOAM i18n — Advanced & Runtime
 
 The companion to the [beginner guide](./i18n.md). The beginner guide covers declaring strings in model code (`messages:`, inline `label: { en, fr }` maps). This guide covers the **runtime translation system**: `Locale` rows in `locales.jrl`/`localeDAO`, the language picker, source-key conventions, automated extraction, the Translation Console, and the message-override lifecycle.
@@ -113,6 +115,7 @@ Common source key shapes are:
 | Message axiom | `Class.MESSAGE_NAME` |
 | Property label | `Class.PROPERTY.label` |
 | Action label | `Class.ACTION.label` |
+| Property `units` suffix (`units: 'days'`) | `foam.units.<units>`, e.g. `foam.units.days`, shared by every property (`foam3/src/foam/u2/view/ValueView.js:58`, `foam3/src/foam/u2/TextField.js:77`) |
 
 Use the fully qualified model id for class-owned keys. FOAM's extraction scripts (see [Automated String Extraction](#automated-string-extraction)) build these keys with `o.id + '.' + foam.String.constantize(axiom.name)` and append suffixes such as `.label` for properties and actions.
 
@@ -120,7 +123,8 @@ Use the fully qualified model id for class-owned keys. FOAM's extraction scripts
 
 | The string is… | Use | Editable at runtime? |
 |---|---|---|
-| declared on your own model or view | `messages`/`messageMap` (or an inline `label: { en, fr }` map) for the default; add a `Locale` row to override it | Default is code; the `Locale` override is data |
+| declared on your own model or view | `message: '...'` in the base language, plus a `Locale` row per shipped locale keyed `<class id>.<NAME>` — the translation service sends the client only the viewer's locale | Yes |
+| needed on the client before any round trip (a boot-time label, a login-page error) | `messageMap: { en, fr }` or an inline `label: { en, fr }` map. Every inline language ships in the client JS for every user, so keep this set small | Default is code; a `Locale` row still overrides it |
 | framework-driven, looked up by a source key — menu label, DAO browse/create title, class action label/tooltip | a `Locale` row in `localeDAO` keyed by that source key | Yes |
 
 ## Menu Internationalization
@@ -219,5 +223,5 @@ The load-bearing, non-obvious runtime behavior:
 - `localeDAO` is backed by the `locales` journal: `foam3/src/foam/i18n/services.jrl:22-39`.
 - Client `translationService` is `ClientCacheTranslationService`: `foam3/src/foam/i18n/services.jrl:48-64`.
 - `ClientCacheTranslationService` loads `Locale` rows into `localeEntries`: `foam3/src/foam/i18n/ClientCacheTranslationService.js:93-110`.
-- Application boot calls `installLanguage()` after `translationService.initLatch`: `foam3/src/foam/core/controller/ApplicationController.js:486-488`.
-- `installLanguage()` resolves each `Locale.source` as a global JS path and assigns the translated value: `foam3/src/foam/core/controller/ApplicationController.js:575-597`.
+- Application boot calls `installLanguage()` after `translationService.initLatch`: `foam3/src/foam/core/controller/ApplicationController.js:494-495`.
+- `installLanguage()` resolves each `Locale.source` as a global JS path and assigns the translated value: `foam3/src/foam/core/controller/ApplicationController.js:587-609`.

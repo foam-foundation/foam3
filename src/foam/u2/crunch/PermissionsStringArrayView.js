@@ -95,7 +95,7 @@ foam.CLASS({
     .foam-u2-crunch-PermissionsStringArrayView-padding {
       padding-top: 8px;
     }
-    ^ .property-filteredPermissions .foam-u2-table-TableView {
+    << .property-filteredPermissions .foam-u2-table-TableView {
       height: 374px;
     }
   `,

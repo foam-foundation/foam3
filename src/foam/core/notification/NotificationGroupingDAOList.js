@@ -29,7 +29,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^button {
+    <<button {
       margin-left: auto;
     }
   `,

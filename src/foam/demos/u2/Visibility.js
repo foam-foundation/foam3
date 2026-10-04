@@ -156,6 +156,8 @@ foam.CLASS({
     'foam.u2.layout.GUnit'
   ],
 
+  imports: [ 'window' ],
+
   exports: [
     'displayWidth',
     'mockAuthService as auth'
@@ -227,7 +229,7 @@ foam.CLASS({
       factory: function() {
         return this.DisplayWidth.VALUES
           .sort((a, b) => b.minWidth - a.minWidth)
-          .find(o => o.minWidth <= window.innerWidth);
+          .find(o => o.minWidth <= this.window.innerWidth);
       }
     },
     {

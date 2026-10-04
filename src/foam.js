@@ -89,6 +89,7 @@
 
       function and(fs) {
         if ( ! fs ) return true;
+        foam.assertFlags(fs);
         fs = fs.split('&');
         for ( var i = 0 ; i < fs.length ; i++ ) {
           if ( ! foam.flags[fs[i]] ) return false;
@@ -105,7 +106,7 @@
     require: function(fn /* filename */, batch, isProject) {
       if ( fn ) {
         fn = foam.cwd + fn;
-        if ( ! isProject && foam.seen(fn) ) return;
+        if ( isProject ? foam.seenPOM(fn) : foam.seen(fn) ) return;
         scripts += '<script type="text/javascript" src="' + fn + '.js"></script>\n';
       }
       if ( ! batch || isProject ) {
@@ -134,14 +135,44 @@
       foam.loaded[fn] = true;
       return false;
     },
+    loadedPOMs:  {},
+    seenPOM:     function(fn) {
+      // Project paths are relative ('../../x/pom'), so normalize before
+      // comparing. Skipping the repeat here gives one warning naming the
+      // including POM instead of one per file in the repeated POM.
+      var url = new URL(fn + '.js', document.baseURI).href;
+      if ( foam.loadedPOMs[url] ) {
+        console.warn(`Duplicated load of POM '${url}' from '${document.currentScript.src}'`);
+        return true;
+      }
+      foam.loadedPOMs[url] = true;
+      return false;
+    },
+    assertFlags: function(flags) {
+      // A flags string/clause is WORD ( [|&] WORD )*. Whitespace or an empty
+      // token ("js |java", "js||java") used to match nothing silently,
+      // dropping the entry from every build with no trace. Fail the load
+      // loudly at the author instead.
+      if ( /\s/.test(flags) || /(^|[|&])([|&]|$)/.test(flags) ) {
+        throw new Error('foam: malformed flags ' + JSON.stringify(flags) +
+          " - whitespace or empty token; expected e.g. 'js|java&test'");
+      }
+    },
     adaptFlags: function(flags) {
-      return typeof flags === 'string' ? flags.split('|') : flags;
+      if ( typeof flags !== 'string' ) return flags;
+      // '' means "no flags" — e.g. a flagless pom entry's [] joined back
+      // into a string (LSP FoamIndex.matchesActiveFlags). Always matches
+      // (checkFlags([]) is true), never malformed.
+      if ( flags === '' ) return [];
+      foam.assertFlags(flags);
+      return flags.split('|');
     },
     checkForFlag: function (flags, desired) {
       if ( ! flags || ! desired ) return false;
       desired = this.adaptFlags(desired);
 
       function and(fs, ds) {
+        foam.assertFlags(fs);
         fs = fs.split('&');
         ds = ds.split('&');
         for ( var i = 0 ; i < ds.length ; i++ )

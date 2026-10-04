@@ -29,9 +29,11 @@ foam.CLASS({
   ],
 
   methods: [
-    async function aInit() {
-      await this.historyParser.aInit();
-      await this.commandParser.aInit();
+    function aInit() {
+      return Promise.all([
+        this.historyParser.aInit(),
+        this.commandParser.aInit()
+      ]);
     },
 
     function grammar(alt, eof, seq0, seq, seq1, str, sug, sym, repeat, repeat0, anyChar, optional, notChars, literal, range, not, until0, literalIC) {

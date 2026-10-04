@@ -102,7 +102,7 @@ foam.CLASS({
           // Trust our own server, but force other servers to go through
           // whitelist.
           creationContext: this.url.indexOf(':') == -1 ?
-            this.__context__     :
+            this.__context__.createSubContext({__DO_NOT_WARN_MISSING_CONTEXT_VALUE__: true})     :
             this.creationContext
         });
       },

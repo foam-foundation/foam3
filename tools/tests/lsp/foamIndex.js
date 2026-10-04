@@ -355,3 +355,343 @@ if ( index.classExists(JAVA_CLASS) && index.getFilePath(JAVA_CLASS) ) {
 } else {
   test(true, 'Java-only method tests skipped (FObject not in file index)');
 }
+
+// === Members declared in a refinement ===
+section('FoamIndex refinement members');
+
+// A refined class keeps its own file as its definition site, so a member that
+// only a refinement declares used to resolve to the top of the wrong file.
+// Every assertion below names a real declaration in this repo; lines are
+// 0-based, one less than what an editor shows.
+
+function refPos(classId, member) {
+  var p = index.getSymbolPosition(classId, member, 7);
+  return p ? { file: p.uri.split('/').pop(), line: p.line } : null;
+}
+
+var twoFactor = refPos('foam.core.auth.User', 'twoFactorEnabled');
+test(twoFactor && twoFactor.file === 'UserRefinements.js' && twoFactor.line === 14,
+  'refinement member: User.twoFactorEnabled resolves to UserRefinements.js:14, not User.js'
+  + ' (got ' + ( twoFactor ? twoFactor.file + ':' + twoFactor.line : 'null' ) + ')');
+
+// A refinement must not hijack a member the class declares itself.
+// foam.lang.Action declares buttonStyle at Action.js:46 and ActionView.js
+// refines it to an Enum — the declaration site is still Action.js.
+var buttonStyle = refPos('foam.lang.Action', 'buttonStyle');
+test(buttonStyle && buttonStyle.file === 'Action.js' && buttonStyle.line === 46,
+  'own declaration wins: Action.buttonStyle stays at Action.js:46 though ActionView.js refines it'
+  + ' (got ' + ( buttonStyle ? buttonStyle.file + ':' + buttonStyle.line : 'null' ) + ')');
+
+// FromCsvRefines.js declares `fromCSV` six times, once per refined class, and
+// the file's position map recorded only the first (line 14, the
+// foam.lang.Property refinement). Both assertions below would land on 14
+// without the per-refinement line range.
+var intFromCSV   = refPos('foam.lang.Int', 'fromCSV');
+var floatFromCSV = refPos('foam.lang.Float', 'fromCSV');
+test(intFromCSV && intFromCSV.file === 'FromCsvRefines.js' && intFromCSV.line === 32,
+  'repeated member: Int.fromCSV resolves to FromCsvRefines.js:32'
+  + ' (got ' + ( intFromCSV ? intFromCSV.file + ':' + intFromCSV.line : 'null' ) + ')');
+test(floatFromCSV && floatFromCSV.file === 'FromCsvRefines.js' && floatFromCSV.line === 69,
+  'repeated member: Float.fromCSV resolves to its OWN line 69 in the same file'
+  + ' (got ' + ( floatFromCSV ? floatFromCSV.file + ':' + floatFromCSV.line : 'null' ) + ')');
+
+// A refinement needs no `name:` of its own. EndBoot.js has the repo's only
+// nameless one; the name guard used to drop it before its target was recorded.
+var modelProps = refPos('foam.lang.Model', 'properties');
+test(modelProps && modelProps.file === 'EndBoot.js' && modelProps.line === 42,
+  'nameless refinement: Model.properties resolves to EndBoot.js:42'
+  + ' (got ' + ( modelProps ? modelProps.file + ':' + modelProps.line : 'null' ) + ')');
+
+// Non-regression: a member declared in the class's own file still wins.
+var ownFile = index.getSymbolPosition('foam.lang.Property', 'name', 7);
+test(ownFile && ownFile.uri.split('/').pop() === 'Property.js',
+  'a member in the class\'s own file still resolves there, not to a refinement'
+  + ' (got ' + ( ownFile ? ownFile.uri.split('/').pop() : 'null' ) + ')');
+
+// === Registered services are workspace symbols ===
+section('FoamIndex service symbols');
+
+// A service name is not an axiom of any class, so nothing in the class walk
+// finds it. src/foam/core/auth/services.jrl registers localUserDAO.
+var svcHits = (index.searchSymbols('localUserDAO', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'localUserDAO'; });
+test(svcHits.length > 0 && svcHits[0].kind === 13 && svcHits[0].filePath.endsWith('services.jrl'),
+  'service symbols: localUserDAO is findable, kind 13, in a services.jrl'
+  + ' (got ' + ( svcHits.length ? svcHits[0].kind + ' ' + svcHits[0].filePath.split('/').pop() : 'no hit' ) + ')');
+test(svcHits.length > 0 && svcHits[0].line > 0,
+  'service symbols: the entry carries its own line, having no class to resolve one from'
+  + ' (got line ' + ( svcHits.length ? svcHits[0].line : '?' ) + ')');
+
+// A package filter cannot match something with no class id, and must not
+// throw on the empty string either.
+var filtered = index.searchSymbols('localUserDAO', { limit: 20, packagePrefix: 'foam.u2.' }) || [];
+test(filtered.every(function(s) { return s.name !== 'localUserDAO'; }),
+  'service symbols: a package filter excludes them rather than crashing');
+
+// The CSpec identity is `name`, not `id` — requiring id skipped every row.
+var cspecUses = (index.getStringUsages('localUserDAO') || [])
+  .filter(function(u) { return u.kind === 'cspec'; });
+test(cspecUses.length > 0 && cspecUses[0].file.endsWith('services.jrl') && cspecUses[0].line > 0,
+  'cspec records: localUserDAO is recorded with its file and line'
+  + ' (got ' + ( cspecUses.length ? cspecUses[0].file.split('/').pop() + ':' + cspecUses[0].line : 'none' ) + ')');
+
+// Service symbols come from the SAME services.jrl list the service lookup
+// resolves against (getServiceJournalFiles), so a name registered only in a
+// pom-less, source-less directory — the per-target deployment shape — is a
+// symbol too. fixtures/jrlservices/{alpha,beta}/services.jrl register
+// rankProbeDAO and nothing else reaches those directories.
+var probeHits = (index.searchSymbols('rankProbeDAO', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'rankProbeDAO'; });
+test(probeHits.length === 2 &&
+     probeHits.every(function(s) { return s.kind === 13 && /jrlservices\/(alpha|beta)\/services\.jrl$/.test(s.filePath); }),
+  'service symbols: a service registered only in pom-less directories is a symbol, one row per registration'
+  + ' (got ' + probeHits.length + ': ' + probeHits.map(function(s) { return s.filePath.split('/').slice(-2).join('/'); }).join(', ') + ')');
+
+// The general journal-directory answer (getJournalDirs) still feeds
+// JournalEntryIndex.findJournalFiles_ and must reach src/, which holds
+// src/services.jrl (38 registrations) and no class file.
+var jDirs = index.getJournalDirs();
+var iDirs = index.getIndexedDirs();
+test(jDirs.length > iDirs.length,
+  'getJournalDirs is a superset of getIndexedDirs (pom locations added)'
+  + ' (' + jDirs.length + ' vs ' + iDirs.length + ')');
+
+var srcRoot = path.resolve(__dirname, '../../../src');
+test(iDirs.indexOf(srcRoot) === -1 && jDirs.indexOf(srcRoot) !== -1,
+  'getJournalDirs reaches src/, which holds services.jrl and no class file');
+
+// The registrations themselves, by name, in the string-usage index.
+var fileCspec = (index.getStringUsages('file') || [])
+  .filter(function(u) { return u.kind === 'cspec' && /[\/\\]src[\/\\]services\.jrl$/.test(u.file); });
+test(fileCspec.length > 0 && fileCspec[0].line > 0,
+  'src/services.jrl registrations are recorded (file CSpec at line '
+  + ( fileCspec.length ? fileCspec[0].line : '?' ) + ')');
+
+var srcSvcSymbols = (index.searchSymbols('blobStore', { limit: 20 }) || [])
+  .filter(function(s) { return s.name === 'blobStore' && s.kind === 13 &&
+    /[\/\\]src[\/\\]services\.jrl$/.test(s.filePath); });
+test(srcSvcSymbols.length > 0 && srcSvcSymbols[0].line > 0,
+  'and they are workspace symbols — blobStore is findable in src/services.jrl'
+  + ' (line ' + ( srcSvcSymbols.length ? srcSvcSymbols[0].line : '?' ) + ')');
+// === SWALLOWED CATCH TRACES (Task 5) ===
+// indexFileClasses_/POM walk/cspec scan must leave a [foam-lsp] trace on
+// failure instead of silently dropping the file — same fallback, new trace.
+
+section('FoamIndex — swallowed catches leave a trace');
+
+// --- indexFileClasses_ logs instead of silently dropping a file ---
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'foamindex-catch-'));
+  var bad = path.join(dir, 'Broken.js');
+  // FileModelCache.parseFileModels swallows a plain syntax error internally
+  // (returns [] without throwing), so force the throw past that layer: the
+  // eval-intercept executes the object literal, so a throwing getter fires
+  // while indexFileClasses_'s own model-walk loop is still running.
+  fs.writeFileSync(bad, "foam.CLASS({ get name() { throw new Error('boom'); } });");
+
+  var captured = [];
+  var orig = console.error;
+  console.error = function(msg) { captured.push(msg); };
+  try {
+    index.indexFileClasses_(bad, [], 'pom.js', 'Broken', fs);
+  } finally {
+    console.error = orig;
+  }
+  test(captured.some(function(m) {
+    return typeof m === 'string' && m.indexOf('[foam-lsp]') === 0 && m.indexOf('Broken.js') !== -1;
+  }), 'indexFileClasses_ failure leaves a [foam-lsp] trace naming the file, got: ' + JSON.stringify(captured));
+})();
+
+section('FoamIndex — failed grammar parse must not be cached against mtime');
+
+// --- a transient parse fault is retried, not pinned to the file's mtime ---
+(function() {
+  var os = require('os'), fs = require('fs'), path = require('path');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'foamindex-poscache-'));
+  var f = path.join(dir, 'X.js');
+  fs.writeFileSync(f, "foam.CLASS({ package: 'x', name: 'X', properties: [ 'a' ] });");
+
+  var grammar = index.getGrammar();
+  var origCollect = grammar.collectAxiomPositions;
+  var calls = 0;
+  grammar.collectAxiomPositions = function(content) {
+    calls++;
+    if ( calls === 1 ) throw new Error('transient parse fault');
+    return origCollect.call(grammar, content);
+  };
+  var origErr = console.error;
+  var first, second;
+  try {
+    console.error = function() {};
+    first  = index.getFilePosMap_(f);   // parse throws -> null, NOT cached
+    second = index.getFilePosMap_(f);   // must RETRY (mtime unchanged)
+  } finally {
+    console.error = origErr;
+    grammar.collectAxiomPositions = origCollect;
+  }
+  test(first === null, 'failed parse returns null');
+  test(calls === 2, 'failed parse retried on next request, calls=' + calls);
+  test(second && typeof second === 'object', 'retry succeeds and returns a posMap');
+})();
+
+// --- getOfUsers matches adapted (object-form) `of` values ---
+(function() {
+  foam.CLASS({ package: 'lsptest.of', name: 'Target' });
+  foam.CLASS({
+    package: 'lsptest.of', name: 'Holder',
+    properties: [ { class: 'FObjectProperty', of: 'lsptest.of.Target', name: 'target' } ]
+  });
+  delete index.cache_['of_lsptest.of.Target'];
+  var users = index.getOfUsers('lsptest.of.Target');
+  test(users.indexOf('lsptest.of.Holder') !== -1,
+    'of-user found regardless of adapted of shape, got ' + JSON.stringify(users));
+})();
+
+// === reindexPath: a save refreshes the class→file map ===
+// buildFileIndex walks the POMs once at boot. A class file or pom.js saved
+// after that must land in fileIndex_ through reindexPath, or go-to-definition
+// and every name lookup stay blind to it until a restart.
+section('FoamIndex — reindexPath after a save');
+(function() {
+  var os     = require('os');
+  var tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'foam-lsp-reindex-'));
+  var pomPath = path.join(tmpDir, 'pom.js');
+  var fooPath = path.join(tmpDir, 'Foo.js');
+  var barPath = path.join(tmpDir, 'Bar.js');
+  try {
+    fs.writeFileSync(fooPath, "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n");
+    fs.writeFileSync(pomPath, "foam.POM({ name: 'reindex', files: [ { name: 'Foo', flags: 'js|java' } ] });\n");
+
+    index.buildFileIndex();
+    test(index.getFilePath('lsp.reindex.Foo') === null,
+      'reindexPath: a pom outside the boot walk is not indexed at boot');
+
+    // pom.js saved: every file it names is indexed with the pom's flags.
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFilePath('lsp.reindex.Foo') === fooPath,
+      'reindexPath(pom.js): class named by the saved pom resolves to its file');
+    var fooLoc = index.getPomLocationForClass('lsp.reindex.Foo');
+    test(fooLoc && fooLoc.pomFile === pomPath,
+      'reindexPath(pom.js): pom entry navigation works for the new class');
+    test(index.getFileFlags('lsp.reindex.Foo').indexOf('java') !== -1,
+      'reindexPath(pom.js): flags come from the pom entry');
+
+    // Class file saved before its pom entry exists: nearest pom.js up the
+    // tree is the owner, flags default to js.
+    fs.writeFileSync(barPath, "foam.CLASS({ package: 'lsp.reindex', name: 'Bar' });\n");
+    index.reindexPath(barPath, 'class');
+    test(index.getFilePath('lsp.reindex.Bar') === barPath,
+      'reindexPath(class file): class in a file with no pom entry resolves to its file');
+    test(index.getClassForPomEntry(pomPath, 'Bar') === 'lsp.reindex.Bar',
+      'reindexPath(class file): the nearest pom.js is recorded as its owner');
+
+    // Class file saved with a new class added: the addition is indexed.
+    fs.writeFileSync(fooPath,
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo2' });\n");
+    index.reindexPath(fooPath, 'class');
+    test(index.getFilePath('lsp.reindex.Foo2') === fooPath,
+      'reindexPath(class file): a class added to an indexed file resolves');
+
+    // A pom not named pom.js is a pom — four in this repo are not — so the
+    // kind the classifier resolved decides the branch, not the file name.
+    var oddPom = path.join(tmpDir, 'zacpom.js');
+    fs.writeFileSync(path.join(tmpDir, 'Zed.js'),
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Zed' });\n");
+    fs.writeFileSync(oddPom,
+      "foam.POM({ name: 'z', files: [ { name: 'Zed', flags: 'js' } ] });\n");
+    index.reindexPath(oddPom, 'pom');
+    test(index.getFilePath('lsp.reindex.Zed') === path.join(tmpDir, 'Zed.js'),
+      'reindexPath(pom): a pom not named pom.js indexes the files it names');
+
+    // A pom save re-reads only the entries whose flags or owning pom moved.
+    // src/pom.js names 1500 files; re-parsing them all costs about a second
+    // and finds nothing, because a class added to a file the pom already
+    // names arrives on that file's own save.
+    fs.writeFileSync(fooPath,
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo2' });\n" +
+      "foam.CLASS({ package: 'lsp.reindex', name: 'Foo3' });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFilePath('lsp.reindex.Foo3') === null,
+      'reindexPath(pom): an unchanged entry is skipped, not re-read');
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'reindex', files: [ { name: 'Foo', flags: 'js' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFilePath('lsp.reindex.Foo3') === fooPath,
+      'reindexPath(pom): an entry whose flags changed is re-read');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    index.buildFileIndex();
+  }
+})();
+
+// A sub-pom's own save must rebuild the flag set the boot walk gave it: the
+// project flags live on the PARENT's projects entry, which the saved file
+// does not carry.
+section('FoamIndex — a sub-pom save keeps its project flags');
+(function() {
+  var TEST_CLASS = 'foam.core.auth.test.GroupResetSessionTest';
+  var booted = index.getFileFlags(TEST_CLASS);
+  test(booted && booted.indexOf('test') !== -1,
+    'boot walk records the parent project flag: ' + JSON.stringify(booted));
+  var subPom = path.join(path.dirname(index.getFilePath(TEST_CLASS)), 'pom.js');
+  index.reindexPath(subPom, 'pom');
+  var after = index.getFileFlags(TEST_CLASS);
+  test(after && after.join('|') === booted.join('|'),
+    'a sub-pom save keeps the same flags: ' + JSON.stringify(after));
+})();
+
+// A loaded pom carries its entry flags as an array. Stringifying one joins on
+// a comma, which makes a single flag named 'js,java' that matches nothing and
+// never equals the two flags the same entry's text parses to.
+section('FoamIndex — pom entry flags are two flags, not one comma-joined one');
+(function() {
+  var commaJoined = [];
+  for ( var id in index.fileIndex_ ) {
+    var flags = index.fileIndex_[id].flags || [];
+    if ( flags.some(function(f) { return String(f).indexOf(',') !== -1; }) ) {
+      commaJoined.push(id);
+    }
+  }
+  test(commaJoined.length === 0,
+    'no indexed class carries a comma-joined flag (' + commaJoined.length +
+    ' do, e.g. ' + JSON.stringify(commaJoined.slice(0, 2)) + ')');
+  test(index.splitFlags_([ 'js', 'java' ]).join('|') === 'js|java',
+    'splitFlags_ reads the array form a loaded pom hands it');
+  var multi = index.getFileFlags('foam.core.auth.Group');
+  test(multi && multi.indexOf('java') !== -1,
+    'a js|java class reports the java flag: ' + JSON.stringify(multi));
+})();
+
+// findOwnerEntry_ must answer with what the LAST pass wrote. Answering with
+// the boot row instead lets a later class-file save restore the old flags.
+section('FoamIndex — a changed entry stays changed');
+(function() {
+  var os     = require('os');
+  var tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'foam-lsp-flags-'));
+  var pomPath = path.join(tmpDir, 'pom.js');
+  var relPath = path.join(tmpDir, 'Rel.js');
+  try {
+    fs.writeFileSync(relPath, "foam.CLASS({ package: 'lsp.flags', name: 'Rel' });\n");
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'f', files: [ { name: 'Rel', flags: 'js|java' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js|java',
+      'a pom save records both flags');
+
+    fs.writeFileSync(pomPath,
+      "foam.POM({ name: 'f', files: [ { name: 'Rel', flags: 'js' } ] });\n");
+    index.reindexPath(pomPath, 'pom');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js',
+      'a pom save that drops a flag is recorded');
+
+    index.reindexPath(relPath, 'class');
+    test(index.getFileFlags('lsp.flags.Rel').join('|') === 'js',
+      'the next save of the class file keeps the new flags, not the old ones');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    index.buildFileIndex();
+  }
+})();

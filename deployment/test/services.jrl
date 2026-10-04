@@ -127,3 +127,22 @@ p({
   """
 })
 p({"class":"foam.core.boot.CSpec", "name":"serializationTestEchoService", "boxClass": "foam.core.test.EchoServiceSkeleton",  "serve":true, "serviceClass":"foam.core.test.SerializationTestEchoService", "client":"{\"class\":\"foam.core.test.ClientEchoService\",\"delegate\":{\"class\":\"foam.box.SessionClientBox\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"method\":\"POST\",\"url\":\"service/serializationTestEchoService\"}}}"})
+
+
+// Replace with mdao so it can be searched for testing.
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "userNotificationDAO",
+  "serve": false,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setPm(false)
+      .setFuid(true)
+      .setOf(foam.core.notification.Notification.getOwnClassInfo())
+      .setDecorator(new foam.core.notification.UserNotificationDAO(x, new foam.dao.NullDAO(x, foam.core.notification.Notification.getOwnClassInfo())))
+      .setEnableInterfaceDecorators(false)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("usernotifications")
+      .build();
+  """
+})

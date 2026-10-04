@@ -1,3 +1,5 @@
+<flow name="MLang" category="DOC/GUIDE" spid="foam" description="Reference for MLang predicates (EQ/GT/AND/OR/IN/CONTAINS), aggregation sinks, and ordering, in both Java and JS style." keywords="mlang,predicates,eq,sinks,query,knowledge"/>
+
 ## FOAM MLang Examples
 
 MLang (Model Language) is FOAM's domain-specific language for queries, predicates, and expressions that works consistently across Java and JavaScript [1](#0-0) .

@@ -32,8 +32,10 @@ foam.CLASS({
         // because START is a flat scan. `skip` is the catch-all so unmatched
         // input never blocks parsing.
         START: repeat(alt(
-          sym('lineComment'),
-          sym('blockComment'),
+          msg(sym('stringLit'),    { kind: 'stringLit' }),
+          msg(sym('charLit'),      { kind: 'charLit' }),
+          msg(sym('lineComment'),  { kind: 'lineComment' }),
+          msg(sym('blockComment'), { kind: 'blockComment' }),
           sym('annotation'),
           msg(sym('packageDecl'), { kind: 'package' }),
           msg(sym('importDecl'),  { kind: 'import' }),
@@ -59,6 +61,15 @@ foam.CLASS({
         // ===== Comments =====
         lineComment:  seq('//', repeat(notChars('\n'))),
         blockComment: seq('/*', until('*/')),
+
+        // ===== String / char literals =====
+        // Matched at the top of START so a // or /* inside a literal never
+        // opens a comment, and literal interiors emit no body-level
+        // captures (idents, calls, decls). Newline excluded — an
+        // unterminated literal (mid-edit) fails here and falls through to
+        // skip instead of swallowing the rest of the file.
+        stringLit: seq('"', repeat(alt(seq('\\', anyChar()), notChars('"\\\n'))), '"'),
+        charLit:   seq("'", repeat(alt(seq('\\', anyChar()), notChars("'\\\n"))), "'"),
 
         // ===== Annotations: @Override or @SuppressWarnings("foo") =====
         annotation: seq('@', sym('identifier'), optional(seq('(', until(')')))),
@@ -234,7 +245,7 @@ foam.CLASS({
         // RHS of var-decl: scan forward until ; or newline, but limited
         // so we don't swallow whole method bodies.
         varDeclRhs: seq(
-          repeat(notChars(';\n\r'), null, 1),
+          repeat(notChars(';\n\r"/'), null, 1),
           optional(literal(';'))
         ),
 

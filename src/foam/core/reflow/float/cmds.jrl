@@ -1,6 +1,7 @@
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "testresults",
+  "icon": "/images/rules.svg",
   "description": "Test results summary",
   "script": """
     var results = foam.core.reflow.float.TestResults.create({}, this);
@@ -13,6 +14,7 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "test",
+  "icon": "test",
   "description": "Test an expectation",
   "help": "",
   "script": """

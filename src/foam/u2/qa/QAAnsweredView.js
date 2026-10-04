@@ -15,7 +15,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       overflow-y: auto;
     }
   `,

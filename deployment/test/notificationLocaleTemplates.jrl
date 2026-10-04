@@ -1,0 +1,8 @@
+// Use language pt rather than pt-BR to test finding non variant when supplied just code.
+c({
+  name:"NotificationLocaleTemplateTest-pt",
+  language:{class:"foam.core.auth.LanguageId",code:"pt", variant: ""},
+  body:"Body {{arg1}}\\nline2 {{arg2}}",
+  toastMessage:"ToastMessage {{toastMessage}}",
+  spid:"test"
+})

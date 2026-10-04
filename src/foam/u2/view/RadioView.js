@@ -24,41 +24,41 @@ foam.CLASS({
 
   css: `
     /*hide default input*/
-    ^ input[type='radio'] {
+    << input[type='radio'] {
       padding: 0px !important;
       -webkit-appearance: none;
       appearance: none;
       border: none;
       vertical-align: middle;
     }
-    ^ input[type='radio']+ label {
+    << input[type='radio']+ label {
       position: relative;
       display: flex;
       cursor: pointer;
       align-items: center;
     }
-    ^ input[type='radio']:disabled+ label {
+    << input[type='radio']:disabled+ label {
       cursor: not-allowed;
     }
-    ^ .choice {
+    << .choice {
       white-space: nowrap;
     }
-    ^horizontal-radio {
+    <<horizontal-radio {
       align-content: center;
       align-items: center;
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
     }
-    ^ span {
+    << span {
       vertical-align: middle;
     }
-    ^radio-outer {
+    <<radio-outer {
       margin-right: 0.4em;
       border-radius: 50%;
     }
     /* Focus */
-    ^ input[type='radio']:focus + label > ^radio-outer > .radio {
+    << input[type='radio']:focus + label > <<radio-outer > .radio {
       filter: drop-shadow( 0px 0px 1px rgba(0, 0, 0, .5));
     }
   `,

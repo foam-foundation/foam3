@@ -15,6 +15,7 @@ var index = h.index, grammar = h.grammar;
 var cache = h.cache, typeTracker = h.typeTracker, analyzer = h.analyzer;
 var completionHandler = h.completionHandler, memberHandler = h.memberHandler;
 var hoverHandler = h.hoverHandler, diagHandler = h.diagHandler;
+var i18nHandler = h.i18nHandler;
 var defHandler = h.defHandler, semanticHandler = h.semanticHandler;
 var cssTokenResolver = h.cssTokenResolver;
 var path = h.path, fs = h.fs, Q = h.Q;
@@ -26,7 +27,7 @@ var SFV = h.SFV;
 // code-action / similar-class) — tested directly, not re-implemented inline.
 var foldingRangeHandler_  = foam.parse.lsp.handlers.FoldingRangeHandler.create();
 var signatureHelpHandler_ = foam.parse.lsp.handlers.SignatureHelpHandler.create({ index: index, cache: cache });
-var codeActionHandler_    = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, diagnosticsHandler: diagHandler });
+var codeActionHandler_    = foam.parse.lsp.handlers.CodeActionHandler.create({ index: index, cssTokenResolver: cssTokenResolver, i18nHandler: i18nHandler });
 
 // === LSP #4993 Fix 1: go-to-definition follows FObjectProperty of: ===
 section('DefinitionHandler — property-chain navigation (issue #4993)');
@@ -709,6 +710,54 @@ if ( anyFilePath ) {
     'analyzeFiles returns fileResults map');
 }
 
+// analyzeFiles: a file that throws (missing path) is filesFailed, not filesScanned
+(function() {
+  var os = require('os');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wsa-failed-'));
+  var good = path.join(dir, 'Good.js');
+  fs.writeFileSync(good, "foam.CLASS({ package: 'x', name: 'Good', properties: [ 'a' ] });");
+  var missing = path.join(dir, 'Gone.js');   // never written -> readFileSync throws
+
+  var origErr = console.error;
+  console.error = function() {};
+  var res;
+  try {
+    res = analyzer.analyzeFiles([ good, missing ]);
+  } finally {
+    console.error = origErr;
+  }
+  test(res.filesScanned === 1, 'only the readable file counts as scanned, got ' + res.filesScanned);
+  test(res.filesFailed === 1, 'the throwing file counts as failed, got ' + res.filesFailed);
+})();
+
+// analyze(): the progress-loop path (scanFileInto_ / newAcc_ / finalizeAcc_)
+// gets the same success-only treatment as analyzeFiles above. analyze() takes
+// no explicit file list — it derives one from collectFilePaths_(), which reads
+// the (fully-built) shared index. Stub collectFilePaths_ on a throwaway
+// analyzer instance so this run sees exactly our two fixture files without
+// touching the shared index used by every other test in this file.
+(function() {
+  var os = require('os');
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wsa-failed-progress-'));
+  var good = path.join(dir, 'Good.js');
+  fs.writeFileSync(good, "foam.CLASS({ package: 'x', name: 'Good', properties: [ 'a' ] });");
+  var missing = path.join(dir, 'Gone.js');   // never written -> readFileSync throws
+
+  var progressAnalyzer = foam.parse.lsp.handlers.WorkspaceAnalyzer.create({ index: index });
+  progressAnalyzer.collectFilePaths_ = function() { return [ good, missing ]; };
+
+  var origErr = console.error;
+  console.error = function() {};
+  var res;
+  try {
+    res = progressAnalyzer.analyze();
+  } finally {
+    console.error = origErr;
+  }
+  test(res.filesScanned === 1, 'analyze(): only the readable file counts as scanned, got ' + res.filesScanned);
+  test(res.filesFailed === 1, 'analyze(): the throwing file counts as failed, got ' + res.filesFailed);
+})();
+
 // === LSP #4999 Fix 1: property-type completion inserts full path (except foam.lang.*) ===
 
 
@@ -727,3 +776,131 @@ if ( index.classExists('foam.u2.view.ReferenceArrayView') && index.classExists('
   test(vsLocs.some(function(l) { return l.uri.indexOf('Group.js') !== -1; }),
     'references: view-spec-only user (Group.js) included via view-spec index');
 }
+
+// === A property declared in a refinement, from the cursor-driven path ===
+// resolveMemberOnClass_ resolves the definer to User, because the refinement
+// installs the axiom there — but User.js does not declare the property, so the
+// grammar lookup found nothing and it fell to User.js line 0.
+var refMemberLoc = defHandler.resolveMemberOnClass_('foam.core.auth.User', 'twoFactorEnabled');
+test(refMemberLoc && refMemberLoc.uri.indexOf('UserRefinements.js') !== -1
+  && refMemberLoc.range.start.line === 14,
+  'resolveMemberOnClass_: User.twoFactorEnabled lands in UserRefinements.js:14'
+  + ' (got ' + ( refMemberLoc ? refMemberLoc.uri.split('/').pop() + ':' + refMemberLoc.range.start.line : 'null' ) + ')');
+
+// Non-regression: a property the class declares itself is untouched.
+var ownLoc = defHandler.resolveMemberOnClass_('foam.lang.Property', 'name');
+test(ownLoc && ownLoc.uri.indexOf('Property.js') !== -1,
+  'resolveMemberOnClass_: a property in the class\'s own file still resolves there'
+  + ' (got ' + ( ownLoc ? ownLoc.uri.split('/').pop() : 'null' ) + ')');
+
+// === A service name in a .js model navigates to services.jrl ===
+// JrlHandler has had this rule, but it only fires with the cursor inside a
+// .jrl file. In a model, daoKey: 'localUserDAO' resolved to nothing.
+var svcDefHandler = foam.parse.lsp.handlers.DefinitionHandler.create({
+  index: index,
+  journalEntryIndex: foam.parse.lsp.JournalEntryIndex.create({ index: index })
+});
+var daoKeyText = [
+  "foam.CLASS({",
+  "  package: 'probe',",
+  "  name: 'DaoKeyProbe',",
+  "  properties: [",
+  "    { class: 'String', name: 'x', daoKey: 'localUserDAO' }",
+  "  ]",
+  "});"
+].join('\n');
+var daoKeyLoc = svcDefHandler.handle(daoKeyText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');
+test(daoKeyLoc && ! Array.isArray(daoKeyLoc) && daoKeyLoc.uri.endsWith('services.jrl'),
+  'service jump: daoKey value in a .js model resolves to a services.jrl'
+  + ' (got ' + ( daoKeyLoc ? ( Array.isArray(daoKeyLoc) ? daoKeyLoc.length + ' locs' : daoKeyLoc.uri.split('/').pop() ) : 'null' ) + ')');
+test(daoKeyLoc && ! Array.isArray(daoKeyLoc) && daoKeyLoc.range.start.line > 0,
+  'service jump: and at the registering row, not the top of the file'
+  + ' (got line ' + ( daoKeyLoc && ! Array.isArray(daoKeyLoc) ? daoKeyLoc.range.start.line : '?' ) + ')');
+
+// The ORIGIN uri has to reach the index, or ranking is dead wiring: the
+// handler holds it, JournalEntryIndex does the ordering, and nothing in
+// between fails loudly when the argument is dropped. rankProbeDAO is
+// registered under two sibling fixture directories, so the answer is a
+// two-element array whose FIRST element must follow the file we jumped from.
+// Both directions are asserted — one direction alone is satisfied by walk
+// order for free.
+var rankText = daoKeyText.replace('localUserDAO', 'rankProbeDAO');
+var rankFixt = path.join(__dirname, 'fixtures', 'jrlservices');
+function rankFirstFrom_(dir) {
+  var locs = svcDefHandler.handle(rankText, { line: 4, character: 48 },
+    'file://' + path.join(rankFixt, dir, 'Caller.js'));
+  return Array.isArray(locs) && locs.length === 2 ? locs[0].uri : String(locs);
+}
+test(rankFirstFrom_('alpha').indexOf(path.join('jrlservices', 'alpha')) !== -1,
+  'service jump: origin uri reaches the ranking — from alpha/, alpha row first'
+  + ' (got ' + rankFirstFrom_('alpha') + ')');
+test(rankFirstFrom_('beta').indexOf(path.join('jrlservices', 'beta')) !== -1,
+  'service jump: origin uri reaches the ranking — from beta/, beta row first'
+  + ' (got ' + rankFirstFrom_('beta') + ')');
+
+// A string that is NOT a registered service must not be hijacked.
+var plainText = daoKeyText.replace('localUserDAO', 'notARegisteredServiceName');
+var plainLoc = svcDefHandler.handle(plainText, { line: 4, character: 48 }, 'file:///probe/DaoKeyProbe.js');
+test(plainLoc === null,
+  'service jump: an ordinary string is left alone (got ' + JSON.stringify(plainLoc) + ')');
+
+// The rule is "a SERVICE KEY's value", not "any quoted word". `file` and
+// `blobStore` are registered CSpecs in src/services.jrl and also ordinary
+// string values all over the tree, so the negative case has to be a
+// REGISTERED name in a non-service position — an unregistered name passes
+// with or without the gate and proves nothing.
+var svcNegatives = [
+  { what: 'an attribute value',
+    src: "foam.CLASS({ package: 'p', name: 'N', methods: [ function render() {\n" +
+         "  this.start('input').attrs({ type: 'file' }).end();\n} ] });",
+    line: 1, find: "'file'" },
+  { what: 'an array element',
+    src: "foam.CLASS({ package: 'p', name: 'N',\n" +
+         "  properties: [ { class: 'StringArray', name: 'xs', value: [ 'file' ] } ] });",
+    line: 1, find: "'file'" },
+  { what: 'a non-service key',
+    src: "foam.CLASS({ package: 'p', name: 'N',\n" +
+         "  properties: [ { class: 'String', name: 'x', label: 'blobStore' } ] });",
+    line: 1, find: "'blobStore'" }
+];
+svcNegatives.forEach(function(c) {
+  var col = c.src.split('\n')[c.line].indexOf(c.find) + 2;
+  var got = svcDefHandler.handle(c.src, { line: c.line, character: col }, 'file:///probe/N.js');
+  test(got === null,
+    'service jump: ' + c.what + ' spelling a registered service is left alone'
+    + ' (got ' + JSON.stringify(got && got.uri ? got.uri.split('/').pop() + ':' + got.range.start.line : got) + ')');
+});
+
+// Not a fixture: the file the review named. BlobView really does write
+// attrs({ type: 'file' }), and `file` really is a CSpec in src/services.jrl.
+var blobPath = path.resolve(__dirname, '../../../src/foam/u2/view/BlobView.js');
+if ( fs.existsSync(blobPath) ) {
+  var blobText  = fs.readFileSync(blobPath, 'utf8');
+  var blobLines = blobText.split('\n');
+  var blobLine  = -1;
+  for ( var bi = 0 ; bi < blobLines.length ; bi++ ) {
+    if ( blobLines[bi].indexOf("type: 'file'") !== -1 ) { blobLine = bi; break; }
+  }
+  test(blobLine !== -1, 'service jump: BlobView.js still writes attrs({ type: ' + Q + 'file' + Q + ' })');
+  if ( blobLine !== -1 ) {
+    var blobCol = blobLines[blobLine].indexOf("type: 'file'") + "type: '".length + 1;
+    var blobGot = svcDefHandler.handle(blobText, { line: blobLine, character: blobCol },
+      'file://' + blobPath);
+    test(blobGot === null,
+      'service jump: cmd-click on BlobView.js attrs({ type: ' + Q + 'file' + Q + ' }) does not enter services.jrl'
+      + ' (got ' + JSON.stringify(blobGot && blobGot.uri ? blobGot.uri.split('/').pop() + ':' + blobGot.range.start.line : blobGot) + ')');
+  }
+}
+
+// getEnclosingKey itself, since the gate is only as good as it is.
+// h.analyzer, not `analyzer` — line 703 rebinds that name to a
+// WorkspaceAnalyzer for the rest of the file.
+var cursorAnalyzer = h.analyzer;
+test(cursorAnalyzer.getEnclosingKey("  daoKey: 'localUserDAO'", { line: 0, character: 14 }) === 'daoKey',
+  'getEnclosingKey: reads the key of the string the cursor is in');
+test(cursorAnalyzer.getEnclosingKey('  "daoKey": "localUserDAO"', { line: 0, character: 16 }) === 'daoKey',
+  'getEnclosingKey: a quoted key reads the same');
+test(cursorAnalyzer.getEnclosingKey("  value: [ 'localUserDAO' ]", { line: 0, character: 14 }) === null,
+  'getEnclosingKey: an array element has no key of its own');
+test(cursorAnalyzer.getEnclosingKey("  daoKey: 'localUserDAO'", { line: 0, character: 3 }) === null,
+  'getEnclosingKey: the cursor on the key itself is not inside the value');

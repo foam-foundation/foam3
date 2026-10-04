@@ -2,6 +2,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"localLogMessageDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serviceScript":"""
     mdao = new foam.dao.MDAO(foam.core.logger.LogMessage.getOwnClassInfo());
     return new foam.dao.EasyDAO.Builder(x)
@@ -53,6 +54,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"logLevelFilterLogger",
   "lazy":false,
+  "lazyOrder":-1,
   "service":{"class":"foam.core.logger.LogLevelFilterLogger"}
 })
 
@@ -60,6 +62,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"logger",
   "lazy":false,
+  "lazyOrder":-1,
   "serviceScript":"""
     import foam.core.app.AppConfig;
     import foam.core.app.Mode;

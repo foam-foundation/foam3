@@ -88,8 +88,9 @@ foam.CLASS({
       class: 'String',
       name: 'category'
     },
-    { name: 'label',
+    {
       class: 'String',
+      name: 'label',
       documentation: 'Label to display in the UI. If not set, text will be used.',
       expression: function(text) { return text; }
     },
@@ -249,7 +250,7 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.parse',
   name: 'ParserDecorator',
-  implements: ['foam.parse.JSParser'],
+  extends: 'foam.parse.AbstractParser',
   abstract: true,
 
   properties: [
@@ -1213,8 +1214,7 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'debug',
-//      value: true
+      name: 'debug'
     }
   ],
 

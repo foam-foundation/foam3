@@ -12,13 +12,13 @@ foam.CLASS({
   documentation: 'ActionView for a toggle-able action, state toggles on click',
 
   css: `
-    ^active, ^active svg {
+    <<active, <<active svg {
       background-color: $backgroundSecondary;
       color: $textBrand;
       fill: currentColor;
       border-color: $borderBrand;
     }
-    ^active^tertiary, ^active^tertiary svg, ^active^text, ^active^text svg {
+    <<active<<tertiary, <<active<<tertiary svg, <<active<<text, <<active<<text svg {
       background-color: transparent;
       border-color: transparent;
     }

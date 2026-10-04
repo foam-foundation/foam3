@@ -30,6 +30,9 @@ const { spawn }   = require('child_process');
 const fs          = require('fs');
 const path        = require('path');
 const readline    = require('readline');
+// Canonical lint-check names — shared with LintHandler.ALL_CHECKS so the
+// foam_lint schema can't drift from the checks the server actually runs.
+const LINT_CHECKS = require('../../lintChecks');
 
 // --- stderr logger (stdout is reserved for MCP protocol) -----------------
 
@@ -65,6 +68,50 @@ function relPath(uri, projectRoot) {
     return rel.replace(/^\/+/, '');
   }
   return p;
+}
+
+// --- Disk-apply helper (foam_i18n_translate / foam_i18n_apply) -----------
+
+// Writes a WorkspaceEdit (`{ changes: { uri: [ { range, newText } ] } }`)
+// straight to disk — these two tools apply their own edits rather than
+// asking an editor client (there may not be one; this runs headless from an
+// MCP host). Edits within one file are applied in DESCENDING start-offset
+// order so an earlier edit's offsets are never invalidated by inserting text
+// at a later one first. Safe to merge multiple messages: entries' edits into
+// one file's list precisely because each is a single non-overlapping
+// insertion (see I18nHandler.translateMessages / applyTranslations) — sorting
+// descending here is a second layer of safety on top of that, not a
+// substitute for it.
+function applyWorkspaceEdit(edit) {
+  const changed = [];
+  const changes = ( edit && edit.changes ) || {};
+  for ( const uri of Object.keys(changes) ) {
+    const p = uriToPath(uri);
+    let text = fs.readFileSync(p, 'utf8');
+    const offs = changes[uri].map(function(e) {
+      return { start: posToOffset(text, e.range.start), end: posToOffset(text, e.range.end), newText: e.newText };
+    }).sort(function(a, b) { return b.start - a.start; });
+    for ( const e of offs ) text = text.slice(0, e.start) + e.newText + text.slice(e.end);
+    fs.writeFileSync(p, text);
+    changed.push(p);
+  }
+  return changed;
+}
+// A position past the end of the document clamps to the end of the document
+// rather than throwing: `lines[i].length` on an out-of-range line is a
+// TypeError on undefined, which would take down a whole foam_i18n_apply over
+// one stale range (an edit built against text that has since shrunk). Per
+// the LSP spec, a character past the end of a (non-final) line clamps to
+// that LINE's end, not the document's — otherwise an oversized character on
+// an early line would swallow every line after it.
+function posToOffset(text, pos) {
+  const lines = text.split('\n');
+  const line  = Math.max(pos.line, 0);
+  if ( line >= lines.length ) return text.length;   // past the last line → end of document
+  let off = 0;
+  for ( let i = 0 ; i < line ; i++ ) off += lines[i].length + 1;
+  const lineEnd = off + lines[line].length;
+  return Math.min(off + Math.max(pos.character, 0), lineEnd);
 }
 
 // --- LSP SymbolKind names (compact output) -------------------------------
@@ -107,7 +154,10 @@ function shapeDocumentSymbols(res, projectRoot) {
   var lines = [];
   function walk(sym, depth) {
     var indent = '  '.repeat(depth);
-    var line = ( sym.range && sym.range.start ) ? sym.range.start.line : 0;
+    // range covers the whole definition (a property's `{` line); the name's
+    // own line is selectionRange, which is what a caller wants to jump to.
+    var at   = sym.selectionRange || sym.range;
+    var line = ( at && at.start ) ? at.start.line : 0;
     lines.push(indent + sym.name + ' [' + kindName(sym.kind) + '] @' + line);
     if ( Array.isArray(sym.children) ) {
       for ( var i = 0 ; i < sym.children.length ; i++ ) walk(sym.children[i], depth + 1);
@@ -174,6 +224,22 @@ function shapeCodeActions(res) {
     var title = a.title || ( a.command && a.command.title ) || ( 'action ' + i );
     return '- ' + title;
   }).join('\n');
+}
+
+function shapeLintFindings(result, projectRoot) {
+  const findings = ( result && result.findings ) || [];
+  if ( ! findings.length ) return 'No lint findings.';
+  const lines = [];
+  for ( const f of findings ) {
+    lines.push(f.severity.toUpperCase().padEnd(6) + f.check.padEnd(16) +
+      relPath('file://' + f.path, projectRoot) + ':' + f.line);
+    lines.push('       ' + f.message);
+    if ( f.fix ) lines.push('       fix: ' + f.fix);
+  }
+  lines.push('---');
+  lines.push(findings.filter(f => f.severity === 'error').length + ' error(s), ' +
+             findings.filter(f => f.severity === 'warn').length + ' warn(s)');
+  return lines.join('\n');
 }
 
 // --- MCP tool schemas -----------------------------------------------------
@@ -267,6 +333,44 @@ function toolSchemas() {
         properties: {
           uri:  target.uri,
           line: { type: 'integer', description: 'Optional 0-based line — only return actions for diagnostics touching this line' }
+        }
+      }
+    },
+    {
+      name:        'foam_i18n_translate',
+      description: 'Translate FOAM messages: entries missing configured languages. With a local model running (Ollama/LM Studio), translates and applies the edit directly. Without one, returns a needs-translations payload — translate the strings yourself (preserve ${...}, {0}, HTML tags exactly) and call foam_i18n_apply.',
+      inputSchema: {
+        type:     'object',
+        required: ['file'],
+        properties: {
+          file:        { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          messageName: { type: 'string', description: 'Optional — translate only this messages: entry name. Omit to translate every entry in the file missing a configured language.' },
+          languages:   { type: 'array', items: { type: 'string' }, description: 'Optional — target language codes (e.g. ["fr","de"]). Omit to use the workspace-configured target languages.' }
+        }
+      }
+    },
+    {
+      name:        'foam_i18n_apply',
+      description: "Apply translations produced after a needs-translations response from foam_i18n_translate. Input: { file, translations: { MESSAGE_NAME: { fr: '...' } } }. Validates placeholder survival; rejects the whole call listing offending strings if any placeholder was lost.",
+      inputSchema: {
+        type:     'object',
+        required: ['file', 'translations'],
+        properties: {
+          file:         { type: 'string', description: 'Absolute path or project-relative path to the FOAM model file' },
+          translations: { type: 'object', description: 'Map of message name -> { languageCode: translatedText }, e.g. { UPLOAD_COMPLETE_MSG: { fr: "Envoi terminé" } }' }
+        }
+      }
+    },
+    {
+      name:        'foam_lint',
+      description: 'Registration-completeness lint: classes missing from pom.js, Rules whose ruleGroup is undefined (rule never runs), StrategyReference entries pointing at missing classes / implementors invisible in the Rule-creation UI. Run after adding classes, rules, or jrl entries.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          scope:           { type: 'string', enum: [ 'all', 'paths' ], description: "Default 'all'. 'paths' filters findings to the given files (pass changed files for a diff-scoped run)." },
+          paths:           { type: 'array', items: { type: 'string' }, description: 'Project-relative or absolute paths (used with scope=paths)' },
+          checks:          { type: 'array', items: { type: 'string', enum: LINT_CHECKS }, description: 'Subset of: ' + LINT_CHECKS.join(', ') + '. Default: all.' },
+          strategyTargets: { type: 'array', items: { type: 'string' }, description: "Extra strategy interfaces for the strategy-ref check. Default: ['foam.core.ruler.RuleAction']." }
         }
       }
     }
@@ -627,9 +731,10 @@ async function callTool(lsp, projectRoot, name, args) {
     case 'foam_implementation':
       return shapeLocations(await navRaw(lsp, projectRoot, args, 'implementation', 'textDocument/implementation'), projectRoot);
     case 'foam_type_definition':
-      // Symbol mode resolves the symbol's own definition; position mode jumps
-      // to the property type at the cursor.
-      return shapeLocations(await navRaw(lsp, projectRoot, args, 'definition', 'textDocument/typeDefinition'), projectRoot);
+      // Symbol mode resolves the symbol's PROPERTY TYPE (op: 'typeDefinition'
+      // routes foam/byName to the same class-jump Case B does below); position
+      // mode jumps to the property type at the cursor via the LSP method.
+      return shapeLocations(await navRaw(lsp, projectRoot, args, 'typeDefinition', 'textDocument/typeDefinition'), projectRoot);
     case 'foam_type_hierarchy': {
       const hr = await hierarchyRaw(lsp, projectRoot, args, 'type');
       if ( ! hr ) return 'No type hierarchy at this target.';
@@ -695,6 +800,85 @@ async function callTool(lsp, projectRoot, name, args) {
       });
       return shapeCodeActions(res);
     }
+    case 'foam_i18n_translate': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const status = await lsp.request('foam/i18nStatus', {});
+      if ( ! status || ! status.available ) {
+        // No local model reachable — hand the agent the source strings and
+        // let IT translate (any coding agent already speaks translation),
+        // then come back through foam_i18n_apply. dryRun:true skips the
+        // provider round trip entirely on the LSP side.
+        const dry = await lsp.request('foam/i18nTranslate', {
+          uri: uri, messageName: args.messageName, languages: args.languages, dryRun: true
+        });
+        const strings = ( dry && dry.strings ) || {};
+        // Nothing needs translating (every target language is already
+        // present — messageName pinned to an already-complete entry, or a
+        // scan that found nothing missing): an empty needs-translations
+        // payload with the full instructions text reads as "go translate
+        // nothing", which is not actionable. Say so plainly instead.
+        if ( Object.keys(strings).length === 0 ) {
+          return JSON.stringify({ status: 'nothing-to-translate' });
+        }
+        return JSON.stringify({
+          status:          'needs-translations',
+          strings:         strings,
+          targetLanguages: ( dry && dry.targetLanguages ) ||
+            ( status && status.targetLanguages ) || [],
+          instructions: 'Translate each string into each target language, preserving ${...} ' +
+            'placeholders, {0} tokens, and HTML tags EXACTLY. Then call foam_i18n_apply with ' +
+            '{ file, translations: { NAME: { fr: "..." } } }.'
+        });
+      }
+      const res = await lsp.request('foam/i18nTranslate', {
+        uri: uri, messageName: args.messageName, languages: args.languages
+      });
+      // Count EDITS actually produced, not Object.keys(res.translated) — a
+      // message whose requested languages were all already present gets no
+      // edit (buildMessageMapEdit returns null for it), and "N messages
+      // translated" should mean N messages whose file content changed.
+      // Zero edits also skips the disk write entirely — same contract as
+      // foam_i18n_apply below — instead of rewriting identical bytes and
+      // bumping the file's mtime.
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      const langs = ( args.languages && args.languages.length ) ? args.languages : ( status.targetLanguages || [] );
+      const warn  = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to write — requested languages already ' +
+          'present or dropped by validation. Warnings: ' + warn;
+      }
+      applyWorkspaceEdit(res.edit);
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' messages translated to ' +
+        langs.join(', ') + ' via ' + status.model + '. Warnings: ' + warn;
+    }
+    case 'foam_i18n_apply': {
+      const uri = normalizeUri(args.file, projectRoot);
+      await lsp.ensureOpen(uri);
+      const res = await lsp.request('foam/i18nApply', { uri: uri, translations: args.translations || {} });
+      // applyTranslations legally produces zero edits — every requested
+      // language was already present for every message name in the payload
+      // (buildMessageMapEdit's no-op contract). Reporting "applied" then
+      // would be a false success claim (and there is nothing to write to
+      // disk, so skip applyWorkspaceEdit entirely rather than write nothing
+      // and call it done).
+      const edits = ( res && res.edit && res.edit.changes && res.edit.changes[uri] ) || [];
+      if ( edits.length === 0 ) {
+        return relPath(uri, projectRoot) + ': nothing to apply — all languages already present.';
+      }
+      applyWorkspaceEdit(res.edit);
+      const warn = ( res.warnings && res.warnings.length ) ? res.warnings.join('; ') : 'none';
+      return relPath(uri, projectRoot) + ': ' + edits.length + ' entries updated. Warnings: ' + warn;
+    }
+    case 'foam_lint': {
+      const r = await lsp.request('foam/lint', {
+        scope:           args.scope,
+        paths:           args.paths,
+        checks:          args.checks,
+        strategyTargets: args.strategyTargets
+      });
+      return shapeLintFindings(r, projectRoot);
+    }
     default:
       throw new Error('Unknown tool: ' + name);
   }
@@ -748,10 +932,10 @@ function main() {
           instructions:
             'foam_* tools answer FOAM structure questions from the live registry: ' +
             'hierarchy (subclasses/implementors), definitions (even when filename != ' +
-            'class name), substring symbol search, hover docs/types. Blind spots — ' +
-            'grep instead for: .jrl string references, javaImports/javaCode usages, ' +
-            'property-usage sweeps, refined property types, exact member call-site ' +
-            'lines. Name-addressable: symbol: "DetailView", a class id, or ' +
+            'class name), substring symbol search, hover docs/types, javaCode usages, ' +
+            'member call-site lines, journal (.jrl) class references. Blind spots — ' +
+            'grep instead for: property-usage sweeps, refined property types. ' +
+            'Name-addressable: symbol: "DetailView", a class id, or ' +
             '"Class.member". First call boots the LSP (~10-15s). Index reflects the ' +
             'checkout, not uncommitted edits — read changed files directly.'
         });
@@ -804,8 +988,9 @@ function main() {
 module.exports = {
   normalizeUri, uriToPath, relPath, kindName, severityName,
   shapeLocations, shapeHover, shapeDocumentSymbols, shapeWorkspaceSymbols,
-  shapeDiagnostics, shapeItems, shapeCodeActions,
-  toolSchemas, resolvePos, callTool, FoamLSPClient
+  shapeDiagnostics, shapeItems, shapeCodeActions, shapeLintFindings,
+  toolSchemas, resolvePos, callTool, FoamLSPClient,
+  applyWorkspaceEdit, posToOffset
 };
 
 if ( require.main === module ) main();

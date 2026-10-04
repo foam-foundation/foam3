@@ -107,7 +107,7 @@ foam.CLASS({
           // Plain string values take the same dedup path as the FOAM parser so
           // the two parsers compare like with like on memory.
           if ( val instanceof String && pi.getValueClass() != ClassInfo.class ) {
-            pi.set(obj, foam.lib.json.StringParser.dedup((String) val));
+            pi.set(obj, foam.lib.json.StringParser.dedup((String) val, getInterner()));
             continue;
           }
 
@@ -147,7 +147,7 @@ foam.CLASS({
                 for ( Object o : list ) if ( ! (o instanceof String) ) { allStrings = false; break; }
                 if ( allStrings ) {
                   String[] arr = new String[list.size()];
-                  for ( int i = 0 ; i < arr.length ; i++ ) arr[i] = foam.lib.json.StringParser.dedup((String) list.get(i));
+                  for ( int i = 0 ; i < arr.length ; i++ ) arr[i] = foam.lib.json.StringParser.dedup((String) list.get(i), getInterner());
                   pi.set(obj, arr);
                 } else {
                   pi.set(obj, list.toArray());
@@ -196,6 +196,12 @@ foam.CLASS({
       class: 'Object',
       name: 'targetClassInfo',
       javaType: 'foam.lang.ClassInfo'
+    },
+    {
+      class: 'Object',
+      name: 'interner',
+      javaType: 'foam.util.StringInterner',
+      documentation: 'The replay\'s interner, so plain strings take the same dedup path as the FOAM parser. Unset, mode 2 keeps each value as parsed.'
     },
     {
       class: 'Object',

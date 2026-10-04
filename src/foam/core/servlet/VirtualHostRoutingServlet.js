@@ -19,6 +19,7 @@ foam.CLASS({
     'foam.core.jetty.HttpServer',
     'foam.core.logger.Logger',
     'foam.core.theme.Theme',
+    'foam.core.theme.Themes',
     'foam.core.theme.ThemeDomain',
     'foam.util.SafetyUtil',
     'java.io.IOException',
@@ -196,7 +197,14 @@ foam.CLASS({
           <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">""");
       }
 
-      // Loading screen styles
+      // Loading screen styles. The splash follows the OS only: its
+      // prefers-color-scheme rule below is static CSS, and nothing in this
+      // page reads localStorage before the app boots, so the scheme a user
+      // picked in-app (foam.lang.Window COLOR_SCHEME_KEY, set by
+      // foam.u2.theme.ColorSchemeToggle) cannot reach it. A light pick on a
+      // dark OS shows a dark splash until the app takes over. Fixing it means
+      // an inline script (with the CSP nonce) that reads the key before first
+      // paint and a selector the rule below can key off.
       String nonce = getCspNonce();
       if ( ! SafetyUtil.isEmpty(nonce) ) {
         out.println("<meta name=\\"csp-nonce\\" content=\\"" + nonce + "\\">");
@@ -255,20 +263,7 @@ foam.CLASS({
         DAO        themeDAO       = (DAO)        x.get("themeDAO");
         Logger     logger         = (Logger)     x.get("logger");
 
-        ThemeDomain themeDomain = (ThemeDomain) themeDomainDAO.find(vhost);
-        if ( themeDomain == null ) {
-          themeDomain = (ThemeDomain) themeDomainDAO.find(getDefaultHost());
-          if ( themeDomain == null ) {
-            themeDomain = (ThemeDomain) themeDomainDAO.find("localhost");
-            logger.debug("No theme domain found for default host " + getDefaultHost()+". Falling back to 'localhost'");
-          }
-        }
-
-        Theme theme = (Theme) themeDAO.find(themeDomain.getTheme());
-        if ( theme == null ) {
-          logger.error("No theme found for domain " + themeDomain);
-          theme = new Theme(x);
-        }
+        Theme theme = ((Themes) x.get("themes")).findTheme(x.put(HttpServletRequest.class, (HttpServletRequest) request));
 
         Boolean useVariants = theme.getUseVariants();
 

@@ -12,19 +12,19 @@ foam.CLASS({
   documentation: 'Shows number format label with description below it (dropdown state)',
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
 
-    ^label {
+    <<label {
       font-weight: $font-regular;
       color: $textDefault;
       font-size: 14px;
     }
 
-    ^documentation {
+    <<documentation {
       font-size: 12px;
       color: $textSecondary;
       line-height: 1.4;
@@ -62,7 +62,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 8px 12px;
       color: $textDefault;
       font-size: 14px;

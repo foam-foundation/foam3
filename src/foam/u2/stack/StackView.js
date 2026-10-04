@@ -48,7 +48,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^pos > * {
+    <<pos > * {
       height: 100%;
     }
   `,

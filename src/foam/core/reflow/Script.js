@@ -49,7 +49,24 @@ foam.CLASS({
 
   methods: [
     function onLoad() {
-      if ( this.autoRun ) return this.run();
+      if ( this.autoRun ) return this.run_();
+    },
+
+    // The run action delegates here so that subclasses can capture the result
+    // by overriding run_() and calling this.SUPER(), which actions don't support.
+    function run_() {
+      let self = this;
+      with ( this.scope ) {
+        with ( { x: self.__context__, log: this.log.bind(this), clear: this.clearOutput.bind(this) } ) {
+          var ret = eval('(async function() {' + self.code + '})').call(self.block);
+          ret.then(v => this.logResult(v), v => this.logResult(v)).catch(e => this.log(e.stack));
+          return ret;
+        }
+      }
+    },
+
+    function logResult(v) {
+      this.log(v);
     },
 
     function log() {
@@ -59,14 +76,7 @@ foam.CLASS({
 
   actions: [
     function run() {
-      let self = this;
-      with ( this.scope ) {
-        with ( { x: self.__context__, log: this.log.bind(this), clear: this.clearOutput.bind(this) } ) {
-          var ret = eval('(async function() {' + self.code + '})').call(self.block);
-          ret.then(v => this.log(v), v => this.log(v)).catch(e => this.log(e.stack));
-          return ret;
-        }
-      }
+      return this.run_();
     },
 
     function clearOutput() {

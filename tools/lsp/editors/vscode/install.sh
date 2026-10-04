@@ -16,7 +16,27 @@ npm install --no-audit --no-fund
 echo "==> Compiling TypeScript..."
 npm run compile
 
-echo "==> Packaging .vsix..."
+# Derive the extension version at package time: patch = number of commits
+# that touched this directory. Every merged extension change produces a
+# higher version, so editors detect the rebuilt VSIX as an update — a fixed
+# version means VS Code silently keeps the previously installed files
+# (grammar included) forever. The repo's package.json stays untouched.
+# Caveat: uncommitted local edits don't bump the count; the --force install
+# below replaces the files regardless.
+ORIG_VERSION=$(node -p "require('./package.json').version")
+BASE_VERSION=$(echo "$ORIG_VERSION" | cut -d. -f1-2)
+PATCH=$(git rev-list --count HEAD -- . 2>/dev/null || echo 0)
+VERSION="${BASE_VERSION}.${PATCH}"
+
+echo "==> Packaging .vsix (version $VERSION)..."
+cp package.json package.json.orig
+trap 'mv package.json.orig package.json' EXIT
+node -e "
+  const fs = require('fs');
+  const p = require('./package.json');
+  p.version = '$VERSION';
+  fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+"
 npm run package
 
 VSIX=$(ls -t foam-lsp-*.vsix 2>/dev/null | head -1)

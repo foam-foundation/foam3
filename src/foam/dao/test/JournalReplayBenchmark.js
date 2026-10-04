@@ -113,15 +113,14 @@ foam.CLASS({
       }
     }
 
-    /** Drops interner state between variants so each measures from empty. */
+    // The interner the FOAM-parser and Jackson variants share, as one replay
+    // would. F3FileJournal.replay creates its own.
+    private static foam.util.StringInterner interner_ = new foam.util.StringInterner();
+
+    /** Starts each variant on an empty interner, so each measures from empty. */
     private static void clearInterner() {
-      try {
-        java.lang.reflect.Field f = foam.util.StringInterner.class.getDeclaredField("MAP");
-        f.setAccessible(true);
-        ((java.util.Map) f.get(null)).clear();
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
+      interner_.release();
+      interner_ = new foam.util.StringInterner();
     }
 
     private static String dedupLabel(int mode) {
@@ -374,7 +373,7 @@ foam.CLASS({
         HeapSampler sampler_ = new HeapSampler();
         sampler_.start();
         JSONParser parser = new JSONParser();
-        parser.setX(x);
+        parser.setX(x.put(foam.util.StringInterner.CTX_KEY, interner_));
         Class cls = ci.getObjClass();
         MDAO mdao = new MDAO(ci);
         mdao.setSafeMode(false);
@@ -465,6 +464,7 @@ foam.CLASS({
         String label = "Jackson, single thread (ceiling)" + dedupLabel(StringParser.DEDUP);
         JacksonJournalParser jacksonParser = new JacksonJournalParser();
         jacksonParser.setTargetClassInfo(ci);
+        jacksonParser.setInterner(interner_);
         MDAO mdao = new MDAO(ci);
         mdao.setSafeMode(false);
 
@@ -564,7 +564,7 @@ foam.CLASS({
         // Per-thread parser because JSONParser isn't thread-safe.
         final ThreadLocal<JSONParser> tlParser = ThreadLocal.withInitial(() -> {
           JSONParser p = new JSONParser();
-          p.setX(x);
+          p.setX(x.put(foam.util.StringInterner.CTX_KEY, interner_));
           return p;
         });
 
@@ -675,6 +675,7 @@ foam.CLASS({
         final ThreadLocal<JacksonJournalParser> tlParser = ThreadLocal.withInitial(() -> {
           JacksonJournalParser p = new JacksonJournalParser();
           p.setTargetClassInfo(ci);
+          p.setInterner(interner_);
           return p;
         });
 

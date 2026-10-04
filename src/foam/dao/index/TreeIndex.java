@@ -8,12 +8,15 @@ import foam.lang.FObject;
 import foam.lang.Indexer;
 import foam.dao.AbstractDAO;
 import foam.dao.Sink;
+import foam.mlang.ArrayConstant;
+import foam.mlang.Constant;
 import foam.mlang.Expr;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.sink.Count;
 import foam.mlang.sink.GroupBy;
 import java.util.Arrays;
+import java.util.List;
 
 public class TreeIndex
   extends AbstractIndex
@@ -95,9 +98,36 @@ public class TreeIndex
     return a.equals(b);
   }
 
-  public Object bulkLoad(FObject[] a) {
-    Arrays.parallelSort(a);
-    return TreeNode.getNullNode().bulkLoad(tail_, indexer_, 0, a.length-1, a);
+  /**
+   * Build the whole tree from a[lo..hi] in one pass instead of descending into
+   * it once per row.
+   *
+   * The sort compares two stored objects through the Indexer, which is what
+   * every descent does, so the layout cannot disagree with the search and no
+   * key is derived to build with.
+   *
+   * Rows sharing a key become one node, and the tail builds that node's value
+   * the same way, so a chained index needs no check of what the tail is.
+   */
+  public Object bulkLoad(FObject[] a, int lo, int hi) {
+    if ( hi < lo ) return null;
+
+    Arrays.sort(a, lo, hi+1, indexer_::compare);
+
+    // Where each run of equal keys begins, with one extra entry closing the
+    // last run. The keys themselves are not kept: a node reads its own back off
+    // the rows stored under it.
+    int[] starts = new int[hi - lo + 2];
+    int   groups = 0;
+
+    for ( int i = lo ; i <= hi ; i++ ) {
+      if ( groups == 0 || indexer_.compare(a[starts[groups-1]], a[i]) != 0 ) {
+        starts[groups++] = i;
+      }
+    }
+    starts[groups] = hi + 1;
+
+    return TreeNode.bulkLoad(tail_, a, starts, 0, groups-1);
   }
 
   /**
@@ -145,6 +175,41 @@ public class TreeIndex
         state = ( (TreeNode) state ).lte((TreeNode) state, expr.getArg2().f(expr), indexer_);
         return new Object[] {state, null};
       }
+
+      if ( predicate.getClass().equals(In.class) && expr.getArg1().toString().equals(indexer_.toString()) ) {
+        Object[] keys = inKeys((In) predicate);
+
+        if ( keys != null && worthLookingUp(keys.length, ((TreeNode) state).size) ) {
+          try {
+            TreeNode root = (TreeNode) state;
+            TreeNode out  = TreeNode.getNullNode();
+
+            for ( int i = 0 ; i < keys.length ; i++ ) {
+              TreeNode node = root.get(root, keys[i], indexer_);
+              // get() hands back a node whose value IS the subtree already in
+              // the index, so pointing the new tree at it copies no rows.
+              if ( node != null ) out = out.putKeyTail(out, indexer_, node.value, tail_);
+            }
+
+            // The predicate is deliberately NOT reported as consumed. The tree
+            // compares keys with the property's comparePropertyToValue, which
+            // casts both sides, while In.f compares them by equals - so the two
+            // disagree on a key like "5" against a Long id. Handing the
+            // predicate back makes this purely a narrowing of the candidate set
+            // and leaves the answer to In.f, which is what a plain scan would
+            // have used. Anything else lets Count (which reads the tree size)
+            // and a row select (which re-tests through ValuePlan) disagree.
+            return new Object[] {out == TreeNode.getNullNode() ? null : out, predicate};
+          } catch ( ClassCastException | NumberFormatException | NullPointerException e ) {
+            // A key the indexer cannot compare against its property - the same
+            // hazard returnKeyForValue() below absorbs. Leaving it to propagate
+            // would be worse than not optimizing: planSelect runs inside
+            // AltIndex's plan auction, which catches Throwable, so this index
+            // would drop out of the auction and the query would quietly return
+            // nothing. Fall through to the scan instead.
+          }
+        }
+      }
     } else if ( predicate instanceof And ) {
       int length = ((And) predicate).getArgs().length;
 
@@ -173,31 +238,70 @@ public class TreeIndex
     return new Object[] {state, p};
   }
 
+  /**
+   * Whether k key lookups beat scanning the whole tree.
+   *
+   * An AA tree's height is bounded by 2*log2(n+1), so a lookup walks up to that
+   * many nodes and k of them stop being a bargain once k * height reaches the
+   * row count - an IN listing far more keys than the table holds rows is
+   * cheaper to answer by reading the table. Without this, 200k keys against a
+   * 100-row tree would do 200k walks to build a tree of at most 100 nodes, and
+   * pay it again for every index whose leading property matches, since
+   * planSelect runs once per index in the auction.
+   *
+   * The bound is the honest figure to compare against rather than log2(n): it
+   * also leaves room for what this arithmetic does not count, namely the nodes
+   * the result tree allocates and the cache cost of k random descents against
+   * one sequential pass.
+   */
+  protected static boolean worthLookingUp(int keyCount, long size) {
+    if ( size <= 0 ) return false;
+    long height = 2 * ( 64 - Long.numberOfLeadingZeros(size) );
+    return (long) keyCount * height < size;
+  }
+
+  /**
+   * The keys an In is testing against, or null when they cannot be read at plan
+   * time and the query has to fall back to a scan.
+   *
+   * Only a Constant or an ArrayConstant is unwrapped - the two shapes an In
+   * arrives in, one per side: ExprProperty wraps a client-built array in a
+   * Constant, MLang.prepare turns an Object[] into an ArrayConstant. Anything
+   * else may depend on the object being tested and cannot be evaluated here.
+   *
+   * A null key is refused outright: comparePropertyToValue casts both sides, and
+   * the cast throws on a primitive property, so a null in the list must keep
+   * behaving the way it does under a scan.
+   */
+  protected Object[] inKeys(In predicate) {
+    Expr arg2 = predicate.getArg2();
+
+    if ( ! ( arg2 instanceof Constant ) && ! ( arg2 instanceof ArrayConstant ) ) return null;
+
+    Object   value = arg2.f(null);
+    Object[] keys;
+
+    if ( value instanceof Object[] ) {
+      keys = (Object[]) value;
+    } else if ( value instanceof List ) {
+      keys = ((List) value).toArray();
+    } else {
+      return null;
+    }
+
+    for ( int i = 0 ; i < keys.length ; i++ ) {
+      if ( keys[i] == null ) return null;
+    }
+
+    return keys;
+  }
+
   public Object put(Object state, FObject value) {
-    if ( state == null ) state = TreeNode.getNullNode();
-    Object key = returnKeyForValue(value);
-    // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).putKeyValue((TreeNode) state, indexer_, key, value, tail_);
+    return TreeNode.getNullNode().putKeyValue((TreeNode) state, indexer_, value, tail_);
   }
 
   public Object remove(Object state, FObject value) {
-    Object key = returnKeyForValue(value);
-    // key could be null for values like Date fields, but that works
-    return ((TreeNode) state).removeKeyValue((TreeNode) state, indexer_, key, value, tail_);
-  }
-
-  public Object returnKeyForValue(FObject value) {
-    try {
-      return indexer_.f(value);
-    } catch (ClassCastException e) {
-// System.err.println("*** ClassCastException " + this);
-      // Can happen when the Indexer is a PropertyInfo for a sub-class
-    } catch (NullPointerException e) {
-// System.err.println("*** NullPointerException " + this);
-      // Can happen when the Indexer is Dot(x, y) when x is nullf
-    }
-
-    return null;
+    return TreeNode.getNullNode().removeKeyValue((TreeNode) state, indexer_, value, tail_);
   }
 
   public Object removeAll() {
@@ -215,14 +319,6 @@ public class TreeIndex
     }
 
     return null;
-  }
-
-  public boolean isSafeToRemoveOrder(Sink sink) {
-    // Counts and GroupBys of only GroupBys and Counts are safe to ignore the order
-    if ( sink instanceof Count   ) return true;
-    // TODO? same for SUM(), MIN(), MAX(), ... if there is no limit
-    if ( sink instanceof GroupBy ) return isSafeToRemoveOrder(((GroupBy) sink).getArg2());
-    return false;
   }
 
   /**
@@ -248,7 +344,7 @@ public class TreeIndex
 
     // Remove order if possible
     if ( order != null ) {
-      if ( limit == AbstractDAO.MAX_SAFE_INTEGER && isSafeToRemoveOrder(sink) ) {
+      if ( limit == AbstractDAO.MAX_SAFE_INTEGER && sink.isOrderIndependent() ) {
         order = null;
       } else if ( order.toString().equals(indexer_.toString()) ) {
         // The ScanPlan already performs this check, but doint it here will possibly

@@ -18,6 +18,7 @@ p({
   "class":"foam.core.boot.CSpec",
   "name":"portDAO",
   "lazy":false,
+  "lazyOrder":-1,
   "serve":true,
   "serviceScript":"""
     return new foam.dao.EasyDAO.Builder(x)

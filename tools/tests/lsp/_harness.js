@@ -17,10 +17,37 @@ console.warn = function() { console.error.apply(console, arguments); };
 globalThis.SILENT = false; globalThis.VERBOSE = false;
 globalThis.DRY_RUN = false; globalThis.HELP = false; globalThis.NOP = '';
 
+// `test` below is a hoisted function declaration, so the handlers can call it
+// from up here. `counters` is not: a `var` holds `undefined` until its
+// assignment RUNS, and an exception during the pmake boot fires the handler
+// long before that. Declared here so `test` has its counter however early the
+// throw lands — read from below the boot, the handler instead throws a
+// TypeError of its own, which node treats as fatal (exit 7) and which replaces
+// the real error in the output.
+var counters = { passes: 0, failures: 0 };
+
+// Flipped once the boot below has been stripped. The detach in the handler is
+// right only during that boot: afterwards withServerLane has its own live
+// server on stdin, and detaching there kills the lane the surviving tests are
+// still talking to.
+var booted_ = false;
+
 process.on('unhandledRejection', function(e) {});
 process.on('uncaughtException', function(e) {
-  if ( e.message && ( e.message.includes('document') || e.message.includes('window') ) ) return;
-  if ( e instanceof SyntaxError ) return;
+  // Installing a listener at all suppresses node's default crash, so an error
+  // that escapes to here leaves no trace of its own. Set the exit code before
+  // anything else: a throw out of this module's own load never reaches
+  // testFoamLSP.js's summary, so the FAIL line below would otherwise be
+  // printed by a process that still exits 0.
+  process.exitCode = 1;
+  // ...and, for a boot-time throw only, detach stdin in the same breath.
+  // server.js's start() installs an 'end' listener that calls process.exit(0),
+  // and a throw during the boot below lands BEFORE the detach down there ever
+  // runs. That listener then fires on the first event-loop turn and its
+  // exit(0) overrides the code set one line up, so the run reports green with
+  // the FAIL line right there in the log.
+  if ( ! booted_ ) detachStdin_();
+  test(false, 'uncaught exception — ' + ( e && e.stack ? e.stack : e ));
 });
 
 var path = require('path');
@@ -32,9 +59,27 @@ buildlib.error = function() { /* suppress fatal errors during boot */ };
 var pomPath = path.resolve(process.cwd(), 'pom');
 pmake.bind(buildlib, '-makers=LSP -pom=' + pomPath)();
 
-// Test counters + helpers
-var counters = { passes: 0, failures: 0 };
+// The LSP maker's end() hook (LSPMaker.js) calls server.js's start() as a
+// side effect of loading the LSP source files for class registration —
+// start() wires process.stdin.on('end', ...) -> process.exit(0), correct
+// for a real LSP process (exit when the client's pipe closes) but fatal
+// here: this harness's stdin is never an attached client, so it hits EOF
+// on the very first event-loop turn once anything yields to it (an
+// `await`), and process.exit(0) fires before the awaited work — e.g. a
+// fetch in the i18n category's mock-server tests — gets a chance to
+// finish. Every purely-synchronous category finishes (and calls its own
+// process.exit via testFoamLSP.js) before the loop ever turns, so this
+// went unnoticed until an async category existed. Strip the listeners
+// server.js installed so this process's stdin is inert.
+function detachStdin_() {
+  process.stdin.removeAllListeners('data');
+  process.stdin.removeAllListeners('end');
+  process.stdin.pause();
+}
+detachStdin_();
+booted_ = true;
 
+// Test helpers
 function test(condition, message) {
   if ( condition ) {
     counters.passes++;
@@ -47,6 +92,24 @@ function test(condition, message) {
 
 function section(name) {
   console.error('\n\x1b[1m=== ' + name + ' ===\x1b[0m');
+}
+
+// Serializes the "server lane" test blocks — the ones that boot server.js
+// in-process and talk to it over real JSON-RPC framing. Such a block owns two
+// process-wide singletons for its duration: the process.stdin 'data' listener
+// (which is how messages reach the server) and the process.stdout.write patch
+// (which is how replies are captured). Two lanes running concurrently would
+// cross-talk — each server would see the OTHER lane's messages — and their
+// finally-blocks would restore each other's stdout patch instead of the real
+// write. Categories run their lane through here so only one is ever live.
+var laneQueue_ = Promise.resolve();
+
+function withServerLane(fn) {
+  var run = laneQueue_.then(function() { return fn(); });
+  // Chain on a settled-either-way copy: one lane's failure must not skip the
+  // lanes queued behind it.
+  laneQueue_ = run.then(function() {}, function() {});
+  return run;
 }
 
 // Shared sample files used by several categories (grammar parse, real-file
@@ -76,6 +139,7 @@ var cssTokenResolver  = foam.parse.lsp.CSSTokenResolver.create();
 cssTokenResolver.loadFromRegistry();
 var hoverHandler      = foam.parse.lsp.handlers.HoverHandler.create({ index: index, cssTokenResolver: cssTokenResolver });
 var diagHandler       = foam.parse.lsp.handlers.DiagnosticsHandler.create({ index: index });
+var i18nHandler       = foam.parse.lsp.handlers.I18nHandler.create({ index: index, cache: cache });
 var defHandler        = foam.parse.lsp.handlers.DefinitionHandler.create({ index: index });
 var semanticHandler   = foam.parse.lsp.handlers.SemanticTokenHandler.create({ index: index, cache: cache, typeTracker: typeTracker });
 
@@ -83,6 +147,7 @@ module.exports = {
   counters:          counters,
   test:              test,
   section:           section,
+  withServerLane:    withServerLane,
   path:              path,
   fs:                fs,
   Q:                 String.fromCharCode(39),
@@ -97,6 +162,7 @@ module.exports = {
   cssTokenResolver:  cssTokenResolver,
   hoverHandler:      hoverHandler,
   diagHandler:       diagHandler,
+  i18nHandler:       i18nHandler,
   defHandler:        defHandler,
   semanticHandler:   semanticHandler,
 

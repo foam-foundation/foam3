@@ -88,6 +88,26 @@ foam.CLASS({
         long base2 = java.time.Instant.parse("2024-01-01T10:00:00Z").toEpochMilli();
         d = parseDate(x, "2024-01-01 10:00:00.5");
         test(d != null && d.getTime() == base2 + 500, "DateParser: space-separated datetime '.5' is 500 ms");
+
+        // ---- numeric UTC offset ----
+        // ISO 8601 and RFC 3339 both allow a numeric offset in place of "Z":
+        // "+00:00" is the same instant as "Z", and the clock fields are local
+        // to the offset, so 19:12 at -04:00 is 23:12Z. ISO 8601 basic format
+        // writes the offset without the colon.
+        d = parseDate(x, "\\"1982-07-07T23:12:00+00:00\\"");
+        test(d != null && d.getTime() == base, "DateParser: '+00:00' is the same instant as 'Z'");
+        d = parseDate(x, "\\"1982-07-07T19:12:00-04:00\\"");
+        test(d != null && d.getTime() == base, "DateParser: '-04:00' shifts the local clock forward to UTC");
+        d = parseDate(x, "\\"1982-07-08T04:42:00+05:30\\"");
+        test(d != null && d.getTime() == base, "DateParser: '+05:30' shifts the local clock back to UTC");
+        d = parseDate(x, "\\"1982-07-07T23:12:00.5+00:00\\"");
+        test(d != null && d.getTime() == base + 500, "DateParser: fraction and offset combine");
+        d = parseDate(x, "\\"1982-07-07T19:12:00-0400\\"");
+        test(d != null && d.getTime() == base, "DateParser: basic-format offset without a colon");
+
+        test(parseDate(x, "\\"1982-07-07T23:12:00+5:00\\"") == null, "DateParser: a one-digit offset hour does not parse");
+        test(parseDate(x, "\\"1982-07-07T23:12:00+00\\"") == null, "DateParser: an hour-only offset does not parse");
+        test(parseDate(x, "\\"1982-07-07T23:12:00\\"") == null, "DateParser: a quoted datetime with no zone still does not parse");
       `
     }
   ]

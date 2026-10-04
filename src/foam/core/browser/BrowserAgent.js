@@ -64,6 +64,7 @@ an operation which will eventually set a completed flag.
     'foam.dao.DAO',
     'foam.lang.Agency',
     'foam.lang.X',
+    'foam.util.SafetyUtil',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.EQ',
     'java.io.BufferedReader',
@@ -72,6 +73,7 @@ an operation which will eventually set a completed flag.
     'java.io.InputStreamReader',
     'java.io.OutputStreamWriter',
     'java.net.URI',
+    'java.net.URLEncoder',
     'java.util.concurrent.CompletableFuture',
     'java.util.concurrent.TimeUnit',
     'java.util.ArrayList',
@@ -182,8 +184,8 @@ an operation which will eventually set a completed flag.
         } catch ( Throwable t ) {
           logger.error(t);
         }
-      } catch (IOException e) {
-        logger.error(e);
+      } catch (Throwable t) {
+        logger.error(t);
       } finally {
         Process process = (Process) getProcess();
         if ( process == null ) {
@@ -256,14 +258,15 @@ new BrowserAgent(...) {
     },
     {
       name: 'buildUrl',
-      args: 'X x',
+      args: 'X x, BrowserConfig bc',
       type: 'String',
       javaCode: `
-      AppConfig appConfig = (AppConfig) x.get("appConfig");
+      String baseUrl = bc.getUrl();
+      if ( SafetyUtil.isEmpty(baseUrl) ) baseUrl = ((AppConfig) x.get("appConfig")).getUrl();
       String sessionId = createSession(x);
       try {
         StringBuilder sb = new StringBuilder();
-        sb.append(appConfig.getUrl());
+        sb.append(baseUrl);
         sb.append("/?sessionId=");
         sb.append(sessionId);
         sb.append("#");
@@ -273,9 +276,17 @@ new BrowserAgent(...) {
           for ( int i = 0; i < params.size(); i++ ) {
             if ( i == 0 )
               sb.append("?");
-            else 
+            else
               sb.append("&");
-            sb.append(params.get(i));
+            String param = (String) params.get(i);
+            int eq = param.indexOf('=');
+            if ( eq >= 0 ) {
+              sb.append(URLEncoder.encode(param.substring(0, eq), "UTF-8"));
+              sb.append("=");
+              sb.append(URLEncoder.encode(param.substring(eq + 1), "UTF-8"));
+            } else {
+              sb.append(URLEncoder.encode(param, "UTF-8"));
+            }
           }
         }
         return URI.create(sb.toString()).toString();
@@ -301,7 +312,7 @@ new BrowserAgent(...) {
       } else {
         list.addAll(List.of(bc.getHeadedFlags()));
       }
-      list.add(buildUrl(x));
+      list.add(buildUrl(x, bc));
       return list;
       `
     },

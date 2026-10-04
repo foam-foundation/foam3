@@ -18,7 +18,7 @@ import java.util.Map;
 import foam.util.StringInterner;
 
 // Benchmark knob (this branch only): 0 = no dedup, 1 = legacy String.intern,
-// 2 = foam.util.StringInterner (the production behaviour, default).
+// 2 = the replay's foam.util.StringInterner (the production behaviour, default).
 
 public class StringParser
   implements Parser
@@ -26,10 +26,11 @@ public class StringParser
 
   public static volatile int DEDUP = Integer.getInteger("foam.json.dedup", 2);
 
-  public static String dedup(String v) {
+  /** Mode 2 canonicalizes through interner; a null interner, as outside a replay, keeps the value as parsed. */
+  public static String dedup(String v, StringInterner interner) {
     switch ( DEDUP ) {
       case 1:  return v.intern();
-      case 2:  return StringInterner.intern(v);
+      case 2:  return interner == null ? v : interner.intern(v);
       default: return v;
     }
   }
@@ -37,6 +38,12 @@ public class StringParser
   private final static Parser instance__ = new StringParser();
 
   public static Parser instance() { return instance__; }
+
+  /** Canonicalize through the replay's interner when the context carries one; outside a replay the value is kept as parsed. */
+  private static String intern(String v, ParserContext x) {
+    Object i = x == null ? null : x.get(StringInterner.CTX_KEY);
+    return dedup(v, i instanceof StringInterner ? (StringInterner) i : null);
+  }
 
   protected static ThreadLocal<StringBuilder> builder__ = new ThreadLocal<StringBuilder>() {
     @Override
@@ -78,7 +85,7 @@ public class StringParser
    * of per-character ps.apply(delimiter, x) checks.
    * Returns null if escapes are present (falls back to slow path).
    */
-  private PStream parseFast(StringPStream sps, char delim) {
+  private PStream parseFast(StringPStream sps, char delim, ParserContext x) {
     String str = sps.getString().toString();
     int    pos = sps.pos();
     int closeIdx = str.indexOf(delim, pos);
@@ -99,7 +106,7 @@ public class StringParser
     }
 
     // No escapes — bulk extract the string
-    String value = dedup(str.substring(pos, closeIdx));
+    String value = intern(str.substring(pos, closeIdx), x);
     return sps.createAt(closeIdx + 1).setValue(value);
   }
 
@@ -115,7 +122,7 @@ public class StringParser
     if ( ps instanceof StringPStream && delimiter instanceof foam.lib.parse.AbstractLiteral ) {
       String ds = ((foam.lib.parse.AbstractLiteral) delimiter).getString();
       if ( ds != null && ds.length() == 1 ) {
-        PStream fast = parseFast((StringPStream) ps, ds.charAt(0));
+        PStream fast = parseFast((StringPStream) ps, ds.charAt(0), x);
         if ( fast != null ) return fast;
       }
       // Fall through to character-by-character for escaped strings,
@@ -156,6 +163,6 @@ public class StringParser
       ps = ps.tail();
     }
 
-    return ps.setValue(dedup(sb.toString()));
+    return ps.setValue(intern(sb.toString(), x));
   }
 }

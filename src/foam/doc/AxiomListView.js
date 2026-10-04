@@ -21,13 +21,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ h4 {
+    << h4 {
       margin-bottom: 4px;
     }
-    ^ .commaseparated span:after {
+    << .commaseparated span:after {
       content: ", ";
     }
-    ^ .commaseparated span:last-child:after {
+    << .commaseparated span:last-child:after {
       content: "";
     }
   `,

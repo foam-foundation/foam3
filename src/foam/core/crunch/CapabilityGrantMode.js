@@ -15,7 +15,7 @@ foam.ENUM({
   values: [
     {
       name: 'AUTOMATIC',
-      background: '#8effb2',
+      background: '$statusSuccessBackground',
       documentation: `
         The capability can be granted by saving a junction with valid data,
         provided it has all of its prerequisites satisfied and the capability
@@ -24,7 +24,7 @@ foam.ENUM({
     },
     {
       name: 'MANUAL',
-      background: '#ffe48e',
+      background: '$statusWarnBackground',
       documentation: `
         The capability will not be automatically granted. It must be granted
         explicitly by a user with permission to grant capabilities, or by a

@@ -14,6 +14,8 @@ foam.CLASS({
   requires: [
     'foam.ai.vector.ClientMarkdownChunkerService',
     'foam.ai.vector.provider.TransformersEmbeddingService',
+    'foam.ai.llm.ConversationalLLMService',
+    'foam.ai.llm.provider.TransformersLLMService',
     'foam.ai.llm.RAGChat'
   ],
 
@@ -22,8 +24,13 @@ foam.CLASS({
     'vectorStoreDAO'
   ],
 
+  exports: [
+    'embedder',
+    'llmService'
+  ],
+
   css: `
-    ^ {
+    << {
       align-items: center;
       background: $grey50;
       border: 1px solid #d0d0d0;
@@ -34,16 +41,16 @@ foam.CLASS({
       gap: 24px;
       padding: 40px 48px 48px;
     }
-    ^toolbar {
+    <<toolbar {
       align-items: center;
       display: flex;
       gap: 12px;
     }
-    ^status {
+    <<status {
       color: #666;
       font-style: italic;
     }
-    ^chat {
+    <<chat {
       width: 700px;
       height: 620px;
     }
@@ -60,6 +67,14 @@ foam.CLASS({
       name: 'embedder',
       factory: function() {
         return this.TransformersEmbeddingService.create();
+      }
+    },
+    {
+      name: 'llmService',
+      factory: function() {
+        return this.ConversationalLLMService.create({
+          delegate: this.TransformersLLMService.create()
+        });
       }
     },
     {

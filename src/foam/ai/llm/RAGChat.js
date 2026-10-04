@@ -11,174 +11,168 @@ foam.CLASS({
 
   documentation: 'RAG chat UI: embed query → kNN search → build context → local LLM → answer.',
 
+  cssTokens: [
+    { name: 'headerBtnBg',     value: 'rgba(255,255,255,0.15)' },
+    { name: 'headerBtnBorder', value: 'rgba(255,255,255,0.3)'  },
+    { name: 'headerBtnHover',  value: 'rgba(255,255,255,0.25)' },
+    { name: 'headerSubtle',    value: 'rgba(255,255,255,0.75)' },
+    { name: 'inputFocusShadow', value: '0 0 0 2px rgba(61,126,191,0.15)' }
+  ],
+
   requires: [
     'foam.ai.llm.ChatMessage',
     'foam.ai.llm.ChatRole',
     'foam.ai.llm.ChatRequest',
-    'foam.ai.llm.LLMOptions',
-    'foam.ai.llm.ConversationalLLMService',
-    'foam.ai.llm.provider.TransformersLLMService',
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.VectorEmbedding',
-    'foam.ai.vector.provider.TransformersEmbeddingService',
     'foam.dao.ArraySink'
   ],
 
   imports: [
+    'embedder',
+    'llmService',
     'vectorStoreDAO'
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       height: 100%;
       max-height: 700px;
       min-height: 500px;
-      border-radius: 8px;
+      border-radius: $radius-lg;
       overflow: hidden;
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
+      background: $backgroundSecondary;
+      border: 1px solid $borderLight;
     }
-    ^header {
+    <<header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 20px;
-      background: #3d7ebf;
-      color: #fff;
+      padding: $space-3_5 $space-5;
+      background: $backgroundBrand;
+      color: $textOnBrand;
     }
-    ^header-title {
+    <<header-title {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 600;
+      gap: $space-2_5;
+      font-weight: $font-medium;
       font-size: 15px;
     }
-    ^messages {
+    <<messages {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 20px;
+      padding: $space-4 $space-5;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      background: #f8f9fa;
+      gap: $space-3;
+      background: $backgroundSecondary;
     }
-    ^message-row {
+    <<message-row {
       display: flex;
-      gap: 10px;
+      gap: $space-2_5;
       max-width: 82%;
     }
-    ^message-row-user      { margin-left: auto; flex-direction: row-reverse; }
-    ^message-row-assistant { margin-right: auto; }
-    ^avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      flex-shrink: 0;
-    }
-    ^avatar-user      { display: none; }
-    ^avatar-assistant { background: #28a745; color: #fff; }
-    ^message-content {
-      padding: 10px 15px;
+    <<message-row-user      { margin-left: auto; flex-direction: row-reverse; }
+    <<message-row-assistant { margin-right: auto; }
+    <<message-content {
+      padding: $space-2_5 $space-3_5;
       border-radius: 18px;
       line-height: 1.45;
-      font-size: 14px;
+      font-size: $body-md;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-    ^message-content-user {
-      background: #4a4a4a;
-      color: #fff;
-      border-radius: 18px 18px 4px 18px;
+    <<message-content-user {
+      background: $grey700;
+      color: $white;
+      border-radius: 18px 18px $radius 18px;
     }
-    ^message-content-assistant {
-      background: #fff;
-      color: #212529;
-      border-radius: 18px 18px 18px 4px;
-      border: 1px solid #dee2e6;
+    <<message-content-assistant {
+      background: $backgroundDefault;
+      color: $textDefault;
+      border-radius: 18px 18px 18px $radius;
+      border: 1px solid $borderLight;
     }
-    ^loading-row {
+    <<loading-row {
       display: flex;
-      gap: 10px;
+      gap: $space-2_5;
       align-self: flex-start;
       max-width: 75%;
     }
-    ^loading-content {
+    <<loading-content {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: #fff;
-      border-radius: 16px;
-      border-bottom-left-radius: 4px;
-      border: 1px solid #dee2e6;
-      color: #6c757d;
-      font-size: 14px;
+      gap: $space-2;
+      padding: $space-2_5 $space-3_5;
+      background: $backgroundDefault;
+      border-radius: $radius-2xl;
+      border-bottom-left-radius: $radius;
+      border: 1px solid $borderLight;
+      color: $textTertiary;
+      font-size: $body-md;
     }
-    ^loading-dots { display: flex; gap: 3px; }
-    ^loading-dots span {
+    <<loading-dots { display: flex; gap: 3px; }
+    <<loading-dots span {
       width: 6px; height: 6px;
-      background: #3d7ebf;
-      border-radius: 50%;
-      animation: ^bounce 1.4s infinite ease-in-out both;
+      background: $backgroundBrand;
+      border-radius: $radius-full;
+      animation: <<bounce 1.4s infinite $ease-in-out both;
     }
-    ^loading-dots span:nth-child(1) { animation-delay: -0.32s; }
-    ^loading-dots span:nth-child(2) { animation-delay: -0.16s; }
-    @keyframes ^bounce {
+    <<loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+    <<loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes <<bounce {
       0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
       40%           { transform: scale(1);   opacity: 1;   }
     }
-    ^empty-state {
+    <<empty-state {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100%;
-      color: #6c757d;
+      color: $textTertiary;
       text-align: center;
-      padding: 40px;
+      padding: $space-10;
     }
-    ^empty-icon  { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
-    ^empty-title { font-size: 16px; font-weight: 600; color: #495057; margin-bottom: 6px; }
-    ^input-container {
+    <<empty-icon  { font-size: 40px; margin-bottom: $space-3; opacity: 0.5; }
+    <<empty-title { font-size: 16px; font-weight: $font-medium; color: $textSecondary; margin-bottom: $space-1_5; }
+    <<input-container {
       display: flex;
-      padding: 14px 20px;
-      background: #fff;
-      border-top: 1px solid #dee2e6;
-      gap: 10px;
+      padding: $space-3_5 $space-5;
+      background: $backgroundDefault;
+      border-top: 1px solid $borderLight;
+      gap: $space-2_5;
       align-items: flex-end;
     }
-    ^input-wrapper { flex: 1; }
-    ^input {
+    <<input-wrapper { flex: 1; }
+    <<input {
       width: 100%;
-      padding: 10px 14px;
-      border: 1px solid #ced4da;
+      padding: $space-2_5 $space-3_5;
+      border: 1px solid $borderDefault;
       border-radius: 20px;
-      font-size: 14px;
+      font-size: $body-md;
       resize: none;
       min-height: 42px;
       max-height: 150px;
       font-family: inherit;
-      background: #f8f9fa;
+      background: $backgroundSecondary;
       box-sizing: border-box;
     }
-    ^input:focus {
+    <<input:focus {
       outline: none;
-      border-color: #3d7ebf;
-      background: #fff;
-      box-shadow: 0 0 0 2px rgba(61,126,191,0.15);
+      border-color: $backgroundBrand;
+      background: $backgroundDefault;
+      box-shadow: $inputFocusShadow;
     }
-    ^send-btn {
+    <<send-btn {
       width: 42px; height: 42px;
-      background: #3d7ebf;
-      color: #fff;
+      background: $backgroundBrand;
+      color: $textOnBrand;
       border: none;
-      border-radius: 50%;
+      border-radius: $radius-full;
       cursor: pointer;
       font-size: 16px;
       display: flex;
@@ -186,46 +180,41 @@ foam.CLASS({
       justify-content: center;
       flex-shrink: 0;
     }
-    ^send-btn:hover:not(:disabled) { background: #2f6399; }
-    ^send-btn:disabled { background: #adb5bd; cursor: not-allowed; }
-    ^clear-btn {
-      padding: 5px 10px;
-      background: rgba(255,255,255,0.15);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.3);
-      border-radius: 4px;
+    <<send-btn:hover:not(:disabled) { background: $backgroundBrandSecondary; }
+    <<send-btn:disabled { background: $borderDefault; cursor: not-allowed; }
+    <<clear-btn {
+      padding: $space-1_5 $space-2_5;
+      background: $headerBtnBg;
+      color: $textOnBrand;
+      border: 1px solid $headerBtnBorder;
+      border-radius: $radius;
       cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: $body-sm;
+      font-weight: $font-regular;
     }
-    ^clear-btn:hover { background: rgba(255,255,255,0.25); }
-    ^status {
+    <<clear-btn:hover { background: $headerBtnHover; }
+    <<status {
       font-size: 11px;
-      color: rgba(255,255,255,0.75);
-      margin-left: 8px;
+      color: $headerSubtle;
+      margin-left: $space-2;
     }
   `,
 
   constants: [
-    { name: 'MAX_NEW_TOKENS',       value: 512  },
     { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
-    { name: 'RETRIEVAL_LIMIT',      value: 10   },
-    {
-      name:  'SYSTEM_PROMPT',
-      value: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
-    }
+    { name: 'RETRIEVAL_LIMIT',      value: 10   }
   ],
 
   properties: [
     {
-      name: 'embedder',
-      factory: function() { return this.TransformersEmbeddingService.create(); }
-    },
-    {
-      name: 'llmService',
+      class: 'FObjectProperty',
+      of: 'foam.ai.llm.LLMOptions',
+      name: 'options',
       factory: function() {
-        return this.ConversationalLLMService.create({
-          delegate: this.TransformersLLMService.create()
+        return foam.ai.llm.LLMOptions.create({
+          maxTokens:    512,
+          temperature:  0.2,
+          systemPrompt: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
         });
       }
     },
@@ -249,7 +238,7 @@ foam.CLASS({
         .addClass()
         .start('div').addClass(self.myClass('header'))
           .start('div').addClass(self.myClass('header-title'))
-            .add('🤖 RAG Chat')
+            .add('RAG Chat')
             .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
           .end()
           .start('button')
@@ -277,11 +266,6 @@ foam.CLASS({
                 .addClass(self.myClass('message-row'))
                 .addClass(self.myClass('message-row-' + roleName))
                 .start('div')
-                  .addClass(self.myClass('avatar'))
-                  .addClass(self.myClass('avatar-' + roleName))
-                  .add('🤖')
-                .end()
-                .start('div')
                   .addClass(self.myClass('message-content'))
                   .addClass(self.myClass('message-content-' + roleName))
                   .add(msg.content)
@@ -290,8 +274,6 @@ foam.CLASS({
             }
             if ( isLoading ) {
               this.start('div').addClass(self.myClass('loading-row'))
-                .start('div').addClass(self.myClass('avatar'))
-                  .addClass(self.myClass('avatar-assistant')).add('🤖').end()
                 .start('div').addClass(self.myClass('loading-content'))
                   .start('div').addClass(self.myClass('loading-dots'))
                     .start('span').end()
@@ -340,7 +322,7 @@ foam.CLASS({
       this.conversationHistory = [];
       this.inputText           = '';
       this.statusMsg           = '';
-      this.llmService.clearHistory();
+      if ( this.llmService.clearHistory ) this.llmService.clearHistory();
     },
 
     function scrollToBottom_() {
@@ -397,18 +379,10 @@ foam.CLASS({
 
         this.statusMsg = 'Generating…';
 
-        // Pass just the current augmented turn — ConversationalLLMService
-        // prepends accumulated history and appends the assistant reply.
-        var augMsg  = this.ChatMessage.create({ role: 'USER', content: userContent });
-        var options = this.LLMOptions.create({
-          maxTokens:    this.MAX_NEW_TOKENS,
-          temperature:  0.2,
-          systemPrompt: this.SYSTEM_PROMPT
-        });
-
+        var augMsg   = this.ChatMessage.create({ role: 'USER', content: userContent });
         var response = await this.llmService.chat(
           this.__subContext__,
-          this.ChatRequest.create({ messages: [ augMsg ], options: options })
+          this.ChatRequest.create({ messages: [ augMsg ], options: this.options })
         );
 
         this.conversationHistory = this.conversationHistory.concat([

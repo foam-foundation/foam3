@@ -17,7 +17,8 @@ foam.CLASS({
   properties: [
     {
       class: 'Function',
-      name: 'executeFn'
+      name: 'executeFn',
+      transient: true,
     }
   ],
 

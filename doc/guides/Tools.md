@@ -6,14 +6,14 @@ The developer tools that come with foam3. Each entry says what the tool is for a
 
 ## Editor and agent support
 
-**Language server (LSP and MCP).** Completion, hover, go to definition, find references and warnings for `foam.CLASS` files and `.jrl` journals, in your editor or in a coding agent. Guide: [LSP](LSP.md).
+**Language server (LSP and MCP).** Completion, hover, go to definition, find references and warnings for `foam.CLASS` files and `.jrl` journals, in your editor or in a coding agent. It lives in its own repo, [FOAM-LSP](https://github.com/foam-foundation/FOAM-LSP), cloned into `~/.foam/lsp`. Guide: [LSP](LSP.md).
 
 ```bash
 ./build.sh lsp-install               # asks which editors and agents to set up
-node foam3/tools/lsp-start.js        # any other LSP client, over stdio
+node ~/.foam/lsp/bin/lsp-start.js    # any other LSP client, over stdio
 ```
 
-**Translations from a local model.** The language server can also translate. With a model such as `translategemma:4b` running in Ollama or LM Studio, it fills in a missing translation for each configured language, and translates a hardcoded string while it moves it to `messages:`. With no model running, those actions just don't appear. Setup and settings: `foam3/tools/lsp/README.md`, section "i18n Translation".
+**Translations from a local model.** The language server can also translate. With a model such as `translategemma:4b` running in Ollama or LM Studio, it fills in a missing translation for each configured language, and translates a hardcoded string while it moves it to `messages:`. With no model running, those actions just don't appear. Setup and settings: the FOAM-LSP `README.md`, section "i18n Translation".
 
 ```bash
 ollama pull translategemma:4b
@@ -50,7 +50,7 @@ How apps pick them up: `foam3/.claude/skills/README.md`.
 ```bash
 ./build.sh run-tests                 # every client and server test
 ./build.sh run-tests:MyTest,OtherTest
-node foam3/tools/tests/testFoamLSP.js
+node ~/.foam/lsp/test/run.js         # the language server's tests
 ```
 
 **Grammar check.** Finds mistakes in `foam.parse` grammars that the parser only shows at run time, or never, without parsing anything. It prints one line per finding and exits 1 on an error. Guide: [Checking a Grammar](foam_parsers_doc.md#checking-a-grammar).

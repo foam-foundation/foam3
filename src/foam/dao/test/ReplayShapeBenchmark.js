@@ -127,7 +127,9 @@ foam.CLASS({
         }
         long elapsed = System.nanoTime() - start;
 
-        StringParser.DEDUP = 1;
+        // Back to the production default, so the tests that run after this
+        // one parse with the per-replay interner and not String.intern.
+        StringParser.DEDUP = 2;
 
         double wallSec       = elapsed / 1e9;
         double entriesPerSec = count / wallSec;

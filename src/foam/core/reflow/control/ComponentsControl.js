@@ -13,7 +13,7 @@ foam.CLASS({
   imports: [ 'document', 'eval_', 'window' ],
 
   css: `
-    ^promptHolder {
+    <<promptHolder {
       display: flex;
       flex-direction: row;
       align-items: center;
@@ -21,7 +21,7 @@ foam.CLASS({
       position: relative;
       max-height: 30px;
     }
-    ^expanded-island {
+    <<expanded-island {
       position: absolute;
       bottom: 100%;
       margin-bottom: 10px;

@@ -32,10 +32,10 @@ foam.CLASS({
   ],
   
   css: `
-    ^ {
+    << {
       height: 100%;
     }
-    ^flex {
+    <<flex {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -51,16 +51,16 @@ foam.CLASS({
     ^title {
       text-align: center;
     }
-    ^subTitle {
+    <<subTitle {
       padding: 0 15px;
       text-align: center;
     }
-    ^ .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
+    << .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
       justify-content: center;
       flex-direction: column;
       gap: 0.5rem;
     }
-    ^ form {
+    << form {
       margin-bottom: 0;
     }
 
@@ -89,7 +89,7 @@ foam.CLASS({
       ^standalone ^subTitle, ^standalone ^sectionView > * {
         width: 50%;
       }
-      ^subTitle {
+      <<subTitle {
         padding: 0;
       }
     }

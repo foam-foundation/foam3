@@ -29,13 +29,13 @@ foam.CLASS({
       sit above $z-modal or the backdrop paints over the list. Both layers stay
       under $z-tooltip.
     */
-    ^overlay {
+    <<overlay {
       position: absolute;
       /* click-away scrim: over any open modal, under the dropdown */
       z-index: calc($z-modal + 1);
     }
 
-    ^ {
+    << {
       display: block;
       overflow-x: hidden;
       overflow-y: hidden;
@@ -44,7 +44,7 @@ foam.CLASS({
       max-width: 100%;
     }
 
-    ^styled{
+    <<styled{
       background-color: $backgroundDefault;
       border: 1px solid $borderDefault;
       box-sizing: border-box;
@@ -53,18 +53,18 @@ foam.CLASS({
       padding: 8px;
     }
 
-    ^open {
+    <<open {
       overflow-y: auto;
     }
 
-    ^zeroOverlay {
+    <<zeroOverlay {
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
     }
 
-    ^initialOverlay {
+    <<initialOverlay {
       top: initial;
       bottom: initial;
       left: initial;
@@ -72,7 +72,7 @@ foam.CLASS({
     }
 
     @media print {
-      ^ { display: none !important; }
+      << { display: none !important; }
     }
   `,
 
@@ -146,6 +146,7 @@ foam.CLASS({
       this.ro_?.observe(this.parentEl);
       this.internalResizeObserver_?.observe(this.dropdownE_.el_())
       this.opened = true;
+      this.document.addEventListener('pointerdown', this.onOutsidePointerDown, true);
       this.window.addEventListener('resize', this.onResize);
     },
 
@@ -199,6 +200,7 @@ foam.CLASS({
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
       this.internalResizeObserver_?.unobserve(this.dropdownE_.el_());
+      this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
       this.window.removeEventListener('resize', this.onResize);
     },
 
@@ -225,6 +227,9 @@ foam.CLASS({
           this.setHeight();
       });
       this.onDetach(() => { this.internalResizeObserver_?.disconnect(); })
+      this.onDetach(() => {
+        this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+      });
 
       this.addClass(this.slot(function(opened) {
         this.shown = opened;
@@ -266,6 +271,13 @@ foam.CLASS({
 
   listeners: [
     function onCancel() {
+      this.close();
+    },
+
+    function onOutsidePointerDown(e) {
+      if ( ! this.opened ) return;
+      if ( this.parentEl?.contains?.(e.target) ||
+           this.dropdownE_.el_()?.contains(e.target) ) return;
       this.close();
     },
 

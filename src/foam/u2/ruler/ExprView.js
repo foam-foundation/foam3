@@ -9,39 +9,39 @@ foam.CLASS({
   name: 'ExprViewCSS',
 
   css: `
-    ^operand {
+    <<operand {
       height: 2.5rem;
       line-height: 2.5rem;
       padding: 0 0.5rem;
       background-color: $backgroundInverseTertiary;
     }
 
-    ^operator {
+    <<operator {
       display: flex;
       align-items: center;
       padding: 0 0.5rem;
       font-weight: $font-medium;
     }
-    ^border {
+    <<border {
       border: solid 0.2rem;
       border-color: $backgroundDefault;
     }
-    ^operator-And {
+    <<operator-And {
       background-color: $purple200;
     }
-    ^border-And {
+    <<border-And {
       border-color: $purple200;
     }
-    ^operator-Lt, ^operator-Eq {
+    <<operator-Lt, <<operator-Eq {
       background-color: $green200;
     }
-    ^border-Lt, ^border-Eq {
+    <<border-Lt, <<border-Eq {
       border-color: $green200;
     }
-    ^operator-Not {
+    <<operator-Not {
       background-color: $red200;
     }
-    ^border-Not {
+    <<border-Not {
       border-color: $red200;
     }
   `
@@ -73,15 +73,15 @@ foam.CLASS({
   mixins: ['foam.u2.ruler.ExprViewCSS'],
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
-    ^operand^ctx {
+    <<operand<<ctx {
       background-color: $backgroundInverse;
       color: $grey100;
       font-weight: $font-medium;
     }
-    ^operand^key {
+    <<operand<<key {
       background-color: $backgroundInverseSecondary;
       color: $grey100;
       font-weight: $font-medium;
@@ -117,7 +117,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       background-color: none;
     }
@@ -159,7 +159,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       background-color: none;
     }
@@ -199,7 +199,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       background-color: none;
     }
@@ -235,7 +235,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       background-color: none;
     }

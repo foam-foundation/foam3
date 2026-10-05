@@ -23,44 +23,44 @@ foam.CLASS({
   ],
 
   css: `
-    ^ body {
+    << body {
       height: 100%;
       overflow: hidden;
     }
-    ^ .foam-u2-ActionView {
+    << .foam-u2-ActionView {
       border: none !important;
     }
-    ^ .foam-u2-ActionView:hover {
+    << .foam-u2-ActionView:hover {
       background-color: unset !important;
     }
 
-    ^ .foam-u2-layout-MDStackView {
+    << .foam-u2-layout-MDStackView {
       position: relative;
       height: 100%;
       overflow: hidden;
     }
 
-    ^ .menuOpen {
+    << .menuOpen {
       left: -00px;
       transition: .2s;
     }
 
-    ^ .menuClosed {
+    << .menuClosed {
       left: -60rem;
       transition: .2s;
     }
 
-    ^ toolbar .right {
+    << toolbar .right {
       padding-right: 3rem;
     }
-    ^ toolbar .left i {
+    << toolbar .left i {
       padding-left: 3rem;
     }
-    ^ toolbar .title {
+    << toolbar .title {
       padding-left: 4rem;
       width: 100%;
     }
-    ^ toolbar .foam-u2-ActionView {
+    << toolbar .foam-u2-ActionView {
       background-color: unset;
       font-size: 4rem;
     }

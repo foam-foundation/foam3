@@ -29,11 +29,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       width: 100%;
     }
-    ^input-image {
+    <<input-image {
       --fieldSize: $inputHeight;
       position: absolute;
       width: 16px;
@@ -42,7 +42,7 @@ foam.CLASS({
       right: 1vh;
       opacity: 0.3;
     }
-    .full-width-input-password:focus + ^input-image {
+    .full-width-input-password:focus + <<input-image {
       opacity: 1;
     }
   `,

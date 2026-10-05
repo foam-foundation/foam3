@@ -17,37 +17,37 @@ foam.CLASS({
   `,
 
   css: `
-    ^{
+    <<{
       display: flex;
       align-items: center;
       gap: 0.8rem;
       justify-content: flex-start;
     }
-    ^vertical {
+    <<vertical {
       flex-direction: column;
     }
-    ^svgIcon {
+    <<svgIcon {
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
     }
-    ^svgIcon svg {
+    <<svgIcon svg {
       height: 1.15em;
       width: 1.15em;
       fill: currentColor;
     }
-    ^svgIcon svg {
+    <<svgIcon svg {
       font-size: initial;
     }
 
     /* SVGs outside themeGlyphs may have their own heights and widths,
     these ensure those are respected rather than imposing new dimensions */
-    ^imgSVGIcon {
+    <<imgSVGIcon {
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    ^imgSVGIcon svg {
+    <<imgSVGIcon svg {
       height: initial;
     }
   `,

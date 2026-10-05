@@ -36,20 +36,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^header-action {
+    <<header-action {
       z-index: $z-10;
       cursor: pointer;
       transition: all ease-in 0.1s;
     }
 
-    ^inner {
+    <<inner {
       height: 85vh;
       width: 65vw;
       flex-direction: column;
       overflow: hidden;
     }
 
-    ^bodyWrapper {
+    <<bodyWrapper {
       display: flex;
       flex-direction: column;
       flex: 1;
@@ -59,43 +59,43 @@ foam.CLASS({
       overflow: auto;
       padding: 2rem 2rem;
     }
-    ^actionBar {
+    <<actionBar {
       padding: 2.4rem;
     }
-    ^fullscreen ^actionBar {
+    <<fullscreen <<actionBar {
       padding: 2.4rem;
     }
 
-    ^header {
+    <<header {
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
       padding: 0.6rem;
     }
-    ^header.showBorder {
+    <<header.showBorder {
       border-bottom: 1px solid $borderDefault;
     }
 
-    ^header-left {
+    <<header-left {
       display: flex;
       align-items: center;
       justify-content: flex-start;
     }
 
-    ^header-right {
+    <<header-right {
       display: flex;
       align-items: center;
       justify-content: flex-end;
     }
 
-    ^header-center {
+    <<header-center {
       display: flex;
       text-align: center;
       align-items: center;
       justify-content: center;
     }
 
-    ^body {
+    <<body {
       width: 100%;
       /*
         Temporarily remove scroll border
@@ -106,32 +106,32 @@ foam.CLASS({
       align-items: center;
       flex-direction: column;
     }
-    ^body > * {
+    <<body > * {
       width: 100%;
     }
-    ^fullHeightBody {
+    <<fullHeightBody {
       height: auto;
     }
-    ^fullHeightBody > *{
+    <<fullHeightBody > *{
       flex-grow: 1;
     }
 
-    ^fullscreen ^bodyWrapper {
+    <<fullscreen <<bodyWrapper {
       max-height: var(--max-height, 100vh);
     }
 
-    ^logo img, ^logo svg {
+    <<logo img, <<logo svg {
       display: flex;
       max-height: 4rem;
       /* remove and override any image styling to preserve aspect ratio */
       width: unset;
     }
 
-    ^header-button-placeholder {
+    <<header-button-placeholder {
       min-width: 56px;
     }
 
-    ^footer {
+    <<footer {
       display: grid;
       grid-template-columns: auto;
       align-items: center;
@@ -141,22 +141,22 @@ foam.CLASS({
       padding: 0.3em 1em;
       white-space: nowrap;
     }
-    ^footer-right, ^footer-left {
+    <<footer-right, <<footer-left {
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    ^footer-center a:link,
-    ^footer-center a:visited,
-    ^footer-center a:active {
+    <<footer-center a:link,
+    <<footer-center a:visited,
+    <<footer-center a:active {
       color: $textDefault;
       text-decoration: none;
     }
-    ^footer-center a:hover {
+    <<footer-center a:hover {
       text-decoration: underline;
     }
-    ^inner-title, ^inner-title-small {
+    <<inner-title, <<inner-title-small {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -166,54 +166,54 @@ foam.CLASS({
       text-align: center;
     }
     
-    ^footer.p-legal-light {
+    <<footer.p-legal-light {
       color: $textTertiary;
     }
 
-    ^info-text {
+    <<info-text {
       color: $textDefault;
     }
 
-    ^footer-center img {
+    <<footer-center img {
       height: 1em;
       display: inline-block;
       vertical-align: sub;
     }
     
-    ^footerContainer {
+    <<footerContainer {
       padding-top: 0.4rem;
     }
 
-    ^ .foam-u2-ProgressView {
+    << .foam-u2-ProgressView {
       height: 2px;
     }
 
     @media only screen and (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^header {
+      <<header {
         padding: 12px;
       }
-      ^:not(^fullscreen) ^inner {
+      <<:not(<<fullscreen) <<inner {
         width: 75%;
         min-width: 50rem;
       }
-      ^fullscreen ^bodyWrapper {
+      <<fullscreen <<bodyWrapper {
         width: min(100rem, 100%);
       }
-      ^inner-title {
+      <<inner-title {
         text-align: center;
         font-size: 2.4rem;
       }
-      ^footer {
+      <<footer {
         grid-template-columns: 1fr auto 1fr;
         padding: 0.6em 1em;
       }
-      ^footer-right {
+      <<footer-right {
         justify-content: flex-end;
       }
-      ^footer-left {
+      <<footer-left {
         justify-content: flex-start;
       }
-      ^bodyWrapper{
+      <<bodyWrapper{
         padding: 2.4rem 4rem;
         gap: 2rem;
       }

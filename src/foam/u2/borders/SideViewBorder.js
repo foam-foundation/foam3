@@ -10,11 +10,11 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
 
-    ^side {
+    <<side {
       position: absolute;
       overflow: hidden;
       visibility: hidden;
@@ -30,18 +30,18 @@ foam.CLASS({
       z-index: $z-popup;
     }
 
-    ^side^open {
+    <<side<<open {
       width: 50%;
       background-color: $backgroundDefault;
       visibility: visible;
     }
 
-    ^side ^container {
+    <<side <<container {
       flex-grow: 1;
       overflow-x: hidden;
       overflow-y: auto;
     }
-    ^content {
+    <<content {
       overflow: auto;
     }
   `,

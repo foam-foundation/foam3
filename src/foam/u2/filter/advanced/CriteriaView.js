@@ -30,27 +30,27 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       display: flex;
       flex-direction: row;
       flex-wrap: wrap;
     }
 
-    ^general-field {
+    <<general-field {
       margin: 0 8px;
       margin-top: 8px;
       flex: 1 1 100%;
     }
 
-    ^general-field .foam-u2-tag-Input {
+    <<general-field .foam-u2-tag-Input {
       width: 100%;
       height: 34px;
       border-radius: 5px;
       border: solid 1px $borderDefault;
     }
 
-    ^ .foam-u2-filter-properties-PropertyFilterView {
+    << .foam-u2-filter-properties-PropertyFilterView {
       flex: 1 1 250px;
     }
   `,

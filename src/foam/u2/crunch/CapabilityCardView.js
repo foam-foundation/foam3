@@ -22,7 +22,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^icon.foam-u2-crunch-Style-icon-circle {
+    <<icon.foam-u2-crunch-Style-icon-circle {
       width: 65px;
       height: 65px;
       margin-right: 24px;
@@ -31,7 +31,7 @@ foam.CLASS({
       flex-shrink: 0;
     }
 
-    ^ .foam-u2-crunch-Style-card-title {
+    << .foam-u2-crunch-Style-card-title {
       margin-bottom: 4px;
     }
   `,

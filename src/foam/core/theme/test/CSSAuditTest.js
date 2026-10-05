@@ -434,7 +434,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   // $name$disabled, $name$foreground and $name$<state>$foreground. Nothing
   // else is installed, and a plain CSSToken gets none of them - $inputHeight
   // has no $hover, so $inputHeight$hover resolves to nothing at runtime.
-  // tools/lsp/CSSTokenResolver.js:71-72 reads this same set off the class for
+  // FOAM-LSP src/CSSTokenResolver.js:71-72 reads this same set off the class for
   // the editor's completions: the two have to accept the same names, or the
   // editor offers one this test then fails on.
   // parts is the name split on '$', so parts[0] is the declared token.

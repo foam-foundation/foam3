@@ -49,7 +49,7 @@ foam.CLASS({
   imports: [ 'partitionLoadStatusDAO?', 'ctrl?' ],
 
   css: `
-    ^ {
+    << {
       position: fixed;
       bottom: 16px;
       right: 16px;
@@ -60,7 +60,7 @@ foam.CLASS({
       gap: 8px;
       max-width: 320px;
     }
-    ^card {
+    <<card {
       width: 320px;
       background: $backgroundDefault;
       border: 1px solid $borderDefault;
@@ -68,12 +68,12 @@ foam.CLASS({
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
       padding: 4px 12px 12px 12px;
     }
-    ^header {
+    <<header {
       display: flex;
       align-items: flex-start;
       gap: 8px;
     }
-    ^name {
+    <<name {
       flex: 1;
       padding-top: 12px;
       color: $textSecondary;
@@ -81,7 +81,7 @@ foam.CLASS({
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    ^toggle {
+    <<toggle {
       min-width: 44px;
       min-height: 44px;
       background: none;
@@ -91,35 +91,35 @@ foam.CLASS({
       cursor: pointer;
       transition: background-color 150ms ease-out;
     }
-    ^toggle:hover {
+    <<toggle:hover {
       background: $backgroundHover;
     }
-    ^bar {
+    <<bar {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    ^bar progress {
+    <<bar progress {
       flex: 1;
       width: auto;
     }
-    ^pct {
+    <<pct {
       min-width: 3.2em;
       text-align: right;
       color: $textSecondary;
     }
-    ^indeterminate {
+    <<indeterminate {
       width: 100%;
       height: 8px;
     }
-    ^current {
+    <<current {
       margin-top: 4px;
       color: $textSecondary;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    ^pill {
+    <<pill {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -134,11 +134,11 @@ foam.CLASS({
       cursor: pointer;
       transition: background-color 150ms ease-out;
     }
-    ^pill:hover {
+    <<pill:hover {
       background: $backgroundHover;
     }
     @media (prefers-reduced-motion: reduce) {
-      ^toggle, ^pill {
+      <<toggle, <<pill {
         transition: none;
       }
     }

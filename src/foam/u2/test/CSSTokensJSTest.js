@@ -15,24 +15,24 @@ foam.CLASS({
   ],
 
   css: `
-    ^test1 {
+    <<test1 {
       background: $test1;
       color: $test1$foreground;
     }
-    ^test2 {
+    <<test2 {
       background: $test1$hover;
       color: $test1$hover$foreground;
     }
-    ^test3 {
+    <<test3 {
       box-shadow: 0 0 6px $shadowColor !important;
     }
-    ^test4 {
+    <<test4 {
       box-shadow: 0 0 4px $shadowColor!important;
     }
-    ^test5 {
+    <<test5 {
       box-shadow: 0 0 9px $shadowColor     !important;
     }
-    ^test6 {
+    <<test6 {
       padding: $gapA $gapB;
       border-color: transparent $test1 transparent;
       width: calc($gapB * 2);

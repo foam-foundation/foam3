@@ -342,11 +342,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^graph-container {
+    <<graph-container {
       width: 100%;
     }
 
-    ^empty-value-message {
+    <<empty-value-message {
       width: 100%;
       display: flex;
       justify-content: center;

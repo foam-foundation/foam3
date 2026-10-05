@@ -17,7 +17,6 @@ foam.POM({
   ],
   projects: [
     { name: 'provider/pom' },
-    { name: 'test/pom',     flags: 'test' },
-    { name: 'demos/pom',    flags: 'js'   }
+    { name: 'test/pom',     flags: 'test' }
   ]
 });

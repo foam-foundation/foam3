@@ -30,7 +30,7 @@ foam.CLASS({
   ],
 
   css:`
-  ^ {
+  << {
     padding: 32px 24px;
     height: 100%;
     box-sizing: border-box;
@@ -38,10 +38,10 @@ foam.CLASS({
     flex-direction: column;
     gap: 2.4rem;
   }
-  ^menu-header{
+  <<menu-header{
     align-self: flex-start
   }
-  ^card.foam-u2-borders-CardBorder {
+  <<card.foam-u2-borders-CardBorder {
     padding: 16px 32px;
   }
   `,

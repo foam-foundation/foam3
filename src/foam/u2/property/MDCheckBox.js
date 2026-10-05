@@ -11,7 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.property.AbstractCheckBox',
 
   css: `
-    ^ {
+    << {
       -webkit-appearance: none;
       border: solid 2px $borderStrong;
       float: right;
@@ -19,10 +19,10 @@ foam.CLASS({
       height: 3rem;
       transition: background-color 140ms, border-color 140ms;
     }
-    ^:checked {
+    <<:checked {
       background-color: $backgroundInverse;
     }
-    ^ .label {
+    << .label {
       font-size: larger;
       font-weight: $font-regular;
       color: $red300;

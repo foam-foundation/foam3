@@ -32,20 +32,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       display: flex;
       flex-direction: column;
     }
-    ^editor:empty:before{
+    <<editor:empty:before{
       content: attr(placeholder);
       pointer-events: none;
       display: block;
       color: $textTertiary;
     }
-    ^ > * + * {
+    << > * + * {
       margin-top: 4px;
     }
-    ^editor {
+    <<editor {
       border: 1px solid $borderDefault;
       border-radius: 4px;
       height: unset;
@@ -54,11 +54,11 @@ foam.CLASS({
       position: relative;
       width: 100%;
     }
-    ^dragged{
+    <<dragged{
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
-    ^dragged::after{
+    <<dragged::after{
       content: "Drop Here";
       font-weight: bold;
       left: 50%;
@@ -67,22 +67,22 @@ foam.CLASS({
       transform: translate(-50%, -50%);
       z-index: $z-10;
     }
-    ^ButtonToolbar {
+    <<ButtonToolbar {
       display: flex;
       gap: 8px;
       width: 100%;
       flex-wrap: wrap;
     }
-    ^ButtonToolbar > button + button {
+    <<ButtonToolbar > button + button {
       margin-left: 0 !important;
     }
-    ^seperator{
+    <<seperator{
       background: $backgroundSecondary;
       width: 1px;
       height: 2em;
       align-self: center;
     }
-    ^tool.foam-u2-ActionView {
+    <<tool.foam-u2-ActionView {
       padding: 6px 10px;
       max-height: unset;
     }
@@ -430,14 +430,14 @@ foam.CLASS({
         'foam.u2.md.OverlayDropdown',
       ],
       css: `
-        ^ {
+        << {
           display: flex;
           flex-direction: column;
         }
-        ^ > * + * {
+        << > * + * {
           margin-top: 8px;
         }
-        ^insert {
+        <<insert {
           align-self: flex-end;
         }
       `,

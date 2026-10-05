@@ -13,7 +13,7 @@ foam.CLASS({
   imports: ['theme?'],
   exports: ['controllerMode'],
   css: `
-    ^card.foam-u2-borders-CardBorder {
+    <<card.foam-u2-borders-CardBorder {
       position: relative;
       display: flex;
       padding: 1.6rem 1.2rem;
@@ -23,12 +23,12 @@ foam.CLASS({
       border-radius: 0.8rem;
       border: none;
     }
-    ^statusLabel {
+    <<statusLabel {
       display: flex;
       align-items: center;
       gap: 0.4em;
     }
-    ^hr {
+    <<hr {
       position: absolute;
       top: 4.9rem;
       height: 0.1rem;

@@ -14,7 +14,7 @@ foam.CLASS({
   properties: [ 'X', 'menu' ],
 
   css: `
-    ^inner {
+    <<inner {
       -moz-box-shadow: 0px 0px 67px -15px rgba(0,0,0,0.75);
       -webkit-box-shadow: 0px 0px 67px -15px rgba(0,0,0,0.75);
       border-bottom-left-radius: 5px;
@@ -24,7 +24,7 @@ foam.CLASS({
       top: 65px;
       width: 240px;
     }
-    ^inner div {
+    <<inner div {
       box-sizing: border-box;
       padding: 8px 24px;
       padding-right: 48px;
@@ -34,11 +34,11 @@ foam.CLASS({
       border-left: solid 1px $borderLight;
       border-right: solid 1px $borderLight;
     }
-    ^inner div:last-child {
+    <<inner div:last-child {
       border-bottom-left-radius: 5px;
       border-bottom-right-radius: 5px;
     }
-    ^inner div:hover {
+    <<inner div:hover {
       background: $borderBrandLight !important;
       border-left: solid 1px $borderBrandLight;
       border-right: solid 1px $borderBrandLight;

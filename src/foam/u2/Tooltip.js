@@ -125,7 +125,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background: $tooltipBackground;
       border-radius: 5px;
       color: $white;

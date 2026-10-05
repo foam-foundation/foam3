@@ -19,25 +19,25 @@ foam.CLASS({
   ],
 
   css: `
-    ^ a {
+    << a {
       color: $link;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^codeBlock {
+    <<codeBlock {
       background: $backgroundTertiary;
       border-radius: 6px;
       padding: 16px;
       margin: 0;
       text-wrap: auto;
     }
-    ^ .mdHeader:not(:first-child) {
+    << .mdHeader:not(:first-child) {
       margin-top: 2rem;
     }
-    ^ hr {
+    << hr {
       color: $borderDefault;
       margin: 1rem 0 0 0;
       border: 1px solid;
@@ -569,35 +569,35 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
     }
-    ^ButtonToolbar {
+    <<ButtonToolbar {
       display: flex;
       gap: 8px;
       width: 100%;
       flex-wrap: wrap;
       margin-bottom: 8px;
     }
-    ^ButtonToolbar > button + button {
+    <<ButtonToolbar > button + button {
       margin-left: 0 !important;
     }
-    ^separator {
+    <<separator {
       background: $backgroundSecondary;
       width: 1px;
       height: 2em;
       align-self: center;
     }
-    ^tool.foam-u2-ActionView {
+    <<tool.foam-u2-ActionView {
       padding: 6px 10px;
       max-height: unset;
     }
-    ^hintTool {
+    <<hintTool {
       position: relative;
       display: inline-flex;
     }
-    ^hintPopup {
+    <<hintPopup {
       position: absolute;
       top: 100%;
       left: 50%;
@@ -612,7 +612,7 @@ foam.CLASS({
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    ^hintOption {
+    <<hintOption {
       width: 24px;
       height: 24px;
       border-radius: 4px;
@@ -624,10 +624,10 @@ foam.CLASS({
       justify-content: center;
       padding: 0;
     }
-    ^hintOption:hover {
+    <<hintOption:hover {
       background: $backgroundTertiary;
     }
-    ^hintIcon ^hintIcon svg{
+    <<hintIcon <<hintIcon svg{
       color: $textTertiary;
       fill: currentColor;
       flex: 0 0 6px;

@@ -13,7 +13,7 @@ foam.CLASS({
   `,
 
   css:`
-    ^baseTitle {
+    <<baseTitle {
       padding-bottom: 1rem;
     }
   `,

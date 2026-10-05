@@ -142,7 +142,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-ActionView-delete {
+    << .foam-u2-ActionView-delete {
       width: -webkit-fill-available;
       height: 6rem;
       color: $purple700;
@@ -152,7 +152,7 @@ foam.CLASS({
       border: 2px solid $destructive!important;
       border-radius: 73px;
     }
-    ^ .main-container {
+    << .main-container {
       overflow: auto;
       height: 90%;
       margin-top: 15px;

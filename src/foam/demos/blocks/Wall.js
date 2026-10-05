@@ -15,7 +15,7 @@ foam.CLASS({
   exports: [ 'as wall' ],
 
   css: `
-    ^ {
+    << {
       border: 1px solid gray;
       display: inline-block;
     }

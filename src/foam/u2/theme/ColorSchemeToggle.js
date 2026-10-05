@@ -33,7 +33,7 @@ foam.CLASS({
     /* Button swaps in a new Image element on each glyph change, so the
        keyframe runs on every state; the page itself flips in one frame. */
     @media (prefers-reduced-motion: no-preference) {
-      ^ svg { animation: foam-u2-theme-ColorSchemeToggle-fade 150ms ease-out; }
+      << svg { animation: foam-u2-theme-ColorSchemeToggle-fade 150ms ease-out; }
     }
     @keyframes foam-u2-theme-ColorSchemeToggle-fade { from { opacity: 0; } }
   `,

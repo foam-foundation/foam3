@@ -39,14 +39,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: flex-start;
       display: flex;
       flex-direction: column;
       justify-content: center;
       height: 100%
     }
-    ^sticky-container {
+    <<sticky-container {
       align-content: flex-start;
       background: $bottomContainerColor;
       display: flex;
@@ -57,46 +57,46 @@ foam.CLASS({
       width: 100%;
       z-index: 10;
     }
-    ^bottom-container {
+    <<bottom-container {
       bottom: 0;
       /* Only the collapse/expand animates (^collapse, ^expand, ^padding);
          'all' would also cross-fade background and color over 200ms while
          the rest of the page flips colour scheme in one frame. */
       transition: flex 0.2s ease, padding 0.2s ease;
     }
-    ^top-container {
+    <<top-container {
       top: 0;
     }
-    ^bottom-container > * + * {
+    <<bottom-container > * + * {
       margin-top: 4px;
     }
-    ^scheme-toggle {
+    <<scheme-toggle {
       padding: 0 8px;
     }
-    ^menu-container {
+    <<menu-container {
       flex: 1;
       transition: flex 0.2s ease, padding 0.2s ease;
     }
-    ^logo {
+    <<logo {
       flex: 1;
       padding: 0 16px;
     }
-    ^menu-container.foam-core-menu-VerticalMenu {
+    <<menu-container.foam-core-menu-VerticalMenu {
       padding: 0px;
       border-right: none;
     }
-    ^padding.foam-core-menu-VerticalMenu:not(^collapse) {
+    <<padding.foam-core-menu-VerticalMenu:not(<<collapse) {
       padding-top: 16px;
     }
-    ^collapse {
+    <<collapse {
       flex: 0;
       padding: 0px;
     }
-    ^expand {
+    <<expand {
       flex: 1;
     }
     @media print {
-      ^ { display: none !important; }
+      << { display: none !important; }
     }
   `,
   properties: [

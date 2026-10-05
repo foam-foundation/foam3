@@ -36,14 +36,14 @@ foam.CLASS({
   ],
   css: `
     /* Basic reset for elements within this component */
-    ^ * {
+    << * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
 
     /* Base styling for the component */
-    ^ {
+    << {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background-color: #f5f5f5;
       color: #333;
@@ -63,7 +63,7 @@ foam.CLASS({
        Top Navigation (Header)
        ---------------------------- */
     /* Header container */
-    ^header {
+    <<header {
       height: 60px;
       background-color: var(--secondary-color);
       padding: 0 1rem;
@@ -74,13 +74,13 @@ foam.CLASS({
     }
 
     /* Left part of header: menu (toggle + title) */
-    ^menu {
+    <<menu {
       display: flex;
       align-items: center;
     }
 
     /* Hamburger toggle button */
-    ^toggle-button {
+    <<toggle-button {
       font-size: 1.5rem;
       cursor: pointer;
       margin-right: 1rem;
@@ -88,19 +88,19 @@ foam.CLASS({
     }
 
     /* Title styling */
-    ^title {
+    <<title {
       font-size: 1.25rem;
       font-weight: bold;
     }
 
     /* Right part of header: actions */
-    ^actions {
+    <<actions {
       display: flex;
       align-items: center;
     }
 
     /* Action buttons */
-    ^action-btn {
+    <<action-btn {
       background: none;
       border: none;
       font-size: 1.25rem;
@@ -112,34 +112,34 @@ foam.CLASS({
        Main Container
        ---------------------------- */
     /* Container for sidebar and content */
-    ^container {
+    <<container {
       display: flex;
     }
 
     /* ----------------------------
        Sidebar Styling
        ---------------------------- */
-    ^sidebar {
+    <<sidebar {
       width: var(--sidebar-width);
       background-color: var(--primary-color);
       color: var(--secondary-color);
       transition: width var(--transition-duration);
     }
 
-    ^sidebar ul {
+    <<sidebar ul {
       list-style: none;
       padding: 1rem 0;
     }
 
-    ^sidebar li {
+    <<sidebar li {
       transition: background var(--transition-duration);
     }
 
-    ^sidebar li:hover {
+    <<sidebar li:hover {
       background-color: rgba(255, 255, 255, 0.1);
     }
 
-    ^sidebar a {
+    <<sidebar a {
       padding: 0.75rem 1rem;
       text-decoration: none;
       color: inherit;
@@ -148,21 +148,21 @@ foam.CLASS({
     }
 
     /* When collapsed, reduce sidebar width */
-    ^collapsed {
+    <<collapsed {
       width: var(--sidebar-collapsed-width) !important
     }
 
     /* Adjust list items when collapsed */
-    ^collapsed li {
+    <<collapsed li {
       text-align: center;
     }
 
     /* Hide link text when collapsed; show icon from data-icon attribute */
-    ^collapsed li a {
+    <<collapsed li a {
       font-size: 0;
     }
 
-    ^collapsed li a::before {
+    <<collapsed li a::before {
       content: attr(data-icon);
       font-size: 1.25rem;
       display: block;
@@ -172,20 +172,20 @@ foam.CLASS({
     /* ----------------------------
        Content Area Styling
        ---------------------------- */
-    ^content {
+    <<content {
       flex: 1;
       padding: 1rem;
       background-color: #fff;
     }
     
-    ^document {
+    <<document {
       max-width: 760px;
     }
-    ^document td , ^document th {
+    <<document td , <<document th {
       text-align: left;
       padding: 8pt;
     }
-    ^document th {
+    <<document th {
       font-weight: bold;
       background-color: $backgroundInverseTertiary;
     }

@@ -12,7 +12,7 @@ foam.CLASS({
   documentation: 'Displays user-friendly error messages using semantic color tokens.',
 
   css: `
-    ^ {
+    << {
       padding: 16px;
       margin: 8px 0;
       border-radius: 4px;

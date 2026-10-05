@@ -85,7 +85,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background: inherit;
       box-shadow: 0px 0px 30px 0px $grey400;
       margin: 0;
@@ -95,7 +95,7 @@ foam.CLASS({
       max-height: 25rem;
       border-radius: 10px;
     }
-    ^ .choice {
+    << .choice {
       align-content: flex-start;
       align-items: flex-end;
       cursor: pointer;
@@ -104,7 +104,7 @@ foam.CLASS({
       color: $textSecondary;
       padding: 2.5rem;
     }
-    ^ .choice.selected {
+    << .choice.selected {
       font-weight: bold;
       border-left: 0.7rem solid $borderDefault;
       background-color: $textTertiary;

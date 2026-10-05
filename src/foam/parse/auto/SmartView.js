@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css:`
-    ^ {
+    << {
       padding: 4px 0px;
     }
   `,
@@ -125,35 +125,35 @@ foam.CLASS({
   constants: { MAX_WIDTH: 50 }, // Max label width in characters
 
   css: `
-    ^ {
+    << {
       color: $textDefault;
       border-radius: 4px;
       padding: 4px 8px;
     }
-    ^label {
+    <<label {
       font-style: normal;
       font-weight: $font-medium;
       line-height: 1.71;
       margin: 0;
     }
-    ^text {
+    <<text {
       color: $textSecondary;
     }
-    ^:hover{
+    <<:hover{
       background-color: $backgroundBrandTertiary;
       cursor: pointer;
     }
 
-    ^property    { color: $green400; }
-    ^operator    { color: $orange400; }
-    ^value       { color: $blue400; }
-    ^format      { color: $grey400; }
-    ^standard    { color: $blue400; }
-    ^custom      { color: $orange400; }
-    ^function    { color: $purple400; }
-    ^calculation { color: $orange400; }
-    ^chart       { color: $blue400; }
-    ^structure   { color: $green400; }
+    <<property    { color: $green400; }
+    <<operator    { color: $orange400; }
+    <<value       { color: $blue400; }
+    <<format      { color: $grey400; }
+    <<standard    { color: $blue400; }
+    <<custom      { color: $orange400; }
+    <<function    { color: $purple400; }
+    <<calculation { color: $orange400; }
+    <<chart       { color: $blue400; }
+    <<structure   { color: $green400; }
   `,
 
   properties: [
@@ -269,7 +269,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^suggestions {
+    <<suggestions {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -277,8 +277,8 @@ foam.CLASS({
       overflow-y: auto;
       z-index: $z-popup;
     }
-    ^suggestionSeparator { border-bottom: 1px solid $borderLight; }
-    ^error { border: 1px solid $destructive !important; }
+    <<suggestionSeparator { border-bottom: 1px solid $borderLight; }
+    <<error { border: 1px solid $destructive !important; }
   `,
 
   properties: [
@@ -574,6 +574,7 @@ foam.CLASS({
         let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
+          overlay?.close();
           this.reset();
           // Fire a manual change event since this will not have fired if the user
           // never changed the text field value and only used the completer.

@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ svg {
+    << svg {
       border: 4px inset #808080;
       background-color: #FFF;
     }

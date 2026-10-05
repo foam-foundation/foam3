@@ -60,21 +60,21 @@ foam.CLASS({
         x.test(! /e/i.test(s) && /0.00/.test(s),
           'float noise exports as rounded zero, not scientific notation: ' + s);
 
-        // 'Add Units' unchecked (addUnitPropValueToStr false): bare number a
-        // spreadsheet can parse — no symbol, no grouping, still 2dp
+        // 'Formatted values' unchecked: bare number a spreadsheet can parse —
+        // no symbol, no grouping, still 2dp
         var bare = async values => (await outputter.arrayOfValuesToArrayOfStrings(ctx, props, [ values ], 1, false))[0][0];
 
         s = await bare([ 1234.5, 'GBP' ]);
         x.test(s === '1234.50',
-          'Add Units off exports bare number at currency precision: ' + s);
+          'Formatted values off exports bare number at currency precision: ' + s);
 
         s = await bare([ -1234.5, 'GBP' ]);
         x.test(s === '-1234.50',
-          'Add Units off keeps plain minus sign for negatives: ' + s);
+          'Formatted values off keeps plain minus sign for negatives: ' + s);
 
         s = await bare([ -6.984919309616089e-10, 'GBP' ]);
         x.test(s === '0.00',
-          'Add Units off exports negative float noise as 0.00, not -0.00: ' + s);
+          'Formatted values off exports negative float noise as 0.00, not -0.00: ' + s);
 
         // GUI path regression: ValueView passes prop.hideId (default true on
         // DoubleUnitValue) as excludeUnit — that must keep the £ symbol,

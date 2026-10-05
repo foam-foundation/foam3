@@ -15,17 +15,17 @@
   ],
 
   css: `
-    ^{
+    <<{
       display: inline-grid;
       grid-template-columns: repeat(12, 1fr);
       gap: 24px 24px;
       justify-items: start;
     }
-    ^left-container{
+    <<left-container{
       grid-column: 1 / 5;
       width: 100%;
     }
-    ^right-container{
+    <<right-container{
       grid-column: 5 / 12;
     }
   `,

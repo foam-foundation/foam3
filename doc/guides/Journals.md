@@ -1,3 +1,5 @@
+<flow name="Journals" category="DOC/GUIDE" spid="foam" description="Explains FOAM journals: append-only .jrl files, p/c/r/v operations, JSON delta compression, replay, and compaction." keywords="journal,jrl,replay,compaction,persistence,knowledge"/>
+
 # FOAM Journals 
 
 ## What are FOAM Journals?
@@ -48,6 +50,16 @@ For example, building with `-Jhttps` will process the following `services.jrl` f
 1. src/foam/core/jetty/services.jrl
 2. src/services.jrl
 3. deployment/https/services.jrl
+
+## Replay traps when changing journaled data
+
+**`c()` merges like `p()`.** On replay, a create entry for an id that already exists is merged onto the existing object, exactly as a `p()` is (`src/foam/dao/F3FileJournal.js:192-197`). A later journal's `c()` with fewer fields no longer wipes the fields an earlier journal set.
+
+**The file name is the journal name.** `JournalMaker` turns every `.jrl` under a POM-controlled directory into a build journal named after the file (`tools/JournalMaker.js:141-143`); there is no opt-in list. Two kinds wait for the `test` flag: any file whose name ends in `tests.jrl` (`:159-160`), and a file listed in the POM's `journalFiles` with a `test` flag (`:151-158`). A DAO opens exactly the journal it names, for example `.setJournalName("scripts")` (`src/foam/core/script/services.jrl:15`). So a file called `backfill-scripts.jrl` ships to every environment and builds a `backfill-scripts` journal that no DAO ever opens: its rows never load. A one-off migration script belongs outside the repository, run once through the Scripts admin screen.
+
+**A seed row cannot undo a runtime row.** Replay reads the build journal (`<name>.0`) first, then frozen generations, then the runtime journal (`src/foam/dao/java/JDAO.js:154-201`). A later runtime `p()` for the same id wins over anything in the seed, including an `r()`. The exception is a DAO running with [NDiff](NDiff.md), which is off unless the DAO sets `ndiff: true` or the JVM has `-DUseNdiff` (`src/foam/dao/EasyDAO.js:652-659`). Rows the application writes back on its own are the usual case: the cron scheduler puts each cron row back every time it schedules or times it out (`src/foam/core/cron/CronScheduler.js:182`, `:207`). Renaming or deleting a seeded row that the app rewrites therefore needs a manual delete in the running app after deployment.
+
+**Changing a property's class does not convert stored values.** Rows written before the change keep their old shape. For example, a property changed from `Map` to `FObjectArray` still holds `{"key":true}` objects in older rows, and code that expects an array fails on them; `FileArrayDAODecorator` now names the property and value when this happens (`src/foam/core/fs/FileArrayDAODecorator.js:116-129`). Removing and renaming a property are covered in [claude.md](claude.md) section 22; both rest on the Java parser skipping a key it does not know (`src/foam/lib/json/ModelParserFactory.java:236-239`).
 
 ## Feature Flags and Conditional Complilation
 

@@ -24,37 +24,37 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       width: 448px;
       margin: auto;
     }
-    ^ > *, ^ .foam-u2-layout-Grid {
+    << > *, << .foam-u2-layout-Grid {
       gap: 12px;
     }
-    ^ .foam-u2-TextInputCSS {
+    << .foam-u2-TextInputCSS {
       border: 1px solid $borderLight;
 
     }
-    ^ .foam-u2-TextInputCSS option {
+    << .foam-u2-TextInputCSS option {
       padding: 10px;
     }
-    ^datatype-group {
+    <<datatype-group {
       display: flex;
       align-items: center;
       gap: 5px;
     }
-    ^dimmed-text {
+    <<dimmed-text {
       color: $textSecondary;
     }
-    ^datatype-text {
+    <<datatype-text {
       font-weight: bold;
       color: $textSecondary;
     }
-    ^divided-sec {
+    <<divided-sec {
       border-top: 1px solid $borderDefault;
       padding-top: 10px;
     }
-    ^ .foam-u2-borders-ExpandableBorder-container {
+    << .foam-u2-borders-ExpandableBorder-container {
       padding: 10px;
     }
 

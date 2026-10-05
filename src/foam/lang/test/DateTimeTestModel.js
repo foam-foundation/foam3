@@ -33,6 +33,29 @@ foam.CLASS({
     {
       class: 'String',
       name: 'eventName'
+    },
+    {
+      class: 'Date',
+      name: 'derivedDate',
+      documentation: `A date that only exists through its getter: unset until
+        read, then taken from regularDate. Stands in for a property such as a
+        file date parsed lazily out of a path, so a reader that goes straight
+        to the backing field sees it unset.`,
+      storageTransient: true,
+      javaGetter: `
+        if ( ! derivedDateIsSet_ && regularDateIsSet_ ) {
+          derivedDate_ = regularDate_;
+          derivedDateIsSet_ = true;
+        }
+        return foam.util.DateUtil.longToNullableDate(derivedDate_);
+      `
+    },
+    {
+      class: 'Date',
+      name: 'factoryDate',
+      documentation: 'The same shape through a javaFactory: regularDate, filled in on first read.',
+      storageTransient: true,
+      javaFactory: 'return getRegularDate();'
     }
   ]
 });

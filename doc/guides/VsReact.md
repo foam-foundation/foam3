@@ -1,3 +1,5 @@
+<flow name="VsReact" category="DOC/GUIDE" spid="foam" description="Compares FOAM (model-driven, cross-platform, built-in DAO layer) vs React (component-based, virtual DOM, hooks)." keywords="react,comparison,virtual dom,hooks,knowledge"/>
+
 ## Overview
 
 You're asking about FOAM (Feature Oriented Active Modeller), a modeling framework and class-based object system that can generate code for multiple platforms [1](#0-0) , versus React, a popular JavaScript UI library. While both can build web applications, they represent fundamentally different architectural approaches.
@@ -120,8 +122,8 @@ Key features:
 FOAM is a full-stack framework with its own paradigms for modeling, data access, and UI construction, while React is specifically a UI library that requires additional tools for a complete application. FOAM's model-driven approach provides more built-in functionality but requires learning FOAM-specific concepts, whereas React's component model is more familiar to JavaScript developers but requires assembling multiple libraries for full application functionality<cite />.
 
 Wiki pages you might want to explore:
-- [Detail Views and Form System (kgrgreer/foam3)](/wiki/kgrgreer/foam3#4.4)
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Detail Views and Form System (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#4.4)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

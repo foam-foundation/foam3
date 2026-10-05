@@ -17,13 +17,12 @@ foam.CLASS({
   ],
 
   imports: [
-    'ctrl?',
     'window',
     'table?'
   ],
 
   css: `
-    ^ .foam-u2-ActionView-closeButton {
+    << .foam-u2-ActionView-closeButton {
       width: 24px;
       height: 35px;
       margin: 0;
@@ -37,17 +36,27 @@ foam.CLASS({
       padding-top: 15px;
       margin-right: 15px;
     }
-    ^ .foam-u2-ActionView-closeButton:hover {
+    << .foam-u2-ActionView-closeButton:hover {
       outline: none;
       border: none;
       background: transparent;
     }
-    ^container {
+    <<overlay .foam-u2-md-OverlayDropdown {
+      display: flex;
+      flex-direction: column;
+    }
+    <<container {
       align-items: flex-start;
       display: flex;
       flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
       width: clamp(18.75rem, 20vw, 37.5rem);
       max-width: calc(100vw - 2rem);
+    }
+    <<container .foam-u2-view-ColumnConfigPropView-colContainer {
+      min-height: 0;
+      overflow-y: auto;
     }
   `,
 
@@ -93,11 +102,6 @@ foam.CLASS({
           this.selectColumnsExpanded = this.overlay_.opened;
       }));
     },
-    function closeDropDown(e) {
-      e?.stopPropagation();
-      this.columnConfigPropView?.onClose?.();
-      this.selectColumnsExpanded = false;
-    },
     function openDropDown() {
       var parentEl = this.parentEl;
       if ( ! parentEl && this.parentId )
@@ -114,22 +118,17 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
+      this.overlay_.addClass(this.myClass('overlay'));
       this.overlay_.add(this.dynamic(function(refreshIdx) {
-          this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
-              .addClass(self.myClass('container'))
-            .end();
-        }));
-      this.ctrl ? this.ctrl.add(this.overlay_) : this.overlay_.write();
+        this.start(self.ColumnConfigPropView, { data: self.data }, self.columnConfigPropView$)
+          .addClass(self.myClass('container'))
+        .end();
+      }));
+      this.overlay_.write();
       this.onDetach(() => self.overlay_.remove());
     }
   ],
-  listeners: [
-    function refresh() { this.refreshIdx++; },
-    function updatePosition() {
-      if ( this.selectColumnsExpanded )
-        this.openDropDown();
-    }
-  ],
+
   actions: [
     {
       name: 'closeButton',
@@ -139,6 +138,14 @@ foam.CLASS({
         this.columnConfigPropView?.onClose?.();
         this.selectColumnsExpanded = false;
       }
+    }
+  ],
+
+  listeners: [
+    function refresh() { this.refreshIdx++; },
+    function updatePosition() {
+      if ( this.selectColumnsExpanded )
+        this.openDropDown();
     }
   ]
 });

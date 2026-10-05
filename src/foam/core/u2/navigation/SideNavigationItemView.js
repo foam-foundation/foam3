@@ -18,16 +18,16 @@ foam.CLASS({
   ],
 
   css:`
-    ^selected {
+    <<selected {
       opacity:1 !important;
       text-shadow: 0 0 0px white, 0 0 0px white;
     }
-    ^disabled a {
+    <<disabled a {
       opacity: 0.35 !important;
       cursor: default !important;
       pointer-events: none;
     }
-    ^disabled a:hover {
+    <<disabled a:hover {
       opacity: 0.35 !important;
     }
   `,
@@ -74,27 +74,11 @@ foam.CLASS({
           .end();
       },
 
-      function setAnchor(menu) {
-        setTimeout( () => {
-          var names = document.getElementsByName(menu.handler.anchor);
-          if ( names.length > 0 ) {
-            names[0].scrollIntoView();
-          }
-        }, 500);
-      },
-
       function handleClick(menu) {
         var self = this;
 
         if ( menu.handler != 'foam.core.menu.SubMenu' ) {
-          if ( menu.handler == 'foam.core.menu.DocumentFileMenu' ) {
-            if ( this.currentMenu.handler != 'foam.core.menu.DocumentFileMenu' || (this.currentMenu.handler == 'foam.core.menu.DocumentFileMenu' && this.currentMenu.handler.docKey != menu.handler.docKey) ) {
-              menu.launch(this.__context__, this);
-            }
-            if ( menu.handler.anchor ) {
-              this.setAnchor(menu);
-            }
-          } else if ( this.currentMenu.id !== menu.id ) {
+          if ( this.currentMenu.id !== menu.id ) {
             menu.launch(this.__context__, this);
           }
         }

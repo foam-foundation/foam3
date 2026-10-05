@@ -1,3 +1,5 @@
+<flow name="Permissions" category="DOC/GUIDE" spid="foam" description="Documents the permission system: User to Group to GroupPermissionJunction to Permission check flow and the AuthService decorator chain." keywords="permissions,authservice,groups,cspec,knowledge"/>
+
 # FOAM Permissions
 
 ## Permission System Architecture
@@ -176,9 +178,9 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 - **Note:** Defined within individual action models
 
 ### 6. UI Section Visibility
-- **Pattern:** `<modelname.toLowerCase()>.section.<sectionName>`
-- **Example:** `foam.core.cron.schedulable.section.history`
-- **Implementer:** Unknown/undocumented
+- **Pattern:** `<model>.section.<section>`, both lowercased like the `ro`/`rw`/`column` families
+- **Examples:** `schedulable.section.history`, `flow.section.scriptsection`
+- **Implementer:** SectionAxiom.js
 - **Note:** Sections are not permissioned by default. To enable permission include: `permissionRequired: true` in the section.
 
 ### 7. Table Column Visibility
@@ -222,7 +224,7 @@ Ex.: `"OpsRole", "ReflowRole"`
 The FOAM permission system implements a comprehensive authorization framework with wildcard support, hierarchical naming, and multiple specialized authorizers. [10](#1-9)  The system integrates with both traditional group-based permissions and the advanced CRUNCH capability system for fine-grained access control.
 
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
 
 ### Citations
 

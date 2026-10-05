@@ -6,6 +6,8 @@
 
 package foam.core.partition;
 
+import foam.core.boot.CSpec;
+import foam.core.boot.CSpecStatus;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.dao.index.AddIndexCommand;
@@ -52,7 +54,8 @@ public class NotPartitionedDAO
 
     if ( dao == null ) {
       if ( delegate_ != null )
-        Loggers.logger(getX(), this).info("DAO was garbage collected. A new DAO will be created and cached.", getDirName());
+        updateStatus(CSpecStatus.UNLOADED, "Unload", "garbage collected", getDirName());
+      // The replay that follows reports its own start/progress/complete.
 
       loadingStarted("");
       try {
@@ -67,8 +70,17 @@ public class NotPartitionedDAO
   }
 
   public synchronized void unload() {
-    Loggers.logger(getX(), this).info("DAO unloaded.", getDirName());
+    updateStatus(CSpecStatus.UNLOADED, "Unload", getDirName());
     delegate_ = null;
+  }
+
+  protected void updateStatus(Object... args) {
+    CSpec cspec = getCSpec();
+    if ( cspec != null ) {
+      cspec.updateStatus(args);
+    } else {
+      Loggers.logger(getX(), this).info(args);
+    }
   }
 
   public DAO createDAO() {
@@ -80,14 +92,18 @@ public class NotPartitionedDAO
     try {
       reporter.start(journalSize(journalName));
       X loadX = getX().put(PartitionLoadReporter.CTX_KEY, reporter);
-      jdao = easy_ != null ?
-        easy_.createJournalledDelegate(loadX) :
-        new JDAO(loadX, getOf(), journalName);
+      if ( easy_ != null ) {
+        jdao = easy_.createJournalledDelegate(loadX, getIndices());
+      } else {
+        // The indexes go in before the JDAO replays into the MDAO, so its bulk
+        // load builds them all at once instead of each one after the fact.
+        MDAO mdao = new MDAO(getOf());
+        addIndices(mdao);
+        jdao = new JDAO(loadX, mdao, journalName);
+      }
     } finally {
       reporter.done();
     }
-
-    addIndices(jdao);
 
     return jdao;
   }
@@ -126,9 +142,20 @@ public class NotPartitionedDAO
       return true;
     }
 
+    // Sent once the service script has returned, so every index it added is
+    // recorded and goes into the replay's bulk load.
+    if ( DAO.LOAD_CMD.equals(cmd) ) return getDelegate().cmd_(x, cmd);
+
     if ( cmd instanceof AddIndexCommand ) {
       getIndices().add(cmd);
-      return true;
+
+      synchronized ( this ) {
+        if ( delegate_ == null ) return true;
+      }
+    }
+
+    synchronized ( this ) {
+      if ( delegate_ == null ) return false;
     }
 
     return getDelegate().cmd_(x, cmd);

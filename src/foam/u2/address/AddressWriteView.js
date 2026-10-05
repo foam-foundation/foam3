@@ -33,13 +33,13 @@ foam.CLASS({
     'data.countryId as currentCountry'
   ],
   css: `
-    ^{
+    <<{
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
 
-    ^third-line {
+    <<third-line {
       display: flex;
       grid-gap: 8px;
       align-items: start;
@@ -59,13 +59,13 @@ foam.CLASS({
       ],
 
       css: `
-        ^two-column {
+        <<two-column {
           display: grid;
           grid-template-columns: 1fr;
           grid-gap: 8px;
           align-items: start;
         }
-        ^two-column.lg {
+        <<two-column.lg {
           grid-template-columns: 2fr 1fr;
         }
       `,
@@ -154,7 +154,7 @@ foam.CLASS({
       properties: ['data'],
 
       css:`
-        ^two-column {
+        <<two-column {
           align-items: start;
           gap: 8px;
         }

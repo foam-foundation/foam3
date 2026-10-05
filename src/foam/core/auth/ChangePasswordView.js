@@ -30,10 +30,10 @@ foam.CLASS({
     { name: 'BACK_LABEL', message: 'Back to'}
   ],
   css: `
-    ^ {
+    << {
       height: 100%;
     }
-    ^flex {
+    <<flex {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -41,44 +41,44 @@ foam.CLASS({
       gap: 1rem;
       padding: 2.4rem 3.2rem;
     }
-    ^flex^popup {
+    <<flex<<popup {
       gap: 3rem;
       padding: 5rem 0 0 0;
     }
-    ^sectionView{
+    <<sectionView{
       width: 100%;
       display: flex;
       justify-content: center;
     }
-    ^title {
+    <<title {
       text-align:center;
     }
-    ^popup ^subTitle,^popup ^sectionView > *{
+    <<popup <<subTitle,<<popup <<sectionView > *{
       width: 75%;
     }
-    ^subTitle {
+    <<subTitle {
       padding: 0 15px;
       text-align: center;
     }
-    ^ .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
+    << .foam-u2-detail-SectionView .foam-u2-detail-SectionView-actionDiv {
       justify-content: center;
       flex-direction: column;
       gap: 0.5rem;
     }
-    ^ form {
+    << form {
       margin-bottom: 0;
     }
     /* mobile */
     @media only screen and (min-width: /*%DISPLAYWIDTH.MD%*/ 786px ) {
-      ^popup ^subTitle,^popup ^sectionView > * {
+      <<popup <<subTitle,<<popup <<sectionView > * {
         width: 50%;
       }
-      ^subTitle {
+      <<subTitle {
         padding: 0;
       }
     }
     @media only screen and (min-width: /*%DISPLAYWIDTH.LG%*/ 960px ) {
-      ^popup  ^subTitle,^popup ^sectionView > * {
+      <<popup  <<subTitle,<<popup <<sectionView > * {
         width: 25%;
       }
     }

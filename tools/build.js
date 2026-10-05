@@ -384,7 +384,7 @@ function moreUsage(arg) {
     log('  RemoteInstall - configure remote host and install Java application. use: -TStandard,RemoteInstall,Java ...');
     log('  setup/Project - create a new FOAM project. use: -T+setup/Project ...');
     log('');
-    info('See --usage for examples, and documentation https://github.com/kgrgreer/foam3/blob/development/doc/guides/Build.md');
+    info('See --usage for examples, and documentation https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md');
   }
 }
 
@@ -863,6 +863,16 @@ pom();
 // Phase III - execute build tasks
 if ( SHOW_ENVS )
   moreUsage();
+
+// Keep an installed FOAM-LSP clone current (JSTooling lspRefresh). Called
+// directly, not through execute(), so a build with no clone logs nothing.
+// Skipped when an lsp-* task was asked for: those handle the clone themselves.
+var lspRefresh = findTask(TOOLING_TASKS, 'lspRefresh');
+var lspTaskAsked = TASKS.split(TASK_SEPERATOR).some(t => {
+  var task = findTask(TOOLING_TASKS, t.split(':')[0]);
+  return task && task.name.startsWith('lsp');
+});
+if ( lspRefresh && ! DRY_RUN && ! lspTaskAsked ) lspRefresh.f.call(Object.assign({}, EXPORTS));
 
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');

@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'StringInternerTest',
   extends: 'foam.core.test.Test',
 
-  documentation: 'foam.util.StringInterner: dedup behavior at every length, and the parser integration that replaced String.intern().',
+  documentation: 'foam.util.StringInterner: intern on second sight -- first sight stays raw, second sight interns the first instance, values that never repeat never reach the JVM table; release, analytics, and the parser with and without a replay context.',
 
   javaImports: [
     'foam.util.StringInterner',
@@ -20,67 +20,82 @@ foam.CLASS({
     {
       name: 'runTest',
       javaCode: `
-        // equal short strings dedup to one instance per thread
-        String a = new String("USD");
-        String b = new String("USD");
-        test(a != b, "setup: two distinct instances");
-        String ia = StringInterner.intern(a);
-        String ib = StringInterner.intern(b);
-        test(ia == ib, "equal short strings return the same instance, across any thread");
-        test("USD".equals(ia), "deduplicated value is equal to the input");
+        long tag = System.nanoTime();
+        StringInterner c = new StringInterner();
 
-        // a repeated long string dedups too — one 100-char duplicate saves more than a short one
-        StringBuilder lb = new StringBuilder();
-        for ( int i = 0 ; i < 10 ; i++ ) lb.append("longvalue-");
-        String l1 = StringInterner.intern(new String(lb.toString()));
-        String l2 = StringInterner.intern(new String(lb.toString()));
-        test(l1 == l2, "repeated 100-char strings dedup to one instance");
+        // first sight: the value comes back as itself, nothing reaches the table
+        String v  = "usd-" + tag;
+        String a  = new String(v);
+        test(c.intern(a) == a && c.interned() == 0, "first sight returns the raw instance and sends nothing to the JVM table");
 
-        // full dedup: no eviction — three distinct values, all stay canonical
-        String v1 = StringInterner.intern(new String("EUR"));
-        String v2 = StringInterner.intern(new String("GBP"));
-        test(StringInterner.intern(new String("EUR")) == v1 && StringInterner.intern(new String("GBP")) == v2, "values stay canonical, nothing evicted");
+        // second sight interns the FIRST instance: the record that brought the value in already holds the canonical
+        String b  = new String(v);
+        String ib = c.intern(b);
+        test(ib == a && ib != b, "second sight returns the first instance, not the second");
+        test(a.intern() == a, "the first instance is the JVM canonical");
+        test(c.intern(new String(v)) == a, "third sight returns the same canonical");
+        test(c.hits() == 2 && c.calls() == 3 && c.interned() == 1,
+          "two hits of three calls, one value interned (hits " + c.hits() + ", calls " + c.calls() + ", interned " + c.interned() + ")");
 
-        // no length gate: a repeated 182-char value dedups like any other
+        // a value already in the JVM table (a literal): second sight returns the table's instance
+        c.intern(new String("USD"));
+        test(c.intern(new String("USD")) == "USD", "a value the JVM already holds interns to the existing canonical");
+
+        // no length gate: a repeated 182-char value interns like any other
         StringBuilder gb = new StringBuilder();
         for ( int i = 0 ; i < 13 ; i++ ) gb.append("past-any-gate-");
-        String g1 = StringInterner.intern(new String(gb.toString()));
-        String g2 = StringInterner.intern(new String(gb.toString()));
-        test(g1 == g2, "long strings dedup too — same coverage as String.intern");
+        String g = gb.toString() + tag;
+        String g1 = new String(g);
+        c.intern(g1);
+        test(c.intern(new String(g)) == g1, "long strings intern on second sight too");
 
         // null passes through
-        test(StringInterner.intern(null) == null, "null passes through");
+        test(c.intern(null) == null, "null passes through");
 
-        // entries die with their string: intern uniques, drop them, force GC.
-        // System.gc() is a hint and the reference handler enqueues on its own
-        // thread, so wait for the outcome under a deadline rather than for a
-        // fixed number of rounds: a healthy run leaves on the first pass, and a
-        // loaded machine gets the time it needs instead of a failure.
-        // The map is measured against its own baseline, not against a full
-        // 10000: a GC during the fill loop already collects some probes, so
-        // requiring every one of them to still be present fails on a fast
-        // collector for the very reason the test is checking.
-        int  before   = StringInterner.size();
-        for ( int i = 0 ; i < 10000 ; i++ ) StringInterner.intern("gc-probe-" + i + "-" + System.nanoTime());
-        int  filled   = StringInterner.size();
-        int  target   = before + 1000;
-        long deadline = System.currentTimeMillis() + 30000;
-        while ( StringInterner.size() > target && System.currentTimeMillis() < deadline ) {
-          System.gc();
-          try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
-          // intern() drains the whole queue, so this call is what drops the entries
-          StringInterner.intern("drain-trigger");
-        }
-        test(filled > before + 1000 && StringInterner.size() <= target,
-          "collected strings leave the interner (baseline " + before + ", filled " + filled +
-          ", now " + StringInterner.size() + ")");
+        // a value seen once, however many other values go by, is never interned
+        StringInterner once = new StringInterner();
+        for ( int i = 0 ; i < 10000 ; i++ ) once.intern("id-" + tag + "-" + i);
+        test(once.interned() == 0 && once.calls() == 10000, "10,000 values seen once put nothing in the JVM table");
 
-        // the parser dedups repeated short values across entries
+        // release: maps drop, calls return the raw value and count nothing
+        StringInterner rel = new StringInterner();
+        rel.intern(new String("released-" + tag));
+        rel.release();
+        String r2 = new String("released-" + tag);
+        test(rel.intern(r2) == r2 && rel.calls() == 1, "after release, intern returns the raw value and does not count (calls " + rel.calls() + ")");
+
+        // analytics: the bucket that saw the calls reports hits, misses and values interned
+        StringInterner st = new StringInterner();
+        for ( int i = 0 ; i < 50 ; i++ ) st.intern(new String("twelve-chars"));   // length 12 -> bucket 8-15
+        String summary = st.summary();
+        test(st.hits() == 49 && st.calls() == 50 && st.interned() == 1, "49 hits of 50 calls, one value interned");
+        test(summary.contains("len 8-15 calls 50 hit 49 miss 1 interned 1") && summary.contains("total calls 50 hit 98.0% interned 1"),
+          "summary reports the 8-15 bucket and the totals: " + summary);
+
+        // parser with a replay interner in X: one record's value is seen once, even though parsers backtrack
         JSONParser p = new JSONParser();
-        p.setX(x);
-        foam.core.auth.User u1 = (foam.core.auth.User) p.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":1,\\"spid\\":\\"foam\\"}");
-        foam.core.auth.User u2 = (foam.core.auth.User) p.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":2,\\"spid\\":\\"foam\\"}");
-        test(u1 != null && u2 != null && u1.getSpid() == u2.getSpid(), "parser returns one instance for a repeated short string value");
+        StringInterner pi = new StringInterner();
+        p.setX(x.put(StringInterner.CTX_KEY, pi));
+        String sp = "spid-" + tag;
+        foam.core.auth.User u1 = (foam.core.auth.User) p.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":1,\\"spid\\":\\"" + sp + "\\"}");
+        test(u1 != null && pi.interned() == 0, "one record carrying a value leaves it uninterned (interned " + pi.interned() + ")");
+        // the second record's sight interns the first record's instance, so both records share it
+        foam.core.auth.User u2 = (foam.core.auth.User) p.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":2,\\"spid\\":\\"" + sp + "\\"}");
+        test(u2 != null && u2.getSpid() == u1.getSpid() && u1.getSpid() == sp.intern(),
+          "parser with a replay interner: the second record shares the first record's instance, which is the canonical");
+
+        // parser with no replay context keeps values as parsed
+        JSONParser q = new JSONParser();
+        q.setX(x);
+        String sq = "live-spid-" + tag;
+        foam.core.auth.User u3 = (foam.core.auth.User) q.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":3,\\"spid\\":\\"" + sq + "\\"}");
+        foam.core.auth.User u4 = (foam.core.auth.User) q.parseString("{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":4,\\"spid\\":\\"" + sq + "\\"}");
+        test(u3 != null && u4 != null && sq.equals(u4.getSpid()) && u3.getSpid() != u4.getSpid(),
+          "parser with no replay context keeps each record's value as parsed");
+
+        // identity is a property of the table, not the value: consumers compare with equals()
+        String pv1 = new String("per-record-value"), pv2 = new String("per-record-value");
+        test(pv1.equals(pv2) && pv1 != pv2, "equal values are not the same instance until interned -- never compare strings with ==");
       `
     }
   ]

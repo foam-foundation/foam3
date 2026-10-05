@@ -67,7 +67,7 @@ foam.CLASS({
       const results = await Promise.all(arr.map( async p =>
         p.hidden ? false :
         (! this.auth) ? true : ! p.columnPermissionRequired ||
-        await this.auth.check(ctrl.__subContext__, `${this.of.name.toLowerCase()}.column.${p.name}`)));
+        await this.auth.check(ctrl.__subContext__, `${this.of.name.toLowerCase()}.column.${p.name.toLowerCase()}`)));
       return arr.filter((_v, index) => results[index]);
     },
 

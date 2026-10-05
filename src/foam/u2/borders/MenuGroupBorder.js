@@ -15,26 +15,26 @@ foam.CLASS({
   requires: ['foam.core.u2.navigation.ApplicationLogoView'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
-    ^header {
+    <<header {
       display: flex;
       width: 100%;
       padding: 16px;
       align-items: center;
       justify-content: space-between;
-      z-index: 100;
+      z-index: $z-10;
     }
-    ^body {
+    <<body {
       flex: 1;
       height: 100%;
       overflow: auto;
     }
     @media only screen and (min-width: /*%DISPLAYWIDTH.LG%*/ 960px) {
-      ^logo svg {
+      <<logo svg {
         height: 32px;
       }
     }

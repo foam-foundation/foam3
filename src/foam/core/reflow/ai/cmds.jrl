@@ -1,12 +1,14 @@
 p({
   "class":"foam.core.reflow.ai.LLMCommand",
   "id": "ai",
+  "icon": "/images/aiAgent.svg",
   "permissionRequired": true,
   "description": "AI prompt to ask a question"
 })
 p({
   "class":"foam.core.reflow.ai.AgentCommand",
   "id": "agent",
+  "icon": "/images/aiAgent.svg",
   "dryRun": false,
   "permissionRequired": true,
   "description": "Agent runs FLOW commands from a request"
@@ -14,6 +16,7 @@ p({
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
    "id": "!",
+    "icon": "/images/aiAgent.svg",
    "permissionRequired": true,
    "dryRun": false,
    "description": "Agent shorthand to run FLOW commands"
@@ -21,6 +24,7 @@ p({
 p({
    "class":"foam.core.reflow.ai.AgentCommand",
    "id": "?",
+   "icon": "/images/aiAgent.svg",
    "permissionRequired": true,
    "dryRun": true,
    "description": "Agent shorthand to preview FLOW commands"
@@ -28,6 +32,7 @@ p({
 p({
   "class":"foam.core.reflow.ai.AgentCommand",
   "id": "plan",
+  "icon": "/images/aiAgent.svg",
   "dryRun": true,
   "permissionRequired": true,
   "description": "Plan FLOW commands with an agent"
@@ -35,6 +40,7 @@ p({
 p({
   "class":"foam.core.reflow.ai.AskCommand",
   "id": "ask",
+  "icon": "/images/aiAgent.svg",
   "permissionRequired": true,
   "description": "Ask a question and return the response to the agent",
   "hidden": true
@@ -42,6 +48,7 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "propose",
+  "icon": "/images/aiAgent.svg",
   "permissionRequired": true,
   "description": "Propose a command for execution",
   "script": "addValue(foam.core.reflow.ai.Propose.create({command: args.join(' ')}, this));"

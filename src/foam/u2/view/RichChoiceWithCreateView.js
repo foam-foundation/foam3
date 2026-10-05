@@ -16,7 +16,7 @@ foam.CLASS({
   ideally should be used with reference props that only reqire a few props to create a new object`,
 
   css: `
-    ^createWrapper {
+    <<createWrapper {
       padding: 8px 16px;
       background: $backgroundSecondary;
       display: flex;

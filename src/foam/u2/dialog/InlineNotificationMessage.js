@@ -118,7 +118,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^outer {
+    <<outer {
       align-items: center;
       border: 1px solid;
       border-radius: 3px;
@@ -128,13 +128,13 @@ foam.CLASS({
       justify-content: space-between;
       padding: 8px 16px;
     }
-    ^outer > * + * {
+    <<outer > * + * {
       padding-left: 16px;
     }
-    ^status-icon {
+    <<status-icon {
       flex: 0 0 16px;
     }
-    ^content {
+    <<content {
       flex: 1;
     }
   `,

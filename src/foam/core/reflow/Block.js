@@ -12,54 +12,62 @@ foam.CLASS({
 
   mixins: [ 'foam.u2.StyleConfigurator' ],
 
-  requires: [ 'foam.u2.WrapperNode' ],
+  requires: [
+    'foam.u2.WrapperNode',
+    'foam.core.reflow.TreeCellFormatter'
+  ],
 
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected' ],
+  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
   css: `
-    ^ {
+    << {
       padding: 4px;
     }
-    ^:not(^hidePrompts) {
+    <<:not(<<hidePrompts) {
       border-bottom: 1px solid $borderLight;
     }
-    ^output {
+    <<output {
       overflow-x: auto;
     }
-    ^hidePrompts ^toolbar {
+    <<hidePrompts <<toolbar {
       display: none;
     }
-    ^prompt {
+    <<prompt {
       display: flex;
       font-weight: bold;
       height: 20px;
       align-items: center;
     }
-    ^ span .property-cmd { width: inherit; }
-    ^ .foam-u2-TextField-cmd, ^ .foam-u2-ReadWriteView .foam-u2-TextField {
+    << span .property-cmd { width: inherit; }
+    << .foam-u2-TextField-cmd, << .foam-u2-ReadWriteView .foam-u2-TextField {
       border: none;
       height: 20px;
     }
-    div.foam-core-reflow-Console-CONSOLE ^.block:hover:not(:has(.block:hover)) {
+    div.foam-core-reflow-Console-CONSOLE <<.block:hover:not(:has(.block:hover)) {
       background: $backgroundSecondary; }
-    }
-    ^ .foam-u2-ReadWriteView { padding-right: 8px; }
-    ^content {
+    << .foam-u2-ReadWriteView { padding-right: 8px; }
+    <<content {
       overflow-x: auto;
       width: 100%;
       height: fit-content;
       overflow-y: hidden;
     }
-    ^.expanded > ^toolbar {
+    <<.expanded > <<toolbar {
       padding: 0 0 0.8rem 16px;
     }
-    ^content:has(> .foam-u2-Element-hidden) {
+    <<content:has(> .foam-u2-Element-hidden) {
       display: none;
     }
-    ^hidePrompts:has(> ^content > .foam-u2-Element-hidden) {
+    <<hidePrompts:has(> <<content > .foam-u2-Element-hidden) {
       display: none;
+    }
+    <<element-row-icon , <<element-row-icon svg {
+      color: $textBrand;
+      fill: currentColor;
+      width: 24px;
+      height: 24px;
     }
   `,
 
@@ -81,7 +89,22 @@ foam.CLASS({
       name: 'flowName',
       reactive: false,
       label: 'Block Name',
-      supportingLabel: 'Used to as the name for this block and as the variable name in the scope'
+      supportingLabel: 'Used to as the name for this block and as the variable name in the scope',
+      // A validated property defaults its input to onKey (foam.u2.tag.Input.fromProperty),
+      // which would commit a name per keystroke and fire postSet mid-word. Names are
+      // committed whole.
+      onKey: false,
+      postSet: function(o, n) {
+        // A block still being built has no Console above it yet.
+        var root = this.flowRoot();
+        if ( root.onBlockRenamed ) root.onBlockRenamed(this, o, n);
+      },
+      validateObj: function(flowName) {
+        if ( ! flowName ) return;
+        var root = this.flowRoot();
+        if ( root.flattenFlow().filter(b => b.flowName === flowName).length > 1 )
+          return 'Already used by another block.';
+      }
     },
     {
       class: 'String',
@@ -144,6 +167,24 @@ foam.CLASS({
       name: 'configViewSpec',
       hidden: true,
       documentation: `Passed on to the ReactiveSectionedDetailView as config, see AbstractSectionedDetailView to learn more about configuring detail views`
+    },
+    {
+      class: 'String',
+      name: 'blockIcon',
+      hidden: true,
+      transient: true,
+      factory: function() {
+        /* ignoreWarning */
+        // Split on space or parentheses to parse commands like "dao accountBalanceDAO"
+        let char = this.cmd.includes("(") ? "(" : " ";
+        const cmdSplit = this.cmd.split(char)
+
+        this.commandDAO.find(cmdSplit[0]).then(c => {
+          if ( c ) this.blockIcon = c.icon; // Get icon from the command
+        });
+
+        return 'rectangle'; // Default to rectangle
+      }
     }
   ],
 
@@ -207,6 +248,28 @@ foam.CLASS({
         this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
         this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
       ]);
+    },
+
+    function treeCellFormatter(e) {
+      // If it exists, delegate to value's treeCellFormatter
+      if ( this.TreeCellFormatter.isInstance(this.value) ) {
+        this.value.treeCellFormatter(e);
+
+      } else { // Otherwise, get the block's icon from its command
+        e.add(this.slot(function(blockIcon) {
+          if ( blockIcon.startsWith("/images") ) {
+            return this.E().start(foam.u2.tag.Image, {
+              data: blockIcon,
+              embedSVG: true
+            }).addClass(this.myClass('element-row-icon')).end();
+          } else {
+            return this.E().start(foam.u2.tag.Image, {
+              glyph: blockIcon,
+              embedSVG: true
+            }).addClass(this.myClass('element-row-icon')).end();
+          }
+        }));
+      }
     }
   ],
 
@@ -217,10 +280,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() {
-        this.deleted_ = true;
-        this.flowParent && this.flowParent.removeFlowChild(this);
-      }
+      code: function() { this.flowRoot().deleteFlowChild(this); }
     }
   ],
 

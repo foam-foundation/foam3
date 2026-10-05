@@ -44,10 +44,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
-    ^overlay {
+    <<overlay {
       position: absolute;
       top: 0; left: 0;
       /* extra width covers right-side padding of wizard */
@@ -57,12 +57,12 @@ foam.CLASS({
 
       /* negative margin covers left-side padding of wizard */
       margin: 0 -48px;
-      z-index: 1000;
+      z-index: $z-modal;
 
       /* ease-out animation makes things feel stable */
       transition: all 200ms ease-out;
     }
-    ^container {
+    <<container {
       position: absolute;
       top: 50%;
       left: 50%;
@@ -70,30 +70,30 @@ foam.CLASS({
       padding: 15pt;
       transition: all 200ms ease-out;
     }
-    ^overlay .foam-u2-LoadingSpinner {
+    <<overlay .foam-u2-LoadingSpinner {
       /* ease-out animation makes things feel stable */
       transition: all 200ms ease-out;
     }
-    ^overlay .foam-u2-LoadingSpinner img {
+    <<overlay .foam-u2-LoadingSpinner img {
       width: 100%;
       height: 100%;
     }
 
-    ^overlay^idle {
+    <<overlay<<idle {
       opacity: 0;
       pointer-events: none;
     }
-    ^overlay^pending {
+    <<overlay<<pending {
       opacity: 1;
       background-color: $backgroundSecondary;
       pointer-events: none;
     }
-    ^message {
+    <<message {
       display: none;
       line-height: 32pt;
       font-size: 24pt;
       margin-left: 15pt;
-      color: /*%PRIMARY3*/ #604aff;
+      color: $textBrand;
     }
   `,
 

@@ -12,7 +12,7 @@ foam.CLASS({
     'foam.u2.view.GlobalFuidSearch'
   ],
   css: `
-    ^{
+    <<{
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -20,12 +20,12 @@ foam.CLASS({
       justify-content: flex-start;
       padding: 36px 16px 8px 16px;
     }
-    ^search {
+    <<search {
       align-self: center;
       width: 75%;
     }
     @media only screen and (min-width: 768px) {
-      ^{
+      <<{
         padding: 24px 32px 16px 32px;
       }
     }

@@ -688,6 +688,24 @@ foam.CLASS({
         -1, -1, -1, -1, null);
     },
 
+    // YYYYDDD Julian date format: 7-digit (4-digit year + 3-digit day of year)
+    // v = "2025216" (string) where 2025=year, 216=day of year (August 4)
+    function yyyydddAction(v) {
+      var year = parseInt(v.substring(0, 4), 10);
+      var dayOfYear = parseInt(v.substring(4), 10);
+
+      // Convert day-of-year to month and day using UTC to avoid timezone issues
+      // Create Jan 1 of the year at noon UTC, then add (dayOfYear - 1) days
+      var date = new Date(Date.UTC(year, 0, 1, 12, 0, 0));
+      date.setUTCDate(dayOfYear);
+
+      return this.buildDate(this.dateParseMode,
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        -1, -1, -1, -1, null);
+    },
+
     // YYDDD Julian date format: 5-digit (2-digit year + 3-digit day of year)
     // v = "25216" (string) where 25=year 2025, 216=day of year (August 4)
     // Year cutoff: 00-49 = 2000-2049, 50-99 = 1950-1999 (uses convertTwoDigitYear)

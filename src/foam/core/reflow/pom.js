@@ -8,6 +8,7 @@ foam.POM({
     { name: "canvas/pom" },
     { name: "ai/pom" },
     { name: "perf/pom" },
+    { name: "function/pom" },
     { name: "test/pom", flags: "test" }
   ],
   files: [
@@ -27,6 +28,7 @@ foam.POM({
     { name: 'Clock',                   flags: 'js' },
     { name: 'Flowable',                flags: 'js' },
     { name: 'Console',                 flags: 'js' },
+    { name: 'DependencyScanner',       flags: 'js' },
     { name: 'Block',                   flags: 'js' },
     { name: 'ConsoleZACClient',        flags: 'js' },
     { name: 'DAOCreate',               flags: 'js' },
@@ -37,14 +39,18 @@ foam.POM({
     { name: 'Markdown',                flags: 'js' },
     { name: 'Image',                   flags: 'js' },
     { name: 'Link',                    flags: 'js' },
-    { name: 'DocumentReadWriteView',   flags: 'js' },
     { name: 'DuplicateSink',           flags: 'js|java' },
     { name: 'EditSink',                flags: 'js|java' },
     { name: 'ErrorView',               flags: 'js' },
     { name: 'FlowableTree',            flags: 'js' },
+    { name: 'FlowDocumentCitationView', flags: 'js' },
+    { name: 'FlowDocumentRowView',     flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
+    { name: 'FlowHistoryRecord',       flags: 'js|java' },
+    { name: 'FlowHistoryRuleAction',   flags: 'js|java' },
+    { name: 'FlowHistoryView',         flags: 'js' },
     { name: 'Pivot',                   flags: 'js|java' },
     { name: 'PivotTableView',          flags: 'js' },
     { name: 'GridBy',                  flags: 'js|java' },
@@ -102,6 +108,10 @@ foam.POM({
     { name: 'FilteredDAOAgent',        flags: 'js' },
     { name: 'cells/Cells',             flags: 'js' },
     { name: 'cells/CellsDAOAgent',     flags: 'js' },
-    { name: 'cells/CellsSink',         flags: 'js|java' }
+    { name: 'cells/CellsSink',         flags: 'js|java' },
+    { name: 'TreeCellFormatter',       flags: 'js' }
+  ],
+  javaFiles: [
+    { name: 'ScriptParser' }
   ]
 });

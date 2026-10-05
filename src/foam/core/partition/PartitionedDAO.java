@@ -295,7 +295,7 @@ public class PartitionedDAO
   }
 
   public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
+    Loggers.logger(getX(), this).info("Creating partition " + part);
 
     String rawPart     = part;
     String journalName = journalNameFor(part);

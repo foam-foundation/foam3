@@ -34,6 +34,10 @@ p({
   id:"JournalClassChangeTest"
 })
 p({
+  class:"foam.dao.test.JournalNestedFirstPropertyTest",
+  id:"JournalNestedFirstPropertyTest"
+})
+p({
   class:"foam.dao.test.MDAOCountTest",
   id:"MDAOCountTest"
 })

@@ -12,18 +12,7 @@ foam.CLASS({
   imports: [ 'lastMenuLaunchedListener?' ],
 
   css: `
-    ^ {
-      // align-items: center;
-      // bottom: 0;
-      // display: flex;
-      // justify-content: space-around;
-      // left: 0;
-      // position: fixed;
-      // right: 0;
-      // top: 0;
-      // z-index: 1000;
-    }
-    ^container {
+    <<container {
       align-items: center;
       display: flex;
       height: 100%;
@@ -31,7 +20,7 @@ foam.CLASS({
       position: relative;
       width: 100%;
     }
-    ^background {
+    <<background {
       bottom: 0;
       left: 0;
       opacity: 0.4;
@@ -39,7 +28,7 @@ foam.CLASS({
       right: 0;
       top: 0;
     }
-    ^inner {
+    <<inner {
       z-index: 3;
     }`
   ,

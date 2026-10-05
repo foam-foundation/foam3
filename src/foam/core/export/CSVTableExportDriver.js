@@ -78,19 +78,16 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'addUnits',
+      name: 'formattedValues',
       label: '',
-      view: { class: 'foam.u2.CheckBox',  label: 'Add Units'},
+      view: { class: 'foam.u2.CheckBox',  label: 'Formatted values'},
       value: true
     },
     {
       name: 'outputter',
       hidden: true,
-      expression: function(dateFormat, addUnits) {
-        return this.CSVTableOutputter.create({
-          dateFormat: dateFormat,
-          addUnits:   addUnits
-        });
+      expression: function(dateFormat) {
+        return this.CSVTableOutputter.create({ dateFormat: dateFormat });
       }
     },
     {

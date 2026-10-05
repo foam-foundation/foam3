@@ -28,23 +28,23 @@ foam.CLASS({
   documentation: 'View to display business logo and name.',
 
   css: `
-    ^{
+    <<{
       width: 175px;
       display: inline-block;
       text-align: center;
       padding-top: 3px;
       padding-left: 25px;
     }
-    ^ img {
+    << img {
       height: 30px;
       padding-top: 10px;
       cursor: pointer;
     }
-    ^ span{
+    << span{
       position: relative;
       margin-left: 10px;
     }
-    ^business-name{
+    <<business-name{
       width: 70%;
       text-align: left;
       overflow: hidden;
@@ -58,7 +58,7 @@ foam.CLASS({
       margin-top: 32px;
       margin-left: 5px;
     }
-    ^placeholder-business{
+    <<placeholder-business{
       width: 40px;
       height: 40px;
       margin: 5px;

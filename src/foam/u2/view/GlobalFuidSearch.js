@@ -28,16 +28,16 @@ foam.CLASS({
 
   css:
   `
-    ^suggestions {
+    <<suggestions {
       background-color: $backgroundSecondary;
       border: none;
       position: relative;
     }
-    ^suggestions > * + * {
+    <<suggestions > * + * {
       margin-top: 8px;
     }
-    ^row {
-      background-color: $backgroundSecondary
+    <<row {
+      background-color: $backgroundSecondary;
       cursor: pointer;
       padding: 8px;
       text-align: center;

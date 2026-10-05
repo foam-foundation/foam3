@@ -721,6 +721,51 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.lang',
+  name: 'FloatArray',
+  extends: 'Property',
+
+  documentation: 'An array of Float values.',
+  label: 'List of decimal numbers',
+
+  properties: [
+    { name: 'of', value: 'Float' },
+    ['isDefaultValue', function(v) { return ! v || ! v.length; }],
+    ['factory',        function() { return []; }],
+    [
+      'adapt',
+      function(_, v, prop) {
+        // accept typed arrays (e.g. Float32Array, Float64Array)
+        if ( ArrayBuffer.isView(v) ) v = Array.from(v);
+        if ( ! Array.isArray(v) ) return [];
+        var copy;
+        for ( var i = 0 ; i < v.length ; i++ ) {
+          if ( typeof v[i] !== 'number' ) {
+            if ( ! copy ) copy = v.slice();
+            copy[i] = prop.adaptArrayElement.call(this, v[i], prop);
+          }
+        }
+        return copy || v;
+      }
+    ],
+    ['adaptArrayElement', function(o) { return parseFloat(o); }],
+    [
+      'assertValue',
+      function(v, prop) {
+        if ( v === null ) return;
+        foam.assert(Array.isArray(v),
+          prop.name, 'Tried to set FloatArray to non-array type.');
+        for ( var i = 0 ; i < v.length ; i++ ) {
+          foam.assert(typeof v[i] === 'number',
+            prop.name, 'Element', i, 'is not a number', v[i]);
+        }
+      }
+    ]
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.lang',
   name: 'Class',
   extends: 'Property',
 
@@ -950,7 +995,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
       `,
       value: async function(x, val, unitPropName) {
@@ -1006,7 +1051,7 @@ foam.CLASS({
     {
       name: 'unitPropValueToPlainString',
       documentation: `
-        Export with 'Add Units' unchecked: plain number at the currency's
+        Export with 'Formatted values' unchecked: plain number at the currency's
         precision so spreadsheets can parse and sum the column.
         toFixed also collapses float noise; the '-' is stripped off -0.00.
       `,

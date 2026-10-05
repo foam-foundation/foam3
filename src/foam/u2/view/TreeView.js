@@ -32,36 +32,36 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       inset: none;
       white-space: nowrap;
     }
 
-    ^label-container {
+    <<label-container {
       display: flex;
       align-items: center;
     }
 
-    ^heading {
+    <<heading {
       cursor: pointer;
       min-height: 40px;
       display: flex;
       align-items: center;
     }
 
-    ^disabled {
+    <<disabled {
       opacity: 0.4;
       cursor: not-allowed;
       pointer-events: none;
     }
 
-    button^button {
+    button<<button {
       padding: 8px;
       width: 100%;
       justify-content: flex-start;
     }
 
-    ^button svg { fill: currentColor; }
+    <<button svg { fill: currentColor; }
   `,
 
   classes: [
@@ -73,7 +73,7 @@ foam.CLASS({
       ],
 
       css: `
-        ^select-level {
+        <<select-level {
           display: flex;
           justify-content: space-between;
           overflow: hidden;
@@ -82,18 +82,18 @@ foam.CLASS({
           width: 100%;
         }
 
-        ^select-level > * {
+        <<select-level > * {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        ^toggle-icon {
+        <<toggle-icon {
           align-self: center;
           transition: 0.2s linear;
         }
 
-        ^toggle-icon svg {
+        <<toggle-icon svg {
           width: 0.75em;
           height: 0.75em;
         }
@@ -176,6 +176,13 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'hasChildren'
+    },
+    {
+      class: 'Boolean',
+      name: 'drillsIn',
+      documentation: `True when clicking a row with children replaces the list
+        with that row's children (NestedTreeView) instead of expanding them in
+        place. Such a row is not a disclosure, so it carries no aria-expanded.`
     },
     {
       class: 'Boolean',
@@ -315,13 +322,26 @@ foam.CLASS({
           startContext({ data: self }).
             start(self.ON_CLICK_FUNCTIONS, {
               buttonStyle: 'UNSTYLED',
+              // Every menu row shares the same action, so the button's DOM name
+              // would be 'onClickFunctions' for all of them; use the menu id so
+              // recorders/tests get a stable, unique selector per menu.
+              name: self.data.id,
               label: { class: 'foam.u2.view.TreeViewRow.LabelView', row: self },
               ariaLabel: labelString,
               size: 'SMALL',
               themeIcon$: self.data$.dot('themeIcon') || '',
               icon$: self.data$.dot('icon') || ''
             }).
-              attrs({ title: self.data$.dot('tooltip').map(t => t || labelString) }).
+              attrs({
+                title: self.data$.dot('tooltip').map(t => t || labelString),
+                // Rows that expand in place announce open/closed to screen
+                // readers. Leaf rows and rows that drill in (NestedTreeView
+                // replaces the list) must not carry aria-expanded at all, or they
+                // would be read as "collapsed"; undefined removes the attribute.
+                'aria-expanded': self.slot(function(hasChildren, drillsIn, expanded) {
+                  return hasChildren && ! drillsIn ? String(expanded) : undefined;
+                })
+              }).
               enableClass('selected', this.selected_$).
               addClass(this.myClass('button')).
             end().
@@ -339,6 +359,9 @@ foam.CLASS({
                 showRootOnSearch: self.showThisRootOnSearch$,
                 query:            controlledSearchSlot,
                 onClickAddOn:     self.onClickAddOn,
+                // Inline children of a drill-in row (startExpanded) share its
+                // click handler, so a click on one replaces the list too.
+                drillsIn:         self.drillsIn,
                 level:            self.level + 1
               }, self)).addClass('child-menu');
             });
@@ -446,7 +469,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       overflow-y: auto;
       overflow-x: hidden;
       padding: 0 8px;

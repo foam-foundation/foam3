@@ -83,16 +83,16 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background-color: $backgroundDefault;
       display: block;
       margin: 10px;
       overflow: hidden;
     }
-    ^padding {
+    <<padding {
       margin: 24px;
     }
-    ^buttons {
+    <<buttons {
       display: flex;
       flex-direction: row-reverse;
     }

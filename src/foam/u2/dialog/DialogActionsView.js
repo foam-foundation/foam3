@@ -10,13 +10,13 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^actions {
+    <<actions {
       display: flex;
       flex-direction: column;
       gap: 0.8rem;
       margin: 0;
     }
-    ^actions > * {
+    <<actions > * {
       flex-grow: 1;
       margin-left: 0 !important;
     }

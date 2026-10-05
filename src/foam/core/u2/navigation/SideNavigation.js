@@ -25,7 +25,7 @@ foam.CLASS({
   ],
 
   css:`
-  ^side-nav {
+  <<side-nav {
     height: 100%;
     width: 200px;
     z-index: 1;
@@ -35,7 +35,7 @@ foam.CLASS({
     background: $textDefault;
     display: inline-block;
   }
-  ^side-nav div a {
+  <<side-nav div a {
     display: inline-block;
     margin: 8px 8px 8px 8px;
     transition: all .15s ease-in-out;
@@ -43,7 +43,7 @@ foam.CLASS({
     color: $white;
     cursor: pointer;
   }
-  ^side-nav div a:hover {
+  <<side-nav div a:hover {
     opacity:1 !important;
   }
   `,

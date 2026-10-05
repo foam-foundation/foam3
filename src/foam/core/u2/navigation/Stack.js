@@ -28,7 +28,7 @@ foam.CLASS({
     }
   ],
   css:`
-    ^ {
+    << {
       height: 100%;
       width: 100%;
       display: flex;
@@ -37,60 +37,60 @@ foam.CLASS({
       position: relative;
       scroll-padding-top: var(--header-height, 50px);
     }
-    ^header-gap {
+    <<header-gap {
       gap: 1.6rem;
     }
-    ^content {
+    <<content {
       display: contents;
     }
-    ^content > * {
+    <<content > * {
       flex: 1;
       min-height: 0;
       height: 100%;
     }
-    ^padding ^content > * {
+    <<padding <<content > * {
       padding: 1.6rem;
       padding-top: 0;
     }
-    ^browse-title {
+    <<browse-title {
       transition: all 0.2s ease;
       font-weight: $font-semi-bold;
       text-wrap-mode: nowrap;
     }
-    ^header-container {
+    <<header-container {
       display: flex;
       flex-direction: column;
       gap: 1.6rem;
       z-index: 2;
-      // sort of a hack to make css think this element is not always at the top;
+      /* sort of a hack to make css think this element is not always at the top */
       position: sticky;
       top: -1px;
       transition: all 0.2s ease;
     }
-    ^header-container > .foam-u2-layout-Cols {
+    <<header-container > .foam-u2-layout-Cols {
       align-items: center;
     }
-    ^padding ^header-container {
+    <<padding <<header-container {
       padding: calc(1.6rem + 1px);
       padding-bottom: 0px;
     }
-    ^stuck {
+    <<stuck {
       background: $stickyBG;
       backdrop-filter: blur(3px) opacity(0.8);
       transition: all 0.2s ease;
       gap: 0.4rem;
     }
-    ^padding ^header-container^stuck {
+    <<padding <<header-container<<stuck {
       padding: 1rem;
     }
-    ^stuck ^browse-title {
+    <<stuck <<browse-title {
       font-size: 2.4rem;
     }
-    ^stuck .h600, ^stuck {
+    <<stuck .h600, <<stuck {
       font-size: 1.2rem;
     }
     @media only screen and (min-width:  /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^compact {
+      <<compact {
         width: clamp(32rem, 75%, 100rem);
         margin: auto;
       }

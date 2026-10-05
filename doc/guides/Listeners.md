@@ -1,3 +1,5 @@
+<flow name="Listeners" category="DOC/GUIDE" spid="foam" description="Covers Listeners as pre-bound methods: short/long form, isMerged/isFramed/isIdled timing, pub/sub topics, on: binding." keywords="listeners,pub/sub,ismerged,isframed,topics,knowledge"/>
+
 # Listeners
 
 Listeners are methods that stay bound to their owner. In plain JavaScript, passing a method as a callback loses `this`:

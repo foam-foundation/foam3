@@ -1,3 +1,5 @@
+<flow name="ControllerModeAndVisibility" category="DOC/GUIDE" spid="foam" description="Documents the ControllerMode/Visibility/DisplayMode pipeline controlling whether a property view is editable, read-only, or hidden." keywords="controllermode,visibility,displaymode,rw,ro,hidden,knowledge"/>
+
 # Mode and Visibility Pipeline
 
 How FOAM controls whether a property's view is editable, read-only, disabled, or hidden.
@@ -123,6 +125,8 @@ this
 - **You, explicitly** — via `startContext({ controllerMode: ... })`
 
 **Never set controllerMode directly on a view as a property.** It is context-driven.
+
+**Pass the enum value, never the string `'VIEW'`.** `startContext()` stores values as given; nothing adapts them (`src/foam/u2/Element2.js:1269-1275`). An element's own `controllerMode` property does adapt a string, but the sectioned detail views pass the raw context slot straight on (`src/foam/u2/detail/SectionedDetailView.js:57`, `VerticalDetailView.js:50`, `TabbedDetailView.js:72`), and visibility code then calls `controllerMode.getVisibilityValue(...)` on it (`src/foam/u2/Element2.js:1841`), which a string does not have. `startContext({ controllerMode: 'VIEW' })` can work in a simple view and throw once a sectioned detail view sits underneath. The same holds for any enum or object value placed in a context.
 
 ## Propagating Mode to Custom Inner Views
 

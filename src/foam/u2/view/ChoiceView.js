@@ -412,12 +412,12 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       position: relative;
       display: inline-block;
     }
 
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       position: absolute;
       opacity: 0;
       width: 100%;

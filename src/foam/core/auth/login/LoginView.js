@@ -34,17 +34,17 @@ foam.CLASS({
   ],
 
   css: `
-  ^ .full-width-button {
+  << .full-width-button {
     width: 100%;
   }
 
-  .foam-u2-dialog-ApplicationPopup ^content-form {
+  .foam-u2-dialog-ApplicationPopup <<content-form {
     width: 100%;
     padding: 2vw 0;
   }
 
   /* ON DATA */
-  ^content-form {
+  <<content-form {
     width: 100%;
     box-sizing: border-box;
     display: flex;
@@ -54,35 +54,35 @@ foam.CLASS({
     padding: 1rem;
   }
 
-  ^content-form > form {
+  <<content-form > form {
     margin-block-end: 0;
   }
 
   /* ON ALL FOOTER TEXT */
-  ^ .text-with-pad {
+  << .text-with-pad {
     margin-right: 0.2em;
   }
-  ^center-footer {
+  <<center-footer {
     text-align: center;
   }
-  ^ .align-end {
+  << .align-end {
     text-align: end;
   }
-  ^ .align-end button{
+  << .align-end button{
     padding: 0;
   }
 
-  ^disclaimer {
+  <<disclaimer {
     text-align: center;
   }
 
-  ^tc-link {
+  <<tc-link {
     background: none;
     border: 1px solid transparent;
     color: $textBrand;
     text-decoration: none;
   }
-  ^legal {
+  <<legal {
     position: absolute;
     bottom: 1.2rem;
     margin: 0 1rem;
@@ -91,7 +91,7 @@ foam.CLASS({
     width: 100%;
   }
 
-  ^buttonHolder {
+  <<buttonHolder {
     display: flex;
     flex-direction: column;
     gap: 2.4rem

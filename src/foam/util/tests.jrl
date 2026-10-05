@@ -6,8 +6,10 @@ p({"class":"foam.util.test.UIDGeneratorTest","id":"UIDGeneratorTest","descriptio
 p({"class":"foam.util.test.SafetyUtilTest","id":"SafetyUtilTest","description":"SafetyUtil tests"})
 p({"class":"foam.util.test.DateUtilTest","id":"DateUtilTest","description":"DateUtil Java tests"})
 p({"class":"foam.util.test.DateUtilJSTest","id":"DateUtilJSTest","description":"DateUtil JavaScript tests"})
+p({"class":"foam.util.test.TextDiffJSTest","id":"TextDiffJSTest","description":"TextDiff line diff tests"})
 p({
   class:"foam.util.test.StringInternerTest",
   id:"StringInternerTest",
-  description:"StringInterner deduplicates short strings per thread without String.intern()"
+  description:"StringInterner: per-replay cache in front of String.intern, its analytics, and the parser integration"
 })
+p({"class":"foam.util.test.StringInternerConcurrencyTest","id":"StringInternerConcurrencyTest","description":"StringInterner under 8 threads and a mid-run release: equal values always, no exceptions, canonicals genuine, dedup loss bounded"})

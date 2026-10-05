@@ -486,12 +486,13 @@ public class MCPWebAgent
     fmt.setX(x);
     fmt.setOutputDefaultValues(true);
     fmt.setQuoteKeys(true);
-    fmt.output(obj, null);
+    // Must be set before output(): the predicate is applied while properties are being written
     fmt.setPropertyPredicate(
       new AndPropertyPredicate(new PropertyPredicate[] {
           new NetworkPropertyPredicate(),
           new PermissionedPropertyPredicate()
         }));
+    fmt.output(obj, null);
     return fmt.builder().toString();
   }
 

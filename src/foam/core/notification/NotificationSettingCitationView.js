@@ -49,13 +49,13 @@ foam.CLASS({
     }
   ],
   css: `
-    ^ {
+    << {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 2rem;
     }
-    ^:not(:disabled) {
+    <<:not(:disabled) {
       cursor: pointer;
     }
   `,

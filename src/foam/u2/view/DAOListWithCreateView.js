@@ -42,19 +42,19 @@ foam.CLASS({
   ],
 
   css: `
-    ^createWrapper {
+    <<createWrapper {
       padding: 8px 16px;
       background: $backgroundSecondary;
       display: flex;
       gap: 8px;
       flex-direction: column;
     }
-    ^actionBar {
+    <<actionBar {
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    ^actionBar > .foam-u2-ActionView + .foam-u2-ActionView {
+    <<actionBar > .foam-u2-ActionView + .foam-u2-ActionView {
       margin-left: 0px;
     }
   `,

@@ -92,6 +92,7 @@ foam.POM({
     { name: "token/AbstractTokenService",                             flags: "js|java" },
     { name: "token/TokenExpiredException",                            flags: "js|java" },
     { name: "token/TokenInvalidException",                            flags: "js|java" },
+    { name: "ChangePasswordViewMode",                                 flags: "js|java" },
     { name: "ChangePasswordView",                                     flags: "js" },
     { name: "resetPassword/ResetPassword",                            flags: "js|java" },
     { name: "resetPassword/ResetPasswordByCode",                      flags: "js|java" },
@@ -170,6 +171,7 @@ foam.POM({
     { name: "login/SignUp",                                           flags: "js|java" },
     { name: "login/ClientLoginService",                               flags: "js" },
     { name: "login/LoginView",                                        flags: "js" },
+    { name: "login/OIDCLoginView",                                    flags: "js" },
     { name: "email/EmailVerificationDAO",                             flags: "js|java" },
     { name: "UserPasswordHashingDAO",                                 flags: "js|java" }
   ],

@@ -43,24 +43,26 @@ Used in conjuction with a custom compaction sink, the compaction process can fac
       value: true
     },
     {
-      name: 'predicate',
-      class: 'FObjectProperty',
-      of: 'foam.mlang.predicate.Predicate',
-      view: { class: 'foam.u2.view.JSONTextView' }
-    },
-    {
       documentation: 'LifecycleAware objects which are deleted/removed are set to state DELETED, an r() journal entry is not created.  This option allows to compact DELETED entries.',
       name: 'discardLifecycleDeleted',
       class: 'Boolean',
       value: true
     },
     {
-      name: 'createdSince',
-      class: 'DateTime'
-    },
-    {
-      name: 'lastModifiedSince',
-      class: 'DateTime'
+      documentation: `Keep the generations a snapshot supersedes instead of
+        deleting them, so the journal history survives for auditing.
+
+        Costs disk only. Replay skips a superseded generation by name, so a
+        retained one is never opened, decompressed or replayed, and startup
+        time is unaffected. Retained generations can also be gzipped in place.
+
+        Defaults to true while compaction is being proven in production: if a
+        snapshot turns out to be wrong, the generations it was built from are
+        still on disk and the data is recoverable. Flip to false once there is
+        confidence, and compaction reclaims the disk again.`,
+      name: 'keepSupersededGenerations',
+      class: 'Boolean',
+      value: true
     },
     {
       documentation: 'Name for JDAO creation during loading. Default is best gues. Required when nspec has JDAO setup outside of EasyDAO.',

@@ -28,12 +28,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { padding: 10px !important; }
-    ^ .elapsed { margin-top: 10px; }
-    ^ .label { display: inline-block; width: 130px; }
-    ^ .foam-u2-ActionView { width: 332px !important; margin-top: 16px !important; }
-    ^ .foam-u2-RangeView { width: 182px; }
-    ^ row { display: block; min-height: 30px; }
+    << { padding: 10px !important; }
+    << .elapsed { margin-top: 10px; }
+    << .label { display: inline-block; width: 130px; }
+    << .foam-u2-ActionView { width: 332px !important; margin-top: 16px !important; }
+    << .foam-u2-RangeView { width: 182px; }
+    << row { display: block; min-height: 30px; }
   `,
 
   properties: [

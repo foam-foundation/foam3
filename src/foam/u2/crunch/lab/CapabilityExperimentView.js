@@ -15,7 +15,7 @@ foam.CLASS({
   `,
 
   css: `
-    ^vertical {
+    <<vertical {
       display: flex;
       flex-direction: column;
       gap: 10px;

@@ -47,7 +47,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^buttonGroup {
+    <<buttonGroup {
       justify-content: flex-end;
     }
   `,

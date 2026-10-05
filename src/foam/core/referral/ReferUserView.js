@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^container{
+    <<container{
       container: wrapper / inline-size;
       height: fit-content;
       align-items: center;
@@ -19,63 +19,63 @@ foam.CLASS({
       flex-direction: column;
       gap: 2.4rem;
     }
-    ^copy-box{
+    <<copy-box{
       background: $backgroundBrandTertiary;
       border: 1px dashed $borderBrand;
       padding: 1.5rem;
       text-align: center;
       width: 100%;
     }
-    ^error^copy-box {
+    <<error<<copy-box {
       background: $destructive50;
       border-color: $destructive400;
     }
-    ^header{
+    <<header{
       display: flex; 
       flex-direction: column;
       gap: 1.2rem;
       text-align: center;
     }
-    ^header > .h300{
+    <<header > .h300{
       font-weight: $font-extra-bold;
       color: $textBrand;
     }
-    ^item .h400 {
+    <<item .h400 {
       line-height: 32px;
       color: $textBrand;
     }
-    ^header > .p,^item .p {
+    <<header > .p,<<item .p {
       color: $textTertiary;
     }
-    ^item-header {
+    <<item-header {
       padding-bottom: 1.6rem;
     }
-    ^item {
+    <<item {
       display: flex;
       gap: 0.4rem;
       align-self: flex-start;
     }
-    ^item:not(:last-child) {
+    <<item:not(:last-child) {
       padding-bottom: 1.6rem;
     }
-    ^item > *:last-child {
+    <<item > *:last-child {
       display: flex;
       flex-direction: column;
     }
-    ^item img {
+    <<item img {
       height: 16;
       align-self: center;
     }
-    ^item-text {
+    <<item-text {
       flex: 1 1 0;
       min-width: 0;
       padding-right: 3.8rem;
     }
     @container wrapper (width > 700px) {
-      ^copy-box {
+      <<copy-box {
         width: fit-content;
       }
-      ^item {
+      <<item {
         text-align: center;
         align-self: inherit;
       }

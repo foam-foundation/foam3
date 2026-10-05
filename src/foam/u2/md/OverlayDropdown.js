@@ -22,21 +22,29 @@ foam.CLASS({
     Just $$DOC{ref:".add"} things to this container.`,
 
   css: `
-    ^overlay {
+    /*
+      Callers such as RichChoiceView mount this dropdown at the app root
+      (ctrl.add), not inside the view that opened it. When that view is a modal,
+      the dropdown and the modal's backdrop are siblings, so the dropdown must
+      sit above $z-modal or the backdrop paints over the list. Both layers stay
+      under $z-tooltip.
+    */
+    <<overlay {
       position: absolute;
-      z-index: 1009;
+      /* click-away scrim: over any open modal, under the dropdown */
+      z-index: calc($z-modal + 1);
     }
 
-    ^ {
+    << {
       display: block;
       overflow-x: hidden;
       overflow-y: hidden;
       position: absolute;
-      z-index: 1010;
+      z-index: calc($z-modal + 2);
       max-width: 100%;
     }
 
-    ^styled{
+    <<styled{
       background-color: $backgroundDefault;
       border: 1px solid $borderDefault;
       box-sizing: border-box;
@@ -45,29 +53,26 @@ foam.CLASS({
       padding: 8px;
     }
 
-    ^open {
+    <<open {
       overflow-y: auto;
     }
 
-    ^zeroOverlay {
+    <<zeroOverlay {
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
     }
 
-    ^initialOverlay {
+    <<initialOverlay {
       top: initial;
       bottom: initial;
       left: initial;
       right: initial;
     }
 
-    ^parents {
-      z-index: 1000 !important;
-    }
     @media print {
-      ^ { display: none !important; }
+      << { display: none !important; }
     }
   `,
 
@@ -141,6 +146,7 @@ foam.CLASS({
       this.ro_?.observe(this.parentEl);
       this.internalResizeObserver_?.observe(this.dropdownE_.el_())
       this.opened = true;
+      this.document.addEventListener('pointerdown', this.onOutsidePointerDown, true);
       this.window.addEventListener('resize', this.onResize);
     },
 
@@ -177,7 +183,7 @@ foam.CLASS({
 
     function setHeight() {
       var el = this.dropdownE_.el_?.();
-      var contentHeight = el.scrollHeight || el.offsetHeight || 0;
+      if ( ! el ) return;
       var screenHeight = this.window.innerHeight;
       let availableHeight;
       if ( this.top == 'auto' ) {
@@ -185,20 +191,17 @@ foam.CLASS({
       } else {
         availableHeight = screenHeight - this.top;
       }
-      if ( contentHeight > availableHeight ) {
-        availableHeight = Math.max(0, availableHeight - 8);
-        el.style.maxHeight = availableHeight + 'px';
-        el.style.overflowY = 'auto';
-      } else {
-        el.style.maxHeight = '';
-        el.style.overflowY = '';
-      }
+      availableHeight = Math.max(0, availableHeight - 8);
+      el.style.maxHeight = availableHeight + 'px';
+      el.style.overflowY = 'auto';
     },
 
     function close() {
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
-      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_())
+      this.internalResizeObserver_?.unobserve(this.dropdownE_.el_());
+      this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+      this.window.removeEventListener('resize', this.onResize);
     },
 
     function render() {
@@ -224,6 +227,9 @@ foam.CLASS({
           this.setHeight();
       });
       this.onDetach(() => { this.internalResizeObserver_?.disconnect(); })
+      this.onDetach(() => {
+        this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+      });
 
       this.addClass(this.slot(function(opened) {
         this.shown = opened;
@@ -268,9 +274,16 @@ foam.CLASS({
       this.close();
     },
 
+    function onOutsidePointerDown(e) {
+      if ( ! this.opened ) return;
+      if ( this.parentEl?.contains?.(e.target) ||
+           this.dropdownE_.el_()?.contains(e.target) ) return;
+      this.close();
+    },
+
     function onKeyDown(e) {
       var isEsc = (e.key === 'Escape' || e.keyCode === 27);
-      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id).focus(); }
+      if ( isEsc ) { this.close(); this.document.getElementById(this.parentEl.id)?.focus(); }
     },
 
     function onMouseEnter(e) {
@@ -297,7 +310,6 @@ foam.CLASS({
 
     function onResize(e) {
       this.setPosition();
-      window.removeEventListener('resize', onResize);
     }
   ]
 });

@@ -239,6 +239,9 @@ foam.CLASS({
           .build();
         cAsPJournal.replay(fsX, cAsPMdao);
 
+        long cAsPSize = ((foam.core.fs.FileSystemStorage) fsX.get(foam.core.fs.FileSystemStorage.class)).get(cAsPFile).length();
+        test ( cAsPJournal.getReplayBytesRead().get() == cAsPSize, "Replay counted every byte of the journal: " + cAsPJournal.getReplayBytesRead().get() + " of " + cAsPSize );
+
         c = (Count) cAsPMdao.select(COUNT());
         test ( c.getValue() == 1, "c-as-p: one record after two c entries for same ID " + c);
 

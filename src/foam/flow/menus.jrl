@@ -1,8 +1,0 @@
-p({
-  "class":"foam.flow.DocumentMenu",
-  "id":"flowdoc",
-  "label":"Documentation",
-  icon: "/images/icons8-questions-64.png",
-  keywords: ["doc", "documentation", "flow", "help", "question"],
-  "handler":{"class":"foam.core.menu.ViewMenu","view":{"class":"foam.core.doc.DocumentationView", "defaultDocument": "intro" }}
-})

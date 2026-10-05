@@ -160,7 +160,8 @@ foam.POM({
     { name: "wizardflow/AddFacadeWizardlet",           flags: "web" },
     { name: "wizardflow/EditWizardlet",                flags: "web" },
     { name: "wizardflow/RemoveWizardlets",             flags: "web" },
-    { name: "wizardflow/Predicated",                   flags: "web" }
+    { name: "wizardflow/Predicated",                   flags: "web" },
+    { name: "test/WizardIndicatorTokensJSTest",       flags: "js&test|java&test" }
   ],
   journalFiles: [
     { name: "tests",                                   flags: "test"}

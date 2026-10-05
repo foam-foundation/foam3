@@ -37,7 +37,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^content, ^content > *  { height: 100%; }
+    <<content, <<content > *  { height: 100%; }
   `,
 
   properties: [

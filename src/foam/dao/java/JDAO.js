@@ -14,8 +14,6 @@ foam.CLASS({
 In this current implementation setDelegate must be called last.`,
 
   javaImports: [
-    'foam.lang.Agency',
-    'foam.lang.ContextAgent',
     'foam.lang.X',
     'foam.dao.BulkLoadDAO',
     'foam.dao.CompositeJournal',
@@ -24,11 +22,16 @@ In this current implementation setDelegate must be called last.`,
     'foam.dao.Journal',
     'foam.dao.MDAO',
     'foam.dao.NullJournal',
+    'foam.dao.JournalGenerations',
     'foam.dao.ReadOnlyF3FileJournal',
     'foam.dao.WriteOnlyF3FileJournal',
     'foam.core.boot.CSpec',
     'foam.core.ndiff.NDiffJournal',
-    'foam.util.SafetyUtil'
+    'foam.dao.compaction.CompactionCmd',
+    'foam.dao.compaction.Compactor',
+    'foam.util.SafetyUtil',
+    'java.util.ArrayList',
+    'java.util.List'
   ],
 
   javaCode: `
@@ -64,12 +67,6 @@ In this current implementation setDelegate must be called last.`,
       class: 'FObjectProperty',
       of: 'foam.dao.Journal',
       name: 'journal'
-    },
-    {
-      documentation: `Force caller to wait on nspec initailzation. The first call to 'get' for an nspec (x.get(servicename)) will have the calling thread wait on reply of service. This is the default behaviour and should be used for all essential services.  Also this should be used if the model is using SeqNo or NUID for id generation.`,
-      class: 'Boolean',
-      name: 'waitReplay',
-      value: true
     },
     {
       documentation: 'Filesystem is read-only, journals updates are factilitated through some other means such as medusa.',
@@ -108,6 +105,19 @@ In this current implementation setDelegate must be called last.`,
       name: 'multiLineOutput'
     },
     {
+      documentation: `Set while this journal is compacting. Compaction rolls,
+        and two concurrent rolls of one journal are not safe to interleave, so
+        a second command is skipped rather than started.`,
+      class: 'Object',
+      name: 'compacting',
+      // The factory is lazy, so without this two threads arriving together
+      // could each build their own AtomicBoolean and both win compareAndSet --
+      // the guard failing exactly when it is needed.
+      synchronized: true,
+      javaType: 'java.util.concurrent.atomic.AtomicBoolean',
+      javaFactory: 'return new java.util.concurrent.atomic.AtomicBoolean();'
+    },
+    {
       name: 'delegate',
       javaFactory: 'return new MDAO(getOf());',
       javaPostSet: `
@@ -141,10 +151,23 @@ In this current implementation setDelegate must be called last.`,
               getJournal()
             };
           } else {
+            // Everything replayed ahead of the runtime journal, in order.
+            List<Journal> preRuntime = new ArrayList<>();
+
             // Repo Journal
-            F3FileJournal journal0 = new ReadOnlyF3FileJournal.Builder(getX())
+            preRuntime.add(new ReadOnlyF3FileJournal.Builder(getX())
               .setFilename(getFilename() + ".0")
-              .build();
+              .build());
+
+            // Generations frozen by previous cutovers, ascending, skipping
+            // whatever a snapshot has superseded. Derived from the filesystem,
+            // so nothing has to be remembered between runs.
+            for ( String gen : new JournalGenerations(getX(), getFilename()).replayOrder() ) {
+              preRuntime.add(new ReadOnlyF3FileJournal.Builder(runtimeStorageX)
+                .setFilename(gen)
+                .setGzip(gen.endsWith(".gz"))
+                .build());
+            }
 
             // if CSpec present in X then go through NDiff
             // (set up in EasyDAO's decorator chain)
@@ -154,69 +177,54 @@ In this current implementation setDelegate must be called last.`,
 
             if ( nspec != null && getNdiff() ) {
               cSpecName = nspec.getName();
-              journals = new Journal[] {
-                // replays the repo journal
-                new NDiffJournal.Builder(getX())
-                .setDelegate(journal0)
-                .setCSpecName(cSpecName)
-                .setRuntimeOrigin(false)
-                .build(),
+              List<Journal> ndiffs = new ArrayList<>();
 
-                // replays the runtime journal
-                new NDiffJournal.Builder(getX())
+              // replays the journals that precede the runtime journal
+              for ( Journal jrl : preRuntime ) {
+                ndiffs.add(new NDiffJournal.Builder(getX())
+                  .setDelegate(jrl)
+                  .setCSpecName(cSpecName)
+                  .setRuntimeOrigin(false)
+                  .build());
+              }
+
+              // replays the runtime journal
+              ndiffs.add(new NDiffJournal.Builder(getX())
                 .setDelegate(getJournal())
                 .setCSpecName(cSpecName)
                 .setRuntimeOrigin(true)
-                .build()
-              };
+                .build());
+
+              journals = ndiffs.toArray(new Journal[0]);
             } else {
-              journals = new Journal[] {
-                journal0,
-                getJournal()
-              };
+              preRuntime.add(getJournal());
+              journals = preRuntime.toArray(new Journal[0]);
             }
           }
             final Journal jnl = new CompositeJournal.Builder(getX())
               .setDelegates(journals)
               .build();
 
-            if ( getWaitReplay() ) {
-              // Replay into a plain map rather than the MDAO, so the index is
-              // built from every row at once instead of one put per row. Only
-              // on this branch: it runs before the DAO is published, so nothing
-              // else can read or write it while the rows are collected.
-              MDAO        mdao    = delegate instanceof MDAO ? (MDAO) delegate : null;
-              BulkLoadDAO staging = mdao == null ? null : new BulkLoadDAO(getX(), getOf());
+            // Replay into a plain map rather than the MDAO, so the index is
+            // built from every row at once instead of one put per row. This
+            // runs before the DAO is published, so nothing else can read or
+            // write it while the rows are collected.
+            MDAO        mdao    = delegate instanceof MDAO ? (MDAO) delegate : null;
+            BulkLoadDAO staging = mdao == null ? null : new BulkLoadDAO(getX(), getOf());
 
-              try {
-                F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
-                jnl.replay(getX(), staging == null ? delegate : staging);
-                if ( runtimeJrl != null ) {
-                  String lastVersion = runtimeJrl.getLastReplayVersion();
-                  if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
-                    setWriteVersionOnFirstPut(true);
-                  }
-                }
-              } finally {
-                // Whatever was collected before a replay threw is what the DAO
-                // would have held had each row been put as it was read.
-                if ( staging != null ) mdao.bulkLoad(staging.rows());
-              }
-            } else {
-              final String name = getFilename();
+            try {
               F3FileJournal runtimeJrl = getJournal() instanceof F3FileJournal ? (F3FileJournal) getJournal() : null;
-              Agency agency = (Agency) getX().get("threadPool");
-              agency.submit(getX(), new ContextAgent() {
-                public void execute(X x) {
-                  jnl.replay(getX(), delegate);
-                  if ( runtimeJrl != null ) {
-                    String lastVersion = runtimeJrl.getLastReplayVersion();
-                    if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
-                      runtimeJrl.writeVersion(x, currentVersion);
-                    }
-                  }
+              jnl.replay(getX(), staging == null ? delegate : staging);
+              if ( runtimeJrl != null ) {
+                String lastVersion = runtimeJrl.getLastReplayVersion();
+                if ( SafetyUtil.isEmpty(lastVersion) || isCurrentVersionNewer(lastVersion, currentVersion) ) {
+                  setWriteVersionOnFirstPut(true);
                 }
-              }, this.getClass().getSimpleName()+"-replay");
+              }
+            } finally {
+              // Whatever was collected before a replay threw is what the DAO
+              // would have held had each row been put as it was read.
+              if ( staging != null ) mdao.bulkLoad(staging.rows());
             }
     `
     }
@@ -248,6 +256,15 @@ In this current implementation setDelegate must be called last.`,
     {
       name: 'cmd_',
       javaCode: `
+      // Compaction belongs to whoever owns the journal and the MDAO, which is
+      // this object. Handling it here rather than from outside means a
+      // partitioned DAO compacts correctly by forwarding the command to each
+      // partition, instead of an orchestrator guessing which JDAO was meant.
+      if ( obj instanceof CompactionCmd ) {
+        new Compactor().compact(x, this, (CompactionCmd) obj);
+        return obj;
+      }
+
       Object result = getJournal().cmd(x, obj);
       if ( result != null ) return result;
       return getDelegate().cmd_(x, obj);

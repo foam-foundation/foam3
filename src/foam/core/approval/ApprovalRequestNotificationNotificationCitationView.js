@@ -114,23 +114,23 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: 100%;
-      display; flex;
+      display: flex;
       flex-direction: column;
       gap: 0.4rem;
     }
-    ^userSummaryDiv {
+    <<userSummaryDiv {
       position: relative;
       display: flex;
       gap: 0.8rem;
       flex-wrap: wrap;
       align-items: center;
     }
-    ^userSummary {
+    <<userSummary {
       color: $textDefault;
     }
-    ^classification {
+    <<classification {
       background-color: $backgroundSecondary;
       color: $textSecondary;
       display: inline-block;
@@ -138,7 +138,7 @@ foam.CLASS({
       line-height: 2.1;
       padding: 0 0.8rem;
     }
-    ^description {
+    <<description {
       overflow: hidden;
       text-overflow: ellipsis;  
       white-space: nowrap;

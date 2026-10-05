@@ -21,14 +21,23 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       background: $backgroundInverseTertiary;
       box-shadow: 3px 3px 6px 0 gray;
       color: $white;
       opacity: 0.9;
       position: absolute;
       box-sizing: border-box;
-      z-index: 999;
+      z-index: $z-popup;
+    }
+    <<backdrop {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      top: 0;
+      /* click-away scrim: over the page, under the popup */
+      z-index: $z-nav;
     }
   `,
 
@@ -59,14 +68,7 @@ foam.CLASS({
       // Make a full-screen transparent background, which when clicked,
       // closes this Popup
       this.bg = this.E('div').
-        style({
-          position: 'fixed',
-          width:    '100%',
-          height:   '100%',
-          opacity:  0,
-          top:      0,
-          zIndex:   998
-        }).
+        addClass(this.myClass('backdrop')).
         on('click', this.close).
         write();
 

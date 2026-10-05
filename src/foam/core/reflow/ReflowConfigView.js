@@ -18,10 +18,10 @@ foam.CLASS({
   ],
 
   css:`
-    ^ {
+    << {
       gap: 10px;
     }
-    ^rightBar-title {
+    <<rightBar-title {
       border-bottom: 1px solid $borderLight;
       padding: 8px 16px;
     }

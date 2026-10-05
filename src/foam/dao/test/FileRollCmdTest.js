@@ -44,7 +44,7 @@ foam.CLASS({
 
       file = x.get(Storage.class).get(cmd.getRolledFilename());
       test( file.exists(), "Renamed file exists, "+cmd.getRolledFilename());
-      test( file.getName().endsWith("1"), "Renamed file suffix 1");
+      test( file.getName().endsWith(".1"), "Frozen as generation 1");
 
       journal.getWriter().append("two");
       journal.getWriter().newLine();
@@ -60,7 +60,7 @@ foam.CLASS({
 
       file = x.get(Storage.class).get(cmd.getRolledFilename());
       test( file.exists(), "Renamed file exists, "+cmd.getRolledFilename());
-      test( file.getName().endsWith("2"), "Renamed file suffix 2");
+      test( file.getName().endsWith(".2"), "Frozen as generation 2");
 
       journal.getWriter().append("three");
       journal.getWriter().newLine();

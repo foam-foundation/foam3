@@ -1,3 +1,5 @@
+<flow name="APITesting" category="DOC/GUIDE" spid="foam" description="Covers FOAM's DIG (Data Interchange Gateway) client for API testing: scoped sessions with full server-side DAO access." keywords="api testing,dig,sessions,abstractdigtest,knowledge"/>
+
 # FOAM API Testing
 
 FOAM provides it's own support for API testing against itself.  Similar to third party tools such as Postman.

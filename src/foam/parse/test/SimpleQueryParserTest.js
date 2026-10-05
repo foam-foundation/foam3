@@ -70,6 +70,14 @@ foam.CLASS({
       x.test( ! this.evaluate('disabledTopics != tag1', taggedUser),        'StringArray Test11: != is false for a value the array holds');
       x.test(   this.evaluate('disabledTopics != tag9', taggedUser),        'StringArray Test12: != is true for a value the array lacks');
 
+      // One value inside IN (...) used to collapse to EQ, which compares the whole array.
+      x.test(this.isValid('disabledTopics IN (tag1)', 'IN(foam.core.auth.User.disabledTopics, ["tag1"])'), 'StringArray Test13: IN with one value stays IN on a list');
+      x.test(   this.evaluate('disabledTopics IN (tag1)', taggedUser),     'StringArray Test14: IN with one value matches a value the array holds');
+      x.test( ! this.evaluate('disabledTopics IN (tag9)', taggedUser),     'StringArray Test15: IN with one value does not match a value the array lacks');
+      x.test( ! this.evaluate('disabledTopics NOT IN (tag1)', taggedUser), 'StringArray Test16: NOT IN with one value is false for a value the array holds');
+      x.test(   this.evaluate('disabledTopics NOT IN (tag9)', taggedUser), 'StringArray Test17: NOT IN with one value is true for a value the array lacks');
+      x.test(this.isValid('firstName IN (SomeName)', 'EQ(foam.core.auth.User.firstName, "SomeName")'), 'String Test14: IN with one value collapses to EQ on a single value');
+
       // Float symbol tests
       // note: pick tricky float numbers to force floating point precision handling
       x.test(this.isValidSymbol('float', "1.107", "1.107", true), "Float Test1: The float is 1.107");

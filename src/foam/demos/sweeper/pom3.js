@@ -42,6 +42,7 @@ foam.POM({"name":"sweeper","version":3,"files":[
 //{"name":"../../../foam/lang/Exception","flags":"web"},
 //{"name":"../../../foam/lang/FOAMException","flags":"web"},
 //{"name":"../../../foam/lang/FOAMExceptionTest","flags":"web"},
+{"name":"../../../foam/lang/Timers","flags":"web"},
 {"name":"../../../foam/lang/Window","flags":"web"},
 // {"name":"../../../foam/lang/ContextMultipleInheritence","flags":"web"},
 //{"name":"../../../foam/lang/Argument","flags":"web"},

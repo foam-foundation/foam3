@@ -580,7 +580,7 @@ ActionDemoView.create({data: ActionDemo.create()}).write();
 foam.CLASS({
   name: 'ParentView',
   extends: 'foam.u2.Element',
-  css: '^ { background: pink }',
+  css: '<< { background: pink }',
   methods: [ function render() {
     this.addClass().add('text');
   }]

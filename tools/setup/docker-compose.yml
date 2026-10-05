@@ -1,0 +1,28 @@
+# Builds and runs {App}: docker compose up --build
+#
+# Journals, documents and logs live in named volumes so they survive the
+# container. JOURNALS adds deployment journal sets to the build, e.g.
+# JOURNALS=production docker compose up --build; VERSION labels the JARs.
+services:
+  {app}:
+    build:
+      context: .
+      args:
+        JOURNALS: ${JOURNALS:-}
+        VERSION: ${VERSION:-}
+    image: {app}
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - journals:/opt/{app}/journals
+      - documents:/opt/{app}/documents
+      - logs:/opt/{app}/logs
+    environment:
+      # Heap defaults to 75% of the container memory; override here, e.g. -Xms2g -Xmx2g
+      JAVA_OPTS: ${JAVA_OPTS:-}
+    restart: unless-stopped
+
+volumes:
+  journals:
+  documents:
+  logs:

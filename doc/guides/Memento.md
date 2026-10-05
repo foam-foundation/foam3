@@ -1,3 +1,5 @@
+<flow name="Memento" category="DOC/GUIDE" spid="foam" description="Explains foam.u2.memento.Memento's URL-hash state sync, the route path special case, WindowHashMemento, and foam.u2.Router." keywords="memento,routing,url hash,router,navigation,knowledge"/>
+
 # Memento & Routing
 
 How FOAM syncs UI state (current menu, route, filters, tab selection, ...) into the browser URL hash, so it survives refresh and is bookmarkable/back-forward navigable. Two pieces: `foam.u2.memento.Memento` (the encode/decode engine) and `foam.u2.Router` (a controller mixin built on top of it for route-driven view switching).
@@ -184,7 +186,7 @@ foam.CLASS({
   | `'create'` | `CreateView` — new object form |
   | Any record ID | `DetailView` — view/edit of that record |
 
-- **`foam.comics.v3.CreateView`** and **`foam.core.doc.DocumentationView`** both mix in `foam.u2.Router` for their own sub-navigation.
+- **`foam.comics.v3.CreateView`** mixes in `foam.u2.Router` for its own sub-navigation.
 
 - **`foam.comics.v2.DAOUpdateView`** mixes in `foam.u2.memento.Memorable` directly (no `Router`) — a class that wants URL-synced state but not the breadcrumb/stack machinery should follow this pattern rather than pulling in `Router`.
 
@@ -196,6 +198,8 @@ foam.CLASS({
 - **Setting `route` doesn't immediately detach the previous tail.** The line that would drop a stale tail on route change is commented out (`this.detachTail()` is dead code inside a still-live `if` in the `str` setter) — stale child bindings can persist in `tailStr` across a route change until something else (`removeMementoTail`) clears `tail`. Don't assume changing `route` alone guarantees old child-view params vanish from the hash.
 - **`this.detachTail()` and `removeMementoTail` exist but aren't obviously wired to route changes** — if a child view's state is leaking into a hash after navigating away from it, this is the mechanism to trace.
 - **Duplicate `foam.u2.Router` class definition** — see [above](#a-second-simpler-router-definition-exists). Behaviour differences between the two are a real trap if you're not aware both exist.
+- **Two classes are called `Memento`, with incompatible shapes.** `foam.core.controller.Memento` is the older URL-hash memento with a `head` string and a `tail` (`src/foam/core/controller/Memento.js:39`). `foam.u2.memento.Memento`, the one the `Memorable` mixin creates, has no `head` at all (`src/foam/u2/memento/Memento.js:51-135`). Code that reads `this.memento.head` was written for the old class; under the new one `head` is `undefined`. New code marks properties `memorable: true` instead of editing strings.
+- **`exports: [ 'x as memento' ]` gives the class itself nothing.** An export publishes to child views only. `foam.u2.table.UnstyledTableView` exports `currentMemento_ as memento` (`src/foam/u2/table/UnstyledTableView.js:39`) but neither declares nor imports a `memento` property, so `sortBy` finds `this.memento` undefined and returns before writing (`:332`): table sort order never reaches the URL. A class that reads `this.memento` must import it, and the import only helps where a parent exports one.
 - **`update_` is merged with a 32ms delay**, so `usedStr`/hash writes are batched — don't expect the hash to update synchronously in the same tick as a memorable property change.
 
 ---

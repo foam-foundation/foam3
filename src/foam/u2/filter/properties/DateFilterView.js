@@ -105,9 +105,9 @@ foam.CLASS({
       class: 'Boolean',
       name: 'inclusive',
       documentation: `
-        Controls whether the start date is included in the 'Between' filter.
-        When false (default): excludes start day, includes end day (> start, < end+1).
-        When true: includes both start and end days (>= start, < end+1).
+        Controls whether an event exactly at date1 is included in the 'Between' filter.
+        When false (default): > date1 and <= date2.
+        When true: >= date1 and <= date2.
       `,
       value: false
     },
@@ -134,7 +134,7 @@ foam.CLASS({
           }
 
           // Results should be >= lastDate but <= today
-          return this.AND(this.GTE(this.property, lastDate), this.LTE(this.property, today));
+          return this.AND(this.GTE(this.property, lastDate), this.LT(this.property, today));
         }
 
         if ( ! date1 || isNaN(date1.valueOf()) ) return this.TRUE;
@@ -148,17 +148,10 @@ foam.CLASS({
 
         if ( ! date2 || isNaN(date2.valueOf()) ) return this.TRUE;
 
-        // Add +1 day to date2 to include the full end day (original behavior)
-        var endDate = new Date(date2);
-        endDate.setDate(endDate.getDate() + 1);
-
         if ( inclusive ) {
-          // Includes both start and end days
-          return this.AND(this.GTE(this.property, date1), this.LT(this.property, endDate));
+          return this.AND(this.GTE(this.property, date1), this.LTE(this.property, date2));
         }
-
-        // Original behavior: excludes start day, includes end day
-        return this.AND(this.GT(this.property, date1), this.LT(this.property, endDate));
+        return this.AND(this.GT(this.property, date1), this.LTE(this.property, date2));
       }
     },
     {
@@ -222,7 +215,7 @@ foam.CLASS({
 
       if ( qualifier == 'And' ) {
         // Check for a "Last N days/months" predicate
-        if ( predicate.args[1].cls_.name === 'Lte' ) {
+        if ( predicate.args[1].cls_.name === 'Lt' ) {
           var start = predicate.args[0].arg2.value;
           var end   = predicate.args[1].arg2.value;
           var days  = Math.round((end - start) / this.MILLIS_PER_DAY);
@@ -240,11 +233,7 @@ foam.CLASS({
         this.inclusive = predicate.args[0].cls_.name === 'Gte';
         this.qualifier = 'Bt';
         this.date1 = predicate.args[0].arg2.value;
-
-        // Subtract 1 day from date2 since predicate stores date2+1
-        var storedDate2 = new Date(predicate.args[1].arg2.value);
-        storedDate2.setDate(storedDate2.getDate() - 1);
-        this.date2 = storedDate2;
+        this.date2 = predicate.args[1].arg2.value;
       } else {
         this.qualifier = qualifier;
         this.date1 = predicate.arg2.value;

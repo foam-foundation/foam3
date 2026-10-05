@@ -146,6 +146,7 @@ foam.CLASS({
       this.ro_?.observe(this.parentEl);
       this.internalResizeObserver_?.observe(this.dropdownE_.el_())
       this.opened = true;
+      this.document.addEventListener('pointerdown', this.onOutsidePointerDown, true);
       this.window.addEventListener('resize', this.onResize);
     },
 
@@ -199,6 +200,7 @@ foam.CLASS({
       this.opened = false;
       this.ro_?.unobserve(this.parentEl);
       this.internalResizeObserver_?.unobserve(this.dropdownE_.el_());
+      this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
       this.window.removeEventListener('resize', this.onResize);
     },
 
@@ -225,6 +227,9 @@ foam.CLASS({
           this.setHeight();
       });
       this.onDetach(() => { this.internalResizeObserver_?.disconnect(); })
+      this.onDetach(() => {
+        this.document.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+      });
 
       this.addClass(this.slot(function(opened) {
         this.shown = opened;
@@ -266,6 +271,13 @@ foam.CLASS({
 
   listeners: [
     function onCancel() {
+      this.close();
+    },
+
+    function onOutsidePointerDown(e) {
+      if ( ! this.opened ) return;
+      if ( this.parentEl?.contains?.(e.target) ||
+           this.dropdownE_.el_()?.contains(e.target) ) return;
       this.close();
     },
 

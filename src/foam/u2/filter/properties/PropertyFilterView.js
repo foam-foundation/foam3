@@ -248,7 +248,7 @@ foam.CLASS({
       this.active = ! this.active;
 
       // View is not active. Does not require creation
-      if ( ! this.active ) return;
+      if ( ! this.active ) { this.overlay_.close(); return; }
       // View has been instantiated before. Does not require creation
       if ( this.firstTime_ )
         this.initView();

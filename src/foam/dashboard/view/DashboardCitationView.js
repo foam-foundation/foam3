@@ -62,7 +62,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       justify-content: space-between;
       padding-top: 15px;
@@ -70,7 +70,7 @@ foam.CLASS({
       gap: 8px;
     }
 
-    ^id {
+    <<id {
       color: $textTertiary;
     }
   `

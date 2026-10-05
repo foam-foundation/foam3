@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'ReferenceCitationView',
   extends: 'foam.u2.CitationView',
   css: `
-    ^row {
+    <<row {
       font-size: 1.5255rem;
     }
   `,

@@ -49,7 +49,7 @@ p({
       .setRuler(false)
       .build();
   """,
-  "client":"""{"of":"foam.core.reflow.FlowHistoryRecord"}"""
+  "client":"""{"of":"foam.core.reflow.FlowHistoryRecord","cache":false}"""
 })
 
 p({

@@ -14,5 +14,13 @@ p({
       .setJournalName("licenses")
       .build();
     `,
-  "client":"{\"of\":\"foam.core.license.License\"}"
+  "client":"""
+    {
+      "of":"foam.core.license.License",
+      "remoteListenerSupport": true,
+      "cache": true,
+      "ttlPurgeTime": 0,
+      "ttlSelectPurgeTime": 0
+    }
+  """
 })

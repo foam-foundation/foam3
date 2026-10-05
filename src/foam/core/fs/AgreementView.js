@@ -15,15 +15,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^text {
+    <<text {
         overflow-y: auto;
         height: 500px;
         width: 100%;
-        border: 1px solid #DDD;
+        border: 1px solid $borderLight;
         padding: 10px;
     }
 
-    ^pdf embed {
+    <<pdf embed {
       width: 100%;
       height: 500px;
     }

@@ -48,67 +48,67 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
+    << { display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: $textDefault; }
 
     /* tab strip: tab-row hugs left; copy action overlays top-right so content below stays full width */
-    ^tab-strip { position: relative; }
-    ^copy-wrap { position: absolute; top: 0; right: 0; }
+    <<tab-strip { position: relative; }
+    <<copy-wrap { position: absolute; top: 0; right: 0; }
 
     /* card */
-    ^card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
-    ^card-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 11px; color: $textSecondary; margin-bottom: 8px; }
+    <<card { border: 1px solid $borderLight; border-radius: 8px; padding: 12px 14px; background: $backgroundDefault; max-width: 100%; overflow-x: auto; }
+    <<card-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 11px; color: $textSecondary; margin-bottom: 8px; }
 
     /* tables: shrink to content so label + value sit together; columns evenly gapped */
-    ^ table { border-collapse: collapse; width: auto; }
-    ^ th { text-align: left; padding: 3px 28px 3px 0; font-weight: $font-regular; color: $textSecondary; white-space: nowrap; }
-    ^ td { padding: 3px 0 3px 28px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    << table { border-collapse: collapse; width: auto; }
+    << th { text-align: left; padding: 3px 28px 3px 0; font-weight: $font-regular; color: $textSecondary; white-space: nowrap; }
+    << td { padding: 3px 0 3px 28px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
     /* issues */
-    ^issue-group { margin-bottom: 10px; }
-    ^issue-group:last-child { margin-bottom: 0; }
-    ^issue-group-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 10px; color: $textTertiary; margin: 0 0 4px 2px; }
-    ^issue { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; border-left: 3px solid transparent; }
-    ^issue:last-child { margin-bottom: 0; }
-    ^badge { font-weight: $font-bold; font-size: 11px; white-space: nowrap; min-width: 72px; }
-    ^issue-cat { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; white-space: nowrap; min-width: 72px; }
-    ^issue-BAD  { background: $destructive50; border-left-color: $destructive500; }
-    ^issue-WARN { background: $warn50;        border-left-color: $warn500; }
-    ^issue-OK   { background: $success50;     border-left-color: $success500; }
-    ^BAD  { color: $destructive500; }
-    ^WARN { color: $warn700; }
-    ^OK   { color: $success600; }
+    <<issue-group { margin-bottom: 10px; }
+    <<issue-group:last-child { margin-bottom: 0; }
+    <<issue-group-title { text-transform: uppercase; letter-spacing: 0.05em; font-weight: $font-semi-bold; font-size: 10px; color: $textTertiary; margin: 0 0 4px 2px; }
+    <<issue { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; border-left: 3px solid transparent; }
+    <<issue:last-child { margin-bottom: 0; }
+    <<badge { font-weight: $font-bold; font-size: 11px; white-space: nowrap; min-width: 72px; }
+    <<issue-cat { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; white-space: nowrap; min-width: 72px; }
+    <<issue-BAD  { background: $destructive50; border-left-color: $destructive500; }
+    <<issue-WARN { background: $warn50;        border-left-color: $warn500; }
+    <<issue-OK   { background: $success50;     border-left-color: $success500; }
+    <<BAD  { color: $destructive500; }
+    <<WARN { color: $warn700; }
+    <<OK   { color: $success600; }
 
     /* heatmap chips: tint a value so hot numbers pop */
-    ^heat { display: inline-block; padding: 1px 7px; border-radius: 4px; }
+    <<heat { display: inline-block; padding: 1px 7px; border-radius: 4px; }
     /* metric severity (threshold-based) */
-    ^heat-bad  { background: $destructive50; color: $destructive600; font-weight: $font-semi-bold; }
-    ^heat-warn { background: $warn50;        color: $warn700; }
+    <<heat-bad  { background: $destructive50; color: $destructive600; font-weight: $font-semi-bold; }
+    <<heat-warn { background: $warn50;        color: $warn700; }
     /* per-block relative gradient (share of the column max): cool g1 -> hot g4 */
-    ^heat-g1 { background: $warn50;         color: $warn700; }
-    ^heat-g2 { background: $warn100;        color: $warn700; }
-    ^heat-g3 { background: $destructive50;  color: $destructive600; font-weight: $font-semi-bold; }
-    ^heat-g4 { background: $destructive100; color: $destructive700; font-weight: $font-semi-bold; }
+    <<heat-g1 { background: $warn50;         color: $warn700; }
+    <<heat-g2 { background: $warn100;        color: $warn700; }
+    <<heat-g3 { background: $destructive50;  color: $destructive600; font-weight: $font-semi-bold; }
+    <<heat-g4 { background: $destructive100; color: $destructive700; font-weight: $font-semi-bold; }
 
-    ^env  { color: $textSecondary; font-size: 12px; }
-    ^hint { color: $textSecondary; font-style: italic; }
-    ^block-row { cursor: pointer; }
-    ^block-row:hover { background: $grey50; }
+    <<env  { color: $textSecondary; font-size: 12px; }
+    <<hint { color: $textSecondary; font-style: italic; }
+    <<block-row { cursor: pointer; }
+    <<block-row:hover { background: $grey50; }
     /* Nesting: one rail per level in the name cell, and the block's detail tables
        indented to the same level so they read as belonging to the row above.
        Detail rules are qualified past '^hot-detailrow > td' to win on specificity. */
-    ^rail { display: inline-block; width: 22px; height: 1.1em; vertical-align: -0.2em; border-left: 1px solid $borderLight; }
-    ^inside { margin-left: 8px; font-size: 11px; font-weight: $font-regular; color: $textTertiary; }
-    ^hot-detailrow > td^d1 { padding-left: 44px; }
-    ^hot-detailrow > td^d2 { padding-left: 66px; }
-    ^hot-detailrow > td^d3 { padding-left: 88px; }
-    ^hot-detailrow > td^d4 { padding-left: 110px; }
-    ^twisty { display: inline-block; width: 12px; color: $textTertiary; }
-    ^hot-row td, ^hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
-    ^hot-detailrow > td { padding: 4px 0 8px 22px; }
-    ^detail-title { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; margin: 4px 0 2px; }
-    ^hot-table { width: auto; }
-    ^hot-table th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: $textTertiary; }
-    ^hot-table th, ^hot-table td { text-align: left; padding: 2px 24px 2px 0; font-size: 12px; color: $textSecondary; white-space: nowrap; }
+    <<rail { display: inline-block; width: 22px; height: 1.1em; vertical-align: -0.2em; border-left: 1px solid $borderLight; }
+    <<inside { margin-left: 8px; font-size: 11px; font-weight: $font-regular; color: $textTertiary; }
+    <<hot-detailrow > td<<d1 { padding-left: 44px; }
+    <<hot-detailrow > td<<d2 { padding-left: 66px; }
+    <<hot-detailrow > td<<d3 { padding-left: 88px; }
+    <<hot-detailrow > td<<d4 { padding-left: 110px; }
+    <<twisty { display: inline-block; width: 12px; color: $textTertiary; }
+    <<hot-row td, <<hot-row th { color: $textSecondary; font-size: 12px; padding-left: 22px; }
+    <<hot-detailrow > td { padding: 4px 0 8px 22px; }
+    <<detail-title { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; font-weight: $font-semi-bold; color: $textTertiary; margin: 4px 0 2px; }
+    <<hot-table { width: auto; }
+    <<hot-table th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: $textTertiary; }
+    <<hot-table th, <<hot-table td { text-align: left; padding: 2px 24px 2px 0; font-size: 12px; color: $textSecondary; white-space: nowrap; }
   `,
 
   constants: {

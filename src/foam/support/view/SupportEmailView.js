@@ -23,13 +23,13 @@ foam.CLASS({
   ],
 
   css:`
-    ^ {
+    << {
       padding: 2px;
     }
-    ^ .foam-u2-ActionView-create {
+    << .foam-u2-ActionView-create {
       display: none;
     }
-    ^ .foam-u2-ActionView-newEmail {
+    << .foam-u2-ActionView-newEmail {
       width: 135px;
       height: 40px;
       border-radius: 2px;
@@ -42,19 +42,19 @@ foam.CLASS({
       margin: auto;
       margin-left:
     }
-    ^ .btn-mid {
+    << .btn-mid {
       width: 100%;
       text-align: center;
       margin-top: 20px;
       margin-bottom: 23px;
     }
-    ^ .Rectangle-11-Copy {
+    << .Rectangle-11-Copy {
       width: 1027px;
       border-radius: 2px;
       background-color: $backgroundDefault;
       margin: auto;
     }
-    ^ .title {
+    << .title {
       width: 100%;
       height: 20px;
       opacity: 0.6;
@@ -64,22 +64,22 @@ foam.CLASS({
       padding-right: 10px;
       padding-top: 30px;
     }
-    ^ .title1 {
+    << .title1 {
       padding: 2px;
       margin: 28px;
     }
-    ^ .align {
+    << .align {
       margin-left: 10px;
       margin-right: 10px;
       margin-bottom: 30px;
     }
-    ^ .input-container-half {
+    << .input-container-half {
       width: 960px;
       height: 35px;
       border-radius: 2px;
       background-color: $backgroundDefault;
     }
-    ^ .No-support-email-con {
+    << .No-support-email-con {
       width: 183px;
       height: 16px;
       text-align: left;

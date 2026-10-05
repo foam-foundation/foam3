@@ -44,20 +44,20 @@ foam.CLASS({
   },
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       flex-direction: column;
       gap: 10px;
       max-height: 400px;
       overflow-y: auto;
     }
-    ^header {
+    <<header {
       padding: 10px;
       border-bottom: 1px solid $borderLight;
       font-size: 14px;
       font-weight: bold;
     }
-    ^command-container {
+    <<command-container {
       padding: 10px;
       display: flex;
       align-items: center;
@@ -66,7 +66,7 @@ foam.CLASS({
       font-size: 14px;
       cursor: pointer;
     }
-    ^command-container:hover {
+    <<command-container:hover {
       background-color: $backgroundSecondary;
     }
   `,

@@ -24,8 +24,10 @@ foam.CLASS({
       name: 'applyAction',
       javaCode: `
         Notification notification = (Notification) obj;
-        notification.setToastMessage("UserNotificationDAOTest");
-        notification.setToastSubMessage(String.valueOf(notification.getUserId()));
+        if ( foam.util.SafetyUtil.isEmpty(notification.getLocaleTemplateName()) ) {
+          notification.setToastMessage("UserNotificationDAOTest");
+          notification.setToastSubMessage(String.valueOf(notification.getUserId()));
+        }
       `
     }
   ]

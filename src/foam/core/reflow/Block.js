@@ -22,49 +22,48 @@ foam.CLASS({
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
   css: `
-    ^ {
+    << {
       padding: 4px;
     }
-    ^:not(^hidePrompts) {
+    <<:not(<<hidePrompts) {
       border-bottom: 1px solid $borderLight;
     }
-    ^output {
+    <<output {
       overflow-x: auto;
     }
-    ^hidePrompts ^toolbar {
+    <<hidePrompts <<toolbar {
       display: none;
     }
-    ^prompt {
+    <<prompt {
       display: flex;
       font-weight: bold;
       height: 20px;
       align-items: center;
     }
-    ^ span .property-cmd { width: inherit; }
-    ^ .foam-u2-TextField-cmd, ^ .foam-u2-ReadWriteView .foam-u2-TextField {
+    << span .property-cmd { width: inherit; }
+    << .foam-u2-TextField-cmd, << .foam-u2-ReadWriteView .foam-u2-TextField {
       border: none;
       height: 20px;
     }
-    div.foam-core-reflow-Console-CONSOLE ^.block:hover:not(:has(.block:hover)) {
+    div.foam-core-reflow-Console-CONSOLE <<.block:hover:not(:has(.block:hover)) {
       background: $backgroundSecondary; }
-    }
-    ^ .foam-u2-ReadWriteView { padding-right: 8px; }
-    ^content {
+    << .foam-u2-ReadWriteView { padding-right: 8px; }
+    <<content {
       overflow-x: auto;
       width: 100%;
       height: fit-content;
       overflow-y: hidden;
     }
-    ^.expanded > ^toolbar {
+    <<.expanded > <<toolbar {
       padding: 0 0 0.8rem 16px;
     }
-    ^content:has(> .foam-u2-Element-hidden) {
+    <<content:has(> .foam-u2-Element-hidden) {
       display: none;
     }
-    ^hidePrompts:has(> ^content > .foam-u2-Element-hidden) {
+    <<hidePrompts:has(> <<content > .foam-u2-Element-hidden) {
       display: none;
     }
-    ^element-row-icon , ^element-row-icon svg {
+    <<element-row-icon , <<element-row-icon svg {
       color: $textBrand;
       fill: currentColor;
       width: 24px;

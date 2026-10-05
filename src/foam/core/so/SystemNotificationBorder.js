@@ -20,21 +20,21 @@ foam.CLASS({
     'systemNotificationService'
   ],
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^fill {
+    <<fill {
       width: 100%;
     }
-    ^close-icon {
+    <<close-icon {
       position: absolute;
       right: 0.5em;
       top: 0.5em;
       padding: 0;
     }
-    ^iconButton {
+    <<iconButton {
       width: 2rem;
       height: 2rem;
       padding: 0;

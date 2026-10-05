@@ -170,6 +170,7 @@ foam.POM({
     { name: "login/SignUp",                                           flags: "js|java" },
     { name: "login/ClientLoginService",                               flags: "js" },
     { name: "login/LoginView",                                        flags: "js" },
+    { name: "login/OIDCLoginView",                                    flags: "js" },
     { name: "email/EmailVerificationDAO",                             flags: "js|java" },
     { name: "UserPasswordHashingDAO",                                 flags: "js|java" }
   ],

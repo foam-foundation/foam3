@@ -8,12 +8,6 @@ foam.CLASS({
   package: 'foam.core.app',
   name: 'AppConfig',
 
-  javaImports: [
-    'foam.core.theme.Theme',
-    'foam.core.theme.Themes',
-    'org.eclipse.jetty.server.Request'
-  ],
-
   properties: [
     {
       class: 'String',

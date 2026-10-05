@@ -103,32 +103,31 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
 
-    ^ .clear-btn {
+    << .clear-btn {
       display: flex;
       align-items: center;
     }
 
-    ^ .clear-btn i {
+    << .clear-btn i {
       background-color: unset;
       color: $white;
     }
 
-    ^ input {
+    << input {
       background-color: unset;
       border: none;
       border-bottom: solid 1px $white;
       color: $white;
       right: 0;
       width: 0%;
-//      transition: 1s;
       position: absolute;
     }
 
-    ^ .container-search {
+    << .container-search {
       flex: 1;
     }
     .open-close .container-search .general-field input {

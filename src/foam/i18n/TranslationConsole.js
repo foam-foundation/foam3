@@ -51,7 +51,7 @@ foam.CLASS({
     * {
       font-family: Roboto, sans-serif;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
@@ -65,46 +65,46 @@ foam.CLASS({
       color: $textSecondary;
     }
     .foam-u2-table-TableView { height: auto !important; }
-    ^header {
+    <<header {
       display: flex;
       flex-direction: column;
       gap: 1rem;
       padding: 1rem;
     }
-    ^headerTop {
+    <<headerTop {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
     }
-    ^titleGroup {
+    <<titleGroup {
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
     }
-    ^title { color: $textDefault; }
-    ^description { color: $textTertiary; }
-    ^actions {
+    <<title { color: $textDefault; }
+    <<description { color: $textTertiary; }
+    <<actions {
       display: flex;
       justify-content: flex-end;
       gap: 0.5rem;
       flex-wrap: wrap;
     }
-    ^filters {
+    <<filters {
       display: grid;
       grid-template-columns: minmax(11.25rem, 1fr) minmax(8.75rem, 13.75rem) auto;
       gap: 0.75rem;
       align-items: end;
     }
-    ^field {
+    <<field {
       display: flex;
       flex-direction: column;
       gap: 0.25rem;
     }
-    ^fieldLabel {
+    <<fieldLabel {
       color: $textSecondary;
     }
-    ^helpIcon {
+    <<helpIcon {
       border: 1px solid $borderDefault;
       border-radius: 50%;
       color: $textTertiary;
@@ -116,27 +116,27 @@ foam.CLASS({
       margin-left: 0.25rem;
       width: 0.875rem;
     }
-    ^filterToggle {
+    <<filterToggle {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       padding-bottom: 0.375rem;
     }
-    ^content {
+    <<content {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
       padding: 0;
     }
-    ^ .foam-u2-table-TableView-nav {
+    << .foam-u2-table-TableView-nav {
       padding-bottom: 0px;
     }
     @media only screen and (max-width: 768px) {
-      ^ { padding: 1rem; }
-      ^headerTop { flex-direction: column; }
-      ^actions { justify-content: flex-start; }
-      ^filters { grid-template-columns: 1fr; }
-      ^filterToggle { padding-bottom: 0; }
+      << { padding: 1rem; }
+      <<headerTop { flex-direction: column; }
+      <<actions { justify-content: flex-start; }
+      <<filters { grid-template-columns: 1fr; }
+      <<filterToggle { padding-bottom: 0; }
     }
   `,
 

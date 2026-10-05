@@ -12,6 +12,10 @@ foam.CLASS({
   documentation: `Prepare notification per user then put to DAO decorated
 with RulerDAO which can perform further per user setup before user.doNotify.`,
 
+  mixins: [
+    'foam.core.notification.NotificationLocaleTemplateSupport'
+  ],
+
   javaImports: [
     'foam.dao.DAO',
     'foam.lang.X',
@@ -53,6 +57,7 @@ with RulerDAO which can perform further per user setup before user.doNotify.`,
       Notification.TEMPLATE.clear(notification);
       notification.setBroadcasted(false);
       notification.setUserId(user.getId());
+      notification = applyLocaleTemplate(getX(), user, notification);
       getUserNotificationDAO().put(notification);
       `
     }

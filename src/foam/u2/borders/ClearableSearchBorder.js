@@ -35,24 +35,24 @@ foam.CLASS({
   ],
 
   css: `
-  ^ {
+  << {
     display: flex;
     position: relative;
   }
 
-  ^ > *:first-child {
+  << > *:first-child {
     flex: 1;
   }
 
-  ^ input[type="search"] {
+  << input[type="search"] {
     padding-right: 36px;
   }
 
-  ^ input[type="search"]::-webkit-search-cancel-button {
+  << input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: none;
   }
 
-  ^clear {
+  <<clear {
     align-items: center;
     background: transparent;
     border: none;
@@ -70,17 +70,17 @@ foam.CLASS({
     width: 24px;
   }
 
-  ^:hover ^clear {
+  <<:hover <<clear {
     background: $grey100;
     outline: 1px dashed $borderStrong;
     outline-offset: 2px;
   }
 
-  ^clear:hover {
+  <<clear:hover {
     background: $grey200;
   }
 
-  ^clear:focus-visible {
+  <<clear:focus-visible {
     background: $grey100;
     outline: 2px solid $blue400;
     outline-offset: 2px;

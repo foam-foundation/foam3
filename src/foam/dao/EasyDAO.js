@@ -253,6 +253,11 @@ foam.CLASS({
           }
         }
 
+        if ( getFSMDAO() != null ) {
+          ((ProxyDAO) getFSMDAO()).setDelegate(delegate);
+          delegate = getFSMDAO();
+        }
+
         delegate = getOuterDAO(delegate);
 
         if ( getDecorator() != null ) {
@@ -417,6 +422,13 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      documentation: `An FSMDAO that enforces the state machine rules on puts.
+        Build it with a placeholder delegate; EasyDAO replaces the delegate
+        with its own chain.`,
+      class: 'foam.dao.DAOProperty',
+      name: 'FSMDAO'
     },
     {
       class: 'Object',
@@ -830,9 +842,17 @@ dao loading, which improves overall startup time.`,
     {
       class: 'Boolean',
       name: 'saf',
-      // refined in foam-saf
+      // refined in https://github.com/kgrgreer/foam-saf
       documentation: 'Store and forward this DAO',
-      value: false
+      // NOTE: SAF does not support PartitionedDAO.
+      // emailMessageDAO, notificationDAO, eventRecordDAO were some
+      // of main reasons for SAF.
+      // EasyDAO has no knowledge if a DAO is using Partitioning, so
+      // it is unable to issue a warning.
+      // Disabling for now.
+      // value: false;
+      javaGetter: 'return false;',
+      getter: function() { return false; }
     },
     {
       documentation: 'Simpler alternative than providing serverBox.',
@@ -1393,7 +1413,7 @@ dao loading, which improves overall startup time.`,
               }
 
               self.log("Loading test data");
-              Promise.all(foam.json.parse(self.testData, self.of, self).map(
+              Promise.all(foam.json.parse(self.testData, self.of, self.__subContext__).map(
                 function(o) { return delegate.put(o); }
               )).then(function() {
                 self.log("Loaded", self.testData.length, "records.");

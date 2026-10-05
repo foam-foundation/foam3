@@ -35,57 +35,56 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       box-sizing: border-box;
     }
-    ^ .actions {
+    << .actions {
       height: 40px;
       margin: 0 auto;
     }
-    ^ .left-actions {
+    << .left-actions {
       display: inline-block;
       float: left;
     }
-    ^ .right-actions {
+    << .right-actions {
       display: inline-block;
       float: right;
     }
-    ^ .popUpDropDown {
+    << .popUpDropDown {
       padding: 0 !important;
       width: 165px;
       background: #ffffff;
-      z-index: 10000;
+      z-index: $z-popup;
       box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.19);
     }
-    ^ .popUpDropDown > div > div {
+    << .popUpDropDown > div > div {
       padding: 8px 0 0 11px;
       box-sizing:border-box;
       width: 165px;
       height: 35px;
-      z-index: 10000
       text-align: left;
       color: $textDefault;
     }
-    ^ .popUpDropDown > div > div:hover {
+    << .popUpDropDown > div > div:hover {
       background-color: rgba(89, 165, 213, 0.3);
     }
-    ^ .Submit-as{
+    << .Submit-as{
       float: left;
       margin-top:2px;
       margin-right:10px;
     }
-    ^ .status {
+    << .status {
       color: white;
       display: inline-block;
       text-align: center;
       padding-top: 4px;
     }
-    ^ .header {
+    << .header {
       text-align: left;
       color: $textDefault;
       margin: 30px 0 20px 0;
     }
-    ^ .title {
+    << .title {
       width: auto;
       height: 20px;
       text-align: left;
@@ -94,11 +93,11 @@ foam.CLASS({
       display: inline-block;
       padding-right: 20px;
     }
-    ^ .generic-status {
+    << .generic-status {
       line-height: 1.2;
       height: 14px;
     }
-    ^ .subtitle {
+    << .subtitle {
       opacity: 0.7;
       text-align: left;
       color: $textDefault;

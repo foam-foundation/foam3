@@ -169,11 +169,10 @@ foam.CLASS({
         // A scheme picked in-app wins over the OS setting; with no pick the
         // app follows the OS.
         let dark = this.colorScheme ? this.colorScheme === 'dark' : this.window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if ( dark ) {
-          theme.activeVariants$set('color', 'dark');
-        } else {
-          theme.activeVariants$remove('color');
-        }
+        // Light is a named value, the same as dark. Removing the key instead
+        // left light with no name, so a CSSTokenOverride row could never
+        // target light alone: its plain target applied to dark too.
+        theme.activeVariants$set('color', dark ? 'dark' : 'light');
       }
       // The previous theme's three inputs (OS query, in-app pick, variant
       // change) are held in one detachable so they go together.

@@ -52,7 +52,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       background-color: $backgroundSecondary;
       height: 100%;
@@ -60,7 +60,7 @@ foam.CLASS({
       max-height: 100vh;
       max-width: 100vw;
     }
-    ^status {
+    <<status {
       background-color: $backgroundDefault;
       padding: 50px;
       padding-top: 100px;
@@ -69,7 +69,7 @@ foam.CLASS({
       flex-direction: column;
       justify-content: space-between;
     }
-    ^hide-X-status {
+    <<hide-X-status {
       background-color: $backgroundDefault;
       padding: 50px;
       overflow-y: auto;
@@ -77,79 +77,79 @@ foam.CLASS({
       flex-direction: column;
       justify-content: space-between;
     }
-    ^rightside {
+    <<rightside {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       background-color: $backgroundSecondary;
       overflow-y: hidden;
     }
-    ^rightside ^entry {
+    <<rightside <<entry {
       flex-grow: 1;
       -webkit-mask-image: linear-gradient(rgb(0, 0, 0) 95%, rgba(0,0,0,0.5));
       overflow-y: auto;
       padding: 0px 50px 100px 50px;
     }
-    ^rightside ^hide-X-entry {
+    <<rightside <<hide-X-entry {
       flex-grow: 1;
       -webkit-mask-image: linear-gradient(rgb(0, 0, 0) 95%, rgba(0,0,0,0.5));
       overflow-y: auto;
       padding: 50px 50px 100px 50px;
     }
-    ^rightside ^top-buttons {
+    <<rightside <<top-buttons {
       text-align: right;
       margin-bottom: 15px;
       padding: 25px;
       padding-bottom: 0;
     }
-    ^rightside ^bottom-buttons {
+    <<rightside <<bottom-buttons {
       background-color: $backgroundSecondary;
       padding: 0 50px 25px 50px;
       text-align: right;
     }
-    ^buttons {
+    <<buttons {
       display: flex;
       justify-content: flex-end;
     }
-    ^loading-spinner {
+    <<loading-spinner {
       display: inline-flex;
       justify-content: center;
       align-items: center;
       height: 100%;
       width: 100%;
     }
-    ^loading-spinner .foam-u2-LoadingSpinner {
+    <<loading-spinner .foam-u2-LoadingSpinner {
       margin-bottom: 50px;
     }
-    ^loading-spinner img {
+    <<loading-spinner img {
       width: 100px;
       height: 100px;
     }
-    ^ .foam-u2-stack-StackView {
+    << .foam-u2-stack-StackView {
       height: auto;
       margin-bottom: 30px;
     }
-    ^fix-grid {
+    <<fix-grid {
       height: 100%;
     }
-    ^fix-grid.foam-u2-layout-Grid {
+    <<fix-grid.foam-u2-layout-Grid {
       grid-gap: 0;
     }
 
     /* tablet and desktop */
     @media only screen and (min-width: 768px) {
-      ^ {
+      << {
         height: 85vh;
         width: 85vw;
         max-height: 85vh;
         max-width: 85vw;
         width: auto;
       }
-      ^hide-X-status {
+      <<hide-X-status {
         display: flex;
       }
     }
-    ^fullscreen {
+    <<fullscreen {
       display: flex;
       flex-direction: column;
       background-color: $backgroundDefault!important;
@@ -160,7 +160,8 @@ foam.CLASS({
       width: 100vw;
       max-height: 100vh;
       max-width: 100vw;
-      z-index: 950;
+      /* a full-screen page, not a dialog: above the chrome, below any dialog it opens */
+      z-index: $z-popup;
       margin: 0;
       padding: 0;
     }

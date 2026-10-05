@@ -68,11 +68,11 @@ foam.CLASS({
       ],
 
       css: `
-        ^ { margin-bottom: 36px; }
-        ^ .property-text { border: none; padding: 10 0; }
-        ^ .property-code { margin-bottom: 12px; }
-        ^ .property-title { float: left; }
-        ^ .property-id { float: left; margin-right: 12px; }
+        << { margin-bottom: 36px; }
+        << .property-text { border: none; padding: 10 0; }
+        << .property-code { margin-bottom: 12px; }
+        << .property-title { float: left; }
+        << .property-id { float: left; margin-right: 12px; }
       `,
 
       methods: [
@@ -253,16 +253,16 @@ foam.CLASS({
       background: $backgroundDefault;
       color: $textDefault;
     }
-    ^index {
+    <<index {
       background: $backgroundSecondary;
       margin-right: 20px;
       min-width: 400px;
       padding: 6px 0;
     }
-    ^ .selected {
+    << .selected {
       background: $backgroundBrandTertiary;
     }
-    ^ .error {
+    << .error {
       color: red;
     }
   `,

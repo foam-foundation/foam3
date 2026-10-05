@@ -24,20 +24,20 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       height: 100%;
       width: 100%;
       display: flex;
       flex-direction: column;
     }
-    ^main {
+    <<main {
       height: fit-content;
       min-height: 600px;
       padding: 24px 32px;
       max-width: 160rem;
       margin: auto;
     }
-    ^widget-container {
+    <<widget-container {
       width: 100%;
       display: grid;
       flex-grow: 1;

@@ -35,7 +35,7 @@ foam.CLASS({
     { name: 'GPLAY_LEGAL', message: 'Google Play and the Google Play logo are trademarks of Google LLC.'}
   ],
   css: `
-    ^appDownloadPopup {
+    <<appDownloadPopup {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -43,16 +43,16 @@ foam.CLASS({
       align-items: center;
       text-align: center;
     }
-    ^playLink img {
+    <<playLink img {
       max-width: max(18rem, 10vw);
     }
-    ^legal {
+    <<legal {
       margin: 0 1rem;
       text-align: center;
       font-size: 0.8rem;
       width: 100%;
     }
-    ^header{
+    <<header{
       color: $textBrand;
       text-align: center;
     }

@@ -55,7 +55,7 @@ foam.UNUSED = {};
 ### How are classes added to `foam.USED`?
 When a class is first looked up/created, it moves from `foam.UNUSED` to `foam.USED`:
 ```javascript
-// From EndBoot.js:331-335
+// From EndBoot.js:337-346
 var f = foam.Function.memoize0(function() {
   delete foam.UNUSED[m.id];
   try {
@@ -82,6 +82,17 @@ if (foam.USED['com.example.MyModel']) {
 // Get the model definition
 var modelDef = foam.USED['com.example.MyModel'];
 ```
+
+**The value is the raw spec, not a built model.** `foam.USED[id]` holds the plain object literal that was passed to `foam.CLASS` (`src/foam/lang/EndBoot.js:322`, `:341`), before any adapt ran. So `mixins`, `requires` and `properties` are still in their shorthand forms: a mixin is the string `'foam.u2.memento.Memorable'`, not a `foam.lang.Mixin` with a `path` (that object is only made when the class is built, `src/foam/lang/Mixin.js:44-52`). A filter on `mx.path` silently matches nothing:
+
+```javascript
+// always [] : mixins are strings here
+Object.values(foam.USED).filter(m => (m.mixins || []).some(mx => mx.path === id));
+// works for both shapes
+Object.values(foam.USED).filter(m => (m.mixins || []).some(mx => (mx.path || mx) === id));
+```
+
+For built metadata, look the class up and read its model: `foam.lookup(id).model_`.
 
 ---
 

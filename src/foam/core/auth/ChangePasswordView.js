@@ -214,7 +214,7 @@ foam.CLASS({
       documentation: `How this view is presented. For POPUP, the caller is
         responsible for wrapping it in a foam.u2.dialog.Popup.`,
       factory: function() {
-        return this.ChangePasswordViewMode.STANDALONE;
+        return this.ChangePasswordViewMode.EMBEDDED;
       }
     },
     {
@@ -258,7 +258,7 @@ foam.CLASS({
 
       this.start().addClass(this.myClass('flex'))
         .call(this.renderForm, [this])
-        .callIf(popup, function() { this.tag(self.CANCEL); })
+        .add(self.CANCEL)
       .end();
     },
 
@@ -308,6 +308,9 @@ foam.CLASS({
     {
       name: 'cancel',
       buttonStyle: 'TEXT',
+      isAvailable: function(popup) {
+        return popup;
+      },
       code: function(X) {
         ( X.closeDialog || this.closeDialog )?.();
       }

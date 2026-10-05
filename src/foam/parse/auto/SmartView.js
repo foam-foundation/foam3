@@ -574,6 +574,7 @@ foam.CLASS({
         let overlay = this?.overlay_;
         // Close the selections list when the user leaves the field (and descendents)
         if ( ! this.element_.parentNode.contains(document.activeElement) && ! ( overlay && overlay.el_().contains(document.activeElement) ) ) {
+          overlay?.close();
           this.reset();
           // Fire a manual change event since this will not have fired if the user
           // never changed the text field value and only used the completer.

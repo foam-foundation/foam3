@@ -103,7 +103,7 @@ foam.CLASS({
       text-align: left;
       font-size: 1.5rem;
       font-weight: $font-extra-bold;
-      color: $textPrimary;
+      color: $textDefault;
     }
     <<standalone <<subTitle {
       text-align: left;

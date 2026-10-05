@@ -851,7 +851,8 @@ foam.CLASS({
       if ( location.hash && location.hash === '#reset' ) {
         view = {
           class: 'foam.core.auth.ChangePasswordView',
-          modelOf: 'foam.core.auth.resetPassword.ResetPasswordByToken'
+          modelOf: 'foam.core.auth.resetPassword.ResetPasswordByToken',
+          viewMode: 'STANDALONE'
         };
       }
 

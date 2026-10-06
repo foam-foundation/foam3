@@ -282,7 +282,7 @@ public class JSONFObjectFormatter
 
   protected void outputFObjectPropertyHeader(PropertyInfo prop) {
     if ( prop == null ) return;
-    append(COMMA);
+    maybeAppendComma();
     addInnerNewline();
     outputKey(getPropertyName(prop));
     append(':');

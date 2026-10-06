@@ -5,9 +5,9 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai',
+  package: 'foam.core.ai.llm',
   name: 'LoggingLLMService',
-  extends: 'foam.core.ai.ProxyLLMService',
+  extends: 'foam.ai.llm.ProxyLLMService',
 
   documentation: `
     Decorator that logs LLM requests, token usage, latency, and errors.
@@ -15,6 +15,7 @@ foam.CLASS({
   `,
 
   javaImports: [
+    'foam.ai.llm.LLMResponse',
     'foam.core.logger.Logger'
   ],
 
@@ -25,7 +26,7 @@ foam.CLASS({
         Logger logger = (Logger) x.get("logger");
         long   start  = System.currentTimeMillis();
         try {
-          CompletionResponse response = getDelegate().complete(x, request);
+          LLMResponse response = getDelegate().complete(x, request);
           long ms = System.currentTimeMillis() - start;
           logger.info(
             this.getClass().getSimpleName(),
@@ -54,7 +55,7 @@ foam.CLASS({
         Logger logger = (Logger) x.get("logger");
         long   start  = System.currentTimeMillis();
         try {
-          CompletionResponse response = getDelegate().chat(x, messages, options);
+          LLMResponse response = getDelegate().chat(x, request);
           long ms = System.currentTimeMillis() - start;
           logger.info(
             this.getClass().getSimpleName(),

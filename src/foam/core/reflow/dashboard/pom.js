@@ -1,5 +1,8 @@
 foam.POM({
   name: 'dashboard',
+  projects: [
+    { name: 'test/pom', flags: 'test' }
+  ],
   files: [
     { name: 'MetricOperation',         flags: 'js|java' },
     { name: 'MetricAlignment',         flags: 'js|java' },

@@ -216,6 +216,8 @@ foam.CLASS({
                           if ( cls.getAxiomByName(k) && json[k] == undefined )
                             json[k] = defaults[k];
                         }
+                        if ( cls === foam.dao.EasyDAO && ! json.of )
+                          self.error('Missing "of" in CSpec client for service:', spec.name);
                         return foam.json.parse(json, null, this.__subContext__);
                       }
                     });

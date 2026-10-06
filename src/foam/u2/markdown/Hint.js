@@ -33,6 +33,12 @@ foam.CLASS({
       border: 2px solid;
       border-radius: 8px;
       display: flex;
+      align-items: flex-start;
+      overflow-wrap: anywhere;
+    }
+
+    <<box > * {
+      min-width: 0;
     }
 
     <<hint {

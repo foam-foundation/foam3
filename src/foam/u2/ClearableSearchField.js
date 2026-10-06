@@ -26,7 +26,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { width: 100%; }
+    << { width: 100%; }
   `,
 
   properties: [

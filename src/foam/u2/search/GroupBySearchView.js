@@ -30,10 +30,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^ select {
+    << select {
       min-width: 220px;
     }
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       height: auto;
     }
   `,

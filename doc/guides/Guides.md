@@ -42,6 +42,9 @@ Explains Axioms as the core extension mechanism — the pseudo-interface with `i
 **[Enum](Enum.md)**
 Covers FOAM Enums: declaring them with `foam.ENUM`, defining values with ordinal/label/properties/methods, built-in `ordinal` and `name` properties, and usage patterns analogous to Java enums.
 
+**[FSM](FSM.md)**
+Covers FOAM state machines: `foam.FSM`, the `StateMachine` property and the history, payload and next-activity properties it adds, guards, permissions, Java lifecycle hooks, scheduled activities, and server-side enforcement with `FSMDAO`.
+
 **[Refinements](Refinements.md)**
 Explains Refinements as the mechanism to extend or modify existing FOAM classes post-definition without creating a subclass. Covers the two-phase installation, common patterns (adding properties, view defaults, Java code generation), and how refinements bootstrap FOAM's self-modelling.
 
@@ -131,8 +134,14 @@ Documents the three-layer pipeline — ControllerMode (CREATE/VIEW/EDIT), per-pr
 **[Modals](Modals.md)**
 Describes the modal component hierarchy: `Popup` (base, full-screen overlay), `StyledModal` (title/description/action bar), `ConfirmationModal` (primary/secondary actions), and `ApplicationPopup` (wizard flows with progress bar and branding). Includes usage guidance for each.
 
+**[CSSLayout](CSSLayout.md)**
+What a `css:` block goes through before the browser sees it (installed on first create, the `^` and `$token` text rewrites), which box scrolls and how to pin a header, hiding with `shown`, and how popups, modals and the z-index layers stack.
+
 **[Notifications](Notifications.md)**
 Overview of the notification system: creating `Notification` objects via `notificationDAO`, extending the base class for custom types, display via the bell icon and `NotificationCitationView`, and how to write custom citation views.
+
+**[QA2](QA2.md)**
+The `foam.QA2` decision-matrix questionnaire engine: AQL predicates, "answered" meaning a stored value, how the next question is chosen, custom question views, and the shape of the generated class.
 
 **[Cells](Cells.md)**
 A conceptual essay exploring how spreadsheet cells unify input, display, computation, and storage to eliminate glue code, and arguing that FOAM extends this idea beyond the grid via FObjects and reactive expressions.
@@ -234,11 +243,20 @@ A long-form FOAM3 cheat sheet covering model/class definition syntax, property t
 **[PropertyGotchas](PropertyGotchas.md)**
 Catalog of non-obvious property behaviors: when `postSet` doesn't fire (value default, equal slot binding, deserialization ordering), why an `expression` goes cold (lazy one-shot subscription), `javaFactory` frozen-safety mechanics, `javaGetter` values not reaching the client via the `isSet` gate, and what `transient` cascades into. Read this when a property change seems to be silently ignored.
 
+**[Tools](Tools.md)**
+One-page list of the developer tools that come with foam3: the language server, agent skills, live reload, debugging, tests and the build, each with the command that starts it and a link to its full guide.
+
+**[LiveReload](LiveReload.md)**
+Explains `./build.sh -l`: save a `.js` file and the open page rewrites the stylesheet or rebuilds the on-screen instances in place, no page reload. Covers the console line, what a rebuild keeps and drops, the cases that still need a reload (boot classes, `foam.SCRIPT`, SlotNode-rendered views, the controller or popup class itself, refinement-only files), the server-side stat poll and its CPU cost, and how to tune `skipDirs` and the poll intervals.
+
 **[Debugging](Debugging.md)**
 Practical debugging guide for both JavaScript (Chrome DevTools: breakpoints, `postSet` debugger trick, console commands, network tab) and Java (JDPA remote debugging in VS Code and IntelliJ, source file locations).
 
 **[DebuggingCountAndUsed](DebuggingCountAndUsed.md)**
 Explains two FOAM debugging tools: `cls.count_` (tracks instance creation count per class, incremented in `create()`) and `foam.USED` (registry of all classes actually instantiated in the current session, moved from `foam.UNUSED` on first lookup).
+
+**[LSP](LSP.md)**
+Setup instructions for the FOAM Language Server and its MCP server: the one-line installer per editor (VS Code, Emacs, Zed) and per coding agent (Claude Code, Codex, Gemini CLI, Cursor, Pi), the 10-15 second first boot, team defaults in `foam-lsp.json`, and what to check when the server stays quiet.
 
 **[Testing](Testing.md)**
 Covers the FOAM test harness: running all/server/client tests from the build, running specific test IDs or suites, excluding tests with `-`, the per-test SUCCESS/FAILURE output format, and modelling test cases as FOAM classes or scripts targeting Java or JavaScript.
@@ -251,6 +269,9 @@ Migration guide from FOAM1 to FOAM2/FOAM3: key API renames (`CLASS` → `foam.CL
 
 **[DateTimeUTC](DateTimeUTC.md)**
 Documents the `DateTimeUTC` property type: UTC storage, UTC parsing, and UTC display guarantees, how it differs from `Date` and `DateTime`, supported input formats, and the utility classes (`DateUtil`, `DateParser`) that back it.
+
+**[CurrencyAndUnits](CurrencyAndUnits.md)**
+Money and unit values: `UnitValue` (minor units) versus `DoubleUnitValue` (major units), `Currency.format` and `minorAmount`, the read and write faces of `CurrencyView` and the `objData` they need, and why a money column stops derived columns exporting their server value.
 
 **[i18n](i18n.md)**
 Beginner guide to FOAM i18n: declaring translatable strings with `messages:`/`messageMap` in model code, multi-language messageMap fallback rules, and inline localized labels. Runtime Locale rows and localeDAO are covered in the advanced guide.

@@ -175,11 +175,39 @@ new foam.dao.EasyDAO.Builder(x)
   .addPropertyIndex(new foam.lang.PropertyInfo[] { Model.TENANT_ID, Model.CREATED });
 ```
 
-A multi-element array is a **compound** index with `props[0]` outermost, built as a nested range-capable `TreeIndex` (`src/foam/dao/MDAO.java:145-148`), so it serves `Gt`/`Gte`/`Lt` as well as `Eq`. `EasyDAO.addPropertyIndex` sends an `AddIndexCommand` down the delegate chain (`EasyDAO.js:1325-1346`); the MDAO handles it and returns true (`MDAO.java:297`), otherwise it logs `Index not added, no access to MDAO`. Decorators are transparent to it.
+A multi-element array is a **compound** index with `props[0]` outermost, built as a nested range-capable `TreeIndex` with `id` appended as the innermost level (`src/foam/dao/MDAO.java:138-142`; the unique form at `:131`), so it serves `Gt`/`Gte`/`Lt` as well as `Eq`. `EasyDAO.addPropertyIndex` sends an `AddIndexCommand` down the delegate chain (`src/foam/dao/EasyDAO.js:1438-1466`); the MDAO handles it and returns true (`MDAO.java:336-349`), otherwise it logs `Index not added, no access to MDAO`. Decorators are transparent to it.
 
 **Lead a compound index with the most selective term.** A query shaped `Eq(scopeId) AND Gt(date)` wants `(scopeId, date)` so the scan seeks the scope bucket first and then ranges the date. A date-only index cannot prune by scope.
 
-**"Unindexed search on MDAO" does not prove the index is missing.** That warning fires when `plan.cost() > 10 && plan.cost() >= index_.size(state)` (`MDAO.java:247-256`), and the cost equals the table size whenever a predicate matches essentially every row — a `> date` filter where every row is newer, for instance — even with a correct index attached. An index cannot prune a query that returns everything. Check predicate selectivity against the data before concluding anything about the index.
+**"Unindexed search on MDAO" does not prove the index is missing.** That warning fires when `plan.cost() > 10 && plan.cost() >= index_.size(state)` (`MDAO.java:283-293`), and the cost equals the table size whenever a predicate matches essentially every row — a `> date` filter where every row is newer, for instance — even with a correct index attached. An index cannot prune a query that returns everything. Check predicate selectivity against the data before concluding anything about the index.
+
+### Never add an index to the MDAO you got from `getMdao()`
+
+An index added straight to the store can vanish. A journalled DAO that can unload (the lazy-reload `NotPartitionedDAO` wrapper) rebuilds its `MDAO` from scratch after a reload, and the new store gets only the indexes that were **sent as commands**: `cmd_` records each `AddIndexCommand` (`src/foam/core/partition/NotPartitionedDAO.java:149-150`) and the rebuild replays them (`:96`). An `addIndex` called on the object `getMdao()` returned is not recorded, so it is lost at the first rebuild, or never reaches the live store at all when the real store has not been built yet.
+
+```java
+// wrong: the index lives on whichever MDAO instance happened to be current
+((MDAO) easyDAO.getMdao()).addIndex(new PropertyInfo[] { Model.SCOPE_ID });
+
+// right: a command through the chain, recorded and replayed on every rebuild
+easyDAO.addPropertyIndex(new PropertyInfo[] { Model.SCOPE_ID });
+```
+
+`EasyDAO`'s own automatic `spid` index takes the command path for this reason, and its comment says so (`src/foam/dao/EasyDAO.js:230-245`). A missing index is slow, not wrong: queries on that property fall back to a full scan.
+
+### Only six predicate classes can use an index
+
+A `TreeIndex`, the kind `addPropertyIndex` builds, narrows the rows only for `Eq`, `Gt`, `Gte`, `Lt`, `Lte` and `In` whose first argument is the indexed property (`src/foam/dao/index/TreeIndex.java:145-210`). `Neq` is a TODO there; `NOT(...)`, `INSTANCE_OF(...)`, `CONTAINS` and the other predicate classes are checked row by row. A top-level `OR` is planned one arm at a time (`src/foam/dao/MDAO.java:268-277`, `OrPlan`), so `OR(EQ(a, 1), EQ(a, 2))` on an indexed `a` uses the index for each arm. Inside an `AND`, each term is tried on its own (`TreeIndex.java:213-233`), so an indexed `Eq` sibling still narrows the set and the other term is checked only on the rows it leaves. A query made **only** of non-indexable terms scans the whole DAO.
+
+### A predicate on a shared multi-class DAO drops rows it cannot cast
+
+Several subclasses often share one DAO (`of` is the abstract parent). A predicate over a property that only one subclass has meets rows of the other subclasses too. In Java, the generated property accessor casts the row and throws `ClassCastException` on a foreign one, and both places that test a predicate row by row catch that exception and silently skip the row: `PredicatedSink.put`, the filter a DAO adds around a sink (`src/foam/dao/PredicatedSink.js:27-32`, added by `src/foam/dao/AbstractDAO.js:633-635`), and the MDAO's per-row check (`src/foam/dao/index/ValuePlan.java:25-29`). So `where(EQ(Shipment.CARRIER, x)).select()` quietly returns only matching `Shipment` rows, while a bare `find(...)` whose result the caller casts can still throw.
+
+Put the type test first so the intent is explicit and no exception is used as a filter:
+
+```java
+dao.where(AND(INSTANCE_OF(Shipment.class), EQ(Shipment.CARRIER, x))).select(sink);
+```
 
 ### `MDAO.bulkLoad(dao)` reads the sink you passed in
 

@@ -70,7 +70,6 @@
         choices: [
           [ 'foam.core.menu.DAOMenu',          'DAO' ],
           [ 'foam.core.menu.DAOMenu2',         'DAO2' ],
-          [ 'foam.core.menu.DocumentFileMenu', 'External Document' ],
           [ 'foam.core.menu.LinkMenu',         'Link' ],
           [ 'foam.core.menu.ListMenu',         'List' ],
           [ 'foam.core.menu.SubMenu',          'Submenu' ],

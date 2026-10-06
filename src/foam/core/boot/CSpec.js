@@ -37,6 +37,9 @@ foam.CLASS({
   javaImports: [
     'foam.core.auth.AuthService',
     'foam.core.auth.AuthorizationException',
+    'foam.core.logger.Logger',
+    'foam.core.logger.Loggers',
+    'foam.core.logger.StdoutLogger',
     'foam.core.script.BeanShellExecutor',
     'foam.core.script.JShellExecutor',
     'foam.core.script.Language',
@@ -404,7 +407,14 @@ foam.CLASS({
       name: 'updateStatus',
       args: 'Object... vargs',
       javaCode: `
-        foam.core.logger.Logger logger = foam.core.logger.StdoutLogger.instance();
+        // Same resolution as CSpecFactory.buildService: the context logger, so
+        // the status reaches logMessageDAO, and stdout only for the two
+        // services the logger itself is built from.
+        Logger logger = null;
+        if ( ! "logger".equals(getId()) && ! "PM".equals(getId()) )
+          logger = Loggers.logger(getX());
+        if ( logger == null )
+          logger = StdoutLogger.instance();
         Throwable t = null;
         CSpecStatus status = null;
         StringBuilder sb = new StringBuilder();

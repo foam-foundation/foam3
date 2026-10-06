@@ -76,7 +76,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { display: contents; }
+    << { display: contents; }
   `,
 
   properties: [

@@ -1,6 +1,10 @@
 foam.POM({
   name: 'ai',
 
+  projects: [
+    { name: 'vector/pom' }
+  ],
+
   javaFiles: [
     { name: 'mcp/MCPWebAgent' }
   ],

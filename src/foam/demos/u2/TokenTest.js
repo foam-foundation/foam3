@@ -15,11 +15,11 @@ foam.CLASS({
     'tokenService as cssTokenOverrideService'
   ],
   css: `
-    ^test1 {
+    <<test1 {
       background: $test1;
       color: $test1$foreground;
     }
-    ^test2 {
+    <<test2 {
       background: $test1$hover;
       color: $test1$hover$foreground;
     }

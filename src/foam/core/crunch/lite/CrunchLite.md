@@ -2,7 +2,7 @@
 
 # CRUNCH Lite
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="wip" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="wip"></foam>
 
 Note: code snippets are all written in Javascript syntax, although this is not
   meant to imply that every method called has a javascript implementation.
@@ -65,7 +65,7 @@ the capabilities listed are not granted.
 
 ### Invoking a CRUNCH intercept
 
-<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true" />
+<foam class="foam.flow.widgets.DocumentationIncomplete" status="todo" isSection="true"></foam>
 
 To invoke a CRUNCH intercept, throw a CapabilityRuntimeException. A common way
 of doing this is by checking the requirement in a rule.

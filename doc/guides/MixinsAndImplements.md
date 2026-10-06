@@ -39,4 +39,4 @@ foam.CLASS({
 - `implements:` can also be used for pure interfaces (properties without implementation), while `mixins:` always copies all axioms.
 - The `Implements` axiom has higher priority (200) than `Mixin` (19), affecting installation order.
 Wiki pages you might want to explore:
-- [Advanced Features and Extensions (kgrgreer/foam3)](/wiki/kgrgreer/foam3#7)
+- [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)

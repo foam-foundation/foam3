@@ -13,21 +13,21 @@ foam.CLASS({
   imports: ['theme', 'loginVariables','loginView?'],
 
   css: `
-    ^ .cover-img-block1 {
+    << .cover-img-block1 {
       align-items: center;
       border-radius: 8px;
       display: flex;
       flex-direction: column;
       flex-wrap: nowrap;
     }
-    ^image-one {
+    <<image-one {
       height: auto;
       padding: 4rem;
     }
-    ^grid {
+    <<grid {
       grid-gap: 0;
     }
-    ^split-screen {
+    <<split-screen {
       position: relative;
       padding-right: 2rem;
     }

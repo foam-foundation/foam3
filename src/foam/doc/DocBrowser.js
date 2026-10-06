@@ -25,15 +25,15 @@ foam.CLASS({
   documentation: 'Titled raised View border used by the DocBrowser.',
 
   css: `
-    ^ {
+    << {
       border-radius: 3px;
       box-shadow: 0 1px 3px $grey400;
       display: inline-block;
       width:100%;
     }
-    ^title { padding: 6px; align-content: center; background: $blue50; }
-    ^info { float: right; font-size: smaller; }
-    ^content { padding: 6px; min-width: 220px; height: 100%; background:$backgroundDefault; }
+    <<title { padding: 6px; align-content: center; background: $blue50; }
+    <<info { float: right; font-size: smaller; }
+    <<content { padding: 6px; min-width: 220px; height: 100%; background:$backgroundDefault; }
   `,
 
   properties: [
@@ -360,9 +360,9 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { color: $grey500; }
-    ^ th { color: $grey500; }
-    ^ td { padding-right: 12px; }
+    << { color: $grey500; }
+    << th { color: $grey500; }
+    << td { padding-right: 12px; }
   `,
 
   constants: [

@@ -21,28 +21,28 @@ foam.ENUM({
       label: 'Scheduled',
       ordinal: 0,
       color: '$textSecondary',
-      background: '$backgroundTertiary'
+      background: '$statusNeutralBackground'
     },
     {
       name: 'RUNNING',
       label: 'Running',
       ordinal: 1,
-      color: '$warn700',
-      background: '$warn500'
+      color: '$statusWarnText',
+      background: '$statusWarnBackground'
     },
     {
       name: 'COMPLETED',
       label: 'Completed',
       ordinal: 2,
-      color: '$success500',
-      background: '$success50'
+      color: '$statusSuccessText',
+      background: '$statusSuccessBackground'
     },
     {
       name: 'FAILED',
       label: 'Failed',
       ordinal: 3,
-      color: '$destructive500',
-      background: '$destructive50'
+      color: '$statusDangerText',
+      background: '$statusDangerBackground'
     }
   ]
 });

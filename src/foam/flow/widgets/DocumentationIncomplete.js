@@ -10,10 +10,10 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       padding: 10pt;
     }
-    ^ > .cautionTape {
+    << > .cautionTape {
       background-color: $yellow300;
       padding: 8pt;
       /*

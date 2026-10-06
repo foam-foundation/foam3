@@ -18,7 +18,7 @@ foam.CLASS({
   imports: [ 'data? as importedData' ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-gap: 24px 12px;
     }

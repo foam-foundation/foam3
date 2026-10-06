@@ -12,8 +12,8 @@ foam.CLASS({
   documentation: 'Table View for GroupBy mLang.',
 
   css: `
-    ^td { text-align: right; }
-    ^ table { border-collapse: collapse; }
+    <<td { text-align: right; }
+    << table { border-collapse: collapse; }
   `,
 
   methods: [

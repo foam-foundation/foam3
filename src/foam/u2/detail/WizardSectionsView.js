@@ -15,21 +15,21 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-layout-Cols {
+    << .foam-u2-layout-Cols {
       align-items: center;
     }
-    ^wizard-body {
+    <<wizard-body {
       height: 100%;
       background-color: $backgroundDefault;
     }
 
-    ^footer {
+    <<footer {
       min-height: 75px;
       border-top: solid 1px $borderXLight;
       padding: 0px 128px;
     }
 
-    ^next-button {
+    <<next-button {
       width: 156px;
       height: 48px;
     }

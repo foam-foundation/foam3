@@ -12,14 +12,10 @@ foam.POM({
   ],
 
   files: [
-    { name: 'BlockingDAO',                                       flags: 'js|java'},
     { name: 'Compaction',                                        flags: 'js|java'},
-    { name: 'CompactionDAO',                                     flags: 'js|java'},
+    { name: 'CompactionCmd',                                     flags: 'js|java'},
+    { name: 'Compactor',                                        flags: 'js|java'},
     { name: 'CompactionException',                               flags: 'js|java'},
-    { name: 'CompactionSink',                                    flags: 'js|java'},
-    { name: 'CreatedCompactionSink',                             flags: 'js|java'},
-    { name: 'LastModifiedCompactionSink',                        flags: 'js|java'},
     { name: 'LifecycleDeletedCompactionSink',                    flags: 'js|java'},
-    { name: 'PredicateCompactionSink',                           flags: 'js|java'}
   ]
 });

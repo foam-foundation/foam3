@@ -26,10 +26,27 @@ foam.POM({
       FOAM_BIN_VERSION = `${VERSION}` + (TIMESTAMP_FOAM_BIN ? `-${TIMESTAMP}` : '');
     }],
 
-    lspInstall: ['lsp-install', 'Install FOAM LSP editor or MCP-agent integration. Editors: lsp-install:vscode, lsp-install:emacs, lsp-install:zed. MCP agents (shared server): lsp-install:claude-code, lsp-install:codex, lsp-install:gemini, lsp-install:cursor, lsp-install:pi.', [], function(args) {
-      var editor = args || '';
-      var script = this.join(__dirname, 'lsp/install.sh');
-      require('child_process').execSync(`${script} ${editor}`, { stdio: 'inherit' });
+    lspInstall: ['lsp-install', 'Clone FOAM-LSP into $FOAM_LSP_HOME (default ~/.foam/lsp) and install an editor or MCP-agent integration. Editors: lsp-install:vscode, lsp-install:emacs, lsp-install:zed. MCP agents: lsp-install:claude-code, lsp-install:codex, lsp-install:gemini, lsp-install:cursor, lsp-install:pi.', [], function(args) {
+      var dir = require('./lspClone').install(process.env);
+      require('child_process').execSync(`"${dir}/install.sh" ${args || ''}`, { stdio: 'inherit' });
+    }],
+
+    lspUpdate: ['lsp-update', 'Fast-forward the FOAM-LSP clone now.', [], function() {
+      this.info('[lsp] ' + require('./lspClone').update(process.env, { force: true }));
+    }],
+
+    lspAutoUpdate: ['lsp-auto-update', 'lsp-auto-update:false stops builds updating the FOAM-LSP clone; lsp-auto-update:true turns it back on. The setting is saved in the clone.', [], function(arg) {
+      if ( ! require('./lspClone').setAutoUpdate(process.env, this.bool(arg)) ) this.warning('[lsp] FOAM-LSP is not installed; nothing saved');
+    }],
+
+    lspRefresh: ['lsp-refresh', 'Fast-forward the FOAM-LSP clone, at most once a day. Runs before every build; does nothing when FOAM-LSP is not installed.', [], function() {
+      try {
+        var status = require('./lspClone').update(process.env, {});
+        if ( status === 'updated' ) this.info('[lsp] FOAM-LSP updated');
+        if ( status === 'dirty' || status === 'off-default-branch' ) this.info('[lsp] FOAM-LSP not updated: the clone is ' + status);
+      } catch (e) {
+        this.warning('[lsp] FOAM-LSP update skipped: ' + String(e.message).split('\n')[0]);
+      }
     }],
 
     genJS: ['gen-js', 'Build foam-bin.js', ['cleanFOAM', 'genFoamBinVersion'], function() {

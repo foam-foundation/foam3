@@ -18,13 +18,13 @@ foam.CLASS({
     button itself.`,
 
   css: `
-    ^ {
+    << {
       background: none;
       border: none;
       cursor: pointer;
       padding: 0 4px;
     }
-    ^ img {
+    << img {
       width: 14px;
       height: 14px;
     }

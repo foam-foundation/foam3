@@ -485,7 +485,8 @@ foam.CLASS({
 
   constants: [
     {
-      // TODO: document
+      // The class shorthand in css: blocks. '^' is the older spelling and is
+      // deprecated.
       name: 'CSS_SELF',
       value: '<<'
     },
@@ -732,6 +733,7 @@ foam.CLASS({
 
     function detach() {
       this.SUPER();
+      this.document.u2Roots?.delete(this);
       this.childNodes = [];
       this.children   = [];
       this.private_ = this.parentNode = this.__subSubContext__ = this.instance_.subContext__ = undefined;
@@ -753,6 +755,12 @@ foam.CLASS({
     },
 
     function load() {
+      // An Element loaded with no parentNode is a root: written to the
+      // document by write(), a Popup or a ModalOverlay. document.u2Roots,
+      // when something created it (foam.u2.ViewReloader does), lists them
+      // so a walk of the on-screen tree can start from every one.
+      if ( ! this.parentNode ) this.document.u2Roots?.add(this);
+
       // Needed for OverlayDropdown which overrides add(), but shouldn't.
       // TODO: Fix OverlayDropdown to use content$ and then remove this.
       var customAdd = this.add != foam.u2.Element.prototype.add;
@@ -1727,7 +1735,7 @@ foam.CLASS({
     {
       name: 'visibility',
       adapt: function(o, n) { if ( foam.Object.isInstance(n) ) return foam.u2.DisplayMode.create(n); return foam.String.isInstance(n) ? foam.u2.DisplayMode[n] : n; },
-      documentation: 'Exists for backwards compatability. You should set createVisibility, updateVisibility, or readVisibility instead. If this property is set, it will override the other three.'
+      documentation: 'Exists for backwards compatibility. You should set createVisibility, updateVisibility, or readVisibility instead. If this property is set, it will override the other three.'
     },
     {
       name: 'createVisibility',
@@ -1981,6 +1989,17 @@ foam.CLASS({
   requires: [ 'foam.u2.view.StringArrayView' ],
   properties: [
     [ 'view', { class: 'foam.u2.view.StringArrayView' } ]
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2',
+  name: 'FloatArrayViewRefinement',
+  refines: 'foam.lang.FloatArray',
+  requires: [ 'foam.u2.view.FloatArrayView' ],
+  properties: [
+    [ 'view', { class: 'foam.u2.view.FloatArrayView' } ]
   ]
 });
 
@@ -2605,7 +2624,7 @@ foam.CLASS({
 
   documentation: 'View for safely displaying HTML content.',
 
-  css: '^ { padding: 6px 0; }',
+  css: '<< { padding: 6px 0; }',
 
   properties: [
     {

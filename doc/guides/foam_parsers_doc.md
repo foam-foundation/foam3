@@ -63,6 +63,11 @@
     - [Message Properties](#message-properties)
     - [Example: Empty File Detection](#example-empty-file-detection)
     - [Collecting Messages](#collecting-messages)
+  - [Checking a Grammar](#checking-a-grammar)
+    - [Running the Check](#running-the-check)
+    - [What It Reports](#what-it-reports)
+    - [What It Does Not Check](#what-it-does-not-check)
+    - [Checking One Grammar From a Test](#checking-one-grammar-from-a-test)
   - [Best Practices](#best-practices)
   - [Complete Example: Email Address Parser](#complete-example-email-address-parser)
   - [Live Examples](#live-examples)
@@ -1192,6 +1197,54 @@ var result = grammar.parseString(inputText, null, createApply());
 
 ---
 
+## Checking a Grammar
+
+Some grammar mistakes only show when a parse reaches them, and some never show. `foam.parse.lint.GrammarLint` finds them without parsing: it creates each grammar class and reads the parser objects its rules are made of.
+
+### Running the Check
+
+From the root of a project that includes foam3:
+
+```bash
+node foam3/tools/lintGrammars.js     # from foam3 itself: node tools/lintGrammars.js
+```
+
+It prints one line per finding, `file: class: rule: severity check: message`, then a summary. The exit code is 1 when there is an error.
+
+### What It Reports
+
+| Check | Severity | Meaning |
+|---|---|---|
+| `undefined-symbol` | error | `sym('x')` and the grammar has no rule `x`; the parse asserts when it gets there |
+| `orphan-action` | error | a method `xAction` (or a `grammars:` action) and no rule `x`; actions attach by rule name, so it never runs |
+| `left-recursion` | error | a rule reaches itself before reading a character, e.g. `expr: seq(sym('expr'), '+', ...)` |
+| `empty-repeat` | error | an unbounded `repeat()` or `repeat0()` whose item can match without reading; the loop stays at one position until `maximum`. `repeat0()` also loops at the end of the input (`repeat0(alt('a', eof()))`), and its delimiter does not count as progress |
+| `duplicate-symbol` | error | two rules with one name; the last one wins |
+| `unreachable` | warning | rules `START` never reaches; expected for rules used by name, such as `parseString(text, 'yymmdd')` |
+| `no-start` | warning | rules but no `START`; `parseString()` without a rule name asserts |
+
+An action on a base grammar counts as used when any subclass has its rule, and a subclass is not warned about base rules it does not use.
+
+### What It Does Not Check
+
+- **Grammars created inside a method**, such as `this.Grammar.create({ symbols })`. The tool finds classes only.
+- **Grammars built from data** (a rule per property or record) when that data is not there. These are listed as not built.
+- **Rules added after `create()`**, such as alternatives filled from a DAO.
+- **Anything under `cut()`**, which hides its parser in a closure. Grammars using it skip the unreachable check.
+- **Java grammars.**
+- **Loops through a parser class an app defines**: the loop checks assume such a class always reads a character.
+
+### Checking One Grammar From a Test
+
+For a grammar the tool cannot find, call the checker directly. `GrammarLint` is flagged `js&test|grammarlint`, so it loads in test builds and in the tool, not in an app's production bundle:
+
+```javascript
+var findings = foam.parse.lint.GrammarLint.create().lintGrammar(grammar);
+x.test(findings.every(f => f.severity !== 'error'), 'grammar has no lint errors');
+```
+
+---
+
 ## Best Practices
 
 1. **Start Simple**: Test individual parsers before combining them
@@ -1272,5 +1325,5 @@ Once you have a running FOAM application go to [FOAM Parsers Demo Interactive Pa
 
 
 <!-- List all links here -->
-[FOAM]: https://github.com/kgrgreer/foam3/blob/development/INSTALL.md
+[FOAM]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
 [Live-Examples]: http://localhost:8080/foam3/src/foam/demos/examples/index.html?modules=parsers

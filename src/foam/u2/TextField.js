@@ -25,7 +25,7 @@ foam.CLASS({
   imports: [ 'translationService?' ],
 
   css: `
-    ^ {
+    << {
       height: $inputHeight;
     }
 
@@ -33,7 +33,7 @@ foam.CLASS({
       -webkit-appearance: textfield;
     }
 
-    ^:read-only:not(:disabled) {
+    <<:read-only:not(:disabled) {
       border: none;
       background: $backgroundDefault;
     }

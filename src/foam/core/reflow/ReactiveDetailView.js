@@ -156,20 +156,20 @@ foam.CLASS({
   exports: [ 'error' ],
 
   css: `
-    ^{
+    <<{
       width: 100%;
       flex-direction: row;
       flex-wrap: wrap;
       justify-content: flex-start;
     }
-    ^view: {
+    <<view: {
       min-height: 0px;
     }
-    ^view > div > span {
+    <<view > div > span {
       align-items: center;
       gap: 5px;
     }
-    ^select, ^select1, ^select2 {
+    <<select, <<select1, <<select2 {
       flex-direction: column;
       align-items: flex-start;
       gap: 10px;
@@ -178,35 +178,35 @@ foam.CLASS({
       border-radius: 5px;
       border: 1px solid $borderLight;
     }
-    ^switch {
+    <<switch {
       color: $textTertiary;
       line-height: 1;
     }
-    ^switch:hover {
+    <<switch:hover {
       padding-inline: 5px;
       border-radius: 2px;
       background-color: $backgroundSecondary;
     }
-    ^switch.reactive {
+    <<switch.reactive {
       color: $textBrand!important;
     }
-    ^formulaInput input:focus {
+    <<formulaInput input:focus {
       outline: 1px solid $backgroundBrand!important;
     }
-    ^element-icon {
+    <<element-icon {
       width: 14px;
       height: 14px;
     }
-    ^ .foam-core-reflow-SinkView {
+    << .foam-core-reflow-SinkView {
       display: flex;
       flex-direction: column;
       width: 100%;
       gap: 5px;
     }
-    ^ .foam-core-reflow-SinkView > div > div {
+    << .foam-core-reflow-SinkView > div > div {
       width: 100%;
     }
-    ^labelHolder {
+    <<labelHolder {
       border-radius: 4px;
       padding-block: 2px;
       cursor: pointer;
@@ -217,10 +217,10 @@ foam.CLASS({
       justify-content: space-between;
       gap: 0.8rem;
     }
-    ^layoutView {
+    <<layoutView {
       width: 100%;
     }
-    ^ .property-skip .foam-u2-view-DualView-wrapper {
+    << .property-skip .foam-u2-view-DualView-wrapper {
       flex-direction: column;
     }
   `,
@@ -413,12 +413,12 @@ foam.CLASS({
   requires: [ 'foam.core.reflow.PropertyBorder' ],
 
   css: `
-   // ^ { margin: inherit !important; }
-   // ^ table { width: auto !important; }
-   ^title input { font-size: large; }
-   ^title { font-size: large; }
-   ^collapsePropertyViews .com-google-flow-PropertyBorder-propHolder { width: auto; display: inline-flex; }
-   ^ .foam.core.reflow-PropertyBorder-propHolder > :first-child { width: auto; }
+   /* ^ { margin: inherit !important; } */
+   /* ^ table { width: auto !important; } */
+   <<title input { font-size: large; }
+   <<title { font-size: large; }
+   <<collapsePropertyViews .com-google-flow-PropertyBorder-propHolder { width: auto; display: inline-flex; }
+   << .foam.core.reflow-PropertyBorder-propHolder > :first-child { width: auto; }
   `,
 
   properties: [
@@ -471,13 +471,13 @@ foam.CLASS({
   extends: 'foam.u2.detail.SectionView',
 
   css:`
-    ^actionDiv {
+    <<actionDiv {
       flex-wrap: wrap;
       gap: 8px;
       justify-content: start;
       display: flex;
     }
-    ^ {
+    << {
       padding: 8px 0;
     }
   `,
@@ -497,10 +497,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 8px 16px;
     }
-    ^ > .foam-u2-layout-Rows > div:not(:last-child) > * {
+    << > .foam-u2-layout-Rows > div:not(:last-child) > * {
       border-bottom: 1px solid $borderLight;
     }
   `,

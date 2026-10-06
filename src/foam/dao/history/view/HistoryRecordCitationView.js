@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^row {
+    <<row {
       display: grid;
       grid-template-columns: 1fr 1fr;
     }

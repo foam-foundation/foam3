@@ -27,25 +27,25 @@ foam.CLASS({
   `,
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       gap: 40pt;
     }
-    ^flexButtons {
+    <<flexButtons {
       display: flex;
       flex-direction: column;
       position: sticky;
       bottom: 0;
-      background-color: /*%WHITE%*/ #FFFFFF;
+      background-color: $backgroundDefault;
       gap: 0.5rem;
     }
-    ^flexButtons > * {
+    <<flexButtons > * {
       flex-grow: 1;
       margin-left: 0 !important;
     }
-    ^developer-btn {
+    <<developer-btn {
       position: fixed;
       top: 1.2rem;
       right: 1.2rem;

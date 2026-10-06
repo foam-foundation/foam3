@@ -53,6 +53,31 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'createReplayLine',
+      documentation: `The AssemblyLine a replay parses and applies through.
+
+        Into a BulkLoadDAO (the private staging map a JDAO replays into before
+        the MDAO bulk-loads it) the apply stage is sharded: one thread per two
+        parse threads, each applying the entries whose id hashes to it, so one
+        id is always applied by one thread in journal order.
+        Any other target keeps one apply thread, because a decorator on it may
+        have side effects across rows; that includes a BulkLoadDAO wrapped by
+        NDiffJournal in an NDiffDAO. Extension point for a subclass that wants
+        another shape.`,
+      args: 'Context x, foam.dao.DAO dao',
+      type: 'foam.util.concurrent.AssemblyLine',
+      javaCode: `
+        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
+        if ( dao.getOf().getObjClass() == foam.core.boot.CSpec.class )
+          return new foam.util.concurrent.SyncAssemblyLine();
+        if ( dao instanceof foam.dao.BulkLoadDAO ) {
+          int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+          return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay", threads, Math.max(1, threads / 2)));
+        }
+        return new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay"));
+      `
+    },
+    {
       name: 'replay',
       documentation: 'Replays the journal file',
       args: 'Context x, foam.dao.DAO dao',
@@ -88,28 +113,30 @@ foam.CLASS({
         // ClassInfo has no backing Java class (getObjClass() is null), thread
         // the ClassInfo itself through X so the parser can instantiate via
         // ci.newInstance() for entries that omit the class: prefix.
-        final foam.lang.X parseX;
+        final foam.lang.X parseX0;
         if ( dao.getOf().getObjClass() == null ) {
           getLogger().warning("Class not found for of, falling back to defaultClassInfo", dao.getOf().getId());
-          parseX = x.put("defaultClassInfo", dao.getOf());
+          parseX0 = x.put("defaultClassInfo", dao.getOf());
         } else {
-          parseX = x;
+          parseX0 = x;
         }
+        // One StringInterner per replay: a parsed string reaches the JVM table
+        // on its second sight, and the interner's maps die with the replay.
+        final foam.util.StringInterner interner = new foam.util.StringInterner();
+        final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 
         // NOTE: explicitly calling PM constructor as create only creates
         // a percentage of PMs, but we want all replay statistics
         PM pm = new PM(dao.getOf(), "replay." + getFilename());
- //       AssemblyLine assemblyLine = new foam.util.concurrent.SyncAssemblyLine();
-        // CSpec DAO sometimes gets deadlocks with AsyncAssemblyLine for some unknown reason
-        AssemblyLine assemblyLine = dao.getOf().getObjClass() == foam.core.boot.CSpec.class ?
-          new foam.util.concurrent.SyncAssemblyLine() :
-          new foam.util.concurrent.BatchingAssemblyLine(new foam.util.concurrent.SimpleAsyncAssemblyLine(x, "replay")) ;
+        // Built once the file is open, so a missing journal starts no threads.
+        AssemblyLine assemblyLine = null;
 
         boolean threw = false;
         try ( BufferedReader reader = getReader() ) {
           if ( reader == null ) {
             return;
           }
+          assemblyLine = createReplayLine(x, dao);
 
           for ( CharSequence entry ; ( entry = getEntry(reader) ) != null ; ) {
             int length = entry.length();
@@ -140,10 +167,19 @@ foam.CLASS({
               }
 
               class F3Assembly extends AbstractAssembly {
-                FObject obj;
+                FObject  obj;
+                Object[] locks;
 
                 public void executeJob() {
                   obj = getParser(parseX).parseString(strEntry, cls);
+                  if ( obj != null ) locks = new Object[] { obj.getProperty("id") };
+                }
+
+                // Entries for one id must end in journal order; a sharded line
+                // keys its shard on this, asking once per shard, so the id is
+                // read once when the entry is parsed.
+                public Object[] requestLocks() {
+                  return locks;
                 }
 
                 public void endJob(boolean isLast) {
@@ -157,7 +193,7 @@ foam.CLASS({
                                     // across journals are merged instead of silently dropped.
                                     // Real fix: make honorCreate configurable at EasyDAO level.
                     case OP_PUT:
-                      foam.lang.FObject old = dao.find(obj.getProperty("id"));
+                      foam.lang.FObject old = dao.find(locks[0]);
                       dao.put(old != null ? mergeFObject(old.fclone(), obj) : obj);
                       break;
 
@@ -203,13 +239,15 @@ foam.CLASS({
           else
             getLogger().error("Failed to read journal", dao.getOf().getId(), t);
         } finally {
-          assemblyLine.shutdown();
+          if ( assemblyLine != null ) assemblyLine.shutdown();
           pm.log(x);
           setLastReplayVersion(lastVersion);
           if ( threw )
             return;
           setPassCount(passCount.get());
           setFailCount(failCount.get());
+          if ( interner.calls() > 0 ) getLogger().info("Replay", "intern", interner.summary());
+          interner.release();
           String msg = String.format("complete,%1$s,processed,%2$d,of,%3$d,in,%4$s", getFilename(), passCount.get(), failCount.get()+passCount.get(), Duration.ofMillis(pm.getTime()));
           // The reload of an unloadable dao replays with no initService to
           // write READY afterwards, so the replay itself hands the status back.

@@ -16,6 +16,25 @@ p({
       "deletePredicate":{"class":"foam.mlang.predicate.False"},
       "importPredicate":{"class":"foam.mlang.predicate.False"},
       "exportPredicate":{"class":"foam.mlang.predicate.False"},
+      "searchColumns": [
+        "category",
+        "keywords",
+        "access",
+        "spid"
+      ],
+      "filterOptions": [
+        "category",
+        "keywords",
+        "name",
+        "source",
+        "access",
+        "spid",
+        "version",
+        "created",
+        "lastModified",
+        "lastModifiedBy",
+        "createdBy"
+      ],
       "predicate":{
         "class":"foam.mlang.predicate.In",
         "arg1":{

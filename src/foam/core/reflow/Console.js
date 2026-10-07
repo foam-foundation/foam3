@@ -231,6 +231,9 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
+      isEnabled: function(data$value$childLock) {
+        return ! data$value$childLock;
+      },
       confirmationView: function(X, data) {
         return data.ConfirmationModal.create({
           primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
@@ -597,12 +600,6 @@ foam.CLASS({
             show(this.showRight$).
           end().
         end();
-    },
-
-    function isChildLocked_() {
-      if ( ! this.value.childLock ) return false;
-      this.notify('This Flow is locked: blocks cannot be added, removed or moved.', '', this.LogLevel.WARN, true);
-      return true;
     },
   ],
 
@@ -2052,6 +2049,12 @@ foam.CLASS({
           embedSVG: true
         }).addClass(this.myClass('element-row-icon')).end();
       }));
+    },
+
+    function isChildLocked_() {
+      if ( ! this.value.childLock ) return false;
+      this.notify('This Flow is locked: blocks cannot be added, moved or deleted.', '', this.LogLevel.WARN, true);
+      return true;
     }
   ],
 
@@ -2123,6 +2126,9 @@ foam.CLASS({
     {
       name: 'clear',
       code: function() {
+        // Don't clear if the flow is locked
+        if ( this.isChildLocked_() ) return;
+
         this.clearFlow();
         this.focusInput();
         this.flowName = '';

@@ -215,7 +215,9 @@ foam.CLASS({
       this.addClass('block');
       this.enableClass(this.myClass('hidePrompts'), this.showPrompts$.not());
       this.title.add(this.flowName$);
-      this.rightSection.tag(this.DEL, { label: ''});
+      this.rightSection.start(this.DEL, { label: '' }).
+        show(this.flow$.dot('childLock').map(l => ! l)).
+      end();
       this.SUPER();
       this.initCSSProps(this.content);
       if ( ! this.padding_st )
@@ -280,14 +282,7 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      isAvailable: function(flow$childLock) {
-        return ! flow$childLock;
-      },
-      code: function() {
-        var root = this.flowRoot();
-        if ( root.isChildLocked_() ) return;
-        root.deleteFlowChild(this);
-      }
+      code: function() { this.flowRoot().deleteFlowChild(this); }
     }
   ],
 

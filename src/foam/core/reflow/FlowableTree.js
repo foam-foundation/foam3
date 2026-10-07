@@ -225,7 +225,7 @@ foam.CLASS({
             callIf(data.flowParent, function() {
               this.start().
                 addClass('close').
-                show(self.childLocked_$.not()).
+                show(data.flow$ ? data.flow$.dot('childLock').map(l => ! l) : true).
                 startContext({ data: data }).tag(self.CLOSE).endContext().
               end();
             }).

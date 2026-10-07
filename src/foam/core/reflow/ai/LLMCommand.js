@@ -14,7 +14,8 @@ foam.CLASS({
   requires: [
     'foam.ai.llm.CompletionRequest',
     'foam.ai.llm.LLMOptions',
-    'foam.core.reflow.Markdown'
+    'foam.core.reflow.Markdown',
+    'foam.log.LogLevel'
   ],
 
   imports: [

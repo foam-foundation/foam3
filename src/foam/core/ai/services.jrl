@@ -1,7 +1,7 @@
 // ── services.jrl ──
 // Claude as default provider, with PM and logging decorators.
 // Stack: Client → Skeleton → Logging → PM → ClaudeLLMService
-// API key is resolved via credentialDAO / vaultSecrets — see foam3/deployment/ai/credentials.jrl.
+// API key is resolved via credentialDAO / vaultSecrets — see foam3/src/foam/core/ai/credentials.jrl.
 
 p({
   "class":"foam.core.boot.CSpec",

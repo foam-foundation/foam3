@@ -19,7 +19,7 @@ foam.CLASS({
 
   imports: [
     'block?',
-    'dao as referenceDAO',
+    'dao? as referenceDAO',
     'sinkDAO as dao',
     'sinkUnlimitedDAO as unlimitedDAO' ],
 

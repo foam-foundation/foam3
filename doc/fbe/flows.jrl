@@ -1,5 +1,19 @@
-<flow name="be:Index" category="DOC/EXAMPLES" spid="foam" description="Index page for all 'FOAM by Example' documents, each of which documents FOAM features by means of live examples." keywords="fbe,example,knowledge"/>
-
-[AllViews](be:AllViews)
-
-TODO: insert links to other FBE docs here
+c({
+  name:"be:Index",
+  category:"DOC/EXAMPLES",
+  description:"List all FOAM by Example examples.",
+  keywords:[
+    "foam","fbe","example","knowledge"
+  ],
+  createdByAgent:49393173,
+  spid:"foam",
+  version:1,
+  script:[{
+      "flowName":"flows",
+      "cmd":"flows DOC/EXAMPLE"
+    }],
+  created:1791398554776,
+  createdBy:49393173,
+  lastModified:1791398554776,
+  lastModifiedBy:49393173
+})

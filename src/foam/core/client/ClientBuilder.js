@@ -8,6 +8,31 @@ foam.CLASS({
   package: 'foam.core.client',
   name: 'ClientBuilder',
 
+  documentation: `
+    Builds the client-side Client for the current session.
+
+    Asks the server's clientBuilderService for the served CSpecs visible to the
+    session, along with its subject, theme and appConfig, then generates a
+    foam.core.client.Client with one property per service.
+
+    Each service is exported from the Client, so code running under it
+    can import the service by name, and is only created when first accessed
+    unless its CSpec has lazyClient: false.
+
+    A CSpec's 'client' property is JSON describing the object the Client creates
+    for that service. Anything the JSON leaves out is filled in:
+      - class: foam.dao.EasyDAO
+      - serviceName: 'service/' + the CSpec's name
+      - an EasyDAO is set up as a cached CLIENT DAO
+    The exception is an EasyDAO's 'of', which the JSON must give.
+
+    Also reloads the page when the server's appConfig.version differs from the
+    version last seen by this browser.
+
+    Usage:
+      ClientBuilder.create({}, x).promise.then(client => { ... });
+  `,
+
   implements: [
     'foam.mlang.Expressions'
   ],
@@ -36,10 +61,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'sessionName',
+      documentation: 'localStorage key that the session ID is stored under.',
       value: 'defaultSession'
     },
     {
       name: 'sessionID',
+      documentation: `ID of the session the Client is built for. Taken from the
+        'sessionId' URL parameter, else from localStorage, else newly generated
+        and saved to localStorage.`,
       factory: function() {
         var urlSession = this.params.sessionId || localStorage[this.sessionName];
 
@@ -53,15 +82,22 @@ foam.CLASS({
     {
       class: 'FObjectArray',
       of: 'foam.core.boot.CSpec',
-      name: 'extraServices'
+      name: 'extraServices',
+      documentation: 'CSpecs to add to the Client in addition to those returned by the server.'
     },
     {
       class: 'Boolean',
       name: 'authenticate',
+      documentation: `Currently has no effect. When false, it used to limit the
+        Client to services whose CSpec has authenticate: false. That rule was
+        not kept when fetching the CSpecs moved to clientBuilderService.`,
       value: true
     },
     {
       name: 'clientBuilderService',
+      documentation: `Client for the server's clientBuilderService, which supplies
+        the CSpecs, subject, theme and appConfig. Retries forever, as no Client can
+        be built without it.`,
       factory: function() {
         // The client completely fails if cSpecDAO fails to load, so infinitely retry
         // requests to cSpecDAO.
@@ -80,6 +116,8 @@ foam.CLASS({
     },
     {
       name: 'promise',
+      documentation: `Resolves to the Client instance once it has been built. The
+        build starts when this property is first accessed.`,
       factory: function() {
         /* ignoreWarning */
         var self = this;

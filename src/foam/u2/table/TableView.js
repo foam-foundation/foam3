@@ -9,12 +9,13 @@
   name: 'TableView',
   extends: 'foam.u2.table.UnstyledTableView',
 
-  cssTokens: [
-    {
-      name: 'borderSize',
-      value: '2px solid $borderDefault'
-    }
-  ],
+  // cssTokens: [
+  //   {
+  //     name: 'borderSize',
+  //     value: '2px solid $borderDefault'
+  //   }
+  // ],
+  // TODO : doesn't work https://github.com/foam-foundation/foam3/issues/5698
 
   css: `
     << {
@@ -41,7 +42,7 @@
       scroll-behavior: smooth;
       scroll-padding-top: 48px;
     }
-    
+
     <<table-wrapper .foam-u2-view-LazyScrollManager-table-page {
       contain-intrinsic-width: auto var(--table-width, 100%);
       min-width: var(--table-width, 100%);
@@ -88,7 +89,7 @@
     }
 
     <<thead > <<tr {
-      border-bottom: $borderSize;
+      border-bottom: 2px solid $borderDefault;
       box-sizing: border-box;
       border-radius: 4px 4px 0 0;
       width: 100%;

@@ -5,9 +5,9 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai',
+  package: 'foam.core.ai.llm',
   name: 'PMLLMService',
-  extends: 'foam.core.ai.ProxyLLMService',
+  extends: 'foam.ai.llm.ProxyLLMService',
 
   implements: [
     'foam.core.auth.EnabledAware',
@@ -75,7 +75,7 @@ foam.CLASS({
         PM pm = null;
         if ( getEnabled() ) pm = PM.create(x, this.getClass(), getNameFor("chat"));
         try {
-          return super.chat(x, messages, options);
+          return super.chat(x, request);
         } finally {
           if ( pm != null ) pm.log(x);
         }

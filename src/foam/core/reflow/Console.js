@@ -821,7 +821,7 @@ foam.CLASS({
   implements: [ 'foam.core.reflow.TreeCellFormatter' ],
 
   requires: [
-    'foam.core.ai.ConversationalLLMService',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.DependencyScanner',

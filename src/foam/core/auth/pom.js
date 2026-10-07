@@ -61,6 +61,7 @@ foam.POM({
     { name: "AuthorizationDAO",                                       flags: "js|java" },
     { name: "CreateUserCapabilityJunctionOnSpidSet",                  flags: "js|java" },
     { name: "Credential",                                             flags: "js|java" },
+    { name: "APIKeyCredential",                                       flags: "js|java" },
     { name: "DuplicateEmailException",                                flags: "js|java" },
     { name: "DuplicateUserNameException",                             flags: "js|java" },
     { name: "FilterBySpidService",                                    flags: "js|java" },

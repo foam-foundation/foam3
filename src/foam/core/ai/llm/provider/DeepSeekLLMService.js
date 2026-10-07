@@ -5,9 +5,9 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai',
+  package: 'foam.core.ai.llm.provider',
   name: 'DeepSeekLLMService',
-  extends: 'foam.core.ai.OpenAILLMService',
+  extends: 'foam.core.ai.llm.provider.OpenAILLMService',
 
   documentation: `
     DeepSeek implementation of LLMService.
@@ -16,6 +16,11 @@ foam.CLASS({
   `,
 
   properties: [
+    {
+      class: 'String',
+      name: 'credentialId',
+      value: 'foam/llm/deepseek'
+    },
     {
       class: 'String',
       name: 'defaultModel',

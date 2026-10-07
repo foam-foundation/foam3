@@ -49,7 +49,7 @@ p({
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.notification.email.EmailMessage.getOwnClassInfo(),
-      "emailMessages-",
+      "emailMessages_/",
       foam.core.notification.email.EmailMessage.CREATED,
       foam.core.partition.DatePartitioningScheme.YYYYWW);
     partitioned.setTimeWindow(14);

@@ -11,7 +11,7 @@ p({
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.er.EventRecord.getOwnClassInfo(),
-      "eventRecords-",
+      "eventRecords_/",
       foam.core.er.EventRecord.CREATED,
       foam.core.partition.DatePartitioningScheme.YYYYWW);
     partitioned.setTimeWindow(14);

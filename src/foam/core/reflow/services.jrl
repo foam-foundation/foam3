@@ -26,7 +26,7 @@ p({
     foam.core.partition.PartitionedDAO dao = new foam.core.partition.PartitionedDAO(
       x,
       foam.core.reflow.FlowHistoryRecord.getOwnClassInfo(),
-      "flowHistory/",
+      "flowHistory_/",
       foam.core.reflow.FlowHistoryRecord.OBJECT_ID);
     // Load-progress rows are keyed by the served name the client queries.
     dao.setServiceName("flowHistoryDAO");

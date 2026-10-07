@@ -1,0 +1,5 @@
+<flow name="be:Index" category="DOC/EXAMPLES" spid="foam" description="Index page for all 'FOAM by Example' documents, each of which documents FOAM features by means of live examples." keywords="fbe,example,knowledge"/>
+
+[AllViews](be:AllViews)
+
+TODO: insert links to other FBE docs here

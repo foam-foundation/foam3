@@ -161,7 +161,7 @@ The vault is registered as a `CSpec` whose `name` matches the credentials' `vaul
 application uses the environment-agnostic name **`vaultSecrets`** so that the same
 `credentials.jrl` works with any backend — only the `services.jrl` entry changes per deployment.
 
-**Local development** (`deployment/dev/services.jrl`):
+**Local development** (`foam3/deployment/ai/services.jrl`):
 
 ```javascript
 p({
@@ -254,12 +254,12 @@ properties: [
 
 # credentials.jrl
 
-`deployment/docker/credentials.jrl` declares the credentials for all AI providers. The `vault` name
+`foam3/deployment/ai/credentials.jrl` declares the credentials for all AI providers. The `vault` name
 must match the CSpec registered in `services.jrl`; the `apiKey` value is the alias the vault will
 resolve:
 
 ```javascript
-// deployment/docker/credentials.jrl
+// foam3/deployment/ai/credentials.jrl
 
 // LLM providers
 c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/claude",
@@ -314,7 +314,7 @@ foam/llm/deepseek/api-key=sk-REAL_KEY_HERE
 # Ollama: local, no key needed
 ```
 
-**3. Ensure the `vaultSecrets` CSpec is loaded** by including `deployment/dev/services.jrl` in your
+**3. Ensure the `vaultSecrets` CSpec is loaded** by including `foam3/deployment/ai/services.jrl` in your
 build journals (`-J` flag). The `FileKeyStoreManager` points at `dev-secrets.env` (resolved
 relative to the working directory).
 
@@ -330,7 +330,7 @@ Adding an LLM or embedding provider that requires an API key takes four steps.
 **1. Choose an alias.** Follow the naming convention: `foam/<subsystem>/<provider>/api-key`.
 For example, a Cohere embedding provider: `foam/embedding/cohere/api-key`.
 
-**2. Add a credential entry** to `deployment/docker/credentials.jrl`:
+**2. Add a credential entry** to `foam3/deployment/ai/credentials.jrl`:
 
 ```javascript
 c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/embedding/cohere",
@@ -364,7 +364,7 @@ That's all. The vault resolves the new alias in all environments — only the ba
 | Local dev vault (file-backed) | `foam3/src/foam/core/security/FileKeyStoreManager.js` |
 | Caching decorator | `foam3/src/foam/core/security/CachingKeyStoreManager.js` |
 | LLM provider classes | `foam3/src/foam/core/ai/llm/provider/` |
-| Credential journal (all environments) | `deployment/docker/credentials.jrl` |
+| Credential journal (all environments) | `foam3/deployment/ai/credentials.jrl` |
 | Local dev vault CSpec | `foam3/deployment/ai/services.jrl` |
 | Secrets file template | `foam3/deployment/ai/dev-secrets.env.template` |
 | LLM service CSpec (provider selection) | `foam3/src/foam/core/ai/services.jrl` |

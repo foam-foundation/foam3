@@ -17,7 +17,7 @@ foam.CLASS({
     'foam.core.reflow.TreeCellFormatter'
   ],
 
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO' ],
+  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO', 'flow?' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
@@ -280,7 +280,14 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() { this.flowRoot().deleteFlowChild(this); }
+      isAvailable: function(flow$childLock) {
+        return ! flow$childLock;
+      },
+      code: function() {
+        var root = this.flowRoot();
+        if ( root.isChildLocked_() ) return;
+        root.deleteFlowChild(this);
+      }
     }
   ],
 

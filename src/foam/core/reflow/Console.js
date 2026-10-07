@@ -303,6 +303,7 @@ foam.CLASS({
         this.mementoMgr.clear();
         flow.version  = undefined;
         flow.revision = undefined;
+        flow.childLock = false;
       }
     },
     {
@@ -596,7 +597,13 @@ foam.CLASS({
             show(this.showRight$).
           end().
         end();
-    }
+    },
+
+    function isChildLocked_() {
+      if ( ! this.value.childLock ) return false;
+      this.notify('This Flow is locked: blocks cannot be added, removed or moved.', '', this.LogLevel.WARN, true);
+      return true;
+    },
   ],
 
   listeners: [

@@ -15,7 +15,7 @@ foam.CLASS({
     'foam.mlang.sink.Count'
   ],
 
-  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData' ],
+  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData', 'flow?' ],
 
   css: `
     << {
@@ -72,6 +72,13 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'hasControls'
+    },
+    {
+      class: 'Boolean',
+      name: 'childLocked_',
+      expression: function(flow$childLock) {
+        return !! flow$childLock;
+      }
     }
   ],
 
@@ -84,7 +91,9 @@ foam.CLASS({
 
       this.
         addClass().
-        show(this.hasControls$).
+        show(this.slot(function(hasControls, childLocked_) {
+          return hasControls && ! childLocked_;
+        })).
         start().
           addClass(this.myClass('input-field-container')).
           add(this.dynamic(function(promptMode) {

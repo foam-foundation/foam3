@@ -75,7 +75,7 @@ foam.CLASS({
 
           // If we already found a flow tag, warn the user that they can't have more than one
           if ( foundFlowTag ) {
-            var e = new AuthorizationException("Multiple markdown <flow> tags detected. Please remove additional tags before saving.")
+            var e = new AuthorizationException("Multiple markdown <flow> tags detected. Please remove additional tags before saving.");
             e.setIsClientException(true);
             throw e;
           }
@@ -85,7 +85,7 @@ foam.CLASS({
           int flowTagEnd = partialCmdString.indexOf("/>");
           flowTagContent = partialCmdString.substring(0, flowTagEnd + 2);
           foundFlowTag = true;
-          flowTagCmdIndex = cmds.indexOf(cmd);
+          //flowTagCmdIndex = cmds.indexOf(cmd);
         }
 
         if ( mdBlockCount == 0 ) return; // No MD blocks means this save doesn't concern us
@@ -115,7 +115,7 @@ foam.CLASS({
           // the MD to and ask if they want us to create one
 
           // (Open dialogue and wait for choice)
-          // -> Proceed = create file with flowName as fileName and .md extension under some default directory
+          // -> Proceed = create file with flowName as fileName and .md extension under some default directory OR ask user to provide a home
           // -> Cancel = return from rule, nothing needs to be saved to a file
 
         } else if ( ! SafetyUtil.isEmpty(sourceFile) && foundFlowTag ) { // SourceFile and flow tag are present
@@ -128,6 +128,7 @@ foam.CLASS({
         }
 
         // Copy contents of flow tag MD block to sourceFile
+        return;
       `
     }
   ]

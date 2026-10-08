@@ -21,6 +21,8 @@ foam.CLASS({
 
   imports: [
     'flowDAO',
+    'llmService as serverLLMService',
+    'openAIEmbeddingService',
     'vectorStoreDAO'
   ],
 
@@ -64,17 +66,30 @@ foam.CLASS({
       }
     },
     {
+      class: 'String',
+      name: 'provider',
+      label: 'Embedding Provider',
+      value: 'transformers',
+      view: {
+        class: 'foam.u2.view.ChoiceView',
+        choices: [
+          ['transformers', 'Transformers (web)'],
+          ['openai', 'OpenAI']
+        ]
+      }
+    },
+    {
       name: 'embedder',
-      factory: function() {
-        return this.TransformersEmbeddingService.create();
+      expression: function(provider) {
+        return provider === 'openai' ? this.openAIEmbeddingService : this.TransformersEmbeddingService.create();
       }
     },
     {
       name: 'llmService',
-      factory: function() {
-        return this.ConversationalLLMService.create({
-          delegate: this.TransformersLLMService.create()
-        });
+      expression: function(provider) {
+        return provider === 'openai'
+          ? this.serverLLMService
+          : this.ConversationalLLMService.create({ delegate: this.TransformersLLMService.create() });
       }
     },
     {
@@ -157,6 +172,7 @@ foam.CLASS({
         .start('h2').add('RAG Chat').end()
 
         .start().addClass(self.myClass('toolbar'))
+          .tag(self.PROVIDER)
           .tag(self.INDEX)
           .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
         .end()

@@ -491,7 +491,7 @@ foam.CLASS({
 
   requires: [ 'foam.core.reflow.Flow' ],
 
-  imports: [ 'flowDAO' ],
+  imports: [ 'flowDAO?' ],
 
   properties: [
     [ 'description', 'Flows available to load' ]
@@ -499,6 +499,7 @@ foam.CLASS({
 
   methods: [
     function execute(q) {
+      if ( ! this.flowDAO ) return;
       if ( q ) q = q.toLowerCase();
       var self = this;
       this.out.start('table').attr('cellpadding', '6px').select(this.flowDAO.orderBy(this.Flow.CATEGORY, this.Flow.NAME), function(f) {
@@ -632,7 +633,7 @@ foam.CLASS({
   name: 'Load',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'flow', 'flowDAO', 'mementoMgr', 'selected' ],
+  imports: [ 'flow', 'flowDAO?', 'mementoMgr', 'selected' ],
 
   properties: [
     [ 'description', 'Load a specified flow' ],
@@ -641,7 +642,7 @@ foam.CLASS({
 
   methods: [
     async function execute(flowName) {
-      if ( ! flowName ) return;
+      if ( ! flowName || ! this.flowDAO ) return;
       var loaded = await this.flowDAO.find(flowName);
 
       if ( loaded ) {
@@ -737,7 +738,7 @@ foam.CLASS({
   name: 'Save',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [  'flow', 'flowDAO', 'save', 'notify' ],
+  imports: [  'flow', 'flowDAO?', 'save', 'notify' ],
 
   properties: [
     [ 'description', 'Save the current flow to a specified name' ]

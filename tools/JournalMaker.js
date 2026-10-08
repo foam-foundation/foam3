@@ -53,16 +53,14 @@ function parseFlowTag(txt) {
   var m = FLOW_TAG.exec(txt);
   if ( ! m ) return null;
 
-  // First version removes the <foam> tag
-  //  var attrs = { markdown_: txt.substring(0, m.index) + txt.substring(m.index + m[0].length) };
-
-  // Keep the <foam> tag. In the future this should be removed and regenerated in REFLOW on save/export.
-  var attrs = { markdown_: txt };
+  // First version removes the <flow> tag (and the newline(s) added during saving)
+  var markdown = txt.substring(0, m.index) + txt.substring(m.index + m[0].length);
+  var attrs    = { markdown_: markdown.replace(/^(?:[ \t]*\r?\n)+/, '') };
 
   // Attribute names are the Flow property names, so keep their case.
   FLOW_ATTR.lastIndex = 0;
   for ( var a ; ( a = FLOW_ATTR.exec(m[1]) ) ; )
-    attrs[a[1]] = a[2] !== undefined ? a[2] : a[3];
+    attrs[a[1]] = unescapeAttr(a[2] !== undefined ? a[2] : a[3]);
 
   return attrs;
 }
@@ -95,6 +93,15 @@ function escapeMultiline(str) {
     join('\n');
 }
 
+function unescapeAttr(s) {
+  // Since including any of these characters (", ', <, >, &) in property
+  // like description or notes would break the reader, SaveFlowToFileRuleAction
+  // escapes them when they're saved. That needs to be un-done here
+  return s.replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&');   // last, so "&amp;lt;" stays "&lt;"
+}
+
 // Build the flows.jrl entry for one .fmd file: a Flow whose script is a single
 // markdown block holding the file's text. 'source' records the file the FLOW
 // was generated from, so that it can be traced back to, and eventually resaved
@@ -114,6 +121,8 @@ function flowJournalEntry(attrs, name, source) {
     var kws = attrs.keywords.split(',').map(k => k.trim()).filter(k => k);
     if ( kws.length ) props.push(`"keywords": ${JSON.stringify(kws)}`);
   }
+
+  if ( attrs.childLock ) props.push(`"childLock": ${attrs.childLock === 'true'}`);
 
   props.push(`"script": [
 	{
@@ -188,6 +197,17 @@ exports.visitFile = function(pom, f, fn) {
     addJournalOutput('flows',
       `// The following FLOW was generated from "${source}"\n` +
       flowJournalEntry(attrs, flowName, source));
+  }
+  else if ( f.name.endsWith('.flow') ) {
+    if ( this.isExcluded(pom, fn) ) return;
+
+    this.verbose('\t\tflow source:', fn);
+    journalFiles.push(fn);
+
+    addJournalOutput('flows', {
+      fn:  fn,
+      msg: `// The following FLOW was copied from "${path_.relative(process.cwd(), fn)}"\n`
+    });
   }
 }
 

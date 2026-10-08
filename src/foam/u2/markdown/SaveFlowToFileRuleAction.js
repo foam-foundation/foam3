@@ -11,23 +11,30 @@ foam.CLASS({
   documentation: 'RuleAction for saving the contents of a flow to a source file',
 
   javaImports: [
-    'java.util.ArrayList',
+    'java.nio.file.Path',
+    'java.nio.file.Paths',
+    'java.nio.file.Files',
     'java.util.Arrays',
     'java.util.Collections',
     'java.util.List',
     'java.util.Map',
-    'foam.dao.DAO',
-    'foam.lang.X',
-    'foam.lang.ContextAgent',
+    'java.lang.Enum',
     'foam.util.SafetyUtil',
     'foam.core.logger.Logger',
     'foam.core.reflow.Flow',
+    'foam.core.app.AppConfig',
+    'foam.core.app.Mode',
     'foam.core.auth.AuthorizationException',
     'foam.core.reflow.ScriptParser'
   ],
 
-  // TODO: Check this compiles
-  constants: { FLOW_TAG_PROPS: [ "category", "label", "description", "notes", "spid", "accessLevel", "keywords", "childLock" ] },
+  constants: [
+    { 
+      name: 'FLOW_TAG_PROPS',
+      type: 'String[]',
+      javaValue: 'new String[] { "category", "label", "description", "notes", "spid", "accessLevel", "keywords" }'
+    }
+  ],
 
   methods: [
     {
@@ -37,6 +44,19 @@ foam.CLASS({
         
         // Get the flow that just changed
         Flow newFlow = (Flow) obj;
+
+        // KEVIN: I've got something in my notes about catching an
+        // exception if you build with "jar index mode"?
+
+        // Get appConfig to figure out what mode we're in
+        AppConfig appConfig = (AppConfig) x.get("appConfig");
+        if ( appConfig == null || 
+          ( appConfig.getMode() != Mode.DEVELOPMENT 
+            && appConfig.getMode() != Mode.TEST ) )
+        {
+          // Only allow flow-to-file saves in dev or test mode
+          return;
+        }
 
         // Get the source file
         String sourceFile = newFlow.getSource();
@@ -49,16 +69,18 @@ foam.CLASS({
 
         // If the extension isn't 'md' or 'flow' we can't do anything with it
         if ( ! SafetyUtil.equals(extension, "md") && ! SafetyUtil.equals(extension, "flow") ) {
-          logger.log("SaveFlowToFileRuleAction aborted: source had an invalid extension (." + extension + ")");
+          logger.warning("SaveFlowToFileRuleAction aborted: source had an invalid extension (." + extension + ")");
           return;
         }
 
         // Parse the script into plain data (Maps, Lists/Object[], Strings, ...)
         Object parsed = ScriptParser.parseData(newFlow.getScript());
         if ( parsed == null ) {
-          logger.warning("SaveFlowToFileRuleAction", "aborted: script did not parse", newFlow.getName());
+          logger.warning("SaveFlowToFileRuleAction aborted: script did not parse", newFlow.getName());
           return;
         }
+
+        // TODO: Return if oldObj properties == obj properties
 
         // Holder for whatever we save to the file, later
         String fileContents = "";
@@ -69,38 +91,84 @@ foam.CLASS({
           // one block or the single block isn't an MD block, this returns null
           String markdown = singleMarkdownText(parsed);
           if ( markdown == null ) {
+            // KEVIN: Is there a way to show this as a client warning? I can send a notification but I want it to be on the same screen like the "Flow saved" message
             logger.warning("SaveFlowToFileRuleAction .md files cannot contain multiple or non-markdown blocks. Saving " + newFlow.getName() + " as a .flow file, instead");
+            sourceFile = sourceFile.substring(0, sourceFile.lastIndexOf('.')) + ".flow";
+            extension = "flow";
+            // KEVIN: Update the flow. (Does newFlow.source = sourceFile work?)
 
           } else {
+            // --------------- Only needed if we don't remove all the existing <flow> tags ------------------------
+            String trimmed = markdown.stripLeading();
+            if ( trimmed.regionMatches(true, 0, "<flow", 0, 5) ) {
+              int end = trimmed.indexOf('>');
+              if ( end != -1 ) {
+                int i = end + 1;
+                while ( i < trimmed.length() && ( trimmed.charAt(i) == '\\n' || trimmed.charAt(i) == '\\r' ) ) i++;
+                markdown = trimmed.substring(i);
+              }
+            }
+            // ----------------------------------------------------------------------------------------------------
+
             // If we've gotten this far, we're good to create a flow tag and build the fileContents
-            //   <flow name="someName" category="optional" label="optional" description="optional"
-            //         keywords="keyword1,keyword2,..." notes="optional" spid="optional"
-            //         accessLevel="optional", childLock="true"/>
-            // Loop through properties and handle each based on type
-            StringBuilder flowTagBuilder = new StringBuilder("<flow name=").append('"' + newFlow.getName() + '"');
+            StringBuilder flowTagBuilder = new StringBuilder("<flow name=")
+              .append('"').append(escapeAttr(newFlow.getName())).append('"');
             foam.lang.ClassInfo info = newFlow.getClassInfo();
 
+            // Loop through the properties we care about
             for ( String attr : FLOW_TAG_PROPS ) {
               foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) info.getAxiomByName(attr);
-              if ( p == null || ! p.isSet(newFlow) ) continue;   // only explicitly set values
+              if ( p == null || ! p.isSet(newFlow) ) continue; // Only take explicitly set values
 
+              // Get the property value and convert it to a string (if needed)
               Object v = p.get(newFlow);
               String text =
-                v instanceof String[]       ? String.join(",", (String[]) v) :   // keywords
-                v instanceof foam.lang.FEnum ? ((foam.lang.FEnum) v).getName()  :   // accessLevel
+                v instanceof String[]       ? String.join(",", (String[]) v) : // keywords
+                v instanceof Enum           ? ((Enum<?>) v).name()  : // accessLevel
                 String.valueOf(v);
 
-              if ( ! SafetyUtil.isEmpty(text) ) flowTagBuilder.append(' ').append(attr).append('=').append('"' + text + '"');
+              // If the property isn't empty, add it to the flow tag
+              if ( ! SafetyUtil.isEmpty(text) ) {
+                flowTagBuilder.append(' ').append(attr).append('=').append('"').append(escapeAttr(text)).append('"');
+              }
             }
 
+            // Forcibly childLock flows that save to .md files
+            flowTagBuilder.append(" childLock=\\"true\\"");
             flowTagBuilder.append("/>");
 
-            // TODO: Add tag to markdown and set as fileContents
+            // Add the flowTag to the top of the md and use that as the fileContents
+            fileContents = flowTagBuilder.toString() + "\\n\\n" + markdown;
           }
-        } else {
-
+        }
+        
+        // If this should be saved to a .flow file...
+        if ( SafetyUtil.equals(extension, "flow") ) {
+          // .flow files contain the journal entry for a given flow, so if we're saving
+          // to one we need to serialize the flow like we would when saving to a journal
+          foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter(x);
+          formatter.setPropertyPredicate(new foam.lib.StoragePropertyPredicate());
+          formatter.setMultiLine(true);
+          formatter.output(newFlow);
+          fileContents = "p(" + formatter.builder().toString() + ")\\n";
         }
 
+        // If we've gotten this far without issue, we're good to write back to a file
+        Path baseDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize(); // KEVIN: Not sure if this is the right way to do this
+        Path path = baseDir.resolve(sourceFile).normalize();
+        if ( ! path.startsWith(baseDir) ) {
+          logger.warning("SaveFlowToFileRuleAction source outside base dir", sourceFile);
+          return;
+        }
+
+        try {
+          // TODO: Don't write if file content is the same as what we'll be writing
+
+          Files.createDirectories(path.getParent());
+          Files.writeString(path, fileContents, java.nio.charset.StandardCharsets.UTF_8);
+        } catch ( java.io.IOException e ) {
+          logger.error("SaveFlowToFileRuleAction", "failed to write", path, e);
+        }
       `
     },
     {
@@ -138,6 +206,21 @@ foam.CLASS({
         if ( o instanceof Object[] ) return Arrays.asList((Object[]) o);
         if ( o instanceof List )     return (List) o;
         return Collections.emptyList();
+      `
+    },
+    {
+      name: 'escapeAttr',
+      documentation: `
+        Replace problematic special characters with HTML-style equivalents so
+        they don't break the reg-ex here or in JournalMaker during parsing
+      `,
+      javaType: 'String',
+      args: 'String s',
+      javaCode: `
+        return s.replace("&", "&amp;")
+        .replace("\\"", "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;");
       `
     }
   ]

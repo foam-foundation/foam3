@@ -1,3 +1,5 @@
+<flow name="CredentialManagement" category="DOC/GUIDE" spid="foam" description="How FOAM models credentials and resolves secrets through vaults; wiring LLM and embedding providers." keywords="credentials,vault,apikey,llm,embedding,knowledge"/>
+
 # Credentials & Vaults
 
 This document describes how FOAM models **credentials**, how their secrets are resolved through

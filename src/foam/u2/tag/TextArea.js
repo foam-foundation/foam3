@@ -69,6 +69,7 @@ foam.CLASS({
         this.style({'white-space': 'pre'});
       }
       this.attrs({rows: this.rows, cols: this.cols, placeholder: this.placeholder$, wrap: this.wrap});
+      if ( this.maxLength ) this.attrs({maxLength: this.maxLength});
 
       // This is required because textarea accepts setting the 'value'
       // after it's output, but before requires output to be between

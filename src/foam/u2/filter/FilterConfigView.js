@@ -13,7 +13,7 @@ foam.CLASS({
     Filter View configurator that can be used to add and remove filters on the fly
   `,
 
-  imports: ['auth', 'data as filterView'],
+  imports: ['auth', 'data as filterView', 'config?'],
 
   css: `
     << {
@@ -64,7 +64,13 @@ foam.CLASS({
       const of = self.dao.of;
       this.ctrl.add(this.overlay_);
       let props = of.getAxiomsByClass(foam.lang.Property)
-        .filter( m => m.searchView && m.name != 'reactions_' && ! m.hidden )
+        .filter( m => m.searchView && m.name != 'reactions_' && ! m.hidden );
+
+      const allowed = this.config?.filterOptions; // If filterOptions is set...
+      if ( allowed?.length ) { // ...don't display properties that it does not include
+        // Preserve the order given in the config
+        props = allowed.map(n => props.find(p => p.name == n)).filter(Boolean);
+      }
       let availableProps = []
       await Promise.all(props.map(p => {
         if ( ! this.auth || ! p.columnPermissionRequired )

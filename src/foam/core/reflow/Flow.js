@@ -27,7 +27,6 @@ foam.CLASS({
     'java.util.Arrays'
   ],
 
-
   requires: [ 'foam.core.reflow.FlowHistoryRecord' ],
 
   imports: [ 'flowDAO', 'flowHistoryDAO?' ],

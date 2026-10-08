@@ -17,7 +17,7 @@ p({
         new foam.core.partition.PartitionedDAO(
           x,
           foam.core.auth.Region.getOwnClassInfo(),
-          "partitionedRegion/",
+          "partitionedRegion_/",
           foam.core.auth.Region.COUNTRY_ID))
       .build();
   """,

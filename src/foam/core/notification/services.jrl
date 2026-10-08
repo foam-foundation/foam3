@@ -9,7 +9,7 @@ p({
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.notification.Notification.getOwnClassInfo(),
-      "notifications-",
+      "notifications_/",
       foam.core.notification.Notification.CREATED,
       foam.core.partition.DatePartitioningScheme.YYYYMM);
     partitioned.setTimeWindow(30);
@@ -19,7 +19,6 @@ p({
       .setOf(foam.core.notification.Notification.getOwnClassInfo())
       .setAuthorize(false)
       .setPm(true)
-      .setFuid(true)
       .setInnerDAO(partitioned)
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.SPID })
@@ -28,8 +27,8 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.BROADCASTED,foam.core.notification.Notification.READ })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.USER_ID,foam.core.notification.Notification.READ })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.EXPIRY_DATE });
-      
-      partitioned.migrateFrom(x, "notifications", "notificationDAO");
+
+      partitioned.migrateFrom(x, "notifications");
 
       return dao;
   """
@@ -101,7 +100,8 @@ p({
     {
       "of": "foam.core.notification.Notification",
       "cache": true,
-      "pollingInterval": 25000,
+      "pollingInterval": 30000,
+      "maxPollingInterval": 1800000,
       "pollingProperty": {
         "class":"__Property__",
         "forClass_":"foam.core.notification.Notification",
@@ -317,4 +317,3 @@ p({
       .build();
   """
 })
-

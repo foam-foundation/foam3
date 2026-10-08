@@ -747,6 +747,8 @@ foam.CLASS({
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
 
+  imports: [ 'window' ],
+
   requires: [
     'org.chartjs.StackedBar2',
     'foam.u2.layout.ContainerWidth'
@@ -792,6 +794,7 @@ foam.CLASS({
                           showGridLines, responsive, maintainAspectRatio,
                           showLegend, legendPosition, showTooltips, showTooltipSum, animate, animationDuration,
                           periodCount, width) {
+        var self = this;
         // Don't create chart until we have a valid width
         if ( ! width || width <= 0 ) {
           return null;
@@ -988,8 +991,8 @@ foam.CLASS({
                   var nativeEvt = evt && (evt.native || evt);
                   var clientX = nativeEvt && nativeEvt.clientX;
                   var clientY = nativeEvt && nativeEvt.clientY;
-                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + window.scrollX : undefined));
-                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + window.scrollY : undefined));
+                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + self.window.scrollX : undefined));
+                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + self.window.scrollY : undefined));
                   var canvas  = chart && chart.canvas;
                   var rect    = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
                   var scaleX  = rect && rect.width  ? (canvas.width  / rect.width)  : 1;

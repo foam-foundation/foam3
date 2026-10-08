@@ -1612,7 +1612,7 @@ foam.CLASS({
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertyExprView',
-          forCls: X.data.dao.of
+          forCls: X.data.of
         };
       }
     },
@@ -1622,7 +1622,7 @@ foam.CLASS({
       view: function(_, X) {
         return {
           class: 'foam.core.reflow.PropertyChoiceView',
-          forCls: X.data.dao.of
+          forCls: X.data.of
         };
       }
     },

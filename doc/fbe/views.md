@@ -1,8 +1,87 @@
-## Views
---
+<flow name="be:views" category="DOC/EXAMPLES" spid="foam" description="Live examples of the most commonly used FOAM views, default views per property type and overriding them with view: and ViewSpecs." keywords="views,viewspec,property views,u2,fbe,example,knowledge"/>
 
-## String
---
+<tocconfig index></tocconfig>
+
+# FOAM Views By Example
+
+FOAM provides a comprehensive set of views for displaying and editing property values. Views are automatically selected based on property type, but can be customized using the `view:` property. This document covers the most commonly used views and patterns.
+
+<toc></toc>
+
+## Overview
+
+Every FOAM property has a default view based on its type. You can override this by specifying a `view:` property with either a class name or a <term term="ViewSpec"></term>.
+
+| Property Type | Default View | Common Alternatives |
+|---------------|--------------|---------------------|
+| String | TextField | TextArea, RadioView, ChoiceView |
+| Boolean | CheckBox | RadioView |
+| Int/Float | IntView/FloatView | RangeView, ProgressView |
+| Enum | ChoiceView | RadioView |
+| Date | DateView | DateTimeView |
+| Array | ArrayView | DAOList, TableView |
+| FObject | DetailView | FObjectView |
+
+### View Configuration Patterns
+
+Views can be specified in several ways:
+
+```javascript
+// 1. Class name string
+view: 'foam.u2.TextField'
+
+// 2. ViewSpec object
+view: {
+  class: 'foam.u2.TextField',
+  maxLength: 100,
+  placeholder: 'Enter text...'
+}
+
+// 3. Function returning ViewSpec (for dynamic configuration)
+view: function(args, X) {
+  return {
+    class: 'foam.u2.view.ChoiceView',
+    choices: X.myService.getChoices()
+  };
+}
+```
+
+## Display Modes
+
+Views support different display modes controlled by the `mode` or `visibility` property:
+
+| Mode | Description | User Can Edit |
+|------|-------------|---------------|
+| `RW` | Read-Write (default) | Yes |
+| `RO` | Read-Only | No |
+| `DISABLED` | Disabled/greyed out | No |
+| `HIDDEN` | Not rendered | N/A |
+
+```javascript
+// Set mode on property
+{
+  class: 'String',
+  name: 'status',
+  visibility: 'RO'  // Always read-only
+}
+
+// Dynamic visibility based on other properties
+{
+  class: 'String',
+  name: 'reason',
+  visibility: function(status) {
+    return status === 'REJECTED' ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+  }
+}
+```
+
+---
+
+## String Properties
+
+String properties default to a simple text field. Use `displayWidth` to control the field width, `placeholder` for hint text, and `help` for explanatory text below the field.
+
+<example id="string-basic">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -36,16 +115,30 @@ foam.CLASS({
       name: 'stringWithTextArea',
       view: {
         class: 'foam.u2.tag.TextArea',
-        rows: 8, cols: 80,
+        rows: 8,
+        cols: 80
       }
-    },
+    }
   ]
 });
 
 add(foam.u2.DetailView.create({data: Example.create()}));
+</example>
+
+---
 
 ## String with Choices
---
+
+When a string property has a fixed set of valid values, use <term term="ChoiceView"></term>, <term term="RadioView"></term>, or a TextField with choices for autocomplete.
+
+| View | Best For |
+|------|----------|
+| RadioView | Few options (2-5), all visible at once |
+| ChoiceView | Many options, dropdown selection |
+| TextField with choices | Autocomplete with free-form input |
+| MultiView | Showing multiple views of the same value |
+
+<example id="string-choices">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -134,18 +227,23 @@ foam.CLASS({
       name: 'choiceViewWithValues',
       view: {
         class: 'foam.u2.view.ChoiceView',
-        choices: [ [1, 'Yes'], [0, 'No'], [0.5, 'Maybe']]
+        choices: [[1, 'Yes'], [0, 'No'], [0.5, 'Maybe']]
       }
-    },
+    }
   ]
 });
 
 var t = Example.create();
 add(foam.u2.detail.SectionedDetailView.create({data: t}));
-// add(foam.u2.DetailView.create({data: t}));
+</example>
 
-## Boolean
---
+---
+
+## Boolean Properties
+
+Boolean properties default to a checkbox. For more explicit yes/no selections, use RadioView with labeled choices.
+
+<example id="boolean">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -173,11 +271,24 @@ foam.CLASS({
 add(foam.u2.CheckBox.create());
 var t = Example.create();
 add(foam.u2.detail.SectionedDetailView.create({data: t}));
-// add(foam.u2.DetailView.create({data: t}));
+</example>
 
+---
 
-## Numbers
---
+## Number Properties
+
+FOAM provides several numeric property types with appropriate views. Use `min` and `max` to constrain values, and `units` to display a label.
+
+| Type | Range | Use Case |
+|------|-------|----------|
+| Byte | -128 to 127 | Small integers |
+| Short | -32,768 to 32,767 | Medium integers |
+| Int | ±2 billion | Standard integers |
+| Long | ±9 quintillion | Large integers |
+| Float | ~7 decimal digits | Decimal numbers |
+| Double | ~15 decimal digits | High-precision decimals |
+
+<example id="numbers">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -215,16 +326,12 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'intWithRangeView',
-      view: {
-        class: 'foam.u2.RangeView'
-      }
+      view: { class: 'foam.u2.RangeView' }
     },
     {
       class: 'Int',
       name: 'intWithProgressView',
-      view: {
-        class: 'foam.u2.ProgressView'
-      },
+      view: { class: 'foam.u2.ProgressView' },
       value: 42
     },
     {
@@ -232,7 +339,7 @@ foam.CLASS({
       name: 'intWithMultiView',
       view: {
         class: 'foam.u2.MultiView',
-        views: [ 'foam.u2.RangeView', 'foam.u2.IntView' ]
+        views: ['foam.u2.RangeView', 'foam.u2.IntView']
       }
     },
     {
@@ -241,54 +348,25 @@ foam.CLASS({
       view: {
         class: 'foam.u2.MultiView',
         horizontal: false,
-        views: [ 'foam.u2.RangeView', { class: 'foam.u2.view.IntView', onKey: true } ]
+        views: ['foam.u2.RangeView', { class: 'foam.u2.view.IntView', onKey: true }]
       }
     },
-    /*
-    {
-      class: 'Int',
-      name: 'intWithDualView2',
-      view: {
-        class: 'foam.u2.view.DualView',
-        viewa: 'foam.u2.RangeView',
-        viewb: 'foam.u2.ProgressView'
-      }
-    },
-    */
-    {
-      class: 'Byte',
-      name: 'defaultByte'
-    },
-    {
-      class: 'Short',
-      name: 'defaultShort'
-    },
-    {
-      class: 'Long',
-      name: 'defaultLong'
-    },
-    {
-      class: 'Float',
-      name: 'defaultFloat'
-    },
+    { class: 'Byte',   name: 'defaultByte' },
+    { class: 'Short',  name: 'defaultShort' },
+    { class: 'Long',   name: 'defaultLong' },
+    { class: 'Float',  name: 'defaultFloat' },
     {
       class: 'Float',
       name: 'floatWithPrecision',
       precision: 2,
       value: 3.1415926
     },
-    {
-      class: 'Double',
-      name: 'defaultDouble'
-    },
+    { class: 'Double', name: 'defaultDouble' },
     {
       class: 'Float',
       name: 'temperature',
       value: 1,
-      view: {
-        class: 'foam.core.pm.TemperatureCView',
-        width: 300
-      }
+      view: { class: 'foam.core.pm.TemperatureCView', width: 300 }
     },
     {
       class: 'Float',
@@ -309,10 +387,15 @@ foam.CLASS({
 });
 
 add(foam.u2.DetailView.create({data: Example.create()}));
+</example>
 
-## Enums
-TODO: show enum colours in RO mode
---
+---
+
+## Enum Properties
+
+<term term="Enum"></term> properties automatically use a ChoiceView populated with the enum's values. The enum's `label` property is displayed to the user while the actual enum value is stored.
+
+<example id="enums">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -333,15 +416,28 @@ foam.CLASS({
 var data = Example.create();
 data.displayWidth$ = data.displayWidth2$;
 add(data);
+</example>
 
-## Dates and Times
---
+---
+
+## Date and Time Properties
+
+FOAM provides several date/time property types with specialized views. The `onKey` option controls whether updates happen on every keystroke or on blur.
+
+| Type | Stores | View |
+|------|--------|------|
+| Date | Date only | DateView (calendar picker) |
+| DateTime | Date and time | DateTimeView |
+| Time | Time only | TimeView |
+| Duration | Time span | DurationView |
+
+<example id="dates-times">
 foam.CLASS({
   name: 'Example',
   properties: [
     {
       class: 'Date',
-      name: 'defaultDate',
+      name: 'defaultDate'
     },
     {
       class: 'Date',
@@ -371,7 +467,7 @@ foam.CLASS({
     },
     {
       class: 'DateTime',
-      name: 'defaultDateTime',
+      name: 'defaultDateTime'
     },
     {
       class: 'DateTime',
@@ -399,10 +495,15 @@ foam.CLASS({
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
 add(data.defaultDateTime$);
+</example>
 
+---
 
-## Colours
---
+## Color Properties
+
+Color properties provide color picker views. Use `ReadColorView` for display-only color swatches, and `ColorEditView` for interactive editing.
+
+<example id="colors">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -433,10 +534,15 @@ foam.CLASS({
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
+---
 
-## Passwords
---
+## Password Properties
+
+Password properties automatically mask input. The value is hidden from view but accessible programmatically.
+
+<example id="passwords">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -450,10 +556,15 @@ foam.CLASS({
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
+---
 
-## Images
---
+## Image Properties
+
+Image properties store URLs and can display the image using various views.
+
+<example id="images">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -461,45 +572,32 @@ foam.CLASS({
       class: 'Image',
       name: 'defaultImage',
       value: '../u2/Dragon.png'
-    },
-    /*
-    Only works with CORE
-    {
-      class: 'Image',
-      name: 'imageView',
-      view: 'foam.u2.view.ImageView',
-      value: '../u2/Dragon.png'
-    },
-    {
-      class: 'Image',
-      name: 'dualImageView',
-      view: {
-        class: 'foam.u2.MultiView',
-        views: [
-          'foam.u2.TextField',
-          'foam.u2.view.ImageView'
-        ]
-      },
-      value: '../u2/Dragon.png'
     }
-    */
   ]
 });
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
+---
 
-## Arrays
---
+## Array Properties
+
+FOAM provides several array property types for different use cases.
+
+| Type | Stores | Best View |
+|------|--------|-----------|
+| StringArray | Array of strings | StringArrayRowView |
+| FObjectArray | Array of FObjects | FObjectArrayView, TitledArrayView |
+| Array | Generic array | ArrayView |
+
+<example id="arrays">
 foam.CLASS({
   package: 'foam.demos.u2',
   name: 'SampleData',
   properties: [
-    {
-      class: 'String',
-      name: 'id'
-    },
+    { class: 'String', name: 'id' },
     'name',
     'value'
   ],
@@ -525,9 +623,10 @@ foam.CLASS({
       class: 'FObjectArray',
       name: 'FObjectArrayMultiView',
       of: 'foam.demos.u2.SampleData',
-      view: { class: 'foam.u2.MultiView',
+      view: {
+        class: 'foam.u2.MultiView',
         views: [
-          { class: 'foam.u2.view.TitledArrayView'  },
+          { class: 'foam.u2.view.TitledArrayView' },
           { class: 'foam.u2.view.FObjectArrayView' }
         ]
       }
@@ -537,9 +636,15 @@ foam.CLASS({
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
-## Maps
---
+---
+
+## Map Properties
+
+Map properties store key-value pairs and provide a view for editing them.
+
+<example id="maps">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -552,13 +657,28 @@ foam.CLASS({
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
-## DAOs
---
+---
+
+## DAO Properties
+
+<term term="DAOProperty"></term> stores a reference to a DAO and can display its contents using various views.
+
+| View | Description |
+|------|-------------|
+| TableView | Spreadsheet-like grid with sorting and selection |
+| DAOList | Simple vertical list of items |
+| EmbeddedTableView | Compact table for embedding in forms |
+| AltView | Lets user switch between multiple view options |
+
+<example id="daos">
 foam.CLASS({
   name: 'DAOSampleData',
   properties: [
-    { class: 'Int', name: 'id' }, 'name', 'value'
+    { class: 'Int', name: 'id' },
+    'name',
+    'value'
   ],
   methods: [
     function toSummary() { return this.id + ' ' + this.value; }
@@ -605,46 +725,34 @@ foam.CLASS({
       view: {
         class: 'foam.u2.view.AltView',
         views: [
-          [ 'foam.u2.table.TableView',         'Table' ],
-          [ 'foam.u2.view.EmbeddedTableView', 'Embedded Table' ],
-          [
-            {
-              // Can specify a full ViewSpec
-              class: 'foam.u2.DAOList'
-            },
-            'List'
-          ],
+          ['foam.u2.table.TableView', 'Table'],
+          ['foam.u2.view.EmbeddedTableView', 'Embedded Table'],
+          [{ class: 'foam.u2.DAOList' }, 'List']
         ],
-        selectedViewLabel: 'Table' // select default view by name
-      }
-    },
-    /*
-    Not a real view because it does't bind properly to data.
-    {
-      class: 'foam.dao.DAOProperty',
-      of: 'DAOSampleData',
-      name: 'daoListWithCreateView',
-      value: dao,
-      visibility: 'RW',
-      view: {
-        class: 'foam.u2.view.DAOListWithCreateView',
-        dao: dao,
-        data: [],
-        of: 'DAOSampleData'
+        selectedViewLabel: 'Table'
       }
     }
-    */
   ]
 });
 
 var data = Example.create();
 add(data);
-// add(foam.u2.DetailView.create({data: data}));
-// add(foam.u2.detail.SectionedDetailView.create({data: data}));
+</example>
 
-## Rich Text
---
+---
 
+## Rich Text Properties
+
+FOAM supports several rich text formats including HTML, Code, and Markdown.
+
+| View | Use Case |
+|------|----------|
+| HTMLView | Display rendered HTML |
+| PreView | Display code with preserved formatting |
+| CodeView | Edit code with syntax highlighting |
+| MarkdownView | Display rendered Markdown |
+
+<example id="rich-text">
 var code = `
 if ( true ) {
   console.log('true');
@@ -675,22 +783,17 @@ foam.CLASS({
     {
       class: 'String',
       name: 'markdownView',
-      value: `
-        # Heading 1
-        ## Heading 2
-        ### Heading 3
-        #### Heading 4
-        ##### Heading 5
-        ###### Heading 6
-        text # not a heading
+      value: `# Heading 1
+## Heading 2
+### Heading 3
 
-        [a link](https://github.com/foam-foundation/foam3)
+[a link](https://github.com/kgrgreer/foam3)
 
-        normal _italics_ **bold** \`code\`
-        \`\`\`
-        a block of code
-        \`\`\`
-      `.split('\n').map(l => l.trim() + '\n').join(''),
+normal _italics_ **bold** \`code\`
+\`\`\`
+a block of code
+\`\`\`
+`,
       view: {
         class: 'foam.u2.MultiView',
         horizontal: false,
@@ -705,9 +808,21 @@ foam.CLASS({
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
 
-## Objects
---
+---
+
+## Object Properties
+
+For properties that hold arbitrary objects or FObjects, FOAM provides flexible views.
+
+| View | Use Case |
+|------|----------|
+| AnyView | Edit any JavaScript value |
+| FObjectView | Edit FObjects with class selection |
+| DetailView | Display FObject properties |
+
+<example id="objects">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -723,16 +838,38 @@ foam.CLASS({
     {
       class: 'FObjectProperty',
       name: 'detailView',
-      of: 'foam.util.Timer',
+      of: 'foam.util.Timer'
     }
   ]
 });
 
 var data = Example.create();
 add(foam.u2.DetailView.create({data: data}));
+</example>
+
+---
 
 ## DetailViews
---
+
+<term term="DetailView"></term> displays all properties of an FObject. FOAM provides several variants for different layouts and use cases.
+
+| View | Description |
+|------|-------------|
+| DetailView | Standard two-column label/value layout |
+| SectionedDetailView | Groups properties into collapsible sections |
+| VerticalDetailView | Single-column stacked layout |
+
+### DetailView Options
+
+| Option | Effect |
+|--------|--------|
+| `title: ''` | Hide the title |
+| `showActions: false` | Hide action buttons |
+| `mode: 'RO'` | Read-only display |
+| `mode: 'DISABLED'` | Disabled (greyed out) display |
+| `expandPropertyViews: true` | Expand sub-objects inline |
+
+<example id="detail-views">
 var data = foam.util.Timer.create();
 
 start('h2').add('DetailView').end();
@@ -765,18 +902,19 @@ tag('p');
 
 start('h2').add('VerticalDetailView').end();
 add(foam.u2.detail.VerticalDetailView.create({data: data, title: 'VerticalDetailView'}));
+</example>
 
-## Misc. Views
-Less frequently used views.
+---
 
-##  ReadWriteView
-The ReaWriteView composes two different views, one for displaying the data
-when it is not being edited, and another when it is. Like a spreadsheet cell
-which normally appears as a label until it is selected and then becomes a
-text field for editing.
-The read and write views used can be changed to subclassing ReadWriteView
-and overriding the toReadE() and toWriteE() methods.
---
+## Miscellaneous Views
+
+### ReadWriteView
+
+<term term="ReadWriteView"></term> composes two different views: one for display and another for editing. Like a spreadsheet cell that appears as a label until selected, then becomes an editable field.
+
+Customize by subclassing and overriding `toReadE()` and `toWriteE()` methods.
+
+<example id="read-write-view">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -802,15 +940,26 @@ foam.CLASS({
 
     function toWriteE() {
       this.data$.sub(this.onDataLoad);
-      return foam.u2.tag.TextArea.create({rows: 20, cols: 120, escapeTextArea: false, data$: this.data$}, this);
+      return foam.u2.tag.TextArea.create({
+        rows: 20,
+        cols: 120,
+        escapeTextArea: false,
+        data$: this.data$
+      }, this);
     }
   ]
 });
 
-tag(TextView.create({data: '<b>bold</b> <i>italic</it>'}));
+tag(TextView.create({data: '<b>bold</b> <i>italic</i>'}));
+</example>
 
-##  ValueView
---
+---
+
+### ValueView
+
+<term term="ValueView"></term> displays a property value as plain text without any editing capability. Useful for computed or derived values.
+
+<example id="value-view">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -831,14 +980,15 @@ foam.CLASS({
 var e = Example.create();
 e.value1$ = e.value2$;
 add(e);
+</example>
 
+---
 
-##  ModeAltView
-A view that shows one of several views, depending on the display mode.
-Often, for views that need to support different RO vs RW views, it is easier
-to create two separate views that only handle one of those modes, rather than
-a single view that handles both.
---
+### ModeAltView
+
+<term term="ModeAltView"></term> shows different views depending on the display mode (RW vs RO). This is useful when read and write views are fundamentally different and hard to combine into a single view.
+
+<example id="mode-alt-view">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -852,7 +1002,7 @@ foam.CLASS({
         class: 'foam.u2.view.ModeAltView',
         readView: 'foam.u2.view.ValueView',
         writeView: 'foam.u2.TextField'
-      },
+      }
     },
     {
       class: 'String',
@@ -870,10 +1020,15 @@ foam.CLASS({
 var e = Example.create();
 e.value1$ = e.value2$;
 add(e);
+</example>
 
+---
 
-##  AltView
---
+### AltView
+
+<term term="AltView"></term> lets users switch between multiple views of the same data. Each view is specified as a `[ViewSpec, label]` pair.
+
+<example id="alt-view">
 foam.CLASS({
   name: 'Example',
   properties: [
@@ -882,7 +1037,6 @@ foam.CLASS({
       name: 'value1',
       value: 'No',
       view: {
-        // class: 'foam.u2.view.ObjAltView',
         class: 'foam.u2.view.AltView',
         views: [
           [
@@ -904,7 +1058,7 @@ foam.CLASS({
             'Text'
           ]
         ],
-        selectedViewLabel: 'Radio' // select default view by name
+        selectedViewLabel: 'Radio'
       }
     },
     {
@@ -917,3 +1071,88 @@ var e = Example.create();
 e.value2$ = e.value1$;
 add(e);
 add(e.value1$);
+</example>
+
+---
+
+## Creating Custom Views
+
+When built-in views don't meet your needs, create custom views by extending `foam.u2.View`.
+
+```javascript
+foam.CLASS({
+  name: 'MyCustomView',
+  extends: 'foam.u2.View',
+
+  css: `
+    ^ {
+      border: 1px solid $borderDefault;
+      padding: 8px;
+    }
+  `,
+
+  methods: [
+    function render() {
+      this.addClass();
+
+      // Access the bound data via this.data or this.data$
+      this
+        .start('div')
+          .add('Current value: ', this.data$)
+        .end()
+        .start('button')
+          .add('Clear')
+          .on('click', () => { this.data = ''; })
+        .end();
+    }
+  ]
+});
+```
+
+### Key View Patterns
+
+| Pattern | Method | Use Case |
+|---------|--------|----------|
+| Bind to data | `this.data$` | Display reactive value |
+| Update data | `this.data = newValue` | Modify bound property |
+| Sub-context | `this.__subContext__` | Access services |
+| Add children | `this.add()`, `this.start()` | Build DOM structure |
+
+---
+
+## Summary
+
+When selecting views for your properties:
+
+1. **Start with defaults** — FOAM's default views are well-suited for most cases
+2. **Use semantic types** — EMail, PhoneNumber, URL etc. provide appropriate validation and views
+3. **Consider the user** — RadioView for few choices, ChoiceView for many
+4. **Combine with MultiView** — Show the same data in multiple formats for debugging or complex interfaces
+5. **Use AltView for flexibility** — Let users choose their preferred view
+6. **Create custom views sparingly** — Extend existing views when possible
+
+---
+
+## See Also
+
+- [FOAM CSS Tokens By Example](be:CSSTokens) — Styling views with tokens
+- [FOAM Validation By Example](be:validation) — Property validation in views
+- [U2 Element documentation](u2.md) — Low-level view building
+
+<glossary>
+  <def term="ViewSpec" definition="A specification for creating a view, either a class name string or an object with class and configuration properties."></def>
+  <def term="ChoiceView" definition="A dropdown select view for choosing from a list of options. Supports [value, label] pairs."></def>
+  <def term="RadioView" definition="A view showing radio buttons for mutually exclusive choices. Use isHorizontal for inline layout."></def>
+  <def term="Enum" definition="An enumeration type with a fixed set of named values. Automatically uses ChoiceView."></def>
+  <def term="DAOProperty" definition="A property that holds a reference to a DAO (Data Access Object)."></def>
+  <def term="DetailView" definition="A view that displays all properties of an FObject in a form layout."></def>
+  <def term="SectionedDetailView" definition="A DetailView variant that groups properties into collapsible sections."></def>
+  <def term="ReadWriteView" definition="A view that switches between read and write modes, like a spreadsheet cell."></def>
+  <def term="ValueView" definition="A simple view that displays a value as plain text without editing capability."></def>
+  <def term="ModeAltView" definition="A view that shows different sub-views based on the current display mode (RW/RO)."></def>
+  <def term="AltView" definition="A view that lets users switch between multiple alternative views of the same data."></def>
+  <def term="MultiView" definition="A view that displays multiple views of the same data simultaneously. Useful for debugging."></def>
+  <def term="onKey" definition="View property that controls whether updates fire on every keystroke (true) or on blur (false)."></def>
+  <def term="displayWidth" definition="Property setting that controls the visual width of text input fields."></def>
+  <def term="DisplayMode" definition="Enum controlling view editability: RW (read-write), RO (read-only), DISABLED, HIDDEN."></def>
+</glossary>

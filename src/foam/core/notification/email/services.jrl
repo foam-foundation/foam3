@@ -49,7 +49,7 @@ p({
     partitioned = new foam.core.partition.DatePartitionedDAO(
       x,
       foam.core.notification.email.EmailMessage.getOwnClassInfo(),
-      "emailMessages-",
+      "emailMessages_/",
       foam.core.notification.email.EmailMessage.CREATED,
       foam.core.partition.DatePartitioningScheme.YYYYWW);
     partitioned.setTimeWindow(14);
@@ -59,7 +59,6 @@ p({
       .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setAuthorize(false)
-      .setFuid(true)
       .setInnerDAO(partitioned)
       .setServiceProviderAware(false)
       .build()
@@ -67,7 +66,7 @@ p({
 
     // After the indices are registered, so the partitions the import creates
     // carry them. No-ops once the legacy journal has been archived.
-    partitioned.migrateFrom(x, "emailMessages", "emailMessageDAO");
+    partitioned.migrateFrom(x, "emailMessages");
 
     return dao;
   """

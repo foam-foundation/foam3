@@ -5,9 +5,9 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai',
+  package: 'foam.core.ai.llm.provider',
   name: 'OllamaLLMService',
-  extends: 'foam.core.ai.OpenAILLMService',
+  extends: 'foam.core.ai.llm.provider.OpenAILLMService',
 
   documentation: `
     Ollama implementation of LLMService.

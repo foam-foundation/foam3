@@ -409,6 +409,14 @@ foam.CLASS({
       name: 'createMenu',
       documentation: 'Used as the menu to create a new object for this DAO',
     },
+    {
+      class: 'StringArray',
+      name: 'filterOptions',
+      documentation: `
+        If set, restricts which properties can be added as filters in the
+        FilterConfigView. Empty means all searchable properties are offered.
+      `
+    },
     // Legacy support
     {
       class: 'String',

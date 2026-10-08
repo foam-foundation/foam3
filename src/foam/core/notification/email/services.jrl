@@ -67,7 +67,7 @@ p({
 
     // After the indices are registered, so the partitions the import creates
     // carry them. No-ops once the legacy journal has been archived.
-    partitioned.migrateFrom(x, "emailMessages", "emailMessageDAO");
+    partitioned.migrateFrom(x, "emailMessages");
 
     return dao;
   """

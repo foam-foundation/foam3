@@ -19,7 +19,6 @@ p({
       .setOf(foam.core.notification.Notification.getOwnClassInfo())
       .setAuthorize(false)
       .setPm(true)
-      .setFuid(true)
       .setInnerDAO(partitioned)
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.SPID })
@@ -29,7 +28,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.USER_ID,foam.core.notification.Notification.READ })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.notification.Notification.EXPIRY_DATE });
 
-      partitioned.migrateFrom(x, "notifications", "notificationDAO");
+      partitioned.migrateFrom(x, "notifications");
 
       return dao;
   """

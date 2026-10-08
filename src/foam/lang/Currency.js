@@ -165,7 +165,7 @@ foam.CLASS({
         // simply doesn't work. 
         var locale = foam.locale;
         if ( locale === 'en' ) // default
-          locale = navigator.language;
+          locale = navigator.language || 'en';
 
         // format takes MINOR units (cents) on every path — the declared arg
         // type, the javaCode, and the legacy branch below all already do;

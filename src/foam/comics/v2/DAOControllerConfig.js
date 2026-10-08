@@ -21,7 +21,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'translationService'
+    'translationService?'
   ],
 
   messages: [

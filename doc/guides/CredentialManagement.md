@@ -272,7 +272,7 @@ c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/deepseek",
 
 // Vector / embedding providers
 // Ollama embedding runs locally — no credential needed.
-// Add entries here when a cloud embedding provider (e.g. OpenAI) is introduced.
+// OpenAIEmbeddingServiceImpl reuses the foam/llm/openai credential — OpenAI uses one key for both.
 ```
 
 ### Alias naming convention

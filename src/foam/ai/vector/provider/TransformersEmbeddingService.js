@@ -23,7 +23,8 @@ foam.CLASS({
     },
     {
       name: 'pipeline_',
-      transient: true
+      transient: true,
+      hidden: true
     }
   ],
 

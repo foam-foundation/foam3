@@ -50,6 +50,18 @@ p({
   "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\"}"
 })
 
+// ── OpenAI embedding service ──
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"openAIEmbeddingService",
+  "lazy":true,
+  "serve":true,
+  "authenticate":true,
+  "boxClass":"foam.ai.vector.EmbeddingServiceSkeleton",
+  "serviceScript":"return new foam.core.ai.vector.provider.OpenAIEmbeddingServiceImpl(x);",
+  "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\",\"delegate\":{\"class\":\"foam.box.SessionClientBox\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"url\":\"service/openAIEmbeddingService\"}}}"
+})
+
 // ── Vector store DAO — persisted embedding index ──
 p({
   "class":"foam.core.boot.CSpec",

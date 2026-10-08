@@ -59,7 +59,6 @@ p({
       .setPm(false)
       .setOf(foam.core.notification.email.EmailMessage.getOwnClassInfo())
       .setAuthorize(false)
-      .setFuid(true)
       .setInnerDAO(partitioned)
       .setServiceProviderAware(false)
       .build()

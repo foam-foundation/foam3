@@ -160,83 +160,42 @@ foam.CLASS({
          * is not equal to the homeDenomination
          *
          */
-        // Not using foam locale as foam locale can be reset to a different value mid-session based on translation available
-        // using browser default formatting when available
-        if ( navigator.language ) {
-          // format takes MINOR units (cents) on every path — the declared arg
-          // type, the javaCode, and the legacy branch below all already do;
-          // this branch previously expected major units, which is issue #5298
-          amount = this.floatAmount(Number(amount));
-          let opts = {
-            minimumFractionDigits: this.precision,
-            maximumFractionDigits: this.precision,
-            currencySign: 'accounting'
-          }
-          if ( ! hideSymbol ) {
-            opts.style = 'currency';
-            opts.currency = this.id;
-          }
-          let formatterId = navigator.language + '-' + this.id + (hideSymbol ? '-ns' : '');
-          var formatter = this.FORMATTER_CACHE[formatterId];
-          if ( ! formatter ) {
-            formatter = new Intl.NumberFormat(navigator.language, opts);
-            this.FORMATTER_CACHE[formatterId] = formatter;
-          }
-          // Intl.NumberFormat may display the ISO code (e.g., "JOD") instead of
-          // the symbol for lesser-known currencies. When that happens, replace
-          // with the actual symbol from the Currency model.
-          if ( ! hideSymbol && this.symbol ) {
-            var self = this;
-            return formatter.formatToParts(amount).map(function(p) {
-              return p.type === 'currency' && p.value === self.id ? self.symbol : p.value;
-            }).join('');
-          }
-          return formatter.format(amount);
-        }
-        // TODO: Maybe consider deleting the custom formatting logic below
-        amount = Math.round(amount);
-        var isNegative = amount < 0;
-        amount = amount.toString();
-        if ( isNegative ) amount = amount.substring(1);
-        while ( amount.length < this.precision ) amount = '0' + amount;
-        var beforeDecimal = amount.substring(0, amount.length - this.precision);
-        var formatted = isNegative ? '-' : '';
+        // NOTE: The previous version used navigator.language complaining
+        // that foam.locale could change, but using navigator.language
+        // simply doesn't work. 
+        var locale = foam.locale;
+        if ( locale === 'en' ) // default
+          locale = navigator.language;
 
-        var internalHideId = hideId ?? this.symbol !== '' ? true : false;
-        if ( ! internalHideId && this.leftOrRight === 'right' ) {
-          formatted += this.id;
-          formatted += ' ';
+        // format takes MINOR units (cents) on every path — the declared arg
+        // type, the javaCode, and the legacy branch below all already do;
+        // this branch previously expected major units, which is issue #5298
+        amount = this.floatAmount(Number(amount));
+        let opts = {
+          minimumFractionDigits: this.precision,
+          maximumFractionDigits: this.precision,
+          currencySign: 'accounting'
         }
-
-        if ( ! hideSymbol && this.leftOrRight === 'left' ) {
-          formatted += this.symbol;
-          if ( this.showSpace ) formatted += ' ';
+        if ( ! hideSymbol ) {
+          opts.style = 'currency';
+          opts.currency = this.id;
         }
-
-        var delimiter = this.translationService.getTranslation(foam.locale, 'Currency.delimiter', this.delimiter);
-        var decimal   = this.translationService.getTranslation(foam.locale, 'Currency.decimalCharacter', this.decimalCharacter)
-
-        if ( this.insertDelimiter ) {
-          formatted += beforeDecimal.replace(/\B(?=(\d{3})+(?!\d))/g, delimiter) || '0';
-        } else {
-          formatted += beforeDecimal || '0';
+        let formatterId = locale + '-' + this.id + (hideSymbol ? '-ns' : '');
+        var formatter = this.FORMATTER_CACHE[formatterId];
+        if ( ! formatter ) {
+          formatter = new Intl.NumberFormat(locale, opts);
+          this.FORMATTER_CACHE[formatterId] = formatter;
         }
-
-        if ( this.precision > 0 ) {
-          formatted += decimal;
-          formatted += amount.substring(amount.length - this.precision);
+        // Intl.NumberFormat may display the ISO code (e.g., "JOD") instead of
+        // the symbol for lesser-known currencies. When that happens, replace
+        // with the actual symbol from the Currency model.
+        if ( ! hideSymbol && this.symbol ) {
+          var self = this;
+          return formatter.formatToParts(amount).map(function(p) {
+            return p.type === 'currency' && p.value === self.id ? self.symbol : p.value;
+          }).join('');
         }
-
-        if ( ! hideSymbol && this.leftOrRight === 'right' ) {
-          if ( this.showSpace ) formatted += ' ';
-          formatted += this.symbol;
-        }
-        if ( ! internalHideId && this.leftOrRight === 'left' ) {
-          formatted += ' ';
-          formatted += this.id;
-        }
-
-        return formatted;
+        return formatter.format(amount);
       },
       args: [
         {

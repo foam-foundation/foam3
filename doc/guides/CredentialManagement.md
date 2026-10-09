@@ -1,3 +1,5 @@
+<flow name="CredentialManagement" category="DOC/GUIDE" spid="foam" description="How FOAM models credentials and resolves secrets through vaults; wiring LLM and embedding providers." keywords="credentials,vault,apikey,llm,embedding,knowledge"/>
+
 # Credentials & Vaults
 
 This document describes how FOAM models **credentials**, how their secrets are resolved through
@@ -272,7 +274,7 @@ c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/deepseek",
 
 // Vector / embedding providers
 // Ollama embedding runs locally — no credential needed.
-// Add entries here when a cloud embedding provider (e.g. OpenAI) is introduced.
+// OpenAIEmbeddingServiceImpl reuses the foam/llm/openai credential — OpenAI uses one key for both.
 ```
 
 ### Alias naming convention

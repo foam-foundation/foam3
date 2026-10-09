@@ -7,9 +7,11 @@
 foam.POM({
   name: 'provider',
   files: [
-    { name: 'OllamaEmbeddingService', flags: 'js|java' }
+    { name: 'OllamaEmbeddingService',  flags: 'js|java' },
+    { name: 'OpenAIEmbeddingService',  flags: 'js|java' }
   ],
   javaFiles: [
-    { name: 'OllamaEmbeddingServiceImpl' }
+    { name: 'OllamaEmbeddingServiceImpl'  },
+    { name: 'OpenAIEmbeddingServiceImpl'  }
   ]
 });

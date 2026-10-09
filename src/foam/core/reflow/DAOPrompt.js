@@ -45,9 +45,12 @@ foam.CLASS({
           var startTime = Date.now();
           var select    = self.data.select;
           self.data.select = select;
+          var runVersion = self.data.version;
           self.loading = true;
+          self.data.running = true;
           try {
             await self.data.select.execute(this);
+            self.data.hasError = false;
             self.data.readyLatch_.resolve();
             self.data.executionTime = foam.lang.Duration.duration(Date.now() - startTime);
           } catch (error) {
@@ -57,6 +60,8 @@ foam.CLASS({
             this.tag(self.ErrorView, { error: error });
           } finally {
             self.loading = false;
+            // A newer run() has already set running, leave it for that run to clear.
+            if ( self.data.version === runVersion ) self.data.running = false;
           }
         }));
     }
@@ -453,6 +458,7 @@ foam.CLASS({
     { class: 'Int',        hidden: true,  name: 'version', transient: true },
     { class: 'Boolean',    hidden: true,  name: 'skipInitialReset_', transient: true },
     { class: 'Boolean',    hidden: true,  name: 'hasError', value: false, transient: true },
+    { class: 'Boolean',    hidden: true,  name: 'running',  transient: true, documentation: 'True from a run request until its select has returned, so a formula can wait on it.' },
     { class: 'FObjectProperty',  name: 'value', transient: true, hidden: true, visibility: 'RO' },
     {
       name: 'readyLatch_',
@@ -492,6 +498,12 @@ foam.CLASS({
     async function init() {
       this.SUPER();
 
+      // Before the dao check: a block loaded from a saved flow resolves its dao after init,
+      // and a reaction that sets aql then would otherwise never rerun it.
+      this.aql$.sub(this.onFilterChange);
+      this.where$.sub(this.onFilterChange);
+      this.order$.sub(this.onFilterChange);
+
       if ( ! this.dao || ! this.dao.of ) return;
 
       if ( ! this.columns ) {
@@ -504,10 +516,6 @@ foam.CLASS({
         // Check .aql again since copyFrom() could have been called since the above check
         if ( default_query && ! this.aql ) this.aql = default_query;
       }
-
-      this.aql$.sub(this.maybeAutoRun);
-      this.where$.sub(this.maybeAutoRun);
-      this.order$.sub(this.maybeAutoRun);
     },
 
     function addToE(e) {
@@ -559,6 +567,7 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.PRIMARY,
       isEnabled: function(select$errors_) { return ! select$errors_; },
       code: function() {
+        this.running = true;
         this.version++;
       }
     },
@@ -621,12 +630,19 @@ foam.CLASS({
       }
     },
     {
+      name: 'onFilterChange',
+      documentation: 'Unmerged, so running is true while the merged maybeAutoRun is still pending.',
+      code: function() {
+        if ( ! this.autoRun ) return;
+        this.running = true;
+        this.maybeAutoRun();
+      }
+    },
+    {
       name: 'maybeAutoRun',
       isMerged: true,
       delay: 250,
-      code: function maybeAutoRun() {
-        if ( this.autoRun ) this.run();
-      }
+      code: function maybeAutoRun() { this.run(); }
     }
   ]
 });

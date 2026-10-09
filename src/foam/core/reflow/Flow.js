@@ -113,6 +113,8 @@ foam.CLASS({
           this.style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)});
         } else if ( value.startsWith('FAILED') ) {
           this.style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)});
+        } else if ( value.startsWith('WARNING') ) {
+          this.style({color: foam.CSS.returnTokenValue('$warning500', this.cls_, this.__subContext__)});
         }
         this.add(value);
       },

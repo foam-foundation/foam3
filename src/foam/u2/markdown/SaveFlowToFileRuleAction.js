@@ -18,13 +18,11 @@ foam.CLASS({
     'java.util.Collections',
     'java.util.List',
     'java.util.Map',
-    'java.lang.Enum',
     'foam.util.SafetyUtil',
     'foam.core.logger.Logger',
     'foam.core.reflow.Flow',
     'foam.core.app.AppConfig',
     'foam.core.app.Mode',
-    'foam.core.auth.AuthorizationException',
     'foam.core.reflow.ScriptParser'
   ],
 
@@ -45,9 +43,6 @@ foam.CLASS({
         // Get the flow that just changed
         Flow newFlow = (Flow) obj;
 
-        // KEVIN: I've got something in my notes about catching an
-        // exception if you build with "jar index mode"?
-
         // Get appConfig to figure out what mode we're in
         AppConfig appConfig = (AppConfig) x.get("appConfig");
         if ( appConfig == null || 
@@ -62,40 +57,52 @@ foam.CLASS({
         String sourceFile = newFlow.getSource();
         if ( SafetyUtil.isEmpty(sourceFile) ) return;
 
-        // Figure out the source file's extension
-        String fileName = sourceFile.substring(sourceFile.lastIndexOf("/") + 1);
-        int dotIndex = fileName.lastIndexOf(".");
-        String extension = dotIndex > 0 ? fileName.substring(dotIndex + 1).toLowerCase() : "";
-
         // If the extension isn't 'md' or 'flow' we can't do anything with it
-        if ( ! SafetyUtil.equals(extension, "md") && ! SafetyUtil.equals(extension, "flow") ) {
-          logger.warning("SaveFlowToFileRuleAction aborted: source had an invalid extension (." + extension + ")");
+        if ( ! sourceFile.endsWith(".md") && ! sourceFile.endsWith(".flow") ) {
+          logger.warning("SaveFlowToFileRuleAction aborted: source " + sourceFile + " extension is not supported");
+          newFlow.setStatus("WARNING: Flow could not be saved to file " + sourceFile + " extension is not supported")''
           return;
+        }
+
+        // Skip if nothing that ends up in the file changed
+        if ( oldObj != null ) {
+          Flow    oldFlow = (Flow) oldObj;
+          boolean changed =
+            ! SafetyUtil.equals(oldFlow.getScript(), newFlow.getScript()) ||
+            ! SafetyUtil.equals(oldFlow.getSource(), newFlow.getSource()) ||
+            ! SafetyUtil.equals(oldFlow.getName(),   newFlow.getName());
+
+          foam.lang.ClassInfo info = newFlow.getClassInfo();
+          for ( int i = 0 ; ! changed && i < FLOW_TAG_PROPS.length ; i++ ) {
+            foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) info.getAxiomByName(FLOW_TAG_PROPS[i]);
+            if ( p != null && p.compare(oldFlow, newFlow) != 0 ) changed = true;
+          }
+
+          if ( ! changed ) return;
         }
 
         // Parse the script into plain data (Maps, Lists/Object[], Strings, ...)
         Object parsed = ScriptParser.parseData(newFlow.getScript());
         if ( parsed == null ) {
           logger.warning("SaveFlowToFileRuleAction aborted: script did not parse", newFlow.getName());
+          newFlow.setStatus("WARNING: Flow script did not parse. Flow was not saved to file");
           return;
         }
-
-        // TODO: Return if oldObj properties == obj properties
 
         // Holder for whatever we save to the file, later
         String fileContents = "";
 
         // If we're supposed to be saving to an MD file...
-        if ( SafetyUtil.equals(extension, "md") ) {
+        if ( sourceFile.endsWith(".md") ) {
           // Retrieve the content of the MD block. If there is more than
           // one block or the single block isn't an MD block, this returns null
           String markdown = singleMarkdownText(parsed);
           if ( markdown == null ) {
-            // KEVIN: Is there a way to show this as a client warning? I can send a notification but I want it to be on the same screen like the "Flow saved" message
             logger.warning("SaveFlowToFileRuleAction .md files cannot contain multiple or non-markdown blocks. Saving " + newFlow.getName() + " as a .flow file, instead");
             sourceFile = sourceFile.substring(0, sourceFile.lastIndexOf('.')) + ".flow";
-            extension = "flow";
-            // KEVIN: Update the flow. (Does newFlow.source = sourceFile work?)
+            var extension = "flow";
+            newFlow.setSource(sourceFile);
+            newFlow.setStatus("WARNING: .md files cannot contain multiple or non-markdown blocks. Flow was saved to " + sourceFile + ", instead.");
 
           } else {
             // --------------- Only needed if we don't remove all the existing <flow> tags ------------------------
@@ -143,7 +150,7 @@ foam.CLASS({
         }
         
         // If this should be saved to a .flow file...
-        if ( SafetyUtil.equals(extension, "flow") ) {
+        if ( sourceFile.endsWith(".flow") ) {
           // .flow files contain the journal entry for a given flow, so if we're saving
           // to one we need to serialize the flow like we would when saving to a journal
           foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter(x);
@@ -158,16 +165,26 @@ foam.CLASS({
         Path path = baseDir.resolve(sourceFile).normalize();
         if ( ! path.startsWith(baseDir) ) {
           logger.warning("SaveFlowToFileRuleAction source outside base dir", sourceFile);
+          newFlow.setStatus("WARNING: source path " + sourceFile + " is outside base directory. Flow could not be saved to file.");
           return;
         }
 
         try {
-          // TODO: Don't write if file content is the same as what we'll be writing
+          // Skip the write when the file already holds exactly this content
+          if ( Files.exists(path) &&
+              fileContents.equals(Files.readString(path, java.nio.charset.StandardCharsets.UTF_8)) )
+          {
+            return;
+          }
 
+          // Otherwise, save and let the user know if it succeeds
           Files.createDirectories(path.getParent());
           Files.writeString(path, fileContents, java.nio.charset.StandardCharsets.UTF_8);
+          newFlow.setStatus("PASSED: flow successfully saved to source file " + sourceFile);
+
         } catch ( java.io.IOException e ) {
           logger.error("SaveFlowToFileRuleAction", "failed to write", path, e);
+          newFlow.setStatus("FAILED: save to source file " + sourceFile + " failed.");
         }
       `
     },

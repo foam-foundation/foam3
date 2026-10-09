@@ -231,7 +231,7 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
-      isEnabled: function(data$value$childLock) {
+      isAvailable: function(data$value$childLock) {
         return ! data$value$childLock;
       },
       confirmationView: function(X, data) {
@@ -893,6 +893,7 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'isChildLocked',
     'value as flow'
   ],
 
@@ -1150,6 +1151,16 @@ foam.CLASS({
       transient: true,
       hidden: true,
       documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    },
+    {
+      class: 'Boolean',
+      name: 'isChildLocked',
+      hidden: true,
+      transient: true,
+      documentation: 'Mirrors value.childLock so it can be exported on its own.',
+      expression: function(value$childLock) {
+        return !! value$childLock;
+      }
     }
   ],
 

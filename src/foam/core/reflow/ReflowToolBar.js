@@ -15,7 +15,7 @@ foam.CLASS({
     'foam.mlang.sink.Count'
   ],
 
-  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData', 'flow?' ],
+  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData', 'isChildLocked?' ],
 
   css: `
     << {
@@ -76,8 +76,8 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'childLocked_',
-      expression: function(flow$childLock) {
-        return !! flow$childLock;
+      expression: function(isChildLocked) {
+        return !! isChildLocked;
       }
     }
   ],

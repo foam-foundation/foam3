@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'FlowableTree',
   extends: 'foam.u2.View',
 
-  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree', 'flow?' ],
+  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree', 'isChildLocked?' ],
 
   css: `
     << {
@@ -120,8 +120,8 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'childLocked_',
-      expression: function(flow$childLock) {
-        return !! flow$childLock;
+      expression: function(isChildLocked) {
+        return !! isChildLocked;
       }
     },
     'contextMenuData',
@@ -225,7 +225,6 @@ foam.CLASS({
             callIf(data.flowParent, function() {
               this.start().
                 addClass('close').
-                show(data.flow$ ? data.flow$.dot('childLock').map(l => ! l) : true).
                 startContext({ data: data }).tag(self.CLOSE).endContext().
               end();
             }).
@@ -345,6 +344,9 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
+      isAvailable: function(isChildLocked) {
+        return ! isChildLocked;
+      },
       code: function() { 
         var root = this.flowRoot();
         if ( root.isChildLocked_() ) return;

@@ -60,7 +60,7 @@ foam.CLASS({
         // If the extension isn't 'md' or 'flow' we can't do anything with it
         if ( ! sourceFile.endsWith(".md") && ! sourceFile.endsWith(".flow") ) {
           logger.warning("SaveFlowToFileRuleAction aborted: source " + sourceFile + " extension is not supported");
-          newFlow.setStatus("WARNING: Flow could not be saved to file " + sourceFile + " extension is not supported")''
+          newFlow.setStatus("WARNING: Flow could not be saved to file " + sourceFile + " extension is not supported");
           return;
         }
 

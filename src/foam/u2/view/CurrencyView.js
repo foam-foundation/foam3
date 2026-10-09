@@ -12,18 +12,17 @@ foam.CLASS({
   documentation: 'A view for foam.lang.Currency properties.',
 
   requires: [
-    'foam.u2.CurrencyView',
-    'foam.u2.view.ValueView'
+    'foam.u2.CurrencyView'
   ],
 
   properties: [
     {
       name: 'readView',
-      value: { class: 'foam.u2.view.ValueView' }
+      value: { class: 'foam.u2.CurrencyView' }
     },
     {
       name: 'writeView',
-      value: { class: 'foam.u2.CurrencyView' }
+      value: { class: 'foam.u2.CurrencyView', hideSymbol: true }
     }
-  ],
+  ]
 });

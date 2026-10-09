@@ -70,6 +70,10 @@ public class MCPWebAgent
     "dao_getOf",  "MCP:dao_getOf"
   );
 
+  // Shared reference markdown (flow) appended to every tool description at tools/list,
+  // so clients see the FOAM type to JSON encodings regardless of which tool they read.
+  protected static final String DATA_TYPES_FLOW = "MCP:dataTypes";
+
   // ─── Tool Definitions ─────────────────────────────────────────────────────────
   //
   // 5 tools. That's it. The DAO interface + getOf().
@@ -235,11 +239,17 @@ public class MCPWebAgent
 
   @SuppressWarnings("unchecked")
   protected Map<String,Object> handleToolsList(X x) {
+    // Shared JSON data-types reference, appended to every tool description.
+    String jsonTypes = findFlowMarkdown(x, DATA_TYPES_FLOW);
+
     List<Map<String,Object>> tools = new ArrayList<>();
     for ( Map<String,Object> t : TOOLS ) {
       String name   = (String) t.get("name");
       String flowId = TOOL_DOC_FLOWS.get(name);
-      String desc = flowId != null ? findFlowMarkdown(x, flowId) : "";
+      String desc   = flowId != null ? findFlowMarkdown(x, flowId) : "";
+      if ( jsonTypes != null && ! jsonTypes.isBlank() ) {
+        desc = (desc == null || desc.isBlank()) ? jsonTypes : desc + "\n\n" + jsonTypes;
+      }
       tools.add(tool(name, desc != null ? desc : "", (Map<String,Object>) t.get("inputSchema")));
     }
     return Map.of("tools", tools);

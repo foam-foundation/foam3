@@ -16,6 +16,8 @@
   (SUM over a column, AVERAGE, COUNT, VLOOKUP, MATCH, regression, range-based
   finance, array ops) deliberately do NOT live here — those are the query
   layer's job (GroupBy / Count / where). n-ary SUM(a,b,c) is also absent: use +.
+  LOOKUP is the one exception that takes an array: a key-based read of a single
+  element's field (not indexing, not a range), so it stays per-record.
 
   NAMES are canonical Excel (UPPER). foam/reflow/lib.js aliases the old
   camelCase names (lPad -> LPAD, toLowerCase -> LOWER, year -> YEAR, ...) into
@@ -169,6 +171,16 @@ foam.LIB({
       name: 'VALUE',
       code: function(text) { /* Convert text to a number. */
         return Number(text);
+      }
+    },
+    {
+      name: 'TEXT',
+      code: function(value, format) { /* Text of a value; a date in UTC with YYYY, YY, MM, DD tokens. */
+        if ( value == null ) return '';
+        if ( ! ( value instanceof Date ) || ! format ) return String(value);
+        var y = String(value.getUTCFullYear()), pad = n => String(n).padStart(2, '0');
+        return format.replaceAll('YYYY', y).replaceAll('YY', y.slice(-2))
+          .replaceAll('MM', pad(value.getUTCMonth() + 1)).replaceAll('DD', pad(value.getUTCDate()));
       }
     },
     {
@@ -388,60 +400,61 @@ foam.LIB({
     // ─────────────────────────────── Date ───────────────────────────────
     // Singular calendar-component extractors (distinct from the duration
     // mlangs YEARS/MONTHS/DAYS/HOURS/MINUTES). Return -1 for a null date.
+    // All read UTC, like TEXT and DATE, so a formula gives the same answer in every zone.
     {
       name: 'YEAR',
       code: function(date) { /* Calendar year, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getFullYear();
+        return (date instanceof Date ? date : new Date(date)).getUTCFullYear();
       }
     },
     {
       name: 'MONTH',
       code: function(date) { /* Calendar month 1-12, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getMonth() + 1;
+        return (date instanceof Date ? date : new Date(date)).getUTCMonth() + 1;
       }
     },
     {
       name: 'DAY',
       code: function(date) { /* Day of month, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getDate();
+        return (date instanceof Date ? date : new Date(date)).getUTCDate();
       }
     },
     {
       name: 'HOUR',
       code: function(date) { /* Hour 0-23, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getHours();
+        return (date instanceof Date ? date : new Date(date)).getUTCHours();
       }
     },
     {
       name: 'MINUTE',
       code: function(date) { /* Minute 0-59, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getMinutes();
+        return (date instanceof Date ? date : new Date(date)).getUTCMinutes();
       }
     },
     {
       name: 'SECOND',
       code: function(date) { /* Second 0-59, or -1 if null. */
         if ( ! date ) return -1;
-        return (date instanceof Date ? date : new Date(date)).getSeconds();
+        return (date instanceof Date ? date : new Date(date)).getUTCSeconds();
       }
     },
     {
       name: 'WEEKDAY',
       code: function(date, returnType) { /* Day of week; returnType 1 (default): Mon=1..Sun=7. */
-        var day = (date instanceof Date ? date : new Date(date)).getDay(); // 0=Sun
+        var day = (date instanceof Date ? date : new Date(date)).getUTCDay(); // 0=Sun
         if ( returnType === 3 ) return day === 0 ? 6 : day - 1; // Mon=0..Sun=6
         return day === 0 ? 7 : day;                             // Mon=1..Sun=7
       }
     },
     {
       name: 'DATE',
-      code: function(year, month, day) { /* Construct a date from year, 1-based month, day. */
-        return new Date(year, month - 1, day);
+      code: function(year, month, day) { /* Noon UTC of year, 1-based month, day, as a Date property stores it. */
+        return new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       }
     },
     {
@@ -516,6 +529,25 @@ foam.LIB({
     { name: 'HEX2DEC', code: function(h) { /* Hex text to decimal. */         return parseInt(h, 16); } },
     { name: 'DEC2HEX', code: function(n) { /* Decimal to hex text. */         return n.toString(16).toUpperCase(); } },
     { name: 'OCT2DEC', code: function(o) { /* Octal text to decimal. */       return parseInt(o, 8); } },
-    { name: 'DEC2OCT', code: function(n) { /* Decimal to octal text. */       return n.toString(8); } }
+    { name: 'DEC2OCT', code: function(n) { /* Decimal to octal text. */       return n.toString(8); } },
+
+    // ─────────────────────────────── Lookup ───────────────────────────────
+    {
+      name: 'LOOKUP',
+      code: function(array, keyField, keyValue, valueField) { /* valueField of the first element of array whose keyField equals keyValue; null if none. */
+        if ( ! Array.isArray(array) ) return null;
+        function read(o, name) {
+          if ( o == null ) return null;
+          return o instanceof Map ? o.get(name) : o[name];
+        }
+        for ( var i = 0 ; i < array.length ; i++ ) {
+          if ( foam.util.equals(read(array[i], keyField), keyValue) ) {
+            var v = read(array[i], valueField);
+            return v === undefined ? null : v;
+          }
+        }
+        return null;
+      }
+    }
   ]
 });

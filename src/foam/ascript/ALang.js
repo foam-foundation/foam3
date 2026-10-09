@@ -89,6 +89,18 @@ foam.ALANG = function(ms) {
 
 foam.ALANG([
   {
+    name: 'TEXT',
+    documentation: 'Text of a value. A date is formatted in UTC with YYYY, YY, MM and DD tokens: TEXT(d, "YYMMDD") of 2025-03-29 is "250329". Anything else is its plain text.',
+    args: [
+      { class: 'Object', name: 'value' },
+      { class: 'String', name: 'format', value: '' }
+    ],
+    code: function(value, format) {
+      return foam.ascript.Lib.TEXT(value, format);
+    },
+    javaCode: 'return foam.ascript.Lib.TEXT(value, format);'
+  },
+  {
     name: 'LPAD',
     documentation: "Left pad the supplied string to the specified length using the supplied character, or '0' is not specified.",
     args: [
@@ -796,5 +808,19 @@ foam.ALANG([
     outputType: 'Int',
     code: function(startDate, endDate, unit) { return foam.ascript.Lib.DATEDIF(startDate, endDate, unit); },
     javaCode: 'return foam.ascript.Lib.DATEDIF(startDate, endDate, unit);'
+  },
+  {
+    name: 'LOOKUP',
+    documentation: 'Returns valueField of the first element of array whose keyField equals keyValue, or empty if none. LOOKUP(items, "code", "00", "name").',
+    args: [
+      { class: 'Object', name: 'array' },
+      { class: 'String', name: 'keyField' },
+      { class: 'Object', name: 'keyValue' },
+      { class: 'String', name: 'valueField' }
+    ],
+    code: function(array, keyField, keyValue, valueField) {
+      return foam.ascript.Lib.LOOKUP(array, keyField, keyValue, valueField);
+    },
+    javaCode: 'return foam.ascript.Lib.LOOKUP(array, keyField, keyValue, valueField);'
   }
 ]);

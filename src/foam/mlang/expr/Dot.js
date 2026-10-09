@@ -48,7 +48,8 @@ foam.CLASS({
     {
       name: 'f',
       code: function(o) {
-        return this.arg2.f(this.arg1.f(o));
+        var receiver = this.arg1.f(o);
+        return receiver == null ? null : this.arg2.f(receiver);
       },
       javaCode: `
         Object receiver = getArg1().f(obj);

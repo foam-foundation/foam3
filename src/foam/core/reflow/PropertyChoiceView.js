@@ -97,10 +97,22 @@ foam.CLASS({
 
       var self = this;
 
+      // A NamedProperty names a column by propName rather than holding the axiom, as a flow
+      // does when the block's DAO class is generated at run time. Show that name, and keep
+      // an edit by name, so the block does not pin itself to one run's class.
       this.data$.relateTo(
         this.propName$,
-        function propToName(p) { return p ? p.name : ''; },
-        function nameToProp(n) { return n ? self.forCls.getAxiomByName(n.trim()) : null; }
+        function propToName(p) {
+          if ( ! p ) return '';
+          return foam.mlang.predicate.NamedProperty.isInstance(p) ? p.propName : p.name;
+        },
+        function nameToProp(n) {
+          if ( ! n ) return null;
+          if ( foam.mlang.predicate.NamedProperty.isInstance(self.data) ) {
+            return foam.mlang.predicate.NamedProperty.create({ propName: n.trim() });
+          }
+          return self.forCls.getAxiomByName(n.trim());
+        }
       );
 
       this.tag(foam.parse.auto.SmartView, {

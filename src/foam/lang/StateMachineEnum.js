@@ -417,12 +417,6 @@ foam.CLASS({
             errors.push(`State "${state.name}" has permission for "${permTarget}" which is not in transitions`);
           }
         });
-
-        Object.keys(state.onTransition).forEach(actionTarget => {
-          if ( ! state.transitions.includes(actionTarget) ) {
-            errors.push(`State "${state.name}" has onTransition for "${actionTarget}" which is not in transitions`);
-          }
-        });
       });
 
       if ( errors.length > 0 ) {

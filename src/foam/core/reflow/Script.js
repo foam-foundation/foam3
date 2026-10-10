@@ -48,6 +48,11 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      var line = this.code.split('\n').find(l => l.trim()) || '';
+      return line.trim() + ( this.autoRun ? ' · auto' : '' );
+    },
+
     function onLoad() {
       if ( this.autoRun ) return this.run_();
     },

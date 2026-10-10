@@ -17,9 +17,24 @@ import foam.lib.parse.Seq1;
 import java.util.Map;
 import foam.util.StringInterner;
 
+// Benchmark knob (this branch only): 0 = no dedup, 1 = legacy String.intern,
+// 2 = the replay's foam.util.StringInterner (the production behaviour, default).
+
 public class StringParser
   implements Parser
 {
+
+  public static volatile int DEDUP = Integer.getInteger("foam.json.dedup", 2);
+
+  /** Mode 2 canonicalizes through interner; a null interner, as outside a replay, keeps the value as parsed. */
+  public static String dedup(String v, StringInterner interner) {
+    switch ( DEDUP ) {
+      case 1:  return v.intern();
+      case 2:  return interner == null ? v : interner.intern(v);
+      default: return v;
+    }
+  }
+
   private final static Parser instance__ = new StringParser();
 
   public static Parser instance() { return instance__; }
@@ -27,7 +42,7 @@ public class StringParser
   /** Canonicalize through the replay's interner when the context carries one; outside a replay the value is kept as parsed. */
   private static String intern(String v, ParserContext x) {
     Object i = x == null ? null : x.get(StringInterner.CTX_KEY);
-    return i instanceof StringInterner ? ((StringInterner) i).intern(v) : v;
+    return dedup(v, i instanceof StringInterner ? (StringInterner) i : null);
   }
 
   protected static ThreadLocal<StringBuilder> builder__ = new ThreadLocal<StringBuilder>() {

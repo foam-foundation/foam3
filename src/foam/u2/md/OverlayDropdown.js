@@ -26,8 +26,8 @@ foam.CLASS({
       Callers such as RichChoiceView mount this dropdown at the app root
       (ctrl.add), not inside the view that opened it. When that view is a modal,
       the dropdown and the modal's backdrop are siblings, so the dropdown must
-      sit above $z-modal or the backdrop paints over the list. Both layers stay
-      under $z-tooltip.
+      sit above z-modal or the backdrop paints over the list. Both layers stay
+      under z-tooltip.
     */
     <<overlay {
       position: absolute;
@@ -275,6 +275,12 @@ foam.CLASS({
     },
 
     function onOutsidePointerDown(e) {
+      // Closes the dropdown on any click outside it. The invisible click-away
+      // layer only covers the top screen of the page, so after scrolling it
+      // misses some clicks; this catches those. Clicks on the field that
+      // opened the dropdown (e.g. its chevron) are skipped: the field's own
+      // click handler decides what happens, and closing here first would
+      // make that same click reopen the dropdown straight away.
       if ( ! this.opened ) return;
       if ( this.parentEl?.contains?.(e.target) ||
            this.dropdownE_.el_()?.contains(e.target) ) return;

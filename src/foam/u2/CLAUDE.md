@@ -16,6 +16,7 @@ Most of these fail quietly: the page renders, just wrong. Paths that do not star
 - **`foam.u2.JsLib` resolves even when the script fails to load.** `onload` and `onerror` both resolve (`JsLib.js:69`); check the library's global after awaiting it.
 - **A read-only money value needs `objData` in the context** or it shows no symbol and can throw. See `doc/guides/CurrencyAndUnits.md`.
 - **`^` in a `css:` block is rewritten everywhere, including `[class^="btn"]`.** See `doc/guides/CSSLayout.md` section 2.
+- **A `$token` inside a CSS comment drops the next rule.** `replaceTokens` rewrites it to `/*$token*/ value` even in a comment (`src/foam/lang/stdlib.js:1374`), and CSS comments don't nest, so the inner `*/` ends the comment and the leftover text breaks the next selector. Write the token name without `$` in comments. Tracked in foam3#5711.
 - **Two `foam.comics.v3.DAOView`s on one page share the context's `config`.** `config` falls back to the imported one (`src/foam/comics/v3/DAOView.js:14`, `:52-55`); pass each its own: `.tag(this.DAOView, { data: dao, config: cfg })`.
 - **A tab whose label is a view gets a counter as its URL key.** `mementoLabel` copies the label only when it is a string (`Tabs.js:32-36`), otherwise `0`, `1`, ... in add order (`UnstyledTabs.js:57-58`); set `mementoLabel` for a stable link.
 - **Table sort order never reaches the URL.** `UnstyledTableView` reads a `memento` it never imports (`table/UnstyledTableView.js:39`, `:332`). See `doc/guides/Memento.md`.

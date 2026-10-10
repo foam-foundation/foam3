@@ -113,6 +113,8 @@ foam.CLASS({
           this.style({color: foam.CSS.returnTokenValue('$success500', this.cls_, this.__subContext__)});
         } else if ( value.startsWith('FAILED') ) {
           this.style({color: foam.CSS.returnTokenValue('$destructive500', this.cls_, this.__subContext__)});
+        } else if ( value.startsWith('WARNING') ) {
+          this.style({color: foam.CSS.returnTokenValue('$warning500', this.cls_, this.__subContext__)});
         }
         this.add(value);
       },
@@ -256,6 +258,14 @@ foam.CLASS({
       view: function(_, X) {
         return { class: 'foam.core.reflow.FlowHistoryView', flowName: X.data.name };
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'childLock',
+      documentation: 'Toggles whether or not blocks can be added and removed from this Flow',
+      section: 'general',
+      readPermissionRequired: true,
+      writePermissionRequired: true
     }
   ],
 

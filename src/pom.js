@@ -704,6 +704,7 @@ foam.POM({
     { name: "foam/u2/markdown/Search",                                flags: "web" },
     { name: "foam/u2/markdown/HintCategory",                          flags: "js|java" },
     { name: "foam/u2/markdown/Hint",                                  flags: "web" },
+    { name: "foam/u2/markdown/SaveFlowToFileRuleAction",              flags: "js|java" },
     { name: "foam/u2/FragmentedTextField",                            flags: "web" },
     { name: "foam/u2/FragmentedTextFieldFragment",                    flags: "web" },
     { name: "foam/u2/TextFormatter",                                  flags: "web" },

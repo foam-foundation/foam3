@@ -17,7 +17,7 @@ foam.CLASS({
     'foam.core.reflow.TreeCellFormatter'
   ],
 
-  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO' ],
+  imports: [ 'data', 'showPrompts', 'addToScope', 'selected', 'commandDAO', 'isChildLocked?' ],
 
   exports: [ 'addValue', 'log', 'out', 'as block' ],
 
@@ -215,7 +215,11 @@ foam.CLASS({
       this.addClass('block');
       this.enableClass(this.myClass('hidePrompts'), this.showPrompts$.not());
       this.title.add(this.flowName$);
-      this.rightSection.tag(this.DEL, { label: ''});
+      this.rightSection.start(this.DEL, { label: '' }).
+        // Moving the childLock check to del's isAvailable here will
+        // cause a requireAll block to be visible when Flows are created
+        show(this.isChildLocked$.map(l => ! l)).
+      end();
       this.SUPER();
       this.initCSSProps(this.content);
       if ( ! this.padding_st )

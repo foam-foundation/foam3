@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'FlowableTree',
   extends: 'foam.u2.View',
 
-  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree' ],
+  imports: [ 'moveFlowChild', 'moveFlowChildAfter', 'copyChild', 'selectFromTree', 'isChildLocked?' ],
 
   css: `
     << {
@@ -116,6 +116,13 @@ foam.CLASS({
       class: 'Boolean',
       name: 'isMenuOpen',
       value: true
+    },
+    {
+      class: 'Boolean',
+      name: 'childLocked_',
+      expression: function(isChildLocked) {
+        return !! isChildLocked;
+      }
     },
     'contextMenuData',
     'contextMenuVisible'
@@ -245,6 +252,12 @@ foam.CLASS({
     },
 
     function onDragStart(row, el, e) {
+      // Child lock disables this action
+      if ( this.childLocked_ ) {
+        e.preventDefault();
+        return;
+      }
+
       e.dataTransfer.setData('application/x-foam-obj-id', row.flowName);
       // console.log('onDragStart', e, row.flowName);
       el.addClass(this.myClass('dragTarget'));
@@ -309,6 +322,9 @@ foam.CLASS({
     },
 
     function onContextMenu(e, data) {
+      // Child lock disables this
+      if ( this.childLocked_ ) return;
+
       e.preventDefault();
       e.stopPropagation();
 
@@ -328,7 +344,14 @@ foam.CLASS({
       themeIcon: 'close',
       buttonStyle: 'TERTIARY',
       size: 'SMALL',
-      code: function() { this.flowRoot().deleteFlowChild(this); }
+      isAvailable: function(isChildLocked) {
+        return ! isChildLocked;
+      },
+      code: function() { 
+        var root = this.flowRoot();
+        if ( root.isChildLocked_() ) return;
+        root.deleteFlowChild(this);
+      }
     },
     {
       name: 'menuControl',

@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'AskCommand',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'eval_', 'currentBlock' ],
+  imports: [ 'eval_' ],
 
   /*
   properties: [
@@ -27,14 +27,15 @@ foam.CLASS({
 
   methods: [
     async function execute(cmd) {
-      await this.eval_(cmd);
-      // Give command time to finish, TODO: make commands return promises
+      const block = await this.eval_(cmd);
+
+      // eval_ awaits the command, but a block that renders from a DAO select
+      // finishes after that: an agent has no signal to wait on, so this waits
+      // out the render. Remove it once agents report when their output settles.
       await foam.async.sleep(1300)();
 
-      const block    = this.currentBlock;
-      const response = block.childNodes[1].element_.innerText; //innerHTML;
+      const response = block.content?.element_?.innerText || '';
 
-      console.log(`ASK: ${cmd} -> ${response}`);
       const reply = JSON.stringify({asked: cmd, response: response});
       await this.eval_(`agent(${reply})`);
 

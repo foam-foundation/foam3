@@ -12,9 +12,11 @@ foam.CLASS({
   documentation: 'Export Modal',
 
   imports: [
+    'document',
     'exportDriverRegistryDAO',
     'filteredTableColumns',
-    'serviceName'
+    'serviceName',
+    'window'
   ],
 
   requires: [
@@ -278,7 +280,7 @@ foam.CLASS({
             result = await this.exportDriver.exportFObject(this.__context__, this.exportObj);
           }
           if ( result ) {
-            var link = document.createElement('a');
+            var link = this.document.createElement('a');
             var href = '';
             if ( this.exportDriverReg.mimeType && this.exportDriverReg.mimeType.length != 0 ) {
               var blob = new Blob([result], { type: this.exportDriverReg.mimeType });
@@ -290,12 +292,12 @@ foam.CLASS({
             }
             link.setAttribute('href', href);
             link.setAttribute('download', ( `${this.exportData?.of?.name}_Export_${(new Date()).toDateString().replaceAll(' ', '_')}.` || 'data.') + this.exportDriverReg.extension);
-            document.body.appendChild(link);
+            this.document.body.appendChild(link);
             link.click();
 
             // Cleanup data blob and link
             if ( blob ) URL.revokeObjectURL(link.href);
-            document.body.removeChild(link);
+            this.document.body.removeChild(link);
           }
         } catch (e) {
           console.error('Export failed:', e);
@@ -328,7 +330,7 @@ foam.CLASS({
             await this.exportDriver.exportFObject(this.__context__, this.exportObj);
 
           if ( url && url.length > 0 ) {
-            window.location.replace(url);
+            this.window.location.replace(url);
           } else {
             this.parentNode.close();
           }

@@ -70,6 +70,10 @@ public class MCPWebAgent
     "dao_getOf",  "MCP:dao_getOf"
   );
 
+  // Shared reference markdown (flow) appended to every tool description at tools/list,
+  // so clients see the FOAM type to JSON encodings regardless of which tool they read.
+  protected static final String DATA_TYPES_FLOW = "MCP:dataTypes";
+
   // ─── Tool Definitions ─────────────────────────────────────────────────────────
   //
   // 5 tools. That's it. The DAO interface + getOf().
@@ -235,11 +239,17 @@ public class MCPWebAgent
 
   @SuppressWarnings("unchecked")
   protected Map<String,Object> handleToolsList(X x) {
+    // Shared JSON data-types reference, appended to every tool description.
+    String jsonTypes = findFlowMarkdown(x, DATA_TYPES_FLOW);
+
     List<Map<String,Object>> tools = new ArrayList<>();
     for ( Map<String,Object> t : TOOLS ) {
       String name   = (String) t.get("name");
       String flowId = TOOL_DOC_FLOWS.get(name);
-      String desc = flowId != null ? findFlowMarkdown(x, flowId) : "";
+      String desc   = flowId != null ? findFlowMarkdown(x, flowId) : "";
+      if ( jsonTypes != null && ! jsonTypes.isBlank() ) {
+        desc = (desc == null || desc.isBlank()) ? jsonTypes : desc + "\n\n" + jsonTypes;
+      }
       tools.add(tool(name, desc != null ? desc : "", (Map<String,Object>) t.get("inputSchema")));
     }
     return Map.of("tools", tools);
@@ -452,11 +462,15 @@ public class MCPWebAgent
     // First check that the DAO is served and that the user is authorized to access
     if ( cspec == null ) throw new MCPError(-32602, "DAO specification not found: " + name);
 
-    Object svc = x.get(name);
-    if ( svc instanceof DAO ) {
-      // The inX() is required to downgrade from the system's to the logged-in users access level
-      DAO dao = (DAO) svc;
-      return dao.inX(x);
+    try {
+      Object svc = x.get(name);
+      if ( svc instanceof DAO ) {
+        // The inX() is required to downgrade from the system's to the logged-in users access level
+        DAO dao = (DAO) svc;
+        return dao.inX(x);
+      }
+    } catch ( Throwable t ) {
+      // Flow through to MCPError below when failing to access the DAO.
     }
     throw new MCPError(-32602, "DAO service not found: " + name);
   }

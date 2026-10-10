@@ -1014,6 +1014,8 @@ foam.POM({
     { name: "foam/test/TestObj",                                      flags: "js|java&test" },
     { name: "foam/test/IdentifiedStringHolder",                       flags: "js|java&test" },
     { name: "foam/lang/FObjectTest",                                  flags: "js&test|java&test" },
+    { name: "foam/lang/PackIsSetTestModel",                           flags: "js&test|java&test" },
+    { name: "foam/lang/PackIsSetTest",                                flags: "js&test|java&test" },
     { name: "foam/flow/widgets/AxiomShortSummary",                    flags: "js" },
     { name: "foam/flow/widgets/MethodShortSummary",                   flags: "js" },
     { name: "foam/flow/widgets/PropertyShortSummary",                 flags: "js" },

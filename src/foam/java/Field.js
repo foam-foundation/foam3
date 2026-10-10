@@ -27,6 +27,11 @@ foam.CLASS({
     'final',
     { class: 'Boolean', name: 'includeInHash', value: true },
     {
+      class: 'String',
+      name: 'hashExpr',
+      documentation: 'Expression hashCode() folds in for this field; the field itself when empty.'
+    },
+    {
       class: 'Int',
       name: 'order',
       value: 0

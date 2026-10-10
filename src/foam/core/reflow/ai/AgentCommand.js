@@ -41,13 +41,8 @@ foam.CLASS({
   imports: [
     'block',
     'commandDAO',
-    'flowDAO',
     'llmService',
     'subject'
-  ],
-
-  implements: [
-    'foam.mlang.Expressions'
   ],
 
   requires: [
@@ -124,24 +119,8 @@ foam.CLASS({
     },
 
     async function buildSystemPrompt_() {
-      if ( ! this.systemPrompt ) {
-        const prompts = (await this.flowDAO.orderBy(this.Flow.NAME).where(this.STARTS_WITH(this.Flow.NAME, 'systemPrompt')).select()).array;
-        const parts   = [];
-
-        prompts.forEach(p => {
-          const script = JSON.parse(p.script);
-          script.forEach(block => {
-            if ( block?.value?.class == 'foam.core.reflow.Markdown' ) {
-              parts.push(block.value.markdown);
-            } else {
-            }
-          });
-        });
-
-        console.log('sysPrompt: ', parts.join('\n'));
-
-        this.systemPrompt = parts.join('\n');
-      }
+      if ( ! this.systemPrompt )
+        this.systemPrompt = await this.Flow.systemPrompt(this.__context__);
 
       return this.systemPrompt;
     },

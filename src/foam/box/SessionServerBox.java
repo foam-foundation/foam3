@@ -92,6 +92,14 @@ public class SessionServerBox
       if ( session == null ) {
         session = new Session((X) x.get(Boot.ROOT));
         session.setId(sessionID == null ? "anonymous" : sessionID);
+        // -Dsession.defaultUser=<id> signs every new session in as that user.
+        // Meant for demos on hosts that run several instances sharing no
+        // memory, where a login on one instance is unknown to the next.
+        String defaultUser = System.getProperty("session.defaultUser");
+        if ( ! SafetyUtil.isEmpty(defaultUser) ) {
+          session.setUserId(Long.parseLong(defaultUser));
+          session.setContext(session.applyTo(session.getContext()));
+        }
         session = (Session) sessionDAO.put(session);
       }
 

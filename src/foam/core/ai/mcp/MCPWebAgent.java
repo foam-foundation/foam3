@@ -462,11 +462,15 @@ public class MCPWebAgent
     // First check that the DAO is served and that the user is authorized to access
     if ( cspec == null ) throw new MCPError(-32602, "DAO specification not found: " + name);
 
-    Object svc = x.get(name);
-    if ( svc instanceof DAO ) {
-      // The inX() is required to downgrade from the system's to the logged-in users access level
-      DAO dao = (DAO) svc;
-      return dao.inX(x);
+    try {
+      Object svc = x.get(name);
+      if ( svc instanceof DAO ) {
+        // The inX() is required to downgrade from the system's to the logged-in users access level
+        DAO dao = (DAO) svc;
+        return dao.inX(x);
+      }
+    } catch ( Throwable t ) {
+      // Flow through to MCPError below when failing to access the DAO.
     }
     throw new MCPError(-32602, "DAO service not found: " + name);
   }

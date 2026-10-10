@@ -226,6 +226,16 @@ foam.CLASS({
       documentation: 'Set to true to support selecting multiple table rows.'
     },
     {
+      class: 'Function',
+      name: 'isSelectionEnabled',
+      documentation: `
+        Called with each row's object when multi-select is enabled. Return
+        false to disable that row's checkbox, so the user can neither select
+        nor unselect it. Select all and select none leave such rows as they are.
+      `,
+      value: function(obj) { return true; }
+    },
+    {
       class: 'Map',
       name: 'selectedObjects',
       documentation: `
@@ -422,15 +432,20 @@ foam.CLASS({
                   view.onDetach(slot.value.dot('data').sub(function(_, __, ___, newValueSlot) {
                     var checked = newValueSlot.get();
 
+                    // Rows whose selection is disabled keep their current state.
+                    var objs = {};
+                    Object.values(view.selectedObjects).forEach(function(obj) {
+                      if ( ! view.isSelectionEnabled(obj) ) objs[obj.id] = obj;
+                    });
+
                     if ( checked ) {
-                      var objs = {};
                       view.data.select(function(obj) {
-                        objs[obj.id] = obj;
+                        if ( view.isSelectionEnabled(obj) ) objs[obj.id] = obj;
                       }).then(function() {
                         view.selectedObjects = objs;
                       });
                     } else {
-                      view.selectedObjects = {};
+                      view.selectedObjects = objs;
                     }
                   }));
                 }).

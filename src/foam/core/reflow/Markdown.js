@@ -24,6 +24,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() {
+      return ( this.markdown.split('\n').find(l => l.trim()) || '' ).trim();
+    },
+
     function addToE(e) {
       let self = this;
       e.add(this.dynamic(function (editable) {

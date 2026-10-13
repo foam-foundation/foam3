@@ -25,6 +25,8 @@ foam.CLASS({
   ],
 
   methods: [
+    function toSummary() { return this.href; },
+
     function render() {
       let self = this;
 

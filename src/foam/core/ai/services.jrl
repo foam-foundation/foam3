@@ -32,6 +32,26 @@ p({
   """
 })
 
+// ── Dataset generation ──
+// Journaled DAO for Alpaca-format SFT training samples produced by DatasetGenerator.
+// Not HTTP-served — server-side / offline use only.
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "datasetDAO",
+  "serve": true,
+  "client": "{\"of\":\"foam.core.ai.dataset.AlpacaSample\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.dataset.AlpacaSample.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("dataset")
+      .build();
+  """
+})
+
+
 // ── To swap providers, change the credential id and provider class: ──
 //   "foam/llm/openai"   + foam.core.ai.llm.provider.OpenAILLMService
 //   "foam/llm/deepseek" + foam.core.ai.llm.provider.DeepSeekLLMService

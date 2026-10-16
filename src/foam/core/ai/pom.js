@@ -4,7 +4,8 @@ foam.POM({
   projects: [
     { name: '../../ai/llm/pom' },
     { name: 'llm/pom' },
-    { name: 'vector/pom' }
+    { name: 'vector/pom' },
+    { name: 'dataset/pom' }
   ],
 
   javaFiles: [

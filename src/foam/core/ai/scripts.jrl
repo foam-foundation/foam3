@@ -1,0 +1,42 @@
+// ── scripts.jrl ──
+// On-demand scripts for the foam.core.ai subsystem.
+// Appear under Data Management → Scripts and run via the Run button.
+
+p({
+  "class": "foam.core.script.Script",
+  "id": "generate-foam-dataset",
+  "description": "Generate Alpaca-format SFT training samples from FOAM source files. Walks sourcePaths, chunks .js/.java/.jrl/.md files, calls the LLM to produce instruction-answer pairs, and stores results in datasetDAO. Adjust the configuration variables before running.",
+  "server": true,
+  "language": "BEANSHELL",
+  "code": """
+    import foam.core.ai.dataset.DatasetGeneratorImpl;
+
+    // ── Configuration — adjust before running ──────────────────────────────
+    String HOME = System.getProperty("user.home");
+
+    String[] SOURCE_PATHS = new String[] {
+      HOME + "/github/kNN/foam3/src/foam/core/ai",
+      HOME + "/github/kNN/foam3/src/foam/ai",
+      HOME + "/github/kNN/foam3/src/documentation",
+      HOME + "/github/FOAM-Recipes/src",
+      HOME + "/gitlab/app/src"
+    };
+
+    int    SAMPLES_PER_CHUNK = 3;     // instruction-answer pairs per chunk
+    int    MAX_CHUNK_SIZE    = 2000;  // max chars per chunk (Java / long .md sections)
+    String LLM_MODEL         = "gpt-4o-mini";
+    int    MAX_FILES         = 5;     // 0 = unlimited; set > 0 for a cheap test run
+    // ──────────────────────────────────────────────────────────────────────
+
+    DatasetGeneratorImpl generator = new DatasetGeneratorImpl(x);
+    generator.setSourcePaths(SOURCE_PATHS);
+    generator.setSamplesPerChunk(SAMPLES_PER_CHUNK);
+    generator.setMaxChunkSize(MAX_CHUNK_SIZE);
+    generator.setLlmModel(LLM_MODEL);
+    generator.setMaxFiles(MAX_FILES);
+
+    print("Starting FOAM dataset generation over " + SOURCE_PATHS.length + " source root(s)...");
+    generator.execute(x);
+    print("Done. Check datasetDAO for results.");
+  """
+})

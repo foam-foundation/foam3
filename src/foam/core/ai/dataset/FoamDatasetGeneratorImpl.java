@@ -25,37 +25,55 @@ import java.util.stream.Stream;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class DatasetGeneratorImpl extends DatasetGenerator {
+public class FoamDatasetGeneratorImpl extends FoamDatasetGenerator {
 
-  public DatasetGeneratorImpl(X x) { setX(x); }
+  public FoamDatasetGeneratorImpl(X x) { setX(x); }
+
+  @Override
+  public foam.lang.FObject fclone() {
+    FoamDatasetGeneratorImpl clone = new FoamDatasetGeneratorImpl(getX());
+    clone.copyFrom(this);
+    return clone;
+  }
 
   @Override
   public void execute(X x) {
-    LLMService llm = (LLMService) x.get("llmService");
-    DAO        dao = (DAO)        x.get("datasetDAO");
+    LLMService llm   = (LLMService) x.get("llmService");
+    DAO        dao   = (DAO)        x.get("datasetDAO");
+    List<Path> files = collectFiles_();
+    int        total = files.size();
 
+    for ( int i = 0; i < total; i++ ) {
+      Path p   = files.get(i);
+      int  pct = total > 0 ? (i * 100 / total) : 0;
+      reportProgress(x, p.getFileName() + " (" + (i + 1) + " / " + total + ")", pct);
+      try {
+        processFile_(x, p, llm, dao);
+      } catch ( Exception e ) {
+        System.err.println("[FoamDatasetGenerator] Error on " + p + ": " + e.getMessage());
+      }
+    }
+  }
+
+  protected List<Path> collectFiles_() {
+    List<Path> result = new ArrayList<>();
     for ( String rootPath : getSourcePaths() ) {
       Path root = Paths.get(rootPath);
       if ( ! Files.isDirectory(root) ) {
-        System.err.println("[DatasetGenerator] Not a directory, skipping: " + rootPath);
+        System.err.println("[FoamDatasetGenerator] Not a directory, skipping: " + rootPath);
         continue;
       }
       try ( Stream<Path> walk = Files.walk(root) ) {
-        Stream<Path> files = walk.filter(Files::isRegularFile)
-                                 .filter(p -> hasExtension_(p));
-        if ( getMaxFiles() > 0 ) files = files.limit(getMaxFiles());
-        files.forEach(p -> {
-          try {
-            processFile_(x, p, llm, dao);
-          } catch ( Exception e ) {
-            System.err.println("[DatasetGenerator] Error on " + p + ": " + e.getMessage());
-          }
-        });
+        walk.filter(Files::isRegularFile)
+            .filter(p -> hasExtension_(p))
+            .forEach(result::add);
       } catch ( IOException e ) {
-        System.err.println("[DatasetGenerator] Walk failed for " + rootPath + ": " + e.getMessage());
+        System.err.println("[FoamDatasetGenerator] Walk failed for " + rootPath + ": " + e.getMessage());
       }
     }
-    System.out.println("[DatasetGenerator] Done.");
+    if ( getMaxFiles() > 0 && result.size() > getMaxFiles() )
+      return new ArrayList<>(result.subList(0, getMaxFiles()));
+    return result;
   }
 
   protected void processFile_(X x, Path filePath, LLMService llm, DAO dao) {
@@ -63,7 +81,7 @@ public class DatasetGeneratorImpl extends DatasetGenerator {
     try {
       content = Files.readString(filePath, StandardCharsets.UTF_8);
     } catch ( IOException e ) {
-      System.err.println("[DatasetGenerator] Cannot read " + filePath + ": " + e.getMessage());
+      System.err.println("[FoamDatasetGenerator] Cannot read " + filePath + ": " + e.getMessage());
       return;
     }
 
@@ -80,33 +98,32 @@ public class DatasetGeneratorImpl extends DatasetGenerator {
         String json = callLLM_(x, chunk, filePath.toString(), llm);
         stored += parseAndStore_(x, json, filePath.toString(), language, dao);
       } catch ( Exception e ) {
-        System.err.println("[DatasetGenerator] LLM/store error for chunk in "
+        System.err.println("[FoamDatasetGenerator] LLM/store error for chunk in "
           + filePath + ": " + e.getMessage());
       }
     }
     if ( stored > 0 )
-      System.out.println("[DatasetGenerator] " + filePath.getFileName() + " -> " + stored + " samples");
+      System.out.println("[FoamDatasetGenerator] " + filePath.getFileName() + " -> " + stored + " samples");
   }
 
+  // FOAM-specific: splits .js on foam.CLASS boundaries, .jrl on p({}) entries.
+  // Generic fallback: heading-based for .md, size-based for everything else.
   protected String[] chunkContent_(String content, String ext) {
     List<String> chunks = new ArrayList<>();
 
     if ( ".js".equals(ext) ) {
-      // Each top-level FOAM declaration becomes its own chunk
       String[] parts = content.split("(?=\nfoam\\.(CLASS|INTERFACE|ENUM|RELATIONSHIP)\\s*\\()");
       for ( String p : parts ) {
         String t = p.trim();
         if ( t.length() > 80 ) chunks.add(t);
       }
     } else if ( ".jrl".equals(ext) ) {
-      // Each p({...}) journal entry is one chunk
       String[] parts = content.split("(?=\np\\s*\\()");
       for ( String p : parts ) {
         String t = p.trim();
         if ( t.length() > 30 ) chunks.add(t);
       }
     } else if ( ".md".equals(ext) ) {
-      // Split before each heading; oversized sections fall back to size-based splitting
       String[] parts = content.split("(?=\n#{1,3} )");
       for ( String p : parts ) {
         String t = p.trim();
@@ -145,13 +162,14 @@ public class DatasetGeneratorImpl extends DatasetGenerator {
   protected String anonymize_(String text) {
     String[] patterns = getAnonymizePatterns();
     for ( int i = 0; i + 1 < patterns.length; i += 2 ) {
-      text = text.replaceAll(patterns[i], patterns[i + 1]);
+      text = text.replace(patterns[i], patterns[i + 1]);
     }
     return text;
   }
 
-  protected String callLLM_(X x, String chunk, String filePath, LLMService llm) {
-    String systemPrompt =
+  // FOAM-specific system prompt. Override in subclasses for other ecosystems.
+  protected String buildSystemPrompt_() {
+    return
       "You are an expert FOAM framework developer. FOAM is a JavaScript/Java meta-programming " +
       "framework where models are declared with foam.CLASS({...}), supporting reactive properties " +
       "(slots), methods, actions, listeners, and templates. It includes a reactive UI layer " +
@@ -188,18 +206,18 @@ public class DatasetGeneratorImpl extends DatasetGenerator {
       "- Explanations must be precise and reference correct FOAM concepts.\n\n" +
       "Vary the task types across the samples: code generation, extending existing code, explaining a " +
       "pattern, and identifying a common mistake.";
+  }
 
-    String userMessage = "Source chunk from " + filePath + ":\n\n" + chunk;
-
+  protected String callLLM_(X x, String chunk, String filePath, LLMService llm) {
     LLMOptions opts = new LLMOptions();
-    opts.setSystemPrompt(systemPrompt);
+    opts.setSystemPrompt(buildSystemPrompt_());
     if ( ! getLlmModel().isEmpty() ) opts.setModel(getLlmModel());
     opts.setMaxTokens(1200);
     opts.setTemperature(0.7f);
 
     CompletionRequest req = new CompletionRequest();
     req.setOptions(opts);
-    req.setPrompt(userMessage);
+    req.setPrompt("Source chunk from " + filePath + ":\n\n" + chunk);
 
     LLMResponse resp = llm.complete(x, req);
     return resp.getContent();
@@ -218,7 +236,7 @@ public class DatasetGeneratorImpl extends DatasetGenerator {
     try {
       root = new JSONObject(cleaned);
     } catch ( Exception e ) {
-      System.err.println("[DatasetGenerator] JSON parse failed for " + sourceFile
+      System.err.println("[FoamDatasetGenerator] JSON parse failed for " + sourceFile
         + ": " + e.getMessage()
         + "\nRaw: " + cleaned.substring(0, Math.min(200, cleaned.length())));
       return 0;

@@ -5,13 +5,13 @@
 p({
   "class": "foam.core.script.Script",
   "id": "generate-foam-dataset",
-  "description": "Generate Alpaca-format SFT training samples from FOAM source files. Walks sourcePaths, chunks .js/.java/.jrl/.md files, calls the LLM to produce instruction-answer pairs, and stores results in datasetDAO. Adjust the configuration variables before running.",
+  "description": "Submit a FoamDatasetGenerator job. Walks FOAM source paths, chunks files, calls the LLM to produce Alpaca instruction-answer pairs, and stores results in datasetDAO. Progress is visible in Data Management → Jobs.",
   "server": true,
   "language": "BEANSHELL",
   "code": """
-    import foam.core.ai.dataset.DatasetGeneratorImpl;
+    import foam.core.ai.dataset.FoamDatasetGeneratorImpl;
+    import foam.dao.DAO;
 
-    // ── Configuration — adjust before running ──────────────────────────────
     String HOME = System.getProperty("user.home");
 
     // ── Source paths — replace with your project's FOAM source roots ──────
@@ -21,30 +21,29 @@ p({
     };
     // ──────────────────────────────────────────────────────────────────────
 
-    int    SAMPLES_PER_CHUNK = 3;     // instruction-answer pairs per chunk
-    int    MAX_CHUNK_SIZE    = 2000;  // max chars per chunk (Java / long .md sections)
+    int    SAMPLES_PER_CHUNK = 3;
+    int    MAX_CHUNK_SIZE    = 2000;
     String LLM_MODEL         = "gpt-4o-mini";
-    int    MAX_FILES         = 5;     // 0 = unlimited; set > 0 for a cheap test run
+    int    MAX_FILES         = 5;     // 0 = unlimited
 
     // ── Anonymization — DO NOT COMMIT proprietary names ───────────────────
-    // Interleaved regex/replacement pairs applied before any text reaches the LLM.
+    // Interleaved literal string/replacement pairs (simple replace, not regex).
     // Edit locally before running; keep this block out of your commits.
     String[] ANON_PATTERNS = new String[] {
-      // "\\bMyCompany\\b", "Example",
-      // "mycompany\\.com",  "example.com"
+      // "MyCompany",      "Example",
+      // "mycompany.com",  "example.com"
     };
     // ──────────────────────────────────────────────────────────────────────
 
-    DatasetGeneratorImpl generator = new DatasetGeneratorImpl(x);
-    generator.setSourcePaths(SOURCE_PATHS);
-    generator.setSamplesPerChunk(SAMPLES_PER_CHUNK);
-    generator.setMaxChunkSize(MAX_CHUNK_SIZE);
-    generator.setLlmModel(LLM_MODEL);
-    generator.setMaxFiles(MAX_FILES);
-    generator.setAnonymizePatterns(ANON_PATTERNS);
+    FoamDatasetGeneratorImpl job = new FoamDatasetGeneratorImpl(x);
+    job.setSourcePaths(SOURCE_PATHS);
+    job.setSamplesPerChunk(SAMPLES_PER_CHUNK);
+    job.setMaxChunkSize(MAX_CHUNK_SIZE);
+    job.setLlmModel(LLM_MODEL);
+    job.setMaxFiles(MAX_FILES);
+    job.setAnonymizePatterns(ANON_PATTERNS);
 
-    print("Starting FOAM dataset generation over " + SOURCE_PATHS.length + " source root(s)...");
-    generator.execute(x);
-    print("Done. Check datasetDAO for results.");
+    ((DAO) x.get("jobDAO")).put(job);
+    print("Job submitted. Track progress in Data Management → Jobs.");
   """
 })

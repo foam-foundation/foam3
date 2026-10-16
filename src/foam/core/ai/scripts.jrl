@@ -14,13 +14,12 @@ p({
     // ── Configuration — adjust before running ──────────────────────────────
     String HOME = System.getProperty("user.home");
 
+    // ── Source paths — replace with your project's FOAM source roots ──────
     String[] SOURCE_PATHS = new String[] {
-      HOME + "/github/kNN/foam3/src/foam/core/ai",
-      HOME + "/github/kNN/foam3/src/foam/ai",
-      HOME + "/github/kNN/foam3/src/documentation",
-      HOME + "/github/FOAM-Recipes/src",
-      HOME + "/gitlab/app/src"
+      // HOME + "/github/my-foam-app/src",
+      // HOME + "/github/foam3/src/foam/core/ai"
     };
+    // ──────────────────────────────────────────────────────────────────────
 
     int    SAMPLES_PER_CHUNK = 3;     // instruction-answer pairs per chunk
     int    MAX_CHUNK_SIZE    = 2000;  // max chars per chunk (Java / long .md sections)

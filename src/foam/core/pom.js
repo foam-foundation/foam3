@@ -252,6 +252,7 @@ foam.POM({
     { name: "export/FLOWExportDriver",                                                    flags: "js" },
     { name: "export/JSONDriver",                                                          flags: "js" },
     { name: "export/JSONJDriver",                                                         flags: "js" },
+    { name: "export/JSONLDriver",                                                         flags: "js" },
     { name: "export/XMLDriver",                                                           flags: "js" },
     { name: "export/XMLTableExportDriver",                                                flags: "js" },
     { name: "export/report/Template",                                                     flags: "js|java" },

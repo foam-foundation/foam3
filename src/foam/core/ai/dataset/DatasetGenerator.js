@@ -45,28 +45,12 @@ foam.CLASS({
       class: 'StringArray',
       name: 'anonymizePatterns',
       documentation: `
-        Pairs of [regex, replacement] applied before sending content to the LLM.
-        Default substitutions handle PayTic / paytic / com.paytic.
-        Add project-specific patterns here.
+        Interleaved pairs of [regex, replacement] applied before sending content to the LLM.
+        Set this in your run script — do not commit proprietary names here.
+        Example: ['\\\\bMyCompany\\\\b', 'Example', 'mycompany\\\\.com', 'example.com']
       `,
-      factory: function() {
-        return [
-          'PayTic',       'Example',
-          'paytic',       'example',
-          'PAYTIC',       'EXAMPLE',
-          'com\\.paytic', 'com.example',
-          'paytic\\.ai',  'example.com'
-        ];
-      },
-      javaFactory: `
-        return new String[] {
-          "\\\\bPayTic\\\\b",    "Example",
-          "\\\\bpaytic\\\\b",    "example",
-          "\\\\bPAYTIC\\\\b",    "EXAMPLE",
-          "com\\\\.paytic",      "com.example",
-          "paytic\\\\.ai",       "example.com"
-        };
-      `
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
     },
     {
       class: 'Int',

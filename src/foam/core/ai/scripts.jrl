@@ -26,6 +26,14 @@ p({
     int    MAX_CHUNK_SIZE    = 2000;  // max chars per chunk (Java / long .md sections)
     String LLM_MODEL         = "gpt-4o-mini";
     int    MAX_FILES         = 5;     // 0 = unlimited; set > 0 for a cheap test run
+
+    // ── Anonymization — DO NOT COMMIT proprietary names ───────────────────
+    // Interleaved regex/replacement pairs applied before any text reaches the LLM.
+    // Edit locally before running; keep this block out of your commits.
+    String[] ANON_PATTERNS = new String[] {
+      // "\\bMyCompany\\b", "Example",
+      // "mycompany\\.com",  "example.com"
+    };
     // ──────────────────────────────────────────────────────────────────────
 
     DatasetGeneratorImpl generator = new DatasetGeneratorImpl(x);
@@ -34,6 +42,7 @@ p({
     generator.setMaxChunkSize(MAX_CHUNK_SIZE);
     generator.setLlmModel(LLM_MODEL);
     generator.setMaxFiles(MAX_FILES);
+    generator.setAnonymizePatterns(ANON_PATTERNS);
 
     print("Starting FOAM dataset generation over " + SOURCE_PATHS.length + " source root(s)...");
     generator.execute(x);

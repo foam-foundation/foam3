@@ -1,13 +1,12 @@
 foam.CLASS({
   package: 'foam.core.oauth',
   name: 'OAuthCredential',
-  ids: ["provider", "user"],
+  ids: ["provider", "user", "remoteSubject"],
 
   javaImports: [
     'foam.util.SafetyUtil',
     'java.time.Instant'
   ],
-
   properties: [
     {
       class: 'Reference',
@@ -40,6 +39,16 @@ foam.CLASS({
       class: 'String',
       name: 'sessionId',
       documentation: 'Session ID associated with the OAuth token'
+    },
+    {
+      class: 'String',
+      name: 'remoteSubject',
+      documentation: 'Remote account identifier (e.g., OpenID Connect sub).'
+    },
+    {
+      class: 'String',
+      name: 'remoteEmail',
+      documentation: 'Remote account email for display (not a stable identifier).'
     }
   ],
   methods: [

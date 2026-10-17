@@ -18,6 +18,11 @@ foam.CLASS({
       name: 'of',
       value: 'foam.mlang.predicate.Predicate'
     },
+    {
+      name: 'javaInfoType',
+      value: 'foam.lang.PolymorphicFObjectArrayPropertyInfo',
+      flags: ['java']
+    },
     [ 'type', 'foam.mlang.predicate.Predicate[]' ],
     {
       name: 'adaptArrayElement',

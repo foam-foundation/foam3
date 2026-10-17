@@ -1414,6 +1414,8 @@ foam.POM({
     { name: "foam/lang/InvalidX" },
     { name: "foam/lang/AbstractStringPropertyInfo" },
     { name: "foam/lang/AbstractFObjectPropertyInfo" },
+    { name: "foam/lang/PolymorphicFObjectPropertyInfo" },
+    { name: "foam/lang/PolymorphicFObjectArrayPropertyInfo" },
     { name: "foam/lang/MutableX" },
     { name: "foam/lang/SubX" },
     { name: "foam/lang/ContextAwareAgent" },

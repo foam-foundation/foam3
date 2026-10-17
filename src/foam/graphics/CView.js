@@ -417,6 +417,11 @@ foam.CLASS({
   // Fires when this CView is invalidated and needs a repaint.
   // Is listened to a foam.u2.Canvas() if one was created for
   // this CView.
+  constants: {
+    CACHE_SCALE_TOLERANCE: 0.25, // re-render the cached bitmap when the scale ratio leaves 1/1.25 .. 1.25; must exceed one zoom step (SceneDemo uses 1.1) or every tick in re-renders
+    CACHE_PAD: 4                 // local units added around the cached extent so strokes and shadows at the edge are not cropped
+  },
+
   topics: [ 'invalidated' ],
 
   properties: [
@@ -602,6 +607,17 @@ foam.CLASS({
           this.autoRepaint ? this.invalidated.pub    :
           null ;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'cached_',
+      transient: true, hidden: true,
+      documentation: `
+        True between cache() and uncache(). The bitmap itself (cacheCanvas_), the scale it was
+        rendered at (cacheScale_) and the subscriptions (cacheSubs_) are plain fields, not
+        properties: writing a property fires propertyChange, which is exactly the signal the
+        cache listens to, so storing the bitmap in a property would invalidate it immediately.
+      `
     }
   ],
 
@@ -679,6 +695,122 @@ foam.CLASS({
       }
     },
 
+    function cache() {
+      /**
+       * Like Konva node.cache(): render this subtree once to an offscreen bitmap and
+       * blit it on later paints until something inside changes. Use on a subtree with
+       * many static children (a strip of shapes) so one change elsewhere does not repaint it.
+       * Any property change in the subtree drops the bitmap; so does adding or removing a
+       * node anywhere under this one (the nearest cached ancestor starts or stops watching
+       * just that subtree).
+       */
+      this.cached_ = true;
+      this.cacheCanvas_ = null;
+      this.unsubscribeSubtree_();
+      this.cacheSubs_ = new Map();
+      this.subscribeSubtree_(this);
+    },
+
+    function subscribeSubtree_(node) {
+      // Any property change anywhere in the subtree drops the bitmap. One subscription per
+      // node, keyed by the node, so removing a subtree later detaches only its own entries.
+      this.cacheSubs_.set(node, node.propertyChange.sub(this.invalidateCache.bind(this)));
+      for ( var i = 0 ; i < node.children.length ; i++ ) this.subscribeSubtree_(node.children[i]);
+    },
+
+    function unsubscribeSubtree_(node) {
+      /** Detaches the subscriptions of node and everything under it; with no node, all of them. */
+      if ( ! this.cacheSubs_ ) return;
+      if ( ! node ) {
+        this.cacheSubs_.forEach(function(s) { s.detach(); });
+        this.cacheSubs_ = null;
+        return;
+      }
+      var s = this.cacheSubs_.get(node);
+      if ( s ) { s.detach(); this.cacheSubs_.delete(node); }
+      for ( var i = 0 ; i < node.children.length ; i++ ) this.unsubscribeSubtree_(node.children[i]);
+    },
+
+    function uncache() {
+      this.cached_ = false;
+      this.cacheCanvas_ = null;
+      this.unsubscribeSubtree_();
+    },
+
+    function invalidateCache() {
+      this.cacheCanvas_ = null;
+    },
+
+    function cacheScaleDrifted_(scaleNow) {
+      /** True when the bitmap was rendered at a scale too far from scaleNow to blit sharply. Same threshold in and out. */
+      var r = scaleNow / this.cacheScale_, tol = 1 + this.CACHE_SCALE_TOLERANCE;
+      return r > tol || r < 1 / tol;
+    },
+
+    function effectiveScale_(x) {
+      /** Scale applied to x so far (read back from the context when available; 1 in tests). */
+      var t = x.getTransform ? x.getTransform() : null;
+      return t ? Math.sqrt(t.a * t.a + t.b * t.b) : 1;
+    },
+
+    function cacheBounds_() {
+      /**
+       * Area the bitmap must cover, in local units: { x, y, w, h }. A node with its own
+       * width/height (a Box) uses that from its origin; a sizeless group (a SceneLayer) uses
+       * the extent of its children alone, wherever they sit: the origin is not part of it, so
+       * a group whose children all start far from (0,0) gets a bitmap the size of the children,
+       * not of the gap. A sizeless node that paints something itself is not measured; give it
+       * a width/height.
+       */
+      if ( this.width && this.height ) return { x: 0, y: 0, w: this.width, h: this.height };
+      var x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+      for ( var i = 0 ; i < this.children.length ; i++ ) {
+        var c = this.children[i], cb = c.cacheBounds_ ? c.cacheBounds_() : { x: 0, y: 0, w: c.width, h: c.height };
+        var sx = c.scaleX || 1, sy = c.scaleY || 1;
+        var cx0 = c.x + cb.x * sx, cy0 = c.y + cb.y * sy, cx1 = c.x + ( cb.x + cb.w ) * sx, cy1 = c.y + ( cb.y + cb.h ) * sy;
+        if ( i == 0 ) { x0 = cx0; y0 = cy0; x1 = cx1; y1 = cy1; continue; }
+        x0 = Math.min(x0, cx0);
+        y0 = Math.min(y0, cy0);
+        x1 = Math.max(x1, cx1);
+        y1 = Math.max(y1, cy1);
+      }
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    },
+
+    function renderCache_(x) {
+      /** Paints self + children into a fresh offscreen canvas covering cacheBounds_() at the current scale. */
+      // paint() has already applied this node's transform (scaleX included) to x, so the
+      // context's own scale is the full scale; multiplying by this.scaleX again squared it.
+      var scale = this.effectiveScale_(x);
+      var pad = this.CACHE_PAD, b = this.cacheBounds_();
+      b = { x: b.x, y: b.y, w: b.w + 2 * pad, h: b.h + 2 * pad };   // pad on every side: strokes spill past the rectangle in both directions
+      var w = Math.max(1, Math.ceil(b.w * scale));
+      var h = Math.max(1, Math.ceil(b.h * scale));
+      var off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h)
+              : typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: w, height: h })
+              : null;
+      if ( ! off ) return false;             // no canvas at all: caller falls back to live painting
+      var ctx = off.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.translate(pad - b.x, pad - b.y);                  // extent's top-left sits pad units inside the bitmap
+      ctx.save();
+        this.paintSelf(ctx);
+      ctx.restore();
+      this.paintChildren(ctx);
+      this.cacheCanvas_ = off;
+      this.cacheScale_  = scale;
+      this.cacheX_ = b.x; this.cacheY_ = b.y;      // blit origin in local units (extent top-left)
+      this.cacheW_ = b.w; this.cacheH_ = b.h;      // blit size in local units
+      return true;
+    },
+
+    function paintLive_(x) {
+      x.save();
+        this.paintSelf(x);
+      x.restore();
+      this.paintChildren(x);
+    },
+
     function paint(x) {
       this.maybeInitCView(x);
 
@@ -715,10 +847,14 @@ foam.CLASS({
           x.shadowBlur  = shadowBlur;
         }
 
-        x.save();
-          this.paintSelf(x);
-        x.restore();
-        this.paintChildren(x);
+        if ( this.cached_ ) {
+          // Re-render when stale or when the zoom drifted enough to blur; otherwise blit the bitmap.
+          var stale = ! this.cacheCanvas_ || this.cacheScaleDrifted_(this.effectiveScale_(x));
+          if ( stale && ! this.renderCache_(x) ) this.paintLive_(x);
+          else x.drawImage(this.cacheCanvas_, this.cacheX_ - this.CACHE_PAD, this.cacheY_ - this.CACHE_PAD, this.cacheW_, this.cacheH_);
+        } else {
+          this.paintLive_(x);
+        }
       } finally {
         x.restore();
       }
@@ -760,14 +896,27 @@ foam.CLASS({
 
     function addChild_(c) {
       c.parent = this;
+      // Under a cached node: drop its bitmap and watch the new subtree (only that subtree is walked).
+      var a = this.cachedAncestor_();
+      if ( a ) { a.invalidateCache(); a.subscribeSubtree_(c); }
       return c;
     },
 
     function removeChild_(c) {
       c.parent = undefined;
       c.canvas = undefined;
+      // Under a cached node: drop its bitmap and stop watching the removed subtree (only that
+      // subtree is walked; re-caching here re-walked everything still attached, once per removal).
+      var a = this.cachedAncestor_();
+      if ( a ) { a.invalidateCache(); a.unsubscribeSubtree_(c); }
       this.invalidate();
       return c;
+    },
+
+    function cachedAncestor_() {
+      /** Nearest node from this one upward that holds a cache, or null. */
+      for ( var n = this ; n ; n = n.parent ) if ( n.cached_ ) return n;
+      return null;
     },
 
     function add() {

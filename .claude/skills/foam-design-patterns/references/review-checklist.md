@@ -89,6 +89,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - A connection, credential, or timer opened outside `COREService.start()`? A live handle on a non-transient property?
 - A `COREService` CSpec without `lazy: false`? A durable flush that lives only in `stop()`?
 - A `reload()` expected from a CSpec edit that touched none of `service`, `serviceClass`, `serviceScript`?
+- A `reload()` that reads its new config off `this` instead of re-reading the config DAO?
 - A hand-rolled sleep or counter where a `Throttle` CSpec fits? `throttle()` under a lock, or unguarded against a null lookup?
 - A hand-written `Client<Name>Service` where `client: true` would generate it? A DAO passed across the wire?
 - A "can read" check ahead of a `find`? A `dao.find(id)` without `inX(x)` on a user path?

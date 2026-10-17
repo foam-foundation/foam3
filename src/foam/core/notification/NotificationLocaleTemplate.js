@@ -70,12 +70,19 @@ Delay creating notification title and body until final notification user has bee
           throw new IllegalArgumentException("Notification is null");
 
         EmailTemplateEngine templateEngine = (EmailTemplateEngine) x.get("templateEngine");
-        if ( SafetyUtil.isEmpty(notif.getBody()) )
-          notif.setBody(templateEngine.renderTemplate(x, getBody(), notif.getLocaleTemplateArgs()).toString());
-        if ( SafetyUtil.isEmpty(notif.getToastMessage()) )
-          notif.setToastMessage(templateEngine.renderTemplate(x, getToastMessage(), notif.getLocaleTemplateArgs()).toString());
-        if ( SafetyUtil.isEmpty(notif.getToastSubMessage()) )
-          notif.setToastSubMessage(templateEngine.renderTemplate(x, getToastSubMessage(), notif.getLocaleTemplateArgs()).toString());
+        if ( SafetyUtil.isEmpty(notif.getBody()) ) {
+          notif.setBody(templateEngine.renderTemplate(x, getBody(), notif.getEmailArgs()).toString());
+          notif.getEmailArgs().put("body", notif.getBody());
+        }
+        if ( SafetyUtil.isEmpty(notif.getToastMessage()) ) {
+          notif.setToastMessage(templateEngine.renderTemplate(x, getToastMessage(), notif.getEmailArgs()).toString());
+          notif.getEmailArgs().put("toastMessage", notif.getToastMessage());
+          notif.getEmailArgs().put("title", notif.getToastMessage());
+        }
+        if ( SafetyUtil.isEmpty(notif.getToastSubMessage()) ) {
+          notif.setToastSubMessage(templateEngine.renderTemplate(x, getToastSubMessage(), notif.getEmailArgs()).toString());
+          notif.getEmailArgs().put("toastSubMessage", notif.getToastSubMessage());
+        }
 
         return notif;
       `

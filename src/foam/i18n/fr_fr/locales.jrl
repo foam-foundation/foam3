@@ -126,3 +126,12 @@ p({class:"foam.i18n.Locale",locale:"fr",source:"foam.core.fs.fileDropZone.FileCa
 p({class:"foam.i18n.Locale",locale:"fr",source:"foam.core.fs.fileDropZone.FileDropZone.ON_FILES_CHANGED.documentation",target:"Quando um arquivo for selecionado / alterado / removido, esta função será chamada. (OPTIONNEL)"})
 p({class:"foam.i18n.Locale",locale:"fr",source:"foam.core.fs.fileDropZone.FileCard.REMOVE_FILE_X.label",target:"removeFileX pt"})
 p({class:"foam.i18n.Locale",locale:"fr",source:"foam.core.fs.fileDropZone.FilePreview.FILE_SRC.label",target:"fileSrc pt"})
+p({class: "foam.i18n.Locale", locale:"fr",source:"Currency.delimiter",target:"."})
+p({class: "foam.i18n.Locale", locale:"fr",source:"Currency.decimalCharacter",target:","})
+
+p({class:"foam.i18n.Locale",locale:"fr",source:"Read",target:"Lu"})
+p({class:"foam.i18n.Locale",locale:"fr",source:"Unread",target:"Non Lu"})
+p({class:"foam.i18n.Locale",locale:"fr",source:"View all notifications",target:"Voir toutes les notifications"})
+p({class:"foam.i18n.Locale",locale:"fr",source:"Today",target:"Aujourd'hui"})
+p({class:"foam.i18n.Locale",locale:"fr",source:"Yesterday",target:"Hier"})
+p({class:"foam.i18n.Locale",locale:"fr",source:"Older",target:"Plus ancien"})

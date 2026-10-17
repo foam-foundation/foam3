@@ -65,6 +65,7 @@ foam.CLASS({
           }
           final Predicate broadcastPredicate = predicate;
           final Notification notification = (Notification) notif.fclone();
+          notification.setBroadcasted(false);
           Agency agency = (Agency) x.get("threadPool");
           agency.submit(x, new ContextAgent() {
             @Override

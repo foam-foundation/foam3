@@ -6,3 +6,10 @@ c({
   toastMessage:"ToastMessage {{toastMessage}}",
   spid:"test"
 })
+
+c({
+  name:"NotificationLocaleTemplateTest-fr",
+  language:{class:"foam.core.auth.LanguageId",code:"fr", variant: ""},
+  toastMessage:"Prix {{amount}}",
+  spid:"test"
+})

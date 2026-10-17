@@ -293,10 +293,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'localeTemplateName',
+      storageTransient: true,
+      visibility: 'HIDDEN'
     },
     {
       class: 'Map',
-      name: 'localeTemplateArgs'
+      name: 'localeTranslationMappings',
+      storageTransient: true,
+      visibility: 'HIDDEN'
     }
   ],
 

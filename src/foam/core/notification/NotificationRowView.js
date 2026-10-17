@@ -73,10 +73,10 @@
     ],
 
     messages: [
-      { name: 'MARK_AS_READ_MSG',          message: 'Successfully marked as read' },
-      { name: 'FAILED_MARK_AS_READ_MSG',   message: 'Failed to mark as read' },
-      { name: 'MARK_AS_UNREAD_MSG',        message: 'Successfully marked as unread' },
-      { name: 'FAILED_MARK_AS_UNREAD_MSG', message: 'Failed to mark as unread' },
+      { name: 'MARK_AS_READ_MSG',          messageMap: { en: 'Successfully marked as read.', fr: 'Marqué comme lu avec succès.' } },
+      { name: 'FAILED_MARK_AS_READ_MSG',   messageMap: { en: 'Failed to mark as read.', fr: 'Échec du marquage comme lu.' } },
+      { name: 'MARK_AS_UNREAD_MSG',        messageMap: { en: 'Successfully marked as unread.', fr: 'Marqué avec succès comme non lu.' } },
+      { name: 'FAILED_MARK_AS_UNREAD_MSG', messageMap: { en: 'Failed to mark as unread.', fr: 'Échec du marquage comme non lu.' } },
       { name: 'NOTIFICATION_MSG',          message: 'Notification' }
     ],
 
@@ -128,6 +128,7 @@
     actions: [
       {
         name: 'showDetails',
+        label: { en: 'Show Details', fr: 'Afficher les détails'},
         code: function(X) {
           X.rowView.openModal();
           X.rowView.markAsRead(X);
@@ -135,6 +136,7 @@
       },
       {
         name: 'removeNotification',
+        label: { en: 'Remove Notification', fr: 'Supprimer la notification'},
         code: function(X) {
           var self = X.rowView;
           X.notificationDAO.remove(self.data).then(_ => {
@@ -178,6 +180,7 @@
       },
       {
         name: 'markAsRead',
+        label: { en: 'Mark As Read', fr: 'Marquer comme lu'},
         isAvailable: (read) => {
           return ! read;
         },
@@ -198,6 +201,7 @@
       },
       {
         name: 'markAsUnread',
+        label: { en: 'Mark As Unread', fr: 'Marquer comme non lu'},
         isAvailable: (read) => {
           return read;
         },

@@ -15,6 +15,7 @@ foam.CLASS({
     'foam.core.auth.User',
     'foam.core.auth.LanguageId',
     'foam.core.notification.Notification',
+    'foam.core.notification.NotificationLocaleTemplateSupport',
     'foam.dao.DAO',
     'foam.lang.X',
     'static foam.mlang.MLang.EQ',
@@ -40,11 +41,12 @@ foam.CLASS({
       Notification notification = new Notification();
       notification.setLocaleTemplateName(notificationLocaleTemplate);
       Map map = new HashMap<String, String>();
+      Map localeMappings = new HashMap<String, String>();
       String name = "User";
       map.put("arg1", name);
       map.put("arg2", name);
       map.put("toastMessage", name);
-      notification.setLocaleTemplateArgs(map);
+      notification.setEmailArgs(map);
       notification.setUserId(user.getId());
       ((DAO) x.get("notificationDAO")).put_(x, notification);
 
@@ -75,7 +77,7 @@ foam.CLASS({
       map.put("toastMessage", name);
       notification = new Notification();
       notification.setLocaleTemplateName(notificationLocaleTemplate);
-      notification.setLocaleTemplateArgs(map);
+      notification.setEmailArgs(map);
       notification.setGroupId("test");
       ((DAO) x.get("notificationDAO")).put_(x, notification);
 
@@ -105,7 +107,7 @@ foam.CLASS({
       map.put("toastMessage", name);
       notification = new Notification();
       notification.setLocaleTemplateName(notificationLocaleTemplate);
-      notification.setLocaleTemplateArgs(map);
+      notification.setEmailArgs(map);
       notification.setBroadcastSpid("test");
       notification.setBroadcasted(true);
       ((DAO) x.get("notificationDAO")).put_(x, notification);
@@ -127,7 +129,37 @@ foam.CLASS({
                "(Broadcast) ToastMessage set: "+notification.getToastMessage());
       }
 
-      userDAO.put(old);
+      userNotificationDAO.removeAll();
+
+      // French formatting of currency - comma rather than . 
+      user = (User) user.fclone();
+      user.setLanguage(new LanguageId("fr", ""));
+      user = (User) userDAO.put(user);
+      notificationLocaleTemplate = "NotificationLocaleTemplateTest-fr";
+
+      name = "Currency";
+      map.clear();
+      map.put("amount", "1234.56");
+      map.put("amountCurrency", "MAD"); 
+      localeMappings.put("amount", NotificationLocaleTemplateSupport.CURRENCY_TYPE);
+      notification = new Notification();
+      notification.setLocaleTemplateName(notificationLocaleTemplate);
+      notification.setBroadcastSpid("test");
+      notification.setBroadcasted(true);
+      notification.setEmailArgs(map);
+      notification.setLocaleTranslationMappings(localeMappings);
+      ((DAO) x.get("notificationDAO")).put_(x, notification);
+
+      try {
+        Thread.sleep(100L);
+      } catch (InterruptedException e ) {
+        // ignore - nop
+      }
+
+      notification = (Notification) userNotificationDAO.find(EQ(Notification.USER_ID, user.getId()));
+      test ( notification != null, "(Currency) Notification found");
+      String amount = (String) notification.getEmailArgs().get("amount");
+      test ( amount.equals("1.234,56 DH"), "Currency formatted "+amount);
       `
     }
   ]

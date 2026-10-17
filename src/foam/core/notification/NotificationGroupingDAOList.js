@@ -80,6 +80,7 @@ foam.CLASS({
   actions: [
     {
       name: 'markAllAsRead',
+      label: { en: 'Mark All As Read', fr: 'Tout marquer comme lu' },
       isAvailable: function(readTabIsOpen) {
         // Only show the button when we're on the 'Unread' tab
         return ! readTabIsOpen;

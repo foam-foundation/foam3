@@ -64,10 +64,16 @@ foam.CLASS({
       expression: function(name) { return this.label || foam.String.labelize(name); }
     },
     {
-      documentation: 'displayed on :hover',
+      documentation: 'displayed on :hover (Overridden by toolTipFn if provided)',
       generateJava: false,
       class: 'String',
       name: 'toolTip'
+    },
+    {
+      documentation: 'Function to determine the tooltip text. If not provided, the toolTip property is used.',
+      generateJava: false,
+      class: 'Function',
+      name: 'toolTipFn'
     },
     {
       name: 'icon',
@@ -253,7 +259,15 @@ If empty then no permissions are required.`
         data.slot(expression) :
         foam.lang.ConstantSlot.create({ value: true });
 
-      return this.addPermissionsCheck_(x, slot, data, permissionsName);
+      if ( permissionsName ) {
+        return this.addPermissionsCheck_(x, slot, data, permissionsName);
+      }
+      return slot;
+    },
+
+    function createToolTip$(x, data) {
+      // toolTipFnPermissions is not needed, so don't check permissions
+      return this.createSlotFor_(x, data, this.toolTipFn, null);
     },
 
     function createIsEnabled$(x, data) {

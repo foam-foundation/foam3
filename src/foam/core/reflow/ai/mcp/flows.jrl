@@ -1,0 +1,172 @@
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:reflow_run",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "reflow",
+    "command",
+    "run"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "# reflow_run\n\nRun one REFLOW command line against the open Console. This is the whole command\nline, so it is also how you list flows, inspect a model, or query a DAO:\n`flows`, `daos`, `describe userDAO`, `help`, `FROM userDAO TO JSON`.\n\n## Parameters\n\n- **cmd** (required): one REFLOW command line. No code fences, no leading `>`.\n- **execute** (optional): run the command now instead of proposing it. Requires\n  the `!` agent command. Without it the line is proposed either way.\n\n## Behaviour\n\nBy default the command is wrapped in `propose`, so it appears in the Console with\naccept and reject controls and does nothing until a person accepts it. This is the\nsame default the in-Console agent uses in `?` mode.\n\n## Response\n\nJSON with the resulting block:\n\n- **flowName**: the block's name, and its variable name in the flow scope\n- **cmd**: the command as it was run\n- **error**: present only when the command failed\n- **value**: the block's value, serialized, when it has one\n- **text**: the block's rendered text, truncated at 8KB. A table or chart has no\n  other textual form.\n\n## Notes\n\n- The command runs as the logged-in user. Permissions, validation and journaling\n  are the Console's, unchanged.\n- A command that renders asynchronously may return before its output is complete;\n  call `reflow_state` or re-read the block if `text` looks short."
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:reflow_state",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "reflow",
+    "state",
+    "blocks"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "# reflow_state\n\nWhat is open in the Console right now. An external agent cannot see the page, so\ncall this before proposing changes to an existing flow.\n\n## Parameters\n\nNone.\n\n## Response\n\n- **flow**: the name of the loaded flow, if it has been saved\n- **blocks**: each block's `flowName`, `cmd` and `error`\n\nBlock names matter: a name is the variable another block reads, so read them here\nbefore writing a command that references one."
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:reflow_block",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "reflow",
+    "block",
+    "chart",
+    "config"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "# reflow_block\n\nRead a block's configuration, or change it. `reflow_run` creates blocks; this shapes them.\n\n## Parameters\n\n- **name** (required): a block's `flowName`, as `reflow_state` lists them.\n- **config** (optional): properties to set on the block's value, as FOAM JSON. Omit to read without changing anything.\n\n## Response\n\nThe block's `flowName`, `cmd`, `error`, `value` and `text`, plus **config**: its value serialized, so you can read a block's shape before editing it.\n\n## Building a chart\n\nA chart is a DAO block whose select agent groups rows. The command line cannot express that, so set it here. Any value carrying a `class` is hydrated, including a property reference:\n\n```\n{\"select\": {\"class\": \"foam.core.reflow.dashboard.DashboardPieChartDAOAgent\",\n            \"prop\": {\"class\": \"__Property__\", \"forClass_\": \"foam.core.auth.Region\", \"name\": \"countryId\"},\n            \"sink\": {\"class\": \"foam.core.reflow.CountDAOAgent\"}}}\n```\n\nThe `sink` is a DAO agent, not an mlang sink: `CountDAOAgent`, not `foam.mlang.sink.Count`. Run `FROM agentDAO TO JSON` to list every agent with its label and class \u2014 bar, line, stacked bar, pivot, metric and the rest."
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:howto",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "reflow",
+    "agent",
+    "howto"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "# Connect an AI tool\n\nThis Console offers `reflow_run`, `reflow_state` and `reflow_block` to AI tools while the tab is open.\n\n## Known limits\n\n- The tools belong to the open Console. Navigating away from the flow page or closing the tab unregisters them; reload to get them back.\n- If the bridge server restarts, it comes back with an empty tool list until the page registers again. Reload the tab.\n- A command that renders from a DAO select returns before its output exists, so `text` comes back empty. Read the block's config with `reflow_block`, or ask for a value instead of a view."
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:setup-ready",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "setup",
+    "client"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "## Pick your tool\n\n<details>\n<summary><b>Claude Code</b></summary>\n\nThe Chrome Web Store build of WebMCP Bridge is older than Chrome's API and sees no tools, so build the current one:\n\n1. `git clone --depth 1 --branch v1.1.0 https://github.com/MCPCat/webmcp-react.git`\n2. `cd webmcp-react/extension && npm install && npm run build`\n3. `chrome://extensions`, remove any Web Store copy, Developer mode on, Load unpacked, pick `webmcp-react/extension/dist`\n4. Run `claude mcp add --transport stdio webmcp-server -- npx webmcp-server`\n5. Click the extension icon on this tab, choose **Always On**, wait for the green dot\n6. Start a new Claude Code session, ask it to run `flows` in reflow\n\n</details>\n\n<details>\n<summary><b>Cursor</b></summary>\n\n1. Steps 1 to 3 above\n2. Add to `~/.cursor/mcp.json`: `{\"mcpServers\":{\"webmcp-server\":{\"command\":\"npx\",\"args\":[\"webmcp-server\"]}}}`\n3. Click the extension icon on this tab, choose **Always On**, wait for the green dot\n\n</details>\n\n<details>\n<summary><b>ChatGPT Desktop, Brave Leo</b></summary>\n\nNothing to install. Keep this tab open and ask it to run a REFLOW command.\n\n</details>"
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:setup-chrome",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "setup",
+    "chrome"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "## Turn on WebMCP in Chrome\n\n1. Open `chrome://flags/#enable-webmcp-testing`\n2. Set it to Enabled\n3. Relaunch Chrome, reload this Console, run `mcp` again"
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:setup-edge",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "setup",
+    "edge"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "## Turn on WebMCP in Edge\n\n1. Open `edge://flags/#enable-webmcp-testing`\n2. Set it to Enabled\n3. Relaunch Edge, reload this Console, run `mcp` again"
+      }
+    }
+  ]
+})
+p({
+  "class": "foam.core.reflow.Flow",
+  "name": "MCP:setup-unsupported",
+  "category": "MCP",
+  "keywords": [
+    "mcp",
+    "setup"
+  ],
+  "accessLevel": 1,
+  "script": [
+    {
+      "flowName": "markdown1",
+      "cmd": "markdown",
+      "value": {
+        "class": "foam.core.reflow.Markdown",
+        "markdown": "## Not available here\n\nPage tools need WebMCP, which ships in Chrome 149 and Edge 150. Open this Console in one of those."
+      }
+    }
+  ]
+})

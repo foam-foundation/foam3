@@ -70,6 +70,16 @@ foam.CLASS({
       name: 'toolTip'
     },
     {
+      class: 'Function',
+      generateJava: false,
+      name: 'toolTipExpression',
+      documentation: `Live tooltip, recomputed from the data's properties like isEnabled.
+        Use when the text depends on the record, e.g. why the action is disabled:
+          toolTipExpression: function(status) { return status; }
+        When unset, the static toolTip is shown.`,
+      value: null
+    },
+    {
       name: 'icon',
       generateJava: false
     },
@@ -272,6 +282,10 @@ If empty then no permissions are required.`
 
     function createIsAvailable$(x, data) {
       return this.createSlotFor_(x, data, this.isAvailable, 'available');
+    },
+
+    function createToolTip$(data) {
+      return this.toolTipExpression ? data.slot(this.toolTipExpression) : this.toolTip$;
     },
 
     function createConfirmationRequired$(x, data) {

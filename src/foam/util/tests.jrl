@@ -13,3 +13,4 @@ p({
   description:"StringInterner: per-replay cache in front of String.intern, its analytics, and the parser integration"
 })
 p({"class":"foam.util.test.StringInternerConcurrencyTest","id":"StringInternerConcurrencyTest","description":"StringInterner under 8 threads and a mid-run release: equal values always, no exceptions, canonicals genuine, dedup loss bounded"})
+p({"class":"foam.util.test.LruInternerTest","id":"LruInternerTest","description":"LruInterner: hit, miss, find, eviction, promotion to the delegate, adopted canonical; StringInterner takes a first sight from find"})

@@ -120,9 +120,10 @@ foam.CLASS({
         } else {
           parseX0 = x;
         }
-        // One StringInterner per replay: a parsed string reaches the JVM table
-        // on its second sight, and the interner's maps die with the replay.
-        final foam.util.StringInterner interner = new foam.util.StringInterner();
+        // One StringInterner per replay; its maps die with the replay. Second
+        // sights go to the shared Interner.GLOBAL, which also answers other
+        // replays' first sights of the values it holds.
+        final foam.util.StringInterner interner = new foam.util.StringInterner(foam.util.Interner.GLOBAL);
         final foam.lang.X parseX = parseX0.put(foam.util.StringInterner.CTX_KEY, interner);
 
         // NOTE: explicitly calling PM constructor as create only creates

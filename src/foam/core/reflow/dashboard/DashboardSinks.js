@@ -67,52 +67,91 @@ foam.CLASS({
   name: 'DashboardBarSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
   mixins: [
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
   ],
 
   requires: [
     'org.chartjs.Bar2',
-    'foam.u2.layout.ContainerWidth'
+    'foam.u2.layout.ContainerWidth',
+    'foam.core.reflow.dashboard.LegendPosition'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'periodCount'] },
+    { name: 'chartSettings', title: 'Bar Chart Settings', order: 1, collapsable: true,
+      properties: ['horizontal', 'barThickness', 'timeUnit', 'showGridLines', 'datasetLabel'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
   ],
 
   properties: [
-    // TopNGroupBy properties (inherited but exposed here for clarity)
-    // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
-    // groupLimit cuts off data collection early, while topN properly aggregates all data first
-    { name: 'sortOrder', value: 'DESC', help: 'Sort order for groups' },
-    { name: 'includeOthers', value: false, help: 'Include "Others" category for remaining groups' },
-    { name: 'othersLabel', value: 'Others', help: 'Label for the "Others" category' },
-    // Chart-specific properties
+    // User-facing data config properties that drive parent-class internals
     {
-      class: 'StringArray',
-      name: 'colors',
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'Group By',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
     },
     {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
     },
-    { class: 'Boolean', name: 'horizontal', value: false },
-    { class: 'Int', name: 'barThickness' },
+    // TopNGroupBy user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: false,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    // Hide parent-class internals wired programmatically by createSink()
+    { name: 'arg1', hidden: true },
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    // Bar-specific properties (display properties come from ChartDisplayMixin)
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'Boolean', name: 'horizontal', label: 'Horizontal Bars', value: false },
+    { class: 'Int', name: 'barThickness', label: 'Bar Thickness', help: 'Thickness of bars (0 = auto)' },
     { class: 'String', name: 'datasetLabel', value: '', help: 'Label for the dataset (shown in legend if enabled)' },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // periodCount inherited from TimeSeriesGapFillingSinkMixin
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: false },  // Bar charts typically don't need legend for single dataset
-    { class: 'String', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Internal-only sizing props (hidden)
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
+    // Override ChartDisplayMixin's showLegend default (true) — bar charts default to no legend
+    { class: 'Boolean', name: 'showLegend', label: 'Show Legend', value: false },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(groups, colors, timeUnit, horizontal, barThickness, datasetLabel, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio, showLegend,
@@ -333,12 +372,27 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardPieSink',
   extends: 'foam.mlang.sink.TopNGroupBy',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
 
   requires: [
     'org.chartjs.Pie2',
     'foam.u2.layout.ContainerWidth',
     'foam.core.reflow.dashboard.LegendPosition',
     'foam.u2.Tooltip'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel'] },
+    { name: 'chartSettings', title: 'Pie Chart Settings', order: 1, collapsable: true,
+      properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick', 'emptyValueMessage'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'legendMinWidthPercent', 'legendMaxWidthPercent', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] }
   ],
 
   css: `
@@ -360,41 +414,73 @@ foam.CLASS({
   `,
 
   properties: [
-    // TopNGroupBy properties (inherited but exposed here for clarity)
-    // IMPORTANT: groupLimit is inherited from GroupBy but should NOT be used with TopNGroupBy sinks
-    // groupLimit cuts off data collection early, while topN properly aggregates all data first
-    // The init() method forces groupLimit to -1 to prevent interference
-    { name: 'sortOrder', value: 'DESC', help: 'Sort order for slices' },
-    { name: 'includeOthers', value: true, help: 'Include "Others" slice for remaining groups' },
-    { name: 'othersLabel', value: 'Others', help: 'Label for the "Others" slice' },
-    // Pie-specific properties
+    // User-facing data config properties that drive parent-class internals
     {
-      class: 'StringArray',
-      name: 'colors',
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'Group By',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
     },
-    { class: 'Boolean', name: 'showPercentages', value: false },
-    { class: 'Int', name: 'cutoutPercentage', value: 0 },
-    { class: 'Boolean', name: 'clockwise', value: true },
-    { class: 'Int', name: 'rotation', value: -90 },
-    { class: 'Boolean', name: 'disableLegendClick', help: 'Disable legend click to toggle slice visibility' },
-    { class: 'Int', name: 'legendMinWidthPercent', help: 'Forces the legend to be at least this percentage (0-100) of container width by padding the widest label with trailing non-breaking spaces. Short legends grow to match; longer labels are truncated with an ellipsis at this width (full text available in the hover tooltip) so a single long label can\'t push the legend wider than intended. 0 = no floor.' },
-    { class: 'Int', name: 'legendMaxWidthPercent', help: 'Caps the legend at this percentage (0-100) of container width; labels wider than the cap are truncated with an ellipsis (full text available in the hover tooltip). 0 = no cap. Setting min = max gives an exact fixed-width legend — arcs line up perfectly across stacked pies.' },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
-    { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available' },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
+    },
+    // TopNGroupBy user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    // Hide parent-class internals wired programmatically by createSink()
+    { name: 'arg1', hidden: true },
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    // Pie-specific properties (display properties come from ChartDisplayMixin)
+    { class: 'Boolean', name: 'showPercentages', label: 'Show Percentages', value: false },
+    { class: 'Int', name: 'cutoutPercentage', label: 'Cutout %', value: 0,
+      view: { class: 'foam.u2.RangeView', minValue: 0, maxValue: 100, step: 1, onKey: true },
+      help: 'For donut effect (0-100)' },
+    { class: 'Boolean', name: 'clockwise', label: 'Clockwise', value: true },
+    { class: 'Int', name: 'rotation', label: 'Rotation Angle', value: -90,
+      view: { class: 'foam.u2.RangeView', minValue: -180, maxValue: 180, step: 1, onKey: true },
+      help: 'Starting angle in degrees (-180 to 180)' },
+    { class: 'Boolean', name: 'disableLegendClick', label: 'Disable Legend Click',
+      help: 'Prevent clicking legend items from toggling slice visibility' },
+    { class: 'Int', name: 'legendMinWidthPercent', label: 'Legend Min Width (%)',
+      help: 'Forces the legend to be at least this percentage (0-100) of container width by padding the widest label with trailing non-breaking spaces. Short legends grow to match; longer labels are truncated with an ellipsis at this width (full text available in the hover tooltip) so a single long label can\'t push the legend wider than intended. 0 = no floor.' },
+    { class: 'Int', name: 'legendMaxWidthPercent', label: 'Legend Max Width (%)',
+      help: 'Caps the legend at this percentage (0-100) of container width; labels wider than the cap are truncated with an ellipsis (full text available in the hover tooltip). 0 = no cap. Setting min = max gives an exact fixed-width legend — arcs line up perfectly across stacked pies.' },
+    { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available',
+      help: 'Message to display when there is no data' },
+    // Internal-only props (hidden)
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
     { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
                           responsive, maintainAspectRatio, showLegend,
@@ -744,51 +830,90 @@ foam.CLASS({
   extends: 'foam.core.reflow.GridBy',
 
   mixins: [
-    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
+    'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin',
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
   ],
 
   imports: [ 'window' ],
 
   requires: [
     'org.chartjs.StackedBar2',
-    'foam.u2.layout.ContainerWidth'
+    'foam.u2.layout.ContainerWidth',
+    'foam.core.reflow.dashboard.LegendPosition'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'aggregation', 'periodCount'] },
+    { name: 'chartSettings', title: 'Stacked Bar Settings', order: 1, collapsable: true,
+      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
   ],
 
   properties: [
-    // Stacked bar-specific properties
+    // User-facing data config properties that drive parent-class internals
     {
-      class: 'StringArray',
-      name: 'colors',
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'xProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.xFunc = n; }
     },
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'yProp', label: 'Stack Group Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.yFunc = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.acc = n.createSink();
+      }
+    },
+    // Stacked-bar-specific properties (display & colors come from mixins)
     {
       class: 'Code',
       name: 'onClickScript',
       label: 'On Click Script',
       help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
     },
-    {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
-    },
-    { class: 'Boolean', name: 'horizontal', value: false },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'Boolean', name: 'horizontal', label: 'Horizontal Stacks', value: false },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Internal-only sizing props (hidden)
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
+    { class: 'Int', name: 'width', hidden: true, value: 400 },
+    // Hide GridBy parent-class internals wired programmatically by createSink()
+    { name: 'xFunc', hidden: true },
+    { name: 'yFunc', hidden: true },
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
                           showGridLines, responsive, maintainAspectRatio,
@@ -1095,57 +1220,125 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'LineChartMixin',
 
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
   requires: [
     'org.chartjs.Line2',
-    'foam.u2.layout.ContainerWidth'
+    'foam.u2.layout.ContainerWidth',
+    'foam.core.reflow.dashboard.LegendPosition'
+  ],
+
+  messages: [
+    { name: 'MIN_EQ_MAX', message: 'Min and max values cannot be equal' },
+    { name: 'MIN_GT_MAX', message: 'Min cannot be greater than max' },
+    { name: 'INVALID_DATE', message: 'Invalid date' }
   ],
 
   properties: [
-    // Chart rendering properties
+    // Line-specific rendering properties (display & colors come from mixins)
+    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+      label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    { class: 'StringArray', name: 'borderColors', label: 'Border Colors',
+      help: 'Border colors for line elements. If not specified, colors will be used.' },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'fill', label: 'Fill Area', value: false },
+    { class: 'Double', name: 'tension', label: 'Line Tension', value: 0.1,
+      help: 'Bezier curve tension (0 = straight lines)' },
+    { class: 'Boolean', name: 'stepped', label: 'Stepped Line', value: false },
+    { class: 'Boolean', name: 'showPoints', label: 'Show Points', value: true },
+    { class: 'Int', name: 'pointRadius', label: 'Point Radius', value: 3,
+      visibility: function(showPoints) {
+        return showPoints ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    // Custom axis scaling. Each sink defines isTimeScale from its x-axis property.
+    { class: 'Boolean', name: 'isTimeScale', hidden: true, transient: true },
+    { class: 'Boolean', name: 'toggleCustomXScale', label: 'Custom X Scale',
+      help: 'Toggles custom scale for the X axis' },
     {
-      class: 'Enum',
-      of: 'foam.core.reflow.dashboard.TimeUnit',
-      name: 'timeUnit'
+      class: 'Double', name: 'xAxisMinScale', label: 'X Axis Min',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( ! isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isTimeScale) {
+        if ( toggleCustomXScale && ! isTimeScale && this.hasOwnProperty('xAxisMinScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
     },
-    { class: 'StringArray', name: 'colors' },
-    { class: 'StringArray', name: 'borderColors', help: 'Border colors for line elements. If not specified, colors will be used.' },
-    { class: 'String', name: 'xAxisLabel' },
-    { class: 'String', name: 'yAxisLabel' },
-    { class: 'Boolean', name: 'fill', value: false },
-    { class: 'Double', name: 'tension', value: 0.1 },
-    { class: 'Boolean', name: 'stepped', value: false },
-    { class: 'Boolean', name: 'showPoints', value: true },
-    { class: 'Int', name: 'pointRadius', value: 3 },
-    { class: 'Boolean', name: 'showGridLines', value: true },
-    // Display properties
-    { class: 'Boolean', name: 'responsive', value: true },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Int', name: 'width', value: 400 },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.LegendPosition', name: 'legendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'showTooltips', value: true },
-    { class: 'Boolean', name: 'showTooltipSum', value: false, help: 'Show sum total in tooltip footer (for multiple lines)' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.MetricAlignment', name: 'alignment', value: 'CENTER' },
-    { class: 'Boolean', name: 'toggleCustomXScale' },
-    { class: 'Boolean', name: 'toggleCustomYScale' },
-    { name: 'xAxisMaxScale' }, // untyped: null means "no bound" (says Claude)
-    { name: 'xAxisMinScale' },
-    { name: 'yAxisMaxScale' },
-    { name: 'yAxisMinScale' },
-    { class: 'Boolean', name: 'autoSkip' },
-    { class: 'DateTime', name: 'xDateAxisMinScale' },
-    { class: 'DateTime', name: 'xDateAxisMaxScale' },
-    { class: 'Boolean', name: 'isTimeScale' },
-    { class: 'DateTime', name: 'dataXMin_', transient: true, visibility: 'HIDDEN' },
-    { class: 'DateTime', name: 'dataXMax_', transient: true, visibility: 'HIDDEN' },
-    { name: 'xScaleType_',  transient: true, visibility: 'HIDDEN' },
-    { name: 'dataXNumMin_', transient: true, visibility: 'HIDDEN' },
-    { name: 'dataXNumMax_', transient: true, visibility: 'HIDDEN' },
-    { name: 'dataYNumMin_', transient: true, visibility: 'HIDDEN' },
-    { name: 'dataYNumMax_', transient: true, visibility: 'HIDDEN' },
+    {
+      class: 'Double', name: 'xAxisMaxScale', label: 'X Axis Max',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( ! isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, xAxisMinScale, xAxisMaxScale, isTimeScale) {
+        if ( toggleCustomXScale && ! isTimeScale && this.hasOwnProperty('xAxisMaxScale') ) {
+          if ( xAxisMinScale == xAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( xAxisMinScale > xAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    {
+      class: 'DateTime', name: 'xDateAxisMinScale', label: 'X Axis Min',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isTimeScale, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isTimeScale, xDateAxisMinScale, xDateAxisMaxScale);
+      }
+    },
+    {
+      class: 'DateTime', name: 'xDateAxisMaxScale', label: 'X Axis Max',
+      visibility: function(toggleCustomXScale, isTimeScale) {
+        return ( isTimeScale && toggleCustomXScale ) ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomXScale, isTimeScale, xDateAxisMinScale, xDateAxisMaxScale) {
+        return this.validateDateRange_(toggleCustomXScale && isTimeScale, xDateAxisMinScale, xDateAxisMaxScale);
+      }
+    },
+    { class: 'Boolean', name: 'toggleCustomYScale', label: 'Custom Y Scale',
+      help: 'Toggles custom scale for the Y axis' },
+    {
+      class: 'Double', name: 'yAxisMinScale', label: 'Y Axis Min',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    {
+      class: 'Double', name: 'yAxisMaxScale', label: 'Y Axis Max',
+      visibility: function(toggleCustomYScale) {
+        return toggleCustomYScale ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      },
+      validateObj: function(toggleCustomYScale, yAxisMinScale, yAxisMaxScale) {
+        if ( toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ) {
+          if ( yAxisMinScale == yAxisMaxScale ) return this.MIN_EQ_MAX;
+          if ( yAxisMinScale > yAxisMaxScale ) return this.MIN_GT_MAX;
+        }
+      }
+    },
+    { class: 'Boolean', name: 'autoSkip', label: 'Hide Overlapping Labels', value: true },
+    // Data range of the last render; seeds unset scale bounds and the reset actions
+    { class: 'DateTime', name: 'dataXMin_', hidden: true, transient: true },
+    { class: 'DateTime', name: 'dataXMax_', hidden: true, transient: true },
+    { name: 'xScaleType_', hidden: true, transient: true },
+    { name: 'dataXNumMin_', hidden: true, transient: true },
+    { name: 'dataXNumMax_', hidden: true, transient: true },
+    { name: 'dataYNumMin_', hidden: true, transient: true },
+    { name: 'dataYNumMax_', hidden: true, transient: true },
+    // Internal-only sizing props (hidden)
+    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
+    { class: 'Int', name: 'width', hidden: true, value: 400 }
   ],
 
   methods: [
@@ -1202,8 +1395,8 @@ foam.CLASS({
             grid: {
               display: showGridLines
             },
-            min: toggleCustomYScale && yAxisMinScale != null ? yAxisMinScale : undefined,
-            max: toggleCustomYScale && yAxisMaxScale != null ? yAxisMaxScale : undefined
+            min: toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ? yAxisMinScale : undefined,
+            max: toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ? yAxisMaxScale : undefined
           }
         }
       };
@@ -1229,8 +1422,8 @@ foam.CLASS({
         chartJSOptions.scales.x.type = this.xScaleType_ || 'category';
 
         if ( toggleCustomXScale ) {
-          if ( xAxisMinScale != null ) chartJSOptions.scales.x.min = xAxisMinScale;
-          if ( xAxisMaxScale != null ) chartJSOptions.scales.x.max = xAxisMaxScale;
+          if ( this.hasOwnProperty('xAxisMinScale') ) chartJSOptions.scales.x.min = xAxisMinScale;
+          if ( this.hasOwnProperty('xAxisMaxScale') ) chartJSOptions.scales.x.max = xAxisMaxScale;
         }
       }
 
@@ -1255,6 +1448,29 @@ foam.CLASS({
 
       var d = ( typeof xValue === 'number' ) ? new Date(xValue) : new Date(String(xValue));
       return isNaN(d.getTime()) ? null : d;
+    },
+
+    function validateDateRange_(enabled, minDate, maxDate) {
+      if ( ! enabled ) return;
+      // Either end unset means the range isn't fully specified yet — nothing to compare.
+      if ( ! minDate || ! maxDate ) return;
+
+      var min = minDate.getTime ? minDate.getTime() : new Date(minDate).getTime();
+      var max = maxDate.getTime ? maxDate.getTime() : new Date(maxDate).getTime();
+
+      if ( isNaN(min) || isNaN(max) ) return this.INVALID_DATE;
+      if ( min === max ) return this.MIN_EQ_MAX;
+      if ( min > max )   return this.MIN_GT_MAX;
+    },
+
+    function seedScaleFromData_() {
+      // Fill each unset scale bound with the data range of the last render
+      var self = this;
+      [ [ 'xDateAxisMinScale', 'dataXMin_' ],    [ 'xDateAxisMaxScale', 'dataXMax_' ],
+        [ 'xAxisMinScale',     'dataXNumMin_' ], [ 'xAxisMaxScale',     'dataXNumMax_' ],
+        [ 'yAxisMinScale',     'dataYNumMin_' ], [ 'yAxisMaxScale',     'dataYNumMax_' ] ].forEach(function(p) {
+        if ( self[p[1]] != null && ! self.hasOwnProperty(p[0]) ) self[p[0]] = self[p[1]];
+      });
     },
 
     function addToE(e) {
@@ -1296,6 +1512,41 @@ foam.CLASS({
           this.clearProperty('chart_');
         }
       }
+    },
+    {
+      name: 'onDataRangeChange',
+      isFramed: true,
+      on: [
+        'this.propertyChange.dataXMin_',    'this.propertyChange.dataXMax_',
+        'this.propertyChange.dataXNumMin_', 'this.propertyChange.dataXNumMax_',
+        'this.propertyChange.dataYNumMin_', 'this.propertyChange.dataYNumMax_'
+      ],
+      code: function() { this.seedScaleFromData_(); }
+    }
+  ],
+
+  actions: [
+    {
+      name: 'resetXScale',
+      label: 'Reset X Scale',
+      isAvailable: function(toggleCustomXScale) { return toggleCustomXScale; },
+      code: function() {
+        this.clearProperty('xDateAxisMinScale');
+        this.clearProperty('xDateAxisMaxScale');
+        this.clearProperty('xAxisMinScale');
+        this.clearProperty('xAxisMaxScale');
+        this.seedScaleFromData_();
+      }
+    },
+    {
+      name: 'resetYScale',
+      label: 'Reset Y Scale',
+      isAvailable: function(toggleCustomYScale) { return toggleCustomYScale; },
+      code: function() {
+        this.clearProperty('yAxisMinScale');
+        this.clearProperty('yAxisMaxScale');
+        this.seedScaleFromData_();
+      }
     }
   ]
 });
@@ -1309,20 +1560,79 @@ foam.CLASS({
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
 
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['groupByProp', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel', 'periodCount'] },
+    { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+                   'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
+                   'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
+      actions: ['resetXScale', 'resetYScale'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
-    // Map GroupBy properties directly
+    // User-facing data config properties that drive parent-class internals
     {
-      name: 'arg1',
-      label: 'X-Axis Property',
-      help: 'Property to group by (x-axis values)'
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'groupByProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.arg1 = n; }
     },
     {
-      name: 'arg2',
-      label: 'Aggregation Sink',
-      help: 'Sink to aggregate y-values for each x-value'
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.arg2 = n.createSink();
+      }
     },
-     {
+    // GroupBy parent-class internals — wired programmatically by createSink()
+    { name: 'arg1', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
+    { name: 'arg2', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value' },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    // TopN user-configurable properties
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep top N groups by value (0 = disabled). Remaining groups can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Include "Others" group for remaining items when using Top N',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'Sort order for value-based limiting',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the aggregated "Others" category',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    // LineChartMixin internal/sizing props hidden from editor
+    { name: 'responsive', hidden: true },
+    { name: 'width', hidden: true },
+    {
+      name: 'isTimeScale',
+      expression: function(arg1) {
+        return foam.lang.Date.isInstance(arg1) ||
+          foam.core.reflow.dashboard.DateKeys.isTemporal(arg1);
+      }
+    },
+    {
     name: 'chart_',
+    hidden: true,
     transient: true,
     expression: function(groups, arg1, arg2, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
@@ -1496,25 +1806,74 @@ foam.CLASS({
     'foam.core.reflow.dashboard.TimeSeriesGapFillingSinkMixin'
   ],
 
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'aggregation', 'periodCount'] },
+    { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
+      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+                   'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
+                   'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
+      actions: ['resetXScale', 'resetYScale'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
-    // Map GridBy properties directly
+    // User-facing data config properties that drive parent-class internals
     {
-      name: 'xFunc',
-      label: 'X-Axis Property',
-      help: 'Property to group by (x-axis values)'
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'xProp', label: 'X-Axis Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.xFunc = n; }
     },
     {
-      name: 'yFunc',
-      label: 'Line Group Property',
-      help: 'Property to group by (different lines)'
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'yProp', label: 'Line Group Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.yFunc = n; }
     },
     {
-      name: 'acc',
-      label: 'Aggregation Sink',
-      help: 'Sink to aggregate y-values for each x-value/line combination'
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.acc = n.createSink();
+      }
     },
-      {
+    // GridBy parent-class internals — wired programmatically by createSink()
+    { name: 'xFunc', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
+    { name: 'yFunc', hidden: true, label: 'Line Group Property', help: 'Property to group by (different lines)' },
+    { name: 'acc', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value/line combination' },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    // LineChartMixin internal/sizing props hidden from editor
+    { name: 'responsive', hidden: true },
+    { name: 'width', hidden: true },
+    {
+      name: 'isTimeScale',
+      expression: function(xFunc) {
+        return foam.lang.Date.isInstance(xFunc) ||
+          foam.core.reflow.dashboard.DateKeys.isTemporal(xFunc);
+      }
+    },
+    {
     name: 'chart_',
+    hidden: true,
     transient: true,
     expression: function(cols, rows, xFunc, yFunc, acc, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
@@ -2114,28 +2473,70 @@ foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardCalendarSink',
   extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
   documentation: 'Calendar sink with fully live dashboard properties (match Pie/Bar).',
   requires: [
     'foam.u2.layout.ContainerWidth',
     'org.chartjs.CalendarDAOChartView'
   ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['dateProperty', 'categoryProperty', 'aggregation', 'showAllData', 'periodCount'] },
+    { name: 'displayOptions', title: 'Display', order: 1, collapsable: true,
+      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 2, collapsable: true,
+      properties: ['colors'] }
+  ],
+
   properties: [
-    { name: 'dateProp', label: 'Date Property' },
-    { name: 'categoryProp', label: 'Category Property' },
-    { name: 'valueSink', documentation: 'Aggregator sink.' },
-    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12 },
+    // User-facing data config properties that drive internals
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'dateProperty', label: 'Date Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyExprView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.dateProp = n; }
+    },
+    {
+      class: 'FObjectProperty', of: 'foam.lang.Property', generateJava: false,
+      name: 'categoryProperty', label: 'Category Property',
+      view: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView',
+                 forCls: X.dao ? X.dao.of : undefined };
+      },
+      postSet: function(o, n) { this.categoryProp = n; }
+    },
+    {
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] },
+      postSet: function(o, n) {
+        if ( n && n.createSink ) this.valueSink = n.createSink();
+      }
+    },
+    // Internal properties wired programmatically by createSink() — hidden from editor
+    { name: 'dateProp', hidden: true, label: 'Date Property' },
+    { name: 'categoryProp', hidden: true, label: 'Category Property' },
+    { name: 'valueSink', hidden: true, documentation: 'Aggregator sink.' },
+    { class: 'Boolean', name: 'showAllData', label: 'Show All Data',
+      help: 'When enabled, the calendar includes every record regardless of date. Disable to limit to the last N days configured by Periods.' },
+    { class: 'Int', name: 'periodCount', label: 'Periods', value: 12,
+      help: 'How many days to show from today. Ignored when Show All Data is enabled.',
+      visibility: function(showAllData) {
+        return showAllData ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
+      } },
     { name: 'map_', hidden: true, factory: function() { return {}; } },
-    // Dashboard-style display properties
-    { class: 'StringArray', name: 'colors', documentation: 'Dashboard chart colors' },
-    { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
-    { class: 'Boolean', name: 'maintainAspectRatio', value: false },
-    { class: 'Int', name: 'height', value: 300 },
-    { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },
-    { class: 'Boolean', name: 'animate', value: true },
-    { class: 'Int', name: 'animationDuration', value: 1000 },
+    // Display & colors properties come from ChartDisplayMixin and ColorMappingMixin
     {
       name: 'chart_',
+      hidden: true,
       transient: true,
       factory: function() {
         // Only create once, then drive via property slots

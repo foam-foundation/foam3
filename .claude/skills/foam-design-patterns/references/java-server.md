@@ -6,6 +6,7 @@ Server code is reviewed for what it allocates, what it shares between threads, a
 |---|---|
 | An allocation on a per-row path draws a comment | is this line inside a loop, a `put`, or a `f()`? |
 | Shared mutable state is synchronized | any collection or counter touched from two threads? |
+| A race that only costs a copy is priced before it is closed | a `compute`, CAS loop or lock added for a race nobody measured? |
 | `Loggers.logger(x, this)`, comma tokens | any `+` inside a log call? |
 | Log or throw, never swallow; keep the cause | any `catch` that neither logs nor rethrows? |
 | `fclone()` before mutating a DAO result | any setter on the return of `find`/`select`/`put`? |
@@ -21,6 +22,11 @@ A `HashMap` or counter touched from two threads is a race; `notify()` wakes one 
 Don't: `static HashMap`; `count++` in a service; `notify()`; an unbounded queue
 Do:    `ConcurrentHashMap`/`AtomicLong`, or `synchronized: true` on the method axiom; `notifyAll()`; `new LinkedBlockingQueue<>(128)`
 
+### A race that only costs a copy is priced before it is closed
+A concurrent collection already makes shared state safe; closing a race on top of it, one that can only leave an equal extra copy and never a wrong value, needs its cost measured first.
+Don't: `map.compute(k, (key, v) -> { out[0] = ...; return ...; })` with a one-slot array to carry the result out, added because two threads could arrive at the same instant
+Do:    plain `get` / `remove` / `put` on a `ConcurrentHashMap`; a contention test that reports the extra copies; `compute` only when that number matters
+Measured: `compute` against plain `remove`/`put` on the same replay, 5 alternating runs: 5.28 s against 5.48 s, same memory; the race left 28 extra copies in 800k calls on 8 threads (foam3 #5570).
 ### One logger per method; comma-separated tokens
 `Loggers.logger(x, this)` prefixes the class; concatenation builds the string even when the level is off.
 Don't: `logger.error("UploadAgent error: " + msg + " for " + id)`

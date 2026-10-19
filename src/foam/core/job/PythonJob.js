@@ -95,6 +95,19 @@ foam.CLASS({
     {
       name: 'execute',
       javaCode: `
+        if ( getUseUv() ) {
+          try {
+            new ProcessBuilder(getUvPath(), "--version").redirectErrorStream(true).start().waitFor();
+          } catch ( java.io.IOException e ) {
+            throw new RuntimeException(
+              "uv not found at '" + getUvPath() + "'. Python jobs require uv. " +
+              "Install: curl -LsSf https://astral.sh/uv/install.sh | sh"
+            );
+          } catch ( InterruptedException e ) {
+            Thread.currentThread().interrupt();
+          }
+        }
+
         String[] cmd = buildCommand_();
         out("$ " + String.join(" ", cmd));
         save(x);

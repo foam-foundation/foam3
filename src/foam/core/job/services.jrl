@@ -1,5 +1,29 @@
 p({
   "class": "foam.core.boot.CSpec",
+  "name": "batchRecordDAO",
+  "serve": true,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.job.BatchRecord.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(false)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("batchRecords")
+      .build();
+  """,
+  "client": """
+    {
+      "class": "foam.dao.EasyDAO",
+      "serviceName": "service/batchRecordDAO",
+      "daoType": "CLIENT",
+      "cache": false,
+      "of": "foam.core.job.BatchRecord"
+    }
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
   "name": "jobDAO",
   "description": "Long-running, client-submitted tasks. In-memory: a Job is a request in flight, not a record, and does not survive a restart. Submitting returns the generated UUID immediately and a foam_core_job_SubmitJob rule runs the Job on the threadPool; the submitter polls find(id) to watch it. Reads are scoped to the submitter by Job's Authorizable methods.",
   "serve": true,

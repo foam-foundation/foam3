@@ -8,6 +8,9 @@ foam.POM({
     { name: "JobRunner",           flags: "js|java" },
     { name: "SubmitJobRuleAction", flags: "js|java" },
     { name: "RemoveOldJobsAgent",  flags: "js|java" },
+    { name: "BatchRecord",         flags: "js|java" },
+    { name: "Batchable",           flags: "js|java" },
+    { name: "BatchJob",            flags: "js|java" },
     { name: "PythonJob",           flags: "js|java" },
     { name: "test/SleepJob",       flags: "js&test|java&test" },
     { name: "test/JobTest",        flags: "js&test|java&test" }

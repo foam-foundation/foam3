@@ -727,7 +727,6 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
-      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -1387,7 +1386,6 @@ foam.CLASS({
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
 
-      this.isMenuOpen = false;
       this.onDetach(() => {
         this.showNav = true;
         this.isMenuOpen = oldIsMenuOpen;

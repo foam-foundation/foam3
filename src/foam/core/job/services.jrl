@@ -6,7 +6,7 @@ p({
     return new foam.dao.EasyDAO.Builder(x)
       .setOf(foam.core.job.BatchRecord.getOwnClassInfo())
       .setPm(true)
-      .setAuthorize(false)
+      .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("batchRecords")
       .build();

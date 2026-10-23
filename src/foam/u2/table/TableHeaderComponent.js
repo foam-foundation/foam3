@@ -59,8 +59,8 @@ foam.CLASS({
       name: 'colWidth',
       factory: function() {
         return this.selectedColumnsWidth && this.selectedColumnsWidth[this.propName] ?
-        this.selectedColumnsWidth[this.propName] :
-        this.columnHandler.returnPropertyForColumn(this.props, this.data.of, [this.col, this.overrides], 'tableWidth');
+          this.selectedColumnsWidth[this.propName] :
+          this.columnHandler.returnPropertyForColumn(this.props, this.data.of, [this.col, this.overrides], 'tableWidth');
       },
       postSet: function(o, n) {
         this.updateWidths(n);

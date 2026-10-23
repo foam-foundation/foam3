@@ -28,6 +28,24 @@ foam.ENUM({
       abstract: true,
       type: 'Void',
       args: 'java.util.Calendar cal'
+    },
+    {
+      name: 'truncate',
+      documentation: 'Move the calendar back to the first instant of its partition.',
+      abstract: true,
+      type: 'Void',
+      args: 'java.util.Calendar cal'
+    },
+    {
+      name: 'truncateTime',
+      type: 'Void',
+      args: 'java.util.Calendar cal',
+      javaCode: `
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        cal.set(java.util.Calendar.MINUTE, 0);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+      `
     }
   ],
 
@@ -41,6 +59,10 @@ foam.ENUM({
         public void step(java.util.Calendar cal) {
           cal.add(java.util.Calendar.MONTH, 1);
         }
+        public void truncate(java.util.Calendar cal) {
+          cal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+          truncateTime(cal);
+        }
       `
     },
     {
@@ -51,6 +73,10 @@ foam.ENUM({
         }
         public void step(java.util.Calendar cal) {
           cal.add(java.util.Calendar.WEEK_OF_YEAR, 1);
+        }
+        public void truncate(java.util.Calendar cal) {
+          cal.set(java.util.Calendar.DAY_OF_WEEK, cal.getFirstDayOfWeek());
+          truncateTime(cal);
         }
       `
     },
@@ -63,6 +89,9 @@ foam.ENUM({
         public void step(java.util.Calendar cal) {
           cal.add(java.util.Calendar.DAY_OF_YEAR, 1);
         }
+        public void truncate(java.util.Calendar cal) {
+          truncateTime(cal);
+        }
       `
     },
     {
@@ -73,6 +102,9 @@ foam.ENUM({
         }
         public void step(java.util.Calendar cal) {
           cal.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        }
+        public void truncate(java.util.Calendar cal) {
+          truncateTime(cal);
         }
       `
     }

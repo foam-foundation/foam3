@@ -500,16 +500,10 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        let isAnonymous = false;
-        try {
-          isAnonymous = await client.auth.isAnonymous();
-        } catch (e) {
-          // NO-OP
-          // This is expected to fail if the an anonymous user is not available
-        }
+        let anonymous = self.isAnonymous();
 
         // show oauth_exception toast notification when failed to link SSO user to existing user in the app
-        if ( isAnonymous ) {
+        if ( anonymous ) {
           const searchParams = new URLSearchParams(location.search);
           const oauthException = searchParams.get('oauth_exception');
           if ( oauthException ) {
@@ -524,7 +518,9 @@ foam.CLASS({
         // fall back to initMenu() when that path is skipped, otherwise the route
         // is pushed twice and the first (superseded) render poisons document-global
         // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
-        if ( self?.subject?.realUser && ! isAnonymous ) {
+        if ( self?.subject?.realUser &&
+             ( ! anonymous ||
+               anonymous && foam.locale.startsWith('en') ) ) {
           await self.maybeReinstallLanguage(self.client);
           await self.onUserAgentAndGroupLoaded();
         } else {
@@ -608,8 +604,17 @@ foam.CLASS({
       }
     },
 
+    async function isAnonymous() {
+      try {
+        return await client.auth.isAnonymous();
+      } catch (e) {
+        // NO-OP
+        // This is expected to fail if the an anonymous user is not available
+      }
+      return false;
+    },
+
     async function maybeReinstallLanguage(client) {
-      // Is only called if the user exists and isn't the SPID's anonymousUser
       if ( this.subject.realUser.language.toString() != foam.locale ) {
         let languages = (await client.languageDAO
           .where(foam.mlang.predicate.Eq.create({
@@ -618,13 +623,12 @@ foam.CLASS({
           })).select()).array;
 
         let userPreferLanguage = languages.find(e => e.id.compareTo(this.subject.realUser.language) === 0);
-        // TODO: don't update language setting for anonymous users
-        // Can tell if a user is anonymous if their id === their spid's.anonymousUser
         if ( ! userPreferLanguage ) {
           foam.locale = this.defaultLanguage.toString();
           let user = this.subject.realUser;
           user.language = this.defaultLanguage.id;
-          await client.userDAO.put(user);
+          if ( ! this.isAnonymous() )
+            await client.userDAO.put(user);
         } else if ( foam.locale != userPreferLanguage.toString() ) {
           foam.locale = userPreferLanguage.toString();
         }

@@ -41,7 +41,7 @@ p({
 
 The `of` type tells both ends what class the DAO holds. The browser's `ClientDAO` uses it as the default for deserialization; the server's EasyDAO uses it for indexing and authorization.
 
-Objects flow between the two sides as JSON. Every `FObjectProperty` value carries a `"class"` field naming the concrete type, so the receiving side can instantiate the right class. For example, a `BatchJob` whose `delegate` property holds a `FileProcessor` would arrive as:
+Objects flow between the two sides as JSON. Every `FObjectProperty` value carries a `"class"` field naming the concrete type, so the receiving side can instantiate the right class even when the declared `of` is an abstract base. For example, a `BatchJob` whose `delegate` property holds a `FileProcessor` would arrive as:
 
 ```json
 {
@@ -59,99 +59,82 @@ When the browser receives this, FOAM's JSON parser reads the `"class"` field on 
 
 ## Writing Java implementations
 
-Say you have a FOAM class that declares properties and methods:
+Say you have an abstract FOAM base class that declares some properties and methods:
 
 ```javascript
-// Processor.js
+// AbstractProcessor.js
 foam.CLASS({
   package: 'com.example',
-  name: 'Processor',
+  name: 'AbstractProcessor',
+  abstract: true,
   properties: [
     { class: 'String', name: 'config' }
   ],
   methods: [
-    { name: 'process', args: 'Context x, String item', type: 'String' }
+    { name: 'process', args: 'Context x, String item' }
   ]
 });
 ```
 
-You need a Java implementation for `process`. There are two ways.
+You need a concrete class to instantiate it, such as `FileProcessor` subclass. There are two ways to write it.
 
-### Option A — inline javaCode
+### Option A — subclass with foam.CLASS and inline javaCode
 
 ```javascript
-// Processor.js  — with inline Java
+// FileProcessor.js
 foam.CLASS({
   package: 'com.example',
-  name: 'Processor',
+  name: 'FileProcessor',
+  extends: 'com.example.AbstractProcessor',
 
   methods: [
     {
       name: 'process',
       args: 'Context x, String item',
-      type: 'String',
       javaCode: `
-        return item.toUpperCase();
+        System.out.println("Processing: " + item);
       `
     }
   ]
 });
 ```
 
-With `flags: 'js|java'` in `pom.js`, the build generates both `Processor.java` and `Processor.js`. The class is registered in both the Java server registry and the JavaScript client registry automatically.
+The build generates both `FileProcessor.java` and `FileProcessor.js`, so the class is registered in both the Java server registry and the JavaScript client registry.
 
 The downside: Java editors treat `javaCode` as a string literal. No syntax highlighting, no code completion, no refactor support. For small snippets this is fine; for a full implementation with imports and helper methods it becomes awkward.
 
 ### Option B — pure Java file
 
-Write a handwritten Java class extending the FOAM-generated `Processor.java`:
-
 ```java
 // FileProcessor.java
 package com.example;
 
-public class FileProcessor extends Processor {
+import java.io.*;
 
-  public FileProcessor() {}
-  public FileProcessor(X x) { super(x); }
+public class FileProcessor extends AbstractProcessor {
 
   @Override
-  public String process(foam.lang.X x, String item) {
+  public void process(foam.lang.X x, String item) {
     // full IDE support — completions, errors, refactoring
-    return item.toUpperCase();
   }
 }
 ```
 
-The no-arg constructor is required for FOAM's JSON deserializer (`ClassInfo.newInstance()` uses Java reflection). The `(X x)` constructor chains to `super(x)` for normal creation.
+The `.java` file gets full IDE support. It extends the FOAM-generated `AbstractProcessor` base and inherits all generated getters and setters.
 
-If `FileProcessor` ever reaches the browser — stored in an `FObjectProperty` on a served object — add a companion `.js` so the browser can deserialize it:
-
-```javascript
-// FileProcessor.js  — registers the class name in the JS registry
-foam.CLASS({
-  package: 'com.example',
-  name: 'FileProcessor',
-  extends: 'com.example.Processor'
-});
-```
-
-Register both in `pom.js`:
+The `pom.js` entry goes in `javaFiles`:
 
 ```javascript
 foam.POM({
   name: 'process',
-  files: [
-    { name: 'Processor',     flags: 'js|java' },  // generates Processor.java + registers in JS
-    { name: 'FileProcessor', flags: 'js' }         // companion only — no Java generation
-  ],
+  files: [],
   javaFiles: [
-    { name: 'FileProcessor' }  // compiles the handwritten Java
+    { name: 'FileProcessor' }
   ]
 });
 ```
 
-`flags: 'js'` on the companion registers it in the client bundle without generating a Java stub. Using `flags: 'js|java'` would generate a Java stub that conflicts with the handwritten file.
+`javaFiles` compiles the Java file for the server. It does **not** produce a `FileProcessor.js`. The class lands in the Java registry but not in the browser's JS registry.
 
 | pom.js entry | JS bundle | Java server |
 |---|---|---|
@@ -159,7 +142,40 @@ foam.POM({
 | `files: [{ flags: 'js\|java' }]` | ✓ | ✓ (generated) |
 | `javaFiles` only | — | ✓ |
 
-This covers the common case. When `Processor` has `abstract: true`, there is more to handle — the next section covers it.
+---
+
+## Adding a client companion
+
+Suppose the bulk of your logic is Java — file I/O, complex parsing, external library calls — and Option B is the natural fit. The implementation lives in a `.java` file, the properties are declared in the FOAM base class, and everything works perfectly on the server.
+
+Now that class also needs to travel to the browser. Maybe it is stored in an `FObjectProperty` on an object that a client DAO serves, and the browser needs to read it, display it, and write it back. At that point `javaFiles` alone is not enough: the browser has no knowledge of the class and cannot deserialize it.
+
+The solution is a minimal companion `.js` file alongside the Java file. It declares just the `extends` — no methods, no additional properties, since those are already inherited from the FOAM base class. Its only job is to register the class name in the browser's JS registry.
+
+```javascript
+// FileProcessor.js  (companion — same name as the Java class)
+foam.CLASS({
+  package: 'com.example',
+  name: 'FileProcessor',
+  extends: 'com.example.Processor'
+});
+```
+
+Register it in `pom.js` with `flags: 'js'` in `files` and keep the handwritten Java in `javaFiles`:
+
+```javascript
+foam.POM({
+  name: 'process',
+  files: [
+    { name: 'FileProcessor', flags: 'js' }
+  ],
+  javaFiles: [
+    { name: 'FileProcessor' }
+  ]
+});
+```
+
+`flags: 'js'` adds `FileProcessor.js` to the client bundle without triggering Java code generation from it. The `javaFiles` entry compiles the handwritten `FileProcessor.java` independently. Using `flags: 'js|java'` here would cause the build to generate a Java stub from the companion `.js`, which would conflict with the handwritten implementation. `foam.lookup("com.example.FileProcessor")` now works in the browser, the property deserializes correctly, and the round-trip PUT succeeds.
 
 ---
 

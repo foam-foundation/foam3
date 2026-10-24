@@ -16,13 +16,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-public class FileCrawlerImpl extends FileCrawler {
+public class FileCrawler extends AbstractFileCrawler {
 
-  public FileCrawlerImpl(X x) { setX(x); }
+  public FileCrawler() {}
+  public FileCrawler(X x) { super(x); }
+
+  @Override public foam.lang.ClassInfo getClassInfo()    { return foam.lang.ClassInfoImpl.forClass(getClass()); }
+  public static foam.lang.ClassInfo    getOwnClassInfo() { return foam.lang.ClassInfoImpl.forClass(FileCrawler.class); }
 
   @Override
   public foam.lang.FObject fclone() {
-    FileCrawlerImpl clone = new FileCrawlerImpl(getX());
+    FileCrawler clone = new FileCrawler(getX());
     clone.copyFrom(this);
     return clone;
   }

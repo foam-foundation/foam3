@@ -6,7 +6,7 @@
 
 foam.CLASS({
   package: 'foam.core.ai.dataset',
-  name: 'DatasetGenerator',
+  name: 'AbstractDatasetGenerator',
   implements: [ 'foam.core.job.Batchable' ],
   abstract: true,
 

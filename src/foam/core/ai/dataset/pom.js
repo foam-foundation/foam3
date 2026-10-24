@@ -9,10 +9,11 @@ foam.POM({
   files: [
     { name: 'AlpacaSample',    flags: 'js|java' },
     { name: 'DataCrawler',     flags: 'js|java' },
-    { name: 'FileCrawler',     flags: 'js|java' },
-    { name: 'DatasetGenerator', flags: 'js|java' }
+    { name: 'AbstractFileCrawler',    flags: 'js|java' },
+    { name: 'AbstractDatasetGenerator', flags: 'js|java' },
+    { name: 'FileCrawler',         flags: 'js' }
   ],
   javaFiles: [
-    { name: 'FileCrawlerImpl' }
+    { name: 'FileCrawler' }
   ]
 });

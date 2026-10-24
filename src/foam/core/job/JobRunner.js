@@ -49,7 +49,7 @@ foam.CLASS({
 
         try {
           job.execute(x);
-          job.setStatus(JobStatus.COMPLETED);
+          if ( job.getStatus() != JobStatus.SUSPENDED ) job.setStatus(JobStatus.COMPLETED);
         } catch ( Throwable t ) {
           job.setStatus(JobStatus.FAILED);
           job.setException(stackTrace(t));

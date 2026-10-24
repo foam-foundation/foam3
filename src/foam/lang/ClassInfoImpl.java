@@ -12,6 +12,25 @@ import foam.util.SafetyUtil;
 public class ClassInfoImpl
   implements ClassInfo
 {
+  private static final java.util.concurrent.ConcurrentHashMap<Class, ClassInfo> BY_CLASS = new java.util.concurrent.ConcurrentHashMap<>();
+
+  /**
+   * Factory for handwritten Java subclasses of FOAM-generated bases.
+   * Derives the FOAM class ID directly from the Java class name and caches
+   * the result, so getClassInfo() / getOwnClassInfo() become one-liners
+   * with no error-prone ID string to maintain:
+   *
+   *   public FileCrawler()   {}
+   *   public FileCrawler(X x) { setX(x); }
+   *
+   *   {@literal @}Override public ClassInfo getClassInfo()    { return ClassInfoImpl.forClass(getClass()); }
+   *   public static       ClassInfo getOwnClassInfo() { return ClassInfoImpl.forClass(FileCrawler.class); }
+   */
+  public static ClassInfo forClass(Class cls) {
+    return BY_CLASS.computeIfAbsent(cls, c ->
+      new ClassInfoImpl().setId(c.getName()).setObjClass(c));
+  }
+
   protected List      axioms;
   protected String    id;
   protected HashMap   axiomsByName_                   = new HashMap();

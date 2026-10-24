@@ -102,6 +102,29 @@ Providing you specified 'js|java' in the pom.js file that includes this file, th
 
 The downside: Java editors treat `javaCode` as a string literal. No syntax highlighting, no code completion, no refactor support. For small snippets this is fine; for a full implementation with imports for the 'sever heavy' classes this becomes awkward.
 
+#### Class-level javaCode
+
+Some Java has no FOAM axiom to hang it on: an extra constructor, a static field, a nested class, a `ThreadLocal`. For these, add a top-level `javaCode` field to the model itself. Its text is copied verbatim into the body of the generated `.java` class.
+
+```javascript
+foam.CLASS({
+  package: 'foam.comics.v2.userfeedback',
+  name: 'UserFeedbackException',
+  extends: 'foam.lang.ClientRuntimeException',
+
+  javaCode: `
+  public UserFeedbackException(UserFeedback feedback, UserFeedbackAlertType alertType) {
+    setUserFeedback(feedback);
+    setAlertType(alertType);
+  }
+  `,
+
+  properties: [ ... ]
+});
+```
+
+This comes from `JavaCodeModelRefine` in `src/foam/java/refinements.js`, which refines `foam.lang.Model` with a `javaCode` property. Its `postSet` adds a `foam.java.JavaCode` axiom to the model, and when the Java class is built that axiom pushes the code onto the class's `extras`, which are output after the generated properties, methods and inner classes (`src/foam/java/Class.js:264`). FOAM does not parse or check the code: it is only seen by `javac`, and it has no effect on the JavaScript class.
+
 ### Option B — pure Java file
 
 Writing a pure Java class is straightforward. List `Processor.js` in `files` (the default flags produce both JS and Java), and list the handwritten `FileProcessor.java` in `javaFiles`:

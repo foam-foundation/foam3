@@ -49,13 +49,14 @@ foam.CLASS({
 
         try {
           job.execute(x);
-          job.setStatus(JobStatus.COMPLETED);
+          if ( job.getStatus() != JobStatus.SUSPENDED ) job.setStatus(JobStatus.COMPLETED);
         } catch ( Throwable t ) {
           job.setStatus(JobStatus.FAILED);
           job.setException(stackTrace(t));
           Loggers.logger(x, this).error("job", job.getClass().getSimpleName(), job.getId(), t);
         } finally {
           job.setExecutionTime(System.currentTimeMillis() - start);
+          if ( job.getProgress() != -1 && job.getStatus() == JobStatus.COMPLETED ) job.setProgress(100);
           job.save(x);
         }
       `

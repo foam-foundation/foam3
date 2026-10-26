@@ -14,7 +14,7 @@ foam.CLASS({
 
   ids: [ 'runKey', 'itemId' ],
 
-  tableColumns: [ 'runKey', 'itemId' ],
+  tableColumns: [ 'runKey', 'batchNumber', 'itemId' ],
 
   searchColumns: [ 'runKey' ],
 
@@ -26,6 +26,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'itemId'
+    },
+    {
+      class: 'Int',
+      name: 'batchNumber',
+      documentation: '1-based position of this item in the run.',
+      value: 0
     }
   ]
 });

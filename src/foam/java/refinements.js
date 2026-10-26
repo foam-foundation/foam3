@@ -3131,6 +3131,7 @@ foam.CLASS({
   ]
 });
 
+
 foam.CLASS({
   package: 'foam.java',
   name: 'CurrencyCodeJavaRefinement',
@@ -3155,6 +3156,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.java',

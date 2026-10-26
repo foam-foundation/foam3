@@ -18,6 +18,7 @@ foam.CLASS({
     'currentMenu',
     'isIframe',
     'pushDefaultMenu',
+    'window',
     'wizardLaunchMemento'
   ],
 
@@ -31,8 +32,8 @@ foam.CLASS({
         return;
       if ( this.isIframe() ) return;
       if ( this.wizardLaunchMemento === this.ctrl.route ) {
-        if ( window.history.length > 1 ) {
-          window.history.back();
+        if ( this.window.history.length > 1 ) {
+          this.window.history.back();
         } else 
           this.pushDefaultMenu('');
  

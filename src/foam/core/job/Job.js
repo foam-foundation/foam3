@@ -159,6 +159,11 @@ foam.CLASS({
       javaCode: `
         setStatusMsg(statusMsg);
         setProgress(progress);
+        if ( ! foam.util.SafetyUtil.isEmpty(getId()) ) {
+          // client might have changed the Job's status, so fetch it and update this clone before saving
+          Job current = (Job) ((DAO) x.get("jobDAO")).find(getId());
+          if ( current != null ) setStatus(current.getStatus());
+        }
         save(x);
       `
     },

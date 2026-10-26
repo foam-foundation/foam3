@@ -7,6 +7,7 @@
 package foam.core.partition;
 
 import foam.core.COREService;
+import foam.core.fs.Storage;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.lang.*;
@@ -14,11 +15,14 @@ import foam.mlang.Expr;
 import foam.mlang.order.Comparator;
 import foam.mlang.predicate.*;
 import foam.mlang.predicate.Predicate;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class DatePartitionedDAO
   extends PartitionedDAO
@@ -144,11 +148,55 @@ public class DatePartitionedDAO
     return parts.toArray(new String[0]);
   }
 
+  /** Existing date partitions, including schemes whose names contain slashes. */
+  @Override
+  public String[] getPartitions() {
+    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
+    File    probe   = storage.get(getDirName());
+    boolean ownsDir = getDirName().endsWith("/");
+    File    root    = ownsDir ? probe : probe.getParentFile();
+    if ( root == null || ! root.isDirectory() ) return new String[0];
+
+    Set<String> parts = new TreeSet<>();
+    int depth = scheme_.getPartition(Calendar.getInstance()).split("/").length;
+    collectPartitions(root, ownsDir ? "" : probe.getName(), "", depth, parts);
+    return parts.toArray(new String[0]);
+  }
+
+  /** A daily partition has three numeric path segments, such as 2024/1/15.
+      Its last segment can still be a legacy journal file: opening that
+      partition lets preparePartitionDirectory move it into 15/journal. */
+  protected void collectPartitions(File dir, String prefix, String path, int depth, Set<String> parts) {
+    File[] entries = dir.listFiles();
+    if ( entries == null ) throw new IllegalStateException("Cannot list date partitions in " + dir);
+
+    for ( File entry : entries ) {
+      String name = entry.getName();
+      if ( ! name.startsWith(prefix) ) continue;
+      String part = name.substring(prefix.length());
+      try {
+        Integer.parseInt(part);
+      } catch ( NumberFormatException e ) {
+        continue;
+      }
+
+      if ( depth == 1 ) {
+        parts.add(path + part);
+      } else if ( entry.isDirectory() ) {
+        collectPartitions(entry, "", path + part + "/", depth - 1, parts);
+      }
+    }
+  }
+
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
     // System.err.println("***** DPD Select " + skip + " " + limit + " " + order + " " + predicate);
-    Date[]   range = extractPredicateRange(predicate);
-    // System.err.println("********** DATE PART RANGE " + range[0] + " " + range[1]);
-    String[] parts = getPartitions(range);
+    // AllPartitions(date) is used by maintenance operations that must reach
+    // old data outside the normal time window. Discover only partitions that
+    // already exist so the query does not create an empty journal for every
+    // date between the oldest possible value and today.
+    String[] parts = hasAllPartitions(predicate, getPartitionProperty())
+      ? getPartitions()
+      : getPartitions(extractPredicateRange(predicate));
     // System.err.println("********** DATE PART PARTS " + parts.length);
 
     // Predicate is still needed because partitions can still contain data outside of the range

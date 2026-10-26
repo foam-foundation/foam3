@@ -1,0 +1,4 @@
+p({
+  class:"foam.core.notification.email.ms.test.MicrosoftGraphEmailAgentTest",
+  id:"MicrosoftGraphEmailAgentTest"
+})

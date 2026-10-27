@@ -14,12 +14,12 @@ foam.CLASS({
     {
       class: 'String',
       name: 'endpoint',
-      value: 'http://localhost:11434/api/embeddings'
+      value: 'http://localhost:11434/api/embed'
     },
     {
       class: 'String',
       name: 'model',
-      value: 'nomic-embed-text'
+      value: 'qwen3-embedding'
     }
   ]
 });

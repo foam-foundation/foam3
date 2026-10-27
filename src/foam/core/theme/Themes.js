@@ -35,7 +35,7 @@ foam.CLASS({
     'foam.util.SafetyUtil',
     'foam.util.Arrays',
     'jakarta.servlet.http.HttpServletRequest',
-    'org.eclipse.jetty.server.Request'
+    'org.eclipse.jetty.util.URIUtil'
   ],
 
   methods: [
@@ -258,7 +258,7 @@ Later themes:
            // AppConfig.URL.isDefaultValue(appConfig) )  {
            SafetyUtil.compare(appConfig.getUrl(), "http://localhost") == 0 ) {
         if ( req != null ) {
-          appConfig.setUrl(((Request) req).getRootURL().toString());
+          appConfig.setUrl(URIUtil.newURIBuilder(req.getScheme(), req.getServerName(), req.getServerPort()).toString());
         } else if ( ! SafetyUtil.isEmpty(domain) ) {
           appConfig.setUrl("https://"+domain);
         }

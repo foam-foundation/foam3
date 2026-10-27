@@ -9,12 +9,15 @@ package foam.core.http;
 import java.io.*;
 import java.lang.reflect.*;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import org.eclipse.jetty.util.MultiMap;
+import org.eclipse.jetty.util.UrlEncoded;
 
 /** Adapt a Servlet into an HttpHandler. **/
 public class ServletHandler
@@ -307,14 +310,24 @@ public class ServletHandler
 
     Map<String, String[]> parsePostData = new HashMap<>();
 
-    try {
-      parsePostData.putAll(HttpUtils.parseQueryString(ex.getRequestURI().getQuery()));
+    // Servlet 6 removed HttpUtils, so Jetty's UrlEncoded decodes instead, with
+    // the same ISO-8859-1 charset. HttpUtils.parseQueryString threw on a missing
+    // query string, which also skipped the body; a request without "?..." still
+    // gets no parsed post data.
+    String query = ex.getRequestURI().getQuery();
+    if ( query == null ) {
+      newInput.reset();
+    } else {
+      MultiMap<String> queryParams = new MultiMap<>();
+      UrlEncoded.decodeTo(query, queryParams, StandardCharsets.ISO_8859_1);
+      parsePostData.putAll(queryParams.toStringArrayMap());
 
       // check if any postdata to parse
-      parsePostData.putAll(HttpUtils.parsePostData(inBytes.length, is));
-    } catch (IllegalArgumentException e) {
-      // no postData - just reset inputstream
-      newInput.reset();
+      if ( inBytes.length > 0 ) {
+        MultiMap<String> bodyParams = new MultiMap<>();
+        UrlEncoded.decodeTo(is, bodyParams, StandardCharsets.ISO_8859_1, inBytes.length, Integer.MAX_VALUE);
+        parsePostData.putAll(bodyParams.toStringArrayMap());
+      }
     }
 
     final Map<String, String[]> postData = parsePostData;

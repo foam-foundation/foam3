@@ -55,6 +55,7 @@ foam.CLASS({
       policy = filter.buildPolicy(x, "localhost");
       test ( ! SafetyUtil.isEmpty(policy), "Policy not empty");
       test ( policy.indexOf("test2") >= 0, "Policy contains directive");
+      test ( policy.equals(policy.trim()), "Policy has no leading or trailing whitespace, which HTTP/2 rejects: [" + policy + "]");
 
       d2.setEnabled(false);
       d2 = (CSPDirective) dao.put(d2).fclone();

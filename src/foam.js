@@ -297,6 +297,7 @@
       // TODO: requireModule vs requireFile -> require
       (foam.loadModules || loadFiles)(pom.projects, true);
       (foam.loadFiles   || loadFiles)(pom.files,    false);
+      (foam.loadModules || loadFiles)(pom.postProjects, true);
 
       foam.require(null, false);
 

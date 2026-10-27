@@ -27,7 +27,7 @@ foam.CLASS({
     {
       name: 'MIN_PASSWORD_LENGTH',
       type: 'Long',
-      value: 10
+      value: 12
     }
   ],
 
@@ -51,6 +51,7 @@ foam.CLASS({
     {
       class: 'Long',
       name: 'priorPasswordsToCheckCount',
+      value: 4,
       min: 0,
       max: 10,
       documentation: `

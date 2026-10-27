@@ -14,6 +14,7 @@ foam.POM({
   ],
 
   files: [
+    { name: "../lang/Blob",                                       flags: "js|java" },
     { name: "Blob",                                               flags: "js|java" },
     { name: "BlobService",                                        flags: "js|java" },
     { name: "AbstractBlob",                                       flags: "js|java" },

@@ -70,7 +70,6 @@ foam.POM({
     'org.eclipse.jetty.http2:jetty-http2-server:12.1.14',
     'org.eclipse.parsson:parsson:1.1.7',
     'org.jsoup:jsoup:1.23.2', // HTML Parser
-    'org.jtwig:jtwig-core:5.87.0.RELEASE',
     'org.postgresql:postgresql:42.7.12',
     'nl.martijndwars:web-push:5.1.1 -org.asynchttpclient:async-http-client -org.bitbucket.b_c:jose4j', // https://github.com/web-push-libs/webpush-java
     'org.asynchttpclient:async-http-client:2.15.0',

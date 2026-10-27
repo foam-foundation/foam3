@@ -6,7 +6,6 @@
 
 package foam.core.notification.email;
 
-import com.google.common.base.Optional;
 import foam.lang.ContextAwareSupport;
 import foam.lang.X;
 import foam.dao.DAO;
@@ -17,7 +16,6 @@ import foam.core.logger.Logger;
 import foam.core.logger.Loggers;
 import foam.core.pm.PM;
 import foam.util.SafetyUtil;
-import org.jtwig.resource.loader.ResourceLoader;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URL;
@@ -31,7 +29,6 @@ import static foam.mlang.MLang.*;
 
 public class EmailTemplateSupport
   extends    ContextAwareSupport
-  implements ResourceLoader
 {
   protected String groupId_;
   protected String locale_;
@@ -160,26 +157,5 @@ public class EmailTemplateSupport
     this.groupId_ = groupId;
     this.locale_  = locale;
     this.spid_ = spid;
-  }
-
-  @Override
-  public Optional<Charset> getCharset(String s) {
-    return Optional.absent();
-  }
-
-  @Override
-  public InputStream load(String s) {
-    EmailTemplate template = EmailTemplateSupport.findTemplate(getX(), s, this.groupId_, this.locale_, this.spid_);
-    return template == null ? null : new ByteArrayInputStream(template.getBodyAsByteArray());
-  }
-
-  @Override
-  public boolean exists(String s) {
-    return load(s) != null;
-  }
-
-  @Override
-  public Optional<URL> toUrl(String s) {
-    return Optional.absent();
   }
 }

@@ -147,10 +147,25 @@ foam.CLASS({
       }
       el.resizeObserver(this.buttonObserver.bind(this, el, uid));
       this.buttonObserver(el, uid);
+      // An action that becomes unavailable or available again only changes its
+      // class, and a button this group already hid has no size to report, so a
+      // resize never fires for it. Re-fit on every class change instead.
+      let target = el.el_();
+      if ( target && globalThis.MutationObserver ) {
+        let classObserver = new MutationObserver(() => this.onResize());
+        classObserver.observe(target, { attributes: true, attributeFilter: [ 'class' ] });
+        el.onDetach(() => classObserver.disconnect());
+      }
       this.onResize();
     },
     function isAction(a) {
       return foam.lang.Action.isInstance(a) || this.ActionReference.isInstance(a);
+    },
+    function isUnavailable_(el) {
+      // ActionView marks an action whose isAvailable is false with its
+      // 'unavailable' class, which hides it with display: none
+      let element = el && el.el_ && el.el_();
+      return !! ( element && element.classList && element.classList.contains(el.myClass('unavailable')) );
     }
   ],
    listeners: [
@@ -176,7 +191,16 @@ foam.CLASS({
         let available = containerWidth - overlayWidth;
         let visibleCount = 0;
         let currentWidth = 24; // 24px as padding width for either side
-        const children = this.notContent.children;
+        // An unavailable action is still a child, hidden by its own 'unavailable'
+        // class, and its width was recorded while its availability was loading.
+        // Counting it pushed the available actions out: on a record with a dozen
+        // state-specific actions, the invisible ones filled the group and every
+        // action that applied went to the overflow. It takes no room and must not
+        // reach the overflow, so it is left out of both.
+        const children = this.notContent.children.filter(child => {
+          let value = this.childWidths[child.$UID];
+          return ! ( value && this.isUnavailable_(value.el) );
+        });
         // Determine how many fit
         for ( let i = 0; i < children.length; i++ ) {
           let child = children[i];

@@ -25,9 +25,9 @@ foam.POM({
   ],
   javaDependencies: [
     'org.json:json:20231013',
-    'com.google.api-client:google-api-client:1.22.0',
-    'com.google.apis:google-api-services-drive:v3-rev72-1.22.0',
-    'com.google.apis:google-api-services-sheets:v4-rev567-1.22.0',
+    'com.google.api-client:google-api-client:2.9.2',
+    'com.google.apis:google-api-services-drive:v3-rev20261011-2.0.0',
+    'com.google.apis:google-api-services-sheets:v4-rev20261019-2.9.2',
     'com.google.oauth-client:google-oauth-client:1.39.0',
     'com.google.oauth-client:google-oauth-client-jetty:1.39.0 -org.mortbay.jetty',
     'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10',

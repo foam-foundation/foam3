@@ -15,15 +15,16 @@ import foam.lib.json.JSONParser;
 import foam.core.boot.CSpec;
 import foam.core.box.COREServiceRouter;
 import foam.core.logger.Logger;
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
+import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
+import org.eclipse.jetty.websocket.api.annotations.OnWebSocketOpen;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 @WebSocket
 public class NanoWebSocket
@@ -51,8 +52,8 @@ public class NanoWebSocket
     return logger_;
   }
 
-  @OnWebSocketConnect
-  public void onWebSocketConnect(Session session) {
+  @OnWebSocketOpen
+  public void onWebSocketOpen(Session session) {
     session_ = session;
     getLogger().info("WebSocket session connected.");
   }
@@ -72,7 +73,7 @@ public class NanoWebSocket
   public void onWebSocketMessage(String message) {
     try {
       if ( session_ != null && session_.isOpen() ) {
-        RemoteEndpoint          remote     = session_.getRemote();
+        Session                 session    = session_;
         UpgradeRequest          upgrade    = session_.getUpgradeRequest();
         String                  path       = upgrade.getRequestURI().getPath();
         String                  serviceKey = path.split("/")[2];
@@ -94,7 +95,18 @@ public class NanoWebSocket
         returnBox.setSocket(new foam.net.WebSocket() {
           @Override
           public void send(String message) throws IOException {
-            remote.sendString(message);
+            // Jetty 12 only sends asynchronously. Wait for the send to finish
+            // so callers still see a failed send as an IOException.
+            Callback.Completable sent = new Callback.Completable();
+            session.sendText(message, sent);
+            try {
+              sent.get();
+            } catch ( InterruptedException e ) {
+              Thread.currentThread().interrupt();
+              throw new IOException(e);
+            } catch ( ExecutionException e ) {
+              throw new IOException(e.getCause());
+            }
           }
         });
 

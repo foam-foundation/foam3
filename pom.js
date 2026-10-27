@@ -40,7 +40,6 @@ foam.POM({
     'commons-net:commons-net:3.6',
     'jakarta.mail:jakarta.mail-api:2.1.2',
     'jakarta.activation:jakarta.activation-api:2.1.2',
-    'jakarta.websocket:jakarta.websocket-api:2.0.0',
     'jakarta.json:jakarta.json-api:2.1.3',
     'javax.ws.rs:javax.ws.rs-api:2.1.1',
     'jstl:jstl:1.2',
@@ -59,14 +58,18 @@ foam.POM({
     'org.eclipse.angus:angus-activation:2.0.2',
     'org.eclipse.angus:angus-mail:2.0.3',
     'org.eclipse.angus:imap:2.0.3',
-    'org.eclipse.jetty:jetty-proxy:11.0.26',
-    'org.eclipse.jetty:jetty-alpn-java-server:11.0.26',
-    'org.eclipse.jetty:jetty-http:11.0.26',
-    'org.eclipse.jetty:jetty-jmx:11.0.26', // for source build
-    'org.eclipse.jetty:jetty-util:11.0.26',
-    'org.eclipse.jetty:jetty-util-ajax:11.0.26', // for source build
-    'org.eclipse.jetty.http2:http2-server:11.0.26',
-    'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.26',
+    'org.eclipse.jetty:jetty-server:12.1.14',
+    'org.eclipse.jetty:jetty-alpn-java-server:12.1.14',
+    'org.eclipse.jetty:jetty-http:12.1.14',
+    'org.eclipse.jetty:jetty-jmx:12.1.14', // for source build
+    'org.eclipse.jetty:jetty-util:12.1.14',
+    'org.eclipse.jetty:jetty-util-ajax:12.1.14', // for source build
+    'org.eclipse.jetty.compression:jetty-compression-server:12.1.14',
+    'org.eclipse.jetty.compression:jetty-compression-gzip:12.1.14',
+    'org.eclipse.jetty.ee11:jetty-ee11-proxy:12.1.14',
+    'org.eclipse.jetty.ee11:jetty-ee11-servlet:12.1.14',
+    'org.eclipse.jetty.ee11.websocket:jetty-ee11-websocket-jetty-server:12.1.14',
+    'org.eclipse.jetty.http2:jetty-http2-server:12.1.14',
     'org.eclipse.parsson:parsson:1.1.7',
     'org.jsoup:jsoup:1.15.1', // HTML Parser
     'org.jtwig:jtwig-core:5.87.0.RELEASE',

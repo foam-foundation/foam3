@@ -66,7 +66,7 @@ foam.POM({
     'org.eclipse.jetty.http2:http2-server:11.0.26',
     'org.eclipse.jetty.websocket:websocket-jetty-server:11.0.26',
     'org.eclipse.parsson:parsson:1.1.7',
-    'org.jsoup:jsoup:1.15.1', // HTML Parser
+    'org.jsoup:jsoup:1.23.2', // HTML Parser
     'org.jtwig:jtwig-core:5.87.0.RELEASE',
     'org.postgresql:postgresql:42.7.12',
     'nl.martijndwars:web-push:5.1.1 -org.asynchttpclient:async-http-client -org.bitbucket.b_c:jose4j', // https://github.com/web-push-libs/webpush-java

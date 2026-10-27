@@ -37,8 +37,6 @@ foam.INTERFACE({
     'java.util.Map',
     'java.util.Set',
 
-    'org.apache.commons.lang.ArrayUtils',
-
     'static foam.core.crunch.CapabilityJunctionStatus.*'
   ],
 

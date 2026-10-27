@@ -12,7 +12,6 @@ foam.CLASS({
     'java.util.ArrayList',
     'java.util.List',
     'java.util.StringJoiner',
-    'org.apache.commons.lang.ArrayUtils',
     'org.apache.commons.lang3.StringUtils'
   ],
 

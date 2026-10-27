@@ -126,6 +126,7 @@ foam.CLASS({
           mime = Base64.getDecoder().decode(new String(requests.get(0).body, StandardCharsets.US_ASCII));
           sent = new MimeMessage(Session.getInstance(new Properties()), new ByteArrayInputStream(mime));
           expect(sent.getSubject(), "Relevé de compte — été", "non-ASCII subject decodes unchanged");
+          expect(sent.getContent().toString(), "<p>Montant : 1 200,00 €</p>", "non-ASCII body decodes unchanged");
           local = new ByteArrayOutputStream();
           agent.createMimeMessage(msg).writeTo(local);
           expect(normalize(mime), normalize(local.toByteArray()), "non-ASCII Graph body equals the MimeMessage the agent builds");

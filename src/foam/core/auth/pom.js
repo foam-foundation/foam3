@@ -25,6 +25,7 @@ foam.POM({
     { name: "DeletedAwareDAOTest",                                    flags: "js&test|java&test" },
     { name: "EnabledAware",                                           flags: "js|java" },
     { name: "FailedLoginAuthService",                                 flags: "js|java" },
+    { name: "BadLoginAccountLockoutAuthService",                      flags: "js|java" },
     { name: "LastModifiedAware",                                      flags: "js|java" },
     { name: "LastModifiedAwareDAO",                                   flags: "js|java" },
     { name: "LastModifiedByAware",                                    flags: "js|java" },

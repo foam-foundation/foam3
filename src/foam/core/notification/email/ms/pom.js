@@ -22,6 +22,6 @@ foam.POM({
     { name: "test/tests",                     flags: "test" }
   ],
   javaDependencies: [
-    'com.azure:azure-identity:1.15.4'
+    'com.azure:azure-identity:1.15.4 -io.netty:netty-resolver-dns-native-macos -io.netty:netty-transport-native-epoll -io.netty:netty-transport-native-kqueue'
   ]
 });

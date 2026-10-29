@@ -72,6 +72,21 @@ foam.CLASS({
       value: 42
     },
     {
+      type: 'String',
+      name: 'CHECKBOX_SELECTED_NONE',
+      value: 'none'
+    },
+    {
+      type: 'String',
+      name: 'CHECKBOX_SELECTED_SOME',
+      value: 'some'
+    },
+    {
+      type: 'String',
+      name: 'CHECKBOX_SELECTED_ALL',
+      value: 'all'
+    },
+    {
       type: 'Char',
       name: 'DESCENDING_ORDER_CHAR',
       value: '-'
@@ -417,12 +432,18 @@ foam.CLASS({
                     style({ width: `${this.CHECKBOX_CONTAINER_WIDTH}px`, 'min-width': `${this.CHECKBOX_CONTAINER_WIDTH}px` }).
                     end();
 
-                  // Set up a listener so we can update the existing CheckBox
-                  // views when a user wants to select all or select none.
-                  view.onDetach(slot.value.dot('data').sub(function(_, __, ___, newValueSlot) {
-                    var checked = newValueSlot.get();
+                  // >= because selectedObjects can keep ids a search filtered out.
+                  var cb    = slot.get();
+                  var state = cb.slot(function(selectedObjects, total) {
+                    var n = Object.keys(selectedObjects).length;
+                    return n === 0 ? view.CHECKBOX_SELECTED_NONE : n >= total ? view.CHECKBOX_SELECTED_ALL : view.CHECKBOX_SELECTED_SOME;
+                  }, view.selectedObjects$, view.scrollEl_$.dot('daoCount'));
+                  cb.onDetach(cb.data$.follow(state.map(s => s === view.CHECKBOX_SELECTED_ALL)));
+                  cb.setAttribute('indeterminate', state.map(s => s === view.CHECKBOX_SELECTED_SOME));
 
-                    if ( checked ) {
+                  // User changes only; 'change' fires after CheckBox's click toggle.
+                  cb.on('change', function() {
+                    if ( state.get() === view.CHECKBOX_SELECTED_NONE ) {
                       var objs = {};
                       view.data.select(function(obj) {
                         objs[obj.id] = obj;
@@ -430,9 +451,11 @@ foam.CLASS({
                         view.selectedObjects = objs;
                       });
                     } else {
+                      // From '-' the click checked it and state won't uncheck it.
+                      cb.data = false;
                       view.selectedObjects = {};
                     }
-                  }));
+                  });
                 }).
 
                 // Render the table headers for the property columns.

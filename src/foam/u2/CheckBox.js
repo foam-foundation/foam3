@@ -62,6 +62,18 @@ foam.CLASS({
       top: 1px;
       content: url("/images/checkmark-white.svg");
     }
+    <<:indeterminate {
+      background-color: $checkboxColor;
+      border-color: $checkboxColor;
+    }
+    <<:indeterminate:after {
+      content: '';
+      display: block;
+      width: 60%;
+      height: 2px;
+      margin: calc(50% - 1px) auto 0;
+      background-color: $textOnBrand;
+    }
     << input:focus + label::before {
       content: '';
       box-shadow: 0 0 0 3px $checkboxColor$active;

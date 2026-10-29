@@ -501,8 +501,9 @@ foam.CLASS({
       `,
       name: 'PSEDO_ATTRIBUTES',
       value: {
-        value:   true,
-        checked: true
+        value:         true,
+        checked:       true,
+        indeterminate: true
       }
     },
     {

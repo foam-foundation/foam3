@@ -516,9 +516,7 @@ foam.CLASS({
         // fall back to initMenu() when that path is skipped, otherwise the route
         // is pushed twice and the first (superseded) render poisons document-global
         // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
-        if ( self?.subject?.realUser &&
-             ( ! anonymous ||
-               anonymous && foam.locale.startsWith('en') ) ) {
+        if ( self?.subject?.realUser && anonymous && foam.locale.startsWith('en') ) {
           await self.maybeReinstallLanguage(self.client);
         }
         if ( self?.subject?.realUser && ! anonymous ) {
@@ -673,7 +671,7 @@ foam.CLASS({
         if ( ! promptLogin || authResult ) return;
         await this.clientPromise;
         await this.requestLogin();
-        return await this.fetchSubject();
+        await this.fetchSubject();
       } finally {
         this.initSubject = true;
       }
@@ -942,6 +940,11 @@ foam.CLASS({
       this.loginSuccess = true;
       let check = await this.checkGeneralCapability();
       if ( ! check ) return;
+      // Menu labels are translated once, when drawn, and the nav is drawn once
+      // initLayout resolves below. Switch to the user's language first: an
+      // 'en' user logging in from a 'fr' login page otherwise keeps whichever
+      // menus were drawn before the switch in French until a hard refresh.
+      await this.maybeReinstallLanguage(this.client);
       await this.fetchTheme();
       var hash = this.route;
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {

@@ -848,14 +848,14 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'isMenuOpen',
+    'llmService as parentLLMService',
     'notify',
     'params',
     'setTimeout',
-    'toolbarControlDAO',
-    'window',
     'showNav',
-    'isMenuOpen',
-    'llmService as parentLLMService'
+    'toolbarControlDAO',
+    'window'
   ],
 
   constants: [

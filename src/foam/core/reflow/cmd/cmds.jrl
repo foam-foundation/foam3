@@ -143,6 +143,50 @@ p({
 })
 p({
   "class":"foam.core.reflow.cmd.Command",
+  "id": "shell",
+  "description": "Script an editable shell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.ShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "beanshell",
+  "description": "Script an editable BeanShell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.BeanShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "jshell",
+  "description": "Script an editable JShell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.JShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+// p({
+//   "class":"foam.core.reflow.cmd.Command",
+//   "id": "python",
+//   "description": "Script an editable Python script that runs on the server",
+//   "icon": "script",
+//   "script": """
+//     var code = args.join(' ');
+//     addValue(foam.core.reflow.PythonScript.create({code: code, autoRun: !! code}, this), true);
+//   """,
+//   permissionRequired: true
+// })
+p({
+  "class":"foam.core.reflow.cmd.Command",
   "id": "function",
   "icon": "functionSign",
   "description": "Script an editable JavaScript block whose return value is the block's value",

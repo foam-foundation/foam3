@@ -488,7 +488,7 @@ foam.CLASS({
         // Rebuild Stack in correct context
         self.stack = self.Stack.create({}, self.__subContext__).copyFrom({ ...self.stack, __subSubContext__: undefined });
         self.breadcrumbs = self.BreadcrumbManager.create({}, self.__subContext__).copyFrom({ ...self.breadcrumbs, __subSubContext__: undefined });
-        self.fetchTheme();
+        await self.fetchTheme();
         foam.locale = localStorage.getItem('localeLanguage') || self.theme?.defaultLocaleLanguage || foam.locale;
 
         client.translationService.initLatch.then(() => {
@@ -500,7 +500,7 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        let anonymous = self.isAnonymous();
+        let anonymous = await self.isAnonymous();
 
         // show oauth_exception toast notification when failed to link SSO user to existing user in the app
         if ( anonymous ) {
@@ -512,8 +512,6 @@ foam.CLASS({
           }
         }
 
-        // For anonymous users, we shouldn't reinstall the language
-        // because the user's language setting isn't meaningful.
         // onUserAgentAndGroupLoaded() routes to the initial menu itself; only
         // fall back to initMenu() when that path is skipped, otherwise the route
         // is pushed twice and the first (superseded) render poisons document-global
@@ -522,6 +520,8 @@ foam.CLASS({
              ( ! anonymous ||
                anonymous && foam.locale.startsWith('en') ) ) {
           await self.maybeReinstallLanguage(self.client);
+        }
+        if ( self?.subject?.realUser && ! anonymous ) {
           await self.onUserAgentAndGroupLoaded();
         } else {
           await self.initMenu();
@@ -568,8 +568,8 @@ foam.CLASS({
       this.__subContext__.__proto__ = this.client.__subContext__;
       // TODO: find a better way to resub on client reloads
       this.subToNotifications();
-      this.fetchGroup();
-      this.fetchTheme();
+      await this.fetchTheme();
+      await this.fetchGroup();
       this.onDetach(this.__subContext__.cssTokenOverrideService?.cacheUpdated.sub(() => { foam.u2.CSS.reloadStyles(this.__subContext__) }));
       this.subject = this.client.initSubject;
     },
@@ -606,12 +606,13 @@ foam.CLASS({
 
     async function isAnonymous() {
       try {
-        return await client.auth.isAnonymous();
+        return await this.client?.auth.isAnonymous();
       } catch (e) {
         // NO-OP
         // This is expected to fail if the an anonymous user is not available
+        console.error(e);
       }
-      return false;
+      return true;
     },
 
     async function maybeReinstallLanguage(client) {
@@ -627,7 +628,7 @@ foam.CLASS({
           foam.locale = this.defaultLanguage.toString();
           let user = this.subject.realUser;
           user.language = this.defaultLanguage.id;
-          if ( ! this.isAnonymous() )
+          if ( ! await this.isAnonymous() )
             await client.userDAO.put(user);
         } else if ( foam.locale != userPreferLanguage.toString() ) {
           foam.locale = userPreferLanguage.toString();
@@ -635,6 +636,7 @@ foam.CLASS({
         client.translationService.maybeReload();
         await client.translationService.initLatch;
         this.installLanguage();
+        await this.reloadClient();
       }
     },
 
@@ -666,7 +668,7 @@ foam.CLASS({
           throw new Error('Authentication required');
         }
 
-        this.fetchGroup();
+        await this.fetchGroup();
       } catch (err) {
         if ( ! promptLogin || authResult ) return;
         await this.clientPromise;
@@ -1042,7 +1044,7 @@ foam.CLASS({
       this.lastMenuLaunched = m;
     },
 
-    function fetchTheme() {
+    async function fetchTheme() {
       /**
        * Get the most appropriate Theme object from the server and use it to
        * customize the look and feel of the application.

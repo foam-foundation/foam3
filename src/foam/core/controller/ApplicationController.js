@@ -614,7 +614,9 @@ foam.CLASS({
     },
 
     async function maybeReinstallLanguage(client) {
+      /** Returns true when the page is reloading into the user's language. */
       if ( this.subject.realUser.language.toString() != foam.locale ) {
+        let oldLocale = foam.locale;
         let languages = (await client.languageDAO
           .where(foam.mlang.predicate.Eq.create({
             arg1: foam.core.auth.Language.ENABLED,
@@ -630,11 +632,21 @@ foam.CLASS({
         } else if ( foam.locale != userPreferLanguage.toString() ) {
           foam.locale = userPreferLanguage.toString();
         }
-        client.translationService.maybeReload();
-        await client.translationService.initLatch;
-        this.installLanguage();
-        await this.reloadClient();
+
+        // Switching language reloads the page rather than patching the classes
+        // already built. A class built under the old locale keeps text that
+        // installLanguage() cannot reach: a subclass that overrides an inherited
+        // property copies the parent's label as it was at build time, so a
+        // 'Case Number' column built on a 'fr' login page stays 'Numéro de
+        // Affaire' after switching to 'en'. Saving localeLanguage makes the
+        // reloaded page start in the new locale.
+        if ( foam.locale != oldLocale ) {
+          localStorage.setItem('localeLanguage', foam.locale);
+          this.reload();
+          return true;
+        }
       }
+      return false;
     },
 
     async function fetchGroup() {
@@ -939,11 +951,11 @@ foam.CLASS({
       this.loginSuccess = true;
       let check = await this.checkGeneralCapability();
       if ( ! check ) return;
-      // Menu labels are translated once, when drawn, and the nav is drawn once
-      // initLayout resolves below. Switch to the user's language first: an
-      // 'en' user logging in from a 'fr' login page otherwise keeps whichever
-      // menus were drawn before the switch in French until a hard refresh.
-      await this.maybeReinstallLanguage(this.client);
+      // Switch to the user's language before any menu or table is drawn. An
+      // 'en' user logging in from a 'fr' login page reloads here; the session
+      // survives the reload, and the reloaded page comes back through this
+      // method already in 'en'.
+      if ( await this.maybeReinstallLanguage(this.client) ) return;
       await this.fetchTheme();
       var hash = this.route;
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {

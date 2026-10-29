@@ -512,13 +512,14 @@ foam.CLASS({
           }
         }
 
+        // An anonymous session keeps the language picked on page load (saved browser
+        // choice, else Theme.defaultLocaleLanguage). The anonymous user's stored
+        // language is not applied, so a 'fr' theme shows a French login page.
+
         // onUserAgentAndGroupLoaded() routes to the initial menu itself; only
         // fall back to initMenu() when that path is skipped, otherwise the route
         // is pushed twice and the first (superseded) render poisons document-global
         // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
-        if ( self?.subject?.realUser && anonymous && foam.locale.startsWith('en') ) {
-          await self.maybeReinstallLanguage(self.client);
-        }
         if ( self?.subject?.realUser && ! anonymous ) {
           await self.onUserAgentAndGroupLoaded();
         } else {
@@ -608,9 +609,8 @@ foam.CLASS({
       } catch (e) {
         // NO-OP
         // This is expected to fail if the an anonymous user is not available
-        console.error(e);
       }
-      return true;
+      return false;
     },
 
     async function maybeReinstallLanguage(client) {
@@ -626,8 +626,7 @@ foam.CLASS({
           foam.locale = this.defaultLanguage.toString();
           let user = this.subject.realUser;
           user.language = this.defaultLanguage.id;
-          if ( ! await this.isAnonymous() )
-            await client.userDAO.put(user);
+          await client.userDAO.put(user);
         } else if ( foam.locale != userPreferLanguage.toString() ) {
           foam.locale = userPreferLanguage.toString();
         }

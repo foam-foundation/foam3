@@ -12,6 +12,8 @@ foam.POM({
     { name: "Batchable",           flags: "js|java" },
     { name: "BatchJob",            flags: "js|java" },
     { name: "PythonJob",           flags: "js|java" },
+    { name: "ShellJob",            flags: "js|java" },
+    { name: "ScriptJob",           flags: "js|java" },
     { name: "test/SleepJob",       flags: "js&test|java&test" },
     { name: "test/JobTest",        flags: "js&test|java&test" }
   ]

@@ -14,7 +14,7 @@ foam.CLASS({
     'com.google.api.client.googleapis.javanet.GoogleNetHttpTransport',
     'com.google.api.client.http.javanet.NetHttpTransport',
     'com.google.api.client.json.JsonFactory',
-    'com.google.api.client.json.jackson2.JacksonFactory',
+    'com.google.api.client.json.gson.GsonFactory',
     'com.google.api.services.sheets.v4.Sheets',
     'com.google.api.services.sheets.v4.SheetsScopes',
     'com.google.api.services.sheets.v4.model.*',
@@ -36,7 +36,7 @@ foam.CLASS({
     {
       name: 'JSON_FACTORY',
       javaType: 'com.google.api.client.json.JsonFactory',
-      javaValue: `JacksonFactory.getDefaultInstance()`
+      javaValue: `GsonFactory.getDefaultInstance()`
     },
     {
       name: 'DRIVE_FILE',

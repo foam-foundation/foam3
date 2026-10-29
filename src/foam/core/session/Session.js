@@ -35,7 +35,6 @@ foam.CLASS({
     'foam.util.SafetyUtil',
     'java.util.Date',
     'jakarta.servlet.http.HttpServletRequest',
-    'org.eclipse.jetty.server.Request',
     'static foam.mlang.MLang.*'
   ],
 

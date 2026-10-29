@@ -1,0 +1,86 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+// One of n pom files controlling foam model load boot order.
+//
+// Attempt to add additional files to a package scoped pom file
+
+foam.POM({
+  name: "bootstrap",
+
+  files: [
+    { name: "foam/lang/lib",                                          flags: "js" },
+    { name: "foam/lang/stdlib",                                       flags: "js" },
+    { name: "foam/lang/events",                                       flags: "js" },
+    { name: "foam/lang/Context",                                      flags: "js" },
+    { name: "foam/lang/LocalStorage",                                 flags: "js" },
+    { name: "foam/lang/Boot",                                         flags: "js" },
+    { name: "foam/lang/FObject",                                      flags: "js" },
+    { name: "foam/lang/Model",                                        flags: "js" },
+    { name: "foam/lang/Property",                                     flags: "js" },
+    { name: "foam/lang/Simple",                                       flags: "js" },
+    { name: "foam/lang/Method",                                       flags: "js" },
+    { name: "foam/lang/Boolean",                                      flags: "js" },
+    { name: "foam/lang/AxiomArray",                                   flags: "js" },
+    { name: "foam/lang/EndBoot",                                      flags: "js" },
+    { name: "foam/lang/Script",                                       flags: "js" },
+    { name: "foam/pattern/Faceted",                                   flags: "js" },
+    { name: "foam/lang/Glyph",                                        flags: "js|java" },
+    { name: "foam/lang/types",                                        flags: "js" },
+    { name: "foam/lang/Duration",                                     flags: "js" },
+    { name: "foam/lang/FObjectArray",                                 flags: "js" },
+    { name: "foam/lang/Constant",                                     flags: "js" },
+    { name: "foam/lang/Topic",                                        flags: "js" },
+    { name: "foam/lang/InnerClass",                                   flags: "js" },
+    { name: "foam/lang/InnerEnum",                                    flags: "js" },
+    { name: "foam/lang/Mixin",                                        flags: "js" },
+    { name: "foam/lang/Implements",                                   flags: "js" },
+    { name: "foam/lang/ImportsExports",                               flags: "js" },
+    { name: "foam/lang/Listener",                                     flags: "js" },
+    { name: "foam/lang/IDSupport",                                    flags: "js" },
+    { name: "foam/lang/Requires",                                     flags: "js" },
+    { name: "foam/lang/Slot",                                         flags: "js" },
+    { name: "foam/lang/Proxy",                                        flags: "js" },
+    { name: "foam/lang/Latch",                                        flags: "js" },
+    { name: "foam/lang/Lock",                                         flags: "js" },
+    { name: "foam/lang/CountingSemaphore",                            flags: "js" },
+    { name: "foam/lang/Promised",                                     flags: "js" },
+    { name: "foam/lang/Interface",                                    flags: "js" },
+    { name: "foam/lang/Axiom",                                        flags: "js|java" },
+    { name: "foam/lang/ContextMethod",                                flags: "js" },
+    { name: "foam/lang/Exception",                                    flags: "js|java" },
+    { name: "foam/lang/FOAMException",                                flags: "js|java" },
+    { name: "foam/lang/FOAMExceptionTest",                            flags: "js&test|java&test" },
+    { name: "foam/lang/test/DateTimeTestModel",                       flags: "js&test|java&test" },
+    { name: "foam/lang/test/DatePropertyBench",                       flags: "js&test|java&test" },
+    { name: "foam/lang/test/DatePropertyOpsTest",                     flags: "js&test|java&test" },
+    { name: "foam/lang/test/CurrencyFormatJSTest",                    flags: "js&test|java&test" },
+    { name: "foam/lang/test/DateTimeUTCTest",                         flags: "js&test|java&test" },
+    { name: "foam/lang/test/JSONEscapeTest",                          flags: "js&test|java&test" },
+    { name: "foam/lang/test/SlotlessValidationTest",                  flags: "js&test|java&test" },
+    { name: "foam/lang/Timers",                                       flags: "js" },
+    { name: "foam/lang/Window",                                       flags: function() { return ! foam.flags.node; } },
+    { name: "foam/lang/NodeWindow",                                   flags: "node" },
+    { name: "foam/lang/ContextMultipleInheritence",                   flags: "js" },
+    { name: "foam/lang/Argument",                                     flags: "js|java" },
+    { name: "foam/lang/MultiMethod",                                  flags: "js" },
+    { name: "foam/lang/debug",                                        flags: "debug" },
+    { name: "foam/lang/CoreTypesValidationTest",                      flags: "js&test|java&test" },
+    { name: "foam/pattern/Singleton",                                 flags: "js" },
+    { name: "foam/pattern/Multiton",                                  flags: "js" },
+    { name: "foam/lang/Enum",                                         flags: "js" },
+    { name: "foam/lang/JSON",                                         flags: "js" },
+    { name: "foam/lang/XML",                                          flags: "js" },
+    { name: "foam/lang/holders",                                      flags: "js|java" },
+    { name: "foam/lang/CompoundException",                            flags: "js|java" },
+    { name: "foam/lib/csv/CSVParser",                                 flags: "js" },
+    { name: "foam/lib/csv/CSVOutputter",                              flags: "js|java" },
+    { name: "foam/lib/csv/CSVOutputterImpl",                          flags: "js|java" },
+    { name: "foam/lib/csv/PrefixedCSVOutputter",                      flags: "js|java" },
+    { name: "foam/lib/csv/DynamicHeaderCSVParser",                    flags: "js" },
+    { name: "foam/lib/http/QueryStringOutputter",                     flags: "js" }
+  ]
+});

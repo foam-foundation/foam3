@@ -27,7 +27,7 @@ foam.CLASS({
     {
       name: 'MIN_PASSWORD_LENGTH',
       type: 'Long',
-      value: 10
+      value: 12
     }
   ],
 
@@ -50,7 +50,20 @@ foam.CLASS({
     },
     {
       class: 'Long',
+      name: 'minDigits',
+      documentation: 'Minimum number of digits (0-9) the password must contain. PCI DSS 8.3.6 requires at least 1.',
+      min: 0
+    },
+    {
+      class: 'Long',
+      name: 'minLetters',
+      documentation: 'Minimum number of letters the password must contain. PCI DSS 8.3.6 requires at least 1.',
+      min: 0
+    },
+    {
+      class: 'Long',
       name: 'priorPasswordsToCheckCount',
+      value: 4,
       min: 0,
       max: 10,
       documentation: `
@@ -93,6 +106,16 @@ foam.CLASS({
         String minLengthRegex = "^.{" + minLength + ",}$";
         if ( SafetyUtil.isEmpty(potentialPassword) || potentialPassword.length() < minLength ) {
           throw new RuntimeException("Password must be at least " + minLength + " characters long.");
+        }
+
+        // check minimum digits
+        if ( potentialPassword.chars().filter(Character::isDigit).count() < this.getMinDigits() ) {
+          throw new RuntimeException("Password must contain at least " + this.getMinDigits() + " digit(s).");
+        }
+
+        // check minimum letters
+        if ( potentialPassword.chars().filter(Character::isLetter).count() < this.getMinLetters() ) {
+          throw new RuntimeException("Password must contain at least " + this.getMinLetters() + " letter(s).");
         }
 
         // check weak password

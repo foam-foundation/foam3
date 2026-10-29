@@ -20,14 +20,19 @@ foam.POM({
     { name: 'UnloadableCSpecStatusTest',          flags: 'js|java' },
     { name: 'IndexBeforeReplayTest',              flags: 'js|java' },
     { name: 'PartitionedDAOListenTest',           flags: 'js|java' },
+    { name: 'TwoLevelUnsetIdTest',                flags: 'js|java' },
+    { name: 'PartitionedDAORoutingTest',          flags: 'js|java' },
+    { name: 'PartitionIndexDAOTest',              flags: 'js|java' },
     { name: 'PartitionedDAOLegacyLayoutTest',     flags: 'js|java' },
     { name: 'PartitionedDAOSelectTest',           flags: 'js|java' },
     { name: 'PartitionedCompactionTest',          flags: 'js|java' },
     { name: 'PartitionedDAOUnprefixedFindTest',   flags: 'js|java' },
-    { name: 'PartitionedAddIndexTest',            flags: 'js|java' }
+    { name: 'PartitionedAddIndexTest',            flags: 'js|java' },
+    { name: 'PartitionedDAOTwoLevelIdTest',       flags: 'js|java' }
   ],
 
   javaFiles: [
-    { name: 'TwoLevelPartitionedDAO', flags: 'test' }
+    { name: 'TwoLevelPartitionedDAO',    flags: 'test' },
+    { name: 'RegionDatePartitionedDAO', flags: 'test' }
   ]
 });

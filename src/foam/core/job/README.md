@@ -59,9 +59,13 @@ to a DAO that persists.
 
 **Reads are scoped to the submitter.** A Job carries its own results, so `Job` implements
 `Authorizable`: a user reads, updates and deletes only what they submitted, unless they hold
-`job.<operation>.*`. `authorizeOnCreate` is deliberately open — `CreatedByAwareDAO` sits
-*inside* `AuthorizationDAO` in the EasyDAO chain, so `createdBy` is still unset at create time,
-and access to the service itself governs who may submit.
+`job.<operation>.*`.
+
+**Submitting needs a per-class permission.** A Job runs code on the server, and `ShellJob` and
+`ScriptJob` run whatever code the submitter supplies, so `authorizeOnCreate` requires
+`job.create.<full class id>`, e.g. `job.create.foam.core.job.ShellJob`. The full id keeps a
+grant for one package's Job from covering a same-named Job in another package, and a wildcard
+such as `job.create.foam.core.job.*` grants a whole package.
 
 ## Usage
 
@@ -160,7 +164,8 @@ can grow large, such as a result sink, `javaCloneProperty: 'set(dest, get(source
 clone shares it instead of copying it.
 
 Reaching `jobDAO` from a browser needs the `service.jobDAO` permission granted to the user's
-group; that grant is an application concern, not declared here.
+group, plus `job.create.<full class id>` for each Job class the user may submit; those grants
+are an application concern, not declared here.
 
 `com.paytic.flow.matcher.MatchAgent` is the worked example in this codebase: it extends `Job`,
 and names both of its DAOs by key so that it can run detached from the request that submitted

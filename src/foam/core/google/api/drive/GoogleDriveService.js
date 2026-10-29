@@ -13,7 +13,7 @@ foam.CLASS({
     'com.google.api.client.http.FileContent',
     'com.google.api.client.http.javanet.NetHttpTransport',
     'com.google.api.client.json.JsonFactory',
-    'com.google.api.client.json.jackson2.JacksonFactory',
+    'com.google.api.client.json.gson.GsonFactory',
     'com.google.api.services.drive.Drive',
     'com.google.api.services.drive.DriveScopes',
     'com.google.api.services.drive.model.File',
@@ -33,7 +33,7 @@ foam.CLASS({
     {
       name: 'JSON_FACTORY',
       javaType: 'com.google.api.client.json.JsonFactory',
-      javaValue: `JacksonFactory.getDefaultInstance()`
+      javaValue: `GsonFactory.getDefaultInstance()`
     },
     {
       name: 'SCOPES',

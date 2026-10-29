@@ -10,7 +10,11 @@ A comprehensive reference of all FOAM property types and their associated views.
 
 ## Overview
 
-FOAM automatically selects appropriate views based on property type. This reference shows:
+Every FOAM property has a type, such as String, Int or Date, given by its `class:` option. The type decides how the value is stored and validated, and also which view edits it by default, so a model with no view code at all still gets a sensible form. To use a different view, set the property's `view:` option to a <term term="ViewSpec"></term>: a class name string, or an object whose `class` names the view and whose other keys configure it.
+
+Each example below declares a model and shows an instance of it in a <term term="DetailView"></term>, which renders every property of an <term term="FObject"></term> with that property's view.
+
+This reference shows:
 - Default views for each property type
 - Common view alternatives and configurations
 - View options and customization
@@ -40,7 +44,7 @@ FOAM automatically selects appropriate views based on property type. This refere
 | TextArea | Multi-line input |
 | ChoiceView | Selection from list |
 | RadioView | Few mutually exclusive options |
-| RichTextField | HTML/formatted text |
+| RichTextView | HTML/formatted text |
 
 <example id="string-views">
 foam.CLASS({
@@ -101,8 +105,8 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'stringWithRichTextField',
-      view: 'foam.u2.view.RichTextField'
+      name: 'stringWithRichTextView',
+      view: 'foam.u2.view.RichTextView'
     },
     {
       class: 'String',
@@ -288,8 +292,8 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'booleanWithToggle',
-      view: 'foam.u2.view.Toggle'
+      name: 'booleanWithSwitch',
+      view: 'foam.u2.Switch'
     }
   ]
 });
@@ -619,7 +623,9 @@ add(foam.u2.DetailView.create({ data: MapViews.create() }));
 
 ## Reference Properties
 
-<term term="Reference"></term> properties store foreign keys to objects in another DAO.
+<term term="Reference"></term> properties store the `id` of an object held in another <term term="DAO"></term>, much like a foreign key in a database. The default view is a drop-down listing the objects in the target DAO, each labelled with its `toSummary()`.
+
+The property's `targetDAOKey` names the DAO to look in. The view finds it by that name in the <term term="Context"></term>, which is why the example below `exports` `categoryDAO`: exporting makes the DAO visible to every view created inside the ReferenceViews object.
 
 <example id="reference-views">
 foam.CLASS({
@@ -677,7 +683,9 @@ add(foam.u2.DetailView.create({ data: ReferenceViews.create() }));
 
 ## FObject Properties
 
-<term term="FObjectProperty"></term> stores nested FOAM objects. <term term="FObjectView"></term> provides a class selector and property editor.
+<term term="FObjectProperty"></term> stores a nested FOAM object, such as an Address inside a Customer. Its `of:` option names the class, and the default view edits the nested object's properties inline, like a small DetailView.
+
+<term term="FObjectView"></term> is for properties that can hold an object of any class. It adds a class selector; choosing a class creates an empty object of that class and shows its editor below.
 
 <example id="fobject-views">
 foam.CLASS({
@@ -748,7 +756,18 @@ add(foam.u2.DetailView.create({ data: ClassViews.create() }));
 
 ## DAO Properties
 
-<term term="DAOProperty"></term> stores a reference to a DAO and can display its contents.
+A <term term="DAO"></term> (Data Access Object) is FOAM's standard interface to a collection of objects of one class. Every DAO supports the same operations, whatever its storage: `put` to add or update an object, `remove`, `find` by id, and `select` to read many objects, optionally narrowed with `where`, `orderBy` and `limit`. The same code works whether the data is held in memory, in the browser, or on a server.
+
+<term term="DAOProperty"></term> stores a DAO, and its views display the DAO's contents. The views listen to the DAO, so an object put into it from anywhere else appears without a reload.
+
+The example builds its DAO with <term term="EasyDAO"></term>, a convenience class: `daoType: 'MDAO'` keeps the data in an indexed in-memory store, `seqNo: true` gives new objects the ids 1, 2, 3, and `testData` loads the starting rows.
+
+| View | Shows |
+|------|-------|
+| EmbeddedTableView | Compact table sized to sit inside a DetailView (default) |
+| TableView | One row per object, one sortable column per property |
+| DAOList | One row view per object |
+| AltView | A drop-down that switches between other views |
 
 <example id="dao-views">
 foam.CLASS({
@@ -868,7 +887,7 @@ add(foam.u2.DetailView.create({ data: AltViewDemo.create() }));
 
 ### ModeAltView
 
-<term term="ModeAltView"></term> shows different views based on display mode (RW vs RO).
+<term term="ModeAltView"></term> shows different views based on the <term term="DisplayMode"></term>. Most views adapt to the mode on their own, turning from an input into plain text when read-only. ModeAltView is for values whose read-only form should look nothing like their editor: below, the HTML renders when read-only but is edited as source text. The second DetailView is created with `mode: 'RO'` to show the read view.
 
 <example id="modealtview">
 foam.CLASS({
@@ -1015,6 +1034,13 @@ add(foam.u2.DetailView.create({ data: PropertyOptions.create() }));
   <def term="FObjectView" definition="View for FObject properties with class selector and property editor."></def>
   <def term="Class" definition="Property type storing references to FOAM class objects."></def>
   <def term="DAOProperty" definition="Property type storing a reference to a DAO."></def>
+  <def term="DAO" definition="Data Access Object: FOAM's standard interface to a collection of objects of one class, with put, remove, find and select, whatever the storage."></def>
+  <def term="EasyDAO" definition="Convenience class that builds a DAO and its common decorators (sequence numbers, caching, test data) from a few options."></def>
+  <def term="FObject" definition="An instance of a FOAM class. Its properties carry the metadata (type, label, view) that generic views such as DetailView read."></def>
+  <def term="DetailView" definition="View that renders every visible property of an FObject as a label and that property's view."></def>
+  <def term="ViewSpec" definition="How a view is specified: a class name string, an object with a class key plus property values, or a function returning either."></def>
+  <def term="Context" definition="FOAM's dependency-injection scope. Services such as DAOs are exported into a context and imported by name by the views created in it."></def>
+  <def term="DisplayMode" definition="Whether a view is editable (RW), read-only (RO), greyed out (DISABLED) or not shown (HIDDEN)."></def>
   <def term="MultiView" definition="View that displays multiple views of the same property simultaneously."></def>
   <def term="AltView" definition="View that lets users switch between different views of the same property."></def>
   <def term="ModeAltView" definition="View that shows different sub-views based on display mode (RW/RO)."></def>

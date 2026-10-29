@@ -413,7 +413,7 @@ foam.CLASS({
     },
     function safeScroll() {
       if ( ! this.scrollToIndex ) return;
-      var page = Math.floor(this.scrollToIndex / this.pageSize_);
+      var page = Math.floor((this.scrollToIndex - 1) / this.pageSize_);
       if ( this.renderedPages_[page] ) {
         var el = this.renderedPages_[page].element_.querySelector(`[data-idx='${this.scrollToIndex}']`);
         if ( ! el ) return;

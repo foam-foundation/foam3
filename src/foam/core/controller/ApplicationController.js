@@ -488,7 +488,7 @@ foam.CLASS({
         // Rebuild Stack in correct context
         self.stack = self.Stack.create({}, self.__subContext__).copyFrom({ ...self.stack, __subSubContext__: undefined });
         self.breadcrumbs = self.BreadcrumbManager.create({}, self.__subContext__).copyFrom({ ...self.breadcrumbs, __subSubContext__: undefined });
-        self.fetchTheme();
+        await self.fetchTheme();
         foam.locale = localStorage.getItem('localeLanguage') || self.theme?.defaultLocaleLanguage || foam.locale;
 
         client.translationService.initLatch.then(() => {
@@ -500,16 +500,10 @@ foam.CLASS({
         // group required for loginVariables before initMenu
         await self.fetchGroup();
 
-        let isAnonymous = false;
-        try {
-          isAnonymous = await client.auth.isAnonymous();
-        } catch (e) {
-          // NO-OP
-          // This is expected to fail if the an anonymous user is not available
-        }
+        let anonymous = await self.isAnonymous();
 
         // show oauth_exception toast notification when failed to link SSO user to existing user in the app
-        if ( isAnonymous ) {
+        if ( anonymous ) {
           const searchParams = new URLSearchParams(location.search);
           const oauthException = searchParams.get('oauth_exception');
           if ( oauthException ) {
@@ -518,14 +512,15 @@ foam.CLASS({
           }
         }
 
-        // For anonymous users, we shouldn't reinstall the language
-        // because the user's language setting isn't meaningful.
+        // An anonymous session keeps the language picked on page load (saved browser
+        // choice, else Theme.defaultLocaleLanguage). The anonymous user's stored
+        // language is not applied, so a 'fr' theme shows a French login page.
+
         // onUserAgentAndGroupLoaded() routes to the initial menu itself; only
         // fall back to initMenu() when that path is skipped, otherwise the route
         // is pushed twice and the first (superseded) render poisons document-global
         // one-shot CSS installs (e.g. reflow Layout) with an unthemed context.
-        if ( self?.subject?.realUser && ! isAnonymous ) {
-          await self.maybeReinstallLanguage(self.client);
+        if ( self?.subject?.realUser && ! anonymous ) {
           await self.onUserAgentAndGroupLoaded();
         } else {
           await self.initMenu();
@@ -572,8 +567,8 @@ foam.CLASS({
       this.__subContext__.__proto__ = this.client.__subContext__;
       // TODO: find a better way to resub on client reloads
       this.subToNotifications();
-      this.fetchGroup();
-      this.fetchTheme();
+      await this.fetchTheme();
+      await this.fetchGroup();
       this.onDetach(this.__subContext__.cssTokenOverrideService?.cacheUpdated.sub(() => { foam.u2.CSS.reloadStyles(this.__subContext__) }));
       this.subject = this.client.initSubject;
     },
@@ -608,9 +603,20 @@ foam.CLASS({
       }
     },
 
+    async function isAnonymous() {
+      try {
+        return await this.client?.auth.isAnonymous();
+      } catch (e) {
+        // NO-OP
+        // This is expected to fail if the an anonymous user is not available
+      }
+      return false;
+    },
+
     async function maybeReinstallLanguage(client) {
-      // Is only called if the user exists and isn't the SPID's anonymousUser
+      /** Returns true when the page is reloading into the user's language. */
       if ( this.subject.realUser.language.toString() != foam.locale ) {
+        let oldLocale = foam.locale;
         let languages = (await client.languageDAO
           .where(foam.mlang.predicate.Eq.create({
             arg1: foam.core.auth.Language.ENABLED,
@@ -618,8 +624,6 @@ foam.CLASS({
           })).select()).array;
 
         let userPreferLanguage = languages.find(e => e.id.compareTo(this.subject.realUser.language) === 0);
-        // TODO: don't update language setting for anonymous users
-        // Can tell if a user is anonymous if their id === their spid's.anonymousUser
         if ( ! userPreferLanguage ) {
           foam.locale = this.defaultLanguage.toString();
           let user = this.subject.realUser;
@@ -628,10 +632,21 @@ foam.CLASS({
         } else if ( foam.locale != userPreferLanguage.toString() ) {
           foam.locale = userPreferLanguage.toString();
         }
-        client.translationService.maybeReload();
-        await client.translationService.initLatch;
-        this.installLanguage();
+
+        // Switching language reloads the page rather than patching the classes
+        // already built. A class built under the old locale keeps text that
+        // installLanguage() cannot reach: a subclass that overrides an inherited
+        // property copies the parent's label as it was at build time, so a
+        // 'Case Number' column built on a 'fr' login page stays 'Numéro de
+        // Affaire' after switching to 'en'. Saving localeLanguage makes the
+        // reloaded page start in the new locale.
+        if ( foam.locale != oldLocale ) {
+          localStorage.setItem('localeLanguage', foam.locale);
+          this.reload();
+          return true;
+        }
       }
+      return false;
     },
 
     async function fetchGroup() {
@@ -662,12 +677,12 @@ foam.CLASS({
           throw new Error('Authentication required');
         }
 
-        this.fetchGroup();
+        await this.fetchGroup();
       } catch (err) {
         if ( ! promptLogin || authResult ) return;
         await this.clientPromise;
         await this.requestLogin();
-        return await this.fetchSubject();
+        await this.fetchSubject();
       } finally {
         this.initSubject = true;
       }
@@ -936,6 +951,11 @@ foam.CLASS({
       this.loginSuccess = true;
       let check = await this.checkGeneralCapability();
       if ( ! check ) return;
+      // Switch to the user's language before any menu or table is drawn. An
+      // 'en' user logging in from a 'fr' login page reloads here; the session
+      // survives the reload, and the reloaded page comes back through this
+      // method already in 'en'.
+      if ( await this.maybeReinstallLanguage(this.client) ) return;
       await this.fetchTheme();
       var hash = this.route;
       if ( ! hash || hash == 'null' /* How does it even get set to null? */ ) {
@@ -1038,7 +1058,7 @@ foam.CLASS({
       this.lastMenuLaunched = m;
     },
 
-    function fetchTheme() {
+    async function fetchTheme() {
       /**
        * Get the most appropriate Theme object from the server and use it to
        * customize the look and feel of the application.

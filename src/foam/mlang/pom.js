@@ -13,6 +13,12 @@ foam.POM({
     `
   ],
   files: [
+    // foam.mlang.Expr, Comparator and other mlang classes implement this dao
+    // interface, and mlang files build them while loading (for example
+    // PropertyComparatorRefinement refines Property right away). It has to be
+    // defined before foam/mlang/pom, which loads well before foam/dao/pom.
+    { name: "../dao/SQLStatement",                  flags: "js|java" },
+
     { name: "order/Comparator",                     flags: "js|java" },
     { name: "Compare",                              flags: "js" },
     { name: "sink/Count",                           flags: "js|java" },
@@ -140,9 +146,18 @@ foam.POM({
     { name: "predicate/ContextUserPredicate",       flags: "js|java" },
     { name: "predicate/CapabilityAuthServicePredicate", flags: "js|java" },
     { name: "predicate/AuthPermissionPredicate",    flags: "js|java" },
-    { name: "LabeledValue",                         flags: "js" }
+    { name: "LabeledValue",                         flags: "js" },
+    { name: "predicate/test/DatePredicateConstantTest", flags: "js&test|java&test" }
   ],
+
+  javaFiles: [
+    { name: "MLang" },
+    { name: "Expressions" },
+    { name: "MLangTest",                            flags: "test" }
+  ],
+
   journalFiles: [
-    { name: "tests",                                flags: "test" }
+    { name: "tests",                                flags: "test" },
+    { name: "predicate/test/tests",                 flags: "test" }
   ]
 });

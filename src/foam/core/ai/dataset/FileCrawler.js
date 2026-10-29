@@ -7,36 +7,20 @@
 foam.CLASS({
   package: 'foam.core.ai.dataset',
   name: 'FileCrawler',
-  abstract: true,
-  implements: ['foam.core.ai.dataset.DataCrawler'],
+  extends: 'foam.core.ai.dataset.AbstractFileCrawler',
 
-  documentation: 'DataCrawler that walks local directory trees and reads files.',
+  documentation: `
+    Client-side companion for the handwritten FileCrawler.java.
 
-  properties: [
-    {
-      class: 'StringArray',
-      name: 'sourcePaths',
-      documentation: 'Root directories to walk recursively.',
-      required: true
-    },
-    {
-      class: 'StringArray',
-      name: 'fileExtensions',
-      documentation: 'File extensions to include.',
-      factory:     function() { return ['.js', '.java', '.md']; },
-      javaFactory: `return new String[] { ".js", ".java", ".md" };`
-    },
-    {
-      class: 'Int',
-      name: 'maxFiles',
-      documentation: 'Stop after this many files. 0 = unlimited.',
-      value: 0
-    },
-    {
-      class: 'Long',
-      name: 'maxFileSize',
-      documentation: 'Skip files larger than this many bytes. 0 = unlimited.',
-      value: 0
-    }
-  ]
+    AbstractFileCrawler is declared with flags: 'js|java', so it is registered
+    in both the JS and Java class registries. The concrete implementation lives
+    in a pure Java file (FileCrawler.java) under javaFiles, which compiles it
+    for the server but produces no JS. Without this companion the browser cannot
+    deserialize an FObjectProperty whose runtime type is FileCrawler — the JSON
+    parser calls foam.lookup('foam.core.ai.dataset.FileCrawler') and gets null,
+    and the property silently becomes null on the client.
+
+    This file registers the class name in the JS registry so the browser can
+    round-trip instances through jobDAO. See doc/guides/WritingJavaCode.md.
+  `
 });

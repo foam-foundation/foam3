@@ -206,8 +206,13 @@ which provide CONTENT_SECURITY_POLICY as init parameters of CSPFilter.`,
         sb.append("; ");
       }
 
-      Loggers.logger(x, this).info("policy", domain, sb.toString().replaceAll(";", ";\\n"));
-      return sb.toString();
+      // Every directive ends with "; ", so the built policy ends in a space,
+      // for example "script-src 'self'; ". HTTP/2 refuses a header value that
+      // starts or ends with whitespace (RFC 9110), and Jetty 12 then resets the
+      // stream instead of sending the response, so the policy is trimmed.
+      String policy = sb.toString().trim();
+      Loggers.logger(x, this).info("policy", domain, policy.replaceAll(";", ";\\n"));
+      return policy;
       `
     }
   ]

@@ -1,0 +1,16 @@
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "alpaca-sample-dedupe",
+  "name": "AlpacaSample semantic deduplication",
+  "priority": 100,
+  "documentation": "Before storing a new AlpacaSample, embed its instruction and reject it if a semantically similar sample already exists in datasetVectorDAO (cosine similarity >= 0.92). If novel, indexes the embedding for future comparisons.",
+  "daoKey": "datasetDAO",
+  "operation": 0,
+  "after": false,
+  "action": {
+    "class": "foam.core.ai.dataset.AlpacaSampleDedupeRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})

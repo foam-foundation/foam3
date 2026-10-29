@@ -133,6 +133,18 @@ foam.CLASS({
         test(all == 9, "unpredicated select returns every record in the default window, got " + all);
         test(everyPartitionSaw(dao, 0, AbstractDAO.MAX_SAFE_INTEGER, false, false),
           "an unpredicated select pushes nothing: " + argsOf(dao));
+
+        // The default window opened about 36 daily partitions, but only the
+        // three days that were written to may own a directory on disk.
+        // YYYYMMDD names nest ("2026/10/21"), so probe each opened partition's
+        // own directory rather than listing the top level.
+        Storage fs   = (Storage) tx.get(FileSystemStorage.class);
+        int     dirs = 0;
+        for ( String part : dao.getPartitions(dao.extractPredicateRange(null)) ) {
+          if ( fs.get(dao.getDirName() + part).isDirectory() ) dirs++;
+        }
+        test(dao.recorders.size() > 3 && dirs == 3,
+          "only partitions that were written to have a directory: opened " + dao.recorders.size() + ", directories " + dirs);
       `
     },
     {

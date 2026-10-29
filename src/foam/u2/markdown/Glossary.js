@@ -147,7 +147,7 @@ foam.CLASS({
 
   mixins: [ 'foam.u2.markdown.GlossaryMixin' ],
 
-  imports: [ 'document' ],
+  imports: [ 'document', 'window' ],
 
   css: `
     << {
@@ -299,8 +299,8 @@ foam.CLASS({
 
       var popup = this.popupE_.el_();
       var rect = popup.getBoundingClientRect();
-      var viewportWidth = window.innerWidth;
-      var viewportHeight = window.innerHeight;
+      var viewportWidth = this.window.innerWidth;
+      var viewportHeight = this.window.innerHeight;
 
       if ( rect.right > viewportWidth ) {
         popup.style.left = 'auto';

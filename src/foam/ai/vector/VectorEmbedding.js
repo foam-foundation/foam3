@@ -16,11 +16,18 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'text'        // original chunk
+      name: 'text'        // original chunk; omit for DAO-record embeddings
+    },
+    {
+      documentation: `DAO key of the source record (e.g. "alpacaSampleDAO").
+        Empty for text-chunk embeddings. When set, sourceId is the primary
+        key of the record in that DAO.`,
+      class: 'String',
+      name: 'daoKey'
     },
     {
       class: 'String',
-      name: 'sourceId'   // classId, doc path, etc.
+      name: 'sourceId'   // classId, doc path, flow name, or DAO record primary key
     },
     {
       class: 'String',
@@ -44,7 +51,7 @@ foam.CLASS({
 
   methods: [
     function toSummary() {
-      return `${this.kind}:${this.sourceId}`;
+      return this.daoKey ? `${this.daoKey}:${this.sourceId}` : `${this.kind}:${this.sourceId}`;
     }
   ]
 });

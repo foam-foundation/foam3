@@ -205,6 +205,8 @@ foam.POM({
     { name: "script/ScriptRunnerDAO",                                                     flags: "js|java" },
     { name: "script/ScriptStatus",                                                        flags: "js|java" },
     { name: "script/Relationships",                                                       flags: "js" },
+    { name: "script/test/ScriptInterpreterLifecycleTest",                                 flags: "js&test|java&test" },
+    { name: "script/test/ScriptInterruptTest",                                            flags: "js&test|java&test" },
     { name: "servlet/ErrorPageMapping",                                                   flags: "js|java" },
     { name: "servlet/FilterMapping",                                                      flags: "js|java" },
     { name: "servlet/ProxyMapping",                                                       flags: "js|java" },
@@ -640,6 +642,7 @@ foam.POM({
   journalFiles: [
     { name: "benchmark/benchmarks",                                   flags: "test" },
     { name: "benchmark/benchmarkRunners",                             flags: "test" },
+    { name: "column/test/tests",                                      flags: "test" },
     { name: "demo/relationship/test/tests",                           flags: "test" },
     { name: "bench/services",                                         flags: "test" },
     { name: "bench/strategyReferences",                               flags: "test" },
@@ -658,6 +661,7 @@ foam.POM({
     { name: "boot/test/bootscripts",                                  flags: "test" },
     { name: "boot/test/tests",                                        flags: "test" },
     { name: "fs/test/tests",                                          flags: "test" },
-    { name: "fs/test/benchmarks",                                     flags: "test" }
+    { name: "fs/test/benchmarks",                                     flags: "test" },
+    { name: "script/test/tests",                                      flags: "test" }
   ]
 });

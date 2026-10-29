@@ -10,79 +10,48 @@ foam.CLASS({
 
   extends: 'foam.core.notification.email.SMTPAgent',
 
-  documentation: 'Implementation of Email Service using Microsoft Graph API.',
+  documentation: `Sends email through the Microsoft Graph sendMail API.
+    The Azure app registration needs the Mail.Send application permission,
+    granted by a tenant admin, to send as the configured username.`,
 
   javaImports: [
-    'foam.core.logger.Loggers',
-    'foam.core.logger.Logger',
-    'foam.log.LogLevel',
-    'foam.core.om.OMLogger',
-    'foam.lang.X',
-    'foam.dao.DAO',
     'foam.core.er.EventRecord',
-
-    'foam.core.notification.email.Status',
+    'foam.core.logger.Logger',
+    'foam.core.logger.Loggers',
     'foam.core.notification.email.EmailMessage',
+    'foam.core.notification.email.Status',
     'foam.core.notification.email.ms.EmailServiceConfig',
-
-    'java.util.Collections',
-    'foam.lang.ContextAgentTimerTask',
-    'java.util.concurrent.CompletableFuture',
-    'java.util.Map',
-    'java.util.Properties',
-    'java.util.Timer',
-    'java.net.URISyntaxException',
-    'java.net.URI',
-    'java.io.ByteArrayOutputStream',
-    'java.time.OffsetDateTime',
-
-    'jakarta.mail.*',
-    'jakarta.mail.internet.*',
+    'foam.core.om.OMLogger',
+    'foam.dao.DAO',
+    'foam.lang.X',
+    'foam.log.LogLevel',
+    'foam.util.SafetyUtil',
 
     'com.azure.core.credential.AccessToken',
     'com.azure.core.credential.TokenRequestContext',
     'com.azure.identity.ClientSecretCredential',
     'com.azure.identity.ClientSecretCredentialBuilder',
 
-    'microsoft.exchange.webservices.data.core.ExchangeService',
-    'microsoft.exchange.webservices.data.property.complex.MimeContent',
-    'microsoft.exchange.webservices.data.core.enumeration.misc.ExchangeVersion',
-    'microsoft.exchange.webservices.data.core.request.HttpWebRequest',
-    'microsoft.exchange.webservices.data.credential.ExchangeCredentials',
-    'microsoft.exchange.webservices.data.property.complex.MessageBody',
-    'microsoft.exchange.webservices.data.core.enumeration.misc.ConnectingIdType',
-    'microsoft.exchange.webservices.data.misc.ImpersonatedUserId',
-    'microsoft.exchange.webservices.data.core.enumeration.property.BodyType'
+    'jakarta.mail.internet.MimeMessage',
+
+    'java.io.ByteArrayOutputStream',
+    'java.net.URI',
+    'java.net.http.HttpClient',
+    'java.net.http.HttpRequest',
+    'java.net.http.HttpResponse',
+    'java.time.Duration',
+    'java.time.OffsetDateTime',
+    'java.util.Base64',
+    'java.util.Map'
   ],
 
   constants: [
     {
       name: 'SCOPE',
       type: 'String',
-      value: 'https://outlook.office365.com/.default'
+      value: 'https://graph.microsoft.com/.default'
     }
   ],
-
-  javaCode: `
-    private class OAuthAuthenticator extends ExchangeCredentials {
-
-      private final String bearerToken;
-
-      public OAuthAuthenticator(String accessToken) {
-          this.bearerToken = accessToken;
-      }
-
-      @Override
-      public void prepareWebRequest(HttpWebRequest request) throws URISyntaxException {
-          super.prepareWebRequest(request);
-
-          Map<String, String> headers = request.getHeaders();
-          if (headers != null) {
-              headers.put("Authorization", "Bearer " + bearerToken);
-          }
-      }
-    }
-  `,
 
   properties: [
     {
@@ -98,11 +67,32 @@ foam.CLASS({
       value: 'microsoftGraphEmailAgentThrottle'
     },
     {
+      name: 'graphUrl',
+      class: 'String',
+      documentation: 'Graph users endpoint; the sender address and /sendMail are appended to it.',
+      value: 'https://graph.microsoft.com/v1.0/users/'
+    },
+    {
       name: 'credential',
       class: 'Object',
       javaType: 'com.azure.identity.ClientSecretCredential',
       visibility: 'HIDDEN',
-      transient: true
+      transient: true,
+      javaFactory: `
+        EmailServiceConfig config = findId(getX());
+        if ( config == null ||
+             SafetyUtil.isEmpty(config.getClientId()) ||
+             SafetyUtil.isEmpty(config.getTenantId()) ||
+             SafetyUtil.isEmpty(config.getPassword()) ||
+             SafetyUtil.isEmpty(config.getUsername()) ) {
+          throw new IllegalArgumentException("Missing required email service configuration.");
+        }
+        return new ClientSecretCredentialBuilder()
+          .clientId(config.getClientId())
+          .tenantId(config.getTenantId())
+          .clientSecret(config.getPassword())
+          .build();
+      `
     },
     {
       name: 'accessToken',
@@ -112,11 +102,16 @@ foam.CLASS({
       transient: true
     },
     {
-      name: 'service',
+      name: 'client',
       class: 'Object',
-      javaType: 'microsoft.exchange.webservices.data.core.ExchangeService',
+      javaType: 'java.net.http.HttpClient',
       visibility: 'HIDDEN',
-      transient: true
+      transient: true,
+      javaFactory: `
+        return HttpClient.newBuilder()
+          .connectTimeout(Duration.ofSeconds(30))
+          .build();
+      `
     },
     {
       name: 'lastConfig',
@@ -128,48 +123,6 @@ foam.CLASS({
   ],
 
   methods: [
-    {
-      name: 'buildExchangeService',
-      type: 'microsoft.exchange.webservices.data.core.ExchangeService',
-      javaCode: `
-        Logger logger = Loggers.logger(getX(), this);
-        logger.debug("Initializing Service");
-        EmailServiceConfig config = findId(getX());
-        final String clientId = config.getClientId();
-        final String tenantId = config.getTenantId();
-        final String clientSecret = config.getPassword();
-        String emailFrom = config.getUsername();
-
-        if (clientId == null || tenantId == null || clientSecret == null || emailFrom == null) {
-          throw new IllegalArgumentException("Missing required email service configuration.");
-        }
-
-        ClientSecretCredential credential = new ClientSecretCredentialBuilder()
-          .clientId(clientId)
-          .tenantId(tenantId)
-          .clientSecret(clientSecret)
-          .build();
-
-        setCredential(credential);
-
-        // Acquire first access token
-        refreshTokenIfNeeded();
-
-        // Build ExchangeService instance
-        ExchangeService service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
-        service.setCredentials(new OAuthAuthenticator(getAccessToken().getToken()));
-        try {
-          service.setUrl(new URI("https://outlook.office365.com/EWS/Exchange.asmx"));
-        }
-        catch ( URISyntaxException e ) {
-          logger.error("Error setting URL", e);
-        }
-        // App-only OAuth tokens require an ExchangeImpersonation SOAP header
-        service.setImpersonatedUserId(new ImpersonatedUserId(ConnectingIdType.SmtpAddress, emailFrom));
-
-        return service;
-      `
-    },
     {
       name: 'refreshTokenIfNeeded',
       type: 'Void',
@@ -191,52 +144,6 @@ foam.CLASS({
       `
     },
     {
-      name: 'ensureInitialized',
-      type: 'Void',
-      javaCode: `
-        Logger logger = Loggers.logger(getX(), this);
-        logger.debug("Ensuring service is initialized");
-        if (getService() == null) {
-          throw new IllegalStateException("Ews.initialize must be called first");
-        }
-      `
-    },
-    {
-      name: 'start',
-      javaCode: `
-      EmailServiceConfig config = findId(getX());
-      if ( config == null ) {
-        config = new EmailServiceConfig(); // use default timer values
-      }
-      ((DAO) getX().get("eventRecordDAO")).put(
-        new EventRecord(getX(), this, "start", getId(), null, null, LogLevel.INFO, null)
-      );
-      setService(buildExchangeService());
-      Timer timer = new Timer(this.getClass().getSimpleName(), true);
-      setTimer(timer);
-      timer.schedule(new ContextAgentTimerTask(getX(), this),
-        config.getInitialDelay(),
-        config.getPollInterval()
-      );
-      `,
-    },
-    {
-      name: 'stop',
-      javaCode: `
-      Timer timer = (Timer) getTimer();
-      if ( timer != null ) {
-        Loggers.logger(getX(), this).info("stop");
-        if ( getService() != null ) {
-          getService().close();
-          setService(null);
-        }
-        timer.cancel();
-        clearTimer();
-        ((DAO) getX().get("eventRecordDAO")).put(new EventRecord(getX(), this, "stop", getId(), null, null, LogLevel.INFO, null));
-      }
-      `
-    },
-    {
       name: 'maybeReload',
       type: 'Void',
       javaCode: `
@@ -254,14 +161,24 @@ foam.CLASS({
            ((Map) config.diff(lastConfig)).size() > 0 ) {
 
         ((DAO) getX().get("eventRecordDAO")).put(new EventRecord(getX(), this, "reload", getId(), null, null, LogLevel.INFO, null));
-        if ( getService() != null ) {
-          getService().close();
-          setService(null);
-        }
-        setService(buildExchangeService());
+        clearCredential();
+        clearAccessToken();
         setLastConfig(config);
         logger.info("Reloaded Microsoft Graph Email Agent successfully");
       }
+      `
+    },
+    {
+      name: 'stopOnError',
+      args: 'String message, Throwable t',
+      documentation: 'Record the error, drop the cached token and credential so the next start rebuilds them from config, and disable the agent.',
+      javaCode: `
+        EventRecord er = new EventRecord(getX(), this, "send", getId(), null, message, LogLevel.ERROR, t);
+        ((DAO) getX().get("eventRecordDAO")).put(er);
+        setEr(er);
+        clearCredential();
+        clearAccessToken();
+        disable();
       `
     },
     {
@@ -287,62 +204,54 @@ foam.CLASS({
         }
 
         try {
-          ensureInitialized();
           refreshTokenIfNeeded();
-          getService().setCredentials(new OAuthAuthenticator(getAccessToken().getToken()));
 
-          // Serialize MimeMessage to raw RFC-822 bytes
+          // Graph takes the raw RFC-822 message, base64 encoded, as a
+          // text/plain body, so the MimeMessage goes out unchanged.
           ByteArrayOutputStream baos = new ByteArrayOutputStream();
           message.writeTo(baos);
-          byte[] rawBytes = baos.toByteArray();
+          String from = findId(getX()).getUsername();
+          HttpRequest request = HttpRequest.newBuilder(URI.create(getGraphUrl() + from + "/sendMail"))
+            .timeout(Duration.ofSeconds(60))
+            .header("Authorization", "Bearer " + getAccessToken().getToken())
+            .header("Content-Type", "text/plain")
+            .POST(HttpRequest.BodyPublishers.ofString(Base64.getEncoder().encodeToString(baos.toByteArray())))
+            .build();
+          HttpResponse<String> response = getClient().send(request, HttpResponse.BodyHandlers.ofString());
+          int status = response.statusCode();
 
-          // Wrap the byte array into EWS MimeContent
-          MimeContent mimeContent = new MimeContent("UTF-8", rawBytes);
-
-          microsoft.exchange.webservices.data.core.service.item.EmailMessage msg = new microsoft.exchange.webservices.data.core.service.item.EmailMessage(getService());
-          msg.setMimeContent(mimeContent);
-          msg.send();
-
-          emailMessage.setStatus(Status.SENT);
-          emailMessage.setSentDate(message.getSentDate());
-          // logger.debug("sent");
-          omLogger.log(this.getClass().getSimpleName(), "message", "sent");
-          EventRecord er = getEr();
-          if ( er != null ) {
-            er = (EventRecord) er.fclone();
-            er.setSeverity(LogLevel.INFO);
-            clearEr();
-            ((DAO) getX().get("eventRecordDAO")).put(er);
-          }
-        } catch ( SendFailedException | ParseException e ) {
-          EmailServiceConfig config = getLastConfig();
-          if ( e.getMessage().contains("Too many login attempts") ) {
-             EventRecord er = new EventRecord(getX(), this, "send", getId(), null, e.getMessage(), LogLevel.ERROR, e);
-            ((DAO) getX().get("eventRecordDAO")).put(er);
-            setEr(er);
-            clearSession_();
-            disable();
+          // Graph answers 202 Accepted once the message is queued for delivery.
+          if ( status == 202 ) {
+            emailMessage.setStatus(Status.SENT);
+            emailMessage.setSentDate(message.getSentDate());
+            omLogger.log(this.getClass().getSimpleName(), "message", "sent");
+            EventRecord er = getEr();
+            if ( er != null ) {
+              er = (EventRecord) er.fclone();
+              er.setSeverity(LogLevel.INFO);
+              clearEr();
+              ((DAO) getX().get("eventRecordDAO")).put(er);
+            }
+          } else if ( status == 401 || status == 403 ) {
+            // A rejected token or a missing Mail.Send grant fails every
+            // message the same way, so stop the agent and leave this message
+            // unsent; it goes out once an admin fixes the app and re-enables.
+            stopOnError("HTTP " + status + " " + response.body(), null);
           } else {
-            logger.error("Send failed", emailMessage.getId(), e);
+            logger.error("Send failed", emailMessage.getId(), status, response.body());
             emailMessage.setStatus(Status.FAILED);
           }
-        } catch ( MessagingException e ) {
-          try {
-            getTransport_().close();
-          } catch ( Exception e2 ) {
-            logger.error("Transport close failed", e2);
-          }
-          clearTransport_();
-          clearSession_();
-          EmailServiceConfig config = getLastConfig();
-          EventRecord er = new EventRecord(getX(), this, "send", getId(), null, e.getMessage(), LogLevel.WARN, null);
-          ((DAO) getX().get("eventRecordDAO")).put(er);
-          setEr(er);
+        } catch ( InterruptedException e ) {
+          Thread.currentThread().interrupt();
+          logger.error("Send interrupted", emailMessage.getId(), e);
+          emailMessage.setStatus(Status.FAILED);
         } catch ( RuntimeException e ) {
-          // already reported.
-          logger.error("send failed", e.getMessage());
+          // Missing config or a token Azure refuses: every message would fail
+          // the same way, and execute() would re-select this unsent message
+          // forever, so stop the agent until an admin fixes the config.
+          stopOnError(e.getMessage(), e);
         } catch ( Exception e ) {
-          logger.error("Unexpected error", e);
+          logger.error("Send failed", emailMessage.getId(), e);
           emailMessage.setStatus(Status.FAILED);
         }
         return emailMessage;

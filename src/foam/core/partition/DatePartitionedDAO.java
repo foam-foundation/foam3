@@ -188,7 +188,7 @@ public class DatePartitionedDAO
   }
 
   /** Publish a queued status row for each not-yet-loaded partition this
-      select is about to iterate, so PartitionLoadToastStack can show
+      select is about to iterate, so PartitionLoadWatcher can show
       "N of M" before the (synchronous, per-partition) load actually reaches
       them. Returns the ids published so the caller can clean up stragglers. */
   protected List<String> publishQueued(X x, String[] parts) {

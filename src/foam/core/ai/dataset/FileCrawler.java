@@ -13,7 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public class FileCrawler extends AbstractFileCrawler {
@@ -33,13 +36,16 @@ public class FileCrawler extends AbstractFileCrawler {
 
   @Override
   public List collect(X x) {
-    List<Path> paths = new ArrayList<>();
+    List<Path>        paths    = new ArrayList<>();
+    Map<String, Integer> perPath = new LinkedHashMap<>();
+
     for ( String rootPath : getSourcePaths() ) {
       Path root = Paths.get(rootPath);
       if ( ! Files.isDirectory(root) ) {
         System.err.println("[FileCrawler] Not a directory, skipping: " + rootPath);
         continue;
       }
+      int before = paths.size();
       try ( Stream<Path> walk = Files.walk(root) ) {
         walk.filter(Files::isRegularFile)
             .filter(p -> hasExtension_(p))
@@ -48,13 +54,28 @@ public class FileCrawler extends AbstractFileCrawler {
       } catch ( IOException e ) {
         System.err.println("[FileCrawler] Walk failed for " + rootPath + ": " + e.getMessage());
       }
+      perPath.put(rootPath, paths.size() - before);
     }
 
+    Collections.sort(paths);
     List<String> items   = new ArrayList<>();
     List<Path>   limited = ( getMaxFiles() > 0 && paths.size() > getMaxFiles() )
       ? paths.subList(0, getMaxFiles())
       : paths;
     for ( Path p : limited ) items.add(p.toString());
+
+    int total  = paths.size();
+    int capped = items.size();
+    StringBuilder sb = new StringBuilder("\n[FileCrawler] ┌────────────────────────────────────────────────────\n");
+    for ( Map.Entry<String, Integer> e : perPath.entrySet() )
+      sb.append("[FileCrawler] │  ").append(e.getKey()).append(" : ").append(e.getValue()).append("\n");
+    if ( perPath.size() > 1 )
+      sb.append("[FileCrawler] │  TOTAL : ").append(total).append("\n");
+    if ( capped < total )
+      sb.append("[FileCrawler] │  Capped to : ").append(capped).append("\n");
+    sb.append("[FileCrawler] └────────────────────────────────────────────────────\n");
+    System.out.println(sb);
+
     return items;
   }
 

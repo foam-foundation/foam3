@@ -15,7 +15,7 @@ foam.CLASS({
   css: `
     << {
       display: grid;
-      grid-template-columns: 4% 27% 19% 42% 8%;
+      grid-template-columns: 3% 2% 3% 23% 17% 44% 8%;
       border-bottom: 1px solid $borderLight;
       min-width: 0;
     }
@@ -30,6 +30,19 @@ foam.CLASS({
       text-align: right;
       color: $textTertiary;
       font-size: 11px;
+      padding-top: 10px;
+    }
+    <<reviewed {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: $success;
+    }
+    <<relevance {
+      text-align: center;
+      font-size: 11px;
+      color: $textSecondary;
       padding-top: 10px;
     }
     <<textarea {
@@ -50,8 +63,9 @@ foam.CLASS({
   `,
 
   properties: [
-    { class: 'Int',     name: 'rowNum', value: 0     },
-    { class: 'Boolean', name: 'dirty_', value: false  },
+    { class: 'Int',     name: 'rowNum',   value: 0 },
+    { class: 'Boolean', name: 'dirty_',   value: false },
+    { class: 'Boolean', name: 'reviewed_', factory: function() { return this.data.reviewed; } },
     { name: 'clone_', documentation: 'Mutable working copy of data.', factory: function() { return this.data.clone(); } }
   ],
 
@@ -78,6 +92,21 @@ foam.CLASS({
       name:  'deleteSample',
       label: 'Delete',
       code: function(X) { X.sampleDAO.remove(this.data); }
+    },
+    {
+      name:      'markReviewed',
+      label:     'Reviewed',
+      isAvailable: function(reviewed_) { return !reviewed_; },
+      isEnabled:   function(dirty_)    { return !dirty_; },
+      code: function(X) {
+        // Set reviewed_ synchronously so the checkmark updates on this row
+        // before the put fires any DAO events that could cause LazyScrollManager
+        // to recycle this view for a different row.
+        this.reviewed_ = true;
+        var updated = this.data.clone();
+        updated.reviewed = true;
+        X.sampleDAO.put(updated);
+      }
     }
   ],
 
@@ -89,9 +118,15 @@ foam.CLASS({
       self.onDetach(clone.sub(function() { self.dirty_ = true; }));
 
       this.addClass()
-        .style({ 'grid-template-columns': self.slot(function(colWidths) { return colWidths || '4% 27% 19% 42% 8%'; }) })
+        .style({ 'grid-template-columns': self.slot(function(colWidths) { return colWidths || '3% 2% 3% 23% 17% 44% 8%'; }) })
         .start('div').addClass(this.myClass('num'))
           .add(this.rowNum$)
+        .end()
+        .start('div').addClass(this.myClass('reviewed'))
+          .add(this.reviewed_$.map(function(v) { return v ? '✓' : ''; }))
+        .end()
+        .start('div').addClass(this.myClass('relevance'))
+          .add(this.data.relevance || '')
         .end()
         .start('div')
           .start({class: 'foam.u2.tag.TextArea', data$: clone.instruction$, rows: 6, onKey: true, escapeTextArea: false})
@@ -118,6 +153,7 @@ foam.CLASS({
             .add(self.SAVE_SAMPLE)
             .add(self.RESET_SAMPLE)
             .add(self.DELETE_SAMPLE)
+            .add(self.MARK_REVIEWED)
           .endContext()
         .end(); 
 

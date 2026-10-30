@@ -199,6 +199,12 @@ foam.CLASS({
 
           if ( instruction.isEmpty() || output.isEmpty() ) continue;
 
+          if ( ! output.contains("{") ) {
+            System.out.println("[DatasetGenerator] Skipping prose-only sample for " + sourceId
+              + ": " + instruction.substring(0, Math.min(60, instruction.length())));
+            continue;
+          }
+
           String id = hash_(instruction + output);
           if ( dao.find(id) != null ) continue;
 

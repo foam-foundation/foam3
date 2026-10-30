@@ -8,6 +8,7 @@ and nothing about its host.
 | Colours from CSS tokens, never a literal | `grep '#[0-9a-f]\{3,6\}' <view>` returns nothing |
 | Scope every class with `myClass()` | any bare `.class-name` in `css:`? |
 | Class toggle before slot before `dynamic()` | does the DOM structure change, or only a value? |
+| A growing list redraws one item, not the list | does adding an item re-run the render of every earlier one? |
 | Wrap every `sub()` in `onDetach` | count `sub(` vs `onDetach(` |
 | PropertyBorder owns label, visibility, errors | does the view read `controllerMode` or render a label by hand? |
 | Theme a button with `buttonStyle`, never `style()` | any `background`/`color` set on an action's element? |
@@ -58,6 +59,11 @@ Each step up the ladder rebuilds more DOM; `dynamic()` is for structure changes 
 Don't: `this.slot(function(x) { return this.E().add(x); })`; a `dynamic()` around a whole table when one cell changes; `add(function() {...})` without `dynamic`
 Do:    `.enableClass('open', this.open$)` · `.add(this.title$)` · `.show(cond$)` · `this.add(this.dynamic(function(items) { ... }))` around the block whose children are replaced (bare `this.dynamic()` builds into the view and never removes the previous run)
 Review asked: "keep dynamic() only around the elements whose structure actually changes." (`doc/guides/ReactiveUI.md:209`)
+
+### A growing list redraws one item, not the list
+One `dynamic()` over a whole array re-runs every item's render when one item is added or changes: scroll positions inside earlier items reset, selections drop, and entry animations replay.
+Don't: `this.add(this.dynamic(function(messages) { messages.forEach(m => this.tag(MessageView, { data: m })); }))` on a list that only grows or changes item by item
+Do:    give each item its own slot (`m.rev = foam.lang.SimpleSlot.create({ value: 0 })`), add it once with `list.add(this.dynamic(function(rev) { /* build the item into this */ }, m.rev))` as it is appended (passing the slot makes `dynamic` follow only that slot, `src/foam/lang/FObject.js:748-760`), and bump only that item's slot (`m.rev.value++`) when it changes; keep a list-level `dynamic()` only for what depends on the list as a whole, such as an empty-state message
 
 ### Chain the build; never stash elements in render-local variables
 A held reference outlives the branch that made it, and the reader loses the tree shape the chain shows.

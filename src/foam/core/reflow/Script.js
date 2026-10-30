@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.core.reflow',
   name: 'Script',
+  extends: 'foam.core.reflow.AbstractScript',
 
   imports: [
     'data as block',
@@ -22,38 +23,7 @@ foam.CLASS({
     but this.log() will log to the block, ie. in the FLOW document itself.
   `,
 
-  properties: [
-    {
-      class: 'String',
-      name: 'code',
-      reactive: false,
-      view: {
-        class: 'foam.u2.view.ObjAltView',
-        views: [
-          [ {class: 'foam.u2.view.CodeView', config: { width: '100%', mode: 'JAVASCRIPT', showGutter: false }}, 'Code'],
-          [ {class: 'foam.u2.tag.TextArea', rows: 16 }, 'Plain Text']
-        ]
-      },
-      displayWidth: 60
-    },
-    {
-      class: 'String',
-      name: 'output',
-      transient: true,
-      reactive: false,
-      view: { class: 'foam.u2.tag.TextArea', rows: 8 },
-      displayWidth: 60
-    },
-    { class: 'Boolean', name: 'autoRun', view: { class: 'foam.u2.Switch' } }
-  ],
-
   methods: [
-    function onLoad() {
-      if ( this.autoRun ) return this.run_();
-    },
-
-    // The run action delegates here so that subclasses can capture the result
-    // by overriding run_() and calling this.SUPER(), which actions don't support.
     function run_() {
       let self = this;
       with ( this.scope ) {
@@ -75,14 +45,6 @@ foam.CLASS({
   ],
 
   actions: [
-    function run() {
-      return this.run_();
-    },
-
-    function clearOutput() {
-      this.output = '';
-    },
-
     {
       name: 'createTest',
       availablePermissions: [ 'command.read.test' ],

@@ -168,12 +168,18 @@ foam.CLASS({
       `
     },
     {
-      documentation: `createdBy is stamped by CreatedByAwareDAO, which sits
-        inside AuthorizationDAO, so it is still unset here. Submitting is
-        governed by access to the jobDAO service itself.`,
+      documentation: `A Job runs code on the server, and some Jobs, such as
+        ShellJob and ScriptJob, run whatever code the submitter supplies, so
+        access to the jobDAO is not enough to submit one. Submitting needs
+        job.create.<full class id>, e.g. job.create.foam.core.job.ShellJob.
+        The full id, not the short name, keeps a grant for one package's
+        ShellJob from also covering a ShellJob in another package; its dots
+        let a wildcard such as job.create.foam.core.job.* grant a whole package.`,
       name: 'authorizeOnCreate',
       javaCode: `
-        // not authorized here, see documentation
+        String permission = "job.create." + getClassInfo().getId();
+        if ( ! ((AuthService) x.get("auth")).check(x, permission) )
+          throw new AuthorizationException("You do not have permission to submit " + getClassInfo().getId());
       `
     },
     {

@@ -9,6 +9,7 @@ p({"class":"foam.core.reflow.cmd.Flows", "id": "flows", "icon": "flow"})
 p({"class":"foam.core.reflow.cmd.Help", "id": "help", "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.HelpFunctions", "id": "helpFn", "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.History", "id": "history", "icon": "history"})
+p({"class":"foam.core.reflow.cmd.Include", "id": "include", "icon": "flow", linkable: false})
 p({"class":"foam.core.reflow.cmd.Load", "id": "load", "icon": "flow", linkable: false})
 p({"class":"foam.core.reflow.cmd.MQLHelp", "id": "helpMQL", "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.Models", "id": "models", "icon": "/images/modeling.svg"})
@@ -141,6 +142,50 @@ p({
     addValue(foam.core.reflow.Script.create({code: code, autoRun: !! code}, this), true);
   """
 })
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "shell",
+  "description": "Script an editable shell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.ShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "beanshell",
+  "description": "Script an editable BeanShell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.BeanShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+p({
+  "class":"foam.core.reflow.cmd.Command",
+  "id": "jshell",
+  "description": "Script an editable JShell script that runs on the server",
+  "icon": "script",
+  "script": """
+    var code = args.join(' ');
+    addValue(foam.core.reflow.JShellScript.create({code: code, autoRun: !! code}, this), true);
+  """,
+  permissionRequired: true
+})
+// p({
+//   "class":"foam.core.reflow.cmd.Command",
+//   "id": "python",
+//   "description": "Script an editable Python script that runs on the server",
+//   "icon": "script",
+//   "script": """
+//     var code = args.join(' ');
+//     addValue(foam.core.reflow.PythonScript.create({code: code, autoRun: !! code}, this), true);
+//   """,
+//   permissionRequired: true
+// })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "function",

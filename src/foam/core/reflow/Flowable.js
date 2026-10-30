@@ -90,6 +90,15 @@ foam.CLASS({
       expression: function(dependencies) {
         return dependencies.length != 0;
       }
+    },
+    {
+      class: 'Boolean',
+      name: 'childTransient',
+      hidden: true,
+      transient: true,
+      documentation: `When true, this block's children are not saved with the flow and
+        addFlowChild() ignores new ones. An 'include' block sets it once its flow is in,
+        so each load includes a fresh copy of the library flow instead of a saved one.`
     }
   ],
 
@@ -147,7 +156,7 @@ foam.CLASS({
     },
 
     function addFlowChild(f) {
-      if ( f.deleted_ ) return;
+      if ( f.deleted_ || this.childTransient ) return;
       f.flowParent = this;
       this.flowChildren$push(f);
       this?.addFlowChild_(f);

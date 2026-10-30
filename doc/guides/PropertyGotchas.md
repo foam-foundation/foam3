@@ -152,6 +152,8 @@ Levers, in order of preference:
 
 **This is the only way to handle the Enum trap.** An Enum property has no null value: an unset Enum reads back as its ordinal-0 value, the first `values:` entry. So `obj.enumProp` is never null, and `obj.enumProp ? label : blank` always takes the truthy branch — the field displays the first enum as though it had been chosen. `obj.hasOwnProperty('enumProp')` is the only client-side way to tell "never set" from "showing the ordinal-0 default".
 
+The same trap on the server: `config.getMode() == Mode.DEVELOPMENT` is true for an object that never set `mode` when `DEVELOPMENT` is the first value, so a host that left the property out takes the development branch. Test `AppConfig.MODE.isSet(config)` first; any `PropertyInfo.isSet(obj)` answers the same question in Java.
+
 Gate the display on it in a read view, a `tableCellFormatter`, or a `visibility` function. Note that inside a property `view` the value slot is the enum itself and cannot tell set from unset — reach the parent object through `X.data$` to run the check.
 
 Two caveats that flip the check:
@@ -171,6 +173,25 @@ For an adapter DAO built on `copyFrom` in both directions, assume a round trip p
 ---
 
 ## Reusing, naming and writing properties
+
+### A String that holds code needs a forced escape on output
+
+The JSON outputter's default `escape` keeps an escape sequence that is already in the string (`src/foam/lang/JSON.js:322`): a stored `\\` goes out as `\\`, and the parser on the other side reads it back as one backslash. A property holding source code or a regex loses half its backslashes on each round trip, and code such as `/\\d/` comes back meaning something else.
+
+Give the property a `toJSON` that forces the escape, as `foam.core.reflow.Flow.SCRIPT` does (`src/foam/core/reflow/Flow.js:220-226`):
+
+```javascript
+{
+  class: 'Code',
+  name: 'source',
+  toJSON: function(value, outputter) {
+    // Triple-quoted multi-line output does its own escaping.
+    return outputter.multiLineOutput ? value : outputter.escape(value, true);
+  }
+}
+```
+
+Test it with a round trip: output the object, parse it back, compare the string.
 
 ### `__copyFrom__` clones another model's Property axiom
 

@@ -848,14 +848,14 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'isMenuOpen',
+    'llmService',
     'notify',
     'params',
     'setTimeout',
-    'toolbarControlDAO',
-    'window',
     'showNav',
-    'isMenuOpen',
-    'llmService'
+    'toolbarControlDAO',
+    'window'
   ],
 
   constants: [
@@ -877,6 +877,7 @@ foam.CLASS({
     'flowChildren',
     'history_',
     'consoleLLMService',
+    'includeFlow',
     'localScope',
     'log',
     'mementoMgr',
@@ -1211,12 +1212,18 @@ foam.CLASS({
       }
     },
 
-    async function includeFlow(name) {
+    async function includeFlow(name, parent) {
       if ( ! name ) return;
       var flow = await this.flowDAO.find(name);
 
       if ( flow ) {
-        await this.includeScript(flow.script);
+        // Including under a parent block, such as an 'include' command, runs
+        // eval_ for each child, which moves currentBlock to the last child.
+        // When the parent itself is being loaded, includeScript then applies
+        // the parent's saved args and onLoad to currentBlock, so put it back.
+        var currentBlock = this.currentBlock;
+        await this.includeScript(flow.script, parent);
+        if ( parent ) this.currentBlock = currentBlock;
       }
     },
 
@@ -1272,25 +1279,32 @@ foam.CLASS({
       await worker.save();
     },
 
-    async function includeScript(script, parent, skipParse, perfParent) {
+    async function includeScript(script, parent, skipParse, perfParent, progress) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
         script :
         foam.json.parseString(script, ctx);
 
-      // Count total blocks for progress tracking (only at top level)
-      if ( ! parent ) {
-        this.totalBlocks_ = this.countBlocks(cs);
-        this.loadingProgress_ = 0;
+      // The loading indicator shows the Console's counters, sized when a load
+      // starts. An 'include' block adds its flow's blocks under itself while
+      // that load is running; if they counted there, a flow of 10 blocks with
+      // one 'include' of 5 blocks would show "Loading block 15 of 10". So a
+      // call with a parent but no tracker, such as includeFlow(name, parent),
+      // counts into its own tracker and the include counts as one block.
+      // Recursion into flowChildren passes its tracker down.
+      if ( ! progress ) {
+        progress = parent ? {} : this;
+        progress.totalBlocks_     = this.countBlocks(cs);
+        progress.loadingProgress_ = 0;
       }
 
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
 
         // Update progress counter for all blocks (including nested)
-        this.loadingProgress_++;
-        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
+        progress.loadingProgress_++;
+        progress.loadingPercentage_ = Math.round((progress.loadingProgress_ / progress.totalBlocks_) * 100);
 
         // Per-block attribution for the reflow Perf block: when a capture pointed
         // perfCapture_ at its buffer, record this block's cost. A nested call writes
@@ -1346,7 +1360,7 @@ foam.CLASS({
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_, progress);
         }
 
         // Measure AFTER onLoad + children: that is where a block's real work runs

@@ -480,11 +480,9 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
       args: 'Context x',
       javaCode: `
         RuntimeException      thrown = null;
-        Language              l      = getLanguage();
         ByteArrayOutputStream baos   = new ByteArrayOutputStream();
         PrintStream           ps     = new PrintStream(baos);
         PM                    pm     = new PM(this.getClass(), getId());
-        JShell                jShell = null;
 
         try {
           Thread.currentThread().setPriority(getPriority());
@@ -492,17 +490,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           if ( ! ( this instanceof foam.core.cron.Cron ) ) {
             er(x, null, LogLevel.INFO, null);
           }
-          if ( l == foam.core.script.Language.BEANSHELL ) {
-            Interpreter shell = (Interpreter) createInterpreter(x, ps);
-            setOutput("");
-            shell.setOut(ps);
-            shell.eval(getCode());
-          } else if ( l == foam.core.script.Language.JSHELL ) {
-            jShell = (JShell) createInterpreter(x,ps);
-            new JShellExecutor().execute(x, jShell, getCode(), true);
-          } else {
-            throw new RuntimeException("Script language not supported");
-          }
+          evalCode(x, ps);
           pm.log(x);
        } catch (Throwable t) {
           var wasInterrupted = t instanceof InterruptedException;
@@ -519,16 +507,6 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           er(x, t.getMessage(), LogLevel.ERROR, t);
           throw thrown;
         } finally {
-          // Release the JShell session and drop this run's registry entry so the
-          // run's X context is not pinned for the life of the JVM. JShell holds a
-          // heavyweight execution engine; the per-run token keeps cleanup scoped
-          // to this run only, so a concurrent JShell run is never affected.
-          if ( jShell != null ) {
-            Long token = Script.X_TOKENS.remove(jShell);
-            if ( token != null ) Script.X_REGISTRY.remove(token);
-            try { jShell.close(); } catch ( Throwable ignored ) {}
-          }
-
           setLastDuration(pm.getTime());
           ps.flush();
           setOutput(baos.toString());
@@ -548,6 +526,43 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
           ((DAO) x.get(getEventDaoKey())).put(event);
         }
     `
+    },
+    {
+      name: 'evalCode',
+      documentation: `Run code in this Script's language, writing what it prints
+        to ps. It does none of runScript's bookkeeping (lastRun, lastDuration,
+        ScriptEvent), so foam.core.job.ScriptJob can run code through a
+        throwaway Script without leaving script history behind.`,
+      args: 'X x, PrintStream ps',
+      javaThrows: [ 'java.lang.Exception' ],
+      javaCode: `
+        Language l      = getLanguage();
+        JShell   jShell = null;
+
+        try {
+          if ( l == foam.core.script.Language.BEANSHELL ) {
+            Interpreter shell = (Interpreter) createInterpreter(x, ps);
+            setOutput("");
+            shell.setOut(ps);
+            shell.eval(getCode());
+          } else if ( l == foam.core.script.Language.JSHELL ) {
+            jShell = (JShell) createInterpreter(x, ps);
+            new JShellExecutor().execute(x, jShell, getCode(), true);
+          } else {
+            throw new RuntimeException("Script language not supported");
+          }
+        } finally {
+          // Release the JShell session and drop this run's registry entry so the
+          // run's X context is not pinned for the life of the JVM. JShell holds a
+          // heavyweight execution engine; the per-run token keeps cleanup scoped
+          // to this run only, so a concurrent JShell run is never affected.
+          if ( jShell != null ) {
+            Long token = Script.X_TOKENS.remove(jShell);
+            if ( token != null ) Script.X_REGISTRY.remove(token);
+            try { jShell.close(); } catch ( Throwable ignored ) {}
+          }
+        }
+      `
     },
     {
       name: 'er',

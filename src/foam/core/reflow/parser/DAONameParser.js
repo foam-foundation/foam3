@@ -62,6 +62,8 @@ foam.CLASS({
     },
 
     async function aInit() {
+      if ( ! this.cSpecDAO ) return;
+
       const p          = this.Parsers.create();
       // Longest name first: alternatives are tried in order and the first match
       // wins, so a shorter name sharing a longer one's prefix would otherwise

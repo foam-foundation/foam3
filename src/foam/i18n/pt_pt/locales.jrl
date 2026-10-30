@@ -310,11 +310,11 @@ p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileDr
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.CAN_BE_REMOVED.label",target:"pode ser removido"})
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileDropZone.ON_FILES_CHANGED.label",target:"no filtro alterado"})
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.CAN_BE_REMOVED.value",target:"verdade"})
-p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.INDEX.label",target:"index pt"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.INDEX.label",target:"Índice"})
 
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileDropZone.ON_FILES_CHANGED.documentation",target:"Quando um arquivo for selecionado / alterado / removido, esta função será chamada. (OPCIONAL)"})
-p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.REMOVE_FILE_X.label",target:"removeFileX pt"})
-p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FilePreview.FILE_SRC.label",target:"fileSrc pt"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileCard.REMOVE_FILE_X.label",target:"Remover arquivo"})
+p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FilePreview.FILE_SRC.label",target:"Origem do arquivo"})
 //p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileDropZone.MAX_SIZE.value",target:"15"})
 p({class:"foam.i18n.Locale",locale:"pt",source:"foam.core.fs.fileDropZone.FileDropZone.MAX_SIZE.documentation",target:"Dita o tamanho máximo do arquivo em MB (Megabyte)."})
 

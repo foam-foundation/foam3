@@ -10,7 +10,8 @@ foam.CLASS({
 
   implements: [
     'foam.lang.Serializable',
-    'foam.mlang.order.Comparator'
+    'foam.mlang.order.Comparator',
+    'foam.mlang.PropertyAuthorizable'
   ],
 
   documentation: 'Binary Comparator, which sorts for first Comparator, then second.',
@@ -60,6 +61,12 @@ foam.CLASS({
       },
       javaCode: 'return "THEN_BY " + getHead().toString() + ", " + getTail().toString();'
 
+    },
+    {
+      // Sorting by a hidden property leaks it, and either half of a compound
+      // order can be the one that sorts by it, so both are checked.
+      name: 'authorize',
+      javaCode: 'foam.mlang.AbstractExpr.authorizeProperties(x, of, this);'
     },
     {
       name: 'createStatement',

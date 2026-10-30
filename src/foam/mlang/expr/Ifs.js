@@ -7,6 +7,7 @@
 foam.CLASS({
   package: 'foam.mlang.expr',
   name: 'IfsClause',
+  implements: [ 'foam.mlang.PropertyAuthorizable' ],
 
   documentation: 'An Ifs clause.',
 
@@ -28,6 +29,12 @@ foam.CLASS({
         return this.cond + ' => ' + this.expr;
       },
       javaCode: 'return getCond().toString() + " => " + getExpr().toString();'
+    },
+    {
+      // A clause is an FObject but not an Expr, so without this the property
+      // walk in Ifs would stop at the clause and never check its cond or expr.
+      name: 'authorize',
+      javaCode: 'foam.mlang.AbstractExpr.authorizeProperties(x, of, this);'
     }
   ]
 });

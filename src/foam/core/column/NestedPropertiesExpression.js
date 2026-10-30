@@ -90,6 +90,15 @@ foam.CLASS({
       `
     },
     {
+      name: 'authorize',
+      javaCode: `
+        // The path is a string such as "manager.salary" until resolved into
+        // a chain of DOT expressions, so authorize the chain it resolves to.
+        Expr e = returnDotExprForNestedProperty(getObjClass(), getNestedProperty().split("\\\\."), 0, null);
+        if ( e != null ) e.authorize(x, of);
+      `
+    },
+    {
       name: 'returnDotExprForNestedProperty',
       javaType: 'foam.mlang.Expr',
       args: [

@@ -245,7 +245,9 @@ foam.CLASS({
       documentation: `An AllPartitions left in the query does not send a route
         to every partition; an EQ on the date inside a leaf still reaches it;
         an update that moves a row off an indexed value prunes that value's
-        entry; rebuild indexes a row written around the decorator.`,
+        entry; rebuild indexes a row written around the decorator, through
+        REBUILD_CMD, unloads the leaves it loaded, and adds nothing when run
+        again.`,
       javaCode: `
         X      tx      = newStorageContext(x);
         String dirName = "pidxu" + System.nanoTime() + "/";
@@ -280,9 +282,19 @@ foam.CLASS({
 
         dao.getPartitioned().put(row(1, 2026, 0, 21, 5, "k1"));
         test(count(dao, EQ(PartitionStrRecord.DATA, "k1")) == 0, "a row written around the decorator has no entry");
-        dao.rebuild(tx, AND(allRegions(), GTE(PartitionStrRecord.DATE, date(2026, 0, 1)), LT(PartitionStrRecord.DATE, date(2026, 1, 1))));
+
+        // A restart leaves every leaf unloaded, as on a server after a deploy.
+        dao = newDAO(tx, dirName);
+        Object added = dao.cmd(PartitionIndexDAO.REBUILD_CMD);
+        test(Long.valueOf(1).equals(added), "REBUILD_CMD writes only the missing k1 entry, got " + added);
+        PartitionedDAO region1 = (PartitionedDAO) dao.getPartitioned().getDelegate("1");
+        for ( String leaf : region1.getPartitions() ) {
+          test(! region1.isLoaded(leaf), "rebuild unloads leaf " + leaf + " after indexing it");
+        }
         found = count(dao, EQ(PartitionStrRecord.DATA, "k1"));
         test(found == 1, "rebuild indexes it, got " + found);
+        added = dao.cmd(PartitionIndexDAO.REBUILD_CMD);
+        test(Long.valueOf(0).equals(added), "a second rebuild adds nothing, got " + added);
       `
     },
     {

@@ -19,7 +19,7 @@ foam.CLASS({
   ],
 
   imports: [
-    'consoleLLMService as llmService',
+    'llmService',
     'notify'
   ],
 

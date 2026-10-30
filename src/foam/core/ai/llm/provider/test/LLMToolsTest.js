@@ -169,6 +169,27 @@ foam.CLASS({
         expect(sr.getStopReason(), "tool_use", "claude stream: stop reason");
         test(reported[0] > 0, "claude stream: progress reported, " + reported[0] + " tokens");
 
+        // a listener that throws ends the call even while the model only thinks
+        String[] thinking = {
+          "data: {'type':'message_start','message':{'model':'m'}}",
+          "data: {'type':'content_block_start','index':0,'content_block':{'type':'thinking','thinking':''}}",
+          "data: {'type':'content_block_delta','index':0,'delta':{'type':'thinking_delta','thinking':'hmm'}}",
+          "data: {'type':'content_block_stop','index':0}",
+          "data: {'type':'message_stop'}" };
+        try {
+          claude.readStream(lines(thinking), (LLMProgress) tokens -> { throw new RuntimeException("stopped"); });
+          test(false, "claude stream: a listener that throws while the model thinks ends the call");
+        } catch (RuntimeException e) {
+          test("stopped".equals(e.getMessage()), "claude stream: a listener that throws while the model thinks ends the call");
+        }
+        try {
+          openai.readStream(lines("data: {'choices':[{'delta':{'role':'assistant'}}]}", "data: [DONE]"),
+            (LLMProgress) tokens -> { throw new RuntimeException("stopped"); });
+          test(false, "openai stream: a listener that throws before any text ends the call");
+        } catch (RuntimeException e) {
+          test("stopped".equals(e.getMessage()), "openai stream: a listener that throws before any text ends the call");
+        }
+
         try {
           claude.readStream(lines("data: {'type':'error','error':{'type':'overloaded_error'}}"), null);
           test(false, "claude stream: an early error throws");

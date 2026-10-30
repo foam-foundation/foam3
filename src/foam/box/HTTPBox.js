@@ -62,6 +62,11 @@ foam.CLASS({
     {
       name: 'FETCH_ERROR',
       message: 'Error connecting to server. Please retry.',
+    },
+    {
+      name: 'HTTP_ERROR',
+      message: 'The server request failed (HTTP ${status}). Please retry.',
+      template: true
     }
   ],
 
@@ -202,7 +207,7 @@ foam.CLASS({
           return this.parser.aparse(p);
         }).then((response) => {
           envelope.replyBox?.send(response);
-        }, function(r) {
+        }, (r) => {
           var msg;
           if ( r ) {
             if ( r.redirect_to_url ) {
@@ -221,8 +226,15 @@ foam.CLASS({
                 r.message === 'NetworkError when attempting to fetch resource.' || /* ff */
                 r.message === 'Load failed' /* safari */
             ) {
-              msg = self.FETCH_ERROR;
-            } else msg = r.message;
+              msg = this.FETCH_ERROR;
+            } else if ( r.message ) {
+              msg = r.message;
+            } else {
+              // A rejected HTTPResponse, such as a 504 from a load balancer
+              // on a long request, has a status but no message, so the user
+              // would otherwise see "undefined".
+              msg = this.HTTP_ERROR({ status: r.status });
+            }
           }
           envelope.replyBox?.send(foam.box.Envelope.create({
             message: foam.box.HTTPException.create({ response: r, message: msg })

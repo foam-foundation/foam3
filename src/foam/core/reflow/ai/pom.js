@@ -12,6 +12,9 @@ foam.POM({
     { name: 'AskCommand', flags: 'js|java' },
 
     // Block for proposing the execution of another command
-    { name: 'Propose', flags: 'js' }
+    { name: 'Propose', flags: 'js' },
+
+    // One execute_command tool through which an AI agent runs its commands
+    { name: 'CommandTool', flags: 'js' }
   ]
 });

@@ -164,6 +164,13 @@ foam.CLASS({
       }
     },
     {
+      class: 'Int',
+      name: 'autoRefreshInterval',
+      units: 'ms',
+      value: 0,
+      documentation: 'Refresh visible tables after this interval between completed loads. Zero disables automatic refresh.'
+    },
+    {
       class: 'foam.u2.ViewSpec',
       name: 'summaryView',
       expression: function(tableColumns, selectMode) {

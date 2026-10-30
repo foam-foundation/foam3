@@ -38,7 +38,7 @@ foam.CLASS({
     'foam.mlang.Expressions'
   ],
 
-  imports: ['config', 'requestAnimationFrame'],
+  imports: ['config', 'requestAnimationFrame', 'setTimeout', 'clearTimeout', 'warn'],
 
   constants: [
     {
@@ -287,6 +287,16 @@ foam.CLASS({
     },
     ['suspendObserver', false],
     {
+      class: 'Int',
+      name: 'autoRefreshInterval',
+      expression: function(config$autoRefreshInterval) {
+        return config$autoRefreshInterval || 0;
+      }
+    },
+    { name: 'autoRefreshTimer_' },
+    { class: 'Boolean', name: 'autoRefreshInProgress_' },
+    { name: 'refreshScrollTop_' },
+    {
       name: 'refreshId',
       documentation: 'UID used to prevent old data from corrupting the refresh process',
       factory: function() {
@@ -369,6 +379,52 @@ foam.CLASS({
       this.onDetach(this.rootElement$.sub(this.updateRenderedPages));
       this.onDetach(this.order$.sub(this.refresh));
       this.onDetach(this.groupBy$.sub(this.refresh));
+      this.onDetach(this.autoRefreshInterval$.sub(this.scheduleAutoRefresh));
+      this.document.addEventListener('visibilitychange', this.scheduleAutoRefresh);
+      this.onDetach(() => {
+        this.stopAutoRefresh();
+        this.document.removeEventListener('visibilitychange', this.scheduleAutoRefresh);
+      });
+      this.scheduleAutoRefresh();
+    },
+
+    function stopAutoRefresh() {
+      if ( this.autoRefreshTimer_ != null ) {
+        this.clearTimeout(this.autoRefreshTimer_);
+        this.autoRefreshTimer_ = null;
+      }
+    },
+
+    async function autoRefresh() {
+      this.autoRefreshTimer_ = null;
+      if ( this.isDetached() || this.autoRefreshInterval <= 0 ) return;
+
+      var root = this.rootElement.el_();
+      if ( this.document.hidden || ! root?.isConnected || ! root.getClientRects().length ||
+           this.daoLoading || this.autoRefreshInProgress_ ||
+           Object.keys(this.loadingPages_).length ) {
+        this.scheduleAutoRefresh();
+        return;
+      }
+
+      this.autoRefreshInProgress_ = true;
+      try {
+        // A menu can enable this on a cached DAO too. Purge before reading
+        // so the table sees server changes instead of its previous results.
+        await this.data.cmd(foam.dao.DAO.PURGE_CMD);
+        if ( this.isDetached() ) return;
+        if ( this.document.hidden || this.autoRefreshInterval <= 0 ) {
+          this.autoRefreshInProgress_ = false;
+          this.scheduleAutoRefresh();
+          return;
+        }
+        this.updateCount(true);
+      } catch (err) {
+        if ( this.isDetached() ) return;
+        this.warn('Unable to refresh table', err);
+        this.autoRefreshInProgress_ = false;
+        this.scheduleAutoRefresh();
+      }
     },
 
     // Spacer Helpers
@@ -507,10 +563,9 @@ foam.CLASS({
       return this.prepDAO(proxy, this.ctx).then((values) => {
         // This means a refresh was triggered while the call was in-flight
         // discard any calls since they might have old data
-        if ( this.refreshId !== refreshId ) return;
+        if ( this.isDetached() || this.refreshId !== refreshId ) return;
         if ( page < this.currentTopPage_ || page > this.currentTopPage_ + this.NUM_PAGES_TO_RENDER) {
           // console.debug('Skipping load', page);
-          this.loadingPages_$remove(page);
           return;
         }
         let e = self.renderedPages_[page];
@@ -564,11 +619,13 @@ foam.CLASS({
           }
         }
 
-        self.loadingPages_$remove(page);
         self.loadedPages_$set(page, true);
         e.style({ height: "unset" });
         self.setEstimatedPageHeight(page);
         this.dataLatch.resolve();
+      }).finally(() => {
+        if ( ! this.isDetached() && this.refreshId === refreshId )
+          this.loadingPages_$remove(page);
       });
     },
     async function processPageSequentially_(pageIndex) {
@@ -592,6 +649,16 @@ foam.CLASS({
   ],
 
   listeners: [
+    {
+      name: 'scheduleAutoRefresh',
+      code: function() {
+        this.stopAutoRefresh();
+        if ( this.isDetached() || this.autoRefreshInterval <= 0 ||
+             this.document.hidden || this.daoLoading || this.autoRefreshInProgress_ ||
+             Object.keys(this.loadingPages_).length ) return;
+        this.autoRefreshTimer_ = this.setTimeout(this.autoRefresh.bind(this), this.autoRefreshInterval);
+      }
+    },
     {
       // This is framed to prevent layout thrashing
       name: 'setEstimatedPageHeight',
@@ -631,7 +698,11 @@ foam.CLASS({
     {
       name: 'refresh',
       isFramed: true,
-      code: function() {
+      code: function(preservePosition) {
+        this.stopAutoRefresh();
+        preservePosition = preservePosition === true;
+        if ( preservePosition ) this.suspendObserver = true;
+        this.refreshScrollTop_ = preservePosition ? this.rootElement.el_()?.scrollTop : undefined;
         this.rowObserver?.disconnect();
         this.sentinelObserver_?.disconnect();
 
@@ -639,11 +710,16 @@ foam.CLASS({
         Object.keys(this.renderedPages_).forEach(i => this.clearPage(i, true));
 
         this.groupFirstPage_ = {};
-        this.pageHeights_   = {};
+        if ( ! preservePosition ) this.pageHeights_ = {};
         this.loadingPages_   = {};
         this.loadedPages_   = {};
         this.renderedPages_   = {};
-        if ( ! this.isInit ) {
+        if ( preservePosition ) {
+          this.currentTopPage_ = Math.min(this.currentTopPage_,
+            Math.max(0, this.numPages_ - this.NUM_PAGES_TO_RENDER));
+          this.topRow = Math.min(this.topRow, this.daoCount);
+          this.bottomRow = Math.min(this.bottomRow, this.daoCount);
+        } else if ( ! this.isInit ) {
           this.currentTopPage_ = 0;
           this.topRow          = 0;
           this.bottomRow       = 0;
@@ -651,27 +727,38 @@ foam.CLASS({
         this.isInit = false;
 
         // Reset spacers to zero — updateRenderedPages will recalculate
-        this.topSpacer_?.style({ height: '0px' });
-        this.bottomSpacer_?.style({ height: '0px' });
+        if ( ! preservePosition ) {
+          this.topSpacer_?.style({ height: '0px' });
+          this.bottomSpacer_?.style({ height: '0px' });
+        }
 
         // Re-attach sentinel observer after disconnect
         this.topSpacer_?.el().then(el    => this.sentinelObserver_?.observe(el));
         this.bottomSpacer_?.el().then(el => this.sentinelObserver_?.observe(el));
         this.clearProperty('refreshId');
         this.updateRenderedPages();
-        if ( this.topRow > 1 ) this.scrollToIndex = this.topRow;
+        if ( ! preservePosition && this.topRow > 1 ) this.scrollToIndex = this.topRow;
       }
     },
     {
       name: 'updateCount',
       isFramed: true,
-      code: function() {
+      code: function(preservePosition) {
+        this.stopAutoRefresh();
         var limit = (this.data && this.data.limit_) || undefined;
+        var dao = this.data;
         this.daoLoading = true;
         return this.data$proxy.select(this.Count.create()).then(s => {
+          if ( this.isDetached() || this.data !== dao ) return;
           this.daoCount   = limit && limit < s.value ? limit : s.value;
           this.daoLoading = false;
-          this.refresh();
+          this.refresh(preservePosition === true);
+        }).catch(err => {
+          if ( this.isDetached() || this.data !== dao ) return;
+          this.warn('Unable to count table rows', err);
+          this.daoLoading = false;
+          this.autoRefreshInProgress_ = false;
+          this.scheduleAutoRefresh();
         });
       }
     },
@@ -698,6 +785,7 @@ foam.CLASS({
       delay: 100,
       code: function() {
         // console.debug('starting render', this.currentTopPage_);
+        var refreshId = this.refreshId;
         var promise = Promise.resolve();
 
         if ( this.groupBy ) {
@@ -713,11 +801,18 @@ foam.CLASS({
             promiseArr.push(this.getPage(dao, page));
           }
           if ( promiseArr.length ) {
-            promise = Promise.all(promiseArr).then(() => { this.daoLoading = false; });
+            promise = Promise.allSettled(promiseArr).then(results => {
+              var failure = results.find(r => r.status === 'rejected');
+              if ( failure ) throw failure.reason;
+            });
           }
         }
 
-        promise.finally(() => {
+        promise.catch(err => {
+          if ( ! this.isDetached() ) this.warn('Unable to load table rows', err);
+        }).finally(() => {
+          if ( this.isDetached() || this.refreshId !== refreshId ) return;
+          this.daoLoading = false;
           // Evict pages outside the current window
           Object.keys(this.renderedPages_).forEach(i => {
             var n = Number(i);
@@ -731,6 +826,12 @@ foam.CLASS({
           this.suspendObserver = false;
           if ( this.scrollToIndex ) this.safeScroll();
           if ( this.displayedRowCount_ < 0 ) this.bottomRow = this.daoCount;
+          if ( this.refreshScrollTop_ !== undefined ) {
+            this.rootElement.el_().scrollTop = this.refreshScrollTop_;
+            this.refreshScrollTop_ = undefined;
+          }
+          this.autoRefreshInProgress_ = false;
+          this.scheduleAutoRefresh();
           // console.debug('render complete');
         });
       }
@@ -802,6 +903,7 @@ foam.CLASS({
       isIdled: true,
       delay: 48,
       code: function() {
+        if ( this.autoRefreshInProgress_ ) return;
         var scrollEl = this.rootElement.el_();
         if ( ! scrollEl || this.scrollToIndex ) return;
 

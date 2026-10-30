@@ -13,6 +13,7 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.PropertyInfo',
     'foam.dao.ProxySink',
+    'foam.mlang.PropertyAuthorizable',
     'foam.mlang.sink.Count',
     'foam.mlang.sink.GroupBy',
     'java.util.Iterator',
@@ -57,7 +58,10 @@ foam.CLASS({
       name: 'select_',
       javaCode: `
       if ( x.get("auth") != null ) {
-        if ( predicate != null ) predicate.authorize(x);
+        if ( predicate != null ) predicate.authorize(x, getOf());
+        // Sorting by a hidden property leaks it as surely as filtering on it:
+        // ORDER BY salary DESC LIMIT 1 names the highest earner.
+        if ( order instanceof PropertyAuthorizable ) ((PropertyAuthorizable) order).authorize(x, getOf());
 
         // don't decorate the sink if it's a Count
         var innerSink = sink;

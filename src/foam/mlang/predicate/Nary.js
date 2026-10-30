@@ -64,14 +64,6 @@ foam.CLASS({
           predicate.prepareStatement(stmt);
         }
       `
-    },
-    {
-      name: 'authorize',
-      javaCode: `
-        for ( Predicate predicate : getArgs() ) {
-          predicate.authorize(x);
-        }
-      `
     }
   ]
 });

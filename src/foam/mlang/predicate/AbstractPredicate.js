@@ -79,7 +79,7 @@ foam.CLASS({
     },
     {
       name: 'authorize',
-      javaCode: `//noop`
+      javaCode: 'foam.mlang.AbstractExpr.authorizeProperties(x, of, this);'
     }
   ]
 });

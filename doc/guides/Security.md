@@ -2,6 +2,23 @@
 
 # FOAM Application Security
 
+## Secure by Construction
+
+Conventional application security depends on developer discipline: training, coding guidelines and code review catch mistakes after they are written. FOAM puts the security controls in the framework, where they are written once, reviewed once and applied uniformly, so that an application's security does not depend on every developer remembering to apply them in every feature. It does this in three ways:
+
+- **Dangerous capabilities are not exposed.** The normal API gives developers no way to build query strings or write markup into the browser DOM, so injection and XSS flaws cannot be introduced through those routes.
+- **Security-critical code is generated, not hand-written.** Client stubs and server skeletons are generated from the model, with authentication and authorization built in.
+- **Enforcement sits on a single path.** Every service and DAO call passes through the same framework layers, so there is no alternate route that skips a check.
+
+Because features are generated deterministically from models, this also means:
+
+- **Fewer human errors.** Defects that come from hand-writing repetitive code, such as inconsistent validation or a forgotten permission check, do not occur in code that is never written by hand.
+- **Protection against AI-assisted coding errors.** Generated layers come from the model, not from free-form code, so a hallucinated or careless edit cannot silently enter them.
+- **Fixes apply everywhere.** A security fix in a generator reaches every service that uses it at the next build, rather than requiring each copy to be found and patched.
+- **Smaller attack surface.** Less hand-written code means less to review, test and secure.
+
+Training and code review still matter, but as additional layers of defence rather than the primary control.
+
 ## Structural Security — Immunity by Design
 
 Most frameworks treat injection attacks as problems to be mitigated: sanitise inputs, escape outputs, document what not to do, and hope developers follow the rules consistently. FOAM takes a different approach — it eliminates the attack surface at the architectural level so that the normal API provides no path to injection in the first place.
@@ -23,6 +40,17 @@ These constraints forced a fully component-based, code-wired architecture. U2 wa
 The result is that XSS is structurally impossible in a FOAM application. User input handled through the normal U2 API cannot become executable markup, because U2 never hands strings to the HTML parser.
 
 Chrome Apps no longer exist, but FOAM retains these constraints through a self-imposed Content Security Policy. The security properties remain, independent of the platform that originally motivated them.
+
+The policy is built from `foam.core.http.csp.CSPDirective` rows in `src/cspdirectives.jrl`. Its `script-src` does not include `'unsafe-inline'`, so a `<script>` tag written into an HTML page is not executed, and an inline listener such as `onclick="code"` is not evaluated either. This is a second, independent layer: even if markup were somehow injected into a page, the script in it would not execute.
+
+#### Minimal client-side dependencies
+
+The FOAM client has no third-party runtime dependencies. Two optional libraries are loaded from a CDN, and only when the component that needs them is created (via a `JsLib` axiom):
+
+- Ace Editor 1.9.6 for code editing (`src/io/c9/ace/Editor.js`).
+- Chart.js 4.4.2 and its date-fns adapter for dashboards and charts (`src/org/chartjs/Lib.js`).
+
+Each external script URL must also be allowed by the `script-src` directive, so a new library cannot be loaded without a reviewed change to `cspdirectives.jrl`.
 
 ### SQL Injection Immunity — MLang
 
@@ -47,7 +75,7 @@ Both protections follow from the same architectural decision made throughout FOA
 |---|---|---|---|
 | UI rendering | XSS via template injection | Builder API sets DOM properties, never innerHTML | XSS structurally impossible |
 | Query construction | SQL injection via string concatenation | MLang predicate objects, parameterised execution | SQL injection structurally impossible |
-| Runtime code | Code injection via eval | No eval, strict CSP | eval-based injection impossible |
+| Runtime code | Script injection via `<script>` tags or inline handlers (`onclick="..."`) | Strict CSP with no `'unsafe-inline'` | Injected inline script never executes |
 
 ---
 
@@ -76,6 +104,21 @@ Autenticated services require the client (connecting user) to have permission
 - _`service.<cspec-name>` (legacy)_
 
 Unauthenticated services are open to all clients for reading.
+
+Developers do not write REST or other network APIs by hand. The client stub and server skeleton for a served service are generated, and every request is checked by `SessionServerBox`, which calls `CSpec.checkAuthorization()` before the request reaches the service (`src/foam/box/SessionServerBox.java:149`, `src/foam/core/boot/CSpec.js:332`). No served endpoint can therefore be shipped without its authentication and authorization check.
+
+### Deny by Default
+
+Every permission is denied unless explicitly granted. All groups descend from the `basicUser` group (`src/groups.jrl`), which grants only the minimum a logged-in user needs (`src/groupPermissionJunctions.jrl`). The same permission system governs both users and service-to-service calls, and can be applied at three levels: access to a service, individual objects (rows, via the model's authorizer), and individual properties (columns, via `PermissionedPropertyDAO`), each described below.
+
+### Delegated Administration Without Escalation
+
+Administrators can create users and groups and grant permissions, but cannot grant any permission they do not hold themselves:
+
+- Adding or removing a permission on a group requires both `group.update.<groupId>` and the permission itself (`GroupPermissionJunctionRefinement.js`, message "You cannot add or remove a permission that you do not have.").
+- Creating a group, or changing its parent, requires holding every permission of the new group and its ancestors (`checkUserHasAllPermissionsInGroupAndAncestors` in `Group.js`), so a group cannot be re-parented under `admin` to inherit its rights.
+
+A compromised or careless administrator account therefore cannot grant more access than it already has. These cases are covered by `src/foam/core/auth/test/PreventPrivilegeEscalationTest.java`.
 
 Once a client connects to a service, security managing data manipulation is controlled at the model level (discussed below in Model Security).
 
@@ -171,6 +214,33 @@ EasyDAO properties relevant to Model level authentication:
             - used but not clear how different from writePermissionRequired
             - see `foam.u2.Element2.js:1767`, `foam/core/auth/PermissionedPropertyDAO.js:118 & 222`
 - permissionPrefix: by default the permissionPrefix is the model name in lowercase.
+
+## Data Protection
+
+### Built-in Storage
+
+FOAM's default persistence is its own journalled DAO (JDAO over an in-memory MDAO) rather than an external database server. There is no database login, network port or administrative console: data is reachable only through the application's DAO stack and its authentication, authorization and audit layers. Schema changes come from model changes, which go through code review, not from manual DDL.
+
+### Secrets and Passwords
+
+System credentials, such as keys and passwords for external services, belong in the key store managed by `foam.core.security.KeyStoreManager`, not in journals, source code or configuration. User passwords are stored only as salted PBKDF2 hashes (`foam.util.Password.hash`).
+
+## Auditing
+
+Auditing is a property of the storage layer, not something each service must remember to call.
+
+When a DAO is persisted with JDAO (the default `EasyDAO` journal), the journal is itself the audit log. Before each update record, the journal writes a comment saying who made the change and when (`writeComment_` in `src/foam/dao/AbstractF3FileJournal.js`):
+
+```
+// Modified by Jane Smith (1234) at 2026-10-30T14:02:11.517Z
+p({"class":"com.example.Invoice","id":"INV-001","amount":150})
+```
+
+Because the journal is how the data is stored, this audit trail cannot be switched off without switching off persistence: there is no separate audit setting to disable, pause or narrow. Objects that implement `LastModifiedByAware` carry the same information on the record itself, so no comment is written for them.
+
+A DAO persisted some other way, such as `JDBCDAO`, has no journal and therefore no built-in audit trail. Auditing for such a DAO must be enabled explicitly, for example with `EasyDAO`'s `history: true`, which adds a `HistoryDAO` that writes a `foam.dao.history.HistoryRecord` (object id, user, agent, timestamp, and each changed property's old and new value) for every update.
+
+Failed logins are also recorded: `FailedLoginAuthService` logs each one and stores a `LoginAttempt` with the identifier, IP address and failure message in `loginAttemptDAO`.
 
 ## Q & A (incomplete)
 

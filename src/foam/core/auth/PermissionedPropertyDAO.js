@@ -13,6 +13,9 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.PropertyInfo',
     'foam.dao.ProxySink',
+    'foam.mlang.predicate.AQLExpr',
+    'foam.mlang.predicate.MQLExpr',
+    'foam.mlang.predicate.Predicate',
     'foam.mlang.sink.Count',
     'foam.mlang.sink.GroupBy',
     'java.util.Iterator',
@@ -57,7 +60,17 @@ foam.CLASS({
       name: 'select_',
       javaCode: `
       if ( x.get("auth") != null ) {
-        if ( predicate != null ) predicate.authorize(x);
+        // AQL/MQL store a query string; authorize only works after specialize → MLang
+        // so Property.authorize can enforce readPermissionRequired.
+        if ( predicate != null ) {
+          Predicate p = predicate;
+          if ( p instanceof AQLExpr ) {
+            p = ((AQLExpr) p).specialization(getOf());
+          } else if ( p instanceof MQLExpr ) {
+            p = ((MQLExpr) p).specialization(getOf());
+          }
+          p.authorize(x);
+        }
 
         // don't decorate the sink if it's a Count
         var innerSink = sink;

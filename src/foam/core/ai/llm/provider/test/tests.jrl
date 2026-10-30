@@ -1,0 +1,1 @@
+p({"class":"foam.core.ai.llm.provider.test.LLMToolsTest","id":"LLMToolsTest","description":"Claude and chat-completions providers: tool definitions, tool calls and their results, web search, thinking and cache tokens in the request body and the parsed reply"})

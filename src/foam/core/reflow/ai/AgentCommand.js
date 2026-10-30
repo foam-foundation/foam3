@@ -42,7 +42,7 @@ foam.CLASS({
     'block',
     'commandDAO',
     'flowDAO',
-    'consoleLLMService as llmService',
+    'llmService',
     'subject'
   ],
 

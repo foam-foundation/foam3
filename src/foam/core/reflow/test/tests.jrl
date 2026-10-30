@@ -28,3 +28,9 @@ p({
   "id": "DAOPromptRunningTest",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.MappingAScriptTest",
+  "id": "MappingAScriptTest",
+  "description": "Upload mapping: the JavaScript label keeps saved mappings working; AScript formulas parse whole, compile once and show their sample",
+  "language": 0
+})

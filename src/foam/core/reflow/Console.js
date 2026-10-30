@@ -849,7 +849,7 @@ foam.CLASS({
     'commandDAO',
     'flowDAO',
     'isMenuOpen',
-    'llmService',
+    'llmService as parentLLMService',
     'notify',
     'params',
     'setTimeout',
@@ -976,7 +976,7 @@ foam.CLASS({
         send each earlier request again with every new one.
       `,
       factory: function() {
-        return this.ConversationalLLMService.create({delegate: this.llmService});
+        return this.ConversationalLLMService.create({delegate: this.parentLLMService});
       }
     },
     {

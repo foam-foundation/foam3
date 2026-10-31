@@ -6,6 +6,22 @@
 
 foam.CLASS({
   package: 'foam.core.auth.test',
+  name: 'PermissionedPropertyDAOTestAddress',
+
+  documentation: 'Nested test model whose code needs permissionedpropertydaotestaddress.ro.code to read.',
+
+  properties: [
+    {
+      class: 'Long',
+      name: 'code',
+      readPermissionRequired: true
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.auth.test',
   name: 'PermissionedPropertyDAOTestEmployee',
 
   documentation: 'Test model whose salary needs permissionedpropertydaotestemployee.ro.salary to read.',
@@ -23,6 +39,16 @@ foam.CLASS({
       class: 'Long',
       name: 'salary',
       readPermissionRequired: true
+    },
+    {
+      class: 'String',
+      name: 'notes',
+      readPermissionRequired: true
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.auth.test.PermissionedPropertyDAOTestAddress',
+      name: 'address'
     }
   ]
 });
@@ -45,9 +71,11 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.lang.X',
+    'foam.mlang.Constant',
     'foam.mlang.order.Comparator',
     'foam.mlang.predicate.AQLExpr',
     'foam.mlang.predicate.FScriptPredicate',
+    'foam.mlang.predicate.Keyword',
     'foam.mlang.predicate.MQLExpr',
     'foam.mlang.predicate.NamedProperty',
     'foam.mlang.predicate.Predicate',
@@ -73,8 +101,10 @@ foam.CLASS({
         DAO dao = new PermissionedPropertyDAO.Builder(x)
           .setDelegate(new MDAO(PermissionedPropertyDAOTestEmployee.getOwnClassInfo()))
           .build();
-        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("alice").setSalary(60000).build());
-        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(2).setName("bob").setSalary(40000).build());
+        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("alice").setSalary(60000).setNotes("hidden-alpha")
+          .setAddress(new PermissionedPropertyDAOTestAddress.Builder(x).setCode(7).build()).build());
+        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(2).setName("bob").setSalary(40000).setNotes("hidden-beta")
+          .setAddress(new PermissionedPropertyDAOTestAddress.Builder(x).setCode(3).build()).build());
 
         var SALARY = PermissionedPropertyDAOTestEmployee.SALARY;
         var NAME   = PermissionedPropertyDAOTestEmployee.NAME;
@@ -115,6 +145,18 @@ foam.CLASS({
         expect(count(allowX, dao, GT(nested, 50000)),                    1L, "NestedPropertiesExpression matches alice when permitted");
         expect(count(allowX, dao, fscript),                              1L, "FScriptPredicate matches alice when permitted");
 
+        // address.code is read from the nested Address, not from the Employee
+        // being queried, so the check has to resolve it against Address.
+        var nestedFScript = new FScriptPredicate.Builder(x).setQuery("address.code>5").build();
+        test(isDenied(denyX, dao, nestedFScript, null),            "FScript address.code is denied without the Address read permission");
+        expect(count(allowX, dao, nestedFScript), 1L,              "FScript address.code matches alice when permitted");
+
+        // The search box sends TEXT:abc as a Keyword. Matching hidden notes
+        // would reveal them a substring at a time, so they are never searched,
+        // while the visible name still is.
+        expect(count(allowX, dao, keyword("hidden-alpha")), 0L,    "Keyword never matches the hidden notes");
+        expect(count(denyX,  dao, keyword("alice")),        1L,    "Keyword still matches the visible name");
+
         test(isDenied(denyX, dao, null, SALARY),                 "ORDER BY salary is denied");
         test(isDenied(denyX, dao, null, DESC(SALARY)),           "ORDER BY salary DESC is denied");
         test(isDenied(denyX, dao, null, THEN_BY(NAME, SALARY)),  "ORDER BY name, salary is denied");
@@ -136,6 +178,16 @@ foam.CLASS({
         } catch ( AuthorizationException e ) {
           return true;
         }
+      `
+    },
+    {
+      name: 'keyword',
+      type: 'foam.mlang.predicate.Predicate',
+      args: 'String text',
+      javaCode: `
+        Keyword keyword = new Keyword();
+        keyword.setArg1(new Constant(text));
+        return keyword;
       `
     },
     {

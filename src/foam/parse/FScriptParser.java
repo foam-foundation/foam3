@@ -958,9 +958,18 @@ public class FScriptParser {
       var expr = (Expr) values[0];
       if (values.length > 1 && values[1] != null) {
         Object[] values2 = (Object[]) values[1];
-//        var parts = (String[]) values2[1];
+        // In "address.secret" the name "secret" belongs to the address's
+        // class, not the class being queried. A NamedProperty left unresolved
+        // is resolved against the queried class when the select is authorized,
+        // finds nothing there, and so a hidden Address.secret is never checked.
+        // Resolve each name against the class of the value it is read from;
+        // keep the NamedProperty only when that class is unknown.
+        ClassInfo cls = expr instanceof AbstractFObjectPropertyInfo ? ((AbstractFObjectPropertyInfo) expr).of() : null;
         for ( var i = 0 ; i < values2.length ; i++ ) {
-          expr = new Dot(expr, NamedProperty.create((String) values2[i]));
+          var  named = NamedProperty.create((String) values2[i]);
+          Expr prop  = cls == null ? null : named.specialize(cls);
+          expr = new Dot(expr, prop != null ? prop : named);
+          cls  = prop instanceof AbstractFObjectPropertyInfo ? ((AbstractFObjectPropertyInfo) prop).of() : null;
         }
       }
       return expr;

@@ -105,6 +105,12 @@ Iterator i = props.iterator();
 while ( i.hasNext() ) {
   PropertyInfo prop = (PropertyInfo) i.next();
 
+  // A table's search box sends TEXT:abc as this predicate, so matching a
+  // hidden property would tell the user which rows hold "abc" in it: one
+  // search per character recovers an ApprovalRequest's hidden token. f() has
+  // no user to check, so hidden properties are never searched.
+  if ( prop.getReadPermissionRequired() ) continue;
+
   try {
     String s = "";
     if ( prop instanceof foam.lang.AbstractFObjectPropertyInfo ) {

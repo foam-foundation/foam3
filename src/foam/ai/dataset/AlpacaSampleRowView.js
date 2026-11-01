@@ -143,7 +143,7 @@ foam.CLASS({
             .addClass(this.myClass('textarea'))
           .end()
           .start('div').addClass(this.myClass('source'))
-            .add(this.data.language + ' · ' + this.data.sourceFile)
+            .add(this.data.category + ' · ' + this.data.sourceFile)
           .end()
         .end()
         .start('div').addClass(this.myClass('actions'))

@@ -27,9 +27,9 @@ foam.CLASS({
     which serves as a dedup key: dao.find(id) before every put().
   `,
 
-  tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'language', 'sourceFile', 'instruction' ],
+  tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'category', 'sourceFile', 'instruction' ],
 
-  searchColumns: [ 'language', 'sourceFile' ],
+  searchColumns: [ 'category', 'sourceFile' ],
 
   properties: [
     {
@@ -66,8 +66,8 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'language',
-      documentation: 'js | java | jrl | markdown | mixed',
+      name: 'category',
+      documentation: 'Content-type tag set by the generator (e.g. js, java, jrl, markdown).',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
     },

@@ -43,7 +43,7 @@ foam.CLASS({
     }
   ],
   css: `
-    ^ {
+    << {
       color: $color;
       font-size: $fontSize;
     }
@@ -64,8 +64,8 @@ tag({class: 'Example'});
 
 CSSTokens are processed when an element's CSS is added to the DOM. The process:
 
-1. `foam.u2.CSS.expandCSS()` calls `foam.CSS.returnTokens` on the CSS property
-2. `returnTokens` finds all tokens and replaces them with appropriate values
+1. `foam.u2.CSS.expandCSS()` calls `foam.CSS.replaceTokens` on the CSS property
+2. `replaceTokens` finds all tokens and replaces them with appropriate values
 3. For every token, `returnTokenValue` is called
 
 This code is in `stdlib.js` → `foam.CSS` LIB. You can use `returnTokenValue` directly, which is especially useful for slotting tokens.
@@ -144,7 +144,7 @@ foam.CLASS({
     }
   ],
   css: `
-    ^ {
+    << {
       background-color: $myColor;
     }
   `,
@@ -176,7 +176,7 @@ foam.CLASS({
     }
   ],
   css: `
-    ^ {
+    << {
       background-color: $myColor;
     }
   `,
@@ -214,7 +214,7 @@ foam.CLASS({
     }
   ],
   css: `
-    ^ {
+    << {
       color: $color;
     }
     .foam-u2-dialog-StyledModal-wrapper {
@@ -279,7 +279,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^test1 {
+    <<test1 {
       color: $test1;
     }
   `,
@@ -357,9 +357,9 @@ tag({class: 'TokenOverrideExample'});
 
 ### Function Tokens
 
-Token values can be functions that return a valid CSS value or another token. Functions receive <term term="TokenUtilBuilder"></term> as the argument.
+Token values can be functions that return a valid CSS value or another token. Functions receive <term term="TokenUtilsBuilder"></term> (`foam.css.TokenUtilsBuilder`) as the argument.
 
-The various expressions available are in `TokenUtils.js` — useful for lightening, darkening, and changing hues of colors.
+The various expressions available are in `src/foam/css/TokenUtils.js` — useful for lightening, darkening, and changing hues of colors.
 
 <example id="function-tokens">
 foam.CLASS({
@@ -376,10 +376,10 @@ foam.CLASS({
     }
   ],
   css: `
-    ^a {
+    <<a {
       background-color: $color1;
     }
-    ^b {
+    <<b {
       background-color: $color2;
     }
   `,
@@ -433,15 +433,15 @@ foam.CLASS({
     }
   ],
   css: `
-    ^a {
+    <<a {
       background-color: $color1;
       color: $color1$foreground;
     }
-    ^b {
+    <<b {
       background-color: $color2;
       color: $color2$foreground;
     }
-    ^b:hover {
+    <<b:hover {
       background-color: $color2$hover;
       color: $color2$hover$foreground;
     }
@@ -498,15 +498,15 @@ foam.CLASS({
     }
   ],
   css: `
-    ^a {
+    <<a {
       background-color: $color1;
       color: $color1$foreground;
     }
-    ^b {
+    <<b {
       background-color: $color2;
       color: $color2$foreground;
     }
-    ^b:hover {
+    <<b:hover {
       background-color: $color2$hover;
       color: $color2$hover$foreground;
     }
@@ -561,7 +561,7 @@ foam.CLASS({
     }
   ],
   css: `
-    ^test {
+    <<test {
       color: $color;
     }
   `,
@@ -588,7 +588,7 @@ Base tokens are split into two types:
 | Type | Description | Examples |
 |------|-------------|----------|
 | **Atomic** | Building blocks | `red50-700`, `blue50-700`, `primary400` |
-| **Semantic** | Consumed by views, reference atomic tokens | `backgroundBrand`, `textDefault`, `borderPrimary` |
+| **Semantic** | Consumed by views, reference atomic tokens | `backgroundBrand`, `textDefault`, `borderBrand` |
 
 This separation allows enabling dark mode by only setting variants on semantic tokens. App theming becomes as simple as overriding the "primary" atomic tokens and tweaking semantic token values.
 
@@ -722,7 +722,6 @@ Replace with `border`-prefixed tokens:
 |-----|-----|
 | `border: 1px solid $primary400;` | `border: 1px solid $borderBrand;` |
 | `border: 1px solid #ccc;` | `border: 1px solid $borderDefault;` |
-| `border: 1px solid red;` | `border: 1px solid $borderDestructive;` |
 
 Border tokens also have tonal variants: `XLight`, `Light`, `Strong`, etc.
 
@@ -752,7 +751,7 @@ Border tokens also have tonal variants: `XLight`, `Light`, `Strong`, etc.
 ## See Also
 
 - [FOAM Views By Example](be:views) — Using tokens in view CSS
-- [Button.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/u2/Button.js) — Complete example of ColorToken usage
+- [Button.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/u2/tag/Button.js) — Complete example of ColorToken usage
 
 <glossary>
   <def term="CSSTokens" definition="FOAM's CSS variable system, scoped to classes automatically. Values beginning with $ are replaced when CSS is added to the DOM."></def>
@@ -761,7 +760,7 @@ Border tokens also have tonal variants: `XLight`, `Light`, `Strong`, etc.
   <def term="ColorToken" definition="A CSSToken subclass that auto-generates hover, active, disabled, and foreground variants for a color."></def>
   <def term="CSSTokenOverride" definition="Model for storing token value overrides per theme in a DAO."></def>
   <def term="CSSTokenOverrideService" definition="Service that resolves token overrides from the cssTokenOverrideDAO based on current theme."></def>
-  <def term="TokenUtilBuilder" definition="Utility passed to function tokens providing expressions like LIGHTEN, DARKEN, TOKEN for color manipulation."></def>
+  <def term="TokenUtilsBuilder" definition="Utility passed to function tokens providing the expressions TOKEN, LIGHTEN (a negative amount darkens), ADJUST_ALPHA, FROM_HUE and FOREGROUND for color manipulation."></def>
   <def term="Variants" definition="Token values that change based on app mode (dark mode, high contrast). Configured via variantKey and variants properties."></def>
   <def term="variantKey" definition="Property on a token specifying which activeVariants key triggers value changes (e.g., 'color' for dark mode)."></def>
   <def term="fallback" definition="Token property providing a default value when a referenced token is not found."></def>

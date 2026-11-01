@@ -54,14 +54,14 @@ A component can be used in three ways. The first form is a ViewSpec: either a cl
 
 The `foam.u2.tag` package holds the lowest-level components. Each one renders a single raw HTML tag, such as `<input>`, `<select>`, `<textarea>`, `<button>` or `<img>`, and adds what the bare tag lacks: a `data` property that stays in sync with the tag's value in both directions, behaviour in read-only mode, styling from CSS tokens, and options such as `onKey` and `placeholder` as ordinary properties.
 
-Most of the components later on this page are built on these tags. TextField, DateView, DateTimeView, RangeView and ColorPicker all extend `tag.Input` and only change its `type` and formatting; ChoiceView draws its drop-down with `tag.Select`; ActionView extends `tag.Button`. Use a tag directly when you want a plain control with data binding and none of the extra behaviour of the higher-level view.
+Most of the components later on this page are built on these tags. TextField, `foam.u2.DateView`, `foam.u2.DateTimeView`, RangeView and ColorPicker all extend `tag.Input` and only change its `type` and formatting; ChoiceView draws its drop-down with `tag.Select`; ActionView extends `tag.Button`. Use a tag directly when you want a plain control with data binding and none of the extra behaviour of the higher-level view.
 
 | Component | Class | Renders | Adds |
 |-----------|-------|---------|------|
 | Input | `foam.u2.tag.Input` | `<input>` | Two-way `data` binding; `onKey` updates on every keystroke instead of on blur; `type`, `placeholder`, `maxLength`, `autofocus`, `inputMode`; `choices` become a `<datalist>` of suggestions |
 | Select | `foam.u2.tag.Select` | `<select>` | `choices` as values or `[value, label]` pairs, a `placeholder` option, a `header` group label, and `disabledData` for choices that cannot be picked. Its `data` is the index of the selected choice, not its value; ChoiceView translates between the two |
 | TextArea | `foam.u2.tag.TextArea` | `<textarea>` | Two-way `data` binding; `rows`, `cols`, `wrap` and `onKey` |
-| Button | `foam.u2.tag.Button` | `<button>` | `label`, `icon` or `themeIcon`, `buttonStyle` (PRIMARY, SECONDARY, TERTIARY, TEXT, LINK, UNSTYLED), `size`, and `isDestructive`. Its own click handler does nothing; ActionView extends it to run an Action |
+| Button | `foam.u2.tag.Button` | `<button>` | `label`, `icon` or `themeIcon`, `buttonStyle` (PRIMARY, SECONDARY, TERTIARY, TEXT, LINK, BLACK, UNSTYLED), `size`, and `isDestructive`. Its own click handler does nothing; ActionView extends it to run an Action |
 | Image | `foam.u2.tag.Image` | `<img>` | `data` may be a URL or a Blob; `glyph` draws a theme Glyph instead; `embedSVG: true` inlines an SVG file so CSS can recolor it; `displayWidth`, `displayHeight`, `alpha` |
 | Card | `foam.u2.tag.Card` | `<div>` | A plain styled container. For a bordered card, prefer `foam.u2.borders.CardBorder` |
 | CircleIndicator | `foam.u2.tag.CircleIndicator` | `<div>` | A colored circle holding a number, icon or glyph; see Feedback below |
@@ -288,7 +288,7 @@ add(foam.u2.DetailView.create({ data: RichTextComponents.create() }));
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
-| IntView | `foam.u2.IntView` | Integer text input. Default for Int, Long, Short, Byte |
+| IntView | `foam.u2.IntView` | Integer text input. The default for Int, Long, Short and Byte is `foam.u2.view.IntView`, which wraps it |
 | FloatView | `foam.u2.FloatView` | Decimal input; `precision` sets the displayed decimals |
 | CurrencyView | `foam.u2.CurrencyView` | Formats a number as money |
 | RangeView | `foam.u2.RangeView` | Slider; set `minValue`, `maxValue` and `step` |
@@ -385,7 +385,7 @@ Some choosers read their options from a <term term="DAO"></term> instead of a fi
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
-| ChoiceView | `foam.u2.view.ChoiceView` | Drop-down select. Default for Enum |
+| ChoiceView | `foam.u2.view.ChoiceView` | Drop-down select. Enum's default, `foam.u2.view.EnumView`, edits with a ChoiceView subclass |
 | RadioView | `foam.u2.view.RadioView` | Radio buttons; `isHorizontal` lays them out in a row |
 | ChoiceWithOtherView | `foam.u2.view.ChoiceWithOtherView` | A chooser that shows a free-text field when the `otherKey` choice is picked |
 | MultiChoiceView | `foam.u2.view.MultiChoiceView` | Pick several choices as cards; `minSelected` / `maxSelected` bound the count |
@@ -457,9 +457,9 @@ add(foam.u2.DetailView.create({ data: ChooserComponents.create() }));
 
 ### ReferenceView
 
-A <term term="Reference"></term> property stores only the `id` of an object that lives in another DAO, much like a foreign key in a database. <term term="ReferenceView"></term> is its default view: it fills a ChoiceView with the objects in the DAO named by the property's `targetDAOKey`, and labels each option with the object's `toSummary()`.
+A <term term="Reference"></term> property stores only the `id` of an object that lives in another DAO, much like a foreign key in a database. <term term="ReferenceView"></term> is the editor inside its default view, `foam.u2.view.ReferencePropertyView`: it fills a ChoiceView with the objects in the DAO named by the property's `targetDAOKey`, and labels each option with the object's `toSummary()`.
 
-The DAO is found by name in the <term term="Context"></term>, so the example below `exports` `countryDAO` to make it visible to the view.
+The view looks for the DAO by that name in its own <term term="Context"></term> first. When it is not there, it falls back to the object's `<property>$dao` getter, which finds the DAO through the object's exports or a property of the same name. That is why the example below gives ReferenceComponents a `countryDAO` property and `exports` it.
 
 <example id="reference-view">
 foam.CLASS({
@@ -608,8 +608,8 @@ tag(foam.u2.tag.Image, { data: 'https://picsum.photos/80/80', displayWidth: '80p
 | StringArrayView | `foam.u2.view.StringArrayView` | ArrayView of text fields. Default for StringArray |
 | StringArrayRowView | `foam.u2.view.StringArrayRowView` | StringArray laid out one row per value |
 | SimpleStringArrayView | `foam.u2.view.SimpleStringArrayView` | StringArray as a single comma-separated text field |
-| FObjectArrayView | `foam.u2.view.FObjectArrayView` | List of nested objects, each in its own editor. Default for FObjectArray |
-| TitledArrayView | `foam.u2.view.TitledArrayView` | FObjectArrayView with a numbered title on each element |
+| FObjectArrayView | `foam.u2.view.FObjectArrayView` | List of nested objects, each in its own editor |
+| TitledArrayView | `foam.u2.view.TitledArrayView` | Collapsible FObjectArrayView with a title and expand/collapse per row. Default for FObjectArray |
 | FObjectArrayTableView | `foam.u2.view.FObjectArrayTableView` | FObjectArray as a table |
 | MapView | `foam.u2.view.MapView` | Key/value rows. Default for Map |
 
@@ -746,7 +746,7 @@ A <term term="DAO"></term> (Data Access Object) is FOAM's standard interface to 
 
 The examples use an <term term="EasyDAO"></term>, a convenience class that builds a DAO from a few options. `daoType: 'MDAO'` keeps the data in an indexed in-memory store, `seqNo: true` assigns ids 1, 2, 3 to new objects, and `testData` loads the starting rows.
 
-DAO views take a DAO as `data` and show its rows. They listen to the DAO, so a `put` or `remove` from anywhere else in the application updates the view without a reload. They also read only the rows they display, so a TableView over a large server-side DAO fetches one screen of rows at a time rather than the whole collection.
+DAO views take a DAO as `data` and show its rows; CarouselView is the exception and takes an array. They listen to the DAO, so a `put` or `remove` from anywhere else in the application updates the view without a reload. They also read only the rows they display, so a TableView over a large server-side DAO fetches one screen of rows at a time rather than the whole collection.
 
 `select()` is asynchronous: it returns a Promise for a <term term="Sink"></term>, an object that receives the selected rows. The CarouselView example uses the default `ArraySink`, whose `array` property holds the rows.
 
@@ -806,7 +806,7 @@ Composites build on the existing components instead of replacing them, so prefer
 |-----------|-------|---------|
 | MultiView | `foam.u2.MultiView` | Shows every view in `views` at once, all bound to the same data |
 | DualView | `foam.u2.view.DualView` | MultiView of exactly two views, `viewa` and `viewb` |
-| AltView | `foam.u2.view.AltView` | User picks one of several `[view, label]` pairs from a drop-down |
+| AltView | `foam.u2.view.AltView` | User picks one of several `[view, label]` pairs with radio buttons |
 | SimpleAltView | `foam.u2.view.SimpleAltView` | Pick between whole components, not views of one value |
 | ModeAltView | `foam.u2.view.ModeAltView` | `readView` in RO mode, `writeView` in RW mode |
 | ReadWriteView | `foam.u2.ReadWriteView` | Read view until clicked, then the edit view |
@@ -893,13 +893,13 @@ end();
 
 An <term term="Action"></term> is a method declared in a model's `actions:` list, together with how to present it: a label, an icon, and the conditions under which it is available (`isAvailable`) or enabled (`isEnabled`). Those conditions name properties as arguments, so in the example below RESET greys out automatically whenever `clicks` is 0. DetailView shows a model's actions as buttons along the bottom.
 
-<term term="ActionView"></term> (`foam.u2.ActionView`) is the button that renders an Action. Its look is set by `buttonStyle` (a `foam.u2.ButtonStyle`: `PRIMARY`, `SECONDARY`, `TERTIARY`, `TEXT`, `LINK`, `UNSTYLED`) and `size` (`SMALL`, `MEDIUM`, `LARGE`). The style can be set on the action itself or on the view.
+<term term="ActionView"></term> (`foam.u2.ActionView`) is the button that renders an Action. Its look is set by `buttonStyle` (a `foam.u2.ButtonStyle`: `PRIMARY`, `SECONDARY`, `TERTIARY`, `TEXT`, `LINK`, `BLACK`, `UNSTYLED`) and `size` (`SMALL`, `MEDIUM`, `LARGE`). The style can be set on the action itself or on the view.
 
 | Component | Class | Purpose |
 |-----------|-------|---------|
 | Button | `foam.u2.tag.Button` | Plain styled `<button>` with `label`, `icon`, `buttonStyle` and `size`; attach your own click handler |
 | ActionView | `foam.u2.ActionView` | Button for an Action; extends Button |
-| ToggleActionView | `foam.u2.view.ToggleActionView` | Action rendered as an on/off toggle |
+| ToggleActionView | `foam.u2.ToggleActionView` | Action rendered as an on/off toggle |
 | ButtonGroup | `foam.u2.ButtonGroup` | Row of actions that collapses overflow into a menu |
 | OverlayActionListView | `foam.u2.view.OverlayActionListView` | "More" button with a drop-down list of actions |
 | Link | `foam.u2.Link` | Styled `<a>` element |
@@ -954,7 +954,7 @@ start().
 end();
 
 start('h3').add('Link and Label').end();
-start(foam.u2.Link).attrs({ href: 'https://github.com/kgrgreer/foam3', target: '_blank' }).add('FOAM on GitHub').end();
+start(foam.u2.Link).attrs({ href: 'https://github.com/foam-foundation/foam3', target: '_blank' }).add('FOAM on GitHub').end();
 tag(foam.u2.Label, { label: 'A label with text only' });
 </example>
 
@@ -1053,7 +1053,7 @@ start('h3').add('TitleBorder').end();
 start(foam.u2.borders.TitleBorder, { title: 'Section Title' }).add('Content under a title.').end();
 
 start('h3').add('SpacingBorder').end();
-start(foam.u2.borders.SpacingBorder, { padding: 24 }).style({ background: '#eef1f6' }).add('24px of padding.').end();
+start(foam.u2.borders.SpacingBorder, { padding: '24px' }).style({ background: '#eef1f6' }).add('24px of padding.').end();
 
 start('h3').add('CopyBorder').end();
 start(foam.u2.borders.CopyBorder, { label: 'Order id' }).add('ORD-2026-000123').end();

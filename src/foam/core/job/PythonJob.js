@@ -27,6 +27,7 @@ foam.CLASS({
     as a progress bar.`,
 
   javaImports: [
+    'foam.dao.DAO',
     'java.io.BufferedReader',
     'java.io.File',
     'java.io.InputStreamReader',
@@ -88,6 +89,16 @@ foam.CLASS({
         useUv is true.`,
       class: 'String',
       name: 'requirementsFile'
+    },
+    {
+      documentation: `Reference to the running subprocess. Set before the readline loop
+        begins so subclasses and shouldSuspend_() can send signals to the process.
+        Null before execute() is called and after the process exits.`,
+      class: 'Object',
+      javaType: 'Process',
+      name: 'process_',
+      javaTransient: true,
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -123,6 +134,7 @@ foam.CLASS({
 
         try {
           Process process = pb.start();
+          setProcess_(process);
           try ( BufferedReader reader = new BufferedReader(
                   new InputStreamReader(process.getInputStream())) ) {
             String line;
@@ -131,13 +143,21 @@ foam.CLASS({
               int pct = parseProgress_(line);
               if ( pct >= 0 ) setProgress(pct);
               save(x);
+              if ( shouldSuspend_(x) ) {
+                setStatus(foam.core.job.JobStatus.SUSPENDED);
+                process.destroyForcibly();
+                save(x);
+                break;
+              }
             }
           }
           int exit = process.waitFor();
-          if ( exit != 0 )
+          if ( exit != 0 && getStatus() != foam.core.job.JobStatus.SUSPENDED )
             throw new RuntimeException("Python process exited with code " + exit);
         } catch ( java.io.IOException | InterruptedException e ) {
           throw new RuntimeException(e);
+        } finally {
+          setProcess_(null);
         }
       `
     },
@@ -183,6 +203,21 @@ foam.CLASS({
       args: 'String line',
       type: 'int',
       javaCode: `return -1;`
+    },
+    {
+      documentation: `Returns true when the client has set this job's status to
+        SUSPENDING in the DAO. Called after each output line. When true, execute()
+        kills the subprocess and sets status to SUSPENDED before returning.`,
+      name: 'shouldSuspend_',
+      args: 'foam.lang.X x',
+      type: 'Boolean',
+      javaCode: `
+        if ( foam.util.SafetyUtil.isEmpty(getId()) ) return false;
+        DAO jobDAO = (DAO) x.get("jobDAO");
+        if ( jobDAO == null ) return false;
+        foam.core.job.Job current = (foam.core.job.Job) jobDAO.find(getId());
+        return current != null && current.getStatus() == foam.core.job.JobStatus.SUSPENDING;
+      `
     }
   ]
 });

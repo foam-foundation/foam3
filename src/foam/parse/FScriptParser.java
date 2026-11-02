@@ -962,9 +962,10 @@ public class FScriptParser {
         // keep the NamedProperty only when that class is unknown.
         ClassInfo cls = expr instanceof AbstractFObjectPropertyInfo ? ((AbstractFObjectPropertyInfo) expr).of() : null;
         for ( var i = 0 ; i < values2.length ; i++ ) {
-          var  named = NamedProperty.create((String) values2[i]);
-          Expr prop  = cls == null ? null : named.specialize(cls);
-          expr = new Dot(expr, prop != null ? prop : named);
+          var  name  = (String) values2[i];
+          var  axiom = cls == null ? null : cls.getAxiomByNameOrShortNameOrAlias(name);
+          Expr prop  = axiom instanceof PropertyInfo ? (Expr) axiom : NamedProperty.create(name);
+          expr = new Dot(expr, prop);
           cls  = prop instanceof AbstractFObjectPropertyInfo ? ((AbstractFObjectPropertyInfo) prop).of() : null;
         }
       }

@@ -31,7 +31,7 @@ Creating a user, that would be associated with a session, in turn, used by the D
       user.setLifecycleState(LifecycleState.ACTIVE);
       user = (User) ((DAO)x.get("userDAO")).put(user);
 
-Creating a session, that a DIG client would use. 
+Creating a session, that a DIG client would use.
 
     Session session = new Session();
       session.setUserId(user.getId());

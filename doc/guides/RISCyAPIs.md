@@ -55,7 +55,7 @@ The same principle produces the generic views that make FOAM productive:
 // Works for any FOAM model — no per-model code
 function render() {
   var self = this;
-  this.data.cls_.getAxiomsByClass(foam.core.Property).forEach(function(prop) {
+  this.data.cls_.getAxiomsByClass(foam.lang.Property).forEach(function(prop) {
     if ( prop.hidden ) return;
     self.start().add(prop.__).end();
   });

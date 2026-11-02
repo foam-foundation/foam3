@@ -64,7 +64,7 @@ foam.CLASS({
           // reportProgress calls save(), which writes this clone back and would
           // overwrite any status change made between here and that write.
           BatchJob dao = (BatchJob) jobDAO.find(getId());
-          Loggers.logger(x, this).debug("loop-check", "i", i + 1, "total", total, "status", dao != null ? dao.getStatus() : "null", "item", item.length() > 60 ? item.substring(0, 60) : item);
+          Loggers.logger(x, this).debug("loop-check", "i", i + 1, "total", total, "status", dao != null ? dao.getStatus() : "null", "item", item.length() > 100 ? item.substring(0, 100) : item);
           if ( dao != null && dao.getStatus() == JobStatus.SUSPENDING ) {
             setStatus(JobStatus.SUSPENDED);
             save(x);
@@ -83,10 +83,10 @@ foam.CLASS({
                 existing = (BatchRecord) existing.fclone();
                 existing.setBatchNumber(i + 1);
                 checkpointDAO.put(existing);
-                Loggers.logger(x, this).debug("BatchJob: checkpoint-backfill", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+                Loggers.logger(x, this).debug("BatchJob: checkpoint-backfill", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 100 ? item.substring(0, 100) : item);
               }
               skipped++;
-              Loggers.logger(x, this).debug("checkpoint-skip", "i", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+              Loggers.logger(x, this).debug("checkpoint-skip", "i", i + 1, "item", item.length() > 100 ? item.substring(0, 100) : item);
               continue;
             }
           }
@@ -99,12 +99,12 @@ foam.CLASS({
               rec.setRunKey(getRunKey());
               rec.setItemId(item);
               rec.setBatchNumber(i + 1);
-              Loggers.logger(x, this).debug("BatchJob: checkpoint-write", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item);
+              Loggers.logger(x, this).debug("BatchJob: checkpoint-write", "i", i + 1, "batchNumber", i + 1, "item", item.length() > 100 ? item.substring(0, 100) : item);
               checkpointDAO.put(rec);
             }
           } catch ( Exception e ) {
             out("ERROR: " + item + " — " + e.getMessage());
-            Loggers.logger(x, this).error("processBatch-error", "i", i + 1, "item", item.length() > 60 ? item.substring(0, 60) : item, e);
+            Loggers.logger(x, this).error("processBatch-error", "i", i + 1, "item", item.length() > 100 ? item.substring(0, 100) : item, e);
           }
         }
 

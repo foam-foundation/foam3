@@ -12,7 +12,9 @@ foam.POM({
     { name: 'AbstractFileCrawler',    flags: 'js|java' },
     { name: 'AbstractDatasetGenerator', flags: 'js|java' },
     { name: 'FileCrawler',                    flags: 'js' },
-    { name: 'AlpacaSampleDedupeRuleAction',   flags: 'js|java' }
+    { name: 'AlpacaSampleCreateRuleAction',   flags: 'js|java' },
+    { name: 'AlpacaSampleUpdateRuleAction',   flags: 'js|java' },
+    { name: 'AlpacaSampleDeleteRuleAction',   flags: 'js|java' }
   ],
   javaFiles: [
     { name: 'FileCrawler' }

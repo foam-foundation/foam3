@@ -6,9 +6,8 @@
 
 foam.CLASS({
   package: 'foam.core.ai.dataset',
-  name: 'AlpacaSampleDedupeRuleAction',
+  name: 'AlpacaSampleCreateRuleAction',
   implements: ['foam.core.ruler.RuleAction'],
-
 
   javaImports: [
     'foam.ai.vector.EmbeddingService',
@@ -33,25 +32,26 @@ foam.CLASS({
       name: 'applyAction',
       args: 'Context x, foam.lang.FObject obj, foam.lang.FObject oldObj, foam.core.ruler.RuleEngine engine, foam.core.ruler.Rule rule, foam.lang.Agency agency',
       javaCode: `
-        AlpacaSample sample = (AlpacaSample) obj;
-        var logger = Loggers.logger(x, this);
-        logger.debug("AlpacaSampleDedupeRuleAction: invoked", "id", sample.getId(), "instruction", sample.getInstruction());
+        AlpacaSample sample  = (AlpacaSample) obj;
+        var          logger  = Loggers.logger(x, this);
 
+        sample.setStatus(AlpacaSampleStatus.NEW);
 
         EmbeddingService embedder  = (EmbeddingService) getX().get("embeddingService");
         DAO              vectorDAO = (DAO)              getX().get("vectorStoreDAO");
+        DAO              datasetDAO = (DAO)             getX().get("datasetDAO");
 
         if ( embedder == null || vectorDAO == null ) {
-          logger.warning("AlpacaSampleDedupeRuleAction: embeddingService or datasetVectorDAO not in context — skipping dedup");
+          logger.warning("embeddingService or vectorStoreDAO not in context — sample stays NEW");
           return;
         }
 
         VectorEmbedding candidate;
         try {
           candidate = embedder.embed(x, sample.getInstruction());
-          logger.debug("AlpacaSampleDedupeRuleAction:embedded", "dims", candidate.getVector().length);
+          logger.debug("embedded", "dims", candidate.getVector().length);
         } catch ( Exception e ) {
-          logger.warning("embedding failed, skipping dedup", e);
+          logger.warning("embedding failed, sample stays NEW", e);
           return;
         }
 
@@ -62,8 +62,18 @@ foam.CLASS({
 
         if ( ! results.isEmpty() ) {
           VectorEmbedding nearest = (VectorEmbedding) results.get(0);
-          logger.debug("AlpacaSampleDedupeRuleAction: nearest-neighbour", "sourceId", nearest.getSourceId(), "score", nearest.getScore());
+          logger.debug("nearest-neighbour", "sourceId", nearest.getSourceId(), "score", nearest.getScore());
+
           if ( nearest.getScore() >= SIMILARITY_THRESHOLD ) {
+            if ( datasetDAO != null ) {
+              AlpacaSample original = (AlpacaSample) datasetDAO.find(nearest.getSourceId());
+              if ( original != null ) {
+                AlpacaSample updated = (AlpacaSample) original.fclone();
+                updated.setRelevance(original.getRelevance() + 1);
+                datasetDAO.put(updated);
+                logger.debug("incremented relevance", "id", original.getId(), "relevance", updated.getRelevance());
+              }
+            }
             logger.info("vetoed-duplicate", "id", sample.getId(), "nearestId", nearest.getSourceId(), "score", nearest.getScore());
             throw new RuntimeException(
               "Duplicate sample: instruction is too similar to existing sample " + nearest.getSourceId() +
@@ -77,11 +87,13 @@ foam.CLASS({
         candidate.setSourceId(sample.getId());
         candidate.setText(sample.getInstruction());
         candidate.setKind("alpaca");
-        final VectorEmbedding toStore = candidate;
-        agency.submit(x, agentX -> {
-          ((DAO) agentX.get("vectorStoreDAO")).put(toStore);
-          logger.debug("AlpacaSampleDedupeRuleAction: indexed", "id", sample.getId());
-        }, "dedupe-index-" + sample.getId());
+        // Synchronous put — status=CREATED must only be set after the embedding is durably stored.
+        // Using agency.submit would make the vectorStore write asynchronous, so the sample would
+        // be persisted as CREATED before the embedding exists, breaking the NEW→CREATED invariant.
+        vectorDAO.put(candidate);
+
+        sample.setStatus(AlpacaSampleStatus.CREATED);
+        logger.debug("indexed and marked CREATED", "id", sample.getId());
       `
     }
   ]

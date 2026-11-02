@@ -4,6 +4,19 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+foam.ENUM({
+  package: 'foam.core.ai.dataset',
+  name: 'AlpacaSampleStatus',
+
+  values: [
+    { name: 'NEW',       label: 'New'       },
+    { name: 'CREATED',   label: 'Created'   },
+    { name: 'DIRTY',     label: 'Dirty'     },
+    { name: 'DISCARDED', label: 'Discarded' }
+  ]
+});
+
+
 foam.CLASS({
   package: 'foam.core.ai.dataset',
   name: 'AlpacaSample',
@@ -14,9 +27,9 @@ foam.CLASS({
     which serves as a dedup key: dao.find(id) before every put().
   `,
 
-  tableColumns: [ 'id', 'language', 'sourceFile', 'instruction' ],
+  tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'category', 'sourceFile', 'instruction' ],
 
-  searchColumns: [ 'language', 'sourceFile' ],
+  searchColumns: [ 'category', 'sourceFile' ],
 
   properties: [
     {
@@ -53,10 +66,31 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'language',
-      documentation: 'js | java | jrl | markdown | mixed',
+      name: 'category',
+      documentation: 'Content-type tag set by the generator (e.g. js, java, jrl, markdown).',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.core.ai.dataset.AlpacaSampleStatus',
+      name: 'status',
+      value: 'NEW',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO'
+    },
+    {
+      class: 'Boolean',
+      name: 'reviewed',
+      value: false
+    },
+    {
+      class: 'Int',
+      name: 'relevance',
+      documentation: 'Count of semantically similar samples rejected in favour of this one.',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      value: 0
     }
   ],
 

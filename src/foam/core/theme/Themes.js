@@ -138,14 +138,7 @@ Later themes:
       final boolean      DEBUG    = false;
 
       if ( req != null ) {
-        // A job started from a web page keeps that page's request after it ends.
-        // Jetty 12 throws when a finished request is asked for its server name,
-        // so carry on as if there were no request.
-        try {
-          domain = req.getServerName();
-        } catch ( NullPointerException e ) {
-          req = null;
-        }
+        domain = req.getServerName();
         if ( DEBUG ) logger.debug("Themes", "domain", domain);
       }
 

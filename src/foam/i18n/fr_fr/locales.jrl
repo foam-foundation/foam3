@@ -974,3 +974,6 @@ p({l:"fr",s:"foam.core.approval.ApprovalRequestNotification.MSG_BODY1",t:"Vous a
 p({l:"fr",s:"foam.core.approval.ApprovalRequestNotification.MSG_BODY2",t:" demande d'approbation avec l'id : "})
 p({l:"fr",s:"foam.dashboard.view.DashboardView.TITLE",t:"Tableau de bord"})
 p({l:"fr",s:"foam.net.web.HTTPRequest.GENERAL_ERROR",t:"Erreur réseau, vérifiez votre connexion et réessayez."})
+p({l:"fr",s:"foam.box.HTTPBox.FETCH_ERROR",t:"Erreur de connexion au serveur. Veuillez réessayer."})
+p({l:"fr",s:"foam.box.HTTPBox.HTTP_ERROR",t:"La requête au serveur a échoué (HTTP ${status}). Veuillez réessayer."})
+p({l:"fr",s:"foam.u2.view.LazyScrollManager.LOAD_FAILED_MSG",t:"Impossible de charger les données. Actualisez la page pour réessayer."})

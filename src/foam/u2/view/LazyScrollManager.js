@@ -31,7 +31,6 @@ foam.CLASS({
     'foam.lang.Latch',
     'foam.dao.ProxyDAO',
     'foam.mlang.sink.Count',
-    'foam.u2.Element',
     'foam.u2.LoadingSpinner'
   ],
 
@@ -56,7 +55,7 @@ foam.CLASS({
 
   messages: [
     { name: 'NO_DATA', message: 'No ${modelName} found', template: true },
-    { name: 'LOAD_FAILED_MSG', message: 'Unable to load data. Check the program and query, then refresh.' }
+    { name: 'LOAD_FAILED_MSG', message: 'Unable to load data. Refresh to try again.' }
   ],
 
   css: `
@@ -325,7 +324,7 @@ foam.CLASS({
       // Empty / loading slot — appended inside the scroll host
       var statusSlot = this.slot(function(daoCount, isInit, daoLoading, loadFailed) {
         if ( loadFailed ) {
-          return self.Element.create({}, self).addClass(self.myClass('no-data')).add(self.LOAD_FAILED_MSG);
+          return self.E().addClass(self.myClass('no-data')).add(self.LOAD_FAILED_MSG);
         }
         if ( daoLoading ) {
           return self.E().addClass(self.myClass('no-data'))

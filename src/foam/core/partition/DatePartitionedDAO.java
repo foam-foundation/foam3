@@ -7,7 +7,6 @@
 package foam.core.partition;
 
 import foam.core.COREService;
-import foam.core.fs.Storage;
 import foam.core.logger.Loggers;
 import foam.dao.*;
 import foam.lang.*;
@@ -158,15 +157,12 @@ public class DatePartitionedDAO
   /** Existing date partitions, including schemes whose names contain slashes. */
   @Override
   public String[] getPartitions() {
-    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
-    File    probe   = storage.get(getDirName());
-    boolean ownsDir = getDirName().endsWith("/");
-    File    root    = ownsDir ? probe : probe.getParentFile();
-    if ( root == null || ! root.isDirectory() ) return new String[0];
+    File root = partitionRoot();
+    if ( root == null ) return new String[0];
 
     Set<String> parts = new TreeSet<>();
     int depth = scheme_.getPartition(Calendar.getInstance()).split("/").length;
-    collectPartitions(root, ownsDir ? "" : probe.getName(), "", depth, parts);
+    collectPartitions(root, partitionPrefix(), "", depth, parts);
     return parts.toArray(new String[0]);
   }
 

@@ -160,6 +160,30 @@ foam.CLASS({
         expect(count(denyX,  dao, keyword("7")),            0L,    "Keyword skips the nested address code without the read permission");
         expect(count(allowX, dao, keyword("7")),            1L,    "Keyword matches the nested address code when permitted");
 
+        // A search checks permissions once per query, not once per row, so a
+        // search over 50 rows makes exactly as many auth checks as one over 1.
+        int[] checks = new int[1];
+        X countingX = x.put("auth", new ProxyAuthService() {
+          @Override
+          public boolean check(X x, String permission) {
+            checks[0]++;
+            return ! permission.contains(".ro.") && ! permission.contains(".rw.");
+          }
+        });
+        DAO searchDAO = new PermissionedPropertyDAO.Builder(x)
+          .setDelegate(new MDAO(PermissionedPropertyDAOTestEmployee.getOwnClassInfo()))
+          .build();
+        searchDAO.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("row1").build());
+        count(countingX, searchDAO, keyword("row"));
+        int checksFor1Row = checks[0];
+        for ( int i = 2 ; i <= 50 ; i++ ) {
+          searchDAO.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(i).setName("row" + i).build());
+        }
+        checks[0] = 0;
+        expect(count(countingX, searchDAO, keyword("row")), 50L,    "Keyword searches all 50 rows");
+        test(checksFor1Row > 0,                                     "Keyword checks permissions (" + checksFor1Row + " auth checks for 1 row)");
+        expect(checks[0], checksFor1Row,                            "Keyword makes the same number of auth checks for 50 rows as for 1");
+
         test(isDenied(denyX, dao, null, SALARY),                 "ORDER BY salary is denied");
         test(isDenied(denyX, dao, null, DESC(SALARY)),           "ORDER BY salary DESC is denied");
         test(isDenied(denyX, dao, null, THEN_BY(NAME, SALARY)),  "ORDER BY name, salary is denied");

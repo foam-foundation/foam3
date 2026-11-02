@@ -152,10 +152,13 @@ foam.CLASS({
         expect(count(allowX, dao, nestedFScript), 1L,              "FScript address.code matches alice when permitted");
 
         // The search box sends TEXT:abc as a Keyword. Matching hidden notes
-        // would reveal them a substring at a time, so they are never searched,
-        // while the visible name still is.
-        expect(count(allowX, dao, keyword("hidden-alpha")), 0L,    "Keyword never matches the hidden notes");
+        // would reveal them a substring at a time, so only a user who may
+        // read notes searches them, while everyone searches the visible name.
+        expect(count(denyX,  dao, keyword("hidden-alpha")), 0L,    "Keyword skips the notes without the read permission");
+        expect(count(allowX, dao, keyword("hidden-alpha")), 1L,    "Keyword matches the notes when permitted");
         expect(count(denyX,  dao, keyword("alice")),        1L,    "Keyword still matches the visible name");
+        expect(count(denyX,  dao, keyword("7")),            0L,    "Keyword skips the nested address code without the read permission");
+        expect(count(allowX, dao, keyword("7")),            1L,    "Keyword matches the nested address code when permitted");
 
         test(isDenied(denyX, dao, null, SALARY),                 "ORDER BY salary is denied");
         test(isDenied(denyX, dao, null, DESC(SALARY)),           "ORDER BY salary DESC is denied");

@@ -11,13 +11,19 @@ foam.CLASS({
   implements: [ 'foam.lang.Serializable' ],
 
   javaImports: [
+    'foam.core.auth.AuthorizationException',
+    'foam.lang.AbstractFObjectPropertyInfo',
+    'foam.lang.ClassInfo',
     'foam.lang.PropertyInfo',
+    'foam.lang.X',
     'java.lang.reflect.Method',
     'java.text.DateFormat',
     'java.text.SimpleDateFormat',
     'java.util.Date',
+    'java.util.HashSet',
     'java.util.Iterator',
     'java.util.List',
+    'java.util.Set',
     'java.util.TimeZone'
   ],
 
@@ -59,6 +65,15 @@ foam.CLASS({
       transient: true,
       visibility: 'HIDDEN',
       documentation: 'Support keyword search on the first level nested FObject.'
+    },
+    {
+      class: 'Object',
+      name: 'unreadable_',
+      javaType: 'java.util.Set',
+      javaFactory: 'return new HashSet();',
+      transient: true,
+      visibility: 'HIDDEN',
+      documentation: 'Read-gated properties the querying user may not read, filled by authorize() and skipped by f().'
     }
   ],
 
@@ -105,11 +120,7 @@ Iterator i = props.iterator();
 while ( i.hasNext() ) {
   PropertyInfo prop = (PropertyInfo) i.next();
 
-  // A table's search box sends TEXT:abc as this predicate, so matching a
-  // hidden property would tell the user which rows hold "abc" in it: one
-  // search per character recovers an ApprovalRequest's hidden token. f() has
-  // no user to check, so hidden properties are never searched.
-  if ( prop.getReadPermissionRequired() ) continue;
+  if ( getUnreadable_().contains(prop) ) continue;
 
   try {
     String s = "";
@@ -166,6 +177,40 @@ return false;`
         if ( obj == null || getCheckingNestedFObject_() ) return false;
         setCheckingNestedFObject_(true);
         return this.f(obj);
+      `
+    },
+    {
+      name: 'authorize',
+      javaCode: `
+        foam.mlang.AbstractExpr.authorizeProperties(x, of, this);
+
+        // A table's search box sends TEXT:abc as this predicate, so matching a
+        // property the user may not read would tell them which rows hold "abc"
+        // in it: one search per character recovers an ApprovalRequest's hidden
+        // token. The permissions are checked here, once per query rather than
+        // once per row, for the queried class and the classes of its FObject
+        // properties, the one nested level f() searches.
+        Set unreadable = new HashSet();
+        addUnreadable(x, of, unreadable);
+        for ( Object p : of.getAxiomsByClass(AbstractFObjectPropertyInfo.class) ) {
+          addUnreadable(x, ((AbstractFObjectPropertyInfo) p).of(), unreadable);
+        }
+        setUnreadable_(unreadable);
+      `
+    },
+    {
+      name: 'addUnreadable',
+      args: 'X x, ClassInfo cls, Set unreadable',
+      javaCode: `
+        for ( Object p : cls.getAxiomsByClass(PropertyInfo.class) ) {
+          PropertyInfo prop = (PropertyInfo) p;
+          if ( ! prop.getReadPermissionRequired() ) continue;
+          try {
+            prop.authorize(x, cls);
+          } catch ( AuthorizationException e ) {
+            unreadable.add(prop);
+          }
+        }
       `
     },
     {

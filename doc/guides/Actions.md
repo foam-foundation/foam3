@@ -6,7 +6,7 @@
 
 An Action is a method with GUI metadata. Where a plain method is a function on a class, an Action is a function *plus* a label, availability logic, enabled logic, permissions, a confirmation dialog, keyboard shortcuts, icon, tooltip, accessibility label, and more — all declared in one place, all automatically wired up by every view that renders it.
 
-The relationship mirrors the one between a FOAM Property and a plain instance variable. A plain instance variable holds a value. A FOAM Property also holds a value, but adds type metadata, validation, change notification, serialisation, and UI rendering — all derived from the single declaration. An Action does the same for behaviour: it is still a regular method, callable from code as `obj.submit(x)`, but the extra metadata lets views render it correctly without any per-usage wiring.
+The relationship mirrors the one between a FOAM Property and a plain instance variable. A plain instance variable holds a value. A FOAM Property also holds a value, but adds type metadata, validation, change notification, serialisation, and UI rendering — all derived from the single declaration. An Action does the same for behaviour: it is still callable from code as `obj.submit(x)`, and the extra metadata lets views render it correctly without any per-usage wiring.
 
 FOAM has three forms of enhanced method, each solving a different friction point:
 
@@ -19,14 +19,14 @@ FOAM has three forms of enhanced method, each solving a different friction point
 All three are callable from code. The enhancements only add what the specific context requires: Listeners fix the callback binding problem and handle event frequency; Actions fix the UI metadata problem and handle rendering. A method that needs both could be a Listener that is also exposed as an Action — the axiom system composes freely.
 
 ```javascript
-// Called from code — works exactly like a plain method
+// Called from code — runs code only if available, enabled and permitted
 invoice.submit(x);
 
 // Rendered in a view — all metadata applied automatically
 this.add(this.SUBMIT);
 ```
 
-The metadata does not change how the method works when called programmatically. It only enriches what views can do with it.
+Calling the action from code goes through `maybeCall`: if `isAvailable` or `isEnabled` is false, or a required permission is missing, `code` is silently skipped, and a call made while the action is still running is ignored (`src/foam/lang/Action.js`).
 
 ```javascript
 foam.CLASS({
@@ -126,7 +126,7 @@ confirmationRequired: function(amount) { return amount > 10000; }
 
 This prevents accidental double-clicks without a modal. The button itself becomes the confirmation surface.
 
-**Modal confirmation** (when `confirmationView` is provided):
+**Modal confirmation** (when `confirmationView` is provided, `ctrl` is in the context, and the button is not already in the inline confirmation state):
 
 ```javascript
 confirmationView: function(X, data) {
@@ -157,10 +157,10 @@ The action is hidden or disabled based on the current user's permissions, checke
 ### Keyboard Shortcuts
 
 ```javascript
-keyboardShortcuts: ['ctrl+s']
+keyboardShortcuts: ['ctrl-s']
 ```
 
-Declared once on the Action, registered globally for the view. No `addEventListener('keydown', ...)` needed.
+Modifiers are joined with `-` (`alt-`, `ctrl-`, `shift-`, `meta-`, then the lower-case key), matching `Element.evtToCharCode`. Shortcuts are installed for the actions declared on the view's own class, and fire on keydown in that view's parent element. No `addEventListener('keydown', ...)` needed.
 
 ### Icons and Styling
 
@@ -177,7 +177,7 @@ size:        'LARGE'
 multiSelect: true
 ```
 
-The action is enabled when multiple rows are selected in a `DAOBrowserView`, and `code` receives the selection. Bulk operations with no per-operation wiring.
+Reflow's table views (`FlowBrowserView`, `TableDAOAgent`) add every action with `multiSelect: true` to their multi-select toolbar.
 
 ## The PropertyBorder Parallel
 
@@ -205,7 +205,7 @@ FOAM closes the gap by making the complete version the default. You declare what
 // Add a single action
 this.add(this.SUBMIT);
 
-// Add multiple actions as a group (renders as a button bar)
+// Add multiple actions (each renders as its own button)
 this.add(this.SUBMIT, this.SAVE_DRAFT, this.CANCEL);
 
 // Add all actions declared on the model
@@ -248,5 +248,5 @@ This is the minimal form — no metadata, just the behaviour. Metadata can alway
 | `enabledPermissions` | Permissions required to enable the button |
 | `keyboardShortcuts` | Keyboard shortcuts that trigger the action |
 | `isDefault` | Marks the primary action for a view |
-| `multiSelect` | Enables bulk operation in table views |
+| `multiSelect` | Lists the action in Reflow table views' multi-select toolbar |
 | `code` | The operation itself (sync or async) |

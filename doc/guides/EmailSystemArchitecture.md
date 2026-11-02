@@ -374,17 +374,16 @@ Sending agent for Microsoft 365 via Graph API (extends SMTPAgent).
 
 **Behavior:**
 1. Uses OAuth2 client credentials flow for authentication
-2. Acquires access token with scope `https://outlook.office365.com/.default`
-3. Sends via Exchange Web Services (EWS) with OAuth bearer token
+2. Acquires access token with scope `https://graph.microsoft.com/.default`
+3. Sends via the Graph API (`POST https://graph.microsoft.com/v1.0/users/<username>/sendMail`) with the OAuth bearer token
 4. Automatically refreshes token when within 5 minutes of expiry
-5. Uses impersonation header for app-only token scenarios
-6. Throttles via `microsoftGraphEmailAgentThrottle` (default: 4 TPS)
+5. Throttles via `microsoftGraphEmailAgentThrottle` (default: 4 TPS)
 
 **Configuration Requirements:**
 - `clientId` - Azure AD application client ID
 - `tenantId` - Azure AD tenant ID
 - `password` - Client secret
-- `username` - Email address to send from (for impersonation)
+- `username` - Email address (mailbox) to send from
 
 ---
 
@@ -442,18 +441,18 @@ Search Order (first match wins):
 +-------+-------+--------+------+
 | Name  | Group | Locale | SPID |
 +-------+-------+--------+------+
-|   Y   |   Y   |   Y    |   Y  |  <- Most specific
-|   Y   |   Y   |   Y    |   *  |
-|   Y   |   Y   |   en   |   Y  |
-|   Y   |   Y   |   en   |   *  |
-|   Y   | parent|   Y    |   Y  |  <- Walk group hierarchy
-|   Y   | parent|   Y    |   *  |
-|   Y   | parent|   en   |   Y  |
-|   Y   | parent|   en   |   *  |
+|   Y   |  G*   |   Y    |   Y  |  <- Most specific
+|   Y   |  G*   |   Y    |  ""  |
+|   Y   |  G*   |   en   |   Y  |
+|   Y   |  G*   |   en   |  ""  |
 |   Y   |   *   |   en   |   Y  |
-|   Y   |   *   |   en   |   *  |  <- Least specific (catch-all)
+|   Y   |   *   |   en   |  ""  |  <- Least specific (catch-all)
 +-------+-------+--------+------+
 ```
+
+`G*` means the user's group, then each ancestor group in turn: every row walks the whole
+group hierarchy before the next row is tried. An empty SPID (`""`) matches templates with no
+SPID set.
 
 ### Template Inheritance
 
@@ -500,13 +499,13 @@ Rendered Result:
 
 ### Email Rules
 
-Three rules process emails on `localEmailMessageDAO`:
+Three rules process emails, on `localEmailMessageDAO` and `localEmailMessageReceivedDAO`:
 
 | Rule ID | Priority | Predicate | Action | Purpose |
 |---------|----------|-----------|--------|---------|
-| EmailMessagePropertyServiceRule | 1000 | status=DRAFT | EmailMessagePropertyServiceRuleAction | Process through property service chain |
-| EmailMessageStatusRule | 100 | status=DRAFT | EmailMessageStatusRuleAction | Set status to UNSENT |
-| EmailMessageProcessedStatusRule | 0 | status=PROCESSED | DAOPutRuleAction | Move to emailMessageProcessedDAO |
+| foam-core-notification-email-EmailMessagePropertyServiceRule | 1000 | status=DRAFT | EmailMessagePropertyServiceRuleAction | Process through property service chain |
+| foam-core-notification-email-EmailMessageStatusRule | 100 | status=DRAFT | EmailMessageStatusRuleAction | Set status to UNSENT |
+| foam-core-notification-email-EmailMessageProcessedStatusRule | 0 | status=PROCESSED | DAOPutRuleAction | Move to emailMessageProcessedDAO |
 
 ### Rule Execution Flow
 

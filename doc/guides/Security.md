@@ -39,16 +39,17 @@ These constraints forced a fully component-based, code-wired architecture. U2 wa
 
 The result is that XSS is structurally impossible in a FOAM application. User input handled through the normal U2 API cannot become executable markup, because U2 never hands strings to the HTML parser.
 
-Chrome Apps no longer exist, but FOAM retains these constraints through a self-imposed Content Security Policy. The security properties remain, independent of the platform that originally motivated them.
+Chrome Apps no longer exist, but FOAM retains the inline-script and inline-handler constraints through a self-imposed Content Security Policy. (The policy's `script-src` does allow `'unsafe-eval'`.) These security properties remain, independent of the platform that originally motivated them.
 
 The policy is built from `foam.core.http.csp.CSPDirective` rows in `src/cspdirectives.jrl`. Its `script-src` does not include `'unsafe-inline'`, so a `<script>` tag written into an HTML page is not executed, and an inline listener such as `onclick="code"` is not evaluated either. This is a second, independent layer: even if markup were somehow injected into a page, the script in it would not execute.
 
 #### Minimal client-side dependencies
 
-The FOAM client has no third-party runtime dependencies. Two optional libraries are loaded from a CDN, and only when the component that needs them is created (via a `JsLib` axiom):
+The FOAM client has no third-party runtime dependencies. A few optional libraries are loaded from a CDN, and only when the component that needs them is used (via `JsLib`):
 
 - Ace Editor 1.9.6 for code editing (`src/io/c9/ace/Editor.js`).
 - Chart.js 4.4.2 and its date-fns adapter for dashboards and charts (`src/org/chartjs/Lib.js`).
+- html2pdf 0.9.3 for PDF export from the Reflow console (`src/foam/core/reflow/Console.js`).
 
 Each external script URL must also be allowed by the `script-src` directive, so a new library cannot be loaded without a reviewed change to `cspdirectives.jrl`.
 
@@ -65,7 +66,7 @@ M.AND(
 )
 ```
 
-There is no query string to inject into. The predicate tree is a graph of typed objects. When a `ClientDAO` sends a query over the network, it serialises the predicate tree to JSON and reconstructs it server-side — the server never receives a raw query string that user input could escape. When a `JDBCDAO` executes against a SQL database, it generates parameterised queries from the predicate tree, with data always kept separate from query structure.
+There is no query string to inject into. The predicate tree is a graph of typed objects. When a `ClientDAO` sends a query over the network, it serialises the predicate tree to JSON and reconstructs it server-side — the server never receives a raw query string that user input could escape. When a JDBC DAO (`PostgresDAO`, `MySQLDAO`) executes against a SQL database, it generates parameterised queries from the predicate tree, with data always kept separate from query structure.
 
 ### The Common Principle
 
@@ -100,8 +101,7 @@ Services which are served, are authenticated. Authentication is enabled by defau
 
 Autenticated services require the client (connecting user) to have permission
 
-- `service.read.<cspec-name><cspec.name>`
-- _`service.<cspec-name>` (legacy)_
+- `service.<cspec-name>`
 
 Unauthenticated services are open to all clients for reading.
 
@@ -109,7 +109,7 @@ Developers do not write REST or other network APIs by hand. The client stub and 
 
 ### Deny by Default
 
-Every permission is denied unless explicitly granted. All groups descend from the `basicUser` group (`src/groups.jrl`), which grants only the minimum a logged-in user needs (`src/groupPermissionJunctions.jrl`). The same permission system governs both users and service-to-service calls, and can be applied at three levels: access to a service, individual objects (rows, via the model's authorizer), and individual properties (columns, via `PermissionedPropertyDAO`), each described below.
+Every permission is denied unless explicitly granted. User groups descend from the `basicUser` group (`src/groups.jrl`), which grants only the minimum a logged-in user needs (`src/groupPermissionJunctions.jrl`). The same permission system governs both users and service-to-service calls, and can be applied at three levels: access to a service, individual objects (rows, via the model's authorizer), and individual properties (columns, via `PermissionedPropertyDAO`), each described below.
 
 ### Delegated Administration Without Escalation
 
@@ -125,22 +125,22 @@ Once a client connects to a service, security managing data manipulation is cont
 The `service` that the CSpec describes is specified by one of the following properties, which resolve to a modelled class.
 
 - service
-    - { class: "foam...Foo", property: value, ...}
+    - { class: "com.example.Foo", property: value, ...}
 - serviceClass
-    - "foam...FooServiceServer"
+    - "com.example.FooServiceServer"
 - serviceScript
     - " return new EasyDAO().... "
 
 When the service is served, then the `client` property must be configured.
 
 - client
-    - { "of": "foam...Foo", cache: false, ... } // DAO service
-    - { "class": "foam...ClientFooService", "delegate": ... }
+    - { "of": "com.example.Foo", cache: false, ... } // DAO service
+    - { "class": "com.example.ClientFooService", "delegate": ... }
 
 Additionally if the service is modelled as an `INTERFACE`, then `boxClass` property must also be provided. See `/#flowdoc/Boxes.flow` for a discussion of FOAM's Box messaging protocol. 
 
 - boxClass
-    - "foam...FooServiceSkeleton"
+    - "com.example.FooServiceSkeleton"
 
 When the service is a DAO, then typically, a `serviceScript` is used to describe the DAO stack with `EasyDAO` (discussed below).
 
@@ -203,16 +203,15 @@ EasyDAO properties relevant to Model level authentication:
         - on the server
             - `put`s replace the incomming value with the previous value, nullify any change.
     - readPermissionedRequired
-        - when true, permission modelName.ro.propertyName is required
+        - when true, permission modelName.ro.propertyName (or modelName.rw.propertyName) is required
         - on the server
             - `find`s replace the current property value with it's default.
-            - `put`s replace the incomming value with the previous value, nullify any change.
         - on the client
             - without the permission, the property is hidden
     - updatePermissionRequired
         - unused? 
             - used but not clear how different from writePermissionRequired
-            - see `foam.u2.Element2.js:1767`, `foam/core/auth/PermissionedPropertyDAO.js:118 & 222`
+            - see `src/foam/u2/Element2.js`, `foam/core/auth/PermissionedPropertyDAO.js:118 & 222`
 - permissionPrefix: by default the permissionPrefix is the model name in lowercase.
 
 ## Data Protection
@@ -229,16 +228,16 @@ System credentials, such as keys and passwords for external services, belong in 
 
 Auditing is a property of the storage layer, not something each service must remember to call.
 
-When a DAO is persisted with JDAO (the default `EasyDAO` journal), the journal is itself the audit log. Before each update record, the journal writes a comment saying who made the change and when (`writeComment_` in `src/foam/dao/AbstractF3FileJournal.js`):
+When a DAO is persisted with JDAO (the default `EasyDAO` journal), the journal is itself the audit log. Before an update record, the journal writes a comment saying who made the change and when. Changes made by the system user get no comment, and consecutive writes by the same user within the journal's `commentWindowMs` share one comment (`writeComment_` in `src/foam/dao/AbstractF3FileJournal.js`):
 
 ```
 // Modified by Jane Smith (1234) at 2026-10-30T14:02:11.517Z
 p({"class":"com.example.Invoice","id":"INV-001","amount":150})
 ```
 
-Because the journal is how the data is stored, this audit trail cannot be switched off without switching off persistence: there is no separate audit setting to disable, pause or narrow. Objects that implement `LastModifiedByAware` carry the same information on the record itself, so no comment is written for them.
+Because the journal is how the data is stored, this audit trail cannot be switched off without switching off persistence: there is no separate audit setting to disable or pause. Objects that implement `LastModifiedByAware` carry the same information on the record itself, so no comment is written for them.
 
-A DAO persisted some other way, such as `JDBCDAO`, has no journal and therefore no built-in audit trail. Auditing for such a DAO must be enabled explicitly, for example with `EasyDAO`'s `history: true`, which adds a `HistoryDAO` that writes a `foam.dao.history.HistoryRecord` (object id, user, agent, timestamp, and each changed property's old and new value) for every update.
+A DAO persisted some other way, such as a JDBC DAO, has no journal and therefore no built-in audit trail. Auditing for such a DAO must be enabled explicitly, for example with `EasyDAO`'s `history: true`, which adds a `HistoryDAO` that writes a `foam.dao.history.HistoryRecord` (object id, user, agent, timestamp, and each changed property's old and new value) for every update.
 
 Failed logins are also recorded: `FailedLoginAuthService` logs each one and stores a `LoginAttempt` with the identifier, IP address and failure message in `loginAttemptDAO`.
 
@@ -266,7 +265,7 @@ Failed logins are also recorded: `FailedLoginAuthService` logs each one and stor
     - `Auth.sudo` is used when logic requires reduced scoped or scope of another user (other than system).  For example, Approvals, approved by an operator but when `put`, the context of the user that the Approval affects is used so that rules of the post approval flow execute in the user's scope.
 
 1. Also feature request: some sort of debugging mode or debugging flag i can put on my requests so I can check why i'm not seeing object I expected in a DAO. Debugging failed permission check is a bit of a black box.
-    - uncomment `src/foam/java/Skeleton.js:157`
+    - start the server with the system property `-Dfoam.box.debug=true` to log the stack trace of every exception a service returns (`DEBUG` in `src/foam/java/Skeleton.js`).
     - TODO: implement support for this.
 
 ## Other Security Topics (TODO)

@@ -105,7 +105,7 @@ dao.where(EQ(Todo.IS_COMPLETED, true))  // EQ and other predicates are covered b
 
 *(The `EQ` function used here comes from FOAM's mLang query language, explained in the [Querying with mLangs](#querying-with-mlangs) section below.)*
 
-**Important:** filtering methods only affect `select` and `removeAll`. They have no effect on `find`, `put`, or `remove`.
+**Important:** `orderBy`, `skip` and `limit` only affect `select` and `removeAll`. `where` also filters `find`: a `find` through a filtered DAO returns `null` when the stored object does not match the predicate. None of them affect `put` or `remove`.
 
 ---
 
@@ -229,7 +229,7 @@ The `sub` argument passed to `put()` and `remove()` is a `Detachable` — an obj
 | `MAX(prop)` | Finds the maximum value of a property | `.value` |
 | `MIN(prop)` | Finds the minimum value of a property | `.value` |
 | `GROUP_BY(prop, sink)` | Groups results by property value | `.groups` |
-| `MAP(prop)` | Projects a single property from each object | `.array` |
+| `MAP(prop)` | Projects a single property from each object | `.delegate.array` |
 | `UNIQUE(prop, sink)` | Passes only objects with distinct values of prop | — |
 
 ### Sink examples
@@ -280,7 +280,7 @@ await dao.select(foam.dao.ProxySink.create({
 
 ## listen()
 
-`listen(sink)` is like `select()` but it keeps running. After delivering the current contents of the DAO via `put()`, it continues to call `sink.put()` for new objects, `sink.remove()` for deleted ones, and `sink.reset()` when the result set may have changed in a way that can't be expressed as individual puts and removes (for example, after a bulk operation).
+`listen(sink)` delivers changes as they happen; it does not deliver the DAO's current contents (use `pipe(sink)` for that, which resets the sink and then listens). It calls `sink.put()` for new or updated objects, `sink.remove()` for deleted ones, and `sink.reset()` when the result set may have changed in a way that can't be expressed as individual puts and removes (for example, after a bulk operation).
 
 ```javascript
 dao.listen(foam.dao.ProxySink.create({
@@ -342,7 +342,7 @@ Every decorator in the chain sees it. The `CachingDAO` handles it; everything el
 
 Individual DAOs define their own domain-specific commands. These follow the same pattern: send the command, the right decorator handles it, the rest ignore it.
 
-A `null` return means the command was not handled by any DAO in the chain. Most application code never needs `cmd()` directly.
+A `null` return (Java) or `undefined` (JavaScript) means the command was not handled by any DAO in the chain. Most application code never needs `cmd()` directly.
 
 ### inX(x)
 

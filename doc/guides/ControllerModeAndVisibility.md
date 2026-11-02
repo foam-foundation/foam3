@@ -43,7 +43,7 @@ Visibility can also be a **function** for reactive/conditional visibility:
 {
   name: 'notes',
   updateVisibility: function(status) {
-    return status === 'CLOSED' ? 'RO' : 'RW';
+    return status === 'CLOSED' ? foam.u2.DisplayMode.RO : foam.u2.DisplayMode.RW;
   }
 }
 ```
@@ -71,13 +71,7 @@ The final instruction given to a View. Every `foam.u2.View` has a `mode` propert
 
 ## The Restriction Rule
 
-Property-level visibility can only be **equal to or more restrictive** than what the ControllerMode allows. Never less restrictive.
-
-The restriction order (least → most restrictive):
-
-```
-RW  →  DISABLED  →  RO  →  HIDDEN
-```
+Property-level visibility can be tightened by the ControllerMode but never loosened by it. Only one rewrite exists: `VIEW` turns `RW` into `RO`. Every other combination keeps the property's own value, so `VIEW` + `DISABLED` stays `DISABLED`.
 
 ### Examples
 
@@ -87,10 +81,10 @@ RW  →  DISABLED  →  RO  →  HIDDEN
 | EDIT | RO | RO | Property is more restrictive, kept |
 | EDIT | HIDDEN | HIDDEN | HIDDEN always wins |
 | VIEW | RW | **RO** | VIEW caps RW → RO |
-| VIEW | RO | RO | Already at/below VIEW's ceiling |
+| VIEW | RO | RO | Not RW, so kept |
 | VIEW | HIDDEN | HIDDEN | More restrictive than RO, kept |
 
-ControllerMode sets a **ceiling** on how permissive a field can be. The property can tighten further, but never loosen beyond that ceiling.
+In `VIEW` mode no field is editable; in `CREATE` and `EDIT` the property's own visibility applies unchanged.
 
 **Source:** `restrictDisplayMode()` in `foam3/src/foam/u2/ControllerMode.js`
 
@@ -99,12 +93,12 @@ ControllerMode sets a **ceiling** on how permissive a field can be. The property
 PropertyBorder is the component that ties the three layers together. When it renders a property, it:
 
 1. **Follows** the context's `controllerMode$` (via `follow()`)
-2. **Computes** a `modeSlot` by calling `prop.createVisibilityFor(data$, controllerMode$)` — which picks the right visibility for the current ControllerMode, applies the restriction ceiling, and optionally combines with permission checks
+2. **Computes** a `modeSlot` by calling `prop.createVisibilityFor(data$, controllerMode$)` — which picks the right visibility for the current ControllerMode, applies the VIEW rewrite of RW to RO, and optionally combines with permission checks
 3. **Passes** `mode$: modeSlot` to the inner view (EnumView, TextField, etc.)
 
 The inner view receives `mode$` as a reactive slot. When visibility changes, the view re-renders accordingly.
 
-**Source:** `foam3/src/foam/u2/PropertyBorder.js`, `foam3/src/foam/u2/Element2.js:1844` (`createVisibilityFor`)
+**Source:** `foam3/src/foam/u2/PropertyBorder.js`, `foam3/src/foam/u2/Element2.js:1876` (`createVisibilityFor`)
 
 ## Setting ControllerMode
 
@@ -132,7 +126,7 @@ this
 
 When building a **wrapper view** that creates its own inner views (bypassing PropertyBorder), you must forward the mode manually. Otherwise, the inner view falls back to its default `mode` expression — which only knows about `controllerMode`, not the property's visibility settings — and ignores `updateVisibility`, `readVisibility`, etc.
 
-### Using `.start()` (preferred)
+### Using `.start()`
 
 Pass `mode$` as a slot in the args object. This is the most common pattern in the FOAM codebase:
 
@@ -141,24 +135,9 @@ Pass `mode$` as a slot in the args object. This is the most common pattern in th
 this.start(this.MyInnerView, { data$: this.data$, mode$: this.mode$ }).end()
 ```
 
-### Using `ViewSpec.createView` (manual wiring)
+Passing `mode$:` (or `data$:`) as a create argument links the child's slot to the parent's with `linkFrom()`, which is a two-way link (`foam3/src/foam/lang/Property.js`, the `$` slot setter).
 
-When creating views programmatically, link the mode after creation using `follow()`:
-
-```javascript
-// Inside your custom wrapper view's render():
-var view = foam.u2.ViewSpec.createView(self.inputView, config, self, self.__subContext__);
-view.data$.linkFrom(self.data$);     // data binding convention
-view.mode$.follow(self.mode$);       // mode propagation convention
-this.add(view);
-```
-
-### Convention
-
-- `follow()` for mode / controllerMode propagation (parent → child UI state)
-- `linkFrom()` for data binding (model values)
-
-**Source:** `foam3/src/foam/u2/FormattedTextField.js:100`, `foam3/src/foam/u2/view/ChoiceView.js:278`
+**Source:** `foam3/src/foam/u2/FormattedTextField.js:99`, `foam3/src/foam/u2/view/ChoiceView.js:278`
 
 ## Key Source Files
 

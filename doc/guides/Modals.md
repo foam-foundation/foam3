@@ -2,50 +2,50 @@
 
 ## Modal Component Hierarchy
 
-The FOAM3 framework has a clear hierarchy of modal components, with `Popup` serving as the base class for all modal dialogs [1](#0-0) .
+The FOAM3 framework has a clear hierarchy of modal components, with `Popup` serving as the base class for all modal dialogs.
 
 ### Base Component: Popup
 
-`Popup` is the foundational modal component that provides core modal functionality [2](#0-1) :
+`Popup` is the foundational modal component that provides core modal functionality:
 
 - Full-screen transparent overlay with centered content
 - Background click to close functionality
-- Close button with keyboard shortcut support (Escape key) [3](#0-2)
-- Basic styling with shadow and border radius [4](#0-3)
+- Close button with keyboard shortcut support (Escape key)
+- Basic styling with shadow and border radius
 
 ### StyledModal: Standardized Modal Design
 
-`StyledModal` extends `Popup` to provide a consistent, styled modal interface [5](#0-4) :
+`StyledModal` extends `Popup` to provide a consistent, styled modal interface:
 
 **Key Features:**
-- **Title support**: Built-in title header with consistent styling [6](#0-5)
-- **Description section**: Optional description text below the title [7](#0-6)
-- **Action bar**: Standardized button placement at the bottom [8](#0-7)
-- **Modal styles**: Support for different visual styles (DEFAULT, DESTRUCTIVE, WARN) with colored top bars [9](#0-8)
-- **Responsive sizing**: Configurable `maxHeight` and `maxWidth` properties [10](#0-9)
+- **Title support**: Built-in title header with consistent styling
+- **Description section**: Optional description text below the title
+- **Action bar**: Standardized button placement at the bottom
+- **Modal styles**: Support for different visual styles (DEFAULT, DESTRUCTIVE, WARN) with colored top bars
+- **Responsive sizing**: Configurable `maxHeight` and `maxWidth` properties
 
 ### ConfirmationModal: Action-Oriented Dialogs
 
-`ConfirmationModal` extends `StyledModal` for yes/no confirmation scenarios [11](#0-10) :
+`ConfirmationModal` extends `StyledModal` for yes/no confirmation scenarios:
 
 **Specialized Features:**
-- **Primary/Secondary actions**: Built-in support for confirm/cancel button patterns [12](#0-11)
-- **Action execution**: Automatically calls the provided action and closes the dialog [13](#0-12)
+- **Primary/Secondary actions**: Built-in support for confirm/cancel button patterns
+- **Action execution**: Automatically calls the provided action and closes the dialog
 
 ### ApplicationPopup: Wizard and Flow Context
 
-`ApplicationPopup` extends `Popup` for complex application flows like wizards [14](#0-13) :
+`ApplicationPopup` extends `Popup` for complex application flows like wizards:
 
 **Advanced Features:**
-- **Application branding**: Integrated logo and header styling [15](#0-14)
-- **Progress tracking**: Built-in progress bar support [16](#0-15)
-- **Action management**: Support for leading actions (back buttons) and primary actions [17](#0-16)
-- **Responsive design**: Automatic fullscreen mode on mobile devices [18](#0-17)
-- **Dynamic content**: Support for dynamic headers and footers [19](#0-18)
+- **Application branding**: Integrated logo and header styling
+- **Progress tracking**: Built-in progress bar support
+- **Action management**: Support for leading actions (back buttons) and primary actions
+- **Responsive design**: Automatic fullscreen mode on mobile devices
+- **Dynamic content**: Support for dynamic headers and footers
 
 ## Usage Patterns
 
-The framework registers these components in the build system [20](#0-19) , making them available throughout the application.
+The framework registers these components in the build system, making them available throughout the application.
 
 **When to use each:**
 - **Popup**: For custom modals requiring full control over styling and behavior
@@ -55,11 +55,7 @@ The framework registers these components in the build system [20](#0-19) , makin
 
 ## Notes
 
-There's also a legacy `PopupView` component [21](#0-20)  that appears to be an older implementation with different positioning logic, but the dialog system primarily uses the `Popup` hierarchy described above. The framework also includes specialized modals like `PropertyModal` [22](#0-21)  for property editing scenarios.
-
-Wiki pages you might want to explore:
-- [Framework Initialization and Boot System (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#2.1)
-- [User Interface Framework (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#4)
+There's also a legacy `PopupView` component that appears to be an older implementation with different positioning logic, but the dialog system primarily uses the `Popup` hierarchy described above. The framework also includes specialized modals like `PropertyModal`, a `ConfirmationModal` subclass for property editing scenarios.
 
 ### Citations
 
@@ -82,7 +78,7 @@ foam.CLASS({
 **File:** src/foam/u2/dialog/Popup.js (L40-96)
 ```javascript
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -94,22 +90,22 @@ foam.CLASS({
       right: 0;
       top: 0;
       width: 100%;
-      z-index: 1000;
+      z-index: $z-modal;
     }
-    ^X {
+    <<X {
       position: absolute;
       top: min(10%, 16px);
       right: min(10%, 16px);
-      z-index: 1000;
+      z-index: $z-10;
       cursor: pointer;
       transition: all ease-in 0.1s;
       padding: 0;
     }
-    ^X:hover{
+    <<X:hover{
       transform: scale(1.1)
     }
-    ^background {
-      background-color: #000;
+    <<background {
+      background-color: $backgroundInverse;
       bottom: 0;
       left: 0;
       opacity: 0.4;
@@ -117,7 +113,7 @@ foam.CLASS({
       right: 0;
       top: 0;
     }
-    ^inner {
+    <<inner {
       height: auto;
       width: auto;
       display: flex;
@@ -132,7 +128,7 @@ foam.CLASS({
       will-change: opacity;
     }
 
-    ^fullscreen ^inner {
+    <<fullscreen <<inner {
       height: 100%;
       width: 100%;
       border-radius: 0;
@@ -140,8 +136,9 @@ foam.CLASS({
  `,
 ```
 
-**File:** src/foam/u2/dialog/Popup.js (L170-183)
+**File:** src/foam/u2/dialog/Popup.js (L170-184)
 ```javascript
+  actions: [
     {
       name: 'closeModal',
       icon: 'images/ic-cancelblack.svg',
@@ -149,7 +146,7 @@ foam.CLASS({
       keyboardShortcuts: [ 27 /* Escape */ ],
       code: function() {
         if ( this.onClose ) this.onClose();
-        this.closedLatch?.resolve();
+        this.closedLatch?.resolve(this.data);
         // Delay removal by 32ms (two animation frames) so the action.closeModal
         // topic has a chance to be published
         this.hide();
@@ -192,9 +189,9 @@ foam.CLASS({
   `,
 ```
 
-**File:** src/foam/u2/dialog/StyledModal.js (L70-75)
+**File:** src/foam/u2/dialog/StyledModal.js (L73-78)
 ```javascript
-    ^actionBar {
+    <<actionBar {
       display: flex;
       justify-content: flex-end;
       padding: 16px 0px;
@@ -202,8 +199,9 @@ foam.CLASS({
     }
 ```
 
-**File:** src/foam/u2/dialog/StyledModal.js (L104-113)
+**File:** src/foam/u2/dialog/StyledModal.js (L108-118)
 ```javascript
+  properties: [
     {
       class: 'String',
       name: 'maxHeight',
@@ -216,19 +214,31 @@ foam.CLASS({
     },
 ```
 
-**File:** src/foam/u2/dialog/StyledModal.js (L122-124)
+**File:** src/foam/u2/dialog/StyledModal.js (L119-125)
 ```javascript
+    {
+      class: 'Enum',
+      of: 'foam.u2.dialog.ModalStyles',
+      name: 'modalStyle',
+      value: 'DEFAULT',
+      documentation: 'Setting modal styles adds a coloured bar at the top of the modal'
+    },
+```
+
+**File:** src/foam/u2/dialog/StyledModal.js (L126-129)
+```javascript
+    {
       name: 'title',
       class: 'String'
     },
 ```
 
-**File:** src/foam/u2/dialog/StyledModal.js (L137-140)
+**File:** src/foam/u2/dialog/StyledModal.js (L142-145)
 ```javascript
     {
       class: 'String',
       name: 'description'
-    }
+    },
 ```
 
 **File:** src/foam/u2/dialog/ConfirmationModal.js (L7-14)
@@ -243,7 +253,7 @@ foam.CLASS({
   `,
 ```
 
-**File:** src/foam/u2/dialog/ConfirmationModal.js (L20-35)
+**File:** src/foam/u2/dialog/ConfirmationModal.js (L29-45)
 ```javascript
   properties: [
     {
@@ -261,28 +271,44 @@ foam.CLASS({
     },
     ['showCancel', true],
     'data'
+  ],
 ```
 
-**File:** src/foam/u2/dialog/ConfirmationModal.js (L49-66)
+**File:** src/foam/u2/dialog/ConfirmationModal.js (L58-90)
 ```javascript
   actions: [
     {
       name: 'confirm',
       buttonStyle: 'PRIMARY',
       code: async function(X) {
-        await this.primaryAction && this.primaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+        if ( ! this.primaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.primaryAction.maybeCall(X, this.data).then((result) => {
+          self.data = result;
+          X.closeDialog();
+        });
       }
     },
     {
       name: 'cancel',
       buttonStyle: 'TERTIARY',
-      code: function(X) {
-        this.secondaryAction && this.secondaryAction.maybeCall(X, this.data);
-        X.closeDialog();
+      code: async function(X) {
+        if ( ! this.secondaryAction ) {
+          X.closeDialog();
+          return;
+        }
+
+        var self = this;
+        return await this.secondaryAction?.maybeCall(X, this.data).then((result) => {
+          self.data = result;
+          X.closeDialog();
+        })
       }
     }
-  ]
 ```
 
 **File:** src/foam/u2/dialog/ApplicationPopup.js (L7-13)
@@ -296,7 +322,7 @@ foam.CLASS({
   `,
 ```
 
-**File:** src/foam/u2/dialog/ApplicationPopup.js (L250-257)
+**File:** src/foam/u2/dialog/ApplicationPopup.js (L251-258)
 ```javascript
     {
       class: 'Array',
@@ -308,16 +334,18 @@ foam.CLASS({
     },
 ```
 
-**File:** src/foam/u2/dialog/ApplicationPopup.js (L259-262)
+**File:** src/foam/u2/dialog/ApplicationPopup.js (L259-263)
 ```javascript
+    {
       class: 'foam.u2.ViewSpec',
       name: 'progressView',
       value: { class: 'foam.u2.ProgressView' }
     },
 ```
 
-**File:** src/foam/u2/dialog/ApplicationPopup.js (L264-272)
+**File:** src/foam/u2/dialog/ApplicationPopup.js (L264-273)
 ```javascript
+    {
       class: 'foam.u2.ViewSpec',
       name: 'dynamicFooter',
       documentation: 'Content rendered below the body content. Still a part of the body and can change based on the content of the body'
@@ -329,7 +357,7 @@ foam.CLASS({
     },
 ```
 
-**File:** src/foam/u2/dialog/ApplicationPopup.js (L286-294)
+**File:** src/foam/u2/dialog/ApplicationPopup.js (L287-295)
 ```javascript
       const updateWidth = () => {
         if ( this.displayWidth?.ordinal <= foam.u2.layout.DisplayWidth.MD.ordinal ) {
@@ -342,7 +370,7 @@ foam.CLASS({
       this.onDetach(this.displayWidth$.sub(updateWidth))
 ```
 
-**File:** src/foam/u2/dialog/ApplicationPopup.js (L342-347)
+**File:** src/foam/u2/dialog/ApplicationPopup.js (L343-348)
 ```javascript
             .start()
               .addClass(this.myClass('header-center'))
@@ -352,14 +380,14 @@ foam.CLASS({
             .end()
 ```
 
-**File:** src/pom.js (L684-689)
+**File:** src/foam/u2/pom.js (L289-294)
 ```javascript
-    { name: "foam/u2/dialog/Popup",                                   flags: "web" },
-    { name: "foam/u2/dialog/ApplicationPopup",                        flags: "web" },
-    { name: "foam/u2/dialog/DialogActionsView",                       flags: "web" },
-    { name: "foam/u2/dialog/StyledModal",                             flags: "web" },
-    { name: "foam/u2/dialog/ConfirmationModal",                       flags: "web" },
-    { name: "foam/u2/Dialog",                                         flags: "web" },
+    { name: "dialog/Popup",                                       flags: "web" },
+    { name: "dialog/ApplicationPopup",                            flags: "web" },
+    { name: "dialog/DialogActionsView",                           flags: "web" },
+    { name: "dialog/StyledModal",                                 flags: "web" },
+    { name: "dialog/ConfirmationModal",                           flags: "web" },
+    { name: "Dialog",                                             flags: "web" },
 ```
 
 **File:** src/foam/u2/PopupView.js (L18-21)
@@ -375,5 +403,5 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.u2',
   name: 'PropertyModal',
-  extends: 'foam.u2.dialog.StyledModal',
+  extends: 'foam.u2.dialog.ConfirmationModal',
 ```

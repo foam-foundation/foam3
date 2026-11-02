@@ -43,7 +43,7 @@ console.log(myClass.id, myClass.count_);
 ## `foam.USED` - Registry of Used Classes
 
 ### What is it?
-`foam.USED` is an object (dictionary/map) that stores references to all FOAM models that have been actually instantiated/used in the current session.
+`foam.USED` is an object (dictionary/map) that stores references to all FOAM models whose class has been built in the current session: the first lookup, `requires` or `extends` of a class builds it, even if no instance is ever created. Refinements are added as soon as the class they refine is defined. Classes defined during boot, before `foam.USED` exists (such as `foam.lang.FObject`), are not listed.
 
 ### Where is it defined?
 In `foam/lang/EndBoot.js:295`:
@@ -53,7 +53,7 @@ foam.UNUSED = {};
 ```
 
 ### How are classes added to `foam.USED`?
-When a class is first looked up/created, it moves from `foam.UNUSED` to `foam.USED`:
+When a class is first looked up (and so built), it moves from `foam.UNUSED` to `foam.USED`:
 ```javascript
 // From EndBoot.js:337-346
 var f = foam.Function.memoize0(function() {
@@ -72,7 +72,7 @@ var f = foam.Function.memoize0(function() {
 ### Usage Example
 ```javascript
 // Get all used class IDs
-Object.keys(foam.USED);  // ['foam.lang.FObject', 'foam.u2.Element', ...]
+Object.keys(foam.USED);  // ['foam.u2.Element', ...]
 
 // Check if a specific class has been used
 if (foam.USED['com.example.MyModel']) {
@@ -146,10 +146,10 @@ Object.keys(foam.USED).forEach(k => {
 
 ## Related: `foam.UNUSED`
 
-`foam.UNUSED` contains models that are defined but not yet instantiated. When a class is first used, it moves from `foam.UNUSED` to `foam.USED`.
+`foam.UNUSED` contains models that are defined but whose class has not been built yet. When a class is first looked up, it moves from `foam.UNUSED` to `foam.USED`.
 
 ```javascript
-// Check what classes are defined but never used
+// Check what classes are defined but never looked up
 Object.keys(foam.UNUSED);
 ```
 

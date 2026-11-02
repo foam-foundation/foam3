@@ -93,7 +93,7 @@ Properties are the primary unit of data. They are declarative axioms with rich m
 
 ```javascript
 properties: [
-  // Short-form (class defaults to 'FObject' slot, no type coercion)
+  // Short-form (a plain foam.lang.Property: untyped, no type coercion)
   'name',
 
   // Typed short-form
@@ -138,7 +138,7 @@ properties: [
   { class: 'PhoneNumber', name: 'phone' },
   { class: 'URL',         name: 'documentUrl' },
   { class: 'Website',     name: 'homepage' },
-  { class: 'Currency',    name: 'amount', units: 'USD' },
+  { class: 'UnitValue',   name: 'amount', unitPropName: 'currency' },  // 'currency' names the property holding the currency code
   { class: 'StringArray', name: 'tags' },
 
   // Built-in constraints (automatically validated and shown in GUI)
@@ -196,7 +196,7 @@ properties: [
     name: 'notes',
     label: 'Internal Notes',
     documentation: 'Visible only to staff.',
-    visibility: 'HIDDEN'              // or 'RO', 'RW', 'FINAL'
+    visibility: 'HIDDEN'              // or 'RO', 'RW', 'DISABLED'
   },
 
   // Java-specific
@@ -204,7 +204,7 @@ properties: [
     class: 'String',
     name: 'token',
     javaFactory: 'return java.util.UUID.randomUUID().toString();',
-    javaTransient: true
+    storageTransient: true            // not journaled; still sent over the network
   }
 ]
 ```
@@ -214,7 +214,7 @@ properties: [
 - `min` / `max` — numeric bounds
 - `minLength` / `maxLength` — string length bounds
 - `validateObj` — JS-only; argument names are dependencies (same as `expression`); return an error string or nothing
-- `validationPredicates` — cross-platform FScript predicates; use `thisValue` or property name in `query`; requires `errorString` or `errorMessage` (i18n key)
+- `validationPredicates` — cross-platform FScript predicates; use `thisValue` or property name in `query`; requires `errorString` (literal text) or `errorMessage` (the name of a `messages:` entry on the class)
 - All constraints surface automatically in FOAM's detail views as inline error messages
 - `obj.errors_` is a reactive property containing the current array of `[property, errorString]` pairs
 
@@ -222,7 +222,7 @@ properties: [
 ```javascript
 inv.amount          // getter
 inv.amount = 200    // setter (fires property change event)
-inv.amount$.sub(function(e, _, __, newVal) { ... })  // subscribe to changes
+inv.amount$.sub(function(sub, topic, propName, slot) { ... slot.get() ... })  // subscribe to changes; 4th arg is a Slot
 inv.slot('amount')  // returns a Slot (reactive reference)
 ```
 
@@ -279,8 +279,8 @@ Listeners are **pre-bound** methods. Unlike regular methods, they always keep th
 
 ```javascript
 listeners: [
-  function onAmountChange(e, source, prop, newVal) {
-    console.log('New amount:', newVal);
+  function onAmountChange(sub, topic, propName, slot) {
+    console.log('New amount:', slot.get());
   },
 
   // Merged: multiple rapid calls collapse into one, fired after `mergeDelay` ms
@@ -450,7 +450,7 @@ var sink = await dao
 var results = sink.array;
 ```
 
-**Important:** filtering methods only affect `select` and `removeAll`. They have no effect on `find`, `put`, or `remove`.
+**Important:** `orderBy`, `skip` and `limit` only affect `select` and `removeAll`. `where` also applies to `find`: a found object that fails the predicate is returned as `null`. None of them affect `put` or `remove`.
 
 ### select() and Sinks
 
@@ -477,7 +477,7 @@ The `sub` argument is a `Detachable`. Call `sub.detach()` to stop receiving furt
 | `MAX(prop)` | Finds the maximum value | `.value` |
 | `MIN(prop)` | Finds the minimum value | `.value` |
 | `GROUP_BY(prop, sink)` | Groups results by property value | `.groups` |
-| `MAP(prop)` | Projects a single property from each object | `.array` |
+| `MAP(prop, sink)` | Passes each object's `prop` value to `sink` | the delegate sink's result (e.g. `.delegate.array`) |
 
 #### Examples
 
@@ -506,17 +506,17 @@ await dao.select(function(obj) {
 
 ### listen()
 
-`listen(sink)` is like `select()` but keeps running. After delivering current contents via `put()`, it continues to call `sink.put()` for new objects, `sink.remove()` for deleted ones, and `sink.reset()` when the result set may have changed in bulk.
+`listen(sink)` delivers future changes only: it calls `sink.put()` for new or updated objects, `sink.remove()` for deleted ones, and `sink.reset()` when the result set may have changed in bulk. It does not deliver the current contents; use `pipe(sink)` to get the current contents first and then the changes.
 
 ```javascript
-dao.listen({
-  put:    function(obj) { console.log('added or updated:', obj); },
-  remove: function(obj) { console.log('removed:', obj); },
-  reset:  function()    { console.log('reload everything'); }
+var sub = dao.listen({
+  put:    function(obj, sub) { console.log('added or updated:', obj); },
+  remove: function(obj, sub) { console.log('removed:', obj); },
+  reset:  function(sub)      { console.log('reload everything'); }
 });
 ```
 
-Call `sub.detach()` inside any callback to stop listening.
+Call `sub.detach()` (on the returned Detachable, or on the `sub` argument inside a callback) to stop listening.
 
 ### removeAll()
 
@@ -590,7 +590,6 @@ Predicates can be serialized to JSON and sent over the wire — this is how Clie
 | `foam.dao.JDAO` | Journal (file-based persistence) wrapping another DAO |
 | `foam.dao.CachingDAO` | Read cache over a slower delegate |
 | `foam.dao.ClientDAO` | Proxies over the network to a server-side DAO |
-| `foam.dao.LRUCachingDAO` | Bounded cache with LRU eviction |
 | `foam.dao.ProxyDAO` | Base class for decorating DAOs |
 
 ### A Note on Abstraction
@@ -653,7 +652,7 @@ foam.RELATIONSHIP({
   sourceModel: 'com.example.Customer',
   targetModel: 'com.example.Invoice',
   forwardName: 'invoices',    // Customer gets: customer.invoices → DAO
-  inverseName: 'customer',    // Invoice gets: invoice.customerId (FK)
+  inverseName: 'customer',    // Invoice gets: invoice.customer (FK holding the Customer id)
   cardinality: '1:*'
 });
 ```
@@ -885,7 +884,7 @@ U2 (and its successor U3) is a virtual/wrapped DOM library that replaces direct 
 - **Scoped CSS** — each component owns its styles; no global namespace collisions
 - **Security** — user input can never be injected as raw HTML; the library blocks XSS by construction and works under a strict CSP
 
-U3 is smaller and faster than U2 (wrapped real DOM vs. virtual DOM), but U2 is what all existing code uses. Most patterns are identical between them.
+U3 is smaller and faster than U2 (wrapped real DOM vs. virtual DOM). U3 is now the implementation of `foam.u2.Element`, so current code uses it; most patterns are identical between them.
 
 ### Building DOM — `start()` / `end()` / `add()`
 
@@ -899,7 +898,7 @@ this.start('ul')
 
 // tag() is shorthand for start().end() with no children
 this.tag('br');
-this.tag('img', { src: this.imgUrl$ });  // slotted attribute
+this.start('img').attrs({ src: this.imgUrl$ }).end();  // slotted attribute
 
 // add() accepts strings, numbers, slots, arrays, promises, toE()-able objects
 this.add('Hello ', this.user.firstName$);  // updates reactively
@@ -967,20 +966,20 @@ foam.CLASS({
   name: 'MyView',
   extends: 'foam.u2.View',
   css: `
-    ^ { padding: 16px; }          /* ^ = this component's root class */
-    ^title { font-weight: bold; }
-    ^:hover { background: #eee; }
+    << { padding: 16px; }          /* << = this component's root class */
+    <<title { font-weight: bold; }
+    <<:hover { background: #eee; }
   `,
   methods: [
     function render() {
       this.addClass()             // applies scoped root class
-        .start().addClass('title').add('Hello').end();
+        .start().addClass(this.myClass('title')).add('Hello').end();
     }
   ]
 });
 ```
 
-`^` in CSS is replaced with a unique generated class name scoped to this component. No global pollution, no naming conflicts, full inheritance.
+`<<` (or the older `^`) in CSS is replaced with a unique generated class name scoped to this component. No global pollution, no naming conflicts, full inheritance.
 
 ### Visibility and ControllerMode
 
@@ -1031,7 +1030,7 @@ foam.CLASS({
 
 ```javascript
 // A complete search/browse/create/edit/delete interface:
-this.tag('foam.u2.view.DAOBrowserView', { data: this.invoiceDAO });
+this.tag({ class: 'foam.comics.v2.DAOBrowserView', data: this.invoiceDAO });
 ```
 
 This single line produces search, filter, table with sort/pagination, detail view, create/edit forms with validation, and action buttons — driven entirely from the model's property definitions, `tableColumns`, `sections`, and `actions` declarations.
@@ -1166,15 +1165,13 @@ var g = MyGrammar.create();
 // Parse a full string against START
 var result = g.parseString('Clark Kent, 6205550145, KRYP70N');
 
-// Access and test a named sub-rule directly
-var phoneParser = g.getSymParser('phoneNumber');
-phoneParser.match('(620) - 555 - 0145');
-phoneParser.matchAll('call (620)-555-0145 or (201)-530-7972');
+// Parse against a named sub-rule instead of START
+var phone = g.parseString('(620) - 555 - 0145', 'phoneNumber');
 ```
 
 ### Semantic Actions
 
-To transform parse results, add an `actions` object alongside the grammar return value (or use a separate `addActions()` call):
+To transform parse results, add a method named `<ruleName>Action` to the grammar class; `init()` attaches it to that rule automatically. Alternatively, call `this.addActions({ ruleName: fn })` in `init()`:
 
 ```javascript
 function grammar(sym, seq, str, repeat, range, alt) {
@@ -1185,10 +1182,8 @@ function grammar(sym, seq, str, repeat, range, alt) {
   };
 },
 
-function actions() {
-  return {
-    number: function(v) { return parseInt(v, 10); }  // string → integer
-  };
+function numberAction(v) {
+  return parseInt(v, 10);  // string → integer
 }
 ```
 
@@ -1220,7 +1215,7 @@ foam.CLASS({
 });
 ```
 
-`EasyDAO` with `authorize: true` automatically wraps the DAO with `SpidAwareDAO`, which transparently filters every `select`, `find`, `put`, and `remove` based on the SPID of the requesting user. Application code never adds `.where(EQ(Invoice.SPID, userSpid))` — the DAO layer handles it invisibly.
+When the model implements `ServiceProviderAware`, `EasyDAO` automatically wraps the DAO with `foam.core.auth.ServiceProviderAwareDAO` (its `serviceProviderAware` flag defaults to true for such models), which transparently filters every `select`, `find`, `put`, and `remove` based on the SPID of the requesting user. Application code never adds `.where(EQ(Invoice.SPID, userSpid))` — the DAO layer handles it invisibly.
 
 ### Hierarchical SPIDs
 
@@ -1319,23 +1314,22 @@ Each `p()` entry is a **partial object** — only the fields present are merged 
 
 - **Adding a property** — safe with no action required. Missing fields during replay use the property's `value` or `factory` default.
 - **Removing a property** — safe with no action required. Unknown fields in journal entries are silently ignored during deserialization.
-- **Renaming a property** — leave the old property in the model but mark it `hidden` and use its `postSet` to write the new property. On journal replay the old field sets the new one automatically, migrating all data on load. Remove the shim after the journal has been compacted.
-- **Changing a property's type** — use the same shim pattern: keep the old property with its original type, and in its `postSet` convert and assign to the new property.
+- **Renaming a property** — leave the old property in the model but mark it `hidden` and use its `javaPostSet` to write the new property. Journals are replayed on the Java server, where only `javaPostSet` runs (a JS `postSet` does not). On journal replay the old field sets the new one automatically, migrating all data on load. Remove the shim after the journal has been compacted.
+- **Changing a property's type** — use the same shim pattern: keep the old property with its original type, and in its `javaPostSet` convert and assign to the new property.
 
 ```javascript
-// Migration shim: rename 'dueDate' (String) → 'dueDateObj' (Date)
+// Migration shim: rename 'dueDate' → 'paymentDueDate'
 {
-  class: 'String',
+  class: 'Date',
   name: 'dueDate',
   hidden: true,
   transient: true,
-  postSet: function(_, v) {
-    this.dueDateObj = new Date(v);
-  }
+  javaPostSet: 'setPaymentDueDate(val);',
+  postSet: function(_, v) { this.paymentDueDate = v; }
 },
 {
   class: 'Date',
-  name: 'dueDateObj'
+  name: 'paymentDueDate'
 }
 ```
 
@@ -1400,10 +1394,10 @@ The programmer has no idea — and does not need to know — whether `invoiceDAO
 |---|---|
 | `seqNo: true` | Auto-incrementing integer id |
 | `guid: true` | UUID id |
-| `journal: true` | Wraps with JDAO for persistence |
-| `cache: true` | Adds in-memory read cache |
+| `journalType: 'SINGLE_JOURNAL'` | Wraps with JDAO for persistence (file name from `journalName`) |
+| `cache: true` | Adds in-memory read cache (JS/client only) |
 | `authorize: true` | Enforces GRANT permissions on every operation |
-| `history: true` | Journals every version of every object |
+| `history: true` | Records property-change history via `HistoryDAO` |
 | `of` | The model class |
 
 The full request flow, invisible to the programmer:

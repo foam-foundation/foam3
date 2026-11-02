@@ -48,7 +48,7 @@ foam.CLASS({
 - Supports aliasing with the `as` keyword
 - **These are classes/constructors, not instances**
 - When you call `this.Abc.create(args)`, it automatically calls `this.Abc.create(args, this)` - the current context (`this`) is added as the second argument
-- The second argument to `create()` is either a context or an object whose `.subContext` is used
+- The second argument to `create()` is either a context or an FObject whose `__subContext__` is used
 - If you created `com.acme.Abc` directly you would need to manually pass `this` as the second argument, but `this.Abc.create()` adds it automatically
 - This automatic context passing is needed to support dependency injection and the import/export system
 
@@ -56,7 +56,6 @@ foam.CLASS({
 
 **Basic Usage:**
 ```javascript
-// File: src/com/example/models/Transaction.js
 foam.CLASS({
   package: 'com.example.models',
   name: 'Transaction',
@@ -119,7 +118,7 @@ foam.CLASS({
     'currentUser',              // A user object instance
     'userDAO',                  // A live DAO instance
     'log',                      // A logging service instance
-    'optionalService?',         // Optional service (won't error if missing)
+    'optionalService?',         // Optional service (no warning if missing)
     'someDAO as myDAO'          // Aliased service
   ]
 });
@@ -137,7 +136,6 @@ foam.CLASS({
 
 **Basic Context Injection:**
 ```javascript
-// File: src/com/example/views/MenuView.js
 foam.CLASS({
   package: 'com.example.views',
   name: 'MenuView',
@@ -188,7 +186,7 @@ foam.CLASS({
   
   exports: [
     'userDAO',           // Export userDAO property to children
-    'this as myService', // Export entire instance
+    'as myService',      // Export entire instance
     'log as logger'      // Export with alias
   ]
 });
@@ -207,12 +205,12 @@ foam.CLASS({
 | **Purpose** | Class name resolution | Service injection |
 | **Result** | Factory methods | Direct property access |
 | **Type** | Classes/constructors | Instances/values/services |
-| **Source** | Static class definitions | Runtime execution context |
+| **Source** | Class looked up in the object's context on first use | Runtime execution context |
 | **Analogy** | `import` in Java, `require()` in JS | Dependency injection frameworks |
 | **Creation** | `this.ClassName.create()` | `this.serviceName` |
-| **Coupling** | Compile-time dependencies | Runtime loose coupling |
-| **Testability** | Hard to mock classes | Easy to inject test doubles |
-| **Network** | Local class resolution only | Can import across network |
+| **Coupling** | Class dependencies, replaceable through the context | Runtime loose coupling |
+| **Testability** | Register a replacement class in a sub-context | Easy to inject test doubles |
+| **Network** | Classes are resolved locally | Can import across network |
 | **Optional** | No | Yes (with `?`) |
 
 ## Dependency Injection Benefits
@@ -237,8 +235,8 @@ foam.CLASS({
   methods: [
     function init() {
       // Context lookup is still loose-coupling, just more work
-      this.userDAO = this.__context__.lookup('userDAO');
-      this.logger = this.__context__.lookup('log');
+      this.userDAO = this.__context__.userDAO;
+      this.logger = this.__context__.log;
       // What if they're not there? What if they move?
     }
   ]
@@ -314,8 +312,8 @@ Use `?` suffix for optional context values:
 
 ```javascript
 imports: [
-  'requiredService',        // Will error if not found
-  'optionalService?'        // Won't error if missing
+  'requiredService',        // Missing: debug builds report 'Missing required import', and access logs a warning
+  'optionalService?'        // Missing: no warning, the value is undefined
 ]
 ```
 
@@ -400,7 +398,7 @@ foam.CLASS({
   ],
   
   exports: [
-    'this as userService'  // Export self for other components
+    'as userService'       // Export self for other components
   ],
   
   methods: [
@@ -456,21 +454,19 @@ foam.CLASS({
   ],
   
   requires: [
-    'foam.u2.Button',     // UI components
+    'foam.u2.tag.Button',  // UI components
     'foam.u2.TextField'
   ],
   
   methods: [
     function render() {
       this.add(this.TextField.create({
-        label: 'Username',
         data$: this.data.username$
       }));
       
-      this.add(this.Button.create({
-        label: 'Save',
-        action: () => this.userService.save(this.data)
-      }));
+      this.start(this.Button, { label: 'Save' })
+        .on('click', () => this.userService.save(this.data))
+      .end();
     }
   ]
 });

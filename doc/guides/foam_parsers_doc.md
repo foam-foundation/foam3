@@ -61,7 +61,7 @@
   - [Parser Messages](#parser-messages)
     - [Creating Messages with msg()](#creating-messages-with-msg)
     - [Message Properties](#message-properties)
-    - [Example: Empty File Detection](#example-empty-file-detection)
+    - [Example: Parser with Messages](#example-parser-with-messages)
     - [Collecting Messages](#collecting-messages)
   - [Checking a Grammar](#checking-a-grammar)
     - [Running the Check](#running-the-check)
@@ -70,7 +70,6 @@
     - [Checking One Grammar From a Test](#checking-one-grammar-from-a-test)
   - [Best Practices](#best-practices)
   - [Complete Example: Email Address Parser](#complete-example-email-address-parser)
-  - [Live Examples](#live-examples)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -324,11 +323,11 @@ var stringBody = P.str(P.repeat(P.not(quote, P.anyChar())));
 
 ### until(parser)
 
-Parses input until the specified parser matches.
+Parses input until the specified parser matches. The terminator is consumed but left out of the value, and the value is an array of characters (wrap in `str()` for a string).
 
 ```javascript
-var parser = P.until(P.literal('"'));
-// Parses everything up to (but not including) a quote
+var parser = P.str(P.until(P.literal('"')));
+// Input 'abc"def' → 'abc', leaving the stream positioned after the quote
 ```
 
 ### until0(parser)
@@ -548,7 +547,7 @@ foam.CLASS({
 References a named parser within a grammar.
 
 ```javascript
-function grammar(str, sym, seq, seq1, eof) {
+function grammar(str, sym, repeat, seq, seq1, eof) {
   return {
     START: seq1(0, sym('parens'), eof()),
     
@@ -660,7 +659,8 @@ foam.CLASS({
 });
 
 var p = VersionParser.create();
-// Input '3.14159-26b' → [3, '.', 14159, '-', '26', 'b']
+// Input '3.14159-26b' → [3, 14159, 26, 'b']
+// (the repeat() delimiter's value is discarded, so separators are not in the result)
 ```
 
 ### Example: Expression Interpreter
@@ -683,7 +683,7 @@ foam.CLASS({
         variable: alt('x', 'y', 'z'),
         fun: seq(alt('sqrt', 'log2'), '(', sym('expr'), ')'),
         group: seq1(1, '(', sym('expr'), ')'),
-        number: /* number parser */
+        number: /* number parser; must accept a leading '-' for the input below */
       };
     },
     
@@ -758,7 +758,7 @@ foam.CLASS({
 });
 
 const interp = BinaryInterpreter.create();
-// Now interprets binary numbers: '101+111+1' → 15
+// Now interprets binary numbers: '101+111+1' → 13
 ```
 
 ---
@@ -871,7 +871,7 @@ foam.CLASS({
   extends: 'foam.parse.Grammar',
 
   methods: [
-    function grammar(alt, sym, seq, seq1, literal, literalIC, sug) {
+    function grammar(alt, sym, seq, seq1, literal, literalIC, repeat, repeat0, sug) {
       // Helper for operators with suggestions
       let operator = (str) => alt(
         seq1(2, ' ', sym('ws'), sug(literalIC(str), {text: str, category: 'operator'})),
@@ -896,6 +896,8 @@ foam.CLASS({
             sug(alt(literalIC('AND'), literal('&')), {text: 'AND', category: 'operator'})
           ))
         ),
+
+        expr: seq(sym('prop'), '=', sym('statusValue')),
 
         // Property with suggestion
         prop: seq1(1, sym('ws'),
@@ -984,21 +986,28 @@ foam.CLASS({
 5. Tab key auto-completes when single match exists
 
 ```javascript
-// Internal mechanism in SmartView.apply:
+// Simplified from SmartView's 'apply' property (normalization omitted):
 return function(p, grammar) {
-  // Reset suggestions when reaching new furthest position
-  if ( this.pos > self.maxPos ) {
-    self.suggestions = {};
-    self.maxPos = this.pos;
-  }
-
-  // Collect suggestion at furthest position
-  if ( this.pos == self.maxPos && p.suggest ) {
+  // 'this' is the PStream
+  if ( p.suggest && this.pos >= self.maxPos ) {
     let s = p.suggest();
-    if ( s ) self.suggestions[s.label || s.tooltip] = s;
+    if ( s ) {
+      let label = s.tooltip || s.text;
+      // A suggestion further along replaces all earlier ones
+      if ( this.pos > self.maxPos ) {
+        self.suggestions = {};
+        self.maxPos      = this.pos;
+      }
+      if ( ! self.suggestions[label] ) self.suggestions[label] = s;
+    }
   }
 
-  return p.parse(this, grammar);
+  let result = p.parse(this, grammar);
+
+  // A successful parse past maxPos makes the collected suggestions stale
+  if ( result && result.pos > self.maxPos ) self.suggestions = {};
+
+  return result;
 }
 ```
 
@@ -1188,6 +1197,8 @@ var result = grammar.parseString(inputText, null, createApply());
 // messages array now contains collected messages
 ```
 
+`parseString()` calls the `START` parser directly rather than through `apply`, so a `msg()` placed directly on `START` is never collected; put it on a rule that `START` references.
+
 **Common use cases:**
 
 - Display status messages to users
@@ -1311,19 +1322,3 @@ var p = EmailAddressParser.create();
 
 With FOAM's grammar-based parsers, you can tackle parsing challenges that would be impossible or unwieldy with regular expressions, while maintaining readable, testable, and reusable code.
 
----
-
-## Live Examples
-
-FOAM comes with the demo examples that you can run in browsers and test interactively. 
-
-> [!IMPORTANT]
-> To explore FOAM parser examples make sure that you have a running FOAM application. For more info on how to build FOAM go to [FOAM Installation ReadMe][FOAM].
-
-
-Once you have a running FOAM application go to [FOAM Parsers Demo Interactive Page][Live-Examples] in your browser. All code blocks are editable and will execute upon focus change.
-
-
-<!-- List all links here -->
-[FOAM]: https://github.com/foam-foundation/foam3/blob/development/INSTALL.md
-[Live-Examples]: http://localhost:8080/foam3/src/foam/demos/examples/index.html?modules=parsers

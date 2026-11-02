@@ -20,16 +20,16 @@ For the basics of how a class is defined and rendered, start with [U3.md](U3.md)
 - `sourceChangeDAO`, an in-memory DAO served to the browser with remote listener support;
 - `sourceWatcher`, the server-side poller that writes into it.
 
-Without `-l` neither exists, and the browser side stays off: `foam.u2.ViewReloader` is built under the `dev` flag, which only a source run sets, so a `foam-bin` has no such class, and `ApplicationController.onClientLoad` creates it only when the class exists and the client has `sourceChangeDAO`.
+Without `-l` neither exists, and the browser side stays off: `foam.u2.ViewReloader` is built only under the `dev` flag (which only a source run sets) or in a test build (`dev&web|web&test` in `src/foam/u2/pom.js`), so a production `foam-bin` has no such class, and `ApplicationController.onClientLoad` creates it only when the class exists and the client has `sourceChangeDAO`.
 
 ## What you see
 
 One console line per saved file:
 
 ```
-[reload] /src/app/ui/Card.js: 0 class(es) redefined, 1 stylesheet(s) swapped, 0 view(s) rebuilt
-[reload] /src/app/ui/Card.js: 1 class(es) redefined, 0 stylesheet(s) swapped, 9 view(s) rebuilt
-[reload] /src/app/ui/Card.js: 0 class(es) redefined, 0 stylesheet(s) swapped, 0 view(s) rebuilt, 1 unchanged
+[reload] /src/foam/u2/tag/Card.js: 0 class(es) redefined, 1 stylesheet(s) swapped, 0 view(s) rebuilt
+[reload] /src/foam/u2/tag/Card.js: 1 class(es) redefined, 0 stylesheet(s) swapped, 9 view(s) rebuilt
+[reload] /src/foam/u2/tag/Card.js: 0 class(es) redefined, 0 stylesheet(s) swapped, 0 view(s) rebuilt, 1 unchanged
 [reload] /src/foam/lang/Slot.js: 1 class(es) redefined, 0 stylesheet(s) swapped, 0 view(s) rebuilt. Reload the page: foam.lang.Slot is a boot class
 ```
 

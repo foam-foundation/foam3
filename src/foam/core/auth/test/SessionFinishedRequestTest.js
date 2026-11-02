@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `
-  Background work started from a web request (an intake run) keeps the
+  Background work started from a web request keeps the
   HttpServletRequest in its context after the response is sent. Jetty 12 ee11
   throws a NullPointerException on every read of such a finished request.
   Auth.sudo must still return a context, as if there were no request.

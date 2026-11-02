@@ -3,6 +3,11 @@
 
 # Dataset Generation: Training a Model on FOAM Code
 
+> **New to FOAM?** Start with the [FOAM Tutorial](../tutorials/foam-tutorial.md) or the [Introduction for Developers](Intro.md).  
+> **Builds on:** [FOAM models](../fbe/models.md) · [DAOs](../fbe/dao.md) · [Journal files](JournalFiles.md) · [NanoServices](NanoServices.md)  
+> **Opens up:** [Vector Search](VectorSearch.md) · [LLM Services](LLM.md)  
+> You can follow this guide without reading those first — links appear inline where each concept is used. If something is unfamiliar, follow the link and come back.
+
 FOAM's dataset generation pipeline converts source files into Alpaca-format instruction–answer pairs suitable for supervised fine-tuning (SFT) of a language model. The pipeline is built around `foam.core.ai.dataset.AbstractDatasetGenerator` — an abstract base class you subclass to add domain knowledge. Everything else — file fetching, anonymization, LLM calling, deduplication, and DAO persistence — is handled by the base class.
 
 ## Why a FOAM-native Pipeline
@@ -371,10 +376,8 @@ There is a handy `AlpacaSampleBrowseView` screen for browsing and reviewing gene
 ```jrl
 p({
   "class": "foam.core.menu.Menu",
-  "id": "workspace.dataset",
-  "parent": "workspace",
+  "id": "dataset",
   "label": "Dataset",
-  "order": 3,
   "authenticate": true,
   "handler": {
     "class": "foam.core.menu.DAOMenu2",
@@ -387,7 +390,9 @@ p({
 })
 ```
 
-`AlpacaSampleBrowseView` renders each sample as an inline editable row with instruction, input, and output fields. You can edit samples directly in the browser and save them back to the DAO. A **Reviewed** action marks a sample as checked — useful for tracking which samples have been validated before a fine-tuning run. **Delete** removes samples that slipped through the prompt filters.
+![AlpacaSample review screen](images/alpacasamples.png)
+
+`AlpacaSampleBrowseView` renders each sample as an inline editable row with instruction, input, and output fields. The source file path appears below the output so you can trace any sample back to its origin. You can edit samples directly in the browser and save them back to the DAO. **Reviewed** marks a sample as checked — useful for tracking which samples have been validated before a fine-tuning run. **Delete** removes samples that slipped through the prompt filters. **Reset** discards any unsaved edits on that row.
 
 The `relevance` field is worth paying attention to: it is incremented automatically each time the deduplication rule sees a new sample whose instruction is semantically similar to this one. A high relevance score means the same training pattern was generated repeatedly across multiple source files — a signal that the pattern is important and that this sample is a strong representative to keep.
 

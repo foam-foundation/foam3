@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.core.job',
   name: 'BatchJob',
-  extends: 'foam.core.job.Job',
+  extends: 'foam.core.job.SuspendableJob',
 
   documentation: `
     Job that drives any Batchable with DAO-backed checkpointing.
@@ -114,28 +114,4 @@ foam.CLASS({
     }
   ],
 
-  actions: [
-    {
-      name: 'suspend',
-      label: 'Suspend',
-      isEnabled: function(status) { return status === foam.core.job.JobStatus.RUNNING; },
-      code: async function(X) {
-
-        // Fetch fresh from server so the delegate's concrete class is preserved.
-        // Putting `this` risks a stale client-side class the server cannot instantiate.
-        const found = await X.jobDAO.find(this.id);
-        if ( ! found ) { console.warn('[Suspend] job not found, aborting'); return; }
-
-        const latest = found.clone();
-        latest.status = foam.core.job.JobStatus.SUSPENDING;
-        try {
-          const result = await X.jobDAO.put(latest);
-          console.log('[Suspending] put OK, result status=' + result?.status?.name);
-          this.status = foam.core.job.JobStatus.SUSPENDING;
-        } catch(e) {
-          console.error('[Suspending] put FAILED:', e);
-        }
-      }
-    }
-  ]
 });

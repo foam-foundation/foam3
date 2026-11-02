@@ -124,6 +124,7 @@ foam.CLASS({
         runDAO.put(run);
 
         setRunId(run.getId());
+        setProgress(0);
         save(x);
 
         // Run the subprocess via PythonJob. The readline loop calls parseProgress_()
@@ -157,7 +158,8 @@ foam.CLASS({
       type: 'String[]',
       javaCode: `
         List<String> cmd = new ArrayList<>();
-        cmd.add("-m");         cmd.add("mlx_lm.lora");
+        cmd.add("-m");         cmd.add("mlx_lm");
+        cmd.add("lora");
         cmd.add("--config");   cmd.add(getConfigFile());
         if ( ! getResumeFrom().isEmpty() ) {
           cmd.add("--resume-adapter-file");
@@ -172,15 +174,26 @@ foam.CLASS({
       args: 'String line',
       type: 'int',
       javaCode: `
-        // MLX training output:
-        //   "Iter 10: Train loss 2.341, It/sec 3.45, Tokens/sec 1456"
-        //   "Iter 100: Val loss 1.945"
-        Matcher m = Pattern.compile("Iter (\\\\d+):").matcher(line);
-        if ( ! m.find() ) return -1;
+        // MLX 0.32+ column output (ANSI escape codes stripped before matching):
+        //   val line:   "   1    val 2.190    6.29s"
+        //   train line: "  10    2.535 ▼    116    1.8k"
+        String clean = line.replaceAll("\\\\033\\\\[[0-9;]*m", "");
 
-        int iter = Integer.parseInt(m.group(1));
-        storeMetric_(iter, line);
-        return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
+        Matcher valM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+val\\\\s+[0-9.]+").matcher(clean);
+        if ( valM.find() ) {
+          int iter = Integer.parseInt(valM.group(1));
+          storeMetric_(iter, clean);
+          return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
+        }
+
+        Matcher trainM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+[0-9]+\\\\.[0-9]+").matcher(clean);
+        if ( trainM.find() ) {
+          int iter = Integer.parseInt(trainM.group(1));
+          storeMetric_(iter, clean);
+          return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
+        }
+
+        return -1;
       `
     },
     {
@@ -191,21 +204,21 @@ foam.CLASS({
         DAO metricDAO = (DAO) x.get("trainingMetricDAO");
         if ( metricDAO == null || foam.util.SafetyUtil.isEmpty(getRunId()) ) return;
 
+        // line is already ANSI-stripped by parseProgress_ before being passed here
         TrainingMetric metric = new TrainingMetric();
         metric.setRunId(getRunId());
         metric.setIteration(iter);
 
-        Matcher trainM = Pattern.compile("Train loss ([0-9.]+)").matcher(line);
-        if ( trainM.find() ) metric.setTrainLoss(Float.parseFloat(trainM.group(1)));
-
-        Matcher valM = Pattern.compile("Val loss ([0-9.]+)").matcher(line);
+        // Val line:   "   1    val 2.190    6.29s"
+        Matcher valM = Pattern.compile("^\\\\s+\\\\d+\\\\s+val\\\\s+([0-9.]+)").matcher(line);
         if ( valM.find() ) metric.setValLoss(Float.parseFloat(valM.group(1)));
 
-        Matcher speedM = Pattern.compile("It/sec ([0-9.]+)").matcher(line);
-        if ( speedM.find() ) metric.setSpeed(Float.parseFloat(speedM.group(1)));
-
-        Matcher tokM = Pattern.compile("Tokens/sec ([0-9.]+)").matcher(line);
-        if ( tokM.find() ) metric.setTokensPerSec(Float.parseFloat(tokM.group(1)));
+        // Train line: "  10    2.535 ▼    116    1.8k"  (tok/s is the 3rd column)
+        Matcher trainM = Pattern.compile("^\\\\s+\\\\d+\\\\s+([0-9]+\\\\.[0-9]+)\\\\s*\\\\S*\\\\s+(\\\\d+)").matcher(line);
+        if ( trainM.find() ) {
+          metric.setTrainLoss(Float.parseFloat(trainM.group(1)));
+          metric.setTokensPerSec(Float.parseFloat(trainM.group(2)));
+        }
 
         metricDAO.put(metric);
 

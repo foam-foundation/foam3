@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.core.job',
   name: 'PythonJob',
 
-  extends: 'foam.core.job.Job',
+  extends: 'foam.core.job.SuspendableJob',
 
   documentation: `Job that launches a Python subprocess and streams its output
     to the job's output field so progress is visible in the browser.
@@ -97,7 +97,7 @@ foam.CLASS({
       class: 'Object',
       javaType: 'Process',
       name: 'process_',
-      javaTransient: true,
+      transient: true,
       visibility: 'HIDDEN'
     }
   ],
@@ -142,13 +142,13 @@ foam.CLASS({
               out(line);
               int pct = parseProgress_(line);
               if ( pct >= 0 ) setProgress(pct);
-              save(x);
               if ( shouldSuspend_(x) ) {
                 setStatus(foam.core.job.JobStatus.SUSPENDED);
                 process.destroyForcibly();
                 save(x);
                 break;
               }
+              save(x);
             }
           }
           int exit = process.waitFor();
@@ -216,7 +216,9 @@ foam.CLASS({
         DAO jobDAO = (DAO) x.get("jobDAO");
         if ( jobDAO == null ) return false;
         foam.core.job.Job current = (foam.core.job.Job) jobDAO.find(getId());
-        return current != null && current.getStatus() == foam.core.job.JobStatus.SUSPENDING;
+        if ( current == null ) return false;
+        setStatus(current.getStatus());
+        return getStatus() == foam.core.job.JobStatus.SUSPENDING;
       `
     }
   ]

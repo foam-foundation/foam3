@@ -6,6 +6,22 @@
 
 foam.CLASS({
   package: 'foam.core.auth.test',
+  name: 'PermissionedPropertyDAOTestAddress',
+
+  documentation: 'Nested test model whose code needs permissionedpropertydaotestaddress.ro.code to read.',
+
+  properties: [
+    {
+      class: 'Long',
+      name: 'code',
+      readPermissionRequired: true
+    }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.core.auth.test',
   name: 'PermissionedPropertyDAOTestEmployee',
 
   documentation: 'Test model whose salary needs permissionedpropertydaotestemployee.ro.salary to read.',
@@ -23,6 +39,16 @@ foam.CLASS({
       class: 'Long',
       name: 'salary',
       readPermissionRequired: true
+    },
+    {
+      class: 'String',
+      name: 'notes',
+      readPermissionRequired: true
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.auth.test.PermissionedPropertyDAOTestAddress',
+      name: 'address'
     }
   ]
 });
@@ -45,9 +71,11 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.lang.X',
+    'foam.mlang.Constant',
     'foam.mlang.order.Comparator',
     'foam.mlang.predicate.AQLExpr',
     'foam.mlang.predicate.FScriptPredicate',
+    'foam.mlang.predicate.Keyword',
     'foam.mlang.predicate.MQLExpr',
     'foam.mlang.predicate.NamedProperty',
     'foam.mlang.predicate.Predicate',
@@ -73,8 +101,10 @@ foam.CLASS({
         DAO dao = new PermissionedPropertyDAO.Builder(x)
           .setDelegate(new MDAO(PermissionedPropertyDAOTestEmployee.getOwnClassInfo()))
           .build();
-        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("alice").setSalary(60000).build());
-        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(2).setName("bob").setSalary(40000).build());
+        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("alice").setSalary(60000).setNotes("hidden-alpha")
+          .setAddress(new PermissionedPropertyDAOTestAddress.Builder(x).setCode(7).build()).build());
+        dao.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(2).setName("bob").setSalary(40000).setNotes("hidden-beta")
+          .setAddress(new PermissionedPropertyDAOTestAddress.Builder(x).setCode(3).build()).build());
 
         var SALARY = PermissionedPropertyDAOTestEmployee.SALARY;
         var NAME   = PermissionedPropertyDAOTestEmployee.NAME;
@@ -115,6 +145,45 @@ foam.CLASS({
         expect(count(allowX, dao, GT(nested, 50000)),                    1L, "NestedPropertiesExpression matches alice when permitted");
         expect(count(allowX, dao, fscript),                              1L, "FScriptPredicate matches alice when permitted");
 
+        // address.code is read from the nested Address, not from the Employee
+        // being queried, so the check has to resolve it against Address.
+        var nestedFScript = new FScriptPredicate.Builder(x).setQuery("address.code>5").build();
+        test(isDenied(denyX, dao, nestedFScript, null),            "FScript address.code is denied without the Address read permission");
+        expect(count(allowX, dao, nestedFScript), 1L,              "FScript address.code matches alice when permitted");
+
+        // The search box sends TEXT:abc as a Keyword. Matching hidden notes
+        // would reveal them a substring at a time, so only a user who may
+        // read notes searches them, while everyone searches the visible name.
+        expect(count(denyX,  dao, keyword("hidden-alpha")), 0L,    "Keyword skips the notes without the read permission");
+        expect(count(allowX, dao, keyword("hidden-alpha")), 1L,    "Keyword matches the notes when permitted");
+        expect(count(denyX,  dao, keyword("alice")),        1L,    "Keyword still matches the visible name");
+        expect(count(denyX,  dao, keyword("7")),            0L,    "Keyword skips the nested address code without the read permission");
+        expect(count(allowX, dao, keyword("7")),            1L,    "Keyword matches the nested address code when permitted");
+
+        // A search checks permissions once per query, not once per row, so a
+        // search over 50 rows makes exactly as many auth checks as one over 1.
+        int[] checks = new int[1];
+        X countingX = x.put("auth", new ProxyAuthService() {
+          @Override
+          public boolean check(X x, String permission) {
+            checks[0]++;
+            return ! permission.contains(".ro.") && ! permission.contains(".rw.");
+          }
+        });
+        DAO searchDAO = new PermissionedPropertyDAO.Builder(x)
+          .setDelegate(new MDAO(PermissionedPropertyDAOTestEmployee.getOwnClassInfo()))
+          .build();
+        searchDAO.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(1).setName("row1").build());
+        count(countingX, searchDAO, keyword("row"));
+        int checksFor1Row = checks[0];
+        for ( int i = 2 ; i <= 50 ; i++ ) {
+          searchDAO.put(new PermissionedPropertyDAOTestEmployee.Builder(x).setId(i).setName("row" + i).build());
+        }
+        checks[0] = 0;
+        expect(count(countingX, searchDAO, keyword("row")), 50L,    "Keyword searches all 50 rows");
+        test(checksFor1Row > 0,                                     "Keyword checks permissions (" + checksFor1Row + " auth checks for 1 row)");
+        expect(checks[0], checksFor1Row,                            "Keyword makes the same number of auth checks for 50 rows as for 1");
+
         test(isDenied(denyX, dao, null, SALARY),                 "ORDER BY salary is denied");
         test(isDenied(denyX, dao, null, DESC(SALARY)),           "ORDER BY salary DESC is denied");
         test(isDenied(denyX, dao, null, THEN_BY(NAME, SALARY)),  "ORDER BY name, salary is denied");
@@ -136,6 +205,16 @@ foam.CLASS({
         } catch ( AuthorizationException e ) {
           return true;
         }
+      `
+    },
+    {
+      name: 'keyword',
+      type: 'foam.mlang.predicate.Predicate',
+      args: 'String text',
+      javaCode: `
+        Keyword keyword = new Keyword();
+        keyword.setArg1(new Constant(text));
+        return keyword;
       `
     },
     {

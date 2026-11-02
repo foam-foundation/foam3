@@ -416,6 +416,23 @@ The 0.92 threshold is conservative by design. Instructions that teach the same F
 
 See [VectorSearch.md](VectorSearch.md) for how `EmbeddingService` and `VectorStoreDAO` work.
 
+## Exporting to JSONL
+
+Once you are happy with the dataset, export it as JSON Lines — the format expected by most fine-tuning pipelines.
+
+One quick way is through the built-in DAO browser. Start typing `data` in the left navigation search bar and select **Dataset DAO** from the results. The table will show all columns by default; narrow it down to just **Instruction**, **Input**, and **Output** using the column picker so the export contains only the fields the fine-tuning job needs. Then click **Export** and choose **JSON Lines**.
+
+![Export dialog showing JSON Lines format selected](images/alpacaexport.png)
+
+Each row in the exported file is a self-contained JSON object on a single line:
+
+```jsonl
+{"instruction": "Add a computed method to a JavaScript FOAM class", "input": "", "output": "foam.CLASS({...})"}
+{"instruction": "Register a Java service via a CSpec entry in a FOAM .jrl journal file", "input": "", "output": "p({...})"}
+```
+
+The export is limited to 50,000 rows. For larger datasets, export in batches using the **Filters** panel to select a category or date range at a time.
+
 ## Quality Checklist
 
 Before committing a dataset for a fine-tuning run:

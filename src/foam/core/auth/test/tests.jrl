@@ -27,3 +27,4 @@ p({
   class:"foam.core.auth.test.SessionContextTest",
   id:"SessionContextTest"
 })
+p({"class":"foam.core.auth.test.PermissionedPropertyDAOTest","id":"PermissionedPropertyDAOTest","description":"hidden properties cannot be filtered or sorted on"})

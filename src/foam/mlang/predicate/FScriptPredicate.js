@@ -47,6 +47,15 @@ foam.CLASS({
         fScriptExpr.setProp(getProp());
         return (boolean) fScriptExpr.f(obj);
       `
+    },
+    {
+      name: 'authorize',
+      javaCode: `
+        var fScriptExpr = new FScript();
+        fScriptExpr.setQuery(getQuery());
+        fScriptExpr.setProp(getProp());
+        fScriptExpr.authorize(x, of);
+      `
     }
   ]
 });

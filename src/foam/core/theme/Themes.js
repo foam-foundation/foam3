@@ -138,7 +138,16 @@ Later themes:
       final boolean      DEBUG    = false;
 
       if ( req != null ) {
-        domain = req.getServerName();
+        // Background work started from a web request (an intake run) keeps that
+        // request in its context after the response is sent. Jetty 12 ee11
+        // answers getServerName() on a finished request with a
+        // NullPointerException, so treat it as no request and use the
+        // theme found without one.
+        try {
+          domain = req.getServerName();
+        } catch ( NullPointerException e ) {
+          req = null;
+        }
         if ( DEBUG ) logger.debug("Themes", "domain", domain);
       }
 

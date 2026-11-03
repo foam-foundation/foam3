@@ -135,11 +135,13 @@ foam.CLASS({
         try {
           Process process = pb.start();
           setProcess_(process);
+          // getInputStream() is the subprocess's stdout (+ stderr via redirectErrorStream).
+          // Java names streams from its own perspective: it reads *in* from the child's output.
           try ( BufferedReader reader = new BufferedReader(
                   new InputStreamReader(process.getInputStream())) ) {
             String line;
             while ( (line = reader.readLine()) != null ) {
-              out(line);
+              out(cleanForOutput_(line));
               int pct = parseProgress_(line);
               if ( pct >= 0 ) setProgress(pct);
               if ( shouldSuspend_(x) ) {
@@ -193,6 +195,16 @@ foam.CLASS({
         for ( String arg : getCommand() ) cmd.add(arg);
         return cmd.toArray(new String[0]);
       `
+    },
+    {
+      documentation: `Override in subclasses to clean a raw subprocess output line
+        before it is appended to the job output. Use this to strip terminal escape
+        sequences (ANSI colour, cursor movement, etc.) that would appear as literal
+        text in the output panel. The base implementation returns the line unchanged.`,
+      name: 'cleanForOutput_',
+      args: 'String line',
+      type: 'String',
+      javaCode: `return line;`
     },
     {
       documentation: `Override in subclasses to extract a completion percentage from

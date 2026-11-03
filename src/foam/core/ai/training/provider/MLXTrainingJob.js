@@ -32,6 +32,7 @@ foam.CLASS({
     'foam.core.ai.training.TrainingMetric',
     'foam.core.ai.training.TrainingRun',
     'foam.core.job.JobStatus',
+    'foam.core.logger.Loggers',
     'foam.dao.DAO',
     'java.util.ArrayList',
     'java.util.List',
@@ -95,8 +96,20 @@ foam.CLASS({
     {
       name: 'execute',
       javaCode: `
+        setX(x);
         DAO runDAO    = (DAO) x.get("trainingRunDAO");
         DAO metricDAO = (DAO) x.get("trainingMetricDAO");
+
+        out("╔══════════════════════════════════════════════════════╗");
+        out("║            MLX LoRA Training Job Started             ║");
+        out("╚══════════════════════════════════════════════════════╝");
+        out("  Model    : " + getModelBase());
+        out("  Config   : " + getConfigFile());
+        out("  Adapter  : " + getAdapterPath());
+        out("  MaxIter  : " + getMaxIter());
+        out("  Dataset  : " + getDatasetVersion());
+        if ( ! getResumeFrom().isEmpty() ) out("  Resume   : " + getResumeFrom());
+        out("──────────────────────────────────────────────────────");
 
         // Resolve the previous run's adapter path when resuming.
         String resumeAdapterPath = "";
@@ -106,6 +119,9 @@ foam.CLASS({
           if ( prev != null ) {
             resumeAdapterPath = prev.getAdapterPath();
             resumedFromId     = prev.getId();
+            out("  Resuming from adapter: " + resumeAdapterPath);
+          } else {
+            out("  WARN: resumeFrom=" + getResumeFrom() + " not found in trainingRunDAO — starting fresh");
           }
         }
 
@@ -126,6 +142,16 @@ foam.CLASS({
         setRunId(run.getId());
         setProgress(0);
         save(x);
+        out("  TrainingRun ID: " + run.getId());
+        out("──────────────────────────────────────────────────────");
+        Loggers.logger(x, this).info("execute-start",
+          "jobId",    getId(),
+          "runId",    run.getId(),
+          "model",    getModelBase(),
+          "config",   getConfigFile(),
+          "maxIter",  getMaxIter(),
+          "dataset",  getDatasetVersion(),
+          "resumeFrom", getResumeFrom());
 
         // Run the subprocess via PythonJob. The readline loop calls parseProgress_()
         // on each line, which writes TrainingMetric records and drives the progress bar.
@@ -135,14 +161,29 @@ foam.CLASS({
           super.execute(x);
           JobStatus finalStatus = getStatus() == JobStatus.SUSPENDED
             ? JobStatus.SUSPENDED : JobStatus.COMPLETED;
+          out("──────────────────────────────────────────────────────");
+          out("  Status: " + finalStatus.getLabel());
           TrainingRun done = (TrainingRun) runDAO.find(getRunId());
           if ( done != null ) {
             TrainingRun updated = (TrainingRun) done.fclone();
             updated.setStatus(finalStatus);
             updated.setCompletedAt(new java.util.Date());
             runDAO.put(updated);
+            out("  Final train loss : " + updated.getFinalTrainLoss());
+            out("  Final val loss   : " + updated.getFinalValLoss());
+            out("  Iterations       : " + updated.getIterationsCompleted());
+            Loggers.logger(x, this).info("execute-done",
+              "jobId",      getId(),
+              "runId",      getRunId(),
+              "status",     finalStatus,
+              "trainLoss",  updated.getFinalTrainLoss(),
+              "valLoss",    updated.getFinalValLoss(),
+              "iterations", updated.getIterationsCompleted());
           }
+          out("╚══════════════════════════════════════════════════════╝");
         } catch ( RuntimeException e ) {
+          out("  ERROR: " + e.getMessage());
+          Loggers.logger(x, this).error("execute-error", "jobId", getId(), "runId", getRunId(), e);
           TrainingRun failed = (TrainingRun) runDAO.find(getRunId());
           if ( failed != null ) {
             TrainingRun updated = (TrainingRun) failed.fclone();
@@ -170,6 +211,12 @@ foam.CLASS({
       `
     },
     {
+      name: 'cleanForOutput_',
+      args: 'String line',
+      type: 'String',
+      javaCode: `return line.replaceAll("\\\\033\\\\[[^a-zA-Z]*[a-zA-Z]", "");`
+    },
+    {
       name: 'parseProgress_',
       args: 'String line',
       type: 'int',
@@ -177,11 +224,16 @@ foam.CLASS({
         // MLX 0.32+ column output (ANSI escape codes stripped before matching):
         //   val line:   "   1    val 2.190    6.29s"
         //   train line: "  10    2.535 ▼    116    1.8k"
-        String clean = line.replaceAll("\\\\033\\\\[[0-9;]*m", "");
+        // Strip all ANSI/VT100 CSI sequences (colour, cursor-movement, erase, etc.)
+        String clean = line.replaceAll("\\\\033\\\\[[^a-zA-Z]*[a-zA-Z]", "");
+
+        // Server log only — keeps UI output clean.
+        Loggers.logger(getX(), this).debug("parseProgress", "raw.len", line.length(), "clean", clean);
 
         Matcher valM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+val\\\\s+[0-9.]+").matcher(clean);
         if ( valM.find() ) {
           int iter = Integer.parseInt(valM.group(1));
+          Loggers.logger(getX(), this).info("val-line", "iter", iter, "clean", clean);
           storeMetric_(iter, clean);
           return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
         }
@@ -189,6 +241,7 @@ foam.CLASS({
         Matcher trainM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+[0-9]+\\\\.[0-9]+").matcher(clean);
         if ( trainM.find() ) {
           int iter = Integer.parseInt(trainM.group(1));
+          Loggers.logger(getX(), this).info("train-line", "iter", iter, "clean", clean);
           storeMetric_(iter, clean);
           return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
         }
@@ -202,7 +255,16 @@ foam.CLASS({
       javaCode: `
         foam.lang.X x = getX();
         DAO metricDAO = (DAO) x.get("trainingMetricDAO");
-        if ( metricDAO == null || foam.util.SafetyUtil.isEmpty(getRunId()) ) return;
+        if ( metricDAO == null ) {
+          out("[storeMetric_] WARN: trainingMetricDAO is null");
+          Loggers.logger(x, this).warning("storeMetric_: trainingMetricDAO is null", "runId", getRunId());
+          return;
+        }
+        if ( foam.util.SafetyUtil.isEmpty(getRunId()) ) {
+          out("[storeMetric_] WARN: runId is empty");
+          Loggers.logger(x, this).warning("storeMetric_: runId is empty");
+          return;
+        }
 
         // line is already ANSI-stripped by parseProgress_ before being passed here
         TrainingMetric metric = new TrainingMetric();

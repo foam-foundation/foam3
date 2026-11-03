@@ -63,13 +63,32 @@ foam.CLASS({
         return;
       }
 
-      foam.lib.json.Outputter outputterJsonJ = new foam.lib.json.Outputter(x)
-        .setPropertyPredicate(
-          new foam.lib.AndPropertyPredicate(x,
-            new foam.lib.PropertyPredicate[] {
-              new foam.lib.ExternalPropertyPredicate(),
-              new foam.lib.NetworkPropertyPredicate(),
-              new foam.lib.PermissionedPropertyPredicate()}));
+      foam.lib.PropertyPredicate predicate = new foam.lib.AndPropertyPredicate(x,
+        new foam.lib.PropertyPredicate[] {
+          new foam.lib.ExternalPropertyPredicate(),
+          new foam.lib.NetworkPropertyPredicate(),
+          new foam.lib.PermissionedPropertyPredicate()});
+
+      if ( cols != null && cols.length > 0 ) {
+        predicate = new foam.lib.AndPropertyPredicate(x,
+          new foam.lib.PropertyPredicate[] {
+            predicate,
+            new foam.lib.PropertyPredicate() {
+              public boolean propertyPredicateCheck(X x, String of, PropertyInfo prop) {
+                for ( int i = 0 ; i < cols.length ; i++ ) {
+                  if ( prop.getName().equals(cols[i]) ) return true;
+                }
+                return false;
+              }
+            }
+          });
+      }
+
+      // Write each row straight to the response. Building the whole file as
+      // one string first fails on a large DAO: 15 million rows are more text
+      // than one Java string can hold.
+      foam.lib.json.Outputter outputterJsonJ = new foam.lib.json.Outputter(x, out)
+        .setPropertyPredicate(predicate);
 
       HttpParameters p = x.get(HttpParameters.class);
       if ( p != null && "false".equals(p.getParameter("multiline")) ) {
@@ -78,17 +97,11 @@ foam.CLASS({
         outputterJsonJ.setMultiLine(true);
       }
 
-      if ( fobjects.size() == 1 ) {
-        outputterJsonJ.outputJSONJFObject((FObject) fobjects.get(0));
-      } else {
-        for (Object obj : fobjects) {
-          FObject fobj = (FObject) obj;
-          outputterJsonJ.outputJSONJFObject(fobj);
-        }
+      for ( Object obj : fobjects ) {
+        outputterJsonJ.outputJSONJFObject((FObject) obj);
       }
 
-      // Output the formatted data
-      out.println(outputterJsonJ.toString());
+      out.println();
       `
     }
   ]

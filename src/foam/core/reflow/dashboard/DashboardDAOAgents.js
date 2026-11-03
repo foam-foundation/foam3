@@ -355,7 +355,11 @@ foam.CLASS({
 
     function createSink() {
       this.applyDateRangeFilter();
-      return this.displaySink;
+      // A fresh copy for every run. DAOPrompt runs the same agent again when
+      // its filter changes, and the same sink would add the new rows to the
+      // old counts (4 rows counted as 8 on the second run). displaySink only
+      // holds the chart settings. The other chart agents below do the same.
+      return this.displaySink.clone(this);
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -447,7 +451,7 @@ foam.CLASS({
 
     function createSink() {
       this.applyDateRangeFilter();
-      return this.displaySink;
+      return this.displaySink.clone(this);
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -535,7 +539,7 @@ foam.CLASS({
   ],
 
   methods: [
-    function createSink() { return this.displaySink; },
+    function createSink() { return this.displaySink.clone(this); },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
       e.startContext({})
@@ -702,15 +706,18 @@ foam.CLASS({
       var aggSink = this.aggregationSink && this.aggregationSink.createSink
         ? this.aggregationSink.createSink()
         : null;
-      if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-        this.displaySink.xFunc = this.xProp;
-        this.displaySink.yFunc = this.groupBy;
-        if ( aggSink ) this.displaySink.acc = aggSink;
+      // Wire the copy, not displaySink, so the sink holds this agent's own
+      // xProp and groupBy rather than clones of them.
+      var sink = this.displaySink.clone(this);
+      if ( this.DashboardMultiLineSink.isInstance(sink) ) {
+        sink.xFunc = this.xProp;
+        sink.yFunc = this.groupBy;
+        if ( aggSink ) sink.acc = aggSink;
       } else {
-        this.displaySink.arg1 = this.xProp;
-        if ( aggSink ) this.displaySink.arg2 = aggSink;
+        sink.arg1 = this.xProp;
+        if ( aggSink ) sink.arg2 = aggSink;
       }
-      return this.displaySink;
+      return sink;
     },
 
     function value(s) { return s; },
@@ -843,7 +850,7 @@ foam.CLASS({
       if ( ! this.displaySink.showAllData ) {
         this.applyDateRangeFilter && this.applyDateRangeFilter();
       }
-      return this.displaySink;
+      return this.displaySink.clone(this);
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {

@@ -4,6 +4,18 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+// Four rows for the re-run tests: two per year, amount 10 each.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'DashboardTestRow',
+  properties: [
+    { class: 'Int', name: 'id' },
+    { class: 'Int', name: 'year' },
+    { class: 'Int', name: 'month' },
+    { class: 'Int', name: 'amount' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardAgentBaselineTest',
@@ -16,7 +28,9 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardMultiLineSink',
     'foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent',
-    'foam.core.reflow.SumDAOAgent'
+    'foam.core.reflow.dashboard.test.DashboardTestRow',
+    'foam.core.reflow.SumDAOAgent',
+    'foam.dao.ArrayDAO'
   ],
 
   methods: [
@@ -27,6 +41,74 @@ foam.CLASS({
       await this.testLineBaseline(x);
       await this.testLineMultiAggregationPreserved(x);
       await this.testCalendarBaseline(x);
+      await this.testMultiLineRowsColsFollowWiring(x);
+      await this.testRerunCountsEachRowOnce(x);
+    },
+
+    function rowsDAO(x) {
+      var R = this.DashboardTestRow;
+      return this.ArrayDAO.create({ of: R, array: [
+        R.create({ id: 1, year: 2025, month: 1, amount: 10 }),
+        R.create({ id: 2, year: 2025, month: 2, amount: 10 }),
+        R.create({ id: 3, year: 2026, month: 1, amount: 10 }),
+        R.create({ id: 4, year: 2026, month: 2, amount: 10 })
+      ] }, x);
+    },
+
+    // The line agent sets xFunc, yFunc and acc on the sink after creating it.
+    // rows and cols read before that must not stay grouped by nothing, or
+    // drawing the chart throws in GroupBy.sortedKeys().
+    async function testMultiLineRowsColsFollowWiring(x) {
+      var R    = this.DashboardTestRow;
+      var sink = this.DashboardMultiLineSink.create({}, x);
+      sink.cols; sink.rows;
+      sink.xFunc = R.MONTH;
+      sink.yFunc = R.YEAR;
+      sink.acc   = this.SumDAOAgent.create({ prop: R.AMOUNT }, x).createSink();
+      x.test(sink.cols.arg1 === R.MONTH,      'MultiLineSink.cols groups by xFunc set after it was read');
+      x.test(sink.rows.arg1 === R.YEAR,       'MultiLineSink.rows groups by yFunc set after it was read');
+      x.test(sink.rows.arg2.arg1 === R.MONTH, 'MultiLineSink.rows inner group uses xFunc set after it was read');
+      var threw = false;
+      try { sink.cols.sortedKeys(); } catch (e) { threw = true; }
+      x.test(! threw, 'MultiLineSink.cols.sortedKeys() works once wired');
+    },
+
+    // DAOPrompt runs the same agent again when its filter changes, so every
+    // run must start from empty counts: 4 rows stay 4, not 8.
+    async function testRerunCountsEachRowOnce(x) {
+      var R   = this.DashboardTestRow;
+      var dao = this.rowsDAO(x);
+      function groupTotal(s) {
+        return Object.values(s.groups).reduce(function(t, g) { return t + g.value; }, 0);
+      }
+      function gridTotal(s) {
+        var t = 0;
+        Object.values(s.rows.groups).forEach(function(g) {
+          Object.values(g.groups).forEach(function(v) { t += v.value; });
+        });
+        return t;
+      }
+      async function twice(agent, total) {
+        var first  = total(await dao.select(agent.createSink()));
+        var second = total(await dao.select(agent.createSink()));
+        return [ first, second ];
+      }
+
+      var bar = await twice(this.DashboardBarChartDAOAgent.create({ prop: R.YEAR }, x), groupTotal);
+      x.test(bar[0] === 4 && bar[1] === 4, 'Bar counts each row once per run. Got: ' + bar);
+
+      var pie = await twice(this.DashboardPieChartDAOAgent.create({ prop: R.YEAR }, x), groupTotal);
+      x.test(pie[0] === 4 && pie[1] === 4, 'Pie counts each row once per run. Got: ' + pie);
+
+      var stacked = await twice(this.DashboardStackedBarChartDAOAgent.create({ prop1: R.YEAR, prop2: R.MONTH }, x), gridTotal);
+      x.test(stacked[0] === 4 && stacked[1] === 4, 'StackedBar counts each row once per run. Got: ' + stacked);
+
+      var line = this.DashboardLineChartDAOAgent.create({
+        xProp: R.MONTH, groupBy: R.YEAR,
+        aggregationSink: this.SumDAOAgent.create({ prop: R.AMOUNT }, x)
+      }, x);
+      var lines = await twice(line, gridTotal);
+      x.test(lines[0] === 40 && lines[1] === 40, 'Line with groupBy sums each row once per run. Got: ' + lines);
     },
 
     function snapshotSink(sink) {

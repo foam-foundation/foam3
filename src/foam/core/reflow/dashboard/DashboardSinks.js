@@ -1855,8 +1855,21 @@ foam.CLASS({
     { name: 'xFunc', hidden: true, label: 'X-Axis Property', help: 'Property to group by (x-axis values)' },
     { name: 'yFunc', hidden: true, label: 'Line Group Property', help: 'Property to group by (different lines)' },
     { name: 'acc', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value/line combination' },
-    { name: 'rows', hidden: true },
-    { name: 'cols', hidden: true },
+    // The line agent creates this sink first and sets xFunc, yFunc and acc
+    // afterwards, so GridBy's one-time factories could build rows and cols
+    // with no property and keep them; the chart then threw in sortedKeys().
+    // Rebuild them whenever the three change. factory: null, because an
+    // inherited factory would win over the expression.
+    {
+      name: 'rows', hidden: true, factory: null,
+      expression: function(xFunc, yFunc, acc) {
+        return this.GROUP_BY(yFunc, this.GROUP_BY(xFunc, acc));
+      }
+    },
+    {
+      name: 'cols', hidden: true, factory: null,
+      expression: function(xFunc) { return this.GROUP_BY(xFunc); }
+    },
     { name: 'x', hidden: true },
     { name: 'y', hidden: true },
     { name: 'query', hidden: true },

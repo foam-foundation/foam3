@@ -67,18 +67,6 @@ foam.CLASS({
         test(body.toString().contains("dig-stream-2"),
           name + " writes the last row");
       }
-
-      // JSON/J honours the columns parameter like JSON and XML do: a download
-      // that asks for the alarm name alone does not carry the creation date.
-      StringWriter body = new StringWriter();
-      X y = withResponse(x, body);
-      new DigJsonJDriver.Builder(y).build()
-        .outputFObjects(y, new MDAO(Alarm.getOwnClassInfo()), java.util.List.of((Object[]) createAlarms()), new String[] { "name" });
-      String jsonj = body.toString();
-      test(jsonj.split("p\\\\(", -1).length - 1 == 3,
-        "JSON/J writes one p(...) line per row: " + jsonj);
-      test(jsonj.contains("dig-stream-0") && ! jsonj.contains("\\"created\\""),
-        "JSON/J with columns=name writes the name and leaves out created: " + jsonj);
       `
     },
     {

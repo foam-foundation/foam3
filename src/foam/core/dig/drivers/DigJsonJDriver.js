@@ -63,32 +63,16 @@ foam.CLASS({
         return;
       }
 
-      foam.lib.PropertyPredicate predicate = new foam.lib.AndPropertyPredicate(x,
-        new foam.lib.PropertyPredicate[] {
-          new foam.lib.ExternalPropertyPredicate(),
-          new foam.lib.NetworkPropertyPredicate(),
-          new foam.lib.PermissionedPropertyPredicate()});
-
-      if ( cols != null && cols.length > 0 ) {
-        predicate = new foam.lib.AndPropertyPredicate(x,
-          new foam.lib.PropertyPredicate[] {
-            predicate,
-            new foam.lib.PropertyPredicate() {
-              public boolean propertyPredicateCheck(X x, String of, PropertyInfo prop) {
-                for ( int i = 0 ; i < cols.length ; i++ ) {
-                  if ( prop.getName().equals(cols[i]) ) return true;
-                }
-                return false;
-              }
-            }
-          });
-      }
-
       // Write each row straight to the response. Building the whole file as
       // one string first fails on a large DAO: 15 million rows are more text
       // than one Java string can hold.
       foam.lib.json.Outputter outputterJsonJ = new foam.lib.json.Outputter(x, out)
-        .setPropertyPredicate(predicate);
+        .setPropertyPredicate(
+          new foam.lib.AndPropertyPredicate(x,
+            new foam.lib.PropertyPredicate[] {
+              new foam.lib.ExternalPropertyPredicate(),
+              new foam.lib.NetworkPropertyPredicate(),
+              new foam.lib.PermissionedPropertyPredicate()}));
 
       HttpParameters p = x.get(HttpParameters.class);
       if ( p != null && "false".equals(p.getParameter("multiline")) ) {

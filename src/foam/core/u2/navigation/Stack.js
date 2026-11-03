@@ -129,8 +129,24 @@ foam.CLASS({
         return specMap_[pos]?.compact ?? false;
       }
     },
-    // If set, takes over stack operations, useful for overriding stack behaviour in routers
-    'delegate_',
+    {
+      name: 'delegate_',
+      documentation: `If set, takes over stack operations, useful for overriding stack behaviour in routers.
+        pos and stack_ follow the delegate's, so a caller that reads them, as in jump(stack.pos - 1), sees the real stack.`,
+      postSet: function(_, delegate) {
+        this.delegateFollow_?.detach();
+        this.delegateFollow_ = null;
+        if ( ! delegate ) return;
+        let pos    = this.pos$.follow(delegate.pos$);
+        let stack_ = this.stack_$.follow(delegate.stack_$);
+        this.delegateFollow_ = { detach: () => { pos.detach(); stack_.detach(); } };
+      }
+    },
+    {
+      name: 'delegateFollow_',
+      hidden: true,
+      transient: true
+    },
     'header_', ['stuck_', false], 'headerVisibility'
     // TODO: add stack default
   ],

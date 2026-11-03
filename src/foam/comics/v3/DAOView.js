@@ -88,7 +88,7 @@ foam.CLASS({
               this
                 .startContext({ data: self })
                 .tag(createAction, { label$: self.config$.dot('createTitle'), buttonStyle: 'PRIMARY', size: 'LARGE' })
-                .tag(self.CONFIRMSELECTION, { label$: self.config$.dot('selectTitle'), size: 'LARGE' })
+                .tag(self.CONFIRM_SELECTION, { label$: self.config$.dot('selectTitle'), size: 'LARGE' })
                 .endContext()
             })))
       });

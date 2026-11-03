@@ -611,7 +611,7 @@ when a result is frozen or cached, and how sinks and predicates evaluate. Those 
 foam.CLASS({
   name: 'PremiumInvoice',
   extends: 'com.example.Invoice',   // single inheritance
-  mixins:  ['foam.lang.auth.Authorizable'], // copies axioms directly
+  mixins:  ['foam.core.auth.Authorizable'], // copies axioms directly
 
   properties: [
     { class: 'Float', name: 'discountRate', value: 0.1 }

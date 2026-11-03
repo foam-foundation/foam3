@@ -108,6 +108,15 @@ foam.CLASS({
       `
     },
     {
+      name: 'authorize',
+      javaCode: `
+        // The query is only a string until parsed against a class, so without
+        // this "salary > 50000" would skip the salary read-permission check
+        // and let a user binary-search a hidden value.
+        specialization(of).authorize(x, of);
+      `
+    },
+    {
       name: 'toString',
       code: function toString() {
         return '(' + this.query + ')';

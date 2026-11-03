@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.core.partition.PartitionedDAO',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
+    'foam.dao.java.JDAO',
     'foam.lang.X',
     'foam.mlang.Expr',
     'foam.mlang.sink.Count',
@@ -45,6 +46,8 @@ foam.CLASS({
         testRefusals(x);
         testRolloverNaming(x);
         testNestedDateRange(x);
+        testNestedAllDates(x);
+        testDateDiscoveryLayouts(x);
       `
     },
 
@@ -204,6 +207,98 @@ foam.CLASS({
           allOf(PartitionStrRecord.REGION),
           GTE(PartitionStrRecord.DATE, day(2024, Calendar.JUNE, 1)))));
         test(n == 2, "every region but June only, got " + n);
+      `
+    },
+
+    {
+      name: 'testNestedAllDates',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      documentation: `AllPartitions can name each level of a nested
+        partitioned DAO, including a DatePartitionedDAO whose records are
+        outside its default time window.`,
+      javaCode: `
+        PartitionedDAO outer = new PartitionedDAO(
+          storageContext(x, newStorageDir()), PartitionStrRecord.getOwnClassInfo(),
+          "all-dates/", PartitionStrRecord.REGION) {
+          public DAO createDAO(String part) {
+            DatePartitionedDAO inner = new DatePartitionedDAO(
+              getX(), getOf(), partitionDirFor(part),
+              PartitionStrRecord.DATE, DatePartitioningScheme.YYYYMM, 3);
+            inner.setDepth(getDepth() + 1);
+            return inner;
+          }
+        };
+
+        Date jan = day(2024, Calendar.JANUARY, 15);
+        Date jun = day(2024, Calendar.JUNE,    15);
+        outer.put(dated(1, jan, "r1-jan"));
+        outer.put(dated(1, jun, "r1-jun"));
+        outer.put(dated(2, jan, "r2-jan"));
+        outer.put(dated(2, jun, "r2-jun"));
+
+        int n = count(outer.where(AND(
+          allOf(PartitionStrRecord.REGION),
+          allOf(PartitionStrRecord.DATE))));
+        test(n == 4, "every existing region and date partition was visited, got " + n);
+      `
+    },
+
+    {
+      name: 'testDateDiscoveryLayouts',
+      args: 'X x',
+      javaThrows: [ 'Throwable' ],
+      documentation: `A cold all-date query must discover both legacy journal
+        files and current partition directories, with a directory or a prefix
+        as dirName. Discovery must ignore unrelated files and sibling DAOs.`,
+      javaCode: `
+        for ( String dir : new String[] { "dates/", "dates_" } ) {
+          for ( boolean legacy : new boolean[] { false, true } ) {
+            String root = newStorageDir();
+            X tx = storageContext(x, root);
+            Storage fs = (Storage) tx.get(FileSystemStorage.class);
+            DatePartitionedDAO dao = new DatePartitionedDAO(tx,
+              PartitionStrRecord.getOwnClassInfo(), dir, PartitionStrRecord.DATE,
+              DatePartitioningScheme.YYYYMMDD, 3);
+            Date jan = day(2024, Calendar.JANUARY, 15);
+            Date jun = day(2024, Calendar.JUNE, 15);
+
+            if ( legacy ) {
+              for ( Date date : new Date[] { jan, jun } ) {
+                PartitionStrRecord r = dated(1, date, "keep");
+                String part = dao.getPartition(r);
+                r.setId(part + "~1");
+                fs.get(dir + part).getParentFile().mkdirs();
+                new JDAO(tx, PartitionStrRecord.getOwnClassInfo(), dir + part).put_(tx, r);
+              }
+            } else {
+              dao.put_(tx, dated(1, jan, "keep"));
+              dao.put_(tx, dated(1, jun, "keep"));
+            }
+
+            File stray = fs.get(dir + "2024/1/notes");
+            stray.getParentFile().mkdirs();
+            stray.createNewFile();
+            new File(root, "other_2024/1/15").mkdirs();
+
+            // Reopen before any select so no warmed delegate or explicit date
+            // query can hide a discovery failure or migrate a legacy journal.
+            dao = new DatePartitionedDAO(tx, PartitionStrRecord.getOwnClassInfo(),
+              dir, PartitionStrRecord.DATE, DatePartitioningScheme.YYYYMMDD, 3);
+            String label = "dirName=" + dir + ", legacy=" + legacy;
+            test(Arrays.equals(dao.getPartitions(), new String[] { "2024/1/15", "2024/6/15" }),
+              "only the two date partitions are discovered: " + label);
+            expect(count(dao.where(allOf(PartitionStrRecord.DATE))), 2,
+              "a cold all-date query replays both rows: " + label);
+
+            dao.removeAll_(tx, 0, Long.MAX_VALUE, null, AND(
+              allOf(PartitionStrRecord.DATE), EQ(PartitionStrRecord.DATE, jan)));
+            expect(count(dao.where(allOf(PartitionStrRecord.DATE))), 1,
+              "all-date removal retains the row outside its filter: " + label);
+            expect(count(dao.where(EQ(PartitionStrRecord.DATE, jan))), 0,
+              "an independent date query confirms the removed row is gone: " + label);
+          }
+        }
       `
     },
 

@@ -1,1 +1,3 @@
 p({"class":"foam.core.theme.test.CSSAuditTest","id":"CSSAuditTest"})
+
+p({"class":"foam.core.theme.test.ThemesFinishedRequestTest","id":"ThemesFinishedRequestTest"})

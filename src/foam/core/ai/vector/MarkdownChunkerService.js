@@ -9,7 +9,8 @@ foam.ENUM({
   name: 'SourceType',
   values: [
     { name: 'TEXT', label: 'Raw text'  },
-    { name: 'FILE', label: 'File path' }
+    { name: 'FILE', label: 'File path' },
+    { name: 'CODE', label: 'Code-aware — preserves code blocks, strips decorative markup' }
   ]
 });
 

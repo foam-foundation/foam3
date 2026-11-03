@@ -175,7 +175,7 @@ The FOAM repository runs all Java/Server tests on each PR update.  Equivalent to
 Presently only the Chrome Browser is supported. 
 See 
 - `src/foam/core/browser/BrowserConfig.js` 
-- `src/foam/core/browser/browserconfig.jrl`
+- `src/foam/core/browser/browserconfigs.jrl`
 
 The `BrowserAgent` has property `type` for specifying the `BrowserConfig`, but `TestRunnerScript` and the `Build` do not provide for setting it (_future work_).
 

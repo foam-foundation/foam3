@@ -167,6 +167,16 @@ foam.CLASS({
       class: 'String',
       name: 'agentName',
       documentation: 'What asked, e.g. report/summarize, for a gateway that reports usage per feature.'
+    },
+    {
+      class: 'Boolean',
+      name: 'stateless',
+      documentation: `
+        Send this call as it is, outside any conversation a decorator keeps:
+        ConversationalLLMService neither adds its history to it nor records
+        it. For a caller that keeps its own history, such as a chat screen
+        that sends its earlier messages with every call.
+      `
     }
   ]
 });

@@ -64,10 +64,19 @@ foam.CLASS({
     },
 
     async function filterUnpermitted(arr) {
+      // A user who may not read a property sees it blank in every row, and
+      // sorting by it is rejected by PermissionedPropertyDAO, which leaves the
+      // table empty. Rule.daoKey is one such column, so it is dropped here
+      // the same way FilterView drops it from the filters.
+      var model = this.of.name.toLowerCase();
       const results = await Promise.all(arr.map( async p =>
         p.hidden ? false :
-        (! this.auth) ? true : ! p.columnPermissionRequired ||
-        await this.auth.check(ctrl.__subContext__, `${this.of.name.toLowerCase()}.column.${p.name.toLowerCase()}`)));
+        (! this.auth) ? true :
+        ( ! p.columnPermissionRequired ||
+          await this.auth.check(ctrl.__subContext__, `${model}.column.${p.name.toLowerCase()}`) ) &&
+        ( ! p.readPermissionRequired ||
+          await this.auth.check(ctrl.__subContext__, `${model}.rw.${p.name.toLowerCase()}`) ||
+          await this.auth.check(ctrl.__subContext__, `${model}.ro.${p.name.toLowerCase()}`) )));
       return arr.filter((_v, index) => results[index]);
     },
 

@@ -109,7 +109,7 @@ public abstract class AbstractPropertyInfo
   }
 
   @Override
-  public void authorize(X x) {
+  public void authorize(X x, ClassInfo of) {
     // Since MLangs don't write values, we only need to check if the property
     // requires a read permission here.
     if ( this.getReadPermissionRequired() ) {

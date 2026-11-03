@@ -109,10 +109,7 @@ log('FALSE: ', M.FALSE.f());
 The most common predicate — tests equality between a property and a value.
 
 <example id="eq">
-// Property shortcut for EQ
-dao.where(Person.NAME.eq('John')).select().then(log);
-
-// Using M.EQ explicitly
+// Using M.EQ
 dao.where(M.EQ(Person.NAME, 'John')).select().then(log);
 
 // EQ can also compare two properties
@@ -225,16 +222,12 @@ dao.where(M.STARTS_WITH(Person.NAME, 'D')).select().then(log);
 dao.where(M.STARTS_WITH_IC(Person.NAME, 'd')).select().then(log);
 </example>
 
-### ENDS_WITH and ENDS_WITH_IC
+### ENDS_WITH
 
-Tests if a string property ends with a suffix.
+Tests if a string property ends with a suffix (case-sensitive).
 
 <example id="ends-with">
-// Case-sensitive
 dao.where(M.ENDS_WITH(Person.NAME, 'e')).select().then(log);
-
-// Case-insensitive
-dao.where(M.ENDS_WITH_IC(Person.NAME, 'E')).select().then(log);
 </example>
 
 ### REG_EXP
@@ -361,10 +354,8 @@ log('Age:', Person.AGE.f(john));
 | `SUB(a, b)` | Subtraction |
 | `MUL(a, b)` | Multiplication |
 | `DIV(a, b)` | Division |
-| `MOD(a, b)` | Modulo |
-| `MAX(a, b)` | Maximum |
-| `MIN(a, b)` | Minimum |
-| `NEG(a)` | Negation |
+| `MAX_FUNC(a, b)` | Maximum |
+| `MIN_FUNC(a, b)` | Minimum |
 
 <example id="arithmetic">
 var john = Person.create({ name: 'John', age: 25, salary: 100 });
@@ -489,7 +480,7 @@ dao.select(M.GROUP_BY(Person.AGE, M.COUNT())).then(function(groups) {
 // Group by age, collect names
 dao.select(M.GROUP_BY(Person.AGE, M.MAP(Person.NAME, foam.dao.ArraySink.create()))).then(function(groups) {
   for (var age of groups.groupKeys) {
-    log('Age', age, ':', groups.groups[age].array.join(', '));
+    log('Age', age, ':', groups.groups[age].delegate.array.join(', '));
   }
 });
 </example>
@@ -499,30 +490,35 @@ dao.select(M.GROUP_BY(Person.AGE, M.MAP(Person.NAME, foam.dao.ArraySink.create()
 Transforms each value through an expression before passing to another sink.
 
 <example id="map">
-// Extract just the names
-dao.select(M.MAP(Person.NAME, foam.dao.ArraySink.create())).then(function(sink) {
-  log('Names:', sink.array);
+// Extract just the names. select() resolves with the MAP sink, so keep a
+// reference to the ArraySink that receives the values.
+var names = foam.dao.ArraySink.create();
+dao.select(M.MAP(Person.NAME, names)).then(function() {
+  log('Names:', names.array);
 });
 
 // Compute derived values
-dao.select(M.MAP(M.MUL(Person.SALARY, 12), foam.dao.ArraySink.create())).then(function(sink) {
-  log('Annual salaries:', sink.array);
+var salaries = foam.dao.ArraySink.create();
+dao.select(M.MAP(M.MUL(Person.SALARY, 12), salaries)).then(function() {
+  log('Annual salaries:', salaries.array);
 });
 </example>
 
 ### UNIQUE
 
-Deduplicates values based on an expression.
+Passes on only the first object for each distinct value of an expression. The delegate receives whole objects, not the values.
 
 <example id="unique">
-// Get unique ages
-dao.select(M.UNIQUE(Person.AGE, foam.dao.ArraySink.create())).then(function(sink) {
-  log('Unique ages:', sink.array);
+// One person per unique age
+var byAge = foam.dao.ArraySink.create();
+dao.select(M.UNIQUE(Person.AGE, byAge)).then(function() {
+  log('Unique ages:', byAge.array.map(function(p) { return p.age; }));
 });
 
-// Get unique names
-dao.select(M.UNIQUE(Person.NAME, foam.dao.ArraySink.create())).then(function(sink) {
-  log('Unique names:', sink.array);
+// One person per unique name
+var byName = foam.dao.ArraySink.create();
+dao.select(M.UNIQUE(Person.NAME, byName)).then(function() {
+  log('Unique names:', byName.array.map(function(p) { return p.name; }));
 });
 </example>
 
@@ -629,11 +625,10 @@ MLangs translate to SQL when used with SQL-backed DAOs:
 
 ### Best Practices
 
-1. **Use property shortcuts** — `Person.NAME.eq('John')` is cleaner than `M.EQ(Person.NAME, 'John')`
-2. **Compose predicates** — Build complex queries from simple parts
-3. **Use appropriate sinks** — COUNT is more efficient than selecting and counting
-4. **Leverage GROUP_BY** — Aggregate in the DAO, not in application code
-5. **Build queries dynamically** — Use arrays and spread operators for variable conditions
+1. **Compose predicates** — Build complex queries from simple parts
+2. **Use appropriate sinks** — COUNT is more efficient than selecting and counting
+3. **Leverage GROUP_BY** — Aggregate in the DAO, not in application code
+4. **Build queries dynamically** — Use arrays and spread operators for variable conditions
 
 ### Common Patterns
 
@@ -663,7 +658,7 @@ dao.select(M.GROUP_BY(Person.AGE, M.COUNT()));
 ## See Also
 
 - [FOAM DAO By Example](be:dao) — DAO operations and patterns
-- [foam.mlang package](https://github.com/kgrgreer/foam3/tree/development/src/foam/mlang) — Source code
+- [foam.mlang package](https://github.com/foam-foundation/foam3/tree/development/src/foam/mlang) — Source code
 
 <glossary>
   <def term="MLang" definition="Model Language. FOAM's cross-platform query and expression language that compiles to the same AST in JavaScript, Java, and SQL."></def>
@@ -684,7 +679,7 @@ dao.select(M.GROUP_BY(Person.AGE, M.COUNT()));
   <def term="AVG" definition="Aggregation sink. Computes average of an expression across all results."></def>
   <def term="GROUP_BY" definition="Grouping sink. Groups results by an expression and applies a sink to each group."></def>
   <def term="MAP" definition="Transformation sink. Extracts expression values and passes to another sink."></def>
-  <def term="UNIQUE" definition="Deduplication sink. Removes duplicate values based on an expression."></def>
+  <def term="UNIQUE" definition="Deduplication sink. Passes on only the first object for each distinct expression value."></def>
   <def term="SEQ" definition="Sequence sink. Passes each result to multiple sinks in parallel."></def>
   <def term="DOT" definition="Nested property access expression. Extracts properties from nested objects."></def>
   <def term="KEYWORD" definition="Full-text search predicate. Searches across all searchable properties of a model."></def>

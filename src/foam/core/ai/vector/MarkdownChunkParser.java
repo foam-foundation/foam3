@@ -49,13 +49,16 @@ public class MarkdownChunkParser {
   // ── Instance ─────────────────────────────────────────────────────────────
 
   private final int                    maxDepth;
+  private final boolean                preserveCode;
   private final foam.lib.parse.Grammar grammar_;
 
-  public MarkdownChunkParser() { this(2); }
+  public MarkdownChunkParser()              { this(2,        false); }
+  public MarkdownChunkParser(int maxDepth)  { this(maxDepth, false); }
 
-  public MarkdownChunkParser(int maxDepth) {
-    this.maxDepth = maxDepth;
-    this.grammar_ = buildGrammar(maxDepth);
+  public MarkdownChunkParser(int maxDepth, boolean preserveCode) {
+    this.maxDepth     = maxDepth;
+    this.preserveCode = preserveCode;
+    this.grammar_     = buildGrammar(maxDepth);
   }
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -177,14 +180,14 @@ public class MarkdownChunkParser {
   private static final Pattern CODE    = Pattern.compile("`([^`]*)`");
   private static final Pattern HEADING = Pattern.compile("^#+\\s+", Pattern.MULTILINE);
 
-  private static String stripInline(String text) {
+  private String stripInline(String text) {
     text = IMG    .matcher(text).replaceAll("");
     text = LINK   .matcher(text).replaceAll("$1");
     text = BOLD2  .matcher(text).replaceAll("$1");
     text = BOLD_  .matcher(text).replaceAll("$1");
     text = ITALIC2.matcher(text).replaceAll("$1");
     text = ITALIC_.matcher(text).replaceAll("$1");
-    text = CODE   .matcher(text).replaceAll("$1");
+    if ( ! preserveCode ) text = CODE.matcher(text).replaceAll("$1");
     text = text.replace("\n> ", "\n");
     text = HEADING.matcher(text).replaceAll("");
     return text;

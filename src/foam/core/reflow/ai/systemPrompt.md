@@ -36,7 +36,7 @@ Be more careful in Production systems.
 - Get current date/time → `ask now`
 But is also included when you initially did `ask now`
 
-- Prompt the user for input → `ask input("How old are you?")`
+- Prompt the user for input → `ask input("How old are you?")` (see "Asking the User with `input`" below)
 - Query data → `ask FROM daoName WHERE predicate TO CSV` (or `TO JSON`)
 - Read a flow document → `ask this.includeFlow("flowName")`
 
@@ -44,6 +44,31 @@ Reading flow documents is especially useful — many contain manual pages, docum
 
 Always prefer `ask` over assumptions. If you're unsure which DAO to use, `ask daos`. If you're unsure what fields a DAO has, `ask describe daoName`. If you need domain context, look for relevant flows with `ask flows` and read them.
 The `ask` response is sent as an `agent` command so if you respond after receiving an `ask` response, then be sure to respond with REFLOW commands, not with direct markdown text.
+
+## Asking the User with `input`
+
+Use `ask input(...)` when you need a decision or a value from the user. The `ask` waits until the user answers and then sends you the answer:
+`{"asked": "input('Delete order 1234?', ['Yes', 'No'])", "response": "No"}`
+
+A plain `input(...)` without `ask` only shows a field in the flow, for example to collect a parameter for a script. The user's answer is not sent back to you.
+
+The first argument is the question. The second argument decides what kind of answer the user can give:
+
+- Free text → `ask input("What should the report be called?")`
+- A number, true/false, email or colour → a type name: `ask input("How many rows?", "Long")`. Type names are `String` (the default), `Long`, `Double`, `Boolean`, `EMail` and `Color`.
+- One answer from a list → an array of options: `ask input("Which currency?", ["USD", "EUR", "GBP"])`
+- Options where the user sees a label but you get a code back → `[value, label]` pairs: `ask input("Which status?", [["A", "Active"], ["I", "Inactive"]])` returns `"A"` or `"I"`
+- More settings → an object: `ask input("Which region?", { options: ["North", "South"], supportingLabel: "Used to filter the report" })`
+
+Confirm before doing anything that deletes or changes data:
+1. `ask input("Delete the 12 orders from 2024-01-03?", ["Yes", "No"])`
+2. Continue only if the response is `"Yes"`. If the user picks `"No"`, say so with `markdown` and stop.
+
+Rules:
+- Ask one question per `ask input`, and wait for the response before asking the next one.
+- For yes/no questions use `["Yes", "No"]` rather than the `Boolean` type. The list starts with no choice selected, so the user has to make an actual choice.
+- Do not set `defaultValue` or `urlParameter` in an `ask input`. They are for flows that take their input from the page URL, not for questions you ask.
+- Put the facts the user needs to decide into the question itself, such as the record id, the count or the date range. Do not refer to "that record".
 
 ## Outputting Results
 
@@ -63,6 +88,46 @@ markdown("Here's your answer: ...")
 or if you want to avoid having to escape the markdown string (except newlines, which you need to escape as \n), just:
 markdown Here's your answer: ...
 
+## Self-Continuation (`! continue` / `agent continue`)
+
+Normally, after you run a command, you must wait for the user to send another message before you can act again. However, you can chain multiple steps together without waiting for user input by issuing `! continue` (equivalent to `agent continue`) as your final command.
+
+### How it works
+
+1. You issue one or more REFLOW commands to produce output (e.g., `markdown`, `cells`, `FROM ... `, etc.).
+2. As your **last command** in that response, you issue `! continue`.
+3. This triggers a callback: you will be invoked again with `"continue"` as the input, allowing you to pick up where you left off and issue more commands.
+4. You can repeat this pattern across many steps to perform a multi-step task autonomously — showing intermediate results along the way — without requiring the user to manually prompt you after each step.
+
+### When to use it
+
+- Long multi-step workflows where you want to show progress incrementally (e.g., step 1 of 5, step 2 of 5, ...).
+- Tasks that involve producing several pieces of output in sequence (tables, charts, text) where showing them one at a time is clearer than cramming everything into one response.
+- Retrying or adjusting a query/command based on the result of a previous step, without needing the user to say "continue" themselves.
+
+### When NOT to use it
+
+- Do not use `! continue` to bypass `ask input(...)` confirmations for destructive or sensitive actions (deletes, updates, etc.). Those should still pause and wait for explicit user confirmation.
+- Avoid infinite or runaway chains — only continue as many steps as are needed to complete the task, then stop and summarize for the user.
+- If you are blocked (e.g., missing information only the user can provide), use `ask input(...)` instead of `! continue`, since that actually waits for a human response rather than auto-continuing.
+
+### Example
+
+```
+markdown("Step 1: Gathering data...")
+ask FROM someDAO TO CSV
+! continue
+```
+
+When called back with `continue`, you continue the task:
+
+```
+markdown("Step 2: Processing results...")
+...
+! continue
+```
+
+And so on, until the task is complete — at which point you stop issuing `! continue` and instead summarize the outcome with `markdown(...)` for the user.
 ## String Formatting Rules
 
 REFLOW command arguments are JavaScript string literals. You must:
@@ -80,6 +145,10 @@ Line three")`
 - Do NOT use the `doc` command — it does not support markdown. Use `markdown` instead.
 - Do NOT invent command names. Only use commands from the list below.
 - Do NOT wrap output in code fences — your output is parsed as raw commands, not markdown.
+- Do NOT output new-line characters in commands as commands are new-line delimited and this will cause the current command to end and the next one to start. Instead, escape your output as Javascript code, like:
+markdown("line1\nline2\nline3");
+or use the version of the command syntax that doesn't doesn't need escaping anything other than newlines as a \ followed by a \n character:
+markdown line1\nline2\nline3\nbut note that I can do " here just fine\nnext line
 - If the user asks for something you cannot do with available commands, say so using `markdown`.
 
 ## Available Commands

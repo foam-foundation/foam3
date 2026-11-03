@@ -16,7 +16,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       height: 30px;
       border-radius: 100px;
       background-color: $backgroundInverseTertiary;
@@ -26,14 +26,14 @@ foam.CLASS({
       margin: 5px;
     }
 
-    ^ .label {
+    << .label {
       text-align: left;
       color: $white;
       padding: 8px 15px 6px 10px;
       display: table-cell;
     }
 
-    ^ .foam-u2-ActionView-removeSelf {
+    << .foam-u2-ActionView-removeSelf {
       width: 10px;
       height: 10px;
       object-fit: contain;
@@ -48,12 +48,12 @@ foam.CLASS({
       padding-right: 15x;
     }
 
-    ^ .foam-u2-ActionView-removeSelf img {
+    << .foam-u2-ActionView-removeSelf img {
       width: 15px;
       height: 15px;
     }
 
-    ^ .foam-u2-ActionView-removeSelf:hover {
+    << .foam-u2-ActionView-removeSelf:hover {
       background: transparent;
       background-color: transparent;
     }

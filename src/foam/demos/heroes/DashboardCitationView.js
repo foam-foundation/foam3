@@ -12,7 +12,7 @@ foam.CLASS({
   imports: [ 'editHero' ],
 
   css: `
-    ^ {
+    << {
       background: #607d8b;
       border: none;
       border-radius: 2px;
@@ -23,7 +23,7 @@ foam.CLASS({
       text-align: center;
       width: 400px;
     }
-    ^:hover {
+    <<:hover {
       background: #eee;
       color: #607d8b;
     }

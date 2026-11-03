@@ -1,0 +1,19 @@
+c({
+  name:"be:Index",
+  category:"DOC/EXAMPLES",
+  description:"List all FOAM by Example examples.",
+  keywords:[
+    "foam","fbe","example","knowledge"
+  ],
+  createdByAgent:49393173,
+  spid:"foam",
+  version:1,
+  script:[{
+      "flowName":"flows",
+      "cmd":"flows DOC/EXAMPLE"
+    }],
+  created:1791398554776,
+  createdBy:49393173,
+  lastModified:1791398554776,
+  lastModifiedBy:49393173
+})

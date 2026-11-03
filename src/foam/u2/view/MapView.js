@@ -20,11 +20,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^key { flex-grow: 1; flex-basis: 0; }
-    ^value { flex-grow: 1; flex-basis: 0; }
-    ^ .foam-u2-ActionView-addRow { margin: 0 0 4px 0; }
-    ^ .foam-u2-ActionView-remove { margin-left: 6px; padding: 6px 14px; height: 32px;}
-    ^ .foam-u2-layout-Cols { padding-bottom: 4px; display: flex; align-items: center;}
+    <<key { flex-grow: 1; flex-basis: 0; }
+    <<value { flex-grow: 1; flex-basis: 0; }
+    << .foam-u2-ActionView-addRow { margin: 0 0 4px 0; }
+    << .foam-u2-ActionView-remove { margin-left: 6px; padding: 6px 14px; height: 32px;}
+    << .foam-u2-layout-Cols { padding-bottom: 4px; display: flex; align-items: center;}
   `,
 
   classes: [

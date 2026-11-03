@@ -55,6 +55,21 @@ From the root of the FOAM repository, execute:
 
 See [INSTALL.md](INSTALL.md) for more detailed installation notes.
 
+### Optional: Python Jobs
+
+`PythonJob` allows long-running Python processes (e.g. ML training) to run as
+tracked server-side jobs with live output streaming in the browser. It requires:
+
+* [uv](https://docs.astral.sh/uv/) — Python environment and package manager
+
+Install uv:
+
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+
+To verify all AI/Python prerequisites are in place:
+
+    ./build.sh check-ai
+
 ## Building
 ### Build and run Java webserver
 

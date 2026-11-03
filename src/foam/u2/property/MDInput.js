@@ -182,7 +182,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       height: 5rem;
@@ -193,20 +193,20 @@ foam.CLASS({
       padding-right: 1rem;
       border-radius: 10px;
     }
-    ^ .label {
+    << .label {
       transition: font-size 0.5s, top 0.5s;
       top: 20%;
       position: relative;
       color: $textSecondary;
     }
-    ^ .label-up {
+    << .label-up {
       font-weight: unset;
       top: 0;
     }
-    ^ .input-container {
+    << .input-container {
       background-color: $backgroundTertiary;
     }
-    ^ input {
+    << input {
       width: 92%;
       height: 3rem;
       outline: none;
@@ -219,10 +219,10 @@ foam.CLASS({
       bottom: 0;
       position: absolute;
     }
-    ^ input:focus {
+    << input:focus {
       border-bottom: 2px solid $blue200;
     }
-    ^ .validation-error {
+    << .validation-error {
       font-size: 0rem;
       position: absolute;
       top: 100%;
@@ -232,9 +232,8 @@ foam.CLASS({
       bottom: 0;
       transition: opacity .5s;
     }
-    ^ .error-msg {
+    << .error-msg {
       opacity: 1;
-//      transition: opacity 3s;
     }
   `
 });

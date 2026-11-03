@@ -117,42 +117,42 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       justify-content: center;
       width: 100%;
     }
 
-    ^ > * + * {
+    << > * + * {
       margin-left: 13px;
     }
 
-    ^ .property-qualifier {
+    << .property-qualifier {
       position: relative;
     }
 
-    ^carrot {
+    <<carrot {
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid black;
+      border-top: 5px solid $textDefault;
       position: absolute;
       right: 8px;
       top: 18px;
       z-index: 1;
     }
 
-    ^ .foam-u2-tag-Select {
+    << .foam-u2-tag-Select {
       background-color: $backgroundDefault;
       border-radius: 2px;
-      border: 1px solid #dce0e7;
+      border: 1px solid $borderLight;
       color: $textDefault;
       padding: 0 20px 0 8px;
       -webkit-appearance: none; /* Fix rounded corners in Chrome on OS X */
     }
 
-    ^ .foam-u2-FloatView {
+    << .foam-u2-FloatView {
       border-radius: 2px;
-      border: 1px solid #dce0e7;
+      border: 1px solid $borderLight;
       color: $textDefault;
       height: 40px;
       padding: 0 14px 0 21px;

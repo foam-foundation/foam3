@@ -169,6 +169,20 @@ public class Lib {
     }
   }
 
+  /** Text of a value; a date in UTC with YYYY, YY, MM and DD tokens, anything else String.valueOf. */
+  public static String TEXT(Object value, String format) {
+    if ( value == null ) return "";
+    if ( ! ( value instanceof Date ) || format == null || format.isEmpty() ) return String.valueOf(value);
+    Calendar c = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    c.setTime((Date) value);
+    String y = String.valueOf(c.get(Calendar.YEAR));
+    return format
+      .replace("YYYY", y)
+      .replace("YY", y.substring(y.length() - 2))
+      .replace("MM", String.format("%02d", c.get(Calendar.MONTH) + 1))
+      .replace("DD", String.format("%02d", c.get(Calendar.DAY_OF_MONTH)));
+  }
+
   public static String LPAD(String str, int len, String ch) {
     String s = str == null ? "" : str;
     String pad = ch == null || ch.isEmpty() ? "0" : ch;
@@ -364,51 +378,52 @@ public class Lib {
   }
 
   // ─────────────────────────────── Date ───────────────────────────────
+  // Date parts read UTC, like TEXT and DATE, so a formula gives the same answer on any server.
 
   public static int YEAR(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.YEAR);
   }
 
   public static int MONTH(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.MONTH) + 1;
   }
 
   public static int DAY(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.DAY_OF_MONTH);
   }
 
   public static int HOUR(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.HOUR_OF_DAY);
   }
 
   public static int MINUTE(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.MINUTE);
   }
 
   public static int SECOND(Date date) {
     if (date == null) return -1;
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     return cal.get(Calendar.SECOND);
   }
 
   public static int WEEKDAY(Date date, Integer returnType) {
-    Calendar cal = Calendar.getInstance();
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     cal.setTime(date);
     int day = cal.get(Calendar.DAY_OF_WEEK) - 1; // 0=Sun
     if (returnType != null && returnType == 3) {
@@ -417,9 +432,11 @@ public class Lib {
     return day == 0 ? 7 : day; // Mon=1..Sun=7
   }
 
+  /** Noon UTC of that day, as a Date property stores a date, so the same formula gives the same date on any server. */
   public static Date DATE(int year, int month, int day) {
-    Calendar cal = Calendar.getInstance();
-    cal.set(year, month - 1, day);
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    cal.clear();
+    cal.set(year, month - 1, day, 12, 0, 0);
     return cal.getTime();
   }
 
@@ -515,5 +532,25 @@ public class Lib {
 
   public static String DEC2OCT(long decimal) {
     return Long.toOctalString(decimal);
+  }
+
+  // ─────────────────────────────── Lookup ───────────────────────────────
+
+  /** valueField of the first element of array whose keyField equals keyValue; null if none. */
+  public static Object LOOKUP(Object array, String keyField, Object keyValue, String valueField) {
+    Iterable<?> items = array instanceof Object[] ? Arrays.asList((Object[]) array)
+      : array instanceof Iterable ? (Iterable<?>) array
+      : null;
+    if ( items == null ) return null;
+    for ( Object o : items ) {
+      if ( foam.util.SafetyUtil.equals(read(o, keyField), keyValue) ) return read(o, valueField);
+    }
+    return null;
+  }
+
+  private static Object read(Object o, String name) {
+    if ( o instanceof Map ) return ((Map<?, ?>) o).get(name);
+    if ( o instanceof foam.lang.FObject ) return ((foam.lang.FObject) o).getProperty(name);
+    return null;
   }
 }

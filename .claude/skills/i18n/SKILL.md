@@ -20,13 +20,13 @@ work, read `doc/guides/i18n.md`. Neither file is restated here.
 
 ## Tools before grep
 
-When the foam-lsp MCP is connected (`tools/lsp/editors/mcp/README.md`), it already finds most of
+When the foam-lsp MCP is connected (FOAM-LSP `editors/mcp/README.md`), it already finds most of
 what this skill looks for, per file, without a grep over the tree:
 
 | Need | Tool | Notes |
 |---|---|---|
 | hardcoded strings in a view | `foam_code_actions` on the file (`uri`, optional `line`) | returns "extract to `messages:`" quick fixes, one per literal, with the edit ready |
-| a `messages:` entry short of a shipped locale | `foam_diagnostics` on the file, hint `hints.i18nMissingLanguage` | on by default in `tools/lsp/FeatureConfig.js` |
+| a `messages:` entry short of a shipped locale | `foam_diagnostics` on the file, hint `hints.i18nMissingLanguage` | on by default in FOAM-LSP `src/FeatureConfig.js` |
 | fill a missing locale | `foam_i18n_translate`, then `foam_i18n_apply` | **writes an inline `messageMap`** — the fallback shape below. Use it for the client-side-first set only; for everything else, turn its output into a `locales.jrl` row |
 
 Grep is the fallback when the MCP is not connected, and stays the only path for `locales.jrl`

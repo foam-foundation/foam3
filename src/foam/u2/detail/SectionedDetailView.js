@@ -17,10 +17,10 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-table-TableView table {
+    << .foam-u2-table-TableView table {
       width: 100%;
     }
-    ^card-container {
+    <<card-container {
       display: flex;
       gap: 8px;
       flex-direction: column;

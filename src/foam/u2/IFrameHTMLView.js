@@ -10,13 +10,13 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ iframe {
+    << iframe {
       border: 1px solid $borderDefault;
       padding: 8px;
       max-width: 100%;
       box-sizing: border-box;
     }
-    ^resize {
+    <<resize {
       resize: both;
     }
   `,

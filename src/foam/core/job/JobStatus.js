@@ -43,6 +43,20 @@ foam.ENUM({
       ordinal: 3,
       color: '$statusDangerText',
       background: '$statusDangerBackground'
+    },
+    {
+      name: 'SUSPENDING',
+      label: 'Suspending',
+      ordinal: 4,
+      color: '$statusWarnText',
+      background: '$statusWarnBackground'
+    },
+    {
+      name: 'SUSPENDED',
+      label: 'Suspended',
+      ordinal: 5,
+      color: '$textSecondary',
+      background: '$statusNeutralBackground'
     }
   ]
 });

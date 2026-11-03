@@ -241,6 +241,21 @@ foam.CLASS({
   ]
 });
 
+
+foam.CLASS({
+  package: 'foam.u2.filter',
+  name: 'FObjectArrayRefinement',
+  refines: 'foam.lang.FObjectArray',
+
+  properties: [
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'searchView',
+      value: null
+    }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.u2.filter',
   name: 'ReferenceRefinement',

@@ -205,7 +205,7 @@ foam.CLASS({
   requires: ['foam.u2.util.CopyButton'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -213,25 +213,25 @@ foam.CLASS({
       gap: 0.4rem;
       width: 100%;
     }
-    ^view.error > span > input, ^view.error > span > input:focus {
+    <<view.error > span > input, <<view.error > span > input:focus {
       border-color: $destructive400!important;
     }
-    ^colorText {
+    <<colorText {
       color: $destructive400;
     }
-    ^label {
+    <<label {
       line-height: 1;
       min-height: 1em;
       width: 100%;
       color: $textSecondary;
     }
-    ^supportingLabel {
+    <<supportingLabel {
       line-height: 1;
       min-height: 1em;
       width: 100%;
       color: $textTertiary;
     }
-    ^errorText {
+    <<errorText {
       display: flex;
       align-items: center;
       /*
@@ -244,32 +244,32 @@ foam.CLASS({
       justify-content: flex-start;
       gap: 0.2rem;
     }
-    ^errorText svg {
+    <<errorText svg {
       width: 1rem;
       height: 1rem;
     }
-    ^propHolder {
+    <<propHolder {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
       gap: 0.2rem
     }
-    ^propHolder > :first-child {
+    <<propHolder > :first-child {
       display: flex;
       align-items: center;
       justify-content: flex-start;
       gap: 0.4rem;
       width: 100%;
     }
-    ^view {
+    <<view {
       flex-grow: 1;
       max-width: 100%;
     }
-    ^helper-icon svg {
+    <<helper-icon svg {
       fill: currentColor;
     }
-    ^labelHolder {
+    <<labelHolder {
       width: 100%;
       display: flex;
       flex-direction: row;
@@ -277,33 +277,33 @@ foam.CLASS({
       justify-content: space-between;
       gap: 0.8rem;
     }
-    ^labels {
+    <<labels {
       display: flex;
       flex-direction: column;
       gap: 0.2lh;
     }
-    ^copy-button {
+    <<copy-button {
       flex-shrink: 0;
     }
     /* Pill treatment on approach: bordered, filled, clearly a click target.
        The transparent resting border reserves the space so nothing shifts.
        The two-class selector outranks CopyButton's own border reset. */
-    ^propHolder ^copy-button {
+    <<propHolder <<copy-button {
       border: 1px solid transparent;
       border-radius: 4px;
       padding: 2px 4px;
     }
-    ^propHolder ^copy-button:hover, ^propHolder ^copy-button:focus-visible {
+    <<propHolder <<copy-button:hover, <<propHolder <<copy-button:focus-visible {
       background: $backgroundTertiary;
       border-color: $borderLight;
     }
     /* A copyable read-only row keeps the button next to the value instead of
        pushed to the row's far edge by the inner span's full width. */
-    ^propHolder-copyable {
+    <<propHolder-copyable {
       justify-content: flex-start;
       gap: 0.6rem;
     }
-    ^propHolder-copyable > :first-child {
+    <<propHolder-copyable > :first-child {
       width: auto;
       min-width: 0;
       max-width: 100%;
@@ -312,8 +312,8 @@ foam.CLASS({
        hover/focus brings it to full strength. Touch devices always show it
        at full strength. Override ^copy-button { opacity: 1 } for always-on. */
     @media (hover: hover) {
-      ^copy-button { opacity: 0.4; }
-      ^propHolder:hover ^copy-button, ^copy-button:hover, ^copy-button:focus-visible { opacity: 1; }
+      <<copy-button { opacity: 0.4; }
+      <<propHolder:hover <<copy-button, <<copy-button:hover, <<copy-button:focus-visible { opacity: 1; }
     }
   `,
 

@@ -19,28 +19,49 @@ foam.CLASS({
   ],
 
   css: `
-    ^ a {
+    << a {
       color: $link;
     }
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;
     }
-    ^codeBlock {
+    <<codeBlock {
       background: $backgroundTertiary;
       border-radius: 6px;
       padding: 16px;
       margin: 0;
       text-wrap: auto;
     }
-    ^ .mdHeader:not(:first-child) {
+    << .mdHeader:not(:first-child) {
       margin-top: 2rem;
     }
-    ^ hr {
+    << hr {
       color: $borderDefault;
       margin: 1rem 0 0 0;
       border: 1px solid;
+    }
+    /* The app-wide reset makes every img a block, which pushed a button icon
+       in "Click the [icon] button" onto a line of its own. */
+    << .mdParagraph img {
+      display: inline;
+      vertical-align: middle;
+    }
+    /* Screenshots are taken on high-density screens, often 1600px or wider;
+       at full size one fills the page and the text around it is lost. */
+    << img {
+      max-width: min(100%, 800px);
+    }
+    /* A tab set in a document reads as one card, so its content is not
+       mistaken for the text that follows it. */
+    << .foam-u2-Tabs {
+      border: 1px solid $borderLight;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    << .foam-u2-Tabs-content {
+      padding: 16px;
     }
   `,
 
@@ -140,8 +161,10 @@ foam.CLASS({
             repeat('_', null, 3)
           ),
 
-          blockquote: repeat(seq1(1,
-            '> ',
+          // A bare ">" line is the blank line between two paragraphs of one quote.
+          blockquote: repeat(seq1(2,
+            '>',
+            optional(' '),
             str(repeat(notChars('\n'))),
           ), '\n', 1),
 
@@ -246,11 +269,16 @@ foam.CLASS({
             ')'
           ),
 
+          // The target may hold one pair of parentheses, so a link can name a
+          // flow such as [see here](Client Programs (DOC)).
           link: seq(
             '[',
               str(repeat(notChars(']'))),
             '](',
-              str(repeat(notChars(')'))),
+              str(repeat(alt(
+                str(seq('(', str(repeat(notChars('()\n'))), ')')),
+                notChars('()\n')
+              ))),
             ')'
           ),
 
@@ -359,7 +387,7 @@ foam.CLASS({
 
         function heading(v) {
           let level = v[0].length, text = v[2];
-          return function() { this.start().addClass('h' + level + '00', 'mdHeader').add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
+          return function() { this.start('H' + level).add(text).callIf(level <= 2, function() { this.tag('hr'); }).end(); }
         },
 
         function codeBlock(v) {
@@ -379,7 +407,11 @@ foam.CLASS({
         },
 
         function blockquote(v) {
-          return function() { this.start('blockquote').add(v.join('\n')); }
+          // A quote holds markdown like the page around it: **bold**, links, images.
+          let fs = this.markdownGrammar.parseString(v.join('\n') + '\n') || [];
+          return function() {
+            this.start('blockquote').call(function() { fs.forEach(f => this.call(f)); });
+          };
         },
 
         function unorderedList(v) {
@@ -408,7 +440,12 @@ foam.CLASS({
         },
 
         function table(v) {
-          let headers = v[0], rows = v[2];
+          // Header cells take inline markdown like body cells: | **Type** | shows bold, not asterisks.
+          let inline  = this.markdownGrammar.getSymParser('inlineContent');
+          let headers = v[0].map(h => inline.parseString(h.trim()) || function() {}), rows = v[2];
+          // A header row of empty cells means the table has no header, as in a
+          // two-column list of terms and definitions: | | |
+          let noHeader = v[0].every(h => ! h.trim());
 
           let alignments = v[1].map(s => {
             s = s.trim();
@@ -419,12 +456,16 @@ foam.CLASS({
           });
 
           return function render(el) {
-            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8}).start('thead')
-              .start('tr')
-                .forEach(headers, function(h, i) {
-                  this.start('th').style(alignments[i]).add(h.trim()).end();
-                })
-              .end().end()
+            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8})
+              .callIf(! noHeader, function() {
+                this.start('thead')
+                  .start('tr')
+                    .forEach(headers, function(h, i) {
+                      this.start('th').style(alignments[i]).call(h).end();
+                    })
+                  .end()
+                .end();
+              })
               .start('tbody')
                 .forEach(rows, function(row) {
                   this.start('tr').forEach(row, function (cell, i) {
@@ -486,13 +527,14 @@ foam.CLASS({
         function htmlText(v) {
           // Multi-line content inside a tag is block markdown -- the <details>
           // case -- so parse it. A single line stays plain text, or <b>x</b>
-          // would render its text as a paragraph.
-          if ( v.indexOf('\n') == -1 ) return function() { this.add(v); };
+          // would render its text as a paragraph. An element with an innerText
+          // property, like <example>, takes its content as source text.
+          let fs = v.indexOf('\n') != -1 && this.markdownGrammar.parseString(v);
 
-          let fs = this.markdownGrammar.parseString(v);
-          if ( ! fs ) return function() { this.add(v); };
-
-          return function() { fs.forEach(f => this.call(f)); };
+          return function() {
+            if ( ! fs || this.cls_.getAxiomByName('innerText') ) this.add(v);
+            else fs.forEach(f => this.call(f));
+          };
         },
 
         function text(v) {
@@ -568,42 +610,40 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
     }
-    ^ButtonToolbar {
+    <<ButtonToolbar {
       display: flex;
       gap: 8px;
       width: 100%;
       flex-wrap: wrap;
       margin-bottom: 8px;
     }
-    ^ButtonToolbar > button + button {
+    <<ButtonToolbar > button + button {
       margin-left: 0 !important;
     }
-    ^separator {
-      background: $backgroundSecondary0;
+    <<separator {
+      background: $backgroundSecondary;
       width: 1px;
       height: 2em;
       align-self: center;
     }
-    ^tool.foam-u2-ActionView {
+    <<tool.foam-u2-ActionView {
       padding: 6px 10px;
       max-height: unset;
     }
-    ^hintTool {
+    <<hintTool {
       position: relative;
       display: inline-flex;
     }
-    ^hintPopup {
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translate(-50%, -200%);
-      margin-top: 6px;
+    <<hintPopup {
+      position: fixed;
+      inset: auto;
+      margin: 0;
+      visibility: hidden;
       z-index: 1000;
-      display: flex;
       gap: 6px;
       padding: 6px;
       background: $white;
@@ -611,7 +651,10 @@ foam.CLASS({
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    ^hintOption {
+    <<hintPopup:popover-open {
+      display: flex;
+    }
+    <<hintOption {
       width: 24px;
       height: 24px;
       border-radius: 4px;
@@ -623,10 +666,10 @@ foam.CLASS({
       justify-content: center;
       padding: 0;
     }
-    ^hintOption:hover {
+    <<hintOption:hover {
       background: $backgroundTertiary;
     }
-    ^hintIcon ^hintIcon svg{
+    <<hintIcon <<hintIcon svg{
       color: $textTertiary;
       fill: currentColor;
       flex: 0 0 6px;
@@ -645,6 +688,7 @@ foam.CLASS({
       name: 'data'
     },
     'editorElement_',
+    'hintButtonElement_',
     {
       class: 'String',
       name: 'lastTextColor',
@@ -712,13 +756,15 @@ foam.CLASS({
           .start(this.INSERT_EXAMPLE, { label: 'Example', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_PERMISSIONED, { label: 'Perm', size: 'SMALL' }).addClass(this.myClass('tool')).end()
           .start(this.INSERT_INCLUDE, { label: 'Include', size: 'SMALL' }).addClass(this.myClass('tool')).end()
-          .start() // Hint button
+          .start('div', null, this.hintButtonElement_$) // Hint button
             .addClass(this.myClass('hintTool'))
             .start(this.INSERT_HINT, { label: 'Hint', size: 'SMALL' }).addClass(this.myClass('tool')).end()
-            .add(this.toggleHintPopup$.map(function(show) { // Hint pop-up menu
+            .add(this.toggleHintPopup$.map(function(show) {
               if ( ! show ) return null;
-              return self.E().addClass(self.myClass('hintPopup')).
-                forEach(self.HintCategory.VALUES, function(c) { // Propgate with the enum values
+              var popup = self.E().
+                addClass(self.myClass('hintPopup')).
+                attrs({ popover: 'manual' }).
+                forEach(self.HintCategory.VALUES, function(c) {
                   this.start('button')
                     .addClass(self.myClass('hintOption'))
                     .attrs({ title: c.label })
@@ -735,6 +781,8 @@ foam.CLASS({
                     })
                   .end();
                 });
+              self.positionHintPopup(popup);
+              return popup;
             }))
           .end()
         .end()
@@ -934,6 +982,37 @@ foam.CLASS({
         '<hint category="' + category.name.toLowerCase() + '">\n$TEXT\n</hint>\n',
         'Hint text here...',
         'Hint text here...');
+    },
+
+    function positionHintPopup(popup) {
+      var self = this;
+
+      // Deferred so the popup is in the DOM and has dimensions.
+      setTimeout(function() {
+        var btn = self.hintButtonElement_ && self.hintButtonElement_.el_();
+        var el  = popup.el_();
+        if ( ! btn || ! el ) return;
+
+        if ( el.showPopover ) {
+          el.showPopover();
+        } else {
+          el.style.display = 'flex'; // No top layer; may clip in old browsers.
+        }
+
+        var b = btn.getBoundingClientRect();
+        var p = el.getBoundingClientRect();
+        var m = 8; // Min gap from the viewport edge.
+
+        var left = b.left + b.width / 2 - p.width / 2;
+        left = Math.max(m, Math.min(left, self.window.innerWidth - p.width - m));
+
+        var top = b.top - p.height;
+        if ( top < m ) top = b.bottom; // No room above, flip below.
+
+        el.style.left       = left + 'px';
+        el.style.top        = top + 'px';
+        el.style.visibility = 'visible';
+      }, 0);
     }
   ],
 
@@ -1246,6 +1325,9 @@ foam.CLASS({
           // Defer so this same click doesn't immediately close it.
           setTimeout(function() {
             self.document.addEventListener('click', self.onDocumentClick);
+            self.onDetach(function() {
+              self.document.removeEventListener('click', self.onDocumentClick);
+            });
           }, 0);
         }
       }

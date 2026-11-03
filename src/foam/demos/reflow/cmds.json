@@ -15,6 +15,43 @@
 		"permissionRequired": true
 	},
 	{
+		"class": "foam.core.reflow.cmd.DAOCreate",
+		"id": "add",
+		"icon": "database",
+		"linkable": false
+	},
+	{
+		"class": "foam.core.reflow.ai.AgentCommand",
+		"dryRun": false,
+		"id": "agent",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.ai.LLMCommand",
+		"id": "ai",
+		"description": "AI prompt to ask a question",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "api",
+		"description": "API documentation for a DAO",
+		"icon": "documentation",
+		"script": "\u000a    let doc = foam.doc.DIGApiDoc.create({data: args[0]}, this);\u000a    this.addValue(doc);\u000a   ",
+		"permissionRequired": true,
+		"parserClass": "foam.core.reflow.parser.DAOTargetParser"
+	},
+	{
+		"class": "foam.core.reflow.ai.AskCommand",
+		"id": "ask",
+		"description": "Ask a question and return the response to the agent",
+		"icon": "/images/aiAgent.svg",
+		"permissionRequired": true,
+		"hidden": true
+	},
+	{
 		"class": "foam.core.reflow.cmd.Button",
 		"id": "button",
 		"icon": "input"
@@ -58,6 +95,21 @@
 		"permissionRequired": true
 	},
 	{
+		"class": "foam.core.reflow.cmd.DAO",
+		"id": "dao",
+		"icon": "database"
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAOFilter",
+		"id": "daofilter",
+		"icon": "database"
+	},
+	{
+		"class": "foam.core.reflow.cmd.DAOS",
+		"id": "daos",
+		"icon": "database"
+	},
+	{
 		"class": "foam.core.reflow.cmd.Describe",
 		"id": "describe",
 		"icon": "documentation",
@@ -82,6 +134,17 @@
 		"description": "Fetch a file from a URL",
 		"icon": "/images/file-icon.svg",
 		"script": "\u000a    addValue(foam.core.reflow.XHR.create({url: args[0]}, this));\u000a  ",
+		"permissionRequired": true
+	},
+	{
+		"class": "foam.core.reflow.cmd.Flows",
+		"id": "flows",
+		"icon": "flow"
+	},
+	{
+		"class": "foam.core.reflow.cmd.From",
+		"id": "FROM",
+		"icon": "/images/ic-search.svg",
 		"permissionRequired": true
 	},
 	{
@@ -168,6 +231,19 @@
 		"id": "layout",
 		"description": "Layout block for arranging content",
 		"icon": "dashboard"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Load",
+		"id": "load",
+		"icon": "flow",
+		"linkable": false
+	},
+	{
+		"class": "foam.core.reflow.cmd.LoadPerf",
+		"id": "loadPerf",
+		"icon": "speed",
+		"linkable": false,
+		"permissionRequired": true
 	},
 	{
 		"class": "foam.core.reflow.cmd.Login",
@@ -281,5 +357,14 @@
 		"description": "Today's date",
 		"icon": "calendar",
 		"script": "var d = new Date(); var holder = foam.lang.DateHolder.create({value: d}); this.currentBlock.value = holder; this.out.add(holder.value$.map(d => d.toDateString()));"
+	},
+	{
+		"class": "foam.core.reflow.cmd.Command",
+		"id": "upload",
+		"description": "Upload data to a DAO",
+		"icon": "upload",
+		"script": "\u000a    var scope = this.__context__.scope;\u000a\u000a    if ( foam.String.isInstance(args[0]) && scope[args[0]] ) {\u000a      args[0] = scope[args[0]];\u000a    } else if ( foam.String.isInstance(args[0]) && scope[args[0] + 'DAO'] ) {\u000a      args[0] = scope[args[0] + 'DAO'];\u000a    }\u000a\u000a    var m = foam.dao.DAO.isInstance(args[0]) ?\u000a      { dao: args[0] } :\u000a      { daoKey: args[0] } ;\u000a    var upload = foam.core.reflow.Upload.create(m, this);\u000a\u000a    this.out.tag(foam.core.reflow.UploadView, {data: upload});\u000a  ",
+		"linkable": false,
+		"parserClass": "foam.core.reflow.parser.DAOTargetParser"
 	}
 ]

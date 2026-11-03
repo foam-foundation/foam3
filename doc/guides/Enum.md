@@ -142,3 +142,22 @@ foam.ENUM({
  ]
 });
 ```
+
+## Enums render as status badges
+
+Every enum value already carries presentation properties: `label`, `color`, `background`, `borderColor`, `glyphFill`, `glyphBackground`, `icon`, `isBold`, `isItalic` and a `glyph` (`src/foam/lang/Enum.js:326-390`). An enum property's default view shows the read-only value through `foam.u2.view.ReadOnlyEnumView` (`src/foam/u2/view/EnumView.js:21-26`, `src/foam/u2/Element2.js:2273-2280`), which draws it as a coloured pill as soon as any value of that enum defines `color` or `background` (`ReadOnlyEnumView.js:94-99`).
+
+So a status display needs no hand-made pill. Give the values colours, preferably `$` tokens (the view resolves them, `ReadOnlyEnumView.js:101-105`), and the pill appears wherever the property is shown read-only. `foam.core.app.HealthStatus` is a working example (`src/foam/core/app/HealthStatus.js:14-18`):
+
+```js
+foam.ENUM({
+  package: 'demo',
+  name: 'InvoiceStatus',
+  values: [
+    { name: 'OPEN',    label: 'Open',    color: '$statusSuccessText', background: '$statusSuccessBackground' },
+    { name: 'OVERDUE', label: 'Overdue', color: '$statusDangerText',  background: '$statusDangerBackground' }
+  ]
+});
+```
+
+**`glyph` is taken.** Every enum gets a `glyph` property of class `GlyphProperty` (`Enum.js:375-377`). Declaring your own `glyph` property with another class replaces the built-in one, and a debug build warns `Change of Axiom ... type from GlyphProperty to String` (`src/foam/lang/debug.js:212-222`). Pick another name for your own field.

@@ -22,7 +22,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-ActionView-closeButton {
+    << .foam-u2-ActionView-closeButton {
       width: 24px;
       height: 35px;
       margin: 0;
@@ -36,16 +36,16 @@ foam.CLASS({
       padding-top: 15px;
       margin-right: 15px;
     }
-    ^ .foam-u2-ActionView-closeButton:hover {
+    << .foam-u2-ActionView-closeButton:hover {
       outline: none;
       border: none;
       background: transparent;
     }
-    ^overlay .foam-u2-md-OverlayDropdown {
+    <<overlay .foam-u2-md-OverlayDropdown {
       display: flex;
       flex-direction: column;
     }
-    ^container {
+    <<container {
       align-items: flex-start;
       display: flex;
       flex-direction: column;
@@ -54,7 +54,7 @@ foam.CLASS({
       width: clamp(18.75rem, 20vw, 37.5rem);
       max-width: calc(100vw - 2rem);
     }
-    ^container .foam-u2-view-ColumnConfigPropView-colContainer {
+    <<container .foam-u2-view-ColumnConfigPropView-colContainer {
       min-height: 0;
       overflow-y: auto;
     }

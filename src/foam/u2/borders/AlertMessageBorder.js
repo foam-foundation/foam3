@@ -19,7 +19,7 @@ foam.CLASS({
   `,
   requires: ['foam.u2.dialog.InlineNotificationMessage'],
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 1rem;

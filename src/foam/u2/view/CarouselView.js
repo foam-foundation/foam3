@@ -15,14 +15,14 @@ foam.CLASS({
   exports: ['as carousel'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       width: 100%;
     }
-    ^controlsAvailable {
+    <<controlsAvailable {
       gap: 1.2rem;
     }
-    ^slides {
+    <<slides {
       display: flex;
       overflow-x: auto;
       scroll-snap-type: x mandatory;
@@ -32,10 +32,10 @@ foam.CLASS({
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
     }
-    ^slides::-webkit-scrollbar {
+    <<slides::-webkit-scrollbar {
       height: 0;
     }
-    ^slides > div {
+    <<slides > div {
       scroll-snap-align: center;
       flex-shrink: 0;
       width: 100%;

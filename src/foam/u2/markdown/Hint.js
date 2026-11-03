@@ -15,45 +15,51 @@ foam.CLASS({
   requires: [ 'foam.u2.tag.Image' ],
 
   css: `
-    ^icon {
+    <<icon {
       color: currentColor;
       flex: 0 0 24px;
       height: 24px;
       margin-right: 8px;
     }
 
-    ^icon svg {
+    <<icon svg {
       width: 100%;
       height: 100%;
     }
 
-    ^box {
+    <<box {
       margin: 8px;
       padding: 8px;
       border: 2px solid;
       border-radius: 8px;
       display: flex;
+      align-items: flex-start;
+      overflow-wrap: anywhere;
     }
 
-    ^hint {
+    <<box > * {
+      min-width: 0;
+    }
+
+    <<hint {
       color: $hintText;
       background-color: $hintBackground;
       border-color: $hintBorder;
     }
 
-    ^warning {
+    <<warning {
       color: $hintWarningText;
       background-color: $hintWarningBackground;
       border-color: $hintWarningBorder;
     }
 
-    ^danger {
+    <<danger {
       color: $hintDangerText;
       background-color: $hintDangerBackground;
       border-color: $hintDangerBorder;
     }
 
-    ^success {
+    <<success {
       color: $hintSuccessText;
       background-color: $hintSuccessBackground;
       border-color: $hintSuccessBorder;

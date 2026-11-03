@@ -27,18 +27,18 @@
   ],
 
   css: `
-    ^ {
+    << {
       padding-top: 0px;
       padding-bottom: 0px;
       align-items: center;
     }
-    ^ .foam-u2-ActionView {
+    << .foam-u2-ActionView {
       width: 100%;
       height: 100%;
       max-height: none;
       padding: 15px 15px;
     }
-    ^row-label {
+    <<row-label {
       width: 100%;
       display: flex;
       justify-content: space-between;

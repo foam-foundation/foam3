@@ -23,35 +23,35 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       align-items: center;
       padding: 4px 16px;
     }
 
-    ^container:hover {
+    <<container:hover {
       cursor: pointer;
       background-color: $backgroundTertiary;
     }
 
-    ^container:first-child {
+    <<container:first-child {
       margin-top: 20px;
     }
 
-    ^container:last-child {
+    <<container:last-child {
       margin-bottom: 20px;
     }
 
-    ^container .foam-u2-md-CheckBox-label {
+    <<container .foam-u2-md-CheckBox-label {
       position: relative;
       margin-top: 0;
     }
 
-    ^container .foam-u2-md-CheckBox {
+    <<container .foam-u2-md-CheckBox {
       border-color: $borderDefault;
     }
 
-    ^container .foam-u2-md-CheckBox:checked {
+    <<container .foam-u2-md-CheckBox:checked {
       background-color: $blue300;
       border-color: $blue300;
     }

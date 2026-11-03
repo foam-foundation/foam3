@@ -39,7 +39,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: center;
       background-color: $topNavBackground;
       border-bottom: $borderSize;
@@ -51,34 +51,34 @@ foam.CLASS({
       position: relative;
       width: 100%;
     }
-    ^components-container {
+    <<components-container {
       flex: 1;
       display: grid;
       grid-template-columns: auto 1fr;
       align-items: center;
     }
-    ^components-container^logo-adjust {
+    <<components-container<<logo-adjust {
       gap: 16px;
     }
-    ^menuControl.foam-u2-view-NavigationButton {
+    <<menuControl.foam-u2-view-NavigationButton {
       justify-content: flex-start;
     }
-    ^logo {
+    <<logo {
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
     }
 
     @media (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^components-container {
+      <<components-container {
         display: flex;
         flex: 1;
         gap: 8px;
       }
-      ^right {
+      <<right {
         justify-content: flex-end;
       }
-      ^logo {
+      <<logo {
         position: static;
         left: auto;
         transform: none;

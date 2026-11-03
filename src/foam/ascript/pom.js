@@ -16,6 +16,7 @@ foam.POM({
     { name: "Lib",                                       flags: "js" },
     { name: "ALang",                                     flags: "js" },
     { name: "AScriptDemo",                               flags: "js&demo" },
-    { name: "AScriptPropertyFilterTest",                 flags: "js&test|java&test" }
+    { name: "AScriptPropertyFilterTest",                 flags: "js&test|java&test" },
+    { name: "AScriptLibJavaTest",                        flags: "js&test|java&test" }
   ]
 });

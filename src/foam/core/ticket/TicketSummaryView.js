@@ -31,10 +31,10 @@ foam.CLASS({
   ],
  
   css: `
-    ^ {
+    << {
       margin-bottom: 20px;
     }
-    ^:hover{
+    <<:hover{
       cursor: pointer;
     }
   `,

@@ -12,19 +12,19 @@ foam.CLASS({
   imports: ['closeDialog'],
 
   css: `
-    ^ {
+    << {
       padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 16px;
       min-width: 520px;
     }
-    ^columns {
+    <<columns {
       display: flex;
       align-items: stretch;
       gap: 4px;
     }
-    ^col {
+    <<col {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -33,47 +33,47 @@ foam.CLASS({
       overflow: hidden;
       background: $backgroundDefault;
     }
-    ^col-header {
+    <<col-header {
       padding: 8px 12px;
       background: $backgroundSecondary;
       border-bottom: 1px solid $borderLight;
     }
-    ^col-body {
+    <<col-body {
       flex: 1;
       overflow-y: auto;
       max-height: 50vh;
       padding: 6px;
     }
-    ^item {
+    <<item {
       padding: 6px 10px;
       cursor: pointer;
       border-radius: 6px;
       transition: background-color 0.15s ease, color 0.15s ease;
     }
-    ^item:hover {
+    <<item:hover {
       background: $backgroundHover;
       color: $textBrand;
     }
-    ^item-draggable {
+    <<item-draggable {
       cursor: grab;
       display: flex;
       align-items: center;
     }
-    ^item-draggable:active {
+    <<item-draggable:active {
       cursor: grabbing;
     }
-    ^item-draggable::before {
+    <<item-draggable::before {
       content: '⠿';
       color: $textTertiary;
       margin-right: 8px;
     }
-    ^item-drop-before {
+    <<item-drop-before {
       box-shadow: inset 0 2px 0 0 $primary500;
     }
-    ^item-drop-after {
+    <<item-drop-after {
       box-shadow: inset 0 -2px 0 0 $primary500;
     }
-    ^middle {
+    <<middle {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -81,7 +81,7 @@ foam.CLASS({
       gap: 10px;
       padding: 0 8px;
     }
-    ^arrow {
+    <<arrow {
       cursor: pointer;
       width: 32px;
       height: 32px;
@@ -95,18 +95,18 @@ foam.CLASS({
       font-size: 1.1em;
       transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    ^arrow:hover {
+    <<arrow:hover {
       background: $backgroundBrandSecondary;
       border-color: $borderBrand;
       color: $textBrand;
     }
-    ^actions {
+    <<actions {
       display: flex;
       justify-content: flex-end;
       padding-top: 12px;
       border-top: 1px solid $borderLight;
     }
-    ^actions button {
+    <<actions button {
       padding: 8px 20px;
       border: none;
       border-radius: 6px;
@@ -116,7 +116,7 @@ foam.CLASS({
       cursor: pointer;
       transition: background-color 0.15s ease;
     }
-    ^actions button:hover {
+    <<actions button:hover {
       background: $primary600;
     }
   `,
@@ -266,15 +266,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    ^smart-view {
+    <<smart-view {
       flex: 1;
     }
-    ^picker-btn {
+    <<picker-btn {
       cursor: pointer;
       padding: 6px 12px;
       border: 1px solid $borderDefault;
@@ -285,7 +285,7 @@ foam.CLASS({
       white-space: nowrap;
       transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    ^picker-btn:hover {
+    <<picker-btn:hover {
       background: $backgroundBrandSecondary;
       border-color: $borderBrand;
       color: $textBrand;

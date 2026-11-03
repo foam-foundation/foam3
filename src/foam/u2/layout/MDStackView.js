@@ -94,12 +94,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .slide-in {
+    << .slide-in {
       left: 0 !important;
       transition: left 300ms ease;
     }
 
-    ^ .primary-stack {
+    << .primary-stack {
       position: absolute;
       width: 100%;
       height: 100%;

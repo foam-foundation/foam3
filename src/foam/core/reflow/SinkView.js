@@ -18,12 +18,12 @@ foam.CLASS({
   exports: [ 'dao' ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 5px;
     }
-    ^ > div {
+    << > div {
       display: flex;
       width: 100%;
       flex-direction: column;

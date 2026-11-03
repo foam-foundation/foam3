@@ -293,6 +293,18 @@ Writing has one catch worth knowing: setting through a chain whose path is *not 
 is **silently dropped**, not an error. A two-way-bound field on a not-yet-loaded object won't
 crash, but edits made before the path exists are lost.
 
+**A chain ends at an object, not inside it.** A `SubSlot` publishes only when the value it holds changes identity: `valueChange` re-reads the value and assigns it, and an assignment of the same object publishes nothing (`src/foam/lang/Slot.js:400-403`). A `Map` property changed in place keeps the same object. `theme.activeVariants$set('color', 'dark')` writes the key into the existing map and publishes on the theme's own `activeVariants` slot (`src/foam/lang/types.js:1129-1136`), so `theme$.dot('activeVariants')` stays silent while `theme.activeVariants$` fires.
+
+For anything that must react to a key changing inside a `Map` or `Object` property, subscribe to the property slot itself, or pass it to `dynamic(fn, ...slots)`:
+
+```javascript
+// silent when the colour scheme flips: same map object, new key
+this.onDetach(this.theme$.dot('activeVariants').sub(this.repaint));
+
+// fires on every $set
+this.onDetach(this.theme.activeVariants$.sub(this.repaint));
+```
+
 ## Computed slots: derived pointers
 
 `slot()` is the method you've already used two ways — `slot('fname')` for a property (from

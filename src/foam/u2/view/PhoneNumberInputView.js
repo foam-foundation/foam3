@@ -24,16 +24,16 @@ foam.CLASS({
   ],
 
   css: `
-  ^ {
+  << {
     display: flex;
     width: 100%;
     gap: 0.4rem;
     align-items: center;
   }
   
-  ^country {
+  <<country {
     height: 100%;
-    display; flex;
+    display: flex;
   }
   `,
 

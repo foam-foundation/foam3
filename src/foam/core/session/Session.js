@@ -35,7 +35,6 @@ foam.CLASS({
     'foam.util.SafetyUtil',
     'java.util.Date',
     'jakarta.servlet.http.HttpServletRequest',
-    'org.eclipse.jetty.server.Request',
     'static foam.mlang.MLang.*'
   ],
 
@@ -290,6 +289,19 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
         to do so.
       `,
       javaCode: `
+      // A job started from a web page keeps that page's request after it ends.
+      // Jetty 12 throws when a finished request is read, so drop it here and
+      // carry on as if there were no request.
+      HttpServletRequest finishedCheck = x.get(HttpServletRequest.class);
+      if ( finishedCheck != null ) {
+        try {
+          finishedCheck.getServerName();
+        } catch ( NullPointerException e ) {
+          x = x.put(HttpServletRequest.class, null);
+        }
+      }
+
+      // AppConfig can be overridden by both the Theme and the User's Group
       AppConfig appConfig = (AppConfig) ((AppConfig) x.get("appConfig")).fclone();
 
       // We null out the security-relevant entries in the context since we

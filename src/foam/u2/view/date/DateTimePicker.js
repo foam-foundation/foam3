@@ -39,7 +39,7 @@ foam.CLASS({
   },
 
   css: `
-    ^next_btn, ^prev_btn {
+    <<next_btn, <<prev_btn {
       display: inline-block;
       width: 31px;
       height: 31px;
@@ -55,18 +55,18 @@ foam.CLASS({
       user-select: none;
     }
 
-    ^ .date-time-picker {
+    << .date-time-picker {
       display: inline-block;
       width: 333px;
       min-height: 304px;
       text-align: center;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 2px 8px 0 rgba(0, 0, 0, 0.16);
-      border: solid 1px #cbcfd4;
+      border: solid 1px $borderLight;
       border-radius: 5px;
       background-color: $backgroundDefault;
       padding-bottom: 25px;
       margin-top: 16px;
-      z-index: 100002;
+      z-index: $z-popup;
       position: absolute;
     }
 
@@ -75,12 +75,12 @@ foam.CLASS({
       justify-content: center;
     }
 
-    ^ .colon {
-      padding': '0 4px';
-      font-weight': 'bold;
+    << .colon {
+      padding: 0 4px;
+      font-weight: $font-semi-bold;
     }
 
-    ^ .year {
+    << .year {
       border-radius: 5px 5px 0px 0px;
       background-color: $backgroundBrand;
       color: $textOnBrand;
@@ -91,37 +91,37 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^ .year .property-year {
+    << .year .property-year {
       padding-top:4px;
     }
 
-    ^ .year .property-year .foam-u2-IntView {
+    << .year .property-year .foam-u2-IntView {
       width: 70px;
       text-align: center;
     }
 
-    ^ .year-number {
+    << .year-number {
       background: $backgroundBrand;
       border: none;
       color: $textOnBrand;
       display: inline-block;
     }
 
-    ^ .arrow-left {
+    << .arrow-left {
       float: left;
       padding: 10px;
       margin-top: 10px;
       margin-left: 23px;
     }
 
-    ^ .arrow-right {
+    << .arrow-right {
       float: right;
       padding: 10px;
       margin-top: 10px;
       margin-right: 23px;
     }
 
-    ^ .month {
+    << .month {
       display: inline-block;
       display: block;
       align-items: center;
@@ -130,23 +130,23 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^ .month-name {
+    << .month-name {
       padding-top: 3px;
       padding-bottom: 3px;
       display: inline-block;
       font-weight: $font-regular;
     }
 
-    ^ .arrow-container {
+    << .arrow-container {
       display: inline-block;
       width: 24px;
       height: 24px;
-      background-image: linear-gradient(#ffffff, #e7eaec);
+      background-image: linear-gradient($backgroundDefault, $backgroundTertiary);
       text-align: center;
-      border: 1px solid #cbcfd4;
+      border: 1px solid $borderDefault;
     }
 
-    ^ .arrow-container-left{
+    << .arrow-container-left{
       margin-left: 25px;
       float: left;
     }
@@ -155,34 +155,35 @@ foam.CLASS({
       cursor: pointer;
     }
 
-    ^ .arrow-container-right{
+    << .arrow-container-right{
       margin-right: 25px;
       float:right;
     }
 
-    ^ .arrow-black {
+    << .arrow-black {
       padding-top: 6px;
     }
 
-    ^ .calendar {
+    << .calendar {
       display: inline-block;
       text-align: center;
     }
 
-    ^ .time-of-day {
+    << .time-of-day {
       display: inline-block;
     }
 
-    ^overlay {
+    <<overlay {
       position: fixed;
       top: 0;
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 10000;
+      /* click-away scrim: over the page, under the picker and its clear icon */
+      z-index: $z-nav;
     }
 
-    ^ .date-display-box {
+    << .date-display-box {
       height: 36px;
       width: 100%;
       background-color: $backgroundDefault;
@@ -190,17 +191,17 @@ foam.CLASS({
       border-radius: 3px;
     }
 
-    ^ .date-display-box:hover {
+    << .date-display-box:hover {
       border-color: $borderStrong;
     }
 
-    ^ .focus-border {
+    << .focus-border {
       border-radius: 1px;
       border: solid 1px $blue200;
       box-shadow: inset 0 2px 1px 0 $blue400;
     }
 
-    ^ .date-display-text {
+    << .date-display-text {
       display: inline-block;
       margin-top: 9px;
       margin-left: 8px;
@@ -208,7 +209,7 @@ foam.CLASS({
       height: 18px;
     }
 
-    ^ .date-display-image {
+    << .date-display-image {
       float: right;
       display: inline-block;
       margin-top: 10px;
@@ -216,11 +217,11 @@ foam.CLASS({
       position: relative;
     }
 
-    ^ .date-display-image-cancel {
-      z-index: 10001;
+    << .date-display-image-cancel {
+      z-index: $z-popup;
     }
 
-    ^ {
+    << {
       position: relative;
     }
   `,

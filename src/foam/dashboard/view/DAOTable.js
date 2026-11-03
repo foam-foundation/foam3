@@ -23,11 +23,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       height: 100%;
     }
-    ^center {
+    <<center {
       height: 100%;
       min-height: 20rem;
       display: flex;
@@ -35,37 +35,37 @@ foam.CLASS({
       justify-content: center;
       flex-direction: column;
     }
-    ^ .table-row:hover {
+    << .table-row:hover {
       background: $backgroundSecondary;
       cursor: pointer;
     }
-    ^ .table-row {
+    << .table-row {
       padding-left: 20px;
       padding-right: 20px;
       border-bottom: 1px solid $borderLight;
 
     }
-    ^ div.table-row:last-child > div {
+    << div.table-row:last-child > div {
       border-bottom: none;
     }
-    ^ .view-more button {
+    << .view-more button {
       width: 100%;
       height: 100%;
       max-height: max-content;
     }
-    ^ .view-more button:hover {
+    << .view-more button:hover {
       background: $backgroundSecondary;
       cursor: pointer;
       border-bottom-left-radius: 22px;
       border-bottom-right-radius: 22px;
     }
-    ^scroll-container {
+    <<scroll-container {
       overflow-y: scroll;
       display: grid;
       grid-auto-rows: 20%;
       height: 100%;
     }
-    ^grid-container {
+    <<grid-container {
       display: grid;
       height: 100%;
     }

@@ -48,7 +48,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-HTMLView {
+    << .foam-u2-HTMLView {
       padding: 0;
     }
   `,

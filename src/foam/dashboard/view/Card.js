@@ -21,13 +21,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       border-radius: 10px;
       background: $backgroundDefault;
       box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.06), 0px 1px 3px rgba(0, 0, 0, 0.1);
     }
 
-    ^header {
+    <<header {
       padding-left: 20px;
       padding-right: 16px;
       padding-top: 20px;

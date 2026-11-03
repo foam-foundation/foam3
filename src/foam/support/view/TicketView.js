@@ -24,14 +24,14 @@ foam.CLASS({
   exports: [ 'hideSummary' ],
 
   css:`
-    ^ {
+    << {
       width: 970px;
       margin: auto;
     }
-    ^ .foam-support-view-SummaryCard{
+    << .foam-support-view-SummaryCard{
       width: 15.8%;
     }
-    ^ .foam-u2-ActionView-create {
+    << .foam-u2-ActionView-create {
       float: right;
       width: 135px;
       height: 40px;
@@ -40,10 +40,10 @@ foam.CLASS({
       border: none;
       margin: 0 20px 20px;
     }
-    ^ .button-div{
+    << .button-div{
       height: 40px;
     }
-    ^ .foam-u2-ListCreateController{
+    << .foam-u2-ListCreateController{
       top: 30px;
       position: relative;
     }

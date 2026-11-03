@@ -13,17 +13,17 @@ foam.CLASS({
   `,
 
   css: `
-    ^warming {
+    <<warming {
       display: grid;
       place-items: center;
       height: 100%;
     }
-    ^plot {
+    <<plot {
       display: flex;
       flex-direction: row;
       justify-content: space-between;
     }
-    ^plot-item {
+    <<plot-item {
       width: 100%
     }
   `,

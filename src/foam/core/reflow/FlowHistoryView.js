@@ -26,13 +26,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding: 8px 0;
     }
-    ^empty {
+    <<empty {
       padding: 16px;
       color: $textSecondary;
       text-align: center;

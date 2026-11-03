@@ -31,7 +31,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       border: none;
       border-radius: 4px;
       box-sizing: border-box;
@@ -88,7 +88,7 @@ foam.CLASS({
               this
                 .startContext({ data: self })
                 .tag(createAction, { label$: self.config$.dot('createTitle'), buttonStyle: 'PRIMARY', size: 'LARGE' })
-                .tag(self.SELECT, { label$: self.config$.dot('selectTitle'), size: 'LARGE' })
+                .tag(self.CONFIRM_SELECTION, { label$: self.config$.dot('selectTitle'), size: 'LARGE' })
                 .endContext()
             })))
       });
@@ -134,7 +134,7 @@ foam.CLASS({
     },
     {
       class: 'foam.comics.v3.ComicsAction',
-      name: 'select',
+      name: 'confirmSelection',
       buttonStyle: 'PRIMARY',
       internalIsAvailable: function(config) {
         return config.selectMode;

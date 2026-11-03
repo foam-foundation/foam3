@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'CodeView',
   extends: 'foam.u2.ReadWriteView',
   css: `
-    ^readbox {
+    <<readbox {
       border: 1px dashed $borderDefault;
       padding: 1rem;
       text-wrap: auto;

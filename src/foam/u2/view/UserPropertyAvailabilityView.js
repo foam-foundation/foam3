@@ -25,11 +25,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
 
-    ^icon {
+    <<icon {
       height: 14px;
       width: 14px;
       position: absolute;

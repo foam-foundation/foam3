@@ -26,8 +26,10 @@ foam.CLASS({
   ],
 
   imports: [
+    'document',
     'fileTypeDAO',
-    'sessionID'
+    'sessionID',
+    'window'
   ],
 
   javaImports: [
@@ -158,7 +160,7 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function (id) {
-        return window.location.origin + '/service/httpFileService/' + id + '?sessionId=' + this.sessionID;
+        return this.window.location.origin + '/service/httpFileService/' + id + '?sessionId=' + this.sessionID;
       }
     },
 
@@ -368,9 +370,9 @@ foam.CLASS({
         if ( ! isImage && ! isPdf ) {
           var blob = this.data;
           if ( foam.blob.BlobBlob.isInstance(blob) ) {
-            window.open(URL.createObjectURL(blob.blob));
+            this.window.open(URL.createObjectURL(blob.blob));
           } else {
-            window.open(this.address);
+            this.window.open(this.address);
           }
           return;
         }
@@ -406,12 +408,12 @@ foam.CLASS({
         if ( foam.blob.BlobBlob.isInstance(this.data) ) {
           url = URL.createObjectURL(this.data.blob);
         }
-        var link = document.createElement('a');
+        var link = this.document.createElement('a');
         link.setAttribute("href", url);
         link.setAttribute("download", this.filename);
-        document.body.appendChild(link);
+        this.document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        this.document.body.removeChild(link);
       }
     },
     {

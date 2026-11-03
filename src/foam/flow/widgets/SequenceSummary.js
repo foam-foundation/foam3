@@ -17,7 +17,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^nullAgent {
+    <<nullAgent {
       background-color: %DESTRUCTIVE2% !important;
       color: %WHITE%;
     }

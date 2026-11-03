@@ -14,10 +14,10 @@ foam.CLASS({
   imports: [ 'theme?' ],
 
   css: `
-  ^innerCircle.selected {
+  <<innerCircle.selected {
     r: 5px;
   }
-  ^innerCircle {
+  <<innerCircle {
     transition: 0.1s ease;
     transform-origin: center center;
     transform-box: stroke-box;

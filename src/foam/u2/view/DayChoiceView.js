@@ -10,20 +10,20 @@ foam.CLASS({
   extends: 'foam.u2.view.CardSelectView',
 
   css: `
-  ^ {
+  << {
     background-color: $backgroundDefault;
     border: 1px solid $borderDefault;
     border-radius: 4px;
     padding: 8px 16px;
     transition: all 0.2s ease;
   }
-  ^:hover {
+  <<:hover {
     cursor: pointer;
   }
-  ^disabled:hover {
+  <<disabled:hover {
     cursor: default;
   }
-  ^selected {
+  <<selected {
     background-color: $backgroundBrand;
     border-color: $backgroundBrand;
     color: $textOnBrand;

@@ -22,7 +22,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       position: relative;
       border-radius: 50%;
       display: flex;
@@ -31,11 +31,11 @@ foam.CLASS({
       flex-direction: column;
     }
 
-    ^.hidden {
+    <<.hidden {
       display: none;
     }
 
-    ^ .processing-notice {
+    << .processing-notice {
       padding-top: 8px;
       text-align: center;
     }`,

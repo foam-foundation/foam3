@@ -40,8 +40,8 @@ foam.INTERFACE({
       args: [
         {
           name: 'value',
-        },
-      ],
-    },
+        }
+      ]
+    }
   ]
 });

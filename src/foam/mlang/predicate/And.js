@@ -70,7 +70,7 @@ return stmt.toString();`
 
           if ( newA === FALSE ) return FALSE;
 
-          if ( this.cls_.isInstance(newA) ) {
+          if ( this.cls_ === newA.cls_ ) {
             // In-line nested AND clauses
             for ( var j = 0 ; j < newA.args.length ; j++ ) {
               newArgs.push(newA.args[j]);

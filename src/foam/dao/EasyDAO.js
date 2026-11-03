@@ -160,10 +160,6 @@ foam.CLASS({
 
         foam.dao.DAO delegate = getInnerDAO();
 
-        if ( getPostgres() ) {
-          delegate = getPostgresDAO(getX());
-        }
-
         if ( delegate == null ) {
           if ( getNullify() ) {
             delegate = new foam.dao.NullDAO(getX(), getOf());
@@ -251,6 +247,11 @@ foam.CLASS({
             // NOTE: this is expected on non-local DAOs.
             logger.debug(getName(), "Index not added on spid, no access to MDAO");
           }
+        }
+
+        if ( getFSMDAO() != null ) {
+          ((ProxyDAO) getFSMDAO()).setDelegate(delegate);
+          delegate = getFSMDAO();
         }
 
         delegate = getOuterDAO(delegate);
@@ -405,10 +406,6 @@ foam.CLASS({
       `
     },
     {
-      class: 'Boolean',
-      name: 'postgres'
-    },
-    {
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'innerDAO'
@@ -417,6 +414,13 @@ foam.CLASS({
       class: 'Object',
       type: 'foam.dao.DAO',
       name: 'decorator'
+    },
+    {
+      documentation: `An FSMDAO that enforces the state machine rules on puts.
+        Build it with a placeholder delegate; EasyDAO replaces the delegate
+        with its own chain.`,
+      class: 'foam.dao.DAOProperty',
+      name: 'FSMDAO'
     },
     {
       class: 'Object',
@@ -830,9 +834,17 @@ dao loading, which improves overall startup time.`,
     {
       class: 'Boolean',
       name: 'saf',
-      // refined in foam-saf
+      // refined in https://github.com/kgrgreer/foam-saf
       documentation: 'Store and forward this DAO',
-      value: false
+      // NOTE: SAF does not support PartitionedDAO.
+      // emailMessageDAO, notificationDAO, eventRecordDAO were some
+      // of main reasons for SAF.
+      // EasyDAO has no knowledge if a DAO is using Partitioning, so
+      // it is unable to issue a warning.
+      // Disabling for now.
+      // value: false;
+      javaGetter: 'return false;',
+      getter: function() { return false; }
     },
     {
       documentation: 'Simpler alternative than providing serverBox.',
@@ -998,31 +1010,6 @@ dao loading, which improves overall startup time.`,
            logger = foam.core.logger.StdoutLogger.instance();
          }
          logger.error("Failed to create DAO. Invalid DAO specification", getName(), new Exception("stacktrace"));
-      `
-    },
-    {
-      name: 'getPostgresDAO',
-      args: 'X x',
-      type: 'DAO',
-      javaCode: `
-        try {
-          var jdbcSpec = x.get("JDBCConnectionSpec");
-          if ( jdbcSpec == null ) {
-            Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), "No JDBCConnectionSpec");
-            throw new RuntimeException("No JDBCConnectionSpec");
-          }
-
-          foam.dao.jdbc.JDBCPooledDataSource source = new foam.dao.jdbc.JDBCPooledDataSource(x, "PoolA");
-          X xcopy = x.put("JDBCDataSource", source);
-          var dao = new foam.dao.jdbc.PostgresDAO(xcopy, getOf());
-          return dao;
-        } catch (java.sql.SQLException e) {
-          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
-          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
-        } catch (ClassNotFoundException e) {
-          Loggers.logger(x, this).error("Error creating PostgresDAO", getName(), e);
-          throw new RuntimeException("Error creating PostgresDAO: " + getName() + ", " + e.getMessage());
-        }
       `
     },
     {
@@ -1393,7 +1380,7 @@ dao loading, which improves overall startup time.`,
               }
 
               self.log("Loading test data");
-              Promise.all(foam.json.parse(self.testData, self.of, self).map(
+              Promise.all(foam.json.parse(self.testData, self.of, self.__subContext__).map(
                 function(o) { return delegate.put(o); }
               )).then(function() {
                 self.log("Loaded", self.testData.length, "records.");
@@ -1406,17 +1393,12 @@ dao loading, which improves overall startup time.`,
 
       return this.getOuterDAO(dao);
     },
-
-    /** Only relevant if using postgresdao */
     {
+      documentation: `Supports providing the 'name' property of an index which can be used to select the 'table' in traditional databases.`,
       name: 'addTableIndex',
       type: 'foam.dao.EasyDAO',
       args: 'String name, foam.lang.Indexer... indexers',
       javaCode: `
-        if ( ! getPostgres() ) {
-          ((Logger) getX().get("logger")).warning(getName(), "addTableIndex only works for postgres DAOs");
-          return this;
-        }
         AddIndexCommand cmd = new AddIndexCommand();
         cmd.setName(name);
         cmd.setIndexers(indexers);

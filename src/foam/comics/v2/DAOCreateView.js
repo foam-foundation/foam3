@@ -23,16 +23,16 @@ foam.CLASS({
   ],
 
   css:`
-    ^ {
+    << {
       padding: 32px
     }
 
-    ^ .foam-u2-ActionView-back {
+    << .foam-u2-ActionView-back {
       display: flex;
       align-self: flex-start;
     }
 
-    ^create-view-container {
+    <<create-view-container {
       margin: auto;
     }
   `,

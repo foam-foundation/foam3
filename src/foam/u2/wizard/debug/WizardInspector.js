@@ -39,27 +39,27 @@ foam.CLASS({
   ],
 
   css: `
-    ^, ^wizardlet-list {
+    <<, <<wizardlet-list {
       display: flex;
       flex-direction: column;
     }
-    ^wizardlet-row {
+    <<wizardlet-row {
       display: flex;
       flex-direction: column;
     }
-    ^wizardlet-row:not(:last-of-type) {
+    <<wizardlet-row:not(:last-of-type) {
       margin-bottom: 4px;
     }
-    ^wizardlet-actions, ^title {
+    <<wizardlet-actions, <<title {
       display: flex;
       align-items: center;
       gap: 4px;
     }
-    ^ .foam-u2-borders-Block {
-      border-color: $borderInverse;
+    << .foam-u2-borders-Block {
+      border-color: $borderStrong;
       border-left-size: 6px;
     }
-    ^current.foam-u2-borders-Block {
+    <<current.foam-u2-borders-Block {
       border-color: $borderBrand;
     }
   `,

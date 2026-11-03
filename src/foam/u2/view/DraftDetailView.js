@@ -27,17 +27,17 @@ foam.CLASS({
   `,
 
   css: `
-    ^actionBar {
+    <<actionBar {
       align-items: center;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       width: 100%;
     }
-    ^actionBar > * {
+    <<actionBar > * {
       justify-self: flex-end;
     }
-    ^ {
+    << {
       display: flex;
       gap: 8px;
       flex-direction: column;

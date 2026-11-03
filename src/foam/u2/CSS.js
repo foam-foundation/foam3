@@ -55,7 +55,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'expands_',
-      documentation: 'True if the CSS contains a ^ which needs to be expanded.',
+      documentation: 'True if the CSS contains a ^ or << which needs to be expanded.',
       expression: function(code) {
         return code.includes('^') || code.includes(foam.u2.Element.CSS_SELF) /* << */;
       }
@@ -108,11 +108,11 @@ foam.CLASS({
 
     function expandCSS(cls, text, ctx, baseID) {
       if ( this.expands_ ) {
-        /* Performs expansion of the ^ shorthand on the CSS. */
+        /* Performs expansion of the ^ and << (CSS_SELF) shorthands on the CSS. */
         // TODO(braden): Parse and validate the CSS.
         // TODO(braden): Add the automatic prefixing once we have the parser.
         var base = '.' + (baseID || foam.String.cssClassize(cls.id));
-        text = text.replace(/\^(.)/g, function(match, next) {
+        text = text.replace(/(?:<<|\^)(.)/g, function(match, next) {
           var c = next.charCodeAt(0);
           // Check if the next character is an uppercase or lowercase letter,
           // number, - or _. If so, add a - because this is a modified string.

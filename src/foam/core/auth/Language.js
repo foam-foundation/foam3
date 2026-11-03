@@ -1,8 +1,8 @@
 /**
-* @license
-* Copyright 2020 The FOAM Authors. All Rights Reserved.
-* http://www.apache.org/licenses/LICENSE-2.0
-*/
+ * @license
+ * Copyright 2020 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 
 foam.CLASS({
   package: 'foam.core.auth',
@@ -41,8 +41,14 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'variant',
-      value: ''
+      name: 'variant'
+    },
+    {
+      class: 'String',
+      name: '_choiceText_',
+      transient: true,
+      javaGetter: 'return toString();',
+      getter: function() { return this.toString(); }
     }
   ],
 

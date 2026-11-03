@@ -23,12 +23,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       cursor: pointer;
     }
-    ^ img, ^ svg {
+    << img, << svg {
       height: 25px;
       max-height: 40px;
       /* remove and override any image styling to preserve aspect ratio */

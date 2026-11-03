@@ -66,7 +66,7 @@ foam.CLASS({
       store = { [KEY]: 'light' };
       win   = this.makeWindow(x, store, osDark);
       x.test(win.colorScheme === 'light', 'stored light reads back as light');
-      x.test(win.theme.activeVariants.color === undefined, 'stored light beats a dark OS');
+      x.test(win.theme.activeVariants.color === 'light', 'stored light beats a dark OS');
 
       store = { [KEY]: 'sepia' };
       win   = this.makeWindow(x, store, osDark);
@@ -77,13 +77,13 @@ foam.CLASS({
       store  = {};
       osDark = { value: false };
       win    = this.makeWindow(x, store, osDark);
-      x.test(win.theme.activeVariants.color === undefined, 'light OS, no pick: no colour variant');
+      x.test(win.theme.activeVariants.color === 'light', 'light OS, no pick: light variant is named');
       win.colorScheme = 'dark';
       x.test(store[KEY] === 'dark', 'setting colorScheme writes the key, got ' + store[KEY]);
       x.test(win.theme.activeVariants.color === 'dark', 'setting colorScheme re-applies the variant');
       win.colorScheme = '';
       x.test(! (KEY in store), 'clearing colorScheme removes the key, store has ' + JSON.stringify(store));
-      x.test(win.theme.activeVariants.color === undefined, 'clearing colorScheme falls back to the OS');
+      x.test(win.theme.activeVariants.color === 'light', 'clearing colorScheme falls back to the OS');
 
       // --- Toggle cycles system -> light -> dark -> system -----------------
       store  = {};
@@ -103,7 +103,7 @@ foam.CLASS({
       await wait(50);
       x.test(store[KEY] === 'light', 'click 1 stores light, got ' + store[KEY]);
       x.test(label() === t.LIGHT_THEME_LABEL, 'click 1 label says light, got "' + label() + '"');
-      x.test(win.theme.activeVariants.color === undefined, 'click 1 applies light over a dark OS');
+      x.test(win.theme.activeVariants.color === 'light', 'click 1 applies light over a dark OS');
       var lightIcon = icon();
 
       btn.click();

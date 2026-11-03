@@ -24,7 +24,6 @@ import foam.core.om.OMLogger;
 import foam.core.pm.PM;
 import foam.core.session.Session;
 import foam.util.SafetyUtil;
-import org.eclipse.jetty.server.Request;
 
 import java.util.StringTokenizer;
 import jakarta.servlet.http.HttpServletRequest;

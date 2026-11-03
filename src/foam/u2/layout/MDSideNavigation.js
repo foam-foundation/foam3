@@ -125,30 +125,30 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
-      z-index: 1000;
+    << {
+      z-index: $z-nav;
       width: 50rem;
       position: absolute;
       box-shadow: 0px 0px 50px 0px $black;
       height: 100%;
     }
-    ^ input[type="search"] {
+    << input[type="search"] {
       height: 7rem;
     }
 
-    ^ .side-nav-view {
+    << .side-nav-view {
       height: 109em;
       overflow-x: hidden;
       position: relative;
-      background-color: $backgrounTertiary;
+      background-color: $backgroundTertiary;
     }
 
-    ^ .foam-u2-layout-MDToolbarView {
+    << .foam-u2-layout-MDToolbarView {
       position: relative;
       z-index: 1;
     }
 
-    ^ .foam-u2-search-TextSearchView {
+    << .foam-u2-search-TextSearchView {
       padding-top: 2rem;
       width: 100%;
       display: flex;
@@ -156,15 +156,15 @@ foam.CLASS({
     }
 
 
-    ^ .foam-u2-view-TreeViewRow {
+    << .foam-u2-view-TreeViewRow {
       width: 100%;
     }
 
-    ^ .foam-u2-view-TreeViewRow .toggle-icon {
+    << .foam-u2-view-TreeViewRow .toggle-icon {
       font-size: 3rem !important;
     }
 
-    ^ .foam-u2-view-TreeViewRow-label {
+    << .foam-u2-view-TreeViewRow-label {
       font-size: 2.5rem;
       font-weight: $font-regular;
       display: inline-flex;
@@ -173,44 +173,44 @@ foam.CLASS({
       color: $textSecondary;
     }
 
-    ^ .foam-u2-view-TreeViewRow-selected > .foam-u2-view-TreeViewRow-heading {
+    << .foam-u2-view-TreeViewRow-selected > .foam-u2-view-TreeViewRow-heading {
         border-left: 1rem solid $borderBrand;
     }
 
-    ^ .foam-u2-view-TreeViewRow-heading {
+    << .foam-u2-view-TreeViewRow-heading {
         height: 10rem;
         padding-left: 3rem !important;
         border-bottom: 1px solid $borderLight;
     }
 
-    ^ .foam-u2-view-TreeViewRow-label-icon {
+    << .foam-u2-view-TreeViewRow-label-icon {
       display: none;
     }
 
-    ^ .img-container img {
+    << .img-container img {
       width: 5rem;
     }
 
-    ^ .foam-u2-layout-MDProfileImageView .label {
+    << .foam-u2-layout-MDProfileImageView .label {
       font-size: 2.5rem;
       padding-left: 2rem;
     }
 
 
-    ^ .child-menu {
+    << .child-menu {
       padding-left: 3rem;
     }
 
-    ^ .child-menu .foam-u2-view-TreeViewRow {
+    << .child-menu .foam-u2-view-TreeViewRow {
         display: unset;
         height: unset;
       }
 
-    ^ .child-menu .foam-u2-view-TreeViewRow-label {
+    << .child-menu .foam-u2-view-TreeViewRow-label {
       font-weight: $font-light;
     }
 
-    ^ .child-menu .foam-u2-view-TreeViewRow-heading {
+    << .child-menu .foam-u2-view-TreeViewRow-heading {
       padding: unset;
     }
   `

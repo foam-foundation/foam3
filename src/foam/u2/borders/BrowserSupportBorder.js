@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-  ^browser-message {
+  <<browser-message {
     margin-right: 20%;
     float: right;
   }

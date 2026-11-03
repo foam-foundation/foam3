@@ -149,7 +149,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 8px;
       display: inline-block;
       border-radius: 3px;

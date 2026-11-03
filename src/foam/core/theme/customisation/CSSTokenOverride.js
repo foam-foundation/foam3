@@ -35,7 +35,10 @@ foam.CLASS({
     {
       class: 'Map',
       name: 'variants',
-      documentation: 'Allows for variant based overrides - dark mode, Accessible themes etc'
+      documentation: `Per-mode values, keyed by the variant name the theme is
+        in: { light: '#FFC0CB' } or { dark: '#202020' }. An entry wins for its
+        mode; target fills any mode without one. With theme.useVariants off no
+        mode is named, so only target is read.`
     },
     {
       class: 'Boolean',
@@ -51,7 +54,10 @@ foam.CLASS({
     {
       class: 'String',
       name: 'target',
-      documentation: 'Contains replacement value for token in given context'
+      documentation: `Replacement value for the token. The fallback for every
+        mode that has no entry in variants; a row with variants only and no
+        target leaves those other modes to the next match: a theme-less ('')
+        row, then the token's own value.`
     }
   ]
 });

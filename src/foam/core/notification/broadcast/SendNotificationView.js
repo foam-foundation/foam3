@@ -29,13 +29,13 @@ foam.CLASS({
   // Make an abstract SummaryView with this CSS and props for title and primary action,
   // everything else can be populated by the parent view, maybe a border??
   css: `
-    ^ {
+    << {
       padding: 32px;
     }
-    ^container > * + * {
+    <<container > * + * {
       margin-top: 32px;
     }
-    ^button {
+    <<button {
       align-self: flex-end;
     }
   `,

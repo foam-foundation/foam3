@@ -307,6 +307,13 @@ try {
       javaType: 'java.io.BufferedWriter',
       javaFactory: `
 try {
+  // The file is only opened on the first write, so a journal that is read
+  // but never written leaves nothing on disk. Its directory waits for the
+  // same moment: a partition such as "orders/2026-03-14/journal" that a wide
+  // date-range query opened but never wrote to would otherwise leave an
+  // empty "2026-03-14" directory behind.
+  File dir = getX().get(FileSystemStorage.class).get(getFilename()).getParentFile();
+  if ( dir != null && ! dir.isDirectory() ) Files.createDirectories(dir.toPath());
   OutputStream os = getX().get(FileSystemStorage.class).getOutputStream(getFilename());
   if ( os == null ) {
     getLogger().warning("File not found", "for writing");

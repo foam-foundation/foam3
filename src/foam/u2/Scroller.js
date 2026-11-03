@@ -44,17 +44,17 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-grow: 1;
       overflow: hidden;
     }
-    ^container {
+    <<container {
       flex-grow: 1;
       overflow-x: auto;
       overflow-y: hidden;
     }
-    ^ canvas {
+    << canvas {
       align-self: flex-start;
       flex-grow: 0;
       flex-shrink: 0;

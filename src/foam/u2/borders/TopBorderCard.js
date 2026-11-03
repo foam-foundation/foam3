@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^container {
+    <<container {
       width: 100%;
       padding: 2.4rem;
       background: $backgroundDefault;
@@ -19,7 +19,7 @@ foam.CLASS({
       border-bottom-left-radius: 4px;
       border-bottom-right-radius: 4px;
     }
-    ^bar {
+    <<bar {
       width: 100%;
       height: 8px;
       border-top-left-radius: 4px;

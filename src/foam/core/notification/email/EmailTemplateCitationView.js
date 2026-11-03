@@ -12,11 +12,11 @@ foam.CLASS({
   documentation: 'A single row in a list of email templates.',
 
   css: `
-    ^summary {
+    <<summary {
       color: $textDefault;
     }
 
-    ^email {
+    <<email {
       color: $textTertiary;
     }
   `,

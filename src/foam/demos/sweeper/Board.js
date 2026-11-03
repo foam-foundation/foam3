@@ -15,7 +15,7 @@ foam.CLASS({
   exports: [ 'as board' ],
 
   css: `
-    ^ {
+    << {
       border: 1px solid gray;
       display: inline-block;
       margin-top: 10px;

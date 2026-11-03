@@ -18,16 +18,16 @@ foam.CLASS({
   exports: [ 'parentData as data' ],
 
   css: `
-    ^wrapper {
+    <<wrapper {
       display: flex;
     }
-    ^wrapper^vertical {
+    <<wrapper<<vertical {
       flex-direction: column;
     }
-    ^container {
+    <<container {
       margin: 2px 8px 2px 0;
     }
-    ^container:last-child {
+    <<container:last-child {
       margin-right: 0;
     }
   `,

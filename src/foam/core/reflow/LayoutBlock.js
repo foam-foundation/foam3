@@ -75,11 +75,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 0;
       overflow: hidden;
     }
-    ^content {
+    <<content {
       padding: 0;
     }
   `,
@@ -149,7 +149,7 @@ foam.CLASS({
   extends: 'foam.core.reflow.Block',
   mixins: ['foam.u2.layouts.LayoutChild', 'foam.core.reflow.LayoutUtils'],
   css: `
-    ^ {
+    << {
       overflow: hidden;
     }
   `,

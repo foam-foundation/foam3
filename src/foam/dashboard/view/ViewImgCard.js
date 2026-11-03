@@ -13,7 +13,7 @@ foam.CLASS({
   documentation: 'A dashboard card the takes a view, background color and an img',
   
   css: `
-  ^ {
+  << {
     position: relative;
     container-type: inline-size; 
     container-name: main-container;
@@ -23,19 +23,19 @@ foam.CLASS({
     height: fit-content;
     min-height: 100%;
   }
-  ^view-container {
+  <<view-container {
     position: relative;
     z-index: 2; 
     width: 75%;
   }
-  ^img{
+  <<img{
     position: absolute;
     z-index: 1;
     inset: var(--img-postion);
     width: fit-content; height: fit-content;
   }
   @container main-container (min-width: 600px) {
-    ^img{
+    <<img{
       position: absolute;
       top: 50%;
       right: 5%;

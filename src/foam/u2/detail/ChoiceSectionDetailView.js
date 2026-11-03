@@ -22,15 +22,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-table-TableView table {
+    << .foam-u2-table-TableView table {
       width: 100%;
     }
 
-    ^ .tag-Select {
+    << .tag-Select {
       text-align-last: center;
     }
 
-    ^ .choicePosition {
+    << .choicePosition {
       align-items: center;
       display: flex;
       flex-direction: row;
@@ -38,7 +38,7 @@ foam.CLASS({
       text-align: center;
     }
 
-    ^ .action-button {
+    << .action-button {
       border-radius: 10px;
       padding: 5px;
       width: 100px;

@@ -10,3 +10,7 @@ p({
   class: "foam.core.notification.test.UserNotificationDAOTest",
   id: "UserNotificationDAOTest"
 })
+p({
+  class: "foam.core.notification.test.NotificationLocaleTemplateTest",
+  id: "NotificationLocaleTemplateTest"
+})

@@ -27,10 +27,10 @@ foam.CLASS({
   imports: [ 'modelDAO' ],
 
   css: `
-    ^commaseparated span:after {
+    <<commaseparated span:after {
       content: ", ";
     }
-    ^commaseparated span:last-child:after {
+    <<commaseparated span:last-child:after {
       content: "";
     }
   `,

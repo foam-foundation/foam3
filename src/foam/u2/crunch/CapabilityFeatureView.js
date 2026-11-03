@@ -35,23 +35,23 @@ foam.CLASS({
   `,
 
   css: `
-    ^ .foam-u2-crunch-Style-cardpart {
+    << .foam-u2-crunch-Style-cardpart {
       position: relative;
     }
 
-    ^badge {
+    <<badge {
       position: absolute;
       bottom: 12px; 
     }
 
-    ^badge > * {
+    <<badge > * {
       border-radius: 0px 11.2px 11.2px 0px !important;
       border-style: none !important;
       height: 24px;
       width: 79px;
     }
 
-    ^ .foam-u2-crunch-Style-renewable-description {
+    << .foam-u2-crunch-Style-renewable-description {
       position: absolute;
       top: 0px;
     }

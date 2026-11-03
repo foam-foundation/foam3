@@ -12,12 +12,12 @@ foam.CLASS({
   mixins: [ 'foam.u2.TextInputCSS' ],
 
   css: `
-    ^:disabled {
+    <<:disabled {
       appearance: none;
       -moz-appearance: none;
       -webkit-appearance: none;
     }
-    ^ {
+    << {
       appearance: none;
       -moz-appearance: none;
       -webkit-appearance: none;
@@ -35,11 +35,11 @@ foam.CLASS({
       text-overflow: ellipsis;
       width: 100%;
     }
-    ^ option {
+    << option {
       padding: 4px;
       width: 100%;
     }
-    ^.expanded {
+    <<.expanded {
       background: none;
       padding: 0;
     }

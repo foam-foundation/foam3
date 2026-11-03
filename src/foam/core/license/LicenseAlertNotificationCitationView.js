@@ -25,7 +25,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       padding: 4px 0 0 0;
     }
   `,
@@ -75,7 +75,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       max-width: initial;
       max-height: 80vh;
       min-width: auto;
@@ -84,7 +84,7 @@ foam.CLASS({
       flex-direction: column;
       align-items: flex-start;
     }
-    ^link {
+    <<link {
       margin-top: 8px;
       margin-bottom: 8px;
       align-self: flex-end;
@@ -131,7 +131,7 @@ foam.CLASS({
       size: 'SMALL',
       code: async function(X) {
         // Create a url to the License
-        const url = new URL(window.location.href);
+        const url = new URL(X.window.location.href);
         X.window.history.pushState({}, '', url);
         X.window.params = undefined;
 

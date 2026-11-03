@@ -40,7 +40,7 @@ foam.CLASS({
       ],
 
       css: `
-        ^ {
+        << {
           height: $separatorHeight;
           width: $separatorWidth;
           background: $separatorColor;

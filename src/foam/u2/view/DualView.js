@@ -23,8 +23,8 @@ foam.CLASS({
   // deprecated: 'Use foam.u2.MultiView instead.',
 
   css: `
-    ^viewa, ^viewb { padding: 2px 0; }
-    ^viewa { margin-right: 8px; }
+    <<viewa, <<viewb { padding: 2px 0; }
+    <<viewa { margin-right: 8px; }
   `,
 
   properties: [

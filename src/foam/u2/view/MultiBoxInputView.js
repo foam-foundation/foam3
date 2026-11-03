@@ -20,14 +20,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: 80%;
       display: flex;
       flex-direction: row;
       align-items: center;
       justify-content: flex-start;
     }
-    ^ input {
+    << input {
       border-width: 1px;
       border-radius: 5px;
       width: 48px;
@@ -35,7 +35,7 @@ foam.CLASS({
       text-align: center;
       margin: 8px 14px 8px 0;
     }
-    ^ .wrong-code {
+    << .wrong-code {
       border-color: $red300;
       background-color: $red50;
     }

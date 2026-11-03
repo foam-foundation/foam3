@@ -346,8 +346,8 @@ foam.CLASS({
   ],
 
   css: `
-    ^selected { xxxbackground: lightgray; border: 2px solid red; background: #eee; }
-    ^ textarea { font-family: monospace; }
+    <<selected { xxxbackground: lightgray; border: 2px solid red; background: #eee; }
+    << textarea { font-family: monospace; }
   `,
 
   properties: [

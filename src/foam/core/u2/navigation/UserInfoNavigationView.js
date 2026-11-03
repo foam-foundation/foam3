@@ -26,18 +26,18 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       cursor: pointer;
       display: flex;
       align-items: center;
     }
-    ^horizontal {
+    <<horizontal {
       flex-direction: row;
     }
-    ^horizontal > * + * {
+    <<horizontal > * + * {
       margin-left: 8px;
     }
-    ^dropdown svg {
+    <<dropdown svg {
       fill:  $textTertiary;
     }
   `,
@@ -122,16 +122,16 @@ foam.CLASS({
   ],
 
   css: `
-    ^name-container {
+    <<name-container {
       line-height: normal;
       display: flex;
     }
-    ^name-container > *{
+    <<name-container > *{
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    ^label-container {
+    <<label-container {
       display: flex;
       flex-direction: column;
     }

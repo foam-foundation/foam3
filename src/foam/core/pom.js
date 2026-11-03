@@ -40,6 +40,7 @@ foam.POM({
     { name: "theme/pom" },
     { name: "partition/pom" },
     { name: "job/pom" },
+    { name: "license/pom" },
     { name: "license/pom" }
   ],
   files: [
@@ -204,6 +205,8 @@ foam.POM({
     { name: "script/ScriptRunnerDAO",                                                     flags: "js|java" },
     { name: "script/ScriptStatus",                                                        flags: "js|java" },
     { name: "script/Relationships",                                                       flags: "js" },
+    { name: "script/test/ScriptInterpreterLifecycleTest",                                 flags: "js&test|java&test" },
+    { name: "script/test/ScriptInterruptTest",                                            flags: "js&test|java&test" },
     { name: "servlet/ErrorPageMapping",                                                   flags: "js|java" },
     { name: "servlet/FilterMapping",                                                      flags: "js|java" },
     { name: "servlet/ProxyMapping",                                                       flags: "js|java" },
@@ -251,6 +254,7 @@ foam.POM({
     { name: "export/FLOWExportDriver",                                                    flags: "js" },
     { name: "export/JSONDriver",                                                          flags: "js" },
     { name: "export/JSONJDriver",                                                         flags: "js" },
+    { name: "export/JSONLDriver",                                                         flags: "js" },
     { name: "export/XMLDriver",                                                           flags: "js" },
     { name: "export/XMLTableExportDriver",                                                flags: "js" },
     { name: "export/report/Template",                                                     flags: "js|java" },
@@ -304,6 +308,8 @@ foam.POM({
     { name: "notification/Notification",                                                  flags: "js|java" },
     { name: "notification/NotificationCitationView",                                      flags: "js" },
     { name: "notification/NotificationExpansionDAO",                                      flags: "js|java" },
+    { name: "notification/NotificationLocaleTemplate",                                    flags: "js|java" },
+    { name: "notification/NotificationLocaleTemplateSupport",                             flags: "js|java" },
     { name: "notification/NotificationGoogleChatRefines",                                 flags: "js|java" },
     { name: "notification/NotificationHostnameRuleAction",                                flags: "js|java" },
     { name: "notification/NotificationMessageModal",                                      flags: "js" },
@@ -374,6 +380,7 @@ foam.POM({
     { name: "notification/test/EmailNotificationTest",                                    flags: "js&test|java&test" },
     { name: "notification/test/UserNotificationDAOTest",                                  flags: "js&test|java&test" },
     { name: "notification/test/UserNotificationDAOTestRuleAction",                        flags: "js&test|java&test" },
+    { name: "notification/test/NotificationLocaleTemplateTest",                           flags: "js&test|java&test" },
     { name: "demo/DemoObject",                                                            flags: "js|java" },
     { name: "demo/Demo",                                                                  flags: "js" },
     { name: "demo/relationship/test/RelationshipTest",                                    flags: "js&test|java&test" },
@@ -635,6 +642,7 @@ foam.POM({
   journalFiles: [
     { name: "benchmark/benchmarks",                                   flags: "test" },
     { name: "benchmark/benchmarkRunners",                             flags: "test" },
+    { name: "column/test/tests",                                      flags: "test" },
     { name: "demo/relationship/test/tests",                           flags: "test" },
     { name: "bench/services",                                         flags: "test" },
     { name: "bench/strategyReferences",                               flags: "test" },
@@ -653,6 +661,7 @@ foam.POM({
     { name: "boot/test/bootscripts",                                  flags: "test" },
     { name: "boot/test/tests",                                        flags: "test" },
     { name: "fs/test/tests",                                          flags: "test" },
-    { name: "fs/test/benchmarks",                                     flags: "test" }
+    { name: "fs/test/benchmarks",                                     flags: "test" },
+    { name: "script/test/tests",                                      flags: "test" }
   ]
 });

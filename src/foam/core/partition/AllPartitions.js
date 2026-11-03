@@ -48,6 +48,15 @@ foam.CLASS({
       documentation: `Unary.toIndex forwards to arg1, which would offer this up
         as an indexable condition. It is not one.`,
       code: function() { }
+    },
+    {
+      name: 'toString',
+      code: function() {
+        return 'ALL(' + this.arg1 + ')';
+      },
+      javaCode: `
+        return "ALL(" + getArg1() + ")";
+      `
     }
   ]
 });

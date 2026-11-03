@@ -112,11 +112,11 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ table { font-size: smaller; margin-right: 20px; }
-    ^ th { text-align: right; }
-    ^ th:first-child { text-align: left; }
-    ^ td { align: rigth; }
-    ^ .selected { background: lightskyblue; }
+    << table { font-size: smaller; margin-right: 20px; }
+    << th { text-align: right; }
+    << th:first-child { text-align: left; }
+    << td { align: rigth; }
+    << .selected { background: lightskyblue; }
   `,
 
   properties: [
@@ -268,8 +268,8 @@ foam.CLASS({
   exports: [ 'file' ],
 
   css: `
-    ^ th { text-align: left; }
-    ^ .selected { background: lightskyblue; }
+    << th { text-align: left; }
+    << .selected { background: lightskyblue; }
     .foam-u2-TextField { margin-bottom: 14px }
   `,
 

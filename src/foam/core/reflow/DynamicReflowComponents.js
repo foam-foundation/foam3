@@ -19,12 +19,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
-    ^command-list {
+    <<command-list {
       display: flex;
       flex-direction: column;
       gap: 5px;
@@ -32,7 +32,7 @@ foam.CLASS({
       overflow-y: auto;
       padding-top: 10px;
     }
-    ^header {
+    <<header {
       font-size: 14px;
       font-weight: $font-medium;
       border-bottom: 1px solid $borderLight;

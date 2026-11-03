@@ -36,8 +36,7 @@ foam.CLASS({
     'foam.u2.layout.Rows',
     'foam.u2.stack.BreadcrumbView',
     'foam.u2.stack.StackBlock',
-    'foam.u2.view.IconChoiceView',
-    'foam.u2.view.OverlayActionListView'
+    'foam.u2.view.IconChoiceView'
   ],
 
   cssTokens: [
@@ -52,26 +51,26 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       padding: 36px 16px 8px 16px;
       height: 100%;
       box-sizing: border-box;
     }
 
-    ^header-container {
+    <<header-container {
       padding-bottom: 32px;
       align-items: center;
     }
 
-    ^altview-container {
+    <<altview-container {
       padding: 12px 16px;
     }
 
-    ^buttons{
+    <<buttons{
       margin-right: 8px;
     }
 
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       border: $borderSize;
       border-radius: 4px;
       box-sizing: border-box;
@@ -81,15 +80,14 @@ foam.CLASS({
     }
 
     @media only screen and (min-width: 768px) {
-      ^container {
+      <<container {
         padding: 24px 32px 16px 32px;
       }
     }
   `,
 
   messages: [
-    { name: 'VIEW_ALL', message: 'View all ' },
-    { name: 'ACTIONS',  message: 'Actions' }
+    { name: 'VIEW_ALL', message: 'View all ' }
   ],
 
   properties: [
@@ -271,32 +269,16 @@ foam.CLASS({
                     .translate(menuId + ".browseTitle", config$browseTitle)
                   .end()
                   .start(self.Cols)
-                    .add(this.slot(function(config$browseContext) {
-                      return this.E()
-                        .callIf(config$browseViews.length > 1 , function() {
-                          this.addClass(self.myClass('buttons')).start(self.IconChoiceView, {
-                              choices: config$browseViews.map(o => [o.view, o.icon, o.name]),
-                              data$: self.browseView$
-                            })
-                              .addClass(self.myClass('altview-container'))
-                            .end();
-                        })
-                        .callIf( config.browseActions.length && config.browseContext, function() {
-                          if ( config.browseActions.length > 2 ) {
-                            this.start(self.OverlayActionListView, {
-                              label: this.ACTIONS,
-                              data: config.browseActions,
-                              obj: config$browseContext
-                            }).addClass(self.myClass('buttons')).end();
-                          } else {
-                            var actions = this.E().addClass(self.myClass('buttons')).startContext({ data: config.browseContext });
-                            for ( action of config.browseActions ) {
-                              actions.tag(action, { size: 'LARGE' });
-                            }
-                            this.add(actions.endContext());
-                          }
-                        });
-                    }))
+                    .start()
+                      .callIf(config$browseViews.length > 1 , function() {
+                        this.addClass(self.myClass('buttons')).start(self.IconChoiceView, {
+                            choices: config$browseViews.map(o => [o.view, o.icon, o.name]),
+                            data$: self.browseView$
+                          })
+                            .addClass(self.myClass('altview-container'))
+                          .end();
+                      })
+                    .end()
                     .callIf( ! config.detailView && ! ( config.createControllerView || config$primaryAction ), function() {
                       this.startContext({ data: self })
                         .tag(self.CREATE, {

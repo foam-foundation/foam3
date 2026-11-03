@@ -20,7 +20,7 @@ foam.CLASS({
   imports: [ 'routeTo' ],
 
   css: `
-    ^ {
+    << {
       background: $white;
       border-radius: 4px;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -36,11 +36,11 @@ foam.CLASS({
       display: flex;
       flex-direction: column;
     }
-    ^:hover {
+    <<:hover {
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
       transform: translateY(-2px);
     }
-    ^title {
+    <<title {
       color: $textDefault;
       font-size: large;
       font-weight: bold;
@@ -51,7 +51,7 @@ foam.CLASS({
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    ^description {
+    <<description {
       color: $textTertiary;
       font-size: 14px;
       line-height: 20px;
@@ -68,7 +68,7 @@ foam.CLASS({
       -webkit-line-clamp: 4;
       line-clamp: 4;
     }
-    ^keywords {
+    <<keywords {
       margin-top: auto;
       box-sizing: border-box;
       flex: 0 0 auto;
@@ -76,12 +76,12 @@ foam.CLASS({
       overflow: hidden;
       padding: 4px;
     }
-    ^keyword-list {
+    <<keyword-list {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
     }
-    ^keyword {
+    <<keyword {
       color: $textTertiary;
       font-size: 12px;
       background-color: $grey100;
@@ -94,20 +94,20 @@ foam.CLASS({
       line-height: 16px;
       max-width: 98px; /* When changing this value, ensure that the +N toggle still renders */
     }
-    ^expanded {
+    <<expanded {
       height: auto;
       min-height: 200px;
     }
-    ^keywords-expanded {
+    <<keywords-expanded {
       max-height: none;
     }
-    ^toggle {
+    <<toggle {
       cursor: pointer;
       font-weight: bold;
       background-color: $grey200;
       border-color: $grey200;
     }
-    ^toggle:hover {
+    <<toggle:hover {
       background-color: $grey300;
       border-color: $grey300;
     }

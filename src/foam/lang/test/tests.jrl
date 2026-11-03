@@ -1,0 +1,6 @@
+p({"class":"foam.lang.test.FSMAxiomInstallTest","id":"FSMAxiomInstallTest", "language": 0})
+p({"class":"foam.lang.test.StateMachineEnumTest","id":"StateMachineEnumTest", "language": 0})
+p({"class":"foam.lang.test.StateMachineEnumJavaTest","id":"StateMachineEnumJavaTest"})
+p({"class":"foam.lang.test.FSMDAOTest","id":"FSMDAOTest"})
+p({"class":"foam.lang.test.FSMDAOLifecycleTest","id":"FSMDAOLifecycleTest"})
+p({"class":"foam.lang.test.NamedPropertyInfoTest","id":"NamedPropertyInfoTest"})

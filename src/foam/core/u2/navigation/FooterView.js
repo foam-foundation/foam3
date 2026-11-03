@@ -27,7 +27,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: 85%;
       min-width: 992px;
       margin: auto;
@@ -38,40 +38,40 @@ foam.CLASS({
       align-items: center;
       justify-content: space-between;
     }
-    ^ .mode {
+    << .mode {
       display: inline-block;
     }
-    ^ .copyright-label {
+    << .copyright-label {
       margin-right: 50px;
       float: right;
     }
-    ^ .col {
+    << .col {
       display: inline-block;
       vertical-align: middle;
     }
-    ^ .copyright-label,
-    ^ .foam-u2-ActionView-goToTerm,
-    ^ .foam-u2-ActionView-goToPrivacy,
-    ^ .foam-u2-ActionView-goTo,
-    ^ .mode {
+    << .copyright-label,
+    << .foam-u2-ActionView-goToTerm,
+    << .foam-u2-ActionView-goToPrivacy,
+    << .foam-u2-ActionView-goTo,
+    << .mode {
       background: transparent;
       opacity: 0.6;
       color: $grey700;
       width: auto !important;
       padding: 0 10px !important;
     }
-    ^ .foam-u2-ActionView-goToTerm:hover,
-    ^ .foam-u2-ActionView-goToPrivacy:hover,
-    ^ .foam-u2-ActionView-goTo:hover {
+    << .foam-u2-ActionView-goToTerm:hover,
+    << .foam-u2-ActionView-goToPrivacy:hover,
+    << .foam-u2-ActionView-goTo:hover {
       text-decoration: underline;
     }
-    ^ .foam-u2-ActionView-goTo {
+    << .foam-u2-ActionView-goTo {
       margin-left: 50px;
     }
-    ^ .copyright-label{
+    << .copyright-label{
       float: right;
     }
-    ^ .mini-links {
+    << .mini-links {
       float: left;
     }
   `,

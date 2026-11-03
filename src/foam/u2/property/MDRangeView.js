@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'MDRangeView',
   extends: 'foam.u2.property.MDInput',
 
-  css: '^ { padding: 12px 0; width: 300px; }',
+  css: '<< { padding: 12px 0; width: 300px; }',
 
   properties: [
     [ 'type',     'range' ],

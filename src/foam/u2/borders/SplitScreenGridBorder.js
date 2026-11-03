@@ -19,13 +19,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^grid {
+    <<grid {
       grid-gap: clamp(1rem, 1.5vmax, 5rem);
       height: 100%;
     }
     
     /* vertically center the 2 sides of splitscreen */
-    ^split-screen {
+    <<split-screen {
       display: flex;
       align-content: center;
       justify-content: center;
@@ -33,7 +33,7 @@ foam.CLASS({
     }
 
     /* TODO: Remove this when U3 allows non-E() adds */
-    ^split-screen > *{
+    <<split-screen > *{
       width: 100%;
       height: 100%;
       display: flex;

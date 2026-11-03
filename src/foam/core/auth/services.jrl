@@ -249,7 +249,8 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("languages")
       .setOf(foam.core.auth.Language.getOwnClassInfo())
-      .build();
+      .build()
+      .orderBy(foam.core.auth.Language.ID);
     `,
   "client":"{\"of\":\"foam.core.auth.Language\"}"
 })

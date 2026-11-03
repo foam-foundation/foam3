@@ -15,10 +15,10 @@ foam.CLASS({
     'foam.mlang.sink.Count'
   ],
 
-  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData' ],
+  imports: [ 'showPrompts','toolbarControlDAO', 'data as importedData', 'isChildLocked?' ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       margin-block-end: 0;
       display: inline-flex;
@@ -30,10 +30,10 @@ foam.CLASS({
       padding: 10px 16px;
       border-top: 1px solid $borderLight;
     }
-    ^ > :lastChild {
+    << > :lastChild {
       flex-shrink: 0;
     }
-    ^input-field-container {
+    <<input-field-container {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -72,6 +72,13 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'hasControls'
+    },
+    {
+      class: 'Boolean',
+      name: 'childLocked_',
+      expression: function(isChildLocked) {
+        return !! isChildLocked;
+      }
     }
   ],
 
@@ -84,7 +91,9 @@ foam.CLASS({
 
       this.
         addClass().
-        show(this.hasControls$).
+        show(this.slot(function(hasControls, childLocked_) {
+          return hasControls && ! childLocked_;
+        })).
         start().
           addClass(this.myClass('input-field-container')).
           add(this.dynamic(function(promptMode) {

@@ -11,25 +11,25 @@ foam.CLASS({
   implements: ['foam.mlang.Expressions'],
 
   css: `
-    ^ {
+    << {
       --color: $primary400;
     }
-    ^heading {
+    <<heading {
       background-color: var(--color);
       padding: 0 0.8rem;
       color: $backgroundDefault;
     }
 
-    ^border {
+    <<border {
       border: 0.2rem solid  var(--color);
       padding: 0.8rem;
     }
   
-    ^list.foam-u2-DAOList{
+    <<list.foam-u2-DAOList{
       height: auto;
       gap: 0.8rem;
     }
-    ^list.foam-u2-DAOList > .foam-u2-DAOList-wrapper {
+    <<list.foam-u2-DAOList > .foam-u2-DAOList-wrapper {
       overscroll-behaviour-y: auto;
     }
   `,

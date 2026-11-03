@@ -6,12 +6,37 @@
 
 foam.CLASS({
   package: 'foam.core.reflow.canvas',
+  name: 'CanvasBlock',
+  extends: 'foam.core.reflow.Block',
+
+  properties: [
+    {
+      name: 'canvas'
+    }
+  ],
+
+  methods: [
+    function addFlowChild_(c) {
+      debugger;
+      this.addToScope(c);
+    },
+
+    function removeFlowChild_(c) {
+      debugger;
+      c.remove();
+    },
+  ]
+});
+
+// TODO: eval_ should accept an optional block type
+foam.CLASS({
+  package: 'foam.core.reflow.canvas',
   name: 'Canvas',
   extends: 'foam.graphics.Box',
   implements: [ 'foam.core.reflow.Flowable' ],
 
   requires: [
-    'foam.core.reflow.Block',
+    'foam.core.reflow.canvas.CanvasBlock as Block',
     'foam.core.reflow.canvas.Circle'
   ],
 
@@ -25,12 +50,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function addFlowChild_(c) {
-      this.add(c);
-    },
-
-    function removeFlowChild_(c) {
-    }
   ],
 
   actions: [
@@ -45,3 +64,19 @@ foam.CLASS({
     }
   ]
 });
+
+
+/*
+      function execute(...args) {
+      // Take over old block and replace it
+      let b = foam.core.reflow.LayoutBlock.create({
+        cmd: this.block.cmd,
+        flowParent: this.block.flowParent,
+        flowName: this.block.flowName
+      }, this.block.flowParent);
+      this.block.flowParent.addFlowChild(b);
+      this.block.del();
+      this.currentBlock = b;
+//      console.log(this.block, this.currentBlock, b);
+    }
+*/

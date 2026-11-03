@@ -14,7 +14,7 @@ foam.CLASS({
   requires: [ 'foam.u2.tag.Image' ],
 
   css: `
-    ^ svg {
+    << svg {
       fill: var(--glyph-fill, currentColor);
       height: var(--glyph-size, 2.4rem);
       width: auto;

@@ -12,17 +12,17 @@ foam.CLASS({
   documentation: 'A single row in a list of Candlesticks.',
 
   css: `
-    ^ {
+    << {
       background: $backgroundDefault;
       padding: 8px 16px;
     }
 
-    ^:hover {
+    <<:hover {
       background: $backgroundDefault$hover;
       cursor: pointer;
     }
 
-    ^key {
+    <<key {
       color: $textTertiary;
     }
   `,

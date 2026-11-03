@@ -14,9 +14,9 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { border-collapse: collapse; height: auto; }
-    ^ th { text-align: left; }
-    ^ td { vertical-align: top; }
+    << { border-collapse: collapse; height: auto; }
+    << th { text-align: left; }
+    << td { vertical-align: top; }
   `,
 
   properties: [

@@ -371,7 +371,7 @@ foam.CLASS({
             }
             message.setContent(multipart);
           } else {
-            message.setContent(emailMessage.getBody(), "text/html");
+            message.setText(emailMessage.getBody(), "utf-8", "html");
           }
 
           message.setSentDate(new Date());

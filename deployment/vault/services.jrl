@@ -1,0 +1,13 @@
+// Wires FileKeyStoreManager as "vaultSecrets" for local development.
+// Secrets live in the application's /opt folder, outside the code tree — see dev-secrets.env.template.
+// On ECS, replace this with AWSSecretsManager under the same CSpec name.
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "vaultSecrets",
+  "lazy": false,
+  "serviceScript": """
+    return new foam.core.security.FileKeyStoreManager.Builder(x)
+      .setSecretsPath("../var/dev-secrets.env")
+      .build();
+  """
+})

@@ -20,35 +20,35 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       max-width: 200px;
       overflow: auto;
     }
-    ^searchWrapper {
+    <<searchWrapper {
       padding: 0px 8px;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       width: 100%;
     }
-    ^searchBar{
+    <<searchBar{
       width: 100%
     }
-    ^ input[type='search']{
+    << input[type='search']{
       width: 100%;
     }
-    ^resetButton {
+    <<resetButton {
       float: right;
       background: none;
       color: $textBrand;
     }
-    ^resetButton:hover:not(:disabled) {
+    <<resetButton:hover:not(:disabled) {
       text-decoration: underline;
     }
-    ^resetButton:disabled {
+    <<resetButton:disabled {
       color: $textTertiary;
     }
-    ^colContainer {
+    <<colContainer {
       overflow-x: hidden;
       height: 100%;
       flex: 1;
@@ -538,30 +538,30 @@ foam.CLASS({
   ],
 
   css: `
-  ^selected {
+  <<selected {
     background: $blue50;
   }
-  ^some-padding {
+  <<some-padding {
     text-align: left;
     padding: 4px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  ^some-padding:hover {
+  <<some-padding:hover {
     background-color: $backgroundBrandTertiary;
     border-radius: 4px;
   }
-  ^label {
+  <<label {
     display: flex;
     align-items: center;
     justify-content: start;
     width: 100%;
   }
-  ^selection-buttons + ^selection-buttons {
+  <<selection-buttons + <<selection-buttons {
     padding: 8px;
   }
-  ^labelText {
+  <<labelText {
     flex: 1;
     overflow: hidden;
     padding-left: 8px;

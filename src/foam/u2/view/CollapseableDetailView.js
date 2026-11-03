@@ -20,11 +20,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^.expanded ^view {
+    <<.expanded <<view {
       margin: 8px 0;
     }
 
-    ^citation-view {
+    <<citation-view {
       width: 100%;
       display: flex;
       align-items: center;

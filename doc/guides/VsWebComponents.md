@@ -154,7 +154,7 @@ FOAM's U2/U3 fluent builder API was designed specifically around these requireme
 // A generic view that works for ANY FOAM model — no hand-authoring needed
 function render() {
   var self = this;
-  this.data.cls_.getAxiomsByClass(foam.core.Property).forEach(function(prop) {
+  this.data.cls_.getAxiomsByClass(foam.lang.Property).forEach(function(prop) {
     if ( prop.hidden ) return;
     self.start().add(prop.__).end();   // prop.__ = property + label + validation
   });

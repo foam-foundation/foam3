@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       min-height: 60px;
 
       background-color: $backgroundDefault;

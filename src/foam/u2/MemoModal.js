@@ -20,7 +20,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       border-radius: 3px;
       background-color: $backgroundDefault;
       /* Don't let the modal exceed the screen size, minus some margin. */
@@ -29,15 +29,15 @@ foam.CLASS({
       overflow-y: auto;
       /* The line below accounts for the top nav bar. */
     }
-    ^title {
+    <<title {
       padding: 32px 0px;
       font-size: 1.5em;
       font-weight: bold;
     }
-    ^main {
+    <<main {
       padding: 0px 32px;
     }
-    ^ .buttons {
+    << .buttons {
       padding: 32px;
       box-sizing: border-box;
       display: flex;

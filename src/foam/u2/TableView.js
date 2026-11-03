@@ -273,15 +273,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^sorting {
+    <<sorting {
       font-weight: bold;
     }
 
-    ^sort-direction {
+    <<sort-direction {
       display: none;
       margin-right: 8px;
     }
-    ^sorting ^sort-direction {
+    <<sorting <<sort-direction {
       display: initial;
     }
   `,

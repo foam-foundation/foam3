@@ -50,6 +50,7 @@ foam.CLASS({
               if ( newArg === shortCircuit ) return shortCircuit;
               args[i] = newArg;
               args.splice(j, 1);
+              j--;
             }
           }
         }
@@ -61,14 +62,6 @@ foam.CLASS({
       javaCode: `
         for ( Predicate predicate : getArgs() ) {
           predicate.prepareStatement(stmt);
-        }
-      `
-    },
-    {
-      name: 'authorize',
-      javaCode: `
-        for ( Predicate predicate : getArgs() ) {
-          predicate.authorize(x);
         }
       `
     }

@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ { 
+    << { 
       display: flex;
       flex-direction: column;
       gap: 1rem;
@@ -19,13 +19,13 @@ foam.CLASS({
       width: 100%;
       text-align: center;
     }
-    ^instructions {
+    <<instructions {
       display: inline-block;
       margin: 0 auto;
       max-width: 40rem;
       text-align: left;
     }
-    ^instructions li {
+    <<instructions li {
       margin: 0.5rem 0;
     }
   `,

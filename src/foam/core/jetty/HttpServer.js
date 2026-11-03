@@ -48,30 +48,33 @@ foam.CLASS({
     'jakarta.servlet.ServletContext',
     'org.apache.commons.io.IOUtils',
     'org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory',
+    'org.eclipse.jetty.compression.gzip.GzipCompression',
+    'org.eclipse.jetty.compression.server.CompressionConfig',
+    'org.eclipse.jetty.compression.server.CompressionHandler',
+    'org.eclipse.jetty.ee11.proxy.ProxyServlet',
+    'org.eclipse.jetty.ee11.proxy.ProxyServlet.Transparent',
+    'org.eclipse.jetty.ee11.servlet.ServletContextHandler',
+    'org.eclipse.jetty.ee11.servlet.ServletHolder',
+    'org.eclipse.jetty.ee11.websocket.server.JettyServerUpgradeResponse',
+    'org.eclipse.jetty.ee11.websocket.server.JettyServerUpgradeRequest',
+    'org.eclipse.jetty.ee11.websocket.server.JettyWebSocketCreator',
+    'org.eclipse.jetty.ee11.websocket.server.config.JettyWebSocketServletContainerInitializer',
+    'org.eclipse.jetty.ee11.websocket.server.config.JettyWebSocketServletContainerInitializer.Configurator',
+    'org.eclipse.jetty.ee11.websocket.server.JettyWebSocketServerContainer',
     'org.eclipse.jetty.io.ConnectionStatistics',
     'org.eclipse.jetty.http.pathmap.ServletPathSpec',
     'org.eclipse.jetty.http2.HTTP2Cipher',
     'org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory',
-    'org.eclipse.jetty.proxy.ProxyServlet',
-    'org.eclipse.jetty.proxy.ProxyServlet.Transparent',
     'org.eclipse.jetty.server.AllowedResourceAliasChecker',
     'org.eclipse.jetty.server.*',
     'org.eclipse.jetty.server.handler.InetAccessHandler',
-    'org.eclipse.jetty.server.handler.gzip.GzipHandler',
     'org.eclipse.jetty.server.handler.StatisticsHandler',
-    'org.eclipse.jetty.servlet.ServletContextHandler',
-    'org.eclipse.jetty.servlet.ServletHolder',
     'org.eclipse.jetty.util.component.Container',
     'org.eclipse.jetty.util.resource.Resource',
+    'org.eclipse.jetty.util.resource.ResourceFactory',
     'org.eclipse.jetty.util.ssl.SslContextFactory',
     'org.eclipse.jetty.util.thread.QueuedThreadPool',
     'org.eclipse.jetty.util.thread.ThreadPool',
-    'org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse',
-    'org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest',
-    'org.eclipse.jetty.websocket.server.JettyWebSocketCreator',
-    'org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer',
-    'org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer.Configurator',
-    'org.eclipse.jetty.websocket.server.JettyWebSocketServerContainer',
   ],
 
   properties: [
@@ -145,7 +148,7 @@ foam.CLASS({
     {
       class: 'StringArray',
       name: 'excludedGzipPaths',
-      documentation: 'Jetty style paths to exclude from gzipping: https://eclipse.dev/jetty/javadoc/jetty-12/org/eclipse/jetty/server/handler/gzip/GzipHandler.html#addExcludedPaths(java.lang.String...)',
+      documentation: 'Jetty style paths to exclude from gzipping: a leading ^ makes a Java regex, otherwise a Servlet url-pattern. https://javadoc.jetty.org/jetty-12.1/org/eclipse/jetty/compression/server/CompressionConfig.Builder.html#compressExcludePath(java.lang.String)',
       javaFactory: 'return new String[] { "^.*/manifest.json", "^.*/logo.svg", "^.*/favicon*" };' // java regex format
     },
     {
@@ -215,21 +218,22 @@ foam.CLASS({
       args: [
         {
           name: 'handler',
-          javaType: 'org.eclipse.jetty.servlet.ServletContextHandler'
+          javaType: 'org.eclipse.jetty.ee11.servlet.ServletContextHandler'
         }
       ],
       javaCode: `
+        ResourceFactory resourceFactory = ResourceFactory.of(handler);
         String root = System.getProperty("core.webroot");
-        if ( ! SafetyUtil.isEmpty(root) ) return handler.newResource(root);
+        if ( ! SafetyUtil.isEmpty(root) ) return resourceFactory.newResource(root);
 
         // Get webroot from the binary JAR
         URL webrootURL = this.getClass().getResource("/webroot/");
-        if ( webrootURL != null ) return handler.newResource(webrootURL.toURI());
+        if ( webrootURL != null ) return resourceFactory.newResource(webrootURL.toURI());
 
         URL errorURL = this.getClass().getResource("/webroot/error.html");
         if ( errorURL == null ) throw new RuntimeException("Missing /webroot resources");
 
-        return handler.newResource(errorURL.toURI().resolve("."));
+        return resourceFactory.newResource(errorURL.toURI().resolve("."));
       `
     },
     {
@@ -238,7 +242,7 @@ foam.CLASS({
       args: [
         {
           name: 'handler',
-          javaType: 'org.eclipse.jetty.servlet.ServletContextHandler'
+          javaType: 'org.eclipse.jetty.ee11.servlet.ServletContextHandler'
         }
       ],
       javaCode: `
@@ -298,10 +302,6 @@ foam.CLASS({
 
         ServletContextHandler handler = new ServletContextHandler();
 
-        if ( getEnableWebsockets() ) {
-          org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer.configure(handler, null);
-        }
-
         configureWebrootBaseResource(handler);
         handler.setWelcomeFiles(getWelcomeFiles());
 
@@ -336,8 +336,8 @@ foam.CLASS({
           holder.setInitParameter("prefix",  mapping.getPrefix());
         }
 
-        org.eclipse.jetty.servlet.ErrorPageErrorHandler errorHandler =
-          new org.eclipse.jetty.servlet.ErrorPageErrorHandler();
+        org.eclipse.jetty.ee11.servlet.ErrorPageErrorHandler errorHandler =
+          new org.eclipse.jetty.ee11.servlet.ErrorPageErrorHandler();
 
         for ( foam.core.servlet.ErrorPageMapping errorMapping : getErrorMappings() ) {
           if ( errorMapping.getErrorCode() != 0 ) {
@@ -348,7 +348,7 @@ foam.CLASS({
         }
 
         for ( foam.core.servlet.FilterMapping mapping : getFilterMappings() ) {
-          org.eclipse.jetty.servlet.FilterHolder holder =
+          org.eclipse.jetty.ee11.servlet.FilterHolder holder =
             handler.getServletHandler().addFilterWithMapping(
               mapping.getFilterClass(),
               mapping.getPathSpec(),
@@ -401,22 +401,33 @@ foam.CLASS({
         // initialilize
         ipAccessDAO.select(new IPAccessAddSink(ipAccessHandler));
 
-        // Install GzipHandler to transparently gzip .js, .svg and .html files
-        GzipHandler gzipHandler = new GzipHandler();
-        gzipHandler.addIncludedMimeTypes(
+        // Install a CompressionHandler to transparently gzip .js, .svg and .html files.
+        // Jetty 12.1 deprecated GzipHandler for removal in favour of CompressionHandler.
+        // Gzip is registered explicitly. Otherwise CompressionHandler serves every
+        // compression jar it finds in lib/, so adding a brotli jar for some other
+        // reason would quietly start sending brotli responses.
+        CompressionConfig.Builder compressionConfig = CompressionConfig.builder();
+        for ( String mimeType : new String[] {
           "application/javascript",
           "application/json",
           "application/json;charset=utf-8",
           "image/svg+xml",
           "text/html",
           "text/javascript"
-        );
-        gzipHandler.addExcludedPaths(getExcludedGzipPaths());
-        gzipHandler.addIncludedMethods("GET", "POST");
-        gzipHandler.setInflateBufferSize(1024*64); // ???: What size is ideal?
-        gzipHandler.setHandler(ipAccessHandler);
+        } ) {
+          compressionConfig.compressIncludeMimeType(mimeType);
+        }
+        for ( String path : getExcludedGzipPaths() ) {
+          compressionConfig.compressExcludePath(path);
+        }
+        compressionConfig.compressIncludeMethod("GET");
+        compressionConfig.compressIncludeMethod("POST");
 
-        server.setHandler(gzipHandler);
+        CompressionHandler compressionHandler = new CompressionHandler(ipAccessHandler);
+        compressionHandler.putCompression(new GzipCompression());
+        compressionHandler.putConfiguration("/", compressionConfig.build());
+
+        server.setHandler(compressionHandler);
 
         this.configHttps(server);
 

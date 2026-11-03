@@ -14,7 +14,7 @@ foam.CLASS({
   imports: ['returnExpandedCSS', 'theme'],
 
   css: `
-    ^ {
+    << {
       display: inline-flex;
       justify-content: center;
       align-items: center;
@@ -23,14 +23,14 @@ foam.CLASS({
       width: -webkit-max-content;
       width: -moz-max-content;
     }
-    ^pill{
+    <<pill{
       border-radius: 11.2px;
       border: 1px solid;
     }
-    ^icon{
+    <<icon{
       margin-right: 4px;
     }
-    ^center {
+    <<center {
       justify-content: center;
     }
   `,

@@ -10,12 +10,12 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    << {
       width: 100%;
       border-radius: 4px;
       overflow: auto;
     }
-    ^.disablePadding {
+    <<.disablePadding {
       padding: 0 !important;
     }
   `,

@@ -26,50 +26,50 @@ foam.CLASS({
 
   css: `
     /* Base table styling */
-    ^table {
+    <<table {
       border-collapse: collapse;
       border-spacing: 0;
       border: 1px solid $borderStrong;
     }
 
     /* Row styling */
-    ^tr {
+    <<tr {
       transition: background-color 0.2s ease;
     }
 
     /* Header row */
-    ^tr:first-child {
+    <<tr:first-child {
       background-color: $backgroundDefault;
     }
 
     /* Cell styling - both TH and TD */
-    ^th, ^td {
+    <<th, <<td {
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
       border: 1px solid $borderDefault;
     }
 
     /* Header cells */
-    ^th {
+    <<th {
       background-color: $backgroundDefault;
       font-weight: bold;
       text-align: left;
       text-wrap-mode: nowrap;
     }
 
-    ^ td:hover {
+    << td:hover {
       font-weight: $font-medium;
       background: $highlightCell;
       color: $highlightCell$foreground;
     }
 
-    ^highlighted-col {
+    <<highlighted-col {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }
 
     /* Row highlighting */
-    ^highlighted-row, ^highlighted-row > th, ^highlighted-row > td {
+    <<highlighted-row, <<highlighted-row > th, <<highlighted-row > td {
       background: $highlightRowCol;
       color: $highlightRowCol$foreground;
     }

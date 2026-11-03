@@ -129,7 +129,7 @@ foam.CLASS({
           response_type: 'code',
           client_id: provider.clientId,
           scope: 'openid email',
-          redirect_uri: location.origin + "/service/oauth",
+          redirect_uri: this.window.location.origin + "/service/oauth",
           nonce: nonce,
           state: JSON.stringify({
             session_id: this.sessionID,
@@ -151,8 +151,8 @@ foam.CLASS({
         try {
           await new Promise((resolve, reject) => {
             let listener = (e) => {
-              if (e.origin == location.origin && e.data && e.data.sessionID == this.sessionID) {
-                window.removeEventListener('message', listener);
+              if (e.origin == this.window.location.origin && e.data && e.data.sessionID == this.sessionID) {
+                this.window.removeEventListener('message', listener);
                 if (e.data.msg == "success") {
                   authwindow.close();
                   resolve();
@@ -162,9 +162,9 @@ foam.CLASS({
               }
             };
 
-            window.addEventListener('message', listener);
+            this.window.addEventListener('message', listener);
 
-            let authwindow = window.open(authURL, 'OAuthWindow');
+            let authwindow = this.window.open(authURL, 'OAuthWindow');
           });
         } catch(e) {
           this.notify(e.message, '', this.LogLevel.ERROR, true);

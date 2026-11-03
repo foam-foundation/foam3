@@ -15,12 +15,13 @@ foam.POM({
   ],
   files: [
     { name: "EmailServiceConfig",             flags: "js|java" },
-    { name: "MicrosoftGraphEmailAgent",       flags: "js|java" }
+    { name: "MicrosoftGraphEmailAgent",       flags: "js|java" },
+    { name: "test/MicrosoftGraphEmailAgentTest", flags: "js&test|java&test" }
+  ],
+  journalFiles: [
+    { name: "test/tests",                     flags: "test" }
   ],
   javaDependencies: [
-    'com.azure:azure-identity:1.15.4',
-    'com.microsoft.ews-java-api:ews-java-api:2.0',
-    'javax.xml.bind:jaxb-api:2.3.1',
-    'javax.xml.ws:jaxws-api:2.3.1'
+    'com.azure:azure-identity:1.15.4 -io.netty:netty-resolver-dns-native-macos -io.netty:netty-transport-native-epoll -io.netty:netty-transport-native-kqueue'
   ]
 });

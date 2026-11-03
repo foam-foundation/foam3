@@ -52,21 +52,21 @@ foam.CLASS({
   ],
 
   css: `
-    ^user, ^summary {
+    <<user, <<summary {
       color: $textSecondary;
       font-size: 12px;
       margin-left: 12px;
     }
-    ^body {
+    <<body {
       padding: 0 14px 12px;
     }
-    ^createdLabel {
+    <<createdLabel {
       padding: 10px 14px;
       color: $success700;
       font-style: italic;
       font-size: 13px;
     }
-    ^diffRow {
+    <<diffRow {
       display: grid;
       grid-template-columns: 220px 1fr 1fr;
       gap: 12px;
@@ -74,37 +74,37 @@ foam.CLASS({
       align-items: start;
       border-bottom: 1px solid $borderLight;
     }
-    ^diffRow:last-child {
+    <<diffRow:last-child {
       border-bottom: none;
     }
-    ^propName {
+    <<propName {
       font-weight: $font-medium;
       word-break: break-word;
     }
-    ^wide {
+    <<wide {
       grid-column: 2 / span 2;
     }
     /* CopyBorder lays out [content][button] as a centered row; pin the button
        to the block's top-right corner instead. div^copy outranks the border's
        own single-class rules. */
-    div^copy {
+    div<<copy {
       display: block;
       position: relative;
     }
-    div^copy > span:first-child {
+    div<<copy > span:first-child {
       display: block;
     }
-    div^copy > :last-child {
+    div<<copy > :last-child {
       position: absolute;
       top: 4px;
       right: 4px;
     }
-    ^values {
+    <<values {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
     }
-    ^oldValue, ^newValue, ^lines {
+    <<oldValue, <<newValue, <<lines {
       border-radius: 4px;
       font-family: monospace;
       font-size: 11px;
@@ -112,44 +112,44 @@ foam.CLASS({
       word-break: break-all;
       overflow: auto;
     }
-    ^oldValue, ^newValue {
+    <<oldValue, <<newValue {
       padding: 6px 8px;
       max-height: 220px;
     }
-    ^oldValue {
+    <<oldValue {
       background: $destructive50;
       color: $destructive700;
     }
-    ^newValue {
+    <<newValue {
       background: $success50;
       color: $success700;
     }
-    ^lines {
+    <<lines {
       border: 1px solid $borderLight;
       max-height: 60vh;
     }
-    ^line {
+    <<line {
       padding: 0 8px;
     }
-    ^lineDel {
+    <<lineDel {
       background: $destructive50;
       color: $destructive700;
     }
-    ^lineAdd {
+    <<lineAdd {
       background: $success50;
       color: $success700;
     }
-    ^lineCtx {
+    <<lineCtx {
       color: $textSecondary;
     }
-    ^lineSkip {
+    <<lineSkip {
       color: $textSecondary;
       font-style: italic;
       text-align: center;
       background: $backgroundHover;
       cursor: pointer;
     }
-    ^count {
+    <<count {
       margin-top: 2px;
       font-size: 10px;
       color: $textSecondary;

@@ -128,7 +128,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: stretch;
       display: inline-grid;
       flex-direction: column;
@@ -137,7 +137,7 @@ foam.CLASS({
       z-index: 1;
       width: 100%;
     }
-    ^label {
+    <<label {
       color: $textTertiary;
       flex-grow: 1;
       font-size: inherit;
@@ -145,10 +145,10 @@ foam.CLASS({
       transition: font-size 0.5s, top 0.5s;
       z-index: 0;
     }
-    ^no-label {
+    <<no-label {
       padding-top: 8px;
     }
-    ^inner {
+    <<inner {
       background: transparent;
       border-bottom: 1px solid $borderLight;
       border-left: none;
@@ -164,11 +164,11 @@ foam.CLASS({
       z-index: 1;
     }
 
-    ^invalid ^inner {
+    <<invalid <<inner {
       border-bottom: 2px solid $red400;
       margin-bottom: 4px;
     }
-    ^validation-error {
+    <<validation-error {
       color: $red400;
     }
   `

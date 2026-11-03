@@ -30,14 +30,14 @@ foam.CLASS({
   documentation: 'View to upload file and assign category',
 
   css: `
-    ^ {
+    << {
       background: $backgroundDefault;
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
 
-    ^button {
+    <<button {
       text-align: right;
     }
   `,

@@ -28,21 +28,21 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'NO', message: 'No' }
+    { name: 'NO', messageMap: { en: 'No', fr: 'Non' } }
   ],
 
   css: `
-    ^ {
+    << {
       padding: 32px 24px;
     }
-    ^group-title {
+    <<group-title {
       color: $textDefault;
       margin-bottom: 24px;
     }
-    ^row + ^row{
+    <<row + <<row{
       margin-top: 16px;
     }
-    ^row + ^group-title {
+    <<row + <<group-title {
       margin-top: 24px;
     }
   `,

@@ -36,26 +36,26 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
       justify-content: center;
       flex-wrap: wrap;
       gap: 0.4rem;
     }
-    ^helptext {
+    <<helptext {
       text-align: center;
     }
-    ^tipAction.foam-u2-ActionView-text{
+    <<tipAction.foam-u2-ActionView-text{
       color: $tipActionColor;
     }
-    ^tipAction.foam-u2-ActionView-text svg { fill: $tipActionColor; }
+    <<tipAction.foam-u2-ActionView-text svg { fill: $tipActionColor; }
 
-    ^tipAction.foam-u2-ActionView-text:hover:not(:disabled) {
+    <<tipAction.foam-u2-ActionView-text:hover:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
     }
 
-    ^tipAction.foam-u2-ActionView-text:active:not(:disabled) {
+    <<tipAction.foam-u2-ActionView-text:active:not(:disabled) {
       background-color: $buttonPrimaryLightColor;
       border-color: $tipActionColor;
     }

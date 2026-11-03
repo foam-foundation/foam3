@@ -28,17 +28,17 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       margin-top: 15pt;
       border: 3pt solid $destructive400;
       border-radius: 6px;
     }
-    ^title {
+    <<title {
       background-color: $destructive400;
       color: $white;
       padding: 3px 11px;
     }
-    ^ .foam-u2-Accordion.expanded {
+    << .foam-u2-Accordion.expanded {
       border-bottom: 0;
       border-left: 0;
       border-right: 0;

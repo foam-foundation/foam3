@@ -25,7 +25,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^base {
+    <<base {
       box-sizing: content-box;
       background-color: $backgroundDefault;
       border-radius: 5px;
@@ -37,22 +37,22 @@ foam.CLASS({
       justify-content: center;
       width: 100%;
     }
-    ^ .foam-u2-borders-CardBorder {
+    << .foam-u2-borders-CardBorder {
       min-height: auto;
     }
-    .foam-u2-borders-CardBorder^large-card {
+    .foam-u2-borders-CardBorder<<large-card {
       min-height: 2.5vh;
     }
-    ^ .foam-u2-borders-CardBorder^selected {
+    << .foam-u2-borders-CardBorder<<selected {
       border-color: $borderBrand;
     }
 
-    ^ .foam-u2-borders-CardBorder^disabled {
+    << .foam-u2-borders-CardBorder<<disabled {
       background-color: $backgroundTertiary;
       color: $textTertiary;
     }
 
-    ^ .foam-u2-borders-CardBorder^selected-disabled {
+    << .foam-u2-borders-CardBorder<<selected-disabled {
       border-color: $borderBrandXLight;
       background-color: $backgroundTertiary;
       color: $textTertiary;

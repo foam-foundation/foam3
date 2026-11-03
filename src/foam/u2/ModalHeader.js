@@ -20,7 +20,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: row;
       align-items: center;
@@ -30,12 +30,12 @@ foam.CLASS({
       box-sizing: border-box;
       border-bottom: solid 1px $borderDefault;
     }
-    ^title{
+    <<title{
       color: $textDefault;
       margin: 0;
       flex: none;
     }
-    ^ .foam-u2-ActionView-closeModal{
+    << .foam-u2-ActionView-closeModal{
       background: transparent !important;
       margin-top: 0;
       border: none !important;

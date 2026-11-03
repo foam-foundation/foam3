@@ -19,11 +19,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .h200 {
+    << .h200 {
       text-align: center;
       margin: 32px 0;
     }
-    ^generic-container {
+    <<generic-container {
       display: flex;
       flex-direction: column;
       gap: 24px;

@@ -16,17 +16,17 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
-    ^icon {
+    <<icon {
       height: 14px;
       width: 14px;
       position: absolute;
       margin-left: 10px;
       margin-top: 11px;
     }
-    ^input {
+    <<input {
       padding-left: 32px !important;
     }
   `,

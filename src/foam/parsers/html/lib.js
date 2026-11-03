@@ -507,6 +507,20 @@ foam.SCRIPT({
     'uuml': 'ü',
     'yacute': 'ý',
     'yen': '¥',
+    'mdash':  '—',
+    '#8212':  '—',
+    'ndash':  '–',
+    '#8211':  '–',
+    'hellip': '…',
+    '#8230':  '…',
+    'lsquo':  '‘',
+    'rsquo':  '’',
+    'ldquo':  '“',
+    'rdquo':  '”',
+    '#8216':  '‘',
+    '#8217':  '’',
+    '#8220':  '“',
+    '#8221':  '”',
   };
   var escapeMap = {};
   for ( var key in unescapeMap ) {

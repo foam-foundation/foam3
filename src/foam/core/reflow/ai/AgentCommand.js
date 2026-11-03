@@ -84,9 +84,9 @@ foam.CLASS({
       var systemPrompt = await this.buildSystemPrompt_();
 
       // ── 2. Call LLMService ──
-      var request = foam.core.ai.CompletionRequest.create({
+      var request = foam.ai.llm.CompletionRequest.create({
         prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
-        options: foam.core.ai.LLMOptions.create({
+        options: foam.ai.llm.LLMOptions.create({
           systemPrompt: systemPrompt,
           model:        this.model,
           temperature:  0.2  // low temp for structured command output

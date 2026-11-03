@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'Info',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'appConfig', 'flow', 'group', 'subject', 'theme' ],
+  imports: [ 'appConfig', 'flow', 'group', 'subject', 'theme', 'window' ],
 
   properties: [
     [ 'description', 'Info about the system' ]
@@ -39,7 +39,7 @@ Flow:            ${flow.name || 'Untitled'} v${flow.version || ''}
 Hostname:        ${health.hostname}
 Application:     ${health.appName}
 Version:         ${health.version}
-Address:         ${window.location.origin}
+Address:         ${x.window.location.origin}
 Port:            ${health.port}
 Processors:      ${health.availableProcessors}
 Runtime:         ${health.runtime}

@@ -2,6 +2,7 @@ p({
   class: "foam.core.menu.Menu",
   id: "licenses",
   label :"Licenses",
+  icon: "/images/regulation.svg",
   handler: {
     class: "foam.core.menu.DAOMenu2",
     config: {

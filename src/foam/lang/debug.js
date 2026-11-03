@@ -209,7 +209,7 @@ foam.SCRIPT({
               aCls;
           } else if ( foam.lang.Method.isSubClass(prevA.cls_) && foam.lang.Method.isSubClass(a.cls_) ) {
             // NOP
-          } else if ( prevA.cls_ ) {
+          } else if ( prevA.cls_ && ! prevA.cls_.isSubClass(a.cls_) /* Allow changes to subclasses */ ) {
             // FUTURE: make error when supression supported
             console.warn(
                 'Change of Axiom ' +
@@ -416,6 +416,11 @@ foam.CLASS({
 
   methods: [
     function init() {
+      // __DO_NOT_WARN_MISSING_CONTEXT_VALUE__ is set in HTTPBox to request we skip warnings about missing imports here.
+      // This is to be expected when first serializing objects from the network and shouldn't be a warning.
+      // If those objects need to be used for something where their imports: are required, then they should
+      // be cloned into a suitable context.
+      if ( this.__context__.__DO_NOT_WARN_MISSING_CONTEXT_VALUE__ ) return;
       var is = this.cls_.getAxiomsByClass(foam.lang.Import);
       for ( var i = 0 ; i < is.length ; i++ ) {
         var imp = is[i];
@@ -450,6 +455,7 @@ foam.CLASS({
     }
   ]
 });
+
 
 foam.CLASS({
   package: 'foam.lang',

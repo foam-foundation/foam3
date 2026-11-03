@@ -12,22 +12,22 @@ foam.CLASS({
   imports: ['displayWidth?'],
 
   css: `
-    ^ {
+    << {
       width: 100%;
       display: flex;
       flex-direction: column;
     }
-    ^container {
+    <<container {
       display: grid;
       gap: 12px 8px;
     }
-    ^fullWidth {
+    <<fullWidth {
       grid-column: span 12;
     }
-    ^halfWidth {
+    <<halfWidth {
       grid-column: span 6;
     }
-    ^halfWidth.foam-u2-PropertyBorder {
+    <<halfWidth.foam-u2-PropertyBorder {
       justify-content: flex-start;
     }
   `,

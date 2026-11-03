@@ -11,7 +11,7 @@ foam.CLASS({
   documentation: `Used to display an Iframe with a breadcrumb border, especially useful for displaying full page documents like T&C`,
   requires: ['foam.u2.borders.BreadcrumbBorder'],
   css: `
-    ^ ^frame {
+    << <<frame {
       border: none;
       max-width: 100%;
       box-sizing: border-box;
@@ -19,7 +19,7 @@ foam.CLASS({
       height: 100%;
       padding: 0;
     }
-    ^resize {
+    <<resize {
       resize: both;
     }
   `,

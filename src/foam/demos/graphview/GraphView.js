@@ -19,7 +19,7 @@ foam.CLASS( {
   ],
 
   css: `
-              ^ {
+              << {
                 background: #607d8b;
                 border: none;
                 border-radius: 2px;
@@ -30,15 +30,15 @@ foam.CLASS( {
                 text-align: center;
                 min-width: 100px;
               }
-              ^:hover {
+              <<:hover {
                 background: #eee;
                 color: #607d8b;
               }
-                  ^:Box {
+                  <<:Box {
                 background: #eee;
                 color: #607d8b;
               }
-                  ^ .foam-u2-ActionView-onClick{
+                  << .foam-u2-ActionView-onClick{
                 position: relative;
                 top: -40px;
                 width: 125px;

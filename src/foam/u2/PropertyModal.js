@@ -27,7 +27,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^body {
+    <<body {
       display: flex;
       flex-direction: column;
       gap: 1rem;

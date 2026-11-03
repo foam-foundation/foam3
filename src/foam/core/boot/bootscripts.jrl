@@ -33,6 +33,10 @@ p({
   if ( port != null ) {
     appConfig.setUrl(appConfig.getUrl().replace("8080", port));
   }
+  http = x.get("http");
+  if ( http.getEnableHttps() ) {
+    appConfig.setUrl(appConfig.getUrl().replace("http:", "https:"));
+  }
   logger.log(new Object[] {"AppConfig", appConfig.getName(), appConfig.getVersion()});
   print("AppConfig "+appConfig.getName()+" "+appConfig.getVersion());
   """

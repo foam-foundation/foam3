@@ -18,7 +18,7 @@ foam.CLASS({
   documentation: 'View displaying history',
 
   css: `
-    ^ {
+    << {
       height: 370px;
       background: $backgroundDefault;
       position: relative;
@@ -29,16 +29,16 @@ foam.CLASS({
       padding-right: 20px;
       z-index: 0;
     }
-    ^ h2 {
+    << h2 {
       height: 20px;
       opacity: 0.6;
       text-align: left;
       color: $textDefault;
     }
-    ^ .timelineRecord {
+    << .timelineRecord {
       position: relative;
     }
-    ^ .timeline {
+    << .timeline {
       width: 2px;
       height: 100%;
       background: $backgroundInverseTertiary;
@@ -49,7 +49,7 @@ foam.CLASS({
       margin-bottom: 20px;
       content: '';
     }
-    ^ > div:last-of-type .timeline {
+    << > div:last-of-type .timeline {
       display: none;
     }
   `,

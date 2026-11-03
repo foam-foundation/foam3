@@ -7,6 +7,7 @@ the PR and costs a round after it.
 |---|---|
 | Never write a value that is already the default | delete it; does anything change? |
 | Use the one-liner the framework already has | grep the base class before writing three lines |
+| Use the value you hold; never re-derive it | is the class, object or id already in a local? ask it directly |
 | Extend the class that exists; never build a parallel one | `grep -r "name: '<Thing>'" src/` first |
 | The diff contains only the change | every hunk traces to the ticket |
 | Nothing left from debugging | `grep -n 'console.log\|println\|debugger\|///'` on the diff |
@@ -22,6 +23,12 @@ Three hand-written lines where a fluent call exists is the second most common co
 Don't: `.start().end()` with a slot, `if ( cond ) el.show()`, `enableClass(c, s$.map(v => ! v))`, copying fields one by one, `OR(EQ(p,a), EQ(p,b))`, `typeof a === 'string'`, `sort((a,b) => a.order - b.order)`
 Do:    `.tag('', null, slot$)`, `.show(cond$)`, `.enableClass(c, s$, true)`, `copyFrom(obj)`, `IN(p, [a,b])`, `foam.String.isInstance(a)`, `sort(Property.ORDER.compare)`
 Review asked: "You can just do this.addClass(), since if no arg is provided it defaults to this.myClass()." (PR #3534); "Isn't this already the default factory: for FObjectArrays?" (PR #1878)
+
+### Use the value you hold; never re-derive it
+When the class, object or id is already in a local, ask it directly. Routing through a wrapper that resolves it again later adds a layer the reader has to unwind, and a cache or fallback they have to check.
+Don't: `NamedProperty.create(name).specialize(cls)` when `cls` is in hand; a `find(id)` for an object the caller passed in; a context lookup for a value already in an argument
+Do:    `cls.getAxiomByNameOrShortNameOrAlias(name)`; use the object; use the argument
+Review asked: "Isn't this a round-about way of doing it? If we know the cls we could just call getAxiomByName()?" (PR #5791)
 
 ### Extend the class that exists; never build a parallel one
 A second class with the same job splits every future fix in two and loses theme, permission, and a11y behaviour the original already carries.

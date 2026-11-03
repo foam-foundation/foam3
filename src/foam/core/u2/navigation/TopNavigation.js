@@ -36,30 +36,30 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
-      background: $background;
+    << {
+      background: $backgroundBrand;
       width: 100%;
       min-width: 992px;
       height: 60px;
       color: $white;
       padding-top: 5px;
     }
-    ^ .logged-in-container {
+    << .logged-in-container {
       display: flex;
     }
-    ^ .menuBar {
+    << .menuBar {
       flex-grow: 2;
       overflow: auto;
       white-space: nowrap;
       margin-left: 60px;
     }
-    ^ .menuBar > div > ul {
+    << .menuBar > div > ul {
       margin-top: 0;
       padding-left: 0;
       font-weight: $font-extra-light;
       color: $white;
     }
-    ^ .foam-core-menu-MenuBar li {
+    << .foam-core-menu-MenuBar li {
       display: inline-block;
       cursor: pointer;
       -webkit-user-select: none;
@@ -68,7 +68,7 @@ foam.CLASS({
       -ms-user-select: none;
       user-select: none;
     }
-    ^ .menuItem {
+    << .menuItem {
       display: inline-block;
       padding: 20px 0 5px 0px;
       cursor: pointer;
@@ -79,24 +79,24 @@ foam.CLASS({
       -o-transition: all .15s ease-in-out;
       transition: all .15s ease-in-out;
     }
-    ^ .menuItem:hover, ^ .menuItem.hovered {
+    << .menuItem:hover, << .menuItem.hovered {
       cursor: pointer;
       padding-bottom: 5px;
-      border-bottom: 1px solid white;
+      border-bottom: 1px solid $white;
     }
-    ^ .selected {
+    << .selected {
       border-bottom: 4px solid $borderBrandXLight!important;
       padding-bottom: 5px;
       text-shadow: 0 0 0px white, 0 0 0px white;
     }
-    ^ .welcome-label {
+    << .welcome-label {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 100%;
       height: calc(100% - 5px); /* Compensate for 5px padding-top of topnav */
     }
-    ^ .menuBar{
+    << .menuBar{
       width: auto;
       overflow: auto;
       white-space: nowrap;

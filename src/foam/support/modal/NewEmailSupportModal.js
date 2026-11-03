@@ -35,23 +35,23 @@ foam.CLASS({
   ],
 
   css:`
-    ^ {
+    << {
       height: 240px;
     }
-    ^ .title {
+    << .title {
       margin-left: 20px;
       width: 198px;
       height: 40px;
       text-align: left;
       color: #ffffff;
     }
-    ^ .Mask {
+    << .Mask {
       width: 448px;
       height: 231px;
       border-radius: 2px;
       background-color: $backgroundDefault;
     }
-    ^ .Rectangle-7 {
+    << .Rectangle-7 {
       float: left;
       width: 135px;
       height: 40px;
@@ -60,7 +60,7 @@ foam.CLASS({
       box-shadow: 0 0 1px 0 rgba(9, 54, 73, 0.8);
       text-align: center;
     }
-    ^ .Rectangle-8 {
+    << .Rectangle-8 {
       width: 135px;
       height: 40px;
       border-radius: 2px;
@@ -69,13 +69,13 @@ foam.CLASS({
       text-align: center;
       color: #ffffff;
     }
-    ^ .div {
+    << .div {
       margin-top: 40px;
     }
-    ^ .div2 {
+    << .div2 {
       padding: 20px;
     }
-    ^ .input-wide{
+    << .input-wide{
       width: 408px;
       height: 40px;
       margin-top: 10px;

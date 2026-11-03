@@ -21,7 +21,7 @@ foam.CLASS({
 
   documentation: `
     DAO decorator that handles different lifecycle states
-    (PENDING, REJECTED, APPROVED & DELETED) for objects
+    (PENDING, REJECTED, ACTIVE, DELETED & DISABLED) for objects
 
     In the case of remove_, LifecycleAwareDAO marks object as DELETED instead of actually removing
     the object from DAO then returns thus it should be placed at the end

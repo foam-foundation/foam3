@@ -35,15 +35,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       --foamMargin: 20px;
     }
 
-    ^mainView > * > *:not(:last-child):not(^heading) {
+    <<mainView > * > *:not(:last-child):not(<<heading) {
       margin-bottom: 40px;
     }
 
-    ^rightside {
+    <<rightside {
       --actionBarTbPadding: 13px;
       --buttonHeight: 38px;
       --actionBarHeight: calc(
@@ -53,7 +53,7 @@ foam.CLASS({
       position: relative;
     }
 
-    ^ ^rightside ^entry, ^ ^rightside ^hide-X-entry {
+    << <<rightside <<entry, << <<rightside <<hide-X-entry {
       flex-grow: 1;
       overflow-y: auto;
       padding: var(--tbPadding) var(--lrPadding);
@@ -61,7 +61,7 @@ foam.CLASS({
       /* padding-bottom: calc(var(--lrPadding) + var(--actionBarHeight)) */
     }
 
-    ^rightside ^bottomnav {
+    <<rightside <<bottomnav {
       align-items: center;
       background-color: $backgroundDefault;
       backdrop-filter: blur(5px);
@@ -72,13 +72,13 @@ foam.CLASS({
       padding: var(--actionBarTbPadding) var(--lrPadding);
     }
 
-    ^heading {
+    <<heading {
       display: flex;
       align-items: center;
       margin-bottom: 40px;
     }
 
-    ^network-failure-banner {
+    <<network-failure-banner {
       backdrop-filter: blur(10px);
       background-color: $destructive500;
       border-radius: 8px;
@@ -88,10 +88,10 @@ foam.CLASS({
       position: sticky;
       text-align: center;
       top: 0;
-      z-index: 1000;
+      z-index: $z-10;
     }
 
-    ^hide {
+    <<hide {
       display: none !important;
     }
   `,

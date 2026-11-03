@@ -23,15 +23,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       box-sizing: border-box;
     }
-    ^ .bg {
+    << .bg {
       border-radius: 2px;
       background-color: $backgroundDefault;
       padding-bottom: 30px;
     }
-    ^ .company-name {
+    << .company-name {
       margin-right: 10px;
       float: left;
       text-align: left;
@@ -40,20 +40,20 @@ foam.CLASS({
       padding-top: 10px;
       padding-right: 0px;
     }
-    ^ .date {
+    << .date {
       line-height: 0.8;
       text-align: left;
       color: #a4b3b8;
       padding: 14px 14px 0 0;
       display: inline-block;
     }
-    ^ .text {
+    << .text {
       text-align: left;
       color: $textDefault;
       margin-left:20px;
       padding: 30px 0 0 60px;
     }
-    ^ .person {
+    << .person {
       width: 40;
       height: 40px;
       object-fit: contain;
@@ -62,7 +62,7 @@ foam.CLASS({
       margin-left: 10px;
       padding-left: 10px;
     }
-    ^ .tb {
+    << .tb {
       display: inline-block;
       float: left;
       width: 0px;
@@ -71,10 +71,10 @@ foam.CLASS({
       margin: 1px;
       border: 0;
     }
-    ^ .spaceline {
+    << .spaceline {
       padding-top: 15px;
     }
-    ^ .internal-status {
+    << .internal-status {
       display: inline-block;
       height: 16px;
       padding: 2px 8px 2px 8px;

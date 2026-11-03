@@ -46,7 +46,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: center;
       box-sizing: border-box;
       border: 2px dashed $borderDefault;
@@ -59,61 +59,61 @@ foam.CLASS({
       text-align: center;
       width: 100%;
     }
-    ^:focus {
+    <<:focus {
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
-    ^instruction-container.selection {
+    <<instruction-container.selection {
       margin-bottom: 16px;
     }
-    ^input {
+    <<input {
       -webkit-appearance: none;
       appearance: none;
       opacity: 0;
       position: absolute;
       z-index: -1;
     }
-    ^link, ^link:hover {
+    <<link, <<link:hover {
       color: $textBrand;
     }
-    ^input:focus + ^instruction-container > ^browse-container > ^link{
+    <<input:focus + <<instruction-container > <<browse-container > <<link{
       border: 1px solid;
       border-color: $borderBrandStrong;
     }
-    ^caption-container {
+    <<caption-container {
       display: flex;
       flex-direction: column;
       justify-content: center;
     }
-    ^caption {
+    <<caption {
       color: $textSecondary;
     }
-    ^browse-container{
+    <<browse-container{
       align-items: center;
       display: flex;
       flex-direction: column;
       justify-content: space-around;
     }
-    ^browse-container-row{
+    <<browse-container-row{
       align-items: center;
       display: flex;
       flex-direction: row;
       justify-content: flex-start;
       gap: 8px;
     }
-    ^dragged{
+    <<dragged{
       background: $backgroundBrandTertiary;
       border: 2px dashed $borderBrand;
     }
-    ^supportedTypes {
+    <<supportedTypes {
       display: flex;
       gap: 2px;
     }
-    ^supportedTypes:not(.hasFiles) {
+    <<supportedTypes:not(.hasFiles) {
       flex-direction: column;
       gap: 0;
     }
-    ^fileCards {
+    <<fileCards {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -217,6 +217,11 @@ foam.CLASS({
       class: 'foam.u2.ViewSpec',
       name: 'fileCardView',
       value: { class: 'foam.core.fs.fileDropZone.FileCard' }
+    },
+    {
+      class: 'foam.u2.ViewSpec',
+      name: 'beforeFilesView',
+      documentation: 'Optional view shown between the drop area and the file cards, such as an upload progress panel.'
     }
   ],
 
@@ -300,6 +305,7 @@ foam.CLASS({
       .on('dragover', e => { this.isDragged_ = true; e.preventDefault(); } )
       .on('dragenter', e => { this.isDragged_ = true; e.preventDefault(); })
       .on('dragleave', e => { this.isDragged_ = false; e.preventDefault(); })
+      .callIf(this.beforeFilesView, function() { this.tag(self.beforeFilesView); })
       .add(this.slot(function(files) {
         var e = this.E().addClass(self.myClass('fileCards'));
         for ( var i = 0; i < files.length; i++ ) {

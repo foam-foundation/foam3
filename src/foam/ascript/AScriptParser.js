@@ -190,9 +190,9 @@ foam.CLASS({
           power: seq(sym('primary'), opt(seq1(1, seq0(sym('ws'), '^'), sym('unary')))), // right-assoc
 
           primary: alt(
+            sym('funcall'),                                   // before field: a property named like a function (text) still allows TEXT(...)
             sym('field'),                                     // bare names -> property refs
             sym('expr_paren'),
-            sym('funcall'),
             lead(sym('quoted string')),                      // "quoted" only; lead() eats leading ws
             sym('floatValue'),                               // parent 'number' already eats its own ws
             sym('number'),                                   // parent 'number' already eats its own ws
@@ -334,8 +334,11 @@ foam.CLASS({
 
         // [ left, opName, right ] - both sides are already Exprs from `field`
         fieldCompare: function(v) { return m[v[1]].call(m, v[0], v[2]); },
-        // TODO: support nested sub-fields (a.b.c) — currently single-level only
-        subField: function(v) { return self.NamedProperty.create({propName: v[1]}); },
+        // a.b.c: each step reads the next name off what the step before returned
+        subField: function(v) {
+          var step = self.NamedProperty.create({propName: v[1]});
+          return v[2] ? m.DOT(step, v[2]) : step;
+        },
 
         fn_IF: function(v) { return m.COND(v[2], v[4], v[6]); },
 

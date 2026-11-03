@@ -31,11 +31,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       align-items: center;
     }
-    ^ img {
+    << img {
       border-radius: 50%;
     }
   `

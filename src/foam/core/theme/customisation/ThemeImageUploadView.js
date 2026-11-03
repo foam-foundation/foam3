@@ -30,16 +30,16 @@ foam.CLASS({
   exports: ['controllerMode'],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: 24px;
     }
-    ^preview {
+    <<preview {
       margin: auto;
       max-width: 50%;
     }
-    ^preview svg, preview img {
+    <<preview svg, preview img {
       max-width: 100%;
       height: auto;
       object-fit: contain;

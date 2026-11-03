@@ -15,27 +15,27 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding-right: 8px;
       display: flex;
       background: #EEE;
       width: 220px;
       border-radius: 5px;
     }
-    ^:hover {
+    <<:hover {
       background: #DDD;
     }
-    ^id {
+    <<id {
       padding: 12px 8px;
       border-radius: 4px 0 0 4px;
       color: white;
       background: #607D8B;
     }
-    ^name {
+    <<name {
       margin: 12px;
       width: 100%;
     }
-    ^ button {
+    << button {
       box-shadow: none;
       cursor: pointer;
       border: none;
@@ -44,7 +44,7 @@ foam.CLASS({
       background: gray;
       color: white;
     }
-    ^ i {
+    << i {
       margin-top: 5px;
     }
   `,

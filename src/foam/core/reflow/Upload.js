@@ -49,39 +49,39 @@ foam.CLASS({
   properties: [ 'data' ],
 
   css: `
-    ^ { overflow-x: auto; }
-    ^ .foam-u2-tag-Select { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
-    ^ .foam-u2-tag-Select:hover { border-color: $borderDefault; }
-    ^ .foam-u2-tag-Select:focus { outline: none; border-color: $borderBrand; }
-    ^ .foam-u2-tag-Input { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
-    ^ .foam-u2-tag-Input:hover { border-color: $borderDefault; }
-    ^ .foam-u2-tag-Input:focus { outline: none; border-color: $borderBrand; }
-    ^ .foam-u2-tag-TextArea { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
-    ^ .foam-u2-tag-TextArea:hover { border-color: $borderDefault; }
-    ^ .foam-u2-tag-TextArea:focus { outline: none; border-color: $borderBrand; }
-    ^ .foam-u2-PropertyBorder { border: none !important; width: 100%; box-sizing: border-box; margin: 0 !important; padding: 0 !important; }
-    ^ .foam-u2-PropertyBorder-propHolder { padding: 0 !important; margin: 0 !important; }
-    ^ .foam-u2-PropertyBorder-propHolderInner { padding: 0 !important; margin: 0 !important; }
-    ^ .foam-u2-PropertyBorder-view { padding: 0 !important; margin: 0 !important; }
-    ^ .foam-u2-PropertyBorder-helper-icon { display: none; }
-    ^ .foam-u2-borders-ExpandableBorder { display: none; }
-    ^ .foam-core-reflow-DateFormatRichChoiceView { border: 1px solid $borderLight !important; border-radius: 4px; padding: 0 !important; min-height: 28px; display: flex; align-items: center; }
-    ^ .foam-core-reflow-DateFormatRichChoiceView:hover { border-color: $borderDefault !important; }
-    ^ .foam-core-reflow-DateFormatRichChoiceView:focus-within { outline: none; border-color: $borderBrand !important; }
-    ^ .foam-core-reflow-DateFormatRichChoiceView-selection-view { border: none !important; padding: 6px !important; flex: 1; }
-    ^ .foam-u2-DetailView { padding: 0; }
-    ^ .foam-u2-DetailView table { margin: 0; }
-    ^ .foam-u2-DetailView td { padding: 0; }
-    ^ table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-    ^ th, ^ td { border-bottom: 1px solid $borderXLight; padding: 8px 4px; vertical-align: middle; }
-    ^ th { border-bottom: 1px solid $borderLight; padding: 10px 4px; }
-    ^ tr { height: auto; }
-    ^ .col-property { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
-    ^ .col-type { width: 10%; }
-    ^ .col-value { width: 20%; }
-    ^ .col-sample { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
-    ^ .col-dateformat { width: 20%; }
-    ^ .col-required { width: 10%; padding: 12px $inputHorizontalPadding; }
+    << { overflow-x: auto; }
+    << .foam-u2-tag-Select { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    << .foam-u2-tag-Select:hover { border-color: $borderDefault; }
+    << .foam-u2-tag-Select:focus { outline: none; border-color: $borderBrand; }
+    << .foam-u2-tag-Input { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    << .foam-u2-tag-Input:hover { border-color: $borderDefault; }
+    << .foam-u2-tag-Input:focus { outline: none; border-color: $borderBrand; }
+    << .foam-u2-tag-TextArea { border: 1px solid $borderLight; border-radius: 4px; width: 100%; box-sizing: border-box; padding: 6px; min-height: 28px; }
+    << .foam-u2-tag-TextArea:hover { border-color: $borderDefault; }
+    << .foam-u2-tag-TextArea:focus { outline: none; border-color: $borderBrand; }
+    << .foam-u2-PropertyBorder { border: none !important; width: 100%; box-sizing: border-box; margin: 0 !important; padding: 0 !important; }
+    << .foam-u2-PropertyBorder-propHolder { padding: 0 !important; margin: 0 !important; }
+    << .foam-u2-PropertyBorder-propHolderInner { padding: 0 !important; margin: 0 !important; }
+    << .foam-u2-PropertyBorder-view { padding: 0 !important; margin: 0 !important; }
+    << .foam-u2-PropertyBorder-helper-icon { display: none; }
+    << .foam-u2-borders-ExpandableBorder { display: none; }
+    << .foam-core-reflow-DateFormatRichChoiceView { border: 1px solid $borderLight !important; border-radius: 4px; padding: 0 !important; min-height: 28px; display: flex; align-items: center; }
+    << .foam-core-reflow-DateFormatRichChoiceView:hover { border-color: $borderDefault !important; }
+    << .foam-core-reflow-DateFormatRichChoiceView:focus-within { outline: none; border-color: $borderBrand !important; }
+    << .foam-core-reflow-DateFormatRichChoiceView-selection-view { border: none !important; padding: 6px !important; flex: 1; }
+    << .foam-u2-DetailView { padding: 0; }
+    << .foam-u2-DetailView table { margin: 0; }
+    << .foam-u2-DetailView td { padding: 0; }
+    << table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    << th, << td { border-bottom: 1px solid $borderXLight; padding: 8px 4px; vertical-align: middle; }
+    << th { border-bottom: 1px solid $borderLight; padding: 10px 4px; }
+    << tr { height: auto; }
+    << .col-property { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
+    << .col-type { width: 10%; }
+    << .col-value { width: 20%; }
+    << .col-sample { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
+    << .col-dateformat { width: 20%; }
+    << .col-required { width: 10%; padding: 12px $inputHorizontalPadding; }
   `,
 
   methods: [

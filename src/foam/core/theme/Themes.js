@@ -35,7 +35,7 @@ foam.CLASS({
     'foam.util.SafetyUtil',
     'foam.util.Arrays',
     'jakarta.servlet.http.HttpServletRequest',
-    'org.eclipse.jetty.server.Request'
+    'org.eclipse.jetty.util.URIUtil'
   ],
 
   methods: [
@@ -138,7 +138,14 @@ Later themes:
       final boolean      DEBUG    = false;
 
       if ( req != null ) {
-        domain = req.getServerName();
+        // A job started from a web page keeps that page's request after it ends.
+        // Jetty 12 throws when a finished request is asked for its server name,
+        // so carry on as if there were no request.
+        try {
+          domain = req.getServerName();
+        } catch ( NullPointerException e ) {
+          req = null;
+        }
         if ( DEBUG ) logger.debug("Themes", "domain", domain);
       }
 
@@ -258,7 +265,7 @@ Later themes:
            // AppConfig.URL.isDefaultValue(appConfig) )  {
            SafetyUtil.compare(appConfig.getUrl(), "http://localhost") == 0 ) {
         if ( req != null ) {
-          appConfig.setUrl(((Request) req).getRootURL().toString());
+          appConfig.setUrl(URIUtil.newURIBuilder(req.getScheme(), req.getServerName(), req.getServerPort()).toString());
         } else if ( ! SafetyUtil.isEmpty(domain) ) {
           appConfig.setUrl("https://"+domain);
         }

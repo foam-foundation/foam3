@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ .foam-u2-view-RadioView span {
+    << .foam-u2-view-RadioView span {
       text-wrap: auto;
     }
   `,

@@ -21,10 +21,10 @@ foam.CLASS({
   extends: 'foam.u2.tag.Select',
 
   css: `
-    ^unrolled paper-item {
+    <<unrolled paper-item {
       min-height: 36px;
     }
-    ^label {
+    <<label {
       color: $textTertiary;
       overflow: hidden;
       text-overflow: ellipsis;

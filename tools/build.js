@@ -842,6 +842,22 @@ task('show-poms', 'Show POM structure.', [], function showPOMs() {
 
 task('get-env', 'Return value of arg. Called from installation scripts', ['pomEnvs'], function getEnv(arg) { console.log(`${arg}=${globalThis[arg]}`); });
 
+function checkPrerequisite_(cmd, installHint) {
+  try {
+    execSync(`which ${cmd}`, { stdio: 'ignore' });
+    log(`✓ ${cmd}`);
+  } catch (e) {
+    error(`✗ ${cmd} not found. ${installHint}`);
+    process.exit(1);
+  }
+}
+
+task('check-ai', 'Verify AI/Python prerequisites are installed', [], function checkAI() {
+  info('Checking AI prerequisites...');
+  checkPrerequisite_('uv', 'Python jobs require uv. Install: curl -LsSf https://astral.sh/uv/install.sh | sh');
+  // future: checkPrerequisite_('conda', 'conda jobs require conda. Install: https://docs.conda.io/en/latest/miniconda.html');
+});
+
 // Phase I - process tooling poms
 processToolingArgs.bind(Object.assign({}, EXPORTS), TOOLING_OPTIONS)();
 execute('tooling');
@@ -863,6 +879,16 @@ pom();
 // Phase III - execute build tasks
 if ( SHOW_ENVS )
   moreUsage();
+
+// Keep an installed FOAM-LSP clone current (JSTooling lspRefresh). Called
+// directly, not through execute(), so a build with no clone logs nothing.
+// Skipped when an lsp-* task was asked for: those handle the clone themselves.
+var lspRefresh = findTask(TOOLING_TASKS, 'lspRefresh');
+var lspTaskAsked = TASKS.split(TASK_SEPERATOR).some(t => {
+  var task = findTask(TOOLING_TASKS, t.split(':')[0]);
+  return task && task.name.startsWith('lsp');
+});
+if ( lspRefresh && ! DRY_RUN && ! lspTaskAsked ) lspRefresh.f.call(Object.assign({}, EXPORTS));
 
 TASKS.split(TASK_SEPERATOR).forEach(t => {
   var s = t.split(':');

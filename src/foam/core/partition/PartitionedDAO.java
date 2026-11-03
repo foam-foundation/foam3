@@ -24,11 +24,13 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
 
+import static foam.mlang.MLang.EQ;
+
 public class PartitionedDAO
   extends AbstractPartitionedDAO // generated from AbstractPartitionDAO.js
 {
 
-  protected final static String NO_PART = "".intern();
+  protected final static String NO_PART = "";
 
   /** Every partition owns a directory, and its journal lives inside under this
       fixed name. That keeps two namespaces apart structurally rather than by
@@ -148,6 +150,15 @@ public class PartitionedDAO
     }
   }
 
+  /** Drop one partition's cached delegate, so the memory its journal took
+      can be reclaimed; the next access replays the journal again. Same
+      caveat as unload(): only for a partition no writer is using. */
+  public void unload(String part) {
+    synchronized ( delegates_ ) {
+      delegates_.remove(part == null ? NO_PART : part);
+    }
+  }
+
   /** Cheap cache peek: true when a live (non-garbage-collected) delegate is
       already cached for this partition. No creation; guarded by the
       delegates_ monitor, same as getDelegate(), so it never waits on a
@@ -183,6 +194,33 @@ public class PartitionedDAO
       }
       return cc;
     }
+
+    // super records the index for partitions opened later; one already open
+    // never reads that list again, so it gets the index here. A partition
+    // still replaying is waited on through its lock rather than missed, and
+    // may end up with the index twice, which is harmless. Same as
+    // NotPartitionedDAO.
+    if ( cmd instanceof foam.dao.index.AddIndexCommand ) {
+      super.cmd_(x, cmd);
+
+      Set<String> parts = new HashSet<>(loading_);
+      synchronized ( delegates_ ) {
+        parts.addAll(delegates_.keySet());
+      }
+
+      for ( String part : parts ) {
+        synchronized ( part.intern() ) {
+          SoftReference<DAO> ref;
+          synchronized ( delegates_ ) {
+            ref = delegates_.get(part);
+          }
+          DAO dao = ref != null ? ref.get() : null;
+          if ( dao != null ) dao.cmd_(x, cmd);
+        }
+      }
+      return true;
+    }
+
     return super.cmd_(x, cmd);
   }
 
@@ -205,11 +243,13 @@ public class PartitionedDAO
 
   /** Attempt to extract partition from a SEPARATOR-delimited primary key.
       Chained partitions (e.g. "<a>~<b>~<key>") read their own segment by
-      depth: depth 1 reads <a>, depth 2 reads <b>. **/
+      depth: depth 1 reads <a>, depth 2 reads <b>. An id with no segment
+      past this level's, like the empty id of a record not yet put, has no
+      partition. **/
   public String getPartition_(String id) {
     String[] a = id.split(SEPARATOR);
 
-    if ( a.length < getDepth() ) return null;
+    if ( a.length <= getDepth() ) return null;
 
     return a[getDepth()-1];
   }
@@ -256,9 +296,6 @@ public class PartitionedDAO
       // Resume a migration interrupted after the legacy file was staged.
       if ( ! parent.exists() && journal.isFile() )
         Files.move(staged.toPath(), parent.toPath());
-
-      if ( ! parent.isDirectory() && ! parent.mkdirs() )
-        throw new IOException("Failed to create directory " + parent);
     } catch ( IOException e ) {
       throw new RuntimeException(
         "Failed to prepare partition directory " + parent, e);
@@ -266,16 +303,17 @@ public class PartitionedDAO
   }
 
   public DAO createDAO(String part) {
-    Loggers.logger(getX(), this).info("Creating partiion " + part);
+    Loggers.logger(getX(), this).info("Creating partition " + part);
 
     String rawPart     = part;
     String journalName = journalNameFor(part);
 
-    // TODO: directory creation would be better done by JDAO itself
-    // Create the directory in the WRITABLE FileSystemStorage where JDAO writes the
+    // Only a legacy single-file partition is upgraded here. A partition with
+    // no data gets no directory: the journal creates it on its first write,
+    // so a query spanning a hundred empty days leaves nothing on disk.
+    // Upgrade in the WRITABLE FileSystemStorage where JDAO writes the
     // journal, not the Storage.class read storage — the two differ when
-    // resource.journals.dir is set (read journals come from a resource/jar), so
-    // mkdirs on Storage.class would target the wrong root and the write would fail.
+    // resource.journals.dir is set (read journals come from a resource/jar).
     Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
     File    parent  = storage.get(journalName).getParentFile();
     preparePartitionDirectory(parent);
@@ -299,7 +337,6 @@ public class PartitionedDAO
         // because the journal formats the object AFTER the delegate stamps
         // it (AbstractF3FileJournal.put executes dao.put_ under lock first).
         DAO seq = new foam.core.partition.PartitionedSequenceNumberDAO.Builder(loadX)
-          .setPrefix(rawPart + SEPARATOR)
           .setProperty("id")
           .setDelegate(new foam.dao.MDAO(getOf()))
           .build();
@@ -330,7 +367,11 @@ public class PartitionedDAO
 
   public FObject put_(X x, FObject obj) {
     String part = getPartition(obj);
-    String[] a = getID(obj).split(SEPARATOR);
+    // -1 keeps a trailing empty segment: a new record reaches the second
+    // level as "1~", which must split to ["1", ""] (no key yet), not ["1"],
+    // or the outer part "1" is reused as its key and every new record in
+    // the partition gets the same id.
+    String[] a = getID(obj).split(SEPARATOR, -1);
     //    System.err.println("**** PUT id: " + getID(obj) + "  part: " + part + "  len: " + a.length);
     if ( a.length <= getDepth() ) {
       StringBuilder sb = new StringBuilder();
@@ -341,7 +382,6 @@ public class PartitionedDAO
       sb.append(part);
       sb.append(SEPARATOR);
       sb.append(a[a.length-1]);
-      // System.err.println("**** PUT2 " + sb.toString());
       setID(obj, sb.toString());
     }
     FObject ret = getDelegate(part).put_(x, obj);
@@ -376,27 +416,11 @@ public class PartitionedDAO
       that are directories are the partitions and their names are the partition
       values. Nothing has to be parsed. */
   public String[] getPartitions() {
-    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
-    String  dirName = getDirName();
-    File[]  entries;
-    String  prefix  = "";
+    File dir = partitionRoot();
+    if ( dir == null ) return new String[0];
 
-    if ( dirName.endsWith("/") ) {
-      // dirName owns its directory, so every entry in it is one of ours.
-      File dir = storage.get(dirName);
-      if ( dir == null || ! dir.isDirectory() ) return new String[0];
-      entries = dir.listFiles();
-    } else {
-      // A flat dirName shares its parent with unrelated journals, so only
-      // entries carrying its basename as a prefix are ours.
-      File probe = storage.get(dirName);
-      File dir   = probe == null ? null : probe.getParentFile();
-      if ( dir == null || ! dir.isDirectory() ) return new String[0];
-      prefix = probe.getName();
-      final String p = prefix;
-      entries = dir.listFiles((d, name) -> name.startsWith(p));
-    }
-
+    String prefix  = partitionPrefix();
+    File[] entries = dir.listFiles((d, name) -> name.startsWith(prefix));
     if ( entries == null ) return new String[0];
 
     Set<String> names = new HashSet<>();
@@ -414,11 +438,30 @@ public class PartitionedDAO
     return parts.toArray(new String[0]);
   }
 
+  /** The directory holding this DAO's partitions, or null when it does not
+      exist yet. A dirName ending in "/" owns its directory, so every entry in
+      it is one of ours. A flat dirName such as "tx" shares its parent with
+      unrelated journals, so only entries named "tx<part>" are ours, and
+      partitionPrefix() returns "tx". */
+  protected File partitionRoot() {
+    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
+    File    probe   = storage.get(getDirName());
+    File    dir     = probe == null || getDirName().endsWith("/") ? probe : probe.getParentFile();
+    return dir != null && dir.isDirectory() ? dir : null;
+  }
+
+  /** The text every partition entry in partitionRoot() starts with: empty
+      when dirName owns its directory, else dirName's basename. */
+  protected String partitionPrefix() {
+    String dirName = getDirName();
+    return dirName.endsWith("/") ? "" : dirName.substring(dirName.lastIndexOf('/') + 1);
+  }
+
   /** The partitions a select has to visit: every one of them when the
       predicate carries an AllPartitions naming this level's property,
       otherwise the single one an EQ routes to. */
   public String[] resolvePartitions(Predicate predicate) {
-    if ( hasAllPartitions(predicate) ) return getPartitions();
+    if ( hasAllPartitions(predicate, getPartitionProperty()) ) return getPartitions();
 
     Object part = extractPredicateValue(predicate);
 
@@ -434,20 +477,28 @@ public class PartitionedDAO
         ") to visit every partition.");
     }
 
-    return new String[] { String.valueOf(part) };
+    if ( ! ( part instanceof Object[] ) ) return new String[] { String.valueOf(part) };
+
+    // IN over the partition property: one partition per listed value, same
+    // fan-out as AllPartitions. A repeated value still names one partition.
+    Set<String> parts = new java.util.LinkedHashSet<>();
+    for ( Object p : (Object[]) part ) parts.add(String.valueOf(p));
+    return parts.toArray(new String[0]);
   }
 
-  /** True when the predicate asks for every partition of THIS level. Mirrors
-      extractPredicateValue's traversal: a bare term, or any arg of an AND.
-      Comparing arg1 by reference matches how extractPredicateValue matches the
-      partition property. */
-  protected boolean hasAllPartitions(Predicate predicate) {
+  /** True when the predicate asks for every partition of the level
+      partitioned on prop. Mirrors extractPredicateValue's traversal: a bare
+      term, or any arg of an AND. Comparing arg1 by reference matches how
+      extractPredicateValue matches the partition property. Static so that
+      decorators above a PartitionedDAO, such as ProgramAwareDAO, can ask the
+      same question without a PartitionedDAO instance. */
+  public static boolean hasAllPartitions(Predicate predicate, Expr prop) {
     if ( predicate instanceof AllPartitions )
-      return ((AllPartitions) predicate).getArg1() == getPartitionProperty();
+      return ((AllPartitions) predicate).getArg1() == prop;
 
     if ( predicate instanceof And ) {
       for ( Predicate arg : ((And) predicate).getArgs() ) {
-        if ( hasAllPartitions(arg) ) return true;
+        if ( hasAllPartitions(arg, prop) ) return true;
       }
     }
 
@@ -518,6 +569,11 @@ public class PartitionedDAO
         if ( predicate.getClass() == Eq.class ) {
           return expr.getArg2().f(expr);
         }
+        if ( predicate.getClass() == In.class ) {
+          Object values = expr.getArg2().f(expr);
+          if ( values instanceof Object[] ) return values;
+          if ( values instanceof java.util.List ) return ((java.util.List) values).toArray();
+        }
         /*
         // For range predicates, you could return a Range object or array
         if ( predicate.getClass().equals(Gt.class)  ||
@@ -543,16 +599,62 @@ public class PartitionedDAO
     return null;
   }
 
+  /** Path of the leaf partition this object routes to, one segment per
+      level ("<a>~<b>" for two levels), built the same way put_ routes. A
+      nested partitioned delegate is asked for its own segment; a leaf ends
+      the path. */
+  public String leafPath(FObject obj) {
+    String part = getPartition(obj);
+    DAO    d    = getDelegate(part);
+    return d instanceof PartitionedDAO ? part + SEPARATOR + ((PartitionedDAO) d).leafPath(obj) : part;
+  }
+
+  /** A blank instance of `of` carrying only the partition-key properties of
+      obj, at every level. The values, not the partition names: partitionPredicate
+      turns them back into the terms the router understands. */
+  public FObject partitionKey(FObject obj) {
+    try {
+      FObject key = (FObject) getOf().newInstance();
+      copyPartitionKey(obj, key);
+      return key;
+    } catch ( java.lang.Exception e ) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  protected void copyPartitionKey(FObject from, FObject to) {
+    PropertyInfo prop = (PropertyInfo) getPartitionProperty();
+    prop.set(to, prop.get(from));
+    DAO d = getDelegate(getPartition(from));
+    if ( d instanceof PartitionedDAO ) ((PartitionedDAO) d).copyPartitionKey(from, to);
+  }
+
+  /** The predicate that routes to exactly the leaf holding `key` and is true
+      for every row in it, at every level. Equality on the partition property
+      here; DatePartitionedDAO answers with the partition's date range. */
+  public Predicate partitionPredicate(FObject key) {
+    Predicate mine = levelPredicate(key);
+    DAO       d    = getDelegate(getPartition(key));
+    return d instanceof PartitionedDAO
+      ? foam.mlang.MLang.AND(mine, ((PartitionedDAO) d).partitionPredicate(key))
+      : mine;
+  }
+
+  protected Predicate levelPredicate(FObject key) {
+    return EQ(getPartitionProperty(), getPartitionProperty().f(key));
+  }
+
   /** Copy a legacy single-file journal's records into this DAO's per-partition
       journals, rewrite references held by other DAOs (discovered via
       ReferencePropertyInfo when daoKey is given), validate, and archive the
       legacy journal. Delegates to SingleToPartitionMigrator. */
-  public void migrateFrom(X x, String legacyJournalName, String daoKey) {
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName, String daoKey) {
     new SingleToPartitionMigrator().run(x, legacyJournalName, this, daoKey);
+    return this;
   }
 
-  public void migrateFrom(X x, String legacyJournalName) {
-    migrateFrom(x, legacyJournalName, null);
+  public PartitionedDAO migrateFrom(X x, String legacyJournalName) {
+    return migrateFrom(x, legacyJournalName, null);
   }
 
 //  No implementation needed for removeAll_() because it just calls select_().

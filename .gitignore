@@ -35,3 +35,4 @@ pom.xml
 tools/pom.xml
 **/data/*.log
 testindex
+*.env

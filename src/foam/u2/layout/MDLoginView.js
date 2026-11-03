@@ -22,13 +22,13 @@ foam.CLASS({
 
   css: `
 
-    ^ .title-top {
+    << .title-top {
       font-size: 1.7em;
       padding-bottom: 5rem;
       text-align: center;
     }
 
-    ^ .center-footer {
+    << .center-footer {
       text-align: center;
       display: grid;
       position: relative;
@@ -36,13 +36,13 @@ foam.CLASS({
       color: $textSecondary;
     }
 
-    ^ .link {
+    << .link {
       font-size: larger;
       font-weight: bold;
       padding-bottom: 2rem;
     }
 
-    ^ .content-form {
+    << .content-form {
       width: 75%;
       padding: 3rem;
       top: -10rem;
@@ -54,8 +54,8 @@ foam.CLASS({
       color: $textSecondary;
     }
 
-    ^ .background-container {
-      --parent-mainfill: linear-gradient(#604aff, #2e2379);
+    << .background-container {
+      --parent-mainfill: linear-gradient($primary300, $primary600);
       background-image: var(--parent-mainfill);
       height: 40%;
       display: flex;
@@ -63,7 +63,7 @@ foam.CLASS({
       justify-content: center;
     }
 
-    ^ .home-logo {
+    << .home-logo {
       background-color: $backgroundSecondary;
       padding: 3rem;
       border-radius: 50%;
@@ -71,21 +71,21 @@ foam.CLASS({
       box-shadow: 0 0px 5px 3px white;
     }
 
-    ^ .foam-u2-layout-Cols {
+    << .foam-u2-layout-Cols {
       height: 0px;
     }
 
-    ^ input:-webkit-autofill {
+    << input:-webkit-autofill {
       -webkit-box-shadow: 0 0 0px 1000px #f5f7fa inset;
     }
 
-    ^ .input-image {
+    << .input-image {
       display: none;
     }
 
-    ^ .home-img {
+    << .home-img {
       font-size: 9rem;
-      background: -webkit-linear-gradient(#604aff, #2e2379);
+      background: -webkit-linear-gradient($primary300, $primary600);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }

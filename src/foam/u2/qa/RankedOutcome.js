@@ -37,10 +37,10 @@ foam.CLASS({
   extends: 'foam.u2.CitationView',
 
   css: `
-    ^label {
+    <<label {
       color: $textDefault;
     }
-    ^meta {
+    <<meta {
       color: $textTertiary;
     }
   `,

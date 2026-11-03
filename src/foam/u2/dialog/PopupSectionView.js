@@ -10,20 +10,20 @@ foam.CLASS({
   extends: 'foam.u2.detail.SectionView',
 
   css: `
-    ^main {
+    <<main {
       padding: 24px;
       min-width: 380px;
       box-sizing: border-box;
     }
-    ^main ^rows {
+    <<main <<rows {
       gap: 16px;
     }
-    ^main ^actionDiv {
+    <<main <<actionDiv {
       align-self: stretch;
       margin-top: 8px;
       gap: 12px;
     }
-    ^section-title.h600 {
+    <<section-title.h600 {
       font-size: 2rem;
       line-height: 1.3;
       margin: 0;

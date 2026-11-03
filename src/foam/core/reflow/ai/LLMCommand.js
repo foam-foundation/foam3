@@ -12,9 +12,10 @@ foam.CLASS({
   documentation: 'REFLOW command: prompt the LLMService and display results as markdown.',
 
   requires: [
-    'foam.core.ai.CompletionRequest',
-    'foam.core.ai.LLMOptions',
-    'foam.core.reflow.Markdown'
+    'foam.ai.llm.CompletionRequest',
+    'foam.ai.llm.LLMOptions',
+    'foam.core.reflow.Markdown',
+    'foam.log.LogLevel'
   ],
 
   imports: [

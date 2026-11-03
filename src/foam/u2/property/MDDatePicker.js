@@ -418,25 +418,25 @@ foam.CLASS({
   ],
 
   css: `
-    ^hidden {
+    <<hidden {
       display: none !important;
     }
 
-    ^header {
+    <<header {
       cursor: pointer;
       padding: 12px 16px;
     }
-    ^header div {
+    <<header div {
       opacity: 0.8;
     }
-    ^header div^selected {
+    <<header div<<selected {
       opacity: 1;
     }
-    ^header-year {
+    <<header-year {
       margin: 8px 0;
     }
 
-    ^body {
+    <<body {
       cursor: pointer;
       height: 40rem;
       width: 100%;
@@ -448,34 +448,33 @@ foam.CLASS({
       -ms-user-select: none;
       user-select: none;
     }
-    ^slider {
+    <<slider {
       position: absolute;
       height: 100%;
       top: 0;
       width: 900px;
     }
-    ^slider-inner {
-//      display: flex;
+    <<slider-inner {
       height: 100%;
       position: relative;
       width: 100%;
     }
 
-    ^switcher {
+    <<switcher {
       align-items: center;
       display: flex;
       height: 48px;
       position: absolute;
       z-index: 3;
     }
-    ^switcher-left {
+    <<switcher-left {
       left: 0;
     }
-    ^switcher-right {
+    <<switcher-right {
       right: 0;
     }
 
-    ^years {
+    <<years {
       align-items: center;
       display: flex;
       flex-direction: column;
@@ -483,11 +482,11 @@ foam.CLASS({
       overflow-y: auto;
       width: 300px;
     }
-    ^years-year {
+    <<years-year {
       flex-shrink: 0;
       padding: 16px;
     }
-    ^years-year^selected {
+    <<years-year<<selected {
       color: $blue400;
     }
   `

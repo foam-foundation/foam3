@@ -23,12 +23,12 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       width: 490px;
       margin: auto;
     }
 
-    ^ .Message-Container{
+    << .Message-Container{
       width: 490px;
       height: 121px;
       border-radius: 2px;
@@ -36,7 +36,7 @@ foam.CLASS({
       padding-top: 5px;
     }
 
-    ^ .Reset-Password{
+    << .Reset-Password{
       width: 225;
       height: 30px;
       text-align: left;
@@ -45,11 +45,11 @@ foam.CLASS({
       margin-bottom: 30px;
     }
 
-    ^ p{
+    << p{
       display: inline-block;
     }
 
-    ^ .success-Text{
+    << .success-Text{
       width: 450px;
       height: 16px;
       text-align: left;
@@ -60,7 +60,7 @@ foam.CLASS({
       margin-bottom: 20px;
     }
 
-    ^ .Back-Button{
+    << .Back-Button{
       width: 450px;
       height: 40px;
       border-radius: 2px;

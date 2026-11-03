@@ -58,11 +58,11 @@ foam.CLASS({
   ],
 
   css: `
-  ^ input[type="search"] {
+  << input[type="search"] {
     width: 100%;
   }
 
-  ^ {
+  << {
     background: $menuBackground;
     border-right: $borderSize;
     border-right-color: $borderLight;
@@ -77,26 +77,26 @@ foam.CLASS({
     width: 100%;
   }
 
-  ^ .side-nav-view,
-  ^ .side-nav-view .foam-u2-view-TreeViewRow  {
+  << .side-nav-view,
+  << .side-nav-view .foam-u2-view-TreeViewRow  {
     width: 100%;
   }
 
-  ^search {
+  <<search {
     box-sizing: border-box;
     padding: 0 8px 8px 8px;
     text-align: center;
     width: 100%;
   }
 
-  ^menuList {
+  <<menuList {
     flex: 1;
     height: 100%;
   }
 
   @media only screen and (min-width: 768px) {
-    ^ .side-nav-view,
-    ^ .side-nav-view .foam-u2-view-TreeViewRow  {
+    << .side-nav-view,
+    << .side-nav-view .foam-u2-view-TreeViewRow  {
       width: 240px;
     }
   }

@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'CenteredDashboardCitationView',
   extends: 'foam.dashboard.view.DashboardCitationView',
   css: `
-    ^ {
+    << {
       align-items: center;
       margin: auto;
       width: 75%;
@@ -17,12 +17,12 @@ foam.CLASS({
       padding: 0;
     }
 
-    ^id {
+    <<id {
       font-size: 1.5rem;
       font-weight: $font-normal;
     }
 
-    ^value {
+    <<value {
       font-size: 1.5rem;
       font-weight: $font-normal;
     }

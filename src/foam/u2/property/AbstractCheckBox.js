@@ -23,14 +23,14 @@ foam.CLASS({
   documentation: 'Abstract Checkbox View for other views to extend',
 
   css: `
-    ^label {
+    <<label {
       flex-grow: 1;
       margin-left: 12px;
       overflow: hidden;
       display: inline;
     }
 
-    ^noselect {
+    <<noselect {
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       -khtml-user-select: none;

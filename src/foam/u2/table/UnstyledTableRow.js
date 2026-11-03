@@ -130,27 +130,27 @@ foam.CLASS({
   ],
 
   css: `
-    ^copyable-cell {
+    <<copyable-cell {
       align-items: center;
       display: flex;
       gap: 4px;
     }
-    ^copyable-cell > span {
+    <<copyable-cell > span {
       /* min-width 0 lets the flex item shrink below its content width,
          so the ellipsis engages and the button stays inside the cell. */
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    ^copy-button {
+    <<copy-button {
       flex-shrink: 0;
       margin-left: auto;
     }
     /* Only hide the copy button behind hover on devices that can hover;
        on touch devices it stays visible. */
     @media (hover: hover) {
-      ^copy-button { opacity: 0; }
-      ^:hover ^copy-button, ^copy-button:focus-visible { opacity: 1; }
+      <<copy-button { opacity: 0; }
+      <<:hover <<copy-button, <<copy-button:focus-visible { opacity: 1; }
     }
   `,
 

@@ -10,7 +10,7 @@ foam.CLASS({
   extends: 'foam.u2.CitationView',
 
   css:`
-    ^row {
+    <<row {
       display: flex;
       gap: 4px;
       align-items: center;
@@ -49,7 +49,7 @@ foam.CLASS({
   extends: 'foam.u2.CSSTokenCitationView',
 
   css:`
-    ^colorBox {
+    <<colorBox {
       width: 1em;
       height: 1em;
       border-radius: 50%;

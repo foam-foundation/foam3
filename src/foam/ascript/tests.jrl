@@ -4,3 +4,8 @@ p({
   description:"Ordinary properties parse; reaction properties are excluded",
   language: 0
 })
+p({
+  class:"foam.ascript.AScriptLibJavaTest",
+  id:"AScriptLibJavaTest",
+  description:"Lib.java: LOOKUP across number types, TEXT, DATE and UTC date parts"
+})

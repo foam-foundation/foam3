@@ -138,7 +138,7 @@ foam.json.stringify(john);
 
 // Reflect on the class at runtime
 john.cls_.id;                         // 'Person'
-john.cls_.getAxiomsByClass(foam.core.Property).map(p => p.name);
+john.cls_.getAxiomsByClass(foam.lang.Property).map(p => p.name);
 // ['firstName', 'lastName']
 ```
 

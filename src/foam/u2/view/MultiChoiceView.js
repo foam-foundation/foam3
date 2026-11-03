@@ -33,10 +33,10 @@ foam.CLASS({
   `,
 
   css: `
-    ^helpTextRow {
+    <<helpTextRow {
       padding: 8pt 0;
     }
-    ^flexer {
+    <<flexer {
       align-items: stretch;
       text-align: center;
       justify-content:flex-start;

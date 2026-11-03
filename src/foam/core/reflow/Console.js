@@ -36,41 +36,41 @@ foam.CLASS({
   ],
 
   css: `
-    ^navigator {
+    <<navigator {
       display: flex;
       align-items: center;
       color: $textSecondary;
       gap: 4px;
     }
-    ^header-container {
+    <<header-container {
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    ^chevron {
+    <<chevron {
       color: $textSecondary;
     }
-    ^title input {
+    <<title input {
       border: none;
       color: $textDefault;
     }
-    ^title .foam-u2-TextInputCSS::placeholder {
+    <<title .foam-u2-TextInputCSS::placeholder {
       color: $textDefault;
       opacity: 1;
     }
-    ^header-actions {
+    <<header-actions {
       display: flex;
       gap: 5px;
       align-items: center;
     }
-    ^save-text {
+    <<save-text {
       color: $textSecondary;
     }
-    ^ .foam-u2-view-OverlayActionListView {
+    << .foam-u2-view-OverlayActionListView {
       color: $textDefault;
     }
 
-    ^separator {
+    <<separator {
       display: inline-block;
       width: 1px;
       height: 30px;
@@ -78,9 +78,9 @@ foam.CLASS({
       margin: 0 8px;
     }
 
-    ^name { width: 230px; }
+    <<name { width: 230px; }
 
-    ^name::placeholder {
+    <<name::placeholder {
       font-style: italic;
     }
   `,
@@ -231,6 +231,9 @@ foam.CLASS({
       buttonStyle: foam.u2.ButtonStyle.SECONDARY,
       size: 'SMALL',
       themeIcon: 'trash',
+      isAvailable: function(data$value$childLock) {
+        return ! data$value$childLock;
+      },
       confirmationView: function(X, data) {
         return data.ConfirmationModal.create({
           primaryAction: this.clone().copyFrom({ label: 'Yes, Confirm' }),
@@ -303,6 +306,7 @@ foam.CLASS({
         this.mementoMgr.clear();
         flow.version  = undefined;
         flow.revision = undefined;
+        flow.childLock = false;
       }
     },
     {
@@ -360,13 +364,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^container {
+    <<container {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
     }
-    ^title {
+    <<title {
       font-weight: $font-medium;
       color: $textDefault;
     }
@@ -420,13 +424,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-template-rows: max-content minmax(0, 1fr);
       height: 100%;
       min-height: -webkit-fill-available;
     }
-    ^flex-container {
+    <<flex-container {
       display: flex;
       flex-direction: row;
       overflow: auto;
@@ -434,14 +438,14 @@ foam.CLASS({
       height: auto;
       min-height: 0;
     }
-    ^header {
+    <<header {
       padding: 5px 24px;
       height: fit-content;
       max-height: 64px;
       background-color: $backgroundDefault;
       border-bottom: 1px solid $borderLight;
     }
-    ^l {
+    <<l {
       padding: 4px;
       background-color: $backgroundDefault;
       width: 15%;
@@ -449,68 +453,68 @@ foam.CLASS({
       flex: 0 0 auto;
       overflow-y: auto;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
       padding: 16px 16px 0 16px;
     }
-    ^middle-holder {
+    <<middle-holder {
       padding: 0;
       width: 100%;
       background-color: $backgroundTertiary;
       overflow: auto;
       flex: 3 1 50%;
     }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^m {
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<m {
       border: 2px dashed $borderLight;
     }
-    ^m {
+    <<m {
       overflow-x: auto;
       background-color: $backgroundDefault;
     }
-    ^r {
+    <<r {
       overflow-y: auto;
       width: 40%;
       background-color: $backgroundDefault;
       flex: 0 0 auto;
     }
-    ^r .foam-u2-ActionView { min-width: 40px; }
-    ^:not(^presentation_only, ^limit_edit, ^presentation) ^resize-handle {
+    <<r .foam-u2-ActionView { min-width: 40px; }
+    <<:not(<<presentation_only, <<limit_edit, <<presentation) <<resize-handle {
       flex: 0 0 4px;
       cursor: ew-resize;
       background: $backgroundSecondary;
       height: 100%;
       z-index: 10;
     }
-    ^resize-handle:hover, ^resize-handle:active {
+    <<resize-handle:hover, <<resize-handle:active {
       background: $backgroundBrandSecondary;
     }
 
-    ^r .foam-core-reflow-SinkView, ^r .foam-u2-view-IntView {
+    <<r .foam-core-reflow-SinkView, <<r .foam-u2-view-IntView {
       width: 100%;
     }
 
-    ^ .foam-u2-RangeView-skip {
+    << .foam-u2-RangeView-skip {
       width: 100%;
     }
 
-    ^menuClosed {
+    <<menuClosed {
      width: 60px!important;
      transition: width 0.2s cubic-bezier(0.4,0,0.2,1);
     }
 
-    ^r .foam-u2-PropertyBorder-select {
+    <<r .foam-u2-PropertyBorder-select {
       padding: 5px;
       background-color: $backgroundTertiary;
       border-radius: 4px;
       gap: 10px;
     }
-    ^r .foam-u2-PropertyBorder-view {
+    <<r .foam-u2-PropertyBorder-view {
       width: 100%;
     }
-    ^r .foam-core-reflow-PropertyListView {
+    <<r .foam-core-reflow-PropertyListView {
       justify-content: space-between;
     }
     @media (min-width: /*%DISPLAYWIDTH.XL%*/ 1280px ) {
-      ^:not(^presentation_only, ^limit_edit, ^presentation) ^middle-holder {
+      <<:not(<<presentation_only, <<limit_edit, <<presentation) <<middle-holder {
         padding: 24px 24px 0 24px;
       }
     }
@@ -596,7 +600,7 @@ foam.CLASS({
             show(this.showRight$).
           end().
         end();
-    }
+    },
   ],
 
   listeners: [
@@ -723,7 +727,6 @@ foam.ENUM({
       isLimitedEditMode: false,
       checksAutosave: true,
       showsHelpKey: true,
-      forceNavHide: true,
       getToggleTarget: function() { return foam.core.reflow.FlowMode.PRESENTATION; }
     },
     {
@@ -821,7 +824,7 @@ foam.CLASS({
   implements: [ 'foam.core.reflow.TreeCellFormatter' ],
 
   requires: [
-    'foam.core.ai.ConversationalLLMService',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.DependencyScanner',
@@ -845,14 +848,14 @@ foam.CLASS({
   imports: [
     'commandDAO',
     'flowDAO',
+    'isMenuOpen',
+    'llmService as parentLLMService',
     'notify',
     'params',
     'setTimeout',
-    'toolbarControlDAO',
-    'window',
     'showNav',
-    'isMenuOpen',
-    'llmService as parentLLMService'
+    'toolbarControlDAO',
+    'window'
   ],
 
   constants: [
@@ -873,6 +876,7 @@ foam.CLASS({
     'findFlowChildByName',
     'flowChildren',
     'history_',
+    'includeFlow',
     'llmService',
     'localScope',
     'log',
@@ -889,11 +893,12 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'isChildLocked',
     'value as flow'
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       width: 100%;
@@ -902,7 +907,7 @@ foam.CLASS({
       align-items: center;
       justify-content: center;
     }
-    ^output {
+    <<output {
       flex: 1;
       overflow: auto;
       text-align: left;
@@ -910,7 +915,7 @@ foam.CLASS({
       position: relative;
       overflow-anchor: none;
     }
-    ^loading-indicator {
+    <<loading-indicator {
       position: absolute;
       top: 200px;
       left: 50%;
@@ -923,28 +928,28 @@ foam.CLASS({
       background: $backgroundDefault;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      z-index: 1000;
+      z-index: $z-modal;
       width: 400px;
       max-width: 90%;
       justify-content: center;
     }
-    ^loading-header {
+    <<loading-header {
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
-    ^loading-indicator .foam-u2-ProgressView {
+    <<loading-indicator .foam-u2-ProgressView {
       width: 100%;
     }
-    ^loading-text {
+    <<loading-text {
       color: $textDefault;
       font-size: 16px;
       font-weight: $font-medium;
       text-align: center;
     }
-    ^loading-progress {
+    <<loading-progress {
       color: $textSecondary;
       font-size: 14px;
       text-align: center;
@@ -952,7 +957,7 @@ foam.CLASS({
     .foam-core-reflow-FlowableTree-element-row.locked .foam-u2-ActionView-close {
       color: $orange500 !important;
     }
-    ^element-row-icon , ^element-row-icon svg {
+    <<element-row-icon , <<element-row-icon svg {
       color: $textBrand;
       fill: currentColor;
       width: 24px;
@@ -1146,6 +1151,16 @@ foam.CLASS({
       transient: true,
       hidden: true,
       documentation: 'Set while this Console is putting a name back, so the write does not re-enter onBlockRenamed.'
+    },
+    {
+      class: 'Boolean',
+      name: 'isChildLocked',
+      hidden: true,
+      transient: true,
+      documentation: 'Mirrors value.childLock so it can be exported on its own.',
+      expression: function(value$childLock) {
+        return !! value$childLock;
+      }
     }
   ],
 
@@ -1189,12 +1204,18 @@ foam.CLASS({
       }
     },
 
-    async function includeFlow(name) {
+    async function includeFlow(name, parent) {
       if ( ! name ) return;
       var flow = await this.flowDAO.find(name);
 
       if ( flow ) {
-        await this.includeScript(flow.script);
+        // Including under a parent block, such as an 'include' command, runs
+        // eval_ for each child, which moves currentBlock to the last child.
+        // When the parent itself is being loaded, includeScript then applies
+        // the parent's saved args and onLoad to currentBlock, so put it back.
+        var currentBlock = this.currentBlock;
+        await this.includeScript(flow.script, parent);
+        if ( parent ) this.currentBlock = currentBlock;
       }
     },
 
@@ -1250,25 +1271,32 @@ foam.CLASS({
       await worker.save();
     },
 
-    async function includeScript(script, parent, skipParse, perfParent) {
+    async function includeScript(script, parent, skipParse, perfParent, progress) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
         script :
         foam.json.parseString(script, ctx);
 
-      // Count total blocks for progress tracking (only at top level)
-      if ( ! parent ) {
-        this.totalBlocks_ = this.countBlocks(cs);
-        this.loadingProgress_ = 0;
+      // The loading indicator shows the Console's counters, sized when a load
+      // starts. An 'include' block adds its flow's blocks under itself while
+      // that load is running; if they counted there, a flow of 10 blocks with
+      // one 'include' of 5 blocks would show "Loading block 15 of 10". So a
+      // call with a parent but no tracker, such as includeFlow(name, parent),
+      // counts into its own tracker and the include counts as one block.
+      // Recursion into flowChildren passes its tracker down.
+      if ( ! progress ) {
+        progress = parent ? {} : this;
+        progress.totalBlocks_     = this.countBlocks(cs);
+        progress.loadingProgress_ = 0;
       }
 
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
 
         // Update progress counter for all blocks (including nested)
-        this.loadingProgress_++;
-        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
+        progress.loadingProgress_++;
+        progress.loadingPercentage_ = Math.round((progress.loadingProgress_ / progress.totalBlocks_) * 100);
 
         // Per-block attribution for the reflow Perf block: when a capture pointed
         // perfCapture_ at its buffer, record this block's cost. A nested call writes
@@ -1324,7 +1352,7 @@ foam.CLASS({
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_, progress);
         }
 
         // Measure AFTER onLoad + children: that is where a block's real work runs
@@ -1372,7 +1400,6 @@ foam.CLASS({
       foam.u2.table.TableView.SELECTED_COLUMN_NAMES.memorable = false;
 
 
-      this.isMenuOpen = false;
       this.onDetach(() => {
         this.showNav = true;
         this.isMenuOpen = oldIsMenuOpen;
@@ -2045,6 +2072,12 @@ foam.CLASS({
           embedSVG: true
         }).addClass(this.myClass('element-row-icon')).end();
       }));
+    },
+
+    function isChildLocked_() {
+      if ( ! this.value.childLock ) return false;
+      this.notify('This Flow is locked: blocks cannot be added, moved or deleted.', '', this.LogLevel.WARN, true);
+      return true;
     }
   ],
 
@@ -2116,6 +2149,9 @@ foam.CLASS({
     {
       name: 'clear',
       code: function() {
+        // Don't clear if the flow is locked
+        if ( this.isChildLocked_() ) return;
+
         this.clearFlow();
         this.focusInput();
         this.flowName = '';

@@ -48,33 +48,33 @@ foam.CLASS({
   ],
 
   css: `
-    ^{
+    <<{
       display: flex;
       flex-direction: column;
       width: 55vw;
       padding: 24px;
       max-height: 75%;
     }
-    ^container-close {
+    <<container-close {
       display: flex;
       justify-content: flex-end;
     }
-    ^container-close button {
+    <<container-close button {
       padding: 0;
     }
-    ^container-close img {
+    <<container-close img {
       margin-right: 0;
       width: 16px;
     }
-    ^container-title {
+    <<container-title {
       text-align: center;
       margin-top: 16px;
     }
-    ^detail-container {
+    <<detail-container {
       overflow-y: auto;
       width: 100%;
     }
-    ^main-section {
+    <<main-section {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -84,27 +84,27 @@ foam.CLASS({
       max-height: 60%;
       overflow-y: auto;
     }
-    ^label-title {
+    <<label-title {
       margin: 0;
     }
-    ^label-subtitle {
+    <<label-subtitle {
       margin: 0;
       margin-top: 8px;
 
       color: $grey500;
     }
-    ^label-subtitle:last-child {
+    <<label-subtitle:last-child {
       margin-top: 0;
     }
-    ^label-cap {
+    <<label-cap {
       margin: 0;
     }
-    ^detail-container .foam-u2-crunch-Style-mode-circle {
+    <<detail-container .foam-u2-crunch-Style-mode-circle {
       width: 100%;
       margin: 8px 0;
     }
 
-    ^detail-container .foam-u2-crunch-Style-mode-circle:hover {
+    <<detail-container .foam-u2-crunch-Style-mode-circle:hover {
       border-color: $borderLight;
     }
   `,

@@ -19,31 +19,31 @@ foam.CLASS({
 
   css: `
     /* Base table styling */
-    ^table, ^td {
+    <<table, <<td {
       border-collapse: collapse;
       border-spacing: 0;
       border: 1px solid $borderStrong;
     }
 
     /* Row styling */
-    ^tr {
+    <<tr {
       border: 1px solid $borderDefault;
       transition: background-color 0.2s ease;
     }
 
-    ^tr:hover {
+    <<tr:hover {
       background: $groupByBackground;
       color: $groupByBackground$foreground;
     }
 
     /* Cell styling - both TH and TD */
-    ^td {
+    <<td {
       padding: .8rem 1rem;
       transition: background-color 0.15s ease;
     }
 
     /* First column-cells styling */
-    ^tr > ^td:first-child {
+    <<tr > <<td:first-child {
       font-weight: bold;
     }
   `,

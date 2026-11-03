@@ -37,7 +37,7 @@ foam.CLASS({
       String toastSubMessage = String.valueOf(user.getId());
 
       Notification notif = new Notification();
-      notif.setId(user.getId());
+      notif.setId(String.valueOf(user.getId()));
       notif.setUserId(user.getId());
 
       notif = (Notification) userNotificationDAO.put_(x, notif);

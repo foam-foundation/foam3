@@ -54,25 +54,26 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'NO_DATA', message: 'No ${modelName} found', template: true }
+    { name: 'NO_DATA', message: 'No ${modelName} found', template: true },
+    { name: 'LOAD_FAILED_MSG', message: 'Unable to load data. Refresh to try again.' }
   ],
 
   css: `
-    ^no-data {
+    <<no-data {
       display: flex;
       height: 100%;
       justify-content: center;
       align-items: center;
     }
-    ^scroll-host {
+    <<scroll-host {
       overflow-anchor: none;
     }
-    ^top-spacer, ^bottom-spacer {
+    <<top-spacer, <<bottom-spacer {
       width: 100%;
       pointer-events: none;
     }
 
-    ^table-page {
+    <<table-page {
       content-visibility: auto;
       contain-intrinsic-height: auto var(--avgPageHeight, 2400px);
       min-width: 100%;
@@ -278,6 +279,11 @@ foam.CLASS({
       name: 'daoLoading',
       value: true
     },
+    {
+      class: 'Boolean',
+      name: 'loadFailed',
+      documentation: 'A rejected query is an error, not an empty data set.'
+    },
     ['isInit', true],
     {
       class: 'Map',
@@ -316,7 +322,10 @@ foam.CLASS({
       // relative to the visible scroll viewport.
 
       // Empty / loading slot — appended inside the scroll host
-      var statusSlot = this.slot(function(daoCount, isInit, daoLoading) {
+      var statusSlot = this.slot(function(daoCount, isInit, daoLoading, loadFailed) {
+        if ( loadFailed ) {
+          return self.E().addClass(self.myClass('no-data')).add(self.LOAD_FAILED_MSG);
+        }
         if ( daoLoading ) {
           return self.E().addClass(self.myClass('no-data'))
             .tag(self.LoadingSpinner, { size: 48 });
@@ -371,6 +380,21 @@ foam.CLASS({
       this.onDetach(this.groupBy$.sub(this.refresh));
     },
 
+    function onLoadFailed_(error, refreshId) {
+      if ( this.refreshId !== refreshId ) return;
+      this.clearProperty('refreshId');
+      console.error('Table query failed:', error);
+      this.daoLoading = false;
+      this.loadFailed = true;
+      this.isInit = false;
+      this.daoCount = 0;
+      this.topRow = 0;
+      this.bottomRow = 0;
+      Object.keys(this.renderedPages_).forEach(i => this.clearPage(i, true));
+      this.loadingPages_ = {};
+      this.suspendObserver = false;
+    },
+
     // Spacer Helpers
     function getSpacerHeights_() {
       // console.debug('getting spacer heights for', this.currentTopPage_);
@@ -413,7 +437,7 @@ foam.CLASS({
     },
     function safeScroll() {
       if ( ! this.scrollToIndex ) return;
-      var page = Math.floor(this.scrollToIndex / this.pageSize_);
+      var page = Math.floor((this.scrollToIndex - 1) / this.pageSize_);
       if ( this.renderedPages_[page] ) {
         var el = this.renderedPages_[page].element_.querySelector(`[data-idx='${this.scrollToIndex}']`);
         if ( ! el ) return;
@@ -569,6 +593,8 @@ foam.CLASS({
         e.style({ height: "unset" });
         self.setEstimatedPageHeight(page);
         this.dataLatch.resolve();
+      }).finally(() => {
+        if ( this.refreshId === refreshId ) this.loadingPages_$remove(page);
       });
     },
     async function processPageSequentially_(pageIndex) {
@@ -667,11 +693,16 @@ foam.CLASS({
       isFramed: true,
       code: function() {
         var limit = (this.data && this.data.limit_) || undefined;
+        var data = this.data;
+        this.loadFailed = false;
         this.daoLoading = true;
         return this.data$proxy.select(this.Count.create()).then(s => {
+          if ( this.data !== data ) return;
           this.daoCount   = limit && limit < s.value ? limit : s.value;
           this.daoLoading = false;
           this.refresh();
+        }).catch(error => {
+          if ( this.data === data ) this.onLoadFailed_(error, this.refreshId);
         });
       }
     },
@@ -698,6 +729,7 @@ foam.CLASS({
       delay: 100,
       code: function() {
         // console.debug('starting render', this.currentTopPage_);
+        var refreshId = this.refreshId;
         var promise = Promise.resolve();
 
         if ( this.groupBy ) {
@@ -717,7 +749,9 @@ foam.CLASS({
           }
         }
 
-        promise.finally(() => {
+        return promise.catch(error => this.onLoadFailed_(error, refreshId)).finally(() => {
+          if ( this.refreshId !== refreshId ) return;
+          this.daoLoading = false;
           // Evict pages outside the current window
           Object.keys(this.renderedPages_).forEach(i => {
             var n = Number(i);

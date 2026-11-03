@@ -21,34 +21,34 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       position: relative;
       gap: 0.5rem;
     }
-    ^fragment {
+    <<fragment {
       text-align: center;
       border-radius: 2px;
       aspect-ratio: 1;
     }
-    ^fragment.foam-u2-TextField {
+    <<fragment.foam-u2-TextField {
       min-width: 0px;
     }
-    ^fragment.element.style {
+    <<fragment.element.style {
       width: 0px;
     }
-    ^fragment:invalid {
+    <<fragment:invalid {
       background: $backgroundSecondary;
     }
-    ^fragment:valid {
+    <<fragment:valid {
       background: $backgroundDefault;
     }
-    ^fragment::-webkit-outer-spin-button,
-    ^fragment::-webkit-inner-spin-button {
+    <<fragment::-webkit-outer-spin-button,
+    <<fragment::-webkit-inner-spin-button {
       -webkit-appearance: none;
       margin: 0;
     }
-    ^fragment {
+    <<fragment {
       -moz-appearance: textfield;
     }
   `,

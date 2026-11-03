@@ -23,7 +23,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background-color: $backgroundDefault;
       border-bottom: 1px solid $borderXLight;
       color: $textDefault;
@@ -31,40 +31,40 @@ foam.CLASS({
     }
 
 
-    ^ .form-element-container {
+    << .form-element-container {
       background-color: $backgroundSecondary;
       border-top: 1px solid $borderLight;
     }
 
-    ^ .section {
+    << .section {
       padding: 8px 16px;
     }
 
-    ^ .section:first-of-type {
+    << .section:first-of-type {
       display: flex;
       align-items: center;
     }
 
-    ^ .section:first-of-type label {
+    << .section:first-of-type label {
       position: initial;
       margin: 0 0 0 8px;
     }
 
-    ^ .foam-u2-search-TextSearchView {
+    << .foam-u2-search-TextSearchView {
       position: relative;
     }
 
-    ^ .foam-u2-search-GroupBySearchView .foam-u2-tag-Select {
+    << .foam-u2-search-GroupBySearchView .foam-u2-tag-Select {
       background-color: $backgroundInverse;
       border: none;
       width: 100%;
     }
 
-    ^ .foam-u2-search-GroupBySearchView .foam-u2-tag-Select > option:hover {
+    << .foam-u2-search-GroupBySearchView .foam-u2-tag-Select > option:hover {
       background-color: $backgroundInverseTertiary;
     }
 
-    ^ .foam-u2-search-GroupBySearchView .foam-u2-tag-Select > option {
+    << .foam-u2-search-GroupBySearchView .foam-u2-tag-Select > option {
       color: $textDefault;
       font-weight: normal;
       font-style: normal;

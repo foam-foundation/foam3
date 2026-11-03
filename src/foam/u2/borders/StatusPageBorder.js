@@ -27,7 +27,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       bottom: 0;
@@ -37,9 +37,9 @@ foam.CLASS({
       right: 0;
       top: 0;
       width: 100%;
-      z-index: 1000;
+      z-index: $z-modal;
     }
-    ^header {
+    <<header {
       background: $backgroundDefault;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
@@ -48,20 +48,20 @@ foam.CLASS({
       border-bottom: 1px solid $borderLight;
     }
 
-    ^header-left {
+    <<header-left {
       display: flex;
       align-items: center;
       justify-content: flex-start;
     }
 
-    ^header-center {
+    <<header-center {
       display: flex;
       text-align: center;
       align-items: center;
       justify-content: center;
     }
 
-    ^body {
+    <<body {
       background: $backgroundDefault;
       flex-grow: 1;
       max-height: var(--max-height, 100vh);

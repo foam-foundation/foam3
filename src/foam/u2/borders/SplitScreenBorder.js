@@ -10,32 +10,32 @@ foam.CLASS({
   extends: 'foam.u2.Element',
 
   css: `
-    ^ {
+    << {
       height: 100vh;
       width: 100vw;
       background: $backgroundDefault;
     }
-    ^ .left-block {
+    << .left-block {
       width: 55vw;
       display: inline-block;
       background: transparent;
       text-align: center;
     }
-    ^ .right-block {
+    << .right-block {
       width: 43vw;
       display: inline-block;
       background: transparent;
       height: auto;
       float: right;
     }
-    ^content {
+    <<content {
       width: -moz-available;
       width: -webkit-fill-available;
       width: fill-available;
       position: relative;
       padding-bottom: 4vh;
     }
-    ^ .wrapper-outer {
+    << .wrapper-outer {
       overflow: auto;
       height: 100%;
     }

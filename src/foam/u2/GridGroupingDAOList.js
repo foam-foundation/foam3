@@ -11,23 +11,23 @@ foam.CLASS({
   documentation: 'GroupingDAOList which displays elements in a grid rather than in rows',
 
   css: `
-    ^ {
+    << {
       padding: 16px 12px;
     }
-    ^group-title {
+    <<group-title {
       color: $textDefault;
       padding-bottom: 16px;
       margin-bottom: 24px;
       border-bottom: 2px solid $borderDefault;
     }
-    ^grid {
+    <<grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, 330px);
       justify-content: start;
       align-items: start;
       gap: 16px;
     }
-    ^grid + ^group-title {
+    <<grid + <<group-title {
       margin-top: 24px;
     }
   `,

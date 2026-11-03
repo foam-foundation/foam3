@@ -31,37 +31,37 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       background-color: $backgroundDefault;
       border-radius: 2px;
       min-width: 250px;
     }
 
-    ^ input {
+    << input {
       font-size: medium;
     }
 
-    ^ .foam-u2-tag-Input {
+    << .foam-u2-tag-Input {
       width: 100%;
     }
 
-    ^ input:not([type="checkbox"]):focus,
-    ^ select:focus {
+    << input:not([type="checkbox"]):focus,
+    << select:focus {
       outline: none;
       border: 1px solid $borderBrand;
     }
 
-    ^ .general-query {
+    << .general-query {
       padding: 16px 20px;
     }
 
-    ^count {
+    <<count {
       font-size: 12pt;
       color: $textSecondary;
       margin: 20px 20px 0 20px;
     }
 
-    ^ .foam-u2-ActionView-clear {
+    << .foam-u2-ActionView-clear {
       margin: 20px;
     }
   `,

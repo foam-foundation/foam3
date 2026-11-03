@@ -22,7 +22,7 @@ foam.CLASS({
 
   exports: [ 'as data' ],
 
-  css: '^ input { width: auto; }',
+  css: '<< input { width: auto; }',
 
   properties: [
     [ 'nodeName', 'span' ],

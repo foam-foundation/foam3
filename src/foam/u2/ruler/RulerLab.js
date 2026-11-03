@@ -34,11 +34,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 16px;
       height: 100%;
     }
-    ^list {
+    <<list {
       display: flex;
       flex-direction: column;
       gap: 2.4rem;

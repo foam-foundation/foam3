@@ -28,10 +28,10 @@
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
     }
-    ^suggestions {
+    <<suggestions {
       box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.06), 0px 4px 6px rgba(0, 0, 0, 0.1);
       background-color: $backgroundDefault;
       border: 1px solid $borderDefault;
@@ -44,7 +44,7 @@
       padding: 12px;
       gap: 8px;
     }
-    ^row {
+    <<row {
       color: $textDefault;
       cursor: pointer;
       padding: 8px;

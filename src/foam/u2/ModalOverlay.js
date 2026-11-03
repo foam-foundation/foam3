@@ -76,7 +76,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       align-items: center;
       bottom: 0;
       display: flex;
@@ -85,10 +85,10 @@ foam.CLASS({
       position: fixed;
       right: 0;
       top: 0;
-      z-index: 1000;
+      z-index: $z-modal;
     }
 
-    ^container {
+    <<container {
       align-items: center;
       display: flex;
       height: 100%;
@@ -96,7 +96,7 @@ foam.CLASS({
       position: relative;
       width: 100%;
     }
-    ^background {
+    <<background {
       background-color: $backgroundInverse;
       bottom: 0;
       left: 0;
@@ -105,7 +105,7 @@ foam.CLASS({
       right: 0;
       top: 0;
     }
-    ^inner {
+    <<inner {
       z-index: 3;
     }
   `

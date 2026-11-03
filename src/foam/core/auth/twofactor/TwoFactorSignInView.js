@@ -21,31 +21,31 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       width: 500px;
       margin: auto;
       margin-top: 20vh;
     }
-    ^ .app-link {
+    << .app-link {
       text-decoration: none;
       margin-left: 5px;
     }
-    ^ .foam-u2-ActionView-verify {
+    << .foam-u2-ActionView-verify {
       width: 91%;
       margin-top: 20px;
     }
-    ^ .tfa-container {
+    << .tfa-container {
       border-radius: 2px;
       margin-top: 26px;
     }
-    ^ .img-text {
+    << .img-text {
       display: flex;
     }
-    ^ .img-text > p {
+    << .img-text > p {
       width: 90%;
       margin: 20px;
     }
-    ^ .error-msg > span {
+    << .error-msg > span {
       margin-left: 10px;
       position: relative;
       bottom: 3px;

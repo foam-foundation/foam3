@@ -51,6 +51,11 @@ foam.CLASS({
       name: 'dataDir',
       class: 'String',
       documentation: 'Directory for browser user data and cache. If not set, browser defaults to system temp or profile directory.'
+    },
+    {
+      name: 'url',
+      class: 'String',
+      documentation: 'Base url to open. Defaults to appConfig.url.'
     }
   ],
 

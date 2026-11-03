@@ -75,10 +75,14 @@ foam.CLASS({
 
         AppConfig appConfig = (AppConfig) x.get("appConfig");
         String url = appConfig.getUrl();
+
+        templateArgs.put("theme", theme); // Use for colour until token support is added for email
         templateArgs.put("logo", url + theme.getLogo());
         templateArgs.put("largeLogo", url + theme.getLargeLogo());
         templateArgs.put("appLink", url);
         templateArgs.put("appName", theme.getAppName());
+
+        templateArgs.put("user", user);
         templateArgs.put("locale", user.getLanguage().getCode().toString());
         templateArgs.put("user_Name_", user.getLegalName());
         foam.core.auth.Address address = supportConfig.getSupportAddress();
@@ -86,14 +90,13 @@ foam.CLASS({
         templateArgs.put("supportPhone", supportConfig.getSupportPhone());
         templateArgs.put("supportEmail", supportConfig.getSupportEmail());
         templateArgs.put("supportLogo", supportConfig.getSupportLogo());
+
+        templateArgs.put("appConfig", appConfig);
         templateArgs.put("termsAndCondLink", url + appConfig.getTermsAndCondLink());
         templateArgs.put("termsAndCondLabel", appConfig.getTermsAndCondLabel());
         templateArgs.put("copyright", appConfig.getCopyright());
         templateArgs.put("privacyUrl", url + appConfig.getPrivacyUrl());
         templateArgs.put("privacyLabel", appConfig.getPrivacy());
-
-        // Temporary color until token support is added for email
-        templateArgs.put("theme", theme);
 
         // personal support user
         User psUser = supportConfig.findPersonalSupportUser(getX());

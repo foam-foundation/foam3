@@ -17,7 +17,7 @@
     'importConfig'
   ],
   css: `
-    ^ {
+    << {
       width: 500px;
       height: 500px;
       overflow-x: auto;

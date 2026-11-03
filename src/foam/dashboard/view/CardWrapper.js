@@ -20,10 +20,10 @@ foam.CLASS({
   ],
 
   css: `
-  ^ .foam-dashboard-view-Card {
+  << .foam-dashboard-view-Card {
     overflow: hidden;
   }
-  ^titled-container {
+  <<titled-container {
     display: grid;
     grid-template-rows: 2em 1fr;
   }

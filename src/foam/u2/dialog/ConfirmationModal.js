@@ -16,7 +16,7 @@ foam.CLASS({
   imports: ['theme?'],
 
   css: `
-    ^lowerPadding {
+    <<lowerPadding {
       padding-bottom: 0;
     }
   `,

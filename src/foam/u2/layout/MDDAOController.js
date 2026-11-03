@@ -216,15 +216,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .right .foam-u2-search-TextSearchView {
+    << .right .foam-u2-search-TextSearchView {
       position: relative;
     }
 
-    ^ .right {
+    << .right {
       flex: 1;
     }
 
-    ^ .create-btn {
+    << .create-btn {
       position: absolute;
       bottom: 3rem;
       right: 3rem;

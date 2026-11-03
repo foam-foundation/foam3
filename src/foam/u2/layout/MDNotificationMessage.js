@@ -24,15 +24,15 @@ foam.CLASS({
     ],
 
     css: `
-      ^ {
+      << {
         display: flex;
         justify-content: center;
         position: fixed;
         top: 0;
         width: 100vw;
-        z-index: 15000;
+        z-index: $z-toast;
       }
-      ^inner {
+      <<inner {
         width: 100%;
         height: 5rem;
         max-width: 1024px;
@@ -47,7 +47,7 @@ foam.CLASS({
         justify-content: space-between;
         align-items: center;
       }
-      ^banner {
+      <<banner {
         background-color: $green400;
         height: 4px;
         width: inherit;
@@ -64,13 +64,13 @@ foam.CLASS({
         80% { opacity: 1; }
         100% { opacity: 0; }
       }
-      ^status-icon {
+      <<status-icon {
         width: 20px;
         height: 20px;
         margin-right: 16px;
         vertical-align: middle;
       }
-      ^content {
+      <<content {
         display: inline-block;
         vertical-align: middle;
         font-size: 2.5em;
@@ -78,29 +78,29 @@ foam.CLASS({
         color: $green700;
         letter-spacing: normal;
       }
-      ^description {
+      <<description {
         color: $green700;
         margin-left: 36px;
       }
-      ^error-background {
+      <<error-background {
         background: $red50;
       }
-      ^warning-background {
+      <<warning-background {
         background: $yellow100;
       }
-      ^error-banner {
+      <<error-banner {
         background: $red300;
       }
-      ^warning-banner {
+      <<warning-banner {
         background: $yellow400;
       }
-      ^error-content {
+      <<error-content {
         color: $red700;
       }
-      ^warning-content {
+      <<warning-content {
         color: $yellow700;
       }
-      ^link-icon {
+      <<link-icon {
         display: inline-block;
         margin-top: 2px;
         vertical-align: middle;
@@ -108,7 +108,7 @@ foam.CLASS({
         width: 16px;
         height: 16px;
       }
-      ^close-icon {
+      <<close-icon {
         background-image: url("images/round-close-icon.svg");
         background-size: 12px 12px;
         cursor:pointer;
@@ -118,7 +118,7 @@ foam.CLASS({
         position: absolute;
         top: 18;
       }
-      ^close-icon:hover {
+      <<close-icon:hover {
         opacity: 1;
       }
     `,

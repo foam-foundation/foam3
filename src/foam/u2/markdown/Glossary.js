@@ -147,14 +147,14 @@ foam.CLASS({
 
   mixins: [ 'foam.u2.markdown.GlossaryMixin' ],
 
-  imports: [ 'document' ],
+  imports: [ 'document', 'window' ],
 
   css: `
-    ^ {
+    << {
       display: inline;
     }
 
-    ^term {
+    <<term {
       color: $textBrand;
       text-decoration: underline;
       text-decoration-style: dotted;
@@ -162,13 +162,13 @@ foam.CLASS({
       position: relative;
     }
 
-    ^term:hover {
+    <<term:hover {
       color: $primary500;
     }
 
-    ^popup {
+    <<popup {
       position: absolute;
-      z-index: 1000;
+      z-index: $z-popup;
       background: $white;
       border: 1px solid $borderDefault;
       border-radius: 6px;
@@ -180,7 +180,7 @@ foam.CLASS({
       line-height: 1.5;
     }
 
-    ^popup-header {
+    <<popup-header {
       font-weight: $font-medium;
       color: $textDefault;
       margin-bottom: 8px;
@@ -188,18 +188,18 @@ foam.CLASS({
       border-bottom: 1px solid $borderLight;
     }
 
-    ^popup-definition {
+    <<popup-definition {
       color: $textSecondary;
     }
 
-    ^popup-source {
+    <<popup-source {
       margin-top: 8px;
       font-size: 12px;
       color: $textTertiary;
       font-style: italic;
     }
 
-    ^popup-close {
+    <<popup-close {
       position: absolute;
       top: 8px;
       right: 10px;
@@ -209,7 +209,7 @@ foam.CLASS({
       line-height: 1;
     }
 
-    ^popup-close:hover {
+    <<popup-close:hover {
       color: $textDefault;
     }
   `,
@@ -299,8 +299,8 @@ foam.CLASS({
 
       var popup = this.popupE_.el_();
       var rect = popup.getBoundingClientRect();
-      var viewportWidth = window.innerWidth;
-      var viewportHeight = window.innerHeight;
+      var viewportWidth = this.window.innerWidth;
+      var viewportHeight = this.window.innerHeight;
 
       if ( rect.right > viewportWidth ) {
         popup.style.left = 'auto';
@@ -366,10 +366,10 @@ foam.CLASS({
   mixins: [ 'foam.u2.markdown.GlossaryMixin' ],
 
   css: `
-    ^entry { margin-bottom: 16px; }
-    ^entry dt { font-weight: $font-medium; color: $textDefault; }
-    ^entry dd { margin-left: 0; margin-top: 4px; color: $textSecondary; }
-    ^source { font-size: 0.9em; color: $textTertiary; font-style: italic; }
+    <<entry { margin-bottom: 16px; }
+    <<entry dt { font-weight: $font-medium; color: $textDefault; }
+    <<entry dd { margin-left: 0; margin-top: 4px; color: $textSecondary; }
+    <<source { font-size: 0.9em; color: $textTertiary; font-style: italic; }
   `,
 
   methods: [

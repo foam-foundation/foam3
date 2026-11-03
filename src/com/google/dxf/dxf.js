@@ -312,10 +312,10 @@ foam.CLASS({
   },
 
   css: `
-    ^layers {
+    <<layers {
       display: inline-block;
     }
-    ^ canvas {
+    << canvas {
     }
   `,
 

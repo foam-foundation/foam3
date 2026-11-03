@@ -17,13 +17,13 @@ foam.CLASS({
   ],
 
   css: `
-    ^ > .foam-u2-layout-Rows > .foam-u2-layout-Grid {
+    << > .foam-u2-layout-Rows > .foam-u2-layout-Grid {
       grid-row-gap: 0 !important;
     }
-    ^ > ^rows > ^grid > div {
+    << > <<rows > <<grid > div {
       padding: 1rem;
     }
-    ^ > ^rows > ^grid > div:nth-child(even of :not(.foam-u2-Element-hidden)) {
+    << > <<rows > <<grid > div:nth-child(even of :not(.foam-u2-Element-hidden)) {
       background: $backgroundSecondary;
     }
   `,

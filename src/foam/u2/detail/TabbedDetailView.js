@@ -18,27 +18,27 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .foam-u2-Tabs-content > div {
+    << .foam-u2-Tabs-content > div {
       background: $backgroundDefault;
       padding: 14px 16px;
       border-bottom-left-radius: 6px;
       border-bottom-right-radius: 6px;
     }
 
-    ^ .foam-u2-table-TableView table {
+    << .foam-u2-table-TableView table {
       width: 100%;
     }
 
-    ^ .foam-u2-Tabs-tabRow {
+    << .foam-u2-Tabs-tabRow {
       border-top-left-radius: 6px;
       border-top-right-radius: 6px;
       position: sticky;
       top: 0;
     }
-    ^tab-wrapper.foam-u2-borders-CardBorder {
+    <<tab-wrapper.foam-u2-borders-CardBorder {
       padding: 0;
     }
-    ^wrapper {
+    <<wrapper {
       padding: 14px 24px;
     }
   `,

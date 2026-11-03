@@ -54,12 +54,12 @@ foam.CLASS({
   ],
 
   css: `
-  ^ {
+  << {
     height: 100%;
     overflow: auto;
     overflow-x: hidden;
   }
-  ^ .md-row {
+  << .md-row {
     display: flex;
     color: $textSecondary;
     height: 150px;

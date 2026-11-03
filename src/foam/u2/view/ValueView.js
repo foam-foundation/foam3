@@ -14,7 +14,7 @@ foam.CLASS({
   imports: [ 'translationService?' ],
 
   css: `
-    ^ {
+    << {
       display: block;
     }
   `,

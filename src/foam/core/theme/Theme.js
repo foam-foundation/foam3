@@ -238,6 +238,7 @@ foam.CLASS({
 //      value:        // with no value - then left image and right login view
 //      value: 'foam.core.auth.login.LoginView'  // just right login view
 //      value: 'foam.u2.borders.BaseUnAuthBorder' // just left image
+//      value: 'foam.core.auth.login.OIDCLoginView' // redirect to OIDC/OAuth provider that matches the current domain
     {
       class: 'Image',
       name: 'logo',

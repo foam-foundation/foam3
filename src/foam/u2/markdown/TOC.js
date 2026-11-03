@@ -301,16 +301,16 @@ foam.CLASS({
   mixins: [ 'foam.u2.markdown.TOCMixin' ],
 
   css: `
-    ^ { margin: 20px 0; }
-    ^title { font-size: 1.25em; font-weight: $font-medium; margin-bottom: 12px; }
-    ^list { list-style: none; padding: 0; margin: 0; }
-    ^item { margin: 4px 0; }
-    ^item a { color: $textBrand; text-decoration: none; }
-    ^item a:hover { text-decoration: underline; }
-    ^level-1 { margin-left: 0; font-weight: $font-regular; }
-    ^level-2 { margin-left: 20px; }
-    ^level-3 { margin-left: 40px; }
-    ^level-4 { margin-left: 60px; }
+    << { margin: 20px 0; }
+    <<title { font-size: 1.25em; font-weight: $font-medium; margin-bottom: 12px; }
+    <<list { list-style: none; padding: 0; margin: 0; }
+    <<item { margin: 4px 0; }
+    <<item a { color: $textBrand; text-decoration: none; }
+    <<item a:hover { text-decoration: underline; }
+    <<level-1 { margin-left: 0; font-weight: $font-regular; }
+    <<level-2 { margin-left: 20px; }
+    <<level-3 { margin-left: 40px; }
+    <<level-4 { margin-left: 60px; }
   `,
 
   properties: [

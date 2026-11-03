@@ -16,10 +16,10 @@
   requires: [ 'foam.u2.view.RadioButton' ],
 
   css: `
-    ^radio-choice-flexbox {
+    <<radio-choice-flexbox {
       display: flex;
     }
-    ^ .radio {
+    << .radio {
       margin-right: 1em;
     }
   `,

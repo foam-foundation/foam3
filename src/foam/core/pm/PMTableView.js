@@ -18,8 +18,8 @@ foam.CLASS({
   exports: [ 'maxTotalTime', 'as tableView' ],
 
   css: `
-    ^ { overflow: auto; }
-    ^container{
+    << { overflow: auto; }
+    <<container{
       display: flex;
       flex-direction: column;
       height: 100%;

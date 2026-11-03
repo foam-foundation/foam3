@@ -189,7 +189,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
                     granted[0] = true;
                     d.detach();
                   }
-                } 
+                }
                 if ( new AuthPermission(j.getTargetId()).implies(permission) ) {
                   granted[0] = true;
                   d.detach();
@@ -376,12 +376,7 @@ List entries are of the form: 172.0.0.0/24 - this would restrict logins to the 1
     },
     {
       name: 'validateCidrWhiteList',
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        }
-      ],
+      args: 'Context x',
       javaThrows: ['foam.lang.ValidationException'],
       javaCode: `
       foam.net.CIDR[] cidrs = getCidrWhiteList();

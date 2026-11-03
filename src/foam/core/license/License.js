@@ -13,6 +13,11 @@ foam.CLASS({
 
   ids: [ 'daoKey', 'spid' ],
 
+  imports: [
+    'cSpecDAO',
+    'ruleDAO'
+  ],
+
   properties: [
     {
       class: 'String',
@@ -33,14 +38,27 @@ foam.CLASS({
       label: 'DAO',
       required: true,
       documentation: 'Name of the DAO this License applies to',
-      view: function(_, X) {
-        var E = foam.mlang.Expressions.create();
+      view: function(_, X) { // Need acces to service.read.ruleDAO for this to populate
+        let E = foam.mlang.Expressions.create();
+        let dao = X.data.slot(function(daoKeys) {
+          if ( ! daoKeys || daoKeys.length == 0 ) {
+            // FIXME: The rule dao select in init is not working
+            // and an empty array appears to generate
+            // Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'f')
+            // at Object.value (PredicateArray.js:27:18)
+            // at foam.CLASS.properties.name (FObjectArray.js:88:23)
+            return X.data.cSpecDAO;
+          }
+          return X.data.cSpecDAO.where(E.IN(foam.core.boot.CSpec.ID, daoKeys || []));
+        });
+
         return {
           class: 'foam.u2.view.RichChoiceView',
           search: true,
           sections: [
             {
-              dao: X.cSpecDAO.where(E.ENDS_WITH(foam.core.boot.CSpec.ID, 'DAO'))
+              heading: 'Licensable DAOs',
+              dao$: dao
             }
           ]
         };
@@ -50,8 +68,9 @@ foam.CLASS({
     {
       class: 'Long',
       name: 'quota',
-      required: true,
       documentation: 'Maximum number of "things" that can be active at a time',
+      value: 1,
+      min: 1
     },
     {
       class: 'Boolean',
@@ -73,10 +92,26 @@ foam.CLASS({
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
       documentation: 'Current number of active "things". Updated when daoKey puts or removes'
+    },
+    {
+      class: 'Array',
+      name: 'daoKeys',
+      hidden: true,
+      value: []
     }
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      let self = this;
+
+      this.ruleDAO.select().then(function(sink) {
+        self.daoKeys = sink.array.filter(function(rule) {
+          return foam.core.license.LicenseRuleAction.isInstance(rule.action);
+        }).map(function(rule) { return rule && rule.daoKey; });
+      });
+    },
     { // Override toSummary() to display the License's name rather than its Id in DetailView
       name: 'toSummary',
       type: 'String',

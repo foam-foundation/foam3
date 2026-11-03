@@ -1,0 +1,14 @@
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"save-flow-to-file-rule",
+  "priority":100,
+  "daoKey":"flowDAO",
+  "ruleGroup":"auth",
+  "operation":3,
+  "action":{
+    "class":"foam.u2.markdown.SaveFlowToFileRuleAction"
+  },
+  "enabled":true,
+  "saveHistory":false,
+  "lifecycleState":1
+})

@@ -22,7 +22,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       position: relative;
       border-radius: 50%;
       text-align: center;
@@ -32,10 +32,10 @@ foam.CLASS({
       justify-content: center;
       cursor: pointer;
     }
-    ^ > img {
+    << > img {
       pointer-events: none;
     }
-    ^ svg {
+    << svg {
       height: 100%;
       width: 100%;
     }

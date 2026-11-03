@@ -90,7 +90,7 @@ foam.CLASS({
       updateVisibility: 'RO'
     },
     {
-      class: 'Long',
+      class: 'String',
       name: 'id',
       createVisibility: 'RW',
       updateVisibility: 'RO'
@@ -287,6 +287,18 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.core.alarming.Alarm',
       name: 'alarm',
+      storageTransient: true,
+      visibility: 'HIDDEN'
+    },
+    {
+      class: 'String',
+      name: 'localeTemplateName',
+      storageTransient: true,
+      visibility: 'HIDDEN'
+    },
+    {
+      class: 'Map',
+      name: 'localeTranslationMappings',
       storageTransient: true,
       visibility: 'HIDDEN'
     }

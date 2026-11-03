@@ -28,10 +28,10 @@ foam.CLASS({
   exports: [ 'as data' ],
  
   css: `
-    ^ {
+    << {
       margin-bottom: 20px;
     }
-    ^:hover{
+    <<:hover{
       cursor: pointer;
     }
   `,

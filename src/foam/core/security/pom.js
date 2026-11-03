@@ -14,6 +14,7 @@ foam.POM({
     { name: "KeyStoreAware",                       flags: "js|java" },
     { name: "CachingKeyStoreManager",              flags: "js|java" },
     { name: "EmptyKeyStoreManager",                flags: "js|java" },
-    { name: "StorageKeyStoreManager",              flags: "js|java" }
+    { name: "StorageKeyStoreManager",              flags: "js|java" },
+    { name: "FileKeyStoreManager",                 flags: "js|java" }
   ]
 });

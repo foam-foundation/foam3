@@ -96,15 +96,15 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .table-row:hover {
+    << .table-row:hover {
       background: $backgroundSecondary;
       cursor: pointer;
     }
-    ^ .table-row {
+    << .table-row {
       padding-left: 20px;
       padding-right: 20px;
     }
-    ^ div div:last-child div.table-row div {
+    << div div:last-child div.table-row div {
       border-bottom: none;
     }
   `

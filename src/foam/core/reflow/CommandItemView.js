@@ -11,7 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^command-item {
+    <<command-item {
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -19,14 +19,14 @@ foam.CLASS({
       padding-inline: 5px;
       height: 40px;
     }
-    ^command-item:hover {
+    <<command-item:hover {
       background-color: $backgroundSecondary;
     }
-    ^ .foam-u2-ActionView-addComponent {
+    << .foam-u2-ActionView-addComponent {
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       display: none !important;
     }
-    ^command-item:hover .foam-u2-ActionView-addComponent{
+    <<command-item:hover .foam-u2-ActionView-addComponent{
       display: inline-flex !important;
     }
   `,

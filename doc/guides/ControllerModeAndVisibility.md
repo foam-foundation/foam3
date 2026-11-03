@@ -126,6 +126,8 @@ this
 
 **Never set controllerMode directly on a view as a property.** It is context-driven.
 
+**Pass the enum value, never the string `'VIEW'`.** `startContext()` stores values as given; nothing adapts them (`src/foam/u2/Element2.js:1269-1275`). An element's own `controllerMode` property does adapt a string, but the sectioned detail views pass the raw context slot straight on (`src/foam/u2/detail/SectionedDetailView.js:57`, `VerticalDetailView.js:50`, `TabbedDetailView.js:72`), and visibility code then calls `controllerMode.getVisibilityValue(...)` on it (`src/foam/u2/Element2.js:1841`), which a string does not have. `startContext({ controllerMode: 'VIEW' })` can work in a simple view and throw once a sectioned detail view sits underneath. The same holds for any enum or object value placed in a context.
+
 ## Propagating Mode to Custom Inner Views
 
 When building a **wrapper view** that creates its own inner views (bypassing PropertyBorder), you must forward the mode manually. Otherwise, the inner view falls back to its default `mode` expression — which only knows about `controllerMode`, not the property's visibility settings — and ignores `updateVisibility`, `readVisibility`, etc.

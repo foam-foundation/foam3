@@ -39,13 +39,14 @@ return FOAM_utils.equals(v1, v2)
     function reduceAnd(other) {
       // If you query field=value1 AND field=value1, reduce to just field=value1
       // If you query field=value1 AND field=value2, reduce to FALSE
-      if ( ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
+      // Only applies to another EQ: field=1 AND field!=2 is not FALSE.
+      if ( this.cls_ !== other.cls_ || ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
       return foam.util.equals(this.arg2, other.arg2) ? this : foam.mlang.predicate.False.create();
     },
 
     function reduceOr(other) {
       // If you query field=value1 OR field=value1, reduce to just field=value1
-      if ( ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
+      if ( this.cls_ !== other.cls_ || ! foam.util.equals(this.arg1, other.arg1) ) return this.SUPER(other);
       return foam.util.equals(this.arg2, other.arg2) ? this : null;
     },
 

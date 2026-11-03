@@ -46,6 +46,7 @@ foam.CLASS({
 
   tableColumns: [
     'id',
+    'title',
     'status',
     'progress',
     'statusMsg',
@@ -63,6 +64,14 @@ foam.CLASS({
       updateVisibility: 'RO'
     },
     {
+      documentation: `What this Job is, for telling Jobs apart in the GUI.
+        Defaults to the short class name; a creator can set it explicitly.`,
+      class: 'String',
+      name: 'title',
+      factory: function() { return this.cls_.name; },
+      javaFactory: 'return getClass().getSimpleName();'
+    },
+    {
       class: 'Enum',
       of: 'foam.core.job.JobStatus',
       name: 'status',
@@ -76,6 +85,18 @@ foam.CLASS({
       name: 'statusMsg',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      documentation: `Lasting messages, such as warnings and results, appended by
+        out(). Where each statusMsg replaces the last, output keeps every line.`,
+      class: 'String',
+      name: 'output',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      view: {
+        class: 'foam.u2.view.ModeAltView',
+        readView: { class: 'foam.u2.view.PreView' }
+      }
     },
     {
       documentation: `Completion percentage, or -1 when the Job cannot determine
@@ -111,10 +132,24 @@ foam.CLASS({
       name: 'save',
       documentation: `Write this Job's current state back to the jobDAO so a
         poller can see it. The jobDAO clones on put, so this instance stays
-        mutable and can be saved again as the Job advances.`,
+        mutable and can be saved again as the Job advances.
+
+        A Job with no id was run directly, not submitted to the jobDAO, so
+        there is nothing to update. Putting it would create it in the jobDAO,
+        and the SubmitJob rule would run it a second time.`,
       args: 'X x',
       javaCode: `
+        if ( foam.util.SafetyUtil.isEmpty(getId()) ) return;
         ((DAO) x.get("jobDAO")).inX(x).put(this);
+      `
+    },
+    {
+      name: 'out',
+      documentation: `Append a line to output. It reaches the jobDAO with the next
+        save(), or when the Job stops.`,
+      args: 'String msg',
+      javaCode: `
+        setOutput(foam.util.SafetyUtil.isEmpty(getOutput()) ? msg : getOutput() + "\\n" + msg);
       `
     },
     {
@@ -124,16 +159,27 @@ foam.CLASS({
       javaCode: `
         setStatusMsg(statusMsg);
         setProgress(progress);
+        if ( ! foam.util.SafetyUtil.isEmpty(getId()) ) {
+          // client might have changed the Job's status, so fetch it and update this clone before saving
+          Job current = (Job) ((DAO) x.get("jobDAO")).find(getId());
+          if ( current != null ) setStatus(current.getStatus());
+        }
         save(x);
       `
     },
     {
-      documentation: `createdBy is stamped by CreatedByAwareDAO, which sits
-        inside AuthorizationDAO, so it is still unset here. Submitting is
-        governed by access to the jobDAO service itself.`,
+      documentation: `A Job runs code on the server, and some Jobs, such as
+        ShellJob and ScriptJob, run whatever code the submitter supplies, so
+        access to the jobDAO is not enough to submit one. Submitting needs
+        job.create.<full class id>, e.g. job.create.foam.core.job.ShellJob.
+        The full id, not the short name, keeps a grant for one package's
+        ShellJob from also covering a ShellJob in another package; its dots
+        let a wildcard such as job.create.foam.core.job.* grant a whole package.`,
       name: 'authorizeOnCreate',
       javaCode: `
-        // not authorized here, see documentation
+        String permission = "job.create." + getClassInfo().getId();
+        if ( ! ((AuthService) x.get("auth")).check(x, permission) )
+          throw new AuthorizationException("You do not have permission to submit " + getClassInfo().getId());
       `
     },
     {

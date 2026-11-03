@@ -10,10 +10,10 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   requires: [ 'foam.core.reflow.DynamicReflowComponents', 'foam.u2.ToggleActionView', 'foam.u2.md.OverlayDropdown' ],
-  imports: [ 'eval_' ],
+  imports: [ 'document', 'eval_', 'window' ],
 
   css: `
-    ^promptHolder {
+    <<promptHolder {
       display: flex;
       flex-direction: row;
       align-items: center;
@@ -21,7 +21,7 @@ foam.CLASS({
       position: relative;
       max-height: 30px;
     }
-    ^expanded-island {
+    <<expanded-island {
       position: absolute;
       bottom: 100%;
       margin-bottom: 10px;
@@ -62,7 +62,7 @@ foam.CLASS({
   methods: [
     function init() {
       this.SUPER();
-      window.addEventListener('mousedown', this.handleClickOutside);
+      this.window.addEventListener('mousedown', this.handleClickOutside);
     },
 
     function render() {
@@ -84,7 +84,7 @@ foam.CLASS({
 
   listeners: [
     function handleClickOutside(e) {
-      const islandHolder = document?.querySelector(`.${this.myClass('expanded-island')}`);
+      const islandHolder = this.document?.querySelector(`.${this.myClass('expanded-island')}`);
       if (islandHolder && !islandHolder.contains(e.target)) {
         this.opened = false;
       }
@@ -98,12 +98,12 @@ foam.CLASS({
       code: function(X) {
 
         var dropdown = foam.u2.md.OverlayDropdown.create({ closeOnLeave: true }, this);
-        var button = document.activeElement;
+        var button = this.document.activeElement;
         var x = 200, y = 200;
         if ( button && button.getBoundingClientRect ) {
           var rect = button.getBoundingClientRect();
-          x = rect.left + window.scrollX;
-          y = rect.bottom + window.scrollY - 40;
+          x = rect.left + this.window.scrollX;
+          y = rect.bottom + this.window.scrollY - 40;
           dropdown.parentEl = button;
         }
         dropdown.tag(this.spec, { data: this.data });

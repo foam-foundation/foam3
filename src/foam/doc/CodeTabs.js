@@ -12,25 +12,25 @@ foam.CLASS({
   documentation: 'Multiple code tabs.',
 
   css: `
-    ^ {
+    << {
       display: block;
     }
-    ^tabRow { height: 30px; }
-    ^tab {
+    <<tabRow { height: 30px; }
+    <<tab {
       background: $backgroundInverseTertiary;
-      border: 1px solid black;
+      border: 1px solid $borderDefault;
       border-radius: 3px 3px 0 0;
       display: inline-block;
       height: -2px;
       padding: 5px;
       border-bottom: none;
     }
-    ^tab.selected {
+    <<tab.selected {
       background:$backgroundDefault;
       position: relative;
       z-index: 1;
     }
-    ^bottomEdge {
+    <<bottomEdge {
       background:$backgroundDefault;
       height: 2.5px;
       left: 0;
@@ -38,7 +38,7 @@ foam.CLASS({
       top: 27px;
       width: 100%;
     }
-    ^content {
+    <<content {
       margin: 4px;
       padding: 6px;
       background:$backgroundDefault;

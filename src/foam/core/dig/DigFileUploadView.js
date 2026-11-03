@@ -29,7 +29,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .attachment-input {
+    << .attachment-input {
       width: 0.1px;
       height: 0.1px;
       opacity: 0;
@@ -37,14 +37,14 @@ foam.CLASS({
       position: absolute;
       z-index: -1;
     }
-    ^ .attachment-filename {
+    << .attachment-filename {
       max-width: 342px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       float: left;
     }
-    ^ .attachment-view {
+    << .attachment-view {
       min-width: 700px;
       max-width: 275px;
       height: 40px;
@@ -53,34 +53,34 @@ foam.CLASS({
       padding-right: 10px;
       padding-top: 5px;
     }
-    ^ .attachment-btn {
+    << .attachment-btn {
       margin: 10px 0;
     }
-    ^ .uploadButtonContainer {
+    << .uploadButtonContainer {
       height: 80px;
       display: inline-block;
       vertical-align: text-bottom;
       margin-left: 40px;
     }
-    ^ .removeButtonContainer {
+    << .removeButtonContainer {
       display: inline-block;
       vertical-align: text-bottom;
       margin-left: 20px;
       vertical-align: top;
       margin-top: 5px;
     }
-    ^ .uploadDescContainer{
+    << .uploadDescContainer{
       position: relative;
       left: 26%;
       bottom: 24%;
     }
-    ^ .uploadDescription {
+    << .uploadDescription {
       margin-top: 9px;
       font-weight: $font-light;
       color: $textBrand;
     }
-    ^ .boxless-for-drag-drop {
-      border: dashed 4px #a4b3b8;
+    << .boxless-for-drag-drop {
+      border: dashed 4px $borderDefault;
       width: 90%;
       height: 50px;
       padding: 10px 10px;
@@ -89,7 +89,7 @@ foam.CLASS({
       margin-left: 5px;
       overflow: auto;
     }
-    ^ .attachment-footer {
+    << .attachment-footer {
       float: right;
     }
   `,

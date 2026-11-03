@@ -15,19 +15,19 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       padding: 32px;
     }
-    ^ svg {
+    << svg {
       display: inline-block;
     }
-    ^ .foam-u2-view-RichChoiceView-selection-view {
+    << .foam-u2-view-RichChoiceView-selection-view {
       width: 30vw;
     }
-    ^ .foam-u2-Tabs-tabRow {
+    << .foam-u2-Tabs-tabRow {
       margin-bottom: 30px;
     }
-    ^ .foam-u2-Tabs-content > div > div {
+    << .foam-u2-Tabs-content > div > div {
       display: inline-flex;
       vertical-align: text-bottom;
       margin-right: 20px;

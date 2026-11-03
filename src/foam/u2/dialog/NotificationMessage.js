@@ -36,7 +36,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       justify-content: flex-end;
       position: fixed;
@@ -45,9 +45,9 @@ foam.CLASS({
       min-width: calc(max(30vw, 30rem) - 3.2rem);
       right: 1.6rem;
       top: 2.4rem;
-      z-index: 15000;
+      z-index: $z-toast;
     }
-    ^inner {
+    <<inner {
       align-items: center;
       animation-name: fade;
       animation-duration: 10s;
@@ -69,25 +69,25 @@ foam.CLASS({
       80% { opacity: 1; }
       100% { opacity: 0; }
     }
-    ^outer-content{
+    <<outer-content{
       align-items: center;
       display: flex;
       margin-right: 1em;
       width: 100%;
       gap: 1.2rem;
     }
-    ^status-icon {
+    <<status-icon {
       align-items: center;
       height: 32px;
       justify-content: center;
       flex: 0 0 3.2rem;
     }
-    ^content {
+    <<content {
       display: flex;
       overflow: hidden;
       flex-direction: column;
     }
-    ^title{
+    <<title{
       display: -webkit-box;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
@@ -96,7 +96,7 @@ foam.CLASS({
       word-break: break-word;
       white-space: normal;
     }
-    ^description {
+    <<description {
       color: $textTertiary;
       display: -webkit-box;
       -webkit-box-orient: vertical;
@@ -106,18 +106,18 @@ foam.CLASS({
       word-break: break-word;
       white-space: normal;
     }
-    ^close-icon {
+    <<close-icon {
       position: absolute;
       right: 0.5em;
       top: 0.5em;
     }
-    ^close-icon > ^iconButton{
+    <<close-icon > <<iconButton{
       width: 2rem;
       height: 2rem;
       padding: 0;
     }
     @media only screen and (min-width: /*%DISPLAYWIDTH.MD%*/ 768px) {
-      ^ {
+      << {
         max-width: calc(min(75vw, 48rem) - 3.2rem);
         min-width: calc(max(30vw, 30rem) - 3.2rem);
         right: 3.2rem;

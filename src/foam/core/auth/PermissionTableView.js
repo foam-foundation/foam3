@@ -41,13 +41,13 @@ foam.CLASS({
   },
 
   css: `
-    ^ thead th {
+    << thead th {
       background:$backgroundDefault;
       padding: 0;
       text-align: center;
     }
 
-    ^ tbody td {
+    << tbody td {
       text-align: center;
     }
 
@@ -57,28 +57,28 @@ foam.CLASS({
        height: 150px;
      }
 
-    ^ tbody tr { background:$backgroundDefault; }
+    << tbody tr { background:$backgroundDefault; }
 
-    ^ .foam-u2-md-CheckBox {
+    << .foam-u2-md-CheckBox {
       margin: 1px;
       border: none;
     }
 
-    ^ .foam-u2-md-CheckBox:hover {
+    << .foam-u2-md-CheckBox:hover {
       background: $backgroundBrand;
     }
 
-    ^hovered {
+    <<hovered {
       background: $backgroundTertiary !important;
     }
 
-    ^ table {
+    << table {
        box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
        width: auto;
        border: none;
       }
 
-    ^header {
+    <<header {
       box-shadow: 0 6px 6px rgba(0,0,0,0.23);
       background:$backgroundDefault;
       padding: 8px;
@@ -88,11 +88,11 @@ foam.CLASS({
       flex-direction: column;
       gap: 10px;
     }
-    ^header span {
+    <<header span {
       font-size: 16x;
       font-weight: $font-bold;
     }
-    ^ .permissionHeader {
+    << .permissionHeader {
       background-color: $backgroundTertiary;
       border: 1px solid $borderLight;
       padding: 8px;
@@ -100,31 +100,31 @@ foam.CLASS({
       font-weight: $font-regular;
       text-align: left;
     }
-    ^table-wrapper table {
+    <<table-wrapper table {
       border-collapse: collapse;
     }
-    ^table-wrapper tbody td {
+    <<table-wrapper tbody td {
       border: 1px solid $borderDefault;
     }
 
-    ^table-wrapper {
+    <<table-wrapper {
       display: flex;
       overflow: auto;
     }
 
-    ^ thead th {
+    << thead th {
       color: inherit;
       position: sticky;
       top: 0;
     }
 
-    ^ tbody td:first-child, ^ thead th:first-child {
+    << tbody td:first-child, << thead th:first-child {
       position: sticky;
       left: 0;
       z-index: 2;
     }
 
-    ^groupLabel {
+    <<groupLabel {
       background-color: $backgroundTertiary;
       border: 1px solid $borderLight;
       font-weight: normal;
@@ -135,7 +135,7 @@ foam.CLASS({
       color: $textDefault;
       font-weight: $font-regular;
     }
-    ^x {
+    <<x {
       color: $textDestructive;
       font-weight: bold;
     }
@@ -586,9 +586,9 @@ foam.CLASS({
       name: 'GroupPermissionView',
       extends: 'foam.u2.View',
       css: `
-        ^:hover { background: $backgroundBrand!important }
-        ^checked { color: $textBrandSecondary!important; font-weight: bold; }
-        ^implied { color: $textSecondary!important; font-weight: bold; }
+        <<:hover { background: $backgroundBrand!important }
+        <<checked { color: $textBrandSecondary!important; font-weight: bold; }
+        <<implied { color: $textSecondary!important; font-weight: bold; }
       `,
       methods: [
         function init() {

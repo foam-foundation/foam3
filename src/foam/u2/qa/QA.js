@@ -245,7 +245,8 @@ foam.CLASS({
         requires: [
           'foam.parse.SimpleQueryParser',
           'foam.mlang.predicate.And',
-          'foam.u2.qa.RankedOutcome'
+          'foam.u2.qa.RankedOutcome',
+          ...( model.requires || [] )
         ],
 
         constants: [

@@ -27,14 +27,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^row {
+    <<row {
       display: flex;
       align-items: center;
       padding: 8px;
       border-radius: 4px;
       cursor: pointer;
     }
-    ^row:hover {
+    <<row:hover {
       background-color: $backgroundBrandTertiary;
     }
   `,

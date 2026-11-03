@@ -19,11 +19,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ .Container > *:not(:last-of-type) {
+    << .Container > *:not(:last-of-type) {
       margin-bottom: 24px;
     }
     
-    ^ {
+    << {
       margin: 24px;
     }
   `,

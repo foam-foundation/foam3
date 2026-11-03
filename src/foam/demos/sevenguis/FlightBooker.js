@@ -28,8 +28,8 @@ foam.CLASS({
   imports: [ 'window' ],
 
   css: `
-    ^ { padding: 10px; }
-    ^title, ^ button, ^ input,  ^ select {
+    << { padding: 10px; }
+    <<title, << button, << input,  << select {
       width: 210px; height: 28px; margin-top: 16px; display: flex;
     }
   `,

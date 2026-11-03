@@ -76,11 +76,11 @@ foam.CLASS({
 
         // --- isCssOnly ---
         var base  = { package: 'foam.u2.test', name: 'CssProbe', extends: 'foam.u2.Element',
-                      properties: [ 'a' ], css: '^ { color: $primary500; }' };
+                      properties: [ 'a' ], css: '<< { color: $primary500; }' };
         var build = m => foam.lang.Model.create(m).buildClass();
         var c1    = build(base);
-        var c2    = build({ ...base, css: '^ { color: $primary700; }' });
-        var c3    = build({ ...base, css: '^ { color: $primary700; }', properties: [ 'a', 'b' ] });
+        var c2    = build({ ...base, css: '<< { color: $primary700; }' });
+        var c3    = build({ ...base, css: '<< { color: $primary700; }', properties: [ 'a', 'b' ] });
         x.test(r.isCssOnly(c1, c2),   'a css-only edit is css-only');
         x.test(! r.isCssOnly(c1, c3), 'a css edit plus a property edit is not css-only');
         x.test(! r.isCssOnly(c1, c1), 'an unchanged model is not css-only');
@@ -101,7 +101,7 @@ foam.CLASS({
         var noCss = { package: 'foam.u2.test', name: 'CssProbe',
                       extends: 'foam.u2.Element', properties: [ 'a' ] };
         var c4    = build(noCss);
-        var c5    = build({ ...noCss, css: '^ { color: $primary500; }' });
+        var c5    = build({ ...noCss, css: '<< { color: $primary500; }' });
         x.test(! r.isCssOnly(c4, c5),
           'gaining a css: block where there was none is not css-only');
 
@@ -309,12 +309,12 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssBase', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssBase.js',
-          css: '^ { opacity: 0.1; }'
+          css: '<< { opacity: 0.1; }'
         });
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssChild', extends: 'foam.u2.test.CssBase',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssChild.js',
-          css: '^ { margin: 0; }'
+          css: '<< { margin: 0; }'
         });
         var childId = 'foam.u2.test.CssChild';
         var oldChildCls = foam.u2.test.CssChild;
@@ -327,7 +327,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssChild', extends: 'foam.u2.test.CssBase',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssChild.js?t=2',
-          css: '^ { margin: 1px; }'
+          css: '<< { margin: 1px; }'
         });
         r.swapCSS(oldChildCls, foam.lookup(childId));
 
@@ -350,7 +350,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssChild', extends: 'foam.u2.test.CssBase',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssChild.js?t=3',
-          css: '^ { margin: 2px; }'
+          css: '<< { margin: 2px; }'
         });
         r.swapCSS(oldChildCls, foam.lookup(childId));
 
@@ -381,19 +381,19 @@ foam.CLASS({
         //     that same match to reach every mixer ---
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssMixinProbe',
-          css: '^ { padding: 0; }'
+          css: '<< { padding: 0; }'
         });
         foam.CLASS({
           package: 'foam.u2.test', name: 'MixA', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/MixA.js',
           mixins: [ 'foam.u2.test.CssMixinProbe' ],
-          css: '^ { opacity: 0.2; }'
+          css: '<< { opacity: 0.2; }'
         });
         foam.CLASS({
           package: 'foam.u2.test', name: 'MixB', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/MixB.js',
           mixins: [ 'foam.u2.test.CssMixinProbe' ],
-          css: '^ { opacity: 0.3; }'
+          css: '<< { opacity: 0.3; }'
         });
         var mixAId = 'foam.u2.test.MixA';
         var mixBId = 'foam.u2.test.MixB';
@@ -409,7 +409,7 @@ foam.CLASS({
           package: 'foam.u2.test', name: 'MixA', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/MixA.js?t=2',
           mixins: [ 'foam.u2.test.CssMixinProbe' ],
-          css: '^ { opacity: 0.1; }'
+          css: '<< { opacity: 0.1; }'
         });
         r.swapCSS(oldMixA, foam.lookup(mixAId));
 
@@ -429,7 +429,7 @@ foam.CLASS({
         delete foam.__context__.__cache__['foam.u2.test.CssMixinProbe'];
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssMixinProbe',
-          css: '^ { padding: 1px; }'
+          css: '<< { padding: 1px; }'
         });
         r.swapCSS(oldMixinProbe, foam.lookup('foam.u2.test.CssMixinProbe'));
 
@@ -459,7 +459,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssGrowView', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssGrowView.js?t=2',
-          css: '^ { opacity: 0.4; }'
+          css: '<< { opacity: 0.4; }'
         });
         x.test(! r.isCssOnly(oldGrow, foam.lookup(growId)),
           'gaining a css: block where there was none is not css-only (via isCssOnly)');
@@ -481,7 +481,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssCodeView', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssCodeView.js',
-          css: '^ { opacity: 0.5; }',
+          css: '<< { opacity: 0.5; }',
           methods: [ function version() { return 1; } ]
         });
         var codeId   = 'foam.u2.test.CssCodeView';
@@ -494,7 +494,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssCodeView', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssCodeView.js?t=2',
-          css: '^ { opacity: 0.6; }',
+          css: '<< { opacity: 0.6; }',
           methods: [ function version() { return 2; } ]
         });
         x.test(! r.isCssOnly(oldCode, foam.lookup(codeId)),
@@ -521,7 +521,7 @@ foam.CLASS({
         foam.CLASS({
           package: 'foam.u2.test', name: 'CssCountView', extends: 'foam.u2.Element',
           source: 'http://localhost:8080/foam3/src/foam/u2/test/CssCountView.js',
-          css: '^ { opacity: 0.5; }'
+          css: '<< { opacity: 0.5; }'
         });
         var countId  = 'foam.u2.test.CssCountView';
         var oldCount = foam.lookup(countId);

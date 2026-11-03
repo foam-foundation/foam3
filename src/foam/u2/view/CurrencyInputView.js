@@ -34,11 +34,11 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
     }
 
-    ^container-selection {
+    <<container-selection {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -53,11 +53,11 @@ foam.CLASS({
       border-radius: 3px 0 0 3px;
     }
 
-    ^container-selection p {
+    <<container-selection p {
       margin: 0;
     }
 
-    ^container-input {
+    <<container-input {
       box-sizing: border-box;
       flex: 1;
       height: 30px;

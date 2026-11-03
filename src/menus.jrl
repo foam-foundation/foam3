@@ -174,8 +174,7 @@ p({
       class: 'foam.core.auth.ChangePasswordView',
       modelOf: 'foam.core.auth.UpdatePassword',
       showHeader: false,
-      isHorizontal: true,
-      popup: false
+      isHorizontal: true
     }
   },
   "order":3,

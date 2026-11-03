@@ -14,5 +14,14 @@ p({
       .setJournalName("licenses")
       .build();
     `,
-  "client":"{\"of\":\"foam.core.license.License\"}"
+  "client":"""
+    {
+      "of":"foam.core.license.License",
+      "cache": true,
+      "ttlPurgeTime": 0,
+      "ttlSelectPurgeTime": 0
+    }
+  """
 })
+// FIXME: causes infinite loading spiner on table view
+// "remoteListenerSupport": true,

@@ -18,3 +18,13 @@ p({
   "id": "DependencyScannerTest",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.MarkdownExampleTagTest",
+  "id": "MarkdownExampleTagTest",
+  "language": 0
+})
+p({
+  "class": "foam.core.reflow.test.DAOPromptRunningTest",
+  "id": "DAOPromptRunningTest",
+  "language": 0
+})

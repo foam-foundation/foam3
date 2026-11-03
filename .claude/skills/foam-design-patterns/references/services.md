@@ -24,13 +24,13 @@ Review asked: "I recommend the agent implement COREService and put this service 
 Don't: an `HttpURLConnection` held on a property and reused across calls
 Do:    open it in the method that sends, close it there; keep the lifecycle for the client or pool that outlives a request
 
-### `start()` needs `lazy: false`; it never fires for a lazy CSpec
-`CSpec.lazy` defaults to true, so a `COREService` is not started until something first reads it out of the context. `CSpecFactory.initService` runs `start()` synchronously on the boot thread for a non-lazy CSpec and submits it to the `threadPool` Agency otherwise (`src/foam/core/boot/CSpecFactory.java`, `initService`, ~line 119).
+### `start()` needs `lazy: false`; a lazy CSpec starts only once something reads it
+`CSpec.lazy` defaults to true, so a `COREService` is not started until something first reads it out of the context. `Boot` instantiates every enabled `lazy: false` CSpec at startup — a disabled one never registers (`src/foam/core/boot/Boot.java`, ~lines 87-90) — on the `threadPool` Agency where one exists (~lines 201-220). `initService` then calls `start()` inline on whichever thread got there, except for a lazy CSpec, which it submits to the Agency — so that service's first caller can hold an instance whose `start()` has not run yet. The inline path also wins when no `threadPool` exists yet, or the CSpec's own name contains `pool`, or its class name contains `agency` (`CSpecFactory.java`, `initService`, ~lines 119-142).
 Don't: a poller or listener registered with the default `lazy`
 Do:    `"lazy": false` on the CSpec — see `foam-feature-wiring`
 
 ### `start()` exceptions are swallowed; the server boots with a broken service
-Both branches of `initService` catch `Throwable` and log (`CSpecFactory.java`, ~lines 135 and 152). Nothing aborts boot.
+Both branches of `initService` catch `Throwable` and log (`CSpecFactory.java`, ~lines 135 and 155). Nothing aborts boot.
 Don't: assume a service is up because the server is
 Do:    check `CSpec.status` after boot; a `start()` that cannot proceed should log the reason and leave the service inert, never half-open
 
@@ -39,10 +39,10 @@ The trigger is a put to `cSpecDAO`, not to the service. `Boot.java` listens on t
 Don't: expect `reload()` after editing a non-code CSpec field, or after re-putting the service object
 Do:    put the CSpec; for a config-driven service, watch the config DAO row yourself and call `reload()` — `SMTPAgent` diffs its `EmailServiceConfig` against `lastConfig` and rebuilds only when the diff is non-empty (`src/foam/core/notification/email/SMTPAgent.js`)
 
-### Rebuild is `copyFrom`, never swap
-Other services cache the reference, so `invalidate` copies the new fields into the existing instance (`CSpecFactory.java`, `copyFrom`, ~line 235). Your `reload()` may run on an object whose fields were already overwritten.
-Don't: compare `this` to a saved snapshot inside `reload()`
-Do:    keep the previous config on a separate property and diff against that
+### `reload()` runs on the old instance, with its old fields
+Nothing pushes the edited CSpec into the service: `invalidate` calls `reload()` on the object already in the context (`CSpecFactory.java`, `invalidate`, ~line 196). The `copyFrom` that merges a rebuilt service into the cached reference lives in `setCoreService` (~line 238), whose only caller is `buildService` (~line 85) — which `maybeBuildService` runs only when `ns_ == null`, or when `ns_` is a `ProxyDAO` with no delegate (~line 174) — and `copyFrom` needs an existing `COREService` already in `ns_` (~lines 231-239), which neither of those states has. `getCSpec()` also still returns the CSpec `start()` saw, since `initService` sets it once (~line 115).
+Don't: read `this`, a property, or `getCSpec()` inside `reload()` expecting the edited values
+Do:    pull the new config from its source of truth — `SMTPAgent.reload` re-reads `findId(getX())` and diffs it against `lastConfig` (`src/foam/core/notification/email/SMTPAgent.js`, ~lines 212-220); `cSpecDAO.find(getCSpec().getName())` for config carried on the CSpec itself
 
 ### `stop()` runs only from the JVM shutdown hook, and never in TEST mode
 `ShutdownHook` is registered with `Runtime.addShutdownHook` and skips `factory.shutdown()` when `appConfig.mode == TEST` (`src/foam/core/boot/ShutdownHook.java`, ~lines 35 and 73). `kill -9`, an OOM kill, or a test run never reach it.
@@ -60,13 +60,13 @@ Don't: `throttle()` inside a `synchronized` block or on a UI-facing request path
 Do:    `var t = (foam.core.pool.Throttle) x.get(getThrottler()); if ( t != null ) t.throttle();` — and grep for the CSpec whenever you rename the service that names it
 
 ### Model the service as an interface; `client: true` generates the client
-A modelled service can carry properties, is controlled by the POM, and gets its client stub generated; a bare `.java` class loses all three. `foam.INTERFACE` has a `client` axiom (`src/foam/lang/Interface.js`, ~line 66); `src/foam/dao/history/HistoryRecordService.js` with its `HistoryRecordServiceServer.js` is the in-tree shape. The server implementation keeps the `Server<Name>Service` / `<Name>ServiceServer` name from `style-mechanics.md`; the hand-written `Client<Name>Service` pair is the older shape and is not needed for a new interface.
+A modelled service can carry properties, is controlled by the POM, and gets its client stub generated; a bare `.java` class loses all three. `foam.INTERFACE` has a `client` axiom (`src/foam/lang/Interface.js`, ~line 66); `src/foam/dao/history/HistoryRecordService.js` with its `HistoryRecordServiceServer.js` is the in-tree shape. `client: true` generates a class named `Client<Name>` (`src/foam/lang/Interface.js`, ~line 157); the server implementation keeps the `Server<Name>Service` name from `style-mechanics.md`, of which `HistoryRecordServiceServer.js` is the in-tree variant. A hand-written `Client<Name>Service.js` is needed only for an interface without `client: true`.
 Don't: `HistoryRecordService.java` with no model; a new hand-written `ClientHistoryRecordService.js`; a class named `<Name>Impl`
 Do:    `foam.INTERFACE({ name: 'HistoryRecordService', client: true, methods: [...] })` plus the server class; a `daoKey` String plus a `predicate` for anything that would otherwise pass a DAO, since a DAO is not serializable
 Review asked: "why did you create this as java class and not modelled? … client: true — and then remove the HistoryRecordServiceClient as it will be auto generated." (PR #2983); "'Impl' is a very Java naming convention." (PR #4017); "DAO's aren't serializable, so you aren't going to be able to pass a DAO from the client to the server." (PR #2983)
 
 ### Read is the authorization check; there is no `canRead(x, obj)`
-`AuthorizationDAO.find_` catches `AuthorizationException` and returns `null` (`src/foam/core/auth/AuthorizationDAO.js`, `find_`, ~line 85); `select_` ANDs an `IS_AUTHORIZED_TO_READ` predicate (~line 93); `put_` and `remove_` throw. Every "can I read this" helper that exists is a try/catch around one of those. The JS `isAuthorizedToRead` returns `true` unconditionally — client-side authorization is a deliberate no-op.
+`AuthorizationDAO.find_` catches `AuthorizationException` and returns `null` (`src/foam/core/auth/AuthorizationDAO.js`, `find_`, ~line 85); `select_` ANDs an `IS_AUTHORIZED_TO_READ` predicate unless the caller holds the global read permission (~line 93); `put_` and `remove_` throw. Every "can I read this" helper that exists is a try/catch around one of those. The JS `isAuthorizedToRead` returns `true` unconditionally — client-side authorization is a deliberate no-op.
 Don't: a `canReadSummary` permission check before a `find`; a client-side authorization branch
 Do:    `obj = await dao.find(id); if ( ! obj ) return;` — the shape `DAOBrowseControllerView` and `DAOSummaryView` use; handle the thrown `AuthorizationException` on writes, where it reaches the client as a rejected promise
 Review asked: "the 'can read DAO Summary' check should just be an attempt to read the object from the dao and if it can, then display" (PR #350)

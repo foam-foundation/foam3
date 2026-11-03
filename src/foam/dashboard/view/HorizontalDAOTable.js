@@ -14,24 +14,24 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: grid;
       grid-template-rows: 2em 1fr;
     }
-    ^title-container {
+    <<title-container {
       display: flex;
       justify-content: space-between;
     }
-    ^entry-container {
+    <<entry-container {
       display: flex;
       gap: 30px;
       padding-bottom: 1.5vh;
       overflow: scroll;
     }
-    ^ .foam-u2-ActionView-viewMoreAction {
+    << .foam-u2-ActionView-viewMoreAction {
       padding-top: 0;
     }
-    ^entry-container > * {
+    <<entry-container > * {
       width: clamp(200px, 25%, 500px);
       max-height: 200px;
     }

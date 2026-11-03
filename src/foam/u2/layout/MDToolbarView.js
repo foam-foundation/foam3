@@ -31,14 +31,14 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       top: 0;
       height: 10em;
       width: 100%;
       z-index: 10;
     }
 
-    ^ toolbar {
+    << toolbar {
       display: flex;
       align-items: center;
       height: 100%;

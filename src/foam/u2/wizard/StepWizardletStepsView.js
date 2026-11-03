@@ -81,53 +81,53 @@ foam.CLASS({
   mixins: ['foam.u2.wizard.WizardletRenderUtils'],
 
   css: `
-    ^item {
+    <<item {
       margin-bottom: 24px;
     }
-    ^step-number-and-title {
+    <<step-number-and-title {
       display: flex;
       align-items: center;
     }
-    ^step-number-and-title > .circle {
+    <<step-number-and-title > .circle {
       display: inline-block;
       margin-right: 24px;
       vertical-align: middle;
       min-width: 24px;
     }
-    ^sub-item {
+    <<sub-item {
       padding-left: calc(24px + 24px + 4px);
       padding-top: 2px;
       padding-bottom: 8px;
       color: $textTertiary;
     }
-    ^sub-item:hover {
+    <<sub-item:hover {
       cursor: pointer;
       color: $textSecondary !important;
     }
-    ^sub-item:first-child {
+    <<sub-item:first-child {
       padding-top: 16px;
     }
-    ^title {
+    <<title {
       display: inline-block;
       margin: 0;
       vertical-align: middle;
       text-transform: uppercase;
     }
 
-    ^ .foam-u2-LoadingSpinner img {
+    << .foam-u2-LoadingSpinner img {
       width: 24px;
       height: 24px;
     }
 
-    ^hide {
+    <<hide {
       opacity: 0.3;
     }
 
-    ^search{
+    <<search{
       padding-bottom: 32px;
     }
 
-    ^search input{
+    <<search input{
       width: 100%;
     }
   `,

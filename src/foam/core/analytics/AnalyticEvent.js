@@ -12,6 +12,8 @@ foam.CLASS({
     'foam.core.auth.Authorizable'
   ],
 
+  imports: [ 'window' ],
+
   javaImports: [
     'foam.lang.X',
     'foam.core.auth.AuthService',
@@ -89,7 +91,7 @@ foam.CLASS({
       class: 'String',
       name: 'userAgent',
       factory: function() {
-        return window.navigator.userAgent;
+        return this.window.navigator.userAgent;
       }
     },
     {

@@ -67,7 +67,7 @@ p({
       }
     }, {
       "class": "foam.core.servlet.ServletMapping",
-      "className": "org.eclipse.jetty.servlet.DefaultServlet",
+      "className": "org.eclipse.jetty.ee11.servlet.ResourceServlet",
       "pathSpec": "/*",
       "initParameters": {
         "cacheControl": "public,max-age=2419200,immutable",

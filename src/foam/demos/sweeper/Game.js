@@ -17,7 +17,7 @@ foam.CLASS({
   exports: [ 'youLose', 'unminedCount' ],
 
   css: `
-    ^ {
+    << {
       margin: 20px;
       width: 394px;
     }

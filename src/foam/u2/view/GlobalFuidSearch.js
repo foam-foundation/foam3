@@ -28,15 +28,15 @@ foam.CLASS({
 
   css:
   `
-    ^suggestions {
+    <<suggestions {
       background-color: $backgroundSecondary;
       border: none;
       position: relative;
     }
-    ^suggestions > * + * {
+    <<suggestions > * + * {
       margin-top: 8px;
     }
-    ^row {
+    <<row {
       background-color: $backgroundSecondary;
       cursor: pointer;
       padding: 8px;

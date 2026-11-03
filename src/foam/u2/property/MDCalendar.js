@@ -151,42 +151,42 @@ foam.CLASS({
   ],
 
   css: `
-    ^heading {
+    <<heading {
       align-items: center;
       display: flex;
       height: 48px;
       justify-content: center;
     }
 
-    ^body {
+    <<body {
       display: flex;
       justify-content: center;
     }
 
-    ^table {
+    <<table {
       font-size: 4rem;
     }
-    ^table th {
+    <<table th {
       color: $textTertiary;
       font-weight: normal;
       text-align: center;
     }
-    ^table td {
+    <<table td {
       height: 40px;
       text-align: center;
       width: 38px;
       padding: 0.5rem;
     }
 
-    ^ td^selected {
+    << td<<selected {
       border-radius: 50%;
     }
-    ^ td:not(^selected) {
+    << td:not(<<selected) {
       background-color: inherit;
       color: inherit;
     }
 
-    ^today {
+    <<today {
       color: $blue300;
       font-weight: bolder;
     }

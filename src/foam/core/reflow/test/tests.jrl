@@ -28,3 +28,4 @@ p({
   "id": "DAOPromptRunningTest",
   "language": 0
 })
+p({"class":"foam.core.reflow.test.CommandToolTest","id":"CommandToolTest","description":"An AI agent runs its Reflow commands through one execute_command tool: its set only, params and context passed, the return value as result, confirm asked before a write","language":0})

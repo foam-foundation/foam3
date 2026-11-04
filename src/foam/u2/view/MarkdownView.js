@@ -529,7 +529,10 @@ foam.CLASS({
           // case -- so parse it. A single line stays plain text, or <b>x</b>
           // would render its text as a paragraph. An element with an innerText
           // property, like <example>, takes its content as source text.
-          let fs = v.indexOf('\n') != -1 && this.markdownGrammar.parseString(v);
+          // A newline with nothing after it is only the line break before the
+          // closing tag: in "<h1>The <x>R</x>eactive documents.\n</h1>" the
+          // last piece, " documents.\n", stays text in the heading's line.
+          let fs = /\n\s*\S/.test(v) && this.markdownGrammar.parseString(v);
 
           return function() {
             if ( ! fs || this.cls_.getAxiomByName('innerText') ) this.add(v);

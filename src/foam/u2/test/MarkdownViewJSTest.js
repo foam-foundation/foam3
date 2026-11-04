@@ -66,6 +66,22 @@ foam.CLASS({
       x.test(q(v, '.foam-u2-markdown-Hint strong'), 'a multi-line hint parses its markdown');
       v.remove();
 
+      // A heading styled letter by letter, with its closing tag on the next
+      // line: the text after the last span must stay in the heading's line,
+      // not drop into a paragraph of its own.
+      v = await render('<h1>The <x style="color:red">R</x>eactive <span style="color:red">E</span>ditor for <span style="color:gray">FLOW</span> documents.\n</h1>\n');
+      x.test(q(v, 'h1') && ! q(v, 'h1 .mdParagraph'), 'text before a closing tag on the next line is no paragraph');
+      x.test(q(v, 'h1') && q(v, 'h1').innerText.trim().replace(/ +/g, ' ') == 'The Reactive Editor for FLOW documents.', 'the heading reads as one line, got ' + JSON.stringify(q(v, 'h1') && q(v, 'h1').innerText));
+      v.remove();
+
+      // Spans written one per line inside a div: the indentation between
+      // them is whitespace, not a paragraph, so they read "hello there".
+      v = await render('<div>\n  <span>hello</span>\n  <span>there</span>\n</div>\n');
+      var d = q(v, 'div div');
+      x.test(d && ! d.querySelector('.mdParagraph'), 'whitespace between tags makes no paragraph');
+      x.test(d && d.innerText.trim().replace(/ +/g, ' ') == 'hello there', 'the spans share one line, got ' + JSON.stringify(d && d.innerText));
+      v.remove();
+
       // A link target may hold one pair of parentheses, as a flow name does.
       v = await render('See [the guide](Client Programs (DOC)) for more.\n');
       var a = q(v, 'a');

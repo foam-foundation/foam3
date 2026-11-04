@@ -130,7 +130,6 @@ foam.CLASS({
       if ( a[5] ) m.order    = a[5];
       if ( a[6] ) m.columns  = a[6];
       if ( a[7] ) {
-        debugger;
         m.select   = a[7]; // foam.lookup(a[7].value).create({}, this);
       }
       if ( a[8] ) m.label    = a[8];

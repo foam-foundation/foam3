@@ -60,7 +60,6 @@ foam.CLASS({
       try {
         // return foam.lookup(v.value).create({}, this);
         //        console.log('*************V:', v, v[0]?.value);
-        debugger;
         if ( foam.Array.isInstance(v) ) {
           return v[2];
         }

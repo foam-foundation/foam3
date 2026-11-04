@@ -97,6 +97,7 @@ foam.CLASS({
     {
       name: 'accept',
       label: '✓',
+      ariaLabel: 'Accept and run the proposed command',
       code: function() {
         this.eval_(this.command);
         this.block.del();
@@ -105,6 +106,7 @@ foam.CLASS({
     {
       name: 'reject',
       label: '✕',
+      ariaLabel: 'Reject the proposed command',
       code: function() {
         this.block.del();
       }

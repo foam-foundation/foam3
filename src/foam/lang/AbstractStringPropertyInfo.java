@@ -49,7 +49,7 @@ public abstract class AbstractStringPropertyInfo
   }
 
   public String cast(Object o) {
-    return ( o instanceof Number ) ? ((Number) o).toString() : (String) o;
+    return ( o instanceof Number || o instanceof Boolean ) ? o.toString() : (String) o;
   }
 
   public abstract Object get(Object o) ;

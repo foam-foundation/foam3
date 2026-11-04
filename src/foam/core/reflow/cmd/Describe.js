@@ -55,8 +55,14 @@ foam.CLASS({
             this.log('Unknown class or service');
             return;
           }
-          cls = cls.cls_;
+          if ( foam.dao.DAO.isInstance(cls) ) {
+            cls = cls.of;
+          } else {
+            cls = cls.cls_;
+          }
         }
+      } else if ( foam.lang.FObject.isInstance(cls) ) {
+        cls = cls.cls_;
       }
 
       // TODO: add ability to specify how SimpleClassView writes links so it can hyperlink back to this command

@@ -167,6 +167,16 @@ foam.CLASS({
       class: 'String',
       name: 'agentName',
       documentation: 'What asked, e.g. report/summarize, for a gateway that reports usage per feature.'
+    },
+    {
+      class: 'Boolean',
+      name: 'stateless',
+      documentation: `
+        Send this call as it is, outside any conversation a decorator keeps:
+        ConversationalLLMService neither adds its history to it nor records
+        it. For a caller that keeps its own history, such as a chat screen
+        that sends its earlier messages with every call.
+      `
     }
   ]
 });
@@ -279,6 +289,11 @@ foam.INTERFACE({
     Told how much of a reply the model has written while it streams in, so a long call
     can show progress instead of waiting in silence. A provider finds it in the context
     under "llmProgress".
+
+    It is told about once a second while the stream is open, with the same count while
+    the model thinks before it writes. A listener that throws ends the call: the
+    connection closes, the model stops writing, and the exception reaches the caller.
+    A screen uses this to stop a long call the user no longer wants.
   `,
 
   methods: [

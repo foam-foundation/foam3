@@ -82,6 +82,42 @@ p({
   "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\",\"delegate\":{\"class\":\"foam.box.SessionClientBox\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"url\":\"service/openAIEmbeddingService\"}}}"
 })
 
+// ── Training DAOs ──
+// trainingRunDAO  — one record per MLXTrainingJob submission; persists loss, status, and adapter path.
+// trainingMetricDAO — per-iteration metrics (loss, speed, tokens/sec); multi-part key [runId, iteration].
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "trainingRunDAO",
+  "serve": true,
+  "client": "{\"of\":\"foam.core.ai.training.TrainingRun\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.TrainingRun.getOwnClassInfo())
+      .setGuid(true)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("trainingRuns")
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "trainingMetricDAO",
+  "serve": true,
+  "client": "{\"of\":\"foam.core.ai.training.TrainingMetric\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.TrainingMetric.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("trainingMetrics")
+      .build();
+  """
+})
+
 // ── Vector store DAO — persisted embedding index ──
 p({
   "class":"foam.core.boot.CSpec",

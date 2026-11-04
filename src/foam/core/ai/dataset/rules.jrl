@@ -1,14 +1,48 @@
 p({
   "class": "foam.core.ruler.Rule",
-  "id": "alpaca-sample-dedupe",
-  "name": "AlpacaSample semantic deduplication",
+  "id": "alpaca-sample-delete",
+  "name": "AlpacaSample delete",
   "priority": 100,
-  "documentation": "Before storing a new AlpacaSample, embed its instruction and reject it if a semantically similar sample already exists in datasetVectorDAO (cosine similarity >= 0.92). If novel, indexes the embedding for future comparisons.",
+  "documentation": "On delete: if the sample has no embedding, veto the delete and mark it DISCARDED instead. If an embedding exists, allow the delete to proceed.",
+  "daoKey": "datasetDAO",
+  "operation": 2,
+  "after": false,
+  "action": {
+    "class": "foam.core.ai.dataset.AlpacaSampleDeleteRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})
+
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "alpaca-sample-update",
+  "name": "AlpacaSample update",
+  "priority": 100,
+  "documentation": "On update: if instruction, input, or output changed, sets status=DIRTY and clears reviewed. Skips DISCARDED samples and relevance-only changes.",
+  "daoKey": "datasetDAO",
+  "operation": 1,
+  "after": false,
+  "action": {
+    "class": "foam.core.ai.dataset.AlpacaSampleUpdateRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})
+
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "alpaca-sample-dedupe",
+  "name": "AlpacaSample create",
+  "priority": 100,
+  "documentation": "On create: sets status=NEW, embeds the instruction, rejects if too similar to an existing sample (cosine >= 0.92) and increments that sample's relevance counter, otherwise stores the embedding and sets status=CREATED.",
   "daoKey": "datasetDAO",
   "operation": 0,
   "after": false,
   "action": {
-    "class": "foam.core.ai.dataset.AlpacaSampleDedupeRuleAction"
+    "class": "foam.core.ai.dataset.AlpacaSampleCreateRuleAction"
   },
   "enabled": true,
   "saveHistory": false,

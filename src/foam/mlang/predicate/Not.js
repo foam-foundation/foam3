@@ -166,12 +166,6 @@ foam.CLASS({
     {
       name: 'prepareStatement',
       javaCode: 'getArg1().prepareStatement(stmt);'
-    },
-    {
-      name: 'authorize',
-      javaCode: `
-        getArg1().authorize(x);
-      `
     }
 
     /*

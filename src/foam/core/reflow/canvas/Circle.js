@@ -18,6 +18,9 @@ foam.CLASS({
   imports: [ 'createFlowChildName' ],
 
   properties: [
+    {
+      name: 'flowParent', postSet: function(o, n) { debugger; }
+    },
     [ 'arcWidth', 1 ],
     [ 'gravity',  1 ],
     [ 'radius',   25 ],
@@ -30,6 +33,7 @@ foam.CLASS({
     },
 
     function removeFlowChild_(c) {
+      debugger;
     }
   ],
 

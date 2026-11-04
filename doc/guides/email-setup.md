@@ -99,7 +99,7 @@ Create a new Java class in your project:
 ```java
 package your.package.notification;
 
-import foam.core.X;
+import foam.lang.X;
 import foam.dao.DAO;
 import foam.core.notification.Notification;
 import java.util.HashMap;
@@ -128,7 +128,7 @@ public class WelcomeEmailService {
 }
 ```
 
-**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.java` for a complete example.
+**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.js` for a complete example.
 
 ### Option 2: Using DAO Notification Rules
 
@@ -138,9 +138,9 @@ public class WelcomeEmailService {
 package your.package.notification;
 
 import foam.core.notification.DAONotificationRuleAction;
-import foam.core.X;
-import foam.core.FObject;
-import foam.core.Rule;
+import foam.lang.X;
+import foam.lang.FObject;
+import foam.core.ruler.Rule;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -208,7 +208,7 @@ p({
 package your.package.notification.test;
 
 import foam.core.test.Test;
-import foam.core.X;
+import foam.lang.X;
 import foam.dao.DAO;
 import foam.core.notification.Notification;
 import foam.core.notification.email.EmailMessage;
@@ -236,7 +236,7 @@ public class WelcomeEmailTest extends Test {
 }
 ```
 
-**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.java` for a complete test example.
+**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.js` for a complete test example.
 
 ## Troubleshooting
 

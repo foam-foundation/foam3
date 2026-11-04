@@ -279,6 +279,7 @@ foam.CLASS({
         Map<Integer, JSONObject>                 blocks = new TreeMap<>();
         Map<Integer, Map<String, StringBuilder>> pieces = new HashMap<>();
         for ( String data ; ( data = nextData(in) ) != null ; ) {
+          written.alive();
           JSONObject event = object(data);
           String     type  = event.optString("type");
           int        index = event.optInt("index");

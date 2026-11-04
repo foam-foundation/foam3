@@ -10,7 +10,11 @@ A comprehensive reference of all FOAM property types and their associated views.
 
 ## Overview
 
-FOAM automatically selects appropriate views based on property type. This reference shows:
+Every FOAM property has a type, such as String, Int or Date, given by its `class:` option. The type decides how the value is stored and validated, and also which view edits it by default, so a model with no view code at all still gets a sensible form. To use a different view, set the property's `view:` option to a <term term="ViewSpec"></term>: a class name string, or an object whose `class` names the view and whose other keys configure it.
+
+Each example below declares a model and shows an instance of it in a <term term="DetailView"></term>, which renders every property of an <term term="FObject"></term> with that property's view.
+
+This reference shows:
 - Default views for each property type
 - Common view alternatives and configurations
 - View options and customization
@@ -19,8 +23,8 @@ FOAM automatically selects appropriate views based on property type. This refere
 
 | Category | Types |
 |----------|-------|
-| **Text** | String, Code, Script |
-| **Numbers** | Int, Float, Double, Byte, Short, Long, Currency |
+| **Text** | String, Code |
+| **Numbers** | Int, Float, Double, Byte, Short, Long |
 | **Boolean** | Boolean |
 | **Date/Time** | Date, DateTime, Time, Duration |
 | **Selection** | Enum, Reference |
@@ -36,11 +40,11 @@ FOAM automatically selects appropriate views based on property type. This refere
 
 | View | Use Case |
 |------|----------|
-| TextField | Single-line input (default) |
+| TextField | Single-line input (default, wrapped in StringView) |
 | TextArea | Multi-line input |
 | ChoiceView | Selection from list |
 | RadioView | Few mutually exclusive options |
-| RichTextField | HTML/formatted text |
+| RichTextView | HTML/formatted text |
 
 <example id="string-views">
 foam.CLASS({
@@ -101,8 +105,8 @@ foam.CLASS({
     },
     {
       class: 'String',
-      name: 'stringWithRichTextField',
-      view: 'foam.u2.view.RichTextField'
+      name: 'stringWithRichTextView',
+      view: 'foam.u2.view.RichTextView'
     },
     {
       class: 'String',
@@ -117,9 +121,9 @@ add(foam.u2.DetailView.create({ data: StringViews.create() }));
 
 ---
 
-## Code and Script Properties
+## Code Properties
 
-<term term="Code"></term> properties are for source code with syntax highlighting. <term term="Script"></term> is similar but for executable scripts.
+<term term="Code"></term> properties are for source code with syntax highlighting.
 
 <example id="code-views">
 foam.CLASS({
@@ -135,11 +139,6 @@ foam.CLASS({
       name: 'codeWithPreView',
       view: 'foam.u2.view.PreView',
       value: 'const x = 42;\nreturn x * 2;'
-    },
-    {
-      class: 'Script',
-      name: 'scriptDefault',
-      value: 'return this.name + " script";'
     }
   ]
 });
@@ -158,7 +157,6 @@ add(foam.u2.DetailView.create({ data: CodeViews.create() }));
 | IntView | Text input with validation (default) |
 | RangeView | Slider control |
 | ProgressView | Read-only progress indicator |
-| CurrencyView | Formatted currency display |
 
 <example id="int-views">
 foam.CLASS({
@@ -247,11 +245,6 @@ foam.CLASS({
     {
       class: 'Double',
       name: 'doubleDefault'
-    },
-    {
-      class: 'Currency',
-      name: 'currencyDefault',
-      value: 1234.56
     }
   ]
 });
@@ -288,8 +281,8 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'booleanWithToggle',
-      view: 'foam.u2.view.Toggle'
+      name: 'booleanWithSwitch',
+      view: 'foam.u2.Switch'
     }
   ]
 });
@@ -308,7 +301,7 @@ FOAM provides separate types for dates, times, and combined date-times.
 | Date | Date only | DateView (calendar) |
 | DateTime | Date and time | DateTimeView |
 | Time | Time only | TimeView |
-| Duration | Time span in ms | DurationView |
+| Duration | Time span in ms | IntView (formatted when read-only) |
 
 <example id="date-views">
 foam.CLASS({
@@ -379,7 +372,7 @@ foam.CLASS({
       of: 'Status',
       name: 'enumWithRadioView',
       view: {
-        class: 'foam.u2.view.RadioView',
+        class: 'foam.u2.view.RadioEnumView',
         isHorizontal: true
       }
     },
@@ -445,7 +438,7 @@ add(foam.u2.DetailView.create({ data: ColorViews.create() }));
 
 ## Image Properties
 
-<term term="Image"></term> properties store image URLs and can display thumbnails.
+<term term="Image"></term> properties store image URLs as strings. A DetailView edits them as text; tables show them as thumbnails.
 
 <example id="image-views">
 foam.CLASS({
@@ -460,7 +453,6 @@ foam.CLASS({
       class: 'Image',
       name: 'imageWithSize',
       displayWidth: 100,
-      displayHeight: 100,
       value: 'https://picsum.photos/200/200'
     }
   ]
@@ -533,7 +525,7 @@ FOAM provides several array property types for different element types.
 |------|--------------|--------------|
 | Array | Any | ArrayView |
 | StringArray | String | StringArrayView |
-| FObjectArray | FObject | FObjectArrayView |
+| FObjectArray | FObject | TitledArrayView |
 
 <example id="array-views">
 foam.CLASS({
@@ -619,7 +611,9 @@ add(foam.u2.DetailView.create({ data: MapViews.create() }));
 
 ## Reference Properties
 
-<term term="Reference"></term> properties store foreign keys to objects in another DAO.
+<term term="Reference"></term> properties store the `id` of an object held in another <term term="DAO"></term>, much like a foreign key in a database. The default view is a drop-down listing the objects in the target DAO, each labelled with its `toSummary()`.
+
+The property's `targetDAOKey` names the DAO to look in. The view looks for it by that name in its own <term term="Context"></term> first. When it is not there, the view falls back to the object's `<property>$dao` getter, which finds the DAO through the object's exports or a property of the same name. That is why the example below gives ReferenceViews a `categoryDAO` property and `exports` it.
 
 <example id="reference-views">
 foam.CLASS({
@@ -677,7 +671,9 @@ add(foam.u2.DetailView.create({ data: ReferenceViews.create() }));
 
 ## FObject Properties
 
-<term term="FObjectProperty"></term> stores nested FOAM objects. <term term="FObjectView"></term> provides a class selector and property editor.
+<term term="FObjectProperty"></term> stores a nested FOAM object, such as an Address inside a Customer. Its `of:` option names the class, and the default view edits the nested object's properties inline, like a small DetailView.
+
+<term term="FObjectView"></term> is for properties that can hold an object of any class. It adds a class selector; choosing a class creates an empty object of that class and shows its editor below.
 
 <example id="fobject-views">
 foam.CLASS({
@@ -748,7 +744,18 @@ add(foam.u2.DetailView.create({ data: ClassViews.create() }));
 
 ## DAO Properties
 
-<term term="DAOProperty"></term> stores a reference to a DAO and can display its contents.
+A <term term="DAO"></term> (Data Access Object) is FOAM's standard interface to a collection of objects of one class. Every DAO supports the same operations, whatever its storage: `put` to add or update an object, `remove`, `find` by id, and `select` to read many objects, optionally narrowed with `where`, `orderBy` and `limit`. The same code works whether the data is held in memory, in the browser, or on a server.
+
+<term term="DAOProperty"></term> stores a DAO, and its views display the DAO's contents. The views listen to the DAO, so an object put into it from anywhere else appears without a reload.
+
+The example builds its DAO with <term term="EasyDAO"></term>, a convenience class: `daoType: 'MDAO'` keeps the data in an indexed in-memory store, `seqNo: true` gives new objects the ids 1, 2, 3, and `testData` loads the starting rows.
+
+| View | Shows |
+|------|-------|
+| EmbeddedTableView | Compact table sized to sit inside a DetailView (default) |
+| TableView | One row per object, one sortable column per property |
+| DAOList | One row view per object |
+| AltView | Radio buttons that switch between other views |
 
 <example id="dao-views">
 foam.CLASS({
@@ -868,7 +875,7 @@ add(foam.u2.DetailView.create({ data: AltViewDemo.create() }));
 
 ### ModeAltView
 
-<term term="ModeAltView"></term> shows different views based on display mode (RW vs RO).
+<term term="ModeAltView"></term> shows different views based on the <term term="DisplayMode"></term>. Most views adapt to the mode on their own, turning from an input into plain text when read-only. ModeAltView is for values whose read-only form should look nothing like their editor: below, the HTML renders when read-only but is edited as source text. The second DetailView is created with `mode: 'RO'` to show the read view.
 
 <example id="modealtview">
 foam.CLASS({
@@ -1000,14 +1007,13 @@ add(foam.u2.DetailView.create({ data: PropertyOptions.create() }));
 - [FOAM CSS Tokens By Example](be:CSSTokens) — Styling views
 
 <glossary>
-  <def term="String" definition="Basic text property type. Default view is TextField."></def>
+  <def term="String" definition="Basic text property type. Default view is StringView, which edits with a TextField."></def>
   <def term="Code" definition="Property type for source code with syntax highlighting."></def>
-  <def term="Script" definition="Property type for executable scripts."></def>
   <def term="Int" definition="Integer property type. Supports min, max, and units options."></def>
   <def term="Boolean" definition="True/false property type. Default view is CheckBox."></def>
   <def term="Enum" definition="Enumeration property type. Default view is ChoiceView populated with enum values."></def>
   <def term="Color" definition="Color property type storing hex color values."></def>
-  <def term="Image" definition="Property type storing image URLs with optional thumbnail display."></def>
+  <def term="Image" definition="String property type storing image URLs, shown as thumbnails in tables."></def>
   <def term="Password" definition="Masked input property type. Never displayed in read-only mode."></def>
   <def term="Map" definition="Property type storing key-value pairs as a JavaScript object."></def>
   <def term="Reference" definition="Foreign key property type linking to objects in another DAO."></def>
@@ -1015,10 +1021,17 @@ add(foam.u2.DetailView.create({ data: PropertyOptions.create() }));
   <def term="FObjectView" definition="View for FObject properties with class selector and property editor."></def>
   <def term="Class" definition="Property type storing references to FOAM class objects."></def>
   <def term="DAOProperty" definition="Property type storing a reference to a DAO."></def>
+  <def term="DAO" definition="Data Access Object: FOAM's standard interface to a collection of objects of one class, with put, remove, find and select, whatever the storage."></def>
+  <def term="EasyDAO" definition="Convenience class that builds a DAO and its common decorators (sequence numbers, caching, test data) from a few options."></def>
+  <def term="FObject" definition="An instance of a FOAM class. Its properties carry the metadata (type, label, view) that generic views such as DetailView read."></def>
+  <def term="DetailView" definition="View that renders every visible property of an FObject as a label and that property's view."></def>
+  <def term="ViewSpec" definition="How a view is specified: a class name string, an object with a class key plus property values, or a function returning either."></def>
+  <def term="Context" definition="FOAM's dependency-injection scope. Services such as DAOs are exported into a context and imported by name by the views created in it."></def>
+  <def term="DisplayMode" definition="Whether a view is editable (RW), read-only (RO), greyed out (DISABLED) or not shown (HIDDEN)."></def>
   <def term="MultiView" definition="View that displays multiple views of the same property simultaneously."></def>
   <def term="AltView" definition="View that lets users switch between different views of the same property."></def>
   <def term="ModeAltView" definition="View that shows different sub-views based on display mode (RW/RO)."></def>
-  <def term="TextField" definition="Single-line text input view. Default for String properties."></def>
+  <def term="TextField" definition="Single-line text input view. Used by StringView, the default for String properties."></def>
   <def term="TextArea" definition="Multi-line text input view."></def>
   <def term="ChoiceView" definition="Dropdown select view for choosing from a list of options."></def>
   <def term="RadioView" definition="Radio button view for mutually exclusive choices."></def>

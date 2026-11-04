@@ -61,8 +61,9 @@ foam.CLASS({
      */
     public static class Written {
       private final LLMProgress progress_;
-      private long chars_ = 0;
-      private long last_  = 0;
+      private long chars_     = 0;
+      private long last_      = 0;
+      private long lastAlive_ = 0;
 
       public Written(LLMProgress progress) { progress_ = progress; }
 
@@ -72,6 +73,20 @@ foam.CLASS({
         long now = System.currentTimeMillis();
         if ( now - last_ < 1000 ) return;
         last_ = now;
+        progress_.written((int) ( chars_ / 4 ));
+      }
+
+      /**
+       * Any event of the stream, such as a piece of the model's thinking or a keep-alive.
+       * A model can think for a minute before it writes a word, and a listener that hears
+       * nothing in that minute cannot end a call nobody waits for any more. So the listener
+       * is told the count again, unchanged, after a second without a report.
+       */
+      public void alive() {
+        if ( progress_ == null ) return;
+        long now = System.currentTimeMillis();
+        if ( now - last_ < 1000 || now - lastAlive_ < 1000 ) return;
+        lastAlive_ = now;
         progress_.written((int) ( chars_ / 4 ));
       }
     }

@@ -14,10 +14,10 @@ A complete FOAM service consists of four components:
 
 | Component | Purpose | File |
 |-----------|---------|------|
-| Interface | Defines the contract | [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js) |
-| Registration | Configures client-server communication | [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl) |
-| Client | Proxy that forwards calls to server | [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js) |
-| Implementation | Server-side business logic | [GooglePlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/google/GooglePlaceService.js) |
+| Interface | Defines the contract | [PlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/PlaceService.js) |
+| Registration | Configures client-server communication | [services.jrl](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/services.jrl) |
+| Client | Proxy that forwards calls to server | [ClientPlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/ClientPlaceService.js) |
+| Implementation | Server-side business logic | [GooglePlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/google/GooglePlaceService.js) |
 
 ### When to Use Services vs DAOs
 
@@ -33,7 +33,7 @@ A complete FOAM service consists of four components:
 
 The interface defines the contract that all implementations must follow. It specifies method signatures, return types, and whether methods are asynchronous.
 
-**Source:** [PlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/PlaceService.js)
+**Source:** [PlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/PlaceService.js)
 
 <example id="service-interface">
 foam.INTERFACE({
@@ -75,7 +75,7 @@ log('PlaceService interface defined');
 | Property | Purpose |
 |----------|---------|
 | `async: true` | Enables Promise-based calls |
-| `args` | Method parameters (`Context x` is always first) |
+| `args` | Method parameters (`Context x` is conventionally first; the client stub sends it as null) |
 | `type` | Return type specification |
 
 ---
@@ -84,7 +84,7 @@ log('PlaceService interface defined');
 
 The <term term="CSpec"></term> configures the service for client-server communication, specifying authentication requirements, transport mechanism, and implementation class.
 
-**Source:** [services.jrl](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/services.jrl)
+**Source:** [services.jrl](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/services.jrl)
 
 <example id="service-registration">
 p({
@@ -94,13 +94,8 @@ p({
   "serve": true,         // Expose as server endpoint
   "boxClass": "foam.core.place.PlaceServiceSkeleton",  // Auto-generated skeleton
   "serviceClass": "foam.core.place.google.GooglePlaceService",  // Java implementation
-  "client": {
-    "class": "foam.core.place.ClientPlaceService",  // Client-side proxy
-    "delegate": {
-      "class": "foam.box.HTTPBox",  // HTTP transport
-      "url": "service/placeService"  // Service URL endpoint
-    }
-  }
+  // Client-side proxy config. "client" is a JSON string, not a nested object.
+  "client": "{\"class\":\"foam.core.place.ClientPlaceService\",\"delegate\":{\"class\":\"foam.box.SessionClientBox\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"url\":\"service/placeService\"}}}"
 });
 
 log('PlaceService registration configured');
@@ -115,17 +110,18 @@ log('PlaceService registration configured');
 | `serve` | Makes service available over network |
 | `boxClass` | Server-side message handler (auto-generated from `skeleton: true`) |
 | `serviceClass` | Concrete implementation class |
-| `client` | Client-side configuration |
+| `client` | Client-side configuration, as a JSON string |
 
 ### Client Configuration
 
-The client configuration uses the <term term="Stub"></term> pattern with an <term term="HTTPBox"></term> for transport:
+The client configuration uses the <term term="Stub"></term> pattern. A `SessionClientBox` attaches the session id, which `authenticate: true` services require, and an <term term="HTTPBox"></term> carries the call:
 
 | Property | Purpose |
 |----------|---------|
 | `class` | Client proxy class |
-| `delegate.class` | Transport mechanism (`HTTPBox` for HTTP) |
-| `delegate.url` | Service URL endpoint |
+| `delegate.class` | `SessionClientBox`, which adds the session id |
+| `delegate.delegate.class` | Transport mechanism (`HTTPBox` for HTTP) |
+| `delegate.delegate.url` | Service URL endpoint |
 
 ---
 
@@ -133,7 +129,7 @@ The client configuration uses the <term term="Stub"></term> pattern with an <ter
 
 The client creates a proxy that automatically forwards method calls to the server. The <term term="Stub"></term> property class handles all serialization and network communication.
 
-**Source:** [ClientPlaceService.js](https://github.com/kgrgreer/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
+**Source:** [ClientPlaceService.js](https://github.com/foam-foundation/foam3/blob/development/src/foam/core/place/ClientPlaceService.js)
 
 <example id="client-implementation">
 foam.CLASS({
@@ -160,9 +156,9 @@ log('ClientPlaceService proxy defined');
 2. The `Stub` property automatically generates proxy methods that forward calls to `delegate`
 3. When you call `clientService.placeAutocomplete(...)`, the Stub:
    - Serializes the method call and arguments
-   - Sends HTTP request via the `delegate` (HTTPBox)
+   - Sends the request via the `delegate` (SessionClientBox, then HTTPBox)
    - Deserializes the response and returns it
-4. `delegate` is set from the registration config, pointing to HTTPBox with the service URL
+4. `delegate` is set from the registration config: a SessionClientBox wrapping an HTTPBox with the service URL
 
 ---
 
@@ -196,7 +192,7 @@ foam.CLASS({
             'US'
           );
 
-          console.log('Found places:', result.places);
+          console.log('Found places:', result.predictions);
           return result;
 
         } catch (error) {
@@ -215,7 +211,7 @@ log('Service usage example defined');
 | Pattern | Purpose |
 |---------|---------|
 | `imports: ['placeService?']` | Dependency injection with optional flag |
-| `this.__subContext__` | Current context passed to service calls |
+| `this.__subContext__` | Placeholder for the `Context x` argument; the client stub sends null and the server uses its own context |
 | `async/await` | Promise-based method calls |
 | `try/catch` | Error handling for network/service failures |
 
@@ -264,14 +260,14 @@ foam.CLASS({
   methods: [
     async function placeAutocomplete(x, input, preferCountry) {
       return foam.core.place.PlaceAutocompleteResp.create({
-        places: [{ name: 'Test Place', id: 'test-123' }]
+        predictions: [{ description: 'Test Place', placeId: 'test-123' }]
       });
     }
   ]
 });
 
 // Inject mock in tests
-var ctx = baseContext.createSubContext({
+var ctx = foam.createSubContext({
   placeService: MockPlaceService.create()
 });
 ```
@@ -295,9 +291,9 @@ FOAM services provide:
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Application   │     │  ClientService  │     │    HTTPBox      │
-│                 │────▶│     (Stub)      │────▶│   (Transport)   │
-│  imports:       │     │                 │     │                 │
+│   Application   │     │  ClientService  │     │ SessionClientBox│
+│                 │────▶│     (Stub)      │────▶│   → HTTPBox     │
+│  imports:       │     │                 │     │   (Transport)   │
 │  ['placeService']    │  delegate ──────┘     │  url: service/  │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
                                                          │

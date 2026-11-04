@@ -8,7 +8,7 @@ foam.CLASS({
   package: 'foam.core.job',
   name: 'PythonJob',
 
-  extends: 'foam.core.job.Job',
+  extends: 'foam.core.job.SuspendableJob',
 
   documentation: `Job that launches a Python subprocess and streams its output
     to the job's output field so progress is visible in the browser.
@@ -27,6 +27,7 @@ foam.CLASS({
     as a progress bar.`,
 
   javaImports: [
+    'foam.dao.DAO',
     'java.io.BufferedReader',
     'java.io.File',
     'java.io.InputStreamReader',
@@ -88,6 +89,16 @@ foam.CLASS({
         useUv is true.`,
       class: 'String',
       name: 'requirementsFile'
+    },
+    {
+      documentation: `Reference to the running subprocess. Set before the readline loop
+        begins so subclasses and shouldSuspend_() can send signals to the process.
+        Null before execute() is called and after the process exits.`,
+      class: 'Object',
+      javaType: 'Process',
+      name: 'process_',
+      transient: true,
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -123,21 +134,32 @@ foam.CLASS({
 
         try {
           Process process = pb.start();
+          setProcess_(process);
+          // getInputStream() is the subprocess's stdout (+ stderr via redirectErrorStream).
+          // Java names streams from its own perspective: it reads *in* from the child's output.
           try ( BufferedReader reader = new BufferedReader(
                   new InputStreamReader(process.getInputStream())) ) {
             String line;
             while ( (line = reader.readLine()) != null ) {
-              out(line);
+              out(cleanForOutput_(line));
               int pct = parseProgress_(line);
               if ( pct >= 0 ) setProgress(pct);
+              if ( shouldSuspend_(x) ) {
+                setStatus(foam.core.job.JobStatus.SUSPENDED);
+                process.destroyForcibly();
+                save(x);
+                break;
+              }
               save(x);
             }
           }
           int exit = process.waitFor();
-          if ( exit != 0 )
+          if ( exit != 0 && getStatus() != foam.core.job.JobStatus.SUSPENDED )
             throw new RuntimeException("Python process exited with code " + exit);
         } catch ( java.io.IOException | InterruptedException e ) {
           throw new RuntimeException(e);
+        } finally {
+          setProcess_(null);
         }
       `
     },
@@ -175,6 +197,16 @@ foam.CLASS({
       `
     },
     {
+      documentation: `Override in subclasses to clean a raw subprocess output line
+        before it is appended to the job output. Use this to strip terminal escape
+        sequences (ANSI colour, cursor movement, etc.) that would appear as literal
+        text in the output panel. The base implementation returns the line unchanged.`,
+      name: 'cleanForOutput_',
+      args: 'String line',
+      type: 'String',
+      javaCode: `return line;`
+    },
+    {
       documentation: `Override in subclasses to extract a completion percentage from
         a subprocess output line. Return a value in [0, 100], or -1 if this line
         carries no progress information. The base implementation always returns -1,
@@ -183,6 +215,23 @@ foam.CLASS({
       args: 'String line',
       type: 'int',
       javaCode: `return -1;`
+    },
+    {
+      documentation: `Returns true when the client has set this job's status to
+        SUSPENDING in the DAO. Called after each output line. When true, execute()
+        kills the subprocess and sets status to SUSPENDED before returning.`,
+      name: 'shouldSuspend_',
+      args: 'foam.lang.X x',
+      type: 'Boolean',
+      javaCode: `
+        if ( foam.util.SafetyUtil.isEmpty(getId()) ) return false;
+        DAO jobDAO = (DAO) x.get("jobDAO");
+        if ( jobDAO == null ) return false;
+        foam.core.job.Job current = (foam.core.job.Job) jobDAO.find(getId());
+        if ( current == null ) return false;
+        setStatus(current.getStatus());
+        return getStatus() == foam.core.job.JobStatus.SUSPENDING;
+      `
     }
   ]
 });

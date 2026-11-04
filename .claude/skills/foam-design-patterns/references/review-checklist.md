@@ -8,6 +8,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - `start('div')` where `start()` is the same? `addClass(this.myClass())` where `addClass()` is the same? Grep both; they hide in plain sight.
 - Any other restated default? (`implements Expressions` on a View, `value: false`, `after/async: false`, `factory: () => []` on an Array, `.select(new ArraySink())`)
 - A one-liner for this block? (`tag`, `show`, `enableClass`, `copyFrom`, `IN`)
+- A value already in hand (class, object, id) looked up again through a wrapper or lookup instead of used directly?
 - A class with this job already exists? Extended, refined, or paralleled?
 - Every hunk traces to the ticket? No reformat, rename, or second feature riding along?
 - Any `console.log`, `println`, `debugger`, `///`, or commented-out block?

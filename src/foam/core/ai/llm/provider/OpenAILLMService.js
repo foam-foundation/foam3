@@ -248,6 +248,7 @@ foam.CLASS({
         JSONObject usage  = null;
         String     model  = null;
         for ( String data ; ( data = nextData(in) ) != null ; ) {
+          written.alive();
           if ( "[DONE]".equals(data) ) {
             JSONArray toolCalls = new JSONArray();
             for ( Map.Entry<Integer, JSONObject> call : calls.entrySet() ) {

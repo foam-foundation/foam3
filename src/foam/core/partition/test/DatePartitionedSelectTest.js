@@ -16,6 +16,7 @@ foam.CLASS({
     unpartitioned select.`,
 
   javaImports: [
+    'foam.core.auth.User',
     'foam.core.fs.FileSystemStorage',
     'foam.core.fs.Storage',
     'foam.core.partition.DatePartitionedDAO',
@@ -31,8 +32,10 @@ foam.CLASS({
     'foam.mlang.order.Comparator',
     'foam.mlang.predicate.Predicate',
     'java.io.File',
+    'java.util.Calendar',
     'java.util.Date',
     'java.util.List',
+    'java.util.TimeZone',
     'static foam.mlang.MLang.AND',
     'static foam.mlang.MLang.DESC',
     'static foam.mlang.MLang.EQ',
@@ -82,6 +85,7 @@ foam.CLASS({
     {
       name: 'runTest',
       javaCode: `
+        testDateOnlyBounds(x);
         X tx = newStorageContext(x);
 
         RecordingDatePartitionedDAO dao = new RecordingDatePartitionedDAO(
@@ -145,6 +149,26 @@ foam.CLASS({
         }
         test(dao.recorders.size() > 3 && dirs == 3,
           "only partitions that were written to have a directory: opened " + dao.recorders.size() + ", directories " + dirs);
+      `
+    },
+    {
+      name: 'testDateOnlyBounds',
+      args: 'X x',
+      javaCode: `
+        DatePartitionedDAO dao = new DatePartitionedDAO(newStorageContext(x),
+          User.getOwnClassInfo(), "dateOnly/", User.BIRTHDAY,
+          DatePartitioningScheme.YYYYMMDD);
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal.clear();
+        cal.set(2024, Calendar.JANUARY, 15, 12, 0, 0);
+        long noon = cal.getTimeInMillis();
+        Predicate oneDay = dao.partitionPredicate(new User.Builder(x).setBirthday(new Date(noon)).build());
+        test(oneDay.f(new User.Builder(x).setBirthday(new Date(noon)).build()),
+          "a daily predicate includes its own date-only value");
+        test(! oneDay.f(new User.Builder(x).setBirthday(new Date(noon - DatePartitionedDAO.DAY)).build()),
+          "a daily predicate excludes the previous date-only value");
+        test(! oneDay.f(new User.Builder(x).setBirthday(new Date(noon + DatePartitionedDAO.DAY)).build()),
+          "adapting the upper bound to Date does not include the next day");
       `
     },
     {

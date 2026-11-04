@@ -78,10 +78,12 @@ A `tests.jrl` loads because the pom walk reaches its directory: the directory of
 ./build.sh -W9090 server-tests:MyServerTest              # server side; -W dodges a dev server on 8080
 ./build.sh -W9090 client-tests:MyClientTest,OtherJsTest  # client side, comma-separated ids; add test-headed to watch the browser
 ./build.sh -W9090 run-tests:MyServerTest,MyClientTest    # both sides in one build
-./build.sh --log-level:INFO server-tests:MyServerTest    # keep INFO in the output; default is ERROR
+./build.sh --log-level:WARN server-tests:MyServerTest    # also print warnings; WARN, INFO or DEBUG
 ```
 
 `server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time.
+
+A server-side run prints ERROR lines only (`TestRunnerScript.setupServerSide`), so a `logger.warning` in the code under test never shows. When a test is about a warning, add `--log-level:WARN` before reading "it didn't log" as a result.
 
 ## Read the result
 

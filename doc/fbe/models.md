@@ -230,9 +230,9 @@ foam.CLASS({
 });
 
 var todo = TodoItem.create({ title: 'Learn FOAM' });
-log('Can complete:', todo.COMPLETE.isEnabled.call(todo));
+log('Can complete:', foam.Function.withArgs(todo.COMPLETE.isEnabled, todo));
 todo.complete();
-log('Can complete:', todo.COMPLETE.isEnabled.call(todo));
+log('Can complete:', foam.Function.withArgs(todo.COMPLETE.isEnabled, todo));
 </example>
 
 ---
@@ -498,22 +498,25 @@ log('Total:', product.totalValue);
 
 ## Inner Classes
 
-<term term="Inner Classes"></term> are classes defined within another class. They have access to the outer class via `this.outer`.
+<term term="Inner Classes"></term> are classes defined within another class. Creating one through `this.Inner.create()` uses the outer instance as the context, so the inner object can import what the outer object exports.
 
 <example id="inner-classes">
 foam.CLASS({
   name: 'Outer',
 
+  exports: [ 'name as outerName' ],
+
   classes: [
     {
       name: 'Inner',
+      imports: [ 'outerName?' ],
       properties: [
         { name: 'value' }
       ],
       methods: [
         function getOuterName() {
-          // Access outer class
-          return this.outer ? this.outer.name : 'No outer';
+          // Imported from the outer instance's exports
+          return this.outerName || 'No outer';
         }
       ]
     }
@@ -567,7 +570,7 @@ foam.CLASS({
     {
       name: 'userDAO',
       factory: function() {
-        return this.DAO.create({ of: 'User', daoType: 'MDAO' });
+        return this.DAO.create({ of: 'foam.core.auth.User', daoType: 'MDAO' });
       }
     }
   ]
@@ -624,7 +627,7 @@ foam.CLASS({
 
 // Create provider and consumer in same context
 var provider = ServiceProvider.create();
-var consumer = provider.__subContext__.createSubContext().lookup('ServiceConsumer').create();
+var consumer = ServiceConsumer.create({}, provider);
 consumer.doWork();
 </example>
 
@@ -757,17 +760,17 @@ log('Class name:', cls.name);
 log('Class ID:', cls.id);
 
 log('\nProperties:');
-cls.getAxiomsByClass(foam.core.Property).forEach(function(prop) {
+cls.getAxiomsByClass(foam.lang.Property).forEach(function(prop) {
   log(' -', prop.name, '(' + prop.cls_.name + ')');
 });
 
 log('\nMethods:');
-cls.getAxiomsByClass(foam.core.Method).forEach(function(method) {
+cls.getAxiomsByClass(foam.lang.Method).forEach(function(method) {
   log(' -', method.name);
 });
 
 log('\nActions:');
-cls.getAxiomsByClass(foam.core.Action).forEach(function(action) {
+cls.getAxiomsByClass(foam.lang.Action).forEach(function(action) {
   log(' -', action.name);
 });
 
@@ -828,7 +831,7 @@ log('\nName property class:', nameProp.cls_.name);
   <def term="Interfaces" definition="Contracts defining required methods. Created with foam.INTERFACE()."></def>
   <def term="Mixins" definition="Reusable feature sets that can be added to multiple classes."></def>
   <def term="Refinements" definition="Modifications to existing classes without subclassing. Uses refines: property."></def>
-  <def term="Inner Classes" definition="Classes defined within another class. Have access to outer instance."></def>
+  <def term="Inner Classes" definition="Classes defined within another class. Created via the outer instance, they can import its exports."></def>
   <def term="requires" definition="Declares class dependencies with optional aliases for cleaner code."></def>
   <def term="imports" definition="Dependency injection declarations. Receives values from parent context."></def>
   <def term="exports" definition="Makes values available to child components through the context."></def>

@@ -25,6 +25,7 @@ foam.POM({
     { name: "test/FObjectParserJavaTest",                         flags: "js&test|java&test" },
     { name: "test/ParserOptimizationTest",                        flags: "js&test|java&test" },
     { name: "test/JSONDateParserTest",                            flags: "js&test|java&test" },
+    { name: "test/JSONStringPropertyCastTest",                    flags: "js&test|java&test" },
     { name: "StringToStringArrayParserTest",                      flags: "js&test|java&test" },
     { name: "RawMapParserTest",                                   flags: "js&test|java&test" },
     { name: "UnknownFObjectParserTest",                           flags: "js&test|java&test" },

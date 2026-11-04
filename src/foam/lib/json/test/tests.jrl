@@ -5,3 +5,4 @@ p({
   id:"JSONDateParserTest",
   description:"foam.lib.json.DateParser branches and 1-9 digit fraction-of-a-second scaling"
 })
+p({"class":"foam.lib.json.test.JSONStringPropertyCastTest","id":"JSONStringPropertyCastTest","description":"A String property keeps an unquoted JSON boolean or number as text instead of failing the parse"})

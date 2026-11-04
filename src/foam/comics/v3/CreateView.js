@@ -43,7 +43,8 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'CREATED', message: 'Created' }
+    { name: 'CREATED',       message: 'Created' },
+    { name: 'SAVE_DISABLED', message: 'Save is disabled due to the following validation errors:' }
   ],
 
   css: `
@@ -95,6 +96,20 @@ foam.CLASS({
       },
       internalIsEnabled: function(data$errors_) {
         return ! data$errors_;
+      },
+      toolTip: function(data$errors_) {
+        let hasErrors = !! data$errors_;
+        if ( hasErrors ) {
+          function printErrors(errors_) {
+            return errors_.map(e => `<li><b>${e[0].label}</b>: ${e[1]}</li>`).join('');
+          }
+          return 'Save is disabled due to the following validation errors:<br /><ul>' + printErrors(data$errors_) + '</ul>';
+        }
+        return '';
+      },
+      toolTip: function(data$errors_) {
+        if ( ! data$errors_ ) return '';
+        return this.SAVE_DISABLED + '\n' + data$errors_.map(e => '• ' + e[0].label + ': ' + e[1]).join('\n');
       },
       code: function() {
         var cData = this.data;

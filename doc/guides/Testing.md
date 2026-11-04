@@ -28,7 +28,7 @@ Execute specific test cases by listing their `id`s as an argument to the `run-te
 #### Specific Tests Not Found
 `id`s listed but not found are reported as such:
 
-`./build.sh server-test:UnknownTest`
+`./build.sh server-tests:UnknownTest`
 ...
 `WARNING :: Test not run: UnknownTest. Mode: server. Possible client/server/suite mismatch or typo.`
 
@@ -93,7 +93,7 @@ TEST REPORT CLIENT - TEST CASES: 12, TESTS: 1374 (PT1M6.038S)
 
 Build with option `--flags:test` and `-Jdemo` (if no other login users will be available).
 Once the application is running, login, and navigate to menu:
-- `#admin-tests`
+- `#admin.tests`
 
 Test cases with `Language` of `Javascript` can be run individually or buttons at the top right support running all `client` tests.
 - `Run Client`: Run all `Javascript` test cases.
@@ -144,7 +144,7 @@ Steps for adding a modeled test case:
 1. Add the new model to `test/tests.jrl`
 	```
 	p({
-	  class:"foam.core.foobar.test.FooBarTest",
+	  class:"com.example.foobar.test.FooBarTest",
 	  id:"FooBarTest",
 	  enabled: true
 	})
@@ -165,7 +165,7 @@ Steps for adding a Script Test Case
 		test(Password.verify(FIRST_PASSWORD, result.getPassword()), "Password returned from put should be hash of original password.")
 		```
 1.  Save
-1.  To persist the Test, copy the most recent  `p({})`  block from the  `journals/tests`  to  `tests/tests.jrl`
+1.  To persist the Test, copy the most recent  `p({})`  block from the  `journals/tests`  to  `test/tests.jrl`
 
 # Automation
 The FOAM repository runs all Java/Server tests on each PR update.  Equivalent to:
@@ -175,7 +175,7 @@ The FOAM repository runs all Java/Server tests on each PR update.  Equivalent to
 Presently only the Chrome Browser is supported. 
 See 
 - `src/foam/core/browser/BrowserConfig.js` 
-- `src/foam/core/browser/browserconfig.jrl`
+- `src/foam/core/browser/browserconfigs.jrl`
 
 The `BrowserAgent` has property `type` for specifying the `BrowserConfig`, but `TestRunnerScript` and the `Build` do not provide for setting it (_future work_).
 

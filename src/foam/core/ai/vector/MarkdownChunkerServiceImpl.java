@@ -27,7 +27,9 @@ public class MarkdownChunkerServiceImpl extends MarkdownChunkerService {
       }
     }
 
-    List<MarkdownChunkParser.Section> sections = new MarkdownChunkParser(getMaxDepth()).parseString(source);
+    List<MarkdownChunkParser.Section> sections =
+      new MarkdownChunkParser(getMaxDepth(), getSourceType() == SourceType.CODE)
+        .parseString(source);
     List<String> result = new ArrayList<>();
 
     for ( MarkdownChunkParser.Section section : sections ) {

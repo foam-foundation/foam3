@@ -210,7 +210,9 @@ foam.CLASS({
       x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Number Test14: The id does not exactly match any of the listed values');
 
       // Number combined properties tests
-      x.test(this.isValid("id=16 AND id<9", "False"), "Number Test15: The id equal to the value and less than a smaller value gets partialEvaled to False");
+      // EQ only reduces against another EQ, so EQ AND LT stays unreduced even
+      // when, as here, no id can satisfy both.
+      x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Number Test15: The id equal to the value and less than a smaller value");
       x.test(this.isValid("id>9 AND id<16", "AND(GT(foam.core.auth.User.id, 9),LT(foam.core.auth.User.id, 16))"), "Number Test16: The id greater than a value and less than another value");
       x.test(this.isValid("id=18 OR id<9", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 9))'), "Number Test17: The id equal to the value or less than another value");
 
@@ -226,7 +228,7 @@ foam.CLASS({
 
       // Parentheses tests
       x.test(this.isValid("( id = 6 )", "EQ(foam.core.auth.User.id, 6)"), "Parentheses Test1: The id equal to the value with parentheses");
-      x.test(this.isValid(" (id=17 AND id<9) ", "False"), "Parentheses Test2: The id equal to the value and less than a smaller value with parentheses and is partialEvaled to False");
+      x.test(this.isValid(" (id=17 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 17),LT(foam.core.auth.User.id, 9))"), "Parentheses Test2: The id equal to the value and less than a smaller value with parentheses");
       x.test(this.isValid(" (id>9 AND id<17) ", "AND(GT(foam.core.auth.User.id, 9),LT(foam.core.auth.User.id, 17))"), "Parentheses Test3: The id greater than a value and less than another value with parentheses");
       x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Parentheses Test4: The id equal to the value or less than another value with parentheses");
       x.test(this.isValid(" NOT id=17 AND loginEnabled IS TRUE", "AND(NEQ(foam.core.auth.User.id, 17),EQ(foam.core.auth.User.loginEnabled, true))"), "Parentheses Test5: Negate the id equal to the value and login enabled is true with parentheses");

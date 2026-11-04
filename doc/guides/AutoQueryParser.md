@@ -37,7 +37,7 @@ The AQL Query Language supports property-based queries with various operators an
 ## Logical Operators
 
 ### AND
-Combine expressions with spaces or explicit AND:
+Combine expressions with an explicit AND or `&`:
 ```
 expression1 AND expression2
 expression1 & expression2
@@ -90,7 +90,7 @@ Supported property values are:
     * defined enum values for the property
 
 > [!IMPORTANT]
-> Only properties marked as `searchable` in the model will be available for querying.
+> In the JavaScript parser, only properties marked as `searchable` in the model are available for querying. The Java parser accepts every property.
 
 ## Expressions
 

@@ -1,4 +1,4 @@
-<flow name="DesignPatterns" category="DOC/GUIDE" spid="foam" description="Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Facade, Template Method, Observer, Composite." keywords="design patterns,decorator,strategy,proxy,composite,knowledge"/>
+<flow name="DesignPatterns" category="DOC/GUIDE" spid="foam" description="Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Facade, Observer, Composite, Command." keywords="design patterns,decorator,strategy,proxy,composite,knowledge"/>
 
 # Design Patterns in FOAM
 
@@ -6,7 +6,7 @@ FOAM is built on a small number of well-known design patterns applied consistent
 
 ## Strategy
 
-The `Sink` interface (`put`, `remove`, `error`, `eof`) and the `MDAO` index interface are classic Strategy implementations — interchangeable algorithms behind a common interface. DAOs, parsers, Actions, and Views are also Strategies, but since they each qualify as a more specialised pattern, they appear under their own headings below.
+The `Sink` interface (`put`, `remove`, `eof`, `reset`) and the `MDAO` index interface are classic Strategy implementations — interchangeable algorithms behind a common interface. DAOs, parsers, Actions, and Views are also Strategies, but since they each qualify as a more specialised pattern, they appear under their own headings below.
 
 ## Proxy
 
@@ -69,9 +69,9 @@ Every `FObject` is Observable. Property changes are published automatically on t
 ```javascript
 var inv = Invoice.create({ amount: 100 });
 
-// Subscribe to a specific property
-inv.amount$.sub(function(e, _, __, newVal) {
-  console.log('amount changed to', newVal);
+// Subscribe to a specific property (the 4th argument is the property's Slot)
+inv.amount$.sub(function(sub, topic, propName, slot) {
+  console.log('amount changed to', slot.get());
 });
 
 // Subscribe to any property change
@@ -84,7 +84,7 @@ inv.amount = 200;  // fires both subscribers
 
 DAOs are also Observable via `listen()` and `pipe()`, which deliver ongoing `put` and `remove` events to a `Sink` as the DAO's contents change.
 
-FOAM's topic system extends the classic Observer pattern with a hierarchical topic namespace: a subscriber on `'propertyChange'` receives all property changes; a subscriber on `['propertyChange', 'amount']` receives only `amount` changes.
+FOAM's topic system extends the classic Observer pattern with a hierarchical topic namespace: a subscriber on `'propertyChange'` receives all property changes; a subscriber registered with `sub('propertyChange', 'amount', l)` receives only `amount` changes.
 
 Observer is one of the most frequently needed patterns in application development — responding to property changes, updating views, reacting to DAO events. In FOAM it is elevated from a manually applied recipe to a first-class language construct: the `listeners` axiom. A Listener is a pre-bound method — `this` is always correct even when the method is passed as a callback, closing the impedance mismatch between GUI event callbacks and OO methods. Listeners also support `isMerged` (collapses rapid-fire calls into one, fired after a delay) and `isFramed` (fires at most once per animation frame), which are the two event-frequency problems that arise constantly in UI code and require boilerplate to solve without them.
 
@@ -153,14 +153,14 @@ The factory is also the mechanism through which the context system provides subs
 
 ## Facade
 
-`EasyDAO` is a textbook Facade. It hides the complexity of assembling a decorated DAO stack — sequence number assignment, journalling, caching, authorisation, performance monitoring — behind a single fluent builder:
+`EasyDAO` is a textbook Facade. It hides the complexity of assembling a decorated DAO stack — sequence number assignment, journalling, authorisation, performance monitoring — behind a single fluent builder. In Java:
 
-```javascript
-foam.dao.EasyDAO.Builder(x)
+```java
+new foam.dao.EasyDAO.Builder(x)
   .setOf(Invoice.getOwnClassInfo())
   .setSeqNo(true)
-  .setJournal(true)
-  .setCache(true)
+  .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+  .setJournalName("invoices")
   .setAuthorize(true)
   .setPm(true)
   .build()

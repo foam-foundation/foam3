@@ -2,7 +2,7 @@
 
 # The Power of DSLs in FOAM
 
-FOAM demonstrates a masterclass in the use of Domain Specific Languages. Consider how a simple query parser is constructed: FOAM's parser combinators form an *internal DSL* for creating *external DSLs*. These combinators are used to compile AQL (Autocomplete Query Language), an external DSL, into MLangs, which are themselves an internal DSL for predicates.
+FOAM demonstrates a masterclass in the use of Domain Specific Languages. Consider how a simple query parser is constructed: FOAM's parser combinators form an *internal DSL* for creating *external DSLs*. These combinators are used to compile AQL (Automatic Query Language), an external DSL, into MLangs, which are themselves an internal DSL for predicates.
 
 This creation is guided by information from `foam.CLASS`, which is itself an internal DSL for defining classes. This is unusual—class syntax is typically provided as part of an external general-purpose language like Java or C++. But FOAM's approach shows its advantage here in ways that wouldn't be possible with the conventional approach.
 

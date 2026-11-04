@@ -36,7 +36,7 @@ This document explains how the FOAM parser callback system works, including erro
 │                         │                                        │
 │                         ▼                                        │
 │                   apply(parser, grammar)                         │
-│                   (intercepts EVERY parse call)                  │
+│                   (intercepts every sub-parser call)             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ This document explains how the FOAM parser callback system works, including erro
 | **StringPStream** | Immutable stream of characters with position tracking | `foam/parse/StringPStream.js` |
 | **Parser** | Object with `parse(ps, grammar)` method | `foam/parse/parse.js` |
 | **Grammar** | Collection of named parsers (symbols) with actions | `foam/parse/parse.js` |
-| **apply** | Callback that intercepts every parse operation | `StringPStream.js:85` |
+| **apply** | Callback that intercepts every sub-parser call | `StringPStream.js:101` |
 
 ---
 
@@ -56,15 +56,17 @@ This document explains how the FOAM parser callback system works, including erro
 
 ### 1. The `apply` Callback (Low-Level Interception)
 
-Every time a parser runs, it doesn't call `parser.parse()` directly. Instead, it calls:
+When a combinator (`seq`, `alt`, `repeat`, `sym`, ...) runs one of its sub-parsers, it doesn't call `parser.parse()` directly. Instead, it calls:
 
 ```javascript
 ps.apply(parser, grammar)
 ```
 
+Two calls bypass `apply`: the grammar's `START` parser, which `parseString()` and `parse()` invoke with `start.parse(ps, grammar)`, and the parser wrapped by `cut()`.
+
 #### Default Behavior
 
-From `StringPStream.js:85`:
+From `StringPStream.js:101` (inside `setString()`):
 
 ```javascript
 this.apply = function(p, obj) {
@@ -205,7 +207,7 @@ console.log(typeof result); // "number"
 
 #### Action Registration (Internal)
 
-From `parse.js:1411-1420`:
+From `parse.js:1605-1615`:
 
 ```javascript
 function init() {
@@ -283,14 +285,14 @@ if ( ! result ) {
 
 ### Built-in Error Reporting (Grammar.getLastError)
 
-The Grammar class has error reporting built in (`parse.js:1452-1507`):
+The Grammar class has error reporting built in (`parse.js:1644-1702`). It takes the input string and re-parses it:
 
 ```javascript
 var grammar = MyGrammar.create();
 var result = grammar.parseString('bad input');
 
 if ( ! result ) {
-  console.log(grammar.getLastError());
+  console.log(grammar.getLastError('bad input'));
   // Output: "Unexpected character 'x' at index: 5, Expected one of: [a,b,c],
   //          Text leading up to this was: ..."
 }
@@ -307,7 +309,7 @@ if ( ! result ) {
 │   2. Re-parses with error tracking                              │
 │   3. Records [position, parser, grammar] at each failure        │
 │   4. Keeps the FURTHEST failure point                           │
-│   5. Tests all ASCII chars to find "valid" next characters      │
+│   5. Tests code points 0-255 to find "valid" next characters    │
 │   6. Builds human-readable error message                        │
 │                                                                 │
 └────────────────────────────────────────────────────────────────┘
@@ -335,19 +337,20 @@ parseString("abc123")
        │
        ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ ps.apply(startParser, grammar)  ◄── YOUR CALLBACK RUNS HERE   │
+│ startParser.parse(ps, grammar)  (called directly, no apply)   │
 │                                                               │
-│   Inside apply:                                               │
-│     1. Your code runs (logging, tracking, etc.)               │
+│   For each sub-parser it runs, ps.apply(p, grammar):          │
+│     1. Your code runs (logging, tracking, etc.)  ◄── CALLBACK │
 │     2. p.parse(this, grammar) called                          │
-│     3. Parser may call ps.apply() on sub-parsers              │
+│     3. Parser may call ps.apply() on its own sub-parsers      │
 │     4. Result returned (PStream or undefined)                 │
 └──────────────────────────────────────────────────────────────┘
        │
        ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ If symbol has an Action method:                               │
-│   result.value = symbolAction(result.value)                   │
+│ Actions already ran inside step 3: init() wrapped each symbol │
+│ that has an Action method in a ParserWithAction, which returns│
+│ ps.setValue(symbolAction(value)) wherever the symbol matches  │
 └──────────────────────────────────────────────────────────────┘
        │
        ▼
@@ -381,9 +384,10 @@ parseString("abc123")
      │               │                │              │
      │               │                │   result     │
      │               │                │◄─────────────│
-     │               │                │              │
-     │               │ action(value)  │              │
-     │               │◄───────────────│              │
+     │               │                │ (actions run │
+     │               │                │  inside parse│
+     │               │                │  via Parser- │
+     │               │                │  WithAction) │
      │               │                │              │
      │  result.value │                │              │
      │◄──────────────│                │              │
@@ -417,7 +421,7 @@ foam.CLASS({
         emptyFile: eof(),  // Matches if file is empty
 
         content: seq(
-          plus(sym('line')),
+          plus(sym('line'), '\n'),
           eof()
         ),
 
@@ -473,8 +477,9 @@ var result1 = parser.parseWithErrors('');
 var result2 = parser.parseWithErrors('hello\nworld');
 // Parsed content
 
-var result3 = parser.parseWithErrors('hello\x00invalid');
-// { error: 'PARSE_ERROR', message: 'Parse failed at position 5', ... }
+var result3 = parser.parseWithErrors('hello\n');
+// Trailing newline with no line after it:
+// { error: 'PARSE_ERROR', message: 'Parse failed at position 6', ... }
 ```
 
 ### Example 2: Detailed Error Reporting
@@ -511,7 +516,7 @@ foam.CLASS({
           not('"', anyChar())
         )),
 
-        unquotedField: repeat(not(alt(',', '\n', '\r', eof()), anyChar())),
+        unquotedField: repeat(not(alt(',', '\n', '\r', '"', eof()), anyChar())),
 
         newline: alt('\r\n', '\n', '\r')
       };
@@ -673,14 +678,21 @@ debug.log.forEach(line => console.log(line));
 /* Output:
 Result: [["1"], [["+", ["2"]], ["+", ["3"]]]]
 Parse trace:
-► sym("expression") @ "1+2+3..."
+► seq(sym("term"), plus(seq("+", @ "1+2+3..."
   ► sym("term") @ "1+2+3..."
     ► sym("number") @ "1+2+3..."
-      ► range("0", "9") @ "1+2+3..."
-      ✓ range("0", "9") = "1"
+      ► plus(range("0", "9")) @ "1+2+3..."
+        ► range("0", "9") @ "1+2+3..."
+        ✓ range("0", "9") = "1"
+        ► range("0", "9") @ "+2+3..."
+        ✗ range("0", "9") FAILED
+      ✓ plus(range("0", "9")) = ["1"]
     ✓ sym("number") = ["1"]
   ✓ sym("term") = ["1"]
   ...
+
+The START symbol, sym("expression"), does not appear: parse() calls it
+directly, so the first logged call is the parser it refers to.
 */
 ```
 
@@ -698,24 +710,24 @@ Parse trace:
 
 | Lines | Content |
 |-------|---------|
-| 74-122 | `Suggestion` class |
-| 256-312 | `Literal` parser |
-| 380-417 | `Alternate` parser |
-| 420-455 | `Sequence` parser |
-| 458-480 | `Suggest` parser decorator |
-| 1001-1028 | `ParserWithAction` (wraps actions) |
-| 1031-1078 | `Symbol` parser |
-| 1344-1543 | `Grammar` class |
-| 1411-1420 | Action registration in `init()` |
-| 1452-1507 | `getLastError()` implementation |
+| 74-136 | `Suggestion` class |
+| 270-326 | `Literal` parser |
+| 394-431 | `Alternate` parser |
+| 434-469 | `Sequence` parser |
+| 472-494 | `Suggest` parser decorator |
+| 1158-1185 | `ParserWithAction` (wraps actions) |
+| 1201-1248 | `Symbol` parser |
+| 1547-1738 | `Grammar` class |
+| 1605-1615 | Action registration in `init()` |
+| 1644-1702 | `getLastError()` implementation |
 
 ### Important Line Numbers in `StringPStream.js`
 
 | Lines | Content |
 |-------|---------|
-| 30-44 | `tail` getter (propagates `apply`) |
-| 70-79 | `setValue()` (propagates `apply`) |
-| 82-87 | `setString()` (default `apply` defined) |
+| 29-44 | `tail` getter (propagates `apply`) |
+| 83-96 | `setValue()` (propagates `apply`) |
+| 98-103 | `setString()` (default `apply` defined) |
 
 ---
 
@@ -727,7 +739,7 @@ Parse trace:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  1. apply(parser, grammar)                                       │
-│     └─► Intercepts EVERY parser invocation                       │
+│     └─► Intercepts every sub-parser invocation                   │
 │     └─► Use for: debugging, error tracking, suggestions          │
 │                                                                  │
 │  2. <symbol>Action(value)                                        │

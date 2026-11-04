@@ -231,6 +231,10 @@ foam.CLASS({
 
 ```java
 // FileProcessor.java
+package com.example;
+
+import foam.lang.X;
+
 public class FileProcessor extends AbstractProcessor {
 
   public FileProcessor() {}
@@ -240,7 +244,9 @@ public class FileProcessor extends AbstractProcessor {
   public static foam.lang.ClassInfo    getOwnClassInfo() { return foam.lang.ClassInfoImpl.forClass(FileProcessor.class); }
 
   @Override
-  public void process(foam.lang.X x, String item) { ... }
+  public void process(foam.lang.X x, String item) {
+    // implementation
+  }
 }
 ```
 
@@ -275,7 +281,7 @@ FOAM's JSON parser instantiates objects via `ClassInfo.newInstance()`, which use
 
 ```java
 public FileProcessor() {}
-public FileProcessor(X x) { super(x); }
+public FileProcessor(foam.lang.X x) { super(x); }
 ```
 
 ### ClassInfo

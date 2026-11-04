@@ -61,11 +61,12 @@ The challenge with fine-grained components is composition: you end up with many 
 
 Strategies handle data storage: in-memory MDAO, journalled file storage, JDBC, REST endpoints. Decorators add functionality: sequence number assignment, GUID assignment, logging, profiling, validation, authentication, authorisation, caching. Not all combinations make sense and some conflict, but `EasyDAO` handles this complexity transparently.
 
-```javascript
+```java
 // One declaration composes a full decorator stack
-foam.dao.EasyDAO.Builder(x)
+new foam.dao.EasyDAO.Builder(x)
   .setOf(Invoice.getOwnClassInfo())
-  .setJournal(true)
+  .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+  .setJournalName("invoices")
   .setCache(true)
   .setAuthorize(true)
   .setSeqNo(true)
@@ -83,19 +84,24 @@ foam.CLASS({
   name: 'Invoice',
   properties: [
     {
-      class: 'Currency',
+      class: 'UnitValue',
       name: 'amount',
       // Custom validation lives inside the model, not outside it
       validateObj: function(amount) {
         if ( amount <= 0 ) return 'Amount must be positive.';
       }
+    },
+    {
+      class: 'Date',
+      name: 'dueDate'
     }
   ],
   methods: [
     {
       name: 'isOverdue',
+      type: 'Boolean',
       // Custom logic is a few lines inside the declaration
-      javaCode: `return getStatus() != InvoiceStatus.PAID && getDueDate().before(new Date());`
+      javaCode: `return getDueDate() != null && getDueDate().before(new java.util.Date());`
     }
   ]
 });
@@ -134,11 +140,11 @@ var john = Person.create({ firstName: 'Jonathan', lastName: 'Edwards' });
 
 // Serialise to JSON — works for any FOAM object
 foam.json.stringify(john);
-// { "class": "Person", "firstName": "Jonathan", "lastName": "Edwards" }
+// {class:"Person",firstName:"Jonathan",lastName:"Edwards"}
 
 // Reflect on the class at runtime
 john.cls_.id;                         // 'Person'
-john.cls_.getAxiomsByClass(foam.core.Property).map(p => p.name);
+john.cls_.getAxiomsByClass(foam.lang.Property).map(p => p.name);
 // ['firstName', 'lastName']
 ```
 
@@ -153,14 +159,14 @@ FOAM's meta-model is a FOAM model. In systems like Smalltalk, the meta-model is 
 FOAM avoids this by looping back on itself:
 
 ```javascript
-foam.lang.Model.cls_.id;   // 'foam.lang.Model'
+foam.lang.Model.model_.cls_ === foam.lang.Model;   // true
 ```
 
-`Model.cls_ === Model`. The class that describes all classes is itself an instance of the class it describes. `Meta^n(Model)` for any *n* is always the same object, with the same full machinery and the same descriptive power. There is no tower, no fading, no special case at the top.
+The model that describes the `Model` class is itself an instance of `Model`. The class that describes all classes is itself an instance of the class it describes. `Meta^n(Model)` for any *n* is always the same object, with the same full machinery and the same descriptive power. There is no tower, no fading, no special case at the top.
 
 This is made possible by **Refinements** — a concept borrowed from the field of knowledge representation — combined with a careful bootstrapping sequence. FOAM1 bootstrapped through a series of increasingly capable models, each one generating the next: a sequence of distinct versions, each subtly different from the last. From FOAM2 onwards, FOAM starts as a small, minimal version of itself and *refines itself in place*, steadily upgrading the same running system rather than generating a successor. Each refinement adds axioms to classes that already exist; existing instances immediately see the improvement.
 
-The analogy is a robot that begins as a simple toy — able to move and follow basic instructions — and progressively upgrades its own motors, sensors, and software until it becomes a full industrial machine. At no point is a new robot built; the original robot is the industrial robot, arrived at through self-improvement. By the time FOAM's bootstrap completes, the Model class has refined itself into something fully capable of describing itself — which is why `cls_ === Model` is a consequence of the process rather than a declaration imposed by fiat.
+The analogy is a robot that begins as a simple toy — able to move and follow basic instructions — and progressively upgrades its own motors, sensors, and software until it becomes a full industrial machine. At no point is a new robot built; the original robot is the industrial robot, arrived at through self-improvement. By the time FOAM's bootstrap completes, the Model class has refined itself into something fully capable of describing itself — which is why `Model.model_.cls_ === Model` is a consequence of the process rather than a declaration imposed by fiat.
 
 This self-referential design is the primary reason FOAM remains so small and uniform. There is no special-case meta-layer with its own rules; the same machinery that models your `Invoice` class also models FOAM's own `Property`, `Method`, and `Action` classes.
 

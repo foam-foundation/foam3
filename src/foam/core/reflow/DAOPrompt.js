@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'DAOPromptView',
   extends: 'foam.u2.View',
 
-  imports: [ 'block' ],
+  imports: [ 'block', 'document', 'window' ],
 
   requires: [
     'foam.u2.LoadingSpinner',
@@ -78,10 +78,10 @@ foam.CLASS({
       }
     },
     function copyToClipboard() {
-      var range = document.createRange();
+      var range = this.document.createRange();
       range.selectNode(this.content.element_);
-      window.getSelection().empty();
-      window.getSelection().addRange(range);
+      this.window.getSelection().empty();
+      this.window.getSelection().addRange(range);
     },
     {
       name: 'rerun',

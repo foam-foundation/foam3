@@ -42,6 +42,27 @@ foam.CLASS({
       margin: 1rem 0 0 0;
       border: 1px solid;
     }
+    /* The app-wide reset makes every img a block, which pushed a button icon
+       in "Click the [icon] button" onto a line of its own. */
+    << .mdParagraph img {
+      display: inline;
+      vertical-align: middle;
+    }
+    /* Screenshots are taken on high-density screens, often 1600px or wider;
+       at full size one fills the page and the text around it is lost. */
+    << img {
+      max-width: min(100%, 800px);
+    }
+    /* A tab set in a document reads as one card, so its content is not
+       mistaken for the text that follows it. */
+    << .foam-u2-Tabs {
+      border: 1px solid $borderLight;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    << .foam-u2-Tabs-content {
+      padding: 16px;
+    }
   `,
 
   grammars: [
@@ -140,8 +161,10 @@ foam.CLASS({
             repeat('_', null, 3)
           ),
 
-          blockquote: repeat(seq1(1,
-            '> ',
+          // A bare ">" line is the blank line between two paragraphs of one quote.
+          blockquote: repeat(seq1(2,
+            '>',
+            optional(' '),
             str(repeat(notChars('\n'))),
           ), '\n', 1),
 
@@ -246,11 +269,16 @@ foam.CLASS({
             ')'
           ),
 
+          // The target may hold one pair of parentheses, so a link can name a
+          // flow such as [see here](Client Programs (DOC)).
           link: seq(
             '[',
               str(repeat(notChars(']'))),
             '](',
-              str(repeat(notChars(')'))),
+              str(repeat(alt(
+                str(seq('(', str(repeat(notChars('()\n'))), ')')),
+                notChars('()\n')
+              ))),
             ')'
           ),
 
@@ -379,7 +407,11 @@ foam.CLASS({
         },
 
         function blockquote(v) {
-          return function() { this.start('blockquote').add(v.join('\n')); }
+          // A quote holds markdown like the page around it: **bold**, links, images.
+          let fs = this.markdownGrammar.parseString(v.join('\n') + '\n') || [];
+          return function() {
+            this.start('blockquote').call(function() { fs.forEach(f => this.call(f)); });
+          };
         },
 
         function unorderedList(v) {
@@ -408,7 +440,12 @@ foam.CLASS({
         },
 
         function table(v) {
-          let headers = v[0], rows = v[2];
+          // Header cells take inline markdown like body cells: | **Type** | shows bold, not asterisks.
+          let inline  = this.markdownGrammar.getSymParser('inlineContent');
+          let headers = v[0].map(h => inline.parseString(h.trim()) || function() {}), rows = v[2];
+          // A header row of empty cells means the table has no header, as in a
+          // two-column list of terms and definitions: | | |
+          let noHeader = v[0].every(h => ! h.trim());
 
           let alignments = v[1].map(s => {
             s = s.trim();
@@ -419,12 +456,16 @@ foam.CLASS({
           });
 
           return function render(el) {
-            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8}).start('thead')
-              .start('tr')
-                .forEach(headers, function(h, i) {
-                  this.start('th').style(alignments[i]).add(h.trim()).end();
-                })
-              .end().end()
+            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8})
+              .callIf(! noHeader, function() {
+                this.start('thead')
+                  .start('tr')
+                    .forEach(headers, function(h, i) {
+                      this.start('th').style(alignments[i]).call(h).end();
+                    })
+                  .end()
+                .end();
+              })
               .start('tbody')
                 .forEach(rows, function(row) {
                   this.start('tr').forEach(row, function (cell, i) {

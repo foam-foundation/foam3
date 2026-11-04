@@ -2,26 +2,28 @@
 
 ## Expressions vs this.dynamic()
 
-**Expressions** are reactive property computations defined at the model level that automatically recalculate when their dependencies change [1](#0-0) . **`this.dynamic()`** is a UI method that creates reactive DOM content that updates when referenced properties change [2](#0-1) .
+**Expressions** are reactive property computations defined at the model level that automatically recalculate when their dependencies change. **`this.dynamic()`** is a UI method that creates reactive DOM content that updates when referenced properties change.
 
 ### Property Expressions
 
-Expressions are defined in FOAM class properties and create computed values: [3](#0-2)
+Expressions are defined in FOAM class properties and create computed values (see the first citation below).
 
-They stop being reactive once manually set to a value, requiring reset to `undefined` to re-enable reactivity [4](#0-3) .
+They stop being reactive once manually set to a value, requiring reset to `undefined` to re-enable reactivity.
 
 ### this.dynamic()
 
-`this.dynamic()` creates reactive UI elements in FOAM's U2 framework [5](#0-4) . It's implemented using `foam.lang.DynamicFunction` which extends `foam.lang.ExpressionSlot` [6](#0-5) .
+`this.dynamic()` creates reactive UI elements in FOAM's U2 framework. It's implemented using `foam.lang.DynamicFunction` which extends `foam.lang.ExpressionSlot`.
 
-The implementation shows that `DynamicFunction` eagerly evaluates and always updates even when nobody is accessing the value, making it suitable for UI updates [7](#0-6) .
+The implementation shows that `DynamicFunction` eagerly evaluates and always updates even when nobody is accessing the value, making it suitable for UI updates.
+
+The function's return value is ignored. Content must be added through `this`, which is the `FunctionNode` that `add()` wraps the function in, so a `dynamic()` only renders anything once it is passed to `add()`.
 
 ### Key Differences
 
 1. **Scope**: Expressions are model-level computed properties; `this.dynamic()` is for UI rendering
 2. **Usage**: Expressions define reactive data; `this.dynamic()` creates reactive DOM content
-3. **Evaluation**: Expressions are lazy (pull-based); `this.dynamic()` is eager (push-based) [8](#0-7)
-4. **Context**: Expressions work with object properties; `this.dynamic()` works with UI elements and can access `data` properties automatically [9](#0-8)
+3. **Evaluation**: Expressions are lazy (pull-based); `this.dynamic()` is eager (push-based)
+4. **Context**: Expressions work with the properties of the object that owns them; `this.dynamic()` watches properties of the object it is called on. Passing a bare function to `this.add(function(...) {...})` instead watches properties of the context's `data` (falling back to the element when there is no `data`)
 
 ## Notes
 
@@ -37,15 +39,14 @@ Wiki pages you might want to explore:
 
 ### Citations
 
-**File:** doc/guides/cheat-sheet.md (L134-136)
-```markdown
+**Expression property:**
+```javascript
 { class: 'String', name: 'fullName', expression: function(firstName, lastName) {
     return firstName + ' ' + lastName;
 }}
 ```
 
-**File:** doc/guides/cheat-sheet.md (L142-156)
-```markdown
+**Overriding and resetting an expression:**
 ```javascript
 {
   class: 'String',
@@ -61,36 +62,25 @@ obj.computedValue = 'manual value'; // Expression stops being reactive
 // To re-enable reactive behavior, reset to undefined
 obj.computedValue = undefined; // Expression becomes reactive again
 ```
-```
 
-**File:** doc/guides/cheat-sheet.md (L315-317)
-```markdown
-this.dynamic(function(prop1, prop2) {
-  return prop1 + ' ' + prop2;
-});
-```
-
-**File:** doc/guides/cheat-sheet.md (L320-335)
-```markdown
-## **Dynamic Views**
+**Dynamic Views:**
 ```javascript
 // Auto-binds to data properties
 this.add(function(firstName, lastName) {
-  return this.start('div').add(`Name: ${firstName} ${lastName}`).end();
+  this.start('div').add(`Name: ${firstName} ${lastName}`).end();
 });
 
-// For object properties, use this.dynamic() directly
+// For properties of the view itself, use this.dynamic() directly
 this.start('div')
   .add(this.dynamic(function(myProp, otherProp) {
-    return `Values: ${myProp} ${otherProp}`;
+    this.add(`Values: ${myProp} ${otherProp}`);
   }))
 .end();
 ```
 
-**Note:** `this.add(function(){})` auto-binds to `data` properties. For the object itself, use `this.dynamic()` directly.
-```
+**Note:** `this.add(function(){})` auto-binds to `data` properties. For the object itself, use `this.dynamic()` directly. In both forms the return value is ignored; add content through `this`.
 
-**File:** src/foam/lang/Slot.js (L611-614)
+**File:** src/foam/lang/Slot.js
 ```javascript
 foam.CLASS({
   package: 'foam.lang',
@@ -98,7 +88,7 @@ foam.CLASS({
   extends: 'foam.lang.ExpressionSlot',
 ```
 
-**File:** src/foam/lang/Slot.js (L676-693)
+**File:** src/foam/lang/Slot.js (`DynamicFunction.subToArgs_`)
 ```javascript
     function subToArgs_(args) {
       // Overrides implementation in ExpressionSlot

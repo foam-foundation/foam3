@@ -562,11 +562,15 @@ foam.CLASS({
           },
 
           'relative date': function(v) {
-            // We turn this into a Date range around the current date
+            // We turn this into a Date range around the current date.
+            // The range is built in UTC (see literalDatetime), so the day must
+            // be the UTC day too: at 22:00 in UTC-3 the local date is still
+            // the 3rd while UTC is already the 4th, and a local TODAY would
+            // end before the current time. Matches SimpleQueryParser.java.
             let d = new Date();
-            let year  = d.getFullYear();
-            let month = d.getMonth();
-            let date  = d.getDate(); // day of the month
+            let year  = d.getUTCFullYear();
+            let month = d.getUTCMonth();
+            let date  = d.getUTCDate(); // day of the month
 
             // if there is an offset, apply it
             if ( v[1] ) {

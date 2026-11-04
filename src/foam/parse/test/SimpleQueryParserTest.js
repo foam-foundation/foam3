@@ -18,9 +18,9 @@ foam.CLASS({
       };
       let testToday = (inc) => {
         let d     = new Date();
-        let year  = d.getFullYear();
-        let month = d.getMonth();
-        let date  = d.getDate();
+        let year  = d.getUTCFullYear();
+        let month = d.getUTCMonth();
+        let date  = d.getUTCDate();
         date += inc;
         return testDate([year, month, date, 12]);
       };
@@ -115,6 +115,12 @@ foam.CLASS({
       x.test(this.isValidSymbol('date', 'TODAY', [testToday(0), testToday(1)].toString()), 'Date Test3: TODAY');
       x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Date Test4: TODAY+5');
       x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Date Test5: TODAY-2');
+
+      // A record created right now must match a DateTime search ending at
+      // TODAY, in any browser timezone and at any hour.
+      let now       = new Date();
+      let todayTime = this.SimpleQueryParser.create({of: foam.core.auth.User}).parseString('TODAY', 'datetime');
+      x.test(todayTime[0] <= now && now < todayTime[1], 'Date Test5b: DateTime TODAY contains the current time');
 
       // Date symbol tests with different time components
       // 1. Add hours

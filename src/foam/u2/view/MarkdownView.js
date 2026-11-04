@@ -112,7 +112,8 @@ foam.CLASS({
             )
           ),
 
-          htmlTagName: repeat(alt(range('0','9'), range('a', 'z')), null, 1),
+          // SVG tag names are camel case, e.g. <linearGradient>.
+          htmlTagName: repeat(alt(range('0','9'), range('a', 'z'), range('A', 'Z')), null, 1),
 
           htmlAttributes: repeat(seq(
             repeat(chars(' \t')),
@@ -341,9 +342,11 @@ foam.CLASS({
 
             if ( attributes.style ) {
               let style = {};
+              // Split each declaration at its first colon only, so a value
+              // such as url(http://x/a.png) keeps the colons inside it.
               attributes.style.split(';').forEach(s => {
-                let p = s.split(':');
-                style[p[0]] = p[1];
+                let i = s.indexOf(':');
+                if ( i != -1 ) style[s.substring(0, i).trim()] = s.substring(i + 1).trim();
               });
               e.style(style);
             }

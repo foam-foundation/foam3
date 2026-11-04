@@ -156,6 +156,28 @@ foam.CLASS({
       var img = q(v, '.mdParagraph img');
       x.test(img && getComputedStyle(img).display == 'inline', 'an image inside a paragraph is inline, got ' + ( img && getComputedStyle(img).display ));
       v.remove();
+
+      // SVG names are case-sensitive, so <linearGradient> must keep its capital
+      // G; lowercased, the browser does not know it and the fill finds no gradient.
+      v = await render(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 150' width='300' height='150'>\n" +
+        "<defs>\n<linearGradient id='gradK'><stop offset='0%' stop-color='#2e8b57'/><stop offset='100%' stop-color='#1b5e3a'/></linearGradient>\n</defs>\n" +
+        "<path d='M50,100 C70,50 100,50 120,100 Z' style='fill: url(#gradK)'/>\n" +
+        "</svg>\n");
+      var grad = q(v, 'svg defs > *');
+      x.test(grad && grad.localName == 'linearGradient', 'an SVG element keeps its camel-case name, got ' + ( grad && grad.localName ));
+      x.test(grad instanceof SVGLinearGradientElement, 'the browser recognises it as a gradient');
+      var path = q(v, 'svg path');
+      x.test(path && path.namespaceURI == 'http://www.w3.org/2000/svg', 'elements inside an <svg> are in the SVG namespace');
+      v.remove();
+
+      // A style value may itself hold colons, as in url(http://...).
+      v = await render('<div style="background-image: url(http://example.com/a.png); color: red">x</div>\n');
+      var styled = q(v, '[style*="color"]');
+      var bg     = styled && styled.style.backgroundImage;
+      x.test(bg && bg.indexOf('http://example.com/a.png') != -1, 'a style value with a colon inside is kept whole, got ' + JSON.stringify(bg));
+      x.test(styled && styled.style.color == 'red', 'the declaration after it still applies');
+      v.remove();
     }
   ]
 });

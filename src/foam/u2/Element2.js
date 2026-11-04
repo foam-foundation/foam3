@@ -633,7 +633,11 @@ foam.CLASS({
     {
       name: 'nodeName',
       hidden: true,
-      adapt: function(_, v) { return foam.String.toLowerCase(v); },
+      // SVG names are case-sensitive: a <lineargradient> is an unknown element,
+      // so keep the case of elements created inside an <svg>.
+      adapt: function(_, v) {
+        return this.__context__.namespace === 'http://www.w3.org/2000/svg' ? v : foam.String.toLowerCase(v);
+      },
       value: 'div'
     },
     {

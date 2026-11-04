@@ -1,6 +1,10 @@
 foam.POM({
   name: 'reflowai',
 
+  projects: [
+    { name: 'mcp/pom' }
+  ],
+
   files: [
     // FLOW/Agent command — registered as both 'agent' and '?'
     { name: 'AgentCommand',   flags: 'js|java' },

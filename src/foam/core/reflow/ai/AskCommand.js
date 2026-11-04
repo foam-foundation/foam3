@@ -32,7 +32,7 @@ foam.CLASS({
 
       const reply = JSON.stringify({asked: cmd, blockName: block.flowName, response: answer});
       console.log(`AskCommand: ${reply}`);
-      await this.eval_(`agent(${reply})`, false, false);
+      await this.eval_(`agent(${reply})`, true, true);
 
       setTimeout(() => block.del(), 100);
     }

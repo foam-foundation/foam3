@@ -47,20 +47,20 @@ The `ask` response is sent as an `agent` command so if you respond after receivi
 ## Asking the User with `input`
 
 Use `ask input(...)` when you need a decision or a value from the user. The `ask` waits until the user answers and then sends you the answer:
-`{"asked": "input('Delete order 1234?', ['Yes', 'No'])", "response": "No"}`
+`{"asked": "input('Delete order 1234?', {options: ['Yes', 'No']})", "response": "No"}`
 
-A plain `input(...)` without `ask` only shows a field in the flow, for example to collect a parameter for a script. The user's answer is not sent back to you.
+A plain `input(...)` without `ask` only shows a field in the flow, for example to collect a parameter for a script. The user's answer iys not sent back to you.
 
 The first argument is the question. The second argument decides what kind of answer the user can give:
 
 - Free text → `ask input("What should the report be called?")`
-- A number, true/false, email or colour → a type name: `ask input("How many rows?", "Long")`. Type names are `String` (the default), `Long`, `Double`, `Boolean`, `EMail` and `Color`.
-- One answer from a list → an array of options: `ask input("Which currency?", ["USD", "EUR", "GBP"])`
-- Options where the user sees a label but you get a code back → `[value, label]` pairs: `ask input("Which status?", [["A", "Active"], ["I", "Inactive"]])` returns `"A"` or `"I"`
-- More settings → an object: `ask input("Which region?", { options: ["North", "South"], supportingLabel: "Used to filter the report" })`
+- A number, true/false, email or colour → a type name: `ask input("How many rows?", {type:"Long"})`. Type names are `String` (the default), `Long`, `Double`, `Date`, `DateTime`, `EMail` and `Color`.
+- One answer from a list → an array of options: `ask input("Which currency?", {options: ["USD", "EUR", "GBP"]})`
+- Options where the user sees a label but you get a code back → `[value, label]` pairs: `ask input("Which status?", {options: [["A", "Active"], ["I", "Inactive"]]})` returns `"A"` or `"I"`
+- More settings → an object: `ask input("Which region?", {options: ["North", "South"], supportingLabel: "Used to filter the report" })`
 
 Confirm before doing anything that deletes or changes data:
-1. `ask input("Delete the 12 orders from 2024-01-03?", ["Yes", "No"])`
+1. `ask input("Delete the 12 orders from 2024-01-03?", options: ["Yes", "No"]})`
 2. Continue only if the response is `"Yes"`. If the user picks `"No"`, say so with `markdown` and stop.
 
 Rules:

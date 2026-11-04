@@ -46,13 +46,13 @@ foam.CLASS({
       reactive: false,
       postSet: function() { this.value = undefined; this.value; },
       view: { class: 'foam.u2.view.ChoiceView', choices: [
-        [ 'String', 'Abc' ],
-        [ 'Long',   '##' ],
-        [ 'Double', '##.##' ],
-        [ 'Boolean', 'Y/N' ],
-//        [ 'Date', 'YYYY/MM/DD' ],
-//        [ 'DateTime', 'YYY/MM/DD HH:MM:SS' ],
-        [ 'EMail', 'username@email.com' ],
+        [ 'String',   'Abc' ],
+        [ 'Long',     '##' ],
+        [ 'Double',   '##.##' ],
+        [ 'Boolean',  'Y/N' ],
+        [ 'Date',     'YYYY/MM/DD' ],
+        [ 'DateTime', 'YYY/MM/DD HH:MM:SS' ],
+        [ 'EMail',    'username@email.com' ],
         'Color'
       ] }
     },
@@ -82,6 +82,9 @@ foam.CLASS({
       name: 'value',
       transient: true,
       visibility: 'RO',
+      preSet: function(o, n) {
+        return foam.lang[this.type].ADAPT.value(null, n);
+      },
       view: function(_, X) {
         return X.data.prop.view || { class: 'foam.u2.view.ValueView' };
       },
@@ -100,17 +103,27 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'blocking',
-      value: true,
+      value: false,
       documentation: `
         When true, loading a saved flow waits until the user answers this
         input before running the blocks after it. Use it when later blocks
         need the answer, e.g. a reconciliation date the report queries filter on.
       `
+    },
+    {
+      name: 'readyLatch_',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return foam.lang.Latch.create();
+      }
     }
   ],
 
   methods: [
-    function onLoad() {
+    async function onLoad() {
+      await this.readyLatch_;
+
       // The flow load calls onLoad after this block is on the page
       // (Console.includeScript), so the user can see the field it waits on.
       // Returning a promise from input() instead would wait inside eval_,
@@ -118,11 +131,13 @@ foam.CLASS({
       if ( this.blocking ) return this.answer();
     },
 
-    function answer() {
+    async function answer() {
       // Resolves with the user's answer. A value supplied by the URL
       // parameter already counts as an answer, so ?reconDate=2026-11-01
       // resolves at once instead of waiting for the user.
       if ( this.urlParameter && this.params && this.params[this.urlParameter] != undefined ) return Promise.resolve(this.value);
+
+      await this.readyLatch_;
 
       return new Promise(resolve => {
         var s = this.value$.sub(() => {
@@ -147,9 +162,9 @@ foam.CLASS({
     function addToE(e) {
       var self = this;
       e.add(this.dynamic(function(type) {
-        var prop = self.prop = foam.lang[type].create({ name: 'value' });
+        var prop    = self.prop = foam.lang[type].create({ name: 'value' });
         let traceId = 'el-' + foam.next$UID();
-        prop.view = {...(self.view || prop.view), id: traceId};
+        prop.view = {...(self.view || prop.view), id: traceId, onKey: false, autofocus: true};
         this.startContext({data: self})
           .start(prop.__, { config: { label$: self.label$ } })
             .call(function() {
@@ -161,6 +176,7 @@ foam.CLASS({
           .end()
         .endContext();
         self.traceId = traceId;
+        self.readyLatch_.resolve();
       }));
     }
   ]

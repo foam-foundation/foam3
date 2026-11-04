@@ -15,7 +15,7 @@ foam.CLASS({
     Ask the user for a value. The second argument can be:
       a type name:      input('Age?', 'Long')
       a list of options: input('Are you sure?', [ 'Yes', 'No' ])
-      a Prompt config:   input('Colour?', { options: [ 'Red', 'Blue' ], defaultValue: 'Red' })
+      a Prompt config:   input('Colour?', { blocking: true, options: [ 'Red', 'Blue' ], defaultValue: 'Red' })
                          input('Due?', { view: { class: 'foam.u2.DateView' } })
     Options can be plain values or [ value, label ] pairs, as in ChoiceView.
     When a saved flow loads, it waits for each input to be answered before
@@ -25,8 +25,10 @@ foam.CLASS({
 
   methods: [
     function execute(prompt, config) {
-      if ( typeof config === 'string' ) config = { type: config };
-      else if ( Array.isArray(config) ) config = { options: config };
+      if ( typeof config === 'string' )
+        config = { type: config };
+      else if ( Array.isArray(config) )
+        config = { options: config };
 
       var { options, ...props } = config || {};
 

@@ -117,7 +117,7 @@ foam.CLASS({
       // ── 4. Insert commands into the flow ──
       for ( var i = 0 ; i < lines.length ; i++ ) {
         if ( lines[i].trim() != '' ) {
-          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i]);
+          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
 
           if ( this.BadBlock.isInstance(block.value) ) {
             // JSON.stringify escapes the quotes and newlines in the command

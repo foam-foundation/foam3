@@ -10,13 +10,13 @@ foam.CLASS({
   extends: 'foam.dao.ProxyDAO',
 
   documentation: `Client-side decorator. While any operation on this DAO is
-    pending past showDelay, asks the PartitionLoadToastStack to watch this
-    DAO's serviceKey; the stack shows progress cards for matching
+    pending past showDelay, asks the PartitionLoadWatcher to watch this
+    DAO's serviceKey; the watcher shows a Dock card for matching
     partition-load status rows. Unwatches when the operation settles.
-    partitionLoadToastStack is an optional import -- if no such service is
+    partitionLoadWatcher is an optional import -- if no such service is
     registered in this context, tracking is a no-op passthrough.`,
 
-  imports: [ 'partitionLoadToastStack?' ],
+  imports: [ 'partitionLoadWatcher?' ],
 
   properties: [
     {
@@ -46,18 +46,18 @@ foam.CLASS({
 
     function track_(p) {
       if ( ! this.serviceKey || ! p || ! p.then ) return p;
-      var stack = this.partitionLoadToastStack;
-      if ( ! stack ) return p;
+      var watcher = this.partitionLoadWatcher;
+      if ( ! watcher ) return p;
       var self    = this;
       var settled = false;
       var watched = false;
       var timer   = setTimeout(function() {
-        if ( ! settled ) { watched = true; stack.watch(self.serviceKey); }
+        if ( ! settled ) { watched = true; watcher.watch(self.serviceKey); }
       }, this.showDelay);
       var settle = function() {
         settled = true;
         clearTimeout(timer);
-        if ( watched ) stack.unwatch(self.serviceKey);
+        if ( watched ) watcher.unwatch(self.serviceKey);
       };
       p.then(settle, settle);
       return p;

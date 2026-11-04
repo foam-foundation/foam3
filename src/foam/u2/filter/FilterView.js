@@ -8,6 +8,7 @@ foam.CLASS({
   package: 'foam.u2.filter',
   name: 'FilterView',
   extends: 'foam.u2.View',
+
   mixins: [
     'foam.u2.memento.Memorable',
     'foam.util.DeFeedback'
@@ -242,6 +243,7 @@ foam.CLASS({
       this.onDetach(this.searchColumns$.sub(this.updateFilters));
       this.onDetach(this.dao.of$.sub(this.updateFilters));
     },
+
     async function render() {
       var self = this;
       this.onDetach(this.mementoString$.sub(this.getData));
@@ -358,6 +360,7 @@ foam.CLASS({
 
       return range? range : 'Value too large';
     },
+
     async function filterPropertiesByReadPermission(properties, of) {
       if ( ! properties || ! of ) return [];
       var split = of.split('.');
@@ -381,6 +384,7 @@ foam.CLASS({
       var unorderedProperties = grantedProperties.concat(unpermissionedProperties);
       return properties.filter(v => unorderedProperties.includes(v));
     },
+
     function assignPredicate(property, predicate) {
       predicate = predicate ?? this.filterController.finalPredicate;
       var retPred = null;
@@ -402,6 +406,7 @@ foam.CLASS({
       }
       return retPred;
     },
+
     function unwrapPredicate(pred, prop) {
       if ( foam.mlang.predicate.Or.isInstance(pred) ) {
         var subPredicates = pred.args;

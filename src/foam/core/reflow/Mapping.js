@@ -20,9 +20,17 @@ foam.ENUM({
       documentation: 'Value comes from a field/column in the input data'
     },
     {
+      // Shown as JavaScript, since that is what the expression is written in.
+      // The name stays DYNAMIC: saved mappings store it as "DYNAMIC" or as
+      // its ordinal 2, and both must still load.
       name: 'DYNAMIC',
-      label: 'Dynamic',
+      label: 'JavaScript',
       documentation: 'Value computed from JavaScript expression'
+    },
+    {
+      name: 'ASCRIPT',
+      label: 'AScript',
+      documentation: 'Value computed from an AScript (Excel-style) formula, e.g. UPPER(name)'
     }
   ]
 });
@@ -138,6 +146,7 @@ foam.CLASS({
   name: 'Mapping',
 
   requires: [
+    'foam.ascript.AScriptParser',
     'foam.core.reflow.MappingType',
     'foam.core.reflow.DateFormat',
     'foam.parse.SimpleJavaScriptParser',
@@ -164,7 +173,7 @@ foam.CLASS({
       name: 'type',
       label: '',
       value: 'FIELD',
-      documentation: 'The type of mapping: CONSTANT, FIELD, or DYNAMIC'
+      documentation: 'The type of mapping: CONSTANT, FIELD, DYNAMIC or ASCRIPT'
     },
     {
       class: 'String',
@@ -216,6 +225,23 @@ foam.CLASS({
       }
     },
     {
+      class: 'String',
+      name: 'formula',
+      label: '',
+      documentation: 'AScript formula over the file columns, e.g. IF(side = "DR", -VALUE(amount), VALUE(amount))',
+      onKey: true,
+      view: function(_, X) {
+        if ( ! X.data.formulaParser_ ) return { class: 'foam.u2.TextField' };
+        return {
+          class: 'foam.parse.auto.SmartView',
+          parser: X.data.formulaParser_
+        };
+      },
+      visibility: function(type) {
+        return foam.u2.DisplayMode[type === foam.core.reflow.MappingType.ASCRIPT ? 'RW' : 'HIDDEN'];
+      }
+    },
+    {
       name: 'of',
       hidden: true
     },
@@ -226,39 +252,28 @@ foam.CLASS({
       expression: function(fileHeaders) {
         if ( ! fileHeaders || fileHeaders.length === 0 ) return null;
 
-        var headerMap   = {};
-        var constantMap = {};
-        var props       = [];
-
-        for ( var i = 0 ; i < fileHeaders.length ; i++ ) {
-          var original   = fileHeaders[i];
-          var normalized = this.normalizeHeader(original);
-          normalized     = normalized || 'field' + i;
-          normalized     = this.resolveConstantCollision(normalized, constantMap);
-
-          headerMap[normalized] = original;
-          props.push({ class: 'String', name: normalized, label: original });
-        }
-
-        var propKey   = props.map(p => p.name).sort().join('_');
-        var modelName = 'DynamicExpressionModel_' + Math.abs(foam.String.hashCode(propKey));
-        var fullName  = 'foam.core.reflow.temp.' + modelName;
-        var TempModel = foam.maybeLookup(fullName);
-
-        if ( ! TempModel ) {
-          foam.CLASS({
-            package: 'foam.core.reflow.temp',
-            name: modelName,
-            properties: props
-          });
-          TempModel = foam.lookup(fullName);
-        }
-
+        var columns = this.columns_(fileHeaders);
         return this.SimpleJavaScriptParser.create({
-          of: TempModel,
-          headerMap: headerMap
+          of: columns.of,
+          headerMap: columns.headerMap
         });
       }
+    },
+    {
+      name: 'formulaParser_',
+      hidden: true,
+      transient: true,
+      expression: function(fileHeaders) {
+        if ( ! fileHeaders || fileHeaders.length === 0 ) return null;
+        return this.AScriptParser.create({ of: this.columns_(fileHeaders).of });
+      }
+    },
+    {
+      name: 'formulaExprs_',
+      hidden: true,
+      transient: true,
+      documentation: 'Compiled formulas, keyed by column model and formula, so an upload parses each formula once rather than once per row.',
+      factory: function() { return {}; }
     },
     {
       name: 'prop',
@@ -285,7 +300,7 @@ foam.CLASS({
       },
       visibility: function(type, prop) {
         // Only show for Date/DateTime properties that use FIELD or CONSTANT mapping
-        if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;
+        if ( type === foam.core.reflow.MappingType.DYNAMIC || type === foam.core.reflow.MappingType.ASCRIPT ) return foam.u2.DisplayMode.HIDDEN;
         if ( ! prop ) return foam.u2.DisplayMode.HIDDEN;
         var isDateProp = foam.lang.Date.isInstance(prop) || foam.lang.DateTime.isInstance(prop);
         return isDateProp ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
@@ -304,7 +319,7 @@ foam.CLASS({
       label: 'Sample',
       documentation: 'Sample value computed based on mapping type and configuration',
       visibility: 'RO',
-      expression: function(type, constantValue, fieldName, dynamicExpression, sampleData) {
+      expression: function(type, constantValue, fieldName, dynamicExpression, formula, sampleData) {
         // Return sample based on mapping type
         switch ( type ) {
           case foam.core.reflow.MappingType.CONSTANT:
@@ -329,6 +344,16 @@ foam.CLASS({
             }
             return '';
 
+          case foam.core.reflow.MappingType.ASCRIPT:
+            if ( formula && sampleData && Object.keys(sampleData).length > 0 ) {
+              try {
+                return this.evaluateFormula(formula, sampleData);
+              } catch (x) {
+                return '⚠ Error: ' + x.message;
+              }
+            }
+            return '';
+
           default:
             return '';
         }
@@ -347,7 +372,7 @@ foam.CLASS({
       },
       visibility: function(type, prop) {
         // Only show for numeric properties that use FIELD or CONSTANT mapping
-        if ( type === foam.core.reflow.MappingType.DYNAMIC ) return foam.u2.DisplayMode.HIDDEN;
+        if ( type === foam.core.reflow.MappingType.DYNAMIC || type === foam.core.reflow.MappingType.ASCRIPT ) return foam.u2.DisplayMode.HIDDEN;
         if ( ! prop ) return foam.u2.DisplayMode.HIDDEN;
         var isNumericProp = foam.lang.Int.isInstance(prop) ||
                             foam.lang.Long.isInstance(prop) ||
@@ -359,6 +384,44 @@ foam.CLASS({
   ],
 
   methods: [
+    function columns_(headers) {
+      /**
+       * A class with one String property per file column, for the formula
+       * editors to suggest and for a formula to read. Each column is named
+       * as normalizeHeader names it: "Txn Amount" becomes txn_Amount.
+       * headerMap gives each name's original header.
+       */
+      var headerMap   = {};
+      var constantMap = {};
+      var props       = [];
+
+      for ( var i = 0 ; i < headers.length ; i++ ) {
+        var original   = headers[i];
+        var normalized = this.normalizeHeader(original);
+        normalized     = normalized || 'field' + i;
+        normalized     = this.resolveConstantCollision(normalized, constantMap);
+
+        headerMap[normalized] = original;
+        props.push({ class: 'String', name: normalized, label: original });
+      }
+
+      var propKey   = props.map(p => p.name).sort().join('_');
+      var modelName = 'DynamicExpressionModel_' + Math.abs(foam.String.hashCode(propKey));
+      var fullName  = 'foam.core.reflow.temp.' + modelName;
+      var of        = foam.maybeLookup(fullName);
+
+      if ( ! of ) {
+        foam.CLASS({
+          package: 'foam.core.reflow.temp',
+          name: modelName,
+          properties: props
+        });
+        of = foam.lookup(fullName);
+      }
+
+      return { of: of, headerMap: headerMap };
+    },
+
     function normalizeHeader(header) {
       /** Normalize a header string to a valid property name. */
       var s = header.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[^a-zA-Z]+/, '').replace(/_+$/, '');
@@ -457,6 +520,17 @@ foam.CLASS({
             value = this.dynamicExpression || '';
           }
           // Check if dynamic result is empty
+          sourceWasEmpty = this.isEmptyValue(value);
+          break;
+        case this.MappingType.ASCRIPT:
+          value = '';
+          if ( this.formula && rowData ) {
+            try {
+              value = this.evaluateFormula(this.formula, rowData);
+            } catch (x) {
+              console.warn('AScript formula evaluation failed:', x);
+            }
+          }
           sourceWasEmpty = this.isEmptyValue(value);
           break;
       }
@@ -564,6 +638,51 @@ foam.CLASS({
         });
         throw x;
       }
+    },
+
+    function compileFormula(of, formula) {
+      /**
+       * Parse an AScript formula over the columns of 'of'. The whole text
+       * must parse: the parser alone stops where the text stops making
+       * sense and keeps the front, so "UPPER(name) x" would quietly mean
+       * UPPER(name). Throws, naming the text that did parse, otherwise.
+       */
+      var text = formula.trim();
+      var ps   = this.AScriptParser.create({ of: of }).grammar_.parse(
+        foam.parse.StringPStream.create({ str: text }), undefined, 'EXPR');
+
+      if ( ! ps || ps.pos < text.length || ! ps.value ) {
+        var done = ps && ps.value ? text.substring(0, ps.pos) : '';
+        throw new Error(done ?
+          'The formula stops making sense after "' + done + '"' :
+          'The formula does not parse');
+      }
+      return ps.value.partialEval ? ps.value.partialEval() : ps.value;
+    },
+
+    function evaluateFormula(formula, rowData) {
+      /**
+       * Evaluate an AScript formula against one row. Columns are named as
+       * in the formula editor. The compiled formula, or its parse error, is
+       * kept, so an upload of 100,000 rows parses it once.
+       */
+      var columns = this.columns_(Object.keys(rowData));
+      var key     = columns.of.id + '\n' + formula;
+      var expr    = this.formulaExprs_[key];
+
+      if ( ! expr ) {
+        try {
+          expr = this.compileFormula(columns.of, formula);
+        } catch (x) {
+          expr = x;
+        }
+        this.formulaExprs_[key] = expr;
+      }
+      if ( expr instanceof Error ) throw expr;
+
+      var obj = columns.of.create();
+      for ( var name in columns.headerMap ) obj[name] = rowData[columns.headerMap[name]];
+      return expr.f(obj);
     },
 
     function validateExpression(expression) {

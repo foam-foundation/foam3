@@ -368,6 +368,9 @@ foam.CLASS({
           } else if ( this.config && this.config.onEmpty ) {
             this.config.onEmpty.call(this);
           }
+          if ( this.config && this.config.onEOF ) {
+            this.config.onEOF.call(this);
+          }
         });
       }
     }

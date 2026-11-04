@@ -202,6 +202,16 @@ foam.CLASS({
       }));
     },
 
+    async function answer() {
+      // What this block answers when an agent runs it with `ask`. The value
+      // decides if it can: a Prompt answers with what the user entered.
+      // Anything else answers with the text the block shows.
+      if ( typeof this.value?.answer === 'function' ) return this.value.answer();
+
+      await new Promise(function(c) { setTimeout(c, 40); });
+      return this.childNodes[1].element_.innerText;
+    },
+
     function setTitle(title) {
       if ( this.borderEl_ ) {
         this.borderEl_.title = title;

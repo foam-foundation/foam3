@@ -1638,7 +1638,7 @@ foam.CLASS({
         } catch (x) {
           var i = cmd.indexOf(' ');
           if ( i != -1 ) {
-            arg = cmd.substring(i+1);
+            arg = cmd.substring(i+1).replaceAll('\\n','\n');
             cmd = cmd.substring(0,i);
             r = scope[cmd];
           } else {
@@ -1663,7 +1663,13 @@ foam.CLASS({
           r = arg ? r(arg) : r();
         }
         if ( r instanceof Promise ) {
-          r = await r;
+          try {
+            r = await r;
+          } catch (x) {
+            block.flowName = this.createFlowChildName('error');
+            block.value = this.BadBlock.create({block: block, error: x.message});
+            block.error = x.message;
+          }
         }
       }}}
 

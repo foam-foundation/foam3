@@ -96,10 +96,46 @@ foam.CLASS({
       name: 'prop',
       hidden: true,
       transient: true
+    },
+    {
+      class: 'Boolean',
+      name: 'blocking',
+      value: true,
+      documentation: `
+        When true, loading a saved flow waits until the user answers this
+        input before running the blocks after it. Use it when later blocks
+        need the answer, e.g. a reconciliation date the report queries filter on.
+      `
     }
   ],
 
   methods: [
+    function onLoad() {
+      // The flow load calls onLoad after this block is on the page
+      // (Console.includeScript), so the user can see the field it waits on.
+      // Returning a promise from input() instead would wait inside eval_,
+      // before the block is added, on a field nobody can see.
+      if ( this.blocking ) return this.answer();
+    },
+
+    function answer() {
+      // Resolves with the user's answer. A value supplied by the URL
+      // parameter already counts as an answer, so ?reconDate=2026-11-01
+      // resolves at once instead of waiting for the user.
+      if ( this.urlParameter && this.params && this.params[this.urlParameter] != undefined ) return Promise.resolve(this.value);
+
+      return new Promise(resolve => {
+        var s = this.value$.sub(() => {
+          // An empty value is not an answer. Showing the field can write ''
+          // into a question nobody has answered yet, and without this check
+          // ask input("What's your name?") replied '' at once.
+          if ( this.value === '' || this.value == null ) return;
+          s.detach();
+          resolve(this.value);
+        });
+      });
+    },
+
     function toString() {
       return this.value.toString();
     },

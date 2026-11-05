@@ -394,7 +394,8 @@ foam.CLASS({
           this.data$.linkFrom(this.preview$);
         }
       }
-    }
+    },
+    { class: 'String', name: 'placeholder' }
   ],
 
   methods: [
@@ -427,7 +428,8 @@ foam.CLASS({
           data$:        this.data$,
           autocomplete: false,
           autocorrect:  false,
-          tooltip$:     this.error$
+          tooltip$:     this.error$,
+          placeholder$: this.placeholder$
         }, this.field$).
           enableClass(this.myClass('error'), this.error$).
           on('blur', this.onBlur).

@@ -89,8 +89,8 @@ foam.CLASS({
         prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
         options: foam.ai.llm.LLMOptions.create({
           systemPrompt: systemPrompt,
-          model:        this.model,
-          temperature:  0.2  // low temp for structured command output
+          model:        this.model
+//          temperature:  0.2  // low temp for structured command output
         })
       });
 

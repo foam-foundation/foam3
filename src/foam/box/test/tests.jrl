@@ -1,0 +1,2 @@
+p({"class":"foam.box.test.KeepAliveBoxTest","id":"KeepAliveBoxTest","description":"A quiet WebSocket is pinged before the server idle timeout, and replies reach the caller.","language":0})
+p({"class":"foam.box.test.KeepAliveServerBoxTest","id":"KeepAliveServerBoxTest","description":"A keep-alive ping on the WebSocket route gets a pong without a session."})

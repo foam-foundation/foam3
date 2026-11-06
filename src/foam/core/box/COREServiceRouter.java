@@ -83,7 +83,9 @@ public class COREServiceRouter
 
       foam.lang.X x = getX().put(CSpec.class, spec);
 
-      result = new foam.box.SessionServerBox(x, new foam.box.KeepAliveServerBox((foam.box.Box)result), spec.getAuthenticate());
+      // Answer a keep-alive ping before the session check: a ping only keeps
+      // the WebSocket open, so it needs no session and must not touch one.
+      result = new foam.box.KeepAliveServerBox(new foam.box.SessionServerBox(x, (foam.box.Box) result, spec.getAuthenticate()));
 
       return result;
     } catch (ClassNotFoundException ex) {

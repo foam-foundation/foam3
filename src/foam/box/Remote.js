@@ -30,6 +30,13 @@ foam.CLASS({
     function installInClass(cls) {
       var clientClass = this.clientClass || cls.getAxiomsByClass(foam.lang.Implements)[0].path;
 
+      cls.installAxiom(foam.lang.Property.create({
+        name: 'remoteName',
+        transient: true,
+        hidden: true,
+        documentation: 'The name this object was last exported under; the far side calls back to it by this name.'
+      }));
+
       cls.installAxiom(foam.lang.Method.create({
         name: 'outputJSON',
         code: function(outputter) {
@@ -45,14 +52,14 @@ foam.CLASS({
 
           // Use a special ReplyBox that register a subBox and serializes to a return box when being sent
           var X = this.__subContext__;
-          var obj = cls.create({
-            delegate: foam.box.ReplyBox2.create({
-              delegate: foam.box.SkeletonBox.create({ data: this }, X),
-              once: false
-            })
-          }, X);
+          var replyBox = foam.box.ReplyBox2.create({
+            delegate: foam.box.SkeletonBox.create({ data: this }, X),
+            once: false
+          });
+          var obj = cls.create({ delegate: replyBox }, X);
 
           outputter.output(obj);
+          this.remoteName = replyBox.exported && replyBox.exported.name;
         }
       }));
     }

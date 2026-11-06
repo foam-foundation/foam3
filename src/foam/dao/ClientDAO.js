@@ -29,7 +29,9 @@ foam.CLASS({
   requires: [
     'foam.box.SkeletonBox',
     'foam.lang.Serializable',
-    'foam.dao.ArraySink'
+    'foam.dao.ArraySink',
+    'foam.mlang.sink.NullSink',
+    'foam.dao.StopListeningCmd'
   ],
 
   methods: [
@@ -130,9 +132,14 @@ return sink
     {
       name: 'listen_',
       code: function listen_(x, sink, predicate) {
-        var sub = foam.lang.FObject.create();
+        var self     = this;
+        var sub      = foam.lang.FObject.create();
         var detached = false;
-        sub.onDetach(() => { detached = true; });
+        var remote   = null;
+        sub.onDetach(() => {
+          detached = true;
+          if ( remote ) self.stopRemote_(remote);
+        });
 
         if ( ! sink ) {
           return sub;
@@ -148,11 +155,11 @@ return sink
           
           // RemoteSink handles registering a Skeleton callback instead of trying
           // to send the Sink across the network.
-          var remote = foam.dao.RemoteSink.create({
+          remote = foam.dao.RemoteSink.create({
             delegate: sink
           });
           // reconnect on remote being lost
-          remote.onDetach(() => { doListen() });
+          remote.onDetach(() => { if ( ! detached ) doListen(); });
           
           super_(null, remote, predicate)
             .then(
@@ -168,6 +175,19 @@ return sink
       },
       javaCode: `super.listen_(null, sink, predicate);`,
       swiftCode: `return try super.listen_(nil, sink, predicate)`
+    },
+    {
+      name: 'stopRemote_',
+      flags: ['js'],
+      documentation: `The listen was detached: drop any event still on its way, and ask the server to stop
+        sending (StopListeningCmd, by the name the sink was exported under). A server that does not know the
+        command, or a lost connection, only costs the events the muted sink drops.`,
+      code: function stopRemote_(remote) {
+        remote.delegate = this.NullSink.create();
+        if ( remote.remoteName == null ) return;
+        this.cmd_(null, this.StopListeningCmd.create({ name: String(remote.remoteName) }))
+          .catch(function() { /* the server stops it when the connection closes */ });
+      }
     }
   ]
 });

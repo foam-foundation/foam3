@@ -85,6 +85,21 @@ A `tests.jrl` loads because the pom walk reaches its directory: the directory of
 
 A server-side run prints ERROR lines only (`TestRunnerScript.setupServerSide`), so a `logger.warning` in the code under test never shows. When a test is about a warning, add `--log-level:WARN` before reading "it didn't log" as a result.
 
+### Run a group of tests in one build
+
+When several tests must always run together (one per customer, one per rule set), tag them instead of listing ids. Each `tests.jrl` row takes a suite name in `testSuite` (`src/foam/core/test/Test.js:74`):
+
+```
+p({"class":"com.acme.rules.test.WidgetRulesTest","id":"WidgetRulesTest","testSuite":"RulesRegression","description":"..."})
+```
+
+```bash
+./build.sh -W9090 server-tests --test-suite:RulesRegression          # every server test tagged RulesRegression
+./build.sh -W9090 run-tests --test-suite:RulesRegression,Smoke       # both sides, two suites
+```
+
+`--test-suite:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
+
 ## Read the result
 
 Trust the tally and the `✘ FAILURE:` lines, never the exit code: the build exits non-zero on boot assertions and on other suites' failures.

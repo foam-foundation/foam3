@@ -802,8 +802,8 @@ dao loading, which improves overall startup time.`,
       class: 'Boolean',
       name: 'refreshSessionTimer',
       generateJava: false,
-      documentation: 'When false, requests from this client DAO are treated as background activity: they do not reset the client-side inactivity timer nor touch the server session TTL. Used by polling DAOs so an open tab does not keep an idle user logged in.',
-      value: true
+      documentation: 'When false, requests from this client DAO are treated as background activity: they do not reset the client-side inactivity timer nor touch the server session TTL. Defaults to false when pollingInterval is set, so a polling DAO does not keep an idle user logged in.',
+      expression: function(pollingInterval) { return ! pollingInterval; }
     },
     {
       documentation: 'Destination address for server',

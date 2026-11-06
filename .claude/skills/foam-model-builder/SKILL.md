@@ -31,11 +31,13 @@ foam.CLASS({
 - A new `.js` file starts with the Apache `@license` header every other file in the tree carries
   — copy it from a neighbouring model rather than retyping it.
 
-### `shortName` on every property
+### `shortName` on every property with a long name
 
-Give every property a one- or two-character `shortName`. A journal row can be keyed by it
-instead of the full name (`src/foam/lang/JSON.js:416`, `useShortNames`), so it sets the
-on-disk size and replay cost of every row.
+Give a property a one- or two-character `shortName` when its name is longer than four
+characters. A journal row can be keyed by it instead of the full name
+(`src/foam/lang/JSON.js:416`, `useShortNames`), so it sets the on-disk size and replay cost of
+every row. A name of four characters or fewer (`id`, `code`, `name`) saves too little to be
+worth a second key, so leave it without one; `fileName` gets one.
 
 A model that `extends:` another, `implements:` an interface or is refined elsewhere inherits
 properties, and their names share one key table with yours. List them first by walking the

@@ -9,9 +9,11 @@ foam.CLASS({
   name: 'AuthorizationDAOListenTest',
   extends: 'foam.core.test.Test',
 
-  documentation: `AuthorizationDAO checks find and select with authorizeOnRead. A listen must get the
-    same check, for each put and remove it hears, in the listener's own context; or a person who may
-    listen hears rows a select would hide. The listen goes through a ProxyDAO first, as a served DAO's does.`,
+  documentation: `
+    A listener hears only the rows a select would show it.
+    Checked for puts and removes, in the listener's own context.
+    The listen goes through a ProxyDAO first, as on a served DAO.
+  `,
 
   javaImports: [
     'foam.core.auth.AuthorizationDAO',
@@ -35,7 +37,7 @@ foam.CLASS({
       name: 'authorizer',
       args: 'boolean globalRead',
       javaType: 'foam.core.auth.Authorizer',
-      documentation: 'Reads: only the "reader" context, and never row 2. Global read when asked.',
+      documentation: 'Only the "reader" may read, and never row 2. globalRead skips the check.',
       javaCode: `
         return new Authorizer() {
           public void authorizeOnCreate(X x, FObject obj) { }

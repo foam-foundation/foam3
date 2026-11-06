@@ -96,9 +96,14 @@ foam.CLASS({
     },
     {
       name: 'listen_',
-      documentation: `A listen hears only rows the caller may read, checked for each put and remove.
-        Not by predicate, as select is: a Java listener whose predicate fails a put is sent that row as a
-        remove (PredicatedListener), so the row would still reach the caller. The sink drops it instead.`,
+      documentation: `
+        A listener hears only the rows it may read.
+        Each put and remove is checked with authorizeOnRead, in the listener's context.
+
+        Why a sink, not a predicate as in select_:
+        when a put fails a listen's predicate, Java PredicatedListener sends the row on as a remove.
+        So a hidden row would still reach the listener. AuthorizationSink drops it.
+      `,
       javaCode: `
     if ( ! getAuthorizer().checkGlobalRead(x, predicate) ) sink = new AuthorizationSink(x, getAuthorizer(), sink);
     super.listen_(x, sink, predicate);

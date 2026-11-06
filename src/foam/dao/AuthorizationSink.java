@@ -34,17 +34,19 @@ public class AuthorizationSink
   }
 
   /**
-   * A remove is checked too: a listener also hears removes, and foam3's Java PredicatedListener
-   * turns a put that fails its predicate into a remove that carries the whole row.
+   * Removes are checked too.
+   * A listener hears removes, and a remove carries the whole row.
+   * (PredicatedListener also turns a put that fails its predicate into a remove.)
    */
   @Override
   public void remove(Object obj, Detachable sub) {
     if ( authorized(obj) ) super.remove(obj, sub);
   }
 
+  /** True when the caller may read (or delete) obj. */
   protected boolean authorized(Object obj) {
-    // Only AuthorizationExceptions from authorizeOnRead and authorizeOnDelete are caught here, so one
-    // thrown by a sink further down the delegate chain still reaches the caller.
+    // Only the authorizer's own refusal is caught here.
+    // A refusal thrown by a sink further down must still reach the caller.
     try {
       if ( checkDelete_ ) {
         authorizer_.authorizeOnDelete(getX(), (FObject) obj);

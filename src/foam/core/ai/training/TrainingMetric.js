@@ -26,7 +26,9 @@ foam.CLASS({
 
   ids: [ 'runId', 'iteration' ],
 
-  tableColumns: [ 'iteration', 'trainLoss', 'valLoss', 'speed', 'tokensPerSec' ],
+  tableColumns: [ 'iteration', 'trainLoss', 'valLoss', 'tokensPerSec', 'runId' ],
+
+  searchColumns: [ 'runId', 'iteration' ],
 
   properties: [
     {

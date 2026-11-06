@@ -32,7 +32,8 @@ foam.CLASS({
     'java.io.File',
     'java.io.InputStreamReader',
     'java.util.ArrayList',
-    'java.util.List'
+    'java.util.List',
+    'java.util.concurrent.TimeUnit'
   ],
 
   properties: [
@@ -146,7 +147,15 @@ foam.CLASS({
               if ( pct >= 0 ) setProgress(pct);
               if ( shouldSuspend_(x) ) {
                 setStatus(foam.core.job.JobStatus.SUSPENDED);
-                process.destroyForcibly();
+                // SIGTERM lets the subprocess flush its state (e.g. MLX saves a checkpoint).
+                // Fall back to SIGKILL after 30 s if it doesn't exit cleanly.
+                process.destroy();
+                try {
+                  if ( !process.waitFor(120, TimeUnit.SECONDS) ) process.destroyForcibly();
+                } catch ( InterruptedException ie ) {
+                  Thread.currentThread().interrupt();
+                  process.destroyForcibly();
+                }
                 save(x);
                 break;
               }

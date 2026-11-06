@@ -20,6 +20,11 @@ foam.CLASS({
   properties: [
     ['of', 'foam.mlang.Expr'],
     {
+      name: 'javaInfoType',
+      value: 'foam.lang.PolymorphicFObjectArrayPropertyInfo',
+      flags: ['java']
+    },
+    {
       name: 'adaptArrayElement',
       value: function(o) {
         // TODO: This is probably a little hacky, should have a more

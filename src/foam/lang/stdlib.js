@@ -796,6 +796,21 @@ foam.LIB({
         if ( p.f(a[i]) ) filtered.push(a[i]);
       }
       return filtered;
+    },
+    // Take element at index from, and drop it at index to
+    // shifting all elements as needed along the way
+    // Useful for reodering a single element in a list
+    function move(a, from, to) {
+      if ( from == to ) return
+
+      var step = from > to ? -1 : 1;
+      var stop = from > to ? to : to - 1;
+
+      var tmp = a[from];
+      for ( var i = from; i !== stop; i += step ) {
+        a[i] = a[i + step];
+      }
+      a[i] = tmp;
     }
   ]
 });

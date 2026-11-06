@@ -21,7 +21,8 @@ foam.CLASS({
     'loginSuccess?',
     'requestLogin?',
     'sessionTimer?',
-    'subject?'
+    'subject?',
+    'window'
   ],
 
   messages: [
@@ -101,10 +102,10 @@ foam.CLASS({
                 extra: foam.json.stringify({
                   'ctrl_checked': !! this.ctrl,
                   'ctrl_reload_checked': !! this.ctrl?.reload,
-                  'url': globalThis.window.location.href
+                  'url': this.window.location.href
                 })
               });
-              globalThis.window.location.reload();
+              this.window.location.reload();
             }
           } else {
             this.requestLogin().then(function() {

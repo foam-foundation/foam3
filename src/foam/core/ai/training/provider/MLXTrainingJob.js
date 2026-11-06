@@ -34,7 +34,10 @@ foam.CLASS({
     'foam.core.job.JobStatus',
     'foam.core.logger.Loggers',
     'foam.dao.DAO',
+    'java.io.File',
     'java.util.ArrayList',
+    'java.util.Arrays',
+    'java.util.Comparator',
     'java.util.List',
     'java.util.UUID',
     'java.util.regex.Matcher',
@@ -168,6 +171,7 @@ foam.CLASS({
             TrainingRun updated = (TrainingRun) done.fclone();
             updated.setStatus(finalStatus);
             updated.setCompletedAt(new java.util.Date());
+            updated.setDuration(updated.getCompletedAt().getTime() - run.getStartedAt().getTime());
             runDAO.put(updated);
             out("  Final train loss : " + updated.getFinalTrainLoss());
             out("  Final val loss   : " + updated.getFinalValLoss());
@@ -204,10 +208,34 @@ foam.CLASS({
         cmd.add("--config");   cmd.add(getConfigFile());
         if ( ! getResumeFrom().isEmpty() ) {
           cmd.add("--resume-adapter-file");
-          cmd.add(getAdapterPath());
+          cmd.add(latestCheckpoint_());
         }
         setCommand(cmd.toArray(new String[0]));
         return super.buildCommand_();
+      `
+    },
+    {
+      documentation: `Resolves the adapter directory to the latest numbered checkpoint
+        file (e.g. 0000200_adapters.safetensors), falling back to adapters.safetensors.
+        Paths are resolved relative to workingDir when the adapter path is relative.`,
+      name: 'latestCheckpoint_',
+      type: 'String',
+      javaCode: `
+        String base = getAdapterPath();
+        File   dir  = new File(base);
+        if ( ! dir.isAbsolute() && ! getWorkingDir().isEmpty() )
+          dir = new File(getWorkingDir(), base);
+
+        if ( dir.isDirectory() ) {
+          File[] numbered = dir.listFiles((d, n) -> n.matches("\\\\d+_adapters\\\\.safetensors"));
+          if ( numbered != null && numbered.length > 0 ) {
+            Arrays.sort(numbered, Comparator.comparing(File::getName).reversed());
+            return numbered[0].getAbsolutePath();
+          }
+          File fallback = new File(dir, "adapters.safetensors");
+          if ( fallback.exists() ) return fallback.getAbsolutePath();
+        }
+        return dir.getAbsolutePath();
       `
     },
     {
@@ -282,6 +310,16 @@ foam.CLASS({
           metric.setTokensPerSec(Float.parseFloat(trainM.group(2)));
         }
 
+        // Merge with any existing record for this (runId, iteration) so that
+        // a val line and a train line at the same iteration both survive.
+        TrainingMetric existing = (TrainingMetric) metricDAO.find(metric.getId());
+        if ( existing != null ) {
+          TrainingMetric merged = (TrainingMetric) existing.fclone();
+          if ( metric.getTrainLoss()    > 0 ) merged.setTrainLoss(metric.getTrainLoss());
+          if ( metric.getValLoss()      > 0 ) merged.setValLoss(metric.getValLoss());
+          if ( metric.getTokensPerSec() > 0 ) merged.setTokensPerSec(metric.getTokensPerSec());
+          metric = merged;
+        }
         metricDAO.put(metric);
 
         // Keep TrainingRun.finalTrainLoss / finalValLoss current so the table

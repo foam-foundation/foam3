@@ -82,9 +82,6 @@ foam.CLASS({
       name: 'value',
       transient: true,
       visibility: 'RO',
-      preSet: function(o, n) {
-        return foam.lang[this.type].ADAPT.value(null, n);
-      },
       view: function(_, X) {
         return X.data.prop.view || { class: 'foam.u2.view.ValueView' };
       },
@@ -164,7 +161,13 @@ foam.CLASS({
       e.add(this.dynamic(function(type) {
         var prop    = self.prop = foam.lang[type].create({ name: 'value' });
         let traceId = 'el-' + foam.next$UID();
+
+        // Use the TextField to edit Date and DateTime fields because they don't cause premature update events
+        if ( type === 'Date' ) prop.view = { class: 'foam.u2.TextField', type: 'date' };
+        else if ( type === 'DateTime' ) prop.view = { class: 'foam.u2.TextField', type: 'datetime-local' };
+
         prop.view = {...(self.view || prop.view), id: traceId, onKey: false, autofocus: true};
+
         this.startContext({data: self})
           .start(prop.__, { config: { label$: self.label$ } })
             .call(function() {

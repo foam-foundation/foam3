@@ -95,6 +95,16 @@ foam.CLASS({
  `
     },
     {
+      name: 'listen_',
+      documentation: `A listen hears only rows the caller may read, checked for each put and remove.
+        Not by predicate, as select is: a Java listener whose predicate fails a put is sent that row as a
+        remove (PredicatedListener), so the row would still reach the caller. The sink drops it instead.`,
+      javaCode: `
+    if ( ! getAuthorizer().checkGlobalRead(x, predicate) ) sink = new AuthorizationSink(x, getAuthorizer(), sink);
+    super.listen_(x, sink, predicate);
+ `
+    },
+    {
       name: 'removeAll_',
       javaCode: `
     if ( ! getAuthorizer().checkGlobalRemove(x) ) predicate = augmentPredicate(x, true, predicate);

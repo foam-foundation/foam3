@@ -8,15 +8,16 @@ foam.CLASS({
   package: 'foam.dao',
   name: 'StopListeningCmd',
 
-  documentation: `Sent by a client DAO (dao.cmd) when the sub of a remote listen is detached.
-    The server's SessionDAOSkeleton stops the listener the client exported under that name on
-    the same connection (RemoteListeners). A name of another connection is never found.`,
+  documentation: `
+    "Stop listening": the client sends it when it stops a listen.
+    The server stops the listener with this name, on the same connection only.
+  `,
 
   properties: [
     {
       class: 'String',
       name: 'name',
-      documentation: 'The name the listen\'s sink was exported under (its SubBox name).'
+      documentation: 'The listener\'s name: the SubBox name its sink was sent under.'
     }
   ]
 });

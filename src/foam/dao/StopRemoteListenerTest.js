@@ -9,9 +9,9 @@ foam.CLASS({
   name: 'StopRemoteListenerTest',
   extends: 'foam.core.test.Test',
 
-  documentation: `A client that listens over a WebSocket can stop its listener on the server.
-    SessionDAOSkeleton tracks each remote listen by the name its sink was exported under
-    (RemoteListeners, one per connection) and answers a StopListeningCmd itself.`,
+  documentation: `
+    A client listening over a WebSocket can stop its listener on the server.
+  `,
 
   javaImports: [
     'foam.box.Box',

@@ -8,9 +8,11 @@ foam.CLASS({
   package: 'foam.dao',
   name: 'RemoteListeners',
 
-  documentation: `The listens one connection's client made, by the name each sink was exported under.
-    One per WebSocket connection (NanoWebSocket puts it in the context as "remoteListeners"), so a
-    StopListeningCmd can only stop a listener of the connection it came on. Names are unique per client page.`,
+  documentation: `
+    One connection's listeners, by name.
+    NanoWebSocket makes one per connection and puts it in the context as "remoteListeners".
+    So a stop can only reach listeners of its own connection.
+  `,
 
   javaImports: [
     'foam.dao.Sink',
@@ -32,7 +34,7 @@ foam.CLASS({
       name: 'track',
       args: 'String name, Sink sink',
       type: 'foam.dao.Sink',
-      documentation: 'Wrap a listen\'s sink so the client can stop it later by name.',
+      documentation: 'Wrap the sink so the client can stop it later by name.',
       javaCode: `
         StoppableSink s = new StoppableSink.Builder(getX()).setDelegate(sink).setName(name).setListeners(this).build();
         getSinks().put(name, s);
@@ -42,7 +44,7 @@ foam.CLASS({
     {
       name: 'stop',
       args: 'String name',
-      documentation: 'Stop the listener exported under name. Unknown names are ignored.',
+      documentation: 'Stop the listener with this name. An unknown name does nothing.',
       javaCode: `
         StoppableSink s = getSinks().remove(name);
         if ( s != null ) s.stop();

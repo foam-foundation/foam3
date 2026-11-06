@@ -33,7 +33,7 @@ public class NanoWebSocket
   protected Session           session_ = null;
   protected COREServiceRouter router_  = null;
   protected Logger            logger_  = null;
-  // The listens this connection's client made, so it can stop one (StopListeningCmd) and all stop on close.
+  // This connection's listeners: the client can stop one, and all stop when the socket closes.
   protected foam.dao.RemoteListeners listeners_ = null;
 
   public NanoWebSocket(X x) {

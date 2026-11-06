@@ -38,7 +38,7 @@ public class SessionDAOSkeleton
 
     RemoteListeners listeners = (RemoteListeners) envelope.getX().get("remoteListeners");
     if ( listeners != null ) {
-      // after the renames above, so cmd and listen are caught in both spellings
+      // After the renames above, so both spellings (cmd, cmd_) are caught.
       if ( "cmd_".equals(rpc.getName()) && stopListening(listeners, rpc, envelope) ) return;
       if ( "listen_".equals(rpc.getName()) ) trackListen(listeners, rpc);
     }
@@ -63,7 +63,7 @@ public class SessionDAOSkeleton
   }
 
 
-  /** A client's StopListeningCmd: stop that listen on this connection and answer here; the DAO never sees it. */
+  /** A stop from the client: stop that listener and answer here. The DAO never sees it. */
   protected boolean stopListening(RemoteListeners listeners, RPCMessage rpc, foam.box.Envelope envelope) {
     Object[] args = rpc.getArgs();
     if ( args == null ) return false;
@@ -79,7 +79,7 @@ public class SessionDAOSkeleton
     return false;
   }
 
-  /** A client's listen: its sink comes back as a ClientSink exported under a SubBox name; track it by that name. */
+  /** A listen from the client: remember it by its SubBox name, so it can be stopped. */
   protected void trackListen(RemoteListeners listeners, RPCMessage rpc) {
     Object[] args = rpc.getArgs();
     if ( args == null || args.length < 2 || ! ( args[1] instanceof ClientSink ) ) return;

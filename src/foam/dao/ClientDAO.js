@@ -179,9 +179,11 @@ return sink
     {
       name: 'stopRemote_',
       flags: ['js'],
-      documentation: `The listen was detached: drop any event still on its way, and ask the server to stop
-        sending (StopListeningCmd, by the name the sink was exported under). A server that does not know the
-        command, or a lost connection, only costs the events the muted sink drops.`,
+      documentation: `
+        Called when the listen is detached.
+        Drops events still on their way, and tells the server to stop (StopListeningCmd).
+        If the server does not know the command, it stops the listener when the socket closes.
+      `,
       code: function stopRemote_(remote) {
         remote.delegate = this.NullSink.create();
         if ( remote.remoteName == null ) return;

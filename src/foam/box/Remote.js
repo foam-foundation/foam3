@@ -34,7 +34,7 @@ foam.CLASS({
         name: 'remoteName',
         transient: true,
         hidden: true,
-        documentation: 'The name this object was last exported under; the far side calls back to it by this name.'
+        documentation: 'The name this object was last sent under. The far side calls back by this name.'
       }));
 
       cls.installAxiom(foam.lang.Method.create({

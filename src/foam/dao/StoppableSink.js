@@ -9,9 +9,11 @@ foam.CLASS({
   name: 'StoppableSink',
   extends: 'foam.dao.ProxySink',
 
-  documentation: `The server side of one remote listen. Holds the subscription the DAO handed it,
-    so stop() detaches the listener at once if an event has arrived, else on the next event.
-    A delegate that fails (the client is gone) takes it out of its RemoteListeners.`,
+  documentation: `
+    The server end of one listener from a client.
+    stop() ends it now if an event has come in, or at the next event.
+    If the client cannot be reached, it leaves its RemoteListeners.
+  `,
 
   javaImports: [
     'foam.lang.Detachable'
@@ -26,7 +28,7 @@ foam.CLASS({
       class: 'Object',
       name: 'listeners',
       javaType: 'foam.dao.RemoteListeners',
-      documentation: 'The connection\'s list this sink is in.'
+      documentation: 'The list this sink is in.'
     },
     {
       class: 'Boolean',
@@ -36,14 +38,14 @@ foam.CLASS({
       class: 'Object',
       name: 'sub',
       javaType: 'foam.lang.Detachable',
-      documentation: 'The DAO\'s subscription, from the last event.'
+      documentation: 'What detaches this listener on the DAO (taken from the last event).'
     }
   ],
 
   methods: [
     {
       name: 'stop',
-      documentation: 'Detach now if the DAO\'s subscription is known, else at the next event.',
+      documentation: 'Stop now if we can, else at the next event.',
       javaCode: `
         setStopped(true);
         Detachable sub = getSub();
@@ -54,7 +56,7 @@ foam.CLASS({
       name: 'heard',
       args: 'Detachable sub',
       type: 'Boolean',
-      documentation: 'Keep the subscription; true when the event may go on to the client.',
+      documentation: 'Remember sub. True when the event may go on to the client.',
       javaCode: `
         if ( sub != null ) setSub(sub);
         if ( ! getStopped() ) return true;
@@ -65,7 +67,7 @@ foam.CLASS({
     {
       name: 'failed',
       args: 'RuntimeException e',
-      documentation: 'The client could not be reached: leave the list, and let the DAO drop this listener.',
+      documentation: 'The client is gone: leave the list, and rethrow so the DAO drops this listener.',
       javaCode: `
         if ( getListeners() != null ) getListeners().forget(getName());
         throw e;

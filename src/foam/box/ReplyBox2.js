@@ -13,7 +13,7 @@ foam.CLASS({
       transient: true,
       hidden: true,
       generateJava: false,
-      documentation: 'The SubBox this box was last sent as: its name is how the far side addresses it.'
+      documentation: 'The SubBox this box was last sent as. Its name is how the far side reaches it.'
     }
   ],
   methods: [

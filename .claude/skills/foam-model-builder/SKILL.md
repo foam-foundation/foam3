@@ -31,6 +31,32 @@ foam.CLASS({
 - A new `.js` file starts with the Apache `@license` header every other file in the tree carries
   — copy it from a neighbouring model rather than retyping it.
 
+### `shortName` on every property
+
+Give every property a one- or two-character `shortName`. A journal row can be keyed by it
+instead of the full name (`src/foam/lang/JSON.js:416`, `useShortNames`), so it sets the
+on-disk size and replay cost of every row.
+
+A model that `extends:` another, `implements:` an interface or is refined elsewhere inherits
+properties, and their names share one key table with yours. List them first by walking the
+parent chain and every interface, then pick shortNames that match no inherited `name`,
+`shortName` or `aliases` entry:
+
+```bash
+grep -n "name:\|shortName\|aliases" <model>.js <each parent and interface>.js
+```
+
+A collision does not fail the build; it misroutes data on replay. The Java journal parser
+registers every property's `name` and `shortName`, inherited ones included, in one table
+(`src/foam/lib/json/ModelParserFactory.java:191-222`) and a lookup stops at the first match
+(`:139`). So a child `shortName: 'p'` beside an inherited property keyed `p` sends one
+property's value into the other. The JS parser keeps the last one instead
+(`src/foam/lang/JSON.js:847-851`), so client and server can even disagree.
+
+When adding a property to an existing model, run the same check against its siblings and the
+inherited properties. Never change a `shortName` that has shipped: rows already written with it
+stop resolving.
+
 **Renaming a class breaks every existing journal.** FOAM3 has no class-alias mechanism:
 `context.lookup("com.old.ClassName")` asserts if the class is not registered, and there is no
 `classAliases`, no `legacyClassNames`, no `foam.registerClassAlias()`. Evolve in place — add

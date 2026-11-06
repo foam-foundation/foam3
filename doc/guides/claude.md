@@ -1040,7 +1040,8 @@ p({"class":"foam.core.menu.Menu","id":"admin.groups","label":"Groups","handler":
 To open the same screen from code, push the config's `browseController` onto the stack as the stack view itself (not wrapped in another element — `DAOController` is a router and jumps the stack to its own position):
 
 ```javascript
-var config = foam.comics.v2.DAOControllerConfig.create({ daoKey: 'invoiceDAO' }, this);
+// requires: ['foam.comics.v2.DAOControllerConfig']
+var config = this.DAOControllerConfig.create({ daoKey: 'invoiceDAO' });
 this.stack.push({ ...config.browseController, data: config.dao, config: config }, this);
 ```
 

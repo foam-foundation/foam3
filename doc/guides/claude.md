@@ -1026,14 +1026,26 @@ foam.CLASS({
 });
 ```
 
-### CRUD for Free — `DAOBrowserView`
+### CRUD for Free — a `DAOMenu2` menu
+
+A whole list screen is a menu, not a view you write:
 
 ```javascript
-// A complete search/browse/create/edit/delete interface:
-this.tag({ class: 'foam.comics.v2.DAOBrowserView', data: this.invoiceDAO });
+// menus.jrl: a complete search/browse/create/edit/delete screen
+p({"class":"foam.core.menu.Menu","id":"admin.groups","label":"Groups","handler":{"class":"foam.core.menu.DAOMenu2","config":{"class":"foam.comics.v2.DAOControllerConfig","daoKey":"groupDAO"}},"parent":"admin"})
 ```
 
-This single line produces search, filter, table with sort/pagination, detail view, create/edit forms with validation, and action buttons — driven entirely from the model's property definitions, `tableColumns`, `sections`, and `actions` declarations.
+`DAOMenu2` pushes the config's `browseController`, which defaults to `foam.comics.v3.DAOController`. That one screen gives search, filter, a table with sort and pagination, the detail view, create and edit forms with validation, and action buttons — driven entirely from the model's property definitions, `tableColumns`, `sections`, and `actions` declarations. It also draws the screen's title and breadcrumb in the stack header, the same as every other list screen.
+
+To open the same screen from code, push the config's `browseController` onto the stack as the stack view itself (not wrapped in another element — `DAOController` is a router and jumps the stack to its own position):
+
+```javascript
+// requires: ['foam.comics.v2.DAOControllerConfig']
+var config = this.DAOControllerConfig.create({ daoKey: 'invoiceDAO' });
+this.stack.push({ ...config.browseController, data: config.dao, config: config }, this);
+```
+
+Change the screen through `DAOControllerConfig` (`browseTitle`, `createPredicate`, `predicate`, `browseController`), not by writing a screen. Do not use the v2 screens `foam.comics.v2.DAOBrowseControllerView`, `DAOSummaryView`, `DAOCreateView` or `DAOUpdateView` for a new screen: they draw their own header and border inside the stack, so the screen looks different from every menu. `foam.comics.v2.DAOBrowserView` is only the table with its search bar and canned queries, for placing a list inside a larger view.
 
 ---
 

@@ -26,6 +26,21 @@ foam.CLASS({
     'foam.core.reflow.ScriptParser'
   ],
 
+  javaCode: `
+    // List properties (FObjectArray), such as specifiedUserAccess, go in the
+    // <flow> tag as single-quoted JSON. Without them a save in development mode
+    // would write the tag back with the access list gone, and the next build
+    // would publish the document to everyone.
+    public static java.util.List<foam.lang.PropertyInfo> listTagProps(foam.lang.ClassInfo info) {
+      java.util.List<foam.lang.PropertyInfo> props = new java.util.ArrayList<>();
+      for ( Object o : info.getAxiomsByClass(foam.lang.PropertyInfo.class) ) {
+        foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) o;
+        if ( p instanceof foam.lang.AbstractFObjectArrayPropertyInfo && ! p.getStorageTransient() ) props.add(p);
+      }
+      return props;
+    }
+  `,
+
   constants: [
     { 
       name: 'FLOW_TAG_PROPS',
@@ -76,6 +91,9 @@ foam.CLASS({
           for ( int i = 0 ; ! changed && i < FLOW_TAG_PROPS.length ; i++ ) {
             foam.lang.PropertyInfo p = (foam.lang.PropertyInfo) info.getAxiomByName(FLOW_TAG_PROPS[i]);
             if ( p != null && p.compare(oldFlow, newFlow) != 0 ) changed = true;
+          }
+          for ( foam.lang.PropertyInfo p : listTagProps(info) ) {
+            if ( ! changed && p.compare(oldFlow, newFlow) != 0 ) changed = true;
           }
 
           if ( ! changed ) return;
@@ -138,6 +156,17 @@ foam.CLASS({
               if ( ! SafetyUtil.isEmpty(text) ) {
                 flowTagBuilder.append(' ').append(attr).append('=').append('"').append(escapeAttr(text)).append('"');
               }
+            }
+
+            for ( foam.lang.PropertyInfo p : listTagProps(info) ) {
+              foam.lang.FObject[] list = (foam.lang.FObject[]) p.get(newFlow);
+              if ( list == null || list.length == 0 ) continue;
+
+              foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter(x);
+              formatter.setOutputDefaultClassNames(false);
+              formatter.output(list, list[0].getClassInfo(), p);
+              flowTagBuilder.append(' ').append(p.getName()).append("='")
+                .append(escapeListAttr(formatter.builder().toString())).append("'");
             }
 
             // Forcibly childLock flows that save to .md files
@@ -236,6 +265,22 @@ foam.CLASS({
       javaCode: `
         return s.replace("&", "&amp;")
         .replace("\\"", "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;");
+      `
+    },
+    {
+      name: 'escapeListAttr',
+      documentation: `
+        Like escapeAttr, for a list written as JSON inside single quotes: the
+        JSON keeps its double quotes, so a hand-edited tag stays readable, and
+        a single quote in a value is escaped instead
+      `,
+      javaType: 'String',
+      args: 'String s',
+      javaCode: `
+        return s.replace("&", "&amp;")
+        .replace("'", "&apos;")
         .replace("<", "&lt;")
         .replace(">", "&gt;");
       `

@@ -32,11 +32,12 @@ foam.CLASS({
 
       var { options, ...props } = config || {};
 
-      // A list of options is shorthand for a ChoiceView. The placeholder stops
-      // ChoiceView from preselecting the first option, so a confirmation like
-      // [ 'Yes', 'No' ] starts unanswered instead of already saying 'Yes'.
+      // A list of options is shown as one clickable pill per option, like
+      // suggested replies in a chat. Nothing is preselected, so a confirmation
+      // like [ 'Yes', 'No' ] starts unanswered. In read-only mode only the
+      // picked pill is shown.
       if ( options ) {
-        props.view = { class: 'foam.u2.view.ChoiceView', choices: options, placeholder: '--', size: options.length };
+        props.view = { class: 'foam.u2.view.PillChoiceView', choices: options };
       }
 
       var p = this.Prompt.create(props);

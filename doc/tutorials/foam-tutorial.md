@@ -327,7 +327,7 @@ in the projects below.</td>
 </table>
 
 
-A typical FOAM project will include a POM file in each directory which ensures that each file in that folder is included in the build. For example, in the above `pom.js` file, lists `src/com/foamdev/cook/pom` as a project, which means that there is another `pom.js` file in the `cook` directory. The `cook/pom.js` file currently looks something like this:
+A typical FOAM project will include a POM file in each directory which specifies which files in that folder are included in the build. For example, the above `pom.js` file, lists `src/com/foamdev/cook/pom` as a project, which reads as "there is a `pom.js` file in the `cook` directory". The `cook/pom.js` file currently looks something like this:
 
 ```
 foam.POM({
@@ -343,22 +343,22 @@ foam.POM({
 This POM introduces the `files` element which is an array of file names and flags. We'll discuss the `files` element in more detail later, but for the time being, think of it as an array of files that you want included in the build.
 
 > 💡 **Important:**
-Files which are not included in a `pom.js` file, or are included in a `pom.js` file that the top-level POM does not include as a `project`, **will not be included in the build**. A common mistake developers make when working with FOAM is to omit newly created files from relevant POM.
+Files which are not included in a `pom.js` file, or are included in a `pom.js` file that is not part of the top-level POM's `project` hierarchy, will **not** be included in the build. A common mistake developers make when working with FOAM is to omit newly created files from the relevant POM.
 
-`pom.js` files are capable of more than what we have discussed thus far, however, that information is not relevant to you until later in the tutorial.
+`pom.js` files are capable of more than what we have covered thus far, but that is a discussion for later in the tutorial.
 
 For now, the top-level `pom.js`...
 - Defines the project's name
 - Determines which sub-directories are excluded from the build
+- Points to other projects' or sub-directories' `pom.js` files
 - Holds the project's license notification(s)
 - Holds the project's version
 - Sets up build hooks
-- And points to other projects' or sub-directories' `pom.js` files
 
 While sub-directory `pom.js` files like `src/com/foamdev/cook/pom.js`...
 - Define the sub-directory or sub-project's name
 - Points to `pom.js` files that are furthur down the hierarchy (sub-sub-directories)
-- And determines which files are included in the build
+- Determines which files are included in the build
 
 You can learn more about pom files and possible customization options by reading the full [FOAM POM specification][foam-pom-spec].
 
@@ -469,7 +469,7 @@ foam.CLASS({
 
 Underneath, these sections share one concept: everything inside a `foam.CLASS` — every property, method, listener, action, and relationship — is an **axiom**. An axiom is a self-contained piece of class metadata that knows how to install itself on the class. So a FOAM class isn't a block of code; it's a *collection of axioms* the framework can inspect at runtime. That's what lets a single `properties` entry do so much later on: expose a reactive slot, hand you an upper-cased constant (`Recipe.NAME`), and even render its own editor — capabilities the UI layers lean on heavily. Keep the word in mind; it comes back when we bind models to the DOM.
 
-Three of these sections — `requires`, `imports`, and `exports` — only make sense once you understand **context**, so we'll cover that next before returning to the rest.
+Three of these sections — `requires`, `imports`, and `exports` — only make sense once you understand **context**, so we’ll cover that next before returning to the rest.
 
 #### Context (the `X` object)
 
@@ -577,7 +577,56 @@ style. (And the class-registry half has no React equivalent at all — that part
 
 We will explore each of these concepts in detail as we develop our Recipe application. For a comprehensive reference, see [FOAM Model Reference](#foam-model-reference) in the Appendix.
 
+# Running Application
+
+The last step before we can run our application is to ensure that the needed helper directories /opt and /opt/recipe directories exist and you are set as the owner:
+
+```
+sudo chown -R $USER /opt
+```
+
+Now we are ready to test our code. From the command line, in your root directory type:
+
+```
+$ deployment/demo/run.sh
+# or
+$ ./build.sh -Jdemo
+```
+
+This will trigger the build and start the server. You can open your application in the web browser at http://localhost:8080/. 
+Use the following credentials at the login screen:
+
+```
+# administrator - full access
+user: admin
+password: badpassword
+
+# regular non-privileged user - can only interact with Recipes
+user: demo
+password: demopassword
+```
+
+> 💡 **Use the admin account throughout this tutorial.** The demo user exists but requires group permissions that are only configured at the very end of the tutorial. Log in as `admin` for now — we will test the demo user once everything is wired up.
+
+Clicking on the Recipe in the left navigation menu should bring you to the Recipe screen:
+
+![app-screen-1][app-screen-1]
+
+From here, you can create a new Recipe using the corresponding button in the top-right corner of the app.
+
+**SCREENSHOTS HERE**
+
+Notice how much functionality you already have by just creating a simple model and connecting to the FOAM core.
+
+Let's take a closer look at what is happening under the hood.
+
+> 💡 **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
+
+> ⚡ **Hot reload — no rebuild needed for UI changes.** A full rebuild (`./build.sh -Jdemo`) is only required when you change **Java code** or **journals** — anything that needs compilation or a server-side data change. For pure JavaScript and CSS changes (views, models, actions, CSS blocks), the server keeps running; just do a **hard reload in the browser** (`Cmd+Shift+R` / `Ctrl+Shift+R`) and the browser re-fetches the JS files and picks up your changes immediately. You will do this constantly while iterating on the UI, so it is worth knowing early.
+
 ## FOAM Journals
+
+When you created a new Recipe, it was stored in a `run-time journal`.
 
 > 📓 **Journals are your database — and your version control.** Every `.jrl` file is a plain-text, append-only log of commands. The data you add through the UI, the services you configure, the menus and themes you wire — all of it lands in a journal. That means your entire application state is human-readable, diffable, and committable to git. You can hand-craft entries, share seed data across the team, or swap journal sets for different deployment targets — no database migrations, no SQL scripts.
 
@@ -691,338 +740,18 @@ interface Sink {
 }
 ```
 
-With a DAO you can do everything you might want to do with a collection of data. The above interface is surprisingly general and powerful, despite its relatively small size. Also note that a DAO is an interface, not a specific implementation. There are many DAO implementations that let you
-store your data in different underlying databases or other storage mechanisms. No mater which DAO implementation you're using, they all have the same interface and your client code can work with any implementation without change. Journal files, for example, are accessed through the "JDAO" DAO implementation.
+With a DAO you can do everything you might want to do with a collection of data. The above interface is surprisingly general and powerful, despite its relatively small size. Also note that a DAO is an interface, not a specific implementation. There are many DAO implementations that let you store your data in different underlying databases or other storage mechanisms. No mater which DAO implementation you're using, they all have the same interface and your client code can work with any implementation without change. Journal files, for example, are accessed through the "JDAO" DAO implementation.
 
 Learn more about DAOs in the [Introduction to FOAM Programming][foam-intro] and by inspecting the [model][foam-dao] for the DAO interface. For an in-depth explanation of how DAOs and Sinks work together, see [Source-to-Sink Architecture](#source-to-sink-architecture) in the Appendix.
 
+## Demo User
 
-### Menu Navigation 
+Going back to the app, Another interesting thing to point out is the presence of the demo user. If you recall in the setup script we only added the admin. The demo user however is only available if you run the application with the option <code>-Jdemo</code>. The `-J` flag instructs the application to load the additional journals relative to the `./deployment` directory, which in this case are journals from `./deployment/demo`, the journals get copied by the build setup script. 
 
-Let's look at one more generated journal file, <code>journals/menus.jrl</code> before we run our application. A **menu** is used to make our entity
-visible in FOAM. Upon initial creation the file should have the following content:
-
-```
-p({
-  "class":"foam.core.menu.Menu",                         // this record defines one navigation menu entry
-  "id":"recipes.recipe",                                 // unique menu id; also the URL hash (#recipes.recipe) used to navigate here
-  "label":"Recipe",                                      // the text shown for this entry in the navigation
-  "authenticate":true,                                   // only show/allow this menu for logged-in users
-  "keywords":[""],                                       // search terms that make this menu findable in the search bar
-  "handler":{                                            // what happens when the menu is opened
-    "class":"foam.core.menu.DAOMenu2",                   // one of several handler types — this one renders a full browse/CRUD screen for a DAO
-    "config":{
-      "class":"foam.comics.v2.DAOControllerConfig",      // configuration for that DAO screen (columns, actions, etc.)
-      "daoKey":"recipeDAO"                               // which service to display — looked up by name in the context (our recipeDAO)
-    }
-  }
-})
-```
-
-The <code>handler</code> is what makes a menu *do* something, and <code>DAOMenu2</code> is
-just one of many. Depending on the handler you choose, the same menu machinery can open all
-sorts of destinations. A few you'll commonly encounter:
-
-| Handler | Opens |
-|---------|-------|
-| <code>foam.core.menu.DAOMenu2</code> | A full browse/CRUD screen for a DAO (what we use here) |
-| <code>foam.core.menu.ViewMenu</code> | An arbitrary custom view — handy for dashboards or landing pages |
-| <code>foam.core.menu.SubMenu</code> | A group of child menu items, i.e. an expandable parent entry |
-| <code>foam.core.menu.LinkMenu</code> | An external URL in a new tab |
-| <code>foam.core.menu.DocumentMenu</code> | An embedded document (e.g. help or terms content) |
-| <code>foam.core.menu.ScriptMenu</code> | Runs a script when selected |
-| <code>foam.core.menu.PredicatedMenu</code> | *Another* handler, chosen at runtime — see below |
-
-The last one is worth a closer look because it's not a destination at all — it's a
-**conditional dispatcher**. A <code>PredicatedMenu</code> holds a list of <code>options</code>,
-each pairing a **predicate** with a handler. When the menu is opened it evaluates each
-option's predicate against the current context <code>X</code>, in order, and the **first one
-that passes** provides the real handler (the final option acts as an unconditional fallback).
-This lets a single menu entry resolve to different screens depending on runtime state — the
-user's group or permissions, a feature flag, or any value carried in the context:
-
-```
-p({
-  "class":"foam.core.menu.Menu",
-  "id":"recipes.recipe",
-  "label":"Recipe",
-  "handler":{
-    "class":"foam.core.menu.PredicatedMenu",
-    "options":[
-      { "predicate":<is-admin-predicate>, "handler":{ /* full admin DAO screen */ } },
-      { "handler":{ /* read-only screen for everyone else */ } }   // fallback, no predicate
-    ]
-  }
-})
-```
-
-The predicates here are FOAM **mLang** expressions — the same query language DAOs use for
-<code>where()</code> — evaluated against the context rather than a database record. mLang is a deep topic in its own right and will be covered in a future [FOAM Foundations](../foundations/README.md) series. For now, the [MLang guide][foam-mlang] and [AutoQueryParser guide][foam-autoquery] are good starting points, and the appendix in this tutorial also covers the predicate basics. The takeaway for now is that menu routing itself can be data-driven and context-aware.
-
-Once we start building custom views later in the tutorial, a handler like
-<code>ViewMenu</code> is how you'd surface one of them from the navigation.
-
-# Running Application
-
-The last step before we can run our application is to assure that the needed helper directories /opt and /opt/recipe directories exist and you are set as the owner:
-
-```
-sudo chown -R $USER /opt
-```
-
-Now we are ready to test our code. From the command line, in your root directory type:
-
-```
-$ deployment/demo/run.sh
-# or
-$ ./build.sh -Jdemo
-```
-
-This will trigger the build and start the server. You can open your application in the web browser at http://localhost:8080/. 
-Use the following credentials at the login screen:
-
-```
-# administrator - full access
-user: admin
-password: badpassword
-
-# regular non-privileged user - can only interact with Recipes
-user: demo
-password: demopassword
-```
-
-> 💡 **Use the admin account throughout this tutorial.** The demo user exists but requires group permissions that are only configured at the very end of the tutorial. Log in as `admin` for now — we will test the demo user once everything is wired up.
-
-Clicking on the Recipe in the left navigation menu should bring you to the Recipe screen:
-
-![app-screen-1][app-screen-1]
-
-Notice how much functionality you already have by just creating a simple model and connecting to the FOAM core. 
-
-Another interesting thing to point out is the presence of the demo user. If you recall in the setup script we only added the admin. The demo user however is only 
-available if you run the application with the option <code>-Jdemo</code>. The `-J` flag instructs the application to load the additional journals relative to the `./deployment` directory, which in this case are journals from `./deployment/demo`, the journals get copied by the build setup script. 
+(ADD SCREENSHOTS OF RUNNING APP WITH DEMO USER)
 
 You can create your own journals that you can use this way, by going to the runtime journals directory under /opt and lifting the entries into
 a different file, then including it at startup with the <code>-J</code> option. For more info see the chapter on [Journal Merging](#Journal-Merging).
-
-> 💡 **Important:** To stop the FOAM server, type in <code>CTRL</code>+C twice.
-
-> ⚡ **Hot reload — no rebuild needed for UI changes.** A full rebuild (`./build.sh -Jdemo`) is only required when you change **Java code** or **journals** — anything that needs compilation or a server-side data change. For pure JavaScript and CSS changes (views, models, actions, CSS blocks), the server keeps running; just do a **hard reload in the browser** (`Cmd+Shift+R` / `Ctrl+Shift+R`) and the browser re-fetches the JS files and picks up your changes immediately. You will do this constantly while iterating on the UI, so it is worth knowing early.
-
-# Testing
-
-FOAM provides a testing harness for implementing unit tests. Test cases can be either modeled FOAM classes or scripts, and can target both Java (server-side) and JavaScript (client-side).
-
-## Running Tests
-
-Tests are executed using build tasks:
-
-```bash
-# Run all server and client tests
-./build.sh run-tests
-
-# Run only server-side (Java) tests
-./build.sh server-tests
-
-# Run only client-side (JavaScript) tests
-./build.sh client-tests
-
-# Run specific test cases by id
-./build.sh run-tests:RecipeTest,RecipeTestMethods
-
-# Exclude specific tests (prefix with -)
-./build.sh run-tests:-SlowTest,-IntegrationTest
-```
-
-Test output shows success or failure for each test:
-
-```
-RecipeTest
-   ✓ SUCCESS: ID empty before create
-   ✓ SUCCESS: ID set after create
-```
-
-## Creating Modeled Test Cases
-
-Test cases are FOAM models that extend a test base class. Place tests in a `test` subdirectory within your package.
-
-### Server-Side Tests (Java)
-
-For Java tests, extend `foam.core.test.Test` and implement `runTest` with `javaCode`. Here's our example from <code>src/com/foamdev/cook/test/RecipeTest.js</code>:
-
-```javascript
-foam.CLASS({
-  package: 'com.foamdev.cook.test',
-  name: 'RecipeTest',
-  extends: 'foam.core.test.Test',
-
-  javaImports: [
-    'com.foamdev.cook.*',
-    'foam.dao.DAO'
-  ],
-
-  methods: [
-    {
-      name: 'runTest',
-      javaCode: `
-        var recipe = new Recipe();
-        test(recipe.getId() == 0l, "ID empty before create");
-
-        recipe = (Recipe) ((DAO) x.get("recipeDAO")).put(recipe);
-        test(recipe.getId() != 0l, "ID set after create");
-      `
-    }
-  ]
-});
-```
-
-### Client-Side Tests (JavaScript)
-
-For JavaScript tests, extend `foam.core.test.JSTest` and implement `runTest` as a JavaScript function. Here's an example from <code>src/com/foamdev/cook/test/RecipeTestMethods.js</code>:
-
-```javascript
-foam.CLASS({
-  package: 'com.foamdev.cook.test',
-  name: 'RecipeTestMethods',
-  extends: 'foam.core.test.JSTest',
-
-  requires: [ 'com.foamdev.cook.Recipe' ],
-
-  methods: [
-    {
-      name: 'runTest',
-      args: ['Context x'],
-      code: function runTest(x) {
-        // debugger;
-        let recipe = this.Recipe.create();
-        x.test(recipe.toSummary() == "", 'Recipe toSummary is initially empty');
-
-        recipe.name = 'Fried chicken';
-        x.test(recipe.toSummary() == "Fried chicken", 'Recipe toSummary is equal to name');
-      }
-    }
-  ]
-});
-```
-
-Note: In Java tests, call `test(condition, message)` directly. In JavaScript tests, call `x.test(condition, message)` using the context parameter.
-
-## Test Organization
-
-### Directory Structure
-
-Tests live in a `test` subdirectory within your package:
-
-```
-src/com/foamdev/cook/
-├── Recipe.js
-├── RecipeCategory.js
-├── pom.js
-└── test/
-    ├── RecipeTest.js        (Java server test)
-    ├── RecipeTestMethods.js (JavaScript client test)
-    ├── tests.jrl            (test registration)
-    └── pom.js               (test pom)
-```
-
-### Registering Tests
-
-Tests must be registered in a `tests.jrl` journal file. Each test case needs an entry:
-
-```javascript
-p({
-  "class": "com.foamdev.cook.test.RecipeTest",
-  "id": "RecipeTest",
-  "description": "Recipe Id tests"
-})
-
-p({
-  "class": "com.foamdev.cook.test.RecipeTestMethods",
-  "id": "RecipeTestMethods",
-  "description": "Test Recipe methods in JavaScript",
-  "language": 0
-})
-```
-
-### Adding Tests to the POM
-
-Create a `pom.js` in your test directory and reference it from the parent pom with the `test` flag:
-
-**test/pom.js:**
-```javascript
-foam.POM({
-  name: 'test',
-  files: [
-    { name: 'RecipeTest',        flags: 'js|java' },
-    { name: 'RecipeTestMethods', flags: 'js|java' }
-  ]
-});
-```
-
-### Understanding POM Flags
-
-The `flags` property in POM file entries controls which build tasks include the file for processing:
-
-- **`js`** - Include in JavaScript build tasks (bundling for client-side)
-- **`java`** - Include in Java build tasks (compilation for server-side)
-- **`js|java`** - Include in both JavaScript and Java builds (the `|` means OR)
-- **`test`** - Only include when running test tasks
-- **`js&test`** - Include in JavaScript builds only when testing (the `&` means AND)
-
-The flags determine *when* a file is processed, not *what* is generated from it. A FOAM model with `flags: 'js|java'` will be included in both build pipelines—FOAM then determines what to generate based on the model's content (e.g., `javaCode` blocks generate Java, JavaScript functions remain JavaScript).
-
-For test files, use `js|java` so the model is available to both build pipelines. The base class determines the test type: `foam.core.test.Test` creates server-side Java tests, while `foam.core.test.JSTest` creates client-side JavaScript tests.
-
-When referencing a test directory from a parent POM, use `flags: 'test'` so test code is only included during test runs, not in production builds.
-
-## Running Tests from the Application UI
-
-For test-driven development, you can include test infrastructure in a running application by adding `--flags:test` to your build command:
-
-```bash
-./build.sh -Jdemo --flags:test
-```
-
-Once the application is running, log in and navigate to the test menu at `#admin-tests`. From this interface you can:
-
-- Browse all registered test cases
-- Run individual JavaScript (client-side) tests interactively
-- View test results immediately
-- Use "Run Client" to execute all JavaScript tests
-- Use "Run Failed Client" to re-run only previously failed tests
-
-This workflow is particularly powerful for debugging because you can set breakpoints in your browser's developer tools and step through the code as tests execute. When a test fails, you can:
-
-1. Open the browser's developer tools (F12)
-2. Set breakpoints in your test code or the code being tested
-3. Run the failing test from the UI
-4. Step through the execution to understand why it fails
-5. Fix the issue and re-run until the test passes
-
-This tight feedback loop—running tests with full debugger support—makes test-driven development practical and efficient. You can even include `debugger;` statements in your test code (as shown in the RecipeTestMethods example) to automatically pause execution at specific points.
-
-Note: Running server-side tests from the UI is not recommended as it may cause the UI to become unresponsive. For server tests, use the command-line `server-tests` task instead.
-
-**Parent pom.js (src/com/foamdev/cook/pom.js):**
-```javascript
-foam.POM({
-  name: 'recipe',
-  projects: [
-    { name: 'test/pom', flags: 'test' }
-  ],
-  files: [
-    { name: 'Recipe',         flags: 'js|java' }
-  ]
-});
-```
-
-The `flags: 'test'` ensures the test directory is only included when running tests.
-
-## Test Configuration
-
-If tests require additional configuration (test data, mock services, etc.), place those journals in `deployment/test/`. The build automatically includes this deployment directory when running tests.
-
-For more details, see the [FOAM Testing Guide][foam-testing-guide]. When things go wrong, the [Debugging Guide][foam-debugging] is a good companion.
 
 # Modify FOAM Recipe Model
 

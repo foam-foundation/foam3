@@ -36,7 +36,7 @@ foam.CLASS({
       // ChoiceView from preselecting the first option, so a confirmation like
       // [ 'Yes', 'No' ] starts unanswered instead of already saying 'Yes'.
       if ( options ) {
-        props.view = { class: 'foam.u2.view.ChoiceView', choices: options, placeholder: '--' };
+        props.view = { class: 'foam.u2.view.ChoiceView', choices: options, placeholder: '--', size: options.length };
       }
 
       var p = this.Prompt.create(props);

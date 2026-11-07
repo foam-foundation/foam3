@@ -276,6 +276,8 @@ foam.CLASS({
 
     // FONT
     { name: 'font1', value: `'Source Sans Pro', sans-serif` },
+    { name: 'font-header', value: '$font1' }, // Use default font...
+    { name: 'font-mono', value: '$font1' }, // ...unless theme specifies, otherwise
     { name: 'font-extra-light', value: '200' }, /* also 100 */
     { name: 'font-light', value: '300' },
     { name: 'font-normal', value: 'normal' }, /* 400 */

@@ -37,6 +37,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-bold;
       font-size: $header-xl;
+      font-family: $font-header;
       line-height: 1.14;
       margin: 0;
     }
@@ -44,6 +45,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-bold;
       font-size: $header-lg;
+      font-family: $font-header;
       line-height: 1.1;
       margin: 0;
     }
@@ -51,6 +53,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-semi-bold;
       font-size: $header-md;
+      font-family: $font-header;
       line-height: 1.17;
       margin: 0;
     }
@@ -58,6 +61,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-medium;
       font-size: $header-sm;
+      font-family: $font-header;
       line-height: 1.2;
       margin: 0;
     }
@@ -65,6 +69,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-medium;
       font-size: $header-xs;
+      font-family: $font-header;
       line-height: 1.25;
       margin: 0;
     }
@@ -72,6 +77,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-medium;
       font-size: $header-xxs;
+      font-family: $font-header;
       line-height: 1.5;
       margin: 0;
     }
@@ -79,6 +85,7 @@ foam.CLASS({
       font-style: normal;
       font-weight: $font-medium;
       font-size: $header-xxxs;
+      font-family: $font-header;
       line-height: 1.5;
       margin: 0;
     }
@@ -92,6 +99,7 @@ foam.CLASS({
     .p-light{
       font-style: normal;
       font-weight: $font-light;
+      font-family: $font-mono;
       font-size: 1.4rem;
       line-height: 1.71;
       margin: 0;
@@ -222,6 +230,7 @@ foam.CLASS({
     .enum-label {
       font-size: 1rem;
       font-weight: $font-medium;
+      font-family: $font-mono;
       letter-spacing: normal;
       line-height: 2.1em;
       text-align: center;

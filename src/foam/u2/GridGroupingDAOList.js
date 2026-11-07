@@ -19,6 +19,7 @@ foam.CLASS({
       padding-bottom: 16px;
       margin-bottom: 24px;
       border-bottom: 2px solid $borderDefault;
+      font-weight: $font-medium;
     }
     <<grid {
       display: grid;

@@ -1,0 +1,9 @@
+// CSS Token Overrides for the 2026 FOAM theme
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"font1",target:"Roboto",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"font-header",target:"Poppins",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"font-mono",target:"Roboto Mono",lastModified:1794004780776,lastModifiedBy:42})
+
+// Button Colours
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonPrimaryColor",target:"#4285f4",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryColor$foreground",target:"#1a73e8",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryBorderColor",target:"#dadce0",lastModified:1794004780776,lastModifiedBy:42})

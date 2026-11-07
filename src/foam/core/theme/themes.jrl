@@ -8,8 +8,8 @@ p({
   "description":"The default FOAM theme.",
   "topNavigation":"foam.core.u2.navigation.ResponsiveTopNav",
   "defaultMenu": ["admin.data"],
-  "logo":"/images/foam_red.png",
-  "font1":"Arial",
+  "logo":"/images/foam3-logo.svg",
+  "font1": "Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
   "primaryColor":"#1e1f21",
   "secondaryColor":"#406dea",
   "secondaryHoverColor":"#2d59d2",
@@ -28,5 +28,97 @@ p({
   "createdBy":1,
   "createdByAgent":1,
   "created":"2020-04-29T22:32:52.685Z",
-  "useVariants": true
+  "useVariants": true,
+  "headConfig": {
+    "customFonts": [
+      "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">",
+      "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>",
+      "<link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&amp;family=Roboto:wght@300;400;500;700;900&amp;family=Roboto+Mono:wght@400;500&amp;display=swap\">"
+    ]
+  },
+  "customCSS": """
+    .foam-u2-stack-BreadcrumbView-breadCrumb > * {
+        font-family: $font-mono;
+    }
+
+    .h200 {
+      font-weight: $font-semi-bold !important;
+    }
+
+    .h600 {
+      font-family: $font1 !important;
+      font-weight: $font-regular !important;
+    }
+
+    /* TableView Buttons */
+    .foam-u2-ActionView-primary {
+      padding: 13px 24px !important;
+      border-radius: 26px !important;
+    }
+
+    .foam-u2-filter-FilterView-filter-button {
+      padding: 8px 14px !important;
+      border-radius: 20px !important;
+    }
+
+    .foam-u2-ButtonGroupActionView-small {
+      padding: 8px 14px !important;
+      border-radius: 20px !important;
+    }
+
+    /* Alternate colour for each checkbox in a TableView */
+    .foam-u2-table-TableView-row:nth-child(4n-3) input.foam-u2-CheckBox[type="checkbox"]:checked {
+      background-color: #4285f4;
+      border-color: #4285f4;
+    }
+
+    .foam-u2-table-TableView-row:nth-child(4n-2) input.foam-u2-CheckBox[type="checkbox"]:checked {
+      background-color: #ea4335;
+      border-color: #ea4335;
+    }
+
+    .foam-u2-table-TableView-row:nth-child(4n-1) input.foam-u2-CheckBox[type="checkbox"]:checked {
+      background-color: #fbbc04;
+      border-color: #fbbc04;
+    }
+  
+    .foam-u2-table-TableView-row:nth-child(4n) input.foam-u2-CheckBox[type="checkbox"]:checked {
+      background-color: #34a853;
+      border-color: #34a853;
+    }
+
+    .foam-comics-v2-DAOBrowserView-buttons.foam-u2-ButtonGroup:nth-child(4n-3) {
+      color: #ea4335;
+    }
+
+    /* Alternate colour for each button in a ButtonGroup */
+    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-3) {
+      color: #4285f4;
+    }
+
+    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-2) {
+      color: #ea4335;
+    }
+
+    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-1) {
+      color: #fbbc04;
+    }
+
+    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n) {
+      color: #34a853;
+    }
+
+    .foam-u2-ButtonGroupActionView-primary { /* Don't recolor primary buttons in ButtonGroups*/
+      color: #FFFFFF !important;
+    }
+
+    /* Top-Nav Buttons */
+    .foam-u2-view-NavigationMenu:hover:not(:disabled):not(:active):not(.selected), .foam-u2-view-NavigationButton:hover:not(:disabled):not(:active):not(.selected), .foam-u2-view-NavigationOverlayButton:hover:not(:disabled):not(:active):not(.selected) {
+      border-radius: 20px !important;
+    }
+
+    .foam-u2-view-NavigationMenu-medium {
+      padding: 8px !important;
+    }
+  """
 })

@@ -947,6 +947,16 @@ foam.LIB({
       var abs    = Math.abs(diff);
       var sign   = diff < 0 ? -1 : 1;
 
+      // smallestUnit: DAY and WEEK count calendar days and weeks ("yesterday",
+      // "last week"); HOUR only hides minutes and "now". Other units: no setting.
+      // TimeUnit loads after this file, so look it up here.
+      var TU = foam.time && foam.time.TimeUnit;
+      if ( TU && opt_smallestUnit ) {
+        if ( opt_smallestUnit === TU.DAY )  return D.calendarRelative_(date, 'day', locale);
+        if ( opt_smallestUnit === TU.WEEK ) return D.calendarRelative_(date, 'week', locale);
+        if ( opt_smallestUnit === TU.HOUR && abs < 3600000 ) return D.relativeFormat_(locale, 'auto').format(0, 'hour');
+      }
+
       // Up to 5 minutes ahead also reads "now": a client clock a little
       // behind the server's should not show a fresh save as "in 3 minutes".
       if ( diff > -60000 && diff < 300000 ) return D.relativeFormat_(locale, 'auto').format(0, 'second');
@@ -967,6 +977,39 @@ foam.LIB({
       var cache = foam.Date.relativeFormats_ || ( foam.Date.relativeFormats_ = {} );
       var key   = locale + '|' + numeric;
       return cache[key] || ( cache[key] = new Intl.RelativeTimeFormat(locale, { numeric: numeric }) );
+    },
+    function calendarRelative_(date, unit, locale) {
+      // Counts local calendar days or weeks between now and date, so 8pm
+      // yesterday is "yesterday" at 9am. A year or more is a date.
+      var D     = foam.Date;
+      var now   = new Date(Date.now());
+      var then  = new Date(date.getTime());
+      now.setHours(0, 0, 0, 0);
+      then.setHours(0, 0, 0, 0);
+      // Math.round: a day across a daylight-saving change is 23 or 25 hours.
+      var days = Math.round((then - now) / 86400000);
+      if ( Math.abs(days) >= 365 ) return D.absoluteDate_(date, locale);
+      var auto = D.relativeFormat_(locale, 'auto');
+      if ( unit === 'day' ) return auto.format(days, 'day');
+
+      // Move both days back to the first day of their week.
+      var first = D.weekStart_(locale) % 7; // Intl 1 (Mon) .. 7 (Sun); getDay 0 is Sunday
+      var nowBack  = ( now.getDay()  - first + 7 ) % 7;
+      var thenBack = ( then.getDay() - first + 7 ) % 7;
+      now.setDate(now.getDate() - nowBack);
+      then.setDate(then.getDate() - thenBack);
+      return auto.format(Math.round((then - now) / 604800000), 'week');
+    },
+    function weekStart_(locale) {
+      // The language's first day of the week, 1 (Monday) to 7 (Sunday).
+      // Intl.Locale has getWeekInfo() in new browsers and weekInfo in older
+      // ones; Monday when neither exists.
+      try {
+        var l = new Intl.Locale(Array.isArray(locale) ? locale[0] : locale);
+        var w = l.getWeekInfo ? l.getWeekInfo() : l.weekInfo;
+        if ( w && w.firstDay ) return w.firstDay;
+      } catch (x) {}
+      return 1;
     },
     function absoluteDate_(date, locale) {
       // "Oct 30"; the year too when it is not this year's.

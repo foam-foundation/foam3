@@ -53,6 +53,30 @@ foam.CLASS({
         x.test(R(new Date(NOW - 3 * HOUR)) === 'il y a 3 heures', 'app language wins');
         foam.locale = 'en-US';
       });
+
+      // smallestUnit. Weeks start on Monday here, whatever the test browser says.
+      var U = foam.time.TimeUnit;
+      var t = ms => new Date(NOW + ms);
+      var realWeekStart = foam.Date.weekStart_;
+      foam.Date.weekStart_ = () => 1;
+      try {
+        this.atNow(NOW, () => {
+          x.test(R(t(-10000), U.HOUR) === 'this hour', 'HOUR: 8:59:50 is this hour');
+          x.test(R(t(-40 * HOUR), U.HOUR) === '1 day ago', 'HOUR: past a day falls back');
+          x.test(R(t(-3 * HOUR), U.DAY) === 'today', 'DAY: 6am is today');
+          x.test(R(t(-13 * HOUR), U.DAY) === 'yesterday', 'DAY: 8pm yesterday');
+          x.test(R(t(-40 * HOUR), U.DAY) === '2 days ago', 'DAY: calendar days');
+          x.test(R(t(-40 * DAY), U.DAY) === '40 days ago', 'DAY: no 7-day fallback');
+          x.test(R(t(-400 * DAY), U.DAY) === 'Oct 2, 2025', 'DAY: a year is a date, got ' + R(t(-400 * DAY), U.DAY));
+          x.test(R(t(-13 * HOUR), U.WEEK) === 'this week', 'WEEK: this week');
+          x.test(R(t(-5 * DAY), U.WEEK) === 'last week', 'WEEK: Sunday is last week');
+          x.test(R(t(-40 * DAY), U.WEEK) === '6 weeks ago', 'WEEK: weeks');
+          x.test(R(t(3 * DAY), U.WEEK) === 'next week', 'WEEK: Monday ahead is next week');
+          x.test(R(t(-3 * HOUR), U.MONTH) === R(t(-3 * HOUR)), 'an unsupported unit acts as no setting');
+        });
+      } finally {
+        foam.Date.weekStart_ = realWeekStart;
+      }
     },
 
     async function testViews(x) {

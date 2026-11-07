@@ -37,12 +37,12 @@ p({
     ]
   },
   "customCSS": """
-    .foam-u2-stack-BreadcrumbView-breadCrumb > * {
+    .foam-u2-stack-BreadcrumbView-breadCrumb > *, .foam-core-reflow-FlowDocumentCitationView-keyword {
         font-family: $font-mono;
     }
 
     .h200 {
-      font-weight: $font-semi-bold !important;
+      font-weight: $font-regular !important;
     }
 
     .h600 {
@@ -92,25 +92,27 @@ p({
     }
 
     /* Alternate colour for each button in a ButtonGroup */
-    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-3) {
-      color: #4285f4;
-    }
+    /*
+      .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-3) {
+        color: #4285f4;
+      }
 
-    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-2) {
-      color: #ea4335;
-    }
+      .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-2) {
+        color: #ea4335;
+      }
 
-    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-1) {
-      color: #fbbc04;
-    }
+      .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n-1) {
+        color: #fbbc04;
+      }
 
-    .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n) {
-      color: #34a853;
-    }
+      .foam-u2-ButtonGroup.foam-comics-v2-DAOBrowserView-buttons button:nth-child(4n) {
+        color: #34a853;
+      }
 
-    .foam-u2-ButtonGroupActionView-primary { /* Don't recolor primary buttons in ButtonGroups*/
-      color: #FFFFFF !important;
-    }
+      .foam-u2-ButtonGroupActionView-primary { /* Don't recolor primary buttons in ButtonGroups*/
+        color: #FFFFFF !important;
+      }
+    */
 
     /* Top-Nav Buttons */
     .foam-u2-view-NavigationMenu:hover:not(:disabled):not(:active):not(.selected), .foam-u2-view-NavigationButton:hover:not(:disabled):not(:active):not(.selected), .foam-u2-view-NavigationOverlayButton:hover:not(:disabled):not(:active):not(.selected) {
@@ -119,6 +121,10 @@ p({
 
     .foam-u2-view-NavigationMenu-medium {
       padding: 8px !important;
+    }
+
+    .foam-u2-ActionView-secondary:hover:not(:disabled):not(:active), .foam-u2-ButtonGroupActionView-secondary:hover:not(:disabled):not(:active) {
+      border-color: #c6dafc;
     }
   """
 })

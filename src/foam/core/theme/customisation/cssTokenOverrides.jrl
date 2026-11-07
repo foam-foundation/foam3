@@ -6,4 +6,14 @@ p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"font-mono",t
 // Button Colours
 p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonPrimaryColor",target:"#4285f4",lastModified:1794004780776,lastModifiedBy:42})
 p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryColor$foreground",target:"#1a73e8",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryColor$hover$foreground",target:"#1a73e8",lastModified:1794004780776,lastModifiedBy:42})
 p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryBorderColor",target:"#dadce0",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"buttonSecondaryColor$hover",target:"#f6faff",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"borderStrong",target:"#a0a4ab",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"NavButtonBackgroundColor$hover",target:"#f1f3f4",lastModified:1794004780776,lastModifiedBy:42})
+
+// Backgrounds
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"menuBackground",target:"#f8f9fa",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"topNavBackground",target:"#ffffff",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"backgroundTertiary",target:"#f6faff",lastModified:1794004780776,lastModifiedBy:42})
+p({theme:"79B87FC0-C622-417A-A14A-2A04DD348CBD",variants:{},source:"backgroundBrandTertiary",target:"#f6faff",lastModified:1794004780776,lastModifiedBy:42})

@@ -82,7 +82,6 @@ foam.CLASS({
       gap: 4px;
     }
     ^keyword {
-      font-family: $font-mono;
       color: $textTertiary;
       font-size: 12px;
       background-color: $grey100;

@@ -51,6 +51,11 @@ foam.CLASS({
         x.test(R(null) === '' && R(new Date('x')) === '', 'a bad date is blank, no throw');
         foam.locale = 'fr';
         x.test(R(new Date(NOW - 3 * HOUR)) === 'il y a 3 heures', 'app language wins');
+        // A malformed saved language (underscore) must not break every date.
+        foam.locale = 'en_US';
+        var bad;
+        try { bad = R(new Date(NOW - 3 * HOUR)); } catch (e) { bad = 'threw ' + e; }
+        x.test(/\b3\b/.test(bad), 'a malformed app language falls back, got ' + bad);
         foam.locale = 'en-US';
       });
 
@@ -161,6 +166,20 @@ foam.CLASS({
         'RelativeDateTimeView passes smallestUnit to its read view, got ' + wd.element_.textContent);
       wd.element_.remove();
       wd.detach();
+
+      // An Invalid Date (a DateTime property can adapt a bad string to one)
+      // draws blank and schedules no timer.
+      var vi, drew;
+      try {
+        vi = this.RORelativeDateTimeView.create({ data: new Date('x') }, x);
+        vi.write();
+        await wait(50);
+        drew = true;
+      } catch (e) { drew = 'threw ' + e; }
+      x.test(drew === true, 'an Invalid Date draws without throwing: ' + drew);
+      x.test(!! vi && ! vi.timer_, 'an Invalid Date schedules no timer');
+      if ( vi && vi.element_ ) vi.element_.remove();
+      if ( vi ) vi.detach();
 
       // Wrapper delegates read mode to the relative view
       var w = this.RelativeDateTimeView.create(

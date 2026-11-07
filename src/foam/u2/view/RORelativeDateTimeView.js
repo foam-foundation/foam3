@@ -65,7 +65,7 @@ foam.CLASS({
           this.tooltip$.follow(self.data$.map(d => d ?
             self.formatAbsolute_(d) : foam.u2.DateTimeView.DATE_FORMAT));
         }).
-        attrs({ datetime: this.data$.map(d => d ? d.toISOString() : '') }).
+        attrs({ datetime: this.data$.map(d => self.isValid_(d) ? d.toISOString() : '') }).
         addClass(this.myClass()).
         add(this.slot(function(data, now_, smallestUnit) {
           return data ?
@@ -94,6 +94,11 @@ foam.CLASS({
       });
     },
 
+    function isValid_(d) {
+      // A DateTime property can adapt a bad string to an Invalid Date.
+      return !! d && ! isNaN(d.getTime());
+    },
+
     function clearTimer_() {
       if ( this.timer_ ) {
         clearTimeout(this.timer_);
@@ -103,7 +108,8 @@ foam.CLASS({
 
     function schedule_() {
       this.clearTimer_();
-      if ( ! this.data ) return;
+      // An Invalid Date would give setTimeout(NaN), which fires at once, forever.
+      if ( ! this.isValid_(this.data) ) return;
       this.timer_ = setTimeout(this.tick, this.nextUpdateDelay_(this.data));
     },
 

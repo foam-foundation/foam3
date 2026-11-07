@@ -968,8 +968,14 @@ foam.LIB({
       return D.absoluteDate_(date, locale);
     },
     function relativeLocale_() {
-      // The app's language first, so the text matches the app's labels.
-      return foam.locale || foam.util.getClientLocale();
+      // The app's language first, so the text matches the app's labels. A
+      // malformed saved value ('en_US') would make Intl throw on every date:
+      // use the browser's language then.
+      var l = foam.locale;
+      if ( l ) {
+        try { Intl.getCanonicalLocales(l); return l; } catch (x) {}
+      }
+      return foam.util.getClientLocale();
     },
     function relativeFormat_(locale, numeric) {
       // Making a formatter is slow and a table draws many cells: keep one

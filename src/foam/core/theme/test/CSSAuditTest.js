@@ -10,8 +10,22 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `
+  **A checklist, not a checker.**
+
+  Today \`CSSAuditTest\` knows two rules: no hard-coded colours, no hard-coded fonts. They live inside one static method, so an app cannot add a third rule without copying the whole test.
+
+  This change turns the rules into rows. A row says four things: where to look (a declaration or a selector), which names (a regex), what is allowed there (\`$token\`, \`var()\`, a few keywords), and what to say when it is not. The test walks the rows. Colour and font are the first two rows and behave exactly as before.
+
+  Why: in one app we found 137 literal radii, 51 px font sizes and 49 private copies of shared parts (\`<<chip\`, \`<<card\`, \`<<empty\`) with the audit at 0, because the audit could not be told about them.
+
+  What you get as an app: refine \`rules\` and add a row for anything your design system cares about (sizes, radii, depth, shadows, a private class name outside your UI kit). No Java, no new test class. The same rows can drive a pre-commit lint in node, because \`CSSParser\` exists in both languages, so a builder hears it in seconds and the test keeps the whole tree at 0.
+
+  What foam3 gets: one place to add a built-in check later (a \`scale\` row behind a flag), and a shape that a \`.jrl\` of rules can fill.
+
   Test for hard coded CSS color and font values, unknown $tokens and CSS
-  syntax errors in css: blocks.
+  syntax errors in css: blocks. The colour and font checks, and any an
+  application adds, are the rows of rules: (foam.core.theme.test.CSSAuditRule);
+  see violations below.
   Depends on System property project.home set by the build.
 
   run with --log-level:INFO to report what is being ignored/skipped.
@@ -51,8 +65,9 @@ foam.CLASS({
   error with the grammar's own message: the browser drops the declaration or
   the rule around it, so that style silently never applies.
 
-  Failures are printed grouped by kind (syntax, colour, font, unknown token)
-  after a summary line with the count of each; see report().
+  Failures are printed grouped by kind (syntax, then each rule by its id,
+  then unknown token) after a summary line with the count of each; see
+  report(). A rule whose level is 'warn' is logged, not failed.
 
   Colour converters
 https://www.myfixguide.com/color-converter/ - hex,rgb,hsl, rgba, argb
@@ -82,10 +97,13 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     'java.util.Arrays',
     'java.util.HashMap',
     'java.util.HashSet',
+    'java.util.LinkedHashMap',
     'java.util.List',
     'java.util.Map',
     'java.util.Set',
-    'java.util.concurrent.atomic.AtomicInteger'
+    'java.util.concurrent.ConcurrentHashMap',
+    'java.util.concurrent.atomic.AtomicInteger',
+    'java.util.regex.Pattern'
   ],
 
   properties: [
@@ -125,6 +143,35 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
       class: 'List',
       javaFactory: `
       return new ArrayList();
+      `
+    },
+    {
+      documentation: `
+        What the audit checks in each css: block, one row per rule. Colour and
+        font are the first two. Refine this property in your application, or
+        set it in a subclass, to add a row; see CSSAuditRuleTest.
+      `,
+      name: 'rules',
+      class: 'FObjectArray',
+      of: 'foam.core.theme.test.CSSAuditRule',
+      javaFactory: `
+      String[] noLiteral = new String[] { "token", "var", "placeholder", "url" };
+      return new CSSAuditRule[] {
+        new CSSAuditRule.Builder(getX())
+          .setId("colour")
+          .setMatch("^(color|.*-color|border|border-.*|background|background-image)$")
+          .setAllow(noLiteral)
+          .setLiteralIs("colour")
+          .setAdvice(COLOUR_ADVICE)
+          .build(),
+        new CSSAuditRule.Builder(getX())
+          .setId("font")
+          .setMatch("^(font|font-weight)$")
+          .setAllow(noLiteral)
+          .setLiteralIs("font")
+          .setAdvice(FONT_ADVICE)
+          .build()
+      };
       `
     }
   ],
@@ -279,15 +326,17 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   // instance serves every block.
   protected static final CSSParser GRAMMAR = new CSSParser();
 
-  // One thing the audit read in a css: block: a declaration (clean or not)
-  // or a CSS syntax error the grammar reported.
+  // One thing the audit read in a css: block: a declaration (clean or not),
+  // a rule whose selectors break a selector row, or a CSS syntax error the
+  // grammar reported.
   protected static class Finding {
-    protected String       kind;                     // "declaration" or "syntax"
-    protected String       property;                 // declaration: as written
-    protected String       value;                    // declaration: the value; syntax: the text the error covers
-    protected int          offset;                   // into the css: text
-    protected String       problem;                  // COLOUR_ADVICE, FONT_ADVICE, a syntax message, or null
-    protected List<String> tokens = new ArrayList(); // declaration: its $tokens, without '$'
+    protected String             kind;                     // "declaration", "selector" or "syntax"
+    protected String             property;                 // declaration: as written
+    protected String             value;                    // declaration: the value; selector: the selectors; syntax: the text the error covers
+    protected int                offset;                   // into the css: text
+    protected String             problem;                  // syntax: the grammar's message
+    protected List<CSSAuditRule> broken = new ArrayList(); // declaration, selector: the rules it breaks
+    protected List<String>       tokens = new ArrayList(); // declaration: its $tokens, without '$'
   }
 
   // How much of an error's text a failure line quotes: enough to find it on
@@ -298,8 +347,9 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   // errors. Only a property and value inside a block is a declaration: a
   // selector, an @media condition and a comment are not, which is what keeps
   // a colour written in a comment or a JS key named after a CSS property out
-  // of the audit.
-  protected static List<Finding> auditBlock(String css) {
+  // of the audit. file is the block's path from project.home, which decides
+  // the rows whose outside: excludes it.
+  protected List<Finding> auditBlock(String file, String css) {
     List<Finding> out  = new ArrayList();
     CSSNode       tree = GRAMMAR.parse(css);
     for ( CSSParser.Declaration d : CSSParser.declarations(tree) ) {
@@ -317,9 +367,27 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
         if ( "token".equals(n.kind) && n.context == null ) f.tokens.add(n.raw.substring(1));
         return true;
       });
-      f.problem  = violation(d);
+      f.broken   = violations(file, d);
       out.add(f);
     }
+    CSSParser.walk(tree, (n, a) -> {
+      if ( ! "rule".equals(n.kind) || n.selectors == null ) return true;
+      StringBuilder selectors = new StringBuilder();
+      for ( CSSNode s : n.selectors ) {
+        if ( selectors.length() > 0 ) selectors.append(", ");
+        selectors.append(s.raw);
+      }
+      List<CSSAuditRule> broken = selectorViolations(file, selectors.toString());
+      if ( broken.isEmpty() ) return true;
+      Finding f = new Finding();
+      f.kind     = "selector";
+      f.property = "";
+      f.value    = selectors.toString();
+      f.offset   = n.start;
+      f.broken   = broken;
+      out.add(f);
+      return true;
+    });
     // errors() also lists a string, function, paren or bracket left open,
     // which carries no message of its own.
     for ( CSSNode e : CSSParser.errors(tree) ) {
@@ -362,65 +430,152 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
   // three tokens to look at, so the line is actionable without going and
   // reading this test first.
   protected static final String COLOUR_ADVICE =
-    " is a hard coded colour; use a $token from src/foam/u2/CSSTokens.js " +
+    "is a hard coded colour; use a $token from src/foam/u2/CSSTokens.js " +
     "(e.g. $textDefault, $borderLight, $backgroundSecondary) or declare one " +
     "in the class' cssTokens:";
 
   protected static final String FONT_ADVICE =
-    " is a hard coded font value; use a $token from src/foam/u2/CSSTokens.js " +
+    "is a hard coded font value; use a $token from src/foam/u2/CSSTokens.js " +
     "(e.g. $font1, $font-bold, $body-md) or declare one in the class' " +
     "cssTokens:";
 
-  // Whether a value node carries no hard coded colour or font by its kind: a
-  // $token (having one is the point of the audit), a legacy %THEME%
-  // placeholder, a var() reference, a url(), a comment and !important.
-  protected static boolean carriesNoLiteral(CSSNode n) {
-    if ( n.kind.equals("token") || n.kind.equals("placeholder") || n.kind.equals("comment") ||
-         n.kind.equals("important") || n.kind.equals("url") ) return true;
-    return n.kind.equals("function") && "var".equalsIgnoreCase(n.name);
+  // A row's match: and keyword: patterns, compiled once for the whole tree.
+  protected static final Map<String, Pattern> PATTERNS = new ConcurrentHashMap();
+
+  // Whether a row's regexp is found in text: anywhere, unless it is anchored.
+  protected static boolean matches(String regexp, String text) {
+    return PATTERNS.computeIfAbsent(regexp, Pattern::compile).matcher(text).find();
   }
 
-  // Returns what is wrong with a declaration, or null when it is clean.
-  protected static String violation(CSSParser.Declaration d) {
-    // A --custom-property is the app's own name for a value, not a CSS colour.
-    if ( d.custom ) return null;
-    String  p      = d.property.trim().toLowerCase();
-    boolean colour = p.equals("color") || p.endsWith("-color") ||
-                     p.equals("border") || p.startsWith("border-") ||
-                     p.equals("background") || p.equals("background-image");
-    boolean font   = p.equals("font") || p.equals("font-weight");
-    if ( ! colour && ! font ) return null;
-
-    CSSNode       value = d.node.valueNode();
-    List<CSSNode> rest  = new ArrayList();
-    if ( value != null && value.components != null ) {
-      for ( CSSNode c : value.components ) if ( ! carriesNoLiteral(c) ) rest.add(c);
+  // What a value part is, in the words a row's allow: list uses.
+  protected static String kindOf(CSSNode n) {
+    if ( n.kind.equals("token") || n.kind.equals("placeholder") || n.kind.equals("url") ) return n.kind;
+    if ( n.kind.equals("function") && "var".equalsIgnoreCase(n.name) ) return "var";
+    if ( n.kind.equals("number") && "%".equals(n.unit) ) return "percent";
+    if ( n.kind.equals("ident") || ( n.kind.equals("number") && SafetyUtil.isEmpty(n.unit) ) ) {
+      return "keyword:" + n.raw;
     }
-    if ( rest.isEmpty() ) return null;
+    return "literal";
+  }
 
-    if ( colour ) {
-      // Walks into functions and parens (a gradient's colour stops), but not
-      // into what carriesNoLiteral lets through or a string, whose text is
-      // not a colour.
-      final boolean[] found = { false };
-      for ( CSSNode c : rest ) {
-        CSSParser.walk(c, (n, a) -> {
-          if ( found[0] || carriesNoLiteral(n) || n.kind.equals("string") ) return false;
-          if ( n.kind.equals("hash") && n.isHexColor ) found[0] = true;
-          if ( n.kind.equals("function") && n.name != null &&
-               COLOUR_FUNCTIONS.contains(n.name.toLowerCase()) ) found[0] = true;
-          if ( n.kind.equals("ident") && n.value instanceof String &&
-               NAMED_COLOURS.contains(((String) n.value).toLowerCase()) ) found[0] = true;
-          return ! found[0];
-        });
-        if ( found[0] ) return COLOUR_ADVICE;
+  protected static boolean allowed(String[] allow, String kind) {
+    for ( String a : allow ) {
+      if ( a.startsWith("keyword:") ) {
+        if ( kind.startsWith("keyword:") && matches("^(?:" + a.substring(8) + ")$", kind.substring(8)) ) return true;
+      } else if ( a.equals(kind) ) {
+        return true;
       }
-      return null;
     }
+    return false;
+  }
+
+  // Whether a value node carries nothing a row judges: a comment, !important,
+  // or a kind the row allows - for the colour and font rows a $token (having
+  // one is the point of the audit), a legacy %THEME% placeholder, a var()
+  // reference and a url().
+  protected static boolean carriesNoLiteral(CSSAuditRule rule, CSSNode n) {
+    if ( n.kind.equals("comment") || n.kind.equals("important") ) return true;
+    return allowed(rule.getAllow(), kindOf(n));
+  }
+
+  // Never judged by a row without literalIs:. A function other than var() and
+  // a ( ) are judged by their parts.
+  protected static final Set<String> UNJUDGED = new HashSet(Arrays.asList(
+    "comment", "important", "placeholder", "url", "operator", "delim"
+  ));
+
+  // The value parts a row without literalIs: judges. A bare number inside a
+  // function is a factor or a colour channel (calc($space-2 * 2),
+  // rgba(0, 0, 0, .2)), not a size.
+  protected static List<CSSNode> leaves(List<CSSNode> nodes, boolean inFunction) {
+    List<CSSNode> out = new ArrayList();
+    if ( nodes == null ) return out;
+    for ( CSSNode n : nodes ) {
+      if ( UNJUDGED.contains(n.kind) ) continue;
+      if ( n.kind.equals("function") && ! "var".equals(kindOf(n)) ) {
+        out.addAll(leaves(n.args, true));
+        continue;
+      }
+      if ( n.kind.equals("paren") ) {
+        out.addAll(leaves(n.components, inFunction));
+        continue;
+      }
+      if ( inFunction && n.kind.equals("number") && SafetyUtil.isEmpty(n.unit) ) continue;
+      out.add(n);
+    }
+    return out;
+  }
+
+  // Whether a value holds a colour literal outside what the row allows.
+  // Walks into functions and parens (a gradient's colour stops), but not into
+  // what carriesNoLiteral lets through or a string, whose text is not a
+  // colour.
+  protected static boolean hasColour(CSSAuditRule rule, List<CSSNode> rest) {
+    final boolean[] found = { false };
+    for ( CSSNode c : rest ) {
+      CSSParser.walk(c, (n, a) -> {
+        if ( found[0] || carriesNoLiteral(rule, n) || n.kind.equals("string") ) return false;
+        if ( n.kind.equals("hash") && n.isHexColor ) found[0] = true;
+        if ( n.kind.equals("function") && n.name != null &&
+             COLOUR_FUNCTIONS.contains(n.name.toLowerCase()) ) found[0] = true;
+        if ( n.kind.equals("ident") && n.value instanceof String &&
+             NAMED_COLOURS.contains(((String) n.value).toLowerCase()) ) found[0] = true;
+        return ! found[0];
+      });
+      if ( found[0] ) return true;
+    }
+    return false;
+  }
+
+  // Whether a declaration's value keeps a row.
+  protected static boolean keeps(CSSAuditRule rule, CSSNode value) {
+    List<CSSNode> parts = value == null || value.components == null ? new ArrayList() : value.components;
+    if ( SafetyUtil.isEmpty(rule.getLiteralIs()) ) {
+      for ( CSSNode leaf : leaves(parts, false) ) {
+        if ( ! allowed(rule.getAllow(), kindOf(leaf)) ) return false;
+      }
+      return true;
+    }
+
+    List<CSSNode> rest = new ArrayList();
+    for ( CSSNode c : parts ) if ( ! carriesNoLiteral(rule, c) ) rest.add(c);
+    if ( rest.isEmpty() ) return true;
+    if ( "colour".equals(rule.getLiteralIs()) ) return ! hasColour(rule, rest);
+
+    // 'font': a single keyword is the only literal a font declaration may
+    // carry.
     CSSNode only = rest.size() == 1 ? rest.get(0) : null;
-    boolean ok   = only != null && only.kind.equals("ident") && only.value instanceof String &&
-                   FONT_KEYWORDS.contains(((String) only.value).toLowerCase());
-    return ok ? null : FONT_ADVICE;
+    return only != null && only.kind.equals("ident") && only.value instanceof String &&
+           FONT_KEYWORDS.contains(((String) only.value).toLowerCase());
+  }
+
+  // Whether a row checks this kind of node in this file.
+  protected static boolean applies(CSSAuditRule rule, String where, String file) {
+    return where.equals(rule.getWhere()) &&
+      ( SafetyUtil.isEmpty(rule.getOutside()) || ! file.startsWith(rule.getOutside()) );
+  }
+
+  // The rows a declaration breaks, in the order of rules.
+  protected List<CSSAuditRule> violations(String file, CSSParser.Declaration d) {
+    List<CSSAuditRule> out = new ArrayList();
+    // A --custom-property is the app's own name for a value, not a CSS value
+    // a row judges.
+    if ( d.custom ) return out;
+    String p = d.property.trim().toLowerCase();
+    for ( CSSAuditRule rule : getRules() ) {
+      if ( applies(rule, "declaration", file) && matches(rule.getMatch(), p) &&
+           ! keeps(rule, d.node.valueNode()) ) out.add(rule);
+    }
+    return out;
+  }
+
+  // The rows a rule's selectors, joined with ", ", break.
+  protected List<CSSAuditRule> selectorViolations(String file, String selectors) {
+    List<CSSAuditRule> out = new ArrayList();
+    for ( CSSAuditRule rule : getRules() ) {
+      if ( applies(rule, "selector", file) && matches(rule.getMatch(), selectors) ) out.add(rule);
+    }
+    return out;
   }
 
   // The states ColorToken derives a token for.
@@ -1064,9 +1219,12 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     // Failures are collected by kind and printed at the end, grouped, after a
     // summary line - see report().
     final List<String>                      syntaxFailures = new ArrayList();
-    final List<String>                      colourFailures = new ArrayList();
-    final List<String>                      fontFailures   = new ArrayList();
     final List<String>                      tokenFailures  = new ArrayList();
+    // One list per 'error' row, by id, in the order of rules.
+    final Map<String, List<String>>         ruleFailures   = new LinkedHashMap();
+    for ( CSSAuditRule rule : getRules() ) {
+      if ( "error".equals(rule.getLevel()) ) ruleFailures.putIfAbsent(rule.getId(), new ArrayList());
+    }
 
     try {
       Path start = Paths.get(projectHome);
@@ -1160,7 +1318,7 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
           }
         }
 
-        for ( Finding f : auditBlock(css) ) {
+        for ( Finding f : auditBlock(relativePath, css) ) {
           int    line  = lineOf(src, base + f.offset);
           String where = relativePath+":"+line+" - ";
 
@@ -1173,12 +1331,19 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
             tokenUses.add(new Object[] { relativePath, Integer.valueOf(line), owner, token });
           }
 
-          if ( f.problem == null ) {
+          if ( f.broken.isEmpty() ) {
             logger.info("ok", f.property, f.value);
             continue;
           }
-          ( f.problem == COLOUR_ADVICE ? colourFailures : fontFailures )
-            .add(where+f.property+": "+f.value+f.problem);
+          String text = "selector".equals(f.kind) ? f.value : f.property+": "+f.value;
+          for ( CSSAuditRule rule : f.broken ) {
+            String failure = where+text+" "+rule.getAdvice();
+            if ( "error".equals(rule.getLevel()) ) {
+              ruleFailures.get(rule.getId()).add(failure);
+            } else {
+              logger.warning(rule.getId(), failure);
+            }
+          }
         }
       }
     } catch (IOException e) {
@@ -1223,20 +1388,25 @@ a = foam.u2.view.ColorEditView.create(); ctrl.stack.set(a);
     } finally {
       String summary = "processed "+processed.intValue()+ " .js files, "+blocks.intValue()+" css blocks, "+
         tokenUses.size()+" token uses, "+journalTokens.size()+" journal tokens";
-      int found = syntaxFailures.size() + colourFailures.size() + fontFailures.size() + tokenFailures.size();
+      int           found  = syntaxFailures.size() + tokenFailures.size();
+      StringBuilder counts = new StringBuilder(syntaxFailures.size() + " CSS syntax, ");
+      for ( Map.Entry<String, List<String>> e : ruleFailures.entrySet() ) {
+        found += e.getValue().size();
+        counts.append(e.getValue().size() + " " + e.getKey() + ", ");
+      }
+      counts.append(tokenFailures.size() + " unknown token");
       if ( found > 0 ) {
         // Printed before any failure line: Script.output keeps only the first
         // MAX_OUTPUT_CHARS, so the counts have to lead to survive a cut. The
         // FAILURE: prefix is what makes the test report show the line
         // (TestRunnerScript lists only SUCCESS:/FAILURE: lines); print() does
         // not add it to getFailed().
-        print("FAILURE: summary - " + summary + "; failures: " +
-          syntaxFailures.size() + " CSS syntax, " + colourFailures.size() + " colour, " +
-          fontFailures.size() + " font, " + tokenFailures.size() + " unknown token");
+        print("FAILURE: summary - " + summary + "; failures: " + counts);
       }
       report(syntaxFailures, "CSS syntax");
-      report(colourFailures, "colour");
-      report(fontFailures,   "font");
+      for ( Map.Entry<String, List<String>> e : ruleFailures.entrySet() ) {
+        report(e.getValue(), e.getKey());
+      }
       report(tokenFailures,  "unknown token");
 
       checkJournalReader();

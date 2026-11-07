@@ -16,6 +16,46 @@ foam.CLASS({
 
   methods: [
     async function runTest(x) {
+      // Exact strings need a fixed language; put the app's back afterwards.
+      var oldLocale = foam.locale;
+      foam.locale = 'en-US';
+      try {
+        this.testStrings(x);
+        await this.testViews(x);
+      } finally {
+        foam.locale = oldLocale;
+      }
+    },
+
+    function atNow(t, fn) {
+      // Fix "now" so calendar words (today, last week) are exact.
+      var realNow = Date.now;
+      Date.now = () => t;
+      try { fn(); } finally { Date.now = realNow; }
+    },
+
+    function testStrings(x) {
+      var MINUTE = 60000, HOUR = 3600000, DAY = 86400000;
+      var R   = (d, u) => foam.Date.relativeDateString(d, u);
+      var NOW = new Date(2026, 10, 6, 9, 0, 0).getTime(); // Friday Nov 6, 9:00am local
+
+      this.atNow(NOW, () => {
+        x.test(R(new Date(NOW - 10000)) === 'now', 'under a minute reads now');
+        x.test(R(new Date(NOW + 2 * MINUTE)) === 'now', 'a clock 2 minutes ahead reads now');
+        x.test(R(new Date(NOW - 3 * HOUR)) === '3 hours ago', 'hours');
+        x.test(R(new Date(NOW - 40 * HOUR)) === '1 day ago', 'elapsed days');
+        x.test(R(new Date(NOW - 7 * DAY)) === 'Oct 30', '7 days is a date, got ' + R(new Date(NOW - 7 * DAY)));
+        x.test(R(new Date(2025, 11, 30, 9)) === 'Dec 30, 2025',
+          'last calendar year shows the year, got ' + R(new Date(2025, 11, 30, 9)));
+        x.test(R(new Date(NOW + 3 * DAY)) === 'in 3 days', 'future');
+        x.test(R(null) === '' && R(new Date('x')) === '', 'a bad date is blank, no throw');
+        foam.locale = 'fr';
+        x.test(R(new Date(NOW - 3 * HOUR)) === 'il y a 3 heures', 'app language wins');
+        foam.locale = 'en-US';
+      });
+    },
+
+    async function testViews(x) {
       var MINUTE = 60000, HOUR = 3600000, DAY = 86400000;
       var wait   = ms => new Promise(res => setTimeout(res, ms));
 

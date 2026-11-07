@@ -937,43 +937,42 @@ foam.LIB({
     },
     // Hash n & n: Truncate to 32 bits.
     function hashCode(d) { var n = d.getTime(); return n & n; },
-    function relativeDateString(date) {
-      // FUTURE: make this translatable for i18n, including plurals
-      //   "hours" vs. "hour"
-      var seconds = Math.trunc( ( Date.now() - date.getTime() ) / 1000 );
+    function relativeDateString(date, opt_smallestUnit) {
+      /* "3 hours ago", "in 2 days", "now", or a short date from 7 days on,
+         in the app's language (Intl.RelativeTimeFormat). */
+      var D = foam.Date;
+      if ( ! date || ! date.getTime || isNaN(date.getTime()) ) return '';
+      var locale = D.relativeLocale_();
+      var diff   = date.getTime() - Date.now(); // negative: in the past
+      var abs    = Math.abs(diff);
+      var sign   = diff < 0 ? -1 : 1;
 
-      if ( seconds >= 0 && seconds < 60 ) return 'moments ago';
-      if ( seconds < 0  && seconds > -60 ) return 'in moments';
+      // Up to 5 minutes ahead also reads "now": a client clock a little
+      // behind the server's should not show a fresh save as "in 3 minutes".
+      if ( diff > -60000 && diff < 300000 ) return D.relativeFormat_(locale, 'auto').format(0, 'second');
 
-      var minutes = Math.trunc((seconds) / 60);
-
-      if ( minutes === 1 ) return '1 minute ago';
-      if ( minutes === -1 ) return 'in 1 minute';
-
-      if ( minutes >= 0 && minutes < 60 ) return minutes + ' minutes ago';
-      if ( minutes < 0  && minutes > -60 ) return 'in ' + -minutes + ' minutes';
-
-      var hours = Math.trunc(minutes / 60);
-      if ( hours === 1 ) return '1 hour ago';
-      if ( hours === -1 ) return 'in 1 hour';
-
-      if ( hours >= 0 && hours < 24 ) return hours + ' hours ago';
-      if ( hours <  0 && hours > -24 ) return 'in ' + -hours + ' hours';
-
-      var days = Math.trunc(hours / 24);
-      if ( days === 1 ) return '1 day ago';
-      if ( days === -1 ) return 'in 1 day';
-
-      if ( days >= 0 && days < 7 ) return days + ' days ago';
-      if ( days <  0 && days > -7 ) return 'in ' + -days + ' days';
-
-      if ( days >= 0 && days < 365 || days < 0 && days > -365 ) {
-        var year = 1900 + date.getYear();
-        var noyear = date.toDateString().replace(' ' + year, '');
-        return noyear.substring(4);
-      }
-
-      return date.toDateString().substring(4);
+      var always = D.relativeFormat_(locale, 'always');
+      if ( abs < 3600000 )   return always.format(sign * Math.trunc(abs / 60000),    'minute');
+      if ( abs < 86400000 )  return always.format(sign * Math.trunc(abs / 3600000),  'hour');
+      if ( abs < 604800000 ) return always.format(sign * Math.trunc(abs / 86400000), 'day');
+      return D.absoluteDate_(date, locale);
+    },
+    function relativeLocale_() {
+      // The app's language first, so the text matches the app's labels.
+      return foam.locale || foam.util.getClientLocale();
+    },
+    function relativeFormat_(locale, numeric) {
+      // Making a formatter is slow and a table draws many cells: keep one
+      // per language and numeric style.
+      var cache = foam.Date.relativeFormats_ || ( foam.Date.relativeFormats_ = {} );
+      var key   = locale + '|' + numeric;
+      return cache[key] || ( cache[key] = new Intl.RelativeTimeFormat(locale, { numeric: numeric }) );
+    },
+    function absoluteDate_(date, locale) {
+      // "Oct 30"; the year too when it is not this year's.
+      var opts = { month: 'short', day: 'numeric' };
+      if ( date.getFullYear() !== new Date(Date.now()).getFullYear() ) opts.year = 'numeric';
+      return date.toLocaleDateString(locale, opts);
     },
     /** formats a date as MMM dd, YYYY
      *  Use the timeFirst parameter to include a time string.

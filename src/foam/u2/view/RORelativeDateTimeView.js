@@ -11,12 +11,14 @@ foam.CLASS({
 
   documentation: `A ReadOnly DateTime view which renders the value as a
     relative time string ("3 hours ago", "in 2 days") via
-    foam.Date.relativeDateString, with the absolute timestamp shown in a
-    tooltip. The text self-updates as time passes: a timer fires at the
-    next boundary where the string can change (minute/hour/day) and is
-    cancelled when the view is detached. Values more than a week away
-    render as an absolute date, matching relativeDateString's fallback.
-    Purely client-side; makes no server calls.`,
+    foam.Date.relativeDateString, which uses Intl.RelativeTimeFormat in the
+    app's language. It draws a <time datetime> element with the absolute
+    timestamp in a tooltip. smallestUnit (a
+    foam.time.TimeUnit) changes the words: DAY gives "today", "yesterday",
+    "12 days ago"; WEEK gives "this week", "last week"; HOUR hides minutes.
+    The text self-updates as time passes: a timer fires at the next
+    boundary where the string can change and is cancelled when the view is
+    detached. Purely client-side; makes no server calls.`,
 
   constants: [
     { name: 'MINUTE', value: 60000 },
@@ -27,6 +29,12 @@ foam.CLASS({
   properties: [
     {
       name: 'prop'
+    },
+    {
+      class: 'Enum',
+      of: 'foam.time.TimeUnit',
+      name: 'smallestUnit',
+      documentation: 'HOUR, DAY or WEEK; empty or any other unit means "pick the unit from the age".'
     },
     {
       class: 'Long',
@@ -48,21 +56,20 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      this.start('div', {
-          tooltip$: this.data$.map(d => d ?
-            self.formatAbsolute_(d) : foam.u2.DateTimeView.DATE_FORMAT)
+      // <time datetime> gives the exact moment to machines and assistive
+      // tech; the absolute text is foam's tooltip (a title attribute would be
+      // removed by foam.u2.Tooltip).
+      // Not start('time', args): with args it draws a div, not a time element.
+      this.start('time').
+        call(function() {
+          this.tooltip$.follow(self.data$.map(d => d ?
+            self.formatAbsolute_(d) : foam.u2.DateTimeView.DATE_FORMAT));
         }).
+        attrs({ datetime: this.data$.map(d => d ? d.toISOString() : '') }).
         addClass(this.myClass()).
-        // FUTURE: support a fixed-unit option (eg. always "N days ago").
-        // relativeDateString takes no unit argument — it picks the unit
-        // from the value's age — so a unit option needs either a local
-        // formatter here or Intl.RelativeTimeFormat, whose format(n, unit)
-        // gives both the explicit unit and localized plurals. Adopting
-        // Intl inside relativeDateString would localize this view with
-        // no changes here, so deferring the option until that decision.
-        add(this.slot(function(data, now_) {
+        add(this.slot(function(data, now_, smallestUnit) {
           return data ?
-            foam.Date.relativeDateString(data) :
+            foam.Date.relativeDateString(data, smallestUnit) :
             foam.u2.DateTimeView.DATE_FORMAT;
         })).
       end();
@@ -76,7 +83,7 @@ foam.CLASS({
       // agrees with other views of the same value. formatLocale also keeps
       // DateTimeUTC properties in UTC.
       if ( this.prop && this.prop.formatLocale ) return this.prop.formatLocale(d);
-      return new Date(d).toLocaleString(foam.util.getClientLocale(), {
+      return new Date(d).toLocaleString(foam.Date.relativeLocale_(), {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -104,11 +111,21 @@ foam.CLASS({
       /* Milliseconds until the displayed string can next change. Past
          values age forward to the next minute/hour/day boundary; future
          values count down to the previous one. Beyond that the string
-         only changes daily. */
+         only changes daily. DAY and WEEK count calendar days, so their
+         string changes at local midnight. */
+      var TU = foam.time.TimeUnit;
+      if ( this.smallestUnit === TU.DAY || this.smallestUnit === TU.WEEK ) {
+        var midnight = new Date(Date.now());
+        midnight.setHours(24, 0, 0, 0);
+        return midnight.getTime() - Date.now() + 50;
+      }
       var diff = Date.now() - date.getTime();
       var abs  = Math.abs(diff);
       var delay;
-      if ( abs < this.MINUTE ) {
+      if ( this.smallestUnit === TU.HOUR && abs < this.HOUR ) {
+        // "this hour" holds until the value is an hour away.
+        delay = diff >= 0 ? this.HOUR - abs : abs;
+      } else if ( abs < this.MINUTE ) {
         delay = diff >= 0 ? this.MINUTE - diff : abs;
       } else {
         var unit = abs < this.HOUR ? this.MINUTE :

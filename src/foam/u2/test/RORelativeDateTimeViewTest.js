@@ -135,6 +135,33 @@ foam.CLASS({
       x.test(! v2.timer_, 'no timer scheduled when data is unset');
       v2.detach();
 
+      // smallestUnit, <time datetime> and the absolute title
+      var vd = this.RORelativeDateTimeView.create(
+        { data: new Date(Date.now() - 3 * DAY - HOUR), smallestUnit: 'DAY' }, x);
+      vd.write();
+      await wait(50);
+      var el = vd.element_.querySelector('time') || ( vd.element_.tagName === 'TIME' && vd.element_ );
+      x.test(!! el && el.getAttribute('datetime') === vd.data.toISOString(), 'draws <time datetime>');
+      var timeEl = vd.childNodes.find(c => c.nodeName === 'time');
+      x.test(!! timeEl && timeEl.tooltip === vd.formatAbsolute_(vd.data), 'the tooltip carries the absolute time');
+      x.test(!! el && el.textContent === foam.Date.relativeDateString(vd.data, foam.time.TimeUnit.DAY),
+        'view passes smallestUnit, got ' + ( el && el.textContent ));
+      var midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      var dd = vd.nextUpdateDelay_(vd.data);
+      x.test(Math.abs(dd - (midnight - Date.now())) < 2000, 'DAY ticks at the next local midnight, got ' + dd);
+      vd.element_.remove();
+      vd.detach();
+
+      var wd = this.RelativeDateTimeView.create(
+        { data: new Date(Date.now() - 40 * DAY), smallestUnit: 'DAY', mode: foam.u2.DisplayMode.RO }, x);
+      wd.write();
+      await wait(50);
+      x.test(wd.element_.textContent.includes(foam.Date.relativeDateString(wd.data, foam.time.TimeUnit.DAY)),
+        'RelativeDateTimeView passes smallestUnit to its read view, got ' + wd.element_.textContent);
+      wd.element_.remove();
+      wd.detach();
+
       // Wrapper delegates read mode to the relative view
       var w = this.RelativeDateTimeView.create(
         { data: new Date(Date.now() - 5 * HOUR), mode: foam.u2.DisplayMode.RO }, x);

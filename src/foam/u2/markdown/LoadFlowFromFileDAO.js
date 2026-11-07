@@ -71,7 +71,7 @@ foam.CLASS({
         try {
           String text   = Files.readString(path, StandardCharsets.UTF_8);
           Flow   loaded =
-            sourceFile.endsWith(".md")   ? fromMarkdown(flow, text) :
+            sourceFile.endsWith(".md")   ? fromMarkdown(x, flow, text) :
             sourceFile.endsWith(".flow") ? fromFlowFile(x, flow, text) :
             null;
 
@@ -96,7 +96,7 @@ foam.CLASS({
         markdown block. Returns null if the file has no <flow> tag.
       `,
       type: 'foam.core.reflow.Flow',
-      args: 'Flow flow, String text',
+      args: 'X x, Flow flow, String text',
       javaCode: `
         Matcher tag = FLOW_TAG.matcher(text);
         if ( ! tag.find() ) return null;
@@ -130,6 +130,21 @@ foam.CLASS({
             // String props pass through; accessLevel's cast() resolves the enum by name
             p.set(clone, value);
           }
+        }
+
+        // List properties come as JSON (SaveFlowToFileRuleAction.listTagProps).
+        // A list that does not parse fails the load, so the journal copy is used
+        // rather than a copy with its access list dropped.
+        for ( PropertyInfo p : SaveFlowToFileRuleAction.listTagProps(info) ) {
+          String value = attrs.get(p.getName());
+          if ( SafetyUtil.isEmpty(value) ) {
+            p.clear(clone);
+            continue;
+          }
+          Flow parsed = (Flow) x.create(JSONParser.class)
+            .parseString("{\\"" + p.getName() + "\\":" + value + "}", Flow.class);
+          if ( parsed == null || ! p.isSet(parsed) ) return null;
+          p.set(clone, p.get(parsed));
         }
 
         if ( attrs.containsKey("childLock") ) clone.setChildLock("true".equals(attrs.get("childLock")));

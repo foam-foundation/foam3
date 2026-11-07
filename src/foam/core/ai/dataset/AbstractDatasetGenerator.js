@@ -30,8 +30,13 @@ foam.CLASS({
     'foam.dao.DAO',
     'java.nio.charset.StandardCharsets',
     'java.security.MessageDigest',
+    'java.util.ArrayList',
+    'java.util.Arrays',
+    'java.util.Collections',
+    'java.util.HashMap',
     'java.util.HexFormat',
     'java.util.List',
+    'java.util.Map',
     'org.json.JSONArray',
     'org.json.JSONObject',
     'java.util.regex.Matcher',
@@ -43,8 +48,28 @@ foam.CLASS({
       class: 'FObjectProperty',
       of: 'foam.core.ai.dataset.DataCrawler',
       name: 'crawler',
-      documentation: 'Source of items to process.',
-      required: true
+      documentation: 'Source of items to process. Not needed when items is set explicitly.'
+    },
+    {
+      class: 'StringArray',
+      name: 'items',
+      documentation: `
+        Explicit ordered list of items to process. When non-empty the crawler is bypassed
+        entirely and exactly these items are processed (subject to maxPerCategory).
+        Use this to pin a curated evaluation set without changing the crawler.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
+    {
+      class: 'Int',
+      name: 'maxPerCategory',
+      documentation: `
+        Maximum items to process per category (as returned by categoryOf). 0 = unlimited.
+        Applied after the item list is collected or resolved from the items property.
+        Useful for quick evaluation runs that need a balanced sample across content types.
+      `,
+      value: 0
     },
     {
       class: 'StringArray',
@@ -79,6 +104,42 @@ foam.CLASS({
       name: 'maxTokens',
       documentation: 'Maximum tokens in the LLM response per chunk.',
       value: 2048
+    },
+    {
+      class: 'StringArray',
+      name: 'priorityPaths',
+      documentation: `
+        Path substrings whose matching files are processed first, before the shuffled remainder.
+        Use this to front-load high-value source directories (e.g. "doc/fbe") so they are
+        never crowded out when the crawl is large. Matched items preserve their original
+        relative order; everything else is shuffled as usual.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
+    {
+      class: 'StringArray',
+      name: 'excludePaths',
+      documentation: `
+        Path substrings whose matching files are skipped entirely before any other processing.
+        Applied before priority sorting and category capping so excluded files consume no quota.
+        Use this to drop framework internals, module manifests, and other source that
+        produces poor or misleading training data (e.g. "foam/core/boot", "pom.js").
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
+    {
+      class: 'Int',
+      name: 'maxChunksPerFile',
+      documentation: `
+        Maximum chunks to draw from a single file. 0 = unlimited.
+        When a file produces more chunks than this limit a random sample is taken
+        so no single large file (e.g. a JRL with hundreds of entries) dominates
+        the dataset. The shuffle is applied before truncation so the sample is
+        not always biased toward the top of the file.
+      `,
+      value: 0
     }
   ],
 
@@ -87,7 +148,65 @@ foam.CLASS({
       name: 'collectBatches',
       type: 'List',
       args: 'Context x',
-      javaCode: `return ((DataCrawler) getCrawler()).collect(x);`
+      javaCode: `
+        String[] explicit = getItems();
+        List items = new ArrayList<>(explicit.length > 0
+          ? Arrays.asList(explicit)
+          : ((DataCrawler) getCrawler()).collect(x));
+
+        String[] exclude = getExcludePaths();
+        if ( exclude.length > 0 ) {
+          List filtered = new ArrayList<>();
+          outer:
+          for ( Object obj : items ) {
+            String path = (String) obj;
+            for ( String e : exclude ) { if ( path.contains(e) ) continue outer; }
+            filtered.add(path);
+          }
+          items = filtered;
+        }
+
+        String[] priority = getPriorityPaths();
+        if ( priority.length > 0 ) {
+          List front = new ArrayList<>();
+          List rest  = new ArrayList<>();
+          for ( Object obj : items ) {
+            String path = (String) obj;
+            boolean matched = false;
+            for ( String p : priority ) { if ( path.contains(p) ) { matched = true; break; } }
+            if ( matched ) front.add(path); else rest.add(path);
+          }
+          Collections.shuffle(rest);
+          front.addAll(rest);
+          items = front;
+        } else {
+          Collections.shuffle(items);
+        }
+
+        return filterBatches_(items);
+      `
+    },
+    {
+      name: 'filterBatches_',
+      type: 'List',
+      args: 'List items',
+      javaCode: `
+        int max = getMaxPerCategory();
+        if ( max <= 0 ) return items;
+
+        Map<String, Integer> counts = new HashMap<>();
+        List<String>         result = new ArrayList<>();
+        for ( Object obj : items ) {
+          String item  = (String) obj;
+          String cat   = categoryOf(item);
+          int    count = counts.getOrDefault(cat, 0);
+          if ( count < max ) {
+            result.add(item);
+            counts.put(cat, count + 1);
+          }
+        }
+        return result;
+      `
     },
     {
       name: 'processBatch',
@@ -97,9 +216,16 @@ foam.CLASS({
         if ( foam.util.SafetyUtil.isEmpty(content) ) return;
 
         content = anonymize_(content);
-        String   ext      = extension_(item);
-        String   language = languageOf_(ext);
-        String[] chunks   = chunk(content, ext);
+        String   category = categoryOf(item);
+        String[] chunks   = chunk(content, item);
+
+        int maxChunks = getMaxChunksPerFile();
+        if ( maxChunks > 0 && chunks.length > maxChunks ) {
+          List<String> cl = new ArrayList<>(Arrays.asList(chunks));
+          Collections.shuffle(cl);
+          chunks = cl.subList(0, maxChunks).toArray(new String[0]);
+          System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+        }
 
         LLMService llm = (LLMService) x.get("llmService");
         DAO        dao = (DAO)        x.get("datasetDAO");
@@ -108,9 +234,9 @@ foam.CLASS({
         for ( String c : chunks ) {
           if ( c.trim().length() < 80 ) continue;
           try {
-            String json = callLLM_(x, c, item, llm);
+            String json = callLLM_(x, c, item, category, llm);
             if ( json == null ) continue;
-            stored += parseAndStore_(x, json, item, language, dao);
+            stored += parseAndStore_(x, json, item, category, dao);
           } catch ( Exception e ) {
             System.err.println("[DatasetGenerator] LLM/store error for chunk in " + item + ": " + e.getMessage());
           }
@@ -123,29 +249,37 @@ foam.CLASS({
       documentation: 'Split content into chunks suitable for LLM prompting. Override per content type.',
       name: 'chunk',
       type: 'String[]',
-      args: 'String content, String ext',
+      args: 'String content, String item',
       javaCode: `throw new UnsupportedOperationException("override chunk()");`
     },
     {
-      documentation: 'Return the LLM system prompt for this dataset. Override per training domain.',
+      documentation: 'Return a category tag for the item (e.g. "js", "java"). Override per content domain.',
+      name: 'categoryOf',
+      type: 'String',
+      args: 'String item',
+      javaCode: `return "";`
+    },
+    {
+      documentation: 'Return the LLM system prompt for the given content category. Override per training domain.',
       name: 'buildSystemPrompt',
       type: 'String',
+      args: 'String category',
       javaCode: `throw new UnsupportedOperationException("override buildSystemPrompt()");`
     },
     {
       name: 'callLLM_',
       type: 'String',
-      args: 'Context x, String chunk, String item, LLMService llm',
+      args: 'Context x, String chunk, String item, String category, LLMService llm',
       javaCode: `
         LLMOptions opts = new LLMOptions();
-        opts.setSystemPrompt(buildSystemPrompt());
+        opts.setSystemPrompt(buildSystemPrompt(category));
         if ( ! getLlmModel().isEmpty() ) opts.setModel(getLlmModel());
         opts.setMaxTokens(getMaxTokens());
         opts.setTemperature(0.7f);
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(opts);
-        req.setPrompt("Source chunk from " + item + ":\\n\\n" + chunk);
+        req.setPrompt("[category: " + category + "]\\nSource chunk from " + item + ":\\n\\n" + chunk);
 
         LLMResponse resp = llm.complete(x, req);
 
@@ -162,7 +296,7 @@ foam.CLASS({
     {
       name: 'parseAndStore_',
       type: 'int',
-      args: 'Context x, String json, String sourceId, String language, DAO dao',
+      args: 'Context x, String json, String sourceId, String category, DAO dao',
       javaCode: `
         String cleaned = json.trim();
 
@@ -199,6 +333,20 @@ foam.CLASS({
 
           if ( instruction.isEmpty() || output.isEmpty() ) continue;
 
+          // Strip markdown code fence from the output field if the LLM wrapped it.
+          if ( output.startsWith("\`\`\`") ) {
+            int nl = output.indexOf('\\n');
+            if ( nl > 0 ) output = output.substring(nl + 1);
+            if ( output.endsWith("\`\`\`") ) output = output.substring(0, output.length() - 3);
+            output = output.trim();
+          }
+
+          if ( ! output.contains("{") ) {
+            System.out.println("[DatasetGenerator] Skipping prose-only sample for " + sourceId
+              + ": " + instruction.substring(0, Math.min(60, instruction.length())));
+            continue;
+          }
+
           String id = hash_(instruction + output);
           if ( dao.find(id) != null ) continue;
 
@@ -208,7 +356,7 @@ foam.CLASS({
           sample.setInput(input);
           sample.setOutput(output);
           sample.setSourceFile(sourceId);
-          sample.setLanguage(language);
+          sample.setCategory(category);
 
           dao.put(sample);
           count++;
@@ -263,27 +411,5 @@ foam.CLASS({
         }
       `
     },
-    {
-      name: 'extension_',
-      type: 'String',
-      args: 'String path',
-      javaCode: `
-        int dot = path.lastIndexOf('.');
-        return dot >= 0 ? path.substring(dot) : "";
-      `
-    },
-    {
-      name: 'languageOf_',
-      type: 'String',
-      args: 'String ext',
-      javaCode: `
-        switch ( ext ) {
-          case ".js":   return "js";
-          case ".java": return "java";
-          case ".md":   return "markdown";
-          default:      return "mixed";
-        }
-      `
-    }
   ]
 });

@@ -55,7 +55,7 @@ console.log(item.id);
 
 // String representation of the ID
 console.log(item.id.toString());
-// Output: {"orderId"=1001,"productId"=5}
+// Output: {"orderId"="1001","productId"="5"}
 ```
 
 ## Generated ID Class
@@ -76,7 +76,7 @@ console.log(id.equals(idFromString));
 // Output: true
 ```
 
-Note: The string format uses `=` instead of `:` (e.g., `{"field"=value}` not `{"field":value}`).
+Note: The string format uses `=` instead of `:` (e.g., `{"field"="value"}` not `{"field":"value"}`). `toString()` writes every value as a string and leaves out falsy values such as `0`. `FROM_STRING` also accepts unquoted numbers.
 
 ## Checking for MultiPart Keys
 

@@ -80,8 +80,8 @@ foam.CLASS({
     {
       name: 'chat',
       javaCode: `
-        JSONArray apiMessages = new JSONArray();
-        LLMOptions options = request.getOptions();
+        JSONArray  apiMessages = new JSONArray();
+        LLMOptions options     = request.getOptions();
 
         String systemPrompt = options.getSystemPrompt();
         if ( systemPrompt != null && ! systemPrompt.isEmpty() ) {
@@ -116,7 +116,7 @@ foam.CLASS({
         body.put("max_tokens", maxTokens);
         body.put("messages",   (JSONArray) messages);
 
-        if ( options.getTemperature() > 0 ) {
+        if ( options.getTemperature() > 0.0 ) {
           body.put("temperature", options.getTemperature());
         }
 

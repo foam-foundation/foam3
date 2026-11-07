@@ -202,6 +202,16 @@ foam.CLASS({
       }));
     },
 
+    async function answer() {
+      // What this block answers when an agent runs it with `ask`. The value
+      // decides if it can: a Prompt answers with what the user entered.
+      // Anything else answers with the text the block shows.
+      if ( typeof this.value?.answer === 'function' ) return this.value.answer();
+
+      await new Promise(function(c) { setTimeout(c, 40); });
+      return this.childNodes[1].element_.innerText;
+    },
+
     function setTitle(title) {
       if ( this.borderEl_ ) {
         this.borderEl_.title = title;
@@ -248,8 +258,10 @@ foam.CLASS({
     },
 
     function outputJSON(json) {
+      // An 'include' block marks its children childTransient: they are a copy
+      // of a library flow, so saving them would freeze an old copy into this flow.
       json.outputFObject_(this, this.cls_, [
-        this.FLOW_NAME, this.CMD, this.VALUE, this.FLOW_CHILDREN, this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
+        this.FLOW_NAME, this.CMD, this.VALUE, ...( this.childTransient ? [] : [ this.FLOW_CHILDREN ] ), this.REACTIONS_, this.ALLOW_LIMITED_EDIT, this.BORDER,
         this.SHOWN, ...foam.u2.StyleConfigurator.getAxiomsByClass(foam.lang.Property).filter(p => ! p.hidden && ! p.transient)
       ]);
     },

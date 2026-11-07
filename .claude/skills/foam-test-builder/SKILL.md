@@ -78,10 +78,27 @@ A `tests.jrl` loads because the pom walk reaches its directory: the directory of
 ./build.sh -W9090 server-tests:MyServerTest              # server side; -W dodges a dev server on 8080
 ./build.sh -W9090 client-tests:MyClientTest,OtherJsTest  # client side, comma-separated ids; add test-headed to watch the browser
 ./build.sh -W9090 run-tests:MyServerTest,MyClientTest    # both sides in one build
-./build.sh --log-level:INFO server-tests:MyServerTest    # keep INFO in the output; default is ERROR
+./build.sh --log-level:WARN server-tests:MyServerTest    # also print warnings; WARN, INFO or DEBUG
 ```
 
 `server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time.
+
+A server-side run prints ERROR lines only (`TestRunnerScript.setupServerSide`), so a `logger.warning` in the code under test never shows. When a test is about a warning, add `--log-level:WARN` before reading "it didn't log" as a result.
+
+### Run a group of tests in one build
+
+When several tests must always run together (one per customer, one per rule set), tag them instead of listing ids. Each `tests.jrl` row takes a suite name in `testSuite` (`src/foam/core/test/Test.js:74`):
+
+```
+p({"class":"com.acme.rules.test.WidgetRulesTest","id":"WidgetRulesTest","testSuite":"RulesRegression","description":"..."})
+```
+
+```bash
+./build.sh -W9090 server-tests --test-suite:RulesRegression          # every server test tagged RulesRegression
+./build.sh -W9090 run-tests --test-suite:RulesRegression,Smoke       # both sides, two suites
+```
+
+`--test-suite:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
 
 ## Read the result
 

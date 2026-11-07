@@ -2,11 +2,11 @@
 
 # FOAM Sinks
 
-FOAM Sinks are the destination objects that receive and process data from DAO (Data Access Object) queries. They implement a streaming architecture where data flows from a source DAO through the `select()` operation to a Sink that accumulates, transforms, or processes the results [1](#0-0) .
+FOAM Sinks are the destination objects that receive and process data from DAO (Data Access Object) queries. They implement a streaming architecture where data flows from a source DAO through the `select()` operation to a Sink that accumulates, transforms, or processes the results.
 
 ## The Sink Interface
 
-The core `Sink` interface defines four methods for handling data streams [2](#0-1) :
+The core `Sink` interface defines four methods for handling data streams:
 
 ```javascript
 interface Sink {
@@ -17,16 +17,16 @@ interface Sink {
 }
 ```
 
-The `sub` parameter is a `Detachable` subscription that lets sinks stop receiving data by calling `sub.detach()` [3](#0-2) .
+The `sub` parameter is a `Detachable` subscription that lets sinks stop receiving data by calling `sub.detach()`.
 
 ## Source-to-Sink Architecture
 
 FOAM's query system follows a "source-to-sink" pattern where:
 - **Source**: The DAO containing the data you're querying
 - **Sink**: The destination that receives/accumulates results
-- **Flow**: `select()` streams objects from DAO to Sink [4](#0-3)
+- **Flow**: `select()` streams objects from DAO to Sink
 
-This is analogous to Unix pipes, where data flows through processing stages to an output destination [5](#0-4) .
+This is analogous to Unix pipes, where data flows through processing stages to an output destination.
 
 ## Common Built-in Sinks
 
@@ -38,8 +38,8 @@ This is analogous to Unix pipes, where data flows through processing stages to a
 | `MAX(prop)` | Finds maximum value | `.value` |
 | `MIN(prop)` | Finds minimum value | `.value` |
 | `GROUP_BY(prop, sink)` | Groups results by property | `.groups` |
-| `MAP(prop)` | Projects single property from each object | `.array` |
-| `UNIQUE(prop, sink)` | Filters distinct values | — | [6](#0-5)
+| `MAP(prop)` | Projects single property from each object | `.delegate.array` |
+| `UNIQUE(prop, sink)` | Filters distinct values | — |
 
 ### Usage Examples
 
@@ -56,11 +56,11 @@ console.log(count.value);
 dao.select(GROUP_BY(MyModel.CATEGORY)).then(sink => {
   console.log(sink.groups);
 });
-``` [7](#0-6)
+```
 
 ## Sink Delegation
 
-Sinks can be composed through delegation, where one sink processes results and passes them to another sink for further processing [8](#0-7) :
+Sinks can be composed through delegation, where one sink processes results and passes them to another sink for further processing:
 
 ```javascript
 // Filter → Transform → Collect
@@ -92,17 +92,17 @@ foam.CLASS({
     }
   ]
 });
-``` [9](#0-8)
+```
 
-For cross-platform sinks, provide both JavaScript and Java implementations to enable server-side execution, which reduces network traffic by processing data where it resides [10](#0-9) .
+For cross-platform sinks, provide both JavaScript and Java implementations to enable server-side execution, which reduces network traffic by processing data where it resides.
 
 ## Specialized Sinks
 
 FOAM includes specialized sinks for specific use cases:
-- `FnSink` - Converts all sink events to calls on a single function [11](#0-10)
-- `OrderedSink` - Sorts results before delegating to another sink [12](#0-11)
-- `NullSink` - Do-nothing sink (Null Pattern) [13](#0-12)
-- `Sequence` - Executes multiple sinks in sequence [14](#0-13)
+- `FnSink` - Converts all sink events to calls on a single function
+- `OrderedSink` - Sorts results before delegating to another sink
+- `NullSink` - Do-nothing sink (Null Pattern)
+- `Sequence` - Executes multiple sinks in sequence
 
 ## Notes
 

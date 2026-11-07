@@ -327,19 +327,24 @@ resolves each argument against it — `firstName` → `this.firstName`, `lastNam
 either changes. In the basics that object was a `person`; inside a view's `render()` it's the
 view, so the dependencies are the view's own properties.
 
-Used with `add()`, a computed slot re-renders its content on every dependency change — the
-declarative alternative to imperative DOM updates:
+Used with `add()`, a computed slot re-renders its value as text on every dependency change —
+the declarative alternative to imperative DOM updates:
 
 ```javascript
-this.add(this.slot(function(items) {
-  return this.E().forEach(items, function(item) {
-    this.start('div').add(item.name).end();
-  });
+this.add(this.slot(function(firstName, lastName) {
+  return firstName + ' ' + lastName;   // the returned value is displayed
 }));
 ```
 
-`this.E()` makes a fresh element (a `<span>` by default). Inside a `slot()` callback you
-can't append to the outer element chain, so you build a tree on a new element and return it.
+To build *elements* from the dependencies, don't return an element from a `slot()` callback.
+Pass a function to `dynamic()` and add the content through `this` instead; the return value is
+ignored:
+
+```javascript
+this.add(this.dynamic(function(items) {
+  items.forEach(item => this.start('div').add(item.name).end());
+}));
+```
 
 Since the argument names *are* the dependencies, this is where the [deep chains](#composition-deep-slot-chains)
 above earn their keep: to depend on a *nested* value, name the argument with the full
@@ -403,7 +408,7 @@ this.onDetach(this.data$.sub(this.onDataChange));
 this.onDetach(this.a$.linkFrom(this.b$));   // links return a Detachable too
 ```
 
-`element.detach()` cancels every `onDetach`-registered subscription in O(1). In view classes,
+`element.detach()` cancels every `onDetach`-registered subscription. In view classes,
 prefer a declarative `listeners:` axiom over a raw `.sub()` in `render()` — it auto-detaches
 and survives re-renders.
 

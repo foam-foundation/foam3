@@ -41,7 +41,7 @@ foam.CLASS({
   imports: [
     'document',
     'loginSuccess?',
-    'setInterval'
+    'setTimeout'
   ],
 
   implements: [ 'foam.mlang.Expressions' ],
@@ -78,9 +78,9 @@ foam.CLASS({
         // The PromisedDAO resolves as our delegate when the cache is ready to use
         return this.PromisedDAO.create({
           promise: (async function() {
-            console.group('Loading Cache, ignore Missing required import messages');
+//            console.group('Loading Cache, ignore Missing required import messages');
             var a = await src.select();
-            console.groupEnd();
+//            console.groupEnd();
             await cache.removeAll();
             a.array.forEach(o => cache.put(o));
             return cache;
@@ -89,9 +89,25 @@ foam.CLASS({
       }
     },
     {
-      class: 'Int',
+      class: 'Long',
       name: 'pollingInterval',
       units: 'ms'
+    },
+    {
+      class: 'Long',
+      name: 'maxPollingInterval',
+      units: 'ms',
+      expression: function(pollingInterval) { return pollingInterval; }
+    },
+    {
+      class: 'Long',
+      name: 'nextPollingInterval',
+      hidden: true,
+      transient: true,
+      factory: function() { return this.pollingInterval; },
+      preSet: function(o, n) {
+        return Math.max(this.pollingInterval, Math.min(this.maxPollingInterval, n));
+      }
     },
     {
       class: 'FObjectProperty',
@@ -116,7 +132,7 @@ foam.CLASS({
       }}));
 
       if ( this.pollingInterval > 0 ) {
-        this.setInterval(this.poll, this.pollingInterval);
+        this.setTimeout(this.poll, this.nextPollingInterval);
       }
     },
 
@@ -151,9 +167,12 @@ foam.CLASS({
     function cmd_(x, obj) {
       if ( foam.dao.DAO.PURGE_CMD === obj ) {
         this.onSrcReset();
-      } else if ( this.PurgeRecordCmd.isInstance(obj) ) {
+        return true;
+      }
+      if ( this.PurgeRecordCmd.isInstance(obj) ) {
         // REVIEW: this.cache is a dao not object, need to call dao.remove(obj)?
         delete this.cache[obj.id];
+        return true;
       }
 
       return this.src.cmd_(x, obj);
@@ -164,6 +183,7 @@ foam.CLASS({
     /** Keeps the cache in sync with changes from the source.
       @private */
     function onSrcPut(obj) {
+      this.nextPollingInterval = undefined;
       this.delegate.put(obj);
     },
 
@@ -183,7 +203,7 @@ foam.CLASS({
     },
 
     /** Polls updates from the source. */
-    function poll() {
+    async function poll() {
       // No need to update if the tab is hidden
       if ( this.document.hidden ) return;
 
@@ -191,7 +211,7 @@ foam.CLASS({
 
       var self = this;
 
-      self.delegate
+      await self.delegate
         .orderBy(this.DESC(self.pollingProperty))
         .limit(1)
         .select().then(function(data) {
@@ -201,8 +221,13 @@ foam.CLASS({
               self.src.where(self.GT(self.pollingProperty, self.pollingProperty.f(data.array[0]))) :
               self.src ;
 
-          dao.select(self.ProxySink.create({delegate: {put: self.onSrcPut}}));
+          return dao.select(self.ProxySink.create({delegate: {put: self.onSrcPut}}));
         });
+
+      if ( self.pollingInterval > 0 ) {
+        self.setTimeout(self.poll, self.nextPollingInterval);
+        self.nextPollingInterval = 2 * self.nextPollingInterval;
+      }
     }
   ]
 });

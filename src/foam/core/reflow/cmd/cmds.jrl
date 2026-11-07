@@ -1,21 +1,22 @@
 p({"class":"foam.core.reflow.cmd.Cells", "id": "cells", "icon": "/images/matrix.svg", permissionRequired: true })
-p({"class":"foam.core.reflow.cmd.Clear", "id": "clear"})
-p({"class":"foam.core.reflow.cmd.DAO", "id": "dao", "icon": "database"})
+p({"class":"foam.core.reflow.cmd.Clear", "id": "clear", keywords: ["nollm"]})
+p({"class":"foam.core.reflow.cmd.DAO", "id": "dao", "icon": "database", keywords: ["nollm"]})
 p({"class":"foam.core.reflow.cmd.From", "id": "FROM", "icon": "/images/ic-search.svg", permissionRequired: true})
 p({"class":"foam.core.reflow.cmd.DAOCreate", "id": "add", "icon": "database", linkable: false})
-p({"class":"foam.core.reflow.cmd.DAOS", "id": "daos", "icon": "database"})
+p({"class":"foam.core.reflow.cmd.DAOS", "id": "daos", "icon": "database", keywords: ["nollm"]})
 p({"class":"foam.core.reflow.cmd.Describe", "id": "describe", "icon": "documentation", linkable: false})
-p({"class":"foam.core.reflow.cmd.Flows", "id": "flows", "icon": "flow"})
-p({"class":"foam.core.reflow.cmd.Help", "id": "help", "icon": "documentation"})
+p({"class":"foam.core.reflow.cmd.Flows", "id": "flows", "icon": "flow", keywords: ["nollm"]})
+p({"class":"foam.core.reflow.cmd.Help", "id": "help", keywords: ["nollm"], "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.HelpFunctions", "id": "helpFn", "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.History", "id": "history", "icon": "history"})
-p({"class":"foam.core.reflow.cmd.Load", "id": "load", "icon": "flow", linkable: false})
+p({"class":"foam.core.reflow.cmd.Include", "id": "include", "icon": "flow", linkable: false})
+p({"class":"foam.core.reflow.cmd.Load", "id": "load", "icon": "flow", keywords: ["nollm"], linkable: false})
 p({"class":"foam.core.reflow.cmd.MQLHelp", "id": "helpMQL", "icon": "documentation"})
 p({"class":"foam.core.reflow.cmd.Models", "id": "models", "icon": "/images/modeling.svg"})
 // p({"class":"foam.core.reflow.cmd.Quote", "id": "quote", linkable: false})
-p({"class":"foam.core.reflow.cmd.Save", "id": "save"})
-p({"class":"foam.core.reflow.cmd.Login", "id": "login", "icon": "/images/key.svg"})
-p({"class":"foam.core.reflow.cmd.Services", "id": "services", "icon": "/images/lightning.svg", permissionRequired: true })
+p({"class":"foam.core.reflow.cmd.Save", "id": "save", keywords: ["nollm"]})
+p({"class":"foam.core.reflow.cmd.Login", "id": "login", keywords: ["nollm"], "icon": "/images/key.svg"})
+p({"class":"foam.core.reflow.cmd.Services", "id": "services", keywords: ["nollm"], "icon": "/images/lightning.svg", permissionRequired: true })
 p({
   "class":"foam.core.reflow.cmd.Command",
   "id": "clock",
@@ -91,6 +92,7 @@ p({
   "id": "doc",
   "description": "Document rich text block",
   "icon": "/images/file-icon.svg",
+  "keywords": ["nollm"],
   "script": "addValue(foam.core.reflow.Doc.create({richText: args.join(' ')}, this));"
 })
 p({
@@ -220,7 +222,7 @@ p({
 p({
   "class":"foam.core.reflow.cmd.Input",
   "id": "input",
-  "description": "Input from user or URL parameter",
+  "description": "Input from user or URL parameter: input(label, type | [options] | { options, view, defaultValue, urlParameter, blocking })",
   "icon": "input"
 })
 

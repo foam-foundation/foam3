@@ -31,7 +31,7 @@ Creating a user, that would be associated with a session, in turn, used by the D
       user.setLifecycleState(LifecycleState.ACTIVE);
       user = (User) ((DAO)x.get("userDAO")).put(user);
 
-Creating a session, that a DIG client would use. 
+Creating a session, that a DIG client would use.
 
     Session session = new Session();
       session.setUserId(user.getId());
@@ -42,16 +42,15 @@ NOTE: DIG also supports creating a session via SUGAR (externally) if required.
 
 - see `DIG.createSession`
 
-DIG, on receipt of a non-200 HTML response code will throw a `FOAMException`.
+DIG's DAO methods (`find`, `put`), on receipt of a non-200 HTTP response code with a text body, will throw a `FOAMException`. `submit` does not throw; check `getLastHttpResponseCode()`.
 
 Additionally, permissions, capabilities, ... anything needed to prepare the test environment can be setup with the supplied test context.
 
 Acquiring a DIG client
 
     DIG fooClient = new DIG.Builder(x)
-      .setDaoKey("fooDAO')
+      .setDaoKey("fooDAO")
       .setSessionId(session.getId())
-      .setConnectionTimeout(getConnectionTimeout())
       .setRequestTimeout(getRequestTimeout())
       .build();
 

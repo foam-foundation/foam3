@@ -8,6 +8,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - `start('div')` where `start()` is the same? `addClass(this.myClass())` where `addClass()` is the same? Grep both; they hide in plain sight.
 - Any other restated default? (`implements Expressions` on a View, `value: false`, `after/async: false`, `factory: () => []` on an Array, `.select(new ArraySink())`)
 - A one-liner for this block? (`tag`, `show`, `enableClass`, `copyFrom`, `IN`)
+- A value already in hand (class, object, id) looked up again through a wrapper or lookup instead of used directly?
 - A class with this job already exists? Extended, refined, or paralleled?
 - Every hunk traces to the ticket? No reformat, rename, or second feature riding along?
 - Any `console.log`, `println`, `debugger`, `///`, or commented-out block?
@@ -47,6 +48,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 ## 6. Java server
 - An allocation (`new`, `Builder`, `substring`, `SimpleDateFormat`, collection copy) on a per-row path?
 - A shared collection or counter without synchronization? `notify()`?
+- A `compute`, CAS loop, or lock that closes a race whose only cost is an extra equal copy, with no number for that cost?
 - `+` inside a log call? "error" in an error log? A payload at debug?
 - A catch that neither logs nor rethrows? A rethrow without the cause?
 - A setter on a DAO result without `fclone()`? `setX(null)` without `clearX()`?
@@ -80,6 +82,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - An early return that skips work silently? An interface default that fails open?
 - A hand-rolled timer where PM exists? A codegen hook beside one that already receives the value?
 - A perf claim without a like-for-like measurement?
+- A bounded, lock-free, or special-cased structure with no measurement against the plain version it replaces? A special case with no test that fails without it?
 
 ## 10. Tests
 - Test files under `test/` with `flags: 'test'` on the pom entry?

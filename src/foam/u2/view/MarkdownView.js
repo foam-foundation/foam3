@@ -42,6 +42,27 @@ foam.CLASS({
       margin: 1rem 0 0 0;
       border: 1px solid;
     }
+    /* The app-wide reset makes every img a block, which pushed a button icon
+       in "Click the [icon] button" onto a line of its own. */
+    << .mdParagraph img {
+      display: inline;
+      vertical-align: middle;
+    }
+    /* Screenshots are taken on high-density screens, often 1600px or wider;
+       at full size one fills the page and the text around it is lost. */
+    << img {
+      max-width: min(100%, 800px);
+    }
+    /* A tab set in a document reads as one card, so its content is not
+       mistaken for the text that follows it. */
+    << .foam-u2-Tabs {
+      border: 1px solid $borderLight;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    << .foam-u2-Tabs-content {
+      padding: 16px;
+    }
   `,
 
   grammars: [
@@ -91,7 +112,8 @@ foam.CLASS({
             )
           ),
 
-          htmlTagName: repeat(alt(range('0','9'), range('a', 'z')), null, 1),
+          // SVG tag names are camel case, e.g. <linearGradient>.
+          htmlTagName: repeat(alt(range('0','9'), range('a', 'z'), range('A', 'Z')), null, 1),
 
           htmlAttributes: repeat(seq(
             repeat(chars(' \t')),
@@ -140,8 +162,10 @@ foam.CLASS({
             repeat('_', null, 3)
           ),
 
-          blockquote: repeat(seq1(1,
-            '> ',
+          // A bare ">" line is the blank line between two paragraphs of one quote.
+          blockquote: repeat(seq1(2,
+            '>',
+            optional(' '),
             str(repeat(notChars('\n'))),
           ), '\n', 1),
 
@@ -246,11 +270,16 @@ foam.CLASS({
             ')'
           ),
 
+          // The target may hold one pair of parentheses, so a link can name a
+          // flow such as [see here](Client Programs (DOC)).
           link: seq(
             '[',
               str(repeat(notChars(']'))),
             '](',
-              str(repeat(notChars(')'))),
+              str(repeat(alt(
+                str(seq('(', str(repeat(notChars('()\n'))), ')')),
+                notChars('()\n')
+              ))),
             ')'
           ),
 
@@ -313,9 +342,11 @@ foam.CLASS({
 
             if ( attributes.style ) {
               let style = {};
+              // Split each declaration at its first colon only, so a value
+              // such as url(http://x/a.png) keeps the colons inside it.
               attributes.style.split(';').forEach(s => {
-                let p = s.split(':');
-                style[p[0]] = p[1];
+                let i = s.indexOf(':');
+                if ( i != -1 ) style[s.substring(0, i).trim()] = s.substring(i + 1).trim();
               });
               e.style(style);
             }
@@ -379,7 +410,11 @@ foam.CLASS({
         },
 
         function blockquote(v) {
-          return function() { this.start('blockquote').add(v.join('\n')); }
+          // A quote holds markdown like the page around it: **bold**, links, images.
+          let fs = this.markdownGrammar.parseString(v.join('\n') + '\n') || [];
+          return function() {
+            this.start('blockquote').call(function() { fs.forEach(f => this.call(f)); });
+          };
         },
 
         function unorderedList(v) {
@@ -408,7 +443,12 @@ foam.CLASS({
         },
 
         function table(v) {
-          let headers = v[0], rows = v[2];
+          // Header cells take inline markdown like body cells: | **Type** | shows bold, not asterisks.
+          let inline  = this.markdownGrammar.getSymParser('inlineContent');
+          let headers = v[0].map(h => inline.parseString(h.trim()) || function() {}), rows = v[2];
+          // A header row of empty cells means the table has no header, as in a
+          // two-column list of terms and definitions: | | |
+          let noHeader = v[0].every(h => ! h.trim());
 
           let alignments = v[1].map(s => {
             s = s.trim();
@@ -419,12 +459,16 @@ foam.CLASS({
           });
 
           return function render(el) {
-            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8}).start('thead')
-              .start('tr')
-                .forEach(headers, function(h, i) {
-                  this.start('th').style(alignments[i]).add(h.trim()).end();
-                })
-              .end().end()
+            this.start('table').attrs({border: '1px', cellspacing: 0, cellpadding: 8})
+              .callIf(! noHeader, function() {
+                this.start('thead')
+                  .start('tr')
+                    .forEach(headers, function(h, i) {
+                      this.start('th').style(alignments[i]).call(h).end();
+                    })
+                  .end()
+                .end();
+              })
               .start('tbody')
                 .forEach(rows, function(row) {
                   this.start('tr').forEach(row, function (cell, i) {
@@ -488,7 +532,10 @@ foam.CLASS({
           // case -- so parse it. A single line stays plain text, or <b>x</b>
           // would render its text as a paragraph. An element with an innerText
           // property, like <example>, takes its content as source text.
-          let fs = v.indexOf('\n') != -1 && this.markdownGrammar.parseString(v);
+          // A newline with nothing after it is only the line break before the
+          // closing tag: in "<h1>The <x>R</x>eactive documents.\n</h1>" the
+          // last piece, " documents.\n", stays text in the heading's line.
+          let fs = /\n\s*\S/.test(v) && this.markdownGrammar.parseString(v);
 
           return function() {
             if ( ! fs || this.cls_.getAxiomByName('innerText') ) this.add(v);

@@ -10,3 +10,7 @@ p({
   class: "foam.core.dig.test.DigCsvDriverTest",
   id:"DigCsvDriverTest"
 })
+p({
+  class: "foam.core.dig.test.DigStreamingOutputTest",
+  id:"DigStreamingOutputTest"
+})

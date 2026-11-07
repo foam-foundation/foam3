@@ -131,7 +131,7 @@ foam.CLASS({
       size: 'SMALL',
       code: async function(X) {
         // Create a url to the License
-        const url = new URL(window.location.href);
+        const url = new URL(X.window.location.href);
         X.window.history.pushState({}, '', url);
         X.window.params = undefined;
 

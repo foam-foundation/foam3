@@ -6,9 +6,9 @@
 
 `DateTimeUTC` is a FOAM3 property type that handles date-time values with consistent UTC timezone treatment. It ensures all datetime values are stored, parsed, and displayed in UTC, eliminating timezone ambiguity across users and servers.
 
-**Location**: `foam3/src/foam/lang/types.js:302-343`
-**Extends**: `foam.lang.DateTime` (types.js:305)
-**Java Type**: `java.util.Date` (defined in refinement at `foam3/src/foam/java/refinements.js:1518-1551`)
+**Location**: `foam3/src/foam/lang/types.js`
+**Extends**: `foam.lang.DateTime`
+**Java Type**: `java.util.Date` (inherited from the `DateTimeJavaRefinement` of `foam.lang.DateTime` in `foam3/src/foam/java/refinements.js`)
 **Related Utilities**:
 - `foam3/src/foam/util/DateUtil.js` - Main utility class with parsing and formatting methods
 - `foam3/src/foam/parse/DateParser.js` - Grammar-based parser supporting multiple date/datetime formats
@@ -21,7 +21,7 @@ DateTimeUTC provides three core guarantees:
 
 1. **UTC Storage** - All values stored as UTC timestamps internally
 2. **UTC Parsing** - String inputs always interpreted as UTC (not local timezone) using `DateUtil.parseDateTimeUTC()`
-3. **UTC Display** - Values always formatted in UTC timezone using `DateUtil.format(date, timeFirst, 'UTC')`
+3. **UTC Display** - Values always formatted in UTC timezone using `DateUtil.formatWithTimeControl(date, timeFirst, 'UTC')`
 
 This eliminates timezone-related bugs where the same datetime appears differently to users in different timezones.
 
@@ -32,7 +32,7 @@ This eliminates timezone-related bugs where the same datetime appears differentl
 | Property Type | String Parsing | Time Component | Normalization | Use Case |
 |--------------|----------------|----------------|---------------|----------|
 | **Date** | Local timezone | Ignored (sets to noon) | Noon UTC | Birth dates, deadlines |
-| **DateTime** | Native JS parser | Preserved as-is | None (local) | User-local events |
+| **DateTime** | `DateParser`, local timezone | Preserved as-is | None (local) | User-local events |
 | **DateTimeUTC** | Forced UTC | Preserved in UTC | All UTC | Logs, transactions, API timestamps |
 
 **What "sets to noon" means for a `Date`.** The adapt rebuilds every value as noon UTC of the value's **local** calendar day: `new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12))` (`src/foam/lang/types.js:242-250`). Two values on the same local day become exactly equal, and consecutive days are exactly 24 hours apart, so plain equality is a same-day test. The time of day is discarded, and a test fixture built as a stored date `+ 24h - 1ms` does not stay on the same day: it lands on the next day's noon. Build same-day fixtures from the same timestamp and next-day fixtures with exactly `+ 24h`. Use `DateTime` or `DateTimeUTC` when the instant matters.
@@ -68,7 +68,7 @@ DateTimeUTC uses `foam.util.DateUtil.parseDateTimeUTC()` which delegates to `foa
 - **Formats Supported**:
   - ISO: `2024-03-15`, `2024/03/15`, `20240315`
   - US: `03/15/2024`, `03-15-2024`, `03152024`
-  - Short Year: `24-03-15`, `24/03/15`, `240315` (2-digit year with sliding window: 50 years back, 50 forward from current year)
+  - Short Year: `24-03-15`, `24/03/15`, `240315` (2-digit year with a fixed pivot: `00`-`49` → 2000-2049, `50`-`99` → 1950-1999)
 
 ### 5. String with Timezone Information
 - **Behavior**: Timezone offset is parsed and converted to UTC
@@ -83,9 +83,9 @@ DateTimeUTC uses `foam.util.DateUtil.parseDateTimeUTC()` which delegates to `foa
 
 ## Output Formatting
 
-DateTimeUTC always formats in UTC timezone via `foam.util.DateUtil.format(date, timeFirst, 'UTC')`:
+DateTimeUTC always formats in UTC timezone via `foam.util.DateUtil.formatWithTimeControl(date, timeFirst, 'UTC')`. The property's `format(val, timeFirst = false)` defaults `timeFirst` to `false`, so it includes the time unless `null` is passed. The examples below are the English form; in the browser the date and time follow the client locale:
 
-- **Date only**: `"Mar 15, 2024"` (when `timeFirst` is `null` or `undefined`)
+- **Date only**: `"Mar 15, 2024"` (when `timeFirst` is `null`)
 - **Date with time (time last)**: `"Mar 15, 2024 14:30:00"` (when `timeFirst` is `false`)
 - **Time first**: `"14:30:00 Mar 15, 2024"` (when `timeFirst` is `true`)
 

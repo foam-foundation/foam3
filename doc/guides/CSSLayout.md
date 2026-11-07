@@ -16,10 +16,10 @@ A class's `css:` axiom is not installed when the class is defined. It wraps the 
 
 There is no CSS parser in this path. Two regular-expression replacements run over the raw text:
 
-1. **`<<` becomes the class selector** (`CSS.js:115-125`). `<<` followed by a name character becomes `.<css-class>-<rest>`; any other `<<` becomes `.<css-class>`. So for `foam.u2.demo.Card`, `<<title` is `.foam-u2-demo-Card-title`. `^` is the older spelling of the same shorthand and is still replaced the same way; it is deprecated, and FOAM stops replacing it on 2027-06-30 (the LSP marks each one with a hint). To switch them in your own source, run `node foam3/tools/portCSSSelf.js --write <dir>`; without `--write` it only reports what it would change.
+1. **`<<` becomes the class selector** (`CSS.js:115-125`). `<<` followed by a name character becomes `.<css-class>-<rest>`; any other `<<` becomes `.<css-class>`. So for `foam.u2.dialog.Popup`, `<<inner` is `.foam-u2-dialog-Popup-inner`. `^` is the older spelling of the same shorthand and is still replaced the same way; it is deprecated, and FOAM stops replacing it on 2027-06-30 (the LSP marks each one with a hint). To switch them in your own source, run `node foam3/tools/portCSSSelf.js --write <dir>`; without `--write` it only reports what it would change.
 2. **`$name` becomes the token value**, with the original name kept in a comment: `color: $textDefault` becomes `color: /*$textDefault*/ <value>` (`src/foam/lang/stdlib.js:1374-1383`). A token that resolves nowhere becomes `/* failed token replacement <name>, <class>*/` (`stdlib.js:1323`), which leaves the declaration with no value, so the browser drops it and nothing is logged. `CSSAuditTest` reports these as unknown tokens, with a did-you-mean (`src/foam/core/theme/test/CSSAuditTest.js:1218`).
 
-**The `^` rewrite does not know about attribute selectors.** `[class^="btn"]` ("class starts with btn") becomes `[class.foam-u2-demo-Card="btn"]`, which is not a valid selector. The browser drops a rule whose selector list holds one invalid selector, so every other selector in that rule loses its styles too, not only the attribute one. FOAM's own CSS grammar test records the rewrite: `[class^=z]: the ^ of ^= is a caret with inAttr (FOAM still rewrites it)` (`src/foam/u2/parse/test/CSSParserTest.js:326`). Writing `<<` for the class does not help yet: the same replacement still rewrites every `^`, so until `^` stops being replaced, put a class on the elements you want and select that class instead. After that date, `<<` for the class plus a plain `[class^="btn"]` works.
+**The `^` rewrite does not know about attribute selectors.** `[class^="btn"]` ("class starts with btn") becomes `[class.foam-u2-dialog-Popup="btn"]`, which is not a valid selector. The browser drops a rule whose selector list holds one invalid selector, so every other selector in that rule loses its styles too, not only the attribute one. FOAM's own CSS grammar test records the rewrite: `[class^=z]: the ^ of ^= is a caret with inAttr (FOAM still rewrites it)` (`src/foam/u2/parse/test/CSSParserTest.js:326`). Writing `<<` for the class does not help yet: the same replacement still rewrites every `^`, so until `^` stops being replaced, put a class on the elements you want and select that class instead. After that date, `<<` for the class plus a plain `[class^="btn"]` works.
 
 ## 3. Which box scrolls
 
@@ -33,12 +33,12 @@ A box scrolls only when its content is taller than **its own** height limit. A b
 
 Break any one and the card grows until a capped ancestor scrolls everything, header included.
 
-**When the limit must live on an outer wrapper.** `foam.u2.md.OverlayDropdown` sets `max-height` and `overflow-y: auto` on its own element (`src/foam/u2/md/OverlayDropdown.js:187-188`), so whatever you put inside it scrolls as one piece. The column picker keeps its search box pinned by making the dropdown a flex column and giving its own container and list `min-height: 0` (`src/foam/u2/view/EditColumnsView.js:44-59`):
+**When the limit must live on an outer wrapper.** `foam.u2.md.OverlayDropdown` sets `max-height` and `overflow-y: auto` on its own element (`src/foam/u2/md/OverlayDropdown.js:195-196`), so whatever you put inside it scrolls as one piece. The column picker keeps its search box pinned by making the dropdown a flex column and giving its own container and list `min-height: 0` (`src/foam/u2/view/EditColumnsView.js:44-59`):
 
 ```css
-^overlay .foam-u2-md-OverlayDropdown { display: flex; flex-direction: column; }
-^container { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-^container .foam-u2-view-ColumnConfigPropView-colContainer { min-height: 0; overflow-y: auto; }
+<<overlay .foam-u2-md-OverlayDropdown { display: flex; flex-direction: column; }
+<<container { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+<<container .foam-u2-view-ColumnConfigPropView-colContainer { min-height: 0; overflow-y: auto; }
 ```
 
 **Why sticky is not the fix.** `position: sticky` sticks relative to the nearest ancestor that scrolls. Inside a box that grew to fit its content, nothing scrolls at that level, so the header has nothing to stick to.

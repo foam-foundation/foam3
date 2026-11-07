@@ -46,6 +46,10 @@ foam.CLASS({
     },
 
     async function chat(x, request) {
+      // A caller with its own history already sends its earlier messages;
+      // adding ours would send each of them twice.
+      if ( request.options && request.options.stateless ) return this.delegate.chat(x, request);
+
       var i;
       for ( i = 0; i < request.messages.length; i++ ) this.history.push(request.messages[i]);
 

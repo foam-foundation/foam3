@@ -101,7 +101,7 @@ p({
       "of": "foam.core.notification.Notification",
       "cache": true,
       "pollingInterval": 30000,
-      "maxPollingInterval": 1800000,
+      "maxPollingInterval": 300000,
       "pollingProperty": {
         "class":"__Property__",
         "forClass_":"foam.core.notification.Notification",
@@ -109,7 +109,6 @@ p({
       },
       "ttlPurgeTime": 0,
       "ttlSelectPurgeTime": 0,
-      "refreshSessionTimer": false,
       "decorators": [
         {
           "class":"foam.core.notification.ToastNotificationDAO"

@@ -27,7 +27,7 @@ Two admin menus come with foam3: **Themes - All** (`admin.theme-all`, the Theme 
 `foam.core.theme.Themes.findTheme(x)` decides, on the client and on the server:
 
 1. **Domain.** Look up the page's hostname in `themeDomainDAO`; fall back to the `localhost` row. Its `theme` id must name an **enabled** Theme.
-2. **Spid.** Once a user is logged in, walk their spid from most to least specific (`acme.eu` → `acme` → `''`) and take the first enabled Theme with that `spid`.
+2. **Spid.** Once a user is logged in, walk their spid from most to least specific (`acme.eu` → `acme`; an empty spid is never queried) and take the first enabled Theme with that `spid`.
 
 Group and user theme merging exist in the code but are switched off (`if ( false && ... )`), so today it is domain first, then spid.
 

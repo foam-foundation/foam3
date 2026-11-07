@@ -32,7 +32,7 @@ persisted as rows in `credentialDAO`.
 
 `foam.core.auth.Credential` is the root of all credentials.
 
-It mixes in **`KeyStoreAware`**, which gives every credential two things:
+It implements **`KeyStoreAware`**, which gives every credential two things:
 
 - **`vault`** — the name of a `CSpec` service implementing `KeyStoreManager`.
 - **`resolveSecret(x, secretId)`** — if `vault` is set, delegates to `vault.getSecret(x, secretId)`;
@@ -49,6 +49,7 @@ Base properties:
 | `type` | Derived, read-only — the credential's class name |
 | `enabled` | Boolean, defaults `true` |
 | `serviceName` | Human-readable label for the service this authenticates to |
+| `username` / `password` | For username/password schemes; read the password through `getPasswordSecret(x)` |
 | `vault` | CSpec name of the vault; empty means resolve as literal |
 
 ## APIKeyCredential
@@ -81,12 +82,11 @@ fires transparently.
 
 ## The credential family
 
-Subclasses of `Credential` specialize by auth scheme. `APIKeyCredential` sits alongside the others:
+Subclasses of `Credential` specialize by auth scheme:
 
 | Credential | Auth scheme | Distinctive fields |
 |---|---|---|
-| `BasicAuthCredential` | HTTP Basic | uses base `username` / `password` |
-| `BearerCredential` | Bearer token | `token`, `expiry` |
+| `Credential` (base) | Username / password | `username` / `password` → `getPasswordSecret(x)` |
 | **`APIKeyCredential`** | Single API key | `apiKey` → `getApiKeySecret(x)` |
 
 `APIKeyCredential` is the right base for any provider that presents one opaque string (LLM
@@ -136,7 +136,8 @@ c({ "class": "foam.core.auth.APIKeyCredential",
 | Backend | What it is | Use |
 |---|---|---|
 | **`FileKeyStoreManager`** | Reads `KEY=VALUE` lines from a plain file; hot-reloads on every `getSecret` call | Local development |
-| **`AWSSecretsManager`** | Fetches a secret string from AWS Secrets Manager | ECS / production |
+| **`AWSSecretsManager`** | Fetches a secret string from AWS Secrets Manager (not part of foam3; provided by the application) | ECS / production |
+| `StorageKeyStoreManager` | Manages a Java KeyStore file (e.g. PKCS12) | Key / certificate storage |
 | `CachingKeyStoreManager` | Decorator over another backend; memoizes results; `reload()` clears cache | Optional wrapper |
 | `EmptyKeyStoreManager` | Returns `""` — no-op | Testing |
 
@@ -172,13 +173,13 @@ p({
   "lazy":  false,
   "serviceScript": """
     return new foam.core.security.FileKeyStoreManager.Builder(x)
-      .setSecretsPath("dev-secrets.env")
+      .setSecretsPath("../var/dev-secrets.env")
       .build();
   """
 })
 ```
 
-**ECS / production** — replace the body with `AWSSecretsManager`, optionally wrapped in
+**ECS / production** — replace the body with the application's `AWSSecretsManager`, optionally wrapped in
 `CachingKeyStoreManager`:
 
 ```javascript
@@ -248,9 +249,9 @@ properties: [
 - `credentialId` names the credential row (matches the `id` field in `credentials.jrl`).
 - The `javaFactory` on `apiKey` runs **once**, lazily, on the first `getApiKey()` call. It looks up
   the credential and delegates to `getApiKeySecret(x)`, which triggers vault resolution.
-- All four providers (`ClaudeLLMService`, `OpenAILLMService`, `DeepSeekLLMService`,
-  `OllamaLLMService`) follow this pattern. DeepSeek and Ollama extend `OpenAILLMService` and
-  inherit the factory; they only override `credentialId` (and `baseURL` / `defaultModel`).
+- `ClaudeLLMService` and `OpenAILLMService` define this pattern. `DeepSeekLLMService` and
+  `OllamaLLMService` extend `OpenAILLMService` and inherit the factory: DeepSeek overrides
+  `credentialId`; Ollama runs locally without a key and only overrides `baseURL` / `defaultModel`.
 
 ---
 
@@ -274,7 +275,7 @@ c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/deepseek",
 
 // Vector / embedding providers
 // Ollama embedding runs locally — no credential needed.
-// OpenAIEmbeddingServiceImpl reuses the foam/llm/openai credential — OpenAI uses one key for both.
+// Add entries here when a cloud embedding provider (e.g. OpenAI) is introduced.
 ```
 
 ### Alias naming convention

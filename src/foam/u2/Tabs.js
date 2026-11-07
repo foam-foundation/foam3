@@ -25,6 +25,7 @@ foam.CLASS({
   properties: [
     {
       name: 'label',
+      attribute: true,
       documentation: 'Label for current tab, can be simple string or any U2 Element/ViewSpec'
     },
     {
@@ -255,4 +256,15 @@ foam.CLASS({
       align-self: flex-start;
     }
   `
+});
+
+foam.SCRIPT({
+  package: 'foam.u2',
+  name: 'TabsTagScript',
+  documentation: 'Registers tabs custom elements for use in markdown',
+
+  code: function() {
+    foam.__context__.registerElement(foam.u2.Tabs); // <tabs>
+    foam.__context__.registerElement(foam.u2.Tab);  // <tab label="...">
+  }
 });

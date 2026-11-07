@@ -128,7 +128,7 @@ foam.CLASS({
     function render() {
       this
         .start('div').addClass('person-detail')
-          .start('h2').add(this.data$.map(p => p.getFullName())).end()
+          .start('h2').add(this.data.firstName$, ' ', this.data.lastName$).end()
           .start('p').add('Email: ', this.data.email$).end()
           .start('p').add('Age: ', this.data.age$).end()
         .end();
@@ -151,7 +151,7 @@ FOAM excels in scenarios where you need to:
 - **Create true full-stack applications** where the same models work on client and server
 - **Develop enterprise software** with complex business logic and data relationships
 
-The end-to-end-to-end nature of FOAM means you can define a `User` model once and have it work identically in your React web app, your Swift iOS app, your Java Android app, and your Node.js backend—all from the same model definition.
+The end-to-end-to-end nature of FOAM means you can define a `User` model once and have it work identically in your FOAM web client, your Swift iOS app, your Java Android app, and your Java server—all from the same model definition.
 
 ## When NOT to Use FOAM
 

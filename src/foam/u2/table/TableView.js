@@ -152,7 +152,15 @@
 
     <<sortIcon {
       align-items: center;
+      color: $textSecondary;
       display: flex;
+      flex: none;
+      height: 16px;
+      width: 16px;
+    }
+
+    <<sortIconActive {
+      color: $textDefault;
     }
 
     @media (hover: hover) and (pointer: fine) {

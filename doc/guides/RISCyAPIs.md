@@ -40,7 +40,7 @@ This kind of reflection-driven generation does not need — and is actively hind
 FOAM's U2/U3 fluent builder API is deliberately RISC-y:
 
 ```javascript
-// The entire "instruction set": start, end, add, attrs, css, on, show, hide...
+// The entire "instruction set": start, end, add, attrs, style, on, show, hide...
 this.start('div').addClass('row')
   .start('label').add(prop.label).end()
   .start().add(prop.__).end()
@@ -55,7 +55,7 @@ The same principle produces the generic views that make FOAM productive:
 // Works for any FOAM model — no per-model code
 function render() {
   var self = this;
-  this.data.cls_.getAxiomsByClass(foam.core.Property).forEach(function(prop) {
+  this.data.cls_.getAxiomsByClass(foam.lang.Property).forEach(function(prop) {
     if ( prop.hidden ) return;
     self.start().add(prop.__).end();
   });
@@ -96,7 +96,7 @@ FOAM's parser library follows the same pattern. Rather than a parser-generator (
 ```javascript
 function grammar(seq, alt, repeat, str, range, chars, sym, optional) {
   return {
-    START:      sym('document'),
+    START:      sym('identifier'),
     digit:      range('0', '9'),
     letter:     alt(range('a','z'), range('A','Z')),
     number:     str(repeat(sym('digit'), null, 1)),
@@ -119,9 +119,9 @@ FOAM's declarative structure maps unusually well to how LLMs generate code. A hu
 foam.CLASS({
   name: 'Invoice',
   properties: [
-    { class: 'Enum',     name: 'status', of: 'InvoiceStatus' },
-    { class: 'Currency', name: 'amount' },
-    { class: 'Date',     name: 'dueDate' }
+    { class: 'Enum',      name: 'status', of: 'InvoiceStatus' },
+    { class: 'UnitValue', name: 'amount' },
+    { class: 'Date',      name: 'dueDate' }
   ],
   methods: [
     function isOverdue() {

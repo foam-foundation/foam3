@@ -684,7 +684,7 @@ For an `EasyDAO`, `of` has no default and must be given. Missing it logs
 `EasyDAO` that cannot work, so a served DAO always states at least its `of`.
 
 Because `client` is a string holding JSON, quote it with `"""` so the JSON's own `"` characters
-need no escaping. Many older records escape every quote on one line instead
+need no escaping. Older journals sometimes escape every quote on one line instead
 (`"{\"of\":\"foam.core.script.Script\"}"`). That parses identically but is harder to read; see
 [Section 7.1](#71-writing-strings-in-a-journal).
 
@@ -1012,8 +1012,7 @@ p({
 The recipes above are made up so that each shows one idea. The examples below are real CSpecs
 from FOAM's own `services.jrl` files, chosen so that together they use most of the options in
 [Section 4](#4-cspec-reference). Each is shown as it appears in the source and followed by an
-explanation of every field. Where the source uses the older escaped-string style, a rewritten
-version follows.
+explanation of every field.
 
 ### 7.1 Writing strings in a journal
 
@@ -1040,9 +1039,10 @@ Some other rules apply as well:
   strings back as `"""` blocks (`src/foam/lib/json/Outputter.java:99-104`). `scriptDAO` turns this
   on (`src/foam/core/script/services.jrl:16`).
 
-Many records were written before `` ` `` and `"""` were supported, so they put a whole record on one
-line and escape every quote. They still parse exactly the same. When you edit one, it's worth
-rewriting it in the multi-line style.
+Many records were written before `` ` `` and `"""` were supported, so they escaped every quote,
+often with the whole record on one line. FOAM's own `services.jrl` files have since been converted,
+but application journals may still contain the old style. It parses exactly the same. When you
+edit such a record, it's worth rewriting it with `"""`.
 
 ### 7.2 A one-line record, rewritten: `agentAuth`
 
@@ -1050,10 +1050,10 @@ rewriting it in the multi-line style.
 `src/foam/core/auth/services.jrl:62`:
 
 ```
-p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "lazyOrder":-1, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": "{\"class\":\"foam.core.auth.AgentAuthClient\",\"delegate\":{\"class\":\"foam.core.auth.ClientAgentAuthService\"}}"})
+p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "lazyOrder":-1, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": """{"class":"foam.core.auth.AgentAuthClient","delegate":{"class":"foam.core.auth.ClientAgentAuthService"}}"""})
 ```
 
-The same record, rewritten:
+The same record, rewritten with one field per line:
 
 ```
 p({
@@ -1158,7 +1158,7 @@ p({
       .setAuthorize(false)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.Group\"}"
+  "client":"""{"of":"foam.core.auth.Group"}"""
 })
 
 p({
@@ -1173,7 +1173,7 @@ p({
       .setOf(foam.core.auth.Group.getOwnClassInfo())
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.Group\"}"
+  "client":"""{"of":"foam.core.auth.Group"}"""
 })
 ```
 
@@ -1190,12 +1190,6 @@ This is the standard pattern for keeping one store behind two doors.
 - **`client` on `localGroupDAO` does nothing.** The ClientBuilder only receives served CSpecs
   ([Section 3.1](#31-the-clientbuilder)), so this `client` is never read. A new local DAO should
   leave `client` out.
-
-`groupDAO`'s client, rewritten:
-
-```
-"client":"""{ "of":"foam.core.auth.Group" }"""
-```
 
 ### 7.5 Decorator chains on both sides: `auth`
 
@@ -1396,20 +1390,7 @@ p({
   "serve":true,
   "lazyClient": false,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.auth.login.ClientLoginService\" }"
-})
-```
-
-Rewritten:
-
-```
-p({
-  "class":"foam.core.boot.CSpec",
-  "name":"clientLoginService",
-  "serve":true,
-  "lazyClient":false,
-  "authenticate":false,
-  "client":"""{ "class":"foam.core.auth.login.ClientLoginService" }"""
+  "client":"""{ "class": "foam.core.auth.login.ClientLoginService" }"""
 })
 ```
 
@@ -1444,8 +1425,25 @@ anything else. Two details affect where the error shows up:
   `local…DAO`, the first visible error may come from the service that wrapped it. Search the log
   for the inner service's name as well.
 
+### Make sure the server is running the definition you think it is
+
+Several journals can define a CSpec with the same name: the framework's `services.jrl`, an
+application or deployment `services.jrl` that overrides it, a later `services.N` generation, and
+the live `services` journal holding edits made in the GUI
+([Section 2.3](#23-generations-and-overrides)). They are merged record by record. So the CSpec the
+server actually runs may differ from the file you are editing: someone, perhaps you, may have
+overridden it in a journal loaded later.
+
+Before you debug a service's behaviour, open it in the GUI (**Admin → Services**) and read the
+merged definition the server is using. Check `serviceScript`, `serviceClass`, `service`, `client`,
+`enabled` and `lazy`. If they are not what you expect, search every `services.jrl` for the
+service's name, look in `services.0` in the deployment's journal directory, and look in the live
+`services` journal to find which record set them. Remember the override trap: a field set by an
+earlier record stays set unless a later record clears it with `""`.
+
 | Symptom | Likely cause |
 |---|---|
+| A change to a CSpec in `services.jrl` seems to be ignored | A later journal overrides the record, or a runtime edit in the `services` journal does. Compare the definition shown in **Admin → Services** with your file. |
 | `ERROR` `Creating Service,fooDAO,...` in the server log | The `serviceScript` has a BeanShell syntax or runtime error. The exception message and stack trace in the log point to it. Fix the script and restart, or edit the CSpec at runtime ([Section 5](#5-editing-cspecs-at-runtime)). |
 | `x.get("fooDAO")` is null on the server | CSpec disabled, misspelled, or the script threw. Check the CSpec's `status` / `message`, and the log for the name. |
 | `Recursive Service Factory` in the log | The service's script, directly or indirectly, calls `x.get()` on itself. |

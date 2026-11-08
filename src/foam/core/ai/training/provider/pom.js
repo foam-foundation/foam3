@@ -8,6 +8,7 @@ foam.POM({
   name: 'provider',
 
   files: [
-    { name: 'MLXTrainingJob', flags: 'js|java' }
+    { name: 'MLXTrainingJob', flags: 'js|java' },
+    { name: 'MLXEvalJob',     flags: 'js|java' }
   ]
 });

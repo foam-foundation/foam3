@@ -21,7 +21,7 @@ p({
   "serve":true,
   "authNotes":"Analytic Candlestick unauthenticated to capture events pre authentication",
   "serviceScript":"return new foam.dao.MDAO(foam.core.analytics.Candlestick.getOwnClassInfo());",
-  "client":"{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client":"""{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({
@@ -39,7 +39,7 @@ p({
       .setCluster(false)
       .build();
     """,
-  "client":"{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client":"""{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({
@@ -71,7 +71,7 @@ p({
       .setCluster(false)
       .build();
     """,
-  "client":"{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client":"""{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({
@@ -134,7 +134,7 @@ p({
       .setFm((foam.core.analytics.DAOFoldManager) x.get("pmFoldManager"))
       .build();
   """,
-  "client":"{\"of\":\"foam.core.pm.PM\", \"remoteListenerSupport\": false}"
+  "client":"""{"of":"foam.core.pm.PM", "remoteListenerSupport": false}"""
 })
 
 p({

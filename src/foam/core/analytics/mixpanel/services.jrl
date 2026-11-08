@@ -11,5 +11,5 @@ p({
       .setPm(true)
       .build();
   """,
-  "client": "{\"of\":\"foam.core.analytics.mixpanel.ServiceProviderAnalyticEventJunction\"}"
+  "client": """{"of":"foam.core.analytics.mixpanel.ServiceProviderAnalyticEventJunction"}"""
 })

@@ -11,7 +11,7 @@ p({
       .setJournalName("issues")
       .build();
   """,
-  "client": "{\"of\":\"foamdev.fit.Issue\"}"
+  "client": """{"of":"foamdev.fit.Issue"}"""
 })
 
 p({
@@ -27,7 +27,7 @@ p({
       .setJournalName("issues_foam")
       .build();
   """,
-  "client": "{\"of\":\"foamdev.fit.Issue\"}"
+  "client": """{"of":"foamdev.fit.Issue"}"""
 })
 
 p({
@@ -43,7 +43,7 @@ p({
       .setJournalName("issues_foam")
       .build();
   """,
-  "client": "{\"of\":\"foamdev.fit.Issue\"}"
+  "client": """{"of":"foamdev.fit.Issue"}"""
 })
 
 p({
@@ -51,7 +51,7 @@ p({
   "name":"issueDAO",
   "serve": true,
   "serviceScript": "return new foam.core.boot.ByServiceProviderFactory();",
-  "client": "{\"of\":\"foamdev.fit.Issue\"}"
+  "client": """{"of":"foamdev.fit.Issue"}"""
 })
 
 p({

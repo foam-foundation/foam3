@@ -42,5 +42,5 @@ p({
   "serve":true,
   "lazyClient": false,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.analytics.PostToWindow\" }"
+  "client":"""{ "class": "foam.core.analytics.PostToWindow" }"""
 })

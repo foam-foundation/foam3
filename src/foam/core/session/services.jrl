@@ -29,7 +29,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.session.Session.LAST_USED).build() })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.session.Session\"}",
+  "client": """{"of":"foam.core.session.Session"}""",
   "authNotes": "Users must have the 'service.sessionDAO' permission to access this service. Due to the highly sensitive nature of sessions, only superadmins should have permission to access this service."
 })
 
@@ -70,5 +70,5 @@ p({
       .setOf(foam.core.session.LocalSetting.getOwnClassInfo())
       .build();
   """,
-  "client":"{\"of\":\"foam.core.session.LocalSetting\", \"remoteListenerSupport\": false}"
+  "client":"""{"of":"foam.core.session.LocalSetting", "remoteListenerSupport": false}"""
 })

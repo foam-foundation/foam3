@@ -13,7 +13,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.crunch.CapabilityCategoryCapabilityJunction.SOURCE_ID, foam.core.crunch.CapabilityCategoryCapabilityJunction.TARGET_ID })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.crunch.CapabilityCategoryCapabilityJunction.TARGET_ID });
   """,
-  "client":"{\"of\":\"foam.core.crunch.CapabilityCategory\"}"
+  "client":"""{"of":"foam.core.crunch.CapabilityCategory"}"""
 })
 
 p({
@@ -76,7 +76,7 @@ p({
       .setPm(true)
       .build();
   """,
-  "client": "{\"of\":\"foam.core.crunch.CapabilityCategoryCapabilityJunction\", \"remoteListenerSupport\": false}"
+  "client": """{"of":"foam.core.crunch.CapabilityCategoryCapabilityJunction", "remoteListenerSupport": false}"""
 })
 
 p({
@@ -189,7 +189,7 @@ p({
     dao.addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.crunch.CapabilityCapabilityJunction.TARGET_ID });
     return dao;
   """,
-  "client":"{\"of\":\"foam.core.crunch.CapabilityCapabilityJunction\", \"remoteListenerSupport\": false}"
+  "client":"""{"of":"foam.core.crunch.CapabilityCapabilityJunction", "remoteListenerSupport": false}"""
 })
 
 p({
@@ -297,7 +297,7 @@ p({
       .setPm(true)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.crunch.connection.CapabilityPayload\"}"
+  "client":"""{"of":"foam.core.crunch.connection.CapabilityPayload"}"""
 })
 
 p({
@@ -319,7 +319,7 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.crunch.connection.CapabilityPayloadRecord.CREATED});
   `,
-  client: "{\"of\":\"foam.core.crunch.connection.CapabilityPayloadRecord\"}"
+  client: """{"of":"foam.core.crunch.connection.CapabilityPayloadRecord"}"""
 })
 
 p({
@@ -335,5 +335,5 @@ p({
       .setPm(true)
       .build();
   `,
-  client: "{\"of\":\"foam.core.crunch.ui.WizardState\"}"
+  client: """{"of":"foam.core.crunch.ui.WizardState"}"""
 })

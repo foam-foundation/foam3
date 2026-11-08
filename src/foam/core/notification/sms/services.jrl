@@ -33,7 +33,7 @@ p({
       .setInnerDAO((foam.dao.DAO) x.get("localSmsMessageDAO"))
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.sms.SMSMessage\"}"
+  "client":"""{"of":"foam.core.notification.sms.SMSMessage"}"""
 })
 
 p({

@@ -59,7 +59,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { foam.mlang.MLang.DESC(foam.core.analytics.Candlestick.COUNT) })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client": """{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({
@@ -85,7 +85,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { foam.mlang.MLang.DESC(foam.core.analytics.Candlestick.OPEN_VALUE_TIME) })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client": """{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({
@@ -113,7 +113,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { foam.mlang.MLang.DESC(foam.core.analytics.Candlestick.OPEN_VALUE_TIME) })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.analytics.Candlestick\"}"
+  "client": """{"of":"foam.core.analytics.Candlestick"}"""
 })
 
 p({

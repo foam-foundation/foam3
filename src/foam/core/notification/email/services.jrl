@@ -32,7 +32,7 @@ p({
       .setRuler(false)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailTemplate\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailTemplate"}"""
 })
 
 // not lazy as needed by notification system during startup.
@@ -87,7 +87,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.notification.email.EmailMessage.CREATED).build() })
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailMessage\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailMessage"}"""
 })
 
 p({
@@ -126,7 +126,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.notification.email.EmailMessage.CREATED).build() })
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailMessage\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailMessage"}"""
 })
 
 // NOTE: clustered
@@ -165,7 +165,7 @@ p({
       .setOrder(new foam.mlang.order.Comparator[] { new foam.mlang.order.Desc.Builder(x).setArg1(foam.core.notification.email.EmailMessage.CREATED).build() })
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailMessage\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailMessage"}"""
 })
 
 p({
@@ -204,7 +204,7 @@ p({
       .setJournalName("emailConfig")
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailConfig\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailConfig"}"""
 })
 
 p({
@@ -219,7 +219,7 @@ p({
       .setJournalName("emailServiceConfig")
       .build();
   """,
-  "client":"{\"of\":\"foam.core.notification.email.EmailServiceConfig\"}"
+  "client":"""{"of":"foam.core.notification.email.EmailServiceConfig"}"""
 })
 
 p({
@@ -251,7 +251,7 @@ p({
   "serve":true,
   "boxClass":"foam.core.notification.email.POP3EmailSkeleton",
   "serviceClass":"foam.core.notification.email.POP3EmailService",
-  "client":"{ \"class\":\"foam.core.notification.email.ClientPOP3EmailService\", \"delegate\": { \"class\":\"foam.box.HTTPBox\", \"url\":\"service/pop3\" } }"
+  "client":"""{ "class":"foam.core.notification.email.ClientPOP3EmailService", "delegate": { "class":"foam.box.HTTPBox", "url":"service/pop3" } }"""
 })
 
 p({

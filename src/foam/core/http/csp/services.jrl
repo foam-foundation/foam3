@@ -20,7 +20,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.http.csp.CSPDirective.ENABLED, foam.core.http.csp.CSPDirective.DOMAIN})
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.http.csp.CSPDirective.DOMAIN});
     """,
-  client: "{\"of\":\"foam.core.http.csp.CSPDirective\"}",
+  client: """{"of":"foam.core.http.csp.CSPDirective"}""",
 })
 
 p({
@@ -37,5 +37,5 @@ p({
       .setCluster(false)
       .build();
     """,
-  client: "{\"of\":\"foam.core.http.csp.CSPViolation\"}",
+  client: """{"of":"foam.core.http.csp.CSPViolation"}""",
 })

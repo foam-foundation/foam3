@@ -11,5 +11,5 @@ p({
       .build()
       .orderBy(foam.mlang.MLang.DESC(foam.dao.compaction.Compaction.ID));
   """,
-  "client": "{\"of\":\"foam.dao.compaction.Compaction\"}"
+  "client": """{"of":"foam.dao.compaction.Compaction"}"""
 })

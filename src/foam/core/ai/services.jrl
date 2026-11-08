@@ -118,6 +118,66 @@ p({
   """
 })
 
+// ── Eval DAOs ──
+// evalPromptDAO  — library of prompts with rubric items; read by MLXEvalJob before each run.
+// evalRunDAO     — one record per MLXEvalJob execution; tracks pass rate and status.
+// evalResultDAO  — per-prompt result for one run; composite key [evalRunId, promptId].
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalPromptDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalPrompt\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalPrompt.getOwnClassInfo())
+      .setSeqNo(true)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalPrompts")
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalRunDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalRun\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalRun.getOwnClassInfo())
+      .setGuid(true)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalRuns")
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalResultDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalResult\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalResult.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalResults")
+      .build();
+  """
+})
+
 // ── Vector store DAO — persisted embedding index ──
 p({
   "class":"foam.core.boot.CSpec",

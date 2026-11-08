@@ -184,6 +184,9 @@ A comprehensive LLM-oriented FOAM3 reference covering all major concepts: class 
 
 ## Backend & Services
 
+**[CORE](CORE.md)**
+FOAM's Java application server and its service registry. Explains how Boot builds the whole server from the `cSpecDAO` (only that DAO is built in), how `services.jrl` files become `services.0`, how the ClientBuilder builds the client from the same CSpecs, and gives a full reference for every CSpec option: `serviceScript`/`serviceClass`/`service`, `lazy`, `serve`, `boxClass`, `authenticate`, `client` and more.
+
 **[NanoServices](NanoServices.md)**
 Comprehensive guide to FOAM's nano-service architecture: location-agnostic service access via context DI, the Box messaging layer (Box/Envelope/RPCMessage), Stub/Skeleton RPC generation, CSpec registration, and a complete `NotificationService` example.
 

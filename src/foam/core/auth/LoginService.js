@@ -1,28 +1,28 @@
 foam.CLASS({
-    package: 'foam.core.auth',
-    name: 'LoginService',
-    documentation: 'Server only service for signing a session into a particular user',
-    imports: [
-        'foam.dao.DAO localSessionDAO',
-        'foam.core.auth.AuthService auth'
-    ],
-    methods: [
+  package: 'foam.core.auth',
+  name: 'LoginService',
+  documentation: 'Server only service for signing a session into a particular user',
+  imports: [
+    'foam.dao.DAO localSessionDAO',
+    'foam.core.auth.AuthService auth'
+  ],
+  methods: [
+    {
+      name: 'login',
+      documentation: `Helper function to reduce duplicated code.`,
+      type: 'User',
+      args: [
         {
-            name: 'login',
-            documentation: `Helper function to reduce duplicated code.`,
-            type: 'User',
-            args: [
-                {
-                    name: 'x',
-                    type: 'Context'
-                },
-                {
-                    name: 'user',
-                    type: 'foam.core.auth.User'
-                },
-            ],
-            javaThrows: ['foam.core.auth.AuthenticationException'],
-            javaCode: `
+          name: 'x',
+          type: 'Context'
+        },
+        {
+          name: 'user',
+          type: 'foam.core.auth.User'
+        },
+      ],
+      javaThrows: ['foam.core.auth.AuthenticationException'],
+      javaCode: `
       try {
         if ( user == null ) {
           throw new foam.core.auth.UserNotFoundException();
@@ -60,7 +60,7 @@ foam.CLASS({
           ((foam.core.logger.Logger) x.get("logger")).warning(msg);
         }
         getLocalSessionDAO().inX(x).put(session);
-        session.setContext(session.applyTo(session.getContext()));
+        session.setContext(session.applyTo(x));
         return user;
       } catch ( foam.core.auth.AuthenticationException e ) {
         if ( user != null &&
@@ -71,6 +71,6 @@ foam.CLASS({
         throw e;
       }
       `
-        },
-    ]
-})
+    }
+   ]
+});

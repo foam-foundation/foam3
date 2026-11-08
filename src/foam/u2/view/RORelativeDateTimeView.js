@@ -147,7 +147,8 @@ foam.CLASS({
   listeners: [
     {
       name: 'onDataChange',
-      on: [ 'this.propertyChange.data' ],
+      // smallestUnit moves the next boundary too (DAY waits for midnight).
+      on: [ 'this.propertyChange.data', 'this.propertyChange.smallestUnit' ],
       code: function() { this.schedule_(); }
     },
     {

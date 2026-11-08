@@ -63,6 +63,12 @@ foam.CLASS({
       var U = foam.time.TimeUnit;
       var t = ms => new Date(NOW + ms);
       var realWeekStart = foam.Date.weekStart_;
+      var hasWeekInfo = !! ( Intl.Locale && ( Intl.Locale.prototype.getWeekInfo ||
+        'weekInfo' in new Intl.Locale('en-US') ) );
+      x.test(realWeekStart('en-GB') === 1, 'en-GB weeks start on Monday');
+      x.test(realWeekStart('en-US') === ( hasWeekInfo ? 7 : 1 ),
+        'en-US weeks start on Sunday when the browser knows, else Monday; got ' + realWeekStart('en-US'));
+      x.test(realWeekStart('not a locale') === 1, 'a bad locale falls back to Monday');
       foam.Date.weekStart_ = () => 1;
       try {
         this.atNow(NOW, () => {
@@ -142,9 +148,11 @@ foam.CLASS({
 
       // smallestUnit, <time datetime> and the absolute title
       var vd = this.RORelativeDateTimeView.create(
-        { data: new Date(Date.now() - 3 * DAY - HOUR), smallestUnit: 'DAY' }, x);
+        { data: new Date(Date.now() - 40 * DAY), smallestUnit: 'DAY' }, x);
       vd.write();
       await wait(50);
+      x.test(foam.Date.relativeDateString(vd.data, foam.time.TimeUnit.DAY) !== foam.Date.relativeDateString(vd.data),
+        'the test date reads differently with DAY, so the next checks can fail');
       var el = vd.element_.querySelector('time') || ( vd.element_.tagName === 'TIME' && vd.element_ );
       x.test(!! el && el.getAttribute('datetime') === vd.data.toISOString(), 'draws <time datetime>');
       var timeEl = vd.childNodes.find(c => c.nodeName === 'time');
@@ -155,6 +163,9 @@ foam.CLASS({
       midnight.setHours(24, 0, 0, 0);
       var dd = vd.nextUpdateDelay_(vd.data);
       x.test(Math.abs(dd - (midnight - Date.now())) < 2000, 'DAY ticks at the next local midnight, got ' + dd);
+      var timerBefore = vd.timer_;
+      vd.clearProperty('smallestUnit');
+      x.test(vd.timer_ !== timerBefore, 'changing smallestUnit reschedules the timer');
       vd.element_.remove();
       vd.detach();
 

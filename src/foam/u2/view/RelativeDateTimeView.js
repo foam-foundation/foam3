@@ -15,23 +15,18 @@ foam.CLASS({
     for any DateTime/DateTimeUTC property where recency matters more than
     the exact timestamp:
       view: { class: 'foam.u2.view.RelativeDateTimeView' }
-    smallestUnit (a foam.time.TimeUnit: HOUR, DAY or WEEK) is passed to the
-    read view; for "today", "yesterday", "12 days ago":
+    Other create args, such as smallestUnit (a foam.time.TimeUnit: HOUR,
+    DAY or WEEK), reach the read view through ModeAltView's args; for
+    "today", "yesterday", "12 days ago":
       view: { class: 'foam.u2.view.RelativeDateTimeView', smallestUnit: 'DAY' }`,
 
   requires: [ 'foam.u2.view.RORelativeDateTimeView' ],
 
   properties: [
     {
-      class: 'Enum',
-      of: 'foam.time.TimeUnit',
-      name: 'smallestUnit',
-      documentation: 'Passed to RORelativeDateTimeView: HOUR, DAY or WEEK.'
-    },
-    {
       name: 'readView',
-      expression: function(smallestUnit) {
-        return { class: 'foam.u2.view.RORelativeDateTimeView', smallestUnit: smallestUnit };
+      factory: function() {
+        return { class: 'foam.u2.view.RORelativeDateTimeView' };
       }
     }
   ]

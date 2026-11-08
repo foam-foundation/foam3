@@ -11,16 +11,7 @@ foam.CLASS({
       name: 'login',
       documentation: `Helper function to reduce duplicated code.`,
       type: 'User',
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        },
-        {
-          name: 'user',
-          type: 'foam.core.auth.User'
-        },
-      ],
+      args: 'Context x, foam.core.auth.User user',
       javaThrows: ['foam.core.auth.AuthenticationException'],
       javaCode: `
       try {
@@ -72,5 +63,5 @@ foam.CLASS({
       }
       `
     }
-   ]
+  ]
 });

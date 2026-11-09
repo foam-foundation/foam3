@@ -24,7 +24,6 @@ foam.CLASS({
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.notification.Notification',
-    'foam.log.LogLevel',
     'foam.util.SafetyUtil',
     'foam.util.StringUtil',
     'java.time.ZoneOffset',
@@ -35,6 +34,13 @@ foam.CLASS({
   ],
 
   properties: [
+    {
+      documentation: 'Severity at or above this value will generate a notification',
+      name: 'notificationSeverity',
+      class: 'Enum',
+      of: 'foam.log.LogLevel',
+      value: 'WARN'
+    },
     {
       name: 'notificationTemplate',
       class: 'String',
@@ -53,7 +59,9 @@ foam.CLASS({
       javaCode: `
       Map args = new HashMap();
       EventRecord er = (EventRecord) obj;
-      if ( er.getSeverity() != LogLevel.ERROR ) {
+      // Below notificationSeverity, notify only when the record cleared its
+      // alarm, for example an INFO record after a raised alarm.
+      if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
         Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
         if ( alarm == null ||
              alarm.getIsActive() ) {

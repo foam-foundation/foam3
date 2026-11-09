@@ -9,11 +9,12 @@ p({
   operation: 0,
   predicate:{
     class: "foam.core.ruler.predicate.FScriptRulePredicate",
-    query: 'n.severity == foam.log.LogLevel.ERROR || n.severity == foam.log.LogLevel.INFO'
+    query: 'n.severity != foam.log.LogLevel.DEBUG'
   },
   lifecycleState:1,
   action: {
-    class: "foam.core.er.EventRecordNotificationRuleAction"
+    class: "foam.core.er.EventRecordNotificationRuleAction",
+    notificationSeverity: "WARN"
   }
 })
 

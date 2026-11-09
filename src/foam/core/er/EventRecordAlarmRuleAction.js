@@ -17,7 +17,6 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.lang.FObject',
     'foam.lang.PropertyInfo',
-    'foam.log.LogLevel',
     'static foam.mlang.MLang.EQ',
     'foam.util.SafetyUtil'
   ],
@@ -41,7 +40,7 @@ foam.CLASS({
       DAO alarmDAO = (DAO) ruler.getX().get("localAlarmDAO");
       String name = er.alarmSummary();
       Alarm alarm = (Alarm) alarmDAO.find(EQ(Alarm.NAME, name));
-      if ( er.getSeverity().getOrdinal() >= LogLevel.WARN.getOrdinal() ) {
+      if ( er.getSeverity().getOrdinal() >= getAlarmSeverity().getOrdinal() ) {
         if ( alarm == null ) {
           alarm = new Alarm(name);
           alarm.setSeverity(er.getSeverity());

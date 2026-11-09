@@ -135,9 +135,10 @@ the alarm changes state, not on every cycle:
 
 `EventRecordAlarmRuleAction` turns the alarm on for WARN or ERROR and off for
 INFO, writing to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a
-notification for an ERROR raise and for every clear, but not for a WARN raise,
-so a config that should notify on raise needs `severity` ERROR. A config with
-a severity below WARN raises no alarm.
+notification for a record at or above its `notificationSeverity` (WARN by
+default, set on the rule's action), and for a record below it that cleared
+its alarm. So with the default, both a WARN and an ERROR raise notify, and
+so does every clear. A config with a severity below WARN raises no alarm.
 
 While the alarm is on, a change of reason, such as CONGESTION to TIMEOUT, puts
 no new `EventRecord`: the alarm keeps the reason it was raised with.

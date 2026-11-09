@@ -86,12 +86,20 @@ foam.CLASS({
 
         // pack all vectors into one contiguous float[n*d] in row-major order.
         // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexIds[i].
+        // Skip any item whose vector length differs from d (mixed embedding models).
         float[]  flat = new float[n * d];
         String[] ids  = new String[n];
+        int row = 0;
         for ( int i = 0; i < n; i++ ) {
           var e = (VectorEmbedding) list.get(i);
-          System.arraycopy(e.getVector(), 0, flat, i * d, d);
-          ids[i] = e.getId();
+          if ( e.getVector().length != d ) continue;
+          System.arraycopy(e.getVector(), 0, flat, row * d, d);
+          ids[row] = e.getId();
+          row++;
+        }
+        if ( row < n ) {
+          flat = Arrays.copyOf(flat, row * d);
+          ids  = Arrays.copyOf(ids, row);
         }
         setFlatIndex(flat);
         setIndexIds(ids);
@@ -122,6 +130,14 @@ foam.CLASS({
         String[] ids  = getIndexIds();
         int n = ids.length;
         int d = getDim();
+
+        // If the query vector dimension doesn't match the index dimension (e.g. the
+        // index was built with a different embedding model), scoring would throw
+        // ArrayIndexOutOfBoundsException.  Fall through to the delegate so the
+        // predicate still runs and returns an empty result gracefully.
+        if ( cc.getQueryVector().length != d ) {
+          return super.select_(x, sink, skip, limit, order, predicate);
+        }
 
         // score each row via CosineComparator.score(flat, offset, dim) — the formula
         // lives in CosineComparator; the offset overload avoids a float[] copy per row.

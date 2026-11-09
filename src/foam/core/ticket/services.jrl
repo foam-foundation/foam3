@@ -113,7 +113,7 @@ p({
       .setInnerDAO((foam.dao.DAO) x.get("localTicketStatusDAO"))
       .build();
   """,
-  "client": "{\"of\":\"foam.core.ticket.TicketStatus\"}"
+  "client": """{"of":"foam.core.ticket.TicketStatus"}"""
 })
 
 p({
@@ -174,5 +174,5 @@ p({
       .setInnerDAO((foam.dao.DAO) x.get("localTicketCommentDAO"))
       .build();
   """,
-  "client": "{\"of\":\"foam.core.ticket.TicketComment\"}"
+  "client": """{"of":"foam.core.ticket.TicketComment"}"""
 })

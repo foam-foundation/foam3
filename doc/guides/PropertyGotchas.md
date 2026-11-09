@@ -25,7 +25,7 @@ For the basics, start with [Axioms.md](Axioms.md), [Slots.md](Slots.md) and [Ref
 A `postSet` runs only when the **setter** is invoked. Three initialization paths never invoke it, so behaviour that must hold for the *initial* state silently never happens:
 
 1. **A `value:` default.** The getter returns the default without ever calling the setter, so a property declared `value: true` and never assigned fires `postSet` zero times.
-2. **A `prop$` slot binding.** The slot setter runs `prop.toSlot(this).linkFrom(slot2)` (`src/foam/lang/Property.js:507`), and `linkFrom`'s initial sync is guarded by `if ( ! foam.util.is(s1.get(), s2.get()) )` (`src/foam/lang/Slot.js:134`, initial call at `:163`). **If the bound values are already equal, no set happens and `postSet` never fires.** The classic trap is `value: true` on the view property plus a source that is already `true` — the `postSet` meant to build a predicate or switch a class runs never.
+2. **A `prop$` slot binding.** The slot setter runs `prop.toSlot(this).linkFrom(slot2)` (`src/foam/lang/Property.js:507`), and `linkFrom`'s initial sync is guarded by `if ( ! foam.util.is(s1.get(), s2.get()) )` (`src/foam/lang/Slot.js:149`, initial call `l2()` at `:164`). **If the bound values are already equal, no set happens and `postSet` never fires.** The classic trap is `value: true` on the view property plus a source that is already `true` — the `postSet` meant to build a predicate or switch a class runs never.
 3. **Deserialization and `copyFrom` ordering.** `postSet` fires per property in declaration order, so siblings it reads may not be set yet.
 
 Derive initial state instead of hooking it: `expression:` for a reactive derived value, `factory:` for once-at-first-read, or an explicit idempotent call in `init()`/`render()` for setup that must run even when the transition never happens. Keep `postSet` for reacting to a live change.
@@ -43,7 +43,7 @@ A manually created `foam.lang.ExpressionSlot` has the same laziness — "updates
 
 This is why two expressions over the same dependency behave differently: one feeding a DAO table recomputes fine, because the table holds a permanent listener and re-reads on every change, while a sibling feeding a passive display keeps its empty-state value forever.
 
-For a derived value that must update on every change of an async-populated array, do not use an `expression`. Compute it in a `this.dynamic(function(dep) { this.x = ... })` block (`src/foam/lang/Slot.js:638`) and store it in a **plain** property — a plain `PropertySlot` pushes on every set, with no private-cache laziness and no one-shot detach.
+For a derived value that must update on every change of an async-populated array, do not use an `expression`. Compute it in a `this.dynamic(function(dep) { this.x = ... })` block (`src/foam/lang/FObject.js:748`, backed by `DynamicFunction` at `src/foam/lang/Slot.js:637`) and store it in a **plain** property — a plain `PropertySlot` pushes on every set, with no private-cache laziness and no one-shot detach.
 
 Corollary: because the cache lives in `private_`, `hasOwnProperty(name)` stays **false** even after the expression has fired, so code branching on `hasOwnProperty` treats an expression default as unset.
 
@@ -51,7 +51,7 @@ Corollary: because the cache lives in `private_`, `hasOwnProperty(name)` stays *
 
 The intuitive worry is that a `factory` caching its value by writing the backing field throws when read off a frozen object. It does not.
 
-**Java** — codegen builds a `beforeFreeze()` that calls the getter for every property with a `javaFactory` (`src/foam/java/refinements.js:648-658`), and `freeze()` runs `beforeFreeze(); __frozen__ = true;` in that order (`:707-710`). Each factory resolves and sets its field while the object is still mutable. After the freeze, the generated getter hits its `if ( ! xIsSet_ )` guard, sees the field set, and returns it without reaching the setter's `assertNotFrozen()` (`:401`, `:496`). Cross-factory dependencies are safe for the same reason.
+**Java** — codegen builds a `beforeFreeze()` that calls the getter for every property with a `javaFactory` (`src/foam/java/refinements.js:685-696`), and `freeze()` runs `beforeFreeze(); __frozen__ = true;` in that order (`:740-745`). Each factory resolves and sets its field while the object is still mutable. After the freeze, the generated getter hits its `if ( ! xIsSet_ )` guard (`:505-508`), sees the field set, and returns it without reaching the setter's `assertNotFrozen()` (`:433`). Cross-factory dependencies are safe for the same reason.
 
 **JS** — there is no freeze mechanism at all; `src/foam/lang/FObject.js` defines no `freeze`, `isFrozen` or `assertNotFrozen`.
 
@@ -62,12 +62,12 @@ So do not avoid `javaFactory` on a computed property out of frozen-safety fear. 
 Generated `compareTo` is a straight walk of **every** property in declaration order, with no filter for transient or derived:
 
 ```javascript
-// src/foam/java/refinements.js:829
+// src/foam/java/refinements.js:866
 return 'cmp = ' + foam.String.constantize(f.name) + '.compare(this, o2);\n'
      + 'if ( cmp != 0 ) return cmp;';
 ```
 
-`equals` is `compareTo(o) == 0` (`refinements.js:745`), and `RulerDAO.put_` calls `equals()` to decide whether a put changed anything. So every property is read on every put, including ones you expected to stay cold. A `javaFactory` that needs request-scoped state — a context, a resolved DAO, another object's class info — therefore runs during the put, long before whatever was meant to provide that state, and throws from inside the DAO layer:
+`equals` is `compareTo(o) == 0` (`refinements.js:782`), and on a DAO with an "after" rule `RulerDAO.put_` calls `equals()` to decide whether the rule changed anything (`src/foam/core/ruler/RulerDAO.js:198-205`). So on such a DAO every property is read on every put, including ones you expected to stay cold. A `javaFactory` that needs request-scoped state — a context, a resolved DAO, another object's class info — therefore runs during the put, long before whatever was meant to provide that state, and throws from inside the DAO layer:
 
 ```
 at SomeModel.SomeProp_Factory_(SomeModel.java)
@@ -81,7 +81,7 @@ Compute the value where its inputs are known and set it there. A factory also ca
 **`javaCompare` looks like the fix and is not, on array properties.** `AbstractArrayPropertyInfo.createJavaPropertyInfo_` overwrites the generated compare body unconditionally:
 
 ```javascript
-// src/foam/java/refinements.js:2020 (also :2091, :2172, :2225 for the other array types)
+// src/foam/java/refinements.js:2181 (also :2252, :2333, :2386 for the other array types)
 var compare = info.getMethod('compare');
 compare.body = this.compareTemplate();
 ```
@@ -92,9 +92,9 @@ So `javaCompare: 'return 0;'` on an array property is discarded with no warning.
 
 ## The transient flags and what they cascade into
 
-**`transient: true` sets both `networkTransient` and `storageTransient`** — each defaults to the value of `transient` (`src/foam/lang/EndBoot.js:229,243`). A transient property is therefore neither journaled nor sent over the wire, and each side recomputes it locally.
+**`transient: true` sets `networkTransient`, `externalTransient` and `storageTransient`** — each defaults to the value of `transient` (`src/foam/lang/EndBoot.js:229,236,243`). A transient property is therefore neither journaled nor sent over the wire, and each side recomputes it locally.
 
-**`networkTransient` is encode-only.** It suppresses output — `foam.json.Network` will not encode the field (`EndBoot.js:205-206`) — but the JSON **parser** has no networkTransient filter — the flag appears nowhere under `src/foam/lib/json` — so an incoming value IS set on the object even when the receiver's own PropertyInfo marks it networkTransient.
+**`networkTransient` is encode-only.** It suppresses output — `foam.json.Network` will not encode the field (`src/foam/lang/JSON.js:757`; Java `foam.lib.NetworkPropertyPredicate`, `src/foam/lib/NetworkPropertyPredicate.js:15`) — but the JSON **parser** has no networkTransient filter — the flag appears nowhere under `src/foam/lib/json` — so an incoming value IS set on the object even when the receiver's own PropertyInfo marks it networkTransient.
 
 That asymmetry is a useful lever: a staging field that must reach the server on a put but never be journaled is `storageTransient: true`, **not** `transient: true` (which also sets `networkTransient` and drops it on the wire). Because decode never filters, the client simply starting to send the field is enough — the server reads it with no recompile.
 
@@ -108,8 +108,8 @@ That asymmetry is a useful lever: a staging field that must reach the server on 
 and the query grammar drops any property that fails it before adding comparison rules:
 
 ```javascript
-// src/foam/parse/SimpleQueryParser.js:325
-function processProp(prop, propertyParser) {
+// src/foam/parse/SimpleQueryParser.js:334
+function processProp(prop, propertyParser, accExpr, prefixNames, visited) {
   if ( ! prop.searchable ) return;
 ```
 
@@ -129,14 +129,14 @@ Two flags, two questions: `transient` means "not stored", `searchable` means "ma
 
 ## isSet: the gate that makes derived values disappear
 
-**Java serialization gates on isSet and never consults getters.** `Outputter.maybeOutputProperty` returns early unless the property is set: `if ( ! outputDefaultValues_ && ! prop.isSet(fo) ) return false;` (`src/foam/lib/json/Outputter.java:355-357`). Only past that line does it call `prop.get(fo)` (`:359`).
+**Java serialization gates on isSet and never consults getters.** `Outputter.maybeOutputProperty` returns early unless the property is set: `if ( ! outputDefaultValues_ && ! prop.isSet(fo) ) return false;` (`src/foam/lib/json/Outputter.java:365`). Only past that line does it call `prop.get(fo)` (`:367`). The HTTP and WebSocket boxes serialize with `foam.lib.formatter.JSONFObjectFormatter`, which has the same gate (`src/foam/lib/formatter/JSONFObjectFormatter.java:468-469`, `prop.get(fo)` at `:477`).
 
 So a value that exists only in a `javaGetter` derivation — never set — is invisible to full-object network serialization no matter what `networkTransient` says. The flag predicate filters the property list, the isSet check gates each row, and the getter is consulted only after both pass. Symptom: the server derives the value correctly (search, scripts and projections all see it) while every DAO select ships rows without it and the client renders blank.
 
 Two asymmetries hide the bug:
 
-- **Projection sinks evaluate the property server-side.** `Projection.put` calls `exprs[i].f(o)`, which runs the `javaGetter` (`src/foam/mlang/sink/Projection.js:142-152`). A projection select carries the derived value; a full-object select drops it. So an export or a dashboard works while a table forced into full-object mode shows blank.
-- **The client-to-server direction has no such gate.** `foam.json.Network` uses `outputDefaultValues: true` (`src/foam/lang/JSON.js:719-730`), so a client put sends set values including defaults. A value set in a wizard round-trips fine until a server restart, when journal replay leaves a `storageTransient` property unset.
+- **Projection sinks evaluate the property server-side.** `Projection.put` calls `exprs[i].f(o)`, which runs the `javaGetter` (`src/foam/mlang/sink/Projection.js:155-166`). A projection select carries the derived value; a full-object select drops it. So an export or a dashboard works while a table forced into full-object mode shows blank.
+- **The client-to-server direction has no such gate.** `foam.json.Network` uses `outputDefaultValues: true` (`src/foam/lang/JSON.js:747-751`), so a client put sends set values including defaults. A value set in a wizard round-trips fine until a server restart, when journal replay leaves a `storageTransient` property unset.
 
 Levers, in order of preference:
 
@@ -144,7 +144,7 @@ Levers, in order of preference:
 2. **Persist the value.** Costs storage and adds staleness risk.
 3. **Resolve client-side.** No server change, but per-row async and no server-side search benefit.
 
-**There is no isSet override hook.** The generated `PropertyInfo.isSet` body is hardcoded to `return o.<name>IsSet_;` (`src/foam/java/PropertyInfo.js:212-217`); there is no `javaIsSet` counterpart to `javaGetter`/`javaSetter` (`src/foam/java/refinements.js:239-243`). Adding one would be the framework-level fix for "derived and serializable".
+**There is no isSet override hook.** The generated `PropertyInfo.isSet` body is hardcoded to `return o.<name>IsSet_;` (`src/foam/java/PropertyInfo.js:212-217`); there is no `javaIsSet` counterpart to `javaGetter`/`javaSetter` (`src/foam/java/refinements.js:253-257`). Adding one would be the framework-level fix for "derived and serializable".
 
 ### Client-side, `hasOwnProperty` is the isSet check
 
@@ -168,7 +168,9 @@ Java `FObject.copyFrom(obj)` (`src/foam/lang/FObject.java:299-317`) has two sema
 1. **Only `isSet` source properties copy** — same-class `if ( p.isSet(obj) ) p.set(this, p.get(obj))` (`:305`), and the same guard on the name-matched property cross-class (`:309`). A `value:` default is not set, so it never propagates; only an explicit setter call reaches the target.
 2. **A cross-class copy matches by property name and silently drops the rest.** It iterates the TARGET's properties and pulls same-named ones from the source (`:307-309`), with a per-property `ClassCastException` swallowed at `:312`. Facade-only properties vanish on the way into the delegate model and can never be reconstructed on the reverse copy — reads show type defaults rather than stored values.
 
-For an adapter DAO built on `copyFrom` in both directions, assume a round trip preserves only properties that exist on both models and were explicitly set. Defaults need explicit setters on the create path; facade-only display fields need derivation on the read path or they render blank. JS `copyFrom` behaves equivalently.
+For an adapter DAO built on `copyFrom` in both directions, assume a round trip preserves only properties that exist on both models and were explicitly set. Defaults need explicit setters on the create path; facade-only display fields need derivation on the read path or they render blank.
+
+JS `copyFrom` differs (`src/foam/lang/FObject.js:982-1047`): a same-class copy also copies every property that has a `factory`, which runs the factory on the source; a cross-class copy copies each same-named property unless the source holds its default and both properties declare the same `value` with no `expression`, so differing defaults and expression values do propagate.
 
 ---
 
@@ -178,7 +180,7 @@ For an adapter DAO built on `copyFrom` in both directions, assume a round trip p
 
 The JSON outputter's default `escape` keeps an escape sequence that is already in the string (`src/foam/lang/JSON.js:322`): a stored `\\` goes out as `\\`, and the parser on the other side reads it back as one backslash. A property holding source code or a regex loses half its backslashes on each round trip, and code such as `/\\d/` comes back meaning something else.
 
-Give the property a `toJSON` that forces the escape, as `foam.core.reflow.Flow.SCRIPT` does (`src/foam/core/reflow/Flow.js:220-226`):
+Give the property a `toJSON` that forces the escape, as `foam.core.reflow.Flow.SCRIPT` does (`src/foam/core/reflow/Flow.js:220-226`; the real one first tries to emit the script as parsed JSON, which this simplified version leaves out):
 
 ```javascript
 {
@@ -217,17 +219,17 @@ A trailing underscore is FOAM's convention for transient internal scratch fields
 
 Property behaviour — setter routing, `adapt`/`preSet`/`postSet`, slots, serialization — exists only where a Property axiom installed an accessor on the prototype. `obj.foo = x` with no Property named `foo` creates a plain disconnected own-property: no setter runs, nothing serializes, nothing reacts, and no error or warning fires.
 
-**Interface methods give you nothing here.** `foam.INTERFACE` methods are `InterfaceMethod` axioms whose `installInProto` is an empty function (`src/foam/lang/Interface.js:37-38`). Declaring a `setFoo`/`getFoo` pair on an interface does NOT create a `foo` property or accessor — the method pair and the property are unrelated namespaces in JS FOAM.
+**Interface methods give you nothing here.** `foam.INTERFACE` methods are `InterfaceMethod` axioms whose `installInProto` is an empty function (`src/foam/lang/Interface.js:38`). Declaring a `setFoo`/`getFoo` pair on an interface does NOT create a `foo` property or accessor — the method pair and the property are unrelated namespaces in JS FOAM.
 
 Verify before trusting an assignment: `obj.cls_.getAxiomByName('foo')` should return a Property. If only methods exist, call the method or assign the real underlying property.
 
 ### `shortName` halves the wire payload and is journal-safe to add
 
-The HTTP and WebSocket boxes serialize with short names — `setOutputShortNames(true)` in `src/foam/box/HTTPBox.js:140`, `HTTPReplyBox.js:40`, `RawWebSocketBox.js:53` — and the outputter emits the shortName when set (`src/foam/lib/json/Outputter.java:491`). A model with no short names ships full property keys, roughly doubling the payload on wide records.
+The HTTP and WebSocket boxes serialize with short names — `setOutputShortNames(true)` in `src/foam/box/HTTPBox.js:140`, `HTTPReplyBox.js:40`, `RawWebSocketBox.js:53` — and the outputter emits the shortName when set (`src/foam/lib/formatter/JSONFObjectFormatter.java:709`; `src/foam/lib/json/Outputter.java:499` for the plain outputter). A model with no short names ships full property keys, roughly doubling the payload on wide records.
 
-Adding one to an existing model is safe: the Java parser registers BOTH the full name and the shortName as parse keys (`src/foam/lib/json/ModelParserFactory.java:93-97`), so journals written with long keys still replay. Aliases are not registered as Java parse keys, so a shortName may reuse an alias code without conflict on the server path.
+Adding one to an existing model is safe: the Java parser registers BOTH the full name and the shortName as parse keys (`src/foam/lib/json/ModelParserFactory.java:221-222`), so journals written with long keys still replay. Aliases are not registered as Java parse keys, so a shortName may reuse an alias code without conflict on the server path.
 
-`shortName` must be **unique within the class including inherited properties** — FOAM asserts on a duplicate at class load — so check the parents and interfaces before adding one to a subclass.
+`shortName` must be **unique within the class including inherited properties** — both parsers key properties by shortName (`src/foam/lib/json/ModelParserFactory.java:222`, `src/foam/lang/JSON.js:850`), so a duplicate collides with another property's key — so check the parents and interfaces before adding one to a subclass.
 
 ### Imports are writable
 
@@ -242,7 +244,7 @@ set: function importsSetter(v) {
 }
 ```
 
-So a child view can drive parent state with `this.selection = this.data`, and the parent reacts through `this.selection$` or uses it directly in `enableClass`/`attrs`. If nothing upstream exports the name the set falls through with a console warning and no error; an optional import (`'name?'`) silently no-ops.
+So a child view can drive parent state with `this.selection = this.data`, and the parent reacts through `this.selection$` or uses it directly in `enableClass`/`attrs`. If nothing upstream exports the name the set falls through with a console warning (`Attempt to set missing import`) and no error. The setter warns the same way for an optional import (`'name?'`).
 
 ---
 
@@ -255,11 +257,11 @@ So a child view can drive parent state with `this.selection = this.data`, and th
 | `obj.propName` | The current value, non-reactive |
 | `obj.propName$` | The reactive slot |
 
-**`writePermissionRequired` and `readPermissionRequired` are enforced only in `createVisibilityFor`** (`src/foam/u2/Element2.js:1850`), where the check runs `auth.check` against `<ClassName>.rw.<propName>` (`:1877`).
+**`writePermissionRequired`, `readPermissionRequired` and `updatePermissionRequired` are enforced only in `createVisibilityFor`** (`src/foam/u2/Element2.js:1876`), where the check runs `auth.check` against `<classname>.rw.<propname>`, both lower-cased and using the class's simple name, then falls back to `<classname>.ro.<propname>` (`:1898-1907`).
 
 Therefore `.add(prop)` never runs the permission gate: the field is read-write for everyone regardless of what the model declares, and no group configuration will change it. `.add(prop.__)` runs it.
 
-**This is a silent bug pattern.** A model can declare `writePermissionRequired: true` and still be globally editable because one caller renders it with the bare axiom. Diagnosing it means knowing that `Property.toE` (`Element2.js:1781`) and `Property.toPropertyView` (`:1790`, reached through the `__` getter at `:1763`) are two different code paths, and only the second builds the border that checks permissions.
+**This is a silent bug pattern.** A model can declare `writePermissionRequired: true` and still be globally editable because one caller renders it with the bare axiom. Diagnosing it means knowing that `Property.toE` (`Element2.js:1807`) and `Property.toPropertyView` (`:1816`, reached through the `__` getter at `:1785-1789`) are two different code paths, and only the second builds the border that checks permissions.
 
 To render with permissions but without the `PropertyBorder` chrome — inside a tight table cell, say — strip it through the `config` argument rather than dropping back to the bare form:
 
@@ -267,7 +269,7 @@ To render with permissions but without the `PropertyBorder` chrome — inside a 
 .tag(obj.SOME_PROP.__, { config: { label: '', reserveLabelSpace: false } })
 ```
 
-`PropertyBorder.render` clones the property and `copyFrom`s `this.config` (`src/foam/u2/PropertyBorder.js:93`). With an empty label and `reserveLabelSpace: false`, the label slot renders `display: contents` (`:165-175`), so nothing is shown and no space is reserved — while the view still receives `mode$`, so the auth check fires. The same trick passes `view`, `units`, `helpText` and any other PropertyBorder property.
+`PropertyBorder.render` clones the property and `copyFrom`s `this.config` (`src/foam/u2/PropertyBorder.js:93`). With an empty label and `reserveLabelSpace: false`, the label slot renders `display: contents` (`:170-175`), so nothing is shown and no space is reserved — while the view still receives `mode$`, so the auth check fires. The same trick passes `view`, `units`, `helpText` and any other PropertyBorder property.
 
 | Goal | Use |
 |---|---|
@@ -292,7 +294,7 @@ An explicit `label:` always wins. The raw name never appears in the UI, so quoti
 
 In a DAO table, a reference column's value is the RefSummary projection shape, not the raw id: the server resolves `toSummary()` during the projection, one pass over the DAO, instead of an N+1 find per row (`src/foam/mlang/expr/Ref.js`, `src/foam/core/column/TableColumnOutputter.js`).
 
-`Reference.adapt` unwraps that shape on assignment — it stores `n.id` and caches `n.summary` into the generated `prop$summary_` slot (`src/foam/lang/types.js:1196-1204`) — and `ReferenceToSummaryCellFormatter` then renders the cached summary.
+`Reference.adapt` unwraps that shape on assignment — it stores `n.id` and caches `n.summary` into the generated `prop$summary_` slot (`src/foam/lang/types.js:1312-1321`) — and `ReferenceToSummaryCellFormatter` then renders the cached summary.
 
 **Any `Reference` subclass that overrides `adapt` bypasses that unwrap.** If the override just returns `n`, it stores the raw `{id, summary}` object, the summary is never cached, and every column of that reference type renders blank. A custom `adapt` must mirror the branch:
 
@@ -305,9 +307,9 @@ if ( n && ! foam.lang.FObject.isInstance(n) && typeof n === 'object' && n.id !==
 
 ### `CurrencyCode` normalizes numeric codes; `CountryCode` does not
 
-`foam.lang.CurrencyCode` (`src/foam/lang/types.js:1450`) adds an async `normalize` that looks a numeric string up in the currency DAO by `NUMERIC_CODE` and returns the alpha id, so `"840"` becomes `"USD"` on load. Journals may use either form, and a mapping needs no numeric-to-alpha transform because the property does the conversion itself.
+`foam.lang.CurrencyCode` (`src/foam/lang/types.js:1567`) adds an async `normalize` that looks a numeric string up in the currency DAO by `NUMERIC_CODE` and returns the alpha id, so `"840"` becomes `"USD"` on load. Journals may use either form, and a mapping needs no numeric-to-alpha transform because the property does the conversion itself.
 
-`foam.lang.CountryCode` (same file, `:1591`) is a plain Reference with no `normalize`, and the country DAO is keyed by alpha code. A numeric `"840"` stays `"840"` and the lookup fails, so country values in journals must be alpha.
+`foam.lang.CountryCode` (same file, `:1708`) is keyed by the alpha-2 code. Its `adapt` trims, upper-cases and zero-pads a numeric code (`"36"` becomes `"036"`), and its async `normalize` maps an alpha-3 code to alpha-2 (`:1781-1802`). The numeric branch of `normalize` tests `/^\\d{3}$/` (`:1805`), which matches a literal backslash rather than digits, so a numeric `"840"` stays `"840"` and the lookup fails. Keep country values in journals alpha.
 
 ### Localize a message with `messageMap`
 
@@ -315,8 +317,8 @@ Replace the plain `message: '...'` form with `messageMap: { en: '...', fr: '...'
 
 Two install paths decide how the message is called:
 
-- **`template: true` with `${var}` placeholders** makes it a **callable**: `this.MY_MSG({ count: n })` returns the interpolated string, built from a `MessageTemplateParser` (`Messages.js:140`).
-- **A plain message** installs as a constant on the **prototype** (`:137`), so it resolves off any instance of the defining class — which is what makes `obj.MY_MSG` work inside `tableCellFormatter: function(_, obj)` where `obj` is a row instance. It also installs on the class (`:122`) for `Cls.MY_MSG`.
+- **`template: true` with `${var}` placeholders** makes it a **callable**: `this.MY_MSG({ count: n })` returns the interpolated string, built from a `MessageTemplateParser` (`Messages.js:139-152`).
+- **A plain message** installs as a getter on the **prototype** that reads the class constant (`:154-160`), so it resolves off any instance of the defining class — which is what makes `obj.MY_MSG` work inside `tableCellFormatter: function(_, obj)` where `obj` is a row instance. It also installs on the class (`:122`) for `Cls.MY_MSG`.
 
 ---
 
@@ -330,15 +332,15 @@ Related: an `FObjectProperty` rendered as a **table cell** shows blank or `[obje
 
 ### "Does this class implement interface X" is `X.isSubClass(model)`
 
-`isSubClass(c)` returns true when `c` is this class, a subclass, or implements it — it tests `c.getAxiomByName('implements_' + this.id)` (`src/foam/lang/FObject.js:208`), and the result is memoized per class id. A class that does `implements: ['pkg.X']` directly, through `mixins:`, or by inheritance carries that axiom.
+`isSubClass(c)` returns true when `c` is this class, a subclass, or implements it — it tests `c.getAxiomByName('implements_' + this.id)` (`src/foam/lang/FObject.js:208-232`), and the result is memoized per class id. A class that does `implements: ['pkg.X']` directly or by inheritance carries that axiom. `mixins: ['pkg.X']` does not: the `Mixin` axiom is named `mixin_pkg.X` (`src/foam/lang/Mixin.js:17-20`), so `pkg.X.isSubClass(cls)` is false unless `pkg.X` itself implements something that gets copied.
 
-`isInstance(o)` is `!!( o && o.cls_ && this.isSubClass(o.cls_) )` (`FObject.js:199`) — the same check with an **object** operand. So use `isSubClass` when you hold a class (a DAO's or property's `of`, for instance) and `isInstance` when you hold an instance. A falsy argument returns false rather than throwing, so it is safe on a possibly-unset `of`.
+`isInstance(o)` is `!!( o && o.cls_ && this.isSubClass(o.cls_) )` (`FObject.js:199-206`) — the same check with an **object** operand. So use `isSubClass` when you hold a class (a DAO's or property's `of`, for instance) and `isInstance` when you hold an instance. A falsy argument returns false rather than throwing, so it is safe on a possibly-unset `of`.
 
 **There is no MLang predicate for it.** `IsInstanceOf.f` does `of.isInstance(value)` (`src/foam/mlang/predicate/IsInstanceOf.js:46`) and `IsClassOf.f` does an exact class-id match (`IsClassOf.js:41`) — both test a *value's* runtime class, not a class-to-interface relationship. "Does model X implement interface Y" can only run in JS, never inside a DAO `where()`.
 
 ### `clone()` re-runs `init()`
 
-JS `clone()` is `this.cls_.create(this, opt_X)` (`src/foam/lang/FObject.js:948`), so the clone goes through `create()` → `initArgs` → `init()`. Every `init()` side effect runs again: subscriptions, context lookups, UI writes, async default assignment.
+JS `clone()` deep-clones the set values into a map and calls `this.cls_.create(m, opt_X || this.__context__)` (`src/foam/lang/FObject.js:939-948`), so the clone goes through `create()` → `initArgs` → `init()`. Every `init()` side effect runs again: subscriptions, context lookups, UI writes, async default assignment.
 
 For a service singleton whose `init()` touches shared state, a clone is destructive. If `init()` builds a UI element bound to `self` and asynchronously assigns a default from storage, each clone hijacks that shared element while other subscribers stay bound to the original, and the clone's async default races any override away.
 
@@ -351,7 +353,7 @@ Diagnostic: when two UI elements bound to "the same" service disagree, suspect a
 
 ### A modelled PropertyInfo serializes as its whole self, not as a reference
 
-Both JSON outputters dispatch in this order: `OutputJSON` → `String` → `FObject` → `PropertyInfo` → `ClassInfo` (`src/foam/lib/json/Outputter.java:273-284`, mirrored in `JSONFObjectFormatter.java:336-347`).
+Both JSON outputters dispatch in this order: `OutputJSON` → `String` → `FObject` → `PropertyInfo` → `ClassInfo` (`src/foam/lib/json/Outputter.java:273-283`, mirrored in `src/foam/lib/formatter/JSONFObjectFormatter.java:358-371`).
 
 A PropertyInfo that is a plain Java class falls through to the `PropertyInfo` branch and is emitted as a compact reference:
 
@@ -379,7 +381,7 @@ Getting the owning class is the hard part. The reference needs `forClass_`; `Abs
 
 ### Column auto-mapping is last-write-wins
 
-`foam.core.reflow.ColumnParser.parseString` resolves a file header to a model property (`src/foam/core/reflow/ColumnParser.js:69-114`). For every property it writes into a case-insensitive `exactMap` keyed on the property's `name` (`:73`), `shortName` (`:82`) and each `alias` (`:91`), plus a camelCase-normalized `normalizedMap` guarded by a first-write-wins check (`:84-85`, `:93-94`). `parseString` then resolves a header by exact match first, falling back to normalized.
+`foam.core.reflow.ColumnParser.parseString` resolves a file header to a model property (`src/foam/core/reflow/ColumnParser.js:69-114`). For every property it writes into a case-insensitive `exactMap` keyed on the property's `name` (`:73`), `shortName` (`:82`) and each `alias` (`:91`), plus a camelCase-normalized `normalizedMap` guarded by a first-write-wins check (`:77-78`, `:84-85`, `:93-94`). `parseString` then resolves a header by exact match first, falling back to normalized.
 
 The trap: `exactMap` is **last-write-wins** — plain assignment with no guard — across the axiom iteration order. So an alias equal to an inherited framework property's name collides, and which property wins depends on iteration order. The framework property often does, and a string value then coerces into a numeric field and throws `Invalid number (NaN/Infinity) in field '<name>'`.
 

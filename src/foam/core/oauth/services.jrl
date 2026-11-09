@@ -23,7 +23,7 @@ p({
       .setOf(foam.core.oauth.OAuthProvider.getOwnClassInfo())
       .build();
     `,
-  "client":"{\"of\":\"foam.core.oauth.OAuthProvider\"}"
+  "client":"""{"of":"foam.core.oauth.OAuthProvider"}"""
 })
 
 p({
@@ -39,5 +39,5 @@ p({
       .setOf(foam.core.oauth.OAuthCredential.getOwnClassInfo())
       .build();
     `,
-  "client":"{\"of\":\"foam.core.oauth.OAuthCredential\"}"
+  "client":"""{"of":"foam.core.oauth.OAuthCredential"}"""
 })

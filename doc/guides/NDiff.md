@@ -34,7 +34,7 @@ Once enabled, access **Admin > NDiffs** to view changed objects.
 
 ### What It Does
 
-NDiff is a debugging and tracking system for changes to CSpecs (Component Specifications) in FOAM3. It captures the initial state of objects loaded from repository journals (`.0` files) and compares them to their current runtime state, enabling developers to:
+NDiff is a debugging and tracking system for changes to CSpecs (Component Specifications) in FOAM3. It captures the initial state of objects loaded at startup from the repository journal (`.0` file) and any frozen journal generations, and compares them to their current runtime state, enabling developers to:
 
 - Track when and how CSpec data has been modified during execution
 - Identify objects that were deleted at runtime
@@ -116,7 +116,7 @@ NDiff uses a composite ID: `(cSpecName, objectId)`. Each NDiff record tracks ONE
 
 ### Runtime Origin Flag
 
-- `runtimeOrigin=false`: Data comes from repo journal (`.0` file) - recorded to NDiff
+- `runtimeOrigin=false`: Data comes from the repo journal (`.0` file) or a frozen generation (`.N`, `.N.gz`, `.N.snap.gz`) - recorded to NDiff
 - `runtimeOrigin=true`: Data comes from runtime journal - not recorded (just passes through)
 
 ---
@@ -149,7 +149,7 @@ NDiff uses a composite ID: `(cSpecName, objectId)`. Each NDiff record tracks ONE
                                     |
                                     v
 +-------------------------------------------------------------------------+
-| Step 2: Load Runtime Journal (flows.jrl)                                 |
+| Step 2: Load Runtime Journal (flows)                                     |
 |                                                                          |
 |   Journal Entry --> NDiffJournal(runtimeOrigin=true)                     |
 |                           |                                              |
@@ -273,7 +273,7 @@ In your services.jrl, add `.setNdiff(true)` to the EasyDAO.Builder chain for any
 
 1. **NDiff is opt-in**: Objects are NOT tracked by default. You must enable it per-DAO with `.setNdiff(true)`.
 
-2. **Only repo journal changes are recorded**: Runtime journal entries pass through without creating NDiff records. This ensures you're comparing against the "source of truth" from version control.
+2. **Only pre-runtime journal entries are recorded**: Runtime journal entries pass through without creating NDiff records. Entries replayed ahead of the runtime journal are recorded, which includes frozen generations as well as the `.0` repo journal, so after a roll or a compaction the initial state also contains earlier runtime data.
 
 3. **runtimeFObject is transient**: The `runtimeFObject` property is NOT persisted - it's fetched on-the-fly during `select()` operations. This ensures you always see the current state.
 

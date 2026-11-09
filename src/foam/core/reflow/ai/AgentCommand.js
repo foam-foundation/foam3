@@ -51,6 +51,7 @@ foam.CLASS({
   ],
 
   requires: [
+    'foam.core.reflow.BadBlock',
     'foam.core.reflow.Flow',
     'foam.core.reflow.Markdown'
   ],
@@ -88,8 +89,8 @@ foam.CLASS({
         prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
         options: foam.ai.llm.LLMOptions.create({
           systemPrompt: systemPrompt,
-          model:        this.model,
-          temperature:  0.2  // low temp for structured command output
+          model:        this.model
+//          temperature:  0.2  // low temp for structured command output
         })
       });
 
@@ -115,8 +116,23 @@ foam.CLASS({
 
       // ── 4. Insert commands into the flow ──
       for ( var i = 0 ; i < lines.length ; i++ ) {
-        if ( lines[i].trim() != '' )
-          await this.eval_((this.dryRun ? 'propose ' : '') + lines[i]);
+        if ( lines[i].trim() != '' ) {
+          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
+
+          if ( this.BadBlock.isInstance(block.value) ) {
+            // JSON.stringify escapes the quotes and newlines in the command
+            // and error, so the agent(...) call is valid JavaScript for eval_.
+            const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
+            console.log("**** AgentCommand Error: " + reply);
+            await this.eval_(`agent(${reply})`, true, true);
+          } else {
+              // Run the agent's lines the way loading a saved flow runs its
+            // blocks (Console.includeScript): wait on each block's onLoad. So
+            // after input('Delete order 1234?', ['Yes', 'No']) the agent's
+            // next line waits until the user has answered.
+            await block?.value?.onLoad?.();
+          }
+        }
       }
 
       // -- 5. Delete this block, since it was just a prompt, not a block
@@ -138,7 +154,7 @@ foam.CLASS({
           });
         });
 
-        console.log('sysPrompt: ', parts.join('\n'));
+        // console.log('sysPrompt: ', parts.join('\n'));
 
         this.systemPrompt = parts.join('\n');
       }
@@ -148,6 +164,8 @@ foam.CLASS({
 
     function parseCommandLines_(content) {
       if ( ! content ) return [];
+
+      console.log('*** AGENT RESPONSE: ', content);
 
       // Strip code fences if LLM wrapped them despite instructions
       content = content.replace(/^```[\w]*\n?/gm, '').replace(/^```$/gm, '');

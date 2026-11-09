@@ -151,7 +151,7 @@ foam.CLASS({
         body.put("stream",         true);
         body.put("stream_options", new JSONObject().put("include_usage", true));
 
-        if ( options.getTemperature() > 0 ) {
+        if ( options.getTemperature() > 0.0 ) {
           body.put("temperature", options.getTemperature());
         }
 

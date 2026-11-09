@@ -220,13 +220,16 @@ foam.CLASS({
           this.start()
             .addClass(view.myClass('sortIcon'))
             .enableClass(view.myClass('sortIconActive'), sortState$.map(function(s) { return !! s; }))
-            .start('img')
-              .style({ 'max-width': 'initial' })
-              .attr('src', sortState$.map(function(s) {
-                if ( s === 'asc' )  return view.ascIcon;
-                if ( s === 'desc' ) return view.descIcon;
-                return view.restingIcon;
-              }))
+            // A theme glyph, not an image file: it takes the header's text
+            // colour (dark mode too) and a theme can redraw it.
+            .start(view.Image, {
+              glyph$: sortState$.map(function(s) {
+                if ( s === 'asc' )  return view.ascGlyph;
+                if ( s === 'desc' ) return view.descGlyph;
+                return view.restingGlyph;
+              }),
+              role: 'presentation'
+            })
             .end()
           .end();
         });

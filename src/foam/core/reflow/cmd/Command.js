@@ -30,6 +30,7 @@ foam.CLASS({
     { class: 'Boolean', name: 'linkable', value: true },
     { class: 'Boolean', name: 'permissionRequired' },
     { class: 'Boolean', name: 'hidden', value: false },
+    { class: 'StringArray', name: 'keywords' },
     {
       class: 'String',
       name: 'parserClass',

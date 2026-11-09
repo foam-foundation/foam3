@@ -17,7 +17,7 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.theme.Theme.NAME, foam.core.auth.GroupPermissionJunction.TARGET_ID});
   """,
-  "client": "{\"of\":\"foam.core.theme.Theme\"}",
+  "client": """{"of":"foam.core.theme.Theme"}""",
   "authNotes": "Needs to be unauthenticated because we need to be able to theme apps before the user has logged in. However, we still need to restrict write access, which we do via an AuthorizationDAO."
 })
 
@@ -36,7 +36,7 @@ p({
       .setPm(true)
       .build()
   """,
-  "client": "{\"of\":\"foam.core.theme.ThemeDomainCapabilityJunction\"}",
+  "client": """{"of":"foam.core.theme.ThemeDomainCapabilityJunction"}""",
 })
 
 p({
@@ -52,7 +52,7 @@ p({
       .setServiceProviderAware(true)
       .build();
   """,
-  "client": "{\"of\":\"foam.core.theme.Theme\"}",
+  "client": """{"of":"foam.core.theme.Theme"}""",
 })
 
 p({
@@ -70,7 +70,7 @@ p({
       .setPm(true)
       .build()
   """,
-  "client": "{\"of\":\"foam.core.theme.ThemeDomain\"}",
+  "client": """{"of":"foam.core.theme.ThemeDomain"}""",
   "authNotes": "Needs to be unauthenticated because we need to be able to theme apps before the user has logged in. However, we still need to restrict write access, which we do via an AuthorizationDAO."
 })
 
@@ -107,7 +107,7 @@ p({
   "serve":true,
   "lazyClient": false,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.theme.customisation.CSSTokenOverrideService\" }"
+  "client":"""{ "class": "foam.core.theme.customisation.CSSTokenOverrideService" }"""
 })
 
 p({

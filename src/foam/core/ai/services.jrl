@@ -60,26 +60,52 @@ p({
 // ── Embedding service — default provider: Ollama ──
 // To swap provider, replace OllamaEmbeddingServiceImpl with another EmbeddingService impl.
 p({
-  "class":"foam.core.boot.CSpec",
-  "name":"embeddingService",
-  "lazy":true,
-  "serve":true,
-  "authenticate":false,
-  "boxClass":"foam.ai.vector.EmbeddingServiceSkeleton",
-  "serviceScript":"return new foam.core.ai.vector.provider.OllamaEmbeddingServiceImpl(x);",
-  "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\"}"
+  "class": "foam.core.boot.CSpec",
+  "name": "embeddingService",
+  "lazy": true,
+  "serve": true,
+  "authenticate": false,
+  "boxClass": "foam.ai.vector.EmbeddingServiceSkeleton",
+  "serviceScript": """
+    return new foam.core.ai.vector.provider.OllamaEmbeddingServiceImpl(x);
+  """,
+  "client": """
+    {
+      "class": "foam.ai.vector.ClientEmbeddingService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/embeddingService"
+        }
+      }
+    }
+  """
 })
 
 // ── OpenAI embedding service ──
 p({
-  "class":"foam.core.boot.CSpec",
-  "name":"openAIEmbeddingService",
-  "lazy":true,
-  "serve":true,
-  "authenticate":true,
-  "boxClass":"foam.ai.vector.EmbeddingServiceSkeleton",
-  "serviceScript":"return new foam.core.ai.vector.provider.OpenAIEmbeddingServiceImpl(x);",
-  "client":"{\"class\":\"foam.ai.vector.ClientEmbeddingService\",\"delegate\":{\"class\":\"foam.box.SessionClientBox\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"url\":\"service/openAIEmbeddingService\"}}}"
+  "class": "foam.core.boot.CSpec",
+  "name": "openAIEmbeddingService",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "boxClass": "foam.ai.vector.EmbeddingServiceSkeleton",
+  "serviceScript": """
+    return new foam.core.ai.vector.provider.OpenAIEmbeddingServiceImpl(x);
+  """,
+  "client": """
+    {
+      "class": "foam.ai.vector.ClientEmbeddingService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/openAIEmbeddingService"
+        }
+      }
+    }
+  """
 })
 
 // ── Training DAOs ──
@@ -114,6 +140,66 @@ p({
       .setAuthorize(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("trainingMetrics")
+      .build();
+  """
+})
+
+// ── Eval DAOs ──
+// evalPromptDAO  — library of prompts with rubric items; read by MLXEvalJob before each run.
+// evalRunDAO     — one record per MLXEvalJob execution; tracks pass rate and status.
+// evalResultDAO  — per-prompt result for one run; composite key [evalRunId, promptId].
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalPromptDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalPrompt\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalPrompt.getOwnClassInfo())
+      .setSeqNo(true)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalPrompts")
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalRunDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalRun\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalRun.getOwnClassInfo())
+      .setGuid(true)
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalRuns")
+      .build();
+  """
+})
+
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "evalResultDAO",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "client": "{\"of\":\"foam.core.ai.training.EvalResult\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.training.EvalResult.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("evalResults")
       .build();
   """
 })

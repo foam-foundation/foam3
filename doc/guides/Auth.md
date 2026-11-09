@@ -55,7 +55,7 @@ The authorization system checks SPID permissions through:
 ### Key Features
 - Users can only access data from their home SPID unless explicitly granted additional permissions
 - The ServiceProvider capability acts as both a capability and a permission granter, creating a flexible authorization model
-- SPID permissions are automatically created when ServiceProviders are created via the createPermissions script
+- Permission rows for `serviceprovider.read.<spid>`, `serviceprovider.update.<spid>` and `serviceprovider.remove.<spid>` can be created for every existing ServiceProvider by running the `createPermissions` script by hand
 
 ## Groups vs Capabilities: Key Differences
 
@@ -90,7 +90,7 @@ Additionally, sub-classes of Capability can be greated which offer specialized f
 Roles are Groups that follow a specific naming convention and usage pattern in the FOAM authorization system. This is purely a convention, not enforced by the software architecture.
 
 ### Role Definition
-Roles are Groups with IDs that start with the "Role" prefix. The system identifies roles using a predicate that checks for this prefix.
+Roles are Groups whose IDs contain "Role", conventionally as a prefix (e.g. `OpsRole`).
 
 ### Role Characteristics
 By convention, Roles:
@@ -104,7 +104,7 @@ Groups can inherit all permissions from a Role by assigning the pseudo-permissio
 - **Groups**: User containers that inherit from roles
 
 ### Implementation Details
-The permission table view filters roles using the ROLE_PREFIX constant. When displaying role permissions, it shows only groups with the "Role" prefix.
+The permission table view (`PermissionTableView`) uses its ROLE_PREFIX constant (`'Role'`). In roles-only mode it drops groups whose ID contains "Role" from the columns and filters the rows to the `@Role...` pseudo-permissions, so the matrix shows which groups inherit which roles.
 
 ### Benefits
 This convention reduces maintenance overhead by:
@@ -117,7 +117,7 @@ This convention reduces maintenance overhead by:
 - All relationships are defined using FOAM's `RELATIONSHIP` DSL which handles the underlying DAO configurations
 - Roles can still participate in the normal Group hierarchy (parent-child relationships)
 - The `@` prefix for pseudo-permissions enables the role inheritance pattern
-- This pattern is commonly used in the Flow access control system where roles grant specific flow permissions [17](#4-16)
+- This pattern is commonly used in the Flow access control system where roles grant specific flow permissions
 
 ## TODO
 

@@ -11,5 +11,5 @@ p({
       .setJournalName("dateTimeTests")
       .build();
   """,
-  "client": "{\"of\":\"foam.lang.test.DateTimeTestModel\"}"
+  "client": """{"of":"foam.lang.test.DateTimeTestModel"}"""
 })

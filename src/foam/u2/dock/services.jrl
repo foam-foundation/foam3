@@ -1,0 +1,13 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "dock",
+  "description": "Client-side context service: the bottom-right stack of cards for work that keeps going while the user moves around the app. Client-only, but must be served: ClientBuilderServer only sends serve:true CSpecs to the browser. Not authenticated: it holds no data and only draws what the screens docked, so every user needs it without a grant.",
+  "serve": true,
+  "authenticate": false,
+  "lazyClient": false,
+  "client": """
+    {
+      "class": "foam.u2.dock.Dock"
+    }
+  """
+})

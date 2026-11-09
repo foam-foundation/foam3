@@ -2,6 +2,11 @@
 
 # FOAM and LLMs
 
+> **New to FOAM?** Start with the [FOAM Tutorial](../tutorials/foam-tutorial.md) or the [Introduction for Developers](Intro.md).  
+> **Builds on:** [FOAM models](../fbe/models.md) · [NanoServices](NanoServices.md) · [Credential Management](CredentialManagement.md)  
+> **Opens up:** [Vector Search](VectorSearch.md) · [Dataset Generation](DatasetGeneration.md)  
+> You can follow this guide without reading those first — if something in the Builds On list is unfamiliar, follow the link before continuing.
+
 The features that code enables are valuable assets. The code itself is a liability.
 
 This distinction matters more than ever in the age of LLM-assisted development. Every line of code — regardless of who or what wrote it — carries a long tail of obligations: testing, maintenance, migration, bug fixes, documentation, and the cognitive burden placed on everyone who must understand it. Code is not free. Code is debt.
@@ -129,3 +134,105 @@ When using LLMs to generate code, the sustainable approach is not to maximise ou
 Less code. Less liability. More leverage. Better outcomes.
 
 The mansion is lovely, but what if you could have all its features — every room, every amenity — in a structure that costs a fraction to maintain? That is what FOAM offers: mansion functionality with cottage upkeep.
+
+## FOAM's LLM API
+
+FOAM's LLM support is built around a typed service interface, a small data model, and a provider pattern that keeps calling code decoupled from any particular model or vendor.
+
+### LLMService
+
+`foam.ai.llm.LLMService` is a FOAM interface with two methods:
+
+```javascript
+complete(x, CompletionRequest)  // → LLMResponse   single-turn prompt → reply
+chat(x, ChatRequest)            // → LLMResponse   multi-turn message list → reply
+```
+
+The interface is declared with `skeleton: true`, `client: true`, and `proxy: true`. FOAM generates the server-side skeleton, client-side proxy, and `ProxyLLMService` decorator base automatically — so the same call works identically in-process or over the network, from JavaScript or Java.
+
+### Data Model
+
+**`ChatRole`** — `SYSTEM`, `USER`, `ASSISTANT`.
+
+**`ChatMessage`** — a single turn in a conversation:
+
+| Property  | Type       | Purpose                 |
+|-----------|------------|-------------------------|
+| `role`    | `ChatRole` | Who sent this message   |
+| `content` | String     | The text of the message |
+
+**`LLMOptions`** — provider-agnostic call options attached to any request:
+
+| Property       | Type    | Default | Purpose |
+|----------------|---------|---------|---------|
+| `model`        | String  | —       | Model identifier; each provider maps this to its own naming |
+| `maxTokens`    | Int     | 4096    | Maximum tokens in the completion |
+| `temperature`  | Float   | 1.0     | Sampling temperature |
+| `systemPrompt` | String  | —       | Injected as the system turn before the conversation |
+| `stateless`    | Boolean | false   | When true, `ConversationalLLMService` neither adds its history to this call nor records it — for callers that send their full conversation history on every request |
+
+**`LLMResponse`** — what every provider returns:
+
+| Property       | Type   | Purpose                                    |
+|----------------|--------|--------------------------------------------|
+| `content`      | String | The model's reply text                     |
+| `model`        | String | The model that actually served the request |
+| `inputTokens`  | Int    | Prompt tokens consumed                     |
+| `outputTokens` | Int    | Completion tokens generated                |
+| `stopReason`   | String | Why generation stopped                     |
+
+### Providers
+
+The interface is the only contract — the backend is a configuration choice, not a code dependency:
+
+| Provider | Where it runs | Notes |
+|---|---|---|
+| `foam.ai.llm.provider.TransformersLLMService` | Browser (WebAssembly) | Loads a text-generation pipeline via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required. Defaults to `Xenova/Qwen1.5-0.5B-Chat`. |
+| *(server-side providers)* | Java server | Implement `LLMService` to call OpenAI, Anthropic, Ollama, or any HTTP completion API |
+
+Swapping providers requires only a context configuration change — no changes to calling code.
+
+### ConversationalLLMService
+
+`foam.ai.llm.ConversationalLLMService` is a `ProxyLLMService` decorator that accumulates conversation history across calls. Wrap any `LLMService` with it to get stateful multi-turn chat without the caller managing history manually:
+
+| Member | Purpose |
+|---|---|
+| `history` | Accumulated `ChatMessage[]` across all calls |
+| `maxHistory` | Maximum messages to retain (default 50); older messages are trimmed to stay within model context limits |
+| `clearHistory()` | Resets the conversation |
+
+When a caller passes `stateless: true` in `LLMOptions`, the decorator passes the request straight through to the delegate, bypassing both history injection and recording. This is the right choice for a caller that already sends its full conversation history on every request — without `stateless`, the decorator's own accumulated history would be prepended, sending each earlier message twice.
+
+### Service Registration
+
+`foam3` ships a default `llmService` in `foam/core/ai/services.jrl`, wired with Claude as the provider and two decorator layers — logging and performance monitoring:
+
+```java
+// foam3/src/foam/core/ai/services.jrl
+// Stack: Client → Skeleton → Logging → PM → ClaudeLLMService
+return new foam.core.ai.llm.LoggingLLMService.Builder(x)
+  .setDelegate(new foam.core.ai.llm.PMLLMService.Builder(x)
+    .setDelegate(new foam.core.ai.llm.provider.ClaudeLLMService.Builder(x).build())
+    .build())
+  .build();
+```
+
+An application overrides the provider by re-declaring the same service name in its own `services.jrl`. Because FOAM applies journal entries in order, the app-level entry wins. The FOAM-Experimental deployment, for example, swaps in OpenAI:
+
+```java
+// journals/services.jrl — override default LLM provider (Claude) with OpenAI
+return new foam.core.ai.llm.LoggingLLMService.Builder(x)
+  .setDelegate(new foam.core.ai.llm.PMLLMService.Builder(x)
+    .setDelegate(new foam.core.ai.llm.provider.OpenAILLMService.Builder(x).build())
+    .build())
+  .build();
+```
+
+The decorator stack stays the same; only the innermost builder changes. Other available server-side providers: `DeepSeekLLMService`, and `OllamaLLMService` (Ollama requires no credential — `.build()` directly with no API key setup). All share the same `LLMService` interface and work identically from calling code.
+
+Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through the vault rather than from a config file or environment variable. Each provider's credential entry is pre-declared in `foam/core/ai/credentials.jrl`, mapping a provider ID (e.g. `"foam/llm/openai"`) to a named alias inside a vault CSpec (`vaultSecrets`). The vault implementation itself is configured per deployment — a local file keystore for development, a secrets manager (e.g. AWS Secrets Manager) in production — so the same credential entries work across environments without change. See [CredentialManagement.md](CredentialManagement.md) for how to configure the vault and store keys.
+
+## Try It Live
+
+Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the top matching chunks are retrieved and packed into the system context, and the local LLM generates a grounded answer — all in the browser, no server or API key required.

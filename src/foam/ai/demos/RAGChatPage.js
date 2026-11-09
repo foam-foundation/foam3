@@ -20,6 +20,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'embeddingService',
     'flowDAO',
     'llmService as serverLLMService',
     'openAIEmbeddingService',
@@ -73,23 +74,25 @@ foam.CLASS({
       view: {
         class: 'foam.u2.view.ChoiceView',
         choices: [
-          ['transformers', 'Transformers (web)'],
-          ['openai', 'OpenAI']
+          ['transformers',     'Transformers (browser)'],
+          ['openai',           'OpenAI (api)'],
+          ['embeddingService', 'Embedding Service (server)']
         ]
       }
     },
     {
       name: 'embedder',
       expression: function(provider) {
-        return provider === 'openai' ? this.openAIEmbeddingService : this.TransformersEmbeddingService.create();
+        if ( provider === 'openai'           ) return this.openAIEmbeddingService;
+        if ( provider === 'embeddingService' ) return this.embeddingService;
+        return this.TransformersEmbeddingService.create();
       }
     },
     {
       name: 'llmService',
       expression: function(provider) {
-        return provider === 'openai'
-          ? this.serverLLMService
-          : this.ConversationalLLMService.create({ delegate: this.TransformersLLMService.create() });
+        if ( provider === 'openai' || provider === 'embeddingService' ) return this.serverLLMService;
+        return this.ConversationalLLMService.create({ delegate: this.TransformersLLMService.create() });
       }
     },
     {

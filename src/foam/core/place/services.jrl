@@ -11,7 +11,7 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.place.google.GooglePlaceServiceConfigure.SPID } );
     `,
-  "client":"{\"of\":\"foam.core.place.google.GooglePlaceServiceConfigure\"}"
+  "client":"""{"of":"foam.core.place.google.GooglePlaceServiceConfigure"}"""
 })
 
 p({

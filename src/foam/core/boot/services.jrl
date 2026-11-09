@@ -16,5 +16,5 @@ p({
       .setPm(true)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.script.Script\"}"
+  "client":"""{"of":"foam.core.script.Script"}"""
 })

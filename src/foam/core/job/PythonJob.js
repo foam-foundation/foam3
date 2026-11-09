@@ -30,9 +30,12 @@ foam.CLASS({
     'foam.dao.DAO',
     'java.io.BufferedReader',
     'java.io.File',
+    'java.io.IOException',
     'java.io.InputStreamReader',
+    'java.io.OutputStream',
     'java.util.ArrayList',
-    'java.util.List'
+    'java.util.List',
+    'java.util.concurrent.TimeUnit'
   ],
 
   properties: [
@@ -135,6 +138,17 @@ foam.CLASS({
         try {
           Process process = pb.start();
           setProcess_(process);
+
+          // Spawn stdin writer on a background thread to prevent deadlock:
+          // if we wrote stdin synchronously before reading stdout, the child
+          // could block on a full stdout buffer while Java blocks on stdin.
+          Thread stdinWriter = new Thread(() -> {
+            try { writeStdin_(process.getOutputStream()); }
+            catch ( IOException ignored ) {}
+          });
+          stdinWriter.setDaemon(true);
+          stdinWriter.start();
+
           // getInputStream() is the subprocess's stdout (+ stderr via redirectErrorStream).
           // Java names streams from its own perspective: it reads *in* from the child's output.
           try ( BufferedReader reader = new BufferedReader(
@@ -146,13 +160,23 @@ foam.CLASS({
               if ( pct >= 0 ) setProgress(pct);
               if ( shouldSuspend_(x) ) {
                 setStatus(foam.core.job.JobStatus.SUSPENDED);
-                process.destroyForcibly();
+                // SIGTERM lets the subprocess flush its state (e.g. MLX saves a checkpoint).
+                // Fall back to SIGKILL after 30 s if it doesn't exit cleanly.
+                process.destroy();
+                try {
+                  if ( !process.waitFor(120, TimeUnit.SECONDS) ) process.destroyForcibly();
+                } catch ( InterruptedException ie ) {
+                  Thread.currentThread().interrupt();
+                  process.destroyForcibly();
+                }
                 save(x);
                 break;
               }
               save(x);
             }
           }
+          try { stdinWriter.join(5000); } catch ( InterruptedException ie ) { Thread.currentThread().interrupt(); }
+
           int exit = process.waitFor();
           if ( exit != 0 && getStatus() != foam.core.job.JobStatus.SUSPENDED )
             throw new RuntimeException("Python process exited with code " + exit);
@@ -232,6 +256,16 @@ foam.CLASS({
         setStatus(current.getStatus());
         return getStatus() == foam.core.job.JobStatus.SUSPENDING;
       `
+    },
+    {
+      documentation: `Hook for subclasses to write data to the subprocess stdin.
+        Called on a background thread immediately after the process starts.
+        Close stdin when done — this signals EOF to the child process.
+        The base implementation closes stdin immediately (no input).`,
+      name: 'writeStdin_',
+      args: 'OutputStream stdin',
+      javaThrows: ['java.io.IOException'],
+      javaCode: `stdin.close();`
     }
   ]
 });

@@ -477,6 +477,13 @@ foam.CLASS({
       return JSON.parse(json)?.map(a => a[0]).join(',');
     },
 
+    async function answer() {
+      /** Generate an answer for an LLM **/
+      await this.onLoad();
+      if ( this.value && this.value.VALUE ) return this.value.value;
+      return '';
+    },
+
     /*
       KGR: Not needed because real columns are stored in 'columns'?
     function updateColumnStorage(columns) {

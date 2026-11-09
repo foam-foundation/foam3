@@ -118,7 +118,7 @@ foam.RELATIONSHIP({
 | Feature | Reference | Relationship |
 |---------|-----------|--------------|
 | Direction | One-way | Bidirectional |
-| Code generated | None | Properties + methods on both models |
+| Code generated | A `<name>$find` accessor | Properties + methods on both models |
 | Collection access | Manual query | Automatic (`source.targets` returns DAO) |
 | Inverse navigation | Not available | Automatic (`target.source` property) |
 | Junction tables | Manual | Automatic for `*:*` |
@@ -296,7 +296,8 @@ await professor.courses.put(newCourse);
 // newCourse.professor is now set to professor.id
 
 // Navigate from course back to professor
-var prof = await courseDAO.find(course.professor);
+var prof = await professorDAO.find(course.professor);
+// or: var prof = await course.professor$find;
 ```
 
 The `RelationshipDAO` is a filtered view of the target DAO that:

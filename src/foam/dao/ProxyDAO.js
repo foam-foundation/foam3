@@ -85,7 +85,8 @@ return listener
       javaCode: `
         // TODO: Support changing of delegate
         // TODO: Return a detachable
-        getDelegate().listen_(getX(), sink, predicate);
+        // Pass the caller's context on, as every other method does, so a decorator below knows who listens.
+        getDelegate().listen_(x, sink, predicate);
       `
     },
     {

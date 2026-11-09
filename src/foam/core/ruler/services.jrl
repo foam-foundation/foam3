@@ -106,5 +106,5 @@ p({
       .addPropertyIndex(new foam.lang.Indexer[] { foam.core.ruler.RuleHistory.CREATED })
       .addPropertyIndex(new foam.lang.Indexer[] { foam.core.ruler.RuleHistory.EXPIRATION_DATE, foam.core.ruler.RuleHistory.STATUS });
     """,
-    "client":"{\"of\":\"foam.core.ruler.RuleHistory\"}"
+    "client":"""{"of":"foam.core.ruler.RuleHistory"}"""
 })

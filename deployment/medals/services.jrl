@@ -55,7 +55,7 @@ p({
 //      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Region.ISO_CODE })
 //      .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.auth.Region.ALTERNATIVE_NAMES });
   """,
-  "client": "{\"of\":\"foam.demos.olympics.Medal\"}",
+  "client": """{"of":"foam.demos.olympics.Medal"}""",
   "documentation": "A DAO which contains information about Olympic medal results.",
-  "authNotes": "The \"authenticate\" flag is explicitly set to false because we want to be able to use the medalDAO for demo purposes. The DAO is decorated with an AuthenticatedDAO decorator with \"authorizeOnRead\" set to false so that anyone can read from medalDAO but only those with permission can write to or remove from it."
+  "authNotes": """The "authenticate" flag is explicitly set to false because we want to be able to use the medalDAO for demo purposes. The DAO is decorated with an AuthenticatedDAO decorator with "authorizeOnRead" set to false so that anyone can read from medalDAO but only those with permission can write to or remove from it."""
 })

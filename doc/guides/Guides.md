@@ -27,14 +27,14 @@ Reference for POM (Project Object Model) file attributes: name/vendorId/version/
 Explains the immutable hierarchical key-value Context (X) — its get/put/putFactory API — and the three-level hierarchy: system context (boot), session context (per-user), and request context (per HTTP request). Read this before learning about imports and exports.
 
 **[DesignPatterns](DesignPatterns.md)**
-Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Facade, Template Method, Command, Observer/Reactive, and Composite. Useful for understanding why the framework is structured the way it is.
+Catalogs the design patterns FOAM uses throughout: Strategy, Proxy, Decorator, Bridge, Observer, Composite, Interpreter, Command, Factory, NullObject, Flyweight, Facade, Builder and Prototype. Useful for understanding why the framework is structured the way it is.
 
 ---
 
 ## Object Model
 
 **[models](models.md)**
-Reference for FOAM model types: `foam.CLASS` (data models), `foam.ENUM` (fixed value sets), `foam.INTERFACE` (contracts), `foam.SCRIPT` (business logic), `foam.RELATIONSHIP` (model connections), `foam.LIB` (namespace extensions), and XSD-generated types.
+Reference for FOAM model types: `foam.CLASS` (data models), `foam.ENUM` (fixed value sets), `foam.INTERFACE` (contracts), `foam.SCRIPT` (code run once at load time), `foam.RELATIONSHIP` (model connections), and `foam.LIB` (namespace extensions).
 
 **[Axioms](Axioms.md)**
 Explains Axioms as the core extension mechanism — the pseudo-interface with `installInClass`/`installInProto` that all higher-level constructs (Properties, Methods, Listeners, Actions, Topics, etc.) implement. Covers two-phase installation and priority ordering.
@@ -184,6 +184,9 @@ A comprehensive LLM-oriented FOAM3 reference covering all major concepts: class 
 
 ## Backend & Services
 
+**[CORE](CORE.md)**
+FOAM's Java application server and its service registry. Explains how Boot builds the whole server from the `cSpecDAO` (only that DAO is built in), how `services.jrl` files become `services.0`, how the ClientBuilder builds the client from the same CSpecs, and gives a full reference for every CSpec option: `serviceScript`/`serviceClass`/`service`, `lazy`, `serve`, `boxClass`, `authenticate`, `client` and more.
+
 **[NanoServices](NanoServices.md)**
 Comprehensive guide to FOAM's nano-service architecture: location-agnostic service access via context DI, the Box messaging layer (Box/Envelope/RPCMessage), Stub/Skeleton RPC generation, CSpec registration, and a complete `NotificationService` example.
 
@@ -231,7 +234,7 @@ Comprehensive reference for FOAM's grammar-based parser library: all simple pars
 Deep-dive on FOAM's parser callback system: the `apply` intercept mechanism on `StringPStream`, the two callback types (apply for low-level interception vs. semantic actions for symbol-level transformation), error detection, and `grammar.getLastError()`.
 
 **[AutoQueryParser](AutoQueryParser.md)**
-Syntax reference for AQL (AutoQueryParser Query Language): AND/OR/NOT/grouping operators and value types (strings, numbers, booleans, dates, enums, StringArrays). Designed to work with the SmartView autocomplete component.
+Syntax reference for AQL (Automatic Query Language): AND/OR/NOT/grouping operators and value types (strings, numbers, booleans, dates, enums, StringArrays). Designed to work with the SmartView autocomplete component.
 
 ---
 

@@ -42,16 +42,15 @@ NOTE: DIG also supports creating a session via SUGAR (externally) if required.
 
 - see `DIG.createSession`
 
-DIG, on receipt of a non-200 HTML response code will throw a `FOAMException`.
+DIG's DAO methods (`find`, `put`), on receipt of a non-200 HTTP response code with a text body, will throw a `FOAMException`. `submit` does not throw; check `getLastHttpResponseCode()`.
 
 Additionally, permissions, capabilities, ... anything needed to prepare the test environment can be setup with the supplied test context.
 
 Acquiring a DIG client
 
     DIG fooClient = new DIG.Builder(x)
-      .setDaoKey("fooDAO')
+      .setDaoKey("fooDAO")
       .setSessionId(session.getId())
-      .setConnectionTimeout(getConnectionTimeout())
       .setRequestTimeout(getRequestTimeout())
       .build();
 

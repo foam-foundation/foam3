@@ -2,52 +2,52 @@
 
 ## What are Refinements?
 
-Refinements allow you to extend or modify existing classes after they've been defined by adding new axioms to them. [1](#1-0)  When a model specifies a `refines` property, it doesn't create a new class but instead adds axioms to the existing class being refined. [1](#1-0)
+Refinements allow you to extend or modify existing classes after they've been defined by adding new axioms to them.  When a model specifies a `refines` property, it doesn't create a new class but instead adds axioms to the existing class being refined.
 
 ## How Refinements Work with Axioms
 
-When `buildClass()` encounters a model with a `refines` property, it looks up the existing class and adds the new axioms to it rather than creating a new class: [1](#1-0)
+When `buildClass()` encounters a model with a `refines` property, it looks up the existing class and adds the new axioms to it rather than creating a new class (see the `Boot.js` citations below).
 
-The key difference is that refinements call `cls.installModel(this)` on an existing class, which triggers the axiom installation process on that class. [2](#1-1)
+The key difference is that refinements call `cls.installModel(this)` on an existing class, which triggers the axiom installation process on that class.
 
 ## Axiom Installation in Refinements
 
-When axioms are installed on a refined class, the same two-phase installation process occurs: [3](#1-2)
+When axioms are installed on a refined class, the same two-phase installation process occurs (see the `FObject.js` citation below):
 
-1. Axioms are added to the class's `axiomMap_` [4](#1-3)
-2. `installInClass()` and `installInProto()` are called [5](#1-4)
+1. Axioms are added to the class's `axiomMap_`
+2. `installInClass()` and `installInProto()` are called
 
-Importantly, when axioms are installed on a parent class through refinement, child classes are notified via pub/sub to clear their axiom caches, ensuring they see the new axioms: [6](#1-5)
+Importantly, when axioms are installed on a parent class through refinement, child classes are notified via pub/sub to clear their axiom caches, ensuring they see the new axioms.
 
 ## Common Refinement Patterns
 
 ### Adding Properties to Existing Classes
 
-Refinements commonly add new properties to existing classes. For example, the U2 framework refines `foam.lang.Model` to add UI-specific properties: [7](#1-6)
+Refinements commonly add new properties to existing classes. For example, the U2 framework refines `foam.lang.Model` to add UI-specific properties (`foam.u2.ModelU2Refinements`).
 
-The `css` property uses a `postSet` to dynamically create and add a CSS axiom to the model's axiom array. [8](#1-7)
+The `css` property uses a `postSet` to dynamically create and add a CSS axiom to the model's axiom array.
 
 ### Java Code Generation Refinements
 
-The Java code generation system extensively uses refinements to add Java-specific properties and methods to core FOAM classes: [9](#1-8)
+The Java code generation system extensively uses refinements to add Java-specific properties and methods to core FOAM classes, for example `MethodJavaRefinement` and `ProxiedMethodJavaRefinement` in `src/foam/java/refinements.js`.
 
-These refinements add properties like `javaCode`, `javaType`, and methods like `buildJavaClass()` that control Java code generation. [10](#1-9)
+These refinements add properties like `javaCode`, `javaType`, and methods like `buildJavaClass()` that control Java code generation.
 
 ### View Refinements
 
-Property types are refined to specify default views for UI rendering: [11](#1-10)
+Property types are refined to specify default views for UI rendering, for example `MapViewRefinement`, `ClassViewRefinement` and `ReferenceViewRefinement` in `src/foam/u2/Element2.js`.
 
 ## Refinement Validation
 
-In debug mode, refinements are validated to ensure they don't conflict with inheritance: [12](#1-11)
+In debug mode, refinements are validated to ensure they don't conflict with inheritance: a model may not have both `refines` and `extends`.
 
-## What are Refinements?
+## Why Refinements Exist
 
 FOAM models are modeled as FOAM models. This makes FOAM powerful, consistent and relatively compact, but creates an apparent circular dependency. This problem is solved through refinements by starting off with a simple Model definition and then refining it as new Model features are themselves refined into the FOAM Model. This use of Axioms to Bootstrap the FOAM modelling system is the primary difference between FOAM1 and later versions of FOAM (FOAM2 and FOAM3).
 
 ## Notes
 
-Refinements are a powerful mechanism for extending FOAM classes without modifying their original definitions. They're particularly useful for adding platform-specific functionality (like Java or Swift code generation) or framework-specific features (like UI views) to core classes.<cite /> The axiom installation process handles refinements transparently, treating refined axioms the same as original axioms once installed.<cite /> Multiple refinements can target the same class, and they're processed in the order they're loaded.<cite />
+Refinements are a powerful mechanism for extending FOAM classes without modifying their original definitions. They're particularly useful for adding platform-specific functionality (like Java or Swift code generation) or framework-specific features (like UI views) to core classes. The axiom installation process handles refinements transparently, treating refined axioms the same as original axioms once installed. Multiple refinements can target the same class, and they're processed in the order they're loaded.
 
 Wiki pages you might want to explore:
 - [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
@@ -149,7 +149,7 @@ Wiki pages you might want to explore:
     },
 ```
 
-**File:** src/foam/u2/Element.js (L2847-2880)
+**File:** src/foam/u2/Element2.js (L2580-2617)
 ```javascript
 foam.CLASS({
   package: 'foam.u2',
@@ -160,6 +160,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'css',
+      label: 'CSS',
+      view: { class: 'foam.u2.tag.TextArea', rows: 20, cols: 80 },
       postSet: function(_, code) {
         var css = foam.u2.CSS.create({code: code});
         css.name = css.name + '-' + this.id;
@@ -169,6 +171,7 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'inheritCSS',
+      hidden: true,
       value: true
     },
     {
@@ -187,7 +190,7 @@ foam.CLASS({
 });
 ```
 
-**File:** src/foam/java/refinements.js (L1047-1059)
+**File:** src/foam/java/refinements.js (L1161-1173)
 ```javascript
 foam.CLASS({
   package: 'foam.java',
@@ -204,7 +207,7 @@ foam.CLASS({
 });
 ```
 
-**File:** src/foam/java/refinements.js (L1062-1100)
+**File:** src/foam/java/refinements.js (L1176-1214)
 ```javascript
 foam.CLASS({
   package: 'foam.java',
@@ -247,7 +250,7 @@ foam.CLASS({
 });
 ```
 
-**File:** src/foam/u2/Element2.js (L2032-2067)
+**File:** src/foam/u2/Element2.js (L2215-2250)
 ```javascript
 foam.CLASS({
   package: 'foam.u2',

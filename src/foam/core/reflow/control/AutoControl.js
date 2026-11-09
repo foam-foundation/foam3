@@ -60,6 +60,10 @@ foam.CLASS({
         return this.AutoGrammar.create();
       }
     },
+    {
+      class: 'String',
+      name: 'status'
+    },
     'smartView_'
   ],
 
@@ -76,7 +80,7 @@ foam.CLASS({
         .add([this.COLLECTIONS, this.FLOWS, this.COMMANDS].map(v => {
           return v.clone().copyFrom({ toolTip: v.label, label: '' });
         }))
-        .start(this.SmartView, {data$: this.data.input$, parser: this.grammar}, this.smartView_$)
+        .start(this.SmartView, {data$: this.data.input$, parser: this.grammar, placeholder$: this.status$}, this.smartView_$)
           .on('keydown', this.onKeyDown)
           .addClass(this.myClass('input'))
           .focus()
@@ -87,13 +91,20 @@ foam.CLASS({
       this.data.input_ = this.smartView_.field;
     },
 
-    function submitPrompt() {
+    async function submitPrompt() {
       let n = this.smartView_.preview;
       this.smartView_.preview = this.smartView_.data = '';
 
       if ( n ) {
         if ( n.startsWith('/') || n.startsWith('~') ) n = n.substring(1);
-        if ( n ) this.eval_(n);
+        if ( n ) {
+          this.status = 'Processing... ';
+          try {
+            await this.eval_(n);
+          } finally {
+            this.status = ' ';
+          }
+        }
       }
     }
   ],

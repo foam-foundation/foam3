@@ -59,7 +59,7 @@ p({
   """
 })
 
-p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "lazyOrder":-1, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": "{\"class\":\"foam.core.auth.AgentAuthClient\",\"delegate\":{\"class\":\"foam.core.auth.ClientAgentAuthService\"}}"})
+p({"class":"foam.core.boot.CSpec", "name":"agentAuth",                        "lazy":false, "lazyOrder":-1, "serve":true, "authenticate": false, "description":"Permits users to act as others if permitted. Places user as an agent of the system.", "boxClass":"foam.core.auth.AgentAuthServiceSkeleton", "serviceScript":"return new foam.core.auth.AgentUserAuthService(x);", "client": """{"class":"foam.core.auth.AgentAuthClient","delegate":{"class":"foam.core.auth.ClientAgentAuthService"}}"""})
 
 p({
   "class": "foam.core.boot.CSpec",
@@ -73,11 +73,11 @@ p({
       .setPm(false)
       .setUnloadable(false)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName(\"agentJunctions\")
+      .setJournalName("agentJunctions")
       .setOf(foam.core.auth.UserUserJunction.getOwnClassInfo())
       .build();
   """,
-  "client": "{\"of\":\"foam.core.auth.UserUserJunction\", \"remoteListenerSupport\": false}"
+  "client": """{"of":"foam.core.auth.UserUserJunction", "remoteListenerSupport": false}"""
 })
 
 p({
@@ -128,7 +128,7 @@ p({
       "clientIndices": "isoNumeric"
     }
   """,
-  "authNotes": "The \"authenticate\" flag is explicitly set to false because we want to be able to use the countryDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthorizationDAO decorator with \"authorizeOnRead\" set to false so that anyone can read from countryDAO but only those with permission can write to or remove from it."
+  "authNotes": """The "authenticate" flag is explicitly set to false because we want to be able to use the countryDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthorizationDAO decorator with "authorizeOnRead" set to false so that anyone can read from countryDAO but only those with permission can write to or remove from it."""
 })
 
 p({
@@ -154,7 +154,7 @@ p({
       .addPropertyIndex(new foam.lang.Indexer[] {foam.core.auth.Credential.TYPE})
       .addPropertyIndex(new foam.lang.Indexer[] {foam.core.auth.Credential.SERVICE_NAME});
     `,
-  "client":"{\"of\":\"foam.core.auth.Credential\"}"
+  "client":"""{"of":"foam.core.auth.Credential"}"""
 })
 p({
   "class":"foam.core.boot.CSpec",
@@ -183,7 +183,7 @@ p({
       .setAuthorize(false)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.Group\"}"
+  "client":"""{"of":"foam.core.auth.Group"}"""
 })
 
 p({
@@ -198,7 +198,7 @@ p({
       .setOf(foam.core.auth.Group.getOwnClassInfo())
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.Group\"}"
+  "client":"""{"of":"foam.core.auth.Group"}"""
 })
 
 p({
@@ -231,7 +231,7 @@ p({
       .setAuthorize(false)
       .setInnerDAO((foam.dao.DAO) x.get("localGroupPermissionJunctionDAO"))
     .build();""",
-  "client":"{\"of\": \"foam.core.auth.GroupPermissionJunction\"}"
+  "client":"""{"of": "foam.core.auth.GroupPermissionJunction"}"""
 })
 
 p({
@@ -252,7 +252,7 @@ p({
       .build()
       .orderBy(foam.core.auth.Language.ID);
     `,
-  "client":"{\"of\":\"foam.core.auth.Language\"}"
+  "client":"""{"of":"foam.core.auth.Language"}"""
 })
 
 
@@ -273,7 +273,7 @@ p({
       .setOf(foam.core.auth.CommonPassword.getOwnClassInfo())
       .build();
     `,
-  "client":"{\"of\":\"foam.core.auth.CommonPassword\"}"
+  "client":"""{"of":"foam.core.auth.CommonPassword"}"""
 })
 
 p({
@@ -298,7 +298,7 @@ p({
     """
 })
 
-p({"class":"foam.core.boot.CSpec", "name":"resetPasswordToken",                 "serve":true,  "authenticate": false, "serviceClass":"foam.core.auth.resetPassword.ResetPasswordTokenService","boxClass":"foam.core.auth.token.TokenServiceSkeleton","client":"{\"class\":\"foam.core.auth.token.ClientTokenService\"}"})
+p({"class":"foam.core.boot.CSpec", "name":"resetPasswordToken",                 "serve":true,  "authenticate": false, "serviceClass":"foam.core.auth.resetPassword.ResetPasswordTokenService","boxClass":"foam.core.auth.token.TokenServiceSkeleton","client":"""{"class":"foam.core.auth.token.ClientTokenService"}"""})
 
 
 p({
@@ -328,7 +328,7 @@ p({
       .setInnerDAO((foam.dao.DAO) x.get("localPermissionDAO"))
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.Permission\"}"
+  "client":"""{"of":"foam.core.auth.Permission"}"""
 })
 
 p({
@@ -343,7 +343,7 @@ p({
       .setUnloadable(false)
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("region"))
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName(\"regions\")
+      .setJournalName("regions")
       .setOf(foam.core.auth.Region.getOwnClassInfo())
       .setOrder(new foam.lang.PropertyInfo[] {foam.core.auth.Region.NAME})
       .build()
@@ -362,7 +362,7 @@ p({
   }
   """,
   "documentation": "A DAO which contains information about regions in countries. A region is a province or a state, for example.",
-  "authNotes": "The \"authenticate\" flag is explicitly set to false because we want to be able to use the regionDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthenticatedDAO decorator with \"authorizeOnRead\" set to false so that anyone can read from regionDAO but only those with permission can write to or remove from it."
+  "authNotes": """The "authenticate" flag is explicitly set to false because we want to be able to use the regionDAO to populate a dropdown in the sign up form. The DAO is decorated with an AuthenticatedDAO decorator with "authorizeOnRead" set to false so that anyone can read from regionDAO but only those with permission can write to or remove from it."""
 })
 p({"class":"foam.core.boot.CSpec", "name":"regionService",                      "serve":false, "serviceClass":"foam.core.auth.RegionService"})
 
@@ -387,7 +387,7 @@ p({
         .build())
       .build();
   """,
-  "client":"{\"of\":\"foam.core.auth.ServiceProvider\"}"
+  "client":"""{"of":"foam.core.auth.ServiceProvider"}"""
 })
 
 p({

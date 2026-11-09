@@ -47,7 +47,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.approval.ApprovalRequest.DAO_KEY, foam.core.approval.ApprovalRequest.CLASSIFICATION })
       .orderBy(foam.mlang.MLang.DESC(foam.core.approval.ApprovalRequest.CREATED));
   """,
-  "client": "{\"of\":\"foam.core.approval.ApprovalRequest\"}"
+  "client": """{"of":"foam.core.approval.ApprovalRequest"}"""
 })
 p({
   "class": "foam.core.boot.CSpec",

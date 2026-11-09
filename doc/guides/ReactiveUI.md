@@ -39,7 +39,7 @@ this.start(this.TextField, { data$: this.searchTerm$ }).end();
 
 The `$` suffix is the key. `data: value` copies once. `data$: slot` creates a live link — the child sees every future change.
 
-**Example to study:** `foam3/src/foam/u2/view/ChoiceView.js:470` — eight slots wired into a single select widget.
+**Example to study:** `foam3/src/foam/u2/view/ChoiceView.js:468` — eight slots wired into a single select widget.
 
 ---
 
@@ -73,7 +73,7 @@ this.tag({ class: 'foam.comics.v3.DAOView', data$: transactions$ });
 
 One `DAOView` is created. When the DAO changes, the view updates its table internally. No DOM teardown.
 
-**Example to study:** `foam3/src/foam/u2/PropertyBorder.js:75` — `data$.dot(prop.name)` to track whichever property is being edited, even when `data` itself changes.
+**Example to study:** `foam3/src/foam/u2/PropertyBorder.js:169` — `data$.dot(prop.name)` to track whichever property is being edited, even when `data` itself changes.
 
 ---
 
@@ -102,7 +102,7 @@ var hasValue = this.data$.dot(prop.name).map(function(v) {
 });
 ```
 
-**Example to study:** `foam3/src/foam/u2/Element2.js:984` — `hide()` is implemented as `slot.map(function(s) { return !s; })`.
+**Example to study:** `foam3/src/foam/u2/Element2.js:999` — `hide()` is implemented as `slot.map(function(s) { return !s; })`.
 
 ---
 
@@ -115,7 +115,7 @@ var hasValue = this.data$.dot(prop.name).map(function(v) {
 ```javascript
 var self = this;
 this.add(this.dynamic(function(mode) {
-  if ( mode === 'EDIT' ) {
+  if ( mode === foam.u2.DisplayMode.RW ) {
     this.start(self.TextField, { data$: self.name$ }).end();
   } else {
     this.start('span').add(self.name$).end();
@@ -123,7 +123,7 @@ this.add(this.dynamic(function(mode) {
 }));
 ```
 
-FOAM infers which properties to watch from the function's **parameter names**. `function(mode)` watches `this.mode`. `function(data$transactions)` watches `this.data.transactions`.
+FOAM infers which properties to watch from the function's **parameter names**. `function(mode)` watches `this.mode` (a `foam.u2.DisplayMode` value such as `RW` or `RO`). `function(data$transactions)` watches `this.data.transactions`.
 
 **Important `this` rule:** Inside the function, `this` is the Element (for `this.start()`, `this.end()`). Your view is captured as `self` outside the function.
 
@@ -132,7 +132,7 @@ FOAM infers which properties to watch from the function's **parameter names**. `
 - Only changing text or a CSS class → use `map()` instead
 - Creating the same components every time → you're paying teardown cost for nothing
 
-**Example to study:** `foam3/src/foam/u2/tag/Button.js:534` — three completely different icon DOM structures depending on `themeIcon` vs. `icon` vs. `iconFontName`.
+**Example to study:** `foam3/src/foam/u2/tag/Button.js:554` — three completely different icon DOM structures depending on `themeIcon` vs. `icon` vs. `iconFontName`.
 
 ---
 
@@ -175,7 +175,7 @@ See `foam3/src/foam/u2/stack/DesktopStackView.js:29` for a real example — it w
 
 You don't need to know this to use the patterns, but it explains why they behave differently.
 
-When you `.add()` something to an Element, FOAM inspects its type and picks a rendering strategy (`Element2.js:addChild_()`, line 1318):
+When you `.add()` something to an Element, FOAM inspects its type and picks a rendering strategy (`Element2.js:addChild_()`, line 1333):
 
 ### Slots (from `dot()` or `map()`) → SlotNode
 
@@ -236,38 +236,35 @@ Each entry is a real view in the FOAM3 codebase that uses the pattern well. Read
 | File | What it shows |
 |------|---------------|
 | `foam3/src/foam/u2/FormattedTextField.js:99` | Two TextFields share `mode$` but have different `data$` |
-| `foam3/src/foam/u2/DAOList.js:167` | Multiple slots passed to LazyScrollManager |
-| `foam3/src/foam/u2/PropertyBorder.js:338` | `expanded$` slot controls child collapse state |
+| `foam3/src/foam/u2/DAOList.js:186` | Multiple slots passed to LazyScrollManager |
 
 ### `slot.dot()`
 
 | File | What it shows |
 |------|---------------|
-| `foam3/src/foam/u2/PropertyBorder.js:164` | `data$.dot(prop.name).map(...)` — dot then map for derived boolean |
-| `foam3/src/foam/u2/DAOList.js:182` | `scrollEl_$.dot('topRow')` — display nested counter |
-| `foam3/src/foam/u2/TextInputCSS.js:78` | `theme$.dot('allowVariants')` — context property drives CSS class |
+| `foam3/src/foam/u2/PropertyBorder.js:169` | `data$.dot(prop.name).map(...)` — dot then map for derived boolean |
+| `foam3/src/foam/u2/DAOList.js:201` | `scrollEl_$.dot('topRow')` — display nested counter |
 | `foam3/src/foam/u2/stack/DesktopStackView.js:29` | `data$.dot('top').sub(...)` — subscribe to nested changes |
 
 ### `slot.map()`
 
 | File | What it shows |
 |------|---------------|
-| `foam3/src/foam/u2/table/UnstyledTableView.js:238` | Sort arrow indicator derived from sort order slot |
 | `foam3/src/foam/u2/detail/FlexSectionedDetailView.js:59` | Section visibility from availability slot |
-| `foam3/src/foam/u2/PropertyBorder.js:164` | `dot().map()` chain — nested property to boolean |
+| `foam3/src/foam/u2/PropertyBorder.js:169` | `dot().map()` chain — nested property to boolean |
 
 ### `dynamic()`
 
 | File | What it shows |
 |------|---------------|
-| `foam3/src/foam/u2/view/RichChoiceView.js:819` | Citation view vs. placeholder based on selection |
+| `foam3/src/foam/u2/view/RichChoiceView.js:985` | Citation view vs. placeholder based on selection |
 | `foam3/src/foam/u2/view/ChoiceView.js:466` | Select control rendered only in non-RO mode |
-| `foam3/src/foam/u2/view/MarkdownView.js:505` | Parses markdown and renders token-based DOM |
+| `foam3/src/foam/u2/view/MarkdownView.js:579` | Parses markdown and renders token-based DOM |
 
 ## Key Source Files
 
 | File | What to look for |
 |------|-----------------|
-| `foam3/src/foam/lang/Slot.js` | `dot()` (line 72), `map()` (line 222), SubSlot (line 319), ExpressionSlot (line 522), DynamicFunction (line 638) |
+| `foam3/src/foam/lang/Slot.js` | `dot()` (line 72), `map()` (line 222), SubSlot (line 321), ExpressionSlot (line 522), DynamicFunction (line 638) |
 | `foam3/src/foam/lang/FObject.js` | `dynamic()` (line 748) |
-| `foam3/src/foam/u2/Element2.js` | `addChild_()` dispatch (line 1318), SlotNode (line 115), FunctionNode (line 258) |
+| `foam3/src/foam/u2/Element2.js` | `addChild_()` dispatch (line 1333), SlotNode (line 123), FunctionNode (line 265) |

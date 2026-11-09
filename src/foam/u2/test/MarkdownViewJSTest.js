@@ -66,6 +66,22 @@ foam.CLASS({
       x.test(q(v, '.foam-u2-markdown-Hint strong'), 'a multi-line hint parses its markdown');
       v.remove();
 
+      // A heading styled letter by letter, with its closing tag on the next
+      // line: the text after the last span must stay in the heading's line,
+      // not drop into a paragraph of its own.
+      v = await render('<h1>The <x style="color:red">R</x>eactive <span style="color:red">E</span>ditor for <span style="color:gray">FLOW</span> documents.\n</h1>\n');
+      x.test(q(v, 'h1') && ! q(v, 'h1 .mdParagraph'), 'text before a closing tag on the next line is no paragraph');
+      x.test(q(v, 'h1') && q(v, 'h1').innerText.trim().replace(/ +/g, ' ') == 'The Reactive Editor for FLOW documents.', 'the heading reads as one line, got ' + JSON.stringify(q(v, 'h1') && q(v, 'h1').innerText));
+      v.remove();
+
+      // Spans written one per line inside a div: the indentation between
+      // them is whitespace, not a paragraph, so they read "hello there".
+      v = await render('<div>\n  <span>hello</span>\n  <span>there</span>\n</div>\n');
+      var d = q(v, 'div div');
+      x.test(d && ! d.querySelector('.mdParagraph'), 'whitespace between tags makes no paragraph');
+      x.test(d && d.innerText.trim().replace(/ +/g, ' ') == 'hello there', 'the spans share one line, got ' + JSON.stringify(d && d.innerText));
+      v.remove();
+
       // A link target may hold one pair of parentheses, as a flow name does.
       v = await render('See [the guide](Client Programs (DOC)) for more.\n');
       var a = q(v, 'a');
@@ -139,6 +155,28 @@ foam.CLASS({
       v = await render('Click the ![icon](images/i.png) button.\n');
       var img = q(v, '.mdParagraph img');
       x.test(img && getComputedStyle(img).display == 'inline', 'an image inside a paragraph is inline, got ' + ( img && getComputedStyle(img).display ));
+      v.remove();
+
+      // SVG names are case-sensitive, so <linearGradient> must keep its capital
+      // G; lowercased, the browser does not know it and the fill finds no gradient.
+      v = await render(
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 150' width='300' height='150'>\n" +
+        "<defs>\n<linearGradient id='gradK'><stop offset='0%' stop-color='#2e8b57'/><stop offset='100%' stop-color='#1b5e3a'/></linearGradient>\n</defs>\n" +
+        "<path d='M50,100 C70,50 100,50 120,100 Z' style='fill: url(#gradK)'/>\n" +
+        "</svg>\n");
+      var grad = q(v, 'svg defs > *');
+      x.test(grad && grad.localName == 'linearGradient', 'an SVG element keeps its camel-case name, got ' + ( grad && grad.localName ));
+      x.test(grad instanceof SVGLinearGradientElement, 'the browser recognises it as a gradient');
+      var path = q(v, 'svg path');
+      x.test(path && path.namespaceURI == 'http://www.w3.org/2000/svg', 'elements inside an <svg> are in the SVG namespace');
+      v.remove();
+
+      // A style value may itself hold colons, as in url(http://...).
+      v = await render('<div style="background-image: url(http://example.com/a.png); color: red">x</div>\n');
+      var styled = q(v, '[style*="color"]');
+      var bg     = styled && styled.style.backgroundImage;
+      x.test(bg && bg.indexOf('http://example.com/a.png') != -1, 'a style value with a colon inside is kept whole, got ' + JSON.stringify(bg));
+      x.test(styled && styled.style.color == 'red', 'the declaration after it still applies');
       v.remove();
     }
   ]

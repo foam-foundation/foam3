@@ -51,6 +51,12 @@ foam.CLASS({
           ((foam.core.logger.Logger) x.get("logger")).warning(msg);
         }
         getLocalSessionDAO().inX(x).put(session);
+        // Rebuild the session context from x, the caller's context, rather than
+        // session.getContext(). The saved context can belong to a request that has
+        // already finished. E.g., an OAuth sign-in starts when the login page loads
+        // and completes on the provider's redirect, a second request. Reading a header
+        // from the finished request throws, so code that uses the session context
+        // after sign-in needs one built from the current request.
         session.setContext(session.applyTo(x));
         return user;
       } catch ( foam.core.auth.AuthenticationException e ) {

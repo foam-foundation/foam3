@@ -66,7 +66,7 @@ counts against the thresholds in its `AlarmConfig`.
 ## 1. Counting
 
 Code logs an OM (operational measure) by name through `OMLogger`, for example
-`SwamTransactionDAO:search:attempt`. The `omFoldManager` adds each log to a
+`PaymentService:send:attempt`. The `omFoldManager` adds each log to a
 `Candlestick` in `localOm1MinuteDAO`, keyed by the OM name and the end of the
 current minute (`closeTime` = minute start + 59999 ms). So there is one
 counter per OM name per minute. Old candlesticks are not removed: the latest

@@ -57,3 +57,74 @@ AlarmConfig acts as a template which will change the behaviour of an Alarm.
 ### Example
 
 If a network endpoint is flooding the system with *network outage* alarms, an AlarmConfig can be created for this **name** which can change the severity and/or status of the alarm.  The AlarmConfig status could be *not active*, and all subsequent alarms will be disabled or inactive.
+
+# Alarming and Monitoring
+
+`AlarmAndMonitoring` raises or clears an alarm by comparing a service's OM
+counts against the thresholds in its `AlarmConfig`.
+
+## 1. Counting
+
+Code logs an OM (operational measure) by name through `OMLogger`, for example
+`SwamTransactionDAO:search:attempt`. The `omFoldManager` adds each log to a
+`Candlestick` in `localOm1MinuteDAO`, keyed by the OM name and the end of the
+current minute (`closeTime` = minute start + 59999 ms). So there is one
+counter per OM name per minute. Old candlesticks are not removed: the latest
+one for a name stays in the DAO until that name is logged again.
+
+## 2. Configuring
+
+An `AlarmConfig`, in `alarmConfigDAO`, names the alarm and up to three OMs:
+
+- **preRequest**: logged before each request, the attempts.
+- **postRequest**: logged after each successful response.
+- **timeOutRequest**: logged after each failure of interest, usually a
+  timeout.
+
+`alarmValue` and `timeoutValue` are percentages, and `monitorType` picks how
+they are applied (see Evaluating).
+
+## 3. Triggering
+
+The "Alarming and Monitoring" cron (disabled by default) puts a new
+`MonitoringReport`, named after the config, into `monitoringReportDAO` for
+each enabled config that is not `manual`. The "Alarming & Monitoring" rule on
+that DAO runs `AlarmAndMonitoring`. A test can put the report itself to
+evaluate a config at once.
+
+## 4. Evaluating
+
+For each of the three OMs, the latest candlestick is read from `om1MinuteDAO`
+(`localCcom1MinuteDAO` when `useCCOMLogger` is set). Its count is added to the
+report's `startCount`, `endCount` or `timeoutCount` only if it closed within
+`cycleTime` (default 60 s) of the start of the current minute. That window
+takes the current and the previous minute, so a failure stops counting about
+two minutes after it happened. The decision uses the report's counts only,
+never an older candlestick.
+
+- **CREDENTIALS**: with `timeOutRequest` set, the alarm is on while
+  `timeoutCount / startCount` is above `timeoutValue`, for example credential
+  failures above 10% of attempts. Without it, the alarm is on while
+  `endCount / startCount` is below `alarmValue`, so any failure counts.
+  Reason CREDENTIALS.
+- **CONGESTION** and **CONTROLCHECK**: on with reason TIMEOUT while
+  `timeoutCount / startCount` is above `timeoutValue`. Otherwise on with
+  reason CONGESTION or CONTROLCHECK while `endCount / startCount` is below
+  `alarmValue`.
+- **THRESHOLD**: on with reason THRESHOLD while `startCount` is above
+  `alarmValue`, a count rather than a percentage.
+
+When none of these holds, an active alarm is cleared: `isActive` false, reason
+UNSPECIFIED. When no OM of the config was logged in the window, the alarm is
+left as it is, so an alarm only clears once a request succeeds. Outside
+CREDENTIALS, a new alarm whose requests all succeeded is not created.
+
+## 5. Raising
+
+The alarm, named after the config, is put to `alarmDAO`:
+
+- `AddAlarmNameDAO` copies the config's severity onto it, and drops it if the
+  config is disabled.
+- The "Alarm Hostname" rule stamps the host.
+- `AlarmNotificationDAO` sends a notification when a WARN or ERROR alarm
+  turns on or off (not on a host named localhost outside TEST mode).

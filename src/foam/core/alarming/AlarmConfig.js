@@ -71,7 +71,9 @@ foam.CLASS({
     {
       class: 'String',
       name: 'timeOutRequest',
-      documentation: 'Name of the OM after a request has timed out',
+      documentation: `Name of the OM after a request has timed out. On a
+        CREDENTIALS monitor, the OM of a credential failure: the alarm then
+        counts only those failures, against timeoutValue.`,
       view: function(omNameDAO, X) {
         return foam.u2.view.ChoiceView.create({
           objToChoice: function(omName) {

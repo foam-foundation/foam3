@@ -8,7 +8,8 @@ foam.CLASS({
   package: 'foam.core.alarming',
   name: 'AlarmAndMonitoring',
 
-  documentation: 'Raises an alarm if certain conditions are met',
+  documentation: `Raises an alarm if certain conditions are met. See Alarm.md,
+  section Alarming and Monitoring.`,
 
   implements: [
     'foam.core.ruler.RuleAction'
@@ -87,19 +88,23 @@ foam.CLASS({
               updateAlarm = true;
               report.setEndCount(report.getEndCount() + (int) receiveResponses.getCount());
           }
+          if ( timeout != null && (Math.abs(timeout.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime()) ) {
+              updateAlarm = true;
+              report.setTimeoutCount(report.getTimeoutCount() + (int) timeout.getCount());
+          }
           if ( config.getMonitorType() == MonitorType.CREDENTIALS  && updateAlarm ) {
             alarm = AlarmAndMonitoring.this.checkCredentials(x, config, report, alarm);
             alarmDAO.put(alarm);
             return;
           }
-          if ( timeout != null && (Math.abs(timeout.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime()) ) {
-              updateAlarm = true;
-              report.setTimeoutCount(report.getTimeoutCount() + (int) timeout.getCount());
-          }
 
-          float timeoutCount = timeout != null ? timeout.getCount() : 0;
-          float sentCount = sentRequest != null ? sentRequest.getCount() : 0;
-          float responseCount = receiveResponses != null ? receiveResponses.getCount() : 0;
+          // The latest candlestick of a key stays in the DAO until that key is
+          // logged again, so reading it directly would keep counting a burst
+          // of timeouts long after it ended, and the alarm would never clear. The report holds only the candlesticks that
+          // closed within cycleTime.
+          float timeoutCount = report.getTimeoutCount();
+          float sentCount = report.getStartCount();
+          float responseCount = report.getEndCount();
 
           if ( ! updateAlarm || (newAlarm && sentCount == responseCount) ) {
             return;
@@ -165,6 +170,24 @@ foam.CLASS({
         }
       ],
       javaCode: `
+      // With timeOutRequest set, alarm only on the failures it names, such
+      // as a credential failure, when they pass timeoutValue percent of the
+      // requests. Otherwise any failure, a timeout included, would lower the
+      // response ratio and raise a credentials alarm.
+      if ( ! foam.util.SafetyUtil.isEmpty(config.getTimeOutRequest()) ) {
+        if ( report.getStartCount() != 0 &&
+             (float) report.getTimeoutCount() / (float) report.getStartCount() > (float) config.getTimeoutValue() / 100 ) {
+          alarm.setReason(AlarmReason.CREDENTIALS);
+          alarm.setIsActive(true);
+        } else if ( alarm.getIsActive() ) {
+          report.setStartCount(0);
+          report.setEndCount(0);
+          report.setTimeoutCount(0);
+          alarm.setReason(AlarmReason.UNSPECIFIED);
+          alarm.setIsActive(false);
+        }
+        return alarm;
+      }
       if ( report.getStartCount() != 0  && report.getEndCount() != 0  && ((float) report.getEndCount() /(float) report.getStartCount()) < (float) config.getAlarmValue() / 100 ) {
         if ( ! alarm.getIsActive() || !( alarm.getReason() == AlarmReason.CREDENTIALS) ) {
           alarm.setReason(AlarmReason.CREDENTIALS);

@@ -126,8 +126,10 @@ the alarm changes state, not on every cycle:
 
 - **Raise**: the alarm should be on and is not. The `EventRecord` has the
   config's name as its `event`, which is also the alarm's name, the reason
-  (for example TIMEOUT) as its `code`, the window's counts as its `message`,
-  and the config's `severity`.
+  and the window's counts as its `message` (for example `TIMEOUT, attempts:
+  6, responses: 0, failures: 6`), and the config's `severity`. Its `code`
+  stays empty, because the code is part of the alarm name and the clear must
+  name the same alarm whatever the reason was.
 - **Clear**: the alarm is on and should be off. The same `event`, severity
   INFO.
 

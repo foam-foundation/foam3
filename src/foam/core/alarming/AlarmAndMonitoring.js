@@ -113,7 +113,7 @@ foam.CLASS({
           Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, config.getName()));
           boolean active = alarm != null && alarm.getIsActive();
           if ( reason != null && ! active ) {
-            AlarmAndMonitoring.this.putEventRecord(x, config, report, reason.getName(), config.getSeverity());
+            AlarmAndMonitoring.this.putEventRecord(x, config, report, reason, config.getSeverity());
           } else if ( reason == null && active ) {
             AlarmAndMonitoring.this.putEventRecord(x, config, report, null, LogLevel.INFO);
           }
@@ -125,15 +125,18 @@ foam.CLASS({
       documentation: `Puts an EventRecord whose alarm name, the event, is the
         config's name. EventRecordAlarmRuleAction raises the alarm at WARN or
         ERROR and clears it at INFO; EventRecordNotificationRuleAction
-        notifies on an ERROR raise and on a clear. The code holds the
-        AlarmReason name, and the message the counts behind the decision.`,
+        notifies on an ERROR raise and on a clear. The message holds the
+        AlarmReason, when raising, and the counts behind the decision.
+        The code stays empty: it is part of the alarm name, and the clear
+        must name the same alarm as the raise whatever the reason was.`,
       name: 'putEventRecord',
-      args: 'X x, foam.core.alarming.AlarmConfig config, foam.core.alarming.MonitoringReport report, String code, foam.log.LogLevel severity',
+      args: 'X x, foam.core.alarming.AlarmConfig config, foam.core.alarming.MonitoringReport report, foam.core.alarming.AlarmReason reason, foam.log.LogLevel severity',
       javaCode: `
-      String message = "attempts: " + report.getStartCount() +
+      String message = ( reason != null ? reason.getName() + ", " : "" ) +
+        "attempts: " + report.getStartCount() +
         ", responses: " + report.getEndCount() +
         ", failures: " + report.getTimeoutCount();
-      EventRecord er = new EventRecord(x, null, config.getName(), null, code, message, severity, null);
+      EventRecord er = new EventRecord(x, null, config.getName(), null, null, message, severity, null);
       er.setClusterable(config.getClusterable());
       ((DAO) x.get("eventRecordDAO")).put(er);
       `

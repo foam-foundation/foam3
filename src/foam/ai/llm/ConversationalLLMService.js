@@ -58,10 +58,9 @@ foam.CLASS({
         options:  request.options
       }));
 
-      this.history.push(this.ChatMessage.create({
-        role:    'ASSISTANT',
-        content: response.content
-      }));
+      // the turn keeps its tool calls and thinking, or the next request sends the
+      // results of calls the model never made, which the provider refuses
+      this.history.push(response.toMessage());
 
       this.trimHistory_();
       return response;

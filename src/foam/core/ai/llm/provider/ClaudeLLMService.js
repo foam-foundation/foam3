@@ -72,15 +72,54 @@ foam.CLASS({
       class: 'String',
       name: 'apiVersion',
       value: '2023-06-01'
+    },
+    {
+      class: 'String',
+      name: 'webSearchTool',
+      value: 'web_search_20260209',
+      documentation: 'The web search tool version sent when LLMOptions.webSearch is set.'
+    },
+    {
+      class: 'Int',
+      name: 'webSearchMaxUses',
+      value: 5,
+      documentation: 'The most searches the model may run for one reply.'
     }
   ],
 
   methods: [
     {
+      name: 'chat',
+      documentation: `
+        The Messages API takes the system prompt beside the conversation, never as a turn
+        of it: a SYSTEM message is refused there. So SYSTEM messages join the system prompt,
+        after the options' own.
+      `,
+      javaCode: `
+        LLMOptions        options = request.getOptions();
+        StringBuilder     system  = new StringBuilder(SafetyUtil.isEmpty(options.getSystemPrompt()) ? "" : options.getSystemPrompt());
+        List<ChatMessage> turns   = new ArrayList<>();
+        for ( ChatMessage m : request.getMessages() ) {
+          if ( m.getRole() != ChatRole.SYSTEM ) {
+            turns.add(m);
+            continue;
+          }
+          if ( SafetyUtil.isEmpty(m.getContent()) ) continue;
+          if ( system.length() > 0 ) system.append("\\n\\n");
+          system.append(m.getContent());
+        }
+        if ( turns.size() < request.getMessages().length ) {
+          options = (LLMOptions) options.fclone();
+          options.setSystemPrompt(system.toString());
+        }
+        return call(x, apiMessages(options.getSystemPrompt(), turns.toArray(new ChatMessage[0])), options);
+      `
+    },
+    {
       name: 'apiMessages',
       documentation: `
         The conversation in Anthropic's format. An assistant turn that called tools carries
-        one tool_use block per call, and the user turn after it opens with one tool_result
+        the thinking it came with, then one tool_use block per call, and the user turn after it opens with one tool_result
         block per call, since the model reads a call's result before the next user text.
         When the conversation ends on such an assistant turn, a user turn holding only the
         results is added.
@@ -95,7 +134,8 @@ foam.CLASS({
           JSONObject msg = new JSONObject();
           msg.put("role", m.getRole().getLabel());
           if ( m.getRole() == ChatRole.ASSISTANT && m.getToolUses().length > 0 ) {
-            JSONArray blocks = new JSONArray();
+            // the turn's thinking, signatures and all, goes back first and unchanged
+            JSONArray blocks = SafetyUtil.isEmpty(m.getThinkingBlocks()) ? new JSONArray() : new JSONArray(m.getThinkingBlocks());
             if ( ! SafetyUtil.isEmpty(m.getContent()) ) blocks.put(textBlock(m.getContent()));
             for ( LLMToolUse u : m.getToolUses() ) {
               JSONObject b = new JSONObject();
@@ -194,9 +234,9 @@ foam.CLASS({
         }
         if ( options.getWebSearch() ) {
           JSONObject search = new JSONObject();
-          search.put("type",     "web_search_20260209");
+          search.put("type",     getWebSearchTool());
           search.put("name",     "web_search");
-          search.put("max_uses", 5);
+          search.put("max_uses", getWebSearchMaxUses());
           tools.put(search);
         }
         if ( tools.length() > 0 ) body.put("tools", tools);
@@ -212,18 +252,21 @@ foam.CLASS({
     },
     {
       name: 'parseReply',
-      documentation: 'The response read from the Messages API reply: text blocks joined, tool_use blocks as LLMToolUses, usage.',
+      documentation: 'The response read from the Messages API reply: text blocks joined, tool_use blocks as LLMToolUses, thinking blocks kept as they came, usage.',
       type: 'foam.ai.llm.LLMResponse',
       args: 'Object reply',
       javaCode: `
         JSONObject data    = (JSONObject) reply;
         JSONArray  content = data.getJSONArray("content");
-        StringBuilder      text = new StringBuilder();
-        List<LLMToolUse>   uses = new ArrayList<>();
+        StringBuilder      text     = new StringBuilder();
+        List<LLMToolUse>   uses     = new ArrayList<>();
+        JSONArray          thinking = new JSONArray();
         for ( int i = 0 ; i < content.length() ; i++ ) {
           JSONObject block = content.getJSONObject(i);
           String     type  = block.getString("type");
-          if ( "text".equals(type) ) {
+          if ( "thinking".equals(type) || "redacted_thinking".equals(type) ) {
+            thinking.put(block);
+          } else if ( "text".equals(type) ) {
             if ( text.length() > 0 ) text.append("\\n");
             text.append(block.getString("text"));
           } else if ( "tool_use".equals(type) ) {
@@ -239,6 +282,7 @@ foam.CLASS({
         LLMResponse response = new LLMResponse();
         response.setContent(text.toString());
         response.setToolUses(uses.toArray(new LLMToolUse[0]));
+        if ( thinking.length() > 0 ) response.setThinkingBlocks(thinking.toString());
         response.setModel(data.optString("model", ""));
         response.setStopReason(data.optString("stop_reason", ""));
 
@@ -278,8 +322,7 @@ foam.CLASS({
         JSONObject message = new JSONObject();
         Map<Integer, JSONObject>                 blocks = new TreeMap<>();
         Map<Integer, Map<String, StringBuilder>> pieces = new HashMap<>();
-        for ( String data ; ( data = nextData(in) ) != null ; ) {
-          written.alive();
+        for ( String data ; ( data = nextData(in, written) ) != null ; ) {
           JSONObject event = object(data);
           String     type  = event.optString("type");
           int        index = event.optInt("index");
@@ -316,6 +359,7 @@ foam.CLASS({
               message.put("usage", usage);
             }
           } else if ( "message_stop".equals(type) ) {
+            written.done();
             message.put("content", new JSONArray(blocks.values()));
             return message;
           } else if ( "error".equals(type) ) {

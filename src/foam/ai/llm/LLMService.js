@@ -112,6 +112,16 @@ foam.CLASS({
       of: 'foam.ai.llm.LLMToolUse',
       name: 'toolUses',
       documentation: 'On an ASSISTANT message, the calls the model made in that turn, each with its result.'
+    },
+    {
+      class: 'String',
+      name: 'thinkingBlocks',
+      documentation: `
+        On an ASSISTANT message, the model's thinking for that turn in the provider's own
+        form, as JSON text: Claude's thinking blocks with their signatures. Claude refuses a
+        conversation whose last turn called a tool while thinking was on unless that turn
+        comes back with its thinking unchanged, so it is kept here and sent back as it came.
+      `
     }
   ]
 });
@@ -146,7 +156,12 @@ foam.CLASS({
     {
       class: 'FObjectArray',
       of: 'foam.ai.llm.LLMTool',
-      name: 'tools'
+      name: 'tools',
+      documentation: `
+        Tools the model may call. A provider that cannot send tools throws when this is
+        set rather than answer without them: an agent that relies on a tool call would
+        otherwise loop, or make the answer up, with no error.
+      `
     },
     {
       class: 'Boolean',
@@ -276,6 +291,39 @@ foam.CLASS({
       of: 'foam.ai.llm.LLMToolUse',
       name: 'toolUses',
       documentation: 'The calls the model asked for; stopReason is then tool_use.'
+    },
+    {
+      class: 'String',
+      name: 'thinkingBlocks',
+      documentation: "The model's thinking in the provider's own form, carried to the next request by toMessage."
+    }
+  ],
+
+  methods: [
+    {
+      name: 'toMessage',
+      documentation: `
+        This reply as the ASSISTANT turn of the next request, with its tool calls and the
+        thinking the provider wants back. The message shares the calls, so a result set on
+        a call of this reply is on the message too.
+      `,
+      type: 'foam.ai.llm.ChatMessage',
+      code: function() {
+        return foam.ai.llm.ChatMessage.create({
+          role:           'ASSISTANT',
+          content:        this.content,
+          toolUses:       this.toolUses,
+          thinkingBlocks: this.thinkingBlocks
+        });
+      },
+      javaCode: `
+        ChatMessage m = new ChatMessage();
+        m.setRole(ChatRole.ASSISTANT);
+        m.setContent(getContent());
+        m.setToolUses(getToolUses());
+        m.setThinkingBlocks(getThinkingBlocks());
+        return m;
+      `
     }
   ]
 });
@@ -293,7 +341,12 @@ foam.INTERFACE({
     It is told about once a second while the stream is open, with the same count while
     the model thinks before it writes. A listener that throws ends the call: the
     connection closes, the model stops writing, and the exception reaches the caller.
-    A screen uses this to stop a long call the user no longer wants.
+    A screen uses this to stop a long call the user no longer wants. It is also told,
+    with the same count, about once a second while the provider waits to retry a busy
+    model, so a stop is heard during that wait too.
+
+    Server-side callers only: the context does not cross the network, so a call made from
+    the browser through the LLMService client gets no progress.
   `,
 
   methods: [

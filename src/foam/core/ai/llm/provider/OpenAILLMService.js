@@ -236,7 +236,8 @@ foam.CLASS({
         without streaming returns. Text arrives as delta.content pieces. A tool call
         arrives as pieces under its index: the first carries its id and name, the rest add
         to its arguments text. With include_usage a chunk with no choices carries the token
-        counts, and "data: [DONE]" ends the stream. An error chunk fails the call; a stream
+        counts, and "data: [DONE]" ends the stream. An error chunk before any text or call
+        throws EarlyStreamError, which is retried; after content it fails the call. A stream
         that ends before [DONE] throws.
       `,
       javaCode: `
@@ -247,9 +248,9 @@ foam.CLASS({
         Object     finish = null;
         JSONObject usage  = null;
         String     model  = null;
-        for ( String data ; ( data = nextData(in) ) != null ; ) {
-          written.alive();
+        for ( String data ; ( data = nextData(in, written) ) != null ; ) {
           if ( "[DONE]".equals(data) ) {
+            written.done();
             JSONArray toolCalls = new JSONArray();
             for ( Map.Entry<Integer, JSONObject> call : calls.entrySet() ) {
               call.getValue().getJSONObject("function").put("arguments", arguments.get(call.getKey()).toString());
@@ -271,7 +272,12 @@ foam.CLASS({
           }
           JSONObject chunk = object(data);
           if ( model == null && chunk.has("model") && ! chunk.isNull("model") ) model = chunk.getString("model");
-          if ( chunk.has("error") ) throw new IOException("The reply stream reported an error: " + chunk.opt("error"));
+          if ( chunk.has("error") ) {
+            String error = "The reply stream reported an error: " + chunk.opt("error");
+            // before any text or call nothing reached the caller, so send retries it
+            if ( text.length() == 0 && calls.isEmpty() ) throw new EarlyStreamError(error);
+            throw new IOException(error);
+          }
           JSONArray choices = chunk.optJSONArray("choices");
           for ( int i = 0 ; choices != null && i < choices.length() ; i++ ) {
             JSONObject choice = choices.getJSONObject(i);

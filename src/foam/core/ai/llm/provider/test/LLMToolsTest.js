@@ -19,6 +19,7 @@ foam.CLASS({
     'foam.core.ai.llm.provider.AbstractHTTPLLMService',
     'foam.core.ai.llm.provider.ClaudeLLMService',
     'foam.core.ai.llm.provider.OpenAILLMService',
+    'foam.util.SafetyUtil',
     'java.io.BufferedReader',
     'java.io.StringReader',
     'org.json.JSONArray',
@@ -80,6 +81,8 @@ foam.CLASS({
         expect(ct.getJSONObject(0).getJSONObject("input_schema").getJSONArray("required").getString(0), "column", "claude: the schema is sent as input_schema");
         expect(ct.getJSONObject(1).getJSONObject("input_schema").getString("type"), "object", "claude: a tool with no input gets an empty object schema");
         expect(ct.getJSONObject(2).getString("name"), "web_search", "claude: web search is a server tool beside the others");
+        expect(ct.getJSONObject(2).getString("type"), "web_search_20260209", "claude: the web search tool version");
+        expect(ct.getJSONObject(2).getInt("max_uses"), 5, "claude: at most 5 searches by default");
         expect(cb.getJSONObject("thinking").getString("type"), "disabled", "claude: thinking turned off");
         test(! cb.has("temperature"), "claude: temperature 0 is not sent");
         expect(cb.getString("system"), "You help upload files.", "claude: system prompt");
@@ -151,6 +154,7 @@ foam.CLASS({
           "data: {'type':'message_start','message':{'model':'m','usage':{'input_tokens':30,'output_tokens':1}}}",
           "data: {'type':'content_block_start','index':0,'content_block':{'type':'thinking','thinking':''}}",
           "data: {'type':'content_block_delta','index':0,'delta':{'type':'thinking_delta','thinking':'hmm'}}",
+          "data: {'type':'content_block_delta','index':0,'delta':{'type':'signature_delta','signature':'sig1'}}",
           "data: {'type':'content_block_stop','index':0}",
           "data:",
           "data: {'type':'content_block_start','index':1,'content_block':{'type':'text','text':''}}",
@@ -168,6 +172,19 @@ foam.CLASS({
         test(sr.getInputTokens() == 30 && sr.getOutputTokens() == 42, "claude stream: a count sent as null keeps the start's value");
         expect(sr.getStopReason(), "tool_use", "claude stream: stop reason");
         test(reported[0] > 0, "claude stream: progress reported, " + reported[0] + " tokens");
+
+        // with thinking on, the turn that called a tool goes back with its thinking first
+        ChatMessage turn = sr.toMessage();
+        turn.getToolUses()[0].setResult("Done.");
+        test(sr.getToolUses()[0] == turn.getToolUses()[0], "toMessage: the message shares the reply's calls");
+        JSONArray back = ((JSONArray) claude.apiMessages("", new ChatMessage[] { ask, turn })).getJSONObject(1).getJSONArray("content");
+        expect(back.getJSONObject(0).getString("type"), "thinking", "claude: the thinking block goes back first");
+        expect(back.getJSONObject(0).getString("signature"), "sig1", "claude: the thinking goes back with its signature");
+        expect(back.getJSONObject(0).getString("thinking"), "hmm", "claude: the thinking goes back unchanged");
+        expect(back.getJSONObject(1).getString("type"), "text", "claude: the text follows the thinking");
+        expect(back.getJSONObject(2).getString("type"), "tool_use", "claude: the call follows the text");
+        test(cr.getThinkingBlocks() != null && new JSONArray(cr.getThinkingBlocks()).getJSONObject(0).getString("thinking").equals("..."), "claude reply: thinking kept for the next turn");
+        test(SafetyUtil.isEmpty(claude.parseReply(new JSONObject("{\\"content\\":[{\\"type\\":\\"text\\",\\"text\\":\\"x\\"}]}")).getThinkingBlocks()), "claude reply: no thinking, nothing kept");
 
         // a listener that throws ends the call even while the model only thinks
         String[] thinking = {
@@ -224,6 +241,27 @@ foam.CLASS({
         expect(osr.getModel(), "bedrock:sonnet", "openai stream: the model that answered is kept");
         test(osr.getToolUses().length == 1 && new JSONObject(osr.getToolUses()[0].getInputJson()).getInt("rows") == 5, "openai stream: tool call joined from its pieces");
         test(osr.getInputTokens() == 10 && osr.getOutputTokens() == 4, "openai stream: usage chunk read");
+        JSONObject two = (JSONObject) openai.readStream(lines(
+          "data: {'choices':[{'delta':{'tool_calls':[{'index':0,'id':'a','function':{'name':'run_preview','arguments':'{}'}},{'index':1,'id':'b','function':{'name':'set_date_format','arguments':'{\\\\'col'}}]}}]}",
+          "data: {'choices':[{'delta':{'tool_calls':[{'index':1,'function':{'arguments':'umn\\\\':\\\\'d\\\\'}'}}]}}]}",
+          "data: [DONE]"), null);
+        LLMToolUse[] both = openai.parseReply(two).getToolUses();
+        test(both.length == 2 && "a".equals(both[0].getId()) && "b".equals(both[1].getId())
+          && "d".equals(new JSONObject(both[1].getInputJson()).getString("column")), "openai stream: two calls at different indexes, each joined from its own pieces");
+        try {
+          openai.readStream(lines("data: {'error':{'message':'overloaded'}}"), null);
+          test(false, "openai stream: an early error throws");
+        } catch (AbstractHTTPLLMService.EarlyStreamError e) {
+          test(true, "openai stream: an error before any content is retryable");
+        }
+        try {
+          openai.readStream(lines("data: {'choices':[{'delta':{'content':'x'}}]}", "data: {'error':{'message':'overloaded'}}"), null);
+          test(false, "openai stream: a late error throws");
+        } catch (AbstractHTTPLLMService.EarlyStreamError e) {
+          test(false, "openai stream: an error after content is not retried");
+        } catch (java.io.IOException e) {
+          test(true, "openai stream: an error after content fails the call");
+        }
         try {
           openai.readStream(lines("data: {'choices':[{'delta':{'content':'x'}}]}"), null);
           test(false, "openai stream: a cut stream throws");
@@ -237,6 +275,8 @@ foam.CLASS({
         expect(claude.backoff(0, "600"), 60000L, "retry-after is capped at 60 s");
         test(claude.backoff(2, null) >= 4000 && claude.backoff(2, null) < 4500, "third attempt waits about 4 s");
         expect(claude.backoff(10, null), 30000L, "backoff is capped at 30 s");
+        long dated = claude.backoff(0, "Wed, 21 Oct 2026 07:28:00 GMT");
+        test(dated >= 1000 && dated < 1500, "retry-after as an HTTP date falls back to our own wait, got " + dated);
       `
     },
     {

@@ -373,6 +373,7 @@ foam.CLASS({
 
       try {
         var ragContext  = await this.buildContext_(query);
+        if ( ! ragContext ) this.statusMsg = 'No matching chunks — re-index with the current provider for grounded answers';
         var userContent = ragContext
           ? 'Context:\n' + ragContext + '\n\nQuestion: ' + query
           : query;

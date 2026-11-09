@@ -14,27 +14,29 @@ foam.CLASS({
     scored EvalResult records for each prompt.
 
     Before the subprocess starts, execute() reads all enabled EvalPrompts
-    from evalPromptDAO, serializes them to a temp JSON file in workingDir,
-    and creates an EvalRun record. The Python script (eval_inference.py)
-    loads the model, runs inference on each prompt, checks the rubric, and
-    prints one EVAL_RESULT line per prompt. parseProgress_() parses each
-    line and calls storeResult_() to persist an EvalResult.
+    from evalPromptDAO, stages them in pendingPrompts_, and creates an EvalRun
+    record. PythonJob calls writeStdin_() on a background thread to serialize
+    the prompts as JSON to the subprocess stdin. The Python script reads them
+    from stdin, runs inference on each prompt, checks the rubric, and prints
+    one EVAL_RESULT line per prompt. parseProgress_() parses each line and
+    calls storeResult_() to persist an EvalResult.
 
     On completion the EvalRun is updated with final pass counts and status.
   `,
 
   javaImports: [
     'foam.core.ai.training.EvalPrompt',
-    'foam.core.ai.training.EvalRubricItem',
     'foam.core.ai.training.EvalResult',
     'foam.core.ai.training.EvalRun',
     'foam.core.job.JobStatus',
     'foam.core.logger.Loggers',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
-    'java.io.File',
-    'java.io.FileWriter',
+    'foam.lib.json.Outputter',
     'java.io.IOException',
+    'java.io.OutputStream',
+    'java.io.OutputStreamWriter',
+    'java.nio.charset.StandardCharsets',
     'java.util.ArrayList',
     'java.util.List',
     'java.util.UUID',
@@ -85,6 +87,13 @@ foam.CLASS({
       documentation: 'Set at execute time when the EvalRun is created.',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      class: 'Object',
+      javaType: 'java.util.List',
+      name: 'pendingPrompts_',
+      transient: true,
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -116,14 +125,8 @@ foam.CLASS({
         out("  Prompts : " + prompts.size());
         out("──────────────────────────────────────────────────────");
 
-        // Write prompts to temp JSON file.
-        String promptsFile = getWorkingDir() + "/eval_prompts_" + UUID.randomUUID() + ".json";
-        try {
-          writePromptsFile_(prompts, promptsFile);
-        } catch ( IOException e ) {
-          throw new RuntimeException("Failed to write prompts file: " + e.getMessage(), e);
-        }
-        out("  Prompts file: " + promptsFile);
+        // Stage prompts for writeStdin_ — PythonJob calls it on a background thread when the subprocess starts.
+        setPendingPrompts_(prompts);
 
         // Create EvalRun before subprocess starts.
         EvalRun run = new EvalRun();
@@ -166,7 +169,7 @@ foam.CLASS({
           }
           throw e;
         } finally {
-          new File(promptsFile).delete();
+          setPendingPrompts_(null);
         }
         out("╚══════════════════════════════════════════════════════╝");
       `
@@ -178,7 +181,6 @@ foam.CLASS({
         List<String> cmd = new ArrayList<>();
         cmd.add("-u");
         cmd.add("eval_inference.py");
-        cmd.add("--prompts");         cmd.add(getWorkingDir() + "/eval_prompts_*.json");
         cmd.add("--model");           cmd.add(getModelPath());
         if ( ! getAdapterPath().isEmpty() ) {
           cmd.add("--adapter-path");  cmd.add(getAdapterPath());
@@ -276,47 +278,22 @@ foam.CLASS({
       `
     },
     {
-      name: 'writePromptsFile_',
-      args: 'java.util.List prompts, String path',
-      javaThrows: [ 'java.io.IOException' ],
+      name: 'writeStdin_',
+      args: 'OutputStream stdin',
+      javaThrows: ['java.io.IOException'],
       javaCode: `
-        StringBuilder sb = new StringBuilder("[\\n");
+        List prompts = getPendingPrompts_();
+        if ( prompts == null || prompts.isEmpty() ) { stdin.close(); return; }
+        Outputter out = new Outputter(getX());
+        StringBuilder sb = new StringBuilder("[");
         for ( int i = 0; i < prompts.size(); i++ ) {
-          EvalPrompt p = (EvalPrompt) prompts.get(i);
-          sb.append("  {");
-          sb.append("\\"id\\":")          .append(p.getId())                    .append(",");
-          sb.append("\\"category\\":")    .append(jsonStr_(p.getCategory()))    .append(",");
-          sb.append("\\"systemPrompt\\":").append(jsonStr_(p.getSystemPrompt())).append(",");
-          sb.append("\\"prompt\\":")      .append(jsonStr_(p.getPrompt()))      .append(",");
-          sb.append("\\"rubric\\":[");
-          EvalRubricItem[] rubric = p.getRubric();
-          for ( int j = 0; j < rubric.length; j++ ) {
-            EvalRubricItem item = rubric[j];
-            sb.append("{");
-            sb.append("\\"pattern\\":")    .append(jsonStr_(item.getPattern()))    .append(",");
-            sb.append("\\"required\\":")   .append(item.getRequired())             .append(",");
-            sb.append("\\"description\\\":").append(jsonStr_(item.getDescription())).append("}");
-            if ( j < rubric.length - 1 ) sb.append(",");
-          }
-          sb.append("]}");
-          if ( i < prompts.size() - 1 ) sb.append(",");
-          sb.append("\\n");
+          if ( i > 0 ) sb.append(",");
+          sb.append(out.stringify((foam.lang.FObject) prompts.get(i)));
         }
         sb.append("]");
-        try ( FileWriter fw = new FileWriter(path) ) {
-          fw.write(sb.toString());
+        try ( OutputStreamWriter w = new OutputStreamWriter(stdin, StandardCharsets.UTF_8) ) {
+          w.write(sb.toString());
         }
-      `
-    },
-    {
-      name: 'jsonStr_',
-      args: 'String s',
-      type: 'String',
-      javaCode: `
-        if ( s == null ) return "\\"\\\"";
-        return "\\"" + s.replace("\\\\", "\\\\\\\\").replace("\\"", "\\\\\\"")
-                        .replace("\\n", "\\\\n").replace("\\r", "\\\\r")
-                        .replace("\\t", "\\\\t") + "\\"";
       `
     }
   ]

@@ -281,6 +281,10 @@ public class OAuthWebAgent implements WebAgent {
         }
 
         foam.core.auth.LoginService login = (foam.core.auth.LoginService)x.get("loginService");
-        return login.login(session.getContext(), user);
+        // The session's saved context belongs to the request that loaded the
+        // login page, which has finished by the time the provider redirects here.
+        // Reading a header from it throws, e.g. when the login rule records the
+        // caller's IP, so sign in with a context built from this callback request.
+        return login.login(session.applyTo(x), user);
     }
 }

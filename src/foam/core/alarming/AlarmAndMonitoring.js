@@ -19,12 +19,11 @@ foam.CLASS({
     'foam.lang.ContextAgent',
     'foam.lang.X',
     'foam.dao.DAO',
-    'java.util.Date',
-    'java.util.Calendar',
-    'java.util.TimeZone',
     'foam.core.analytics.Candlestick',
-    'foam.core.logger.Logger',
-    'static foam.mlang.MLang.AND',
+    'foam.core.er.EventRecord',
+    'foam.log.LogLevel',
+    'foam.util.SafetyUtil',
+    'java.util.Date',
     'static foam.mlang.MLang.EQ'
   ],
 
@@ -63,19 +62,6 @@ foam.CLASS({
             EQ(Candlestick.KEY, config.getTimeOutRequest())
           );
 
-          boolean newAlarm = false;
-          DAO alarmDAO = (DAO) x.get("alarmDAO");
-          Alarm alarm = (Alarm) alarmDAO.find(EQ(Alarm.NAME, config.getName()));
-          if ( alarm == null ) {
-            alarm = new Alarm.Builder(x)
-              .setName(config.getName())
-              .setIsActive(false)
-              .build();
-            newAlarm = true;
-          } else {
-            alarm = (Alarm) alarm.fclone();
-          }
-
           boolean updateAlarm = false;
 
           // check to see if the sent candlestick is the latest one
@@ -92,120 +78,90 @@ foam.CLASS({
               updateAlarm = true;
               report.setTimeoutCount(report.getTimeoutCount() + (int) timeout.getCount());
           }
-          if ( config.getMonitorType() == MonitorType.CREDENTIALS  && updateAlarm ) {
-            alarm = AlarmAndMonitoring.this.checkCredentials(x, config, report, alarm);
-            alarmDAO.put(alarm);
+
+          if ( ! updateAlarm ) {
             return;
           }
 
-          // The latest candlestick of a key stays in the DAO until that key is
-          // logged again, so reading it directly would keep counting a burst
-          // of timeouts long after it ended, and the alarm would never clear. The report holds only the candlesticks that
-          // closed within cycleTime.
+          // The latest candlestick of a key stays in the DAO until that key
+          // is logged again, so reading it directly would keep counting a
+          // burst of timeouts long after it ended, and the alarm would never
+          // clear. The report holds only the candlesticks that closed within
+          // cycleTime.
           float timeoutCount = report.getTimeoutCount();
           float sentCount = report.getStartCount();
           float responseCount = report.getEndCount();
 
-          if ( ! updateAlarm || (newAlarm && sentCount == responseCount) ) {
-            return;
-          }
-
-          if ( timeoutCount > 0 && sentCount > 0  && (timeoutCount / sentCount) > (float) config.getTimeoutValue() / 100 ) {
-            if ( ! alarm.getIsActive() || !( alarm.getReason() == AlarmReason.TIMEOUT) ) {
-              alarm.setReason(AlarmReason.TIMEOUT);
-              alarm.setIsActive(true);
-            }
+          AlarmReason reason = null;
+          if ( config.getMonitorType() == MonitorType.CREDENTIALS ) {
+            reason = AlarmAndMonitoring.this.checkCredentials(x, config, report);
+          } else if ( timeoutCount > 0 && sentCount > 0  && (timeoutCount / sentCount) > (float) config.getTimeoutValue() / 100 ) {
+            reason = AlarmReason.TIMEOUT;
           } else if (( config.getMonitorType() == MonitorType.CONTROLCHECK ||
                       config.getMonitorType() == MonitorType.CONGESTION ) &&
                       sentCount > 0  &&
                       (responseCount / sentCount) < (float) config.getAlarmValue() / 100 ) {
-            AlarmReason checkReason = config.getMonitorType() == MonitorType.CONTROLCHECK ? AlarmReason.CONTROLCHECK : AlarmReason.CONGESTION;
-
-            if ( ! alarm.getIsActive() || !( alarm.getReason() == checkReason ) ) {
-              alarm.setReason(checkReason);
-              alarm.setIsActive(true);
-            }
+            reason = config.getMonitorType() == MonitorType.CONTROLCHECK ? AlarmReason.CONTROLCHECK : AlarmReason.CONGESTION;
           } else if ( config.getMonitorType() == MonitorType.THRESHOLD && sentCount > config.getAlarmValue() ) {
-            if ( ! alarm.getIsActive() ) {
-              alarm.setReason(AlarmReason.THRESHOLD);
-              alarm.setIsActive(true);
-            }
-          } else {
-            if ( alarm.getIsActive() ) {
-              report.setStartCount(0);
-              report.setEndCount(0);
-              report.setTimeoutCount(0);
-              alarm.setReason(AlarmReason.UNSPECIFIED);
-              alarm.setIsActive(false);
-            }
+            reason = AlarmReason.THRESHOLD;
           }
 
-          // Have to do this manually as not all alarms modify the state and therefore lastModifiedAware decorator will not update lastModified
-          alarm.setLastModified(new Date());
-
-          alarmDAO.put(alarm);
+          // The alarm is raised and cleared through an EventRecord, so its
+          // rules send the notifications. An EventRecord is put only when
+          // the alarm changes state: this runs every cycle, and an ERROR
+          // EventRecord on every cycle would send a notification each time.
+          Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, config.getName()));
+          boolean active = alarm != null && alarm.getIsActive();
+          if ( reason != null && ! active ) {
+            AlarmAndMonitoring.this.putEventRecord(x, config, report, reason.getName(), config.getSeverity());
+          } else if ( reason == null && active ) {
+            AlarmAndMonitoring.this.putEventRecord(x, config, report, null, LogLevel.INFO);
+          }
         }
       }, "Alarm And Monitoring");
       `
     },
     {
+      documentation: `Puts an EventRecord whose alarm name, the event, is the
+        config's name. EventRecordAlarmRuleAction raises the alarm at WARN or
+        ERROR and clears it at INFO; EventRecordNotificationRuleAction
+        notifies on an ERROR raise and on a clear. The code holds the
+        AlarmReason name, and the message the counts behind the decision.`,
+      name: 'putEventRecord',
+      args: 'X x, foam.core.alarming.AlarmConfig config, foam.core.alarming.MonitoringReport report, String code, foam.log.LogLevel severity',
+      javaCode: `
+      String message = "attempts: " + report.getStartCount() +
+        ", responses: " + report.getEndCount() +
+        ", failures: " + report.getTimeoutCount();
+      EventRecord er = new EventRecord(x, null, config.getName(), null, code, message, severity, null);
+      er.setClusterable(config.getClusterable());
+      ((DAO) x.get("eventRecordDAO")).put(er);
+      `
+    },
+    {
+      documentation: 'Returns CREDENTIALS when the alarm should be on, otherwise null.',
       name: 'checkCredentials',
-      type: 'foam.core.alarming.Alarm',
-      args: [
-        {
-          type: 'Context',
-          name: 'x',
-        },
-        {
-          type: 'foam.core.alarming.AlarmConfig',
-          name: 'config'
-        },
-        {
-          type: 'foam.core.alarming.MonitoringReport',
-          name: 'report',
-        },
-        {
-          type: 'foam.core.alarming.Alarm',
-          name: 'alarm'
-        }
-      ],
+      type: 'foam.core.alarming.AlarmReason',
+      args: 'X x, foam.core.alarming.AlarmConfig config, foam.core.alarming.MonitoringReport report',
       javaCode: `
       // With timeOutRequest set, alarm only on the failures it names, such
       // as a credential failure, when they pass timeoutValue percent of the
       // requests. Otherwise any failure, a timeout included, would lower the
       // response ratio and raise a credentials alarm.
-      if ( ! foam.util.SafetyUtil.isEmpty(config.getTimeOutRequest()) ) {
+      if ( ! SafetyUtil.isEmpty(config.getTimeOutRequest()) ) {
         if ( report.getStartCount() != 0 &&
              (float) report.getTimeoutCount() / (float) report.getStartCount() > (float) config.getTimeoutValue() / 100 ) {
-          alarm.setReason(AlarmReason.CREDENTIALS);
-          alarm.setIsActive(true);
-        } else if ( alarm.getIsActive() ) {
-          report.setStartCount(0);
-          report.setEndCount(0);
-          report.setTimeoutCount(0);
-          alarm.setReason(AlarmReason.UNSPECIFIED);
-          alarm.setIsActive(false);
+          return AlarmReason.CREDENTIALS;
         }
-        return alarm;
+        return null;
       }
       if ( report.getStartCount() != 0  && report.getEndCount() != 0  && ((float) report.getEndCount() /(float) report.getStartCount()) < (float) config.getAlarmValue() / 100 ) {
-        if ( ! alarm.getIsActive() || !( alarm.getReason() == AlarmReason.CREDENTIALS) ) {
-          alarm.setReason(AlarmReason.CREDENTIALS);
-          alarm.setIsActive(true);
-        }
-      }  else if ( report.getStartCount() != 0  && report.getEndCount() == 0  ) {
-        alarm.setReason(AlarmReason.CREDENTIALS);
-        alarm.setIsActive(true);
-      } else {
-        if ( alarm.getIsActive() ) {
-          report.setStartCount(0);
-          report.setEndCount(0);
-          report.setTimeoutCount(0);
-          alarm.setReason(AlarmReason.UNSPECIFIED);
-          alarm.setIsActive(false);
-        }
+        return AlarmReason.CREDENTIALS;
       }
-      return alarm;
+      if ( report.getStartCount() != 0  && report.getEndCount() == 0  ) {
+        return AlarmReason.CREDENTIALS;
+      }
+      return null;
       `
     }
   ]

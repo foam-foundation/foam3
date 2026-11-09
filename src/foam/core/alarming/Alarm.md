@@ -114,17 +114,28 @@ never an older candlestick.
 - **THRESHOLD**: on with reason THRESHOLD while `startCount` is above
   `alarmValue`, a count rather than a percentage.
 
-When none of these holds, an active alarm is cleared: `isActive` false, reason
-UNSPECIFIED. When no OM of the config was logged in the window, the alarm is
-left as it is, so an alarm only clears once a request succeeds. Outside
-CREDENTIALS, a new alarm whose requests all succeeded is not created.
+When none of these holds, the alarm should be off. When no OM of the config
+was logged in the window, nothing changes, so an alarm only clears once a
+request succeeds.
 
-## 5. Raising
+## 5. Raising and clearing
 
-The alarm, named after the config, is put to `alarmDAO`:
+The alarm is raised and cleared through an `EventRecord`, so the
+`EventRecord` rules send the notifications. An `EventRecord` is put only when
+the alarm changes state, not on every cycle:
 
-- `AddAlarmNameDAO` copies the config's severity onto it, and drops it if the
-  config is disabled.
-- The "Alarm Hostname" rule stamps the host.
-- `AlarmNotificationDAO` sends a notification when a WARN or ERROR alarm
-  turns on or off (not on a host named localhost outside TEST mode).
+- **Raise**: the alarm should be on and is not. The `EventRecord` has the
+  config's name as its `event`, which is also the alarm's name, the reason
+  (for example TIMEOUT) as its `code`, the window's counts as its `message`,
+  and the config's `severity`.
+- **Clear**: the alarm is on and should be off. The same `event`, severity
+  INFO.
+
+`EventRecordAlarmRuleAction` turns the alarm on for WARN or ERROR and off for
+INFO, writing to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a
+notification for an ERROR raise and for every clear, but not for a WARN raise,
+so a config that should notify on raise needs `severity` ERROR. A config with
+a severity below WARN raises no alarm.
+
+While the alarm is on, a change of reason, such as CONGESTION to TIMEOUT, puts
+no new `EventRecord`: the alarm keeps the reason it was raised with.

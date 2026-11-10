@@ -111,6 +111,9 @@ public class PartitionedDAO
       if ( dao == null ) {
         if ( ref != null )
           Loggers.logger(getX(), this).info("This DAO Partition was garbage collected. A new DAO will be created and cached:", part);
+        // Replay as the system user, not as whichever user's request triggered the load.
+        X callerX = XLocator.get();
+        XLocator.set(getX());
         loadingStarted(part);
         try {
           dao = createDAO(part);
@@ -119,6 +122,7 @@ public class PartitionedDAO
           }
         } finally {
           loadingEnded(part);
+          XLocator.set(callerX);
         }
       }
 

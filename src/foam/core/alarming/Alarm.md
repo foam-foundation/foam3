@@ -133,14 +133,15 @@ the alarm changes state, not on every cycle:
 - **Clear**: the alarm is on and should be off. The same `event`, severity
   INFO.
 
-`EventRecordAlarmRuleAction` turns the alarm on for WARN or ERROR and off for
-INFO, writing to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a
-notification for every ERROR record, for a record at or above its
-`notificationSeverity` (WARN by default, set on the rule's action) only when
-that record raised its alarm, and for a record below it only when it cleared
-its alarm. So with the default, both a WARN and an ERROR raise notify, and so
-does every clear, but a WARN record that raises no alarm does not. A config
-with a severity below WARN raises no alarm.
+`EventRecordAlarmRuleAction` turns the alarm on for a record at or above its
+`alarmSeverity`, set to ERROR on the rule's action, and off for INFO, writing
+to `localAlarmDAO`. A WARN record neither raises nor clears an alarm.
+`EventRecordNotificationRuleAction` sends a notification for every ERROR
+record, for a record at or above its `notificationSeverity` (WARN by default)
+only when that record raised its alarm, and for a record below it only when it
+cleared its alarm. So an ERROR raise notifies, and so does every clear. A
+config's `severity` defaults to WARN, which raises no alarm: a config that
+should alarm needs `severity` ERROR.
 
 While the alarm is on, a change of reason, such as CONGESTION to TIMEOUT, puts
 no new `EventRecord`: the alarm keeps the reason it was raised with.

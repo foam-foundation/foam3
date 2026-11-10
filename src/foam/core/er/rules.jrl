@@ -33,8 +33,8 @@ p({
   },
   lifecycleState:1,
   action: {
-    class: "foam.core.er.EventRecordAlarmRuleAction"
-    alarmSeverity: "WARN"
+    class: "foam.core.er.EventRecordAlarmRuleAction",
+    alarmSeverity: "ERROR"
   }
 })
 

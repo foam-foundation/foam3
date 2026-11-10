@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.lang.FObject',
     'foam.lang.PropertyInfo',
+    'foam.log.LogLevel',
     'static foam.mlang.MLang.EQ',
     'foam.util.SafetyUtil'
   ],
@@ -77,7 +78,10 @@ foam.CLASS({
         alarm.setNote(note.toString());
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
-      } else if ( alarm != null && alarm.getIsActive() ) {
+      } else if ( alarm != null && alarm.getIsActive() &&
+                  er.getSeverity().getOrdinal() <= LogLevel.INFO.getOrdinal() ) {
+        // Only an INFO record clears, as EventRecord.md describes. A WARN
+        // record below alarmSeverity neither raises nor clears.
         alarm = (Alarm) alarm.fclone();
         alarm.setIsActive(false);
         alarm.setNote(er.getMessage());

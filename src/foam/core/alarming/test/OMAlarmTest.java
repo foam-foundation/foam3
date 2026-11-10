@@ -58,6 +58,7 @@ public class OMAlarmTest
 
       ac = new AlarmConfig();
       ac.setName(CONTROLCHECK);
+      ac.setSeverity(foam.log.LogLevel.ERROR);
       ac.setPreRequest(CONTROLCHECK+"."+OM_REQUEST);
       ac.setPostRequest(CONTROLCHECK+"."+OM_RESPONSE);
       ac.setMonitorType(MonitorType.CONTROLCHECK);
@@ -65,6 +66,7 @@ public class OMAlarmTest
 
       ac = new AlarmConfig();
       ac.setName(CONGESTION);
+      ac.setSeverity(foam.log.LogLevel.ERROR);
       ac.setPreRequest(CONGESTION+"."+OM_REQUEST);
       ac.setPostRequest(CONGESTION+"."+OM_RESPONSE);
       ac.setTimeOutRequest(CONGESTION+"."+OM_TIMEOUT);

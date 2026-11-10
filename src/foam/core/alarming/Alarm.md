@@ -136,10 +136,10 @@ the alarm changes state, not on every cycle:
 `EventRecordAlarmRuleAction` turns the alarm on for a record at or above its
 `alarmSeverity`, set to ERROR on the rule's action, and off for INFO, writing
 to `localAlarmDAO`. A WARN record neither raises nor clears an alarm.
-`EventRecordNotificationRuleAction` sends a notification for every ERROR
-record and for a record that cleared its alarm. A lower `notificationSeverity`
-(ERROR by default) also lets a record at or above it notify, but only when it
-raised its alarm. So an ERROR raise notifies, and so does every clear. A
+`EventRecordNotificationRuleAction` sends a notification for a record at or
+above its `notificationSeverity`, ERROR by default, and for a record below it
+only when its alarm is being cleared. So an ERROR raise notifies, and so does
+every clear, while a WARN record does not. A
 config's `severity` defaults to WARN, which raises no alarm: a config that
 should alarm needs `severity` ERROR.
 

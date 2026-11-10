@@ -24,7 +24,6 @@ foam.CLASS({
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.notification.Notification',
-    'foam.log.LogLevel',
     'foam.util.SafetyUtil',
     'foam.util.StringUtil',
     'java.time.ZoneOffset',
@@ -36,11 +35,10 @@ foam.CLASS({
 
   properties: [
     {
-      documentation: `Severity at or above this value, and below ERROR, generates
-        a notification when the record raised its alarm. ERROR always notifies;
-        below this value, only a record that cleared its alarm notifies. ERROR
-        by default: only an ERROR record, or one that clears an alarm,
-        notifies.`,
+      documentation: `A record at or above this severity generates a
+        notification; below it, only a record that cleared its alarm does.
+        ERROR by default, so a WARN record does not notify, as before
+        alarms were raised through EventRecords.`,
       name: 'notificationSeverity',
       class: 'Enum',
       of: 'foam.log.LogLevel',
@@ -64,20 +62,14 @@ foam.CLASS({
       javaCode: `
       Map args = new HashMap();
       EventRecord er = (EventRecord) obj;
-      // ERROR always notifies. At or above notificationSeverity, a record
-      // notifies only when it raised an alarm: with raiseAlarm false, or an
-      // alarm not active, it is logged but nobody is told. Below it, as for a
-      // WARN or INFO record with the default ERROR, a record notifies only
-      // when it cleared its alarm. EventRecordAlarmRule
-      // runs first, at a higher priority, so the alarm is already up to date.
-      if ( er.getSeverity() != LogLevel.ERROR ) {
+      // A record at or above notificationSeverity notifies. Below it, as
+      // for a WARN or INFO record with the default ERROR, a record notifies
+      // only when its alarm is being cleared. EventRecordAlarmRule runs first,
+      // at a higher priority, so the alarm is already up to date.
+      if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
         Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
-        if ( er.getSeverity().getOrdinal() >= getNotificationSeverity().getOrdinal() ) {
-          if ( ! er.getRaiseAlarm() || alarm == null || ! alarm.getIsActive() )
-            return;
-        } else if ( alarm == null || alarm.getIsActive() ) {
+        if ( alarm == null || alarm.getIsActive() )
           return;
-        }
       }
 
       args.put("of", er.getClass().getSimpleName());

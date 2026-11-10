@@ -71,12 +71,19 @@ foam.CLASS({
           }
 
           VectorStoreDAO store() {
+            // 512-byte blocks: a 16-dim int8 row is 20 bytes, so a block holds 32 rows and every
+            // test that uses this store crosses block borders.
             return new VectorStoreDAO.Builder(ctx).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()))
-              .setQuantizer(int8()).build();
+              .setQuantizer(int8()).setBlockBytes(512).build();
           }
 
           // The framework default is float32; most tests here are about the index, and run on int8.
           Quantizer int8() { return new Int8Quantizer(); }
+
+          // A search loads the index; until then puts only reach the DAO.
+          void load(VectorStoreDAO dao) {
+            search(dao, rand(16), "m", null, 0, 1);
+          }
 
           List<VectorEmbedding> search(DAO dao, float[] q, String model, Predicate p, long skip, long limit) {
             CosineComparator cc = new CosineComparator.Builder(ctx).setQueryVector(q).setEmbeddingModel(model).build();
@@ -675,6 +682,98 @@ foam.CLASS({
             && e.getVectorData().equals(top.get(0).getVectorData());
         }
         test(latestVersion, "for every id, the index holds the same version of the vector as the DAO");
+
+        // ── blocks: a group grows and shrinks in bounded pieces ───────────────
+        // 32 rows per block (see Fx.store), so block counts are exact.
+        VectorStoreDAO blk = fx.store();
+        fx.load(blk);
+        VectorIndex bi = blk.getIndex();
+        int[] bkSizes  = { 1, 31, 32, 33, 64, 65 };
+        int[] bkBlocks = { 1,  1,  1,  2,  2,  3 };
+        int   bkHave   = 0;
+        for ( int t = 0 ; t < bkSizes.length ; t++ ) {
+          while ( bkHave < bkSizes[t] ) {
+            blk.put(fx.emb("bk" + bkHave, "m", "y", fx.rand(16)));
+            bkHave++;
+          }
+          expect((long) bi.blockCount(), (long) bkBlocks[t], bkSizes[t] + " rows fill " + bkBlocks[t] + " block(s)");
+        }
+        float[] bq = fx.rand(16);
+        test(fx.matchesBrute(fx.search(blk, bq, "m", null, 0, 70), fx.rows(blk), bq, "m", null, 0, 70),
+          "a group of 65 rows over 3 blocks ranks exactly like a brute-force scan");
+
+        // Removing a row of the first block moves the very last row (bk64, third block) into its slot.
+        blk.remove(blk.find("bk3"));
+        expect((long) bi.blockCount(), 2L, "the emptied third block is released");
+        expect((long) bi.size(), 64L, "one row is gone");
+        float[] movedV = ((VectorEmbedding) blk.find("bk64")).floats();
+        got = fx.search(blk, movedV, "m", null, 0, 1);
+        test(got.size() == 1 && "bk64".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
+          "a row moved between blocks by a remove is still found at its new place");
+        float[] freshV = fx.rand(16);
+        blk.put(fx.emb("bk64", "m", "y", freshV));
+        got = fx.search(blk, freshV, "m", null, 0, 1);
+        test(got.size() == 1 && "bk64".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
+          "the moved row can be updated in place");
+        blk.remove(blk.find("bk64"));
+        test(blk.find("bk64") == null && fx.search(blk, freshV, "m", null, 0, 100).size() == 63,
+          "and removed");
+        test(fx.matchesBrute(fx.search(blk, bq, "m", null, 0, 70), fx.rows(blk), bq, "m", null, 0, 70),
+          "ranking is still exact after the removes");
+
+        // A group gives memory back after most of its rows go.
+        VectorStoreDAO shrink = fx.store();
+        fx.load(shrink);
+        for ( int i = 0 ; i < 5000 ; i++ ) shrink.put(fx.emb("s" + i, "m", "y", fx.rand(16)));
+        long fullBytes  = shrink.getIndex().reservedBytes();
+        int  fullBlocks = shrink.getIndex().blockCount();
+        List<Integer> order = new ArrayList<>();
+        for ( int i = 0 ; i < 5000 ; i++ ) order.add(i);
+        Collections.shuffle(order, new Random(5));
+        for ( int i = 0 ; i < 4990 ; i++ ) shrink.remove(shrink.find("s" + order.get(i)));
+        expect((long) fullBlocks, 157L, "5,000 rows take 157 blocks of 32");
+        expect((long) shrink.getIndex().blockCount(), 1L, "10 rows left after 4,990 removes take one block");
+        test(shrink.getIndex().reservedBytes() < fullBytes / 50,
+          "the index reserves a fiftieth of its peak after the removes: " + shrink.getIndex().reservedBytes() + " of " + fullBytes);
+        float[] sq = fx.rand(16);
+        test(fx.matchesBrute(fx.search(shrink, sq, "m", null, 0, 20), fx.rows(shrink), sq, "m", null, 0, 20),
+          "the 10 rows left rank exactly");
+
+        // A small group is small: the default 1 MiB block does not get reserved up front.
+        VectorStoreDAO tiny = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+        fx.load(tiny);
+        for ( int i = 0 ; i < 10 ; i++ ) tiny.put(fx.emb("t" + i, "m", "y", fx.rand(16)));
+        test(tiny.getIndex().reservedBytes() < 4096, "ten rows reserve a few hundred bytes, not a block: " + tiny.getIndex().reservedBytes());
+
+        // Random puts, updates and removes agree with a plain map of what should be there.
+        VectorStoreDAO fuzz = fx.store();
+        fx.load(fuzz);
+        Map<String, float[]> expected = new HashMap<>();
+        Random fr = new Random(11);
+        for ( int op = 0 ; op < 600 ; op++ ) {
+          String id = "z" + fr.nextInt(120);
+          if ( fr.nextInt(3) == 0 ) {
+            FObject o = fuzz.find(id);
+            if ( o != null ) fuzz.remove(o);
+            expected.remove(id);
+          } else {
+            float[] v = fx.rand(16);
+            fuzz.put(fx.emb(id, "m", "y", v));
+            expected.put(id, v);
+          }
+        }
+        expect((long) fuzz.getIndex().size(), (long) expected.size(), "after 600 random operations the index holds exactly the live ids");
+        boolean fuzzOk = true;
+        for ( Map.Entry<String, float[]> e : expected.entrySet() ) {
+          List<VectorEmbedding> top = fx.search(fuzz, e.getValue(), "m", null, 0, 1);
+          fuzzOk = fuzzOk && top.size() == 1 && e.getKey().equals(top.get(0).getId()) && top.get(0).getScore() > 0.99f;
+        }
+        test(fuzzOk, "every live id still ranks first for its own vector");
+        for ( String id : expected.keySet() ) fuzz.remove(fuzz.find(id));
+        test(fuzz.getIndex().groupCount() == 0 && fuzz.getIndex().blockCount() == 0 && fuzz.getIndex().size() == 0,
+          "removing every row leaves no group and no block");
+        fuzz.put(fx.emb("again", "m", "y", fx.rand(16)));
+        expect((long) fuzz.getIndex().size(), 1L, "an emptied store takes rows again");
 
 
         // ── a row the index cannot hold must not stop a load ───────────────────

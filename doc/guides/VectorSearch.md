@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu -->
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu blockBytes -->
 <flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, VectorIndex, Quantizer, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,VectorIndex,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
@@ -152,6 +152,10 @@ A minimum-score threshold is easy to apply after the fact:
 ```javascript
 var results = sink.array.filter(e => e.score >= 0.75);
 ```
+
+#### Blocks
+
+The index keeps each group's vectors (one group per model and dimension count) in blocks of about 1 MiB (`blockBytes`), not in one array. A group can therefore grow past the size of a Java array, growing never copies the rows in earlier blocks, and a block that empties is released, so a group cut down by deletes gives its memory back. Each new block starts at 16 rows and doubles up to the block size, so a small group stays small.
 
 ## Try It Live
 

@@ -26,6 +26,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * index's Quantizer, and a search scores the packed bytes
  * directly with {@link Quantizer#dot}, so it allocates nothing per row.
  *
+ * A group keeps its rows in blocks of a bounded size instead of one array: a
+ * group can grow past the size of a Java array, growing never copies the rows
+ * already stored, and a block that empties is released. Every block but the
+ * last is full, and the last one starts small, so a group of ten rows is small.
+ *
  * Vectors are normalised to unit length here, once, before any quantizer sees
  * them, so a score is a cosine similarity whatever the precision.
  *
@@ -34,8 +39,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * journaled in one format and indexed in another, after the configuration
  * changed, is decoded and re-encoded on load.
  *
- * Search is an exact, single-threaded scan of every matching row, with the
- * caller's predicate checked before each score.
+ * Search is an exact, single-threaded scan of every row in the chosen groups,
+ * with the caller's predicate checked before each score.
  */
 public class VectorIndex {
 
@@ -60,56 +65,97 @@ public class VectorIndex {
     return c != 0 ? c : b.row.getId().compareTo(a.row.getId());
   };
 
-  /** All vectors of one model and dimension count, packed by one Quantizer. */
+  /** Smallest block, and the size a group's first block starts at. */
+  static final int MIN_BLOCK_ROWS = 16;
+
+  /** Default block size: the bytes of vectors one block holds. */
+  public static final int DEFAULT_BLOCK_BYTES = 1 << 20;
+
+  /** The packed vectors and rows of one slice of a group; arrays grow up to its blockRows. */
+  static final class Block {
+    byte[]            data;
+    VectorEmbedding[] rows;
+
+    Block(int rowBytes) {
+      data = new byte[MIN_BLOCK_ROWS * rowBytes];
+      rows = new VectorEmbedding[MIN_BLOCK_ROWS];
+    }
+  }
+
+  /**
+   * All vectors of one model and dimension count, packed by one Quantizer. Slot i
+   * lives in block i >>> shift at offset i & (blockRows - 1). Every block but the
+   * last holds blockRows rows.
+   */
   static final class Group {
     final Quantizer   quantizer;
     final int         dims;
     final int         rowBytes;
-    byte[]            data = new byte[0];
-    VectorEmbedding[] rows = new VectorEmbedding[0];
+    final int         blockRows;
+    final int         shift;
+    final String      key;
+    final List<Block> blocks = new ArrayList<>();
     int               size;
 
-    Group(Quantizer quantizer, int dims) {
+    Group(String key, Quantizer quantizer, int dims, int blockBytes) {
+      this.key       = key;
       this.quantizer = quantizer;
       this.dims      = dims;
       this.rowBytes  = quantizer.encodedSize(dims);
+
+      // Rows per block: about blockBytes of vectors, rounded up to a power of two so a slot
+      // maps to its block with a shift. Rounded down again when that many rows would not fit
+      // one Java array.
+      int rows  = Math.max(MIN_BLOCK_ROWS, Math.min(1 << 20, blockBytes / rowBytes));
+      int shift = 32 - Integer.numberOfLeadingZeros(rows - 1);
+      if ( (long) (1 << shift) * rowBytes > Integer.MAX_VALUE ) shift--;
+      this.shift     = shift;
+      this.blockRows = 1 << shift;
     }
 
+    /** Store a row's bytes at a slot: an existing one, or the next free one (slot == size). */
     void write(int slot, VectorEmbedding row, byte[] encoded) {
-      if ( slot >= rows.length ) {
-        // The most rows whose bytes fit one Java array.
-        int limit = Integer.MAX_VALUE / rowBytes;
-        if ( slot >= limit )
-          throw new IllegalStateException(
-            "VectorIndex group full: " + slot + " rows of " + dims + " dims");
-        int cap = (int) Math.min(limit, Math.max(16L, rows.length * 2L));
-        data = Arrays.copyOf(data, cap * rowBytes);
-        rows = Arrays.copyOf(rows, cap);
+      int b = slot >>> shift;
+      int o = slot & (blockRows - 1);
+      if ( b == blocks.size() ) blocks.add(new Block(rowBytes));
+      Block block = blocks.get(b);
+      if ( o >= block.rows.length ) {
+        int cap    = Math.min(blockRows, block.rows.length * 2);
+        block.data = Arrays.copyOf(block.data, cap * rowBytes);
+        block.rows = Arrays.copyOf(block.rows, cap);
       }
-      System.arraycopy(encoded, 0, data, slot * rowBytes, rowBytes);
-      rows[slot] = row;
+      System.arraycopy(encoded, 0, block.data, o * rowBytes, rowBytes);
+      block.rows[o] = row;
     }
 
-    /** Remove a slot by moving the last row into it; returns the moved row, or null. */
+    /**
+     * Remove a slot by moving the last row into it; returns the moved row, or null.
+     * A last block left with no rows is released.
+     */
     VectorEmbedding removeAt(int slot) {
-      int last = --size;
-      VectorEmbedding moved = null;
+      int             last      = --size;
+      Block           lastBlock = blocks.get(last >>> shift);
+      int             lastRow   = last & (blockRows - 1);
+      VectorEmbedding moved     = null;
       if ( slot != last ) {
-        System.arraycopy(data, last * rowBytes, data, slot * rowBytes, rowBytes);
-        rows[slot] = moved = rows[last];
+        Block block = blocks.get(slot >>> shift);
+        int   o     = slot & (blockRows - 1);
+        System.arraycopy(lastBlock.data, lastRow * rowBytes, block.data, o * rowBytes, rowBytes);
+        block.rows[o] = moved = lastBlock.rows[lastRow];
       }
-      rows[last] = null;
+      lastBlock.rows[lastRow] = null;
+      if ( lastRow == 0 ) blocks.remove(blocks.size() - 1);
       return moved;
     }
   }
 
   /** Where a row's vector lives, so an update or remove finds it without a scan. */
   static final class Slot {
-    final String key;
-    int          index;
+    final Group group;
+    int         index;
 
-    Slot(String key, int index) {
-      this.key   = key;
+    Slot(Group group, int index) {
+      this.group = group;
       this.index = index;
     }
   }
@@ -120,7 +166,7 @@ public class VectorIndex {
     public final int       dims;
     public final Quantizer quantizer;
     public final byte[]    bytes;
-    /** True when bytes differ from the row's vectorData, so the row must be rewritten. */
+    /** True when bytes differ from the row's vectorData: the row must be rewritten. */
     public final boolean   changed;
 
     Packed(String model, int dims, Quantizer quantizer, byte[] bytes, boolean changed) {
@@ -133,6 +179,7 @@ public class VectorIndex {
   }
 
   protected final Quantizer               quantizer_;
+  protected final int                    blockBytes_;
 
   // One read/write lock for the whole store: writes wait for in-flight searches.
   // Per-group copy-on-write would let writes overlap long scans if that is ever needed.
@@ -141,9 +188,13 @@ public class VectorIndex {
   protected final Map<String, Slot>      slots_  = new HashMap<>();
   protected volatile boolean             loaded_ = false;
 
-  /** quantizer packs every row. */
-  public VectorIndex(Quantizer quantizer) {
-    quantizer_ = quantizer;
+  /**
+   * quantizer packs every row. blockBytes is the bytes of vectors one block
+   * holds, about.
+   */
+  public VectorIndex(Quantizer quantizer, int blockBytes) {
+    quantizer_  = quantizer;
+    blockBytes_ = blockBytes > 0 ? blockBytes : DEFAULT_BLOCK_BYTES;
   }
 
   public boolean isLoaded() { return loaded_; }
@@ -245,19 +296,24 @@ public class VectorIndex {
     String key = key(packed.model, packed.dims);
     lock_.writeLock().lock();
     try {
-      Slot slot = slots_.get(row.getId());
-      if ( slot != null && slot.key.equals(key) ) {
-        groups_.get(key).write(slot.index, row, packed.bytes);
+      Slot  slot   = slots_.get(row.getId());
+      Group target = groups_.get(key);
+      if ( slot != null && slot.group == target ) {
+        target.write(slot.index, row, packed.bytes);
         return;
       }
+      // A changed model or dimension count moves the row to another group.
       if ( slot != null ) removeLocked(row.getId());
 
-      Group group = groups_.computeIfAbsent(key, k -> new Group(packed.quantizer, packed.dims));
-      int   index = group.size;
-      // write throws when the group is full; size is only bumped after it succeeds.
+      Group group = groups_.computeIfAbsent(
+        key, k -> new Group(k, packed.quantizer, packed.dims, blockBytes_));
+      if ( group.size == Integer.MAX_VALUE )
+        throw new IllegalStateException(
+          "VectorIndex group full: " + group.size + " rows of " + group.dims + " dims");
+      int index = group.size;
       group.write(index, row, packed.bytes);
       group.size++;
-      slots_.put(row.getId(), new Slot(key, index));
+      slots_.put(row.getId(), new Slot(group, index));
     } finally {
       lock_.writeLock().unlock();
     }
@@ -275,10 +331,10 @@ public class VectorIndex {
   protected void removeLocked(String id) {
     Slot slot = slots_.remove(id);
     if ( slot == null ) return;
-    Group           group = groups_.get(slot.key);
+    Group           group = slot.group;
     VectorEmbedding moved = group.removeAt(slot.index);
     if ( moved != null ) slots_.get(moved.getId()).index = slot.index;
-    if ( group.size == 0 ) groups_.remove(slot.key);
+    if ( group.size == 0 ) groups_.remove(group.key);
   }
 
   public void clear() {
@@ -296,6 +352,41 @@ public class VectorIndex {
     lock_.readLock().lock();
     try {
       return slots_.size();
+    } finally {
+      lock_.readLock().unlock();
+    }
+  }
+
+  /** Number of groups (one per model and dimension count holding rows). */
+  public int groupCount() {
+    lock_.readLock().lock();
+    try {
+      return groups_.size();
+    } finally {
+      lock_.readLock().unlock();
+    }
+  }
+
+  /** Number of blocks across all groups. */
+  public int blockCount() {
+    lock_.readLock().lock();
+    try {
+      int n = 0;
+      for ( Group g : groups_.values() ) n += g.blocks.size();
+      return n;
+    } finally {
+      lock_.readLock().unlock();
+    }
+  }
+
+  /** Bytes reserved for vectors and row references (4 bytes each), used or not. */
+  public long reservedBytes() {
+    lock_.readLock().lock();
+    try {
+      long n = 0;
+      for ( Group g : groups_.values() )
+        for ( Block block : g.blocks ) n += block.data.length + 4L * block.rows.length;
+      return n;
     } finally {
       lock_.readLock().unlock();
     }
@@ -342,20 +433,27 @@ public class VectorIndex {
   }
 
   protected void scan(Group group, float[] q, Predicate predicate, int k, PriorityQueue<Hit> best) {
-    for ( int i = 0 ; i < group.size ; i++ ) {
-      VectorEmbedding row = group.rows[i];
-      if ( predicate != null && ! predicate.f(row) ) continue;
+    int remaining = group.size;
+    for ( Block block : group.blocks ) {
+      int n = Math.min(remaining, group.blockRows);
+      remaining -= n;
+      for ( int i = 0 ; i < n ; i++ ) {
+        VectorEmbedding row = block.rows[i];
+        if ( predicate != null && ! predicate.f(row) ) continue;
 
-      float s = group.quantizer.dot(q, group.data, i * group.rowBytes);
+        float s = group.quantizer.dot(q, block.data, i * group.rowBytes);
 
-      // A Hit is only allocated for rows that make the current top k.
-      if ( best.size() < k ) {
-        best.add(new Hit(row, s));
-      } else {
-        Hit worst = best.peek();
-        if ( s > worst.score || s == worst.score && row.getId().compareTo(worst.row.getId()) < 0 ) {
-          best.poll();
+        // A Hit is only allocated for rows that make the current top k.
+        if ( best.size() < k ) {
           best.add(new Hit(row, s));
+        } else {
+          Hit worst = best.peek();
+          boolean better = s > worst.score
+            || s == worst.score && row.getId().compareTo(worst.row.getId()) < 0;
+          if ( better ) {
+            best.poll();
+            best.add(new Hit(row, s));
+          }
         }
       }
     }

@@ -43,6 +43,9 @@ foam.CLASS({
     read back through the delegate in the caller's context, so whatever
     authorization sits in the delegate chain below this DAO decides which rows a
     caller may see.
+
+    Vectors are held in blocks of about blockBytes (1 MiB unless set), so a
+    store grows without one huge array and gives memory back after deletes.
   `,
 
   properties: [
@@ -54,11 +57,20 @@ foam.CLASS({
       javaFactory: 'return new Float32Quantizer();'
     },
     {
+      class: 'Int',
+      name: 'blockBytes',
+      value: 1048576,
+      documentation: `About how many bytes of vectors one index block holds (a block holds a
+        power-of-two number of rows, so up to twice that). A group adds and frees blocks; a
+        new block starts small and grows to this size.`
+    },
+    {
       class: 'Object',
       name: 'index',
       javaType: 'VectorIndex',
-      documentation: `Built once, on first use, from quantizer, so set it before the first search.`,
-      javaFactory: 'return new VectorIndex(getQuantizer());',
+      documentation: `Built once, on first use, from quantizer and blockBytes, so set them before
+        the first search.`,
+      javaFactory: 'return new VectorIndex(getQuantizer(), getBlockBytes());',
       // Two first callers must get the same index, or they lock different objects.
       synchronized: true,
       transient: true,

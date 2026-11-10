@@ -12,187 +12,190 @@ foam.CLASS({
   javaImports: [
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.VectorEmbedding',
+    'foam.ai.vector.VectorIndex',
+    'foam.core.logger.Loggers',
     'foam.dao.AbstractDAO',
-    'foam.dao.ArraySink',
-    'foam.mlang.predicate.Predicate',
-    'java.util.Arrays'
+    'foam.dao.AbstractSink',
+    'foam.lang.Detachable',
+    'foam.lang.FObject',
+    'java.util.ArrayList',
+    'java.util.HashMap',
+    'java.util.List',
+    'java.util.Map'
   ],
 
-  /*
-    Index layout
-    ------------
-    flatIndex is a packed float[] that reformats all vector fields from every
-    VectorEmbedding in the delegate DAO into a single contiguous allocation.
+  documentation: `
+    Adds similarity search to a DAO of VectorEmbeddings. A select ordered by a
+    CosineComparator is answered from an in-memory VectorIndex: an exact scan of
+    the rows that match the query's model, dimension count and predicate,
+    returning the best rows first with their score set. Every other operation
+    passes through to the delegate.
 
-    Instead of n separate float[] arrays (one per object):
-      VectorEmbedding[0].vector = [0.1, 0.2, 0.3, ...]
-      VectorEmbedding[1].vector = [0.4, 0.5, 0.6, ...]
-      VectorEmbedding[2].vector = [0.7, 0.8, 0.9, ...]
+    The index loads from the delegate on the first search and is then kept in
+    step by put_ and remove_ (removeAll_ reloads it on next use), so a write never
+    forces a rebuild. Each hit is read back through the delegate in the caller's
+    context, so whatever authorization sits in the delegate chain below this DAO
+    decides which rows a caller may see.
 
-    We get one contiguous float[] in row-major order:
-      flatIndex = [0.1, 0.2, 0.3,  0.4, 0.5, 0.6,  0.7, 0.8, 0.9, ...]
-                   |--- row 0 ---|  |--- row 1 ---|  |--- row 2 ---|
+    Rows keep their vector as the floats the embedding service returned; the index
+    holds its own normalised copy.
+  `,
 
-    indexIds runs in parallel: indexIds[i] is the id of the VectorEmbedding
-    whose vector occupies flatIndex[i*dim .. i*dim+dim-1].
-
-    Why: the cosine search loop reads flatIndex sequentially end-to-end —
-    one big contiguous array is CPU-cache friendly. Chasing n separate object
-    references to read n separate float[] fields would be much slower for large n.
-  */
   properties: [
     {
-      // vector dimensionality — set on first index build
-      class: 'Int',
-      name: 'dim'
-    },
-    {
-      // true whenever the delegate DAO has changed and the flat index needs rebuilding
-      class: 'Boolean',
-      name: 'dirty',
-      value: true,
-      synchronized: true
-    },
-    {
-      class: 'foam.lang.FloatArray',
-      name: 'flatIndex',
-      networkTransient: true
-    },
-    {
-      // parallel to flatIndex: indexIds[i] is the VectorEmbedding id for row i
-      class: 'StringArray',
-      name: 'indexIds',
-      networkTransient: true
+      class: 'Object',
+      name: 'index',
+      javaType: 'VectorIndex',
+      documentation: 'Built once, on first use.',
+      javaFactory: 'return new VectorIndex();',
+      // Two first callers must get the same index, or they lock different objects.
+      synchronized: true,
+      transient: true,
+      hidden: true
     }
   ],
 
   methods: [
     {
-      name: 'buildIndex_',
-      args: [{ name: 'x', type: 'X' }],
+      name: 'ensureLoaded_',
+      documentation: `Load every row of the delegate into the index once. It runs in
+        the DAO's own context, not the caller's, because the index is shared by all
+        callers and must hold every row.`,
       javaCode: `
-        // full scan of the delegate DAO to collect all embeddings
-        var sink = (ArraySink) getDelegate().select(new ArraySink());
-        var list = sink.getArray();
-        if ( list.isEmpty() ) {
-          setFlatIndex(new float[0]);
-          setIndexIds(new String[0]);
-          setDirty(false);
-          return;
+        VectorIndex index = getIndex();
+        if ( index.isLoaded() ) return;
+        synchronized ( index ) {
+          if ( index.isLoaded() ) return;
+          index.clear();
+          getDelegate().select_(getX(), new AbstractSink() {
+            @Override
+            public void put(Object obj, Detachable sub) {
+              VectorEmbedding row = (VectorEmbedding) obj;
+              // One bad row must never stop the rest of a load: leave it out and say why.
+              try {
+                index.put(row);
+              } catch (RuntimeException e) {
+                index.remove(row.getId());
+                Loggers.logger(getX(), VectorStoreDAO.this)
+                  .warning("Skipped row with an unreadable vector", row.getId(), e);
+              }
+            }
+          }, 0, AbstractDAO.MAX_SAFE_INTEGER, null, null);
+          index.setLoaded(true);
         }
-        int d = ((VectorEmbedding) list.get(0)).getVector().length;
-        setDim(d);
-        int n = list.size();
-
-        // pack all vectors into one contiguous float[n*d] in row-major order.
-        // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexIds[i].
-        // Skip any item whose vector length differs from d (mixed embedding models).
-        float[]  flat = new float[n * d];
-        String[] ids  = new String[n];
-        int row = 0;
-        for ( int i = 0; i < n; i++ ) {
-          var e = (VectorEmbedding) list.get(i);
-          if ( e.getVector().length != d ) continue;
-          System.arraycopy(e.getVector(), 0, flat, row * d, d);
-          ids[row] = e.getId();
-          row++;
-        }
-        if ( row < n ) {
-          flat = Arrays.copyOf(flat, row * d);
-          ids  = Arrays.copyOf(ids, row);
-        }
-        setFlatIndex(flat);
-        setIndexIds(ids);
-        setDirty(false);
-      `
-    },
-    {
-      name: 'select_',
-      type: 'foam.dao.Sink',
-      args: [
-        { name: 'x',         type: 'X'                              },
-        { name: 'sink',      type: 'foam.dao.Sink'                  },
-        { name: 'skip',      javaType: 'long'                       },
-        { name: 'limit',     javaType: 'long'                       },
-        { name: 'order',     type: 'foam.mlang.order.Comparator'    },
-        { name: 'predicate', type: 'foam.mlang.predicate.Predicate' }
-      ],
-      javaCode: `
-        // only intercept when the caller used orderBy(CosineComparator);
-        // all other queries fall through to the delegate unchanged
-        if ( !(order instanceof CosineComparator) ) {
-          return super.select_(x, sink, skip, limit, order, predicate);
-        }
-        if ( getDirty() ) buildIndex_(x);
-
-        CosineComparator cc   = (CosineComparator) order;
-        float[]  flat = getFlatIndex();
-        String[] ids  = getIndexIds();
-        int n = ids.length;
-        int d = getDim();
-
-        // If the query vector dimension doesn't match the index dimension (e.g. the
-        // index was built with a different embedding model), scoring would throw
-        // ArrayIndexOutOfBoundsException.  Fall through to the delegate so the
-        // predicate still runs and returns an empty result gracefully.
-        if ( cc.getQueryVector().length != d ) {
-          return super.select_(x, sink, skip, limit, order, predicate);
-        }
-
-        // score each row via CosineComparator.score(flat, offset, dim) — the formula
-        // lives in CosineComparator; the offset overload avoids a float[] copy per row.
-        float[] scores = new float[n];
-        for ( int i = 0; i < n; i++ ) {
-          scores[i] = cc.score(flat, i * d, d);
-        }
-
-        // sort row indices by descending score to get ranking
-        Integer[] ranked = new Integer[n];
-        for ( int i = 0; i < n; i++ ) ranked[i] = i;
-        Arrays.sort(ranked, (a, b) -> Float.compare(scores[b], scores[a]));
-
-        // stream top results into the sink, honouring skip/limit/predicate
-        long skipped = 0;
-        long emitted = 0;
-        long maxEmit = (limit > 0 && limit < AbstractDAO.MAX_SAFE_INTEGER) ? limit : Long.MAX_VALUE;
-        for ( int i = 0; i < n && emitted < maxEmit; i++ ) {
-          var obj = (VectorEmbedding) getDelegate().find(ids[ranked[i]]);
-          if ( obj == null ) continue;
-          if ( predicate != null && !predicate.f(obj) ) continue;
-          if ( skipped < skip ) { skipped++; continue; }
-          var scored = (VectorEmbedding) obj.fclone();
-          scored.setScore(scores[ranked[i]]);
-          sink.put(scored, null);
-          emitted++;
-        }
-        sink.eof();
-        return sink;
       `
     },
     {
       name: 'put_',
       type: 'FObject',
-      args: [
-        { name: 'x',   type: 'X'       },
-        { name: 'obj', type: 'FObject' }
-      ],
+      args: 'X x, FObject obj',
       javaCode: `
-        var result = super.put_(x, obj);
-        setDirty(true);
-        return result;
+        VectorEmbedding e       = (VectorEmbedding) obj;
+        String          problem = VectorIndex.check(e.getVector());
+        if ( problem != null )
+          throw new IllegalArgumentException("Vector for " + e.getId() + " " + problem);
+
+        // Each write and its index update happen as one step, so the index never
+        // ends up with an older version of a row than the DAO (two puts of one id)
+        // or with a row a concurrent remove already deleted. Searches do not take
+        // this lock; writes are serialised, as they already share one journal.
+        // Before the first search the index is not loaded, and that load reads
+        // this row from the delegate.
+        VectorIndex index = getIndex();
+        synchronized ( index ) {
+          VectorEmbedding stored = (VectorEmbedding) getDelegate().put_(x, e);
+          if ( stored != null && index.isLoaded() ) {
+            try {
+              index.put(stored);
+            } catch (RuntimeException t) {
+              index.remove(stored.getId());
+              Loggers.logger(x, this).warning("Stored row is not searchable", stored.getId(), t);
+            }
+          }
+          return stored;
+        }
       `
     },
     {
       name: 'remove_',
       type: 'FObject',
-      args: [
-        { name: 'x',   type: 'X'       },
-        { name: 'obj', type: 'FObject' }
-      ],
+      args: 'X x, FObject obj',
       javaCode: `
-        var result = super.remove_(x, obj);
-        setDirty(true);
-        return result;
+        synchronized ( getIndex() ) {
+          FObject removed = getDelegate().remove_(x, obj);
+          if ( getIndex().isLoaded() ) getIndex().remove(((VectorEmbedding) obj).getId());
+          return removed;
+        }
+      `
+    },
+    {
+      name: 'removeAll_',
+      args: 'X x, long skip, long limit, foam.mlang.order.Comparator order, foam.mlang.predicate.Predicate predicate',
+      javaCode: `
+        VectorIndex index = getIndex();
+        synchronized ( index ) {
+          // The delegate does not say which rows it removed, so list them first, with the same
+          // arguments. The index stays loaded and loses only those rows; a search running now
+          // never sees an empty index. Before the first search there is nothing to update.
+          List<String> ids = new ArrayList<>();
+          if ( index.isLoaded() ) {
+            getDelegate().select_(x, new AbstractSink() {
+              @Override
+              public void put(Object obj, Detachable sub) {
+                ids.add(((VectorEmbedding) obj).getId());
+              }
+            }, skip, limit, order, predicate);
+          }
+          getDelegate().removeAll_(x, skip, limit, order, predicate);
+          for ( String id : ids ) index.remove(id);
+        }
+      `
+    },
+    {
+      name: 'select_',
+      type: 'foam.dao.Sink',
+      args: 'X x, foam.dao.Sink sink, long skip, long limit, foam.mlang.order.Comparator order, foam.mlang.predicate.Predicate predicate',
+      javaCode: `
+        if ( ! ( order instanceof CosineComparator ) ) {
+          return super.select_(x, sink, skip, limit, order, predicate);
+        }
+        ensureLoaded_();
+
+        CosineComparator cc    = (CosineComparator) order;
+        VectorIndex      index = getIndex();
+        // Never ask for more than the index holds: a client limit of 2^31 must not size an array.
+        long rows = index.size();
+        long want = limit > 0 && limit < AbstractDAO.MAX_SAFE_INTEGER
+          ? Math.min(skip + limit, rows)
+          : rows;
+
+        // The index is shared by every caller, so each hit is read back through
+        // the delegate in x: a row x may not read (another tenant's, say) is
+        // dropped, and the scan is repeated with twice the depth until the page
+        // is full or the index is exhausted. Each deeper scan starts again from the
+        // best row, so the verdicts are kept and no id is checked twice.
+        Map<String, FObject>  checked = new HashMap<>();
+        List<VectorEmbedding> visible = new ArrayList<>();
+        for ( long depth = want ; ; depth = Math.min(depth * 2, rows) ) {
+          List<VectorIndex.Hit> hits = index.search(
+            cc.getQueryVector(), cc.getEmbeddingModel(), predicate, (int) depth);
+          visible.clear();
+          for ( VectorIndex.Hit hit : hits ) {
+            String id = hit.row.getId();
+            if ( ! checked.containsKey(id) ) checked.put(id, getDelegate().find_(x, id));
+            FObject row = checked.get(id);
+            if ( row == null ) continue;
+            VectorEmbedding scored = (VectorEmbedding) row.fclone();
+            scored.setScore(hit.score);
+            visible.add(scored);
+            if ( visible.size() == want ) break;
+          }
+          if ( visible.size() >= want || hits.size() < depth || depth >= rows ) break;
+        }
+
+        for ( long i = skip ; i < visible.size() ; i++ ) sink.put(visible.get((int) i), null);
+        sink.eof();
+        return sink;
       `
     }
   ]

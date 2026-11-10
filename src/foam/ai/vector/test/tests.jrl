@@ -1,1 +1,2 @@
 p({"class":"foam.ai.vector.test.MarkdownChunkParserTest","id":"MarkdownChunkParserTest","description":"MarkdownChunkParser chunking and inline-strip tests","language":0})
+p({"class":"foam.ai.vector.test.VectorStoreDAOTest","id":"VectorStoreDAOTest","description":"VectorStoreDAO index: exact ranking, filters, models, updates, concurrency"})

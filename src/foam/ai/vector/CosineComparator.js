@@ -13,17 +13,32 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding'
   ],
 
+  documentation: `
+    Orders VectorEmbeddings by similarity to queryVector, most similar first.
+    VectorStoreDAO recognises it in orderBy and answers from its index; compare()
+    is used only when some other DAO sorts the rows itself.
+  `,
+
   properties: [
     {
       class: 'foam.lang.FloatArray',
       name: 'queryVector'
+    },
+    {
+      class: 'String',
+      name: 'embeddingModel',
+      documentation: `Model that produced queryVector. VectorStoreDAO then scans
+        only that model's vectors; vectors from different models are never
+        comparable. When empty, every model with the query's dimension count is
+        scanned and the caller's predicate decides.`
     }
   ],
 
   methods: [
     {
       // dot product against queryVector (cosine similarity for unit-normalized vectors).
-      // compare() calls this with offset=0, dim=v.length; VectorStoreDAO uses the offset directly.
+      // compare() is the only caller, with offset=0, dim=v.length; VectorIndex scores through
+      // its Quantizer instead.
       name: 'score',
       type: 'Float',
       args: 'float[] flat, int offset, int dim',

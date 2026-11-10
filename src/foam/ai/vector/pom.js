@@ -15,6 +15,9 @@ foam.POM({
     { name: 'MarkdownChunkParser',            flags: 'js'      },
     { name: 'ClientMarkdownChunkerService',  flags: 'js'      }
   ],
+  javaFiles: [
+    { name: 'VectorIndex' }
+  ],
   projects: [
     { name: 'provider/pom' },
     { name: 'test/pom',     flags: 'test' }

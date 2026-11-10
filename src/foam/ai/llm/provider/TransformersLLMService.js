@@ -51,10 +51,13 @@ foam.CLASS({
     },
 
     async function chat(x, request) {
-      await this.ensurePipeline_();
-
       var messages = request.messages;
       var options  = request.options;
+
+      // LLMOptions.tools: a model run in the browser has no tool calls
+      if ( options && options.tools.length ) throw new Error('This model cannot call tools');
+
+      await this.ensurePipeline_();
 
       // Build plain objects for the pipeline, prepending system from options
       var plainMsgs = [];

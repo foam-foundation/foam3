@@ -108,11 +108,18 @@ foam.CLASS({
         out("╚══════════════════════════════════════════════════════╝");
         out("  Model    : " + getModelBase());
         out("  Config   : " + getConfigFile());
-        out("  Adapter  : " + getAdapterPath());
         out("  MaxIter  : " + getMaxIter());
         out("  Dataset  : " + getDatasetVersion());
         if ( ! getResumeFrom().isEmpty() ) out("  Resume   : " + getResumeFrom());
         out("──────────────────────────────────────────────────────");
+
+        // Auto-version the adapter path to prevent overwriting previous runs.
+        String adapterBase = getAdapterPath();
+        String version     = ! getDatasetVersion().isEmpty()
+          ? getDatasetVersion()
+          : UUID.randomUUID().toString().substring(0, 8);
+        setAdapterPath(adapterBase + "/" + version);
+        out("  Adapter  : " + getAdapterPath());
 
         // Resolve the previous run's adapter path when resuming.
         String resumeAdapterPath = "";
@@ -205,7 +212,8 @@ foam.CLASS({
         List<String> cmd = new ArrayList<>();
         cmd.add("-m");         cmd.add("mlx_lm");
         cmd.add("lora");
-        cmd.add("--config");   cmd.add(getConfigFile());
+        cmd.add("--config");       cmd.add(getConfigFile());
+        cmd.add("--adapter-path"); cmd.add(getAdapterPath());
         if ( ! getResumeFrom().isEmpty() ) {
           cmd.add("--resume-adapter-file");
           cmd.add(latestCheckpoint_());

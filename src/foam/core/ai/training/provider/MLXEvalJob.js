@@ -28,6 +28,7 @@ foam.CLASS({
     'foam.core.ai.training.EvalPrompt',
     'foam.core.ai.training.EvalResult',
     'foam.core.ai.training.EvalRun',
+    'foam.core.ai.training.TrainingRun',
     'foam.core.job.JobStatus',
     'foam.core.logger.Loggers',
     'foam.dao.ArraySink',
@@ -102,6 +103,15 @@ foam.CLASS({
       name: 'execute',
       javaCode: `
         setX(x);
+
+        // Resolve adapter path from TrainingRun when not set directly.
+        if ( getAdapterPath().isEmpty() && ! getTrainingRunId().isEmpty() ) {
+          DAO trainRunDAO = (DAO) x.get("trainingRunDAO");
+          TrainingRun tr  = (TrainingRun) trainRunDAO.find(getTrainingRunId());
+          if ( tr != null && ! tr.getAdapterPath().isEmpty() )
+            setAdapterPath(tr.getAdapterPath());
+        }
+
         DAO promptDAO = (DAO) x.get("evalPromptDAO");
         DAO runDAO    = (DAO) x.get("evalRunDAO");
         DAO resultDAO = (DAO) x.get("evalResultDAO");

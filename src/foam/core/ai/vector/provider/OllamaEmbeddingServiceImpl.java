@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -56,12 +57,16 @@ public class OllamaEmbeddingServiceImpl extends OllamaEmbeddingService {
   }
 
   private JSONArray post(String body) throws Exception {
+    var client = HttpClient.newBuilder()
+      .connectTimeout(Duration.ofSeconds(10))
+      .build();
     var req = HttpRequest.newBuilder()
       .uri(URI.create(getEndpoint()))
       .header("Content-Type", "application/json")
       .POST(HttpRequest.BodyPublishers.ofString(body))
+      .timeout(Duration.ofSeconds(60))
       .build();
-    var resp = HttpClient.newHttpClient().send(req, HttpResponse.BodyHandlers.ofString());
+    var resp = client.send(req, HttpResponse.BodyHandlers.ofString());
     if ( resp.statusCode() != 200 )
       throw new RuntimeException("Ollama returned HTTP " + resp.statusCode() + ": " + resp.body());
     return new JSONObject(resp.body()).getJSONArray("embeddings");

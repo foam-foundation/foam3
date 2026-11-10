@@ -12,6 +12,8 @@ foam.POM({
     { name: "test/pom", flags: "test" }
   ],
   files: [
+    { name: '../../input/Gamepad', flags: 'js' },
+    { name: '../../animation/Animation', flags: 'js' },
     { name: '../../demos/spacewars/SpaceWar', flags: 'js' },
     { name: '../../demos/pong/Pong',      flags: 'js' },
     { name: '../../doc/DIGApiDoc',        flags: 'js' },

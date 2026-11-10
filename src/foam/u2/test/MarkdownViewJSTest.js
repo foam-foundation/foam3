@@ -13,7 +13,8 @@ foam.CLASS({
     Renders markdown through MarkdownView and checks the DOM. The first group
     pins behaviour that existing docs rely on, so a grammar change cannot
     quietly break them; the rest covers quotes, table headers, <tabs> and
-    <stepper>, which documents migrated from GitBook use.
+    <stepper>, which documents migrated from GitBook use, text in angle
+    brackets that is no tag, and links to a heading or to another document.
   `,
 
   requires: [
@@ -178,6 +179,94 @@ foam.CLASS({
       x.test(bg && bg.indexOf('http://example.com/a.png') != -1, 'a style value with a colon inside is kept whole, got ' + JSON.stringify(bg));
       x.test(styled && styled.style.color == 'red', 'the declaration after it still applies');
       v.remove();
+
+      // Text in angle brackets that is no tag, such as a file layout written
+      // as <ICA>, is text. It used to be read as an opening tag and the rest
+      // of the page was dropped.
+      v = await render('Send `D,Q,<ICA>,0,<product>` as the first line.\n\nAmounts must be <= 10 and <ICA> is the member id.\n\nLast paragraph.\n');
+      x.test(q(v, 'code') && q(v, 'code').innerText == 'D,Q,<ICA>,0,<product>', 'inline code keeps its angle brackets, got ' + JSON.stringify(q(v, 'code') && q(v, 'code').innerText));
+      x.test(text(v).indexOf('must be <= 10 and <ICA> is the member id.') != -1, 'a bare "<" and a <word> in a sentence show as text, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('Last paragraph.') != -1, 'the page after the angle brackets still renders');
+      v.remove();
+
+      // Forty of them in one page, as in a guide that writes List<String>
+      // all over: each is settled where it stands, so the page still parses
+      // at once.
+      var generics = [];
+      for ( var i = 0 ; i < 40 ; i++ ) generics.push('A List<String> named n' + i + '.');
+      v = await render(generics.join('\n\n') + '\n');
+      x.test(qa(v, '.mdParagraph').length == 40 && text(v).indexOf('A List<String> named n39.') != -1, 'forty <word> texts render as forty paragraphs, got ' + qa(v, '.mdParagraph').length);
+      v.remove();
+
+      // The same inside a step, where the body is split at every tag: inline
+      // code and a code fence are not searched for tags.
+      v = await render(
+        '<stepper>\n<step>\n\n### First\n\nSend `D,Q,<ICA>,0,<product>` first.\n\n```\nH,<date>,<count>\n<b>not bold</b>\n```\n</step>\n\n' +
+        '<step>\n\n### Second\n\nThen wait.\n</step>\n</stepper>\n\nAfter the steps.\n');
+      stepper = find(v, e => self.Stepper.isInstance(e));
+      steps = stepper ? [...stepper.el_().children].filter(c => c.classList.contains('foam-u2-markdown-Step')) : [];
+      x.test(steps.length == 2, 'both steps render when the first holds angle brackets, got ' + steps.length);
+      x.test(steps[0] && steps[0].querySelector('.mdParagraph code') && steps[0].querySelector('.mdParagraph code').innerText == 'D,Q,<ICA>,0,<product>', 'inline code inside a step keeps its angle brackets');
+      var pre = steps[0] && steps[0].querySelector('pre code');
+      x.test(pre && pre.innerText.indexOf('H,<date>,<count>') != -1 && pre.innerText.indexOf('<b>not bold</b>') != -1, 'a code fence inside a step shows its tags as text, got ' + JSON.stringify(pre && pre.innerText));
+      x.test(pre && ! pre.querySelector('b'), 'a tag inside a code fence is not rendered');
+      x.test(text(v).indexOf('After the steps.') != -1, 'the page after the stepper still renders');
+      v.remove();
+
+      // A closing tag only closes the tag of the same name, so <ICA> inside a
+      // hint does not swallow the hint's own closing tag.
+      v = await render('<hint category="hint">\nUse the <ICA> of the member here.\n</hint>\n\nAfter the hint.\n');
+      var hint = q(v, '.foam-u2-markdown-Hint');
+      x.test(hint && hint.innerText.replace(/\s+/g, ' ').indexOf('Use the <ICA> of the member here.') != -1, 'a <word> inside a hint shows as text, got ' + JSON.stringify(hint && hint.innerText));
+      x.test(text(v).indexOf('After the hint.') != -1, 'the page after the hint still renders');
+      v.remove();
+
+      // Links. A click must not reach the browser's own navigation when the
+      // link is handled here; this listener records that and then stops the
+      // navigation either way, so a failing check cannot leave the test page.
+      var prevented;
+      var guard = function(e) { prevented = e.defaultPrevented; e.preventDefault(); };
+      x.document.addEventListener('click', guard);
+      var loaded = [];
+      var flows  = foam.dao.ArrayDAO.create({ of: foam.core.reflow.Flow }, x);
+      await flows.put(foam.core.reflow.Flow.create({ name: 'Support and Contacts' }, x));
+      var linkX  = x.createSubContext({ flowDAO: flows, eval_: function(cmd) { loaded.push(cmd); } });
+      var renderIn = async (md, ctx) => {
+        var mv = self.MarkdownView.create({ data: md }, ctx);
+        mv.write(x.document.body);
+        await new Promise(r => setTimeout(r, 100));
+        return mv;
+      };
+
+      // A link to another document by its flow name loads that flow. The
+      // browser used to follow the href as well and show a 404 page.
+      v = await renderIn('See [the contacts](Support and Contacts).\n', linkX);
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(loaded.join() == 'load("Support and Contacts")', 'a link by flow name loads the flow, got ' + JSON.stringify(loaded));
+      x.test(prevented === true, 'and the browser does not follow the href to a 404, defaultPrevented=' + prevented);
+      v.remove();
+
+      // A link to a heading of the same page scrolls to it. The browser used
+      // to set the page hash, which the application reads as a route.
+      v = await renderIn('[Go to part two](#part-two)\n\n# Part one\n\nText.\n\n## Part two\n\nMore text.\n', linkX);
+      var target = x.document.getElementById('part-two');
+      x.test(target, 'the heading has the id the link names');
+      var scrolled = false;
+      if ( target ) target.scrollIntoView = function() { scrolled = true; };
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(scrolled, 'a link to a heading scrolls the heading into view');
+      x.test(prevented === true, 'and the page hash is left alone, defaultPrevented=' + prevented);
+      v.remove();
+
+      // Any other "#" link is an application route and still goes to the browser.
+      v = await renderIn('[Open the menu](#someMenu)\n', linkX);
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);
+      v.remove();
+      x.document.removeEventListener('click', guard);
     }
   ]
 });

@@ -6,6 +6,27 @@
 
 foam.CLASS({
   package: 'foam.u2.view',
+  name: 'MarkdownRemainingText',
+  extends: 'foam.parse.AbstractParser',
+
+  documentation: `
+    Consumes nothing; its value is the text from the current position to the
+    end of the input. MarkdownView uses it to see whether a tag is closed
+    further on before it parses the tag's content.
+  `,
+
+  methods: [
+    function parse(ps) {
+      return ps.setValue(ps.str[0].substring(ps.pos));
+    },
+
+    function toString() { return 'remainingText()'; }
+  ]
+});
+
+
+foam.CLASS({
+  package: 'foam.u2.view',
   name: 'MarkdownView',
   extends: 'foam.u2.View',
 
@@ -103,13 +124,20 @@ foam.CLASS({
           ),
 
           fullHtmlBlock: seq(
-            '<',
-            str(sym('htmlTagName')),
-            sym('htmlAttributes'),
+            sym('htmlTagStart'),
             alt(
               seq('>', sym('htmlContent'), '</', sym('htmlTagName'), '>'),
               '/>'
             )
+          ),
+
+          // The text after the tag is read, not consumed, so the action can
+          // tell a tag from text such as <ICA> before the content is parsed.
+          htmlTagStart: seq(
+            '<',
+            str(sym('htmlTagName')),
+            sym('htmlAttributes'),
+            foam.u2.view.MarkdownRemainingText.create()
           ),
 
           // SVG tag names are camel case, e.g. <linearGradient>.
@@ -139,7 +167,13 @@ foam.CLASS({
             )
           ),
 
-          htmlText: str(repeat(not(alt('</', sym('htmlBlock')), any()), null, 1)),
+          // Code is taken whole, so a tag written inside it is not read as one.
+          htmlText: str(repeat(alt(sym('codeSpan'), not(alt('</', sym('htmlBlock')), any())), null, 1)),
+
+          codeSpan: substring(alt(
+            seq('```', repeat(not('```', anyChar())), '```'),
+            seq('`', repeat(notChars('`\n'), null, 1), '`')
+          )),
 
           // Block-level elements
           heading: seq(
@@ -242,8 +276,14 @@ foam.CLASS({
             sym('bold'),
             sym('italic'),
             sym('inlineCode'),
-            sym('text')
+            sym('text'),
+            sym('literalChar')
           ),
+
+          // A character that opens no markup, such as the "<" of "<= 10" or
+          // of "<ICA>", is text. Without this the parse stopped there and the
+          // rest of the document was not rendered.
+          literalChar: notChars('\n'),
 
           htmlInline: seq(
             '<',
@@ -332,10 +372,26 @@ foam.CLASS({
           return attrs;
         },
 
+        function htmlTagStart(v) {
+          // "<ICA>" with no "</ICA>" after it is text, not a tag.
+          let tagName = v[1], rest = v[3];
+          if ( ! rest.startsWith('/>') && rest.indexOf('</' + tagName + '>') == -1 ) return foam.parse.ParserWithAction.NO_PARSE;
+          return v;
+        },
+
+        function fullHtmlBlock(v) {
+          return [ '<', v[0][1], v[0][2], v[1] ];
+        },
+
         function htmlBlock(v) {
           let tagName    = v[1];
           let attributes = v[2];
           let closing    = v[3];
+
+          // A closing tag closes the tag of the same name. Otherwise <ICA> in
+          // "<step>Send <ICA> first</step>" would take </step> as its own end
+          // and leave the step unclosed.
+          if ( Array.isArray(closing) && closing[3].join('') !== tagName ) return foam.parse.ParserWithAction.NO_PARSE;
 
           return function() {
             let e = this.start(tagName).attrs(attributes);
@@ -544,6 +600,10 @@ foam.CLASS({
         },
 
         function text(v) {
+          return function() { this.add(v); };
+        },
+
+        function literalChar(v) {
           return function() { this.add(v); };
         },
 

@@ -9,7 +9,9 @@ foam.CLASS({
   name: 'EventRecordAlarmRuleAction',
   implements: [ 'foam.core.ruler.RuleAction' ],
 
-  documentation: `Generate or clear Alarm`,
+  documentation: `Generate or clear Alarm. A record at or above alarmSeverity
+raises it; only an INFO record clears it. Alarms are written to localAlarmDAO,
+whose journal is write-only and not replayed, so they are dropped on restart.`,
 
   javaImports: [
     'foam.core.alarming.Alarm',
@@ -79,7 +81,7 @@ foam.CLASS({
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
       } else if ( alarm != null && alarm.getIsActive() &&
-                  er.getSeverity().getOrdinal() <= LogLevel.INFO.getOrdinal() ) {
+                  er.getSeverity() == LogLevel.INFO ) {
         // Only an INFO record clears, as EventRecord.md describes. A WARN
         // record below alarmSeverity neither raises nor clears.
         alarm = (Alarm) alarm.fclone();

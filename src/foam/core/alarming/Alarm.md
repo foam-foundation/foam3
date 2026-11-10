@@ -143,5 +143,14 @@ every clear, while a WARN record does not. A
 config's `severity` defaults to WARN, which raises no alarm: a config that
 should alarm needs `severity` ERROR.
 
+Alarms are not reloaded on restart: `localAlarmDAO` writes the `alarms`
+journal but never replays it (`WriteOnlyJDAO`), so every alarm is dropped.
+After a restart an INFO record finds no alarm to clear, so it sends no clear
+notification, and a problem that is still there raises a new alarm, with a
+new notification, only when something puts a new raising record.
+`AlarmAndMonitoring` does, on its next run that finds the problem, since it
+sees no active alarm. A caller that puts a raising record only when its own
+state changes, and made that change before the restart, does not.
+
 While the alarm is on, a change of reason, such as CONGESTION to TIMEOUT, puts
 no new `EventRecord`: the alarm keeps the reason it was raised with.

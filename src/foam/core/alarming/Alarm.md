@@ -1,4 +1,4 @@
-<flow name="Alarm" category="DOC/DEV" spid="foam" description="Alarm documentation: high-level system event reporting for NOC monitoring, auto-generated alarms, and AlarmConfig suppression." keywords="alarm,noc,alarmconfig,monitoring,knowledge"/>
+<flow name="Alarm" category="DOC/DEV" spid="foam" description="Alarm documentation: high-level system event reporting for NOC monitoring, raised and cleared through EventRecords, and AlarmConfig." keywords="alarm,noc,alarmconfig,monitoring,knowledge"/>
 
 # Alarm Documentation
 
@@ -16,37 +16,40 @@ Alarms are intended to be monitored by a Network Operations Center (NOC). NOC op
 
 As such, the alarm should have a short simple name, and just enough details in the *note* for System Engineer to narrow their search of the system and logs.
 
+## Raising and clearing an alarm
+
+Put an `EventRecord`; the EventRecord rules raise the alarm, clear it and send
+the notifications. The alarm is named by the record's `alarmSummary`: its
+source, event, partner and code. The record that clears it must carry the same
+four.
+
+```java
+DAO eventRecordDAO = (DAO) x.get("eventRecordDAO");
+
+// Raise: WARN or ERROR. ERROR also notifies.
+eventRecordDAO.put(new EventRecord(x, this, "onboard", "Payment Provider", "TIMEOUT",
+  "CP onboarding timed out", LogLevel.ERROR, null));
+
+// Clear: INFO, with the same source, event, partner and code.
+eventRecordDAO.put(new EventRecord(x, this, "onboard", "Payment Provider", "TIMEOUT",
+  "CP onboarding recovered", LogLevel.INFO, null));
+```
+
+Putting an `Alarm` directly through `alarmDAO` is deprecated:
+`AlarmNotificationDAO` logs a WARN when one is created that way.
+
+A failed PM (`pm.error`) no longer raises an alarm. The PM has nothing to add,
+so the code that calls `pm.error` logs or raises the reason.
+
 ## Notifications
 
-Alarms with **severity** of *WARN* or *ERROR* automatically generated a **notification**
+An alarm raised through an `EventRecord` notifies only when its record is at
+or above `notificationSeverity`, ERROR by default. An ERROR alarm notifies when
+it turns on and again when it clears; a WARN alarm does neither. "Raising and
+clearing" under Alarming and Monitoring below has the detail.
 
-## Auto Generated Alarms
-
-Alarms are automatically generated for **error PMs** *(pm.error)*
-
-## Usage
-
-The Alarm **name** is the alarm id or key. Alarms default to severity **Warning** and when created are **active**.
-
-### Code Examples
-
-#### Alarm
-
-```
-  Alarm alarm = new Alarm.Builder(x)
-                    .setName("Payment Provider CP Onboarding")
-                    .setReason(AlarmReason.TIMEOUT)
-                    .build();
-  DAO alarmDAO = (DAO) alarmDAO.put(alarm);
-```
-
-`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", AlarmReason.TIMEOUT));`
-
-## Programatically **stopping** an Alarm
-
-To stop an alarm simply create a same **named** alarm with **active** false.
-
-`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", false));`
+An alarm put directly through `alarmDAO` still notifies at WARN or ERROR,
+through `AlarmNotificationDAO`.
 
 # Alarm Config
 
@@ -57,6 +60,12 @@ AlarmConfig acts as a template which will change the behaviour of an Alarm.
 ### Example
 
 If a network endpoint is flooding the system with *network outage* alarms, an AlarmConfig can be created for this **name** which can change the severity and/or status of the alarm.  The AlarmConfig status could be *not active*, and all subsequent alarms will be disabled or inactive.
+
+This only applies to an alarm put directly through `alarmDAO`, where
+`AddAlarmNameDAO` applies the config. An alarm raised through an `EventRecord`
+is written to `localAlarmDAO` and does not pass through it, so a disabled
+config does not silence it. For an `AlarmAndMonitoring` config, disabling it
+stops the monitor itself, so no record is put.
 
 # Alarming and Monitoring
 

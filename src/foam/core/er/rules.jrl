@@ -14,7 +14,7 @@ p({
   lifecycleState:1,
   action: {
     class: "foam.core.er.EventRecordNotificationRuleAction",
-    notificationSeverity: "WARN"
+    notificationSeverity: "ERROR"
   }
 })
 

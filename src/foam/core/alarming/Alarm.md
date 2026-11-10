@@ -137,10 +137,11 @@ the alarm changes state, not on every cycle:
 `alarmSeverity`, set to WARN on the rule's action, and off for INFO, writing
 to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a notification
 for a record at or above its `notificationSeverity`, ERROR by default, and for
-a record below it only when its alarm is being cleared. So a WARN raise, the
-default for a config's `severity`, turns the alarm on without a notification,
-while an ERROR raise notifies, and so does every clear. A config whose raise
-should notify needs `severity` ERROR.
+a record below it only when it clears an alarm raised at or above
+`notificationSeverity`. So a WARN raise, the default for a config's
+`severity`, turns the alarm on and off without a notification, while an ERROR
+raise notifies and so does its clear. A config that should notify needs
+`severity` ERROR.
 
 Alarms are not reloaded on restart: `localAlarmDAO` writes the `alarms`
 journal but never replays it (`WriteOnlyJDAO`), so every alarm is dropped.

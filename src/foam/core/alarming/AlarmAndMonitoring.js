@@ -125,8 +125,8 @@ foam.CLASS({
       documentation: `Puts an EventRecord whose alarm name, the event, is the
         config's name. EventRecordAlarmRuleAction raises the alarm at its
         alarmSeverity, WARN, and clears it at INFO;
-        EventRecordNotificationRuleAction notifies on the clear, and on the
-        raise only when the config's severity is ERROR. The message holds the
+        EventRecordNotificationRuleAction notifies on the raise and the clear
+        only when the config's severity is ERROR. The message holds the
         AlarmReason, when raising, and the counts behind the decision.
         The code stays empty: it is part of the alarm name, and the clear
         must name the same alarm as the raise whatever the reason was.`,

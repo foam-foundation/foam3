@@ -51,6 +51,9 @@ foam.CLASS({
       test( alarm != null, "alarm exists");
       test ( alarm.getIsActive(), "Alarm active");
 
+      DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
+      int raiseEmails = emailCount(emailMessageDAO, s);
+
       er = new EventRecord();
       er.setX(x);
       er.setSource(this);
@@ -66,9 +69,9 @@ foam.CLASS({
       alarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
       test( alarm != null, "alarm exists");
       test ( ! alarm.getIsActive(), "Alarm cleared");
+      test( emailCount(emailMessageDAO, s) == raiseEmails + 1, "clear of an alarm raised at ERROR sends a notification");
 
       // notification will generate email
-      DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
       List<EmailMessage> emailMessages = (List) ((ArraySink) emailMessageDAO.select(new ArraySink())).getArray();
       EmailMessage message = null;
       for ( EmailMessage msg : emailMessages ) {
@@ -113,6 +116,34 @@ foam.CLASS({
       test( ! raisedSent, "WARN record with raiseAlarm true sends no notification");
       Alarm warnAlarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
       test( warnAlarm != null && warnAlarm.getIsActive(), "WARN record with raiseAlarm true raises an alarm");
+
+      // The alarm raised at WARN sent no notification, so its clear sends
+      // none either.
+      er = new EventRecord();
+      er.setX(x);
+      er.setSource(this);
+      er.setEvent(raised);
+      er.setMessage(raised);
+      er.setSeverity(LogLevel.INFO);
+      erDAO.put_(x, er);
+
+      Thread.sleep(1000);
+
+      warnAlarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
+      test( warnAlarm != null && ! warnAlarm.getIsActive(), "INFO record clears the alarm raised at WARN");
+      test( emailCount(emailMessageDAO, raised) == 0, "clear of an alarm raised at WARN sends no notification");
+      `
+    },
+    {
+      name: 'emailCount',
+      args: 'DAO emailMessageDAO, String subject',
+      type: 'Integer',
+      javaCode: `
+      int count = 0;
+      List<EmailMessage> emailMessages = (List) ((ArraySink) emailMessageDAO.select(new ArraySink())).getArray();
+      for ( EmailMessage msg : emailMessages )
+        if ( msg.getSubject().contains(subject) ) count++;
+      return count;
       `
     }
   ]

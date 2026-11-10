@@ -36,9 +36,10 @@ foam.CLASS({
   properties: [
     {
       documentation: `A record at or above this severity generates a
-        notification; below it, only a record that cleared its alarm does.
-        ERROR by default, so a WARN record does not notify, as before
-        alarms were raised through EventRecords.`,
+        notification; below it, only a record that cleared an alarm raised
+        at or above this severity does. ERROR by default, so a WARN record
+        does not notify, and neither does the clear of an alarm raised at
+        WARN.`,
       name: 'notificationSeverity',
       class: 'Enum',
       of: 'foam.log.LogLevel',
@@ -64,11 +65,15 @@ foam.CLASS({
       EventRecord er = (EventRecord) obj;
       // A record at or above notificationSeverity notifies. Below it, as
       // for a WARN or INFO record with the default ERROR, a record notifies
-      // only when its alarm is being cleared. EventRecordAlarmRule runs first,
-      // at a higher priority, so the alarm is already up to date.
+      // only when it cleared an alarm whose raise notified. An alarm raised
+      // at WARN sent nothing when it went on, so its clear sends nothing
+      // either; the alarm keeps the highest severity it was raised with.
+      // EventRecordAlarmRule runs first, at a higher priority, so the alarm
+      // is already up to date.
       if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
         Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
-        if ( alarm == null || alarm.getIsActive() )
+        if ( alarm == null || alarm.getIsActive() ||
+             alarm.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() )
           return;
       }
 

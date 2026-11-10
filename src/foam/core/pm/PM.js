@@ -21,9 +21,7 @@ foam.CLASS({
     'foam.lang.FObject',
     'foam.lang.X',
     'foam.dao.DAO',
-    'static foam.mlang.MLang.EQ',
-    'foam.core.alarming.Alarm',
-    'foam.core.alarming.AlarmConfig'
+    'static foam.mlang.MLang.EQ'
   ],
 
   constants: [
@@ -201,10 +199,8 @@ foam.CLASS({
             @Override
             public void execute(X x) {
               PM pm = (PM) obj;
-              if ( ! pm.getIsError() ) {
+              if ( ! pm.getIsError() )
                 return;
-              }
-              ((DAO) x.get("alarmDAO")).put(new Alarm(pm.getKey(), true));
             }
           }, "PM alarm");
      `

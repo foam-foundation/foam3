@@ -11,6 +11,7 @@ foam.CLASS({
 
   javaImports: [
     'foam.ai.vector.CosineComparator',
+    'foam.ai.vector.Float32Quantizer',
     'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.VectorIndex',
     'foam.core.logger.Loggers',
@@ -19,6 +20,7 @@ foam.CLASS({
     'foam.lang.Detachable',
     'foam.lang.FObject',
     'java.util.ArrayList',
+    'java.util.Base64',
     'java.util.HashMap',
     'java.util.List',
     'java.util.Map'
@@ -31,23 +33,32 @@ foam.CLASS({
     returning the best rows first with their score set. Every other operation
     passes through to the delegate.
 
-    The index loads from the delegate on the first search and is then kept in
-    step by put_ and remove_ (removeAll_ reloads it on next use), so a write never
-    forces a rebuild. Each hit is read back through the delegate in the caller's
-    context, so whatever authorization sits in the delegate chain below this DAO
-    decides which rows a caller may see.
+    How vectors are stored is configured with quantizer (Float32Quantizer unless
+    set). Each row is journaled in its quantizer's format and names
+    that format in vectorFormat, so the configuration can change later without
+    misreading rows already written.
 
-    Rows keep their vector as the floats the embedding service returned; the index
-    holds its own normalised copy.
+    The index loads from the delegate on the first search and is then kept in
+    step by put_ and remove_ (removeAll_ reloads it on next use). Each hit is
+    read back through the delegate in the caller's context, so whatever
+    authorization sits in the delegate chain below this DAO decides which rows a
+    caller may see.
   `,
 
   properties: [
     {
+      class: 'FObjectProperty',
+      of: 'foam.ai.vector.Quantizer',
+      name: 'quantizer',
+      documentation: 'How every row is packed; Float32Quantizer unless set. An app picks a lossy one, such as Int8Quantizer.',
+      javaFactory: 'return new Float32Quantizer();'
+    },
+    {
       class: 'Object',
       name: 'index',
       javaType: 'VectorIndex',
-      documentation: 'Built once, on first use.',
-      javaFactory: 'return new VectorIndex();',
+      documentation: `Built once, on first use, from quantizer, so set it before the first search.`,
+      javaFactory: 'return new VectorIndex(getQuantizer());',
       // Two first callers must get the same index, or they lock different objects.
       synchronized: true,
       transient: true,
@@ -90,10 +101,24 @@ foam.CLASS({
       type: 'FObject',
       args: 'X x, FObject obj',
       javaCode: `
-        VectorEmbedding e       = (VectorEmbedding) obj;
-        String          problem = VectorIndex.check(e.getVector());
-        if ( problem != null )
-          throw new IllegalArgumentException("Vector for " + e.getId() + " " + problem);
+        VectorEmbedding    e     = (VectorEmbedding) obj;
+        VectorIndex        index = getIndex();
+        VectorIndex.Packed packed;
+        try {
+          packed = index.pack(e);
+        } catch (IllegalArgumentException t) {
+          throw new IllegalArgumentException(
+            "Vector for " + e.getId() + " cannot be stored: " + t.getMessage(), t);
+        }
+
+        // Journal only the packed form, in the configured format: a 1024-dim vector is about
+        // 5.5 KB as float32, or 1.4 KB as int8, instead of about 12 KB of float text.
+        if ( packed != null && packed.changed ) {
+          e = (VectorEmbedding) e.fclone();
+          e.setVectorData(Base64.getEncoder().encodeToString(packed.bytes));
+          e.setVectorFormat(packed.quantizer.formatId());
+          e.clearVector();
+        }
 
         // Each write and its index update happen as one step, so the index never
         // ends up with an older version of a row than the DAO (two puts of one id)
@@ -101,17 +126,9 @@ foam.CLASS({
         // this lock; writes are serialised, as they already share one journal.
         // Before the first search the index is not loaded, and that load reads
         // this row from the delegate.
-        VectorIndex index = getIndex();
         synchronized ( index ) {
           VectorEmbedding stored = (VectorEmbedding) getDelegate().put_(x, e);
-          if ( stored != null && index.isLoaded() ) {
-            try {
-              index.put(stored);
-            } catch (RuntimeException t) {
-              index.remove(stored.getId());
-              Loggers.logger(x, this).warning("Stored row is not searchable", stored.getId(), t);
-            }
-          }
+          if ( stored != null && index.isLoaded() ) index.put(stored, packed);
           return stored;
         }
       `

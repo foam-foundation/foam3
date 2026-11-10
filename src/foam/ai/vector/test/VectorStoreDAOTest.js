@@ -11,6 +11,10 @@ foam.CLASS({
 
   javaImports: [
     'foam.ai.vector.CosineComparator',
+    'foam.ai.vector.Float32Quantizer',
+    'foam.ai.vector.Fp16Quantizer',
+    'foam.ai.vector.Int8Quantizer',
+    'foam.ai.vector.Quantizer',
     'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.VectorIndex',
     'foam.ai.vector.VectorStoreDAO',
@@ -18,12 +22,17 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.MDAO',
     'foam.dao.ProxyDAO',
+    'foam.dao.java.JDAO',
     'foam.lang.FObject',
     'foam.lang.X',
+    'foam.lib.StoragePropertyPredicate',
+    'foam.lib.json.JSONParser',
+    'foam.lib.json.Outputter',
     'foam.mlang.predicate.Predicate',
     'foam.mlang.sink.Count',
     'foam.util.SafetyUtil',
     'java.util.ArrayList',
+    'java.util.Base64',
     'java.util.Collections',
     'java.util.HashMap',
     'java.util.List',
@@ -62,13 +71,12 @@ foam.CLASS({
           }
 
           VectorStoreDAO store() {
-            return new VectorStoreDAO.Builder(ctx).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+            return new VectorStoreDAO.Builder(ctx).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()))
+              .setQuantizer(int8()).build();
           }
 
-          // A search loads the index; until then puts only reach the DAO.
-          void load(VectorStoreDAO dao) {
-            search(dao, rand(16), "m", null, 0, 1);
-          }
+          // The framework default is float32; most tests here are about the index, and run on int8.
+          Quantizer int8() { return new Int8Quantizer(); }
 
           List<VectorEmbedding> search(DAO dao, float[] q, String model, Predicate p, long skip, long limit) {
             CosineComparator cc = new CosineComparator.Builder(ctx).setQueryVector(q).setEmbeddingModel(model).build();
@@ -86,12 +94,14 @@ foam.CLASS({
             return out;
           }
 
-          // Cosine between a query and a row's vector, computed independently of the index.
+          // Cosine between a query and a row's STORED vector, computed independently of the index.
           float cos(float[] q, VectorEmbedding e) {
-            float[] v = e.getVector();
-            double  s = 0, nq = 0, nv = 0;
-            for ( int i = 0 ; i < q.length ; i++ ) { s += q[i] * v[i]; nq += q[i] * q[i]; nv += v[i] * v[i]; }
-            return (float) (s / Math.sqrt(nq * nv));
+            float[] v = e.floats();
+            double n = 0, s = 0;
+            for ( float f : q ) n += f * f;
+            n = Math.sqrt(n);
+            for ( int i = 0 ; i < q.length ; i++ ) s += q[i] / n * v[i];
+            return (float) s;
           }
 
           double cosine(float[] a, float[] b) {
@@ -101,7 +111,7 @@ foam.CLASS({
           }
 
           int dims(VectorEmbedding e) {
-            return e.getVector().length;
+            return e.floats().length;
           }
 
           // True when got is exactly ranks [skip, skip+got.size()) of a brute-force scan.
@@ -126,6 +136,26 @@ foam.CLASS({
         }
         Fx fx = new Fx();
 
+        // ── quantizers ────────────────────────────────────────────────────────
+        float[] v64 = fx.rand(64);
+        float[] u64 = VectorIndex.normalized(v64);
+        for ( Quantizer qz : new Quantizer[] { new Int8Quantizer(), new Fp16Quantizer(), new Float32Quantizer() } ) {
+          String  f   = qz.formatId();
+          byte[]  enc = qz.encode(u64);
+          expect(enc.length, qz.encodedSize(64), f + ": encode() is exactly encodedSize() bytes");
+          test(fx.cosine(v64, qz.decode(enc)) > ( qz instanceof Int8Quantizer ? 0.999 : 0.99999 ),
+            f + ": decode(encode(v)) is within rounding of v");
+          float[] dec = qz.decode(enc);
+          double  ref = 0;
+          for ( int i = 0 ; i < 64 ; i++ ) ref += u64[i] * dec[i];
+          test(Math.abs(qz.dot(u64, enc, 0) - ref) < 1e-4, f + ": dot() on the bytes equals the dot product of the decoded vector");
+          VectorEmbedding j = new VectorEmbedding.Builder(x).setId("j-" + f)
+            .setVectorData(Base64.getEncoder().encodeToString(enc)).setVectorFormat(f).build();
+          test(fx.cosine(v64, j.floats()) > ( qz instanceof Int8Quantizer ? 0.999 : 0.99999 ),
+            f + ": a row holding these bytes decodes by its vectorFormat (VectorEmbedding.floats)");
+        }
+        test(new Int8Quantizer().decode(new Int8Quantizer().encode(new float[8]))[0] == 0f, "a zero vector encodes and decodes to zeros, never NaN");
+
         // ── exact ranking, paging, self match ─────────────────────────────────
         VectorStoreDAO dao = fx.store();
         for ( int i = 0 ; i < 500 ; i++ ) dao.put(fx.emb("r" + i, "m", i % 10 == 0 ? "x" : "y", fx.rand(32)));
@@ -135,8 +165,9 @@ foam.CLASS({
         test(fx.matchesBrute(fx.search(dao, q, "m", null, 3, 4), fx.rows(dao), q, "m", null, 3, 4), "skip 3 limit 4 returns ranks 4 to 7");
 
         VectorEmbedding r7 = (VectorEmbedding) dao.find("r7");
-        test(r7.getVector().length == 32, "the stored row keeps the floats it was given");
-        got = fx.search(dao, r7.getVector(), "m", null, 0, 1);
+        // FloatArray's factory makes an unset vector read as an empty array, never null.
+        test(r7.getVector().length == 0, "the stored row keeps only the int8 form, not the floats");
+        got = fx.search(dao, r7.floats(), "m", null, 0, 1);
         test(got.size() == 1 && "r7".equals(got.get(0).getId()) && got.get(0).getScore() > 0.999f, "a stored vector finds itself first");
 
         // ── filter before scoring ─────────────────────────────────────────────
@@ -172,10 +203,10 @@ foam.CLASS({
         scales.put(fx.emb("huge", "m", "y", huge));
         scales.put(fx.emb("small", "m", "y", small));
         got = fx.search(scales, huge, "m", null, 0, 1);
-        test(got.size() == 1 && "huge".equals(got.get(0).getId()) && got.get(0).getScore() > 0.999f,
+        test(got.size() == 1 && "huge".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
           "a vector of very large components is indexed by its direction");
         got = fx.search(scales, small, "m", null, 0, 1);
-        test(got.size() == 1 && "small".equals(got.get(0).getId()) && got.get(0).getScore() > 0.999f,
+        test(got.size() == 1 && "small".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
           "and so is one of very small components, instead of being rejected as all zeros");
 
         // ── models and dimensions never mix ───────────────────────────────────
@@ -215,7 +246,7 @@ foam.CLASS({
         boolean selfFound = true;
         for ( int i = 1 ; i < 500 ; i += 50 ) {
           VectorEmbedding e = (VectorEmbedding) dao.find("r" + i);
-          List<VectorEmbedding> top = fx.search(dao, e.getVector(), "m", null, 0, 1);
+          List<VectorEmbedding> top = fx.search(dao, e.floats(), "m", null, 0, 1);
           selfFound = selfFound && top.size() == 1 && ("r" + i).equals(top.get(0).getId());
         }
         test(selfFound, "after removing every other row, each remaining row still finds itself first");
@@ -228,6 +259,33 @@ foam.CLASS({
         float[] l5 = ((VectorEmbedding) raw.find("L5")).getVector();
         got = fx.search(lazy, l5, "m", null, 0, 1);
         test(got.size() == 1 && "L5".equals(got.get(0).getId()), "the index loads rows already in the delegate on first search");
+
+        // ── journal form ──────────────────────────────────────────────────────
+        JSONParser parser = (JSONParser) x.create(JSONParser.class);
+        VectorEmbedding legacy = (VectorEmbedding) parser.parseString(
+          "{class:\\"foam.ai.vector.VectorEmbedding\\",id:\\"old\\",embeddingModel:\\"m\\",vector:[0.6,0.8]}");
+        MDAO legacyRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        legacyRows.put(legacy);
+        got = fx.search(new VectorStoreDAO.Builder(x).setDelegate(legacyRows).build(), new float[] { 0.6f, 0.8f }, "m", null, 0, 1);
+        test(got.size() == 1 && "old".equals(got.get(0).getId()) && got.get(0).getScore() > 0.999f,
+          "an old journal row holding floats loads and is searchable");
+
+        String json = new Outputter(x).setPropertyPredicate(new StoragePropertyPredicate()).stringify(r7);
+        test(json.indexOf("vectorData") >= 0 && json.indexOf("\\"vector\\"") < 0, "a journaled row carries vectorData and no float array");
+        VectorEmbedding back = (VectorEmbedding) parser.parseString(json);
+        test(back != null && r7.getVectorData().equals(back.getVectorData()) && r7.getVectorFormat().equals(back.getVectorFormat()),
+          "the packed vector and its format survive a journal round trip unchanged");
+        // Rows journaled before vectorData and vectorFormat had short names are keyed by the long names.
+        VectorEmbedding longKeys = (VectorEmbedding) parser.parseString(
+          "{class:\\"foam.ai.vector.VectorEmbedding\\",id:\\"lk\\",embeddingModel:\\"m\\",vectorData:\\"" + r7.getVectorData()
+          + "\\",vectorFormat:\\"" + r7.getVectorFormat() + "\\"}");
+        test(longKeys != null && r7.getVectorData().equals(longKeys.getVectorData()) && r7.getVectorFormat().equals(longKeys.getVectorFormat()),
+          "a journal row keyed by the long names vectorData and vectorFormat still reads");
+        VectorEmbedding shortKeys = (VectorEmbedding) parser.parseString(
+          "{class:\\"foam.ai.vector.VectorEmbedding\\",id:\\"sk\\",embeddingModel:\\"m\\",vd:\\"" + r7.getVectorData()
+          + "\\",vf:\\"" + r7.getVectorFormat() + "\\"}");
+        test(shortKeys != null && r7.getVectorData().equals(shortKeys.getVectorData()) && r7.getVectorFormat().equals(shortKeys.getVectorFormat()),
+          "a journal row keyed by the short names vd and vf reads the same");
 
         // ── removeAll ─────────────────────────────────────────────────────────
         dao.removeAll();
@@ -247,17 +305,17 @@ foam.CLASS({
         test(nanRejected && dao.find("nan") == null, "a vector holding NaN is rejected and not stored");
         test(VectorIndex.normalized(nan)[0] == 0f, "a NaN vector normalises to zeros, never a NaN score");
 
-        boolean zeroRejected = false;
-        try { dao.put(fx.emb("zero", "m", "y", new float[16])); } catch (IllegalArgumentException e) { zeroRejected = true; }
-        test(zeroRejected && dao.find("zero") == null, "an all-zero vector is rejected: it has no direction to compare");
+        VectorEmbedding badQ8 = new VectorEmbedding.Builder(x).setId("bad").setEmbeddingModel("m").setVectorData("not base64 !!").setVectorFormat("int8").build();
+        boolean badRejected = false;
+        try { dao.put(badQ8); } catch (IllegalArgumentException e) { badRejected = true; }
+        test(badRejected && dao.find("bad") == null, "vectorData that is not base64 is rejected and not stored");
 
-        VectorEmbedding badRow = fx.emb("bad", "m", "y", nan);
         MDAO withBad = new MDAO(VectorEmbedding.getOwnClassInfo());
-        withBad.put(badRow);   // a row that reached the delegate without passing VectorStoreDAO
+        withBad.put(badQ8);   // a hand-edited journal row, bypassing VectorStoreDAO
         withBad.put(fx.emb("good", "m", "y", q));
         VectorStoreDAO tolerant = new VectorStoreDAO.Builder(x).setDelegate(withBad).build();
         got = fx.search(tolerant, q, "m", null, 0, 10);
-        test(got.size() == 1 && "good".equals(got.get(0).getId()), "a stored row holding NaN is skipped instead of breaking every search");
+        test(got.size() == 1 && "good".equals(got.get(0).getId()), "a malformed stored row is skipped instead of breaking every search");
 
         // ── remove before the index has loaded ────────────────────────────────
         MDAO preload = new MDAO(VectorEmbedding.getOwnClassInfo());
@@ -301,15 +359,30 @@ foam.CLASS({
         for ( int n : findCalls.values() ) onceEach = onceEach && n == 1;
         test(onceEach, "when a search goes deeper, each hit is checked with the delegate once, not once per round");
 
+        // ── a packed vector of the wrong length ───────────────────────────────
+        VectorEmbedding shortFp16 = new VectorEmbedding.Builder(x).setId("short").setEmbeddingModel("m")
+          .setVectorData(Base64.getEncoder().encodeToString(new byte[] { 0x3c, 0x00, 0x3c })).setVectorFormat("fp16").build();
+        boolean shortRejected = false;
+        try { dao.put(shortFp16); } catch (IllegalArgumentException e) { shortRejected = true; }
+        test(shortRejected && dao.find("short") == null, "fp16 bytes that are not a whole number of dimensions are rejected and not stored");
+
+        boolean zeroRejected = false;
+        try { dao.put(fx.emb("zero", "m", "y", new float[16])); } catch (IllegalArgumentException e) { zeroRejected = true; }
+        test(zeroRejected && dao.find("zero") == null, "an all-zero vector is rejected: it has no direction to compare");
+
         // ── updating a found row with a new vector ────────────────────────────
         VectorStoreDAO upd = fx.store();
         for ( int i = 0 ; i < 10 ; i++ ) upd.put(fx.emb("u" + i, "m", "y", fx.rand(16)));
         fx.search(upd, fx.rand(16), "m", null, 0, 1);
         float[] fresh = fx.rand(16);
-        VectorEmbedding u3 = (VectorEmbedding) upd.find("u3").fclone();
+        VectorEmbedding u3 = (VectorEmbedding) upd.find("u3").fclone();   // holds vectorData, no floats
+        String oldData = u3.getVectorData();
         u3.setVector(fresh);
         upd.put(u3);
+        VectorEmbedding storedU3 = (VectorEmbedding) upd.find("u3");
         got = fx.search(upd, fresh, "m", null, 0, 1);
+        test(! oldData.equals(storedU3.getVectorData()) && storedU3.getVector().length == 0,
+          "a found row given a new float vector is re-packed; the old bytes are not kept");
         test(got.size() == 1 && "u3".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
           "after the update, a search for the new vector finds the row");
 
@@ -324,12 +397,163 @@ foam.CLASS({
         for ( VectorEmbedding e : got ) allZero = allZero && e.getScore() == 0f;
         test(allZero, "an all-zero query returns k rows that all score 0");
 
+        // ── a row journaled as floats by an earlier version, re-put, then replayed ──
+        // The journal writes only what changed and replay merges lines onto the row,
+        // so the old floats must not survive next to the new packed bytes: they would
+        // outrank them and the row would rank by its old embedding after every restart.
+        String legacyFile = "vectorLegacyJournal" + System.currentTimeMillis();
+        JDAO legacyJ = new JDAO();
+        legacyJ.setX(x);
+        legacyJ.setFilename(legacyFile);
+        legacyJ.setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()));
+        float[] oldV = fx.rand(32);
+        float[] newV = fx.rand(32);
+        legacyJ.put(fx.emb("L1", "m", "y", oldV));                       // floats, as the earlier version wrote them
+        new VectorStoreDAO.Builder(x).setDelegate(legacyJ).build().put(fx.emb("L1", "m", "y", newV));
+
+        JDAO replayedJ = new JDAO();
+        replayedJ.setX(x);
+        replayedJ.setFilename(legacyFile);
+        replayedJ.setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()));
+        VectorEmbedding replayedRow = (VectorEmbedding) replayedJ.find("L1");
+        test(replayedRow != null && replayedRow.getVector().length == 0 && ! SafetyUtil.isEmpty(replayedRow.getVectorData()),
+          "after a restart the re-put row holds only its packed vector; the old floats are gone");
+        got = fx.search(new VectorStoreDAO.Builder(x).setDelegate(replayedJ).build(), newV, "m", null, 0, 1);
+        test(got.size() == 1 && got.get(0).getScore() > 0.99f,
+          "after a restart the row ranks by its new vector");
+
         // ── a large store (25,000 rows) ───────────────────────────────────────
         VectorStoreDAO big = fx.store();
         for ( int i = 0 ; i < 25000 ; i++ ) big.put(fx.emb("b" + i, "m", i % 100 == 0 ? "x" : "y", fx.rand(16)));
         float[] qb = fx.rand(16);
         test(fx.matchesBrute(fx.search(big, qb, "m", null, 0, 10), fx.rows(big), qb, "m", null, 0, 10), "a search over 25,000 rows equals an exact scan");
         test(fx.matchesBrute(fx.search(big, qb, "m", kindX, 0, 50), fx.rows(big), qb, "m", kindX, 0, 50), "a filtered search over 25,000 rows equals an exact scan");
+
+        // ── configurable formats store non-normalised input as true cosine ──
+        float[] qf = fx.rand(32);
+        for ( Quantizer qz : new Quantizer[] { new Int8Quantizer(), new Fp16Quantizer(), new Float32Quantizer() } ) {
+          VectorStoreDAO fmt = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()))
+            .setQuantizer(qz).build();
+          Map<String, float[]> original = new HashMap<>();
+          for ( int i = 0 ; i < 200 ; i++ ) {
+            float[] v = fx.rand(32);
+            float   m = (float) (0.1 + rnd.nextDouble() * 10);   // lengths 0.1 to 10: catches a format that skips normalisation
+            for ( int j = 0 ; j < v.length ; j++ ) v[j] *= m;
+            original.put("f" + i, v);
+            fmt.put(fx.emb("f" + i, "m", "y", v));
+          }
+          String f = qz.formatId();
+          test(f.equals(((VectorEmbedding) fmt.find("f7")).getVectorFormat()), f + ": rows are journaled in the configured format");
+          got = fx.search(fmt, qf, "m", null, 0, 10);
+          test(fx.matchesBrute(got, fx.rows(fmt), qf, "m", null, 0, 10), f + ": top 10 equals an exact scan of the stored vectors");
+          double tol = qz instanceof Int8Quantizer ? 0.02 : ( qz instanceof Fp16Quantizer ? 0.002 : 1e-5 );
+          boolean trueCosine = got.size() == 10;
+          for ( VectorEmbedding h : got ) trueCosine = trueCosine && Math.abs(h.getScore() - fx.cosine(qf, original.get(h.getId()))) < tol;
+          test(trueCosine, f + ": every score is the cosine of the original, unnormalised vector");
+        }
+
+        // ── changing the configured format keeps old rows readable ────────────
+        MDAO shared = new MDAO(VectorEmbedding.getOwnClassInfo());
+        VectorStoreDAO asFp16 = new VectorStoreDAO.Builder(x).setDelegate(shared)
+          .setQuantizer(new Fp16Quantizer()).build();
+        Map<String, float[]> sharedVectors = new HashMap<>();
+        for ( int i = 0 ; i < 50 ; i++ ) {
+          float[] v = fx.rand(32);
+          sharedVectors.put("s" + i, v);
+          asFp16.put(fx.emb("s" + i, "m", "y", v));
+        }
+        VectorStoreDAO asInt8 = new VectorStoreDAO.Builder(x).setDelegate(shared).setQuantizer(fx.int8()).build();
+        boolean stillFound = true;
+        for ( int i = 0 ; i < 50 ; i += 7 ) {
+          List<VectorEmbedding> top = fx.search(asInt8, sharedVectors.get("s" + i), "m", null, 0, 1);
+          stillFound = stillFound && top.size() == 1 && ("s" + i).equals(top.get(0).getId()) && top.get(0).getScore() > 0.99f;
+        }
+        test(stillFound, "after switching the configured format from fp16 to int8, fp16 rows are still found at the right rank");
+
+        // ── the comparator decodes every format ───────────────────────────────
+        List<VectorEmbedding> fp16Rows = fx.rows(asFp16);
+        CosineComparator byQf = new CosineComparator.Builder(x).setQueryVector(qf).build();
+        fp16Rows.sort((r1, r2) -> byQf.compare(r1, r2));
+        List<VectorEmbedding> fp16Top = fx.search(asFp16, qf, "m", null, 0, 5);
+        boolean sameOrder = fp16Top.size() == 5;
+        for ( int i = 0 ; i < 5 && sameOrder ; i++ ) sameOrder = fp16Top.get(i).getId().equals(fp16Rows.get(i).getId());
+        test(sameOrder, "sorting fp16 rows with CosineComparator gives the same order as the index search");
+
+        // ── a custom quantizer, and a format nobody configured ────────────────
+        Quantizer custom = new Float32Quantizer() {
+          @Override public String formatId() { return "test-f32"; }
+        };
+        MDAO customRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        VectorStoreDAO withCustom = new VectorStoreDAO.Builder(x).setDelegate(customRows)
+          .setQuantizer(custom).build();
+        float[] cv = fx.rand(16);
+        withCustom.put(fx.emb("c1", "m", "y", cv));
+        got = fx.search(withCustom, cv, "m", null, 0, 1);
+        test("test-f32".equals(((VectorEmbedding) customRows.find("c1")).getVectorFormat())
+          && got.size() == 1 && "c1".equals(got.get(0).getId()) && got.get(0).getScore() > 0.9999f,
+          "a custom quantizer set on the store stores and searches its own format");
+        boolean unknownThrows = false;
+        try { ((VectorEmbedding) customRows.find("c1")).floats(); } catch (IllegalArgumentException e) { unknownThrows = true; }
+        test(unknownThrows, "outside its store, a row in a custom format reports an unknown format instead of a wrong vector");
+        VectorStoreDAO noCustom = new VectorStoreDAO.Builder(x).setDelegate(customRows).build();
+        expect(fx.search(noCustom, cv, "m", null, 0, 10).size(), 0, "a store that does not configure a format skips its rows on load");
+
+        // ── a custom quantizer that throws on bad bytes cannot break a load ────
+        Quantizer throwing = new Float32Quantizer() {
+          @Override public String formatId() { return "test-throws"; }
+          @Override public float[] decode(byte[] data) { throw new IllegalStateException("cannot read these bytes"); }
+        };
+        MDAO throwRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        throwRows.put(new VectorEmbedding.Builder(x).setId("bad").setEmbeddingModel("m")
+          .setVectorData(Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3, 4 })).setVectorFormat("test-throws").build());
+        throwRows.put(fx.emb("good", "m", "y", cv));
+        VectorStoreDAO withThrowing = new VectorStoreDAO.Builder(x).setDelegate(throwRows)
+          .setQuantizer(throwing).build();
+        got = fx.search(withThrowing, cv, "m", null, 0, 10);
+        test(got.size() == 1 && "good".equals(got.get(0).getId()),
+          "a row a custom quantizer cannot decode is skipped on load and the other rows stay searchable");
+        boolean throwingRejected = false;
+        try {
+          withThrowing.put(new VectorEmbedding.Builder(x).setId("bad2").setEmbeddingModel("m")
+            .setVectorData(Base64.getEncoder().encodeToString(new byte[] { 1, 2, 3, 4 })).setVectorFormat("test-throws").build());
+        } catch (IllegalArgumentException e) { throwingRejected = true; }
+        test(throwingRejected, "and a put of such a row is rejected with a plain validation error");
+
+        // ── the framework default is float32; an app picks a lossy format ─────
+        test("f32".equals(new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build().getQuantizer().formatId()), "a store with no quantizer set uses float32");
+        VectorStoreDAO byDefault = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+        float[] dv = fx.rand(64);
+        for ( int i = 0 ; i < dv.length ; i++ ) dv[i] *= 3.7f;   // not unit length
+        byDefault.put(fx.emb("d1", "m", "y", dv));
+        VectorEmbedding d1Row = (VectorEmbedding) byDefault.find("d1");
+        test("f32".equals(d1Row.getVectorFormat()) && d1Row.getVector().length == 0,
+          "a store with no quantizer journals float32 and drops the floats");
+        test(fx.cosine(dv, d1Row.floats()) > 0.999999, "float32 keeps the direction to float precision: " + fx.cosine(dv, d1Row.floats()));
+        got = fx.search(byDefault, dv, "m", null, 0, 1);
+        test(got.size() == 1 && Math.abs(got.get(0).getScore() - 1f) < 1e-5f, "and a search scores it as the true cosine, 1 against itself");
+
+        // Rows an app journaled as int8 stay readable when the app is later opened with the default.
+        MDAO sharedFormats = new MDAO(VectorEmbedding.getOwnClassInfo());
+        VectorStoreDAO wroteInt8 = new VectorStoreDAO.Builder(x).setDelegate(sharedFormats).setQuantizer(fx.int8()).build();
+        float[] i8v = fx.rand(32);
+        wroteInt8.put(fx.emb("i8", "m", "y", i8v));
+        VectorStoreDAO opensAsDefault = new VectorStoreDAO.Builder(x).setDelegate(sharedFormats).build();
+        got = fx.search(opensAsDefault, i8v, "m", null, 0, 1);
+        test(got.size() == 1 && "i8".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f,
+          "int8 rows are found by a store whose default is float32");
+        opensAsDefault.put(((VectorEmbedding) sharedFormats.find("i8")).fclone());
+        test("f32".equals(((VectorEmbedding) sharedFormats.find("i8")).getVectorFormat()),
+          "and are rewritten as float32 on their next put");
+
+        // ── a packed row in another format is re-encoded on put ───────────────
+        VectorStoreDAO int8Store = fx.store();
+        VectorEmbedding fp16Row = new VectorEmbedding.Builder(x).setId("re").setEmbeddingModel("m")
+          .setVectorData(Base64.getEncoder().encodeToString(new Fp16Quantizer().encode(VectorIndex.normalized(cv))))
+          .setVectorFormat("fp16").build();
+        int8Store.put(fp16Row);
+        VectorEmbedding reStored = (VectorEmbedding) int8Store.find("re");
+        test("int8".equals(reStored.getVectorFormat()) && fx.cosine(cv, reStored.floats()) > 0.999,
+          "a row packed as fp16 and put into an int8 store is rewritten as int8");
 
         // ── removeAll with a predicate ────────────────────────────────────────
         VectorStoreDAO partial = fx.store();
@@ -446,12 +670,33 @@ foam.CLASS({
         expect((long) same.getIndex().size(), sameRows, "after same-id puts and removes, the index holds exactly the DAO's rows");
         boolean latestVersion = true;
         for ( VectorEmbedding e : fx.rows(same) ) {
-          List<VectorEmbedding> top = fx.search(same, e.getVector(), "m", null, 0, 1);
+          List<VectorEmbedding> top = fx.search(same, e.floats(), "m", null, 0, 1);
           latestVersion = latestVersion && top.size() == 1 && e.getId().equals(top.get(0).getId())
-            && java.util.Arrays.equals(e.getVector(), top.get(0).getVector());
+            && e.getVectorData().equals(top.get(0).getVectorData());
         }
         test(latestVersion, "for every id, the index holds the same version of the vector as the DAO");
 
+
+        // ── a row the index cannot hold must not stop a load ───────────────────
+        // One row whose vector cannot be indexed must not stop the rest of a load.
+        Quantizer encodeThrows = new Float32Quantizer() {
+          @Override public String formatId() { return "test-encode-throws"; }
+          @Override public byte[] encode(float[] v) {
+            // encode gets the unit vector: the poison row (first component 99) is about 0.999 here.
+            if ( v[0] > 0.9f ) throw new IllegalStateException("cannot encode this vector");
+            return super.encode(v);
+          }
+        };
+        MDAO encRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        float[] poison = fx.rand(16);
+        poison[0] = 99f;
+        encRows.put(fx.emb("poison", "m", "y", poison));      // stored as floats, so the load encodes it
+        encRows.put(fx.emb("fine", "m", "y", cv));
+        VectorStoreDAO withEncodeThrows = new VectorStoreDAO.Builder(x).setDelegate(encRows)
+          .setQuantizer(encodeThrows).build();
+        got = fx.search(withEncodeThrows, cv, "m", null, 0, 10);
+        test(got.size() == 1 && "fine".equals(got.get(0).getId()),
+          "a row whose encoding throws is skipped on load and the other rows stay searchable");
       `
     }
   ]

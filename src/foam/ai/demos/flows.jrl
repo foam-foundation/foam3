@@ -52,7 +52,7 @@ FOAM's vector search support is built around three layered abstractions: a data 
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
 | `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
 | `embeddingModel` | String | The model that produced the vector (e.g. `'nomic-embed-text'`) |
-| `vector` | FloatArray | The embedding — a normalized `float[]` of fixed dimension |
+| `vector` | FloatArray | The embedding as floats; `VectorStoreDAO` stores it packed in `vectorData` (format in `vectorFormat`, float32 unless the store's `quantizer` is another) |
 | `score` | Float | Cosine similarity to the query vector, populated at search time. `storageTransient: true` — never journaled. |
 
 **Text-chunk mode** (the original pattern): set `text` and leave `daoKey` empty. `sourceId` identifies the source document and `kind` classifies it.
@@ -89,7 +89,7 @@ Before embedding, long documents are split into chunks. `MarkdownChunkParser` sp
 
 ### VectorStoreDAO and Search
 
-`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO. The index keeps each model's vectors, scaled to unit length, in one contiguous `float[]`, which keeps the cosine scan CPU-cache friendly, and is kept up to date row by row on `put` and `remove`.
+`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO. Vectors are normalised and packed by a `Quantizer` (float32 unless the store's `quantizer` is another, such as int8 at one byte per dimension), grouped by embedding model, and kept up to date row by row on `put` and `remove`.
 
 Search uses `foam.ai.vector.CosineComparator` as a standard `DAO.orderBy` comparator:
 

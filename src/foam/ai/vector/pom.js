@@ -7,6 +7,11 @@
 foam.POM({
   name: 'vector',
   files: [
+    { name: 'Float32Quantizer', flags: 'js|java' },
+    { name: 'Fp16Quantizer',    flags: 'js|java' },
+    { name: 'Int8Quantizer',    flags: 'js|java' },
+    { name: 'Quantizer',        flags: 'js|java' },
+    { name: 'Quantizers',       flags: 'js|java' },
     { name: 'VectorEmbedding',  flags: 'js|java' },
     { name: 'CosineComparator', flags: 'js|java' },
     { name: 'VectorStoreDAO',   flags: 'js|java' },

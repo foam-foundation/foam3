@@ -1,5 +1,5 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator ragService minScore daoKeys openIndexed createMenu VectorIndex -->
-<flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, VectorIndex, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,VectorIndex,EmbeddingService,knowledge"/>
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu -->
+<flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, VectorIndex, Quantizer, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,VectorIndex,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
 
@@ -80,7 +80,9 @@ FOAM's vector search support is built around three layered abstractions: a data 
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
 | `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
 | `embeddingModel` | String | The model that produced the vector (e.g. `'nomic-embed-text'`) |
-| `vector` | FloatArray | The embedding — a `float[]` of fixed dimension; the index keeps its own normalized copy |
+| `vector` | FloatArray | The embedding as floats, as the embedding service returns it. `VectorStoreDAO` normalizes it, packs it with the configured Quantizer and drops the floats before the row is journaled. |
+| `vectorData` | String | The stored vector, base64: the `encode()` bytes of the Quantizer named by `vectorFormat`. For float32 that is about 5.5 KB at 1024 dims, for int8 about 1.4 KB. |
+| `vectorFormat` | String | `formatId` of the Quantizer that wrote `vectorData` (`int8`, `fp16`, `f32`, or a custom id). A row is always decoded by it; empty on a row that still holds floats. |
 | `score` | Float | Cosine similarity to the query vector, populated at search time. `storageTransient: true` — never journaled. |
 
 **Text-chunk mode** (the original pattern): set `text` and leave `daoKey` empty. `sourceId` identifies the source document and `kind` classifies it.
@@ -117,9 +119,13 @@ Before embedding, long documents are split into chunks. `MarkdownChunkParser` sp
 
 ### VectorStoreDAO and Search
 
-`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO of `VectorEmbedding`s. The index keeps each model's vectors, scaled to unit length, in one contiguous `float[]`, so a score is a cosine similarity and the scan is CPU-cache friendly.
+`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO of `VectorEmbedding`s. Vectors are normalized to unit length once, then packed by a `Quantizer`, so a score is a cosine similarity whatever the precision; each Quantizer scores its own bytes directly (`dot`), so a search allocates nothing per row.
 
-The index loads from the delegate on the first search and is then updated row by row on `put` and `remove`, so those never trigger a rebuild; `removeAll` clears it and the next search reloads it. A put is rejected when its vector holds NaN or infinity or is all zeros; a query holding NaN or infinity is rejected too.
+Storage is configured with the store's `quantizer` (`Float32Quantizer`, the precision the embedding service returned, unless set; the framework does not pick a lossy format, each app or deployment does, for example `Int8Quantizer`, one byte per dimension plus a per-vector scale). `Float32Quantizer`, `Fp16Quantizer` and `Int8Quantizer` are built in (`Quantizers`), and a custom `Quantizer` is plugged in by setting it as the store's `quantizer`. Every row names its format in `vectorFormat`, so changing the configuration never misreads rows already journaled: they are decoded by their own format, re-encoded into the index's format on load, and rewritten in the configured format on their next put. Rows that still hold float vectors load too.
+
+A lossy format such as int8 trades a little ranking accuracy for memory; an app that needs the exact order keeps float32. The index loads from the delegate on the first search and is then updated row by row on `put` and `remove`, so those never trigger a rebuild; `removeAll` clears it and the next search reloads it. A put is rejected when its vector holds NaN or infinity, is all zeros, or has stored bytes that cannot be read (an unknown format, not base64, or not a whole number of dimensions); a query holding NaN or infinity is rejected too.
+
+The journal change is one-way. Rows written by this version hold only `vectorData`, and an older `VectorStoreDAO` cannot read them, so rolling back the code means re-embedding the affected rows from their source text.
 
 Search uses `foam.ai.vector.CosineComparator` as a standard `DAO.orderBy` comparator:
 

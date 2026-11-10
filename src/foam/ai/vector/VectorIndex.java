@@ -10,6 +10,7 @@ import foam.mlang.predicate.Predicate;
 import foam.util.SafetyUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -21,17 +22,20 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * The in-memory search store behind VectorStoreDAO.
  *
  * Rows are grouped by embedding model and dimension count, because vectors of
- * different models can never be compared. Each group keeps its vectors, scaled
- * to unit length, in one contiguous float[] so a search reads them end to end,
- * and keeps the rows themselves in a parallel array.
+ * different models can never be compared. Each group packs its vectors with the
+ * index's Quantizer, and a search scores the packed bytes
+ * directly with {@link Quantizer#dot}, so it allocates nothing per row.
  *
- * A row is added, replaced or removed in place when VectorStoreDAO writes it, so
- * the index is built once and never rebuilt.
+ * Vectors are normalised to unit length here, once, before any quantizer sees
+ * them, so a score is a cosine similarity whatever the precision.
  *
- * Vectors are normalised here, once, so a score is a cosine similarity.
+ * A journaled row is decoded by its vectorFormat with {@link #format}: the
+ * quantizer this index is configured with, then the built-ins (Quantizers). A row
+ * journaled in one format and indexed in another, after the configuration
+ * changed, is decoded and re-encoded on load.
  *
- * Search is an exact, single-threaded scan of every row in the matching groups,
- * with the caller's predicate checked before each score.
+ * Search is an exact, single-threaded scan of every matching row, with the
+ * caller's predicate checked before each score.
  */
 public class VectorIndex {
 
@@ -56,29 +60,33 @@ public class VectorIndex {
     return c != 0 ? c : b.row.getId().compareTo(a.row.getId());
   };
 
-  /** All vectors of one model and dimension count. */
+  /** All vectors of one model and dimension count, packed by one Quantizer. */
   static final class Group {
+    final Quantizer   quantizer;
     final int         dims;
-    float[]           data = new float[0];
+    final int         rowBytes;
+    byte[]            data = new byte[0];
     VectorEmbedding[] rows = new VectorEmbedding[0];
     int               size;
 
-    Group(int dims) {
-      this.dims = dims;
+    Group(Quantizer quantizer, int dims) {
+      this.quantizer = quantizer;
+      this.dims      = dims;
+      this.rowBytes  = quantizer.encodedSize(dims);
     }
 
-    void write(int slot, VectorEmbedding row, float[] unit) {
+    void write(int slot, VectorEmbedding row, byte[] encoded) {
       if ( slot >= rows.length ) {
-        // The most rows whose floats fit one Java array.
-        int limit = Integer.MAX_VALUE / dims;
+        // The most rows whose bytes fit one Java array.
+        int limit = Integer.MAX_VALUE / rowBytes;
         if ( slot >= limit )
           throw new IllegalStateException(
             "VectorIndex group full: " + slot + " rows of " + dims + " dims");
         int cap = (int) Math.min(limit, Math.max(16L, rows.length * 2L));
-        data = Arrays.copyOf(data, cap * dims);
+        data = Arrays.copyOf(data, cap * rowBytes);
         rows = Arrays.copyOf(rows, cap);
       }
-      System.arraycopy(unit, 0, data, slot * dims, dims);
+      System.arraycopy(encoded, 0, data, slot * rowBytes, rowBytes);
       rows[slot] = row;
     }
 
@@ -87,7 +95,7 @@ public class VectorIndex {
       int last = --size;
       VectorEmbedding moved = null;
       if ( slot != last ) {
-        System.arraycopy(data, last * dims, data, slot * dims, dims);
+        System.arraycopy(data, last * rowBytes, data, slot * rowBytes, rowBytes);
         rows[slot] = moved = rows[last];
       }
       rows[last] = null;
@@ -106,33 +114,99 @@ public class VectorIndex {
     }
   }
 
+  /** A row's vector checked, normalised and encoded for its group; see {@link #pack}. */
+  public static final class Packed {
+    public final String    model;
+    public final int       dims;
+    public final Quantizer quantizer;
+    public final byte[]    bytes;
+    /** True when bytes differ from the row's vectorData, so the row must be rewritten. */
+    public final boolean   changed;
+
+    Packed(String model, int dims, Quantizer quantizer, byte[] bytes, boolean changed) {
+      this.model     = model;
+      this.dims      = dims;
+      this.quantizer = quantizer;
+      this.bytes     = bytes;
+      this.changed   = changed;
+    }
+  }
+
+  protected final Quantizer               quantizer_;
+
   // One read/write lock for the whole store: writes wait for in-flight searches.
+  // Per-group copy-on-write would let writes overlap long scans if that is ever needed.
   protected final ReentrantReadWriteLock lock_   = new ReentrantReadWriteLock();
   protected final Map<String, Group>     groups_ = new HashMap<>();
   protected final Map<String, Slot>      slots_  = new HashMap<>();
   protected volatile boolean             loaded_ = false;
 
+  /** quantizer packs every row. */
+  public VectorIndex(Quantizer quantizer) {
+    quantizer_ = quantizer;
+  }
+
   public boolean isLoaded() { return loaded_; }
   public void setLoaded(boolean loaded) { loaded_ = loaded; }
+
+  /** The Quantizer that reads a vectorFormat in this index, or null if it is unknown here. */
+  public Quantizer format(String format) {
+    return quantizer_.formatId().equals(format) ? quantizer_ : Quantizers.builtIn(format);
+  }
+
+  /**
+   * A row's vector, checked and encoded the way its group stores it: the one
+   * place a vector is validated. Returns null when the row has no vector. Throws
+   * IllegalArgumentException when the vector cannot be used: an unknown format,
+   * bytes that are not base64 or not a whole number of dimensions, NaN or
+   * infinity, or a zero vector.
+   *
+   * Packed bytes already in the group's format and within 1% of unit length are kept
+   * as they are, so a lossy format is never quantized twice (a quantized unit vector
+   * drifts a little from length 1); anything else is normalised and re-encoded.
+   */
+  public Packed pack(VectorEmbedding row) {
+    float[]   unit;
+    byte[]    stored = null;
+    Quantizer from   = null;
+    if ( row.getVector() != null && row.getVector().length > 0 ) {
+      unit = row.getVector();
+    } else if ( SafetyUtil.isEmpty(row.getVectorData()) ) {
+      return null;
+    } else {
+      from = format(row.getVectorFormat());
+      if ( from == null )
+        throw new IllegalArgumentException("unknown vector format " + row.getVectorFormat());
+      stored = Base64.getDecoder().decode(row.getVectorData());
+      try {
+        unit = from.decode(stored);
+      } catch (RuntimeException e) {
+        // A custom Quantizer may throw on bytes it cannot read: that row is bad, not the store.
+        throw new IllegalArgumentException(
+          "vector bytes cannot be decoded as " + from.formatId(), e);
+      }
+      if ( unit.length == 0 || stored.length != from.encodedSize(unit.length) )
+        throw new IllegalArgumentException(
+          "vector bytes are not a whole number of " + from.formatId() + " dimensions");
+    }
+    if ( ! isFinite(unit) ) throw new IllegalArgumentException("vector contains NaN or infinity");
+    double norm = 0;
+    for ( float f : unit ) norm += (double) f * f;
+    if ( norm == 0 ) throw new IllegalArgumentException("vector is all zeros");
+
+    int       dims = unit.length;
+    Quantizer to   = quantizer_;
+    boolean   keep = from != null && from.formatId().equals(to.formatId())
+      && Math.abs(Math.sqrt(norm) - 1) < 1e-2;
+    byte[]    bytes = keep ? stored : to.encode(normalized(unit));
+    return new Packed(row.getEmbeddingModel(), dims, to, bytes, ! keep);
+  }
 
   /** True when every component is a real number; NaN or infinity would poison every score. */
   public static boolean isFinite(float[] v) {
     if ( v == null ) return true;
     for ( float f : v ) if ( ! Float.isFinite(f) ) return false;
     return true;
-  }
-
-  /**
-   * Why a vector cannot be indexed, or null when it can: NaN or infinity would
-   * poison every score, and a zero vector has no direction to compare. A row with
-   * no vector at all is not an error; it is simply not indexed.
-   */
-  public static String check(float[] v) {
-    if ( v == null || v.length == 0 ) return null;
-    if ( ! isFinite(v) ) return "contains NaN or infinity";
-    double norm = 0;
-    for ( float f : v ) norm += (double) f * f;
-    return norm == 0 ? "is all zeros" : null;
   }
 
   /** v scaled to unit length; a zero or non-finite vector becomes all zeros, which scores 0. */
@@ -153,35 +227,35 @@ public class VectorIndex {
   // ── writes ─────────────────────────────────────────────────────────────────
 
   /**
-   * Add or replace a row. A row with no vector is removed from the index.
-   * Throws IllegalArgumentException when its vector cannot be used (see {@link #check}),
-   * and whatever the index throws when it cannot hold it; the caller that loads many
-   * rows decides what one bad row costs.
+   * Add or replace a row. A row with no vector is removed from the store.
+   * Throws IllegalArgumentException when its vector cannot be used (see {@link #pack}),
+   * and whatever a custom Quantizer throws on it; the caller that loads many rows
+   * decides what one bad row costs.
    */
   public void put(VectorEmbedding row) {
-    float[] v = row.getVector();
-    if ( v == null || v.length == 0 ) {
+    put(row, pack(row));
+  }
+
+  /** Add or replace a row whose vector {@link #pack} already produced; null removes it. */
+  public void put(VectorEmbedding row, Packed packed) {
+    if ( packed == null ) {
       remove(row.getId());
       return;
     }
-    String problem = check(v);
-    if ( problem != null ) throw new IllegalArgumentException("vector " + problem);
-    float[] unit = normalized(v);
-    String  key  = key(row.getEmbeddingModel(), unit.length);
+    String key = key(packed.model, packed.dims);
     lock_.writeLock().lock();
     try {
       Slot slot = slots_.get(row.getId());
       if ( slot != null && slot.key.equals(key) ) {
-        groups_.get(key).write(slot.index, row, unit);
+        groups_.get(key).write(slot.index, row, packed.bytes);
         return;
       }
-      // A changed model or dimension count moves the row to another group.
       if ( slot != null ) removeLocked(row.getId());
 
-      Group group = groups_.computeIfAbsent(key, k -> new Group(unit.length));
+      Group group = groups_.computeIfAbsent(key, k -> new Group(packed.quantizer, packed.dims));
       int   index = group.size;
       // write throws when the group is full; size is only bumped after it succeeds.
-      group.write(index, row, unit);
+      group.write(index, row, packed.bytes);
       group.size++;
       slots_.put(row.getId(), new Slot(key, index));
     } finally {
@@ -268,14 +342,11 @@ public class VectorIndex {
   }
 
   protected void scan(Group group, float[] q, Predicate predicate, int k, PriorityQueue<Hit> best) {
-    int dims = group.dims;
     for ( int i = 0 ; i < group.size ; i++ ) {
       VectorEmbedding row = group.rows[i];
       if ( predicate != null && ! predicate.f(row) ) continue;
 
-      int   offset = i * dims;
-      float s      = 0f;
-      for ( int j = 0 ; j < dims ; j++ ) s += q[j] * group.data[offset + j];
+      float s = group.quantizer.dot(q, group.data, i * group.rowBytes);
 
       // A Hit is only allocated for rows that make the current top k.
       if ( best.size() < k ) {

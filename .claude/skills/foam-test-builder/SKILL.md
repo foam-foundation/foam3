@@ -106,11 +106,11 @@ p({"class":"com.acme.rules.test.WidgetRulesTest","id":"WidgetRulesTest","testSui
 ```
 
 ```bash
-./build.sh -W9090 server-tests --test-suite:RulesRegression          # every server test tagged RulesRegression
-./build.sh -W9090 run-tests --test-suite:RulesRegression,Smoke       # both sides, two suites
+./build.sh -W9090 server-tests --test-suites:RulesRegression          # every server test tagged RulesRegression
+./build.sh -W9090 run-tests --test-suites:RulesRegression,Smoke       # both sides, two suites
 ```
 
-`--test-suite:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
+`--test-suites:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
 
 ## Read the result
 

@@ -221,6 +221,15 @@ foam.CLASS({
       x.test(text(v).indexOf('After the hint.') != -1, 'the page after the hint still renders');
       v.remove();
 
+      // A closing tag closes only the tag of its own name. Here "</b>" does
+      // not close "<i>", so "<i>" is text inside the bold, and the "</i>"
+      // left over after it is text too.
+      v = await render('<b>one <i>two</b> three</i>\n\nAfter the tags.\n');
+      x.test(q(v, 'b') && q(v, 'b').innerText == 'one <i>two', 'a tag closed by another tag\'s closing tag shows as text, got ' + JSON.stringify(q(v, 'b') && q(v, 'b').innerText));
+      x.test(! q(v, 'i') && text(v).indexOf('three</i>') != -1, 'the closing tag left over shows as text, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('After the tags.') != -1, 'the page after the mismatched tags still renders');
+      v.remove();
+
       // Links. A click must not reach the browser's own navigation when the
       // link is handled here; this listener records that and then stops the
       // navigation either way, so a failing check cannot leave the test page.

@@ -6,21 +6,28 @@
 
 foam.CLASS({
   package: 'foam.u2.view',
-  name: 'MarkdownRemainingText',
-  extends: 'foam.parse.AbstractParser',
+  name: 'ClosedTagName',
+  extends: 'foam.parse.ParserDecorator',
 
   documentation: `
-    Consumes nothing; its value is the text from the current position to the
-    end of the input. MarkdownView uses it to see whether a tag is closed
-    further on before it parses the tag's content.
+    Parses a tag name with its delegate and succeeds only when a closing tag
+    of that name, "</name>", occurs later in the input. Its value is the name.
+
+    This is a speed guard for MarkdownView, not a rule of the language.
+    Without it a "<name>" that is never closed would have the whole rest of
+    the enclosing content parsed as its body before failing at the end, and
+    each "<other>" met on the way would do the same inside it: a page that
+    writes List<String> forty times took minutes to parse.
   `,
 
   methods: [
-    function parse(ps) {
-      return ps.setValue(ps.str[0].substring(ps.pos));
+    function parse(ps, obj) {
+      ps = ps.apply(this.p, obj);
+      if ( ! ps ) return undefined;
+      return ps.str[0].indexOf('</' + ps.value + '>', ps.pos) == -1 ? undefined : ps;
     },
 
-    function toString() { return 'remainingText()'; }
+    function toString() { return 'closedTagName(' + this.SUPER() + ')'; }
   ]
 });
 
@@ -114,7 +121,7 @@ foam.CLASS({
             '-->'
           ),
 
-          htmlBlock: alt(sym('autoCloseHtmlBlock'), sym('fullHtmlBlock')),
+          htmlBlock: alt(sym('autoCloseHtmlBlock'), sym('selfClosedTag'), sym('pairedTag')),
 
           autoCloseHtmlBlock: seq(
             '<',
@@ -123,22 +130,25 @@ foam.CLASS({
             '>'
           ),
 
-          fullHtmlBlock: seq(
-            sym('htmlTagStart'),
-            alt(
-              seq('>', sym('htmlContent'), '</', sym('htmlTagName'), '>'),
-              '/>'
-            )
-          ),
-
-          // The text after the tag is read, not consumed, so the action can
-          // tell a tag from text such as <name> before the content is parsed.
-          htmlTagStart: seq(
+          selfClosedTag: seq(
             '<',
             str(sym('htmlTagName')),
             sym('htmlAttributes'),
-            foam.u2.view.MarkdownRemainingText.create()
+            '/>'
           ),
+
+          pairedTag: seq(
+            '<',
+            sym('closedTagName'),
+            sym('htmlAttributes'),
+            '>',
+            sym('htmlContent'),
+            '</',
+            str(sym('htmlTagName')),
+            '>'
+          ),
+
+          closedTagName: foam.u2.view.ClosedTagName.create({ p: str(sym('htmlTagName')) }),
 
           // SVG tag names are camel case, e.g. <linearGradient>.
           htmlTagName: repeat(alt(range('0','9'), range('a', 'z'), range('A', 'Z')), null, 1),
@@ -281,8 +291,9 @@ foam.CLASS({
           ),
 
           // A character that opens no markup, such as the "<" of "<= 10" or
-          // of "<name>", is text. Without this the parse stopped there and the
-          // rest of the document was not rendered.
+          // of a "<name>" that is no tag, is text. Without this the parse
+          // stopped there and the rest of the document was not rendered. It is
+          // the last alternative so that every kind of markup is tried first.
           literalChar: notChars('\n'),
 
           htmlInline: seq(
@@ -372,26 +383,29 @@ foam.CLASS({
           return attrs;
         },
 
-        function htmlTagStart(v) {
-          // "<name>" with no "</name>" after it is text, not a tag.
-          let tagName = v[1], rest = v[3];
-          if ( ! rest.startsWith('/>') && rest.indexOf('</' + tagName + '>') == -1 ) return foam.parse.ParserWithAction.NO_PARSE;
-          return v;
+        function autoCloseHtmlBlock(v) {
+          return { tagName: v[1], attributes: v[2] };
         },
 
-        function fullHtmlBlock(v) {
-          return [ '<', v[0][1], v[0][2], v[1] ];
+        function selfClosedTag(v) {
+          return { tagName: v[1], attributes: v[2] };
         },
 
-        function htmlBlock(v) {
-          let tagName    = v[1];
-          let attributes = v[2];
-          let closing    = v[3];
+        function pairedTag(v) {
+          let tagName = v[1], closingName = v[6];
 
-          // A closing tag closes the tag of the same name. Otherwise <name> in
-          // "<step>Send <name> first</step>" would take </step> as its own end
-          // and leave the step unclosed.
-          if ( Array.isArray(closing) && closing[3].join('') !== tagName ) return foam.parse.ParserWithAction.NO_PARSE;
+          // A closing tag closes only the tag of its own name. In
+          // "<b>one <i>two</b> three</i>", "</b>" does not close "<i>", so
+          // "<i>" is no tag there and shows as text.
+          if ( closingName !== tagName ) return foam.parse.ParserWithAction.NO_PARSE;
+
+          return { tagName: tagName, attributes: v[2], content: v[4] };
+        },
+
+        function htmlBlock(tag) {
+          let tagName    = tag.tagName;
+          let attributes = tag.attributes;
+          let content    = tag.content;
 
           return function() {
             let e = this.start(tagName).attrs(attributes);
@@ -407,10 +421,7 @@ foam.CLASS({
               e.style(style);
             }
 
-            if ( closing !== '/>' ) {
-              let content = closing[1];
-              e.call(content);
-            }
+            e.call(content);
           };
         },
 

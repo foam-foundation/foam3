@@ -23,8 +23,13 @@ foam.CLASS({
     'foam.core.er.EventRecord',
     'foam.log.LogLevel',
     'foam.util.SafetyUtil',
+    'foam.mlang.sink.Sum',
     'java.util.Date',
-    'static foam.mlang.MLang.EQ'
+    'static foam.mlang.MLang.AND',
+    'static foam.mlang.MLang.EQ',
+    'static foam.mlang.MLang.GT',
+    'static foam.mlang.MLang.LTE',
+    'static foam.mlang.MLang.SUM'
   ],
 
   methods: [
@@ -48,31 +53,22 @@ foam.CLASS({
             omDAO = (DAO) x.get("om1MinuteDAO");
           }
 
-          Date currentCloseTime = new Date();
-          currentCloseTime.setSeconds(0);
-
-          Candlestick receiveResponses = (Candlestick) omDAO.orderBy(new foam.mlang.order.Desc(Candlestick.CLOSE_TIME)).find(
-            EQ(Candlestick.KEY, config.getPostRequest())
-          );
-          Candlestick sentRequest = (Candlestick) omDAO.orderBy(new foam.mlang.order.Desc(Candlestick.CLOSE_TIME)).find(
-            EQ(Candlestick.KEY, config.getPreRequest())
-          );
-
-          Candlestick timeout = (Candlestick) omDAO.orderBy(new foam.mlang.order.Desc(Candlestick.CLOSE_TIME)).find(
-            EQ(Candlestick.KEY, config.getTimeOutRequest())
-          );
-
-          // check to see if the sent candlestick is the latest one
-          if ( sentRequest != null && Math.abs(sentRequest.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime() ) {
-            report.setStartCount(report.getStartCount() + (int) sentRequest.getCount());
-          }
-          // check to see if the response candlestick is the latest one
-          if ( receiveResponses != null && Math.abs(receiveResponses.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime() ) {
-              report.setEndCount(report.getEndCount() + (int) receiveResponses.getCount());
-          }
-          if ( timeout != null && (Math.abs(timeout.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime()) ) {
-              report.setTimeoutCount(report.getTimeoutCount() + (int) timeout.getCount());
-          }
+          // Every count comes from the same complete minutes. A
+          // candlestick closes on the last millisecond of its minute, so
+          // the 12:00 one closes at 12:00:59.999. Reading each OM's latest
+          // candlestick on its own, a run at 12:01:00.3 took requests from
+          // the partial 12:01 minute and timeouts from 12:00, and could
+          // raise an alarm that neither minute earned. The latest
+          // candlestick also stays in the DAO until its OM is logged again,
+          // so a burst of timeouts kept counting long after it ended. The
+          // window ends at the last complete minute and spans cycleTime, so
+          // the default 60 s reads exactly one minute.
+          long end = System.currentTimeMillis() / 60000 * 60000 - 1;
+          Date to = new Date(end);
+          Date from = new Date(end - config.getCycleTime());
+          report.setStartCount(AlarmAndMonitoring.this.sumCount(omDAO, config.getPreRequest(), from, to));
+          report.setEndCount(AlarmAndMonitoring.this.sumCount(omDAO, config.getPostRequest(), from, to));
+          report.setTimeoutCount(AlarmAndMonitoring.this.sumCount(omDAO, config.getTimeOutRequest(), from, to));
 
           // With no attempts in the window no check can trip, so an active
           // alarm would clear. Timeouts logged a minute after the last
@@ -83,11 +79,6 @@ foam.CLASS({
             return;
           }
 
-          // The latest candlestick of a key stays in the DAO until that key
-          // is logged again, so reading it directly would keep counting a
-          // burst of timeouts long after it ended, and the alarm would never
-          // clear. The report holds only the candlesticks that closed within
-          // cycleTime.
           float timeoutCount = report.getTimeoutCount();
           float sentCount = report.getStartCount();
           float responseCount = report.getEndCount();
@@ -144,6 +135,22 @@ foam.CLASS({
       EventRecord er = new EventRecord(x, null, config.getName(), null, null, message, severity, null);
       er.setClusterable(config.getClusterable());
       ((DAO) x.get("eventRecordDAO")).put(er);
+      `
+    },
+    {
+      documentation: `Returns the count of the candlesticks of key that closed
+        after from and at or before to, 0 when key is empty.`,
+      name: 'sumCount',
+      type: 'Integer',
+      args: 'DAO omDAO, String key, Date from, Date to',
+      javaCode: `
+      if ( SafetyUtil.isEmpty(key) ) return 0;
+      Sum sum = (Sum) omDAO.where(AND(
+        EQ(Candlestick.KEY, key),
+        GT(Candlestick.CLOSE_TIME, from),
+        LTE(Candlestick.CLOSE_TIME, to)
+      )).select(SUM(Candlestick.COUNT));
+      return (int) sum.getValue();
       `
     },
     {

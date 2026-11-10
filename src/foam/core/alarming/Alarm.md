@@ -103,13 +103,15 @@ evaluate a config at once.
 
 ## 4. Evaluating
 
-For each of the three OMs, the latest candlestick is read from `om1MinuteDAO`
-(`localCcom1MinuteDAO` when `useCCOMLogger` is set). Its count is added to the
-report's `startCount`, `endCount` or `timeoutCount` only if it closed within
-`cycleTime` (default 60 s) of the start of the current minute. That window
-takes the current and the previous minute, so a failure stops counting about
-two minutes after it happened. The decision uses the report's counts only,
-never an older candlestick.
+For each of the three OMs, the counts of its candlesticks in `om1MinuteDAO`
+(`localCcom1MinuteDAO` when `useCCOMLogger` is set) are added up into the
+report's `startCount`, `endCount` or `timeoutCount`. All three read the same
+window: it ends at the last complete minute and spans `cycleTime` (default
+60 s), so a run at 12:01:00.3 reads the minute 12:00 to 12:00:59.999 and
+nothing of the partial 12:01 minute. An alarm therefore raises up to a minute
+after the failures, and a failure stops counting a minute after its minute
+closes. The decision uses the report's counts only, never an older
+candlestick.
 
 - **CREDENTIALS**: with `timeOutRequest` set, the alarm is on while
   `timeoutCount / startCount` is above `timeoutValue`, for example credential

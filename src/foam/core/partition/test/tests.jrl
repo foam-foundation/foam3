@@ -22,3 +22,4 @@ p({"class":"foam.core.partition.test.PartitionedCompactionTest","id":"Partitione
 p({"class":"foam.core.partition.test.PartitionedDAOUnprefixedFindTest","id":"PartitionedDAOUnprefixedFindTest"})
 p({"class":"foam.core.partition.test.PartitionedAddIndexTest","id":"PartitionedAddIndexTest"})
 p({"class":"foam.core.partition.test.PartitionedDAOTwoLevelIdTest","id":"PartitionedDAOTwoLevelIdTest"})
+p({"class":"foam.core.partition.test.PartitionPredicateTest","id":"PartitionPredicateTest"})

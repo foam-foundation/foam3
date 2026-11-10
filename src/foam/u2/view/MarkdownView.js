@@ -132,7 +132,7 @@ foam.CLASS({
           ),
 
           // The text after the tag is read, not consumed, so the action can
-          // tell a tag from text such as <ICA> before the content is parsed.
+          // tell a tag from text such as <name> before the content is parsed.
           htmlTagStart: seq(
             '<',
             str(sym('htmlTagName')),
@@ -281,7 +281,7 @@ foam.CLASS({
           ),
 
           // A character that opens no markup, such as the "<" of "<= 10" or
-          // of "<ICA>", is text. Without this the parse stopped there and the
+          // of "<name>", is text. Without this the parse stopped there and the
           // rest of the document was not rendered.
           literalChar: notChars('\n'),
 
@@ -373,7 +373,7 @@ foam.CLASS({
         },
 
         function htmlTagStart(v) {
-          // "<ICA>" with no "</ICA>" after it is text, not a tag.
+          // "<name>" with no "</name>" after it is text, not a tag.
           let tagName = v[1], rest = v[3];
           if ( ! rest.startsWith('/>') && rest.indexOf('</' + tagName + '>') == -1 ) return foam.parse.ParserWithAction.NO_PARSE;
           return v;
@@ -388,8 +388,8 @@ foam.CLASS({
           let attributes = v[2];
           let closing    = v[3];
 
-          // A closing tag closes the tag of the same name. Otherwise <ICA> in
-          // "<step>Send <ICA> first</step>" would take </step> as its own end
+          // A closing tag closes the tag of the same name. Otherwise <name> in
+          // "<step>Send <name> first</step>" would take </step> as its own end
           // and leave the step unclosed.
           if ( Array.isArray(closing) && closing[3].join('') !== tagName ) return foam.parse.ParserWithAction.NO_PARSE;
 

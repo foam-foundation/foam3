@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.notification.Notification',
+    'foam.log.LogLevel',
     'foam.util.SafetyUtil',
     'foam.util.StringUtil',
     'java.time.ZoneOffset',
@@ -35,7 +36,9 @@ foam.CLASS({
 
   properties: [
     {
-      documentation: 'Severity at or above this value will generate a notification',
+      documentation: `Severity at or above this value, and below ERROR, generates
+        a notification when the record raised its alarm. ERROR always notifies;
+        below this value, only a record that cleared its alarm notifies.`,
       name: 'notificationSeverity',
       class: 'Enum',
       of: 'foam.log.LogLevel',
@@ -59,12 +62,17 @@ foam.CLASS({
       javaCode: `
       Map args = new HashMap();
       EventRecord er = (EventRecord) obj;
-      // Below notificationSeverity, notify only when the record cleared its
-      // alarm, for example an INFO record after a raised alarm.
-      if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
+      // ERROR always notifies. A WARN record notifies only when it raised an
+      // alarm: with raiseAlarm false, or an alarm not active, it is logged
+      // but nobody is told. Below notificationSeverity, for example INFO, a
+      // record notifies only when it cleared its alarm. EventRecordAlarmRule
+      // runs first, at a higher priority, so the alarm is already up to date.
+      if ( er.getSeverity() != LogLevel.ERROR ) {
         Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
-        if ( alarm == null ||
-             alarm.getIsActive() ) {
+        if ( er.getSeverity().getOrdinal() >= getNotificationSeverity().getOrdinal() ) {
+          if ( ! er.getRaiseAlarm() || alarm == null || ! alarm.getIsActive() )
+            return;
+        } else if ( alarm == null || alarm.getIsActive() ) {
           return;
         }
       }

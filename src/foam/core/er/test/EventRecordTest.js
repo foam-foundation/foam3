@@ -78,6 +78,38 @@ foam.CLASS({
         }
       }
       test( message != null, (message == null ? "message is null" : "email subject contains expected text: EventRecordTest == ["+message.getSubject()+"]"));
+
+      // A WARN record notifies only when it raises an alarm.
+      String quiet = "EventRecordTestWarnNoAlarm";
+      er = new EventRecord();
+      er.setX(x);
+      er.setSource(this);
+      er.setEvent(quiet);
+      er.setMessage(quiet);
+      er.setSeverity(LogLevel.WARN);
+      er.setRaiseAlarm(false);
+      erDAO.put_(x, er);
+
+      String raised = "EventRecordTestWarnAlarm";
+      er = new EventRecord();
+      er.setX(x);
+      er.setSource(this);
+      er.setEvent(raised);
+      er.setMessage(raised);
+      er.setSeverity(LogLevel.WARN);
+      erDAO.put_(x, er);
+
+      Thread.sleep(1000);
+
+      boolean quietSent = false;
+      boolean raisedSent = false;
+      emailMessages = (List) ((ArraySink) emailMessageDAO.select(new ArraySink())).getArray();
+      for ( EmailMessage msg : emailMessages ) {
+        if ( msg.getSubject().contains(quiet) ) quietSent = true;
+        if ( msg.getSubject().contains(raised) ) raisedSent = true;
+      }
+      test( ! quietSent, "WARN record without an alarm sends no notification");
+      test( raisedSent, "WARN record that raises an alarm sends a notification");
       `
     }
   ]

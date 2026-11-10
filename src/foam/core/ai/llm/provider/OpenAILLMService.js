@@ -17,11 +17,11 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.lang.X',
     'foam.ai.llm.*',
-    'java.io.BufferedReader',
-    'java.io.InputStreamReader',
-    'java.io.OutputStream',
-    'java.net.HttpURLConnection',
-    'java.net.URL',
+    'java.net.URI',
+    'java.net.http.HttpClient',
+    'java.net.http.HttpRequest',
+    'java.net.http.HttpResponse',
+    'java.time.Duration',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -115,44 +115,25 @@ foam.CLASS({
         body.put("model",      model);
         body.put("max_tokens", maxTokens);
         body.put("messages",   (JSONArray) messages);
+        if ( options.getTemperature() > 0.0 ) body.put("temperature", options.getTemperature());
 
-        if ( options.getTemperature() > 0.0 ) {
-          body.put("temperature", options.getTemperature());
-        }
-
-        HttpURLConnection conn = null;
         try {
-          URL url = new URL(getBaseURL());
-          conn = (HttpURLConnection) url.openConnection();
-          conn.setRequestMethod("POST");
-          conn.setRequestProperty("Content-Type",  "application/json");
-          conn.setRequestProperty("Authorization", "Bearer " + getApiKey());
-          conn.setDoOutput(true);
+          var client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(30))
+            .build();
+          var req = HttpRequest.newBuilder()
+            .uri(URI.create(getBaseURL()))
+            .header("Content-Type",  "application/json")
+            .header("Authorization", "Bearer " + getApiKey())
+            .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
+            .timeout(Duration.ofSeconds(120))
+            .build();
 
-          try ( OutputStream os = conn.getOutputStream() ) {
-            os.write(body.toString().getBytes("UTF-8"));
-          }
+          var resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+          if ( resp.statusCode() != 200 )
+            throw new RuntimeException("OpenAI API error (" + resp.statusCode() + "): " + resp.body());
 
-          int status = conn.getResponseCode();
-          if ( status != 200 ) {
-            BufferedReader err = new BufferedReader(
-              new InputStreamReader(conn.getErrorStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ( ( line = err.readLine() ) != null ) sb.append(line);
-            err.close();
-            throw new RuntimeException(
-              "OpenAI API error (" + status + "): " + sb.toString());
-          }
-
-          BufferedReader reader = new BufferedReader(
-            new InputStreamReader(conn.getInputStream(), "UTF-8"));
-          StringBuilder sb = new StringBuilder();
-          String line;
-          while ( ( line = reader.readLine() ) != null ) sb.append(line);
-          reader.close();
-
-          JSONObject data   = new JSONObject(sb.toString());
+          JSONObject data    = new JSONObject(resp.body());
           JSONArray  choices = data.optJSONArray("choices");
           JSONObject choice  = choices != null && choices.length() > 0
             ? choices.getJSONObject(0) : null;
@@ -175,8 +156,6 @@ foam.CLASS({
           throw e;
         } catch ( Exception e ) {
           throw new RuntimeException("OpenAI API request failed: " + e.getMessage(), e);
-        } finally {
-          if ( conn != null ) conn.disconnect();
         }
       `
     }

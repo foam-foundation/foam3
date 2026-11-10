@@ -274,7 +274,21 @@ NOTE: duplicated in SocketConnectionReplyBox
               }
               if ( replyBox == null ) {
                 getLogger().error("ReplyBox not found", replyBoxId);
-                ((foam.dao.DAO) x.get("eventRecordDAO")).put(new foam.core.er.EventRecord(x, this, "ReplyBox not found", null, null, "ReplyBox not found " + replyBoxId, foam.log.LogLevel.ERROR, null));
+                // One alarm, and one notification, for a run of missing reply
+                // boxes: a new ERROR EventRecord is put only when the last
+                // one's alarm is no longer active. The alarm rule records the
+                // alarm it raised on the EventRecord.
+                foam.dao.DAO erDAO = (foam.dao.DAO) x.get("eventRecordDAO");
+                foam.core.er.EventRecord last = (foam.core.er.EventRecord) erDAO
+                  .orderBy(foam.mlang.MLang.DESC(foam.core.er.EventRecord.CREATED))
+                  .find(foam.mlang.MLang.AND(
+                    foam.mlang.MLang.EQ(foam.core.er.EventRecord.SOURCE, getClass().getSimpleName()),
+                    foam.mlang.MLang.EQ(foam.core.er.EventRecord.EVENT, "ReplyBox not found"),
+                    foam.mlang.MLang.EQ(foam.core.er.EventRecord.SEVERITY, foam.log.LogLevel.ERROR)));
+                foam.core.alarming.Alarm alarm = last == null || last.getAlarm() == null ? null :
+                  (foam.core.alarming.Alarm) ((foam.dao.DAO) x.get("alarmDAO")).find(last.getAlarm());
+                if ( alarm == null || ! alarm.getIsActive() )
+                  erDAO.put(new foam.core.er.EventRecord(x, this, "ReplyBox not found", null, null, "ReplyBox not found " + replyBoxId, foam.log.LogLevel.ERROR, null));
                 throw new RuntimeException("ReplyBox not found. message: "+data);
               }
               getReplyBoxes().remove(replyBoxId);

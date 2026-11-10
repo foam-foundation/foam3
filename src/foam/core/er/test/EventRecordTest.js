@@ -50,6 +50,8 @@ foam.CLASS({
       Alarm alarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
       test( alarm != null, "alarm exists");
       test ( alarm.getIsActive(), "Alarm active");
+      EventRecord stored = (EventRecord) erDAO.find(er.getId());
+      test( stored != null && alarm != null && alarm.getId().equals(stored.getAlarm()), "stored EventRecord references its alarm " + (stored != null ? stored.getAlarm() : null));
 
       DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
       int raiseEmails = emailCount(emailMessageDAO, s);

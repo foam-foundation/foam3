@@ -52,6 +52,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - `+` inside a log call? "error" in an error log? A payload at debug?
 - A catch that neither logs nor rethrows? A rethrow without the cause?
 - A setter on a DAO result without `fclone()`? `setX(null)` without `clearX()`?
+- A `foam.nanos.` import, or a fully qualified class inside `javaCode` instead of `javaImports`?
 - Array-form `args:`? Boxed primitives? `else` after `return`?
 
 ## 7. u2 views

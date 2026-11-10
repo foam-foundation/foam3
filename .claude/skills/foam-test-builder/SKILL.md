@@ -81,9 +81,21 @@ A `tests.jrl` loads because the pom walk reaches its directory: the directory of
 ./build.sh --log-level:WARN server-tests:MyServerTest    # also print warnings; WARN, INFO or DEBUG
 ```
 
-`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time.
+`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time, `javaCode` edits included. A clean is needed in three cases only:
+
+- a `pom.xml`, `javaDependencies` or `/build/lib` change, which `-XcleanAll` wipes and refetches;
+- a model renamed or deleted, whose old `.class` stays behind because the Java generator writes files and never deletes them;
+- a `.java` older than its `.class`, which a `git checkout` or restore can cause.
+
+`-XcleanAll` in the same call as a test run loses the test classes: run `./build.sh -XcleanAll -o` first and the tests as a second call.
 
 A server-side run prints ERROR lines only (`TestRunnerScript.setupServerSide`), so a `logger.warning` in the code under test never shows. When a test is about a warning, add `--log-level:WARN` before reading "it didn't log" as a result.
+
+A client test runs in a browser against the built webroot, so it cannot read a file from the repository: a `fetch` of a repo path returns 404. Copy the file into the webroot with a `copy:` block in the test's `pom.js` and fetch the copied path. `target` sets the path under the build directory; without it the file lands in `journals/`, where the browser cannot reach it (`tools/CopyMaker.js`):
+
+```js
+copy: [ { source: '../data/matrix.jrl', target: 'webroot/my-test/matrix.jrl' } ]   // fetch('/my-test/matrix.jrl')
+```
 
 ### Run a group of tests in one build
 

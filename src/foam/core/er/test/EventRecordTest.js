@@ -79,8 +79,8 @@ foam.CLASS({
       }
       test( message != null, (message == null ? "message is null" : "email subject contains expected text: EventRecordTest == ["+message.getSubject()+"]"));
 
-      // Alarms are raised at ERROR, so a WARN record raises no alarm and,
-      // with no alarm raised, sends no notification.
+      // A WARN record raises an alarm when raiseAlarm is true, but is below
+      // notificationSeverity, ERROR, so it sends no notification either way.
       String quiet = "EventRecordTestWarnNoAlarm";
       er = new EventRecord();
       er.setX(x);
@@ -112,7 +112,7 @@ foam.CLASS({
       test( ! quietSent, "WARN record with raiseAlarm false sends no notification");
       test( ! raisedSent, "WARN record with raiseAlarm true sends no notification");
       Alarm warnAlarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
-      test( warnAlarm == null || ! warnAlarm.getIsActive(), "WARN record raises no alarm");
+      test( warnAlarm != null && warnAlarm.getIsActive(), "WARN record with raiseAlarm true raises an alarm");
       `
     }
   ]

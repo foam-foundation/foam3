@@ -34,7 +34,7 @@ p({
   lifecycleState:1,
   action: {
     class: "foam.core.er.EventRecordAlarmRuleAction",
-    alarmSeverity: "ERROR"
+    alarmSeverity: "WARN"
   }
 })
 

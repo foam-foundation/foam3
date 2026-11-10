@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu blockBytes -->
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu blockBytes partitionProperty AllPartitions PartitionedDAO -->
 <flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, VectorIndex, Quantizer, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,VectorIndex,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
@@ -153,9 +153,20 @@ A minimum-score threshold is easy to apply after the fact:
 var results = sink.array.filter(e => e.score >= 0.75);
 ```
 
-#### Blocks
+#### Blocks and partitions
 
 The index keeps each group's vectors (one group per model and dimension count) in blocks of about 1 MiB (`blockBytes`), not in one array. A group can therefore grow past the size of a Java array, growing never copies the rows in earlier blocks, and a block that empties is released, so a group cut down by deletes gives its memory back. Each new block starts at 16 rows and doubles up to the block size, so a small group stays small.
+
+Partitioning is optional. A store without `partitionProperty` keeps one group per model, and a search names no partition. To partition a store, set `partitionProperty` to a property of the row, for example a tenant id, and the index keeps each value's vectors in their own group. A similarity search must then name its partition in the filter, the way a `PartitionedDAO` query must: `EQ` or `IN` on that property (also inside an `AND`), or `AllPartitions` on it to visit every partition (`AllPartitions` beside an `EQ` still visits every partition, and the `EQ` then filters rows). A search that names none is rejected with `UnsupportedOperationException` before the index loads, so a forgotten tenant filter becomes an error. An `IN` with no values finds nothing. `OR` and `NOT` of partition values name no partition and are rejected. A row is filed under the partition value the delegate stored. Only the named partitions are scanned, and an `IN` over several returns one ranking across them. Searches that do not order by `CosineComparator`, and puts and removes, never need a partition. `quantizer`, `blockBytes` and `partitionProperty` are read when the index is built, so set them before the first search. Partitioning does not reduce memory: every partition is loaded on the first search. It is also not an access check: the filter names which partition to scan, and nothing here decides who may read it. A caller that can write the filter can name any partition, or `AllPartitions`, so the service that builds the filter must do that on the server, from a partition the caller is allowed to read, and must never take the filter from a client.
+
+```java
+DAO store = new VectorStoreDAO.Builder(x)
+  .setDelegate(dao)
+  .setPartitionProperty(VectorEmbedding.KIND)   // optional: one partition per kind
+  .build();
+
+store.where(EQ(VectorEmbedding.KIND, "flow")).orderBy(cc).limit(10).select(sink);   // scans "flow" only
+```
 
 ## Try It Live
 

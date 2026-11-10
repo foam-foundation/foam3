@@ -6,6 +6,7 @@
 
 package foam.ai.vector;
 
+import foam.mlang.Expr;
 import foam.mlang.predicate.Predicate;
 import foam.util.SafetyUtil;
 import java.util.ArrayList;
@@ -22,9 +23,11 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * The in-memory search store behind VectorStoreDAO.
  *
  * Rows are grouped by embedding model and dimension count, because vectors of
- * different models can never be compared. Each group packs its vectors with the
- * index's Quantizer, and a search scores the packed bytes
- * directly with {@link Quantizer#dot}, so it allocates nothing per row.
+ * different models can never be compared, and optionally by a partition value
+ * (see {@link #partitionOf}), so a search can scan one tenant's rows without
+ * touching the others. Each group packs its vectors with this index's
+ * Quantizer, and a search scores the packed bytes directly with
+ * {@link Quantizer#dot}, so it allocates nothing per row.
  *
  * A group keeps its rows in blocks of a bounded size instead of one array: a
  * group can grow past the size of a Java array, growing never copies the rows
@@ -83,9 +86,9 @@ public class VectorIndex {
   }
 
   /**
-   * All vectors of one model and dimension count, packed by one Quantizer. Slot i
-   * lives in block i >>> shift at offset i & (blockRows - 1). Every block but the
-   * last holds blockRows rows.
+   * All vectors of one model, dimension count and partition, packed by one
+   * Quantizer. Slot i lives in block i >>> shift at offset i & (blockRows - 1).
+   * Every block but the last holds blockRows rows.
    */
   static final class Group {
     final Quantizer   quantizer;
@@ -93,12 +96,14 @@ public class VectorIndex {
     final int         rowBytes;
     final int         blockRows;
     final int         shift;
-    final String      key;
+    final String      bucketKey;
+    final String      partition;
     final List<Block> blocks = new ArrayList<>();
     int               size;
 
-    Group(String key, Quantizer quantizer, int dims, int blockBytes) {
-      this.key       = key;
+    Group(String bucketKey, String partition, Quantizer quantizer, int dims, int blockBytes) {
+      this.bucketKey = bucketKey;
+      this.partition = partition;
       this.quantizer = quantizer;
       this.dims      = dims;
       this.rowBytes  = quantizer.encodedSize(dims);
@@ -149,6 +154,16 @@ public class VectorIndex {
     }
   }
 
+  /** The groups of one model and dimension count, one per partition value. */
+  static final class Bucket {
+    final int                dims;
+    final Map<String, Group> byPartition = new HashMap<>();
+
+    Bucket(int dims) {
+      this.dims = dims;
+    }
+  }
+
   /** Where a row's vector lives, so an update or remove finds it without a scan. */
   static final class Slot {
     final Group group;
@@ -179,22 +194,25 @@ public class VectorIndex {
   }
 
   protected final Quantizer               quantizer_;
+  protected final Expr                   partitionProperty_;
   protected final int                    blockBytes_;
 
   // One read/write lock for the whole store: writes wait for in-flight searches.
   // Per-group copy-on-write would let writes overlap long scans if that is ever needed.
-  protected final ReentrantReadWriteLock lock_   = new ReentrantReadWriteLock();
-  protected final Map<String, Group>     groups_ = new HashMap<>();
-  protected final Map<String, Slot>      slots_  = new HashMap<>();
-  protected volatile boolean             loaded_ = false;
+  protected final ReentrantReadWriteLock lock_    = new ReentrantReadWriteLock();
+  protected final Map<String, Bucket>    buckets_ = new HashMap<>();
+  protected final Map<String, Slot>      slots_   = new HashMap<>();
+  protected volatile boolean             loaded_  = false;
 
   /**
-   * quantizer packs every row. blockBytes is the bytes of vectors one block
-   * holds, about.
+   * quantizer packs every row. partitionProperty, when not null, splits every
+   * model's vectors by that property's value (see {@link #partitionOf}).
+   * blockBytes is the bytes of vectors one block holds, about.
    */
-  public VectorIndex(Quantizer quantizer, int blockBytes) {
-    quantizer_  = quantizer;
-    blockBytes_ = blockBytes > 0 ? blockBytes : DEFAULT_BLOCK_BYTES;
+  public VectorIndex(Quantizer quantizer, Expr partitionProperty, int blockBytes) {
+    quantizer_         = quantizer;
+    partitionProperty_ = partitionProperty;
+    blockBytes_        = blockBytes > 0 ? blockBytes : DEFAULT_BLOCK_BYTES;
   }
 
   public boolean isLoaded() { return loaded_; }
@@ -271,6 +289,15 @@ public class VectorIndex {
     return u;
   }
 
+  /**
+   * The partition a row belongs to: the string form of the partition property's
+   * value, as PartitionedDAO names its partitions, or "" when the index is not
+   * partitioned.
+   */
+  public String partitionOf(VectorEmbedding row) {
+    return partitionProperty_ == null ? "" : String.valueOf(partitionProperty_.f(row));
+  }
+
   static String key(String model, int dims) {
     return (model == null ? "" : model) + '\u0000' + dims;
   }
@@ -280,8 +307,8 @@ public class VectorIndex {
   /**
    * Add or replace a row. A row with no vector is removed from the store.
    * Throws IllegalArgumentException when its vector cannot be used (see {@link #pack}),
-   * and whatever a custom Quantizer throws on it; the caller that loads many rows
-   * decides what one bad row costs.
+   * and whatever a custom Quantizer or the partition property throws on it; the caller
+   * that loads many rows decides what one bad row costs.
    */
   public void put(VectorEmbedding row) {
     put(row, pack(row));
@@ -293,20 +320,28 @@ public class VectorIndex {
       remove(row.getId());
       return;
     }
-    String key = key(packed.model, packed.dims);
+    // The row is the one the delegate stored, which may differ from the one sent in (a rule or
+    // decorator below can change the partition property), so the partition is read from it.
+    String bucketKey = key(packed.model, packed.dims);
+    String partition = partitionOf(row);
     lock_.writeLock().lock();
     try {
-      Slot  slot   = slots_.get(row.getId());
-      Group target = groups_.get(key);
+      Slot   slot   = slots_.get(row.getId());
+      Bucket bucket = buckets_.get(bucketKey);
+      Group  target = bucket == null ? null : bucket.byPartition.get(partition);
       if ( slot != null && slot.group == target ) {
         target.write(slot.index, row, packed.bytes);
         return;
       }
-      // A changed model or dimension count moves the row to another group.
+      // A changed model, dimension count or partition moves the row to another group.
       if ( slot != null ) removeLocked(row.getId());
 
-      Group group = groups_.computeIfAbsent(
-        key, k -> new Group(k, packed.quantizer, packed.dims, blockBytes_));
+      bucket = buckets_.computeIfAbsent(bucketKey, k -> new Bucket(packed.dims));
+      Group group = bucket.byPartition.get(partition);
+      if ( group == null ) {
+        group = new Group(bucketKey, partition, packed.quantizer, packed.dims, blockBytes_);
+        bucket.byPartition.put(partition, group);
+      }
       if ( group.size == Integer.MAX_VALUE )
         throw new IllegalStateException(
           "VectorIndex group full: " + group.size + " rows of " + group.dims + " dims");
@@ -334,13 +369,17 @@ public class VectorIndex {
     Group           group = slot.group;
     VectorEmbedding moved = group.removeAt(slot.index);
     if ( moved != null ) slots_.get(moved.getId()).index = slot.index;
-    if ( group.size == 0 ) groups_.remove(group.key);
+    if ( group.size == 0 ) {
+      Bucket bucket = buckets_.get(group.bucketKey);
+      bucket.byPartition.remove(group.partition);
+      if ( bucket.byPartition.isEmpty() ) buckets_.remove(group.bucketKey);
+    }
   }
 
   public void clear() {
     lock_.writeLock().lock();
     try {
-      groups_.clear();
+      buckets_.clear();
       slots_.clear();
       loaded_ = false;
     } finally {
@@ -357,11 +396,13 @@ public class VectorIndex {
     }
   }
 
-  /** Number of groups (one per model and dimension count holding rows). */
+  /** Number of groups (one per model, dimension count and partition holding rows). */
   public int groupCount() {
     lock_.readLock().lock();
     try {
-      return groups_.size();
+      int n = 0;
+      for ( Bucket b : buckets_.values() ) n += b.byPartition.size();
+      return n;
     } finally {
       lock_.readLock().unlock();
     }
@@ -372,7 +413,8 @@ public class VectorIndex {
     lock_.readLock().lock();
     try {
       int n = 0;
-      for ( Group g : groups_.values() ) n += g.blocks.size();
+      for ( Bucket b : buckets_.values() )
+        for ( Group g : b.byPartition.values() ) n += g.blocks.size();
       return n;
     } finally {
       lock_.readLock().unlock();
@@ -384,8 +426,9 @@ public class VectorIndex {
     lock_.readLock().lock();
     try {
       long n = 0;
-      for ( Group g : groups_.values() )
-        for ( Block block : g.blocks ) n += block.data.length + 4L * block.rows.length;
+      for ( Bucket b : buckets_.values() )
+        for ( Group g : b.byPartition.values() )
+          for ( Block block : g.blocks ) n += block.data.length + 4L * block.rows.length;
       return n;
     } finally {
       lock_.readLock().unlock();
@@ -397,15 +440,18 @@ public class VectorIndex {
   /**
    * The k rows most similar to query, best first.
    *
-   * model selects the group to scan; when empty, every group whose dimension count
+   * model selects the groups to scan; when empty, every model whose dimension count
    * matches the query is scanned (the caller's predicate can still pin the model).
+   * partitions selects among each model's groups by partition value, and must not
+   * repeat a value; null scans every partition. A partition with no rows is skipped.
    * predicate, when not null, is checked on each row before its score is computed, so a
    * filter on a few documents scores only their rows. It runs on every row in scope, under
    * the read lock that writes wait on: keep it cheap and dependent on the row alone. A check
    * that reads other records belongs before the search (the ids it allows) or in the
    * delegate, which VectorStoreDAO asks for each hit.
    */
-  public List<Hit> search(float[] query, String model, Predicate predicate, int k) {
+  public List<Hit> search(
+    float[] query, String model, String[] partitions, Predicate predicate, int k) {
     List<Hit> result = new ArrayList<>();
     if ( query == null || query.length == 0 || k <= 0 ) return result;
     if ( ! isFinite(query) )
@@ -417,11 +463,11 @@ public class VectorIndex {
       // k can be the whole store when a caller sets no limit; the heap grows on demand.
       PriorityQueue<Hit> best =
         new PriorityQueue<>(Math.min(k, Math.min(slots_.size(), 1024)) + 1, BY_SCORE);
-      for ( Map.Entry<String, Group> e : groups_.entrySet() ) {
-        Group group = e.getValue();
-        if ( group.dims != q.length ) continue;
-        if ( ! SafetyUtil.isEmpty(model) && ! e.getKey().equals(key(model, q.length)) ) continue;
-        scan(group, q, predicate, k, best);
+      if ( ! SafetyUtil.isEmpty(model) ) {
+        scanBucket(buckets_.get(key(model, q.length)), q, partitions, predicate, k, best);
+      } else {
+        for ( Bucket bucket : buckets_.values() )
+          if ( bucket.dims == q.length ) scanBucket(bucket, q, partitions, predicate, k, best);
       }
       result.addAll(best);
     } finally {
@@ -430,6 +476,20 @@ public class VectorIndex {
 
     result.sort(BY_SCORE.reversed());
     return result;
+  }
+
+  protected void scanBucket(
+    Bucket bucket, float[] q, String[] partitions, Predicate predicate, int k,
+    PriorityQueue<Hit> best) {
+    if ( bucket == null ) return;
+    if ( partitions == null ) {
+      for ( Group group : bucket.byPartition.values() ) scan(group, q, predicate, k, best);
+      return;
+    }
+    for ( String partition : partitions ) {
+      Group group = bucket.byPartition.get(partition);
+      if ( group != null ) scan(group, q, predicate, k, best);
+    }
   }
 
   protected void scan(Group group, float[] q, Predicate predicate, int k, PriorityQueue<Hit> best) {

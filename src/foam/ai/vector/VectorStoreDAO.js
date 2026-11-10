@@ -15,10 +15,12 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.VectorIndex',
     'foam.core.logger.Loggers',
+    'foam.core.partition.PartitionedDAO',
     'foam.dao.AbstractDAO',
     'foam.dao.AbstractSink',
     'foam.lang.Detachable',
     'foam.lang.FObject',
+    'foam.mlang.predicate.Predicate',
     'java.util.ArrayList',
     'java.util.Base64',
     'java.util.HashMap',
@@ -44,6 +46,17 @@ foam.CLASS({
     authorization sits in the delegate chain below this DAO decides which rows a
     caller may see.
 
+    A store can be partitioned: set partitionProperty to a property of the row,
+    for example a tenant id, and the index keeps each value's vectors
+    apart. A similarity search must then name its partition in the query, as
+    PartitionedDAO requires: EQ or IN on that property inside the where clause,
+    or AllPartitions to visit every partition; a search that names none is
+    rejected. The scan then covers only the named partitions, so a forgotten
+    filter becomes an error instead of a search across every partition. That is a
+    guard, not an access check: nothing here decides who may read a partition, so
+    the code that builds the filter must. Without partitionProperty every search
+    covers every row of its model.
+
     Vectors are held in blocks of about blockBytes (1 MiB unless set), so a
     store grows without one huge array and gives memory back after deletes.
   `,
@@ -55,6 +68,13 @@ foam.CLASS({
       name: 'quantizer',
       documentation: 'How every row is packed; Float32Quantizer unless set. An app picks a lossy one, such as Int8Quantizer.',
       javaFactory: 'return new Float32Quantizer();'
+    },
+    {
+      class: 'foam.mlang.ExprProperty',
+      name: 'partitionProperty',
+      documentation: `Property of the row (for example KIND) whose value splits the
+        index into partitions. A similarity search must then name its partition. Unset: no
+        partitions.`
     },
     {
       class: 'Int',
@@ -70,7 +90,7 @@ foam.CLASS({
       javaType: 'VectorIndex',
       documentation: `Built once, on first use, from quantizer and blockBytes, so set them before
         the first search.`,
-      javaFactory: 'return new VectorIndex(getQuantizer(), getBlockBytes());',
+      javaFactory: 'return new VectorIndex(getQuantizer(), getPartitionProperty(), getBlockBytes());',
       // Two first callers must get the same index, or they lock different objects.
       synchronized: true,
       transient: true,
@@ -181,6 +201,19 @@ foam.CLASS({
       `
     },
     {
+      name: 'partitionsOf',
+      documentation: `The partitions a similarity search covers, as PartitionedDAO resolves them:
+        AllPartitions on the partition property means every partition (null); otherwise the
+        value or values an EQ or IN on the property names, inside the where clause. Throws
+        when the query names none.`,
+      javaType: 'String[]',
+      args: 'Predicate predicate',
+      javaCode: `
+        return PartitionedDAO.resolvePartitions(
+          predicate, getPartitionProperty(), "A similarity search");
+      `
+    },
+    {
       name: 'select_',
       type: 'foam.dao.Sink',
       args: 'X x, foam.dao.Sink sink, long skip, long limit, foam.mlang.order.Comparator order, foam.mlang.predicate.Predicate predicate',
@@ -188,6 +221,9 @@ foam.CLASS({
         if ( ! ( order instanceof CosineComparator ) ) {
           return super.select_(x, sink, skip, limit, order, predicate);
         }
+        // Reject a search that names no partition before the index loads: loading reads every
+        // partition's rows, and a rejected search should cost nothing.
+        String[] partitions = getPartitionProperty() == null ? null : partitionsOf(predicate);
         ensureLoaded_();
 
         CosineComparator cc    = (CosineComparator) order;
@@ -207,7 +243,7 @@ foam.CLASS({
         List<VectorEmbedding> visible = new ArrayList<>();
         for ( long depth = want ; ; depth = Math.min(depth * 2, rows) ) {
           List<VectorIndex.Hit> hits = index.search(
-            cc.getQueryVector(), cc.getEmbeddingModel(), predicate, (int) depth);
+            cc.getQueryVector(), cc.getEmbeddingModel(), partitions, predicate, (int) depth);
           visible.clear();
           for ( VectorIndex.Hit hit : hits ) {
             String id = hit.row.getId();

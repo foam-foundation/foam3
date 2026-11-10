@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.VectorIndex',
     'foam.ai.vector.VectorStoreDAO',
+    'foam.core.partition.AllPartitions',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.MDAO',
@@ -32,18 +33,25 @@ foam.CLASS({
     'foam.mlang.sink.Count',
     'foam.util.SafetyUtil',
     'java.util.ArrayList',
+    'java.util.Arrays',
     'java.util.Base64',
     'java.util.Collections',
     'java.util.HashMap',
+    'java.util.HashSet',
     'java.util.List',
     'java.util.Map',
     'java.util.Random',
+    'java.util.Set',
     'java.util.concurrent.ExecutorService',
     'java.util.concurrent.Executors',
     'java.util.concurrent.Future',
     'java.util.concurrent.atomic.AtomicBoolean',
     'java.util.concurrent.atomic.AtomicInteger',
-    'static foam.mlang.MLang.EQ'
+    'static foam.mlang.MLang.AND',
+    'static foam.mlang.MLang.EQ',
+    'static foam.mlang.MLang.IN',
+    'static foam.mlang.MLang.NOT',
+    'static foam.mlang.MLang.OR'
   ],
 
   documentation: `
@@ -80,9 +88,22 @@ foam.CLASS({
           // The framework default is float32; most tests here are about the index, and run on int8.
           Quantizer int8() { return new Int8Quantizer(); }
 
-          // A search loads the index; until then puts only reach the DAO.
+          // The same, partitioned on kind.
+          VectorStoreDAO partitioned() {
+            return new VectorStoreDAO.Builder(ctx).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()))
+              .setQuantizer(int8()).setBlockBytes(512).setPartitionProperty(VectorEmbedding.KIND).build();
+          }
+
+          // A search loads the index; until then puts only reach the DAO. A partitioned store
+          // refuses a search that names no partition, so that one visits them all.
           void load(VectorStoreDAO dao) {
-            search(dao, rand(16), "m", null, 0, 1);
+            Predicate all = null;
+            if ( dao.getPartitionProperty() != null ) {
+              AllPartitions every = new AllPartitions();
+              every.setArg1(dao.getPartitionProperty());
+              all = every;
+            }
+            search(dao, rand(16), "m", all, 0, 1);
           }
 
           List<VectorEmbedding> search(DAO dao, float[] q, String model, Predicate p, long skip, long limit) {
@@ -775,8 +796,196 @@ foam.CLASS({
         fuzz.put(fx.emb("again", "m", "y", fx.rand(16)));
         expect((long) fuzz.getIndex().size(), 1L, "an emptied store takes rows again");
 
+        // ── partitions: a search names its partition ──────────────────────────
+        final VectorStoreDAO part = fx.partitioned();
+        fx.load(part);
+        for ( int i = 0 ; i < 90 ; i++ ) {
+          VectorEmbedding pe = fx.emb("p" + i, "m", i % 3 == 0 ? "a" : i % 3 == 1 ? "b" : "c", fx.rand(16));
+          if ( i % 2 == 0 ) pe.setSourceId("even");
+          part.put(pe);
+        }
+        float[] pq = fx.rand(16);
+        Predicate inA  = EQ(VectorEmbedding.KIND, "a");
+        Predicate inAB = IN(VectorEmbedding.KIND, new String[] { "a", "b" });
+        AllPartitions allKinds = new AllPartitions();
+        allKinds.setArg1(VectorEmbedding.KIND);
 
-        // ── a row the index cannot hold must not stop a load ───────────────────
+        boolean noPartition = false;
+        String  noPartMsg   = "";
+        try { fx.search(part, pq, "m", null, 0, 5); } catch (UnsupportedOperationException e) { noPartition = true; noPartMsg = e.getMessage(); }
+        test(noPartition && noPartMsg.indexOf("kind") >= 0, "a similarity search that names no partition is rejected, naming the property: " + noPartMsg);
+        boolean otherFilter = false;
+        try { fx.search(part, pq, "m", EQ(VectorEmbedding.SOURCE_ID, "even"), 0, 5); } catch (UnsupportedOperationException e) { otherFilter = true; }
+        test(otherFilter, "a filter on some other property does not pick a partition");
+
+        got = fx.search(part, pq, "m", inA, 0, 100);
+        test(got.size() == 30 && fx.matchesBrute(got, fx.rows(part), pq, "m", inA, 0, 100),
+          "EQ on the partition property scans only that partition and ranks exactly");
+        got = fx.search(part, pq, "m", inAB, 0, 100);
+        test(got.size() == 60 && fx.matchesBrute(got, fx.rows(part), pq, "m", inAB, 0, 100),
+          "IN on the partition property merges its partitions into one exact ranking");
+        got = fx.search(part, pq, "m", allKinds, 0, 100);
+        test(got.size() == 90 && fx.matchesBrute(got, fx.rows(part), pq, "m", allKinds, 0, 100),
+          "AllPartitions scans every partition");
+        expect((long) fx.search(part, pq, "m", EQ(VectorEmbedding.KIND, "none"), 0, 10).size(), 0L,
+          "a partition with no rows gives an empty page, not an error");
+        Predicate aEven = AND(inA, EQ(VectorEmbedding.SOURCE_ID, "even"));
+        got = fx.search(part, pq, "m", aEven, 0, 100);
+        test(got.size() == 15 && fx.matchesBrute(got, fx.rows(part), pq, "m", aEven, 0, 100),
+          "the partition is found inside an AND with other conditions, which still filter");
+        test(fx.matchesBrute(fx.search(part, pq, "m", inA, 3, 4), fx.rows(part), pq, "m", inA, 3, 4),
+          "skip and limit work within a partition");
+        // With no predicate to help, only the named partition's rows come back from the index.
+        expect((long) part.getIndex().search(pq, "m", new String[] { "a" }, null, 1000).size(), 30L,
+          "the index scans only the partition it is asked for");
+        expect((long) ((ArraySink) part.select(new ArraySink())).getArray().size(), 90L,
+          "a plain select, with no similarity order, needs no partition");
+
+        // A row whose partition value changes moves to the new partition.
+        VectorEmbedding p0 = (VectorEmbedding) part.find("p0").fclone();
+        float[] p0v = p0.floats();
+        p0.setKind("c");
+        part.put(p0);
+        test(fx.search(part, p0v, "m", inA, 0, 100).size() == 29, "the row left its old partition");
+        expect((long) part.getIndex().search(pq, "m", new String[] { "a" }, null, 1000).size(), 29L,
+          "and the old partition's group no longer holds it");
+        Set<String> everyId = new HashSet<>();
+        for ( VectorIndex.Hit h : part.getIndex().search(pq, "m", null, null, 1000) ) everyId.add(h.row.getId());
+        expect((long) everyId.size(), 90L, "and no partition holds a row twice: all 90 rows are found once");
+        got = fx.search(part, p0v, "m", EQ(VectorEmbedding.KIND, "c"), 0, 1);
+        test(got.size() == 1 && "p0".equals(got.get(0).getId()) && got.get(0).getScore() > 0.99f, "and ranks first in its new one");
+
+        // Two models in one partition stay apart.
+        part.put(fx.emb("m2a", "m2", "a", fx.rand(16)));
+        got = fx.search(part, pq, "m", inA, 0, 100);
+        boolean onlyM = got.size() == 29;
+        for ( VectorEmbedding e : got ) onlyM = onlyM && "m".equals(e.getEmbeddingModel());
+        test(onlyM, "a search of one model skips the other model's rows in the same partition");
+        got = fx.search(part, pq, "m2", inA, 0, 100);
+        test(got.size() == 1 && "m2a".equals(got.get(0).getId()), "and the other model finds its own");
+
+        // A partition's group goes when its last row does.
+        int groupsBefore = part.getIndex().groupCount();
+        part.put(fx.emb("lone", "m", "d", fx.rand(16)));
+        expect((long) part.getIndex().groupCount(), (long) groupsBefore + 1, "a new partition value adds a group");
+        part.remove(part.find("lone"));
+        expect((long) part.getIndex().groupCount(), (long) groupsBefore, "the group goes with its last row");
+
+        // Concurrent writers and searchers on a partitioned store.
+        final VectorStoreDAO cp = fx.partitioned();
+        fx.load(cp);
+        ExecutorService cpPool = Executors.newFixedThreadPool(8);
+        List<Future<?>> cpFutures = new ArrayList<>();
+        for ( int t = 0 ; t < 4 ; t++ ) {
+          final int tt = t;
+          cpFutures.add(cpPool.submit(() -> { for ( int i = 0 ; i < 200 ; i++ ) cp.put(fx.emb("cp" + tt + "-" + i, "m", i % 2 == 0 ? "a" : "b", fx.rand(16))); }));
+          cpFutures.add(cpPool.submit(() -> { for ( int i = 0 ; i < 60 ; i++ ) fx.search(cp, fx.rand(16), "m", EQ(VectorEmbedding.KIND, "a"), 0, 10); }));
+        }
+        boolean cpOk = true;
+        for ( Future<?> f : cpFutures ) {
+          try { f.get(); } catch (Exception e) { cpOk = false; }
+        }
+        cpPool.shutdown();
+        test(cpOk, "4 writers and 4 searchers on a partitioned store run together without errors");
+        expect((long) cp.getIndex().size(), 800L, "the partitioned index holds every row written");
+        expect((long) fx.search(cp, fx.rand(16), "m", EQ(VectorEmbedding.KIND, "a"), 0, 1000).size(), 400L,
+          "and the partition holds its half");
+
+        // The delegate's read check and the deepening still work inside a partition.
+        MDAO gRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        DAO  gDao  = new ProxyDAO(x, gRows) {
+          @Override
+          public FObject find_(X x, Object id) {
+            return String.valueOf(id).startsWith("hid") ? null : super.find_(x, id);
+          }
+        };
+        VectorStoreDAO gStore = new VectorStoreDAO.Builder(x).setDelegate(gDao).setBlockBytes(512)
+          .setPartitionProperty(VectorEmbedding.KIND).build();
+        float[] gq = fx.rand(16);
+        for ( int i = 0 ; i < 20 ; i++ ) {
+          float[] hv = gq.clone();
+          hv[i % 16] += 0.01f;
+          gStore.put(fx.emb("hid" + i, "m", "a", hv));
+        }
+        for ( int i = 0 ; i < 30 ; i++ ) gStore.put(fx.emb("ok" + i, "m", "a", fx.rand(16)));
+        for ( int i = 0 ; i < 5 ; i++ ) gStore.put(fx.emb("other" + i, "m", "b", gq));
+        got = fx.search(gStore, gq, "m", inA, 0, 5);
+        List<VectorEmbedding> okRows = new ArrayList<>();
+        for ( VectorEmbedding e : fx.rows(gStore) ) if ( e.getId().startsWith("ok") ) okRows.add(e);
+        test(fx.matchesBrute(got, okRows, gq, "m", inA, 0, 5),
+          "a partitioned search drops rows the delegate hides and fills the page from the same partition");
+
+        // ── partition edge cases: where the partition is read, when the error comes, bad rows ──
+        // A rule or decorator below the store may change the partition property on a put. The row
+        // must be filed under the value that was stored, or a search of that value cannot find it.
+        DAO rewriting = new ProxyDAO(x, new MDAO(VectorEmbedding.getOwnClassInfo())) {
+          @Override
+          public FObject put_(X x, FObject obj) {
+            VectorEmbedding changed = (VectorEmbedding) obj.fclone();
+            changed.setKind("moved");
+            return super.put_(x, changed);
+          }
+        };
+        VectorStoreDAO rw = new VectorStoreDAO.Builder(x).setDelegate(rewriting).setBlockBytes(512)
+          .setPartitionProperty(VectorEmbedding.KIND).build();
+        fx.load(rw);
+        float[] rwv = fx.rand(16);
+        rw.put(fx.emb("rw1", "m", "sent", rwv));
+        got = fx.search(rw, rwv, "m", EQ(VectorEmbedding.KIND, "moved"), 0, 5);
+        test(got.size() == 1 && "rw1".equals(got.get(0).getId()),
+          "a row is filed under the partition value the delegate stored, so a search of it finds the row");
+        expect((long) fx.search(rw, rwv, "m", EQ(VectorEmbedding.KIND, "sent"), 0, 5).size(), 0L,
+          "and not under the value it was sent with");
+
+        // A search that names no partition is rejected before the index loads.
+        MDAO coldKindRows = new MDAO(VectorEmbedding.getOwnClassInfo());
+        coldKindRows.put(fx.emb("ck0", "m", "a", fx.rand(16)));
+        VectorStoreDAO coldKind = new VectorStoreDAO.Builder(x).setDelegate(coldKindRows).setBlockBytes(512)
+          .setPartitionProperty(VectorEmbedding.KIND).build();
+        boolean coldRejected = false;
+        try { fx.search(coldKind, fx.rand(16), "m", null, 0, 5); } catch (UnsupportedOperationException e) { coldRejected = true; }
+        test(coldRejected && ! coldKind.getIndex().isLoaded(), "a search that names no partition is rejected before the index loads");
+        got = fx.search(coldKind, fx.rand(16), "m", EQ(VectorEmbedding.KIND, "a"), 0, 5);
+        test(got.size() == 1 && coldKind.getIndex().isLoaded(), "and a search that names one loads it and finds the row");
+
+        // Filters that do not name a partition, and the ones that name every partition.
+        boolean orRejected = false;
+        try { fx.search(part, pq, "m", OR(inA, EQ(VectorEmbedding.KIND, "b")), 0, 5); } catch (UnsupportedOperationException e) { orRejected = true; }
+        test(orRejected, "an OR of partition values is rejected: it is not an EQ or IN the search can route by");
+        boolean notRejected = false;
+        try { fx.search(part, pq, "m", NOT(inA), 0, 5); } catch (UnsupportedOperationException e) { notRejected = true; }
+        test(notRejected, "a NOT of a partition value is rejected");
+        Predicate allAndA = AND(allKinds, inA);
+        got = fx.search(part, pq, "m", allAndA, 0, 100);
+        test(got.size() > 0 && fx.matchesBrute(got, fx.rows(part), pq, "m", allAndA, 0, 100),
+          "AllPartitions visits every partition and the EQ beside it still filters each row");
+        expect((long) fx.search(part, pq, "m", IN(VectorEmbedding.KIND, new String[0]), 0, 10).size(), 0L,
+          "an IN with no values finds nothing instead of failing as if no partition were named");
+        got = fx.search(part, pq, "m", IN(VectorEmbedding.KIND, new ArrayList<Object>(Arrays.asList("a", "b"))), 0, 100);
+        test(got.size() == 59, "IN given a List names its partitions like one given an array");
+
+        // A partition value of "" (an unset String) is a partition like any other.
+        VectorStoreDAO bySource = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo()))
+          .setBlockBytes(512).setPartitionProperty(VectorEmbedding.SOURCE_ID).build();
+        fx.load(bySource);
+        for ( int i = 0 ; i < 6 ; i++ ) bySource.put(fx.emb("e" + i, "m", "y", fx.rand(16)));
+        for ( int i = 0 ; i < 4 ; i++ ) {
+          VectorEmbedding withSource = fx.emb("d" + i, "m", "y", fx.rand(16));
+          withSource.setSourceId("doc1");
+          bySource.put(withSource);
+        }
+        expect((long) fx.search(bySource, pq, "m", EQ(VectorEmbedding.SOURCE_ID, ""), 0, 100).size(), 6L,
+          "rows with no value for the partition property sit in the partition named by the empty string");
+        expect((long) fx.search(bySource, pq, "m", EQ(VectorEmbedding.SOURCE_ID, "doc1"), 0, 100).size(), 4L,
+          "and are not mixed with the others");
+
+        // A store opened over rows that are already in its delegate (a restart) loads them by partition.
+        VectorStoreDAO restarted = new VectorStoreDAO.Builder(x).setDelegate(part.getDelegate()).setBlockBytes(512)
+          .setQuantizer(fx.int8()).setPartitionProperty(VectorEmbedding.KIND).build();
+        got = fx.search(restarted, pq, "m", inAB, 0, 100);
+        test(got.size() > 0 && fx.matchesBrute(got, fx.rows(restarted), pq, "m", inAB, 0, 100),
+          "a store loaded from rows already in its delegate ranks each partition exactly");
+
         // One row whose vector cannot be indexed must not stop the rest of a load.
         Quantizer encodeThrows = new Float32Quantizer() {
           @Override public String formatId() { return "test-encode-throws"; }

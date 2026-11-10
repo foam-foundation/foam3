@@ -58,7 +58,7 @@ public class NotPartitionedDAO
       // The replay that follows reports its own start/progress/complete.
 
       // Replay as the system user, not as whichever user's request triggered the load.
-      X callerX = XLocator.get();
+      X callerX = ((ProxyX) XLocator.get()).getX();
       XLocator.set(getX());
       loadingStarted("");
       try {

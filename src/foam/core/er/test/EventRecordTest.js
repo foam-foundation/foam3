@@ -72,6 +72,36 @@ foam.CLASS({
       test( alarm != null, "alarm exists");
       test ( ! alarm.getIsActive(), "Alarm cleared");
       test( emailCount(emailMessageDAO, s) == raiseEmails + 1, "clear of an alarm raised at ERROR sends a notification");
+      test( alarm != null && alarm.getId().equals(er.getAlarm()), "clearing EventRecord references its alarm " + er.getAlarm());
+
+      // A later INFO record with the same name, such as the next successful
+      // poll after a failed one, cleared nothing and sends nothing.
+      er = new EventRecord();
+      er.setX(x);
+      er.setSource(this);
+      er.setEvent(s);
+      er.setCode(s);
+      er.setMessage(s);
+      er.setPartner(s);
+      er.setSeverity(LogLevel.INFO);
+      er = (EventRecord) erDAO.put_(x, er);
+
+      Thread.sleep(1000);
+
+      test( emailCount(emailMessageDAO, s) == raiseEmails + 1, "INFO record after the clear sends no notification");
+
+      // The alarm has no reason, so its notifications leave the reason line
+      // out rather than show Unspecified.
+      boolean found = false;
+      boolean reasonShown = false;
+      List<Notification> notifications = (List) ((ArraySink) ((DAO) x.get("localNotificationDAO")).select(new ArraySink())).getArray();
+      for ( Notification n : notifications ) {
+        if ( n.getBody() != null && n.getBody().contains(er.alarmSummary()) ) {
+          found = true;
+          if ( n.getBody().contains("reason:") ) reasonShown = true;
+        }
+      }
+      test( found && ! reasonShown, "alarm notification has no reason line, found: " + found);
 
       // notification will generate email
       List<EmailMessage> emailMessages = (List) ((ArraySink) emailMessageDAO.select(new ArraySink())).getArray();

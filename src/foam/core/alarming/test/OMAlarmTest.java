@@ -17,12 +17,17 @@
 package foam.core.alarming.test;
 
 import foam.core.alarming.*;
+import foam.core.analytics.Candlestick;
+import foam.core.er.EventRecord;
 import foam.core.om.OMLogger;
 import foam.dao.ArraySink;
 import foam.dao.DAO;
 import foam.lang.X;
 import static foam.mlang.MLang.COUNT;
+import static foam.mlang.MLang.DESC;
+import static foam.mlang.MLang.EQ;
 import foam.mlang.sink.Count;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,9 @@ public class OMAlarmTest
   static String CONTROL = "Control";
   static String CONTROLCHECK = "ControlCheck";
   static String CONGESTION = "Congestion";
+  static String BURST = "Burst";
+  static String CREDENTIALS = "Credentials";
+  static String QUIET = "Quiet";
 
   public void runTest(X x) {
     try {
@@ -126,8 +134,125 @@ public class OMAlarmTest
 
       alarm = alarmMap.get(CONGESTION);
       test(alarm != null && alarm.getIsActive() , CONGESTION+" active alarm found "+alarm);
+
+      testBurst(x, omLogger, alarmConfigDAO);
+      testCredentials(x, omLogger, alarmConfigDAO);
+      testQuiet(x, omLogger, alarmConfigDAO);
     } catch (Throwable t) {
       test(false, t.getMessage());
     }
+  }
+
+  // A burst of timeouts raises a TIMEOUT alarm. Timeouts that arrive after
+  // the requests stop leave it on, and it clears once requests are answered
+  // again, even though the burst's candlestick is still the latest one for
+  // the timeout OM.
+  void testBurst(X x, OMLogger omLogger, DAO alarmConfigDAO) throws InterruptedException {
+    AlarmConfig ac = new AlarmConfig();
+    ac.setName(BURST);
+    ac.setSeverity(foam.log.LogLevel.ERROR);
+    ac.setMonitorType(MonitorType.OTHER);
+    ac.setPreRequest(BURST+"."+OM_REQUEST);
+    ac.setPostRequest(BURST+"."+OM_RESPONSE);
+    ac.setTimeOutRequest(BURST+"."+OM_TIMEOUT);
+    alarmConfigDAO.put(ac);
+
+    for ( int i = 0; i < 10; i++ ) {
+      omLogger.log(BURST,OM_REQUEST);
+      omLogger.log(BURST,OM_TIMEOUT);
+    }
+    evaluate(x, BURST);
+    Alarm alarm = findAlarm(x, BURST);
+    test(alarm != null && alarm.getIsActive(), BURST+" raised by 10 timeouts in 10 attempts "+alarm);
+
+    age(x, BURST+"."+OM_REQUEST);
+    age(x, BURST+"."+OM_TIMEOUT);
+    for ( int i = 0; i < 5; i++ )
+      omLogger.log(BURST,OM_TIMEOUT);
+    evaluate(x, BURST);
+    alarm = findAlarm(x, BURST);
+    test(alarm != null && alarm.getIsActive(), BURST+" stays on with 5 timeouts and no attempts in the window "+alarm);
+
+    age(x, BURST+"."+OM_TIMEOUT);
+    for ( int i = 0; i < 10; i++ ) {
+      omLogger.log(BURST,OM_REQUEST);
+      omLogger.log(BURST,OM_RESPONSE);
+    }
+    evaluate(x, BURST);
+    alarm = findAlarm(x, BURST);
+    test(alarm != null && ! alarm.getIsActive(), BURST+" clears with 10 answered attempts after the burst "+alarm);
+  }
+
+  // A CREDENTIALS config with timeOutRequest alarms only on the failures that
+  // OM names, credential failures here. Unanswered requests, such as
+  // timeouts, do not raise it.
+  void testCredentials(X x, OMLogger omLogger, DAO alarmConfigDAO) throws InterruptedException {
+    AlarmConfig ac = new AlarmConfig();
+    ac.setName(CREDENTIALS);
+    ac.setSeverity(foam.log.LogLevel.ERROR);
+    ac.setMonitorType(MonitorType.CREDENTIALS);
+    ac.setPreRequest(CREDENTIALS+"."+OM_REQUEST);
+    ac.setPostRequest(CREDENTIALS+"."+OM_RESPONSE);
+    ac.setTimeOutRequest(CREDENTIALS+".invalid");
+    alarmConfigDAO.put(ac);
+
+    for ( int i = 0; i < 10; i++ ) {
+      omLogger.log(CREDENTIALS,OM_REQUEST);
+      if ( i % 2 == 0 )
+        omLogger.log(CREDENTIALS,OM_RESPONSE);
+      else
+        omLogger.log(CREDENTIALS,OM_TIMEOUT);
+    }
+    evaluate(x, CREDENTIALS);
+    Alarm alarm = findAlarm(x, CREDENTIALS);
+    test(alarm == null || ! alarm.getIsActive(), CREDENTIALS+" not raised by 5 timeouts in 10 attempts "+alarm);
+
+    for ( int i = 0; i < 5; i++ )
+      omLogger.log(CREDENTIALS,"invalid");
+    evaluate(x, CREDENTIALS);
+    alarm = findAlarm(x, CREDENTIALS);
+    test(alarm != null && alarm.getIsActive(), CREDENTIALS+" raised by 5 credential failures in 10 attempts "+alarm);
+  }
+
+  // A config below WARN raises no alarm, so it must not put a record on
+  // every cycle while it trips.
+  void testQuiet(X x, OMLogger omLogger, DAO alarmConfigDAO) throws InterruptedException {
+    AlarmConfig ac = new AlarmConfig();
+    ac.setName(QUIET);
+    ac.setSeverity(foam.log.LogLevel.INFO);
+    ac.setMonitorType(MonitorType.CONTROLCHECK);
+    ac.setPreRequest(QUIET+"."+OM_REQUEST);
+    ac.setPostRequest(QUIET+"."+OM_RESPONSE);
+    alarmConfigDAO.put(ac);
+
+    for ( int i = 0; i < 10; i++ )
+      omLogger.log(QUIET,OM_REQUEST);
+    evaluate(x, QUIET);
+    evaluate(x, QUIET);
+    Count records = (Count) ((DAO) x.get("eventRecordDAO")).where(EQ(EventRecord.EVENT, QUIET)).select(COUNT());
+    test(((Long) records.getValue()) == 0, QUIET+" INFO config that trips puts no EventRecord "+records.getValue());
+  }
+
+  void evaluate(X x, String name) throws InterruptedException {
+    MonitoringReport report = new MonitoringReport();
+    report.setName(name);
+    ((DAO) x.get("monitoringReportDAO")).put(report);
+    Thread.sleep(1000);
+  }
+
+  Alarm findAlarm(X x, String name) {
+    return (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, name));
+  }
+
+  // Moves the latest candlestick of key ten minutes back, as if it had been
+  // logged then, so it stays the latest but is outside the window.
+  void age(X x, String key) {
+    DAO dao = (DAO) x.get("localOm1MinuteDAO");
+    Candlestick c = (Candlestick) dao.orderBy(DESC(Candlestick.CLOSE_TIME)).find(EQ(Candlestick.KEY, key));
+    if ( c == null ) return;
+    dao.remove(c);
+    c = (Candlestick) c.fclone();
+    c.setCloseTime(new Date(c.getCloseTime().getTime() - 10 * 60 * 1000));
+    dao.put(c);
   }
 }

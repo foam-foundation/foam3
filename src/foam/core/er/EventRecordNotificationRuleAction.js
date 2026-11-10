@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'static foam.mlang.MLang.EQ',
     'foam.core.alarming.Alarm',
+    'foam.core.alarming.AlarmReason',
     'foam.core.app.AppConfig',
     'foam.core.auth.User',
     'foam.core.auth.CreatedAware',
@@ -68,10 +69,13 @@ foam.CLASS({
       // only when it cleared an alarm whose raise notified. An alarm raised
       // at WARN sent nothing when it went on, so its clear sends nothing
       // either; the alarm keeps the highest severity it was raised with.
-      // EventRecordAlarmRule runs first, at a higher priority, so the alarm
-      // is already up to date.
+      // EventRecordAlarmRule runs first, at a higher priority, and sets
+      // er.alarm only on the record that raised or cleared the alarm. An
+      // INFO record after the clear, such as the next successful poll of an
+      // EmailFolderAgent, carries no alarm and sends nothing.
       if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
-        Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
+        Alarm alarm = er.getAlarm() == null ? null :
+          (Alarm) ((DAO) x.get("alarmDAO")).find(er.getAlarm());
         if ( alarm == null || alarm.getIsActive() ||
              alarm.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() )
           return;
@@ -135,8 +139,12 @@ foam.CLASS({
         body.append(alarm.getIsActive() ? "Active": "Cleared");
         body.append("\\nseverity: ");
         body.append(alarm.getSeverity().getLabel());
-        body.append("\\nreason: ");
-        body.append(alarm.getReason().getLabel());
+        // An alarm raised through an EventRecord has no reason; the reason,
+        // if any, is in the info line below.
+        if ( alarm.getReason() != AlarmReason.UNSPECIFIED ) {
+          body.append("\\nreason: ");
+          body.append(alarm.getReason().getLabel());
+        }
         body.append("\\nhost: ");
         body.append(alarm.getHostname());
         body.append("\\nstarted: ");

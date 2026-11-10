@@ -123,9 +123,9 @@ never an older candlestick.
 - **THRESHOLD**: on with reason THRESHOLD while `startCount` is above
   `alarmValue`, a count rather than a percentage.
 
-When none of these holds, the alarm should be off. When no OM of the config
-was logged in the window, nothing changes, so an alarm only clears once a
-request succeeds.
+When none of these holds, the alarm should be off. When no request
+(`preRequest`) was logged in the window, nothing changes, even if failures
+were, so an alarm only clears once a request succeeds.
 
 ## 5. Raising and clearing
 
@@ -142,12 +142,15 @@ the alarm changes state, not on every cycle:
 - **Clear**: the alarm is on and should be off. The same `event`, severity
   INFO.
 
+A config whose `severity` is below WARN puts no raising record: that record
+would raise no alarm, so the next cycle would put another one.
+
 `EventRecordAlarmRuleAction` turns the alarm on for a record at or above its
 `alarmSeverity`, set to WARN on the rule's action, and off for INFO, writing
 to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a notification
 for a record at or above its `notificationSeverity`, ERROR by default, and for
-a record below it only when it clears an alarm raised at or above
-`notificationSeverity`. So a WARN raise, the default for a config's
+a record below it only when that record cleared an alarm raised at or above
+`notificationSeverity`; a later INFO record with the same name sends nothing. So a WARN raise, the default for a config's
 `severity`, turns the alarm on and off without a notification, while an ERROR
 raise notifies and so does its clear. A config that should notify needs
 `severity` ERROR.

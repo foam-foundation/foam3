@@ -62,24 +62,24 @@ foam.CLASS({
             EQ(Candlestick.KEY, config.getTimeOutRequest())
           );
 
-          boolean updateAlarm = false;
-
           // check to see if the sent candlestick is the latest one
           if ( sentRequest != null && Math.abs(sentRequest.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime() ) {
-            updateAlarm = true;
             report.setStartCount(report.getStartCount() + (int) sentRequest.getCount());
           }
           // check to see if the response candlestick is the latest one
           if ( receiveResponses != null && Math.abs(receiveResponses.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime() ) {
-              updateAlarm = true;
               report.setEndCount(report.getEndCount() + (int) receiveResponses.getCount());
           }
           if ( timeout != null && (Math.abs(timeout.getCloseTime().getTime() - currentCloseTime.getTime()) < config.getCycleTime()) ) {
-              updateAlarm = true;
               report.setTimeoutCount(report.getTimeoutCount() + (int) timeout.getCount());
           }
 
-          if ( ! updateAlarm ) {
+          // With no attempts in the window no check can trip, so an active
+          // alarm would clear. Timeouts logged a minute after the last
+          // request, once traffic stops, would clear a TIMEOUT alarm that
+          // nothing has resolved. Leave the alarm as it is until a request
+          // is logged.
+          if ( report.getStartCount() == 0 ) {
             return;
           }
 
@@ -112,7 +112,11 @@ foam.CLASS({
           // EventRecord on every cycle would send a notification each time.
           Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, config.getName()));
           boolean active = alarm != null && alarm.getIsActive();
-          if ( reason != null && ! active ) {
+          // A config below WARN raises no alarm, so the alarm never turns
+          // on and an INFO config that trips would put a record every
+          // cycle. Leave it alone instead.
+          if ( reason != null && ! active &&
+               config.getSeverity().getOrdinal() >= LogLevel.WARN.getOrdinal() ) {
             AlarmAndMonitoring.this.putEventRecord(x, config, report, reason, config.getSeverity());
           } else if ( reason == null && active ) {
             AlarmAndMonitoring.this.putEventRecord(x, config, report, null, LogLevel.INFO);

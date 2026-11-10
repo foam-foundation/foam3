@@ -88,6 +88,10 @@ whose journal is write-only and not replayed, so they are dropped on restart.`,
         alarm.setIsActive(false);
         alarm.setNote(er.getMessage());
         alarm = (Alarm) alarmDAO.put(alarm);
+        // The notification rule sends the clear only for the record that
+        // cleared the alarm, the one that carries it, so a later INFO record
+        // with the same name, such as the next successful poll, sends nothing.
+        er.setAlarm(alarm.getId());
       }
       `
     }

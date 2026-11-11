@@ -57,12 +57,16 @@ public class NotPartitionedDAO
         updateStatus(CSpecStatus.UNLOADED, "Unload", "garbage collected", getDirName());
       // The replay that follows reports its own start/progress/complete.
 
+      // Replay as the system user, not as whichever user's request triggered the load.
+      X callerX = ((ProxyX) XLocator.get()).getX();
+      XLocator.set(getX());
       loadingStarted("");
       try {
         dao = createDAO();
         delegate_ = new SoftReference<>(dao);
       } finally {
         loadingEnded("");
+        XLocator.set(callerX);
       }
     }
 

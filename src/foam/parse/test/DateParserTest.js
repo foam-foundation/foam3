@@ -1270,7 +1270,7 @@ foam.CLASS({
     function testFractionalSeconds(x) {
       let parser = this.DateParser.create();
 
-      // Test fractional seconds with 1-6 digits (milliseconds and microseconds)
+      // Test fractional seconds with 1-9 digits (milli, micro and nanoseconds)
       // All formats should normalize to milliseconds (first 3 digits)
       let fractionalTests = [
         // YYYY-MM-DD format with microseconds
@@ -1280,6 +1280,9 @@ foam.CLASS({
         { input: '2025-01-15 14:30:45.1', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 100 },
         { input: '2025-01-15 14:30:45.12', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 120 },
         { input: '2025-01-15 14:30:45.999999', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 999 },
+        // 7 digits (SQL Server datetime2) and 9 digits (nanoseconds)
+        { input: '2026-09-10 13:57:13.0000000', year: 2026, month: 8, day: 10, hour: 13, minute: 57, second: 13, millisecond: 0 },
+        { input: '2025-01-15T14:30:45.123456789', year: 2025, month: 0, day: 15, hour: 14, minute: 30, second: 45, millisecond: 123 },
         // Single-digit YYYY-MM-DD with fractional seconds
         { input: '2025-1-5 10:15:30.500', year: 2025, month: 0, day: 5, hour: 10, minute: 15, second: 30, millisecond: 500 },
         { input: '2025/7/2T14:30:45.123', year: 2025, month: 6, day: 2, hour: 14, minute: 30, second: 45, millisecond: 123 },

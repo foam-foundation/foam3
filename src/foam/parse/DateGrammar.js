@@ -767,7 +767,7 @@ foam.CLASS({
         hour2: str(seq(range('0', '2'), range('0', '9'))),
         minute2: str(seq(range('0', '5'), range('0', '9'))),
         second2: str(seq(range('0', '5'), range('0', '9'))),
-        fractionalSeconds: str(repeat(range('0', '9'), null, 1, 6))  // 1-6 digits for milliseconds or microseconds
+        fractionalSeconds: str(repeat(range('0', '9'), null, 1, 9))  // 1-9 digits: milli, micro or nanoseconds (e.g. SQL Server datetime2 has 7)
       };
     }
   ]

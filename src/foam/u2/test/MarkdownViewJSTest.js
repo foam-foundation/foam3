@@ -213,8 +213,8 @@ foam.CLASS({
       x.test(text(v).indexOf('After the steps.') != -1, 'the page after the stepper still renders');
       v.remove();
 
-      // A closing tag only closes the tag of the same name, so <name> inside a
-      // hint does not swallow the hint's own closing tag.
+      // A <name> that is never closed, written inside a hint, is text: it
+      // does not take the hint's own closing tag as its end.
       v = await render('<hint category="hint">\nUse the <name> of the file here.\n</hint>\n\nAfter the hint.\n');
       var hint = q(v, '.foam-u2-markdown-Hint');
       x.test(hint && hint.innerText.replace(/\s+/g, ' ').indexOf('Use the <name> of the file here.') != -1, 'a <word> inside a hint shows as text, got ' + JSON.stringify(hint && hint.innerText));

@@ -216,3 +216,19 @@ p({
   executionCount: 1,
   oneTimeSetup: true
 })
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "OMLoggerNewKeysBenchmarkRunner",
+  benchmarkId: "OMLoggerNewKeysBenchmark",
+  threadCount: 1,
+  executionCount: 10,
+  oneTimeSetup: true
+})
+p({
+  class: "foam.core.bench.BenchmarkRunner",
+  id: "OMLoggerSameKeysBenchmarkRunner",
+  benchmarkId: "OMLoggerSameKeysBenchmark",
+  threadCount: 1,
+  executionCount: 10,
+  oneTimeSetup: true
+})

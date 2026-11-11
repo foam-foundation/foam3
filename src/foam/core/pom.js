@@ -553,6 +553,7 @@ foam.POM({
     { name: "benchmark/JSONOutputterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONUtilEscapeBenchmark",                      flags: "js&test|java&test" },
     { name: "benchmark/PMBenchmark",                                  flags: "js&test|java&test" },
+    { name: "benchmark/OMLoggerBenchmark",                            flags: "js&test|java&test" },
     { name: "benchmark/F3FileJournalBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/JSONFormatterBenchmark",                       flags: "js&test|java&test" },
     { name: "benchmark/F3JournalReplayBenchmark",                     flags: "js&test|java&test" },

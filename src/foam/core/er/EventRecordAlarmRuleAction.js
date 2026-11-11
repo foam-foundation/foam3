@@ -9,7 +9,9 @@ foam.CLASS({
   name: 'EventRecordAlarmRuleAction',
   implements: [ 'foam.core.ruler.RuleAction' ],
 
-  documentation: `Generate or clear Alarm`,
+  documentation: `Generate or clear Alarm. A record at or above alarmSeverity
+raises it; only an INFO record clears it. Alarms are written to localAlarmDAO,
+whose journal is write-only and not replayed, so they are dropped on restart.`,
 
   javaImports: [
     'foam.core.alarming.Alarm',
@@ -41,7 +43,7 @@ foam.CLASS({
       DAO alarmDAO = (DAO) ruler.getX().get("localAlarmDAO");
       String name = er.alarmSummary();
       Alarm alarm = (Alarm) alarmDAO.find(EQ(Alarm.NAME, name));
-      if ( er.getSeverity().getOrdinal() >= LogLevel.WARN.getOrdinal() ) {
+      if ( er.getSeverity().getOrdinal() >= getAlarmSeverity().getOrdinal() ) {
         if ( alarm == null ) {
           alarm = new Alarm(name);
           alarm.setSeverity(er.getSeverity());
@@ -78,11 +80,18 @@ foam.CLASS({
         alarm.setNote(note.toString());
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
-      } else if ( alarm != null && alarm.getIsActive() ) {
+      } else if ( alarm != null && alarm.getIsActive() &&
+                  er.getSeverity() == LogLevel.INFO ) {
+        // Only an INFO record clears, as EventRecord.md describes. A WARN
+        // record below alarmSeverity neither raises nor clears.
         alarm = (Alarm) alarm.fclone();
         alarm.setIsActive(false);
         alarm.setNote(er.getMessage());
         alarm = (Alarm) alarmDAO.put(alarm);
+        // The notification rule sends the clear only for the record that
+        // cleared the alarm, the one that carries it, so a later INFO record
+        // with the same name, such as the next successful poll, sends nothing.
+        er.setAlarm(alarm.getId());
       }
       `
     }

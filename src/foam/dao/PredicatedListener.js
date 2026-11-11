@@ -15,7 +15,9 @@ foam.CLASS({
     predicate: a remove that holds only the row's id. A row the listener was
     never given is never sent, so a decorator that scopes a listen with a
     predicate (FilteredDAO.predicateIn) does not leak rows outside the scope
-    as removes. Ids it was given are kept in passedIds_, one per matching row.`,
+    as removes. passedIds_ holds one id per matching row: the rows that match
+    when the listen starts (a cache may have read them with select before it
+    listened) and every matching row put since.`,
 
   javaImports: [
     'foam.lang.FObject'
@@ -28,7 +30,7 @@ foam.CLASS({
         // A plain field, not a property: a property would change the
         // generated (predicate, delegate) constructor that AbstractDAO uses.
         cls.extras.push(`
-          // Ids of the rows this listener was given and has not been told are gone.
+          // Ids of the rows this listener may hold and has not been told are gone.
           protected final java.util.Set<Object> passedIds_ = java.util.concurrent.ConcurrentHashMap.newKeySet();
         `);
       }
@@ -76,6 +78,23 @@ foam.CLASS({
         // read it through select, so it goes out whole, as before.
         if ( getPredicate().f(obj) )  getDelegate().remove(obj, sub);
         else if ( passed )            getDelegate().remove(idOnly(obj), sub);
+      `
+    },
+    {
+      name: 'rememberMatching',
+      documentation: `Remembers the ids of the rows in dao that match now. A
+        cache reads with select and then listens, so it may hold these rows
+        without this listener having put them; when one leaves the predicate,
+        the cache must still hear an id-only remove.`,
+      flags: ['java'],
+      args: 'foam.dao.DAO dao',
+      javaCode: `
+        dao.where(getPredicate()).select(new AbstractSink() {
+          @Override
+          public void put(Object obj, foam.lang.Detachable sub) {
+            passedIds_.add(idOf(obj));
+          }
+        });
       `
     },
     {

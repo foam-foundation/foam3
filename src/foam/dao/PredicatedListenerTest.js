@@ -69,6 +69,8 @@ foam.CLASS({
         listenerKeepsUnmatchedRowsOut(x);
         rowThatLeavesGoesOutAsIdOnly(x);
         matchingRemoveGoesOutWhole(x);
+        rowReadBeforeListenThatLeavesGoesOutAsIdOnly(x);
+        trueListenNeedsNoPredicatedListener(x);
         filteredDAODoesNotLeakOutOfScopeRows(x);
       `
     },
@@ -130,6 +132,37 @@ foam.CLASS({
         User gone = heard.getRows().isEmpty() ? null : (User) heard.getRows().get(0);
         test(heard.getEvents().toString().equals("[remove 3]") && "Shown".equals(gone.getLastName()),
           "a remove of a matching row goes out whole, even one the listener only read, got " + heard.getEvents());
+      `
+    },
+    {
+      name: 'rowReadBeforeListenThatLeavesGoesOutAsIdOnly',
+      args: 'X x',
+      javaCode: `
+        DAO dao = new MDAO(User.getOwnClassInfo());
+        // A cache reads with select, then listens: it holds row 6, which the listener never put.
+        dao.put(user(x, 6, "a", "Shown"));
+        dao.put(user(x, 7, "b", "Secret"));
+        Heard heard = new Heard();
+        dao.listen(heard, MLang.EQ(User.SPID, "a"));
+
+        dao.put(user(x, 6, "b", "Moved"));
+        User gone = heard.getRows().isEmpty() ? null : (User) heard.getRows().get(0);
+        test(heard.getEvents().toString().equals("[remove 6]") && "".equals(gone.getLastName()),
+          "a row that matched when the listen started and then leaves goes out as an id-only remove, got " + heard.getEvents());
+
+        dao.put(user(x, 7, "b", "Secret again"));
+        test(heard.getEvents().size() == 1,
+          "a row that did not match when the listen started still sends nothing, got " + heard.getEvents());
+      `
+    },
+    {
+      name: 'trueListenNeedsNoPredicatedListener',
+      args: 'X x',
+      javaCode: `
+        MDAO  dao   = new MDAO(User.getOwnClassInfo());
+        Heard heard = new Heard();
+        test(dao.decorateListener_(heard, MLang.TRUE) == heard,
+          "a listen with TRUE gets no PredicatedListener, so it keeps no ids");
       `
     },
     {

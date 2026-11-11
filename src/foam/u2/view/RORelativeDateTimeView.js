@@ -69,7 +69,7 @@ foam.CLASS({
         addClass(this.myClass()).
         add(this.slot(function(data, now_, smallestUnit) {
           return data ?
-            foam.Date.relativeDateString(data, smallestUnit) :
+            foam.Date.relativeDateString(data, smallestUnit, self.isUTC_()) :
             foam.u2.DateTimeView.DATE_FORMAT;
         })).
       end();
@@ -92,6 +92,12 @@ foam.CLASS({
         second: '2-digit',
         timeZoneName: 'short'
       });
+    },
+
+    function isUTC_() {
+      // A DateTimeUTC value is shown in UTC (formatLocale), so its days are
+      // counted in UTC too: the text and the tooltip name the same day.
+      return foam.lang.DateTimeUTC.isInstance(this.prop);
     },
 
     function isValid_(d) {
@@ -118,11 +124,12 @@ foam.CLASS({
          values age forward to the next minute/hour/day boundary; future
          values count down to the previous one. Beyond that the string
          only changes daily. DAY and WEEK count calendar days, so their
-         string changes at local midnight. */
+         string changes at local midnight (UTC midnight for DateTimeUTC). */
       var TU = foam.time.TimeUnit;
       if ( this.smallestUnit === TU.DAY || this.smallestUnit === TU.WEEK ) {
         var midnight = new Date(Date.now());
-        midnight.setHours(24, 0, 0, 0);
+        if ( this.isUTC_() ) midnight.setUTCHours(24, 0, 0, 0);
+        else                 midnight.setHours(24, 0, 0, 0);
         return midnight.getTime() - Date.now() + 50;
       }
       var diff = Date.now() - date.getTime();

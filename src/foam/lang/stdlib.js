@@ -937,7 +937,7 @@ foam.LIB({
     },
     // Hash n & n: Truncate to 32 bits.
     function hashCode(d) { var n = d.getTime(); return n & n; },
-    function relativeDateString(date, opt_smallestUnit) {
+    function relativeDateString(date, opt_smallestUnit, opt_utc) {
       /* "3 hours ago", "in 2 days", "now", or a short date from 7 days on,
          in the app's language (Intl.RelativeTimeFormat). */
       var D = foam.Date;
@@ -952,8 +952,9 @@ foam.LIB({
       // TimeUnit loads after this file, so look it up here.
       var TU = foam.time && foam.time.TimeUnit;
       if ( TU && opt_smallestUnit ) {
-        if ( opt_smallestUnit === TU.DAY )  return D.calendarRelative_(date, 'day', locale);
-        if ( opt_smallestUnit === TU.WEEK ) return D.calendarRelative_(date, 'week', locale);
+        // opt_utc: count UTC days, for a DateTimeUTC value shown in UTC.
+        if ( opt_smallestUnit === TU.DAY )  return D.calendarRelative_(date, 'day', locale, opt_utc);
+        if ( opt_smallestUnit === TU.WEEK ) return D.calendarRelative_(date, 'week', locale, opt_utc);
         if ( opt_smallestUnit === TU.HOUR && abs < 3600000 ) return D.relativeFormat_(locale, 'auto').format(0, 'hour');
       }
 
@@ -984,14 +985,16 @@ foam.LIB({
       var key   = locale + '|' + numeric;
       return cache[key] || ( cache[key] = new Intl.RelativeTimeFormat(locale, { numeric: numeric }) );
     },
-    function calendarRelative_(date, unit, locale) {
-      // Counts local calendar days or weeks between now and date, so 8pm
-      // yesterday is "yesterday" at 9am. A year or more is a date.
+    function calendarRelative_(date, unit, locale, utc) {
+      // Counts calendar days or weeks between now and date, so 8pm
+      // yesterday is "yesterday" at 9am. Local days, or UTC days when utc.
+      // A year or more is a date.
       var D     = foam.Date;
       var now   = new Date(Date.now());
       var then  = new Date(date.getTime());
-      now.setHours(0, 0, 0, 0);
-      then.setHours(0, 0, 0, 0);
+      var day   = d => utc ? d.getUTCDay() : d.getDay();
+      var back  = (d, n) => utc ? d.setUTCDate(d.getUTCDate() - n) : d.setDate(d.getDate() - n);
+      [ now, then ].forEach(d => utc ? d.setUTCHours(0, 0, 0, 0) : d.setHours(0, 0, 0, 0));
       // Math.round: a day across a daylight-saving change is 23 or 25 hours.
       var days = Math.round((then - now) / 86400000);
       if ( Math.abs(days) >= 365 ) return D.absoluteDate_(date, locale);
@@ -1000,10 +1003,8 @@ foam.LIB({
 
       // Move both days back to the first day of their week.
       var first = D.weekStart_(locale) % 7; // Intl 1 (Mon) .. 7 (Sun); getDay 0 is Sunday
-      var nowBack  = ( now.getDay()  - first + 7 ) % 7;
-      var thenBack = ( then.getDay() - first + 7 ) % 7;
-      now.setDate(now.getDate() - nowBack);
-      then.setDate(then.getDate() - thenBack);
+      back(now,  ( day(now)  - first + 7 ) % 7);
+      back(then, ( day(then) - first + 7 ) % 7);
       return auto.format(Math.round((then - now) / 604800000), 'week');
     },
     function weekStart_(locale) {

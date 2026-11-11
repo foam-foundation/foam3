@@ -85,6 +85,25 @@ foam.CLASS({
           x.test(R(t(3 * DAY), U.WEEK) === 'next week', 'WEEK: Monday ahead is next week');
           x.test(R(t(-3 * HOUR), U.MONTH) === R(t(-3 * HOUR)), 'an unsupported unit acts as no setting');
         });
+
+        // utc: a DateTimeUTC value counts UTC days, so the text names the
+        // same day as its UTC tooltip whatever the viewer's time zone.
+        var utcNow = Date.UTC(2026, 10, 6, 0, 30);        // Nov 6 00:30 UTC
+        this.atNow(utcNow, () => {
+          var lateNov5 = new Date(Date.UTC(2026, 10, 5, 23, 30));
+          x.test(foam.Date.relativeDateString(lateNov5, U.DAY, true) === 'yesterday',
+            'utc DAY: 23:30 UTC the day before is yesterday, got ' + foam.Date.relativeDateString(lateNov5, U.DAY, true));
+          x.test(foam.Date.relativeDateString(new Date(Date.UTC(2026, 10, 6, 0, 5)), U.DAY, true) === 'today',
+            'utc DAY: 00:05 UTC is today');
+          // Thu Nov 5 23:30 UTC, Fri Nov 6 00:30 UTC: same Monday week.
+          x.test(foam.Date.relativeDateString(lateNov5, U.WEEK, true) === 'this week', 'utc WEEK: this week');
+          // Sun Nov 1 23:30 UTC vs Mon Nov 2 00:30 UTC: different weeks.
+          var mondayStart = Date.UTC(2026, 10, 2, 0, 30);
+          this.atNow(mondayStart, () => {
+            x.test(foam.Date.relativeDateString(new Date(Date.UTC(2026, 10, 1, 23, 30)), U.WEEK, true) === 'last week',
+              'utc WEEK: Sunday 23:30 UTC is last week on Monday 00:30 UTC');
+          });
+        });
       } finally {
         foam.Date.weekStart_ = realWeekStart;
       }
@@ -168,6 +187,16 @@ foam.CLASS({
       x.test(vd.timer_ !== timerBefore, 'changing smallestUnit reschedules the timer');
       vd.element_.remove();
       vd.detach();
+
+      // A DateTimeUTC property: the DAY timer waits for the next UTC midnight.
+      var vu = this.RORelativeDateTimeView.create(
+        { data: new Date(Date.now() - 40 * DAY), smallestUnit: 'DAY' }, x);
+      vu.fromProperty(foam.lang.DateTimeUTC.create({ name: 'when' }));
+      var utcMidnight = new Date();
+      utcMidnight.setUTCHours(24, 0, 0, 0);
+      var du = vu.nextUpdateDelay_(vu.data);
+      x.test(Math.abs(du - (utcMidnight - Date.now())) < 2000, 'DateTimeUTC DAY ticks at the next UTC midnight, got ' + du);
+      vu.detach();
 
       var wd = this.RelativeDateTimeView.create(
         { data: new Date(Date.now() - 40 * DAY), smallestUnit: 'DAY', mode: foam.u2.DisplayMode.RO }, x);

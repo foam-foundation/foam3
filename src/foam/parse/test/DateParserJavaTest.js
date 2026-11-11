@@ -1230,6 +1230,14 @@ foam.CLASS({
         test(cal2.get(Calendar.YEAR) == 2025, "Fractional 6 digits: year 2025");
         test(cal2.get(Calendar.MILLISECOND) == 123, "Fractional 6 digits: ms 123 (truncated)");
 
+        // SQL Server datetime2 writes 7 digits, nanosecond timestamps write 9
+        Date date7 = parser.parseDateTimeUTC("2026-09-10 13:57:13.0000000");
+        test(date7 != null && date7.getTime() == 1789048633000L, "Fractional 7 digits: 2026-09-10 13:57:13.000Z");
+        Date date9 = parser.parseDateTimeUTC("2025-01-15T14:30:45.123456789Z");
+        Calendar cal9 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        cal9.setTime(date9);
+        test(cal9.get(Calendar.MILLISECOND) == 123, "Fractional 9 digits: ms 123 (truncated)");
+
         // Test with 1 digit - padded to 3 digits (100)
         Date date3 = parser.parseDateTimeUTC("2025-01-15T14:30:45.1Z");
         Calendar cal3 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));

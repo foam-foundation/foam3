@@ -180,29 +180,59 @@ foam.CLASS({
       x.test(styled && styled.style.color == 'red', 'the declaration after it still applies');
       v.remove();
 
-      // Text in angle brackets that is no tag, such as a file layout written
-      // as <name>, is text. It used to be read as an opening tag and the rest
-      // of the page was dropped.
-      v = await render('Send `D,Q,<name>,0,<product>` as the first line.\n\nAmounts must be <= 10 and <name> is the file name.\n\nLast paragraph.\n');
+      // Scenario: angle brackets in a sentence and in inline code.
+      // "<name>" and "<= 10" are text. They used to be read as the start of
+      // a tag, and the rest of the page was dropped.
+      v = await render([
+        'Send `D,Q,<name>,0,<product>` as the first line.',
+        '',
+        'Amounts must be <= 10 and <name> is the file name.',
+        '',
+        'Last paragraph.',
+        ''
+      ].join('\n'));
       x.test(q(v, 'code') && q(v, 'code').innerText == 'D,Q,<name>,0,<product>', 'inline code keeps its angle brackets, got ' + JSON.stringify(q(v, 'code') && q(v, 'code').innerText));
       x.test(text(v).indexOf('must be <= 10 and <name> is the file name.') != -1, 'a bare "<" and a <word> in a sentence show as text, got ' + JSON.stringify(text(v)));
       x.test(text(v).indexOf('Last paragraph.') != -1, 'the page after the angle brackets still renders');
       v.remove();
 
-      // Forty of them in one page, as in a guide that writes List<String>
-      // all over: each is settled where it stands, so the page still parses
-      // at once.
+      // Scenario: forty unclosed "<word>" texts on one page.
+      // A guide that writes List<String> all over: each is settled where it
+      // stands, so the page still parses at once.
       var generics = [];
       for ( var i = 0 ; i < 40 ; i++ ) generics.push('A List<String> named n' + i + '.');
       v = await render(generics.join('\n\n') + '\n');
       x.test(qa(v, '.mdParagraph').length == 40 && text(v).indexOf('A List<String> named n39.') != -1, 'forty <word> texts render as forty paragraphs, got ' + qa(v, '.mdParagraph').length);
       v.remove();
 
-      // The same inside a step, where the body is split at every tag: inline
-      // code and a code fence are not searched for tags.
-      v = await render(
-        '<stepper>\n<step>\n\n### First\n\nSend `D,Q,<name>,0,<product>` first.\n\n```\nH,<date>,<count>\n<b>not bold</b>\n```\n</step>\n\n' +
-        '<step>\n\n### Second\n\nThen wait.\n</step>\n</stepper>\n\nAfter the steps.\n');
+      // Scenario: angle brackets inside a step.
+      // A step's body is split at every tag; inline code and a code fence in
+      // it are not searched for tags.
+      v = await render([
+        '<stepper>',
+        '<step>',
+        '',
+        '### First',
+        '',
+        'Send `D,Q,<name>,0,<product>` first.',
+        '',
+        '```',
+        'H,<date>,<count>',
+        '<b>not bold</b>',
+        '```',
+        '</step>',
+        '',
+        '<step>',
+        '',
+        '### Second',
+        '',
+        'Then wait.',
+        '</step>',
+        '</stepper>',
+        '',
+        'After the steps.',
+        ''
+      ].join('\n'));
       stepper = find(v, e => self.Stepper.isInstance(e));
       steps = stepper ? [...stepper.el_().children].filter(c => c.classList.contains('foam-u2-markdown-Step')) : [];
       x.test(steps.length == 2, 'both steps render when the first holds angle brackets, got ' + steps.length);
@@ -213,25 +243,38 @@ foam.CLASS({
       x.test(text(v).indexOf('After the steps.') != -1, 'the page after the stepper still renders');
       v.remove();
 
-      // A <name> that is never closed, written inside a hint, is text: it
-      // does not take the hint's own closing tag as its end.
-      v = await render('<hint category="hint">\nUse the <name> of the file here.\n</hint>\n\nAfter the hint.\n');
+      // Scenario: an unclosed "<name>" inside a hint.
+      // It is text: it does not take the hint's own closing tag as its end.
+      v = await render([
+        '<hint category="hint">',
+        'Use the <name> of the file here.',
+        '</hint>',
+        '',
+        'After the hint.',
+        ''
+      ].join('\n'));
       var hint = q(v, '.foam-u2-markdown-Hint');
       x.test(hint && hint.innerText.replace(/\s+/g, ' ').indexOf('Use the <name> of the file here.') != -1, 'a <word> inside a hint shows as text, got ' + JSON.stringify(hint && hint.innerText));
       x.test(text(v).indexOf('After the hint.') != -1, 'the page after the hint still renders');
       v.remove();
 
+      // Scenario: tags closed in the wrong order.
       // A closing tag closes only the tag of its own name. Here "</b>" does
       // not close "<i>", so "<i>" is text inside the bold, and the "</i>"
       // left over after it is text too.
-      v = await render('<b>one <i>two</b> three</i>\n\nAfter the tags.\n');
+      v = await render([
+        '<b>one <i>two</b> three</i>',
+        '',
+        'After the tags.',
+        ''
+      ].join('\n'));
       x.test(q(v, 'b') && q(v, 'b').innerText == 'one <i>two', 'a tag closed by another tag\'s closing tag shows as text, got ' + JSON.stringify(q(v, 'b') && q(v, 'b').innerText));
       x.test(! q(v, 'i') && text(v).indexOf('three</i>') != -1, 'the closing tag left over shows as text, got ' + JSON.stringify(text(v)));
       x.test(text(v).indexOf('After the tags.') != -1, 'the page after the mismatched tags still renders');
       v.remove();
 
-      // Links. A click must not reach the browser's own navigation when the
-      // link is handled here; this listener records that and then stops the
+      // Set-up for the three link scenarios. A click must not reach the
+      // browser's own navigation when the link is handled here; this listener records that and then stops the
       // navigation either way, so a failing check cannot leave the test page.
       var prevented;
       var guard = function(e) { prevented = e.defaultPrevented; e.preventDefault(); };
@@ -247,18 +290,34 @@ foam.CLASS({
         return mv;
       };
 
-      // A link to another document by its flow name loads that flow. The
-      // browser used to follow the href as well and show a 404 page.
-      v = await renderIn('See [the contacts](Support and Contacts).\n', linkX);
+      // Scenario: a link to another document by its flow name.
+      // The click loads that flow. The browser used to follow the href as
+      // well and show a 404 page.
+      v = await renderIn([
+        'See [the contacts](Support and Contacts).',
+        ''
+      ].join('\n'), linkX);
       prevented = undefined;
       q(v, 'a').click();
       x.test(loaded.join() == 'load("Support and Contacts")', 'a link by flow name loads the flow, got ' + JSON.stringify(loaded));
       x.test(prevented === true, 'and the browser does not follow the href to a 404, defaultPrevented=' + prevented);
       v.remove();
 
-      // A link to a heading of the same page scrolls to it. The browser used
-      // to set the page hash, which the application reads as a route.
-      v = await renderIn('[Go to part two](#part-two)\n\n# Part one\n\nText.\n\n## Part two\n\nMore text.\n', linkX);
+      // Scenario: a link to a heading of the same page.
+      // The click scrolls to the heading. The browser used to set the page
+      // hash, which the application reads as a route.
+      v = await renderIn([
+        '[Go to part two](#part-two)',
+        '',
+        '# Part one',
+        '',
+        'Text.',
+        '',
+        '## Part two',
+        '',
+        'More text.',
+        ''
+      ].join('\n'), linkX);
       var target = x.document.getElementById('part-two');
       x.test(target, 'the heading has the id the link names');
       var scrolled = false;
@@ -269,8 +328,12 @@ foam.CLASS({
       x.test(prevented === true, 'and the page hash is left alone, defaultPrevented=' + prevented);
       v.remove();
 
-      // Any other "#" link is an application route and still goes to the browser.
-      v = await renderIn('[Open the menu](#someMenu)\n', linkX);
+      // Scenario: a "#" link that names no heading.
+      // It is an application route and still goes to the browser.
+      v = await renderIn([
+        '[Open the menu](#someMenu)',
+        ''
+      ].join('\n'), linkX);
       prevented = undefined;
       q(v, 'a').click();
       x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);

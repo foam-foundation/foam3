@@ -655,7 +655,7 @@ public class DateParser
   }
 
   /**
-   * Parse fractional seconds string (1-6 digits) and convert to milliseconds (0-999).
+   * Parse fractional seconds string (1-9 digits) and convert to milliseconds (0-999).
    * Pads short strings with trailing zeros (e.g., "1" -> 100, "12" -> 120).
    * Truncates long strings to 3 digits (e.g., "123456" -> 123).
    */
@@ -797,8 +797,8 @@ public class DateParser
     // second2: 00-59
     grammar.addSymbol("second2", new Join(new Seq(Range.create('0', '5'), Range.create('0', '9'))));
 
-    // fractionalSeconds: 1-6 digits for milliseconds or microseconds
-    grammar.addSymbol("fractionalSeconds", new Join(new Repeat(Range.create('0', '9'), null, 1, 6)));
+    // fractionalSeconds: 1-9 digits: milli, micro or nanoseconds (e.g. SQL Server datetime2 has 7)
+    grammar.addSymbol("fractionalSeconds", new Join(new Repeat(Range.create('0', '9'), null, 1, 9)));
 
     // millisecond3: 3 digits (kept for backward compatibility)
     grammar.addSymbol("millisecond3", new Join(new Repeat(Range.create('0', '9'), null, 3, 3)));

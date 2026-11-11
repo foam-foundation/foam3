@@ -39,7 +39,7 @@ Exclude tests cases by prefixing their `id` with a `-` (dash).
 
 ### Test Suite
 Tests can be grouped with the `testSuite` property.  The `TestRunnerScript`, which is responsible for invoking the tests, will filter by `testSuite` identifiers. 
-- `./build.sh run-tests test-suite:Authentication,Security`: run all tests where `testSuite` matches the listed identifiers.
+- `./build.sh run-tests --test-suites:Authentication,Security`: run all tests where `testSuite` matches the listed identifiers.
 
 ### Test Output
 

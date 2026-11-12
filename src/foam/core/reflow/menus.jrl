@@ -48,14 +48,9 @@ p({
         }
       },
       "summaryView":{
-        "class":"foam.u2.GridGroupingDAOList",
+        "class":"foam.core.reflow.FlowDocumentGroupingList",
         "showEmptyMessage":true,
         "groupExpr":{
-          "class":"foam.lang.__Property__",
-          "forClass_":"foam.core.reflow.Flow",
-          "name":"category"
-        },
-        "order":{
           "class":"foam.lang.__Property__",
           "forClass_":"foam.core.reflow.Flow",
           "name":"category"

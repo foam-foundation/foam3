@@ -76,6 +76,8 @@ foam.POM({
     { name: 'FlowableTree',            flags: 'js' },
     { name: 'FlowDocumentCitationView', flags: 'js' },
     { name: 'FlowDocumentRowView',     flags: 'js' },
+    { name: 'FlowDocumentGroupingList', flags: 'js' },
+    { name: 'FlowDocumentNav',         flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },

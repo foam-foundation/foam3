@@ -291,14 +291,20 @@ foam.CLASS({
       <h1>Introduction</h1>
 
     Attributes:
-      title - Title displayed above the TOC. Defaults to "Table of Contents".
-              Set to empty to hide.
+      title - Title displayed above the TOC. Defaults to "Table of Contents",
+              or "On this page" with side. Set to empty to hide.
+      side  - Shows the TOC as a panel to the right of the document that stays
+              in view while the reader scrolls, marks the section being read,
+              and leaves out the document title (level 1):
+                <toc side></toc>
 
     The TOC renders as a nested list with links to each heading's anchor.
     Headings are displayed in document order with proper nesting based on level.
   `,
 
   mixins: [ 'foam.u2.markdown.TOCMixin' ],
+
+  imports: [ 'document', 'window' ],
 
   css: `
     << { margin: 20px 0; }
@@ -311,22 +317,75 @@ foam.CLASS({
     <<level-2 { margin-left: 20px; }
     <<level-3 { margin-left: 40px; }
     <<level-4 { margin-left: 60px; }
+
+    /*
+      A side TOC is a zero-height row that sticks to the top of the scrolling
+      page; its panel hangs to the right of the document, in the room the
+      document keeps free for it. The document is also held to a readable
+      width, since a doc long enough for a side TOC reads poorly at full width.
+    */
+    /* Text up to 105 characters wide, as wide docs sites run with screenshots,
+       plus the panel's room; the width is a border box, so it adds both */
+    .foam-u2-view-MarkdownView:has(<<side) { max-width: calc(105ch + 26rem); padding-right: 26rem; margin-inline: auto; }
+    /* Markdown wraps the tag in a paragraph, and a sticky element only sticks
+       inside its parent; dissolving the paragraph's box lets the panel stick
+       for the whole document. */
+    .mdParagraph:has(> <<side) { display: contents; }
+    /* A Block's content scrolls sideways for wide output, which makes it the
+       box a sticky element sticks to; the Block never scrolls up or down, so
+       the panel would scroll away with the text. Letting it overflow hands
+       the scrolling, and the panel, to the page. */
+    .foam-core-reflow-Block-content:has(<<side) { overflow: visible; }
+    <<side { position: sticky; top: 0; height: 0; margin: 0; z-index: 1; }
+    <<side <<panel {
+      position: absolute;
+      left: 100%;
+      width: 22rem;
+      margin-left: 4rem;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 0.4rem 0;
+      border-left: 2px solid $borderLight;
+    }
+    <<side <<title { padding-left: 1.6rem; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.06em; color: $textSecondary; }
+    /* Each row sits on the panel's line, so the current row's bar covers it */
+    <<side <<item { margin: 0 0 0 -2px; padding: 0.4rem 0.8rem 0.4rem 1.6rem; border-left: 3px solid transparent; }
+    <<side <<item a { color: $textSecondary; }
+    <<side <<level-3 { padding-left: 2.8rem; }
+    <<side <<level-4 { padding-left: 4rem; }
+    <<side <<active { border-left-color: $borderBrand; background: $backgroundBrandTertiary; }
+    <<side <<active a { color: $textBrand; font-weight: $font-medium; }
   `,
 
+  messages: [
+    { name: 'TABLE_OF_CONTENTS', message: 'Table of Contents' },
+    { name: 'ON_THIS_PAGE',      message: 'On this page' }
+  ],
+
   properties: [
+    {
+      class: 'Boolean',
+      name: 'side',
+      attribute: true,
+      documentation: 'Shows the TOC as a sticky panel beside the document. See the class documentation.'
+    },
     {
       class: 'String',
       name: 'title',
       attribute: true,
-      value: 'Table of Contents',
+      expression: function(side) { return side ? this.ON_THIS_PAGE : this.TABLE_OF_CONTENTS; },
       documentation: 'Title displayed above the TOC. Set to empty to hide.'
+    },
+    {
+      name: 'activeHeading',
+      documentation: 'The heading of the section being read, marked in a side TOC.'
     }
   ],
 
   methods: [
     async function render() {
       this.SUPER();
-      this.addClass();
+      this.addClass().enableClass(this.myClass('side'), this.side$);
 
       // Brief delay to allow sibling/child headings to register.
       // Necessary because element initialization order isn't guaranteed
@@ -336,15 +395,28 @@ foam.CLASS({
       var self = this;
 
       this.
-        callIf(this.title, function() {
-          this.start('div').addClass(self.myClass('title')).add(self.title).end();
-        }).
-        start('ul').
-          addClass(this.myClass('list')).
-          call(function() {
-            self.renderEntries(this);
+        start('div').
+          addClass(this.myClass('panel')).
+          callIf(this.title, function() {
+            this.start('div').addClass(self.myClass('title')).add(self.title).end();
           }).
+          start('ul').
+            addClass(this.myClass('list')).
+            call(function() {
+              self.renderEntries(this);
+            }).
+          end().
         end();
+
+      if ( this.side ) this.followScroll();
+    },
+
+    function followScroll() {
+      // Scroll events do not bubble; a capturing listener on the document
+      // hears whichever box scrolls the document, the page or a Reflow console
+      this.document.addEventListener('scroll', this.markSectionRead, true);
+      this.onDetach(() => this.document.removeEventListener('scroll', this.markSectionRead, true));
+      this.markSectionRead();
     },
 
     function renderEntries(ul) {
@@ -371,15 +443,42 @@ foam.CLASS({
           ? 'section-' + sectionIndex.replace(/\./g, '-') + '-' + (heading.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
           : (heading.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
+        // A side TOC sits beside the title, so it lists only the sections
+        if ( self.side && heading.level === 1 ) return;
+
         this.start('li').
           addClass(self.myClass('item')).
           addClass(self.myClass('level-' + heading.level)).
+          enableClass(self.myClass('active'), self.activeHeading$.map(h => h === heading)).
           start('a').
             attrs({ href: '#' + anchorId }).
             add(displayText).
           end().
         end();
       });
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'markSectionRead',
+      isFramed: true,
+      documentation: `
+        Marks the section being read: the lowest heading that has scrolled
+        into the top third of the screen. Reading the middle of "Background",
+        a long section with no heading on screen, still marks "Background".
+        Lowest on screen rather than last in the list, because headings inside
+        a tag such as <stepper> register out of page order.
+      `,
+      code: function() {
+        var line = this.window.innerHeight / 3, best = null, bestTop = -Infinity;
+        this.headings.forEach(h => {
+          if ( h.level === 1 || ! h.element_ ) return;
+          var top = h.element_.getBoundingClientRect().top;
+          if ( top < line && top > bestTop ) { best = h; bestTop = top; }
+        });
+        this.activeHeading = best || this.headings.find(h => h.level > 1);
+      }
     }
   ]
 });

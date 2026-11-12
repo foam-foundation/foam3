@@ -31,8 +31,8 @@ Don't: a WebAgent per model, a new Button class, a second TimeUnit enum
 Do:    DIG, `foam.lang.Action`, refine the enum that exists
 Seen:  a proposed side-panel manager plus a `<side>` tag for one breadcrumb was dropped for the Console header's existing title row, given one empty view
 
-### Extend without breaking: the host gives out slots, the feature plugs in
-A shared class (a model every flow uses, a controller, a base view, a container) serves callers that never use your feature. Teach it the feature and every one of them carries it, and the next feature edits it again. Give the host a generic extension point instead and keep the feature in its own class: existing callers see no change, and the next feature needs no edit to the host.
+### Extend without being specific: the host stays general, features plug in
+A shared class (a model every flow uses, a controller, a base view, a container) serves callers that never use your feature. Teach it the feature and the two are tightly coupled: every caller carries it, and the next feature edits the host again. Give the host a generic extension point instead and keep the feature in its own class. The host stays general, features plug in and out, and neither knows the other's internals.
 Review asks: would this line in a shared class make sense to a caller that never uses the feature?
 Don't: a feature's lookup or keyword constant on `Flow`; a controller importing one feature's view; a container's CSS naming one child's class
 Do:    an exported empty view the feature fills, a hook method, a property or attribute whose default is today's behaviour; the feature's own CSS styles the box around it

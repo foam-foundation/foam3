@@ -20,7 +20,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - A switch, ordinal chain, or colour table over an enum the value could own?
 - Logic in the layer its trigger belongs to? (hook / decorator / rule / service / FSM)
 - A subclass detail read by its parent? A feature-specific field on an abstract base?
-- The diff of any shared class (`Flow`, `Console`, `Block`, a base view or model): does it now name one feature, its keyword, its view, or its CSS class? That is a finding even when the code works. The fix is an extension point the host gives out, filled from the feature's own class (spine: "Extend without breaking").
+- The diff of any shared class (`Flow`, `Console`, `Block`, a base view or model): does it now name one feature, its keyword, its view, or its CSS class? That is a finding even when the code works. The fix is an extension point the host gives out, filled from the feature's own class (spine: "Extend without being specific").
 - A new view or tag hard-wired to one keyword, route, or label where an attribute with that value as default would serve every caller?
 - A CSS rule in one class that styles another class's element? It belongs to the component that needs it, keyed to its own `<<` class.
 - A core class extended where a downstream refinement would do?

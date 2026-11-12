@@ -151,7 +151,7 @@ Do:    `.select(this.PROJECTION(Flow.NAME))`
 Cite: `mlang/Expressions.js:155`
 
 ### `Flow` and the Console are hosts: extend them through their slots
-Every flow, dashboard and document goes through `Flow` and the Console, so a feature's code there is carried by all of them (the spine's "Extend without breaking"). The Console header gives out two empty views for a flow's own content: `titlePrefix`, left of the flow's name, and `titleSuffix`, after its version. The header sets them each time it is drawn and the Console exports them.
+Every flow, dashboard and document goes through `Flow` and the Console, so a feature's code there is carried by all of them (the spine's "Extend without being specific"). The Console header gives out two empty views for a flow's own content: `titlePrefix`, left of the flow's name, and `titleSuffix`, after its version. The header sets them each time it is drawn and the Console exports them.
 Don't: a lookup or keyword constant on `Flow`; a feature's view required by the Console header
 Do:    the feature's tag imports `titlePrefix?`, follows it in its `dynamic`, clears it with `removeAllChildren()` and adds to it, and removes what it added on detach. Its import is already cleared when its own `onDetach` runs, so it keeps its own reference to what it added.
 Cite: `core/reflow/Console.js` (`titlePrefix`), `core/reflow/FlowDocumentNav.js` (`renderCrumbs`)

@@ -126,6 +126,7 @@ foam.CLASS({
                 add(mapping.CONSTANT_VALUE.__).
                 add(mapping.FIELD_NAME.__).
                 add(mapping.DYNAMIC_EXPRESSION.__).
+                add(mapping.FORMULA.__).
               end().
               start('td').addClass('col-sample').
                 add(mapping.dynamic(function(sampleValue) {

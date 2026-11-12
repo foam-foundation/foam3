@@ -76,14 +76,19 @@ foam.CLASS({
       // A status is journal data, which no class constant holds, so boot
       // cannot install a translation onto its label. This asks for one by
       // the key foam.core.ticket.TicketStatus.CLOSED.label, as an enum
-      // value's is, and falls back to the label when there is none.
+      // value's is, and falls back to the label when there is none. On the
+      // server the language is the context's locale.language, "en" when
+      // unset, as for a translated exception message.
       name: 'toSummary',
-      flags: ['js'],
+      type: 'String',
       code: function() {
         return this.translationService ?
           this.translationService.getTranslation(foam.locale, 'foam.core.ticket.TicketStatus.' + this.id + '.label', this.label) :
           this.label;
-      }
+      },
+      javaCode: `
+        return foam.i18n.TranslationService.t(foam.lang.XLocator.get(), "foam.core.ticket.TicketStatus." + getId() + ".label", getLabel());
+      `
     }
   ]
 });

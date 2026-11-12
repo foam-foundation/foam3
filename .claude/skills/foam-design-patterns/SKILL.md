@@ -42,6 +42,10 @@ Do:    nothing; the framework already says it
 9. Anything left from debugging?
 10. Style matches the guide, character for character?
 
+## After it works, rethink it
+
+The design that first worked is a draft. Before review, ask of every changed file: would you write it this way from scratch, next to the code around it? Then walk `review-checklist.md` over the whole diff as a reader, not its author: a fresh agent given only the diff, or a full re-read. Small is no defence for a line in the wrong class. (foam3 #5850 reached the maintainer with four findings this checklist names.)
+
 ## Read before writing, by task
 
 The mechanics live in `references/`. Open every file on your task's row before writing a line.

@@ -100,6 +100,9 @@ Its features are HTML tags the document writes, not modes of the view.
 | Move between documents with an `<a>` naming the flow | any `routeTo('flow_/...')` or hand-built hash in a document view? |
 | Follow the flow's fields, not the flow object | a `dynamic` on `data$value` or `flow` that should re-run on load? |
 | Fetch only the columns the view reads | a full `Flow` select to read names? |
+| Keep a document feature out of `Flow` and the Console | does `Flow.js` or `Console.js` name a keyword, tag or view of one feature? |
+| The Console exports empty views; the document fills them | does the Console import a view to show document content in its header? |
+| A tag's CSS on a box around it lives in the tag | does `Block.js` or `MarkdownView.js` name a tag's class? |
 
 ### A document feature is a tag, registered in a `foam.SCRIPT`
 Tags compose in any document and need no change to the renderer; a mode on the view applies to every markdown everywhere.
@@ -134,17 +137,41 @@ Cite: `core/reflow/Console.js:1815`
 ### Inline tags sit inside a paragraph; layout that needs the document dissolves it
 A tag written on its own line still lands in `div.mdParagraph`, and a sticky element sticks only within its parent; the Block's content box scrolls sideways (`overflow-x: auto`), which also makes it the box a sticky element sticks to.
 Don't: `position: sticky` on a tag and expect it to follow the page
-Do:    `.mdParagraph:has(> <<x) { display: contents; }` and a Block rule that lets that content overflow
-Cite: `u2/view/MarkdownView.js:554`, `core/reflow/Block.js:52`
+Do:    `.mdParagraph:has(> <<x) { display: contents; }` and `.foam-core-reflow-Block-content:has(<<x) { overflow: visible; }`, both in the tag's own CSS
+Cite: `u2/view/MarkdownView.js:554`, `core/reflow/Block.js:52`, `u2/markdown/TOC.js` (the `side` rules)
 
 ### An order with parts is set in code, not in a journal
 `ThenBy` keeps `head` and `tail` exactly as given, so a `ThenBy` read from JSON holds plain maps and sorts nothing.
 Don't: `"order": { "class": "foam.mlang.order.ThenBy", "head": {...}, "tail": {...} }` in a `menus.jrl` view config
-Do:    an `order` factory on the view class: `ThenBy.create({ head: Model.A, tail: Model.B })`
-Cite: `mlang/order/ThenBy.js:23-27`
+Do:    an `order` factory on the view class: `this.THEN_BY(Model.A, Model.B)`; a `GroupingDAOList` already implements `Expressions`
+Cite: `mlang/order/ThenBy.js:23-27`, `mlang/Expressions.js:170`, `u2/GroupingDAOList.js:12`
 
 ### Fetch only the columns the view reads
 A flow carries its whole script; a list of names for a breadcrumb or a next link does not need it.
 Don't: `flowDAO.where(...).select()` then `.map(f => f.name)`
 Do:    `.select(this.PROJECTION(Flow.NAME))`
 Cite: `mlang/Expressions.js:155`
+
+### Keep a document feature out of `Flow` and the Console
+`Flow` and the Console serve every flow, dashboards included; a document-only method, constant or view there makes all of them learn one feature. Maintainer review on foam3 #5850: "hard-coding a specific feature into the general Flow document", and "Why is this here?" on a Console require.
+Don't: a lookup or a keyword constant on `Flow`; a document breadcrumb class required by the Console header
+Do:    the lookup on the tag that shows it, so `Flow.js` and `Console.js` end the PR with no document code
+Cite: `core/reflow/FlowDocumentNav.js` (`findSeries`)
+
+### The Console exports empty views; the document fills them
+Content that belongs in the Console's chrome comes from the document, through an empty view the Console exports, the way the breadcrumb view is filled by what is on the stack. The Console stays generic and any flow can use the slot.
+Don't: the Console tagging a document view into its header
+Do:    `titlePrefix` (left of the flow's name) and `titleSuffix` (after its version), set by the header each time it is drawn and exported; a tag imports `titlePrefix?`, follows it in its `dynamic`, clears it with `removeAllChildren()` and adds to it, and removes what it added on detach; its import is already cleared when its own `onDetach` runs, so it keeps its own reference to what it added
+Cite: `core/reflow/Console.js` (`titlePrefix`), `core/reflow/FlowDocumentNav.js` (`renderCrumbs`)
+
+### A tag's CSS on a box around it lives in the tag
+When a tag needs a neighbour's box styled (the Block's content must overflow for a sticky panel), the rule goes in the tag's CSS, keyed to the tag's own class, so the neighbour never names it. Maintainer review on foam3 #5850: "move".
+Don't: `<<content:has(.foam-u2-markdown-TableOfContents-side)` in `Block.js`
+Do:    `.foam-core-reflow-Block-content:has(<<side)` in `TOC.js`
+Cite: `u2/markdown/TOC.js` (the `side` rules)
+
+### Make the tag generic with attributes that default to its one use
+A tag tied to one keyword and one menu serves one feature; the same tag with those as attributes serves any series of flows, and the defaults keep existing documents unchanged.
+Don't: `'knowledge'` and `'#knowledgeBase'` written into the tag
+Do:    `keyword` and `home` String properties with `attribute: true`; the crumb shows the home menu's own `label`
+Cite: `core/reflow/FlowDocumentNav.js`

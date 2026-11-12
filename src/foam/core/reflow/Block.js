@@ -57,13 +57,6 @@ foam.CLASS({
     <<.expanded > <<toolbar {
       padding: 0 0 0.8rem 16px;
     }
-    /* The content scrolls sideways for wide output, which makes it the box a
-       sticky element sticks to; the block never scrolls up or down, so a
-       side TOC would scroll away with the text. A document with a side TOC
-       lets the page scroll it instead. */
-    <<content:has(.foam-u2-markdown-TableOfContents-side) {
-      overflow: visible;
-    }
     <<content:has(> .foam-u2-Element-hidden) {
       display: none;
     }

@@ -331,6 +331,11 @@ foam.CLASS({
        inside its parent; dissolving the paragraph's box lets the panel stick
        for the whole document. */
     .mdParagraph:has(> <<side) { display: contents; }
+    /* A Block's content scrolls sideways for wide output, which makes it the
+       box a sticky element sticks to; the Block never scrolls up or down, so
+       the panel would scroll away with the text. Letting it overflow hands
+       the scrolling, and the panel, to the page. */
+    .foam-core-reflow-Block-content:has(<<side) { overflow: visible; }
     <<side { position: sticky; top: 0; height: 0; margin: 0; z-index: 1; }
     <<side <<panel {
       position: absolute;

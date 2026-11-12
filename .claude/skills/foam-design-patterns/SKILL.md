@@ -53,6 +53,7 @@ The mechanics live in `references/`. Open every file on your task's row before w
 | a DAO, decorator, rule, service, or `javaCode` | `context-and-dao.md`, `where-behaviour-lives.md`, `java-server.md` |
 | a `COREService`, a throttled or outbound integration, or an authorization check | `services.md`, `context-and-dao.md` |
 | a flow, block, command, or agent | `reflow.md`, `defaults-and-reuse.md` |
+| a markdown document tag or Knowledge Base view | `reflow.md` (Markdown documents), `u2-views.md` |
 | a foam3 core class, index, or codegen | `foam3-core.md` |
 | any PR | `style-mechanics.md` |
 | a review | `review-checklist.md` |

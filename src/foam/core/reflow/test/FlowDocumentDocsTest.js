@@ -19,6 +19,7 @@ foam.CLASS({
     'foam.core.reflow.Flow',
     'foam.core.reflow.FlowDocumentNav',
     'foam.dao.MDAO',
+    'foam.u2.Element',
     'foam.u2.view.MarkdownView'
   ],
 
@@ -80,6 +81,28 @@ foam.CLASS({
       x.test(nav.crumbs === '' && nav.hrefs === '', 'a flow outside the series shows nothing, got ' + nav.crumbs);
       nav = await navFor('A plain flow', { keyword: 'dashboard' });
       x.test(nav.crumbs === 'Guides · 1 of 1', 'the keyword attribute picks another series, got ' + nav.crumbs);
+
+      // A page that exports titlePrefix, as the Reflow header does, gets the
+      // crumb there; a second nav replaces it and a removed nav takes it away
+      var prefix = self.Element.create(null, x);
+      prefix.write(x.document.body);
+      var navIn = async name => {
+        var n = self.FlowDocumentNav.create({}, x.createSubContext({ flow: await flowDAO.find(name), titlePrefix: prefix }));
+        n.write(x.document.body);
+        await new Promise(r => setTimeout(r, 100));
+        return n;
+      };
+      var first = await navIn('2. Configure');
+      x.test(/Guides · 2 of 3\s*›$/.test(prefix.el_().textContent.trim()),
+        'the crumb goes in the exported titlePrefix, got ' + prefix.el_().textContent);
+      x.test(texts(first, '.foam-core-reflow-FlowDocumentNav-crumbs').length === 0, 'and not above the links');
+      var second = await navIn('3. Deploy');
+      x.test(prefix.el_().querySelectorAll('.foam-core-reflow-FlowDocumentNav-crumbs').length === 1,
+        'the next document replaces the crumb in titlePrefix');
+      first.remove();
+      second.remove();
+      x.test(prefix.el_().textContent.trim() === '', 'a removed nav leaves titlePrefix empty');
+      prefix.remove();
     }
   ]
 });

@@ -35,9 +35,10 @@ The system is built around three main components:
 
 A flow with the `knowledge` keyword is a Knowledge Base document, usually a `.md` file whose first line is a `<flow name="..." category="..." keywords="knowledge,...">` tag. The `category` groups it on the Knowledge Base page, which has a button per category to jump to it, and the `name` is its title, its id and the target of links to it.
 
-- **Reading order** - the documents of a category are listed by name, so number them ("1. Install", "2. Configure") and give the opening one "0.".
+- **Reading order** - the documents of a category are listed by name, so number them from 1 ("1. Install", "2. Configure"): the number then matches the position the header shows ("2 of 3").
 - **Contents beside the text** - `<toc side></toc>` under the title shows "On this page" beside the document, marks the section being read and keeps the text to a readable width. A plain `<toc></toc>` lists the contents in place.
-- **Where it sits, previous and next** - `<docnav></docnav>` at the end shows `Knowledge Base › <category> · n of m` and links the documents before and after this one in its category. Its `keyword` and `home` attributes make it work for another series of flows: `<docnav keyword="tutorial" home="tutorials">` walks the flows of the category that carry `tutorial` and links back to the `tutorials` menu.
+- **Where it sits, previous and next** - `<docnav></docnav>` at the end links the documents before and after this one in its category, and shows `Knowledge Base › <category> · n of m` in the header, left of the document's name. Its `keyword` and `home` attributes make it work for another series of flows: `<docnav keyword="tutorial" home="tutorials">` walks the flows of the category that carry `tutorial` and links back to the `tutorials` menu.
+- **The header's empty views** - the Console exports `titlePrefix` (left of the flow's name) and `titleSuffix` (after its version), empty views a flow's own content can fill; `<docnav>` puts its crumb in `titlePrefix`. A view that fills one follows the property, since the header sets a new one each time it is drawn.
 - **Links between documents** - `[text](Other Document)` opens the flow named "Other Document" in place; `[text](#heading-id)` scrolls to a heading of this page.
 
 ## UI Components

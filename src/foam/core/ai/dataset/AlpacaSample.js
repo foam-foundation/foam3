@@ -27,7 +27,7 @@ foam.CLASS({
     which serves as a dedup key: dao.find(id) before every put().
   `,
 
-  tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'category', 'sourceFile', 'instruction' ],
+  tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'charCount', 'category', 'sourceFile', 'instruction' ],
 
   searchColumns: [ 'category', 'sourceFile' ],
 
@@ -91,6 +91,13 @@ foam.CLASS({
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO',
       value: 0
+    },
+    {
+      class: 'Int',
+      name: 'charCount',
+      documentation: 'Total character length of instruction + input + output. Set by AlpacaSampleCreateRuleAction on every put.',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO'
     }
   ],
 

@@ -34,7 +34,9 @@ foam.CLASS({
     'foam.core.job.JobStatus',
     'foam.core.logger.Loggers',
     'foam.dao.DAO',
+    'java.io.BufferedReader',
     'java.io.File',
+    'java.io.InputStreamReader',
     'java.util.ArrayList',
     'java.util.Arrays',
     'java.util.Comparator',
@@ -92,6 +94,20 @@ foam.CLASS({
       documentation: 'Set at execute time when the TrainingRun is created. FK into trainingRunDAO.',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      class: 'Int',
+      name: 'nanCount_',
+      documentation: 'Count of NaN loss reports seen this run. Job auto-stops at 3.',
+      transient: true,
+      visibility: 'HIDDEN'
+    },
+    {
+      class: 'String',
+      name: 'configBuffer_',
+      documentation: 'Accumulates ##CONFIG## lines from run_training.py until ##CONFIG_END## is received.',
+      transient: true,
+      visibility: 'HIDDEN'
     }
   ],
 
@@ -113,12 +129,16 @@ foam.CLASS({
         if ( ! getResumeFrom().isEmpty() ) out("  Resume   : " + getResumeFrom());
         out("──────────────────────────────────────────────────────");
 
-        // Auto-version the adapter path to prevent overwriting previous runs.
+        // Generate the run ID first so it can be embedded in the adapter path,
+        // guaranteeing each run gets a unique directory even with the same datasetVersion.
+        String runId = UUID.randomUUID().toString();
+
+        // Auto-version the adapter path: <base>/<datasetVersion>-<runId[0..7]>
         String adapterBase = getAdapterPath();
         String version     = ! getDatasetVersion().isEmpty()
           ? getDatasetVersion()
-          : UUID.randomUUID().toString().substring(0, 8);
-        setAdapterPath(adapterBase + "/" + version);
+          : runId.substring(0, 8);
+        setAdapterPath(adapterBase + "/" + version + "-" + runId.substring(0, 8));
         out("  Adapter  : " + getAdapterPath());
 
         // Resolve the previous run's adapter path when resuming.
@@ -137,7 +157,7 @@ foam.CLASS({
 
         // Create the TrainingRun before the subprocess starts.
         TrainingRun run = new TrainingRun();
-        run.setId(UUID.randomUUID().toString());
+        run.setId(runId);
         run.setJobId(getId());
         run.setModelBase(getModelBase());
         run.setDatasetVersion(getDatasetVersion());
@@ -191,6 +211,7 @@ foam.CLASS({
               "valLoss",    updated.getFinalValLoss(),
               "iterations", updated.getIterationsCompleted());
           }
+          sweepCheckpoints_(x);
           out("╚══════════════════════════════════════════════════════╝");
         } catch ( RuntimeException e ) {
           out("  ERROR: " + e.getMessage());
@@ -210,8 +231,8 @@ foam.CLASS({
       type: 'String[]',
       javaCode: `
         List<String> cmd = new ArrayList<>();
-        cmd.add("-m");         cmd.add("mlx_lm");
-        cmd.add("lora");
+        cmd.add("run_training.py");   // wrapper prints runId + config, then delegates to mlx_lm.lora
+        cmd.add("--run-id");       cmd.add(getRunId());
         cmd.add("--config");       cmd.add(getConfigFile());
         cmd.add("--adapter-path"); cmd.add(getAdapterPath());
         if ( ! getResumeFrom().isEmpty() ) {
@@ -260,11 +281,30 @@ foam.CLASS({
         // MLX 0.32+ column output (ANSI escape codes stripped before matching):
         //   val line:   "   1    val 2.190    6.29s"
         //   train line: "  10    2.535 ▼    116    1.8k"
+        //   nan line:   "  10    nan  ▼    ..."
         // Strip all ANSI/VT100 CSI sequences (colour, cursor-movement, erase, etc.)
         String clean = line.replaceAll("\\\\033\\\\[[^a-zA-Z]*[a-zA-Z]", "");
 
         // Server log only — keeps UI output clean.
         Loggers.logger(getX(), this).debug("parseProgress", "raw.len", line.length(), "clean", clean);
+
+        // Config dump from run_training.py — YAML emitted line-by-line, accumulated here.
+        if ( clean.equals("##CONFIG_START##") ) { setConfigBuffer_(""); return -1; }
+        if ( clean.startsWith("##CONFIG## ")  ) { setConfigBuffer_(getConfigBuffer_() + clean.substring("##CONFIG## ".length()) + "\\n"); return -1; }
+        if ( clean.equals("##CONFIG_END##")   ) {
+          DAO runDAO = (DAO) getX().get("trainingRunDAO");
+          if ( runDAO != null && ! foam.util.SafetyUtil.isEmpty(getRunId()) ) {
+            TrainingRun run = (TrainingRun) runDAO.find(getRunId());
+            if ( run != null ) {
+              TrainingRun updated = (TrainingRun) run.fclone();
+              updated.setConfig(getConfigBuffer_().trim());
+              runDAO.put(updated);
+              out("  Config stored on TrainingRun.");
+            }
+          }
+          setConfigBuffer_("");
+          return -1;
+        }
 
         Matcher valM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+val\\\\s+[0-9.]+").matcher(clean);
         if ( valM.find() ) {
@@ -279,6 +319,24 @@ foam.CLASS({
           int iter = Integer.parseInt(trainM.group(1));
           Loggers.logger(getX(), this).info("train-line", "iter", iter, "clean", clean);
           storeMetric_(iter, clean);
+          return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
+        }
+
+        // NaN loss — mlx-lm outputs "  10    nan ..." when the loss explodes.
+        Matcher nanM = Pattern.compile("^\\\\s+(\\\\d+)\\\\s+nan").matcher(clean);
+        if ( nanM.find() ) {
+          int iter  = Integer.parseInt(nanM.group(1));
+          int count = getNanCount_() + 1;
+          setNanCount_(count);
+          storeMetric_(iter, clean);
+          out("[MLXTrainingJob] NaN loss at iter " + iter + " (" + count + "/3)");
+          Loggers.logger(getX(), this).warning("nan-loss", "iter", iter, "count", count);
+          if ( count >= 3 ) {
+            out("[MLXTrainingJob] NaN for 3 consecutive reports — stopping job.");
+            Loggers.logger(getX(), this).warning("nan-stop", "iter", iter);
+            setStatus(JobStatus.SUSPENDING);
+            save(getX());
+          }
           return getMaxIter() > 0 ? Math.min(100, iter * 100 / getMaxIter()) : -1;
         }
 
@@ -318,6 +376,9 @@ foam.CLASS({
           metric.setTokensPerSec(Float.parseFloat(trainM.group(2)));
         }
 
+        // NaN loss — neither regex above matches, so losses stay 0; flag the record.
+        if ( line.contains("nan") ) metric.setNanDetected(true);
+
         // Merge with any existing record for this (runId, iteration) so that
         // a val line and a train line at the same iteration both survive.
         TrainingMetric existing = (TrainingMetric) metricDAO.find(metric.getId());
@@ -326,6 +387,7 @@ foam.CLASS({
           if ( metric.getTrainLoss()    > 0 ) merged.setTrainLoss(metric.getTrainLoss());
           if ( metric.getValLoss()      > 0 ) merged.setValLoss(metric.getValLoss());
           if ( metric.getTokensPerSec() > 0 ) merged.setTokensPerSec(metric.getTokensPerSec());
+          if ( metric.getNanDetected()       ) merged.setNanDetected(true);
           metric = merged;
         }
         metricDAO.put(metric);
@@ -341,6 +403,113 @@ foam.CLASS({
         if ( metric.getTrainLoss() > 0 ) updated.setFinalTrainLoss(metric.getTrainLoss());
         if ( metric.getValLoss()   > 0 ) updated.setFinalValLoss(metric.getValLoss());
         runDAO.put(updated);
+      `
+    },
+    {
+      documentation: `Runs sweep_checkpoints.py to list all numbered checkpoints in the
+        adapter directory, then queries trainingMetricDAO for the val loss at each
+        iteration. The checkpoint with the lowest val loss is stored on the TrainingRun
+        as bestCheckpoint. Called automatically at the end of every run.`,
+      name: 'sweepCheckpoints_',
+      args: 'foam.lang.X x',
+      javaCode: `
+        DAO metricDAO = (DAO) x.get("trainingMetricDAO");
+        DAO runDAO    = (DAO) x.get("trainingRunDAO");
+        if ( metricDAO == null || runDAO == null || foam.util.SafetyUtil.isEmpty(getRunId()) ) return;
+
+        out("──────────────────────────────────────────────────────");
+        out("  Sweeping checkpoints for best validation loss...");
+
+        // Build the same uv/python command prefix PythonJob uses.
+        List<String> cmd = new ArrayList<>();
+        if ( getUseUv() ) {
+          cmd.add(getUvPath()); cmd.add("run"); cmd.add("python");
+        } else {
+          cmd.add("python3");
+        }
+        cmd.add("sweep_checkpoints.py");
+        cmd.add("--adapter-dir"); cmd.add(getAdapterPath());
+
+        List<String[]> entries = new ArrayList<>();  // [0]=iter  [1]=path  [2]=file
+        try {
+          ProcessBuilder pb = new ProcessBuilder(cmd);
+          pb.redirectErrorStream(true);
+          if ( ! getWorkingDir().isEmpty() ) pb.directory(new File(getWorkingDir()));
+          Process proc = pb.start();
+          try ( BufferedReader br = new BufferedReader(new InputStreamReader(proc.getInputStream())) ) {
+            String line;
+            Pattern iterPat = Pattern.compile("iter=(\\\\d+)");
+            Pattern pathPat = Pattern.compile("path=(.+)$");
+            Pattern filePat = Pattern.compile("file=(\\\\S+)");
+            while ( (line = br.readLine()) != null ) {
+              if ( line.startsWith("##SWEEP_ERROR## ") ) {
+                out("  WARN: " + line.substring("##SWEEP_ERROR## ".length()));
+                proc.waitFor();
+                return;
+              }
+              if ( line.startsWith("##CHECKPOINT## ") ) {
+                Matcher im = iterPat.matcher(line);
+                Matcher pm = pathPat.matcher(line);
+                Matcher fm = filePat.matcher(line);
+                if ( im.find() && pm.find() && fm.find() )
+                  entries.add(new String[]{ im.group(1), pm.group(1), fm.group(1) });
+              }
+            }
+          }
+          proc.waitFor();
+        } catch ( Exception e ) {
+          out("  WARN: checkpoint sweep subprocess failed — " + e.getMessage());
+          Loggers.logger(x, this).warning("sweepCheckpoints: subprocess failed", e);
+          return;
+        }
+
+        if ( entries.isEmpty() ) {
+          out("  No numbered checkpoints found — skipping.");
+          return;
+        }
+
+        // Look up val loss from stored TrainingMetrics and find the best.
+        String bestPath    = null;
+        float  bestValLoss = Float.MAX_VALUE;
+
+        out(String.format("  %-38s  %9s", "Checkpoint", "Val Loss"));
+        out("  " + "─".repeat(50));
+
+        for ( String[] e : entries ) {
+          int    iter  = Integer.parseInt(e[0]);
+          String path  = e[1];
+          String fname = e[2];
+
+          TrainingMetric probe = new TrainingMetric();
+          probe.setRunId(getRunId());
+          probe.setIteration(iter);
+          TrainingMetric metric = (TrainingMetric) metricDAO.find(probe.getId());
+
+          float  valLoss = metric != null ? metric.getValLoss() : 0;
+          String valStr  = valLoss > 0 ? String.format("%.4f", valLoss) : "—";
+          boolean isBest = valLoss > 0 && valLoss < bestValLoss;
+          if ( isBest ) { bestValLoss = valLoss; bestPath = path; }
+
+          out(String.format("  %-38s  %9s%s", fname, valStr, isBest ? "  ←" : ""));
+        }
+
+        out("  " + "─".repeat(50));
+
+        if ( bestPath == null ) {
+          out("  No val loss metrics found — trainingRunId may not match these checkpoints.");
+          return;
+        }
+
+        out("  Best: " + new File(bestPath).getName()
+          + "  (val loss " + String.format("%.4f", bestValLoss) + ")");
+
+        TrainingRun run = (TrainingRun) runDAO.find(getRunId());
+        if ( run != null ) {
+          TrainingRun updated = (TrainingRun) run.fclone();
+          updated.setBestCheckpoint(bestPath);
+          runDAO.put(updated);
+          out("  Stored on TrainingRun.");
+        }
       `
     }
   ]

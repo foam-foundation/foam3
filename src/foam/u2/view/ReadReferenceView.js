@@ -125,6 +125,18 @@ foam.CLASS({
       value: true
     },
     {
+      class: 'Boolean',
+      name: 'linkAllowed',
+      transient: true,
+      documentation: `
+        Whether the property or this view allows a link at all, e.g. false for
+        a Reference with enableLink: false. configLink turns enableLink off when
+        there is no menu or permission to link to, so when data changes,
+        enableLink starts again from this rather than from true.
+      `,
+      value: true
+    },
+    {
       name: 'menuKeys',
       documentation: `
         A list of menu ids.
@@ -141,7 +153,7 @@ foam.CLASS({
         this.SUPER();
         var self = this;
         this.data$.sub(() => {
-          this.enableLink = true;
+          this.enableLink = this.linkAllowed;
           this.configLink();
         })
         this.add(this.slot(function(obj, enableLink) {
@@ -178,7 +190,7 @@ foam.CLASS({
 
       // set link config properties
       // first figure out where these properties were provided (i.e., set to reference property or passed to this view)
-      this.enableLink = this.prop.enableLink && this.enableLink;
+      this.linkAllowed = this.enableLink = this.prop.enableLink && this.enableLink;
       this.menuKeys   = this.prop.menuKeys || this.menuKeys;
 
       this.configLink();

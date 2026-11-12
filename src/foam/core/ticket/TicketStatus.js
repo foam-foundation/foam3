@@ -16,7 +16,7 @@ foam.CLASS({
     },
     {
       name: 'label',
-      class: 'String'
+      class: 'I18NString'
     },
     {
       name: 'ordinal',
@@ -25,6 +25,44 @@ foam.CLASS({
     {
       name: 'description',
       class: 'String'
+    },
+    {
+      class: 'String',
+      name: 'color'
+    },
+    {
+      class: 'String',
+      name: 'background'
+    },
+    {
+      class: 'String',
+      name: 'borderColor',
+      factory: function(){
+        return this.background;
+      }
+    },
+    {
+      class: 'String',
+      name: 'glyphFill',
+      factory: function(){
+        return this.color;
+      }
+    },
+    {
+      class: 'String',
+      name: 'glyphBackground',
+      factory: function(){
+        return this.background;
+      }
+    },
+    {
+      class: 'GlyphProperty',
+      name: 'glyph'
+    },
+    {
+      class: 'String',
+      name: 'icon',
+      documentation: 'simple img src alternative for glyph'
     }
   ]
 });

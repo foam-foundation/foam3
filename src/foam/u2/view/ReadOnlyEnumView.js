@@ -62,7 +62,9 @@ foam.CLASS({
         var glyphBackground = this.resolveColor(data.glyphBackground);
         var glyphColor = this.resolveColor(data.glyphFill);
         var borderColor = this.resolveColor(data.borderColor);
-        var isPill = this.isFancy(data.VALUES);
+        // A modelled status such as foam.core.ticket.TicketStatus has no
+        // VALUES to scan, so it is a pill when it has colours of its own.
+        var isPill = data.VALUES ? this.isFancy(data.VALUES) : !! ( data.color || data.background );
         this
           .enableClass(this.myClass('pill'), isPill)
           .addClass('enum-label', this.myClass())
@@ -82,7 +84,7 @@ foam.CLASS({
             };
             this.start(this.CircleIndicator, icon).addClass(this.myClass('icon')).end();
           }, function() {
-            self.addClass(self.myClass('center'))
+            self.addClass(self.myClass('center'));
           })
           .callIfElse(isPill,
             () => { this.start().add(data.label).end(); },
@@ -99,6 +101,7 @@ foam.CLASS({
       })
     },
     function resolveColor(token) {
+      // if ( ! token ) return '';
       if ( token.startsWith('$') )
         return foam.CSS.returnTokenValue(token, this.cls_, this.__context__);
       return this.returnExpandedCSS(token);

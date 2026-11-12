@@ -30,3 +30,4 @@ p({
 p({"class":"foam.core.auth.test.PermissionedPropertyDAOTest","id":"PermissionedPropertyDAOTest","description":"hidden properties cannot be filtered or sorted on"})
 
 p({"class":"foam.core.auth.test.SessionFinishedRequestTest","id":"SessionFinishedRequestTest"})
+p({"class":"foam.core.auth.test.AuthorizationDAOListenTest","id":"AuthorizationDAOListenTest","description":"AuthorizationDAO checks read on each event a listener hears"})

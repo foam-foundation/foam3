@@ -156,7 +156,7 @@ foam.CLASS({
         .enableClass(this.myClass('expanded'), this.expanded$)
         .attrs({ role: 'button', tabindex: 0 })
         .style({ // Change top of the cards based on the flow's category
-          'border-top-color': 'hsl(' + this.stringToHue(this.data.category || '') + ', 80%, 45%)'
+          'border-top-color': this.cls_.categoryColor(this.data.category)
         })
         .on('click', this.routeToReflow) // Open flow in Reflow on click
         .on('keydown', function(e) {  // Also do it when you tab + enter
@@ -177,7 +177,7 @@ foam.CLASS({
             .enableClass(this.myClass('keywords-expanded'), this.expanded$)
             .addClass(self.myClass('keyword-list'))
             .add(this.dynamic(function(expanded, data$keywords) {
-              var kw    = (data$keywords || []).filter(k => k !== 'knowledge'); // Filter out the knowledge keyword
+              var kw    = (data$keywords || []).filter(k => k !== self.data.DOCUMENT_KEYWORD); // Every card has it, so it says nothing
               var shown = expanded ? kw : kw.slice(0, self.collapsedCount);
               this
                 .forEach(shown, function(keyword) {
@@ -198,16 +198,24 @@ foam.CLASS({
                 });
             }))
           .end();
+    }
+  ],
+
+  static: [
+    function categoryColor(category) {
+      // Each category keeps one colour wherever it shows, on its cards and on
+      // its Knowledge Base jump button: "Guides" gets the same hue every time.
+      return 'hsl(' + this.stringToHue(category || '') + ', 80%, 45%)';
     },
 
     function stringToHue(str) {
       let hash = 0;
-      
+
       // Hash the string using a simple djb2-like numeric accumulator
       for ( let i = 0; i < str.length; i++ ) {
           hash = str.charCodeAt(i) + ((hash << 5) - hash);
       }
-      
+
       // Ensure the hash is positive and map it to a 0-360 degree angle
       return Math.abs(hash) % 360;
     }

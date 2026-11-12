@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.u2.dialog.ConfirmationModal',
     'foam.log.LogLevel',
     'foam.u2.view.OverlayActionListView',
+    'foam.core.reflow.FlowDocumentCrumbs',
     'foam.core.reflow.FlowMode',
   ],
 
@@ -108,6 +109,7 @@ foam.CLASS({
               glyph: 'rightChevron',
               embedSVG: true
             }).addClass(this.myClass('chevron')).end()
+            .tag(this.FlowDocumentCrumbs, { flow$: this.data.value$ })
             .start('span').addClass(this.myClass('title'))
               .start({
                 class: 'foam.u2.TextField',

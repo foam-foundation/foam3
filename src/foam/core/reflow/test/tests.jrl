@@ -28,3 +28,8 @@ p({
   "id": "DAOPromptRunningTest",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.FlowDocumentDocsTest",
+  "id": "FlowDocumentDocsTest",
+  "language": 0
+})

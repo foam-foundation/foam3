@@ -177,7 +177,7 @@ foam.CLASS({
             .enableClass(this.myClass('keywords-expanded'), this.expanded$)
             .addClass(self.myClass('keyword-list'))
             .add(this.dynamic(function(expanded, data$keywords) {
-              var kw    = (data$keywords || []).filter(k => k !== self.data.DOCUMENT_KEYWORD); // Every card has it, so it says nothing
+              var kw    = (data$keywords || []).filter(k => k !== 'knowledge'); // Filter out the knowledge keyword
               var shown = expanded ? kw : kw.slice(0, self.collapsedCount);
               this
                 .forEach(shown, function(keyword) {

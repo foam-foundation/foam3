@@ -37,9 +37,8 @@ A flow with the `knowledge` keyword is a Knowledge Base document, usually a `.md
 
 - **Reading order** - the documents of a category are listed by name, so number them ("1. Install", "2. Configure") and give the opening one "0.".
 - **Contents beside the text** - `<toc side></toc>` under the title shows "On this page" beside the document, marks the section being read and keeps the text to a readable width. A plain `<toc></toc>` lists the contents in place.
-- **Previous and next** - `<docnav></docnav>` at the end links the documents before and after this one in its category.
+- **Where it sits, previous and next** - `<docnav></docnav>` at the end shows `Knowledge Base › <category> · n of m` and links the documents before and after this one in its category. Its `keyword` and `home` attributes make it work for another series of flows: `<docnav keyword="tutorial" home="tutorials">` walks the flows of the category that carry `tutorial` and links back to the `tutorials` menu.
 - **Links between documents** - `[text](Other Document)` opens the flow named "Other Document" in place; `[text](#heading-id)` scrolls to a heading of this page.
-- **Breadcrumb** - the header of a document shows `Knowledge Base › <category> · n of m` without any tag.
 
 ## UI Components
 
@@ -61,7 +60,7 @@ The code behind each part described above, all under `src/foam/core/reflow/` unl
 - **`Block.js`** - `Block`, which extends `foam.u2.Accordion`, implements `Flowable` and mixes in `foam.u2.StyleConfigurator`. It exports `addValue`, `log`, `out` and `block` to the command it runs; `outputJSON()` decides which properties are saved with the flow.
 - **`Console.js`** - `Console`, which extends `AbstractConsole` (a `foam.u2.Controller` that implements `Flowable` and mixes in `foam.u2.Router`). Its `eval_(cmd, opt_ignoreSelect, ignoreHistory, flowParent)` creates a block, evaluates the command against the combined local and flow scope, names the block, turns a string, number, boolean or date result into a holder object, and adds the block to its parent. A command that fails produces a `BadBlock`. The same file defines `FlowMode`, `Layout`, `ReflowHeader` and `LimitEditHeader`.
 - **`Flow.js`** - `Flow`, the persisted document (id `name`), with authorization and created/modified/SPID auditing.
-- **`FlowDocumentGroupingList.js`**, **`FlowDocumentCitationView.js`**, **`FlowDocumentCrumbs.js`**, **`FlowDocumentNav.js`** - the Knowledge Base: the grouped list with its jump buttons, a document card, the breadcrumb in a document's header, and `<docnav>`. `Link.js` makes an `<a>` naming a flow open it in place.
+- **`FlowDocumentGroupingList.js`**, **`FlowDocumentCitationView.js`**, **`FlowDocumentNav.js`** - the Knowledge Base: the grouped list with its jump buttons, a document card, and `<docnav>`. `Link.js` makes an `<a>` naming a flow open it in place.
 - **`cmd/cmds.jrl`** - the built-in commands in `commandDAO` (`help`, `dao`, `daos`, `upload`, `flows`, `save`, `load`, `include`, `cells` and others), implemented by the classes in `cmd/`.
 - **`Upload.js`** - `Upload`, the CSV / JSON / XML upload component used by the `upload` command.
 - **`ReactiveDetailView.js`** - the `FObject` refinement that adds `reactions_`, `addReaction()` and `startReaction_()`, and the reactive detail views that edit them.

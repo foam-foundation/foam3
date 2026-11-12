@@ -269,38 +269,7 @@ foam.CLASS({
     }
   ],
 
-  constants: {
-    // The keyword that puts a flow in the Knowledge Base, as a document
-    DOCUMENT_KEYWORD: 'knowledge'
-  },
-
   methods: [
-    function isDocument() {
-      return ( this.keywords || [] ).includes(this.DOCUMENT_KEYWORD);
-    },
-
-    async function findDocumentPlace() {
-      /**
-       * Where this document sits among the Knowledge Base documents of its
-       * category, in reading order, which is name order. For "2. Configure"
-       * in a "Guides" category: { names: [ "1. Install", "2. Configure",
-       * "3. Deploy" ], index: 1 }. The DAO leaves out documents the user may
-       * not read, so each user counts only the ones they can open. Only names
-       * are fetched, not each document's markdown. Null for a flow that is
-       * not a document or has no category.
-       */
-      if ( ! this.isDocument() || ! this.category ) return null;
-      var sink = await this.flowDAO
-        .where(this.AND(
-          this.EQ(this.cls_.CATEGORY, this.category),
-          this.IN(this.DOCUMENT_KEYWORD, this.cls_.KEYWORDS)))
-        .orderBy(this.cls_.NAME)
-        .select(this.PROJECTION(this.cls_.NAME));
-      var names = sink.array.map(f => f.name);
-      var index = names.indexOf(this.name);
-      return index < 0 ? null : { names: names, index: index };
-    },
-
     {
       name: 'authorizeOnCreate',
       javaCode: `

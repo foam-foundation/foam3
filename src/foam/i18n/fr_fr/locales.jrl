@@ -982,7 +982,6 @@ p({l:"fr",s:"foam.comics.v3.CreateView.SAVE_DISABLED",t:"L’enregistrement est 
 p({l:"fr",s:"foam.u2.GridGroupingDAOList.GROUP_NAV_LABEL",t:"Aller à un groupe"})
 p({l:"fr",s:"foam.u2.markdown.TableOfContents.TABLE_OF_CONTENTS",t:"Table des matières"})
 p({l:"fr",s:"foam.u2.markdown.TableOfContents.ON_THIS_PAGE",t:"Sur cette page"})
-p({l:"fr",s:"foam.core.reflow.FlowDocumentCrumbs.KNOWLEDGE_BASE",t:"Base de connaissances"})
-p({l:"fr",s:"foam.core.reflow.FlowDocumentCrumbs.OF",t:"sur"})
+p({l:"fr",s:"foam.core.reflow.FlowDocumentNav.OF",t:"sur"})
 p({l:"fr",s:"foam.core.reflow.FlowDocumentNav.PREVIOUS",t:"Précédent"})
 p({l:"fr",s:"foam.core.reflow.FlowDocumentNav.NEXT",t:"Suivant"})

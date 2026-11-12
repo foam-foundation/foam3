@@ -18,8 +18,7 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.Flow',
-    'foam.core.reflow.FlowDocumentCitationView',
-    'foam.mlang.order.ThenBy'
+    'foam.core.reflow.FlowDocumentCitationView'
   ],
 
   css: `
@@ -36,9 +35,9 @@ foam.CLASS({
     {
       name: 'order',
       // Categories, and the documents of each in reading order, which is name
-      // order. Set here rather than in the menu journal: ThenBy keeps its head
-      // and tail as given, so from JSON they stay plain maps and cannot sort.
-      factory: function() { return this.ThenBy.create({ head: this.Flow.CATEGORY, tail: this.Flow.NAME }); }
+      // order. Set here, not in the menu journal: a ThenBy read from JSON keeps
+      // its head and tail as plain maps, which cannot sort.
+      factory: function() { return this.THEN_BY(this.Flow.CATEGORY, this.Flow.NAME); }
     }
   ],
 

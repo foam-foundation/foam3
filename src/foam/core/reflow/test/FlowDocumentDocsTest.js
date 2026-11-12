@@ -10,10 +10,9 @@ foam.CLASS({
   extends: 'foam.core.test.JSTest',
 
   documentation: `
-    Knowledge Base documents know their place in their category, a side
-    <toc side> lists only the sections beside the document, a plain <toc>
-    keeps its title and every heading, and <docnav> links the documents
-    before and after.
+    A side <toc side> lists only the sections beside the document, a plain
+    <toc> keeps its title and every heading, and <docnav> shows where a flow
+    sits in its series and links the flows before and after.
   `,
 
   requires: [
@@ -39,13 +38,6 @@ foam.CLASS({
       await doc('Elsewhere',    'Other');
       await doc('A plain flow', 'Guides', [ 'dashboard' ]);
 
-      var place = await ( await flowDAO.find('2. Configure') ).findDocumentPlace();
-      x.test(place && place.names.join('|') === '1. Install|2. Configure|3. Deploy',
-        'a document lists the documents of its category in name order, got ' + ( place && place.names ));
-      x.test(place && place.index === 1, 'a document knows its own position, got ' + ( place && place.index ));
-      x.test(( await ( await flowDAO.find('A plain flow') ).findDocumentPlace() ) === null,
-        'a flow without the knowledge keyword has no place');
-
       var render = async (md, sub) => {
         var v = self.MarkdownView.create({ data: md }, sub || x);
         v.write(x.document.body);
@@ -68,19 +60,26 @@ foam.CLASS({
       x.test(texts(v, '.foam-u2-markdown-TableOfContents-title')[0] === 'Table of Contents', 'a plain TOC keeps its title');
       v.remove();
 
-      var navFor = async name => {
+      // What <docnav> shows for a flow: its crumb line and where its links go
+      var navFor = async (name, args) => {
         var flow = await flowDAO.find(name);
-        var n = self.FlowDocumentNav.create({}, x.createSubContext({ flow: flow }));
+        var n = self.FlowDocumentNav.create(args || {}, x.createSubContext({ flow: flow }));
         n.write(x.document.body);
         await new Promise(r => setTimeout(r, 100));
-        var hrefs = Array.from(n.el_().querySelectorAll('a')).map(a => a.getAttribute('href'));
+        var crumbs = texts(n, '.foam-core-reflow-FlowDocumentNav-crumbs')[0] || '';
+        var hrefs  = Array.from(n.el_().querySelectorAll('.foam-core-reflow-FlowDocumentNav-link')).map(a => a.getAttribute('href'));
         n.remove();
-        return hrefs.join('|');
+        return { crumbs: crumbs.replace(/^.*›\s*/, ''), hrefs: hrefs.join('|') };
       };
-      var hrefs = await navFor('2. Configure');
-      x.test(hrefs === '1. Install|3. Deploy', 'a middle document links back and on, got ' + hrefs);
-      hrefs = await navFor('1. Install');
-      x.test(hrefs === '2. Configure', 'the first document has no previous link, got ' + hrefs);
+      var nav = await navFor('2. Configure');
+      x.test(nav.crumbs === 'Guides · 2 of 3', 'a document shows its category and position, got ' + nav.crumbs);
+      x.test(nav.hrefs === '1. Install|3. Deploy', 'a middle document links back and on, got ' + nav.hrefs);
+      nav = await navFor('1. Install');
+      x.test(nav.hrefs === '2. Configure', 'the first document has no previous link, got ' + nav.hrefs);
+      nav = await navFor('A plain flow');
+      x.test(nav.crumbs === '' && nav.hrefs === '', 'a flow outside the series shows nothing, got ' + nav.crumbs);
+      nav = await navFor('A plain flow', { keyword: 'dashboard' });
+      x.test(nav.crumbs === 'Guides · 1 of 1', 'the keyword attribute picks another series, got ' + nav.crumbs);
     }
   ]
 });

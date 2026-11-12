@@ -21,7 +21,8 @@ foam.CLASS({
   methods: [
     function render() {
       // this.data is the found TicketStatus, e.g. OPEN with color $blue600.
-      this.tag(this.ReadOnlyEnumView, { data: this.data });
+      // The pill shows its label in the user's language, from toSummary.
+      this.tag(this.ReadOnlyEnumView, { data: this.data.clone(this).copyFrom({ label: this.data.toSummary() }) });
     }
   ]
 });

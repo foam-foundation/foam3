@@ -8,6 +8,10 @@ foam.CLASS({
   package: 'foam.core.ticket',
   name: 'TicketStatus',
 
+  imports: [
+    'translationService?'
+  ],
+
   properties: [
     {
       name: 'id',
@@ -63,6 +67,23 @@ foam.CLASS({
       class: 'String',
       name: 'icon',
       documentation: 'simple img src alternative for glyph'
+    }
+  ],
+
+  methods: [
+    {
+      // The label in the user's language, e.g. "Fermé" for CLOSED in French.
+      // A status is journal data, which no class constant holds, so boot
+      // cannot install a translation onto its label. This asks for one by
+      // the key foam.core.ticket.TicketStatus.CLOSED.label, as an enum
+      // value's is, and falls back to the label when there is none.
+      name: 'toSummary',
+      flags: ['js'],
+      code: function() {
+        return this.translationService ?
+          this.translationService.getTranslation(foam.locale, 'foam.core.ticket.TicketStatus.' + this.id + '.label', this.label) :
+          this.label;
+      }
     }
   ]
 });

@@ -196,7 +196,7 @@ foam.CLASS({
       tableCellFormatter: function(value, obj) {
         obj.ticketStatusDAO.find(value).then(function(status) {
           if ( status ) {
-            this.tag(foam.u2.view.ReadOnlyEnumView, { data: status });
+            this.tag(foam.core.ticket.TicketStatusReferenceCitationView, { data: status });
           }
         }.bind(this));
       },
@@ -208,9 +208,15 @@ foam.CLASS({
           readView: {
             class: 'foam.u2.view.ReadReferenceView'
           },
+          // statusChoices names the statuses this ticket may move to, e.g.
+          // ['CLOSED', 'CLOSED']; the dropdown labels each from its
+          // TicketStatus, "Fermé" in French, rather than showing the id.
           writeView: {
             class: 'foam.u2.view.ChoiceView',
-            choices: x.data.statusChoices
+            dao: x.data.ticketStatusDAO
+              .where(x.data.IN(x.data.TicketStatus.ID, x.data.statusChoices.map(c => Array.isArray(c) ? c[0] : c)))
+              .orderBy(x.data.TicketStatus.ORDINAL),
+            objToChoice: function(o) { return [ o.id, o.toSummary() ]; }
           }
         };
       },

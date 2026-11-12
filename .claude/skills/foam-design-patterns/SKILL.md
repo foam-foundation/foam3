@@ -24,6 +24,11 @@ A new `DAO`, `Sink`, `View`, `Predicate` or `Agent` composes with everything; a 
 Don't: a WebAgent per model, a new Button class, a second TimeUnit enum
 Do:    DIG, `foam.lang.Action`, refine the enum that exists
 
+### Extend without breaking: the host gives out slots, the feature plugs in
+A shared class (a model every flow uses, a controller, a base view, a container) serves callers that never use your feature. Teach it the feature and every one of them carries it, and the next feature edits it again. Give the host a generic extension point instead and keep the feature in its own class: existing callers see no change, and the next feature needs no edit to the host.
+Don't: a feature's lookup or keyword constant on `Flow`; a controller importing one feature's view; a container's CSS naming one child's class
+Do:    an exported empty view the feature fills, a hook method, a property or attribute whose default is today's behaviour; the feature's own CSS styles the box around it
+
 ### Delete the second statement of anything already stated
 A restated default or a duplicated fact is a line review will ask you to remove.
 Don't: `implements: ['foam.mlang.Expressions']` on a View, `value: false` on a Boolean

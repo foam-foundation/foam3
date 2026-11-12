@@ -54,6 +54,18 @@ A border that hard-codes its body is single-use; one that takes a slot serves ev
 Don't: a panel that renders its own fixed table
 Do:    the `ExpandableBorder` shape — a `title` and a `content$` slot the consumer fills (`src/foam/u2/borders/ExpandableBorder.js`)
 
+### CSS a view needs on a box around it lives in the view
+A container that names one child's class has learned that child; the next child adds another rule. The child's own CSS reaches out, keyed to its own class.
+Don't: `<<content:has(.foam-u2-markdown-TableOfContents-side) { overflow: visible; }` in `Block.js`
+Do:    `.foam-core-reflow-Block-content:has(<<side) { overflow: visible; }` in `TOC.js`
+Cite: `u2/markdown/TOC.js` (the `side` rules)
+
+### A new view takes its specifics as properties, defaulting to today's use
+A view hard-wired to one keyword, route or label serves one feature. The same view with those as properties (attributes, for a markdown tag) serves every caller, and the defaults keep the current uses unchanged.
+Don't: `'knowledge'` and `'#knowledgeBase'` written into the tag
+Do:    `keyword` and `home` String properties with `attribute: true` and those values as defaults; a label read from the object it names (the menu's own `label`)
+Cite: `core/reflow/FlowDocumentNav.js`
+
 ### Toggle a class or bind a slot before reaching for `dynamic()`
 Each step up the ladder rebuilds more DOM; `dynamic()` is for structure changes only, and it builds into `this`.
 Don't: `this.slot(function(x) { return this.E().add(x); })`; a `dynamic()` around a whole table when one cell changes; `add(function() {...})` without `dynamic`

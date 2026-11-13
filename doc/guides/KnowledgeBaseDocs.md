@@ -1,0 +1,113 @@
+<flow name="KnowledgeBaseDocs" category="DOC/GUIDE" spid="foam" description="How to add a .md file to the Knowledge Base, edit an existing doc, and fix a doc that is missing or renders badly." keywords="knowledge base,docs,markdown,flow,reflow,knowledge"/>
+
+# Writing Knowledge Base Docs
+
+The **Knowledge Base** menu lists Reflow flows. A doc is a plain `.md` file in the repo. The build
+turns it into a flow when the file holds a `<flow>` tag.
+
+## Turn a .md file into a doc
+
+Put one `<flow>` tag at the top of the file, then a blank line, then the markdown. The build takes the first `<flow` text it finds, so keep no other `<flow` above it:
+
+```
+<flow name="UserSetup" category="Admin" description="Create a user and give them a group." keywords="knowledge,users"/>
+
+# User Setup
+
+...
+```
+
+Four things decide whether the doc shows up:
+
+1. **The flow tag.** A `.md` without a `<flow>` tag is skipped by the build (`tools/JournalMaker.js`). It is a tag, not YAML frontmatter: `---` blocks do nothing.
+2. **The knowledge keyword.** The menu shows only flows whose `keywords` include `knowledge`, lowercase (`src/foam/core/reflow/menus.jrl`).
+3. **A folder the build reads.** The build walks every folder under a `pom.js` (`tools/pmake.js`). It skips folders that start with `.`, end in `build` or `build2`, or contain `android`, `examples` or `node_modules` in their name. It skips `test` and `tests` folders unless built with `--flags:test`, and any subfolder with its own `pom.js` that no parent `pom.js` lists. A README next to code you never build is never read.
+4. **A rebuild.** The build copies the doc into the `flows` journal. A new file appears only after the next build.
+
+## Tag attributes
+
+| Attribute | What it sets | Example |
+|---|---|---|
+| `name` | Flow name, unique across the app. Defaults to the file name | `"UserSetup"` |
+| `category` | The group the card sits in | `"Admin"` |
+| `description` | The text on the card | `"Create a user..."` |
+| `keywords` | Comma list; must hold `knowledge` | `"knowledge,users"` |
+| `spid` | Which service provider sees the doc | `"foam"` |
+| `accessLevel` | `PRIVATE`, `PUBLIC_RO`, `PUBLIC_RW` or `SHARED` | `"SHARED"` |
+| `specifiedUserAccess` | With `SHARED`: who may read, as single-quoted JSON. Any list property of the app's `Flow` works the same way | `'[{"userId":1348,"accessLevel":1}]'` |
+| `notes`, `label` | Copied to the flow as is | |
+| `childLock` | Locks the doc to one markdown block (see below) | `"true"` |
+
+Two docs with the same `name` collide, and the one loaded last wins. Escape `"`, `<`, `>` and `&`
+inside a value as `&quot;`, `&lt;`, `&gt;` and `&amp;`.
+
+## Edit an existing doc
+
+**Edit the markdown file** and rebuild. This works on every environment and is the only way that
+reaches a deployed server.
+
+**Or edit it in the app.** This needs a local server you started with `./build.sh` from your repo checkout, running in DEVELOPMENT or TEST mode. Each doc is a Reflow flow: a page made of blocks, and a doc has exactly one block, a markdown block named `markdown1`.
+
+1. **Open the doc.** Go to **Knowledge Base** in the menu and click the doc's card. It opens in presentation mode, read only.
+2. **Switch to edit view.** Click the two-arrow button at the far top right, or press **Esc**. Another way is to change `flowMode=PRESENTATION` to `flowMode=CONSOLE` at the end of the address. The page splits into three panels: **Contents** on the left, the doc in the middle, properties on the right.
+3. **Select the markdown block.** In **Contents**, click `markdown1`.
+4. **Edit the text.** On the right, the **Flow Properties** tab now shows the markdown source with a formatting toolbar (B, I, H1, Table, Hint and more). Type your changes there. The middle panel updates as you type.
+5. **Edit the card details if needed.** In **Contents**, click `flow`. The **Flow Properties** tab shows Name, Category, Description and Keywords, the values in the `<flow>` tag. Leave **Source** as it is: it names the `.md` file the save writes to.
+6. **Save.** Click the blue **Save** button at the top right. The first save of a doc asks "A Flow named ... already exists. Overwrite it?". Click **Overwrite**.
+7. **Check and commit the file.** The save rewrites the `.md` in your checkout with a fresh `<flow>` tag (`SaveFlowToFileRuleAction`). Run `git diff` on it, then commit it.
+
+Do not use the **+** button under the block. It adds a second block, and a doc with two blocks cannot be saved back to a `.md`.
+
+On any other mode the save stays in the journal only. The file does not change, and the next build
+replaces the edit with the file.
+
+A doc must stay **one markdown block.** If it gets a second block, or a block that is not markdown,
+the save writes a `.flow` file instead and the flow shows a WARNING status. `childLock="true"` hides
+the block toolbar so this cannot happen by accident. Every save to `.md` sets it.
+
+In DEVELOPMENT or TEST mode, opening a doc reads its `.md` directly (`LoadFlowFromFileDAO`), so a
+file edit shows without a rebuild. The cards on the Knowledge Base page still show the last build's
+copy. Open `#flow_/<name>?flowMode=PRESENTATION` on a fresh page to see the edit.
+
+If Reflow offers to load unsaved changes when you open a doc, decline. They overwrite what came
+from the file.
+
+## Markdown that renders
+
+The viewer is `foam.u2.view.MarkdownView`, not GitHub or GitBook markdown. Most standard markdown
+works: headings, lists, tables, code blocks, links, bold and italic.
+
+Hints, a coloured box, use a `<hint>` tag. The category is `hint`, `warning`, `success` or
+`danger`:
+
+```
+<hint category="warning">
+Read **this** first.
+</hint>
+```
+
+GitBook's `{% hint style="info" %}` is not supported and shows as plain text. Convert it to a
+`<hint>` tag when you migrate a page.
+
+The editor toolbar also inserts `<toc></toc>` (contents list), `<search></search>` and
+`<glossary></glossary>`. Plain HTML, such as `<details>`, renders as HTML.
+
+**Images** go in a folder named `images` next to the `.md`, referenced as `images/<file>`:
+
+```
+![User list](images/user-setup-list.png)
+```
+
+The build copies every `images` folder into one flat folder served at `/images/`. File names must
+be unique across the whole app, so prefix them with the doc name.
+
+## Doc is missing or broken
+
+| Symptom | Check |
+|---|---|
+| New `.md` never shows | `<flow>` tag at the top with no earlier `<flow` text, `knowledge` in `keywords`, folder the build walks, rebuilt |
+| Shows for some users only | The user's `spid`, `accessLevel` and the access list in the tag, and the `menu.read.knowledgeBase` permission |
+| Lost its formatting | GitBook syntax such as `{% hint %}`; rewrite it with the tags above |
+| App edit gone after a build | The edit was made outside DEVELOPMENT or TEST mode, so the file never changed; edit the `.md` |
+| Became a `.flow` file | The doc got a second block; delete it, set `source` back to the `.md`, save again, delete the stray `.flow` |
+| Image missing | Folder not named `images`, or another image already has that file name |

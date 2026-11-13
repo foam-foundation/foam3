@@ -174,6 +174,9 @@ Overview of Reflow, FOAM's Jupyter-style interactive console: the Console contro
 **[ExportingFlows](ExportingFlows.md)**
 Step-by-step instructions for exporting a Reflow flow from the running app: open the flow DAO in Console, filter by name, open the Download link (JSON or journal format), copy it, and replace the entry in the `.jrl` source file.
 
+**[KnowledgeBaseDocs](KnowledgeBaseDocs.md)**
+How to add a `.md` file to the Knowledge Base with a `<flow>` tag, edit an existing doc from the file or from the app in development mode, write hints and images the viewer renders, and fix a doc that is missing or lost its formatting.
+
 **[Dashboard](Dashboard.md)**
 Quick-start guide for building FOAM3 dashboards: creating a `DashboardView` with widget menus in `menu.jrl`, configuring `CardWrapper`/`DAOTable`/count widgets, and optional `CitationView`s.
 

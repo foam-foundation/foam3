@@ -70,7 +70,7 @@ Output images go into the PR by drag-drop; `gh` has no upload path for descripti
 | `modes` | `light`/`dark`; sets `theme.activeVariants` and calls `foam.u2.CSS.reloadStyles` by hand (the auto listener only exists with `useVariants`) |
 | `prep` | steps after launch: `click`, `dblclick`, `hover`, `check`, `uncheck`, `fill: [sel, text]`, `press: key`, `js`; each takes `wait` ms |
 | `marks` | Playwright selectors (`css`, `text=`, `role=`, `>> nth=`) or a list of candidates; numbered in order; `note` feeds the legend |
-| `callouts` | `number` (default): badges, arrows and a legend from each `note`; `label`: each mark's `note` written on the picture beside its box, no legend (see Callout styles) |
+| `callouts` | `number` (default): badges, arrows and a legend from each `note`; `label`: each mark's number and `note` written on the picture beside its box ("1. Export label fixed"), no legend (see Callout styles) |
 | `steps` | how-to strip instead of before/after: same step forms as `prep` plus `note`, `sel` |
 | `stepSel` | strip fallback crop when a step's view has no `sel` (default: the stack content area) |
 | `servers` per row | subset, e.g. `["after"]` for something that did not exist before |
@@ -87,7 +87,7 @@ Wide panels stack automatically; a wide table that should still sit side by side
 Two styles, chosen per row with `callouts`:
 
 - `number` (default): ①②③ with a short arrow, words in the legend under the picture. Use it when one picture points at several things: labels would crowd each other.
-- `label`: the mark's `note` sits on a pill right of its box (above when it would leave the panel), no badge, no arrow, no legend. Use it when a picture points at one or two things and the reader should not look down to a legend, as in a how-to strip where each step marks one control ("Click Export"). Keep notes to a few words.
+- `label`: the mark's number and `note` sit on a pill right of its box ("1. Export label fixed"; above when it would leave the panel), no badge, no arrow, no legend. The number keeps every mark nameable in a review ("see 2") and gives the order in a how-to strip; a mark with no `note` shows its number alone, and a mark's own `label` replaces the number. Use it when a picture points at one or two things and the reader should not look down to a legend, as in a how-to strip where each step marks one control ("Click Export"). Keep notes to a few words.
 
 Pick one style per row; a picture never mixes badges and labels.
 

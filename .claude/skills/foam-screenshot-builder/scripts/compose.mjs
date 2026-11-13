@@ -28,20 +28,19 @@ const side = (png, k) => {
   return { k, src: 'data:image/png;base64,' + fs.readFileSync(png).toString('base64'), w: width / DPR, h: height / DPR, marks };
 };
 
-// Label callouts: the note sits on a pill right of the box when it fits inside the panel,
-// otherwise above it (below when the box touches the top). One mark per picture reads best;
-// a crowded screen is what numbered callouts are for.
-// A mark without a note gets the box only: a bare "3" on a pill would read as a numbered callout.
+// Label callouts: "1. Export label fixed" sits on a pill right of the box when it fits inside
+// the panel, otherwise above it (below when the box touches the top). The number keeps each
+// mark nameable in a review ("see 2") without sending the reader down to a legend; a mark
+// without a note shows its number alone.
 function labelCallout(s, m, x, y, w, h) {
-  const box = `<div class="box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`;
-  if (!m.note) return box;
+  const text = m.note ? `${m.label}. ${m.note}` : m.label;
   // Width guess includes the pill's padding and border (box-sizing: border-box).
-  const tw = Math.min(320, 22 + m.note.length * 7.6), th = 24;
+  const tw = Math.min(320, 22 + text.length * 7.6), th = 24;
   let lx = x + w + 8, ly = y + h / 2 - th / 2;
   if (lx + tw > s.w) { lx = Math.max(0, Math.min(x, s.w - tw)); ly = y - th - 6 < 0 ? y + h + 6 : y - th - 6; }
   ly = Math.max(0, Math.min(ly, s.h - th));          // keep it inside the panel, top and bottom
-  return `${box}
-      <div class="pill" style="left:${lx}px;top:${ly}px;max-width:${tw}px">${esc(m.note)}</div>`;
+  return `<div class="box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>
+      <div class="pill" style="left:${lx}px;top:${ly}px;max-width:${tw}px">${esc(text)}</div>`;
 }
 
 function panel(s, style) {

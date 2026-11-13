@@ -73,7 +73,7 @@ foam.CLASS({
         Notification notif = (Notification) notifications.get(0);
         test(notif instanceof TicketNotification, "notification is a TicketNotification, got " + notif.getClass().getName());
         expect(notif.getGroupId(), "ticketTestGroup", "notification goes to the last modifier's group");
-        expect(notif.getLocaleTemplateName(), "ticketNotificationUpdate", "create uses the update template");
+        expect(notif.getLocaleTemplateName(), "ticketNotificationOpenClose", "create uses the open/close template");
         test(! notif.getBroadcasted(), "default action does not broadcast");
 
         Map args = notif.getEmailArgs();

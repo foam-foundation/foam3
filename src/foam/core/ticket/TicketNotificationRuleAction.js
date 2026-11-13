@@ -22,7 +22,8 @@ foam.CLASS({
     'foam.lang.X',
     'foam.mlang.predicate.Predicate',
     'java.util.HashMap',
-    'java.util.Map'
+    'java.util.Map',
+    'foam.util.SafetyUtil'
   ],
 
   properties: [
@@ -47,62 +48,55 @@ foam.CLASS({
       Ticket oldTicket = null;
       TicketStatus status = null;
       TicketStatus oldStatus = null;
-      TicketComment ticketComment = null;
       String comment = null;
       String localeTemplate = getTicketNotificationOpenClose();
       User user = null;
 
       HashMap<String, Object> emailArgs = new HashMap<>();
       HashMap<String, String> translationMappings = new HashMap();
+
       try {
-        if ( obj instanceof TicketComment ) {
-          ticketComment = (TicketComment) obj;
-          comment = ticketComment.getComment();
-          ticket = (ticketComment.findTicket(x));
-          localeTemplate = getTicketNotificationUpdate();
-          user = (User) ((DAO) x.get("userDAO")).find(ticketComment.getLastModifiedBy());
-        } else {
-          ticket = (Ticket) obj;
-          comment = ticket.getComment(); // last comment
-          localeTemplate = getTicketNotificationUpdate();
-          user = (User) ((DAO) x.get("userDAO")).find(ticket.getLastModifiedBy());
+        ticket = (Ticket) obj;
+        comment = ticket.getComment(); 
+        if ( SafetyUtil.isEmpty(comment) )
+          comment = ticket.getExternalComment();
 
-          if ( oldObj != null ) {
-            oldTicket = (Ticket) oldObj;
+        user = (User) ((DAO) x.get("userDAO")).find(ticket.getLastModifiedBy());
 
-            // Only notify when a user modifiable propery has changed.
-            Map diff = oldTicket.diff(ticket);
-            if ( diff.size() == 0 )
+        if ( oldObj != null ) {
+          oldTicket = (Ticket) oldObj;
+
+          // Only notify when a user modifiable propery has changed.
+          Map diff = oldTicket.diff(ticket);
+          if ( diff.size() == 0 && SafetyUtil.isEmpty(comment) )
+            return;
+          if ( diff.size() > 0 ) {
+            diff.remove(Ticket.CREATED.getName());
+            diff.remove(Ticket.CREATED_BY.getName());
+            diff.remove(Ticket.LAST_MODIFIED.getName());
+            diff.remove(Ticket.LAST_MODIFIED_BY.getName());
+            if ( diff.size() == 0 && SafetyUtil.isEmpty(comment) )
               return;
-            if ( diff.size() > 0 ) {
-              diff.remove(Ticket.CREATED.getName());
-              diff.remove(Ticket.CREATED_BY.getName());
-              diff.remove(Ticket.LAST_MODIFIED.getName());
-              diff.remove(Ticket.LAST_MODIFIED_BY.getName());
-              if ( diff.size() == 0 )
-                return;
-            }
+          }
 
-            oldStatus = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(oldTicket.getStatus());
+          localeTemplate = getTicketNotificationUpdate();
+
+          oldStatus = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(oldTicket.getStatus());
+          if ( oldStatus != null ) { // check added for llm reviewer
             emailArgs.put("oldStatus", oldStatus.getLabel());
             translationMappings.put("oldStatus", "foam.core.ticket.TicketStatus."+oldStatus.getId()+".label");
           }
         }
+
         status = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(ticket.getStatus());
-        emailArgs.put("status", status.getLabel());
-        translationMappings.put("status", "foam.core.ticket.TicketStatus."+status.getId()+".label");
-        if ( oldStatus != null &&
-             ! status.getId().equals(oldStatus.getId()) && status.getId().equals(Ticket.STATUS_CLOSED) ) {
-          localeTemplate = getTicketNotificationOpenClose();
+        if ( status != null ) { // check added for llm reviewer
+          emailArgs.put("status", status.getLabel());
+          translationMappings.put("status", "foam.core.ticket.TicketStatus."+status.getId()+".label");
+          if ( oldStatus != null &&
+               ! status.getId().equals(oldStatus.getId()) && status.getId().equals(Ticket.STATUS_CLOSED) ) {
+            localeTemplate = getTicketNotificationOpenClose();
+          }
         }
-
-        final Notification notif = getNotification(x, user, ticket, oldTicket, ticketComment);
-        notif.setLocaleTemplateName(localeTemplate);
-        // notif.setEmailName(emailTemplate); - leave email for the application layer
-
-        emailArgs.put("ticket", ticket.getId());
-        emailArgs.put("title", ticket.getTitle());
-        emailArgs.put("comment", comment);
 
         if ( user == null ) {
           Subject subject = (Subject) x.get("subject");
@@ -113,14 +107,22 @@ foam.CLASS({
           emailArgs.put("user", user.getLegalName());
         }
 
+        final Notification notif = getNotification(x, user, ticket, oldTicket);
+        notif.setLocaleTemplateName(localeTemplate);
+        // notif.setEmailName(emailTemplate); - leave email for the application layer
+
+        emailArgs.put("ticket", ticket.getId());
+        emailArgs.put("title", ticket.getTitle());
+        emailArgs.put("comment", comment);
+
         emailArgs.put("menu", "admin.tickets/" + ticket.getId());
 
-        addAdditionalArgs(x, user, ticket, oldTicket, ticketComment, emailArgs, translationMappings);
+        addAdditionalArgs(x, user, ticket, oldTicket, emailArgs, translationMappings);
 
         notif.setEmailArgs(emailArgs);
         notif.setLocaleTranslationMappings(translationMappings);
 
-        Predicate pred = getBroadcastPredicate(ruler.getX(), user, ticket, oldTicket, ticketComment);
+        Predicate pred = getBroadcastPredicate(ruler.getX(), user, ticket, oldTicket);
         if ( pred != null ) {
           notif.setBroadcasted(true);
           notif.setPredicate(pred);
@@ -138,7 +140,7 @@ foam.CLASS({
     },
     {
       name: 'getNotification',
-      args: 'X x, User user, Ticket ticket, Ticket oldTicket, TicketComment comment',
+      args: 'X x, User user, Ticket ticket, Ticket oldTicket',
       type: 'Notification',
       documentation: 'defaults to sending by group.',
       javaCode: `
@@ -150,14 +152,14 @@ foam.CLASS({
     },
     {
       name: 'addAdditionalArgs',
-      args: 'X x, User user, Ticket ticket, Ticket oldTicket, TicketComment comment, Map emailArgs, Map translationMappings',
+      args: 'X x, User user, Ticket ticket, Ticket oldTicket, Map emailArgs, Map translationMappings',
       javaCode: `
         // nop
       `
     },
     {
       name: 'getBroadcastPredicate',
-      args: 'X x, User user, Ticket ticket, Ticket oldTicket, TicketComment comment',
+      args: 'X x, User user, Ticket ticket, Ticket oldTicket',
       type: 'Predicate',
       documentation: 'Predicate for filter user when broadcasting.',
       javaCode: `

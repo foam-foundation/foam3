@@ -75,10 +75,10 @@ foam.CLASS({
             if ( diff.size() == 0 )
               return;
             if ( diff.size() > 0 ) {
-              diff.remove(Ticket.CREATED.name);
-              diff.remove(Ticket.CREATED_BY.name);
-              diff.remove(Ticket.LAST_MODIFIED.name);
-              diff.remove(Ticlet.LAST_MODIFIED_BY.name);
+              diff.remove(Ticket.CREATED.getName());
+              diff.remove(Ticket.CREATED_BY.getName());
+              diff.remove(Ticket.LAST_MODIFIED.getName());
+              diff.remove(Ticket.LAST_MODIFIED_BY.getName());
               if ( diff.size() == 0 )
                 return;
             }

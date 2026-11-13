@@ -53,6 +53,12 @@ foam.CLASS({
       EventRecord stored = (EventRecord) erDAO.find(er.getId());
       test( stored != null && alarm != null && alarm.getId().equals(stored.getAlarm()), "stored EventRecord references its alarm " + (stored != null ? stored.getAlarm() : null));
 
+      // The same failure recorded again keeps the alarm's note
+      erDAO.put_(x, new EventRecord(x, this, s, s, s, s, LogLevel.ERROR, null));
+      Thread.sleep(1000);
+      alarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
+      test( alarm != null && s.equals(alarm.getNote()), "repeated message keeps the alarm note, found: " + (alarm == null ? null : alarm.getNote()));
+
       DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
       int raiseEmails = emailCount(emailMessageDAO, s);
 

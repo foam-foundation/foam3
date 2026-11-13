@@ -9,9 +9,9 @@ foam.CLASS({
   name: 'FlowAuthorizationTest',
   extends: 'foam.core.test.Test',
 
-  documentation: `A save must pass the write rules of the stored flow and of the copy being
-    saved. Runs the Flow authorize methods directly, as a user who is not the creator and holds
-    no permissions, so only the access rules decide.`,
+  documentation: `A save is checked against the flow as stored, and only its creator or an
+    admin may change who can reach it. Runs the Flow authorize methods directly, as a user who
+    is not the creator and holds no permissions, so only the access rules decide.`,
 
   javaImports: [
     'foam.core.auth.AuthorizationException',
@@ -45,43 +45,51 @@ foam.CLASS({
         Flow opened = (Flow) readOnly.fclone();
         opened.setAccessLevel(FlowAccess.PUBLIC_RW);
         test(! canUpdate(ux, readOnly, opened),
-          "A PUBLIC_RO flow cannot be saved back as PUBLIC_RW");
+          "A PUBLIC_RO flow stays read-only whatever access the saved copy carries");
 
         Flow claimed = (Flow) readOnly.fclone();
         claimed.setCreatedBy(USER_ID);
         test(! canUpdate(ux, readOnly, claimed),
-          "A PUBLIC_RO flow cannot be saved with createdBy set to the user");
+          "A PUBLIC_RO flow stays read-only whatever creator the saved copy carries");
 
         Flow readWrite = flow(FlowAccess.PUBLIC_RW);
-        Flow locked = (Flow) readWrite.fclone();
-        locked.setAccessLevel(FlowAccess.PRIVATE);
-        test(! canUpdate(ux, readWrite, locked),
-          "A PUBLIC_RW flow cannot be saved as PRIVATE by a user who did not create it");
-
         Flow edited = (Flow) readWrite.fclone();
         edited.setDescription("edited");
         test(canUpdate(ux, readWrite, edited),
-          "A PUBLIC_RW flow can still be edited");
+          "An editor of a PUBLIC_RW flow can change its content");
+
+        Flow madePrivate = (Flow) readWrite.fclone();
+        madePrivate.setAccessLevel(FlowAccess.PRIVATE);
+        madePrivate.setCreatedBy(USER_ID);
+        test(! canUpdate(ux, readWrite, madePrivate),
+          "Only the creator or an admin changes a flow's access level or creator");
+
+        Flow madeShared = (Flow) readWrite.fclone();
+        madeShared.setAccessLevel(FlowAccess.SHARED);
+        madeShared.setSpecifiedUserAccess(new UserFlowAccess[] { readWriteFor(USER_ID) });
+        test(! canUpdate(ux, readWrite, madeShared),
+          "Only the creator or an admin changes a flow's access list");
 
         Flow shared = flow(FlowAccess.SHARED);
-        UserFlowAccess rw = new UserFlowAccess();
-        rw.setUserId(USER_ID);
-        rw.setAccessLevel(FlowAccess.PUBLIC_RW);
-        shared.setSpecifiedUserAccess(new UserFlowAccess[] { rw });
+        shared.setSpecifiedUserAccess(new UserFlowAccess[] { readWriteFor(USER_ID) });
         Flow sharedEdit = (Flow) shared.fclone();
         sharedEdit.setDescription("edited");
         test(canUpdate(ux, shared, sharedEdit),
-          "A SHARED flow can be edited by a user listed with PUBLIC_RW");
+          "A user listed with PUBLIC_RW on a SHARED flow can change its content");
 
         Flow own = flow(FlowAccess.PRIVATE);
         own.setCreatedBy(USER_ID);
         Flow ownEdit = (Flow) own.fclone();
         ownEdit.setAccessLevel(FlowAccess.PUBLIC_RO);
         test(canUpdate(ux, own, ownEdit),
-          "The creator can still change their own flow's access");
+          "The creator can change their own flow's access level");
 
         boolean deleteDenied = false;
-        try { readOnly.authorizeOnDelete(ux); } catch ( AuthorizationException e ) { deleteDenied = true; }
+        try {
+          readOnly.authorizeOnDelete(ux);
+        } catch ( AuthorizationException e ) {
+          deleteDenied = true;
+        }
         test(deleteDenied, "A PUBLIC_RO flow cannot be deleted");
       `
     },
@@ -96,6 +104,17 @@ foam.CLASS({
         } catch ( AuthorizationException e ) {
           return false;
         }
+      `
+    },
+    {
+      name: 'readWriteFor',
+      type: 'UserFlowAccess',
+      args: 'long userId',
+      javaCode: `
+        UserFlowAccess access = new UserFlowAccess();
+        access.setUserId(userId);
+        access.setAccessLevel(FlowAccess.PUBLIC_RW);
+        return access;
       `
     },
     {

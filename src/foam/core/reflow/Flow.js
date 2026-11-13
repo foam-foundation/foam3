@@ -315,13 +315,29 @@ foam.CLASS({
     {
       name: 'authorizeOnUpdate',
       javaCode: `
-        // A save has to pass the write rules of the flow as stored AND of the copy being
-        // saved. The copy comes from the caller, so on its own it proves nothing: a user
-        // could send back a PUBLIC_RO flow with accessLevel PUBLIC_RW. The stored flow on
-        // its own is not enough either: a user could save a PUBLIC_RW flow as PRIVATE and
-        // lock every other user out of it.
-        ((Flow) oldObj).authorizeWrite(x);
-        authorizeWrite(x);
+        // The copy being saved comes from the caller, so it cannot vouch for itself: the
+        // write rules are read from the flow as stored. A save that also changes who can
+        // reach the flow (its access level, creator or access list) is for the stored
+        // creator or an admin only, so an editor of a PUBLIC_RW flow can change its blocks
+        // but cannot make it PRIVATE.
+        Flow stored = (Flow) oldObj;
+        stored.authorizeWrite(x);
+        if ( ! changesAccess(stored) ) return;
+
+        User user = ((Subject) x.get("subject")).getUser();
+        if ( stored.getCreatedBy() == user.getId() || checkBypassAuthorization(x) ) return;
+        throw new AuthorizationException();
+      `
+    },
+    {
+      name: 'changesAccess',
+      type: 'Boolean',
+      args: 'Flow stored',
+      documentation: 'True when this copy changes who can reach the flow compared with stored.',
+      javaCode: `
+        return ACCESS_LEVEL.compare(this, stored) != 0
+          || CREATED_BY.compare(this, stored) != 0
+          || SPECIFIED_USER_ACCESS.compare(this, stored) != 0;
       `
     },
     {

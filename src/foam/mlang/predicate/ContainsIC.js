@@ -23,7 +23,8 @@ foam.CLASS({
             return a.toString().toUpperCase().indexOf(arg2) !== -1;
           })
         }
-        return arg1 ? arg1.toString().toUpperCase().indexOf(arg2) !== -1 : false;
+        // An empty string still holds "", as Java's "".contains("") does.
+        return arg1 || arg1 === '' ? arg1.toString().toUpperCase().indexOf(arg2) !== -1 : false;
       },
       javaCode:
 `Object s1 = getArg1().f(obj);

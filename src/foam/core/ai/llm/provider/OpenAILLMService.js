@@ -118,7 +118,12 @@ foam.CLASS({
         if ( options.getTemperature() > 0.0 ) body.put("temperature", options.getTemperature());
 
         try {
+          // HttpClient defaults to HTTP/2. On a plain http:// URL it sends an
+          // "Upgrade: h2c" request, which OpenAI-compatible gateways served by
+          // uvicorn (e.g. http://10.0.2.77:8001) reject with 400 "Invalid HTTP
+          // request received." Pinning HTTP_1_1 matches the old HttpURLConnection.
           var client = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
             .connectTimeout(Duration.ofSeconds(30))
             .build();
           var req = HttpRequest.newBuilder()

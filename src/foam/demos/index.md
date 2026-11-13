@@ -68,9 +68,11 @@ Every demo below is live. Each one pauses its timers and animations while it is 
 <foam class="foam.demos.fire.Fire" pauseoffscreen></foam>
 -->
 
+<!--
 ### Zoom Map View
 
 <foam class="foam.demos.graphics.ZoomMapViewDemo" pauseoffscreen></foam>
+-->
 
 ### LifeStar
 

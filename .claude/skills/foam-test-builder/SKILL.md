@@ -64,11 +64,13 @@ foam.CLASS({
 
 | Test | pom `files:` flag | `tests.jrl` row |
 |---|---|---|
-| server test | `js&test\|java&test` | `p({"class":"pkg.MyServerTest","id":"MyServerTest","description":"..."})` |
-| client test | `js&test\|java&test` too | same, plus `"language": 0` |
+| server test | `js\|java` | `p({"class":"pkg.MyServerTest","id":"MyServerTest","description":"..."})` |
+| client test | `js\|java` too | same, plus `"language": 0` |
 | standalone `.java` test | `javaFiles:` entry, `flags: "test"` | same as server |
 
-The client row keeps the `java&test` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
+The flags are plain `js|java` because the parent pulls in the test pom with `{ name: 'test/pom', flags: 'test' }`, and that flag already keeps every file in it out of a production build. Adding `&test` to each file repeats it. Only a test file listed in a pom without that gate, such as a legacy test beside its code, needs `js&test|java&test`.
+
+The client row keeps the `java` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
 
 A `tests.jrl` loads because the pom walk reaches its directory: the directory of a loaded `pom.js`, or any directory under it that has no pom of its own (`pmake.js`). Two things stop the walk without the `test` flag: any directory named `test` or `tests` is skipped, and any `tests.jrl` is skipped (`JournalMaker.js`), which is why a test pom sits under `projects:` with `flags: 'test'`. `journalFiles:` is an exclude list, not a registration. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
 
@@ -129,7 +131,7 @@ Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any reg
 | `WARNING :: Test not run: MyTest. Mode: server. Possible client/server/suite mismatch or typo.` on a `JSTest` | expected: `language: 0` makes the server skip it | run it with `client-tests:` |
 | the same on a server `Test` | not in `testDAO`: no row, a `tests.jrl` the walk never reached, or an id typo; the warning only fires for ids named on the command line | add the row where the walk reaches it, and check the id |
 | nothing runs, no warning | `enabled: false` on the row; both runners select `EQ(Test.ENABLED, true)` first | drop the field or set it true |
-| `ERROR CREATING: pkg.MyClientTest` at replay | flagged `js&test` only, no Java class to instantiate | `js&test\|java&test` |
+| `ERROR CREATING: pkg.MyClientTest` at replay | flagged `js` only, no Java class to instantiate | `js\|java` |
 | `Cannot find module .../tests.js` from pmake | the journal is in `files:` | remove it; a `.jrl` beside a loaded pom needs no entry |
 | `this.test is not a function` | `this.test` in a JS `runTest` | `x.test(...)` |
 | a JS test passes on the server with 0 assertions | its Java `runTest` is the NOOP stub | `language: 0` on the row, or `extends: JSTest` |

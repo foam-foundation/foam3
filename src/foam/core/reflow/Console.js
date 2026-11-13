@@ -108,6 +108,7 @@ foam.CLASS({
               glyph: 'rightChevron',
               embedSVG: true
             }).addClass(this.myClass('chevron')).end()
+            .start('div', {}, this.data.titlePrefix$).end()
             .start('span').addClass(this.myClass('title'))
               .start({
                 class: 'foam.u2.TextField',
@@ -120,6 +121,7 @@ foam.CLASS({
               .end()
             .end()
             .start().add(fullVersion).end()
+            .start('div', {}, this.data.titleSuffix$).end()
           .end()
 
           .start().addClass(this.myClass('header-actions'))
@@ -893,6 +895,8 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'titlePrefix',
+    'titleSuffix',
     'isChildLocked',
     'value as flow'
   ],
@@ -1126,6 +1130,23 @@ foam.CLASS({
       factory: function() { return this; }
     },
     'softSelected',
+    {
+      name: 'titlePrefix',
+      documentation: `
+        An empty view in the header, just left of the flow's name, for the
+        flow's own content to fill: a document can show where it sits there,
+        as in "Guides · 2 of 3 ›". The Console adds nothing to it. The header
+        sets it each time it is drawn, after switching to presentation mode
+        for example, so a view that fills it follows this property.
+      `
+    },
+    {
+      name: 'titleSuffix',
+      documentation: `
+        An empty view in the header, just after the flow's version, for the
+        flow's own content to fill. Set like titlePrefix.
+      `
+    },
     {
       name: 'value',
       // The Console's Flow Value, which is the Flow object it is saved as

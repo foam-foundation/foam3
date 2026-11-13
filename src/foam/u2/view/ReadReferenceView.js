@@ -133,6 +133,8 @@ foam.CLASS({
         a Reference with enableLink: false. configLink turns enableLink off when
         there is no menu or permission to link to, so when data changes,
         enableLink starts again from this rather than from true.
+
+        REVIEW/Future refactoring: linkAllowed is needed because configLink writes to enableLink, so the original setting gets lost. If configLink never wrote to enableLink, and the link was drawn from linkTo (empty already means no link), the second property would not be needed.
       `,
       value: true
     },

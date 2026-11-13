@@ -69,6 +69,20 @@ foam.CLASS({
 
           if ( oldObj != null ) {
             oldTicket = (Ticket) oldObj;
+
+            // Only notify when a user modifiable propery has changed.
+            Map diff = oldTicket.diff(ticket);
+            if ( diff.size() == 0 )
+              return;
+            if ( diff.size() > 0 ) {
+              diff.remove(Ticket.CREATED.name);
+              diff.remove(Ticket.CREATED_BY.name);
+              diff.remove(Ticket.LAST_MODIFIED.name);
+              diff.remove(Ticlet.LAST_MODIFIED_BY.name);
+              if ( diff.size() == 0 )
+                return;
+            }
+
             oldStatus = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(oldTicket.getStatus());
             emailArgs.put("oldStatus", oldStatus.getLabel());
             translationMappings.put("oldStatus", "foam.core.ticket.TicketStatus."+oldStatus.getId()+".label");

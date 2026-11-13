@@ -148,7 +148,8 @@ foam.POM({
     { name: "predicate/CapabilityAuthServicePredicate", flags: "js|java" },
     { name: "predicate/AuthPermissionPredicate",    flags: "js|java" },
     { name: "LabeledValue",                         flags: "js" },
-    { name: "predicate/test/DatePredicateConstantTest", flags: "js&test|java&test" }
+    { name: "predicate/test/DatePredicateConstantTest", flags: "js&test|java&test" },
+    { name: "predicate/test/PredicateJSTest",       flags: "js&test|java&test" }
   ],
 
   javaFiles: [

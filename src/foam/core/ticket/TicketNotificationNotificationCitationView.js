@@ -42,8 +42,6 @@ foam.CLASS({
   name: 'TicketNotificationNotificationMessageModal',
   extends: 'foam.core.notification.NotificationMessageModal',
 
-  requires: ['foam.u2.HTMLView'],
-
   properties: [
     {
       class: 'String',
@@ -52,7 +50,7 @@ foam.CLASS({
         var args = data$emailArgs;
         if ( args["toastMessage"] )
           return args["toastMessage"] +
-          ( args["toastSubMessage"] ? "<br>" + args["toastSubMessage"] + "<br>": "<br>" );
+          ( args["toastSubMessage"] ? " " + args["toastSubMessage"] : "" );
       }
     }
   ],
@@ -87,8 +85,8 @@ foam.CLASS({
       .start(this.Rows)
         .addClass(this.myClass('container'))
         .start().addClass('p-bold').add(this.MESSAGE_MSG).end()
-        .start(this.HTMLView, { data$: this.title$ }).addClass(this.myClass('message')).end()
-        .start(this.HTMLView, { data$: this.description$ }).addClass(this.myClass('message')).end()
+        .start().addClass(this.myClass('message')).add(this.title$).end()
+        .start().addClass(this.myClass('message')).add(this.description$).end()
       .end()
       .startContext({data: this})
       .start(this.GO_TO_TICKET) 

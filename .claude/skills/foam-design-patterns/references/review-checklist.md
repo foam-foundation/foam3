@@ -8,6 +8,7 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - `start('div')` where `start()` is the same? `addClass(this.myClass())` where `addClass()` is the same? Grep both; they hide in plain sight.
 - Any other restated default? (`implements Expressions` on a View, `value: false`, `after/async: false`, `factory: () => []` on an Array, `.select(new ArraySink())`)
 - A one-liner for this block? (`tag`, `show`, `enableClass`, `copyFrom`, `IN`)
+- A `foam.mlang` object built by hand (`ThenBy.create({...})`, `And.create`) where an `Expressions` helper builds it (`THEN_BY`, `AND`)? Check the parent chain for `implements: ['foam.mlang.Expressions']` first.
 - A value already in hand (class, object, id) looked up again through a wrapper or lookup instead of used directly?
 - A class with this job already exists? Extended, refined, or paralleled?
 - Every hunk traces to the ticket? No reformat, rename, or second feature riding along?
@@ -19,6 +20,9 @@ citing the reference file, never a person. Style nits go in one grouped line at 
 - A switch, ordinal chain, or colour table over an enum the value could own?
 - Logic in the layer its trigger belongs to? (hook / decorator / rule / service / FSM)
 - A subclass detail read by its parent? A feature-specific field on an abstract base?
+- The diff of any shared class (`Flow`, `Console`, `Block`, a base view or model): does it now name one feature, its keyword, its view, or its CSS class? That is a finding even when the code works. The fix is an extension point the host gives out, filled from the feature's own class (spine: "Extend without being specific").
+- A new view or tag hard-wired to one keyword, route, or label where an attribute with that value as default would serve every caller?
+- A CSS rule in one class that styles another class's element? It belongs to the component that needs it, keyed to its own `<<` class.
 - A core class extended where a downstream refinement would do?
 - A flag the caller maintains that the structure could derive?
 

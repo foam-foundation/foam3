@@ -82,8 +82,6 @@ foam.POM({
     { name: "foam/lib/csv/CSVOutputterImpl",                          flags: "js|java" },
     { name: "foam/lib/csv/PrefixedCSVOutputter",                      flags: "js|java" },
     { name: "foam/lib/csv/DynamicHeaderCSVParser",                    flags: "js" },
-    { name: "foam/lib/http/QueryStringOutputter",                     flags: "js" },
-    // after foam/lang/Enum: it declares an enum
-    { name: "foam/lang/test/EnumCompareJSTest",                       flags: "js&test|java&test" }
+    { name: "foam/lib/http/QueryStringOutputter",                     flags: "js" }
   ]
 });

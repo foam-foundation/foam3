@@ -67,7 +67,6 @@ whose journal is write-only and not replayed, so they are dropped on restart.`,
         }
         if ( er.getSeverity().getOrdinal() > alarm.getSeverity().getOrdinal() ) {
           alarm.setSeverity(er.getSeverity());
-          alarm.setNote(note.toString());
         } else if ( ! SafetyUtil.isEmpty(alarm.getNote()) &&
                     ! SafetyUtil.isEmpty(note.toString()) &&
                     ! SafetyUtil.equals(note, alarm.getNote()) ) {
@@ -77,7 +76,8 @@ whose journal is write-only and not replayed, so they are dropped on restart.`,
           note.append("\\n");
           note.append(n);
         }
-        alarm.setNote(note.toString());
+        // A message the note already holds adds nothing; keep the note
+        if ( note.length() > 0 ) alarm.setNote(note.toString());
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
       } else if ( alarm != null && alarm.getIsActive() &&

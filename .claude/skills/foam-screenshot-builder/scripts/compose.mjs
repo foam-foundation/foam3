@@ -17,6 +17,8 @@ const { cfgFile, names } = parseArgs();
 let cfg; try { cfg = readRows(cfgFile); } catch (e) { console.error(e.message); process.exit(2); }
 const only = new Set(names);
 const DPR = 2, ACCENT = '#FF6D00';
+// Notes come from rows.json and go into HTML: 'Click <Export>' must render as text.
+const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const pngSize = f => { const b = fs.readFileSync(f); return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) }; };
 const side = (png, k) => {
@@ -29,13 +31,17 @@ const side = (png, k) => {
 // Label callouts: the note sits on a pill right of the box when it fits inside the panel,
 // otherwise above it (below when the box touches the top). One mark per picture reads best;
 // a crowded screen is what numbered callouts are for.
+// A mark without a note gets the box only: a bare "3" on a pill would read as a numbered callout.
 function labelCallout(s, m, x, y, w, h) {
-  const text = m.note || m.label;
-  const tw = Math.min(320, 9 + text.length * 7.6), th = 24;
+  const box = `<div class="box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`;
+  if (!m.note) return box;
+  // Width guess includes the pill's padding and border (box-sizing: border-box).
+  const tw = Math.min(320, 22 + m.note.length * 7.6), th = 24;
   let lx = x + w + 8, ly = y + h / 2 - th / 2;
   if (lx + tw > s.w) { lx = Math.max(0, Math.min(x, s.w - tw)); ly = y - th - 6 < 0 ? y + h + 6 : y - th - 6; }
-  return `<div class="box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>
-      <div class="pill" style="left:${lx}px;top:${ly}px;max-width:${tw}px">${text}</div>`;
+  ly = Math.max(0, Math.min(ly, s.h - th));          // keep it inside the panel, top and bottom
+  return `${box}
+      <div class="pill" style="left:${lx}px;top:${ly}px;max-width:${tw}px">${esc(m.note)}</div>`;
 }
 
 function panel(s, style) {
@@ -58,7 +64,7 @@ function panel(s, style) {
 function html(sides, stack, style) {
   const notes = new Map();                         // label callouts carry their note: no legend
   if (style !== 'label') for (const s of sides) for (const m of s.marks) if (m.note && !notes.has(m.label)) notes.set(m.label, m.note);
-  const legend = [...notes].map(([k, v]) => `<li><span class="badge inline">${k}</span>${v}</li>`).join('');
+  const legend = [...notes].map(([k, v]) => `<li><span class="badge inline">${k}</span>${esc(v)}</li>`).join('');
   const maxW = Math.max(...sides.map(s => s.w));
   return `<!doctype html><meta charset="utf-8"><style>
   body{margin:0;background:#fff;font:14px/1.4 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#111}
@@ -68,7 +74,7 @@ function html(sides, stack, style) {
   .box{position:absolute;border:2px solid ${ACCENT};border-radius:6px;box-shadow:0 0 0 2px rgba(255,255,255,.55)}
   .arrow{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}.arrow line{stroke:${ACCENT};stroke-width:2}
   .badge{position:absolute;border-radius:50%;background:${ACCENT};color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4)}
-  .pill{position:absolute;background:#fff;color:${ACCENT};border:2px solid ${ACCENT};border-radius:12px;padding:1px 9px;font-weight:600;font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+  .pill{position:absolute;box-sizing:border-box;background:#fff;color:${ACCENT};border:2px solid ${ACCENT};border-radius:12px;padding:1px 9px;font-weight:600;font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,.25)}
   .badge.inline{position:static;display:inline-flex;width:22px;height:22px;font-size:12px;margin-right:8px}
   ul{list-style:none;margin:0;padding:0 16px 16px;display:flex;gap:24px;flex-wrap:wrap;max-width:${maxW * (stack ? 1 : 2) + 60}px}li{display:flex;align-items:center}
 </style><svg width="0" height="0"><defs><marker id="head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="${ACCENT}"/></marker></defs></svg>

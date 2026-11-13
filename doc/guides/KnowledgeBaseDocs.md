@@ -46,11 +46,17 @@ inside a value as `&quot;`, `&lt;`, `&gt;` and `&amp;`.
 **Edit the markdown file** and rebuild. This works on every environment and is the only way that
 reaches a deployed server.
 
-**Or edit it in the app,** on a local server in DEVELOPMENT or TEST mode:
+**Or edit it in the app.** This needs a local server you started with `./build.sh` from your repo checkout, running in DEVELOPMENT or TEST mode. Each doc is a Reflow flow: a page made of blocks, and a doc has exactly one block, a markdown block named `markdown1`.
 
-1. Open the doc, edit the markdown block and the flow properties, and save.
-2. The save writes the `.md` back with a fresh `<flow>` tag (`SaveFlowToFileRuleAction`).
-3. Check the file in git, then commit it.
+1. **Open the doc.** Go to **Knowledge Base** in the menu and click the doc's card. It opens in presentation mode, read only.
+2. **Switch to edit view.** Click the two-arrow button at the far top right, or press **Esc**. Another way is to change `flowMode=PRESENTATION` to `flowMode=CONSOLE` at the end of the address. The page splits into three panels: **Contents** on the left, the doc in the middle, properties on the right.
+3. **Select the markdown block.** In **Contents**, click `markdown1`.
+4. **Edit the text.** On the right, the **Flow Properties** tab now shows the markdown source with a formatting toolbar (B, I, H1, Table, Hint and more). Type your changes there. The middle panel updates as you type.
+5. **Edit the card details if needed.** In **Contents**, click `flow`. The **Flow Properties** tab shows Name, Category, Description and Keywords, the values in the `<flow>` tag. Leave **Source** as it is: it names the `.md` file the save writes to.
+6. **Save.** Click the blue **Save** button at the top right. The first save of a doc asks "A Flow named ... already exists. Overwrite it?". Click **Overwrite**.
+7. **Check and commit the file.** The save rewrites the `.md` in your checkout with a fresh `<flow>` tag (`SaveFlowToFileRuleAction`). Run `git diff` on it, then commit it.
+
+Do not use the **+** button under the block. It adds a second block, and a doc with two blocks cannot be saved back to a `.md`.
 
 On any other mode the save stays in the journal only. The file does not change, and the next build
 replaces the edit with the file.

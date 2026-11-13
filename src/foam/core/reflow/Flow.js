@@ -315,28 +315,25 @@ foam.CLASS({
     {
       name: 'authorizeOnUpdate',
       javaCode: `
-        User user = ((Subject) x.get("subject")).getUser();
-        if ( getCreatedBy() == user.getId() ) return;
-        if ( checkBypassAuthorization(x) ) return;
-
-        if ( getAccessLevel() == FlowAccess.PRIVATE || getAccessLevel() == FlowAccess.PUBLIC_RO ) throw new AuthorizationException();
-
-        if ( getAccessLevel() == FlowAccess.SHARED ) {
-          // check user accesss
-          if ( getSpecifiedUserAccess() != null ) {
-            var hasUserAccess = Arrays.stream(getSpecifiedUserAccess()).anyMatch(o ->
-              ((UserFlowAccess) o).getUserId() == user.getId() && ((UserFlowAccess) o).getAccessLevel() == foam.core.reflow.FlowAccess.PUBLIC_RW
-            );
-            if ( hasUserAccess ) return;
-          }
-
-          // check role access
-          throw new AuthorizationException();
-        }
+        // A save has to pass the write rules of the flow as stored AND of the copy being
+        // saved. The copy comes from the caller, so on its own it proves nothing: a user
+        // could send back a PUBLIC_RO flow with accessLevel PUBLIC_RW. The stored flow on
+        // its own is not enough either: a user could save a PUBLIC_RW flow as PRIVATE and
+        // lock every other user out of it.
+        ((Flow) oldObj).authorizeWrite(x);
+        authorizeWrite(x);
       `
     },
     {
       name: 'authorizeOnDelete',
+      javaCode: 'authorizeWrite(x);'
+    },
+    {
+      name: 'authorizeWrite',
+      args: 'X x',
+      documentation: `Throws unless the user in x may change this flow: its creator, an admin,
+        everyone on a PUBLIC_RW flow, or a user listed with PUBLIC_RW on a SHARED flow.
+        PRIVATE and PUBLIC_RO flows refuse everyone else.`,
       javaCode: `
         User user = ((Subject) x.get("subject")).getUser();
         if ( getCreatedBy() == user.getId() ) return;

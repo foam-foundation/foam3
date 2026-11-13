@@ -65,7 +65,7 @@ foam.CLASS({
 Putting only a subject on the context does not make checks run as that user: `x.put("subject", new Subject(user))` keeps the test runner's session and group, so `auth.check(ux, "*")` stays true and every authorization assertion passes for the wrong reason. Pick one of two levers:
 
 - **Stub the auth service** when the test calls the authorize methods directly. Override `check` on a `ProxyAuthService` and put it on the context (`src/foam/core/auth/test/PermissionedPropertyDAOTest.js`, `src/foam/core/reflow/test/FlowAuthorizationTest.js`).
-- **Sign the user in with `foam.util.Auth.sudo(x, user)`** when the test goes through real groups and a served DAO. It applies a `Session` for the user (`src/foam/util/Auth.java:61-78`), so checks read the user's group. Save the user in `localUserDAO` first: the session looks it up and throws `UserNotFoundException` otherwise (`src/foam/core/session/Session.js:345-346`).
+- **Sign the user in with `foam.util.Auth.sudo(x, user)`** when the test goes through real groups and a served DAO. It applies a `Session` for the user (`src/foam/util/Auth.java:61-78`), so checks read the user's group. Save the user in `localUserDAO` first: the session looks it up and throws `UserNotFoundException` otherwise (`src/foam/core/session/Session.js:345-346`, thrown at `:486-489`).
 
 Either way, open with the assertion that proves the context is not an admin:
 

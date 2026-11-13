@@ -102,6 +102,9 @@ foam.CLASS({
           deleteDenied = true;
         }
         test(deleteDenied, "A PUBLIC_RO flow cannot be deleted");
+        test(! canDelete(ux, readWrite), "Only the creator or an admin deletes a PUBLIC_RW flow");
+        test(! canDelete(ux, shared), "Only the creator or an admin deletes a SHARED flow");
+        test(canDelete(ux, own), "The creator can delete their own flow");
       `
     },
     {
@@ -111,6 +114,19 @@ foam.CLASS({
       javaCode: `
         try {
           saved.authorizeOnUpdate(x, stored);
+          return true;
+        } catch ( AuthorizationException e ) {
+          return false;
+        }
+      `
+    },
+    {
+      name: 'canDelete',
+      type: 'Boolean',
+      args: 'X x, Flow stored',
+      javaCode: `
+        try {
+          stored.authorizeOnDelete(x);
           return true;
         } catch ( AuthorizationException e ) {
           return false;

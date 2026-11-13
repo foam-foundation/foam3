@@ -322,11 +322,7 @@ foam.CLASS({
         // but cannot make it PRIVATE.
         Flow stored = (Flow) oldObj;
         stored.authorizeWrite(x);
-        if ( ! changesAccess(stored) ) return;
-
-        User user = ((Subject) x.get("subject")).getUser();
-        if ( stored.getCreatedBy() == user.getId() || checkBypassAuthorization(x) ) return;
-        throw new AuthorizationException();
+        if ( changesAccess(stored) ) stored.authorizeOwner(x);
       `
     },
     {
@@ -342,7 +338,22 @@ foam.CLASS({
     },
     {
       name: 'authorizeOnDelete',
-      javaCode: 'authorizeWrite(x);'
+      javaCode: `
+        // Removing a flow takes it away from everyone who could reach it, so it needs the
+        // same right as changing its access: the creator or an admin. An editor of a
+        // PUBLIC_RW flow can change its blocks but not remove it.
+        authorizeOwner(x);
+      `
+    },
+    {
+      name: 'authorizeOwner',
+      args: 'X x',
+      documentation: 'Throws unless the user in x created this flow or is an admin.',
+      javaCode: `
+        User user = ((Subject) x.get("subject")).getUser();
+        if ( getCreatedBy() == user.getId() || checkBypassAuthorization(x) ) return;
+        throw new AuthorizationException();
+      `
     },
     {
       name: 'authorizeWrite',

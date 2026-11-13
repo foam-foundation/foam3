@@ -2069,6 +2069,10 @@ foam.CLASS({
             name: 'load',
             label: 'Load Changes',
             code: function() {
+              // Start from the stored flow so the save keeps its creator and access lists;
+              // a bare Flow carries creator 0 and default access, which reads as an access
+              // change and is refused for anyone but the creator.
+              if ( savedFlow ) self.value.copyFrom(savedFlow);
               self.value.script = autosaveData.script;
               self.clearAutosave(scriptName);
               self.checkingAutosaveFor_ = null;

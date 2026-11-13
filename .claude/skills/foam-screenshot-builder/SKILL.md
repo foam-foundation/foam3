@@ -1,6 +1,6 @@
 ---
 name: foam-screenshot-builder
-description: Use when a FOAM UI change needs before/after screenshots cropped to what changed, with numbered callouts — for a PR, a ticket, or comparing two branches or theme variants. Also for numbered how-to strips, Chrome DevTools Recorder JSON in either direction, and "walk these menus and screenshot each" against a running FOAM app.
+description: Use when a FOAM UI change needs before/after screenshots cropped to what changed, with numbered or labelled callouts — for a PR, a ticket, or comparing two branches or theme variants. Also for numbered how-to strips, Chrome DevTools Recorder JSON in either direction, and "walk these menus and screenshot each" against a running FOAM app.
 ---
 
 # foam-screenshot-builder
@@ -70,6 +70,7 @@ Output images go into the PR by drag-drop; `gh` has no upload path for descripti
 | `modes` | `light`/`dark`; sets `theme.activeVariants` and calls `foam.u2.CSS.reloadStyles` by hand (the auto listener only exists with `useVariants`) |
 | `prep` | steps after launch: `click`, `dblclick`, `hover`, `check`, `uncheck`, `fill: [sel, text]`, `press: key`, `js`; each takes `wait` ms |
 | `marks` | Playwright selectors (`css`, `text=`, `role=`, `>> nth=`) or a list of candidates; numbered in order; `note` feeds the legend |
+| `callouts` | `number` (default): badges, arrows and a legend from each `note`; `label`: each mark's `note` written on the picture beside its box, no legend (see Callout styles) |
 | `steps` | how-to strip instead of before/after: same step forms as `prep` plus `note`, `sel` |
 | `stepSel` | strip fallback crop when a step's view has no `sel` (default: the stack content area) |
 | `servers` per row | subset, e.g. `["after"]` for something that did not exist before |
@@ -80,6 +81,15 @@ Top level besides `servers` and `rows`: `out` (default `out/`), `profile` (defau
 Find selectors before writing rows: `node discover.mjs admin.scripts` lists the biggest FOAM containers on that screen with sizes (`.foam-comics-v3-DAOView 1168x740`, `.foam-u2-table-TableView-tr n=36`). FOAM classes are `<package>-<Class>[-<sub>]`; enum badges are `.enum-label`, buttons answer to `role=button[name=/export/i]`.
 
 Wide panels stack automatically; a wide table that should still sit side by side gets `"layout": "row"`.
+
+## Callout styles
+
+Two styles, chosen per row with `callouts`:
+
+- `number` (default): ①②③ with a short arrow, words in the legend under the picture. Use it when one picture points at several things: labels would crowd each other.
+- `label`: the mark's `note` sits on a pill right of its box (above when it would leave the panel), no badge, no arrow, no legend. Use it when a picture points at one or two things and the reader should not look down to a legend, as in a how-to strip where each step marks one control ("Click Export"). Keep notes to a few words.
+
+Pick one style per row; a picture never mixes badges and labels.
 
 ## Step strips and Chrome Recorder imports
 

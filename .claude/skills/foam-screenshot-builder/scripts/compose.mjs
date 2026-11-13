@@ -4,8 +4,10 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 // node compose.mjs [rows.json] [rowName ...]
-// For every row × mode with shots on disk, renders before|after with callout boxes,
-// numbered badges, short arrows and a legend as an HTML page and screenshots it.
+// For every row × mode with shots on disk, renders before|after with callout boxes and
+// either numbered badges, short arrows and a legend (row "callouts": "number", the default)
+// or each mark's note written beside its box (row "callouts": "label"), as an HTML page,
+// and screenshots it.
 // Output: out/<name>/<mode>-compose.png. Only dependency: playwright.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
@@ -24,10 +26,23 @@ const side = (png, k) => {
   return { k, src: 'data:image/png;base64,' + fs.readFileSync(png).toString('base64'), w: width / DPR, h: height / DPR, marks };
 };
 
-function panel(s) {
+// Label callouts: the note sits on a pill right of the box when it fits inside the panel,
+// otherwise above it (below when the box touches the top). One mark per picture reads best;
+// a crowded screen is what numbered callouts are for.
+function labelCallout(s, m, x, y, w, h) {
+  const text = m.note || m.label;
+  const tw = Math.min(320, 9 + text.length * 7.6), th = 24;
+  let lx = x + w + 8, ly = y + h / 2 - th / 2;
+  if (lx + tw > s.w) { lx = Math.max(0, Math.min(x, s.w - tw)); ly = y - th - 6 < 0 ? y + h + 6 : y - th - 6; }
+  return `<div class="box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>
+      <div class="pill" style="left:${lx}px;top:${ly}px;max-width:${tw}px">${text}</div>`;
+}
+
+function panel(s, style) {
   const boxes = s.marks.map(m => {
     const x = m.x / DPR - 5, y = m.y / DPR - 5, w = m.w / DPR + 10, h = m.h / DPR + 10;
     if (y > s.h || x > s.w) return '';
+    if (style === 'label') return labelCallout(s, m, x, y, w, h);
     // Arrow and badge scale with the target: 60% of its longer side, clamped, so a
     // small icon gets a small pointer and a table row does not get a giant one.
     const len = Math.max(16, Math.min(40, Math.max(w, h) * 0.6));
@@ -40,9 +55,9 @@ function panel(s) {
   return `<figure><figcaption>${s.k}</figcaption><div class="wrap" style="width:${s.w}px;height:${s.h}px"><img src="${s.src}" style="width:${s.w}px;height:${s.h}px">${boxes}</div></figure>`;
 }
 
-function html(sides, stack) {
-  const notes = new Map();
-  for (const s of sides) for (const m of s.marks) if (m.note && !notes.has(m.label)) notes.set(m.label, m.note);
+function html(sides, stack, style) {
+  const notes = new Map();                         // label callouts carry their note: no legend
+  if (style !== 'label') for (const s of sides) for (const m of s.marks) if (m.note && !notes.has(m.label)) notes.set(m.label, m.note);
   const legend = [...notes].map(([k, v]) => `<li><span class="badge inline">${k}</span>${v}</li>`).join('');
   const maxW = Math.max(...sides.map(s => s.w));
   return `<!doctype html><meta charset="utf-8"><style>
@@ -53,10 +68,11 @@ function html(sides, stack) {
   .box{position:absolute;border:2px solid ${ACCENT};border-radius:6px;box-shadow:0 0 0 2px rgba(255,255,255,.55)}
   .arrow{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}.arrow line{stroke:${ACCENT};stroke-width:2}
   .badge{position:absolute;border-radius:50%;background:${ACCENT};color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  .pill{position:absolute;background:#fff;color:${ACCENT};border:2px solid ${ACCENT};border-radius:12px;padding:1px 9px;font-weight:600;font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 4px rgba(0,0,0,.25)}
   .badge.inline{position:static;display:inline-flex;width:22px;height:22px;font-size:12px;margin-right:8px}
   ul{list-style:none;margin:0;padding:0 16px 16px;display:flex;gap:24px;flex-wrap:wrap;max-width:${maxW * (stack ? 1 : 2) + 60}px}li{display:flex;align-items:center}
 </style><svg width="0" height="0"><defs><marker id="head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="${ACCENT}"/></marker></defs></svg>
-<div id="all" style="display:inline-block"><div id="root">${sides.map(panel).join('')}</div>${legend ? `<ul>${legend}</ul>` : ''}</div>`;
+<div id="all" style="display:inline-block"><div id="root">${sides.map(s => panel(s, style)).join('')}</div>${legend ? `<ul>${legend}</ul>` : ''}</div>`;
 }
 
 const browser = await chromium.launch();
@@ -75,7 +91,7 @@ for (const r of cfg.rows) {
     }
     if (!sides.length) continue;
     const stack = r.layout ? r.layout === 'stack' : (r.steps ? sides[0].w > 700 : sides[0].w > 2.5 * sides[0].h);
-    await page.setContent(html(sides, stack));
+    await page.setContent(html(sides, stack, r.callouts || 'number'));
     const out = `${dir}/${mode}-compose.png`;
     await page.locator('#all').screenshot({ path: out });
     console.log(out);

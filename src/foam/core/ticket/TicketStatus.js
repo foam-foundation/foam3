@@ -44,6 +44,22 @@ foam.CLASS({
       factory: function(){
         return this.background;
       }
+    },
+    // ReadOnlyEnumView reads glyphFill and glyphBackground from whatever it
+    // draws, glyph or not, so a status needs both to be drawn as a pill.
+    {
+      class: 'String',
+      name: 'glyphFill',
+      factory: function(){
+        return this.color;
+      }
+    },
+    {
+      class: 'String',
+      name: 'glyphBackground',
+      factory: function(){
+        return this.background;
+      }
     }
   ],
 

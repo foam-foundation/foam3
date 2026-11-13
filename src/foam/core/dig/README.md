@@ -1,3 +1,5 @@
+<flow name="DIG: Data Interchange Gateway" description="DIG provides a simple unified method for users and systems to interact with CORE Data Access Objects (DAOs)" accessLevel="PUBLIC_RO" keywords="knowledge,dig,dug,api,testing,postman" childLock="true"/>
+
 #### DIG: Data Interchange Gateway
 
 
@@ -32,6 +34,8 @@ Only followed format -  CSV, JSON, XML can be parsed on DIG when put.
 
 To select data from a DAO.
 The result format is specified in STEP 2. If users pick the command SELECT, the Email and Subject fields are shown. If those are filled in, the results will be emailed rather than downloaded.
+
+See https://github.com/foam-framework/foam/wiki/MQL---Query-Language for creating a **select query**.
 
 * REMOVE :
 

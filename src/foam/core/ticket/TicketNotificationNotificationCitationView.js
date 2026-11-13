@@ -50,7 +50,7 @@ foam.CLASS({
         var args = data$emailArgs;
         if ( args["toastMessage"] )
           return args["toastMessage"] +
-          ( args["toastSubMessage"] ? " " + args["toastSubMessage"] : "" );
+          ( args["toastSubMessage"] ? "\n" + args["toastSubMessage"] : "" );
       }
     }
   ],

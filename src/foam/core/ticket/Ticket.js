@@ -545,7 +545,6 @@ foam.CLASS({
               .setBody(this.COMMENT_NOTIFICATION+this.getId())
               .setUserId(getAssignedTo())
               .setSpid(getSpid())
-              .setTicket(this.getId())
               .build();
             try {
               findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
@@ -557,7 +556,6 @@ foam.CLASS({
               .setBody(this.COMMENT_NOTIFICATION+this.getId())
               .setGroupId(getAssignedToGroup())
               .setSpid(getSpid())
-              .setTicket(this.getId())
               .build();
             notificationDAO.put(notification);
           }
@@ -566,7 +564,6 @@ foam.CLASS({
             .setBody(this.COMMENT_NOTIFICATION+this.getId())
             .setUserId(getCreatedFor())
             .setSpid(getSpid())
-            .setTicket(this.getId())
             .build();
           try {
             findAssignedTo(new Session.Builder(x).setUserId(getCreatedFor()).build().applyTo(x)).doNotify(x, notification);
@@ -589,7 +586,6 @@ foam.CLASS({
             .setBody(this.COMMENT_NOTIFICATION)
             .setUserId(getAssignedTo())
             .setSpid(getSpid())
-            .setTicket(this.getId())
             .build();
           try {
             findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
@@ -601,7 +597,6 @@ foam.CLASS({
             .setBody(this.COMMENT_NOTIFICATION)
             .setGroupId(getAssignedToGroup())
             .setSpid(getSpid())
-            .setTicket(this.getId())
             .build();
           notificationDAO.put(notification);
         }

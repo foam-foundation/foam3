@@ -9,103 +9,111 @@ foam.CLASS({
   name: 'TicketNotificationNotificationCitationView',
   extends: 'foam.core.notification.NotificationCitationView',
 
-  imports: [
-    'stack',
-    'ticketDAO'
-  ],
-
   requires: [
-    'foam.comics.v2.DAOControllerConfig',
-    'foam.u2.stack.StackBlock'
+    'foam.u2.ControllerMode'
   ],
 
-  // TODO: This css only works in v3.17. Once this change is merged to v3.17, we need to
-  // readjust the css so that this view does not look off on foam dev 
   css: `
-    << {
-      display: flex;
-      align-items: flex-end;
-      gap: 1ch;
+    <<{
+      padding: 4px 0 0 0;
     }
-
-    <<link {
-      border: none;
-      padding: 0;
-    }
-
-    << .description {
-      line-height: 1.71
-    }
-
   `,
+
+  methods: [
+    function render() {
+      var args = this.data.emailArgs;
+      this
+        .addClass()
+        .startContext({ controllerMode: this.ControllerMode.VIEW })
+        .start()
+          .start().addClass('p-legal-light', this.myClass('created'))
+            .add(this.created)
+          .end()
+          .start().addClass('p', this.myClass('title'))
+            .add(args["toastMessage"])
+          .end()
+        .endContext()
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.ticket',
+  name: 'TicketNotificationNotificationMessageModal',
+  extends: 'foam.core.notification.NotificationMessageModal',
+
+  requires: ['foam.u2.HTMLView'],
 
   properties: [
     {
-      class: 'FObjectProperty',
-      of: 'foam.core.ticket.Ticket',
-      name: 'ticket',
-      hidden: true,
-      transient: true
-    },
-    {
-      class: 'Boolean',
-      name: 'hasFoundTicket',
-      documentation: 'Check if ticket id attached to the notification (data.ticket) is valid',
-      transient: true,
-      hidden: true
-    },
-    {
-      name: 'data',
-      postSet: function() {
-        if ( ! this.data.ticket ) {
-          this.hasFoundTicket = false;
-          return;
-        }
-
-        this.ticketDAO.find(this.data.ticket).then(ticket => {
-          this.hasFoundTicket = !! ticket;
-          this.ticket = this.hasFoundTicket ? ticket : undefined;
-        });
+      class: 'String',
+      name: 'title',
+      expression: function(data$emailArgs) {
+        var args = data$emailArgs;
+        if ( args["toastMessage"] )
+          return args["toastMessage"] +
+          ( args["toastSubMessage"] ? "<br>" + args["toastSubMessage"] + "<br>": "<br>" );
       }
     }
   ],
 
+  css: `
+    << {
+      max-width: initial;
+      max-height: 80vh;
+      min-width: auto;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    <<link {
+      margin-top: 8px;
+      margin-bottom: 8px;
+      align-self: flex-end;
+    }
+  `,
+
   methods: [
     function render() {
-      this.SUPER();
+      var args = this.data.emailArgs;
       this
-        .startContext({ data: this })
-          .start(this.GO_TO_TICKET).show(this.hasFoundTicket$)
-            .addClass(this.myClass('link'))
-          .end()
-        .endContext();
+      .addClass()
+      .start(this.Rows)
+        .addClass(this.myClass('container'))
+        .start().addClass('p-bold').add(this.CREATED_MSG).end()
+        .start().add(this.created).end()
+      .end()
+      .start(this.Rows)
+        .addClass(this.myClass('container'))
+        .start().addClass('p-bold').add(this.MESSAGE_MSG).end()
+        .start(this.HTMLView, { data$: this.title$ }).addClass(this.myClass('message')).end()
+        .start(this.HTMLView, { data$: this.description$ }).addClass(this.myClass('message')).end()
+      .end()
+      .startContext({data: this})
+      .start(this.GO_TO_TICKET) 
+        .addClass(this.myClass('link'))
+      .end()
+      .endContext();
     }
   ],
+
   actions: [
     {
       name: 'goToTicket',
-      label: 'Go to the ticket',
-      buttonStyle: 'LINK',
+      label: 'Go to Ticket',
+      buttonStyle: 'TEXT',
       size: 'SMALL',
-      code: async function() {
+      code: async function(X) {
+        var args = this.data.emailArgs;
 
-        if ( ! this.ticket ) return;
+        const url = new URL(window.location.href);
+        X.window.history.pushState({}, '', url);
+        X.window.params = undefined;
 
-        this.stack.push(this.StackBlock.create({
-          view: {
-            class: 'foam.comics.v2.DAOSummaryView',
-            data: this.ticket,
-            of: this.ticket.cls_,
-            config: this.DAOControllerConfig.create({
-              daoKey: 'ticketDAO',
-              of: this.ticket.cls_,
-              editPredicate: foam.mlang.predicate.False.create(),
-              createPredicate: foam.mlang.predicate.False.create(),
-              deletePredicate: foam.mlang.predicate.False.create()
-            })
-          },
-          parent: this.__subContext__
-        }));
+        X.routeTo(args["menu"]);
+
+        X.popup.close();
       }
     }
   ]

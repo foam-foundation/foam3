@@ -1,0 +1,24 @@
+c({
+  name:"ticketNotificationOpenClose",
+  language:{class:"foam.core.auth.LanguageId",code:"en"},
+  toastMessage:"Ticket \'{{title}}\' {{status}} by {{user}}",
+  body:"{{comment}}"
+})
+c({
+  name:"ticketNotificationOpenClose",
+  language:{class:"foam.core.auth.LanguageId",code:"fr"},
+  toastMessage:"Ticket \'{{title}}\' {{status}} par {{user}}",
+  body:"{{comment}}"
+})
+c({
+  name:"ticketNotificationUpdate",
+  language:{class:"foam.core.auth.LanguageId",code:"en"},
+  toastMessage:"Ticket \'{{title}}\' updated by {{user}}",
+  body:"{{comment}}"
+})
+c({
+  name:"ticketNotificationUpdate",
+  language:{class:"foam.core.auth.LanguageId",code:"fr"},
+  toastMessage:"Ticket \'{{title}}\' mis à jour par {{user}}",
+  body:"{{comment}}"
+})

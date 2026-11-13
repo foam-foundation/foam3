@@ -1,0 +1,5 @@
+p({
+  "class": "foam.core.ticket.test.TicketNotificationRuleActionTest",
+  "id": "TicketNotificationRuleActionTest",
+  "description": "TicketNotificationRuleAction puts a notification when a Ticket is created"
+})

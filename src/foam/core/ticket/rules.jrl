@@ -1,0 +1,16 @@
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"foam-core-ticket-TicketNotificationTicketRule",
+  "name":"foam-core-ticket-TicketNotificationTicketRule",
+  "documentation":"Generate notification on Ticket changes",
+  "ruleGroup": "Ticket",
+  "daoKey": "localTicketDAO",
+  "operation": 3,
+  "lifecycleState": 1,
+  after:true,
+  async:true,
+  action: {
+    "class": "foam.core.ticket.TicketNotificationRuleAction"
+  },
+  enabled: false
+})

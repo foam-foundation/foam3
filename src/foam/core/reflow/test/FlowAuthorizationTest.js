@@ -70,12 +70,23 @@ foam.CLASS({
         test(! canUpdate(ux, readWrite, madeShared),
           "Only the creator or an admin changes a flow's access list");
 
+        Flow claimedOnly = (Flow) readWrite.fclone();
+        claimedOnly.setCreatedBy(USER_ID);
+        test(! canUpdate(ux, readWrite, claimedOnly),
+          "Only the creator or an admin changes a flow's creator");
+
         Flow shared = flow(FlowAccess.SHARED);
+
         shared.setSpecifiedUserAccess(new UserFlowAccess[] { readWriteFor(USER_ID) });
         Flow sharedEdit = (Flow) shared.fclone();
         sharedEdit.setDescription("edited");
         test(canUpdate(ux, shared, sharedEdit),
           "A user listed with PUBLIC_RW on a SHARED flow can change its content");
+
+        Flow relisted = (Flow) shared.fclone();
+        relisted.setSpecifiedUserAccess(new UserFlowAccess[] { readWriteFor(USER_ID), readWriteFor(CREATOR_ID + 1000) });
+        test(! canUpdate(ux, shared, relisted),
+          "A user listed with PUBLIC_RW cannot change a SHARED flow's access list");
 
         Flow own = flow(FlowAccess.PRIVATE);
         own.setCreatedBy(USER_ID);

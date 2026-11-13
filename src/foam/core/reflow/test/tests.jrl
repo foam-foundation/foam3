@@ -33,3 +33,7 @@ p({
   "id": "FlowDocumentDocsTest",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.FlowAuthorizationTest",
+  "id": "FlowAuthorizationTest"
+})

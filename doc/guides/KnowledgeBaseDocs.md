@@ -7,7 +7,7 @@ turns it into a flow when the file holds a `<flow>` tag.
 
 ## Turn a .md file into a doc
 
-Put one `<flow>` tag on the first line of the file, then a blank line, then the markdown:
+Put one `<flow>` tag at the top of the file, then a blank line, then the markdown. The build takes the first `<flow` text it finds, so keep no other `<flow` above it:
 
 ```
 <flow name="UserSetup" category="Admin" description="Create a user and give them a group." keywords="knowledge,users"/>
@@ -19,15 +19,10 @@ Put one `<flow>` tag on the first line of the file, then a blank line, then the 
 
 Four things decide whether the doc shows up:
 
-1. **The `<flow>` tag.** A `.md` without one is skipped by the build (`tools/JournalMaker.js`). It is a
-   tag, not YAML frontmatter: `---` blocks do nothing.
-2. **`knowledge` in `keywords`.** The menu shows only flows whose keywords include `knowledge`,
-   lowercase (`src/foam/core/reflow/menus.jrl`).
-3. **A folder the build reads.** The build reads every folder under a `pom.js`, except folders that
-   start with `.`, or are named `examples`, `node_modules`, or end in `build`, `test` or `tests`.
-   A README next to code you never build is never read.
-4. **A rebuild.** The build copies the doc into the `flows` journal. A new file appears only after
-   the next build.
+1. **The flow tag.** A `.md` without a `<flow>` tag is skipped by the build (`tools/JournalMaker.js`). It is a tag, not YAML frontmatter: `---` blocks do nothing.
+2. **The knowledge keyword.** The menu shows only flows whose `keywords` include `knowledge`, lowercase (`src/foam/core/reflow/menus.jrl`).
+3. **A folder the build reads.** The build walks every folder under a `pom.js` (`tools/pmake.js`). It skips folders that start with `.`, end in `build` or `build2`, or contain `android`, `examples` or `node_modules` in their name. It skips `test` and `tests` folders unless built with `--flags:test`, and any subfolder with its own `pom.js` that no parent `pom.js` lists. A README next to code you never build is never read.
+4. **A rebuild.** The build copies the doc into the `flows` journal. A new file appears only after the next build.
 
 ## Tag attributes
 
@@ -48,7 +43,7 @@ inside a value as `&quot;`, `&lt;`, `&gt;` and `&amp;`.
 
 ## Edit an existing doc
 
-**Edit the `.md` file** and rebuild. This works on every environment and is the only way that
+**Edit the markdown file** and rebuild. This works on every environment and is the only way that
 reaches a deployed server.
 
 **Or edit it in the app,** on a local server in DEVELOPMENT or TEST mode:
@@ -88,8 +83,8 @@ Read **this** first.
 GitBook's `{% hint style="info" %}` is not supported and shows as plain text. Convert it to a
 `<hint>` tag when you migrate a page.
 
-Other tags the editor toolbar inserts: `<toc></toc>` (contents list), `<search></search>`,
-`<glossary></glossary>` and `<details>`.
+The editor toolbar also inserts `<toc></toc>` (contents list), `<search></search>` and
+`<glossary></glossary>`. Plain HTML, such as `<details>`, renders as HTML.
 
 **Images** go in a folder named `images` next to the `.md`, referenced as `images/<file>`:
 
@@ -104,9 +99,9 @@ be unique across the whole app, so prefix them with the doc name.
 
 | Symptom | Check |
 |---|---|
-| New `.md` never shows | `<flow>` tag on the first line, `knowledge` in `keywords`, folder under a `pom.js`, rebuilt |
+| New `.md` never shows | `<flow>` tag at the top with no earlier `<flow` text, `knowledge` in `keywords`, folder the build walks, rebuilt |
 | Shows for some users only | The user's `spid`, `accessLevel` and the access list in the tag, and the `menu.read.knowledgeBase` permission |
-| Lost its formatting | GitBook syntax (`{% ... %}`) or HTML the viewer does not know; rewrite with the tags above |
+| Lost its formatting | GitBook syntax such as `{% hint %}`; rewrite it with the tags above |
 | App edit gone after a build | The edit was made outside DEVELOPMENT or TEST mode, so the file never changed; edit the `.md` |
 | Became a `.flow` file | The doc got a second block; delete it, set `source` back to the `.md`, save again, delete the stray `.flow` |
 | Image missing | Folder not named `images`, or another image already has that file name |

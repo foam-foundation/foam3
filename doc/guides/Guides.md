@@ -23,6 +23,9 @@ The FOAM Pom-O-Matic build system: POM file types (Tooling vs Build), the three 
 **[POM](POM.md)**
 Reference for POM (Project Object Model) file attributes: name/vendorId/version/licenses, multi-stage JS loading for startup performance, flags expressions for conditional inclusion (js/java/web/node/debug), JSLibs, and how the build processes sub-projects.
 
+**[Flags](Flags.md)**
+How build flags work: flag expressions on POM entries, `setFlags:`, setting flags with `./build.sh --flags:` and `pmake -flags=`, URL and script-tag flags, precedence, default values, and gotchas such as `dev` being off in built bundles.
+
 **[Context](Context.md)**
 Explains the immutable hierarchical key-value Context (X) — its get/put/putFactory API — and the three-level hierarchy: system context (boot), session context (per-user), and request context (per HTTP request). Read this before learning about imports and exports.
 

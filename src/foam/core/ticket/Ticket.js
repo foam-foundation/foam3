@@ -41,8 +41,6 @@ foam.CLASS({
     'foam.core.auth.AuthService',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
-    'foam.core.notification.Notification',
-    'foam.core.session.Session',
     'foam.util.SafetyUtil',
     'java.util.Date'
   ],
@@ -528,78 +526,6 @@ foam.CLASS({
       sb.append(getStatus());
       sb.append(")");
       return sb.toString();
-      `
-    },
-    {
-      name: 'createExternalCommentNotification',
-      args: [
-        { name: 'x', type: 'Context' },
-        { name: 'old', type: 'Ticket' }
-      ],
-      javaCode: `
-        DAO notificationDAO = (DAO) x.get("notificationDAO");
-        Subject subject = (Subject) x.get("subject");
-        if (subject.getUser().getId() == getCreatedFor()) {
-          if ( getAssignedTo() != 0 ) {
-            Notification notification = new TicketNotification.Builder(x)
-              .setBody(this.COMMENT_NOTIFICATION+this.getId())
-              .setUserId(getAssignedTo())
-              .setSpid(getSpid())
-              .build();
-            try {
-              findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
-            } catch (NullPointerException e) {
-              notificationDAO.put_(x, notification);
-            }
-          } else if ( ! SafetyUtil.isEmpty(getAssignedToGroup()) ){
-            Notification notification = new TicketNotification.Builder(x)
-              .setBody(this.COMMENT_NOTIFICATION+this.getId())
-              .setGroupId(getAssignedToGroup())
-              .setSpid(getSpid())
-              .build();
-            notificationDAO.put(notification);
-          }
-        } else if ( getCreatedFor() != 0 ){
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION+this.getId())
-            .setUserId(getCreatedFor())
-            .setSpid(getSpid())
-            .build();
-          try {
-            findAssignedTo(new Session.Builder(x).setUserId(getCreatedFor()).build().applyTo(x)).doNotify(x, notification);
-          } catch (NullPointerException e) {
-            notificationDAO.put_(x, notification);
-          }
-        }
-      `
-    },
-    {
-      name: 'createCommentNotification',
-      args: [
-        { name: 'x', type: 'Context' },
-        { name: 'old', type: 'Ticket' }
-      ],
-      javaCode: `
-        DAO notificationDAO = (DAO) x.get("notificationDAO");
-        if ( getAssignedTo() != 0 ) {
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION)
-            .setUserId(getAssignedTo())
-            .setSpid(getSpid())
-            .build();
-          try {
-            findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
-          } catch (NullPointerException e) {
-            notificationDAO.put_(x, notification);
-          }
-        } else if ( ! SafetyUtil.isEmpty(getAssignedToGroup()) ){
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION)
-            .setGroupId(getAssignedToGroup())
-            .setSpid(getSpid())
-            .build();
-          notificationDAO.put(notification);
-        }
       `
     },
     {

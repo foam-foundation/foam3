@@ -22,3 +22,15 @@ c({
   toastMessage:"Ticket \'{{title}}\' mis à jour par {{user}}",
   body:"{{comment}}"
 })
+c({
+  name:"ticketNotificationUpdateAssigned",
+  language:{class:"foam.core.auth.LanguageId",code:"en"},
+  toastMessage:"Ticket \'{{title}}\' assigned to you updated by {{user}}",
+  body:"{{comment}}"
+})
+c({
+  name:"ticketNotificationUpdateAssigned",
+  language:{class:"foam.core.auth.LanguageId",code:"fr"},
+  toastMessage:"Le ticket \'{{title}}\' qui vous a été attribué a été mis à jour par {{user}}",
+  body:"{{comment}}"
+})

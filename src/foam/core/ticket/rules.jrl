@@ -10,7 +10,7 @@ p({
   after:true,
   predicate: {
     class: "foam.core.ruler.predicate.FScriptRulePredicate",
-    query: 'o !exists || n.comment != "" || n.externalComment != ""'
+    query: 'o !exists || n.comment != "" || n.externalComment != "" || o.status != n.status'
   },
   action: {
     "class": "foam.core.ticket.TicketNotificationRuleAction"

@@ -10,9 +10,10 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `Creating a Ticket runs TicketNotificationRuleAction with no old
-    ticket. The action must put one TicketNotification, addressed to the group
-    of the user who last modified the ticket, carrying the ticket id, title,
-    status label and the menu link in its emailArgs.`,
+    ticket. The action must put one TicketNotification, broadcast and filtered
+    by a TicketNotificationPredicate that holds the ticket, so it reaches the
+    user the ticket is assigned to or created for. The notification carries
+    the ticket id, title, status label and the menu link in its emailArgs.`,
 
   javaImports: [
     'foam.core.auth.User',
@@ -20,6 +21,7 @@ foam.CLASS({
     'foam.core.ruler.RuleEngine',
     'foam.core.ticket.Ticket',
     'foam.core.ticket.TicketNotification',
+    'foam.core.ticket.TicketNotificationPredicate',
     'foam.core.ticket.TicketNotificationRuleAction',
     'foam.core.ticket.TicketStatus',
     'foam.dao.ArraySink',
@@ -72,9 +74,13 @@ foam.CLASS({
 
         Notification notif = (Notification) notifications.get(0);
         test(notif instanceof TicketNotification, "notification is a TicketNotification, got " + notif.getClass().getName());
-        expect(notif.getGroupId(), "ticketTestGroup", "notification goes to the last modifier's group");
         expect(notif.getLocaleTemplateName(), "ticketNotificationOpenClose", "create uses the open/close template");
-        test(! notif.getBroadcasted(), "default action does not broadcast");
+        test(notif.getBroadcasted(), "default action broadcasts");
+        test(notif.getPredicate() instanceof TicketNotificationPredicate,
+          "recipients filtered by TicketNotificationPredicate, got " + notif.getPredicate());
+        if ( notif.getPredicate() instanceof TicketNotificationPredicate )
+          expect(((TicketNotificationPredicate) notif.getPredicate()).getTicket().getId(), "T-1",
+            "the predicate holds the ticket");
 
         Map args = notif.getEmailArgs();
         expect(args.get("ticket"), "T-1",                         "emailArgs.ticket");

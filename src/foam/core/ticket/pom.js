@@ -22,6 +22,7 @@ foam.POM({
     { name: "TicketDAOCreateView",                  flags: "js" },
     { name: "TicketSummaryView",                    flags: "js" },
     { name: "TicketNotification",                   flags: "js|java" },
+    { name: "TicketNotificationPredicate",          flags: "js|java" },
     { name: "TicketNotificationNotificationCitationView", flags: "js" },
     { name: "TicketNotificationRuleAction",         flags: "js|java" },
     { name: "SummaryCard",                          flags: "js" },

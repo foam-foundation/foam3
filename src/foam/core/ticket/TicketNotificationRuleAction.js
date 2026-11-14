@@ -36,6 +36,11 @@ foam.CLASS({
       name: 'ticketNotificationUpdate',
       class: 'String',
       value: 'ticketNotificationUpdate'
+    },
+    {
+      name: 'ticketNotificationUpdateAssigned',
+      class: 'String',
+      value: 'ticketNotificationUpdateAssigned'
     }
   ],
 
@@ -50,18 +55,14 @@ foam.CLASS({
       TicketStatus oldStatus = null;
       String comment = null;
       String localeTemplate = getTicketNotificationOpenClose();
-      User user = null;
 
       HashMap<String, Object> emailArgs = new HashMap<>();
       HashMap<String, String> translationMappings = new HashMap();
 
-      try {
         ticket = (Ticket) obj;
         comment = ticket.getComment(); 
         if ( SafetyUtil.isEmpty(comment) )
           comment = ticket.getExternalComment();
-
-        user = (User) ((DAO) x.get("userDAO")).find(ticket.getLastModifiedBy());
 
         if ( oldObj != null ) {
           oldTicket = (Ticket) oldObj;
@@ -80,24 +81,27 @@ foam.CLASS({
           }
 
           localeTemplate = getTicketNotificationUpdate();
+          if ( ticket.getAssignedTo() != 0 ||
+               ticket.getCreatedFor() != 0 ||
+               ! SafetyUtil.isEmpty(ticket.getAssignedToGroup()) )
+            localeTemplate = getTicketNotificationUpdateAssigned();
+ 
+          oldStatus = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(oldTicket.getStatus());  // no null check, if null the system is completely broken
 
-          oldStatus = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(oldTicket.getStatus());
-          if ( oldStatus != null ) { // check added for llm reviewer
-            emailArgs.put("oldStatus", oldStatus.getLabel());
-            translationMappings.put("oldStatus", "foam.core.ticket.TicketStatus."+oldStatus.getId()+".label");
-          }
+          emailArgs.put("oldStatus", oldStatus.getLabel());
+          translationMappings.put("oldStatus", "foam.core.ticket.TicketStatus."+oldStatus.getId()+".label");
         }
 
-        status = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(ticket.getStatus());
-        if ( status != null ) { // check added for llm reviewer
-          emailArgs.put("status", status.getLabel());
-          translationMappings.put("status", "foam.core.ticket.TicketStatus."+status.getId()+".label");
-          if ( oldStatus != null &&
-               ! status.getId().equals(oldStatus.getId()) && status.getId().equals(Ticket.STATUS_CLOSED) ) {
-            localeTemplate = getTicketNotificationOpenClose();
-          }
+        status = (TicketStatus) ((DAO) x.get("ticketStatusDAO")).find(ticket.getStatus());  // no null check, if null the system is completely broken
+        emailArgs.put("status", status.getLabel());
+        translationMappings.put("status", "foam.core.ticket.TicketStatus."+status.getId()+".label");
+        if ( oldStatus != null &&
+             ! status.getId().equals(oldStatus.getId()) && status.getId().equals(Ticket.STATUS_CLOSED) ) {
+          localeTemplate = getTicketNotificationOpenClose();
         }
 
+        DAO userDAO = (DAO) x.get("userDAO");
+        User user = (User) userDAO.find(ticket.getLastModifiedBy());
         if ( user == null ) {
           Subject subject = (Subject) x.get("subject");
           if ( subject != null )
@@ -107,15 +111,23 @@ foam.CLASS({
           emailArgs.put("user", user.getLegalName());
         }
 
-        final Notification notif = getNotification(x, user, ticket, oldTicket);
-        notif.setLocaleTemplateName(localeTemplate);
-        // notif.setEmailName(emailTemplate); - leave email for the application layer
+        User assignedTo = (User) userDAO.find(ticket.getAssignedTo());
+        if ( assignedTo != null )
+          emailArgs.put("assignedTo", assignedTo.getLegalName());
+
+        User createdFor = (User) userDAO.find(ticket.getCreatedFor());
+        if ( createdFor != null )
+          emailArgs.put("createdFor", createdFor.getLegalName());
 
         emailArgs.put("ticket", ticket.getId());
         emailArgs.put("title", ticket.getTitle());
         emailArgs.put("comment", comment);
 
         emailArgs.put("menu", "admin.tickets/" + ticket.getId());
+
+        final Notification notif = getNotification(x, user, ticket, oldTicket);
+        notif.setLocaleTemplateName(localeTemplate);
+        // notif.setEmailName(emailTemplate); - leave email for the application layer
 
         addAdditionalArgs(x, user, ticket, oldTicket, emailArgs, translationMappings);
 
@@ -133,21 +145,14 @@ foam.CLASS({
             ((DAO) x.get("notificationDAO")).put(notif);
           }
         }, "TicketNotificationRuleAction");
-      } catch ( Throwable e ) {
-        logger.error(e.getMessage());
-      }
       `
     },
     {
       name: 'getNotification',
       args: 'X x, User user, Ticket ticket, Ticket oldTicket',
       type: 'Notification',
-      documentation: 'defaults to sending by group.',
       javaCode: `
-        TicketNotification notif = new TicketNotification(x);
-        if ( user != null )
-          notif.setGroupId(user.getGroup());
-        return notif;
+        return new TicketNotification(x);
       `
     },
     {
@@ -163,7 +168,10 @@ foam.CLASS({
       type: 'Predicate',
       documentation: 'Predicate for filter user when broadcasting.',
       javaCode: `
-        return null;
+        TicketNotificationPredicate pred = new TicketNotificationPredicate(x);
+        pred.setTicket(ticket);
+        pred.setGroup(user.getGroup());
+        return pred;
       `
     },
   ]

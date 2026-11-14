@@ -6,6 +6,9 @@
 
 foam.POM({
   name: "ticket",
+  projects: [
+    { name: "test/pom", flags: "test" }
+  ],
   files: [
     { name: "Ticket",                               flags: "js|java" },
     { name: "TicketComment",                        flags: "js|java" },
@@ -19,7 +22,9 @@ foam.POM({
     { name: "TicketDAOCreateView",                  flags: "js" },
     { name: "TicketSummaryView",                    flags: "js" },
     { name: "TicketNotification",                   flags: "js|java" },
+    { name: "TicketNotificationPredicate",          flags: "js|java" },
     { name: "TicketNotificationNotificationCitationView", flags: "js" },
+    { name: "TicketNotificationRuleAction",         flags: "js|java" },
     { name: "SummaryCard",                          flags: "js" },
     { name: "TicketCloseCommand",                   flags: "js|java" },
     { name: "CloseTicketCommandDAO",                flags: "js|java" }

@@ -1,0 +1,19 @@
+p({
+  "class":"foam.core.ruler.Rule",
+  "id":"foam-core-ticket-TicketNotificationTicketRule",
+  "name":"foam-core-ticket-TicketNotificationTicketRule",
+  "documentation":"Generate notification on Ticket changes.",
+  "ruleGroup": "Ticket",
+  "daoKey": "localTicketDAO",
+  "operation": 3,
+  "lifecycleState": 1,
+  after:true,
+  predicate: {
+    class: "foam.core.ruler.predicate.FScriptRulePredicate",
+    query: 'o !exists || n.comment != "" || n.externalComment != "" || o.status != n.status'
+  },
+  action: {
+    "class": "foam.core.ticket.TicketNotificationRuleAction"
+  },
+  enabled: false
+})

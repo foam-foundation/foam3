@@ -56,7 +56,7 @@ p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketSta
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketStatus.OPEN.label", target: "Ouvert" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketStatus.EXPIRED.label", target: "Expiré" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketStatus.CLOSED.label", target: "Fermé" })
-p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketNotificationNotificationCitationView.GO_TO_TICKET.label", target: "Aller au ticket" })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketNotificationNotificationMessageModal.GO_TO_TICKET.label", target: "Aller au ticket" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketSummaryView.title", target: "Tickets" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketSummaryView.openLabel", target: "Ouverts" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.TicketSummaryView.closedLabel", target: "Fermés" })

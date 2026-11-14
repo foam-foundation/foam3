@@ -409,6 +409,13 @@ foam.CLASS({
     function classes() {
       return this.extraClasses.concat(foam.String.cssClassize(this.cls_.id) + '-' + this.name);
     },
+    function compareTo(other) {
+      // Values of one enum sort by ordinal, as Java enums sort by declaration order.
+      // FObject.compareTo compares property by property, so an enum's own
+      // properties (and its documentation) decided the order before the ordinal.
+      if ( other && other.cls_ === this.cls_ ) return foam.Number.compare(this.ordinal, other.ordinal);
+      return this.SUPER(other);
+    },
     function toString() { return this.name; }
   ]
 });

@@ -110,10 +110,6 @@ foam.CLASS({
     {
       name: 'FAIL_CLOSED',
       message: 'Something went wrong. Ticket failed to close'
-    },
-    {
-      name: 'COMMENT_NOTIFICATION',
-      message: 'A ticket assigned to you has been updated '
     }
   ],
 

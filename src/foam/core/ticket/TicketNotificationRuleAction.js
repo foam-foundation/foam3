@@ -170,7 +170,8 @@ foam.CLASS({
       javaCode: `
         TicketNotificationPredicate pred = new TicketNotificationPredicate(x);
         pred.setTicket(ticket);
-        pred.setGroup(user.getGroup());
+        if ( user != null )
+          pred.setGroup(user.getGroup());
         return pred;
       `
     },

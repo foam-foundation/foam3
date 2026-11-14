@@ -13,8 +13,6 @@ foam.CLASS({
 
   javaImports: [
     'foam.dao.DAO',
-    'foam.core.auth.User',
-    'foam.core.notification.Notification',
     'foam.util.SafetyUtil'
   ],
 

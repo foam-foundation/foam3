@@ -937,43 +937,92 @@ foam.LIB({
     },
     // Hash n & n: Truncate to 32 bits.
     function hashCode(d) { var n = d.getTime(); return n & n; },
-    function relativeDateString(date) {
-      // FUTURE: make this translatable for i18n, including plurals
-      //   "hours" vs. "hour"
-      var seconds = Math.trunc( ( Date.now() - date.getTime() ) / 1000 );
+    function relativeDateString(date, opt_smallestUnit, opt_utc) {
+      /* "3 hours ago", "in 2 days", "now", or a short date from 7 days on,
+         in the app's language (Intl.RelativeTimeFormat). */
+      var D = foam.Date;
+      if ( ! date || ! date.getTime || isNaN(date.getTime()) ) return '';
+      var locale = D.relativeLocale_();
+      var diff   = date.getTime() - Date.now(); // negative: in the past
+      var abs    = Math.abs(diff);
+      var sign   = diff < 0 ? -1 : 1;
 
-      if ( seconds >= 0 && seconds < 60 ) return 'moments ago';
-      if ( seconds < 0  && seconds > -60 ) return 'in moments';
-
-      var minutes = Math.trunc((seconds) / 60);
-
-      if ( minutes === 1 ) return '1 minute ago';
-      if ( minutes === -1 ) return 'in 1 minute';
-
-      if ( minutes >= 0 && minutes < 60 ) return minutes + ' minutes ago';
-      if ( minutes < 0  && minutes > -60 ) return 'in ' + -minutes + ' minutes';
-
-      var hours = Math.trunc(minutes / 60);
-      if ( hours === 1 ) return '1 hour ago';
-      if ( hours === -1 ) return 'in 1 hour';
-
-      if ( hours >= 0 && hours < 24 ) return hours + ' hours ago';
-      if ( hours <  0 && hours > -24 ) return 'in ' + -hours + ' hours';
-
-      var days = Math.trunc(hours / 24);
-      if ( days === 1 ) return '1 day ago';
-      if ( days === -1 ) return 'in 1 day';
-
-      if ( days >= 0 && days < 7 ) return days + ' days ago';
-      if ( days <  0 && days > -7 ) return 'in ' + -days + ' days';
-
-      if ( days >= 0 && days < 365 || days < 0 && days > -365 ) {
-        var year = 1900 + date.getYear();
-        var noyear = date.toDateString().replace(' ' + year, '');
-        return noyear.substring(4);
+      // smallestUnit: DAY and WEEK count calendar days and weeks ("yesterday",
+      // "last week"); HOUR only hides minutes and "now". Other units: no setting.
+      // TimeUnit loads after this file, so look it up here.
+      var TU = foam.time && foam.time.TimeUnit;
+      if ( TU && opt_smallestUnit ) {
+        // opt_utc: count UTC days, for a DateTimeUTC value shown in UTC.
+        if ( opt_smallestUnit === TU.DAY )  return D.calendarRelative_(date, 'day', locale, opt_utc);
+        if ( opt_smallestUnit === TU.WEEK ) return D.calendarRelative_(date, 'week', locale, opt_utc);
+        if ( opt_smallestUnit === TU.HOUR && abs < 3600000 ) return D.relativeFormat_(locale, 'auto').format(0, 'hour');
       }
 
-      return date.toDateString().substring(4);
+      // Up to 5 minutes ahead also reads "now": a client clock a little
+      // behind the server's should not show a fresh save as "in 3 minutes".
+      if ( diff > -60000 && diff < 300000 ) return D.relativeFormat_(locale, 'auto').format(0, 'second');
+
+      var always = D.relativeFormat_(locale, 'always');
+      if ( abs < 3600000 )   return always.format(sign * Math.trunc(abs / 60000),    'minute');
+      if ( abs < 86400000 )  return always.format(sign * Math.trunc(abs / 3600000),  'hour');
+      if ( abs < 604800000 ) return always.format(sign * Math.trunc(abs / 86400000), 'day');
+      return D.absoluteDate_(date, locale);
+    },
+    function relativeLocale_() {
+      // The app's language first, so the text matches the app's labels. A
+      // malformed saved value ('en_US') would make Intl throw on every date:
+      // use the browser's language then.
+      var l = foam.locale;
+      if ( l ) {
+        try { Intl.getCanonicalLocales(l); return l; } catch (x) {}
+      }
+      return foam.util.getClientLocale();
+    },
+    function relativeFormat_(locale, numeric) {
+      // Making a formatter is slow and a table draws many cells: keep one
+      // per language and numeric style.
+      var cache = foam.Date.relativeFormats_ || ( foam.Date.relativeFormats_ = {} );
+      var key   = locale + '|' + numeric;
+      return cache[key] || ( cache[key] = new Intl.RelativeTimeFormat(locale, { numeric: numeric }) );
+    },
+    function calendarRelative_(date, unit, locale, utc) {
+      // Counts calendar days or weeks between now and date, so 8pm
+      // yesterday is "yesterday" at 9am. Local days, or UTC days when utc.
+      // A year or more is a date.
+      var D     = foam.Date;
+      var now   = new Date(Date.now());
+      var then  = new Date(date.getTime());
+      var day   = d => utc ? d.getUTCDay() : d.getDay();
+      var back  = (d, n) => utc ? d.setUTCDate(d.getUTCDate() - n) : d.setDate(d.getDate() - n);
+      [ now, then ].forEach(d => utc ? d.setUTCHours(0, 0, 0, 0) : d.setHours(0, 0, 0, 0));
+      // Math.round: a day across a daylight-saving change is 23 or 25 hours.
+      var days = Math.round((then - now) / 86400000);
+      if ( Math.abs(days) >= 365 ) return D.absoluteDate_(date, locale);
+      var auto = D.relativeFormat_(locale, 'auto');
+      if ( unit === 'day' ) return auto.format(days, 'day');
+
+      // Move both days back to the first day of their week.
+      var first = D.weekStart_(locale) % 7; // Intl 1 (Mon) .. 7 (Sun); getDay 0 is Sunday
+      back(now,  ( day(now)  - first + 7 ) % 7);
+      back(then, ( day(then) - first + 7 ) % 7);
+      return auto.format(Math.round((then - now) / 604800000), 'week');
+    },
+    function weekStart_(locale) {
+      // The language's first day of the week, 1 (Monday) to 7 (Sunday).
+      // Intl.Locale has getWeekInfo() in new browsers and weekInfo in older
+      // ones; Monday when neither exists.
+      try {
+        var l = new Intl.Locale(Array.isArray(locale) ? locale[0] : locale);
+        var w = l.getWeekInfo ? l.getWeekInfo() : l.weekInfo;
+        if ( w && w.firstDay ) return w.firstDay;
+      } catch (x) {}
+      return 1;
+    },
+    function absoluteDate_(date, locale) {
+      // "Oct 30"; the year too when it is not this year's.
+      var opts = { month: 'short', day: 'numeric' };
+      if ( date.getFullYear() !== new Date(Date.now()).getFullYear() ) opts.year = 'numeric';
+      return date.toLocaleDateString(locale, opts);
     },
     /** formats a date as MMM dd, YYYY
      *  Use the timeFirst parameter to include a time string.

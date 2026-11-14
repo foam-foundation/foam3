@@ -292,6 +292,8 @@ return on.sub(listener: { (sub: Subscription, args: [Any?]) -> Void in
       javaCode: `
 sink = decorateListener_(sink, predicate);
 listeners_.add(new DAOListener(sink, listeners_));
+// After it is added, so a row put meanwhile is not missed.
+if ( sink instanceof PredicatedListener ) ((PredicatedListener) sink).rememberMatching(this);
       `,
     },
 
@@ -326,7 +328,8 @@ if predicate != nil {
 return sink
       `,
       javaCode: `
-if ( predicate != null ) {
+// TRUE always matches: a PredicatedListener would only keep ids it never uses.
+if ( predicate != null && ! ( predicate instanceof foam.mlang.predicate.True ) ) {
   sink = new PredicatedListener(predicate, sink);
 }
 

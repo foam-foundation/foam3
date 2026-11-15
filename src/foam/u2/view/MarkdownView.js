@@ -123,10 +123,15 @@ foam.CLASS({
 
           htmlBlock: alt(sym('autoCloseHtmlBlock'), sym('selfClosedTag'), sym('pairedTag')),
 
+          // <img> and <br> need no closing tag, and may end in ">", "/>" or
+          // " />". The name must end there, so <brief> is not read as <br>.
           autoCloseHtmlBlock: seq(
             '<',
-            'img',
+            alt('img', 'br'),
+            not(alt(range('a', 'z'), range('A', 'Z'), range('0', '9'))),
             sym('htmlAttributes'),
+            repeat(chars(' \t')),
+            optional('/'),
             '>'
           ),
 
@@ -384,7 +389,7 @@ foam.CLASS({
         },
 
         function autoCloseHtmlBlock(v) {
-          return { tagName: v[1], attributes: v[2] };
+          return { tagName: v[1], attributes: v[3] };
         },
 
         function selfClosedTag(v) {
@@ -404,8 +409,12 @@ foam.CLASS({
 
         function htmlBlock(tag) {
           let tagName    = tag.tagName;
-          let attributes = tag.attributes;
+          let attributes = this.safeAttributes_(tag.attributes);
           let content    = tag.content;
+
+          // A document can come from a user or an LLM reply, so a tag that
+          // loads or runs code, such as <script> or <iframe>, renders nothing.
+          if ( this.UNSAFE_TAGS.includes(tagName.toLowerCase()) ) return function() {};
 
           return function() {
             let e = this.start(tagName).attrs(attributes);
@@ -564,9 +573,10 @@ foam.CLASS({
 
         function image(v) {
           let alt = v[1], url = v[3], title = v[4] || '';
+          let src = this.isSafeURL_(url, true) ? url : undefined;
           return function() {
             this.start('img').attrs({
-              src: url,
+              src: src,
               alt: alt,
               title: title
             }).end();
@@ -575,7 +585,10 @@ foam.CLASS({
 
         function link(v) {
           let title = v[1], url = v[3];
-          return function() { this.start('a').attrs({href: url}).add(title); };
+          // A link with an unsafe target, such as javascript:alert(1), keeps
+          // its text but goes nowhere.
+          let href = this.isSafeURL_(url) ? url : undefined;
+          return function() { this.start('a').attrs({href: href}).add(title); };
         },
 
         function strikethrough(v) {
@@ -625,6 +638,17 @@ foam.CLASS({
     }
   ],
 
+  constants: {
+    // Tags that load or run code, or send the reader somewhere else.
+    UNSAFE_TAGS: [
+      'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
+      'link', 'meta', 'base', 'form'
+    ],
+
+    // Attributes that hold an address, which isSafeURL_ checks.
+    URL_ATTRIBUTES: [ 'href', 'src', 'action', 'formaction', 'poster', 'background' ]
+  },
+
   properties: [
     {
       name: 'markdownContext',
@@ -660,6 +684,36 @@ foam.CLASS({
           else          tokens = self.lastGoodTokens_;
           if ( tokens ) tokens.forEach(t => t.call(this));
         }));
+    },
+
+    function isSafeURL_(url, allowData) {
+      // An address may only open a web page, an email, or for an image a
+      // data: URL. A substring test for "javascript:" misses
+      // "java\tscript:", which the browser still runs, so the protocol is read
+      // with URL, which parses the address the way the browser does. A page
+      // name such as "Client Programs" is a relative address and stays.
+      try {
+        var protocol = new URL(url, this.document.baseURI).protocol;
+        return protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:' ||
+          ( !! allowData && protocol === 'data:' );
+      } catch ( e ) {
+        return false;
+      }
+    },
+
+    function safeAttributes_(attributes) {
+      // An event handler such as onerror="..." would run as soon as the tag
+      // renders, so every on* attribute is dropped. An address attribute
+      // keeps its value only when isSafeURL_ accepts it.
+      var safe = {};
+      for ( var name in attributes ) {
+        var key = name.toLowerCase();
+        if ( key.startsWith('on') ) continue;
+        if ( this.URL_ATTRIBUTES.includes(key) &&
+             ! this.isSafeURL_(attributes[name], key === 'src') ) continue;
+        safe[name] = attributes[name];
+      }
+      return safe;
     }
   ],
 

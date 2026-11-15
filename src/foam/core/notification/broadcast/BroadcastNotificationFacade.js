@@ -56,7 +56,7 @@ foam.CLASS({
       }
     },
     {
-      __copyFrom__: 'net.nanopay.fx.notification.RateBroadcastNotification.PREDICATE',
+      __copyFrom__: 'foam.core.notification.Notification.PREDICATE',
       createVisibility: 'HIDDEN',
       order: 150
     },

@@ -12,6 +12,8 @@
 //  ? how are Commands different than flows?
 // ???: Would it be better to have compose rather than mixing Flowable?
 // TODO: user-select: none; to avoid cut&paste when not appropriate
+// input multichoice on multiple lines
+// store response in 'ask' commands for easier debugging
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -973,6 +975,10 @@ foam.CLASS({
     {
       name: 'llmService',
       factory: function() {
+        // TODO: It would be better if there was also a transient ConversationalLLMService on the server
+        // that could be used when combined with a UUID so that the whole conversation isn't sent with each
+        // request. If the session id isn't found then an exeception would be thrown and then the whole
+        // conversation would be sent on the next request.
         return this.ConversationalLLMService.create({delegate: this.parentLLMService});
       }
     },
@@ -1639,7 +1645,8 @@ foam.CLASS({
         addValue: block.addValue.bind(block),
         log: block.log.bind(block),
         out: block.out, start: block.out.start.bind(block.out),
-        tag: block.out.tag.bind(block.out)
+        tag: block.out.tag.bind(block.out),
+        find: this.findFlowChildByName.bind(this)
       };
 
       // TODO: move into Block

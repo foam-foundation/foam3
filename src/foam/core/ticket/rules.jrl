@@ -15,5 +15,5 @@ p({
   action: {
     "class": "foam.core.ticket.TicketNotificationRuleAction"
   },
-  enabled: false
+  enabled: true
 })

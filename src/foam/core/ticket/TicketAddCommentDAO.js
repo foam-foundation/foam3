@@ -23,6 +23,11 @@ foam.CLASS({
       Ticket ticket = (Ticket) obj;
       String comment = ticket.getComment();
       String externalComment = ticket.getExternalComment();
+
+      // A save with no comment, such as a close, has nothing to store or clear.
+      if ( SafetyUtil.isEmpty(comment) && SafetyUtil.isEmpty(externalComment) )
+        return getDelegate().put_(x, obj);
+
       ticket = (Ticket) getDelegate().put_(x, obj).fclone();
 
       if ( ! SafetyUtil.isEmpty(externalComment) ) {

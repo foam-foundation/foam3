@@ -1,7 +1,6 @@
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.SUCCESS_UNASSIGNED", target: "Vous avez désattribué ce ticket avec succès" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.SUCCESS_CLOSED", target: "Vous avez fermé ce ticket avec succès" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.FAIL_CLOSED", target: "Une erreur s'est produite. La fermeture du ticket a échoué" })
-p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.COMMENT_NOTIFICATION", target: "Un ticket qui vous est attribué a été mis à jour " })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.SECTION_INFO_SECTION.title", target: "Ticket" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.SECTION_META_SECTION.title", target: "Audit" })
 p({ class: "foam.i18n.Locale", locale: "fr", source: "foam.core.ticket.Ticket.SECTION_COMMENTS_SECTION.title", target: "Commentaires" })

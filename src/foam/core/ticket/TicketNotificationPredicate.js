@@ -9,15 +9,24 @@ foam.CLASS({
   name: 'TicketNotificationPredicate',
   extends: 'foam.mlang.predicate.AbstractPredicate',
 
-  documentation: `Predicate which determines which users should receive
-a Ticket related notification.
-Send to assignedTo, else createdFor, else all in assignedToGroup, and
-finally everyone in instigators group.
-  `,
+  documentation: `Decides which users receive a notification about a ticket
+    change. The user who made the change is never notified. Otherwise the
+    first rule that applies decides:
+
+    - An external comment, a reply the ticket's subject can see, written by
+      anyone but the createdFor user goes to the createdFor user.
+    - The assignedTo user, when the ticket has one.
+    - The users of assignedToGroup, when the ticket has one.
+    - An internal comment, for staff only, goes to nobody else.
+    - The createdFor user, when the ticket has one.
+    - The users of group, the group of whoever made the change.
+
+    The ticket is read in memory when the notification is expanded, before
+    TicketAddCommentDAO clears its comment. Notification.predicate is
+    transient, so the ticket is never stored with the notification.`,
 
   javaImports: [
     'foam.core.auth.User',
-    'foam.lang.X',
     'foam.util.SafetyUtil'
   ],
 
@@ -38,24 +47,37 @@ finally everyone in instigators group.
     {
       name: 'f',
       javaCode: `
-        X x = getX();
-        User user = (User) obj;
+        User   user   = (User) obj;
+        Ticket ticket = getTicket();
 
-        // Don't notify the instigator of the notification
-        if ( user.getId() == getTicket().getLastModifiedBy() )
+        if ( user.getId() == ticket.getLastModifiedBy() )
           return false;
 
-        if ( getTicket().getAssignedTo() != 0 ) 
-          return user.getId() == getTicket().getAssignedTo();
+        boolean internalComment = ! SafetyUtil.isEmpty(ticket.getComment());
+        boolean externalComment = ! internalComment && ! SafetyUtil.isEmpty(ticket.getExternalComment());
 
-        if ( ! SafetyUtil.isEmpty(getTicket().getAssignedToGroup()) )
-          return user.getGroup().equals(getTicket().getAssignedToGroup());
+        // A reply from staff goes to the person the ticket is for. A reply
+        // from that person falls through to whoever handles the ticket.
+        if ( externalComment && ticket.getCreatedFor() != 0 &&
+             ticket.getLastModifiedBy() != ticket.getCreatedFor() )
+          return user.getId() == ticket.getCreatedFor();
 
-        if ( getTicket().getCreatedFor() != 0 )
-          return user.getId() == getTicket().getCreatedFor();
+        if ( ticket.getAssignedTo() != 0 )
+          return user.getId() == ticket.getAssignedTo();
+
+        if ( ! SafetyUtil.isEmpty(ticket.getAssignedToGroup()) )
+          return ticket.getAssignedToGroup().equals(user.getGroup());
+
+        // An internal comment on a ticket nobody handles yet must not reach
+        // the createdFor user, who would read a staff-only note.
+        if ( internalComment )
+          return false;
+
+        if ( ticket.getCreatedFor() != 0 )
+          return user.getId() == ticket.getCreatedFor();
 
         if ( ! SafetyUtil.isEmpty(getGroup()) )
-          return user.getGroup().equals(getGroup());
+          return getGroup().equals(user.getGroup());
 
         return false;
       `

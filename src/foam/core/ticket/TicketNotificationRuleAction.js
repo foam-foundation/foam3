@@ -59,6 +59,11 @@ foam.CLASS({
       HashMap<String, Object> emailArgs = new HashMap<>();
       HashMap<String, String> translationMappings = new HashMap();
 
+      // The rule runs inside TicketAddCommentDAO, so an exception that left
+      // this action would fail the whole save: the ticket is already stored,
+      // but its TicketComment row would never be written. A notification
+      // that cannot be built is logged with the ticket id instead.
+      try {
         ticket = (Ticket) obj;
         comment = ticket.getComment(); 
         if ( SafetyUtil.isEmpty(comment) )
@@ -145,6 +150,9 @@ foam.CLASS({
             ((DAO) x.get("notificationDAO")).put(notif);
           }
         }, "TicketNotificationRuleAction");
+      } catch ( Throwable t ) {
+        logger.error("Ticket notification failed", "ticket", ticket == null ? null : ticket.getId(), t);
+      }
       `
     },
     {

@@ -54,6 +54,13 @@ foam.CLASS({
           'an https href is kept, got ' + links.element_.innerHTML);
         links.remove();
 
+        var styled = render('<div style="position:fixed;inset:0">Session expired</div><p style="color:red">red</p>');
+        x.test(! styled.element_.querySelector('[style]'),
+          'no style attribute reaches the page, got ' + styled.element_.innerHTML);
+        x.test(styled.element_.textContent === 'Session expiredred',
+          'the styled elements keep their text, got ' + styled.element_.textContent);
+        styled.remove();
+
         // HTMLView redraws on the next animation frame after data changes.
         var live = render('<b>first</b>');
         live.data = '<b>second</b>';

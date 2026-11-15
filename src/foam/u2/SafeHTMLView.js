@@ -11,11 +11,12 @@ foam.CLASS({
 
   documentation: `Shows HTML that a user typed, such as a note or a comment.
     HTMLView writes its data into the page as raw HTML, so a value like
-    <img src=x onerror=alert(1)> would run its script for whoever views it.
-    SafeHTMLView passes the data through RichTextValidator.sanitizeText first.
-    It keeps simple formatting (B, STRONG, I, EM, U, P, BR, lists, and links
-    to an http, https or mailto address), and turns any other element into a
-    plain DIV with no attributes, so its text still shows.`,
+    <img src=x onerror=alert(1)> reaches the page with its handler; only the
+    Content-Security-Policy stops it from running. SafeHTMLView passes the data
+    through RichTextValidator.sanitizeText first. It keeps simple formatting
+    (B, STRONG, I, EM, U, P, BR, lists, and links to an http, https or mailto
+    address), and turns any other element into a plain DIV with no
+    attributes, so its text still shows. It also drops every style attribute.`,
 
   requires: [ 'foam.u2.view.RichTextValidator' ],
 
@@ -23,8 +24,13 @@ foam.CLASS({
     {
       name: 'update',
       code: function() {
-        this.element_.replaceChildren(
-          this.RichTextValidator.create().sanitizeText(this.data || ''));
+        var content = this.RichTextValidator.create().sanitizeText(this.data || '');
+        // RichTextView keeps style on P, DIV and SPAN for its own editor. Text
+        // from another user must not style itself:
+        // <div style="position:fixed;inset:0">Session expired, sign in</div>
+        // would cover the page with a fake sign-in.
+        content.querySelectorAll('[style]').forEach(e => e.removeAttribute('style'));
+        this.element_.replaceChildren(content);
       }
     }
   ]

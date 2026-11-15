@@ -679,18 +679,17 @@ foam.CLASS({
         }
       }
 
-      var frame = this.document.createElement('iframe');
-      frame.sandbox = 'allow-same-origin';
-      frame.style.display = 'none';
-      this.document.body.appendChild(frame);
-      frame.contentDocument.body.innerHTML = text;
+      // DOMParser builds a document with no window, so nothing in the text
+      // runs or loads while it is read: no script, no onerror, no image fetch.
+      // It replaces a hidden iframe that was added to the page and removed on
+      // every call, one per cell in a table of SafeHTMLViews.
+      var body = new DOMParser().parseFromString(text, 'text/html').body;
 
       var sanitizedContent = new DocumentFragment();
-      for ( var i = 0; i < frame.contentDocument.body.childNodes.length; i++ ) {
-        copyNodes(sanitizedContent, frame.contentDocument.body.childNodes[i]);
+      for ( var i = 0; i < body.childNodes.length; i++ ) {
+        copyNodes(sanitizedContent, body.childNodes[i]);
       }
 
-      this.document.body.removeChild(frame);
       return sanitizedContent;
     }
   ]

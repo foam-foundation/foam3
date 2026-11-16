@@ -65,10 +65,26 @@ foam.CLASS({
       x.test(own && ! own.ok && / #EEEEEE /i.test(own.msg),
         "the application's override row is the colour measured: pale text on the page fails: " + (own && own.msg));
 
-      lines = await this.report_(x, mine, [ { theme: '', source: 'textDefault', target: 'hsla(0 0% 0% / 0.5)' } ]);
+      lines = await this.report_(x, mine, [ { theme: '', source: 'textDefault', target: 'rgba(0, 0, 0, 0.5)' } ]);
       own = this.line_(lines, 'light: textDefault');
-      x.test(own && /textDefault #[0-9a-f]{6} /i.test(own.msg) && ! /hsla/.test(own.msg),
+      x.test(own && /textDefault #[0-9a-f]{6} /i.test(own.msg) && ! /rgba/.test(own.msg),
         'a see-through colour is laid over the page before it is measured: ' + (own && own.msg));
+
+      // See-through text sits on the pair's background, not on the page:
+      // 60% white on #0A4AC6 is #9DB7E8 on screen, 3.69:1 (over the white page it would read 7.48:1).
+      var onBrand = [ this.ContrastPair.create({ text: 'textOnBrand', background: 'backgroundBrand', modes: [ 'light' ] }) ];
+      lines = await this.report_(x, onBrand, [
+        { theme: '', source: 'textOnBrand',     target: 'rgba(255, 255, 255, 0.6)' },
+        { theme: '', source: 'backgroundBrand', target: '#0A4AC6' }
+      ]);
+      own = this.line_(lines, 'light: textOnBrand');
+      x.test(own && ! own.ok && / #9db7e8 /i.test(own.msg),
+        "see-through text is laid over the pair's background, so faint text on brand fails: " + (own && own.msg));
+
+      // An hsl() colour fails as not a colour until foam.Color.hslToRgb reads the hue in degrees.
+      lines = await this.report_(x, mine, [ { theme: '', source: 'textDefault', target: 'hsl(220 90% 56%)' } ]);
+      x.test(lines.some(l => ! l.ok && /textDefault resolves to a colour, got hsl/.test(l.msg)),
+        'an hsl() colour is reported, not measured with a wrong hue');
     }
   ]
 });

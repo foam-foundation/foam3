@@ -107,11 +107,15 @@ foam.CLASS({
       // A token that does not resolve comes back as a comment string, not a
       // colour; report that as one failed assertion and keep measuring the
       // rest instead of throwing out of luminance().
-      var resolve = (token, mode) => {
+      // A see-through colour is laid over what sits under it: the pair's
+      // background for text, the page for a background. Only rgba(): until
+      // foam.Color.hslToRgb reads the hue in degrees, an hsl() colour would be
+      // measured with the wrong hue, so it fails below as not a colour.
+      var resolve = (token, mode, under) => {
         var v = foam.CSS.returnTokenValue('$' + token, cls, modes[mode]);
-        if ( /^(rgba|hsla?)\(/i.test(v) ) {
-          var page = foam.CSS.returnTokenValue('$backgroundDefault', cls, modes[mode]);
-          if ( /^#[0-9a-f]{6}$/i.test(page) ) v = this.blend(v, page);
+        if ( /^rgba\(/i.test(v) ) {
+          under = under || foam.CSS.returnTokenValue('$backgroundDefault', cls, modes[mode]);
+          if ( /^#[0-9a-f]{6}$/i.test(under) ) v = this.blend(v, under);
         }
         if ( ! /^#[0-9a-f]{6}$/i.test(v) ) {
           x.test(false, `${mode}: ${token} resolves to a colour, got ${v}`);
@@ -126,7 +130,8 @@ foam.CLASS({
             x.test(false, `${pair.text} on ${pair.background}: unknown mode ${mode}, use light or dark`);
             continue;
           }
-          var f = resolve(pair.text, mode), b = resolve(pair.background, mode);
+          var b = resolve(pair.background, mode);
+          var f = b && resolve(pair.text, mode, b);
           if ( ! f || ! b ) continue;
           var r = this.contrast(f, b);
           x.test(r >= pair.floor,

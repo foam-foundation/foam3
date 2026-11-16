@@ -73,7 +73,7 @@ foam.comics.v3.ComicsAction           ← extends foam.lang.Action; replaces def
 | `route` value | Micro-controller rendered |
 |---------------|--------------------------|
 | `''` (empty)  | `DAOView` — browse/list  |
-| `'create'`    | `CreateView` — new object form |
+| `'create'`    | `config.createController` (default `CreateView`) — pushed onto the stack as the new object form |
 | Any record ID | `DetailView` — view/edit of that record |
 
 ```javascript
@@ -107,7 +107,7 @@ daoController.route = obj.id;      // go to detail for this record
 
 ### CreateView — Create state
 
-`foam.comics.v3.CreateView` sets `controllerMode` to `CREATE`, renders the form specified by `config.createView`, and places a single **Save** button in the stack header.
+`foam.comics.v3.CreateView` sets `controllerMode` to `CREATE`, renders the form specified by `config.createView`, and places **Save** and **Cancel** buttons in the stack header. `DAOController` does not render it inline: on the `'create'` route it pushes `config.createController` (default `{ class: 'foam.comics.v3.CreateView' }`) onto the stack.
 
 On successful save:
 1. Notifies the user (`notify`).
@@ -209,8 +209,8 @@ foam.CLASS({
   axioms: [
     foam.comics.v2.CannedQuery.create({
       label: 'Active',
-      predicateFactory: function(e) {
-        return e.EQ(MyModel.ACTIVE, true);
+      predicateFactory: function(e, cls) {
+        return e.EQ(cls.ACTIVE, true);
       }
     })
   ]
@@ -224,7 +224,7 @@ config.cannedQueries = [
   foam.comics.v2.CannedQuery.create({
     label: 'Business',
     predicateFactory: function(e) {
-      return e.EQ(DC.CONTACT_TYPE, 'BUSINESS');
+      return e.EQ(com.example.Contact.CONTACT_TYPE, 'BUSINESS');
     }
   })
 ];
@@ -232,15 +232,14 @@ config.cannedQueries = [
 
 ### Permission-Gated CRUD (`CRUDEnabledActionsAuth`)
 
-When `CRUDEnabledActionsAuth` is set, each CRUD button checks a permission string before enabling:
+When `CRUDEnabledActionsAuth` is set, each CRUD button checks a permission string before enabling. `enabledActionsAuth` is typed as the interface `foam.comics.v2.EnabledActionsAuth`, so give it a class that implements it; `BasicEnabledActionsAuth` builds `mymodel.create`, `mymodel.update.<id>` and `mymodel.remove.<id>`:
 
 ```javascript
 config.CRUDEnabledActionsAuth = foam.comics.v2.CRUDEnabledActionsAuth.create({
   isEnabled: true,
   enabledActionsAuth: {
-    permissionFactory: function(operation, obj) {
-      return 'mymodel.' + operation.name.toLowerCase() + '.' + obj.id;
-    }
+    class: 'foam.comics.v2.BasicEnabledActionsAuth',
+    modelName: 'MyModel'
   }
 });
 ```
@@ -250,7 +249,7 @@ config.CRUDEnabledActionsAuth = foam.comics.v2.CRUDEnabledActionsAuth.create({
 | Property | Description |
 |----------|-------------|
 | `createMenu` | Menu ID to push instead of the built-in CreateView |
-| `createController` | ViewSpec to push onto the stack as the create view (alternative to `CreateView`) |
+| `createController` | ViewSpec pushed onto the stack for the `'create'` route; defaults to `foam.comics.v3.CreateView` |
 | `click` | Override the row-click handler; receives `(obj, id)` |
 | `disableSelection` | `true` to make rows non-clickable |
 
@@ -267,6 +266,7 @@ config.CRUDEnabledActionsAuth = foam.comics.v2.CRUDEnabledActionsAuth.create({
 | `save` | `DetailView` — `config.dao.put(workingData)` |
 | `delete` | `DetailView` — opens `DeleteModal`, then routes back to browse |
 | `copy` | `DetailView` — clones record (clearing id), pushes `DAOCreateView` |
+| `cancelEdit` | `DetailView` — discards `workingData` and returns to `VIEW` mode |
 
 **Any property not explicitly set on the `ComicsAction` is copied from the default implementation.** You override only what you need.
 

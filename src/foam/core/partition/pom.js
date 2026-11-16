@@ -15,7 +15,8 @@ foam.POM({
     { name: "PartitionLoadStatus",          flags: "js|java" },
     { name: "F3FileJournalRefinement",      flags: "java" },
     { name: "PartitionLoadProgressDAO",     flags: "js" },
-    { name: "PartitionLoadToastStack",      flags: "js" }
+    { name: "PartitionLoadDockItem",        flags: "js" },
+    { name: "PartitionLoadWatcher",         flags: "js" }
   ],
 
   javaFiles: [

@@ -16,5 +16,5 @@ p({
       .setJournalName("grants")
       .build();
     `,
-  "client":"{\"of\":\"foam.core.grant.GrantAssignment\"}"
+  "client":"""{"of":"foam.core.grant.GrantAssignment"}"""
 })

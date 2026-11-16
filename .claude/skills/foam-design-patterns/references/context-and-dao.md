@@ -42,8 +42,8 @@ Do:    `imports: [ { name: 'userDAO', javaType: 'DAO', key: 'localUserDAO' } ]` 
 
 ### Existence is `find`, count is `COUNT()`
 A sink materializes rows to answer a yes/no question.
-Don't: `ArraySink s = new ArraySink(); dao.where(p).limit(1).select(s); return ! s.getArray().isEmpty();`
-Do:    `return dao.find(p) != null;` or `dao.select(COUNT())`
+Don't: `ArraySink s = new ArraySink(); dao.where(p).limit(1).select(s); return ! s.getArray().isEmpty();`; `limit(1).select(sink)` then `getArray().get(0)` for one row; `getArray().size()` for a count
+Do:    `return dao.find(p) != null;`; `dao.find(id)` or `dao.find(p)` for one row; `dao.select(COUNT())`
 Review asked: "Can be done with find() or if you don't care about the result then a COUNT()."
 
 ### Read the sink `select` returns

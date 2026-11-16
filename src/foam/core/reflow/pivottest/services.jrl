@@ -9,7 +9,7 @@ p({
       .setAuthorizer(new foam.core.auth.GlobalReadAuthorizer("pivottest"))
       .setSeqNo(true)
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName(\"pivotObjects\")
+      .setJournalName("pivotObjects")
       .setOf(foam.core.reflow.pivottest.PivotTestObject.getOwnClassInfo())
       .build();
   """,

@@ -13,8 +13,6 @@ foam.CLASS({
 
   javaImports: [
     'foam.dao.DAO',
-    'foam.core.auth.User',
-    'foam.core.notification.Notification',
     'foam.util.SafetyUtil'
   ],
 
@@ -22,39 +20,38 @@ foam.CLASS({
     {
       name: 'put_',
       javaCode: `
-    Ticket ticket = (Ticket) obj;
-    String comment = ticket.getComment();
-    String externalComment = ticket.getExternalComment();
-    Ticket old = (Ticket) getDelegate().find(ticket.getId());
-    ticket = (Ticket) getDelegate().put_(x, obj);
-  
-    if ( ! SafetyUtil.isEmpty(comment) ) {
-      TicketComment tc = new TicketComment.Builder(x)
-        .setComment(comment)
-        .setTicket(ticket.getId())
-        .build();
-      ((DAO) x.get("ticketCommentDAO")).put_(x, tc);
-      ticket.createCommentNotification(x, old);
-      ticket = (Ticket) ticket.fclone();
+      Ticket ticket = (Ticket) obj;
+      String comment = ticket.getComment();
+      String externalComment = ticket.getExternalComment();
+
+      // A save with no comment, such as a close, has nothing to store or clear.
+      if ( SafetyUtil.isEmpty(comment) && SafetyUtil.isEmpty(externalComment) )
+        return getDelegate().put_(x, obj);
+
+      ticket = (Ticket) getDelegate().put_(x, obj).fclone();
+
+      if ( ! SafetyUtil.isEmpty(externalComment) ) {
+        TicketComment tc = new TicketComment.Builder(x)
+          .setComment(externalComment)
+          .setExternal(true)
+          .setTicket(ticket.getId())
+          .build();
+        ((DAO) x.get("ticketCommentDAO")).put_(x, tc);
+      }
+      if ( ! SafetyUtil.isEmpty(comment) ) {
+        TicketComment tc = new TicketComment.Builder(x)
+          .setComment(comment)
+          .setTicket(ticket.getId())
+          .build();
+        ((DAO) x.get("ticketCommentDAO")).put_(x, tc);
+      }
+
       ticket.setComment("");
-      ticket = (Ticket) getDelegate().put_(x, ticket);
-    }
-  
-    if ( ! SafetyUtil.isEmpty(externalComment) ) {
-      TicketComment tc = new TicketComment.Builder(x)
-        .setComment(externalComment)
-        .setExternal(true)
-        .setTicket(ticket.getId())
-        .build();
-      ((DAO) x.get("ticketCommentDAO")).put_(x, tc);
-      ticket.createExternalCommentNotification(x, old);
-      ticket = (Ticket) ticket.fclone();
       ticket.setExternalComment("");
       ticket = (Ticket) getDelegate().put_(x, ticket);
-    }
 
-    return ticket;
+      return ticket;
       `
-    },
+    }
   ]
 });

@@ -4,13 +4,13 @@
 
 `foam.core.controller.ApplicationController` is the top-level client shell for a FOAM application. It owns the application stack, authentication lifecycle, theming, navigation, notifications, and session management, and exports all of these as named services into the context so that every descendant view can import them by name without explicit wiring.
 
-Available on the browser console as `ctrl` (via `exports: ['as ctrl']`).
+Exported into the context as `ctrl` (`exports: ['as ctrl']`). It is also available on the browser console as `ctrl` because the page's `<foam>` tag has `id="ctrl"`, and the tag loader puts tagged objects on `globalThis` by id.
 
 ## Responsibilities
 
 | Area | What it does |
 |------|-------------|
-| **Stack** | Owns `stack` (a `DesktopStackView`); all navigation happens by pushing/replacing views on it |
+| **Stack** | Owns `stack` (a `foam.core.u2.navigation.Stack`); all navigation happens by pushing/replacing views on it |
 | **Authentication** | Builds the `ClientBuilder`, fetches the `Subject`/`Group`, triggers login when needed |
 | **Theme** | Loads `Theme` from the server, expands CSS macros, allows per-component overrides |
 | **Navigation** | `pushMenu`, `routeTo`, `routeToDAO` — three ways to move through the app |
@@ -23,7 +23,7 @@ Available on the browser console as `ctrl` (via `exports: ['as ctrl']`).
 
 ## Context Exports
 
-`ApplicationController` exports ~30 services into its sub-context. Every child view can import any of these by name:
+`ApplicationController` exports over 40 services into its sub-context. Every child view can import any of these by name:
 
 ```javascript
 // In any descendant view:
@@ -34,7 +34,7 @@ Key exports:
 
 | Export | Type | Description |
 |--------|------|-------------|
-| `as ctrl` | Self | The controller; accessible as `ctrl` in context and on `globalThis` |
+| `as ctrl` | Self | The controller; accessible as `ctrl` in context |
 | `stack` | `Stack` | The main view stack |
 | `notify` | Function | Show a toast or persist a notification |
 | `pushMenu` | Function | Navigate to a menu by id or object |
@@ -44,7 +44,7 @@ Key exports:
 | `subject` | `Subject` | Current user + agent (acting-as) |
 | `group` | `Group` | Current user's group |
 | `theme` | `Theme` | Current theme (CSS tokens, nav overrides, app config) |
-| `displayWidth` | `DisplayWidth` enum | Current responsive breakpoint (XS/SM/MD/LG/XL) |
+| `displayWidth` | `DisplayWidth` enum | Current responsive breakpoint (XXS/XS/SM/MD/LG/XL) |
 | `crunchController` | `CrunchController` | Capability acquisition and intercept |
 | `loginSuccess` | Boolean | True after successful authentication |
 | `breadcrumbs` | `BreadcrumbManager` | Breadcrumb trail for the stack |
@@ -59,11 +59,13 @@ render()
   └─ onClientLoad()
        └─ ClientBuilder.promise
             └─ splice client sub-context into __subContext__.__proto__
-            └─ fetchGroup()
             └─ fetchTheme()    // loads Theme, expands CSS macros
-            └─ installLanguage()
+            └─ installLanguage()  // once the translation service is ready
+            └─ fetchGroup()
             └─ onUserAgentAndGroupLoaded()   ← if authenticated
                  └─ checkGeneralCapability() // CRUNCH gate
+                 └─ maybeReinstallLanguage()
+                 └─ fetchTheme()
                  └─ pushDefaultMenu() or routeUpdated()
                  └─ initLayout.resolve()
             └─ initMenu()      ← if anonymous
@@ -111,13 +113,13 @@ CSS macros allow theme colour tokens to be referenced inside any component's `cs
 
 ```css
 /* short form — replaced at install time */
-background: %PRIMARY_COLOR%;
+background: %PRIMARY1%;
 
 /* long form — replaced on theme change */
-background: /*%PRIMARY_COLOR%*/ #4285F4;
+background: /*%PRIMARY1%*/ #4285F4;
 ```
 
-`returnExpandedCSS()` walks the `MACROS` list and expands both forms. `reloadStyles()` is called on `themeChange` so live theme switching works without a page reload.
+`returnExpandedCSS()` walks the `MACROS` list (theme property names such as `primary1`, written upper-case inside the `%...%` markers) and expands both forms. `reloadStyles()` is called on `themeChange` so live theme switching works without a page reload.
 
 ## Authentication Flow
 
@@ -141,7 +143,7 @@ fetchSubject(promptLogin = true)
 // Transient toast (disappears automatically):
 this.notify('Record saved', '', this.LogLevel.INFO, true);
 
-// Persistent notification (stored in notificationDAO, shown as toast on next load):
+// Persistent notification (stored in myNotificationDAO, shown as a toast when the put arrives):
 this.notify('Approval required', 'Please review item #42', this.LogLevel.WARN, false);
 ```
 
@@ -168,14 +170,14 @@ this.client = await this.ClientBuilder.create({authenticate: false}, this).promi
 this.bootServices.split(',').forEach(s => { this.client.__subContext__[s]; });
 ```
 
-Each service in `bootServices` is a CSpec entry that adds itself to the controller when accessed. The `HelloWorld` demo in `deployment/demo/journals/services.jrl` illustrates the pattern:
+Each service in `bootServices` is a CSpec entry that adds itself to the controller when accessed. The `HelloWorld` demo in `deployment/zacdemo/journals/services.jrl` illustrates the pattern:
 
 ```javascript
 p({
   "class": "foam.core.boot.CSpec",
   "name": "helloWorld",
   "authenticate": false,
-  "lazyClient": false,
+  "lazyClient": true,
   "serve": true,
   "client": """{"class":"foamdev.demo.zac.HelloWorld"}"""
 })

@@ -224,7 +224,14 @@ foam.CLASS({
     {
       class: 'foam.mlang.predicate.PredicateProperty',
       name: 'predicate',
-      documentation: 'When set, this predicate is used to filter users the notification is sent to.',
+      documentation: `When set, this predicate is used to filter users the
+        notification is sent to. It is read once, in memory, when
+        NotificationExpansionDAO expands a broadcast, so it is transient: it
+        is never stored, and a predicate holding a whole record, such as
+        TicketNotificationPredicate's ticket, is not copied into every saved
+        notification. A client can still send one, because the JSON parser
+        reads a networkTransient value it receives.`,
+      transient: true,
       factory: function() {
         return foam.mlang.predicate.True.create();
       },

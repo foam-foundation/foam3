@@ -15,7 +15,7 @@ p({
       .setPm(true)
       .build()
   """,
-  "client":"{\"of\":\"foam.core.fs.FileLabel\"}"
+  "client":"""{"of":"foam.core.fs.FileLabel"}"""
 })
 
 p({
@@ -33,7 +33,7 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .build()
   """,
-  "client": "{\"of\":\"foam.core.fs.FileType\"}"
+  "client": """{"of":"foam.core.fs.FileType"}"""
 })
 
 p({

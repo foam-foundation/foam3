@@ -321,7 +321,7 @@ foam.CLASS({
       `
     },
     {
-      documentation: 'Summary used for Alarm name, so the components of the summary should not change between an event which raises an alarm and one that clears.',
+      documentation: 'Summary used for Alarm name: source, event, partner and code. So these should not change between an event which raises an alarm and one that clears.',
       name: 'alarmSummary',
       type: 'String',
       code: function() {
@@ -337,6 +337,10 @@ foam.CLASS({
         if ( this.partner ) {
           if ( str.length > 0 ) str += '-';
           str += this.partner;
+        }
+        if ( this.code ) {
+          if ( str.length > 0 ) str += '-';
+          str += this.code;
         }
         return str;
       },
@@ -359,6 +363,12 @@ foam.CLASS({
           sb.append("-");
         }
         sb.append(getPartner());
+      }
+      if ( ! SafetyUtil.isEmpty(getCode()) ) {
+        if ( sb.length() > 0 ) {
+          sb.append("-");
+        }
+        sb.append(getCode());
       }
       return sb.toString();
       `

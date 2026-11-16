@@ -1,4 +1,4 @@
-<flow name="Alarm" category="DOC/DEV" spid="foam" description="Alarm documentation: high-level system event reporting for NOC monitoring, auto-generated alarms, and AlarmConfig suppression." keywords="alarm,noc,alarmconfig,monitoring,knowledge"/>
+<flow name="Alarm" category="DOC/DEV" spid="foam" description="Alarm documentation: high-level system event reporting for NOC monitoring, raised and cleared through EventRecords, and AlarmConfig." keywords="alarm,noc,alarmconfig,monitoring,knowledge"/>
 
 # Alarm Documentation
 
@@ -16,37 +16,40 @@ Alarms are intended to be monitored by a Network Operations Center (NOC). NOC op
 
 As such, the alarm should have a short simple name, and just enough details in the *note* for System Engineer to narrow their search of the system and logs.
 
+## Raising and clearing an alarm
+
+Put an `EventRecord`; the EventRecord rules raise the alarm, clear it and send
+the notifications. The alarm is named by the record's `alarmSummary`: its
+source, event, partner and code. The record that clears it must carry the same
+four.
+
+```java
+DAO eventRecordDAO = (DAO) x.get("eventRecordDAO");
+
+// Raise: WARN or ERROR. ERROR also notifies.
+eventRecordDAO.put(new EventRecord(x, this, "onboard", "Payment Provider", "TIMEOUT",
+  "CP onboarding timed out", LogLevel.ERROR, null));
+
+// Clear: INFO, with the same source, event, partner and code.
+eventRecordDAO.put(new EventRecord(x, this, "onboard", "Payment Provider", "TIMEOUT",
+  "CP onboarding recovered", LogLevel.INFO, null));
+```
+
+Putting an `Alarm` directly through `alarmDAO` is deprecated:
+`AlarmNotificationDAO` logs a WARN when one is created that way.
+
+A failed PM (`pm.error`) no longer raises an alarm. The PM has nothing to add,
+so the code that calls `pm.error` logs or raises the reason.
+
 ## Notifications
 
-Alarms with **severity** of *WARN* or *ERROR* automatically generated a **notification**
+An alarm raised through an `EventRecord` notifies only when its record is at
+or above `notificationSeverity`, ERROR by default. An ERROR alarm notifies when
+it turns on and again when it clears; a WARN alarm does neither. "Raising and
+clearing" under Alarming and Monitoring below has the detail.
 
-## Auto Generated Alarms
-
-Alarms are automatically generated for **error PMs** *(pm.error)*
-
-## Usage
-
-The Alarm **name** is the alarm id or key. Alarms default to severity **Warning** and when created are **active**.
-
-### Code Examples
-
-#### Alarm
-
-```
-  Alarm alarm = new Alarm.Builder(x)
-                    .setName("Payment Provider CP Onboarding")
-                    .setReason(AlarmReason.TIMEOUT)
-                    .build();
-  DAO alarmDAO = (DAO) alarmDAO.put(alarm);
-```
-
-`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", AlarmReason.TIMEOUT));`
-
-## Programatically **stopping** an Alarm
-
-To stop an alarm simply create a same **named** alarm with **active** false.
-
-`((DAO) x.get("alarmDAO")).put(new Alarm("Payment Provider CP Onboarding", false));`
+An alarm put directly through `alarmDAO` still notifies at WARN or ERROR,
+through `AlarmNotificationDAO`.
 
 # Alarm Config
 
@@ -57,3 +60,111 @@ AlarmConfig acts as a template which will change the behaviour of an Alarm.
 ### Example
 
 If a network endpoint is flooding the system with *network outage* alarms, an AlarmConfig can be created for this **name** which can change the severity and/or status of the alarm.  The AlarmConfig status could be *not active*, and all subsequent alarms will be disabled or inactive.
+
+This only applies to an alarm put directly through `alarmDAO`, where
+`AddAlarmNameDAO` applies the config. An alarm raised through an `EventRecord`
+is written to `localAlarmDAO` and does not pass through it, so a disabled
+config does not silence it. For an `AlarmAndMonitoring` config, disabling it
+stops the monitor itself, so no record is put.
+
+# Alarming and Monitoring
+
+`AlarmAndMonitoring` raises or clears an alarm by comparing a service's OM
+counts against the thresholds in its `AlarmConfig`.
+
+## 1. Counting
+
+Code logs an OM (operational measure) by name through `OMLogger`, for example
+`PaymentService:send:attempt`. The `omFoldManager` adds each log to a
+`Candlestick` in `localOm1MinuteDAO`, keyed by the OM name and the end of the
+current minute (`closeTime` = minute start + 59999 ms). So there is one
+counter per OM name per minute. Old candlesticks are not removed: the latest
+one for a name stays in the DAO until that name is logged again.
+
+## 2. Configuring
+
+An `AlarmConfig`, in `alarmConfigDAO`, names the alarm and up to three OMs:
+
+- **preRequest**: logged before each request, the attempts.
+- **postRequest**: logged after each successful response.
+- **timeOutRequest**: logged after each failure of interest, usually a
+  timeout.
+
+`alarmValue` and `timeoutValue` are percentages, and `monitorType` picks how
+they are applied (see Evaluating).
+
+## 3. Triggering
+
+The "Alarming and Monitoring" cron (disabled by default) puts a new
+`MonitoringReport`, named after the config, into `monitoringReportDAO` for
+each enabled config that is not `manual`. The "Alarming & Monitoring" rule on
+that DAO runs `AlarmAndMonitoring`. A test can put the report itself to
+evaluate a config at once.
+
+## 4. Evaluating
+
+For each of the three OMs, the counts of its candlesticks in `om1MinuteDAO`
+(`localCcom1MinuteDAO` when `useCCOMLogger` is set) are added up into the
+report's `startCount`, `endCount` or `timeoutCount`. All three read the same
+window: it ends at the last complete minute and spans `cycleTime` (default
+60 s), so a run at 12:01:00.3 reads the minute 12:00 to 12:00:59.999 and
+nothing of the partial 12:01 minute. An alarm therefore raises up to a minute
+after the failures, and a failure stops counting a minute after its minute
+closes. The decision uses the report's counts only, never an older
+candlestick.
+
+- **CREDENTIALS**: with `timeOutRequest` set, the alarm is on while
+  `timeoutCount / startCount` is above `timeoutValue`, for example credential
+  failures above 10% of attempts. Without it, the alarm is on while
+  `endCount / startCount` is below `alarmValue`, so any failure counts.
+  Reason CREDENTIALS.
+- **CONGESTION** and **CONTROLCHECK**: on with reason TIMEOUT while
+  `timeoutCount / startCount` is above `timeoutValue`. Otherwise on with
+  reason CONGESTION or CONTROLCHECK while `endCount / startCount` is below
+  `alarmValue`.
+- **THRESHOLD**: on with reason THRESHOLD while `startCount` is above
+  `alarmValue`, a count rather than a percentage.
+
+When none of these holds, the alarm should be off. When no request
+(`preRequest`) was logged in the window, nothing changes, even if failures
+were, so an alarm only clears once a request succeeds.
+
+## 5. Raising and clearing
+
+The alarm is raised and cleared through an `EventRecord`, so the
+`EventRecord` rules send the notifications. An `EventRecord` is put only when
+the alarm changes state, not on every cycle:
+
+- **Raise**: the alarm should be on and is not. The `EventRecord` has the
+  config's name as its `event`, which is also the alarm's name, the reason
+  and the window's counts as its `message` (for example `TIMEOUT, attempts:
+  6, responses: 0, failures: 6`), and the config's `severity`. Its `code`
+  stays empty, because the code is part of the alarm name and the clear must
+  name the same alarm whatever the reason was.
+- **Clear**: the alarm is on and should be off. The same `event`, severity
+  INFO.
+
+A config whose `severity` is below WARN puts no raising record: that record
+would raise no alarm, so the next cycle would put another one.
+
+`EventRecordAlarmRuleAction` turns the alarm on for a record at or above its
+`alarmSeverity`, set to WARN on the rule's action, and off for INFO, writing
+to `localAlarmDAO`. `EventRecordNotificationRuleAction` sends a notification
+for a record at or above its `notificationSeverity`, ERROR by default, and for
+a record below it only when that record cleared an alarm raised at or above
+`notificationSeverity`; a later INFO record with the same name sends nothing. So a WARN raise, the default for a config's
+`severity`, turns the alarm on and off without a notification, while an ERROR
+raise notifies and so does its clear. A config that should notify needs
+`severity` ERROR.
+
+Alarms are not reloaded on restart: `localAlarmDAO` writes the `alarms`
+journal but never replays it (`WriteOnlyJDAO`), so every alarm is dropped.
+After a restart an INFO record finds no alarm to clear, so it sends no clear
+notification, and a problem that is still there raises a new alarm, with a
+new notification, only when something puts a new raising record.
+`AlarmAndMonitoring` does, on its next run that finds the problem, since it
+sees no active alarm. A caller that puts a raising record only when its own
+state changes, and made that change before the restart, does not.
+
+While the alarm is on, a change of reason, such as CONGESTION to TIMEOUT, puts
+no new `EventRecord`: the alarm keeps the reason it was raised with.

@@ -33,6 +33,10 @@ foam.CLASS({
           start('td').add(f.description).end().
         end();
       });
+    },
+
+    function answer() {
+      return 'Output intended for humans. LLMs should call this command instead: ask FROM flowDAO COLUMNS name,category,status,description TO JSON';
     }
   ]
 });

@@ -70,6 +70,9 @@ Review asked: "More efficient to be a factory on a transient field."
 Enum properties default to ordinal 0, so a null check never fires; a factory-backed property reports unset until first read.
 Don't: `if ( getStatus() == null )`; `if ( ! xIsSet_ ) /* treat as absent */` when `x` has a factory
 Do:    `if ( ! statusIsSet_ )`; read the value and let the factory run
+A hook that writes another property's field directly (`otherProp_ = val;` in a `javaPreSet`) also sets
+`otherPropIsSet_ = true;`: the generated getter returns the default while the flag is false
+(`src/foam/java/refinements.js:506`).
 
 ### A per-subclass constant is a method override, not a property
 A property costs a settable field, a serialization slot, and a shadowing hazard; a method costs nothing.

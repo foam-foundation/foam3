@@ -60,6 +60,10 @@ foam.CLASS({
         }).
         end().
         start('b').add(count, ' selected').end();
+    },
+
+    function answer() {
+      return 'Output intended for humans. LLMs should call this command instead: ask FROM cSpecDAO WHERE name CONTAINS DAO AND serve IS TRUE AND enabled IS TRUE COLUMNS name,description TO CSV';
     }
   ]
 });

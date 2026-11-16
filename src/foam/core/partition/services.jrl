@@ -59,14 +59,14 @@ p({
 })
 p({
   "class": "foam.core.boot.CSpec",
-  "name": "partitionLoadToastStack",
-  "description": "Client-side context service rendering partition-load progress toasts. Client-only, but must be served: ClientBuilderServer only sends serve:true CSpecs to the browser.",
+  "name": "partitionLoadWatcher",
+  "description": "Client-side context service showing partition-load progress as Dock cards. Client-only, but must be served: ClientBuilderServer only sends serve:true CSpecs to the browser.",
   "serve": true,
   "authenticate": true,
   "lazyClient": false,
   "client": """
     {
-      "class": "foam.core.partition.PartitionLoadToastStack"
+      "class": "foam.core.partition.PartitionLoadWatcher"
     }
   """
 })

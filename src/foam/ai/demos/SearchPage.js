@@ -18,6 +18,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'embeddingService',
     'flowDAO',
     'openAIEmbeddingService',
     'vectorStoreDAO'
@@ -79,15 +80,18 @@ foam.CLASS({
       view: {
         class: 'foam.u2.view.ChoiceView',
         choices: [
-          ['transformers', 'Transformers (web)'],
-          ['openai', 'OpenAI']
+          ['transformers',      'Transformers (browser)'],
+          ['openai',            'OpenAI (api)'],
+          ['embeddingService',  'Default Embedding Service (local)']
         ]
       }
     },
     {
       name: 'embedder',
       expression: function(provider) {
-        return provider === 'openai' ? this.openAIEmbeddingService : this.TransformersEmbeddingService.create();
+        if ( provider === 'openai'           ) return this.openAIEmbeddingService;
+        if ( provider === 'embeddingService' ) return this.embeddingService;
+        return this.TransformersEmbeddingService.create();
       }
     },
     {

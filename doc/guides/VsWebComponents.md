@@ -233,12 +233,13 @@ foam.CLASS({
     { class: 'String', name: 'author' }
   ],
   css: `
-    ^ h2 { color: steelblue; }
+    << h2 { color: steelblue; }
   `,
   methods: [
     function render() {
-      this.start('h2').add(this.title$).end()
-         .start('p').add('by ').add(this.author$).end();
+      this.addClass()
+        .start('h2').add(this.title$).end()
+        .start('p').add('by ').add(this.author$).end();
     }
   ]
 });
@@ -272,8 +273,8 @@ Properties are first-class reactive objects. Every property automatically produc
 
 ```javascript
 // Subscribe directly
-this.title$.sub(function(_, __, ___, newVal) {
-  console.log('title changed:', newVal);
+this.title$.sub(function(sub, topic, propName, slot) {
+  console.log('title changed:', slot.get());
 });
 
 // Derive a computed slot from multiple properties
@@ -297,7 +298,7 @@ The key difference from Polymer's troubled two-way binding is that FOAM's reacti
 | CSS custom properties work | Yes | Yes | Yes |
 | Inspectable in DevTools | Yes | Yes | Yes |
 
-FOAM's `^` prefix expands to a component-unique class name at definition time. This is the same approach as CSS Modules or Vue's `scoped` attribute — styles are local without the isolation wall of Shadow DOM, so global typography and design tokens flow in naturally.
+FOAM's `^` prefix expands to a class name derived from the component's class id (for example `foam-u2-View`) when the component's CSS is installed in the document. This is the same approach as CSS Modules or Vue's `scoped` attribute — styles are local without the isolation wall of Shadow DOM, so global typography and design tokens flow in naturally.
 
 ## Data Layer
 

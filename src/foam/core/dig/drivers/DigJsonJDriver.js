@@ -63,7 +63,10 @@ foam.CLASS({
         return;
       }
 
-      foam.lib.json.Outputter outputterJsonJ = new foam.lib.json.Outputter(x)
+      // Write each row straight to the response. Building the whole file as
+      // one string first fails on a large DAO: 15 million rows are more text
+      // than one Java string can hold.
+      foam.lib.json.Outputter outputterJsonJ = new foam.lib.json.Outputter(x, out)
         .setPropertyPredicate(
           new foam.lib.AndPropertyPredicate(x,
             new foam.lib.PropertyPredicate[] {
@@ -78,17 +81,11 @@ foam.CLASS({
         outputterJsonJ.setMultiLine(true);
       }
 
-      if ( fobjects.size() == 1 ) {
-        outputterJsonJ.outputJSONJFObject((FObject) fobjects.get(0));
-      } else {
-        for (Object obj : fobjects) {
-          FObject fobj = (FObject) obj;
-          outputterJsonJ.outputJSONJFObject(fobj);
-        }
+      for ( Object obj : fobjects ) {
+        outputterJsonJ.outputJSONJFObject((FObject) obj);
       }
 
-      // Output the formatted data
-      out.println(outputterJsonJ.toString());
+      out.println();
       `
     }
   ]

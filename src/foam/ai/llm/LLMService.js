@@ -132,12 +132,12 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'maxTokens',
-      value: 4096
+      value: 8192
     },
     {
-      class: 'Float',
+      class: 'Double',
       name: 'temperature',
-      value: 1.0
+      value: 0
     },
     {
       class: 'String',

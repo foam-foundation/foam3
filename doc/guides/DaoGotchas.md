@@ -18,7 +18,7 @@ This is the highest-consequence section on the page. Getting it wrong produces d
 
 Two mechanics combine:
 
-- An `imports:` getter returns `this.__context__[key]` (`src/foam/lang/ImportsExports.js:110`). It resolves live, but always from the object's own `__context__`, fixed at construction.
+- An `imports:` getter returns `this.__context__[key]` (`src/foam/lang/ImportsExports.js:111`). It resolves live, but always from the object's own `__context__`, fixed at construction.
 - DAO operations run with their own context. `AbstractDAO.removeAll()` is `removeAll_(this.__context__, ...)` (`src/foam/dao/AbstractDAO.js:444`); `select` and `find` do the same.
 
 So a context a caller passes at query time does not reach the decorator's predicate. The only way to push an override down is `dao.inX(ctx)`, which wraps a `ProxyDAO` whose `__context__` is `ctx` (`AbstractDAO.js:85`).
@@ -47,14 +47,14 @@ It resolves to `select_(x, sink, undefined, undefined, undefined, undefined)` (`
 
 ### An object loaded from a DAO carries a serviceless context
 
-`MDAO` returns the stored object as-is (`src/foam/dao/MDAO.java:164`), so its `getX()` is whatever context it was deserialized with — not the caller's, and not changed by the `x` passed to `find` or `select`. `getX().get("someService")` returns null.
+`MDAO` returns the stored object as-is (`find_` at `src/foam/dao/MDAO.java:254`, where `objOut` is the identity at `:199-201`), so its `getX()` is whatever context it was deserialized with — not the caller's, and not changed by the `x` passed to `find` or `select`. `getX().get("someService")` returns null.
 
 Two ways out:
 
 - **The method takes, or can take, an `x`** — thread the caller's context. This is the dominant idiom; `Credential.getPasswordSecret(x)` (`src/foam/core/auth/Credential.js:98`) is typical. Fetch through `dao.inX(x)` and pass the same `x` in.
 - **No `x` argument and `getX()` is unreliable** (getters, factories, `javaPostSet`, a predicate's `f()`) — `foam.lang.XLocator.get()`, documented as the "last-resort method of locating thread-local session context" (`src/foam/lang/XLocator.java:9`). The hybrid form `getX() != null ? getX() : XLocator.get()` appears in `src/foam/core/logger/StdoutLogger.js:27`.
 
-Re-homing the object is not a shortcut. Generated `setX` is literally `x_ = x;` (`src/foam/java/refinements.js:689`) and does not cascade into nested `FObjectProperty` values, and `ContextualizingDAO` re-homes only the top object, only on `find_` and `put_` (not `select_`), and is opt-in through `EasyDAO`'s `contextualize` flag.
+Re-homing the object is not a shortcut. Generated `setX` is literally `x_ = x;` (`src/foam/java/refinements.js:726`) and does not cascade into nested `FObjectProperty` values, and `ContextualizingDAO` re-homes only the top object, only on `find_` and `put_` (not `select_`), and is opt-in through `EasyDAO`'s `contextualize` flag.
 
 ---
 
@@ -62,19 +62,19 @@ Re-homing the object is not a shortcut. Generated `setX` is literally `x_ = x;` 
 
 ### A later wrap is the outer decorator
 
-`EasyDAO` builds its delegate chain inner to outer in code order. `getOuterDAO` runs first (`src/foam/dao/EasyDAO.js:248`), `.setDecorator()` applies next (`:250-260`), and a `RulerDAO` wraps it at `:294`. RulerDAO wraps later, so it is **outer** to whatever `.setDecorator()` installed.
+`EasyDAO` builds its delegate chain inner to outer in code order. `getOuterDAO` runs first (`src/foam/dao/EasyDAO.js:256`), `.setDecorator()` applies next (`:258-269`), and a `RulerDAO` wraps it at `:303`. RulerDAO wraps later, so it is **outer** to whatever `.setDecorator()` installed.
 
 Consequence: a `put()` reaches RulerDAO and evaluates rules **before** any `.setDecorator()` decorator's `put_`. If a decorator needs to set a field the rule engine reads, `.setDecorator()` cannot do it — the value has to be stamped upstream of the served DAO.
 
 ### `*Aware` decorators wire implicitly from the model's `implements:` list
 
-`enableInterfaceDecorators` defaults to true (`EasyDAO.js:837`), and each decorator flag has a factory of the form:
+`enableInterfaceDecorators` defaults to true (`EasyDAO.js:882`), and each decorator flag has a factory of the form:
 
 ```javascript
 return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.LifecycleAware.class);
 ```
 
-(`lifecycleAware` at `EasyDAO.js:854`, with `createdAware`, `lastModifiedAware` and `serviceProviderAware` declared alongside it). When true, `build` wraps the decorator automatically — `LifecycleAwareDAO` at `EasyDAO.js:346-347`.
+(`lifecycleAware` at `EasyDAO.js:899`, with `createdAware`, `lastModifiedAware` and `serviceProviderAware` declared alongside it). When true, `build` wraps the decorator automatically — `LifecycleAwareDAO` at `EasyDAO.js:356`.
 
 So when auditing a DAO's service definition, never conclude "no `setLifecycleAware(true)` means hard delete" from the builder script alone. Check the `of` model's `implements:` list: `foam.core.auth.User` implements `LifecycleAware` (`src/foam/core/auth/User.js:12-20`), so any plain `EasyDAO` over `User` soft-deletes — `LifecycleAwareDAO.remove_` marks the object `DELETED` and puts it instead of removing it (`src/foam/core/auth/LifecycleAwareDAO.js:142`).
 
@@ -107,7 +107,7 @@ That matters for base "hook" methods meant to be overridden. A hook needs a JS `
   javaCode: `return innerDAO;` }
 ```
 
-`EasyDAO.getOuterDAO` (`EasyDAO.js:1058`) carries exactly this pair for that reason.
+`EasyDAO.getOuterDAO` (`EasyDAO.js:1125`) carries exactly this pair for that reason.
 
 ---
 
@@ -115,7 +115,7 @@ That matters for base "hook" methods meant to be overridden. A hook needs a JS `
 
 ### `put()` and `find()` return frozen objects
 
-Any setter on the returned instance throws `RuntimeException: Object is frozen.` Clone before mutating:
+In Java, any setter on the returned instance throws `UnsupportedOperationException: Object is frozen.` (`src/foam/lang/FObject.java:644`). Clone before mutating:
 
 ```java
 SomeModel persisted = (SomeModel) dao.put(obj);
@@ -128,7 +128,7 @@ This bites hardest when driving a multi-step lifecycle through a real DAO in a t
 
 ### Client caching is decided by ClientBuilder, and only for a top-level `EasyDAO`
 
-When a client spec's top-level class is `foam.dao.EasyDAO` (or is absent, defaulting to it), the per-client property factory injects `cache: true`, `ttlSelectPurgeTime` and `ttlPurgeTime` from `CACHE_TIMEOUT`, and `daoType: CLIENT` (`src/foam/core/client/ClientBuilder.js:209-213`, constant at `:32`).
+When a client spec's top-level class is `foam.dao.EasyDAO` (or is absent, defaulting to it), the per-client property factory injects `cache: true`, `ttlSelectPurgeTime` and `ttlPurgeTime` from `CACHE_TIMEOUT`, and `daoType: CLIENT` (`src/foam/core/client/ClientBuilder.js:247-251`, constant at `:57`).
 
 A **decorator-wrapped** spec — `{class: SomeDecorator, delegate: {class: foam.dao.EasyDAO, ...}}` — has a top-level class that is not `EasyDAO`, so the nested EasyDAO gets only what its own JSON declares.
 
@@ -136,7 +136,7 @@ That distinction decides whether you get a bounded cache or a full table load, b
 
 ### `cache: true` with no TTL is a full eager warm
 
-`EasyDAO`'s JS `delegateFactory` (`EasyDAO.js:1126-1160`) branches on the TTL values. With both at or below zero it builds a `CachingDAO`, whose first read runs an **unfiltered** `src.select()` and pulls the entire table into an MDAO (`src/foam/dao/CachingDAO.js:80-86`). With `ttlSelectPurgeTime > 0` it builds a `TTLSelectCachingDAO` instead — a per-query cache keyed on `[sink, skip, limit, order, predicate]`, no full warm.
+`EasyDAO`'s JS `delegateFactory` (`EasyDAO.js:1149-1240`) branches on the TTL values. With both at or below zero it builds a `CachingDAO`, whose first read runs an **unfiltered** `src.select()` and pulls the entire table into an MDAO (`src/foam/dao/CachingDAO.js:80-86`). With `ttlSelectPurgeTime > 0` it builds a `TTLSelectCachingDAO` instead — a per-query cache keyed on `[sink, skip, limit, order, predicate]`, no full warm.
 
 On a large table the difference is hundreds of megabytes pulled to the client on the first read. Levers: keep the spec a plain top-level `EasyDAO` so the TTL injection applies, set an explicit `ttlSelectPurgeTime`, or drop `cache: true` so aggregation sinks (`SUM`, `COUNT`, `GROUP_BY`) reduce server-side instead.
 
@@ -145,8 +145,8 @@ On a large table the difference is hundreds of megabytes pulled to the client on
 | Call | What it does | Use when |
 |---|---|---|
 | `dao.on.reset.pub()` | Fires reset at this level only; subscribers re-select from what the chain already holds | The in-memory data is already correct |
-| `dao.cmd(DAO.RESET_CMD)` | Travels down to the client DAO, which re-publishes reset so it bubbles up to every listener (`src/foam/dao/RequestResponseClientDAO.js:121`) | Re-reading the client cache is enough |
-| `dao.cmd(DAO.PURGE_CMD)` | `CachingDAO.cmd_:143` → `onSrcReset:177` — clears the cache and re-fetches from the server | Server data changed elsewhere |
+| `dao.cmd(DAO.RESET_CMD)` | Travels down to the client DAO, which re-publishes reset so it bubbles up to every listener (`src/foam/dao/RequestResponseClientDAO.js:123`) | Re-reading the client cache is enough |
+| `dao.cmd(DAO.PURGE_CMD)` | `CachingDAO.cmd_:168` → `onSrcReset:198` — clears the cache and re-fetches from the server | Server data changed elsewhere |
 
 The trap: an `EasyDAO` with `cache: true` reads from memory, so RESET re-reads the **stale cache** and the view shows nothing changed. A cached client DAO needs PURGE. Constants live at `src/foam/dao/DAO.js:28,39`. Use the public `cmd` (it supplies the context), not `cmd_`.
 
@@ -162,7 +162,7 @@ Constants and both cache paths are worth reading directly: `src/foam/dao/DAO.js`
 
 ### A transient getter property is queryable, as a full scan
 
-An MLang predicate referencing the property calls `Property.f(o)`, which is `return o ? o[name] : null` (`src/foam/lang/Property.js:256`) and so invokes the getter. The MDAO scan evaluates the predicate per row (`src/foam/dao/index/ValueIndex.js:72`).
+An MLang predicate referencing the property calls `Property.f(o)`, which is `return o ? o[name] : null` (`src/foam/lang/Property.js:260`) and so invokes the getter. The MDAO scan evaluates the predicate per row (`src/foam/dao/index/ValueIndex.js:72`).
 
 So `where(EQ(...))` and `orderBy` work on a computed property with no stored column — as an O(n) scan. You do not need to persist a field to filter or sort on it; storing and indexing buys index-accelerated speed on hot paths, not correctness.
 
@@ -175,7 +175,7 @@ new foam.dao.EasyDAO.Builder(x)
   .addPropertyIndex(new foam.lang.PropertyInfo[] { Model.TENANT_ID, Model.CREATED });
 ```
 
-A multi-element array is a **compound** index with `props[0]` outermost, built as a nested range-capable `TreeIndex` with `id` appended as the innermost level (`src/foam/dao/MDAO.java:138-142`; the unique form at `:131`), so it serves `Gt`/`Gte`/`Lt` as well as `Eq`. `EasyDAO.addPropertyIndex` sends an `AddIndexCommand` down the delegate chain (`src/foam/dao/EasyDAO.js:1438-1466`); the MDAO handles it and returns true (`MDAO.java:336-349`), otherwise it logs `Index not added, no access to MDAO`. Decorators are transparent to it.
+A multi-element array is a **compound** index with `props[0]` outermost, built as a nested range-capable `TreeIndex` with `id` appended as the innermost level (`src/foam/dao/MDAO.java:138-142`; the unique form at `:131`), so it serves `Gt`/`Gte`/`Lt` as well as `Eq`. `EasyDAO.addPropertyIndex` sends an `AddIndexCommand` down the delegate chain (`src/foam/dao/EasyDAO.js:1420-1450`); the MDAO handles it and returns true (`MDAO.java:336-349`), otherwise it logs `Index not added, no access to MDAO`. Decorators are transparent to it.
 
 **Lead a compound index with the most selective term.** A query shaped `Eq(scopeId) AND Gt(date)` wants `(scopeId, date)` so the scan seeks the scope bucket first and then ranges the date. A date-only index cannot prune by scope.
 
@@ -193,11 +193,11 @@ An index added straight to the store can vanish. A journalled DAO that can unloa
 easyDAO.addPropertyIndex(new PropertyInfo[] { Model.SCOPE_ID });
 ```
 
-`EasyDAO`'s own automatic `spid` index takes the command path for this reason, and its comment says so (`src/foam/dao/EasyDAO.js:230-245`). A missing index is slow, not wrong: queries on that property fall back to a full scan.
+`EasyDAO`'s own automatic `spid` index takes the command path for this reason, and its comment says so (`src/foam/dao/EasyDAO.js:227-249`). A missing index is slow, not wrong: queries on that property fall back to a full scan.
 
 ### Only six predicate classes can use an index
 
-A `TreeIndex`, the kind `addPropertyIndex` builds, narrows the rows only for `Eq`, `Gt`, `Gte`, `Lt`, `Lte` and `In` whose first argument is the indexed property (`src/foam/dao/index/TreeIndex.java:145-210`). `Neq` is a TODO there; `NOT(...)`, `INSTANCE_OF(...)`, `CONTAINS` and the other predicate classes are checked row by row. A top-level `OR` is planned one arm at a time (`src/foam/dao/MDAO.java:268-277`, `OrPlan`), so `OR(EQ(a, 1), EQ(a, 2))` on an indexed `a` uses the index for each arm. Inside an `AND`, each term is tried on its own (`TreeIndex.java:213-233`), so an indexed `Eq` sibling still narrows the set and the other term is checked only on the rows it leaves. A query made **only** of non-indexable terms scans the whole DAO.
+A `TreeIndex`, the kind `addPropertyIndex` builds, narrows the rows only for `Eq`, `Gt`, `Gte`, `Lt`, `Lte` and `In` whose first argument is the indexed property (`src/foam/dao/index/TreeIndex.java:145-210`). `Neq` is a TODO there; `NOT(...)`, `INSTANCE_OF(...)`, `CONTAINS` and the other predicate classes are checked row by row. A top-level `OR` is planned one arm at a time (`src/foam/dao/MDAO.java:269-278`, `OrPlan`), so `OR(EQ(a, 1), EQ(a, 2))` on an indexed `a` uses the index for each arm. Inside an `AND`, each term is tried on its own (`TreeIndex.java:213-233`), so an indexed `Eq` sibling still narrows the set and the other term is checked only on the rows it leaves. A query made **only** of non-indexable terms scans the whole DAO.
 
 ### A predicate on a shared multi-class DAO drops rows it cannot cast
 
@@ -211,7 +211,7 @@ dao.where(AND(INSTANCE_OF(Shipment.class), EQ(Shipment.CARRIER, x))).select(sink
 
 ### `MDAO.bulkLoad(dao)` reads the sink you passed in
 
-The JS implementation is `var sink = this.ArraySink.create(); dao.select(sink).then(() => this.index.bulkLoad(sink.array))` (`src/foam/dao/MDAO.js:137-142`), which assumes `select` mutates the sink it was handed. A decorated or proxy DAO resolves `select` with a **fresh** sink, so the passed one stays empty and the index loads zero rows — silently, with no exception. Loading from another plain MDAO works, which is what makes the bug look intermittent.
+The JS implementation is `var sink = this.ArraySink.create(); dao.select(sink).then(() => this.index.bulkLoad(sink.array))` (`src/foam/dao/MDAO.js:137-142`), which assumes `select` mutates the sink it was handed. A client or box-backed DAO (for example `ClientDAO`) resolves `select` with a **fresh**, deserialized sink, so the passed one stays empty and the index loads zero rows — silently, with no exception. Loading from another plain MDAO works, which is what makes the bug look intermittent.
 
 Use the resolved sink instead:
 
@@ -222,7 +222,7 @@ mdao.index.bulkLoad(rows);
 
 ### A `select_` that hydrates rows must filter on the sink
 
-When `select_` transforms each row before returning it — a facade DAO filling `storageTransient` fields by copying from another DAO, say — the query arguments have to be applied **after** the transform. `storageTransient` fields are not journaled (`src/foam/lang/JSON.js:753`), so the stored row has them empty and pushing the predicate down to the delegate filters the un-hydrated row: transient columns match nothing.
+When `select_` transforms each row before returning it — a facade DAO filling `storageTransient` fields by copying from another DAO, say — the query arguments have to be applied **after** the transform. `storageTransient` fields are not journaled (`src/foam/lang/JSON.js:780`), so the stored row has them empty and pushing the predicate down to the delegate filters the un-hydrated row: transient columns match nothing.
 
 `decorateSink_(sink, skip, limit, order, predicate)` builds the `LimitedSink → SkipSink → OrderedSink → PredicatedSink` chain, wrapping only the arguments that are set (`src/foam/dao/AbstractDAO.js:367-398`). Feed hydrated rows into that and the predicate evaluates the filled values.
 
@@ -230,7 +230,7 @@ Note this compounds with the arity-1 trap above: an override ending in `getDeleg
 
 ### `LimitedSink` under `GROUP_BY` truncates the whole scan
 
-`LimitedSink.put` calls `sub.detach()` the moment `count >= limit` (`src/foam/dao/LimitedSink.js:27-29`, same in `javaCode`) — it detaches the subscription it was handed, not just its own accumulation. `GroupBy.putInGroup_` passes the **outer select's** `sub` into every cloned per-group sink: `group.put(obj, sub)` (`src/foam/mlang/sink/GroupBy.js:126`).
+`LimitedSink.put` calls `sub.detach()` the moment `count >= limit` (`src/foam/dao/LimitedSink.js:27-29`, same in `javaCode`) — it detaches the subscription it was handed, not just its own accumulation. `GroupBy.putInGroup_` passes the **outer select's** `sub` into every cloned per-group sink: `group.put(obj, sub)` (`src/foam/mlang/sink/GroupBy.js:131`).
 
 So `GROUP_BY(keyProp, LimitedSink({limit: 1}), groupLimit)` is broken: the first group to fill kills the entire scan, and later records and groups never arrive. The result is silently **wrong**, not merely short.
 
@@ -242,13 +242,13 @@ UNIQUE(keyProp, LimitedSink({ limit: N, delegate: projection }))
 
 `Expressions.UNIQUE(expr, sink)` is `Unique.create({expr, delegate: sink})` (`src/foam/mlang/Expressions.js:137`). One sink dedupes by `expr` and the single `LimitedSink`'s detach at N is the intended global cap. Unwrap rows through `result.delegate.delegate.projectionWithClass`.
 
-Do not "fix" `LimitedSink` globally — detach-on-limit is exactly how top-level `.limit()` and `GroupBy`'s own `groupLimit` terminate early (`GroupBy.js:162`). The defect is only in nesting a limited sink under `GroupBy`, where the shared subscription is not the sink's to detach.
+Do not "fix" `LimitedSink` globally — detach-on-limit is exactly how top-level `.limit()` and the Java `GroupBy`'s own `groupLimit` terminate early (`GroupBy.js:184`). The JS `groupLimit` check (`GroupBy.js:167`) tests `this.groups.size`, but `groups` is a plain object there, so in JS `groupLimit` never detaches. The defect is only in nesting a limited sink under `GroupBy`, where the shared subscription is not the sink's to detach.
 
 ### JS `IN` matches by stringified value, and both sides must stay stringified
 
-`In.f` has a fast path when `arg2` is a constant array: it builds a `Set` from the values and tests membership (`src/foam/mlang/predicate/In.js:58-72`).
+`In.f` has a fast path when `arg2` is a constant array: it builds a `Set` from the values and tests membership (`src/foam/mlang/predicate/In.js:84-91`).
 
-A JS `Set` matches objects by **reference**, so a naive `new Set(rhs).has(lhs)` never matches an `IN` over `Date` or `FObject` values — two `Date` instances at the same instant are different references, and the correct `foam.util.equals` loop below the fast path (`:74-80`) never runs because the Set path returns first. The current implementation avoids that by stringifying **both** the set members and the lookup key (`v + ''`), which turns membership back into a value comparison.
+A JS `Set` matches objects by **reference**, so a naive `new Set(rhs).has(lhs)` never matches an `IN` over `Date` or `FObject` values — two `Date` instances at the same instant are different references, and the correct `foam.util.equals` loop below the fast path (`:93-99`) never runs because the Set path returns first. The current implementation avoids that by stringifying **both** the set members and the lookup key (`v + ''`), which turns membership back into a value comparison.
 
 Two things follow. Do not drop either `+ ''`: a raw set with a stringified key, or the reverse, silently returns false for everything. And be careful with `IN` over composite values — every `FObject` stringifies to `"[object Object]"`, so distinct objects collide. The Java path uses `HashSet` plus `Date.equals`, which is value-based, and needs none of this.
 
@@ -305,17 +305,17 @@ The inherited `dao` expression depends on `predicate`, so it rebuilds the `where
 
 **Any `dao.put` in server code, including from a script or a cron, runs that DAO's `RulerDAO` rules for the put's operation.** A record you clone and re-put can have its fields rewritten before it lands.
 
-**Journal replay writes below the decorator chain.** `JDAO` replays into its own **delegate** (`src/foam/dao/JDAO.js:31`), and the journal calls `dao.put_(x, obj)` on that delegate (`src/foam/dao/AbstractF3FileJournal.js:300`). Anything wrapped above the JDAO — a `RulerDAO` included — never sees a replayed entry. So a seed record keeps the values written in the file even where the same value written through the served DAO would be rewritten by a CREATE rule. When you need values to stick exactly as authored, prefer a static seed journal over a runtime clone-and-put script.
+**Journal replay writes below the decorator chain.** `JDAO` replays into its own **delegate** (`src/foam/dao/java/JDAO.js:217`; the JS `JDAO` does the same at `src/foam/dao/JDAO.js:31`), and `F3FileJournal.replay` applies each entry to the DAO it was handed (`src/foam/dao/F3FileJournal.js:196-201`). Anything wrapped above the JDAO — a `RulerDAO` included — never sees a replayed entry. So a seed record keeps the values written in the file even where the same value written through the served DAO would be rewritten by a CREATE rule. When you need values to stick exactly as authored, prefer a static seed journal over a runtime clone-and-put script.
 
-**Operation semantics.** `foam.core.dao.Operation` is `CREATE`, `UPDATE`, or `CREATE_OR_UPDATE`. A `CREATE` rule fires only on a create — a new or non-existent id — and not on a re-put of an existing id.
+**Operation semantics.** `foam.core.dao.Operation` is `CREATE`, `UPDATE`, `REMOVE` or `CREATE_OR_UPDATE`. A `CREATE` rule fires only on a create — a new or non-existent id — and not on a re-put of an existing id.
 
-**A re-put that changes the object's class is journaled as a full object, not a delta.** An existing id takes the delta path (`src/foam/dao/AbstractF3FileJournal.js:298-309`), and a delta between two classes is not computable: the writer walks the new class's properties and compares each against the old object, so a property the old class does not own raises a `ClassCastException`. The journal catches `Throwable`, logs `Failed to format put` and resets its buffer, so before this was guarded the entry vanished — the live DAO held the subclass and the next replay handed back the original class. `maybeOutputDelta` now detects the class change and writes the whole object instead (`src/foam/lib/formatter/JSONFObjectFormatter.java:440-447`).
+**A re-put that changes the object's class is journaled as a full object, not a delta.** An existing id takes the delta path (`src/foam/dao/AbstractF3FileJournal.js:397-411`), and a delta between two classes is not computable: the writer walks the new class's properties and compares each against the old object, so a property the old class does not own raises a `ClassCastException`. The journal catches `Throwable`, logs `Failed to format put` and resets its buffer, so before this was guarded the entry vanished — the live DAO held the subclass and the next replay handed back the original class. `maybeOutputDelta` now detects the class change and writes the whole object instead (`src/foam/lib/formatter/JSONFObjectFormatter.java:502-510`).
 
 
 Two levers when a rule keeps overwriting a value you need:
 
 - **Two-put.** Put the record (the CREATE rule clobbers the field), then re-put the same id. The CREATE rule cannot fire on the update, so the second write sticks. Capture the returned object to get the sequence-assigned id.
-- **Neutralize the rule.** Change `CREATE_OR_UPDATE` to `CREATE`, or set `enabled = false`, in the rule DAO for the duration and restore in a `finally`. `RulerDAO` live-refreshes its cached rule lists through a rule-DAO listener (`src/foam/core/ruler/RulerDAO.js:250`, `UpdateRulesListSink` → `updateRules`), so the change takes effect for subsequent puts.
+- **Neutralize the rule.** Change `CREATE_OR_UPDATE` to `CREATE`, or set `enabled = false`, in the rule DAO for the duration and restore in a `finally`. `RulerDAO` live-refreshes its cached rule lists through a rule-DAO listener (`src/foam/core/ruler/RulerDAO.js:265-266`, `UpdateRulesListSink` → `updateRules`), so the change takes effect for subsequent puts.
 
 And when auditing what a deployment actually does: **the runtime rule set can differ from the journals in the repository.** Read the live rule DAO, not the checked-in files.
 
@@ -331,9 +331,9 @@ When reviewing a destructive script, `where(...).removeAll()` is scoped; a bare 
 
 ### Enumerating DAOs through `cSpecDAO`
 
-All `foam.core.boot.CSpec` records live in `cSpecDAO`, and the built-in `DAOS` canned query filters them with `ENDS_WITH(CSpec.NAME, 'DAO')` (`src/foam/core/boot/CSpec.js:63`; `SERVED_DAOS` adds `EQ(SERVE, true)` at `:73`).
+All `foam.core.boot.CSpec` records live in `cSpecDAO`, and the built-in `DAOS` canned query filters them with `ENDS_WITH(CSpec.NAME, 'DAO')` (`src/foam/core/boot/CSpec.js:66`; `SERVED_DAOS` adds `EQ(SERVE, true)` at `:75`).
 
-The trap: **a CSpec record carries no built service in the common case.** The `service` property (`CSpec.js:184`) is null whenever the DAO comes from a `serviceScript`, which is how most application DAOs are defined — `createService` (`:299`) runs the script at boot and registers the result in the context, and the live DAO is reached through `this.__context__[this.name]` (`:488`). There is no forward reference from the CSpec to the built DAO.
+The trap: **a CSpec record carries no built service in the common case.** The `service` property (`CSpec.js:187`) is null whenever the DAO comes from a `serviceScript`, which is how most application DAOs are defined — `createService` (`:302`) runs the script at boot and registers the result in the context, and the live DAO is reached through `this.__context__[this.name]` (`:498`). There is no forward reference from the CSpec to the built DAO.
 
 So no pure-MLang predicate can test a trait of the **built** DAO (its `of`, its decorators). Narrow with MLang, then resolve and test in JS:
 
@@ -348,12 +348,12 @@ To make it look like pure MLang for a canned query or a `RichChoiceView`, either
 
 ### Exporting a DAO as a journal
 
-Two paths, and `DownloadDAOAgent` picks between them by asking `dao.cmd('serviceName?')` (`src/foam/core/reflow/AbstractDAOAgent.js:1250`, probing at `:1110`):
+Two paths, and `DownloadDAOAgent` picks between them by asking `dao.cmd('serviceName?')` (`src/foam/core/reflow/DownloadDAOAgent.js:53`):
 
-1. **DIG, for server-registered DAOs** — `GET /service/dig?dao=<serviceName>&format=jsonj&sessionId=<id>` (parameters at `src/foam/core/dig/DigWebAgent.java:32-34`, JSONJ output at `DigUtil.java:130`). Serialization happens server-side, so the browser never materializes the objects; safe for very large tables. **Page size defaults to 1000 and a `limit` parameter can only lower it** (`src/foam/core/dig/drivers/DigFormatDriver.js:41,199-213`) — `limit=1000000` is silently ignored and you still get 1000 rows. `limit=0` means all but requires the `service.dig.read-all-records` permission; without it, paginate with `skip`.
+1. **DIG, for server-registered DAOs** — `GET /service/dig?dao=<serviceName>&format=jsonj&sessionId=<id>` (parameters at `src/foam/core/dig/DigWebAgent.java:32-34`, JSONJ output at `DigUtil.java:130`). Serialization happens server-side, so the browser never materializes the objects; safe for very large tables. **Page size defaults to 1000 and a `limit` parameter can only lower it** (`src/foam/core/dig/drivers/DigFormatDriver.js:43,212-226`) — `limit=1000000` is silently ignored and you still get 1000 rows. `limit=0` means all but requires the `service.dig.read-all-records` permission; without it, paginate with `skip`.
 2. **Client export drivers, for anything local** — `foam.core.export.JSONJDriver.exportDAO(x, dao)` selects everything into the browser and stringifies. This is the only option for an in-memory MDAO that DIG cannot see, and it is memory-bound.
 
-`DownloadDAOAgent` also shows a useful trick: a fake `ArraySink` whose `setPredicate` throws captures the DAO's active filter, which is then appended to the DIG URL as `&q=` plus `p.toMQL()` (`:1154`), so an export honours the current view filter.
+`DownloadDAOAgent` also shows a useful trick: a fake `ArraySink` whose `setPredicate` throws captures the DAO's active filter, which is then appended to the DIG URL as `&predicate=` plus the serialized predicate, `foam.json.Network.stringify(p)` (`DownloadDAOAgent.js:99-105`), so an export honours the current view filter. `p.toMQL()` is used only for the link title.
 
 ### A client `select()` aborts on an enum the loaded build does not define
 
@@ -372,7 +372,7 @@ var rows = res.projection || res.array || [];
 
 ### A `FileArray` strips content from the embedded copy
 
-`FileArrayDAODecorator` stores each file in the file DAO and then blanks the content on the copy embedded in the owning record: `f2.dataString = undefined; f2.data = undefined` (`src/foam/core/fs/FileArrayDAODecorator.js:73-76`). The embedded copy keeps only metadata.
+`FileArrayDAODecorator` stores each file in the file DAO and then blanks the content on the copy embedded in the owning record: `f2.dataString = undefined; f2.data = undefined` (`src/foam/core/fs/FileArrayDAODecorator.js:74-75`). The embedded copy keeps only metadata.
 
 Where the bytes actually live depends on size. `maxStringDataSize` defaults to 3 KB (`:27`):
 

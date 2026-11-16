@@ -32,8 +32,8 @@ or specify the actual DAO class to use:
 
     foam.dao.EasyDAO.create({ daoType: foam.dao.NullDAO });
 
-Note that if you enable server-synchronization or journalling, the extra
-DAOs created to support those features will be of the same type.
+Note that if you enable server-synchronization, the extra DAO created to
+store sync records will be of the same type.
 
 ## Caching
 
@@ -43,9 +43,8 @@ set up an MDAO as an indexed, in-memory cache.
 
     foam.dao.EasyDAO.create({ cache: true });
 
-Note that if caching is enabled, `autoIndex` can be enabled to automatically
-generate indexes as queries are made. The `addIndex()` method can be
-used to manually add indexes.
+The `addIndex()` and `addPropertyIndex()` methods can be used to manually
+add indexes to the cache.
 
 ## ID Assignment
 
@@ -74,15 +73,12 @@ that duplicate string values don't eat up a lot of memory.
 
 ### Journalling
 
-To record a complete journal of all writes to your EasyDAO, you can
-enable `journal` to keep a history.
+To record a journal of all writes to your EasyDAO, set `journal` to a
+`foam.dao.Journal` instance. EasyDAO then wraps the DAO in a `JDAO`, which
+replays the journal on load and writes each `put()` and `remove()` to it.
 
-    foam.dao.EasyDAO.create({ journal: true });
-
-Note that this history is stored in the same type of DAO as your
-EasyDAO (IndexedDB, MDAO, etc.) and will be **very large** if your DAO
-has a lot of activity. The **complete state** of each object may be stored on
-each `put()` or `remove()` operation.
+On the server (Java), choose a journal with `journalType` instead, for example
+`foam.dao.JournalType.SINGLE_JOURNAL`.
 
 ### Contextutalizing
 
@@ -107,29 +103,26 @@ And for benchmarking, timing of DAO operations is enabled with `timing`
 ## Synchronization between multiple Clients and Server
 
 Turn on `syncWithServer` to activate synchronization with a server.
-Specify `serverUri` and `syncProperty` as well.
+Specify `serverBox` and `syncProperty` as well.
 
 `syncProperty` indicates the property to synchronize on. This is typically
 an integer property indicating the version last seen on the remote server.
 Use an actual property reference (such as `example.MyClass.MY_PROPERTY`)
 not the string name of the property.
 
-`serverUri` specifies the URI of the server to use. If sockets is true, this
-will use a web socket, otherwise HTTP to contact the server-side DAO. On your
+`serverBox` is the Box used to contact the server-side DAO. On your
 server, use an EasyDAO with `isServer: true` to provide the other end
 of the connection.
 
-Setting `syncPolling` to true activates polling, periodically checking in with
-the server. If sockets are used, polling is optional as the server
-can push changes to this client.
+`syncPolling` (true by default) activates polling, periodically checking in
+with the server.
 
     foam.dao.EasyDAO.create({
       ...
       syncWithServer: true,
       syncProperty: foo.myModel.VERSION,
-      serverUri: 'localhost:7000',
-      syncPolling: true,
-      sockets: false
+      serverBox: myServerBox,
+      syncPolling: true
     });
 
 

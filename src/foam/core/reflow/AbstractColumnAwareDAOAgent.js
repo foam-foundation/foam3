@@ -26,9 +26,8 @@ foam.CLASS({
     function createSink() {
       return this.useProjection ? this.getProjectionSink() : this.getSink();
     },
-    function addSinkToE(e, s) {
-      s = this.useProjection ? this.getSinkWithProjectionData(s) : s;
-      e.add(s);
+    function unwrapSink(s) {
+      return this.useProjection ? this.getSinkWithProjectionData(s) : s;
     },
     async function execute(e) {
       var SUPER = this.SUPER.bind(this);

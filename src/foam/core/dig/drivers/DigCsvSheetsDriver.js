@@ -14,7 +14,7 @@ foam.CLASS({
     'foam.lang.*',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
-    'foam.lib.csv.CSVOutputter',
+    'foam.lib.csv.CSVOutputterImpl',
     'foam.lib.csv.CSVSupport',
     'foam.lib.json.OutputterMode',
     'foam.core.boot.CSpec',
@@ -54,18 +54,20 @@ foam.CLASS({
         return;
       }
 
-      CSVOutputter outputterCsv = new foam.lib.csv.CSVOutputterImpl.Builder(x)
+      CSVOutputterImpl outputterCsv = new CSVOutputterImpl.Builder(x)
         .setSheetsCompatible(true)
         .setOf(cInfo)
         .build();
 
+      // Write each row to the response and empty the buffer, so a large
+      // download never sits in memory as one string.
       for ( Object o : fobjects ) {
-        FObject fobj = (FObject) o;
-        outputterCsv.outputFObject(x, fobj);
+        outputterCsv.outputFObject(x, (FObject) o);
+        out.append(outputterCsv.getSb());
+        outputterCsv.getSb().setLength(0);
       }
 
-      // Output the formatted data
-      out.println(outputterCsv.toString());
+      out.println();
       `
     }
   ]

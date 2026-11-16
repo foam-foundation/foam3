@@ -27,7 +27,7 @@ The SPID (Service Provider ID) system provides multi-tenancy in FOAM3 by isolati
   │  │  • put_()    → sets spid on create, checks permissions      │  │
   │  │  • find_()   → filters by serviceprovider.read.<spid>       │  │
   │  │  • select_() → adds SPID predicate to all queries           │  │
-  │  │  • remove_() → checks serviceprovider.remove.<spid>         │  │
+  │  │  • remove_() → filters by serviceprovider.read.<spid>       │  │
   │  └────────────────────────────────────────────────────────────┘  │
   └──────────────────────────────────────────────────────────────────┘
 
@@ -65,15 +65,14 @@ foam.CLASS({
 That's all you need. The interface provides:
 - A `spid` property (Reference to `foam.core.auth.ServiceProvider`)
 - A `GLOBAL_SPID` constant (`*`) for wildcard access
-- An `isGlobalSpid()` method to check for global SPID
+- An `isGlobalSpid()` method to check for global SPID (Java only)
 
 ### Important: externalTransient
 
 The `spid` property is defined with `externalTransient: true`:
-- SPID is **not** persisted to storage
-- SPID is **not** sent in network responses
-- SPID is **computed at runtime** from context
-- This prevents accidental SPID exposure in APIs/exports
+- SPID **is** persisted to storage and sent to FOAM clients
+- SPID is **omitted** from external API output (DIG, SUGAR)
+- This prevents accidental SPID exposure in external APIs/exports
 
 ## Core Classes
 
@@ -153,10 +152,10 @@ A DAO decorator that enforces SPID-based access control:
 | Operation | Behavior |
 |-----------|----------|
 | `put_()` (create) | Sets SPID from context if not set; checks `serviceprovider.read.<spid>` |
-| `put_()` (update) | Checks permissions; changing SPID requires `serviceprovider.update.*` |
+| `put_()` (update) | Checks `serviceprovider.read.<spid>`; changing SPID requires `serviceprovider.update.<oldSpid>` and `serviceprovider.update.<newSpid>` |
 | `find_()` | Filters by SPIDs user has `serviceprovider.read.<spid>` permission for |
 | `select_()` | Adds SPID predicate to all queries automatically |
-| `remove_()` | Checks `serviceprovider.remove.<spid>` or global permission |
+| `remove_()` | Allowed with `serviceprovider.remove.*`, or when the object's SPID is one the user has `serviceprovider.read.<spid>` for |
 
 ## Permission System
 
@@ -166,7 +165,6 @@ A DAO decorator that enforces SPID-based access control:
 |------------|---------|
 | `serviceprovider.read.<spid>` | Read objects in this SPID |
 | `serviceprovider.update.<spid>` | Modify SPID assignment of objects |
-| `serviceprovider.remove.<spid>` | Delete objects in this SPID |
 | `serviceprovider.read.*` | Global read access (bypasses all SPID filtering) |
 | `serviceprovider.update.*` | Global update access |
 | `serviceprovider.remove.*` | Global remove access |
@@ -183,30 +181,39 @@ These are defined in the `inherentPermissions` property.
 
 When creating a new SPID-aware object, the SPID is determined in this order:
 
-1. **User's SPID** - If a user is in context and has a non-empty `spid`
-2. **Theme's SPID** - If user has `spid.default.theme` permission or no user exists
-3. **AuthorizationException** - If neither is available
+1. **Context SPID** - `x.get("spid")`
+2. **User's SPID** - If a user is in context and has a non-empty `spid`, it replaces the context SPID
+3. **Theme's SPID** - If no SPID was found, or the user has the `spid.default.theme` permission and an empty `spid`
+4. **AuthorizationException** - If none is available
 
 ```java
 // From ServiceProviderAwareDAO.getSpid()
-public String getSpid(X x) {
-  // 1. Try user's SPID
-  Subject subject = (Subject) x.get("subject");
-  if ( subject != null && subject.getUser() != null ) {
-    if ( ! SafetyUtil.isEmpty(subject.getUser().getSpid()) ) {
-      return subject.getUser().getSpid();
+User user = null;
+String spid = (String) x.get("spid");
+Subject subject = (Subject) x.get("subject");
+AuthService auth = (AuthService) x.get("auth");
+if ( subject != null ) {
+  user = subject.getUser();
+  if ( user != null ) {
+    if ( ! SafetyUtil.isEmpty(user.getSpid()) ) {
+       spid = user.getSpid();
     }
   }
-
-  // 2. Try theme's SPID
+}
+if ( SafetyUtil.isEmpty(spid) ||
+     user != null &&
+     auth.check(x, "spid.default.theme") &&
+     SafetyUtil.isEmpty(user.getSpid()) ) {
   Theme theme = ((Themes) x.get("themes")).findTheme(x);
-  if ( theme != null && ! SafetyUtil.isEmpty(theme.getSpid()) ) {
-    return theme.getSpid();
+  if ( theme != null &&
+       ! SafetyUtil.isEmpty(theme.getSpid()) ) {
+    spid = theme.getSpid();
   }
-
-  // 3. No SPID found
+}
+if ( SafetyUtil.isEmpty(spid) ) {
   throw new AuthorizationException();
 }
+return spid;
 ```
 
 ## Setting Up SPID-Aware DAOs
@@ -277,12 +284,12 @@ Request
    │
    ▼
 ┌──────────────────────────┐
-│ ServiceProviderAwareDAO  │ ← SPID filtering (auto-added by EasyDAO)
+│    AuthorizationDAO      │ ← Permission checks
 └────────────┬─────────────┘
              │
              ▼
 ┌──────────────────────────┐
-│    AuthorizationDAO      │ ← Permission checks
+│ ServiceProviderAwareDAO  │ ← SPID filtering (auto-added by EasyDAO)
 └────────────┬─────────────┘
              │
              ▼
@@ -366,13 +373,13 @@ public class ResetSpidBeforeLoginAuthService {
 The special SPID value `*` represents global/shared data:
 
 ```javascript
-// Check if object has global SPID
-if ( myObject.isGlobalSpid() ) {
+// Check if object has global SPID (in Java: myObject.isGlobalSpid())
+if ( myObject.spid === '*' ) {
   // Object is accessible to all tenants
 }
 
 // Set global SPID
-myObject.spid = ServiceProviderAware.GLOBAL_SPID; // "*"
+myObject.spid = '*'; // ServiceProviderAware.GLOBAL_SPID
 ```
 
 Objects with global SPID are visible to all users regardless of their assigned SPID.
@@ -386,7 +393,6 @@ Classes that implement `ServiceProviderAware` in FOAM3:
 - `Ticket` - Support tickets isolated by SPID
 - `Flow` - Business flows per tenant
 - `Rule` - Business rules can be SPID-specific
-- `Menu` - Menus can be customized per SPID
 
 ## Predicate Helpers
 
@@ -432,7 +438,7 @@ foam.CLASS({
 
 1. **Implement ServiceProviderAware** for tenant-specific data models
 2. **EasyDAO handles SPID automatically** - detects the interface and adds `ServiceProviderAwareDAO`
-3. **SPID is externalTransient** - computed at runtime, not persisted or sent over the network
+3. **SPID is externalTransient** - persisted, but omitted from external API (DIG/SUGAR) output
 4. **Global SPID (`*`)** is for shared data accessible to all tenants
 5. **Theme SPID** provides fallback for unauthenticated access scenarios
 

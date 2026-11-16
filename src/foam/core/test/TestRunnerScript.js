@@ -467,6 +467,9 @@ This will also keep the foam application running for inspection from the GUI.
       params.add("testRunId="+testRun.getId());
       if ( !SafetyUtil.isEmpty(testRun.getFilter()) )
         params.add("filter=" + testRun.getFilter());
+      // The browser picks its own tests, so it needs the suites too.
+      if ( !SafetyUtil.isEmpty(testRun.getSuites()) )
+        params.add("suites=" + testRun.getSuites());
 
       BrowserAgent agent = new BrowserAgent(x, getPath(), params) {
         public void waitTerminate(X x) {

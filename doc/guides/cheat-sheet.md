@@ -48,7 +48,7 @@ foam.CLASS({
     'com.google.project.MyFirstSecondTrait'  
   ],  
   requires: [  
-    'foam.ui.DetailView',  
+    'foam.u2.detail.SectionedDetailView',  
     'com.google.project.MyOtherModel'  
   ],  
   imports: ['myOtherModelExportedProperty'],  
@@ -124,7 +124,7 @@ Reference property (FOAM3 pattern):
 ### **Defaults**
 
 **value** - Static value parsed when model is built.  
-**factory** - Function returns default value; runs once when instance is created if no other value was injected at creation time.  
+**factory** - Function returns default value; runs once, the first time the property is read, if no value has been set.  
 **expression** - Dynamic function that recalculates when dependencies change (like factory but reactive).
 
 Example factory vs expression:
@@ -161,7 +161,8 @@ obj.computedValue = undefined; // Expression becomes reactive again
 
 **Caveat**: Custom getters and setters are very low-level.  
 getter: function() { return this.op(this.leftOperand, this.rightOperand); }  
-setter: function(value) { return typeof value \!== 'undefined' ? value : ''; }
+A `setter` replaces the whole setting process and its return value is ignored. To transform an incoming value, use `adapt` instead:  
+adapt: function(oldValue, newValue) { return typeof newValue !== 'undefined' ? newValue : ''; }
 
 ### **Property Types (FOAM3 Current)**
 
@@ -216,16 +217,18 @@ Properties can be extended by creating new classes that extend the base Property
 Methods are member functions on instances.  
 Name and implementation only; methods collection:  
 ```javascript
-methods: {  
-  addAndMultiply: function(x, y, z) { return (x \+ y) \* z; },  
+methods: [  
+  function addAndMultiply(x, y, z) { return (x + y) * z; },  
   …  
-}  
+]  
+```
 Additional information; methods collection:  
+```javascript
 methods: [  
   {  
     name: 'addAndMultiply',  
     documentation: 'First add first two parameters, then multiply by the third.',  
-    code: function(x, y, z) { return (x \+ y) \* z; },  
+    code: function(x, y, z) { return (x + y) * z; },  
   },  
   …  
 ]
@@ -257,40 +260,38 @@ actions: [
     name: 'play',  
     label: 'Play Video',  
     help: 'Play the video for this post',  
-    iconUrl: 'http://www.example.com/play\_icon.png',  
+    icon: 'http://www.example.com/play_icon.png',  
     documentation: 'Play the video associated with this instance.',  
     code: function() { … },  
   },  
   …  
 ]  
 ```
-**Caveat**: Action implementations are called the “action”, not the “code” (as in methods and listeners).
+Like methods and listeners, an action's implementation goes in `code`.
 
 # DAOs
 
 Data Access Objects (DAOs) are an interface for data storage. Sinks are interfaces for receiving objects.  
 ```javascript
-interface Sink {  
-   optional void put(obj) /\* Called back when data is sent to the sink. \*/  
-   optional void remove(obj) /\* Called back when data is removed from the sink. \*/  
-   optional void error() /\* Called back when anything goes wrong during sink operation. \*/  
-   optional void eof() /\* Called back when a sequence of puts or removes completes. \*/  
-}  
-interface DAO {  
-  **void put(obj, opt\_sink)** /\* Invoke to store an object; optionally put to sink once data is put to DAO. \*/  
-  **void remove(obj)** /\* Remove a single object from the DAO. \*/
-  **void removeAll()** /\* Remove all objects from the DAO. Usuaually prefixed with .where() to limit rows which are refmoved. \*/  
-  **void find(query, sink)** /\* Look up by primary key; put result to sink \*/  
-  **Future\<sink\> select(sink)** /\* Put all objects in DAO to sink. Future resolves with passed-in sink after operation is complete. \*/  
-  **void listen(sink)** /\* Listen to all sinkable operations on this DAO. \*/  
-  **void pipe(sink)** /\* Short-hand for select(sink); listen(sink). \*/  
-  **void unlisten(sink)** /\* Unhook listener from DAO. \*/  
-  **DAO where(query)** /\* Construct decorated DAO that only contains objects matching query. \*/  
-  **DAO limit(count)** /\* Construct decorated DAO that only contains the first count objects. \*/  
-  **DAO skip(count)** /\* Construct decorated DAO that skips the first count objects. \*/  
-  **DAO orderBy(...comparators)** /\* Construct decorated DAO that stores objects in order described by comparators. \*/  
-}  
-
+interface Sink {
+  void put(obj, sub)     // Called for each object; sub.detach() stops the stream.
+  void remove(obj, sub)  // Called for each removed object (listen() only).
+  void eof()             // Called when a select() completes.
+  void reset(sub)        // Called when the result set may have changed (listen() only).
+}
+interface DAO {
+  Promise<FObject> put(obj)     // Store an object; resolves with the stored object.
+  Promise<FObject> remove(obj)  // Remove a single object from the DAO.
+  Promise removeAll()           // Remove all objects from the DAO. Usually prefixed with .where() to limit the rows removed.
+  Promise<FObject> find(id)     // Look up by primary key; resolves with the object or null.
+  Promise<Sink> select(sink)    // Put all objects in the DAO to sink. Resolves with the passed-in sink when complete.
+  Detachable listen(sink)       // Listen to future changes on this DAO; detach() to stop.
+  pipe(sink)                    // Short-hand for select(sink) then listen(sink).
+  DAO where(predicate)          // Construct decorated DAO that only contains objects matching predicate.
+  DAO limit(count)              // Construct decorated DAO that only contains the first count objects.
+  DAO skip(count)               // Construct decorated DAO that skips the first count objects.
+  DAO orderBy(...comparators)   // Construct decorated DAO whose results are sorted by comparators.
+}
 ```
 functions as sinks; function called back on put.
 
@@ -300,8 +301,8 @@ FOAM3 automatically updates UI when data changes using these patterns:
 
 ## **Listen to Changes**
 ```javascript
-this.property$.sub(function(subscription, propertyName, oldValue, newValue) {
-  // Do something when property changes
+this.property$.sub(function(subscription, topic, propertyName, slot) {
+  // Do something when property changes; topic is 'propertyChange', slot.get() is the new value
 });
 ```
 
@@ -313,8 +314,8 @@ this.start('span').add(this.prop$).end()
 
 ## **Computed Values**
 ```javascript
-// Returns computed value that updates when dependencies change
-this.dynamic(function(prop1, prop2) {
+// Returns a slot whose value updates when dependencies change
+this.slot(function(prop1, prop2) {
   return prop1 + ' ' + prop2;
 });
 ```
@@ -323,18 +324,18 @@ this.dynamic(function(prop1, prop2) {
 ```javascript
 // Auto-binds to data properties
 this.add(function(firstName, lastName) {
-  return this.start('div').add(`Name: ${firstName} ${lastName}`).end();
+  this.start('div').add(`Name: ${firstName} ${lastName}`).end();
 });
 
 // For object properties, use this.dynamic() directly
 this.start('div')
   .add(this.dynamic(function(myProp, otherProp) {
-    return `Values: ${myProp} ${otherProp}`;
+    this.add(`Values: ${myProp} ${otherProp}`);
   }))
 .end();
 ```
 
-**Note:** `this.add(function(){})` auto-binds to `data` properties. For the object itself, use `this.dynamic()` directly.
+**Note:** `this.add(function(){})` auto-binds to `data` properties. For the object itself, use `this.dynamic()` directly. In both forms the function's return value is ignored: add content with `this.add()` or `this.start()` inside it.
 
 # Context and Dependency Injection
 
@@ -397,11 +398,11 @@ Always use `requires` + `this.ClassName.create()` for proper context inheritance
 Context-aware object creation:
 ```javascript
 foam.CLASS({
-  requires: ['foam.u2.DetailView', 'com.project.MyModel'],
+  requires: ['foam.u2.detail.SectionedDetailView', 'com.project.MyModel'],
   methods: [
     function render() {
       // Inherits full context (imports, exports, etc.)
-      var view = this.DetailView.create({ data: this.data });
+      var view = this.SectionedDetailView.create({ data: this.data });
       var model = this.MyModel.create({ name: 'test' });
     }
   ]
@@ -414,7 +415,7 @@ foam.CLASS({
   methods: [
     function render() {
       // No context inheritance - imports/exports unavailable
-      var view = foam.u2.DetailView.create({ data: this.data });
+      var view = foam.u2.detail.SectionedDetailView.create({ data: this.data });
       var model = com.project.MyModel.create({ name: 'test' });
     }
   ]
@@ -430,12 +431,12 @@ foam.CLASS({
   extends: 'foam.u2.View',
   imports: ['userDAO', 'stack', 'ctrl'],
   exports: ['data as selectedUser'],
-  requires: ['foam.u2.DetailView'],
+  requires: ['foam.u2.detail.SectionedDetailView'],
   
   methods: [
     function render() {
-      // DetailView inherits userDAO, stack, ctrl, selectedUser
-      this.add(this.DetailView.create({
+      // SectionedDetailView inherits userDAO, stack, ctrl, selectedUser
+      this.add(this.SectionedDetailView.create({
         data: this.data
       }));
     }

@@ -2,11 +2,11 @@
 
 ## Overview
 
-FOAM (Feature Oriented Active Modeller), is a full-stack model-driven framework, and Spring Boot, is a popular Java application framework<cite/>. Both are enterprise-grade frameworks for building server-side applications, but they take fundamentally different architectural approaches<cite/>.
+FOAM (Feature Oriented Active Modeller), is a full-stack model-driven framework, and Spring Boot, is a popular Java application framework. Both are enterprise-grade frameworks for building server-side applications, but they take fundamentally different architectural approaches.
 
 ## Core Philosophy
 
-**FOAM** is a **model-driven, cross-language framework** where you define declarative models that generate code for multiple platforms (JavaScript, Java, Swift) [1](#1-0) . The framework centers on `foam.CLASS()` definitions that describe properties, methods, and behaviors [2](#1-1) .
+**FOAM** is a **model-driven, cross-language framework** where you define declarative models that generate code for multiple platforms (JavaScript, Java, Swift). The framework centers on `foam.CLASS()` definitions that describe properties, methods, and behaviors.
 
 **Spring Boot** is a **convention-over-configuration Java framework** built on dependency injection and annotations. It focuses on rapid application development with auto-configuration and embedded servers.
 
@@ -14,7 +14,7 @@ FOAM (Feature Oriented Active Modeller), is a full-stack model-driven framework,
 
 ### FOAM's Approach
 
-FOAM uses a unified class system across languages with declarative models [2](#1-1) :
+FOAM uses a unified class system across languages with declarative models:
 
 ```javascript
 foam.CLASS({
@@ -28,10 +28,10 @@ foam.CLASS({
 ```
 
 Key architectural features:
-- **Context-based dependency injection** through `imports`/`exports` [3](#1-2)
-- **Cross-language code generation** from single model definitions [4](#1-3)
-- **Self-modeling system** where Model is defined using itself [5](#1-4)
-- **Axiom-based extensibility** for adding features to classes [6](#1-5)
+- **Context-based dependency injection** through `imports`/`exports`
+- **Cross-language code generation** from single model definitions
+- **Self-modeling system** where Model is defined using itself
+- **Axiom-based extensibility** for adding features to classes
 
 ### Spring Boot's Approach
 
@@ -58,10 +58,10 @@ Key features:
 ## Dependency Management
 
 **FOAM** has a sophisticated multi-tier system:
-- `requires:` for class dependencies (factory methods) [7](#1-6)
-- `imports:` for runtime dependency injection of services [8](#1-7)
-- `javaImports:` for Java code generation imports [9](#1-8)
-- Works across networks for distributed services [10](#1-9)
+- `requires:` for class dependencies (factory methods)
+- `imports:` for runtime dependency injection of services
+- `javaImports:` for Java code generation imports
+- Works across networks for distributed services
 
 **Spring Boot** uses:
 - `@Autowired` or constructor injection for dependency injection
@@ -71,10 +71,10 @@ Key features:
 
 ## Data Access Layer
 
-**FOAM** includes a comprehensive DAO (Data Access Object) system with decorator pattern [11](#1-10) :
-- `EasyDAO` facade for assembling DAO chains [12](#1-11)
+**FOAM** includes a comprehensive DAO (Data Access Object) system with decorator pattern:
+- `EasyDAO` facade for assembling DAO chains
 - Built-in decorators for caching, authorization, validation, logging
-- File-based persistence with `JDAO` [13](#1-12)
+- File-based persistence with `JDAO`
 - Memory storage with `MDAO`
 - Network-transparent client/server DAOs
 - Query language via MLang
@@ -88,9 +88,9 @@ Key features:
 
 ## Code Generation vs Runtime
 
-**FOAM** generates code at build time:
-- Single model definition generates JavaScript, Java, and Swift code [4](#1-3)
-- Java code generation from JavaScript models [14](#1-13)
+**FOAM** generates Java (and Swift) code at build time and builds JavaScript classes at runtime:
+- Single model definition generates JavaScript, Java, and Swift code
+- Java code generation from JavaScript models
 - PropertyInfo classes for metadata access
 - Cross-platform consistency guaranteed
 
@@ -103,11 +103,11 @@ Key features:
 ## Context and Dependency Injection
 
 **FOAM's Context System**:
-- Immutable context chain with inheritance [15](#1-14)
-- `__context__` and `__subContext__` for service propagation [16](#1-15)
-- Declarative `imports`/`exports` for loose coupling [8](#1-7)
+- Immutable context chain with inheritance
+- `__context__` and `__subContext__` for service propagation
+- Declarative `imports`/`exports` for loose coupling
 - Works across network boundaries
-- Context-aware object creation via `this.ClassName.create()` [17](#1-16)
+- Context-aware object creation via `this.ClassName.create()`
 
 **Spring's IoC Container**:
 - Application context with bean lifecycle
@@ -119,8 +119,8 @@ Key features:
 ## Server Architecture
 
 **FOAM** provides:
-- Built-in Java application server (CORE) [18](#1-17)
-- Box-based communication for client-server [19](#1-18)
+- Built-in Java application server (CORE)
+- Box-based communication for client-server
 - Session management via `SessionClientBox`
 - HTTP and WebSocket support
 - Network-transparent DAO access
@@ -135,10 +135,10 @@ Key features:
 ## Development Experience
 
 **FOAM** requires:
-- Learning FOAM-specific concepts (axioms, contexts, DAOs) [6](#1-5)
+- Learning FOAM-specific concepts (axioms, contexts, DAOs)
 - Understanding model-driven development
 - Cross-language thinking
-- Build dependencies: Node.js, Maven, Java 11+ [20](#1-19)
+- Build dependencies: Node.js, Maven, Java 21+
 
 **Spring Boot** requires:
 - Java knowledge
@@ -149,11 +149,10 @@ Key features:
 ## Persistence and Journaling
 
 **FOAM** includes built-in persistence:
-- `JDAO` for file-based journaling [13](#1-12)
-- Configurable journal types and replay strategies [21](#1-20)
+- `JDAO` for file-based journaling
+- Configurable journal types and replay strategies
 - NDiff support for efficient updates
 - Read-only and runtime-only modes
-- Synchronous/asynchronous replay options
 
 **Spring Boot** requires:
 - External database configuration
@@ -179,14 +178,14 @@ Key features:
 
 ## Notes
 
-FOAM is a full-stack, model-driven framework with cross-language code generation and built-in data persistence, while Spring Boot is a Java-specific framework focused on convention-over-configuration and rapid application development<cite/>. FOAM's context-based dependency injection and DAO system provide a unified programming model across client and server, whereas Spring Boot requires separate frontend frameworks and relies on external databases<cite/>. FOAM has a steeper learning curve due to its unique concepts, but provides more built-in functionality for complex enterprise applications<cite/>.
+FOAM is a full-stack, model-driven framework with cross-language code generation and built-in data persistence, while Spring Boot is a Java-specific framework focused on convention-over-configuration and rapid application development. FOAM's context-based dependency injection and DAO system provide a unified programming model across client and server, whereas Spring Boot requires separate frontend frameworks and relies on external databases. FOAM has a steeper learning curve due to its unique concepts, but provides more built-in functionality for complex enterprise applications.
 
 Wiki pages you might want to explore:
 - [FOAM Framework Overview (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#1)
 
 ### Citations
 
-**File:** README.md (L20-29)
+**File:** README.md (L27-36)
 ```markdown
 ## Feature Oriented Active Modeller
 
@@ -200,7 +199,7 @@ While FOAM is written in JavaScript, it can be used to generate code
 for any language or platform, including Android Java and iOS Swift.
 ```
 
-**File:** README.md (L32-48)
+**File:** README.md (L39-52)
 ```markdown
 ## Dependencies
 
@@ -210,7 +209,7 @@ FOAM has no runtime dependencies, but does have build dependencies:
 * npm
 * nodejs (version >= 16)
 * maven
-* java (version >= 11)
+* java (version >= 21)
 
 Once dependencies are installed, update FOAM's javascript dependencies:
 From the root of the FOAM repository, execute:
@@ -221,16 +220,19 @@ From the root of the FOAM repository, execute:
 
 ```
 
-**File:** README.md (L160-163)
+**File:** README.md (L188-194)
 ```markdown
 ## CORE
 To run CORE, the FOAM Java Application Server, run:
-`./build.sh -Jdemo`
-then connect to http://localhost:8080
+
+    ./build.sh -Jdemo
+
+- visit: http://localhost:8080
+- login with username `admin` and password `admin`
 ```
 
-**File:** doc/guides/cheat-sheet.md (L38-77)
-```markdown
+**File:** doc/guides/cheat-sheet.md (L40-80)
+````markdown
 Model/class definition:
 ```javascript
 foam.CLASS({
@@ -242,7 +244,7 @@ foam.CLASS({
     'com.google.project.MyFirstSecondTrait'
   ],
   requires: [
-    'foam.ui.DetailView',
+    'foam.u2.detail.SectionedDetailView',
     'com.google.project.MyOtherModel'
   ],
   imports: ['myOtherModelExportedProperty'],
@@ -271,10 +273,10 @@ foam.CLASS({
     …
   ]
 });
-```
+````
 
-**File:** doc/guides/cheat-sheet.md (L341-368)
-```markdown
+**File:** doc/guides/cheat-sheet.md
+````markdown
 Every FOAM object has two context variables:
 **`__context__`** - The main context passed when object was created.
 **`__subContext__`** - Created only if object has `exports`; contains main context + exported services.
@@ -303,10 +305,10 @@ Context inheritance:
 var child = ChildView.create({}, service.__subContext__);
 console.log(child.__context__); // mainContext + parent's exports
 ```
-```
+````
 
-**File:** doc/guides/cheat-sheet.md (L391-420)
-```markdown
+**File:** doc/guides/cheat-sheet.md
+````markdown
 ## **Context and Object Creation**
 
 Always use `requires` + `this.ClassName.create()` for proper context inheritance.
@@ -314,11 +316,11 @@ Always use `requires` + `this.ClassName.create()` for proper context inheritance
 Context-aware object creation:
 ```javascript
 foam.CLASS({
-  requires: ['foam.u2.DetailView', 'com.project.MyModel'],
+  requires: ['foam.u2.detail.SectionedDetailView', 'com.project.MyModel'],
   methods: [
     function render() {
       // Inherits full context (imports, exports, etc.)
-      var view = this.DetailView.create({ data: this.data });
+      var view = this.SectionedDetailView.create({ data: this.data });
       var model = this.MyModel.create({ name: 'test' });
     }
   ]
@@ -331,13 +333,13 @@ foam.CLASS({
   methods: [
     function render() {
       // No context inheritance - imports/exports unavailable
-      var view = foam.u2.DetailView.create({ data: this.data });
+      var view = foam.u2.detail.SectionedDetailView.create({ data: this.data });
       var model = com.project.MyModel.create({ name: 'test' });
     }
   ]
 });
 ```
-```
+````
 
 **File:** src/foam/lang/Context.js (L27-44)
 ```javascript
@@ -450,7 +452,7 @@ foam.CLASS({
 ```
 
 **File:** doc/guides/REQUIRES_VS_IMPORTS.md (L19-51)
-```markdown
+````markdown
 ## `requires:` - Class Dependencies
 
 ### Purpose
@@ -484,10 +486,10 @@ foam.CLASS({
 - The second argument to `create()` is either a context or an object whose `.subContext` is used
 - If you created `com.acme.Abc` directly you would need to manually pass `this` as the second argument, but `this.Abc.create()` adds it automatically
 - This automatic context passing is needed to support dependency injection and the import/export system
-```
+````
 
 **File:** doc/guides/REQUIRES_VS_IMPORTS.md (L96-133)
-```markdown
+````markdown
 ## `imports:` - Dependency Injection
 
 ### Purpose
@@ -526,10 +528,10 @@ foam.CLASS({
 - Supports aliasing with the `as` keyword
 - Dependencies can come from anywhere in the context chain, even across networks
 
-```
+````
 
 **File:** doc/guides/REQUIRES_VS_IMPORTS.md (L334-352)
-```markdown
+````markdown
 ### Network Services
 `imports:` can work across networks:
 
@@ -549,7 +551,7 @@ foam.CLASS({
   ]
 });
 ```
-```
+````
 
 **File:** doc/templates/Model.js (L71-74)
 ```javascript
@@ -559,72 +561,7 @@ foam.CLASS({
    ],
 ```
 
-**File:** src/foam/dao/EasyDAO.js (L18-78)
-```javascript
-foam.CLASS({
-  package: 'foam.dao',
-  name: 'EasyDAO',
-  extends: 'foam.dao.ProxyDAO',
-
-  implements: [
-    'foam.mlang.Expressions'
-  ],
-
-  documentation: `
-    Facade for easily creating decorated DAOs.
-    <p>
-    Most DAOs are most easily created and configured with EasyDAO.
-    Simply require foam.dao.EasyDAO and create() with the flags
-    to indicate what behavior you're looking for. Under the hood, EasyDAO
-    will create one or more DAO instances to service your requirements and then
-  `,
-
-  requires: [
-    'foam.box.HTTPBox',
-    'foam.box.RetryBox',
-    'foam.box.SessionClientBox',
-    'foam.box.SocketBox',
-    'foam.box.TimeoutBox',
-    'foam.box.WebSocketBox',
-    'foam.dao.CachingDAO',
-    'foam.dao.ClientDAO',
-    'foam.dao.CompoundDAODecorator',
-    'foam.dao.ContextualizingDAO',
-    'foam.dao.DeDupDAO',
-    'foam.dao.InterceptedDAO',
-    'foam.dao.DAO',
-    'foam.dao.GUIDDAO',
-    'foam.dao.IDBDAO',
-    {
-      path: 'foam.dao.JDAO',
-      flags: ['js']
-    },
-    {
-      name: 'JDAOJava',
-      path: 'foam.dao.java.JDAO',
-      flags: ['java']
-    },
-    'foam.dao.MDAO',
-    'foam.dao.OrderedDAO',
-    'foam.dao.PromisedDAO',
-    'foam.dao.QueryCachingDAO',
-    'foam.dao.TTLCachingDAO',
-    'foam.dao.TTLSelectCachingDAO',
-    'foam.dao.RequestResponseClientDAO',
-    'foam.dao.SequenceNumberDAO',
-    'foam.dao.SyncDAO',
-    'foam.dao.TimingDAO',
-    'foam.dao.JournalType',
-    'foam.core.auth.ServiceProviderAware',
-    'foam.core.auth.ServiceProviderAwareDAO',
-    'foam.core.crunch.box.CrunchClientBox',
-    'foam.core.logger.Logger',
-    'foam.core.logger.LoggingDAO',
-    'foam.core.theme.SubdomainAwareDAO'
-  ],
-```
-
-**File:** src/foam/dao/java/JDAO.js (L7-49)
+**File:** src/foam/dao/java/JDAO.js (L7-54)
 ```javascript
 foam.CLASS({
   package: 'foam.dao.java',
@@ -637,16 +574,23 @@ In this current implementation setDelegate must be called last.`,
 
   javaImports: [
     'foam.lang.X',
+    'foam.dao.BulkLoadDAO',
     'foam.dao.CompositeJournal',
     'foam.dao.DAO',
     'foam.dao.F3FileJournal',
     'foam.dao.Journal',
     'foam.dao.MDAO',
     'foam.dao.NullJournal',
+    'foam.dao.JournalGenerations',
     'foam.dao.ReadOnlyF3FileJournal',
     'foam.dao.WriteOnlyF3FileJournal',
     'foam.core.boot.CSpec',
-    'foam.core.ndiff.NDiffJournal'
+    'foam.core.ndiff.NDiffJournal',
+    'foam.dao.compaction.CompactionCmd',
+    'foam.dao.compaction.Compactor',
+    'foam.util.SafetyUtil',
+    'java.util.ArrayList',
+    'java.util.List'
   ],
 
   javaCode: `
@@ -669,7 +613,7 @@ In this current implementation setDelegate must be called last.`,
   `,
 ```
 
-**File:** src/foam/dao/java/JDAO.js (L51-93)
+**File:** src/foam/dao/java/JDAO.js (L56-87)
 ```javascript
   properties: [
     {
@@ -685,11 +629,6 @@ In this current implementation setDelegate must be called last.`,
       class: 'FObjectProperty',
       of: 'foam.dao.Journal',
       name: 'journal'
-    },
-    {
-      documentation: 'See F3FileJournal. Default journal replay is asynchronous. Some models with business logic that reference self can cause deadlock when parsed out of order.  If journal processing hangs, set syncReplay to true to replay synchronously.',
-      class: 'Boolean',
-      name: 'syncReplay'
     },
     {
       documentation: 'Filesystem is read-only, journals updates are factilitated through some other means such as medusa.',

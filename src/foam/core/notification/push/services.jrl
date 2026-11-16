@@ -51,7 +51,7 @@ p({
   "lazyClient":false,
   "serve":true,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.notification.push.PushNotificationClickAgent\" }"
+  "client":"""{ "class": "foam.core.notification.push.PushNotificationClickAgent" }"""
 })
 
 p({
@@ -60,7 +60,7 @@ p({
   "lazyClient":false,
   "serve":true,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.notification.push.PushRegistryAgent\" }"
+  "client":"""{ "class": "foam.core.notification.push.PushRegistryAgent" }"""
 })
 
 p({

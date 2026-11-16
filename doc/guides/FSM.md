@@ -47,8 +47,8 @@ rendered as a badge.
 ### Checking a definition
 
 `MyStateMachine.validateMachine()` throws if no state is `isInitial`, if a transition names an
-unknown state, or if `guards` / `permissions` / `onTransition` has a key that is not in that
-state's `transitions` (`StateMachineEnum.js:394-433`). `getInitialStates()` and
+unknown state, or if `guards` / `permissions` has a key that is not in that state's
+`transitions` (`StateMachineEnum.js:394-427`). `getInitialStates()` and
 `getTerminalStates()` are also static (`:386-392`).
 
 ---
@@ -198,9 +198,9 @@ when it is entered (`FSMDAO.java:224`, `StateMachineEnum.js:285-294`). The frame
 records when the activity is due. Nothing in foam3 runs it. The application needs its own
 cron or poller that selects objects whose `{name}NextActivity` has passed, calls
 `scheduledActivity(x, obj)` on the current state, and puts the object back. The activity can
-poll a service, send a reminder, or move the object to a new state. On the client,
-`runScheduledActivity` reschedules the activity if the object is still in the same state
-afterwards (`StateMachineEnum.js:310-328`).
+poll a service, send a reminder, or move the object to a new state. The client-side
+`runScheduledActivity` (`StateMachineEnum.js:310-328`) would reschedule the activity, but it
+returns at once: `scheduledActivity` has only a `javaCode` body, so it is undefined in JS.
 
 On the client, `{name}NextActivity` is only set when the state also has a JS
 `scheduledActivity` (`StateMachineEnum.js:289`). Otherwise it is cleared.

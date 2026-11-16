@@ -86,6 +86,7 @@ foam.CLASS({
                 ...this.args,
                 focused$: self.focused$,
                 data$: self.data$,
+                onKey: self.onKey,
                 mode: mode
               }).call(callFromProperty);
           case self.DisplayMode.RO:
@@ -94,6 +95,7 @@ foam.CLASS({
               {
                 ...this.args,
                 data$: self.data$,
+                onKey: self.onKey,
                 mode: mode
               }).call(callFromProperty);
           case self.DisplayMode.HIDDEN:

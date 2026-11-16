@@ -13,6 +13,9 @@ foam.POM({
 
   files: [
     { name: 'TrainingRun',    flags: 'js|java' },
-    { name: 'TrainingMetric', flags: 'js|java' }
+    { name: 'TrainingMetric', flags: 'js|java' },
+    { name: 'EvalPrompt',     flags: 'js|java' },
+    { name: 'EvalRun',        flags: 'js|java' },
+    { name: 'EvalResult',     flags: 'js|java' }
   ]
 });

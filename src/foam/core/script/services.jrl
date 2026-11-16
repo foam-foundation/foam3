@@ -56,7 +56,7 @@ p({
       .setSaf(false)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.script.ScriptEvent\"}"
+  "client":"""{"of":"foam.core.script.ScriptEvent"}"""
 })
 
 p({

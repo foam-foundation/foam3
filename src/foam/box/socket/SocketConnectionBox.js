@@ -274,7 +274,15 @@ NOTE: duplicated in SocketConnectionReplyBox
               }
               if ( replyBox == null ) {
                 getLogger().error("ReplyBox not found", replyBoxId);
-                ((foam.dao.DAO) x.get("alarmDAO")).put(new foam.core.alarming.Alarm("ReplyBox not found"));
+                // One alarm, and one notification, for a run of missing reply
+                // boxes: the ERROR EventRecord is put only when its alarm,
+                // named "SocketConnectionBox-ReplyBox not found" by
+                // alarmSummary, is not already active.
+                foam.core.er.EventRecord er = new foam.core.er.EventRecord(x, this, "ReplyBox not found", null, null, "ReplyBox not found " + replyBoxId, foam.log.LogLevel.ERROR, null);
+                foam.core.alarming.Alarm alarm = (foam.core.alarming.Alarm) ((foam.dao.DAO) x.get("alarmDAO"))
+                  .find(foam.mlang.MLang.EQ(foam.core.alarming.Alarm.NAME, er.alarmSummary()));
+                if ( alarm == null || ! alarm.getIsActive() )
+                  ((foam.dao.DAO) x.get("eventRecordDAO")).put(er);
                 throw new RuntimeException("ReplyBox not found. message: "+data);
               }
               getReplyBoxes().remove(replyBoxId);

@@ -1,0 +1,44 @@
+p({
+  class:"foam.core.reflow.Flow",
+  name:"manual:REFLOW",
+  category:"MANUAL",
+  status:"",
+  source:"src/foam/core/reflow/man/manual.flow",
+  accessLevel:"1",
+  version:36,
+  script:[{
+      "flowName":"markdown1",
+      "cmd":"markdown",
+      "value":{
+        "class":"foam.core.reflow.Markdown",
+        "markdown":
+"""<svg width='600' height='160' viewBox='0 0 600 160' xmlns='http://www.w3.org/2000/svg'>
+<rect width='600' height='160' fill='#ffffff'/>
+<text x='0' y='100' font-family='Helvetica, Arial, sans-serif' font-weight='700' font-size='64' fill='#111827'>RE<tspan fill='#3b82f6'>FLOW</tspan></text>
+<rect x='0' y='118' width='520' height='4' fill='#3b82f6'/>
+<circle cx='515' cy='60' r='6' fill='#3b82f6'/></svg>
+# The Reactive Editor for FLOW documents
+
+# Topics
+
+## Markdown
+[Standard Markdown](manual:Markdown)
+
+[Extended Markdown](manual:ExtendedMarkdown)
+
+[Extended Markdown Example](manual:ExtendedMarkdownExample)
+
+## Language Support
+[Query Syntax](manual:Query Syntax)
+
+[AScript Syntax](manual:AScript)
+
+## Integration
+[DIG - Data Integration Gateway](manual:DIG)
+"""
+      }
+    }],
+  created:1770150927779,
+  lastModified:1793820301346,
+  lastModifiedBy:42
+})

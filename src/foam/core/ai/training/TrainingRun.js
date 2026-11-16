@@ -125,6 +125,21 @@ foam.CLASS({
     },
     {
       class: 'String',
+      name: 'bestCheckpoint',
+      documentation: 'Full path to the checkpoint with the lowest validation loss. Set automatically at the end of each run.',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO'
+    },
+    {
+      class: 'String',
+      name: 'config',
+      documentation: 'Raw YAML training config stored at job start. Lets you compare hyperparameters across runs without digging through files.',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      view: { class: 'foam.u2.tag.TextArea', rows: 20, cols: 80 }
+    },
+    {
+      class: 'String',
       name: 'notes',
       documentation: 'Human annotations — hypothesis, observations, what to try next.',
       view: { class: 'foam.u2.tag.TextArea', rows: 4, cols: 80 }

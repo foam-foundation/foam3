@@ -301,6 +301,8 @@ imports: [
 ],
 ```
 
+Inside a property's `view: function(_, X)`, reach a required class through the object: `X.data.MyRequiredModel.MY_PROPERTY`. `foam.lookup()` is only for a class name known at runtime.
+
 **Imports are read-write** — writing `this.importedProp = x` propagates through the context back to the exporter. A child view can drive parent state without manual slot plumbing. Used by the custom row wrapper pattern (§3.25) to write a selected row back to the enclosing list's `selection`; generally useful whenever a child needs to push state upward.
 
 ### Creating Sub-Contexts

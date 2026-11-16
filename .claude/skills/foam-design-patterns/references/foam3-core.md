@@ -62,3 +62,9 @@ Do:    each rule written as two English sentences in a comment, comparing the wh
 A benchmark that times the wrong thing produces a commit message the reviewer stops trusting.
 Don't: a browser structure vs a 244-row server DAO; reading a million rows when the UI pages; crediting the newer of two commits
 Do:    like for like at equal size; time one page; trust the profile over the guess; check the call site inlines before treating an allocation as a cost; one build per commit before attributing; say "structural" when it is structural
+
+### Build the plain version first; the clever one has to beat it on a number
+A bounded cache, a lock-free slot or a special-case rule is code someone maintains for good, and it earns that only by a measured gap over the plain version of the same idea.
+Don't: design the bounded, set-associative, CAS-swapped structure first and never time the two-map version it replaces; keep a rule ("a re-sighting from the same record does not count") that no test shows is needed
+Do:    write the plainest version that meets the requirement, run both on the same input, keep the complex one only for the number it wins and say which; give each special case a test that fails without it, or drop the case
+Measured: a 4-way CAS cache with sizing and a same-record rule against two `ConcurrentHashMap`s for second-sight interning; same speed, the maps deduplicated exactly and retained 35 MB less, the cache won only memory held during the replay, and the rule changed nothing (foam3 #5553, #5570).

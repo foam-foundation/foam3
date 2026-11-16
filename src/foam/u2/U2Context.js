@@ -38,7 +38,8 @@ foam.CLASS({
         var cls = ctx.elementForName(nodeName);
 
         if ( ! cls ) {
-          args.nodeName = nodeName;
+          // Element lowercases the name itself, except inside an <svg>.
+          args.nodeName = opt_nodeName || nodeName;
           cls = foam.u2.Element;
         }
 

@@ -32,6 +32,7 @@ foam.CLASS({
     'java.security.MessageDigest',
     'java.util.ArrayList',
     'java.util.Arrays',
+    'java.util.Collections',
     'java.util.HashMap',
     'java.util.HexFormat',
     'java.util.List',
@@ -103,7 +104,55 @@ foam.CLASS({
       name: 'maxTokens',
       documentation: 'Maximum tokens in the LLM response per chunk.',
       value: 2048
-    }
+    },
+    {
+      class: 'StringArray',
+      name: 'priorityPaths',
+      documentation: `
+        Path substrings whose matching files are processed first, before the shuffled remainder.
+        Use this to front-load high-value source directories (e.g. "doc/fbe") so they are
+        never crowded out when the crawl is large. Matched items preserve their original
+        relative order; everything else is shuffled as usual.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
+    {
+      class: 'StringArray',
+      name: 'excludePaths',
+      documentation: `
+        Path substrings whose matching files are skipped entirely before any other processing.
+        Applied before priority sorting and category capping so excluded files consume no quota.
+        Use this to drop framework internals, module manifests, and other source that
+        produces poor or misleading training data (e.g. "foam/core/boot", "pom.js").
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
+    {
+      class: 'Int',
+      name: 'maxChunksPerFile',
+      documentation: `
+        Maximum chunks to draw from a single file. 0 = unlimited.
+        When a file produces more chunks than this limit a random sample is taken
+        so no single large file (e.g. a JRL with hundreds of entries) dominates
+        the dataset. The shuffle is applied before truncation so the sample is
+        not always biased toward the top of the file.
+        Files matching any entry in noChunkCapPaths are exempt from this limit.
+      `,
+      value: 0
+    },
+    {
+      class: 'StringArray',
+      name: 'noChunkCapPaths',
+      documentation: `
+        Path substrings whose matching files are exempt from maxChunksPerFile.
+        Use this for high-value files where every entry matters, e.g. services.jrl
+        which contains unique CSpec patterns that should all be represented.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
   ],
 
   methods: [
@@ -113,9 +162,39 @@ foam.CLASS({
       args: 'Context x',
       javaCode: `
         String[] explicit = getItems();
-        List items = explicit.length > 0
+        List items = new ArrayList<>(explicit.length > 0
           ? Arrays.asList(explicit)
-          : ((DataCrawler) getCrawler()).collect(x);
+          : ((DataCrawler) getCrawler()).collect(x));
+
+        String[] exclude = getExcludePaths();
+        if ( exclude.length > 0 ) {
+          List filtered = new ArrayList<>();
+          outer:
+          for ( Object obj : items ) {
+            String path = (String) obj;
+            for ( String e : exclude ) { if ( path.contains(e) ) continue outer; }
+            filtered.add(path);
+          }
+          items = filtered;
+        }
+
+        String[] priority = getPriorityPaths();
+        if ( priority.length > 0 ) {
+          List front = new ArrayList<>();
+          List rest  = new ArrayList<>();
+          for ( Object obj : items ) {
+            String path = (String) obj;
+            boolean matched = false;
+            for ( String p : priority ) { if ( path.contains(p) ) { matched = true; break; } }
+            if ( matched ) front.add(path); else rest.add(path);
+          }
+          Collections.shuffle(rest);
+          front.addAll(rest);
+          items = front;
+        } else {
+          Collections.shuffle(items);
+        }
+
         return filterBatches_(items);
       `
     },
@@ -151,6 +230,20 @@ foam.CLASS({
         content = anonymize_(content);
         String   category = categoryOf(item);
         String[] chunks   = chunk(content, item);
+
+        int maxChunks = getMaxChunksPerFile();
+        if ( maxChunks > 0 && chunks.length > maxChunks ) {
+          boolean exempt = false;
+          for ( String p : getNoChunkCapPaths() ) {
+            if ( item.contains(p) ) { exempt = true; break; }
+          }
+          if ( ! exempt ) {
+            List<String> cl = new ArrayList<>(Arrays.asList(chunks));
+            Collections.shuffle(cl);
+            chunks = cl.subList(0, maxChunks).toArray(new String[0]);
+            System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+          }
+        }
 
         LLMService llm = (LLMService) x.get("llmService");
         DAO        dao = (DAO)        x.get("datasetDAO");
@@ -192,6 +285,13 @@ foam.CLASS({
       javaCode: `throw new UnsupportedOperationException("override buildSystemPrompt()");`
     },
     {
+      documentation: 'Build the user prompt sent to the LLM. Override to enrich with retrieved context or other signals.',
+      name: 'buildPrompt_',
+      type: 'String',
+      args: 'Context x, String chunk, String item, String category',
+      javaCode: `return "[category: " + category + "\\nSource chunk from " + item + ":\\n\\n" + chunk;`
+    },
+    {
       name: 'callLLM_',
       type: 'String',
       args: 'Context x, String chunk, String item, String category, LLMService llm',
@@ -204,7 +304,7 @@ foam.CLASS({
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(opts);
-        req.setPrompt("[category: " + category + "]\\nSource chunk from " + item + ":\\n\\n" + chunk);
+        req.setPrompt(buildPrompt_(x, chunk, item, category));
 
         LLMResponse resp = llm.complete(x, req);
 
@@ -257,6 +357,14 @@ foam.CLASS({
           String output      = s.optString("output",      "").trim();
 
           if ( instruction.isEmpty() || output.isEmpty() ) continue;
+
+          // Strip markdown code fence from the output field if the LLM wrapped it.
+          if ( output.startsWith("\`\`\`") ) {
+            int nl = output.indexOf('\\n');
+            if ( nl > 0 ) output = output.substring(nl + 1);
+            if ( output.endsWith("\`\`\`") ) output = output.substring(0, output.length() - 3);
+            output = output.trim();
+          }
 
           if ( ! output.contains("{") ) {
             System.out.println("[DatasetGenerator] Skipping prose-only sample for " + sourceId

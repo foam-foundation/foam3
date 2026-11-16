@@ -13,6 +13,7 @@ foam.POM({
     { name: "GroupURLSessionTest",                                    flags: "js|java" },
     { name: "ServiceProviderAwareTest",                               flags: "js|java" },
     { name: "ServiceProviderAuthorizerTest",                          flags: "js|java" },
+    { name: "AuthorizationDAOListenTest",                             flags: "js|java" },
     { name: "UserAndGroupPermissionTest",                             flags: "js|java" },
     { name: "PasswordPolicyTest",                                     flags: "js|java" },
     { name: "PermissionedPropertyDAOTest",                            flags: "js|java" },

@@ -44,10 +44,13 @@ foam.CLASS({
   methods: [
     function value(s) { return null; },
     function createSink() { return this.ArraySink.create(); },
+    function unwrapSink(s) { return s; },
     async function execute(e) {
       var sink = this.createSink();
       let self = this;
       return this.dao.select(sink).then(s => {
+        s = self.unwrapSink(s);
+
         if ( this.block.value && this.block.value.VALUE ) {
           this.block.value.value = this.value(s);
         } else {

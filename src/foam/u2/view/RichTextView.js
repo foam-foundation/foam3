@@ -538,7 +538,15 @@ foam.CLASS({
           attributes: []
         },
         {
+          name: 'STRONG',
+          attributes: []
+        },
+        {
           name: 'I',
+          attributes: []
+        },
+        {
+          name: 'EM',
           attributes: []
         },
         {
@@ -608,7 +616,25 @@ foam.CLASS({
         },
       ];
 
+      // A link may only point to a web page or an email address. A substring
+      // test for "javascript:" misses "java&#9;script:alert(1)": the attribute
+      // reads back as "java\tscript:", and the browser drops the tab when the
+      // link is followed. URL parses the value the same way the browser does,
+      // so its protocol is the one that would run.
+      function isSafeHref(href) {
+        try {
+          var protocol = new URL(href, document.baseURI).protocol;
+          return protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:';
+        } catch ( e ) {
+          return false;
+        }
+      }
+
       function copyNodes(parent, node) {
+        // Local to each call. As a global, the copy of a nested element
+        // replaced it, and the text after that element was appended inside it:
+        // <p><b>x</b> tail</p> became <p><b>x tail</b></p>.
+        var newNode;
         for ( var i = 0; i < allowedElements.length; i++ ) {
           if ( allowedElements[i].name === node.nodeName ) {
             if ( allowedElements[i].clone ) {
@@ -621,8 +647,10 @@ foam.CLASS({
                   // Validate attr data
                   var attr = node.getAttribute(currAttr);
                   attr = attr.trim();
-                  // Is this safe? Should we look for ascii chars too?
-                  if ( ! ( attr.toLowerCase().includes('javascript:') || attr.toLowerCase().includes('url(') || attr.toLowerCase().includes('eval(') ) ){
+                  var safe = currAttr === 'href' ?
+                    isSafeHref(attr) :
+                    ! ( attr.toLowerCase().includes('javascript:') || attr.toLowerCase().includes('url(') || attr.toLowerCase().includes('eval(') );
+                  if ( safe ) {
                     newNode.setAttribute(currAttr,node.getAttribute(currAttr));
                   }
                 }
@@ -651,18 +679,17 @@ foam.CLASS({
         }
       }
 
-      var frame = this.document.createElement('iframe');
-      frame.sandbox = 'allow-same-origin';
-      frame.style.display = 'none';
-      this.document.body.appendChild(frame);
-      frame.contentDocument.body.innerHTML = text;
+      // DOMParser builds a document with no window, so nothing in the text
+      // runs or loads while it is read: no script, no onerror, no image fetch.
+      // It replaces a hidden iframe that was added to the page and removed on
+      // every call, one per cell in a table of SafeHTMLViews.
+      var body = new DOMParser().parseFromString(text, 'text/html').body;
 
       var sanitizedContent = new DocumentFragment();
-      for ( var i = 0; i < frame.contentDocument.body.childNodes.length; i++ ) {
-        copyNodes(sanitizedContent, frame.contentDocument.body.childNodes[i]);
+      for ( var i = 0; i < body.childNodes.length; i++ ) {
+        copyNodes(sanitizedContent, body.childNodes[i]);
       }
 
-      this.document.body.removeChild(frame);
       return sanitizedContent;
     }
   ]

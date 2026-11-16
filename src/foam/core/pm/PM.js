@@ -11,19 +11,13 @@ foam.CLASS({
   documentation: 'A Performance Measure which captures the count and duration of some event.',
 
   implements: [
-    'foam.core.analytics.Foldable',
-    'foam.core.ruler.RuleAction'
+    'foam.core.analytics.Foldable'
   ],
 
   javaImports: [
     'foam.lang.ClassInfo',
-    'foam.lang.ContextAgent',
     'foam.lang.FObject',
-    'foam.lang.X',
-    'foam.dao.DAO',
-    'static foam.mlang.MLang.EQ',
-    'foam.core.alarming.Alarm',
-    'foam.core.alarming.AlarmConfig'
+    'foam.lang.X'
   ],
 
   constants: [
@@ -193,21 +187,6 @@ foam.CLASS({
           new Exception("PMLogger not found").printStackTrace();
         }
         `
-    },
-    {
-      name: 'applyAction',
-      javaCode: `
-          agency.submit(x, new ContextAgent() {
-            @Override
-            public void execute(X x) {
-              PM pm = (PM) obj;
-              if ( ! pm.getIsError() ) {
-                return;
-              }
-              ((DAO) x.get("alarmDAO")).put(new Alarm(pm.getKey(), true));
-            }
-          }, "PM alarm");
-     `
     }
   ],
   javaCode: `

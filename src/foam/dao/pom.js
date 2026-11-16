@@ -152,6 +152,7 @@ foam.POM({
     { name: "EnabledAwareDAO",                                    flags: "js|java" },
     { name: "EnabledAwareDAOTest",                                flags: "js&test|java&test" },
     { name: "FilteredDAOListenTest",                              flags: "js&test|java&test" },
+    { name: "ProxyDAOListenContextTest",                          flags: "js&test|java&test" },
     { name: "ValidationDAODecorator",                             flags: "js" },
     { name: "ResetDAODecorator",                                  flags: "web" },
     { name: "SQL",                                                flags: "sql" },

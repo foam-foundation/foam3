@@ -14,6 +14,7 @@ Generate Notification for WARN or ERROR Alarms.`,
 
   javaImports: [
     'foam.dao.DAO',
+    'foam.core.logger.Loggers',
     'foam.log.LogLevel',
     'foam.core.app.AppConfig',
     'foam.core.app.Mode',
@@ -48,6 +49,10 @@ Generate Notification for WARN or ERROR Alarms.`,
       javaCode: `
       Alarm old = (Alarm) getDelegate().find_(x, ((Alarm)obj).getId());
       Alarm alarm = (Alarm) obj;
+      // EventRecordAlarmRuleAction writes alarms to localAlarmDAO, so a new
+      // alarm arriving here was put to alarmDAO by hand.
+      if ( old == null )
+        Loggers.logger(x, this).warning("Direct Alarm creation is deprecated, create an EventRecord instead", alarm.getName());
       if ( ( old != null &&
              old.getIsActive() == alarm.getIsActive() ) ||
            ( ( old == null ||

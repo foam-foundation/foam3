@@ -39,6 +39,9 @@ function writeFileChunked(source, targetFd) {
 //   <flow name="someName" category="optional" label="optional" description="optional"
 //         keywords="keyword1,keyword2,..." notes="optional" spid="optional"
 //         accessLevel="optional"/>
+// A list property, such as an access list, goes in the tag as single-quoted JSON:
+//   <flow name="someName" accessLevel="SHARED"
+//         specifiedUserAccess='[{"userId":1348,"accessLevel":1}]'/>
 const FLOW_TAG  = /<flow\b([^>]*?)\/?>[ \t]*\r?\n?/i;
 const FLOW_ATTR = /([a-zA-Z][-a-zA-Z0-9_]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
@@ -123,6 +126,21 @@ function flowJournalEntry(attrs, name, source) {
   }
 
   if ( attrs.childLock ) props.push(`"childLock": ${attrs.childLock === 'true'}`);
+
+  // Any other attribute holding a JSON array is a list property, copied as is.
+  // A list that does not parse stops the build: dropping an access list would
+  // publish the document to everyone.
+  Object.keys(attrs).forEach(k => {
+    if ( k === 'name' || k === 'keywords' || k === 'childLock' || k === 'markdown_' ) return;
+    if ( FLOW_STRING_ATTRS.includes(k) ) return;
+    var v = attrs[k].trim();
+    if ( ! v.startsWith('[') ) return;
+    try {
+      props.push(`"${k}": ${JSON.stringify(JSON.parse(v))}`);
+    } catch (e) {
+      throw new Error(`${source}: <flow> attribute ${k} is not valid JSON: ${e.message}`);
+    }
+  });
 
   props.push(`"script": [
 	{

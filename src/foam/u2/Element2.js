@@ -368,6 +368,9 @@ foam.CLASS({
           } else if ( this.config && this.config.onEmpty ) {
             this.config.onEmpty.call(this);
           }
+          if ( this.config && this.config.onEOF ) {
+            this.config.onEOF.call(this);
+          }
         });
       }
     }
@@ -630,7 +633,11 @@ foam.CLASS({
     {
       name: 'nodeName',
       hidden: true,
-      adapt: function(_, v) { return foam.String.toLowerCase(v); },
+      // SVG names are case-sensitive: a <lineargradient> is an unknown element,
+      // so keep the case of elements created inside an <svg>.
+      adapt: function(_, v) {
+        return this.__context__.namespace === 'http://www.w3.org/2000/svg' ? v : foam.String.toLowerCase(v);
+      },
       value: 'div'
     },
     {
@@ -2622,7 +2629,11 @@ foam.CLASS({
   name: 'HTMLView',
   extends: 'foam.u2.Element',
 
-  documentation: 'View for safely displaying HTML content.',
+  documentation: `Shows HTML that the code itself builds, such as an SVG glyph
+    or a translated message with <br> in it. It writes data into the page as
+    raw innerHTML and cleans nothing, so a value like
+    <img src=x onerror=alert(1)> runs its script. For HTML a user typed, such
+    as a note or a comment, use foam.u2.SafeHTMLView.`,
 
   css: '<< { padding: 6px 0; }',
 
@@ -2652,7 +2663,6 @@ foam.CLASS({
     {
       name: 'update',
       code: function() {
-        // TODO: add validation
         this.element_.innerHTML = this.data || '';
       }
     }

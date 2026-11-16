@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'AskCommand',
   extends: 'foam.core.reflow.cmd.Command',
 
-  imports: [ 'eval_', 'currentBlock' ],
+  imports: [ 'eval_' ],
 
   /*
   properties: [
@@ -27,16 +27,12 @@ foam.CLASS({
 
   methods: [
     async function execute(cmd) {
-      await this.eval_(cmd);
-      // Give command time to finish, TODO: make commands return promises
-      await foam.async.sleep(1300)();
+      const block    = await this.eval_(cmd, true, true);
+      const answer   = await block.answer();
 
-      const block    = this.currentBlock;
-      const response = block.childNodes[1].element_.innerText; //innerHTML;
-
-      console.log(`ASK: ${cmd} -> ${response}`);
-      const reply = JSON.stringify({asked: cmd, response: response});
-      await this.eval_(`agent(${reply})`);
+      const reply = JSON.stringify({asked: cmd, blockName: block.flowName, response: answer});
+      console.log(`AskCommand: ${reply}`);
+      await this.eval_(`agent(${reply})`, true, true);
 
       setTimeout(() => block.del(), 100);
     }

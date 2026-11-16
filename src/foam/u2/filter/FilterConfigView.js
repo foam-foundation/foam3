@@ -31,14 +31,17 @@ foam.CLASS({
       flex-direction: column;
     }
   `,
+
   messages: [
     { name: 'SELECTED_OPTIONS', message: 'Selected' },
     { name: 'OPTIONS', message: 'Options' },
     { name: 'ENABLE_COLUMNS', message: 'Filters' }
   ],
+
   constants: [
     { type: 'Integer', name: 'MAX_FILTERS', value: 9 }
   ],
+
   properties: [
     {
       name: 'dao'
@@ -57,6 +60,7 @@ foam.CLASS({
     ['themeIcon', 'settings'],
     'reload_'
   ],
+
   methods: [
     async function initializeOverlay(x, y) {
       let self = this;
@@ -145,6 +149,6 @@ foam.CLASS({
         this.filterView.filters$splice(index, 1);
         this.propertyChange.pub('reload_', this.reload_$);
       }
-    },
+    }
   ]
 })

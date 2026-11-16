@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.dao.DAO',
     'static foam.mlang.MLang.EQ',
     'foam.core.alarming.Alarm',
+    'foam.core.alarming.AlarmReason',
     'foam.core.app.AppConfig',
     'foam.core.auth.User',
     'foam.core.auth.CreatedAware',
@@ -24,7 +25,6 @@ foam.CLASS({
     'foam.core.auth.LastModifiedAware',
     'foam.core.auth.LastModifiedByAware',
     'foam.core.notification.Notification',
-    'foam.log.LogLevel',
     'foam.util.SafetyUtil',
     'foam.util.StringUtil',
     'java.time.ZoneOffset',
@@ -35,6 +35,17 @@ foam.CLASS({
   ],
 
   properties: [
+    {
+      documentation: `A record at or above this severity generates a
+        notification; below it, only a record that cleared an alarm raised
+        at or above this severity does. ERROR by default, so a WARN record
+        does not notify, and neither does the clear of an alarm raised at
+        WARN.`,
+      name: 'notificationSeverity',
+      class: 'Enum',
+      of: 'foam.log.LogLevel',
+      value: 'ERROR'
+    },
     {
       name: 'notificationTemplate',
       class: 'String',
@@ -53,12 +64,21 @@ foam.CLASS({
       javaCode: `
       Map args = new HashMap();
       EventRecord er = (EventRecord) obj;
-      if ( er.getSeverity() != LogLevel.ERROR ) {
-        Alarm alarm = (Alarm) ((DAO) x.get("alarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
-        if ( alarm == null ||
-             alarm.getIsActive() ) {
+      // A record at or above notificationSeverity notifies. Below it, as
+      // for a WARN or INFO record with the default ERROR, a record notifies
+      // only when it cleared an alarm whose raise notified. An alarm raised
+      // at WARN sent nothing when it went on, so its clear sends nothing
+      // either; the alarm keeps the highest severity it was raised with.
+      // EventRecordAlarmRule runs first, at a higher priority, and sets
+      // er.alarm only on the record that raised or cleared the alarm. An
+      // INFO record after the clear, such as the next successful poll of an
+      // EmailFolderAgent, carries no alarm and sends nothing.
+      if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
+        Alarm alarm = er.getAlarm() == null ? null :
+          (Alarm) ((DAO) x.get("alarmDAO")).find(er.getAlarm());
+        if ( alarm == null || alarm.getIsActive() ||
+             alarm.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() )
           return;
-        }
       }
 
       args.put("of", er.getClass().getSimpleName());
@@ -119,8 +139,12 @@ foam.CLASS({
         body.append(alarm.getIsActive() ? "Active": "Cleared");
         body.append("\\nseverity: ");
         body.append(alarm.getSeverity().getLabel());
-        body.append("\\nreason: ");
-        body.append(alarm.getReason().getLabel());
+        // An alarm raised through an EventRecord has no reason; the reason,
+        // if any, is in the info line below.
+        if ( alarm.getReason() != AlarmReason.UNSPECIFIED ) {
+          body.append("\\nreason: ");
+          body.append(alarm.getReason().getLabel());
+        }
         body.append("\\nhost: ");
         body.append(alarm.getHostname());
         body.append("\\nstarted: ");

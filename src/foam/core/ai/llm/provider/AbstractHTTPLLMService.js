@@ -40,6 +40,7 @@ foam.CLASS({
     'java.io.Reader',
     'java.net.ConnectException',
     'java.net.HttpURLConnection',
+    'java.net.SocketTimeoutException',
     'java.net.URL',
     'java.nio.charset.StandardCharsets',
     'java.util.LinkedHashMap',
@@ -52,6 +53,12 @@ foam.CLASS({
     /** An error the stream reported before any content: send retries it, as an HTTP 529. */
     public static class EarlyStreamError extends IOException {
       public EarlyStreamError(String message) { super(message); }
+    }
+
+    /** A reply other than 200 that send did not, or no longer, retry. */
+    public static class StatusError extends IOException {
+      public final int status;
+      public StatusError(int status, String message) { super(message); this.status = status; }
     }
 
     /**
@@ -89,12 +96,19 @@ foam.CLASS({
         lastAlive_ = now;
         progress_.written((int) ( chars_ / 4 ));
       }
+
+      /** The end of the reply: its full count, however soon after the last report. */
+      public void done() {
+        if ( progress_ != null ) progress_.written((int) ( chars_ / 4 ));
+      }
     }
 
     /** The payload of the next "data:" line of a server-sent event stream; null at its
-     *  end. An empty "data:" line is a keep-alive and is skipped. */
-    public static String nextData(BufferedReader in) throws IOException {
+     *  end. An empty "data:" line or a ": keep-alive" comment is skipped, but still tells
+     *  the listener the call is alive. */
+    public static String nextData(BufferedReader in, Written written) throws IOException {
       for ( String line ; ( line = in.readLine() ) != null ; ) {
+        written.alive();
         if ( ! line.startsWith("data:") ) continue;
         String data = line.substring(5).trim();
         if ( ! data.isEmpty() ) return data;
@@ -216,7 +230,14 @@ foam.CLASS({
           reply = send(x, body, requestHeaders(x, options), progress);
         } catch (IOException e) {
           Loggers.logger(x, this).error("Model call failed", "model", body.optString("model"), e);
-          // the provider's text names its model and account: it stays in the log
+          // the provider's text names its model and account: it stays in the log, and the
+          // caller learns only which kind of failure it was, e.g. a revoked key is HTTP 401
+          if ( e instanceof EarlyStreamError || e instanceof StatusError && retryable(((StatusError) e).status) ) {
+            throw new RuntimeException("The AI service is busy and did not answer after " + ( getMaxRetries() + 1 ) + " tries", e);
+          }
+          if ( e instanceof StatusError ) {
+            throw new RuntimeException("The AI service refused the request (HTTP " + ((StatusError) e).status + ")", e);
+          }
           throw new RuntimeException("The AI service could not be reached", e);
         }
         if ( reply == null ) throw new RuntimeException("The AI service sent a reply that could not be read");
@@ -254,8 +275,10 @@ foam.CLASS({
       name: 'send',
       documentation: `
         POSTs the body and reads the streamed reply back into one reply, retrying rate
-        limits, overloads and refused connections. Once the reply has started, a failure
-        is not retried: a retry would write the reply a second time.
+        limits, overloads, refused connections and connections that time out before the
+        request is sent. Once the request is sent, a timeout is not retried: the model may
+        be writing the reply already. Once the reply has started, a failure is not retried:
+        a retry would write the reply a second time.
       `,
       type: 'org.json.JSONObject',
       javaThrows: [ 'java.io.IOException' ],
@@ -265,6 +288,7 @@ foam.CLASS({
         byte[] bytes  = body.toString().getBytes(StandardCharsets.UTF_8);
         for ( int attempt = 0 ; ; attempt++ ) {
           HttpURLConnection conn = null;
+          boolean           sent = false;
           try {
             conn = (HttpURLConnection) new URL(getBaseURL()).openConnection();
             conn.setRequestMethod("POST");
@@ -278,6 +302,7 @@ foam.CLASS({
             try ( OutputStream os = conn.getOutputStream() ) {
               os.write(bytes);
             }
+            sent = true;
             int status = conn.getResponseCode();
             if ( status == HttpURLConnection.HTTP_OK ) {
               try ( BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8)) ) {
@@ -286,16 +311,16 @@ foam.CLASS({
             }
             String error = read(conn.getErrorStream());
             if ( ! retryable(status) || attempt >= getMaxRetries() ) {
-              throw new IOException("HTTP error " + status + ": " + error);
+              throw new StatusError(status, "HTTP error " + status + ": " + error);
             }
             long wait = backoff(attempt, conn.getHeaderField("retry-after"));
             logger.warning("Model busy, retrying", "status", status, "attempt", attempt + 1, "waitMs", wait);
-            pause(wait);
+            pause(wait, progress);
           } catch (ConnectException | EarlyStreamError e) {
-            if ( attempt >= getMaxRetries() ) throw e;
-            long wait = backoff(attempt, null);
-            logger.warning("Model unreachable or busy, retrying", "error", e.getMessage(), "attempt", attempt + 1, "waitMs", wait);
-            pause(wait);
+            retry(logger, e, attempt, progress);
+          } catch (SocketTimeoutException e) {
+            if ( sent ) throw e;
+            retry(logger, e, attempt, progress);
           } finally {
             if ( conn != null ) conn.disconnect();
           }
@@ -327,12 +352,34 @@ foam.CLASS({
       `
     },
     {
-      name: 'pause',
+      name: 'retry',
+      documentation: 'Waits before the next attempt after a failure send retries, or rethrows it once the retries are used up.',
+      visibility: 'protected',
       javaThrows: [ 'java.io.IOException' ],
-      args: 'long ms',
+      args: 'foam.core.logger.Logger logger, java.io.IOException e, int attempt, foam.ai.llm.LLMProgress progress',
+      javaCode: `
+        if ( attempt >= getMaxRetries() ) throw e;
+        long wait = backoff(attempt, null);
+        logger.warning("Model unreachable or busy, retrying", "error", e.getMessage(), "attempt", attempt + 1, "waitMs", wait);
+        pause(wait, progress);
+      `
+    },
+    {
+      name: 'pause',
+      documentation: `
+        Waits before a retry, telling the listener about once a second that nothing is
+        written yet, so a listener that throws ends the call during a 60 s wait as well.
+      `,
+      javaThrows: [ 'java.io.IOException' ],
+      args: 'long ms, foam.ai.llm.LLMProgress progress',
       javaCode: `
         try {
-          Thread.sleep(ms);
+          for ( long end = System.currentTimeMillis() + ms ; ; ) {
+            if ( progress != null ) progress.written(0);
+            long left = end - System.currentTimeMillis();
+            if ( left <= 0 ) return;
+            Thread.sleep(Math.min(1000, left));
+          }
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new InterruptedIOException("Interrupted while waiting to retry the AI service");

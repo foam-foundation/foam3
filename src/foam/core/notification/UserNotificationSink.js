@@ -55,6 +55,7 @@ with RulerDAO which can perform further per user setup before user.doNotify.`,
       Notification.ID.clear(notification);
       Notification.GROUP_ID.clear(notification);
       Notification.TEMPLATE.clear(notification);
+      Notification.PREDICATE.clear(notification);
       notification.setBroadcasted(false);
       notification.setUserId(user.getId());
       notification = applyLocaleTemplate(getX(), user, notification);

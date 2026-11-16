@@ -31,6 +31,16 @@ The system is built around three main components:
 
 **Scope Management** - The console maintains a combined scope of local and flow variables for command resolution. Commands can access and modify scope variables, enabling stateful interactive sessions.
 
+## Knowledge Base Documents
+
+A flow with the `knowledge` keyword is a Knowledge Base document, usually a `.md` file whose first line is a `<flow name="..." category="..." keywords="knowledge,...">` tag. The `category` groups it on the Knowledge Base page, which has a button per category to jump to it, and the `name` is its title, its id and the target of links to it.
+
+- **Reading order** - the documents of a category are listed by name, so number them from 1 ("1. Install", "2. Configure"): the number then matches the position the header shows ("2 of 3").
+- **Contents beside the text** - `<toc side></toc>` under the title shows "On this page" beside the document, marks the section being read and keeps the text to a readable width. A plain `<toc></toc>` lists the contents in place.
+- **Where it sits, previous and next** - `<docnav></docnav>` at the end links the documents before and after this one in its category, and shows `Knowledge Base › <category> · n of m` in the header, left of the document's name. Its `keyword` and `home` attributes make it work for another series of flows: `<docnav keyword="tutorial" home="tutorials">` walks the flows of the category that carry `tutorial` and links back to the `tutorials` menu.
+- **The header's empty views** - the Console exports `titlePrefix` (left of the flow's name) and `titleSuffix` (after its version), empty views a flow's own content can fill; `<docnav>` puts its crumb in `titlePrefix`. A view that fills one follows the property, since the header sets a new one each time it is drawn.
+- **Links between documents** - `[text](Other Document)` opens the flow named "Other Document" in place; `[text](#heading-id)` scrolls to a heading of this page.
+
 ## UI Components
 
 The system includes several specialized UI components:
@@ -51,6 +61,7 @@ The code behind each part described above, all under `src/foam/core/reflow/` unl
 - **`Block.js`** - `Block`, which extends `foam.u2.Accordion`, implements `Flowable` and mixes in `foam.u2.StyleConfigurator`. It exports `addValue`, `log`, `out` and `block` to the command it runs; `outputJSON()` decides which properties are saved with the flow.
 - **`Console.js`** - `Console`, which extends `AbstractConsole` (a `foam.u2.Controller` that implements `Flowable` and mixes in `foam.u2.Router`). Its `eval_(cmd, opt_ignoreSelect, ignoreHistory, flowParent)` creates a block, evaluates the command against the combined local and flow scope, names the block, turns a string, number, boolean or date result into a holder object, and adds the block to its parent. A command that fails produces a `BadBlock`. The same file defines `FlowMode`, `Layout`, `ReflowHeader` and `LimitEditHeader`.
 - **`Flow.js`** - `Flow`, the persisted document (id `name`), with authorization and created/modified/SPID auditing.
+- **`FlowDocumentGroupingList.js`**, **`FlowDocumentCitationView.js`**, **`FlowDocumentNav.js`** - the Knowledge Base: the grouped list with its jump buttons, a document card, and `<docnav>`. `Link.js` makes an `<a>` naming a flow open it in place.
 - **`cmd/cmds.jrl`** - the built-in commands in `commandDAO` (`help`, `dao`, `daos`, `upload`, `flows`, `save`, `load`, `include`, `cells` and others), implemented by the classes in `cmd/`.
 - **`Upload.js`** - `Upload`, the CSV / JSON / XML upload component used by the `upload` command.
 - **`ReactiveDetailView.js`** - the `FObject` refinement that adds `reactions_`, `addReaction()` and `startReaction_()`, and the reactive detail views that edit them.

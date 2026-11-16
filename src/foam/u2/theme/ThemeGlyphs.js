@@ -1088,6 +1088,39 @@ foam.CLASS({
       }
     },
     {
+      name: 'sort',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'Table header: a sortable column, not sorted. Both arrows, in the text colour.',
+      factory: function() {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-opacity="1" d="M8 2.7L4.39 6.5h7.22z"/><path fill="currentColor" fill-opacity="1" d="M8 13.3l-3.61-3.8h7.22z"/></svg>
+        ` };
+      }
+    },
+    {
+      name: 'sortAsc',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'Table header: the column sorted ascending. The up arrow full, the down arrow faint.',
+      factory: function() {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-opacity="1" d="M8 2.7L4.39 6.5h7.22z"/><path fill="currentColor" fill-opacity="0.35" d="M8 13.3l-3.61-3.8h7.22z"/></svg>
+        ` };
+      }
+    },
+    {
+      name: 'sortDesc',
+      class: 'GlyphProperty',
+      of: 'foam.lang.Glyph',
+      documentation: 'Table header: the column sorted descending. The down arrow full, the up arrow faint.',
+      factory: function() {
+        return { template: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-opacity="0.35" d="M8 2.7L4.39 6.5h7.22z"/><path fill="currentColor" fill-opacity="1" d="M8 13.3l-3.61-3.8h7.22z"/></svg>
+        ` };
+      }
+    },
+    {
       name: 'chevronUp',
       class: 'GlyphProperty',
       of: 'foam.lang.Glyph',

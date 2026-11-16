@@ -181,7 +181,6 @@ The full set of guides is published at **[foam-foundation.github.io/foam3/guides
 
 ## Live Demos
 Launch FOAM 
-- [FOAM By Example](http://localhost:8080/foam3/src/foam/demos/examples/index.html)
 - [Seven GUIs](http://localhost:8080/foam3/src/foam/demos/sevenguis/index.html)
 - [Other Demos](http://localhost:8080/foam3/src/foam/demos/index.html)
 

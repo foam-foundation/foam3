@@ -27,8 +27,10 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarSink',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
+    'foam.core.reflow.GridBy',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
+    'foam.dao.TTLSelectCachingDAO',
     'foam.dao.ArraySink',
     'foam.mlang.sink.Sum'
   ],
@@ -46,7 +48,28 @@ foam.CLASS({
       await this.testLineNewChart(x);
       await this.testLineOldFlow(x);
       await this.testEarlierNestedFlows(x);
+      await this.testCachedSelectKeepsChartClass(x);
       this.testLabels(x);
+    },
+
+    // A select cache keys results by the sink's toString(). A Stacked Bar on
+    // the same two fields as a plain GridBy view must not get the GridBy's
+    // cached result, which draws as a table.
+    async function testCachedSelectKeepsChartClass(x) {
+      var R   = this.DashboardTestRow;
+      var dao = this.TTLSelectCachingDAO.create({ delegate: this.rowsDAO(x) }, x);
+      var sum = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+
+      var grid = await dao.select(this.GridBy.create({ xFunc: R.MONTH, yFunc: R.YEAR, acc: sum.createSink() }, x));
+      x.test(! this.DashboardStackedBarSink.isInstance(grid), 'Cache: a plain GridBy select returns a plain GridBy');
+
+      var agent = this.DashboardStackedBarChartDAOAgent.create({}, x);
+      agent.displaySink.xFunc       = R.MONTH;
+      agent.displaySink.yFunc       = R.YEAR;
+      agent.displaySink.aggregation = sum;
+      var chart = await dao.select(agent.createSink());
+      x.test(this.DashboardStackedBarSink.isInstance(chart),
+        'Cache: a Stacked Bar on the same fields gets its own result, not the cached GridBy. Got: ' + chart.cls_.id);
     },
 
     // Flows saved by the version that first moved the settings to the sink:

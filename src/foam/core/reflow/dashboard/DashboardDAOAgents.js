@@ -230,6 +230,12 @@ foam.CLASS({
   ],
 
   methods: [
+    // A DAO that caches selects (TTLSelectCachingDAO) keys them by the sink's
+    // toString(). Without this a chart sink keeps its parent's, so a Stacked
+    // Bar on the same two fields as a plain GridBy view got the GridBy's
+    // cached result back and drew a table. Naming the class keeps them apart.
+    function toString() { return this.cls_.id + ':' + this.SUPER(); },
+
     function addChartDisplayToE(e) {
       var self = this;
       // Add chart display configuration fields to the UI

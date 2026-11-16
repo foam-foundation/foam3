@@ -67,17 +67,17 @@ Line lengths should be 80 characters or less, except for embedded data, like tem
 
 ## Calling DAO's From Java
 When implementing DAO strategies in Java, implement the Context-Oriented (CO) methods, ie. those ending with _ and explicitly taking Contexts as the first paramter, like:
-```javascript
+```java
    find_(X x, Object query).
 ```
 
 When implementing DAO decoratores in Java, implement the CO methods and also delegate to the CO method of your delegate. ie.
-```javascript
+```java
    getDelegate().find_(x, id).
 ```
 
 When using a DAO as a regular client from outside of a decorator for that DAO, use the non-CO methods and use inX() to specify the context. ie.
-```javascript
+```java
    DAO userDAO = ((DAO) x.get("userDAO")).inX(x);
    userDAO.find(id);
 ```

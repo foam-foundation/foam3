@@ -2,30 +2,28 @@
 
 ## What are Axioms?
 
-Axioms are the core mechanism by which FOAM models define class structure and functionality. [1](#0-0)  They are defined with a pseudo-interface that includes optional `installInClass(cls)` and `installInProto(proto)` methods. [2](#0-1)
-
-The basic axiom interface is formally defined in `foam.lang.Axiom`: [3](#0-2)
+Axioms are the core mechanism by which FOAM models define class structure and functionality. They are defined with a pseudo-interface that includes optional `installInClass(cls)` and `installInProto(proto)` methods. This pseudo-interface is described in the `Boot.js` documentation (see the citation below). The modelled `foam.lang.Axiom` interface itself declares only `getName()`.
 
 ## How Axioms Work
 
-Axioms install themselves onto a Model's Class and/or Prototype during the class building process. [4](#0-3)  The installation happens in two phases to avoid ordering issues: [5](#0-4)
+Axioms install themselves onto a Model's Class and/or Prototype during the class building process. The installation happens in two phases to avoid ordering issues:
 
-1. **Class Installation**: Axioms are first stored in the class's `axiomMap_` [6](#0-5)
-2. **Installation Execution**: Then `installInClass()` and `installInProto()` are called to modify the class and prototype [7](#0-6)
+1. **Class Installation**: Axioms are first stored in the class's `axiomMap_`
+2. **Installation Execution**: Then `installInClass()` and `installInProto()` are called to modify the class and prototype
 
-Axioms are sorted by priority (default 100) before installation, with higher priority axioms installed first. [8](#0-7)
+Axioms are sorted by priority (default 100) before installation, with higher priority axioms installed first.
 
 ## Common Axiom Types
 
-While raw axioms can be used directly, FOAM provides higher-level axiom types: [9](#0-8)
+While raw axioms can be used directly, FOAM provides higher-level axiom types:
 
 - **Properties** - Instance variable definitions
 - **Methods** - Prototype methods
 - **Listeners** - Methods with extra callback features
 - **Actions** - User-invokable operations
 - **Requires** - Class dependencies
-- **Imports/Exports** - Context dependency injection [10](#0-9)
-- **Implements** - Interface/mixin declarations [11](#0-10)
+- **Imports/Exports** - Context dependency injection
+- **Implements** - Interface/mixin declarations
 - **Constants** - Class and prototype constants
 - **Topics** - Publish/subscribe topics
 
@@ -33,25 +31,25 @@ While raw axioms can be used directly, FOAM provides higher-level axiom types: [
 
 You can add axioms to a class in several ways:
 
-**Direct axiom array:** [12](#0-11)
+**Direct axiom array:** list axiom objects in `axioms: [...]`, as in the `doc/templates/Model.js` citation below.
 
-**Specialized sections** like `properties`, `methods`, `listeners`, etc. are syntactic sugar that create the appropriate axiom types: [13](#0-12)
+**Specialized sections** like `properties`, `methods`, `listeners`, etc. are syntactic sugar that create the appropriate axiom types.
 
 ## Axiom Access and Introspection
 
 Classes provide methods to access their axioms:
 
 - `getAxiomByName(name)` - Get a specific axiom
-- `getAxioms()` - Get all axioms including inherited ones [14](#0-13)
-- `getOwnAxioms()` - Get only axioms defined on this class [15](#0-14)
+- `getAxioms()` - Get all axioms including inherited ones
+- `getOwnAxioms()` - Get only axioms defined on this class
 - `getAxiomsByClass(cls)` - Filter axioms by type
-- `hasOwnAxiom(name)` - Check if axiom is defined locally [16](#0-15)
+- `hasOwnAxiom(name)` - Check if axiom is defined locally
 
-The framework also provides debugging support through `describe()` which lists all axioms with their types and source classes. [17](#0-16)
+The framework also provides debugging support through `describe()` (installed only in `debug` builds) which lists all axioms with their types and source classes.
 
 ## Notes
 
-Axioms are stored in `axiomMap_` on each class, with inheritance handled through prototype chaining of the axiom maps. [6](#0-5)  When axioms are installed on parent classes, child classes are notified via pub/sub to clear their axiom caches. [18](#0-17)  The `Relationship` axiom is a specialized example that defines relationships between models. [19](#0-18)
+Axioms are stored in `axiomMap_` on each class, with inheritance handled through prototype chaining of the axiom maps. When axioms are installed on parent classes, child classes are notified via pub/sub to clear their axiom caches. The `Relationship` axiom is a specialized example that defines relationships between models.
 
 Wiki pages you might want to explore:
 - [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)

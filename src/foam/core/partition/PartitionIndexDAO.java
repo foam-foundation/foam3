@@ -40,7 +40,8 @@ import static foam.mlang.MLang.EQ;
  *
  * A value with no entry selects nothing, so every row has to be written
  * through this decorator; rows already in the delegate, or written around it,
- * are indexed by rebuild().
+ * are indexed by rebuild(), which REBUILD_CMD runs from anywhere above the
+ * decorator chain.
  */
 public class PartitionIndexDAO
   extends ProxyDAO
@@ -49,6 +50,12 @@ public class PartitionIndexDAO
       part of its id: a different count would look every value up in the
       wrong journal. */
   public static final int BUCKETS = 64;
+
+  /** cmd that runs rebuild(x) and returns the number of entries it wrote. A
+      Script sends it to the served DAO, e.g.
+      ((DAO) x.get("txDAO")).cmd(PartitionIndexDAO.REBUILD_CMD), without
+      having to find this decorator in the chain. */
+  public static final String REBUILD_CMD = "PARTITION_INDEX_REBUILD_CMD";
 
   protected static class Spec {
     PropertyInfo   prop;
@@ -172,12 +179,14 @@ public class PartitionIndexDAO
   }
 
   /** Write the (value, leaf) entry for each indexed value obj carries, unless
-      it exists. Locked on the entry id, as prune is, so the check and the
-      write cannot straddle a prune's count and remove. */
-  protected void addEntries(X x, FObject obj) {
+      it exists, and return how many were written. Locked on the entry id, as
+      prune is, so the check and the write cannot straddle a prune's count and
+      remove. */
+  protected int addEntries(X x, FObject obj) {
     PartitionedDAO pdao = getPartitioned();
     String         leaf = pdao.leafPath(obj);
     FObject        key  = null;
+    int            n    = 0;
 
     for ( Spec spec : specs_.values() ) {
       Object v = indexedValue(spec, obj);
@@ -195,8 +204,10 @@ public class PartitionIndexDAO
         entry.setValue(value);
         entry.setKey(key);
         spec.index.put_(x, entry);
+        n++;
       }
     }
+    return n;
   }
 
   public FObject remove_(X x, FObject obj) {
@@ -231,16 +242,41 @@ public class PartitionIndexDAO
     }
   }
 
-  /** Index the rows already in the delegate that match predicate: rows put
-      before index() was called, or written around this decorator. The
-      predicate routes like any select on the delegate, e.g. AllPartitions on
-      a keyed level and a date range on a date level. */
-  public void rebuild(X x, Predicate predicate) {
-    getDelegate().select_(x, new AbstractSink() {
-      public void put(Object obj, Detachable sub) {
-        addEntries(x, (FObject) obj);
+  /** Index the rows already in the delegate: rows put before index() was
+      called, written around this decorator, or migrated into the partitions
+      before the index was wired around them. Returns the number of entries
+      written.
+
+      It walks one leaf partition at a time and unloads each leaf it had to
+      load, so memory holds about one leaf's journal instead of every leaf
+      of a large DAO. It only adds entries that are missing, so it is safe to
+      run twice, and it also fills a property indexed later with a new
+      index(). A leaf another thread already had loaded is left loaded; one
+      this walk loads should not be written to while it is read, so run it
+      when old partitions are idle, such as after a deploy. */
+  public long rebuild(X x) {
+    long n = rebuild(x, getPartitioned());
+    Loggers.logger(x, this).info("Rebuilt partition index", getPartitioned().getDirName(), "entries", n);
+    return n;
+  }
+
+  protected long rebuild(X x, PartitionedDAO level) {
+    long[] n = { 0 };
+    for ( String part : level.getPartitions() ) {
+      boolean loaded = level.isLoaded(part);
+      DAO     dao    = level.getDelegate(part);
+      if ( dao instanceof PartitionedDAO ) {
+        n[0] += rebuild(x, (PartitionedDAO) dao);
+        continue;
       }
-    }, 0, MAX_SAFE_INTEGER, null, predicate);
+      dao.select_(x, new AbstractSink() {
+        public void put(Object obj, Detachable sub) {
+          n[0] += addEntries(x, (FObject) obj);
+        }
+      }, 0, MAX_SAFE_INTEGER, null, null);
+      if ( ! loaded ) level.unload(part);
+    }
+    return n[0];
   }
 
   public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
@@ -370,6 +406,7 @@ public class PartitionIndexDAO
       meant for every journal is passed to them here: unload, and compaction,
       which drops the entries a remove pruned. */
   public Object cmd_(X x, Object cmd) {
+    if ( REBUILD_CMD.equals(cmd) ) return rebuild(x);
     if ( AbstractPartitionedDAO.UNLOAD_CMD.equals(cmd) ) {
       for ( Spec spec : specs_.values() ) spec.index.unload();
     }

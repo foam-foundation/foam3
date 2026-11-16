@@ -170,7 +170,7 @@ foam.CLASS({
 });
 ```
 
-`src/pom.js` loads `foam/u2/Element2` before `foam/u2/Router`, so the fuller `Router.js` definition is the one registered last for the `foam.u2.Router` name **(unverified: FOAM's exact last-registration-wins semantics for a repeated `foam.CLASS` call were not traced further here — treat this as the likely-effective definition, not a proven one)**. If breadcrumb/stack behaviour you expect from `Router.js` seems to be missing, this duplicate definition is the first place to look.
+`src/foam/u2/pom.js` loads `Element2` before `Router`, so the fuller `Router.js` definition is the one registered last for the `foam.u2.Router` name **(unverified: FOAM's exact last-registration-wins semantics for a repeated `foam.CLASS` call were not traced further here — treat this as the likely-effective definition, not a proven one)**. If breadcrumb/stack behaviour you expect from `Router.js` seems to be missing, this duplicate definition is the first place to look.
 
 ---
 

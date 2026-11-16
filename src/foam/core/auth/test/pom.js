@@ -13,9 +13,12 @@ foam.POM({
     { name: "GroupURLSessionTest",                                    flags: "js|java" },
     { name: "ServiceProviderAwareTest",                               flags: "js|java" },
     { name: "ServiceProviderAuthorizerTest",                          flags: "js|java" },
+    { name: "AuthorizationDAOListenTest",                             flags: "js|java" },
     { name: "UserAndGroupPermissionTest",                             flags: "js|java" },
     { name: "PasswordPolicyTest",                                     flags: "js|java" },
+    { name: "PermissionedPropertyDAOTest",                            flags: "js|java" },
     { name: "SessionContextTest",                                     flags: "js|java" },
+    { name: "SessionFinishedRequestTest",                             flags: "js|java" },
     { name: "SessionLocalSettingTest",                                flags: "js|java" },
     { name: "UserLifecycleTicketTest",                                flags: "js|java" }
   ],

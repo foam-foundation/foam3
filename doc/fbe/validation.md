@@ -15,7 +15,7 @@ FOAM validation works through several mechanisms:
 | Mechanism | Level | Description |
 |-----------|-------|-------------|
 | `required` | Property | Field must have a value |
-| `autoValidate` | Property | Built-in type validation |
+| `autoValidate` | Property | Validates a nested FObject (FObjectProperty, FObjectArray) |
 | `validateObj` | Property | Custom validation function |
 | `validationPredicates` | Property | Reusable validation predicates |
 | Cross-property | Object | Validation depending on multiple properties |
@@ -40,20 +40,20 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   css: `
-    ^ { padding: 16px; }
-    ^section {
+    << { padding: 16px; }
+    <<section {
       margin: 20px 0;
       padding: 16px;
       border: 1px solid #ddd;
       border-radius: 8px;
     }
-    ^title {
+    <<title {
       font-size: 18px;
       font-weight: bold;
       margin-bottom: 12px;
       color: #333;
     }
-    ^error {
+    <<error {
       color: #d32f2f;
       font-size: 14px;
       margin-top: 8px;
@@ -61,7 +61,7 @@ foam.CLASS({
       background: #ffebee;
       border-radius: 4px;
     }
-    ^valid {
+    <<valid {
       color: #388e3c;
       font-size: 14px;
       margin-top: 8px;
@@ -139,11 +139,11 @@ add(ValidationDemo.create({ testObject: obj }));
 
 ---
 
-## Auto Validation
+## Built-in Type Validation
 
-<term term="autoValidate"></term> enables built-in validation for property types. Many property classes have default validators that check format, range, or type.
+Many property classes have built-in validators that check format, range, or type. They are always on; no option is needed. <term term="autoValidate"></term> is a separate option that only exists on FObjectProperty and FObjectArray, where it validates the nested object.
 
-### Built-in Auto Validators
+### Built-in Type Validators
 
 | Type | Validation |
 |------|------------|
@@ -161,30 +161,25 @@ foam.CLASS({
   properties: [
     {
       class: 'EMail',
-      name: 'email',
-      autoValidate: true  // Validates email format
+      name: 'email'  // Validates email format
     },
     {
       class: 'PhoneNumber',
-      name: 'phone',
-      autoValidate: true
+      name: 'phone'
     },
     {
       class: 'URL',
-      name: 'website',
-      autoValidate: true
+      name: 'website'
     },
     {
       class: 'Int',
       name: 'age',
-      autoValidate: true,
       min: 0,
       max: 150
     },
     {
       class: 'String',
       name: 'username',
-      autoValidate: true,
       minLength: 3,
       maxLength: 20
     }
@@ -206,12 +201,12 @@ add(ValidationDemo.create({ testObject: obj }));
 
 ## Custom Validation with validateObj
 
-<term term="validateObj"></term> provides custom validation logic. It's a function that returns an error message string if invalid, or nothing if valid.
+<term term="validateObj"></term> provides custom validation logic. It's a function that returns an error message string if invalid, or nothing if valid. Its parameter names must be property names of the object: each one receives that property's value, and the validation re-runs when any of them changes. A name that isn't a property throws.
 
 ### validateObj Signature
 
 ```javascript
-validateObj: function(propertyValue) {
+validateObj: function(propertyName, otherPropertyName) {
   if (/* invalid condition */) {
     return 'Error message to display';
   }
@@ -237,8 +232,8 @@ foam.CLASS({
     {
       class: 'String',
       name: 'confirmPassword',
-      validateObj: function(confirmPassword) {
-        if (confirmPassword !== this.password) {
+      validateObj: function(password, confirmPassword) {
+        if (confirmPassword !== password) {
           return 'Passwords do not match';
         }
       }
@@ -276,8 +271,8 @@ add(ValidationDemo.create({ testObject: obj }));
 validationPredicates: [
   {
     args: ['propertyName'],
-    query: 'propertyName > 0',  // Or MLang expression
-    errorMessage: 'Value must be positive'
+    query: 'propertyName > 0',  // FScript expression
+    errorString: 'Value must be positive'
   }
 ]
 ```
@@ -293,7 +288,7 @@ foam.CLASS({
         {
           args: ['startValue'],
           query: 'startValue >= 0',
-          errorMessage: 'Start value must be non-negative'
+          errorString: 'Start value must be non-negative'
         }
       ]
     },
@@ -304,12 +299,12 @@ foam.CLASS({
         {
           args: ['endValue'],
           query: 'endValue >= 0',
-          errorMessage: 'End value must be non-negative'
+          errorString: 'End value must be non-negative'
         },
         {
           args: ['startValue', 'endValue'],
           query: 'endValue > startValue',
-          errorMessage: 'End value must be greater than start value'
+          errorString: 'End value must be greater than start value'
         }
       ]
     },
@@ -319,18 +314,18 @@ foam.CLASS({
       validationPredicates: [
         {
           args: ['code'],
-          query: 'code.length >= 3',
-          errorMessage: 'Code must be at least 3 characters'
+          query: 'code.len>=3',
+          errorString: 'Code must be at least 3 characters'
         },
         {
           args: ['code'],
-          query: 'code.length <= 10',
-          errorMessage: 'Code must be at most 10 characters'
+          query: 'code.len<=10',
+          errorString: 'Code must be at most 10 characters'
         },
         {
           args: ['code'],
-          query: '/^[A-Z0-9]+$/.test(code)',
-          errorMessage: 'Code must contain only uppercase letters and numbers'
+          query: 'code~/^[A-Z0-9]+$/',
+          errorString: 'Code must contain only uppercase letters and numbers'
         }
       ]
     }
@@ -350,7 +345,7 @@ add(ValidationDemo.create({ testObject: obj }));
 
 ## Cross-Property Validation
 
-Validation that depends on multiple properties. Use `validateObj` with property access via `this`, or `validationPredicates` with multiple `args`.
+Validation that depends on multiple properties. Use `validateObj` with every property it reads as a parameter, or `validationPredicates` with multiple `args`.
 
 <example id="cross-property">
 foam.CLASS({
@@ -365,8 +360,8 @@ foam.CLASS({
       class: 'Date',
       name: 'endDate',
       factory: function() { return new Date(); },
-      validateObj: function(endDate) {
-        if (this.startDate && endDate && endDate < this.startDate) {
+      validateObj: function(startDate, endDate) {
+        if (startDate && endDate && endDate < startDate) {
           return 'End date must be after start date';
         }
       }
@@ -384,7 +379,7 @@ foam.CLASS({
         {
           args: ['minPrice', 'maxPrice'],
           query: 'maxPrice >= minPrice',
-          errorMessage: 'Maximum price must be >= minimum price'
+          errorString: 'Maximum price must be >= minimum price'
         }
       ]
     },
@@ -395,14 +390,14 @@ foam.CLASS({
     {
       class: 'String',
       name: 'postalCode',
-      validateObj: function(postalCode) {
+      validateObj: function(country, postalCode) {
         if (!postalCode) return;
 
-        if (this.country === 'US') {
+        if (country === 'US') {
           if (!/^\d{5}(-\d{4})?$/.test(postalCode)) {
             return 'Invalid US ZIP code format';
           }
-        } else if (this.country === 'Canada') {
+        } else if (country === 'Canada') {
           if (!/^[A-Z]\d[A-Z] \d[A-Z]\d$/i.test(postalCode)) {
             return 'Invalid Canadian postal code format';
           }
@@ -476,21 +471,20 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'field2',
-      min: 0,
-      autoValidate: true
+      min: 0
     }
   ]
 });
 
 var obj = ErrorsAccessExample.create({ field1: '', field2: -5 });
 
-// errors_ is a slot containing an array of [propertyName, errorMessage] pairs
+// errors_ is an array of [property, errorMessage] pairs; errors_$ is its slot
 obj.errors_$.sub(function() {
   var errors = obj.errors_;
   if (errors) {
     log('Validation errors:');
     errors.forEach(function(err) {
-      log('  - ' + err[0] + ': ' + err[1]);
+      log('  - ' + err[0].name + ': ' + err[1]);
     });
   } else {
     log('No validation errors');
@@ -522,9 +516,9 @@ foam.CLASS({
   extends: 'foam.u2.Controller',
 
   css: `
-    ^form { padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
-    ^submit { margin-top: 16px; }
-    ^submit[disabled] { opacity: 0.5; }
+    <<form { padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+    <<submit { margin-top: 16px; }
+    <<submit[disabled] { opacity: 0.5; }
   `,
 
   properties: [
@@ -536,16 +530,14 @@ foam.CLASS({
     {
       class: 'EMail',
       name: 'email',
-      required: true,
-      autoValidate: true
+      required: true
     },
     {
       class: 'Int',
       name: 'age',
       required: true,
       min: 18,
-      max: 120,
-      autoValidate: true
+      max: 120
     }
   ],
 
@@ -626,7 +618,6 @@ foam.CLASS({
       class: 'EMail',
       name: 'email',
       required: true,
-      autoValidate: true,
       section: 'personal'
     },
     {
@@ -643,8 +634,8 @@ foam.CLASS({
       class: 'String',
       name: 'postalCode',
       section: 'address',
-      validateObj: function(code) {
-        if (code && !/^[A-Z0-9\s-]+$/i.test(code)) {
+      validateObj: function(postalCode) {
+        if (postalCode && !/^[A-Z0-9\s-]+$/i.test(postalCode)) {
           return 'Invalid postal code format';
         }
       }
@@ -727,11 +718,11 @@ foam.CLASS({
       class: 'String',
       name: 'expiryDate',
       view: { class: 'foam.u2.TextField', placeholder: 'MM/YY' },
-      validateObj: function(expiry) {
-        if (!expiry) return 'Expiry date is required';
-        if (!/^\d{2}\/\d{2}$/.test(expiry)) return 'Use MM/YY format';
+      validateObj: function(expiryDate) {
+        if (!expiryDate) return 'Expiry date is required';
+        if (!/^\d{2}\/\d{2}$/.test(expiryDate)) return 'Use MM/YY format';
 
-        const [month, year] = expiry.split('/').map(Number);
+        const [month, year] = expiryDate.split('/').map(Number);
         if (month < 1 || month > 12) return 'Invalid month';
 
         const now = new Date();
@@ -769,7 +760,7 @@ add(ValidationDemo.create({ testObject: form }));
 | Method | Best For | Reusability |
 |--------|----------|-------------|
 | `required` | Simple presence check | N/A |
-| `autoValidate` | Built-in type validation | Built-in |
+| `autoValidate` | Nested FObject validation | Built-in |
 | `validateObj` | Custom logic | Per-property |
 | `validationPredicates` | Declarative rules | Reusable |
 | Custom validator class | Complex validation | Highly reusable |
@@ -778,10 +769,10 @@ add(ValidationDemo.create({ testObject: form }));
 
 1. **Use built-in types** — EMail, PhoneNumber, URL have auto validators
 2. **Set min/max constraints** — For numeric types, use property constraints
-3. **Combine methods** — Use `required` + `autoValidate` + `validateObj` together
+3. **Combine methods** — Use `required` + built-in type validation + `validateObj` together
 4. **Keep validators pure** — Avoid side effects in validation functions
 5. **Provide clear messages** — Error messages should guide the user to fix issues
-6. **Validate early** — Use `onKey: true` for immediate feedback
+6. **Validate early** — Text inputs update on every key when the property has a validator, giving immediate feedback
 7. **Disable submit** — Prevent form submission until validation passes
 
 ---
@@ -794,10 +785,10 @@ add(ValidationDemo.create({ testObject: form }));
 
 <glossary>
   <def term="required" definition="Property option marking a field as mandatory. Empty values fail validation."></def>
-  <def term="autoValidate" definition="Property option enabling built-in type-specific validation (email format, numeric range, etc.)."></def>
+  <def term="autoValidate" definition="FObjectProperty and FObjectArray option that validates the nested object(s) and reports an error on the owning property."></def>
   <def term="validateObj" definition="Property option for custom validation functions. Returns error message string if invalid."></def>
   <def term="validationPredicates" definition="Property option for declarative validation rules using MLang predicates with error messages."></def>
-  <def term="errors_" definition="Object slot containing array of [propertyName, errorMessage] pairs for all validation errors."></def>
+  <def term="errors_" definition="Object property containing an array of [property, errorMessage] pairs for all validation errors; errors_$ is its slot."></def>
   <def term="min" definition="Property option setting minimum value for numeric types."></def>
   <def term="max" definition="Property option setting maximum value for numeric types."></def>
   <def term="minLength" definition="Property option setting minimum string length."></def>

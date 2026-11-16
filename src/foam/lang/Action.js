@@ -64,9 +64,12 @@ foam.CLASS({
       expression: function(name) { return this.label || foam.String.labelize(name); }
     },
     {
-      documentation: 'displayed on :hover',
+      // Not class 'String': a String property adapts a function into its source
+      // text, so a toolTip like function(data$errors_) {...} would be shown as code.
+      documentation: `Displayed on :hover. Either a string, or a function whose
+        arguments name properties of the action's data, like isEnabled, and
+        which returns the tooltip text.`,
       generateJava: false,
-      class: 'String',
       name: 'toolTip'
     },
     {
@@ -254,6 +257,10 @@ If empty then no permissions are required.`
         foam.lang.ConstantSlot.create({ value: true });
 
       return this.addPermissionsCheck_(x, slot, data, permissionsName);
+    },
+
+    function createToolTip$(x, data) {
+      return foam.Function.isInstance(this.toolTip) ? data.slot(this.toolTip) : this.toolTip$;
     },
 
     function createIsEnabled$(x, data) {

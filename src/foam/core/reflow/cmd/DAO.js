@@ -35,6 +35,7 @@ foam.CLASS({
 });
 
 
+// TODO: generate display syntax errors
 foam.CLASS({
   package: 'foam.core.reflow.cmd',
   name: 'From',

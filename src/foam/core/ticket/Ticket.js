@@ -41,8 +41,6 @@ foam.CLASS({
     'foam.core.auth.AuthService',
     'foam.core.auth.Subject',
     'foam.core.auth.User',
-    'foam.core.notification.Notification',
-    'foam.core.session.Session',
     'foam.util.SafetyUtil',
     'java.util.Date'
   ],
@@ -112,10 +110,6 @@ foam.CLASS({
     {
       name: 'FAIL_CLOSED',
       message: 'Something went wrong. Ticket failed to close'
-    },
-    {
-      name: 'COMMENT_NOTIFICATION',
-      message: 'A ticket assigned to you has been updated '
     }
   ],
 
@@ -191,23 +185,32 @@ foam.CLASS({
       order: 3,
       tableWidth: 130,
       projectionSafe: false,
+      // The status pill is not a link to the ticket status admin screen.
+      enableLink: false,
       tableCellFormatter: function(value, obj) {
         obj.ticketStatusDAO.find(value).then(function(status) {
-          if (status) {
-            this.add(status.label);
+          if ( status ) {
+            this.tag(foam.core.ticket.TicketStatusReferenceCitationView, { data: status });
           }
         }.bind(this));
       },
       view: function(_, x) {
         return {
           class: 'foam.u2.view.ModeAltView',
+          // ReadReferenceView draws the found status with
+          // TicketStatusReferenceCitationView, a pill.
           readView: {
-            class: 'foam.u2.view.ReferenceView',
-            of: 'foam.core.ticket.TicketStatus'
+            class: 'foam.u2.view.ReadReferenceView'
           },
+          // statusChoices names the statuses this ticket may move to, e.g.
+          // ['CLOSED', 'CLOSED']; the dropdown labels each from its
+          // TicketStatus, "Fermé" in French, rather than showing the id.
           writeView: {
             class: 'foam.u2.view.ChoiceView',
-            choices: x.data.statusChoices
+            dao: x.data.ticketStatusDAO
+              .where(x.data.IN(x.data.TicketStatus.ID, x.data.statusChoices.map(c => Array.isArray(c) ? c[0] : c)))
+              .orderBy(x.data.TicketStatus.ORDINAL),
+            objToChoice: function(o) { return [ o.id, o.toSummary() ]; }
           }
         };
       },
@@ -519,83 +522,6 @@ foam.CLASS({
       sb.append(getStatus());
       sb.append(")");
       return sb.toString();
-      `
-    },
-    {
-      name: 'createExternalCommentNotification',
-      args: [
-        { name: 'x', type: 'Context' },
-        { name: 'old', type: 'Ticket' }
-      ],
-      javaCode: `
-        DAO notificationDAO = (DAO) x.get("notificationDAO");
-        Subject subject = (Subject) x.get("subject");
-        if (subject.getUser().getId() == getCreatedFor()) {
-          if ( getAssignedTo() != 0 ) {
-            Notification notification = new TicketNotification.Builder(x)
-              .setBody(this.COMMENT_NOTIFICATION+this.getId())
-              .setUserId(getAssignedTo())
-              .setSpid(getSpid())
-              .setTicket(this.getId())
-              .build();
-            try {
-              findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
-            } catch (NullPointerException e) {
-              notificationDAO.put_(x, notification);
-            }
-          } else if ( ! SafetyUtil.isEmpty(getAssignedToGroup()) ){
-            Notification notification = new TicketNotification.Builder(x)
-              .setBody(this.COMMENT_NOTIFICATION+this.getId())
-              .setGroupId(getAssignedToGroup())
-              .setSpid(getSpid())
-              .setTicket(this.getId())
-              .build();
-            notificationDAO.put(notification);
-          }
-        } else if ( getCreatedFor() != 0 ){
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION+this.getId())
-            .setUserId(getCreatedFor())
-            .setSpid(getSpid())
-            .setTicket(this.getId())
-            .build();
-          try {
-            findAssignedTo(new Session.Builder(x).setUserId(getCreatedFor()).build().applyTo(x)).doNotify(x, notification);
-          } catch (NullPointerException e) {
-            notificationDAO.put_(x, notification);
-          }
-        }
-      `
-    },
-    {
-      name: 'createCommentNotification',
-      args: [
-        { name: 'x', type: 'Context' },
-        { name: 'old', type: 'Ticket' }
-      ],
-      javaCode: `
-        DAO notificationDAO = (DAO) x.get("notificationDAO");
-        if ( getAssignedTo() != 0 ) {
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION)
-            .setUserId(getAssignedTo())
-            .setSpid(getSpid())
-            .setTicket(this.getId())
-            .build();
-          try {
-            findAssignedTo(new Session.Builder(x).setUserId(getAssignedTo()).build().applyTo(x)).doNotify(x, notification);
-          } catch (NullPointerException e) {
-            notificationDAO.put_(x, notification);
-          }
-        } else if ( ! SafetyUtil.isEmpty(getAssignedToGroup()) ){
-          Notification notification = new TicketNotification.Builder(x)
-            .setBody(this.COMMENT_NOTIFICATION)
-            .setGroupId(getAssignedToGroup())
-            .setSpid(getSpid())
-            .setTicket(this.getId())
-            .build();
-          notificationDAO.put(notification);
-        }
       `
     },
     {

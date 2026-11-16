@@ -35,7 +35,7 @@ Keeping those meanings apart is what makes `gzip foo.3` safe to run by hand: com
 
 A half-written file is always **derived data** -- a snapshot is a rewrite of state that still exists in the generations it was going to supersede, so deleting it loses nothing. A tail file is the opposite: the only copy of its writes, and never `.tmp`. That invariant is what makes "just throw it out" correct rather than merely convenient.
 
-`JournalGenerations` skips `.tmp` by an explicit rule rather than as a side effect of parsing (`JournalGenerations.java:101`), so the intent survives a change to the parsing.
+`JournalGenerations` skips `.tmp` by an explicit rule rather than as a side effect of parsing (`JournalGenerations.java:108`), so the intent survives a change to the parsing.
 
 ---
 
@@ -53,9 +53,9 @@ Later entries win, so the order is the whole point: the live journal must apply 
 
 A generation appears in one of three forms and replays the same way in each: `foo.N` as `roll` leaves it, `foo.N.gz` if compressed by hand, `foo.N.snap.gz` if written by compaction. Ordering is by generation number, so the form never changes where it replays.
 
-The generation list is derived at boot by listing the directory (`JournalGenerations.java:138`). Generation 0 is not in it -- it is a jar resource read through `Storage`, and a dev tree without a resource jar has it on disk too, where counting it would replay it twice (`JournalGenerations.java:120`).
+The generation list is derived at boot by listing the directory (`JournalGenerations.java:76`). Generation 0 is not in it -- it is a jar resource read through `Storage`, and a dev tree without a resource jar has it on disk too, where counting it would replay it twice (`JournalGenerations.java:124-127`).
 
-`runtimeOnly` skips everything but the live journal (`JDAO.js:133-137`); Medusa uses it to bootstrap from existing data.
+`runtimeOnly` skips everything but the live journal (`JDAO.js:149-153`); Medusa uses it to bootstrap from existing data.
 
 ### `foo.0` is immutable, and not by convention
 
@@ -65,7 +65,7 @@ With `-Dresource.journals.dir` set, `Storage` resolves to a `ResourceStorage` (`
 
 ## Rolling
 
-`roll` freezes the live journal as the next generation and starts a fresh one (`AbstractF3FileJournal.js:666`). It is reached by sending a `FileRollCmd` through the DAO.
+`roll` freezes the live journal as the next generation and starts a fresh one (`AbstractF3FileJournal.js:701`). It is reached by sending a `FileRollCmd` through the DAO.
 
 ```
 1. flush and close the writer
@@ -73,9 +73,9 @@ With `-Dresource.journals.dir` set, `Storage` resolves to a `ResourceStorage` (`
 3. clear the cached writer, so the next write opens a fresh foo
 ```
 
-**It runs as a job on the journal's own assembly line** (`AbstractF3FileJournal.js:690`). Every `put` and `remove` already passes through `getLine()`, a `SyncAssemblyLine`, so the cutover is ordered against them by construction: writes enqueued before it have written their bytes, writes after it open the new file. **Nothing is blocked** -- not writes, not reads -- and no caller has to pause traffic first.
+**It runs as a job on the journal's own assembly line** (`AbstractF3FileJournal.js:725`). Every `put` and `remove` already passes through `getLine()`, a `SyncAssemblyLine`, so the cutover is ordered against them by construction: writes enqueued before it have written their bytes, writes after it open the new file. **Nothing is blocked** -- not writes, not reads -- and no caller has to pause traffic first.
 
-That ordering is also what makes a rename safe. The usual objection -- that a rename moves only the inode, leaving the VM writing into the renamed file -- applies to a writer left open across it. Here the writer is closed first and the cached one cleared after (`AbstractF3FileJournal.js:704`).
+That ordering is also what makes a rename safe. The usual objection -- that a rename moves only the inode, leaving the VM writing into the renamed file -- applies to a writer left open across it. Here the writer is closed first and the cached one cleared after (`AbstractF3FileJournal.js:747`).
 
 **A rename moves no data**, so a cutover costs the same whether the journal is a megabyte or a hundred gigabytes.
 
@@ -93,7 +93,7 @@ This is safe on a live system. It was not always -- `roll` used to require its c
 
 ### Choosing N
 
-`JournalGenerations` lists the directory, classifies each name, and returns the highest generation plus one (`JournalGenerations.java:163`). Because the classification understands `.gz` and `.snap.gz`, a compressed generation still occupies its number and cannot be silently overwritten. A `.tmp` left by a failed attempt is *not* counted, so its number is reused and the stale file written over.
+`JournalGenerations` lists the directory, classifies each name, and returns the highest generation plus one (`JournalGenerations.java:175`). Because the classification understands `.gz` and `.snap.gz`, a compressed generation still occupies its number and cannot be silently overwritten. A `.tmp` left by a failed attempt is *not* counted, so its number is reused and the stale file written over.
 
 **N ascends chronologically.** `foo.1` is the oldest generation, not the newest.
 
@@ -104,16 +104,16 @@ This is safe on a live system. It was not always -- `roll` used to require its c
 Compaction rolls, then rewrites every object from the MDAO into a **new snapshot file** -- not into the live journal.
 
 ```
-1. roll            foo -> foo.5, fresh foo for live traffic   Compactor.js:94
-2. snapshot        MDAO select, written to foo.5.snap.gz.tmp  Compactor.js:157
-3. commit          close (writes the gzip trailer), rename    Compactor.js:267
-4. clean up        delete generations <= 5                    Compactor.js:279
+1. roll            foo -> foo.5, fresh foo for live traffic   Compactor.js:117
+2. snapshot        MDAO select, written to foo.5.snap.gz.tmp  Compactor.js:219
+3. commit          close (writes the gzip trailer), rename    Compactor.js:314
+4. clean up        delete generations <= 5                    Compactor.js:331
 ```
 
 It is driven by the JDAO that owns the journal: a `CompactionCmd` sent down the
-DAO stack is handled there (`JDAO.js:261-262`), and the JDAO hands itself to the
+DAO stack is handled there (`JDAO.js:263-264`), and the JDAO hands itself to the
 `Compactor`. That is what makes it partition-safe -- a `PartitionedDAO` forwards
-the command to each partition (`PartitionedDAO.java:158`) and every journal
+the command to each partition (`PartitionedDAO.java:176`) and every journal
 compacts its own data, instead of an orchestrator searching the stack and
 finding one of many.
 
@@ -152,16 +152,16 @@ The middle row is why `.snap.gz` has to mean *complete*. Replaying a superseded 
 
 3. **A compressed *live* journal cannot work.** Write-side gzip needs the stream closed to emit its trailer, and a live journal is flushed and never closed (see the `gzip` property). It is for write-once files such as snapshots.
 
-4. **`Storage` is not `FileSystemStorage`.** Anything in the runtime directory must be reached through `FileSystemStorage`; `Storage` is the jar's `ResourceStorage` wherever `.0` journals ship as resources, and it cannot open a `File` at all (`ResourceStorage.java:74-76`). `JDAO` builds the live and generation journals on a context with `Storage` swapped (`JDAO.js:112`).
+4. **`Storage` is not `FileSystemStorage`.** Anything in the runtime directory must be reached through `FileSystemStorage`; `Storage` is the jar's `ResourceStorage` wherever `.0` journals ship as resources, and it cannot open a `File` at all (`ResourceStorage.java:74-76`). `JDAO` builds the live and generation journals on a context with `Storage` swapped (`JDAO.js:128`).
 
-5. **A journal path that resolves to a directory is skipped**, not replayed (`F3FileJournal.js:80`).
+5. **A journal path that resolves to a directory is skipped**, not replayed (`F3FileJournal.js:105`).
 
 ---
 
 ## Partitioned journals
 
 A `PartitionedDAO` gives every partition its own **directory**, with the journal
-inside it under the fixed name `journal` (`PartitionedDAO.java:206-215`). So the
+inside it under the fixed name `journal` (`PartitionedDAO.java:261-269`). So the
 whole file set above repeats per partition:
 
 ```
@@ -179,7 +179,7 @@ Chained levels build their child's directory from the same method, so every
 level is the same shape (`cmp/1/202401/journal`).
 
 Partition discovery is then just "the entries that are directories"
-(`PartitionedDAO.java:350-356`). Compaction reaches each one because
+(`PartitionedDAO.java:425-431`). Compaction reaches each one because
 `CompactionCmd` is forwarded per partition, and each partition's JDAO compacts
 its own journal.
 

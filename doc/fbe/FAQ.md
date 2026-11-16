@@ -16,7 +16,7 @@ This FAQ addresses questions in several categories:
 |----------|--------|
 | **Core Concepts** | Classes, packages, types, axioms |
 | **Properties** | Slots, precedence, cloning, references |
-| **Views** | ViewSpecs, Element lifecycle, start() arguments |
+| **Views** | ViewSpecs, start() arguments |
 | **Services** | Client/server architecture, stubs, skeletons |
 | **Data** | DAOs, sinks, journals, freezable objects |
 | **Configuration** | CSpec, flags, service initialization |
@@ -40,7 +40,7 @@ log(t.P1.name, t.P2.name);
 
 // You can also describe them:
 log("Method CODE property constant:", foam.lang.Method.CODE);
-foam.lang.Method.CODE.describe;
+foam.lang.Method.CODE.describe();
 </example>
 
 ---
@@ -139,11 +139,10 @@ Some FOAM models are intended only for specific platforms, and the <term term="f
 | `flags: ['swift']` | Only for Swift generation |
 | `flags: ['debug']` | Only load in debug mode (default) |
 
-In your HTML file, customize flags by setting `FOAM_FLAGS` before loading FOAM:
+In your HTML file, customize flags with a `flags` attribute on the script tag that loads FOAM (prefix a flag with `-` to turn it off), or with URL parameters such as `?debug=false`:
 
 ```html
-<script>FOAM_FLAGS = {debug: false};</script>
-<script language="javascript" src="../../../foam.js"></script>
+<script language="javascript" src="../../../foam.js" flags="-debug"></script>
 ```
 
 The set of flags isn't fixed — you can create your own for your own purposes.
@@ -255,7 +254,7 @@ add('find: ').add(rt.province1$find);
 
 Calling `slot.clear()` is the same as setting the associated property to `undefined` or calling `clearProperty()` on the owning object. In all three cases, it reverts the property to its initial value.
 
-The initial value is determined by (in order of precedence): `value:`, `factory:`, or `expression:`.
+The initial value is determined by (in order of precedence): `factory:`, `expression:`, or `value:`.
 
 <example id="slot-clear">
 foam.CLASS({
@@ -420,20 +419,6 @@ foam.CLASS({
 var t = Test.create({p1: 2, p2: 2});
 log(`p1: ${t.p1}, p2: ${t.p2}, p3: ${t.p3}, p4: ${t.p4}, p5: ${t.p5}, p6: ${t.p6}`);
 </example>
-
----
-
-## Mutation Not Allowed
-
-**Q: What does "Mutation is not allowed in output state" mean?**
-
-In U2, Elements have a lifecycle: INITIAL → OUTPUT → LOADED → UNLOADED.
-
-When an element is OUTPUT but not yet LOADED, it can't be modified — attempting to do so produces this error. U2 loads elements immediately after outputting them, so this typically happens when an element throws an exception in its `render()` method.
-
-**Solution:** Add a try-catch block to your offending element to find the unexpected exception.
-
-**Note:** U3 (U2's replacement) eliminates states entirely, making this error impossible.
 
 ---
 
@@ -612,8 +597,6 @@ sign(false);
 
 > **Note:** `render()` was previously called `initE()`.
 
-In U2, Borders need to use `init()` instead of `render()`, but in U3 both use `render()`.
-
 <example id="init-render">
 foam.CLASS({
   name: 'Test',
@@ -667,7 +650,7 @@ This is a **Client Stub**. It implements an interface by converting method calls
 "client": "{\"of\": \"foam.core.auth.GroupPermissionJunction\"}"
 ```
 
-This doesn't supply `class` because the default for DAO services is `foam.dao.ClientDAO`.
+This doesn't supply `class` because the default for DAO services is `foam.dao.EasyDAO`, set up as a cached client DAO (`daoType: 'CLIENT'`, `cache: true`). Only `of` is required.
 
 ---
 
@@ -757,7 +740,7 @@ for ( int i = 0; i < sink.getArray().size(); i++ ) {
 dao.select(new AbstractSink() {
   public void put(Object o, Detachable d) {
     SomeObject obj = (SomeObject) o;
-    if ( o.something() ) d.detach();
+    if ( obj.something() ) d.detach();
   }
 });
 ```
@@ -797,8 +780,8 @@ FOAM models are collections of <term term="axioms"></term>. Properties, methods,
 
 | Type | Extension | Purpose |
 |------|-----------|---------|
-| Static | `.0` | Initial configuration shipped with the system, combined from `.jrl` files |
-| Runtime | `.jrl` | Data created/modified/deleted after deployment |
+| Static | `<name>.0` | Initial configuration shipped with the system, combined from the repo's `.jrl` files |
+| Runtime | `<name>` (no extension) | Data created/modified/deleted after deployment |
 
 The system state is determined by applying static journals first, then runtime journals.
 
@@ -810,7 +793,7 @@ The system state is determined by applying static journals first, then runtime j
 
 Everything defined on a model is an <term term="axiom"></term> — methods, properties, listeners, refines, imports, etc. There's no notable difference between defining an axiom in a model directly or adding it to the axioms array — the build process instantiates the model and builds it up either way.
 
-See the [axiom documentation](https://github.com/kgrgreer/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/Boot.js#L79): "Axioms can be added either during the initial creation of a class and prototype, or anytime after."
+See the [axiom documentation](https://github.com/foam-foundation/foam3/blob/5ceaacfa6abf370cfb08f31cc7c24fc2f44197fe/src/foam/lang/Boot.js#L79): "Axioms can be added either during the initial creation of a class and prototype, or anytime after."
 
 ---
 
@@ -898,6 +881,7 @@ Most DAOs have both local and non-local versions (e.g., `accountDAO`/`localAccou
     .setInnerDAO(x.get("localUserDAO"))
     .setOf(foam.core.auth.User.getOwnClassInfo())
     .setPermissioned(true)
+    .build();
 """
 ```
 
@@ -937,6 +921,4 @@ The "local" name comes from being accessed only "locally" — from the server. I
   <def term="Freezable" definition="Interface for making objects immutable after being stored in a DAO."></def>
   <def term="CSpec" definition="Configuration specification for FOAM services, defining how they're created and initialized."></def>
   <def term="javaCode" definition="Model property for adding extra Java code to generated classes. Formerly javaExtras."></def>
-  <def term="U2" definition="FOAM's reactive UI framework. Elements have lifecycle states: INITIAL → OUTPUT → LOADED → UNLOADED."></def>
-  <def term="U3" definition="U2's replacement that eliminates lifecycle states and simplifies view development."></def>
 </glossary>

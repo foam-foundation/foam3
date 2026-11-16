@@ -8,7 +8,10 @@ foam.INTERFACE({
   package: 'foam.mlang.predicate',
   name: 'Predicate',
 
-  implements: [ 'foam.dao.SQLStatement' ],
+  implements: [
+    'foam.dao.SQLStatement',
+    'foam.mlang.PropertyAuthorizable'
+  ],
 
   documentation: 'Predicate interface: f(obj) -> boolean.',
 
@@ -43,17 +46,6 @@ foam.INTERFACE({
       flags: ['js', 'java'],
       javaSupport: false,
       type: 'foam.mlang.predicate.Predicate',
-    },
-    {
-      name: 'authorize',
-      flags: [ 'java' ],
-      type: 'Void',
-      args: [
-        {
-          name: 'x',
-          type: 'Context'
-        }
-      ]
     }
   ]
 });

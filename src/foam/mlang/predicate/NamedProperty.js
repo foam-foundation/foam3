@@ -117,6 +117,16 @@ foam.CLASS({
         return null;
       `
     },
+    {
+      name: 'authorize',
+      javaCode: `
+        // A property named by string, such as "salary", only resolves to its
+        // PropertyInfo once the class is known. An unknown name resolves to
+        // null and reads nothing, so it has nothing to check.
+        Expr prop = specialization(of);
+        if ( prop != null ) prop.authorize(x, of);
+      `
+    },
     function toString() {
       return this.propName;
     }

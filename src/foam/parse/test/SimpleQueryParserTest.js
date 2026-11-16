@@ -18,9 +18,9 @@ foam.CLASS({
       };
       let testToday = (inc) => {
         let d     = new Date();
-        let year  = d.getFullYear();
-        let month = d.getMonth();
-        let date  = d.getDate();
+        let year  = d.getUTCFullYear();
+        let month = d.getUTCMonth();
+        let date  = d.getUTCDate();
         date += inc;
         return testDate([year, month, date, 12]);
       };
@@ -116,6 +116,12 @@ foam.CLASS({
       x.test(this.isValidSymbol('date', 'TODAY+5', [testToday(5), testToday(6)].toString()), 'Date Test4: TODAY+5');
       x.test(this.isValidSymbol('date', 'TODAY-2', [testToday(-2), testToday(-1)].toString()), 'Date Test5: TODAY-2');
 
+      // A record created right now must match a DateTime search ending at
+      // TODAY, in any browser timezone and at any hour.
+      let now       = new Date();
+      let todayTime = this.SimpleQueryParser.create({of: foam.core.auth.User}).parseString('TODAY', 'datetime');
+      x.test(todayTime[0] <= now && now < todayTime[1], 'Date Test5b: DateTime TODAY contains the current time');
+
       // Date symbol tests with different time components
       // 1. Add hours
       x.test(this.isValidSymbol(
@@ -210,7 +216,9 @@ foam.CLASS({
       x.test(this.isValid('id NOT IN (6,7,8)', 'NOT(IN(foam.core.auth.User.id, [6, 7, 8]))'), 'Number Test14: The id does not exactly match any of the listed values');
 
       // Number combined properties tests
-      x.test(this.isValid("id=16 AND id<9", "False"), "Number Test15: The id equal to the value and less than a smaller value gets partialEvaled to False");
+      // EQ only reduces against another EQ, so EQ AND LT stays unreduced even
+      // when, as here, no id can satisfy both.
+      x.test(this.isValid("id=16 AND id<9", "AND(EQ(foam.core.auth.User.id, 16),LT(foam.core.auth.User.id, 9))"), "Number Test15: The id equal to the value and less than a smaller value");
       x.test(this.isValid("id>9 AND id<16", "AND(GT(foam.core.auth.User.id, 9),LT(foam.core.auth.User.id, 16))"), "Number Test16: The id greater than a value and less than another value");
       x.test(this.isValid("id=18 OR id<9", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 9))'), "Number Test17: The id equal to the value or less than another value");
 
@@ -226,7 +234,7 @@ foam.CLASS({
 
       // Parentheses tests
       x.test(this.isValid("( id = 6 )", "EQ(foam.core.auth.User.id, 6)"), "Parentheses Test1: The id equal to the value with parentheses");
-      x.test(this.isValid(" (id=17 AND id<9) ", "False"), "Parentheses Test2: The id equal to the value and less than a smaller value with parentheses and is partialEvaled to False");
+      x.test(this.isValid(" (id=17 AND id<9) ", "AND(EQ(foam.core.auth.User.id, 17),LT(foam.core.auth.User.id, 9))"), "Parentheses Test2: The id equal to the value and less than a smaller value with parentheses");
       x.test(this.isValid(" (id>9 AND id<17) ", "AND(GT(foam.core.auth.User.id, 9),LT(foam.core.auth.User.id, 17))"), "Parentheses Test3: The id greater than a value and less than another value with parentheses");
       x.test(this.isValid(" (id=18 OR id<10) ", 'OR(EQ(foam.core.auth.User.id, 18),LT(foam.core.auth.User.id, 10))'), "Parentheses Test4: The id equal to the value or less than another value with parentheses");
       x.test(this.isValid(" NOT id=17 AND loginEnabled IS TRUE", "AND(NEQ(foam.core.auth.User.id, 17),EQ(foam.core.auth.User.loginEnabled, true))"), "Parentheses Test5: Negate the id equal to the value and login enabled is true with parentheses");

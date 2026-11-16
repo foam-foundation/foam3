@@ -11,6 +11,7 @@
 | Override handling | Inserts a new level in the class's `axiomMap_` so overridden properties see the correct super-property | No special handling; installs axioms directly |
 | Property installation | Skips installing properties already present on the class | Installs all own axioms unconditionally |
 | Error handling | Throws if the interface/mixin does not exist | Warns if the mixin does not exist but continues |
+| `isInstance` / `isSubClass` | Adds an axiom named `implements_<path>`, so `X.isInstance(obj)` and `X.isSubClass(cls)` are true | Adds an axiom named `mixin_<path>`, so `X.isInstance(obj)` and `X.isSubClass(cls)` stay false |
 ## Code Examples
 ### Using `implements:`
 ```javascript
@@ -36,7 +37,7 @@ foam.CLASS({
 - Use `mixins:` for straightforward composition of axioms without concern for override edge cases.
 ## Notes
 - Both are axioms in FOAM's model system.
-- `implements:` can also be used for pure interfaces (properties without implementation), while `mixins:` always copies all axioms.
+- `implements:` can also be used for pure interfaces (methods without implementation), while `mixins:` always copies all axioms.
 - The `Implements` axiom has higher priority (200) than `Mixin` (19), affecting installation order.
 Wiki pages you might want to explore:
 - [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)

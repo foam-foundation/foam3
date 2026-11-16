@@ -26,6 +26,7 @@ foam.POM({
     { name: "sink/Sequence",                        flags: "js|java" },
     { name: "sink/NullSink",                        flags: "js|java" },
     { name: "F",                                    flags: "js|java" },
+    { name: "PropertyAuthorizable",                 flags: "js|java" },
     { name: "Expr",                                 flags: "js|java" },
     { name: "ExprProperty",                         flags: "js|java" },
     { name: "ExprArrayProperty",                    flags: "js|java" },

@@ -111,6 +111,9 @@ public class PartitionedDAO
       if ( dao == null ) {
         if ( ref != null )
           Loggers.logger(getX(), this).info("This DAO Partition was garbage collected. A new DAO will be created and cached:", part);
+        // Replay as the system user, not as whichever user's request triggered the load.
+        X callerX = ((ProxyX) XLocator.get()).getX();
+        XLocator.set(getX());
         loadingStarted(part);
         try {
           dao = createDAO(part);
@@ -119,6 +122,7 @@ public class PartitionedDAO
           }
         } finally {
           loadingEnded(part);
+          XLocator.set(callerX);
         }
       }
 
@@ -147,6 +151,15 @@ public class PartitionedDAO
     Loggers.logger(getX(), this).info("Unloading all partitions.", getDirName());
     synchronized ( delegates_ ) {
       delegates_.clear();
+    }
+  }
+
+  /** Drop one partition's cached delegate, so the memory its journal took
+      can be reclaimed; the next access replays the journal again. Same
+      caveat as unload(): only for a partition no writer is using. */
+  public void unload(String part) {
+    synchronized ( delegates_ ) {
+      delegates_.remove(part == null ? NO_PART : part);
     }
   }
 
@@ -407,27 +420,11 @@ public class PartitionedDAO
       that are directories are the partitions and their names are the partition
       values. Nothing has to be parsed. */
   public String[] getPartitions() {
-    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
-    String  dirName = getDirName();
-    File[]  entries;
-    String  prefix  = "";
+    File dir = partitionRoot();
+    if ( dir == null ) return new String[0];
 
-    if ( dirName.endsWith("/") ) {
-      // dirName owns its directory, so every entry in it is one of ours.
-      File dir = storage.get(dirName);
-      if ( dir == null || ! dir.isDirectory() ) return new String[0];
-      entries = dir.listFiles();
-    } else {
-      // A flat dirName shares its parent with unrelated journals, so only
-      // entries carrying its basename as a prefix are ours.
-      File probe = storage.get(dirName);
-      File dir   = probe == null ? null : probe.getParentFile();
-      if ( dir == null || ! dir.isDirectory() ) return new String[0];
-      prefix = probe.getName();
-      final String p = prefix;
-      entries = dir.listFiles((d, name) -> name.startsWith(p));
-    }
-
+    String prefix  = partitionPrefix();
+    File[] entries = dir.listFiles((d, name) -> name.startsWith(prefix));
     if ( entries == null ) return new String[0];
 
     Set<String> names = new HashSet<>();
@@ -443,6 +440,25 @@ public class PartitionedDAO
     }
 
     return parts.toArray(new String[0]);
+  }
+
+  /** The directory holding this DAO's partitions, or null when it does not
+      exist yet. A dirName ending in "/" owns its directory, so every entry in
+      it is one of ours. A flat dirName such as "tx" shares its parent with
+      unrelated journals, so only entries named "tx<part>" are ours, and
+      partitionPrefix() returns "tx". */
+  protected File partitionRoot() {
+    Storage storage = (Storage) getX().get(foam.core.fs.FileSystemStorage.class);
+    File    probe   = storage.get(getDirName());
+    File    dir     = probe == null || getDirName().endsWith("/") ? probe : probe.getParentFile();
+    return dir != null && dir.isDirectory() ? dir : null;
+  }
+
+  /** The text every partition entry in partitionRoot() starts with: empty
+      when dirName owns its directory, else dirName's basename. */
+  protected String partitionPrefix() {
+    String dirName = getDirName();
+    return dirName.endsWith("/") ? "" : dirName.substring(dirName.lastIndexOf('/') + 1);
   }
 
   /** The partitions a select has to visit: every one of them when the

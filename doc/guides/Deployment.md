@@ -37,7 +37,7 @@ Once a tar ball is prepared, it can be uploaded and the application installed
 
 ## JVM Memory
 
-JVM Memory configuration defaults to `-Xms2048m` and `-Xmx4096`. 
+JVM Memory configuration defaults to `-Xms2048m` and `-Xmx4096m`. 
 
 These properties can be overridden after first deployment by adding them to:
 
@@ -60,7 +60,7 @@ Other JVM options, such as Garbage Collection, are defined in:
 
 To override add to 
 
-    /opt/name/conf/shrc.local
+    /opt/name/conf/shrc.custom
 
 ## Remote Monitoring / Health
 
@@ -100,7 +100,7 @@ Each instance sends a UDP heartbeat via multicast broadcast, and each instance l
 
 The heartbeat UDP packet is sent, by default, to multicast address 230.22.41.0 and port 52241.  This address and port must be open on firewalls between instances which use this type of monitoring.
 
-The heartbeat broadcast and monitoring system is **disabled** by default.  To **enable**, create `services.jrl` entries at the application deployment level, enabling both `healthSupport` and `healthHeartbeatService`: 
+The heartbeat broadcast and monitoring system is **disabled** by default.  To **enable**, create `services.jrl` entries at the application deployment level, enabling both `healthHeartbeatService` and `healthHeartbeatMonitor`: 
 
 ```
 p({

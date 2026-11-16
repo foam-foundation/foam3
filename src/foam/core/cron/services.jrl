@@ -70,7 +70,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.ScriptEvent.OWNER })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.ScriptEvent.LAST_RUN });
   """,
-  "client":"{\"of\":\"foam.core.script.ScriptEvent\"}"
+  "client":"""{"of":"foam.core.script.ScriptEvent"}"""
 })
 
 p({
@@ -108,7 +108,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.Script.LAST_RUN })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.Script.ENABLED });
   """,
-  "client":"{\"of\":\"foam.core.cron.Schedulable\"}"
+  "client":"""{"of":"foam.core.cron.Schedulable"}"""
 })
 
 p({
@@ -137,7 +137,7 @@ p({
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.ScriptEvent.OWNER })
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.script.ScriptEvent.LAST_RUN });
   """,
-  "client":"{\"of\":\"foam.core.script.ScriptEvent\"}"
+  "client":"""{"of":"foam.core.script.ScriptEvent"}"""
 })
 
 p({

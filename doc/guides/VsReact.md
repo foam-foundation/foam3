@@ -2,11 +2,11 @@
 
 ## Overview
 
-You're asking about FOAM (Feature Oriented Active Modeller), a modeling framework and class-based object system that can generate code for multiple platforms [1](#0-0) , versus React, a popular JavaScript UI library. While both can build web applications, they represent fundamentally different architectural approaches.
+You're asking about FOAM (Feature Oriented Active Modeller), a modeling framework and class-based object system that can generate code for multiple platforms, versus React, a popular JavaScript UI library. While both can build web applications, they represent fundamentally different architectural approaches.
 
 ## Core Philosophy
 
-**FOAM** is a **model-driven framework** where you define classes with properties, methods, actions, and axioms, and FOAM generates the necessary code and features [2](#0-1) . It's designed for cross-language code generation, supporting JavaScript, Java, and Swift [3](#0-2) .
+**FOAM** is a **model-driven framework** where you define classes with properties, methods, actions, and axioms, and FOAM generates the necessary code and features. It's designed for cross-language code generation, supporting JavaScript, Java, and Swift.
 
 **React** is a **component-based UI library** focused on building user interfaces through composable components with a virtual DOM reconciliation system. It's JavaScript-specific and primarily concerned with view rendering.
 
@@ -14,7 +14,7 @@ You're asking about FOAM (Feature Oriented Active Modeller), a modeling framewor
 
 ### FOAM's Approach
 
-FOAM uses a comprehensive class system with declarative models [4](#0-3) :
+FOAM uses a comprehensive class system with declarative models:
 
 ```javascript
 foam.CLASS({
@@ -28,8 +28,8 @@ foam.CLASS({
 ```
 
 Key architectural features:
-- **Context-based dependency injection** through `imports`/`exports` [5](#0-4)
-- **Class dependencies** via `requires` [6](#0-5)
+- **Context-based dependency injection** through `imports`/`exports`
+- **Class dependencies** via `requires`
 - **Reactive properties** with automatic change propagation
 - **Built-in data layer** with DAOs (Data Access Objects)
 
@@ -53,17 +53,17 @@ Key features:
 ## Dependency Management
 
 **FOAM** has a sophisticated two-tier system:
-- `requires:` for class dependencies (like imports in other languages) [6](#0-5)
-- `imports:` for runtime dependency injection of services [7](#0-6)
+- `requires:` for class dependencies (like imports in other languages)
+- `imports:` for runtime dependency injection of services
 
 **React** uses standard JavaScript imports and Context API or external libraries (Redux, MobX) for dependency injection.
 
 ## UI Component System
 
-**FOAM's U2 system** (seen in `foam.u2.View`) [8](#0-7)  provides:
+**FOAM's U2 system** (seen in `foam.u2.View`) provides:
 - Declarative view construction with method chaining
 - Built-in form generation from models
-- Section-based detail views [9](#0-8)
+- Section-based detail views
 - Automatic property-to-UI binding
 
 **React** requires:
@@ -77,13 +77,13 @@ Key features:
 - Built-in DAO system for CRUD operations
 - Query language and filtering
 - Automatic persistence layer
-- Network marshaling [2](#0-1)
+- Network marshaling
 
 **React** is view-only and requires external solutions (REST APIs, GraphQL, state management libraries).
 
 ## Code Generation vs Runtime
 
-**FOAM** generates code at build time, creating optimized classes with features like:
+**FOAM** builds JavaScript classes from models at runtime and generates Java at build time, creating classes with features like:
 - Database support
 - Network serialization
 - Validation
@@ -119,7 +119,7 @@ Key features:
 
 ## Notes
 
-FOAM is a full-stack framework with its own paradigms for modeling, data access, and UI construction, while React is specifically a UI library that requires additional tools for a complete application. FOAM's model-driven approach provides more built-in functionality but requires learning FOAM-specific concepts, whereas React's component model is more familiar to JavaScript developers but requires assembling multiple libraries for full application functionality<cite />.
+FOAM is a full-stack framework with its own paradigms for modeling, data access, and UI construction, while React is specifically a UI library that requires additional tools for a complete application. FOAM's model-driven approach provides more built-in functionality but requires learning FOAM-specific concepts, whereas React's component model is more familiar to JavaScript developers but requires assembling multiple libraries for full application functionality.
 
 Wiki pages you might want to explore:
 - [Detail Views and Form System (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#4.4)
@@ -127,7 +127,7 @@ Wiki pages you might want to explore:
 
 ### Citations
 
-**File:** README.md (L20-29)
+**File:** README.md (L27-36)
 ```markdown
 ## Feature Oriented Active Modeller
 
@@ -141,8 +141,8 @@ While FOAM is written in JavaScript, it can be used to generate code
 for any language or platform, including Android Java and iOS Swift.
 ```
 
-**File:** doc/guides/cheat-sheet.md (L38-77)
-```markdown
+**File:** doc/guides/cheat-sheet.md (L40-80)
+````markdown
 Model/class definition:
 ```javascript
 foam.CLASS({
@@ -154,7 +154,7 @@ foam.CLASS({
     'com.google.project.MyFirstSecondTrait'
   ],
   requires: [
-    'foam.ui.DetailView',
+    'foam.u2.detail.SectionedDetailView',
     'com.google.project.MyOtherModel'
   ],
   imports: ['myOtherModelExportedProperty'],
@@ -183,7 +183,7 @@ foam.CLASS({
     …
   ]
 });
-```
+````
 
 **File:** src/foam/lang/Context.js (L28-44)
 ```javascript
@@ -207,7 +207,7 @@ foam.CLASS({
 ```
 
 **File:** doc/guides/REQUIRES_VS_IMPORTS.md (L19-51)
-```markdown
+````markdown
 ## `requires:` - Class Dependencies
 
 ### Purpose
@@ -241,37 +241,9 @@ foam.CLASS({
 - The second argument to `create()` is either a context or an object whose `.subContext` is used
 - If you created `com.acme.Abc` directly you would need to manually pass `this` as the second argument, but `this.Abc.create()` adds it automatically
 - This automatic context passing is needed to support dependency injection and the import/export system
-```
+````
 
-**File:** doc/guides/REQUIRES_VS_IMPORTS.md (L451-474)
-```markdown
-  imports: [
-    'theme',         // Theming service
-    'userService'    // Business logic service
-  ],
-
-  requires: [
-    'foam.u2.Button',     // UI components
-    'foam.u2.TextField'
-  ],
-
-  methods: [
-    function render() {
-      this.add(this.TextField.create({
-        label: 'Username',
-        data$: this.data.username$
-      }));
-
-      this.add(this.Button.create({
-        label: 'Save',
-        action: () => this.userService.save(this.data)
-      }));
-    }
-  ]
-});
-```
-
-**File:** src/foam/core/reflow/DynamicReflowData.js (L8-18)
+**File:** src/foam/core/reflow/DynamicReflowData.js (L8-20)
 ```javascript
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -281,7 +253,9 @@ foam.CLASS({
   requires: [
     'foam.u2.UnderlinedTabs',
     'foam.u2.Tab',
+    'foam.u2.LoadingSpinner',
     'foam.core.boot.CSpec',
+    'foam.core.reflow.Flow',
     'foam.core.reflow.CommandItemView'
   ],
 ```
@@ -299,7 +273,7 @@ foam.CLASS({
   ],
 
   css:`
-    ^centered > * {
+    <<centered > * {
       align-self: center;
     }
   `,

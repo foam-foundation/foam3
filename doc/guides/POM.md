@@ -77,7 +77,7 @@ Flags can be set which will control which files are included and excluded.
 The top-most setFlags: takes precedence over lower-level setFlags: from
 sub-POMs. This allows the top-level POM to override sub-POM defaults.
 ```
-  setFlags: [ u3: true, sql: false ]
+  setFlags: { u3: true, sql: false }
 ```
 
 ### projects
@@ -117,10 +117,9 @@ defaultFlags: {
 }
 ```
 
-**`dev` is only set when running from source.** `foam.js` defaults `dev: true` for the browser (`src/foam.js:18`), but the build's own flag set (`src/foam_node.js:9-21`) has no `dev`, and a test run only adds `test` to it (`tools/JavaTooling.js:631`). So, unless you pass `dev` in the build flags yourself, an entry flagged `dev&web` is left out of every built `foam-bin.js`, **including the one a client test runs against**, and the test cannot find the class. For a dev-only browser class that has a client test, use `dev&web|web&test`: source runs and test builds include it, a production build does not (live example: `foam/u2/ViewReloader` in `src/pom.js:620`).
+**`dev` is only set when running from source.** `foam.js` defaults `dev: true` for the browser (`src/foam.js:18`), but the build's own flag set (`src/foam_node.js:9-21`) has no `dev`, and a test run only adds `test` to it (`tools/JavaTooling.js:631`). So, unless you pass `dev` in the build flags yourself, an entry flagged `dev&web` is left out of every built `foam-bin.js`, **including the one a client test runs against**, and the test cannot find the class. For a dev-only browser class that has a client test, use `dev&web|web&test`: source runs and test builds include it, a production build does not (live example: `ViewReloader` in `src/foam/u2/pom.js:117`).
 
-When not running from a packaged foam-bin (ie. not including -u in your build command line)
-then you can specify flags on either the command-line or in the `script` tag that loads foam.js.
+When running from source rather than a packaged foam-bin, you can specify flags on either the command-line or in the `script` tag that loads foam.js.
 
 Allow flags to be set in loading script tag"
 Ex.: `<script language="javascript" src="../../../foam.js" flags="u3,-debug"></script>`
@@ -159,8 +158,7 @@ existing tasks and defining before and after tasks.
 
 ### JSLib
 
-Like adding a JSLib Axiom. Is read by POM() in foam.js in development mode and by the VirtualHostRoutingServlet when running from foam-bin.js.
-TODO: Add support to VirtualHostRoutingServlet for loading JSLibs.
+Like adding a JSLib Axiom. Is read by POM() in foam.js (`foam.loadJSLibs`) in development mode. It is not loaded when running from foam-bin.js.
 Warning: May be removed in famour of just using JSLib axioms in your models.
 Ex.:
 ```
@@ -221,9 +219,9 @@ foam.POM({
     { name: 'acme/src/someotherpackage/pom' }
   ],
   files: [
-    { name: "acme.app.Foo",  flags: "js" },
-    { name: "acme.app.Bar",  flags: "js|java" },
-    { name: "acme.app.Demo", flags: "demo&ava" }
+    { name: "acme/app/Foo",  flags: "js" },
+    { name: "acme/app/Bar",  flags: "js|java" },
+    { name: "acme/app/Demo", flags: "demo&java" }
   ],
   javaDependencies: [
     'commons-net:commons-net:3.6',

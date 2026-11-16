@@ -100,13 +100,10 @@ var guitarDAO = foam.dao.MDAO.create({ of: Guitar });
 
 ```js
 // IndexedDB DAO
-// guitarDAO = foam.dao.IDBDAO.create({model: Guitar});
-
-// Local-storage DAO
-// guitarDAO = foam.dao.StorageDAO.create({ model: Guitar });
+// guitarDAO = foam.dao.IDBDAO.create({ of: Guitar });
 
 // An IndexedDB DAO Cached in an in-memory DAO
-// guitarDAO = foam.dao.CachingDAO.create(foam.dao.MDAO.create({ of: Guitar }), foam.dao.IDBDAO.create({ of: Guitar }));
+// guitarDAO = foam.dao.CachingDAO.create({ cache: foam.dao.MDAO.create({ of: Guitar }), src: foam.dao.IDBDAO.create({ of: Guitar }) });
 
 // load the array of guitars into our memory database (MDAO)
 guitarDAO.bulkLoad(guitarArray);
@@ -116,7 +113,7 @@ guitarDAO.bulkLoad(guitarArray);
 // we declare mLang here, the foam "modelled language"
 // in simple terms, mlang is foam's own "SQL syntax"
 // it's used to filter and manipulate DAO operations.
-// https://github.com/foam-framework/foam3/blob/master/src/foam/mlang/mlang.js
+// see src/foam/mlang/Expressions.js
 var expr = foam.mlang.Expressions.create();
 ```
 
@@ -125,7 +122,7 @@ var expr = foam.mlang.Expressions.create();
 guitarDAO
 .select() 
 // when a "sink" function isn't provided, FOAM defaults it to an ArraySink
-// which puts the results in a "a" prop 
+// which puts the results in its "array" prop 
 .then(function(db) {
   console.log('count: ', db.array.length);
   console.log('count: ', db.array[0].price);
@@ -250,7 +247,7 @@ guitarDAO.select(expr.SUM(Guitar.PRICE))
 ```
 
 ```js
-// returns the most expensive guitar
+// returns the highest guitar price
 guitarDAO.select(expr.MAX(Guitar.PRICE))
 .then(function(g) {
   console.log(g.value);
@@ -258,7 +255,7 @@ guitarDAO.select(expr.MAX(Guitar.PRICE))
 ```
 
 ```js
-// returns the cheapest guitar
+// returns the lowest guitar price
 guitarDAO.select(expr.MIN(Guitar.PRICE))
 .then(function(g) {
   console.log(g.value);
@@ -281,5 +278,5 @@ var timing = foam.dao.TimingDAO.create({ name: 'guitar-timer', delegate: guitarD
 
 // time spent in a default ArraySink select()
 timing.select().then();
-// Timing:  timer-guitar-select   0.445  ms
+// Timing:  guitar-timer-select   0.445  ms
 ```

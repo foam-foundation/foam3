@@ -122,7 +122,7 @@ foam.CLASS({
   properties: [
     { class: 'Int',    name: 'total',     value: 0 },
     { class: 'Int',    name: 'totalAll',  value: 0 },
-    { class: 'String', name: 'colWidths_', value: '4% 27% 19% 42% 8%' },
+    { class: 'String', name: 'colWidths_', value: '3% 2% 3% 23% 17% 44% 8%' },
     {
       class: 'Int',
       name:  'gotoRow',
@@ -195,22 +195,32 @@ foam.CLASS({
               .on('mousedown', function(e) { self.startDrag_(e, 0); })
             .end()
           .end()
-          .start('div').add('Instruction')
+          .start('div').style({ 'text-align': 'center' }).add('✓')
             .start('div').addClass(this.myClass('resize-handle'))
               .on('mousedown', function(e) { self.startDrag_(e, 1); })
             .end()
           .end()
-          .start('div').add('Input')
+          .start('div').style({ 'text-align': 'center' }).add('Rel')
             .start('div').addClass(this.myClass('resize-handle'))
               .on('mousedown', function(e) { self.startDrag_(e, 2); })
             .end()
           .end()
-          .start('div').add('Output')
+          .start('div').add('Instruction')
             .start('div').addClass(this.myClass('resize-handle'))
-              .on('mousedown', function(e) { self.startDrag_(e, 3); })
+              .on('mousedown', function(e) { self.startDrag_(e, 2); })
             .end()
           .end()
-          .start('div').add('Actions').end()
+          .start('div').add('Input')
+            .start('div').addClass(this.myClass('resize-handle'))
+              .on('mousedown', function(e) { self.startDrag_(e, 4); })
+            .end()
+          .end()
+          .start('div').add('Output')
+            .start('div').addClass(this.myClass('resize-handle'))
+              .on('mousedown', function(e) { self.startDrag_(e, 5); })
+            .end()
+          .end()
+          .start('div').style({ 'text-align': 'center' }).add('Actions').end()
         .end()
         .tag(this.LazyScrollManager, {
           data$:       this.data$,
@@ -228,6 +238,12 @@ foam.CLASS({
             .startContext({ data: self })
               .add(self.GOTO_ROW)
             .endContext()
+            // postSet only fires when the value changes. If the user scrolled
+            // manually and then presses Enter to return to the row already in
+            // the field, postSet is silent. keydown catches that case.
+            .on('keydown', function(e) {
+              if ( e.key === 'Enter' && self.gotoRow >= 1 ) self.go();
+            })
           .end()
         .end()
         .add(scrollContainer);

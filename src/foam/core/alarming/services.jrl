@@ -14,7 +14,7 @@ p({
         .build())
       .build();
   """,
-  "client":"{\"of\":\"foam.core.alarming.AlarmConfig\"}"
+  "client":"""{"of":"foam.core.alarming.AlarmConfig"}"""
 })
 
 p({
@@ -31,7 +31,7 @@ p({
       .setRuler(true)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.alarming.MonitoringReport\"}"
+  "client":"""{"of":"foam.core.alarming.MonitoringReport"}"""
 })
 
 p({
@@ -79,7 +79,7 @@ p({
         .build())
       .build();
   `,
-  "client":"{\"of\":\"foam.core.alarming.Alarm\"}"
+  "client":"""{"of":"foam.core.alarming.Alarm"}"""
 })
 
 p({
@@ -93,7 +93,7 @@ p({
       .setCluster(false)
       .build();
     `
-  ,"client":"{\"of\":\"foam.core.alarming.OMName\"}"
+  ,"client":"""{"of":"foam.core.alarming.OMName"}"""
 })
 
 p({
@@ -110,5 +110,5 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.alarming.CandlestickAlarm.KEY });
   """,
-  "client":"{\"of\":\"foam.core.alarming.CandlestickAlarm\"}"
+  "client":"""{"of":"foam.core.alarming.CandlestickAlarm"}"""
 })

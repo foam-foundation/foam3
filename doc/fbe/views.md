@@ -14,13 +14,13 @@ Every FOAM property has a default view based on its type. You can override this 
 
 | Property Type | Default View | Common Alternatives |
 |---------------|--------------|---------------------|
-| String | TextField | TextArea, RadioView, ChoiceView |
+| String | StringView (a TextField when editable) | TextArea, RadioView, ChoiceView |
 | Boolean | CheckBox | RadioView |
 | Int/Float | IntView/FloatView | RangeView, ProgressView |
-| Enum | ChoiceView | RadioView |
+| Enum | EnumView (a ChoiceView when editable) | RadioView |
 | Date | DateView | DateTimeView |
 | Array | ArrayView | DAOList, TableView |
-| FObject | DetailView | FObjectView |
+| FObject | FObjectPropertyView | FObjectView, DetailView |
 
 ### View Configuration Patterns
 
@@ -429,7 +429,7 @@ FOAM provides several date/time property types with specialized views. The `onKe
 | Date | Date only | DateView (calendar picker) |
 | DateTime | Date and time | DateTimeView |
 | Time | Time only | TimeView |
-| Duration | Time span | DurationView |
+| Duration | Time span | IntView |
 
 <example id="dates-times">
 foam.CLASS({
@@ -787,7 +787,7 @@ foam.CLASS({
 ## Heading 2
 ### Heading 3
 
-[a link](https://github.com/kgrgreer/foam3)
+[a link](https://github.com/foam-foundation/foam3)
 
 normal _italics_ **bold** \`code\`
 \`\`\`
@@ -859,6 +859,8 @@ add(foam.u2.DetailView.create({data: data}));
 | SectionedDetailView | Groups properties into collapsible sections |
 | VerticalDetailView | Single-column stacked layout |
 
+`foam.u2.DetailView` is deprecated in favour of `SectionedDetailView` and `VerticalDetailView`. The examples in this document still use it because it shows every property in one simple form.
+
 ### DetailView Options
 
 | Option | Effect |
@@ -867,7 +869,7 @@ add(foam.u2.DetailView.create({data: data}));
 | `showActions: false` | Hide action buttons |
 | `mode: 'RO'` | Read-only display |
 | `mode: 'DISABLED'` | Disabled (greyed out) display |
-| `expandPropertyViews: true` | Expand sub-objects inline |
+| `expandPropertyViews: true` | Let property editors stretch to full width |
 
 <example id="detail-views">
 var data = foam.util.Timer.create();
@@ -888,20 +890,20 @@ start('h2').add('DetailView with showActions: false').end();
 add(foam.u2.DetailView.create({data: data, showActions: false}));
 tag('p');
 
-start('h2').add('DetailView with visibility: \'RO\'').end();
+start('h2').add('DetailView with mode: \'RO\'').end();
 add(foam.u2.DetailView.create({data: data, mode: 'RO'}));
 tag('p');
 
-start('h2').add('DetailView with visibility: \'DISABLED\'').end();
+start('h2').add('DetailView with mode: \'DISABLED\'').end();
 add(foam.u2.DetailView.create({data: data, mode: 'DISABLED'}));
 tag('p');
 
 start('h2').add('SectionedDetailView').end();
-add(foam.u2.detail.SectionedDetailView.create({data: data, title: 'SectionedDetailView'}));
+add(foam.u2.detail.SectionedDetailView.create({data: data}));
 tag('p');
 
 start('h2').add('VerticalDetailView').end();
-add(foam.u2.detail.VerticalDetailView.create({data: data, title: 'VerticalDetailView'}));
+add(foam.u2.detail.VerticalDetailView.create({data: data}));
 </example>
 
 ---
@@ -950,7 +952,7 @@ foam.CLASS({
   ]
 });
 
-tag(TextView.create({data: '<b>bold</b> <i>italic</i>'}));
+add(TextView.create({data: '<b>bold</b> <i>italic</i>'}));
 </example>
 
 ---
@@ -1085,7 +1087,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^ {
+    << {
       border: 1px solid $borderDefault;
       padding: 8px;
     }
@@ -1137,7 +1139,7 @@ When selecting views for your properties:
 
 - [FOAM CSS Tokens By Example](be:CSSTokens) — Styling views with tokens
 - [FOAM Validation By Example](be:validation) — Property validation in views
-- [U2 Element documentation](u2.md) — Low-level view building
+- [FOAM U3 By Example](be:u3) — Low-level view building
 
 <glossary>
   <def term="ViewSpec" definition="A specification for creating a view, either a class name string or an object with class and configuration properties."></def>

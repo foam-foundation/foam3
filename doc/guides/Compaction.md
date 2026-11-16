@@ -46,7 +46,7 @@ Compaction follows a five-step process:
 |       |                                                            |
 |  4. CLEAN UP      Delete generations <= N, now superseded          |
 |       |                                                            |
-|  5. COMPLETE      Log statistics, record EventRecord               |
+|  5. COMPLETE      Log statistics, append report to the command     |
 +--------------------------------------------------------------------+
 ```
 
@@ -69,7 +69,7 @@ The roll step is an **atomic rename**, run as a job on the journal's own assembl
 
 ## .0 Awareness
 
-Compaction is aware of `.0` (deployment) journals. During step 4, objects that are **identical to their `.0` version** are skipped -- they don't need to be in the runtime journal since `.0` is replayed on every startup.
+Compaction is aware of `.0` (deployment) journals. During step 2, objects that are **identical to their `.0` version** are skipped -- they don't need to be in the runtime journal since `.0` is replayed on every startup.
 
 This significantly reduces the compacted journal size when most data comes from deployment:
 
@@ -112,7 +112,7 @@ If no `Compaction` record exists for a DAO, default settings are used: the DAO i
 
 ## Setup
 
-Compaction requires the `deployment/compaction` journals to be included in your build. Add them to the `-J` flag:
+FOAM's root `pom.js` builds the compaction code (`src/foam/dao/compaction/pom`), and a `CompactionCmd` works without any configuration: when no `compactionDAO` is present, default settings are used. The `DAOCompaction` script, its parameters and per-DAO configuration come from the `deployment/compaction` journals. To include them, add them to the `-J` flag (from an application that has foam3 as a sub-directory):
 
 ```
 ./build.sh -J../foam3/deployment/compaction,...
@@ -148,7 +148,7 @@ p({
 
 ### Disable compaction for a DAO
 
-Set `compactible: false`. The journal is still rolled, but **no data is written** to the new journal from the old data. Only new live traffic after the roll goes to the new journal.
+Set `compactible: false`. The DAO is skipped entirely: the journal is not rolled and nothing is rewritten.
 
 ```
 p({
@@ -163,7 +163,7 @@ p({
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `cSpec` | Reference | (required) | CSpec ID of the DAO to configure |
-| `compactible` | Boolean | `true` | If true, objects are compacted to new journal. If false, entries are discarded |
+| `compactible` | Boolean | `true` | If false, compaction skips this DAO: no roll, no snapshot |
 | `discardLifecycleDeleted` | Boolean | `true` | Discard objects with lifecycleState=DELETED |
 | `keepSupersededGenerations` | Boolean | `true` | Keep superseded generations instead of deleting them. Defaults true while compaction is being proven, so a bad snapshot never destroys what it was built from. Costs disk only -- replay skips them by name, so startup time is unaffected and they can be gzipped in place |
 | `journalName` | String | auto | Journal filename. Defaults to CSpec name with "DAO" removed + "s" |
@@ -182,9 +182,7 @@ Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`
 
 2. Run the `DAOCompaction` script from the Scripts admin menu
 
-3. After completion, check:
-   - **ScriptEvents** for an 'OK' message
-   - **EventRecords** for a compaction summary with statistics
+3. After completion, check the script output for an 'OK' message and the compaction report
 
 ### Considerations
 
@@ -199,11 +197,14 @@ Compaction is controlled by the `DAOCompaction` Script and its `ScriptParameter`
 ### Full compaction (roll + rewrite)
 
 ```java
+import foam.dao.DAO;
 import foam.dao.compaction.CompactionCmd;
 
 CompactionCmd cmd = new CompactionCmd();
 cmd.setServiceName("myDAO");
 ((DAO) x.get("myDAO")).cmd(cmd);
+// cmd returns once the rewrite is queued; wait for the report.
+cmd.awaitCompletion(60L * 60L * 1000L);
 print(cmd.getReport());
 ```
 
@@ -273,7 +274,7 @@ purging them; doing it properly means aiming below that decorator.
 
 **There is no rollback procedure, because a failed compaction is not a state to recover from.** The snapshot only becomes visible at the rename; until then the frozen generations are still the record, and live traffic has been landing in the current journal the whole time. A failure leaves a `.tmp` that the next boot ignores and anything may delete.
 
-If compaction throws, check the EventRecord for the cause and run it again. Nothing is lost and nothing needs restoring.
+If compaction throws, check the command's `getError()` (printed by the script) or the log for the cause and run it again. Nothing is lost and nothing needs restoring.
 
 ### Reverting a completed compaction
 
@@ -283,11 +284,9 @@ A committed snapshot supersedes the generations it covers, and cleanup deletes t
 
 ## Monitoring
 
-### EventRecords
+### Report
 
-Each compaction run creates EventRecords tracking progress:
-- **Start**: Records compaction initiation
-- **Complete**: Includes a CSV summary report
+Each journal compacted appends a human-readable report and a CSV line to the `CompactionCmd` (`getReport()`, `getCsv()`). The CSV is also written to the log.
 
 ### Report Format
 
@@ -300,10 +299,9 @@ Compaction Report
   Duration:          5s
   Objects processed:  22926
   Objects compacted:  926
-  Objects filtered:   0.00%
+  Objects filtered:   95.96%
   Journal entries:    160000 -> 926 (99.42% reduction)
   Journal size:       48.0 MB -> 1.2 MB (97.50% reduction)
-  Skipped (.0):       22000 (unchanged from .0)
   Removed (.0):       3 (deleted at runtime)
 ```
 
@@ -311,18 +309,10 @@ Compaction Report
 |-------|-------------|
 | processed | Total objects read from MDAO |
 | compacted | Objects written to new journal |
-| filtered | Percentage of objects not written -- lifecycle-deleted tombstones, when `discardLifecycleDeleted` is set |
+| filtered | Percentage of processed objects not written: rows identical to `.0`, plus lifecycle-deleted tombstones when `discardLifecycleDeleted` is set |
 | journal entries | Line count before vs after compaction |
 | journal size | File size before vs after compaction |
-| skipped (.0) | Objects identical to `.0` version (not written) |
-| removed (.0) | `.0` objects deleted at runtime (remove entries written) |
-
-### Progress Logging
-
-During compaction, progress is logged every 5 seconds:
-```
-[INFO] Compactor compaction progress processed=25000 50%
-```
+| removed (.0) | `.0` objects deleted at runtime (remove entries written); shown only when non-zero |
 
 ---
 
@@ -330,7 +320,7 @@ During compaction, progress is logged every 5 seconds:
 
 1. **Roll-only does NOT compact** -- `FileRollCmd` only freezes the journal as a generation. Send a `CompactionCmd` for full compaction.
 
-2. **Compaction is async** -- The snapshot runs on the thread pool. `execute()` polls for completion every 5 seconds.
+2. **Compaction is async** -- The snapshot runs on the thread pool and `cmd` returns once it is queued. Call `CompactionCmd.awaitCompletion(timeoutMs)` to wait for the report.
 
 3. **One compaction per journal at a time** -- a `CompactionCmd` for a journal that is already compacting is skipped and reported on the command (`getSkippedCount()`, `getSkipped()`), not queued and not an error. Overlapping triggers are expected; the next run picks it up.
 
@@ -339,8 +329,6 @@ During compaction, progress is logged every 5 seconds:
 5. **MDAO is the source** -- Compaction reads from MDAO, not the journal file. The in-memory state is what gets written.
 
 6. **FixedSizedDAO interaction** -- If the DAO stack includes a FixedSizedDAO, only objects retained by it are compacted.
-
-7. **eventRecordDAO required** -- `execute()` writes to `eventRecordDAO`. Must be available in context.
 
 ---
 

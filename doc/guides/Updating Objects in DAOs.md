@@ -18,7 +18,7 @@
 To change a stored object, read it, copy it, edit the copy, then write the copy back:
 
 ```javascript
-var obj   = await dao.find(id);   // 1. read  (the returned object is frozen)
+var obj   = await dao.find(id);   // 1. read  (the returned object is shared; do not mutate it)
 var clone = obj.clone();          // 2. copy  (a mutable duplicate)
 clone.status = 'DONE';            // 3. edit  (set the exact property)
 await dao.put(clone);             // 4. write (this is the save)
@@ -34,7 +34,7 @@ The `put` is the step people miss. A DAO does not watch your object for changes.
 
 A DAO (Data Access Object) is the read/write interface to a collection of objects. Updating works the same way as creating: you call `put` with an object that carries the `id` you want to replace. The DAO overwrites the stored value with the one you pass.
 
-The twist is that objects coming *out* of a DAO are frozen. You cannot edit them in place. You clone first, edit the clone, and put the clone back.
+The twist is that objects coming *out* of a DAO are shared with the DAO, and in Java they are frozen. You must not edit them in place. You clone first, edit the clone, and put the clone back.
 
 ### Key Files
 
@@ -81,10 +81,10 @@ The storage core freezes what it keeps. `MDAO.java` clones and freezes on the wa
 
 | Concept | Description |
 |---------|-------------|
-| `frozen` | A stored object is read-only. Calling a setter on it fails. The DAO caches and shares these instances, so editing one would corrupt shared state. |
+| `frozen` | In Java, a stored object is read-only. Calling a setter on it fails. The DAO caches and shares these instances, so editing one would corrupt shared state. |
 | `clone` / `fclone` | Produces a mutable, independent copy. `clone` is the JavaScript method; `fclone` is the Java method. |
 | `copyFrom` | Bulk-applies property values from a map or another object onto a target. Useful for refreshing a live object after a write returns. |
-| `put` / `put_` | Writes an object into the DAO, keyed by `id`. `put` uses the object's context; `put_(x, obj)` takes an explicit context. |
+| `put` / `put_` | Writes an object into the DAO, keyed by `id`. `put` uses the DAO's own context; `put_(x, obj)` takes an explicit context. |
 | `id` | The key that decides insert versus update. Same `id` replaces the existing row; new `id` inserts. |
 | `put` return value | `put` returns the stored object (often re-frozen, sometimes enriched by decorators). Use it, do not assume your input is now the source of truth. |
 
@@ -105,7 +105,7 @@ The storage core freezes what it keeps. `MDAO.java` clones and freezes on the wa
      +--------------------------------------------------------------+
 ```
 
-Read returns a frozen object. Clone makes it editable. You set the exact properties. Put hands the clone to the DAO stack, which validates, authorizes, journals, and stores it, re-freezing the result. The value `put` returns is the canonical stored object.
+Read returns a shared object (frozen in Java). Clone makes it editable. You set the exact properties. Put hands the clone to the DAO stack, which validates, authorizes, journals, and stores it, re-freezing the result. The value `put` returns is the canonical stored object.
 
 ### Why the clone is required
 
@@ -122,7 +122,7 @@ Cloning and editing change nothing in storage. The clone is a private copy in yo
 ### JavaScript: read, clone, edit, put
    
 ```javascript
-var fresh = await dao.find(id);   // frozen
+var fresh = await dao.find(id);   // shared with the DAO
 var clone = fresh.clone();        // mutable copy
 clone.status        = 'APPROVED';
 clone.reviewedBy    = currentUser;
@@ -140,7 +140,7 @@ var saved = await dao.put(clone);
 this.copyFrom(saved);   // pull stored values, including any set by decorators
 ```
 
-`copyFrom` accepts either a plain map or another object and applies only the properties the two share, ignoring null and undefined values.
+`copyFrom` accepts either a plain map or another object. From a map it copies every key that names a property; from another object it copies the properties the two share, skipping values that are still at their default.
 
 ### Java: read, fclone, edit, put_
 
@@ -151,7 +151,7 @@ clone.setStatus("APPROVED");
 dao.put_(x, clone);                           // committed with explicit context
 ```
 
-Use `put_(x, obj)` when you need to pass a specific context, such as inside a service, decorator, or rule. Use `put(obj)` when the object's own context is correct.
+Use `put_(x, obj)` when you need to pass a specific context, such as inside a service, decorator, or rule. Use `put(obj)` when the DAO's own context is correct.
 
 ### Java: update many in a loop
 
@@ -168,18 +168,18 @@ for ( MyModel row : rows ) {
 
 ### JavaScript: update many in a loop
 
-`select` with no sink resolves to an `ArraySink`; read its results from `.array`. Each object in that array is frozen, so clone inside the loop before editing, and `await` each `put`:
+`select` with no sink resolves to an `ArraySink`; read its results from `.array`. Each object in that array is shared with the DAO, so clone inside the loop before editing, and `await` each `put`:
 
 ```javascript
 var sink = await dao.where(M.EQ(MyModel.PROCESSED, false)).select();
 for ( var row of sink.array ) {
-  var clone = row.clone();   // each row from select() is frozen
+  var clone = row.clone();   // each row from select() is shared with the DAO
   clone.processed = true;
   await dao.put(clone);
 }
 ```
 
-The same rule as the single-object case applies per row: clone, edit the clone, put the clone. Putting `row` directly would either fail on the frozen instance or write back an object the DAO still shares.
+The same rule as the single-object case applies per row: clone, edit the clone, put the clone. Editing `row` directly would either fail on a frozen instance (Java) or change an object the DAO still shares (JavaScript).
 
 ### Choosing find versus select
 

@@ -200,19 +200,22 @@ foam.CLASS({
       documentation: 'Ignores selection by user.'
     },
     {
-      name: 'restingIcon',
-      documentation: 'Image for grayed out double arrow when table header is not sorting',
-      value: '/images/resting-arrow.svg'
+      class: 'String',
+      name: 'restingGlyph',
+      documentation: 'Theme glyph (foam.u2.theme.ThemeGlyphs) for a sortable column that is not sorted.',
+      value: 'sort'
     },
     {
-      name: 'ascIcon',
-      documentation: 'Image for table header ascending sorting arrow',
-      value: '/images/up-arrow.svg'
+      class: 'String',
+      name: 'ascGlyph',
+      documentation: 'Theme glyph for the column sorted ascending.',
+      value: 'sortAsc'
     },
     {
-      name: 'descIcon',
-      documentation: 'Image for table header descending sorting arrow',
-      value: '/images/down-arrow.svg'
+      class: 'String',
+      name: 'descGlyph',
+      documentation: 'Theme glyph for the column sorted descending.',
+      value: 'sortDesc'
     },
     {
       type: 'Boolean',

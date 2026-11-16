@@ -66,6 +66,21 @@ foam.CLASS({
 
       return ((foam.mlang.predicate.Predicate) ps.value()).f(obj);
       `
+    },
+    {
+      name: 'authorize',
+      javaCode: `
+        // The script is only a string until parsed against a class, so
+        // without this "salary > 50000" would skip the salary
+        // read-permission check. A script that does not parse reads nothing.
+        if ( getProp() != null ) getProp().authorize(x, of);
+
+        FScriptParser parser = getProp() != null ? FScriptParser.create(getProp()) : FScriptParser.create(of);
+        StringPStream sps    = new StringPStream();
+        sps.setString(getQuery());
+        PStream ps = parser.parse(sps, new ParserContextImpl());
+        if ( ps != null ) ((foam.mlang.PropertyAuthorizable) ps.value()).authorize(x, of);
+      `
     }
   ]
 });

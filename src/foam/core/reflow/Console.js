@@ -12,6 +12,8 @@
 //  ? how are Commands different than flows?
 // ???: Would it be better to have compose rather than mixing Flowable?
 // TODO: user-select: none; to avoid cut&paste when not appropriate
+// input multichoice on multiple lines
+// store response in 'ask' commands for easier debugging
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -108,6 +110,7 @@ foam.CLASS({
               glyph: 'rightChevron',
               embedSVG: true
             }).addClass(this.myClass('chevron')).end()
+            .start('div', {}, this.data.titlePrefix$).end()
             .start('span').addClass(this.myClass('title'))
               .start({
                 class: 'foam.u2.TextField',
@@ -120,6 +123,7 @@ foam.CLASS({
               .end()
             .end()
             .start().add(fullVersion).end()
+            .start('div', {}, this.data.titleSuffix$).end()
           .end()
 
           .start().addClass(this.myClass('header-actions'))
@@ -876,6 +880,7 @@ foam.CLASS({
     'findFlowChildByName',
     'flowChildren',
     'history_',
+    'includeFlow',
     'llmService',
     'localScope',
     'log',
@@ -892,6 +897,8 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'titlePrefix',
+    'titleSuffix',
     'isChildLocked',
     'value as flow'
   ],
@@ -968,6 +975,10 @@ foam.CLASS({
     {
       name: 'llmService',
       factory: function() {
+        // TODO: It would be better if there was also a transient ConversationalLLMService on the server
+        // that could be used when combined with a UUID so that the whole conversation isn't sent with each
+        // request. If the session id isn't found then an exeception would be thrown and then the whole
+        // conversation would be sent on the next request.
         return this.ConversationalLLMService.create({delegate: this.parentLLMService});
       }
     },
@@ -1126,6 +1137,23 @@ foam.CLASS({
     },
     'softSelected',
     {
+      name: 'titlePrefix',
+      documentation: `
+        An empty view in the header, just left of the flow's name, for the
+        flow's own content to fill: a document can show where it sits there,
+        as in "Guides · 2 of 3 ›". The Console adds nothing to it. The header
+        sets it each time it is drawn, after switching to presentation mode
+        for example, so a view that fills it follows this property.
+      `
+    },
+    {
+      name: 'titleSuffix',
+      documentation: `
+        An empty view in the header, just after the flow's version, for the
+        flow's own content to fill. Set like titlePrefix.
+      `
+    },
+    {
       name: 'value',
       // The Console's Flow Value, which is the Flow object it is saved as
       factory: function() { return this.Flow.create(); }
@@ -1203,12 +1231,18 @@ foam.CLASS({
       }
     },
 
-    async function includeFlow(name) {
+    async function includeFlow(name, parent) {
       if ( ! name ) return;
       var flow = await this.flowDAO.find(name);
 
       if ( flow ) {
-        await this.includeScript(flow.script);
+        // Including under a parent block, such as an 'include' command, runs
+        // eval_ for each child, which moves currentBlock to the last child.
+        // When the parent itself is being loaded, includeScript then applies
+        // the parent's saved args and onLoad to currentBlock, so put it back.
+        var currentBlock = this.currentBlock;
+        await this.includeScript(flow.script, parent);
+        if ( parent ) this.currentBlock = currentBlock;
       }
     },
 
@@ -1264,25 +1298,32 @@ foam.CLASS({
       await worker.save();
     },
 
-    async function includeScript(script, parent, skipParse, perfParent) {
+    async function includeScript(script, parent, skipParse, perfParent, progress) {
       var ctx = parent?.__subContext__ || this.__subContext__;
       if ( ! script ) return;
       var cs = skipParse ?
         script :
         foam.json.parseString(script, ctx);
 
-      // Count total blocks for progress tracking (only at top level)
-      if ( ! parent ) {
-        this.totalBlocks_ = this.countBlocks(cs);
-        this.loadingProgress_ = 0;
+      // The loading indicator shows the Console's counters, sized when a load
+      // starts. An 'include' block adds its flow's blocks under itself while
+      // that load is running; if they counted there, a flow of 10 blocks with
+      // one 'include' of 5 blocks would show "Loading block 15 of 10". So a
+      // call with a parent but no tracker, such as includeFlow(name, parent),
+      // counts into its own tracker and the include counts as one block.
+      // Recursion into flowChildren passes its tracker down.
+      if ( ! progress ) {
+        progress = parent ? {} : this;
+        progress.totalBlocks_     = this.countBlocks(cs);
+        progress.loadingProgress_ = 0;
       }
 
       for ( var i = 0 ; i < cs.length ; i++ ) {
         var c = cs[i];
 
         // Update progress counter for all blocks (including nested)
-        this.loadingProgress_++;
-        this.loadingPercentage_ = Math.round((this.loadingProgress_ / this.totalBlocks_) * 100);
+        progress.loadingProgress_++;
+        progress.loadingPercentage_ = Math.round((progress.loadingProgress_ / progress.totalBlocks_) * 100);
 
         // Per-block attribution for the reflow Perf block: when a capture pointed
         // perfCapture_ at its buffer, record this block's cost. A nested call writes
@@ -1338,7 +1379,7 @@ foam.CLASS({
         }
 
         if ( c.flowChildren ) {
-          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_);
+          await this.includeScript(c.flowChildren, this.currentBlock, true, perfRow_, progress);
         }
 
         // Measure AFTER onLoad + children: that is where a block's real work runs
@@ -1604,7 +1645,8 @@ foam.CLASS({
         addValue: block.addValue.bind(block),
         log: block.log.bind(block),
         out: block.out, start: block.out.start.bind(block.out),
-        tag: block.out.tag.bind(block.out)
+        tag: block.out.tag.bind(block.out),
+        find: this.findFlowChildByName.bind(this)
       };
 
       // TODO: move into Block
@@ -1624,7 +1666,7 @@ foam.CLASS({
         } catch (x) {
           var i = cmd.indexOf(' ');
           if ( i != -1 ) {
-            arg = cmd.substring(i+1);
+            arg = cmd.substring(i+1).replaceAll('\\n','\n');
             cmd = cmd.substring(0,i);
             r = scope[cmd];
           } else {
@@ -1649,7 +1691,13 @@ foam.CLASS({
           r = arg ? r(arg) : r();
         }
         if ( r instanceof Promise ) {
-          r = await r;
+          try {
+            r = await r;
+          } catch (x) {
+            block.flowName = this.createFlowChildName('error');
+            block.value = this.BadBlock.create({block: block, error: x.message});
+            block.error = x.message;
+          }
         }
       }}}
 

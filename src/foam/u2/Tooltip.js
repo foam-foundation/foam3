@@ -129,6 +129,7 @@ foam.CLASS({
       background: $tooltipBackground;
       border-radius: 5px;
       color: $white;
+      white-space: pre-line;
       padding: 5px 8px;
       position: absolute;
       z-index: $z-tooltip;

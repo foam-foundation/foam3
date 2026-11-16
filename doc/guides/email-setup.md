@@ -35,10 +35,11 @@ p({
   password: 'your-password',
   authenticate: true,
   starttls: true,
-  protocol: 'smtp',
-  rateLimit: 14  // Default rate limit for smtp.gmail.com
+  protocol: 'smtp'
 })
 ```
+
+The send rate is not part of this entry: it is set by the `smtpAgentThrottle` service (default 14 TPS, see `foam3/src/foam/core/notification/email/services.jrl`).
 
 **Example from Foam**: See `foam3/deployment/test/emailServiceConfig.jrl` for a test configuration.
 
@@ -99,7 +100,7 @@ Create a new Java class in your project:
 ```java
 package your.package.notification;
 
-import foam.core.X;
+import foam.lang.X;
 import foam.dao.DAO;
 import foam.core.notification.Notification;
 import java.util.HashMap;
@@ -128,7 +129,7 @@ public class WelcomeEmailService {
 }
 ```
 
-**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.java` for a complete example.
+**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.js` for a complete example.
 
 ### Option 2: Using DAO Notification Rules
 
@@ -137,16 +138,21 @@ public class WelcomeEmailService {
 ```java
 package your.package.notification;
 
+import foam.core.auth.User;
 import foam.core.notification.DAONotificationRuleAction;
-import foam.core.X;
-import foam.core.FObject;
-import foam.core.Rule;
+import foam.core.notification.Notification;
+import foam.core.ruler.Rule;
+import foam.core.ruler.RuleEngine;
+import foam.dao.DAO;
+import foam.lang.Agency;
+import foam.lang.FObject;
+import foam.lang.X;
 import java.util.HashMap;
 import java.util.Map;
 
 public class UserCreatedNotificationRuleAction extends DAONotificationRuleAction {
     @Override
-    public void applyAction(X x, FObject obj, FObject oldObj, Rule rule) {
+    public void applyAction(X x, FObject obj, FObject oldObj, RuleEngine ruler, Rule rule, Agency agency) {
         if (!(obj instanceof User)) return;
 
         User user = (User) obj;
@@ -196,7 +202,6 @@ p({
   class: 'foam.core.notification.email.EmailServiceConfig',
   id: 'test',
   enabled: false,
-  rateLimit: 2,
   pollInterval: 2,
   initialDelay: 1
 })
@@ -207,8 +212,10 @@ p({
 ```java
 package your.package.notification.test;
 
+import foam.core.auth.Subject;
 import foam.core.test.Test;
-import foam.core.X;
+import foam.lang.X;
+import foam.dao.ArraySink;
 import foam.dao.DAO;
 import foam.core.notification.Notification;
 import foam.core.notification.email.EmailMessage;
@@ -216,13 +223,13 @@ import java.util.List;
 
 public class WelcomeEmailTest extends Test {
     @Override
-    public void runTest() {
+    public void runTest(X x) {
         // Create test notification
         Notification notification = new Notification();
         notification.setTemplate("welcome-notification");
         notification.setEmailName("welcome-email");
         notification.setBody("Test welcome message");
-        notification.setUserId(testUserId);
+        notification.setUserId(((Subject) x.get("subject")).getUser().getId());
 
         // Save notification
         ((DAO) x.get("notificationDAO")).put_(x, notification);
@@ -236,7 +243,7 @@ public class WelcomeEmailTest extends Test {
 }
 ```
 
-**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.java` for a complete test example.
+**Example from Foam**: See `foam3/src/foam/core/notification/test/EmailNotificationTest.js` for a complete test example.
 
 ## Troubleshooting
 
@@ -256,7 +263,7 @@ public class WelcomeEmailTest extends Test {
    - Check notification DAO for template resolution issues
 
 3. **Rate Limiting Issues**
-   - Adjust rateLimit in EmailServiceConfig
+   - Adjust the rate of the `smtpAgentThrottle` service
    - Check SMTP provider limits
    - Monitor email sending logs
    - Implement rate limiting in your notification service if needed

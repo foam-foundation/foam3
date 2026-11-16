@@ -52,7 +52,7 @@ var M = foam.mlang.ExpressionsSingleton.create();
 | `GT/GTE/LT/LTE` | Comparisons | `M.GT(Transaction.AMOUNT, 100)` |
 | `AND/OR` | Logical operators | `M.AND(p1, p2)` |
 | `IN(prop, array)` | Value in array | `M.IN(Account.ID, [1,2,3])` |
-| `CONTAINS(prop, str)` | String contains | `M.CONTAINS(Customer.NAME, 'Smith')` |
+| `CONTAINS(prop, str)` | String contains | `M.CONTAINS(Customer.LAST_NAME, 'Smith')` |
 | `DESC(prop)` | Descending order | `M.DESC(Transaction.DATE)` |
 | `MAP(prop, sink)` | Extract property values | `M.MAP(Customer.ID, sink)` |
 
@@ -225,8 +225,8 @@ A <term term="Sink"></term> processes objects from a `select()` operation. FOAM 
 | ArraySink | Collects results into an array (default) |
 | DAOSink | Puts results into another DAO |
 | ProxySink | Wraps another sink, allowing interception |
-| CountSink | Counts results |
-| GroupBySink | Groups results by a property |
+| Count (`M.COUNT()`) | Counts results |
+| GroupBy (`M.GROUP_BY()`) | Groups results by a property |
 
 ### Creating Accounts via Select
 
@@ -426,26 +426,24 @@ DAOs can be decorated to add functionality. <term term="EasyDAO"></term> simplif
 | Option | Description |
 |--------|-------------|
 | `of` | The model class this DAO stores |
-| `daoType` | Underlying storage ('MDAO', 'JDAO', etc.) |
+| `daoType` | Underlying storage ('MDAO', 'ARRAY', 'IDB', 'LOCAL' or 'CLIENT') |
 | `seqNo` | Auto-generate sequential IDs |
 | `guid` | Auto-generate GUIDs |
-| `cache` | Add caching layer |
+| `cache` | Add caching layer (ignored when `daoType` is 'MDAO') |
 | `logging` | Log DAO operations |
 | `timing` | Track operation timing |
 | `contextualize` | Add context to objects |
-| `dedup` | Deduplicate objects |
-| `journaled` | Enable journaling |
+| `dedup` | De-duplicate property values to save memory |
 
 ### Common DAO Patterns
 
 ```javascript
-// Cached DAO with journaling
+// Cached client DAO: a local MDAO cache in front of the server
 var dao = foam.dao.EasyDAO.create({
   of: MyModel,
-  daoType: 'MDAO',
-  cache: true,
-  journaled: true,
-  journalName: 'mymodel'
+  daoType: 'CLIENT',
+  serviceName: 'service/myModelDAO',
+  cache: true
 });
 
 // Client-server DAO
@@ -487,7 +485,7 @@ DAO methods return new DAOs, enabling fluent chaining:
 ```javascript
 dao
   .where(M.AND(
-    M.EQ(Transaction.TYPE, 'debit'),
+    M.CONTAINS(Transaction.LABEL, 's'),
     M.GT(Transaction.AMOUNT, 100)
   ))
   .orderBy(M.DESC(Transaction.DATE))

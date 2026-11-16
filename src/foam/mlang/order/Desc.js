@@ -11,7 +11,8 @@ foam.CLASS({
   implements: [
     'foam.mlang.order.Comparator',
     'foam.lang.Serializable',
-    'foam.dao.SQLStatement'
+    'foam.dao.SQLStatement',
+    'foam.mlang.PropertyAuthorizable'
   ],
 
   documentation: 'Comparator Decorator which reverses direction of comparison. Short for "descending".',
@@ -49,6 +50,12 @@ foam.CLASS({
     {
       name: 'prepareStatement',
       javaCode: '//noop'
+    },
+    {
+      // Sorting by a hidden property leaks it: DESC(SALARY) with limit 1
+      // returns the highest earner, so the wrapped comparator is checked too.
+      name: 'authorize',
+      javaCode: 'foam.mlang.AbstractExpr.authorizeProperties(x, of, this);'
     },
     {
       name: 'toString',

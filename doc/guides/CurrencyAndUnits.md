@@ -22,7 +22,7 @@ properties: [
 ]
 ```
 
-**`Currency.format` always takes minor units.** The JS method is `format(amount, hideId, hideSymbol)` (`src/foam/lang/Currency.js:151`); the Java one adds a context first, `format(x, amount, hideId, hideSymbol)`, and its `amount` arg is a `UnitValue` (`Currency.js:240-259`). A `DoubleUnitValue` must be converted with `minorAmount` first (`Currency.js:350-363`), which rounds so `123.45 * 100` does not come out as `12344`:
+**`Currency.format` always takes minor units.** The JS method is `format(amount, hideId, hideSymbol)` (`src/foam/lang/Currency.js:151`); the Java one adds a context first, `format(x, amount, hideId, hideSymbol)`, and its `amount` arg is a `UnitValue` (`Currency.js:240-259`). A `DoubleUnitValue` must be converted with `minorAmount` first (`Currency.js`), which rounds so `123.45 * 100` does not come out as `12344`:
 
 ```java
 // server-side text: an email, a notification, a log line
@@ -41,28 +41,25 @@ Both types default to `foam.u2.view.CurrencyView` (`src/foam/u2/Element2.js:2063
 
 | Display mode | View used | Shows |
 |---|---|---|
-| `RO` (read-only) | `foam.u2.view.ValueView` | `$12.34`, formatted with the currency |
+| `RO` (read-only) | `foam.u2.CurrencyView` | `12.34`, no symbol: `hideSymbol` defaults to `true`, and its `currency` defaults to `CAD` rather than the sibling property (`src/foam/u2/CurrencyView.js`) |
 | `RW`, `DISABLED` | `foam.u2.CurrencyView` (a text field) | `12.34`, no symbol: `hideSymbol` defaults to `true` (`src/foam/u2/CurrencyView.js:41`) |
 
-The `DoubleUnitValue` refinement sets `useMinorUnits: false` on the write view (`Element2.js:2081`), so typing `12.34` stores `12.34`, not `1234`.
+The `DoubleUnitValue` refinement sets `useMinorUnits: false` on the view (`Element2.js:2082`), so typing `12.34` stores `12.34`, not `1234`.
 
 **Two different "read-only" enums.** `DisplayMode` is per field: `RW`, `DISABLED`, `RO`, `HIDDEN`. `ControllerMode` is per context: `CREATE`, `EDIT`, `VIEW`, and `VIEW` caps every field inside it at `RO` (see [ControllerModeAndVisibility](ControllerModeAndVisibility.md)). There is no `DisplayMode.VIEW`: the constant is `undefined`, and the string `'VIEW'` fails the Enum adapt with `Attempt to set invalid Enum value` (`src/foam/lang/Enum.js:482`).
 
-### The read face needs `objData`
+### Showing the symbol: `ValueView` needs `objData`
 
-The read face has only the number. To find the currency it reads the sibling property off `objData`, the whole owning object, from the context (`src/foam/u2/view/ValueView.js:41-51`). `data` is this field's value; `objData` is the object the field belongs to.
+`foam.u2.view.ValueView` formats the amount with the currency named by the sibling property. It has only the number, so it reads the sibling property off `objData`, the whole owning object, from the context (`src/foam/u2/view/ValueView.js:41-51`). `data` is this field's value; `objData` is the object the field belongs to.
 
-- A detail view and `PropertyBorder` export `objData` for you (`src/foam/u2/PropertyBorder.js:38`), so a normal form works.
-- A custom view that renders the value view itself must put it in the context. With no `objData` the read face throws reading `objData[unitPropName]` (`ValueView.js:50`).
+- A detail view and `PropertyBorder` export `objData` for you (`src/foam/u2/PropertyBorder.js:38`).
+- A custom view that renders `ValueView` itself must put it in the context. With no `objData` it throws reading `objData[unitPropName]` (`ValueView.js:50`).
+
+The table cell formatter for every money column does exactly this (`src/foam/u2/view/TableCellFormatter.js:305`):
 
 ```javascript
-// read-only amount with its symbol, inside a custom render()
-this.startContext({ objData: invoice, data: invoice, controllerMode: this.ControllerMode.VIEW })
-  .tag(invoice.AMOUNT)
-.endContext();
+this.startContext({ objData: obj }).tag(foam.u2.view.ValueView, { prop: axiom, data: value }).endContext();
 ```
-
-The table cell formatter does the same thing for every money column (`src/foam/u2/view/TableCellFormatter.js:305`).
 
 To show the symbol inside an editable field instead, set `hideSymbol: false` on the write view and bind its `currency$`.
 

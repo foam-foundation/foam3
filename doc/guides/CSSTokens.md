@@ -2,7 +2,7 @@
 
 # CSS Tokens: how to think about them
 
-A `$token` in a view's `css:` block is a name that the framework swaps for a value when the style is added to the page. This guide is the rules behind that swap, each walked on one case. The runnable examples live in the demo `src/foam/demos/examples/cssTokens.fbe`; read this page first, then run the demo.
+A `$token` in a view's `css:` block is a name that the framework swaps for a value when the style is added to the page. This guide is the rules behind that swap, each walked on one case. The runnable examples live in the demo `doc/fbe/CSSTokens.md`; read this page first, then run the demo.
 
 The full token list is `src/foam/u2/CSSTokens.js`. Each rem row on the spacing and radius scales carries its px value in a comment. There is no second copy.
 
@@ -109,12 +109,7 @@ Light is a named value, the same as dark. That is what lets a theme row change t
 
 **One case.** `shadow-md` is a shadow that must go darker in dark mode. It contains a colour but is not one, so it is a plain `CSSToken` with `variantKey: 'color'` and a `dark` entry. Making it a `ColorToken` would install `$shadow-md$hover`, which means nothing. A border colour, on the other hand, is a colour and is a `ColorToken` even when nothing hovers over it yet: the day something does, `$x$hover` is already there and the token does not change class.
 
-**The rule the engine enforces.** A `variants` map without a `variantKey` logs a warning at class load, and the token renders its base value in every mode. A CSS audit check that fails CI on the same case is tracked in #5614. The warning reads:
-
-```
-CSSToken foam.u2.Example.color declares variants (dark) but no variantKey;
-set variantKey (for example 'color') or use foam.u2.ColorToken.
-```
+**The rule the engine enforces.** A `variants` map without a `variantKey` logs a warning at class load, and the token renders its base value in every mode. A CSS audit check that fails CI on the same case is tracked in #5614. The warning names the class and token, lists the variant keys, and suggests setting `variantKey` or using `foam.u2.ColorToken` (`src/foam/u2/CSSToken.js`).
 
 The engine never guesses the axis from the map's keys. `dark` is a value on the `color` axis only because the token says so.
 
@@ -196,4 +191,4 @@ Light reads the `light` entry. Dark finds no entry and no `target`, so it falls 
 - Theme rows: `src/foam/core/theme/customisation/CSSTokenOverride.js` and `CSSTokenOverrideService.js`
 - Mode writer: `populateDefaultThemeVariants` in `src/foam/lang/Window.js`
 - Audit: `src/foam/core/theme/test/CSSAuditTest.js`
-- Runnable demo: `src/foam/demos/examples/cssTokens.fbe`
+- Runnable demo: `doc/fbe/CSSTokens.md`

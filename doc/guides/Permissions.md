@@ -45,25 +45,24 @@
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         AUTH SERVICE DECORATOR CHAIN                        │
+│                (outermost first, as built in auth/services.jrl)             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   Request → PMAuthService → CachingAuthService → CapabilityAuthService      │
-│               │                    │                      │                 │
-│               ▼                    ▼                      ▼                 │
-│          (monitoring)         (caching)            (CRUNCH check)           │
-│                                                          │                  │
-│             EnabledCheckAuthService ← PasswordExpiryAuthService             │
-│                      │                        │                             │
-│                      ▼                        ▼                             │
-│              (user enabled?)          (password expired?)                   │
-│                                                                             │
-│                    TwoFactorAuthService → UserAndGroupAuthService           │
-│                            │                        │                       │
-│                            ▼                        ▼                       │
-│                      (2FA check)           (Group permissions)              │
-│                                                     │                       │
-│                                                     ▼                       │
-│                                              ✓ GRANTED / ✗ DENIED           │
+│   Request                                                                   │
+│     → FailedLoginAuthService           (failed login tracking)              │
+│     → SystemAuthService                (system-level permissions)           │
+│     → PMAuthService                    (monitoring)                         │
+│     → SubjectAuthService               (subject context)                    │
+│     → CachingAuthService               (caching)                            │
+│     → ResetSpidBeforeLoginAuthService  (clear spid during login)            │
+│     → TwoFactorAuthService             (2FA check)                          │
+│     → PasswordExpiryAuthService        (password expired?)                  │
+│     → EnabledCheckAuthService          (user enabled?)                      │
+│     → CapabilityAuthService            (CRUNCH check)                       │
+│     → UserAndGroupAuthService          (Group permissions)                  │
+│                                              │                              │
+│                                              ▼                              │
+│                                       ✓ GRANTED / ✗ DENIED                  │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -83,7 +82,7 @@
 
 ## Overview
 
-Permissions in FOAM represent access to system resources and follow Java's hierarchical naming convention. [1](#1-0)  The system uses wildcard matching where an asterisk can appear by itself or at the end of a name preceded by a dot to signify wildcard matches.
+Permissions in FOAM represent access to system resources and follow Java's hierarchical naming convention.  The system uses wildcard matching where an asterisk can appear by itself or at the end of a name preceded by a dot to signify wildcard matches.
 
 ## Permission Naming Convention
 
@@ -97,7 +96,7 @@ Permissions in FOAM represent access to system resources and follow Java's hiera
 **Examples:**
 - `*` - Ability to do anything, granted to 'admin' group
 - `user.read.*` - Ability to read all Users from the UserDAO
-- `theme.write.acme` - Ability to write only the 'acme' Theme from the ThemeDAO
+- `theme.update.acme` - Ability to update only the 'acme' Theme from the ThemeDAO
 
 ## Permission Checking
 
@@ -112,7 +111,7 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 - **CapabilityAuthService** - CRUNCH capability integration
 - **EnabledCheckAuthService** - User enabled status validation
 - **PasswordExpiryAuthService** - Password expiration checks
-- **TwoFactoryAuthService** - Two-factor authentication
+- **TwoFactorAuthService** - Two-factor authentication
 - **ResetSpidBeforeLoginAuthService** - Service provider context reset
 - **CachingAuthService** - ⚠️ **Critical for performance**
 - **SubjectAuthService** - Subject context management
@@ -123,13 +122,13 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 ## Core Data Models
 
 ### Authentication Models
-- **User** - System users (humans or computer systems) [2](#1-1)
-- **Group** - User collections; each user belongs to one group [3](#1-2)
-- **Permission** - Documented permissions shown in Permission Matrix [4](#1-3)
-- **GroupPermissionJunction** - Many-to-many Group↔Permission relationship [5](#1-4)
+- **User** - System users (humans or computer systems)
+- **Group** - User collections; each user belongs to one group
+- **Permission** - Documented permissions shown in Permission Matrix
+- **GroupPermissionJunction** - Many-to-many Group↔Permission relationship
 
 ### CRUNCH Models
-- **Capability** - User-owned "contracts" that grant permissions, can expire, hierarchical [6](#1-5)
+- **Capability** - User-owned "contracts" that grant permissions, can expire, hierarchical
 - **UserCapabilityJunction** - Many-to-many User↔Capability relationship
 
 ## Permission Patterns
@@ -151,7 +150,7 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
   - `permissionPrefix = toLowerCase(model.name)`
   - Operations: `read`, `remove`, `create`, `update`
 - **Examples:** `menu.read.settings`, `email.create`, `notificationsetting.remove.*`
-- **Implementer:** `foam.core.auth.AuthorizationDAO`, `foam.core.auth.StandardAuthorizer` [7](#1-6)
+- **Implementer:** `foam.core.auth.AuthorizationDAO`, `foam.core.auth.StandardAuthorizer`
 - **Notes:**
   - `create` operations don't include `<id>`
   - ~50% of all permissions follow the `<prefix>.read.<id>` pattern
@@ -160,7 +159,7 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 ### 4. Property-Level Access
 - **Pattern:** `<modelName>.<ro|rw>.<propertyName>`
 - **Examples:** `theme.rw.loginimage`, `user.ro.compliance`
-- **Implementer:** `AbstractPropertyInfo.java`, `PermissionedPropertyDAO.js` [8](#1-7)
+- **Implementer:** `AbstractPropertyInfo.java`, `PermissionedPropertyDAO.js`
 - **Configuration:** Must be explicitly enabled in model:
   ```javascript
   writePermissionRequired: true
@@ -186,7 +185,7 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 ### 7. Table Column Visibility
 - **Pattern:** `<model>.column.<property>`
 - **Example:** `approvalrequest.column.approver`
-- **Implementer:** UnstyledTableView.js:567-573
+- **Implementer:** `TableComponentView.js` (the `columnPermissionRequired` property is declared in `UnstyledTableView.js`)
 - **Configuration:** `columnPermissionRequired: true`
 - **Note:** Distinct from general property access permissions; controls table/grid view visibility only
 
@@ -215,13 +214,13 @@ Ex.: `"OpsRole", "ReflowRole"`
 ## User Interface
 
 ### Permission Management
-- **PermissionMatrix** - Primary permission management interface [9](#1-8)
+- **PermissionMatrix** - Primary permission management interface
 - **Security Audit** - run the "Security Audit" FLOW to get a report of all DAO security configurations. The Security Audit is also part of the FOAM test suite.
 - **Security Principle:** Users cannot grant permissions they don't possess (implicitly or explicitly)
 
 ## Notes
 
-The FOAM permission system implements a comprehensive authorization framework with wildcard support, hierarchical naming, and multiple specialized authorizers. [10](#1-9)  The system integrates with both traditional group-based permissions and the advanced CRUNCH capability system for fine-grained access control.
+The FOAM permission system implements a comprehensive authorization framework with wildcard support, hierarchical naming, and multiple specialized authorizers.  The system integrates with both traditional group-based permissions and the advanced CRUNCH capability system for fine-grained access control.
 
 Wiki pages you might want to explore:
 - [Advanced Features and Extensions (foam-foundation/foam3)](https://deepwiki.com/foam-foundation/foam3#7)
@@ -255,7 +254,7 @@ Wiki pages you might want to explore:
     { name: "User",                                                   flags: "js|java" },
 ```
 
-**File:** src/foam/core/auth/pom.js (L67-67)
+**File:** src/foam/core/auth/pom.js (L69-69)
 ```javascript
     { name: "Group",                                                  flags: "js|java" },
 ```
@@ -330,12 +329,14 @@ public class AuthorizableAuthorizer implements Authorizer {
             : false;
 ```
 
-**File:** src/foam/core/auth/PermissionTableView.js (L13-39)
+**File:** src/foam/core/auth/PermissionTableView.js (L13-41)
 ```javascript
 foam.CLASS({
   package: 'foam.core.auth',
   name: 'PermissionTableView',
   extends: 'foam.u2.Controller',
+
+  mixins: ['foam.u2.Router'],
 
   implements: [ 'foam.mlang.Expressions' ],
 

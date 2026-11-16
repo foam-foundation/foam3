@@ -125,16 +125,16 @@ expression: function(block$flowParent$value$currency) {
 **Source**: `FObject.js:748-761` → creates `DynamicFunction` (`Slot.js:636-733`)
 
 ```javascript
-// In a view's render method:
+// In a view's render method (items is a property of the view):
 var self = this;
-this.data.dynamic(function(items, isLoading) {
-  // 'this' is the Element being built
+this.add(this.dynamic(function(items) {
+  // 'this' is the FunctionNode that add() wraps the function in
   this.start('div').addClass(self.myClass('list'));
   for ( var i = 0 ; i < items.length ; i++ ) {
     this.start('span').add(items[i]).end();
   }
   this.end();
-});
+}));
 ```
 
 **How it differs from `expression`**:
@@ -251,7 +251,7 @@ Need to react to property changes?
 │   └── Use `expression: function(a, b$c) {...}`              (#4)
 │
 ├── In a VIEW (need to rebuild DOM)?
-│   └── Use `this.data.dynamic(function(prop1, prop2) {...})`  (#5)
+│   └── Use `this.add(this.dynamic(function(prop1, prop2) {...}))` (#5)
 │
 ├── Need a SLOT REFERENCE to pass around?
 │   ├── Single property?

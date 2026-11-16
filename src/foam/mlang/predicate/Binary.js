@@ -79,13 +79,6 @@ foam.CLASS({
       javaCode: `getArg1().prepareStatement(stmt);
 getArg2().prepareStatement(stmt);`
     },
-    {
-      name: 'authorize',
-      javaCode: `
-        getArg1().authorize(x);
-        getArg2().authorize(x);
-      `
-    },
     function arg2ToMQL() {
       return this.arg2 && this.arg2.toMQL ? this.arg2.toMQL() : this.arg2;
     },

@@ -4,7 +4,7 @@
 
 A context looks very much like a map, and behaves like a map, except it has inhertitance.
 
-Methods on context - 
+Methods on the Java context (`foam.lang.X`) - 
 
 1. ```x.get(‘key’)```
 	If there is a value associated with that key, it is returned, else null.
@@ -16,11 +16,13 @@ Methods on context -
 	When you call a get on this key, it will return the return value of the factory.
 	One additional feature here is, the factory gets the context you call it from, and runs with that context - so it can be aware of who is calling it.
 
+In JavaScript the context has no `get`/`put`. Read a value as a property (`x.userDAO`) and add values with `x.createSubContext({ key: value })`, which also returns a new context.
+
 
 
 ## Session Context, Request Context
 
-When someone connects to the system, we create a new session, which has a context which is a subcontext of the system context, with the addition of a key value pair of with the key as 'session' and the value point back to the newly create session.
+When someone connects to the system, we create a new session, which has a context which is a subcontext of the system context, with the addition of a key value pair with the key `Session.class` and the value pointing back to the newly created session.
 
 Then you connect to the webAgent, which then creates per request a subcontext of your session context by putting the HTTP Request, Response, printwriter in the context. Then your code runs in the request context.
 

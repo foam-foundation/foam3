@@ -1,6 +1,12 @@
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator -->
 <flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
+
+> **New to FOAM?** Start with the [FOAM Tutorial](../tutorials/foam-tutorial.md) or the [Introduction for Developers](Intro.md).  
+> **Builds on:** [FOAM models](../fbe/models.md) · [DAOs](../fbe/dao.md) · [NanoServices](NanoServices.md) · [Credential Management](CredentialManagement.md)  
+> **Opens up:** [LLM Services](LLM.md) · [Dataset Generation](DatasetGeneration.md)  
+> You can follow this guide without reading those first — if something in the Builds On list is unfamiliar, follow the link before continuing.
 
 Vector search finds items by meaning rather than exact wording. Content and queries are converted into numeric vectors (embeddings), and results are ranked by how close their vectors sit to the query's vector. The process has four stages: vectorizing the content, vectorizing the query, running a kNN (k-nearest neighbors) search, and scoring the results.
 
@@ -64,16 +70,22 @@ FOAM's vector search support is built around three layered abstractions: a data 
 
 ### VectorEmbedding
 
-`foam.ai.vector.VectorEmbedding` is the unit of storage. Each instance represents one embedded chunk of text:
+`foam.ai.vector.VectorEmbedding` is the unit of storage. It supports two modes: embedding a raw text chunk, or embedding an existing DAO record by reference.
 
 | Property | Type | Purpose |
 |---|---|---|
 | `id` | String | Unique identifier (e.g. `"flowName:chunkIndex"`) |
-| `text` | String | The original text that was embedded |
-| `sourceId` | String | Where the chunk came from (doc path, class id, flow name, etc.) |
+| `text` | String | The original text that was embedded. Omit for DAO-record embeddings. |
+| `daoKey` | String | DAO key of the source record (e.g. `"alpacaSampleDAO"`). Empty for text-chunk embeddings. |
+| `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
 | `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
-| `embeddingModel` | String | The model that produced the vector (e.g. `'Xenova/all-MiniLM-L6-v2'`) |
+| `embeddingModel` | String | The model that produced the vector (e.g. `'nomic-embed-text'`) |
 | `vector` | FloatArray | The embedding — a normalized `float[]` of fixed dimension |
+| `score` | Float | Cosine similarity to the query vector, populated at search time. `storageTransient: true` — never journaled. |
+
+**Text-chunk mode** (the original pattern): set `text` and leave `daoKey` empty. `sourceId` identifies the source document and `kind` classifies it.
+
+**DAO-record mode**: set `daoKey` to the DAO's context key and `sourceId` to the record's primary key. `text` may be empty. `toSummary()` returns `"daoKey:sourceId"` in this mode and `"kind:sourceId"` otherwise. This lets any DAO — training samples, issues, users — be searched by semantic similarity without maintaining a separate text index.
 
 The `embeddingModel` field is important: vectors from different models live in incompatible spaces and cannot be compared. At query time, results are filtered to embeddings that share the query's model name, so the index can safely hold vectors from multiple models side by side.
 
@@ -115,10 +127,21 @@ var sink = await vectorStoreDAO
   .orderBy(CosineComparator.create({ queryVector: queryEmbedding.vector }))
   .limit(10)
   .select();
+
+// Each result has .score populated (cosine similarity, 0–1)
+sink.array.forEach(e => console.log(e.score.toFixed(3), e.sourceId));
 ```
 
-The `.where()` guard ensures query and stored vectors share the same model. Everything else — filtering, ranking, pagination — composes through the standard DAO API unchanged.
+The `.where()` guard ensures query and stored vectors share the same model. `VectorStoreDAO.select_` intercepts only when the caller uses `orderBy(CosineComparator)`; all other queries fall through to the delegate unchanged.
 
-### To be Continued ...
+Each returned `VectorEmbedding` is a clone with its `score` property set to the cosine similarity against the query vector. Because `score` is `storageTransient`, it is never written back to the journal — it exists only in memory for the duration of the result.
 
+A minimum-score threshold is easy to apply after the fact:
 
+```javascript
+var results = sink.array.filter(e => e.score >= 0.75);
+```
+
+## Try It Live
+
+Open the **SimilaritySearch** flow in REFLOW to index FOAM's knowledge flows and run live queries against them. The demo uses `TransformersEmbeddingService` entirely in the browser — no server required. A RAG chat view is also included that feeds the retrieved chunks to a local LLM for grounded answers.

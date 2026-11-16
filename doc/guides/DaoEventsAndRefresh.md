@@ -82,8 +82,8 @@ Views wire this for you: `DAOSlot.js:59`, `GroupingDAOList.js:83` (re-selects on
 | Call | Travels | Re-reads from |
 |------|---------|---------------|
 | `dao.on.reset.pub()` | this level only | current chain (cache) |
-| `dao.cmd(DAO.RESET_CMD)` | down to client DAO, reset bubbles up to all listeners (`RequestResponseClientDAO.js:121`) | client cache |
-| `dao.cmd(DAO.PURGE_CMD)` | down to CachingDAO (`CachingDAO.cmd_:143`) | **server** |
+| `dao.cmd(DAO.RESET_CMD)` | down to client DAO, reset bubbles up to all listeners (`RequestResponseClientDAO.js:123`) | client cache |
+| `dao.cmd(DAO.PURGE_CMD)` | down to CachingDAO (`CachingDAO.cmd_:168`) | **server** |
 
 - Use public `cmd`, not `cmd_` (it supplies context). Constants: `dao/DAO.js:28`/`:39`.
 - Cmd/pub on the **same instance the view holds**. A `where()`/`inX()` wrapper relays from its base, so the base reaches it; a *different* instance does not.
@@ -95,9 +95,9 @@ So `RESET` re-reads the **stale cache** and shows nothing. `PURGE` is required.
 
 ```
 dao.cmd(PURGE_CMD)
-   → CachingDAO.onSrcReset()                     (CachingDAO.js:177)
-       ├─ cache.removeAll()       → per-row 'remove' → bubbles up → view shrinks
-       └─ clearPrivate_('delegate') → next select re-fetches from SERVER → 'put' → view fills
+   → CachingDAO.onSrcReset()                     (CachingDAO.js:198)
+       ├─ clearPrivate_('delegate') → next select re-fetches from SERVER → 'put' → view fills
+       └─ cache.removeAll()       → per-row 'remove' → bubbles up → view shrinks
 ```
 
 Nobody pubs a literal `reset`. PURGE empties the cache, the cache MDAO fires `remove`/`put`,

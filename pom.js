@@ -16,6 +16,7 @@ foam.POM({
     { name: 'src/foam/net/ipgeo/pom' },
     { name: 'src/foam/u2/wizard/pom' },
     { name: 'src/foam/u2/address/pom' },
+    { name: 'src/foam/u2/dock/pom' },
     { name: 'src/io/c9/ace/pom' },
     { name: 'webroot/pom' }
   ],

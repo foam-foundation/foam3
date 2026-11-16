@@ -146,21 +146,20 @@ p({
 })
 ```
 
-DAO-backed menus also translate controller titles and create buttons with these runtime keys:
+DAO-backed menus also translate controller titles and create buttons with these runtime keys. The create button is keyed by the model, not the menu (`DAOControllerConfig.createTitle` in `foam3/src/foam/comics/v2/DAOControllerConfig.js`):
 
 | UI String | Source Key |
 |---|---|
 | Menu label | `menuId.label` |
 | DAO browse title | `menuId.browseTitle` |
-| DAO create button/title | `menuId.createTitle` |
-| Custom create controller title | `menuId.handler.createControllerView.view.title` |
+| DAO create button/title | `<model id>.CREATE_TITLE.label` |
 
 Example:
 
 ```javascript
 p({ class: 'foam.i18n.Locale', locale: 'fr', source: 'users.label', target: 'Utilisateurs' })
 p({ class: 'foam.i18n.Locale', locale: 'fr', source: 'users.browseTitle', target: 'Utilisateurs' })
-p({ class: 'foam.i18n.Locale', locale: 'fr', source: 'users.createTitle', target: 'Nouvel utilisateur' })
+p({ class: 'foam.i18n.Locale', locale: 'fr', source: 'foam.core.auth.User.CREATE_TITLE.label', target: 'Nouvel utilisateur' })
 ```
 
 The standard nav is `ResponsiveTopNav` plus the **side menu (`VerticalMenu`)**, which renders each item through `AbstractMenu.renderMenuItem` → `e.translate(menu.id + '.label', menu.label)`, so labels translate for free. If you write a **custom** menu view, do the same or its `Locale` row won't take: `e.translate(menu.id + '.label', menu.label)` when adding to an element, or `translationService.getTranslation(foam.locale, menu.id + '.label', menu.label)` when the label is a view property.
@@ -174,7 +173,7 @@ FOAM provides scripts in `scripts.jrl` that extract strings from loaded models a
 3. Extracts property labels and values
 4. Creates placeholder translations (e.g., appending ' fr' for French)
 
-Use extracted rows as a starting point, then verify the runtime source key used by the view. The separate menu extraction script emits keys such as `menuId.handler.config.browseTitle`, while the active DAO controller views look up `menuId.browseTitle` and `menuId.createTitle`.
+Use extracted rows as a starting point, then verify the runtime source key used by the view. The separate menu extraction script emits keys such as `menuId.handler.config.browseTitle`, while the active DAO controller views look up `menuId.browseTitle` and `<model id>.CREATE_TITLE.label`.
 
 ## Translation Management
 
@@ -224,4 +223,4 @@ The load-bearing, non-obvious runtime behavior:
 - Client `translationService` is `ClientCacheTranslationService`: `foam3/src/foam/i18n/services.jrl:48-64`.
 - `ClientCacheTranslationService` loads `Locale` rows into `localeEntries`: `foam3/src/foam/i18n/ClientCacheTranslationService.js:93-110`.
 - Application boot calls `installLanguage()` after `translationService.initLatch`: `foam3/src/foam/core/controller/ApplicationController.js:494-495`.
-- `installLanguage()` resolves each `Locale.source` as a global JS path and assigns the translated value: `foam3/src/foam/core/controller/ApplicationController.js:587-609`.
+- `installLanguage()` resolves each `Locale.source` as a global JS path and assigns the translated value: `foam3/src/foam/core/controller/ApplicationController.js:582-603`.

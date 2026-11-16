@@ -27,7 +27,7 @@ foam.CLASS({
         var o = this.array[row];
 
         for ( var i = 0 ; i < ps.length ; i++ ) {
-          cs[String.fromCharCode(65+i) + (row+1)] = ps[i].get(o);
+          cs[String.fromCharCode(65+i) + (row+1)] = ps[i].f(o) || "";
         }
       }
 

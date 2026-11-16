@@ -1,4 +1,4 @@
-<flow name="Influences" category="DOC/GUIDE" spid="foam" description="Where FOAM's ideas came from: UNIX, Smalltalk, Lisp and Jini, and what FOAM does differently with each." keywords="history,philosophy,unix,smalltalk,lisp,jini,kaos,nano-services,mlang"/>
+<flow name="Influences" category="DOC/GUIDE" spid="foam" description="Where FOAM's ideas came from: UNIX, Smalltalk, Lisp and Jini, what FOAM does differently with each, and the many smaller influences behind its other features." keywords="history,philosophy,unix,smalltalk,lisp,jini,kaos,nano-services,mlang,flapjax,newton,swing,spreadsheets"/>
 
 # Influences
 
@@ -234,7 +234,86 @@ That is UNIX's lesson about the file, applied to typed objects.
 
 ---
 
-## 7. Only More So
+## 7. Many Smaller Influences
+
+UNIX, Smalltalk, Lisp and Jini are the big four, but most parts of FOAM have an ancestor of
+their own. Some are well known, some are obscure, and a few are FOAM's own inventions.
+
+> Steal one good idea and it's plagiarism; steal a thousand and it's a pretty nifty framework.
+
+### Borrowed ideas
+
+| FOAM feature | Came from |
+|---|---|
+| Reactive programming: slots, expressions, dynamic views | [Flapjax](https://www.flapjax-lang.org/). See "Flapjax" below. |
+| The name "slot" | Lisp, though FOAM's slots are not quite the same thing. Wanted an OO version of C pointers. |
+| Unifying input, display, computation and storage | Spreadsheets, where one cell is all four (see [Cells](Cells.md)). |
+| DAOs | The "soups" of Apple's Newton OS, an object store queried by any application. |
+| Contexts | Jini's discovery service, reduced to the minimum: look a service up by name. |
+| Refinements | A paper on refinements of knowledge graphs. |
+| Axioms | Description logics. Using axioms to define the features of the language itself is, as far as we know, FOAM's own. |
+| The rule engine | Rule engines in general, Drools among them. |
+| `ContextAgent` (`src/foam/lang/ContextAgent.js`) | Mobile agent systems such as IBM's TSpaces, ObjectSpace Voyager and Jini: send the work to where the data and services are. |
+| Models | Database schemas, enriched. See "Models and the first DAOController" below. |
+| mlang | Lisp, as described in section 4. |
+| DAO decorators | The Gang of Four *Design Patterns* book, taken seriously. Each decorator is a combinator: caching, authorization, journalling and sequence numbers stack in any order. |
+| Journal files | A stopgap database written for an IBM project. See "Journals" below. |
+| Parsers | Parser combinators from functional programming, made object-oriented (see [Grammars](foam_parsers_doc.md)). |
+| Views | Java's Swing library, as closely as possible. Borders and Actions are Swing ideas (or at least introduced to be from Swing). |
+| The property sheet on the right of Reflow | JavaBeans, where a builder tool configures any bean through a generic property sheet. |
+| Building runtime objects from closures | The "Lambda the Ultimate" papers by Steele and Sussman, which show how much can be built from closures alone. FOAM's JavaScript runtime builds its classes this way. |
+
+### Flapjax
+
+Every reactive programming idea in FOAM came from Flapjax, which is probably the biggest
+influence that nobody knows about. Flapjax was a reactive language for the browser, based on the Scheme programming language.
+One of its creators presented it in Montreal in 2007, and FOAM's slots,
+expression properties and dynamic views follow from that talk.
+
+The word "reactive" has changed meaning since then. Many frameworks that call themselves reactive
+make the programmer declare dependency arrays, call update functions or wire up observable
+streams. FOAM uses the word in the Flapjax sense: the programmer writes a plain expression, and
+the runtime tracks its dependencies and propagates changes without being told. [Concepts](Concepts.md)
+quotes Flapjax on this and describes the difference in more detail.
+
+### Models and the first DAOController
+
+The first ancestor of FOAM altered a database's `SYS_TABLES` catalogue and added extra columns,
+so that it could store richer information about each table and column than the database itself
+needed. A generic browser then read that extra information and drew a better view of any table
+without being told what the table held. That browser was the original `DAOController`, and the
+extra columns were the first models: a schema that describes enough to drive the user interface,
+not only the storage.
+
+### Journals
+
+On an IBM project in the 1990s, the other developers were blocked waiting for a database while
+the real storage layer was being written. The quickest way to unblock them was to stream every
+update to a file, and on startup read the file back and apply the updates again. It worked so
+well that it became the real solution. FOAM's journals (`src/foam/dao/JDAO.js`) are the same
+idea. Event-streaming systems have since made it a common pattern.
+
+### menuDAO
+
+`menuDAO` goes back to a dial-up bulletin board system written in the 1980s. At 300 baud,
+re-sending a menu every time the user moved around wasted most of the connection, so the BBS
+sent all of its menus once at startup and the client displayed them locally. `menuDAO` does the
+same: the client caches it in full (section 5), so moving between menus costs no network calls.
+
+### FOAM's own
+
+A few ideas appear to have no ancestor:
+
+- **Reflow.** Things like Jupyter Notebooks are similar, but not reactive.
+- **MDAO's composable indices** (`src/foam/dao/index/`). They apply design patterns to data
+  structures: an index is built by composing smaller index objects, the way a DAO is built by
+  composing decorators. Design patterns and data structures are both standard topics, so you
+  would expect someone to have joined them before, but apparently not.
+- **Axioms as language features**, noted in the table above.
+
+---
+
+## 8. Only More So
 
 Each of these systems got one part right on its own:
 

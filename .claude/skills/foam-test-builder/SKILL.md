@@ -60,15 +60,31 @@ foam.CLASS({
 
 `test(boolean, message)` and `expect(value, expected, message)` are methods on the test instance in Java, and on the sub-context `x` in JS (`Test.js`), so JS writes `x.test(...)`. `async function` with `await` is fine in JS. Objects from `find` and `select` are frozen: `fclone()` before a setter.
 
+### A test that checks permissions as a user
+
+Putting only a subject on the context does not make checks run as that user: `x.put("subject", new Subject(user))` keeps the test runner's session and group, so `auth.check(ux, "*")` stays true and every authorization assertion passes for the wrong reason. Pick one of two levers:
+
+- **Stub the auth service** when the test calls the authorize methods directly. Override `check` on a `ProxyAuthService` and put it on the context (`src/foam/core/auth/test/PermissionedPropertyDAOTest.js`, `src/foam/core/reflow/test/FlowAuthorizationTest.js`).
+- **Sign the user in with `foam.util.Auth.sudo(x, user)`** when the test goes through real groups and a served DAO. It applies a `Session` for the user (`src/foam/util/Auth.java:61-78`), so checks read the user's group. Save the user in `localUserDAO` first: the session looks it up and throws `UserNotFoundException` otherwise (`src/foam/core/session/Session.js:345-346`, thrown at `:486-489`).
+
+Either way, open with the assertion that proves the context is not an admin:
+
+```java
+X ux = Auth.sudo(x, user);
+test(! ((AuthService) x.get("auth")).check(ux, "*"), "the test user is not an admin");
+```
+
 ## Register it
 
 | Test | pom `files:` flag | `tests.jrl` row |
 |---|---|---|
-| server test | `js&test\|java&test` | `p({"class":"pkg.MyServerTest","id":"MyServerTest","description":"..."})` |
-| client test | `js&test\|java&test` too | same, plus `"language": 0` |
+| server test | `js\|java` | `p({"class":"pkg.MyServerTest","id":"MyServerTest","description":"..."})` |
+| client test | `js\|java` too | same, plus `"language": 0` |
 | standalone `.java` test | `javaFiles:` entry, `flags: "test"` | same as server |
 
-The client row keeps the `java&test` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
+The flags are plain `js|java` because the parent pulls in the test pom with `{ name: 'test/pom', flags: 'test' }`, and that flag already keeps every file in it out of a production build. Adding `&test` to each file repeats it. Only a test file listed in a pom without that gate, such as a legacy test beside its code, needs `js&test|java&test`.
+
+The client row keeps the `java` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
 
 A `tests.jrl` loads because the pom walk reaches its directory: the directory of a loaded `pom.js`, or any directory under it that has no pom of its own (`pmake.js`). Two things stop the walk without the `test` flag: any directory named `test` or `tests` is skipped, and any `tests.jrl` is skipped (`JournalMaker.js`), which is why a test pom sits under `projects:` with `flags: 'test'`. `journalFiles:` is an exclude list, not a registration. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
 
@@ -81,9 +97,21 @@ A `tests.jrl` loads because the pom walk reaches its directory: the directory of
 ./build.sh --log-level:WARN server-tests:MyServerTest    # also print warnings; WARN, INFO or DEBUG
 ```
 
-`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time.
+`server-tests:` regenerates and compiles production code and tests in one pass, so no `-o` first. The build is incremental; `-c` and `-XcleanAll` only cost time, `javaCode` edits included. A clean is needed in three cases only:
+
+- a `pom.xml`, `javaDependencies` or `/build/lib` change, which `-XcleanAll` wipes and refetches;
+- a model renamed or deleted, whose old `.class` stays behind because the Java generator writes files and never deletes them;
+- a `.java` older than its `.class`, which a `git checkout` or restore can cause.
+
+`-XcleanAll` in the same call as a test run loses the test classes: run `./build.sh -XcleanAll -o` first and the tests as a second call.
 
 A server-side run prints ERROR lines only (`TestRunnerScript.setupServerSide`), so a `logger.warning` in the code under test never shows. When a test is about a warning, add `--log-level:WARN` before reading "it didn't log" as a result.
+
+A client test runs in a browser against the built webroot, so it cannot read a file from the repository: a `fetch` of a repo path returns 404. Copy the file into the webroot with a `copy:` block in the test's `pom.js` and fetch the copied path. `target` sets the path under the build directory; without it the file lands in `journals/`, where the browser cannot reach it (`tools/CopyMaker.js`):
+
+```js
+copy: [ { source: '../data/matrix.jrl', target: 'webroot/my-test/matrix.jrl' } ]   // fetch('/my-test/matrix.jrl')
+```
 
 ### Run a group of tests in one build
 
@@ -94,11 +122,11 @@ p({"class":"com.acme.rules.test.WidgetRulesTest","id":"WidgetRulesTest","testSui
 ```
 
 ```bash
-./build.sh -W9090 server-tests --test-suite:RulesRegression          # every server test tagged RulesRegression
-./build.sh -W9090 run-tests --test-suite:RulesRegression,Smoke       # both sides, two suites
+./build.sh -W9090 server-tests --test-suites:RulesRegression          # every server test tagged RulesRegression
+./build.sh -W9090 run-tests --test-suites:RulesRegression,Smoke       # both sides, two suites
 ```
 
-`--test-suite:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
+`--test-suites:` (`tools/JavaTooling.js:61`) sets `-Dfoam.test.suites`, and the runner keeps only tests whose `testSuite` is in that comma-separated list, on the server side and the client side (`src/foam/core/test/TestRunnerScript.js:357-361`, `:437-441`). Test ids given as well (`server-tests:A,B`) filter further: a test must match both. No test calls the others and nothing new is written: a test joins the group by adding the tag to its row, so one command keeps covering every member as the group grows. `testSuite` holds one name, so a test belongs to one suite.
 
 ## Read the result
 
@@ -117,7 +145,7 @@ Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any reg
 | `WARNING :: Test not run: MyTest. Mode: server. Possible client/server/suite mismatch or typo.` on a `JSTest` | expected: `language: 0` makes the server skip it | run it with `client-tests:` |
 | the same on a server `Test` | not in `testDAO`: no row, a `tests.jrl` the walk never reached, or an id typo; the warning only fires for ids named on the command line | add the row where the walk reaches it, and check the id |
 | nothing runs, no warning | `enabled: false` on the row; both runners select `EQ(Test.ENABLED, true)` first | drop the field or set it true |
-| `ERROR CREATING: pkg.MyClientTest` at replay | flagged `js&test` only, no Java class to instantiate | `js&test\|java&test` |
+| `ERROR CREATING: pkg.MyClientTest` at replay | flagged `js` only, no Java class to instantiate | `js\|java` |
 | `Cannot find module .../tests.js` from pmake | the journal is in `files:` | remove it; a `.jrl` beside a loaded pom needs no entry |
 | `this.test is not a function` | `this.test` in a JS `runTest` | `x.test(...)` |
 | a JS test passes on the server with 0 assertions | its Java `runTest` is the NOOP stub | `language: 0` on the row, or `extends: JSTest` |

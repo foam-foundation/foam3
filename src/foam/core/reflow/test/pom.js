@@ -10,8 +10,10 @@ foam.POM({
     { name: 'DAOPromptRunningTest', flags: 'js&test|java&test' },
     { name: 'ColumnParserTest', flags: 'js&test|java&test' },
     { name: 'DependencyScannerTest', flags: 'js&test|java&test' },
+    { name: 'FlowAuthorizationTest', flags: 'js&test|java&test' },
     { name: 'FlowHistoryRuleActionTest', flags: 'js&test|java&test' },
     { name: 'FlowScriptShapeTest', flags: 'js&test|java&test' },
-    { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' }
+    { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' },
+    { name: 'FlowDocumentDocsTest',   flags: 'js&test|java&test' }
   ]
 });

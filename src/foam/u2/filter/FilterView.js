@@ -531,7 +531,14 @@ foam.CLASS({
       code: function() {
         // clear all filters
         this.filterController.clearAll();
-        if ( this.generalSearchField ) this.generalSearchField.view.data = '';
+        // The search field's text box exists only once TextSearchView.render
+        // has awaited the DAO's default query, so a clear that comes first,
+        // e.g. from a program change while the table loads, finds view
+        // undefined. searchData is bound to the field's data, which the text
+        // box follows once it exists; text typed but not yet idle for 500ms
+        // is only in the text box, so that is cleared too when it is there.
+        this.searchData = '';
+        if ( this.generalSearchField?.view ) this.generalSearchField.view.data = '';
         // Use undefined so hasDefaultValue() returns true and memento removes from URL
         this.mementoString = undefined;
       }

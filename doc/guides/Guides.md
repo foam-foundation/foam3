@@ -23,6 +23,9 @@ The FOAM Pom-O-Matic build system: POM file types (Tooling vs Build), the three 
 **[POM](POM.md)**
 Reference for POM (Project Object Model) file attributes: name/vendorId/version/licenses, multi-stage JS loading for startup performance, flags expressions for conditional inclusion (js/java/web/node/debug), JSLibs, and how the build processes sub-projects.
 
+**[Flags](Flags.md)**
+How build flags work: flag expressions on POM entries, `setFlags:`, setting flags with `./build.sh --flags:` and `pmake -flags=`, URL and script-tag flags, precedence, default values, and gotchas such as `dev` being off in built bundles.
+
 **[Context](Context.md)**
 Explains the immutable hierarchical key-value Context (X) — its get/put/putFactory API — and the three-level hierarchy: system context (boot), session context (per-user), and request context (per HTTP request). Read this before learning about imports and exports.
 
@@ -173,6 +176,9 @@ Overview of Reflow, FOAM's Jupyter-style interactive console: the Console contro
 
 **[ExportingFlows](ExportingFlows.md)**
 Step-by-step instructions for exporting a Reflow flow from the running app: open the flow DAO in Console, filter by name, open the Download link (JSON or journal format), copy it, and replace the entry in the `.jrl` source file.
+
+**[KnowledgeBaseDocs](KnowledgeBaseDocs.md)**
+How to add a `.md` file to the Knowledge Base with a `<flow>` tag, edit an existing doc from the file or from the app in development mode, write hints and images the viewer renders, and fix a doc that is missing or lost its formatting.
 
 **[Dashboard](Dashboard.md)**
 Quick-start guide for building FOAM3 dashboards: creating a `DashboardView` with widget menus in `menu.jrl`, configuring `CardWrapper`/`DAOTable`/count widgets, and optional `CitationView`s.

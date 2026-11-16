@@ -58,8 +58,6 @@ foam.CLASS({
   name: 'LicenseAlertNotificationMessageModal',
   extends: 'foam.core.notification.NotificationMessageModal',
 
-  requires: [ 'foam.u2.HTMLView' ],
-
   messages: [
     {
       name: 'CLIENT_MSG',
@@ -113,7 +111,7 @@ foam.CLASS({
         .start(this.Rows)
           .addClass(this.myClass('container'))
             .start().addClass('p-bold').add(this.MESSAGE_MSG).end()
-            .start(this.HTMLView, { data$: this.description$ }).addClass(this.myClass('message')).end()
+            .start().addClass(this.myClass('message')).add(this.description$).end()
         .end()
         .startContext({data: this})
           .start(this.GO_TO_LICENSE) // Link to the License

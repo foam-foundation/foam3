@@ -176,6 +176,8 @@ foam.CLASS({
       ].forEach(function(row) {
         var label = row[0].getAxiomByName(row[1]).label;
         x.test(label === row[2], row[0].name + '.' + row[1] + ' is labelled "' + row[2] + '". Got: ' + label);
+        x.test(row[0].getAxiomByName(row[1]).validationTextVisible,
+          row[0].name + '.' + row[1] + ' shows its Required text under the field');
       });
     },
 

@@ -26,6 +26,15 @@ foam.CLASS({
         return { class: 'foam.core.reflow.PropertyExprView', forCls: X.dao ? X.dao.of : undefined };
       }
     },
+    {
+      // FObjectProperty hides its border's validation text because its
+      // nested form shows its own; this field is one picker with no nested
+      // form, so without the text an empty Property kept Run off with no
+      // "Required" under it to say why.
+      class: 'Boolean',
+      name: 'validationTextVisible',
+      value: true
+    },
     [
       'isDefaultValue',
       // The picker writes null when it first renders, and ExprProperty stores

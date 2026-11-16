@@ -100,6 +100,7 @@ Its features are HTML tags the document writes, not modes of the view.
 | Move between documents with an `<a>` naming the flow | any `routeTo('flow_/...')` or hand-built hash in a document view? |
 | Follow the flow's fields, not the flow object | a `dynamic` on `data$value` or `flow` that should re-run on load? |
 | Fetch only the columns the view reads | a full `Flow` select to read names? |
+| `Flow` and the Console are hosts: extend them through their slots | does `Flow.js` or `Console.js` name a keyword, tag or view of one feature? |
 
 ### A document feature is a tag, registered in a `foam.SCRIPT`
 Tags compose in any document and need no change to the renderer; a mode on the view applies to every markdown everywhere.
@@ -134,17 +135,23 @@ Cite: `core/reflow/Console.js:1815`
 ### Inline tags sit inside a paragraph; layout that needs the document dissolves it
 A tag written on its own line still lands in `div.mdParagraph`, and a sticky element sticks only within its parent; the Block's content box scrolls sideways (`overflow-x: auto`), which also makes it the box a sticky element sticks to.
 Don't: `position: sticky` on a tag and expect it to follow the page
-Do:    `.mdParagraph:has(> <<x) { display: contents; }` and a Block rule that lets that content overflow
-Cite: `u2/view/MarkdownView.js:554`, `core/reflow/Block.js:52`
+Do:    `.mdParagraph:has(> <<x) { display: contents; }` and `.foam-core-reflow-Block-content:has(<<x) { overflow: visible; }`, both in the tag's own CSS
+Cite: `u2/view/MarkdownView.js:554`, `core/reflow/Block.js:52`, `u2/markdown/TOC.js` (the `side` rules)
 
 ### An order with parts is set in code, not in a journal
 `ThenBy` keeps `head` and `tail` exactly as given, so a `ThenBy` read from JSON holds plain maps and sorts nothing.
 Don't: `"order": { "class": "foam.mlang.order.ThenBy", "head": {...}, "tail": {...} }` in a `menus.jrl` view config
-Do:    an `order` factory on the view class: `ThenBy.create({ head: Model.A, tail: Model.B })`
-Cite: `mlang/order/ThenBy.js:23-27`
+Do:    an `order` factory on the view class: `this.THEN_BY(Model.A, Model.B)`; a `GroupingDAOList` already implements `Expressions`
+Cite: `mlang/order/ThenBy.js:23-27`, `mlang/Expressions.js:170`, `u2/GroupingDAOList.js:12`
 
 ### Fetch only the columns the view reads
 A flow carries its whole script; a list of names for a breadcrumb or a next link does not need it.
 Don't: `flowDAO.where(...).select()` then `.map(f => f.name)`
 Do:    `.select(this.PROJECTION(Flow.NAME))`
 Cite: `mlang/Expressions.js:155`
+
+### `Flow` and the Console are hosts: extend them through their slots
+Every flow, dashboard and document goes through `Flow` and the Console, so a feature's code there is carried by all of them (the spine's "Extend without being specific"). The Console header gives out two empty views for a flow's own content: `titlePrefix`, left of the flow's name, and `titleSuffix`, after its version. The header sets them each time it is drawn and the Console exports them.
+Don't: a lookup or keyword constant on `Flow`; a feature's view required by the Console header
+Do:    the feature's tag imports `titlePrefix?`, follows it in its `dynamic`, clears it with `removeAllChildren()` and adds to it, and removes what it added on detach. Its import is already cleared when its own `onDetach` runs, so it keeps its own reference to what it added.
+Cite: `core/reflow/Console.js` (`titlePrefix`), `core/reflow/FlowDocumentNav.js` (`renderCrumbs`)

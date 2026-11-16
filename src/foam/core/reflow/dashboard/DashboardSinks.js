@@ -838,6 +838,10 @@ foam.CLASS({
       properties: ['colors'] }
   ],
 
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
   properties: [
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'X Axis', required: true },
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Stacked By', required: true },
@@ -1779,6 +1783,10 @@ foam.CLASS({
       properties: ['colors', 'borderColors'] }
   ],
 
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
   properties: [
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'X Property', help: 'Property to group by (x-axis values)', required: true },
     // One line per group (one per currency). Clearing it makes the line agent
@@ -2437,6 +2445,10 @@ foam.CLASS({
     // override cannot hide them; this section, never shown, holds them instead.
     { name: 'unusedTooltips', isAvailable: function() { return false; },
       properties: ['showTooltips', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'valueSink' }
   ],
 
   properties: [

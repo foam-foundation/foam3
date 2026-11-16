@@ -49,12 +49,8 @@ foam.CLASS({
       name:  'rows',
       javaCloneProperty: '// noop',
       javaFactory: 'return GROUP_BY(getYFunc(), GROUP_BY(getXFunc(), getAcc()));',
-      // An expression, not a one-time factory: a form can show a GridBy, and
-      // so read rows, before xFunc and yFunc are picked. A factory would keep
-      // a grouping by nothing, and the select then fails on the server with
-      // "GroupBy.getArg1() is null".
-      expression: function(xFunc, yFunc, acc) {
-        return this.GROUP_BY(yFunc, this.GROUP_BY(xFunc, acc));
+      factory: function() {
+        return this.GROUP_BY(this.yFunc, this.GROUP_BY(this.xFunc, this.acc));
       }
     },
     {
@@ -64,8 +60,9 @@ foam.CLASS({
       help:  'Columns.',
       javaCloneProperty: '// noop',
       javaFactory: 'return foam.mlang.MLang.GROUP_BY(getXFunc());',
-      // An expression for the same reason as rows: it must follow xFunc.
-      expression: function(xFunc) { return this.GROUP_BY(xFunc); }
+      factory: function() {
+        return this.GROUP_BY(this.xFunc);
+      }
     },
     { name: 'selection', hidden: true, expression: function(y) { return y; } },
     { name: 'x', hidden: true },
@@ -83,6 +80,21 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      // rows and cols are stored factories built from xFunc, yFunc and acc.
+      // A form can read them before the fields are picked, which would keep a
+      // grouping by nothing ("GroupBy.getArg1() is null" on the server), so a
+      // later change to any of the three clears them and the next read
+      // rebuilds. Listening here, not in a postSet, also covers subclasses
+      // that redeclare these fields with another property class.
+      var self = this;
+      function clear() { self.clearProperty('rows'); self.clearProperty('cols'); }
+      this.onDetach(this.xFunc$.sub(clear));
+      this.onDetach(this.yFunc$.sub(clear));
+      this.onDetach(this.acc$.sub(clear));
+    },
+
     {
       name: 'put',
       code: function put(obj, sub) {
@@ -100,7 +112,9 @@ foam.CLASS({
     },
 
     function toString() {
-      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc.toString()})`;
+      // ${this.acc} still calls acc.toString(), and a GridBy with no total yet
+      // (acc undefined) reads as undefined instead of throwing.
+      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc})`;
     }
   ]
 });

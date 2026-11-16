@@ -236,6 +236,17 @@ foam.CLASS({
     // cached result back and drew a table. Naming the class keeps them apart.
     function toString() { return this.cls_.id + ':' + this.SUPER(); },
 
+    // Builds this run's total from the form's Sum or Count into the field the
+    // sink totals with (TOTAL_SLOT: arg2 by default, acc or valueSink). It is
+    // built per run because the form edits the Sum in place: its Property is
+    // picked after SUM, so a total built when SUM was chosen would sum nothing.
+    // With nothing picked the total is a Count, as the form shows; a Stacked
+    // Bar sent to the server with no total failed in GroupBy.put.
+    function buildTotal_() {
+      var agg = this.aggregation || foam.core.reflow.CountDAOAgent.create({}, this);
+      this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
+    },
+
     function addChartDisplayToE(e) {
       var self = this;
       // Add chart display configuration fields to the UI
@@ -293,12 +304,12 @@ foam.CLASS({
       factory: function() { return this.DashboardBarSink.create({}, this); }
     },
     // Flows saved before the form moved to the sink keep these on the agent
-    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // ({ prop2: month, prop1: status, sink: Sum }); they only forward into the form.
     // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.aggregation = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -366,10 +377,7 @@ foam.CLASS({
       // old counts (4 rows counted as 8 on the second run). displaySink only
       // holds the chart settings. The other chart agents below do the same.
       var sink = this.displaySink.clone(this);
-      // The total is built for each run from the form's Sum or Count: the
-      // form edits that agent in place (its Property is picked after SUM is),
-      // so a total built when SUM was chosen would sum nothing.
-      if ( sink.aggregation ) sink.arg2 = sink.aggregation.createSink();
+      sink.buildTotal_();
       return sink;
     },
 
@@ -407,14 +415,14 @@ foam.CLASS({
       factory: function() { return this.DashboardStackedBarSink.create({}, this); }
     },
     // Flows saved before the form moved to the sink keep these on the agent
-    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // ({ xProp: date, groupBy: currency, aggregationSink: Sum }); they only forward into the form.
     // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop2', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.xFunc = v; } },
     { name: 'prop1', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.yFunc = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.aggregation = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -471,10 +479,7 @@ foam.CLASS({
       var sink = this.displaySink.clone(this);
       sink.clearProperty('rows');
       sink.clearProperty('cols');
-      // The total is built for each run from the form's Sum or Count: the
-      // form edits that agent in place (its Property is picked after SUM is),
-      // so a total built when SUM was chosen would sum nothing.
-      if ( sink.aggregation ) sink.acc = sink.aggregation.createSink();
+      sink.buildTotal_();
       return sink;
     },
 
@@ -509,12 +514,12 @@ foam.CLASS({
       factory: function() { return this.DashboardPieSink.create({}, this); }
     },
     // Flows saved before the form moved to the sink keep these on the agent
-    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // ({ prop: createdAt, categoryProp: status, sink: Sum }); they only forward into the form.
     // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.aggregation = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -567,10 +572,7 @@ foam.CLASS({
   methods: [
     function createSink() {
       var sink = this.displaySink.clone(this);
-      // The total is built for each run from the form's Sum or Count: the
-      // form edits that agent in place (its Property is picked after SUM is),
-      // so a total built when SUM was chosen would sum nothing.
-      if ( sink.aggregation ) sink.arg2 = sink.aggregation.createSink();
+      sink.buildTotal_();
       return sink;
     },
     function addSinkToE(e, s) { e.add(s); },
@@ -617,14 +619,12 @@ foam.CLASS({
     { name: 'groupBy', hidden: true, transient: true,
       setter: function(v) { this.displaySink.yFunc = v; } },
     { name: 'singleLineSink_', hidden: true, transient: true },
-    // An old Line flow's total arrives in a context with no data behind it,
-    // so its form could not list the chart's fields (the Sum's Property
-    // picker threw on a null DAO). sink's preSet re-creates it in this
-    // agent's context, so aggregationSink goes through sink.
+    // Saved Network Fees flows follow aggregationSink with an empty
+    // "sink": {}, so both only take an object that can build a total.
     { name: 'aggregationSink', hidden: true, transient: true,
-      postSet: function(o, n) { this.sink = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.aggregation = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -728,18 +728,14 @@ foam.CLASS({
           if ( old.hasOwnProperty(p) ) next[p] = old[p];
         });
         if ( old.hasOwnProperty(this.xName_(old)) ) next[this.xName_(next)] = old[this.xName_(old)];
+        if ( ! wantMulti ) next.clearProperty('yFunc');
         this.displaySink = next;
       }
 
       if ( this.displaySink.hasDefaultValue(this.xName_(this.displaySink)) ) return this.ArraySink.create();
       this.applyDateRangeFilter();
       var sink = this.displaySink.clone(this);
-      // The total is built for each run from the form's Sum or Count: the
-      // form edits that agent in place (its Property is picked after SUM is),
-      // so a total built when SUM was chosen would sum nothing.
-      if ( sink.aggregation ) {
-        sink[this.DashboardMultiLineSink.isInstance(sink) ? 'acc' : 'arg2'] = sink.aggregation.createSink();
-      }
+      sink.buildTotal_();
       return sink;
     },
 
@@ -832,7 +828,7 @@ foam.CLASS({
     { name: 'categoryProp', hidden: true, transient: true,
       setter: function(v) { this.displaySink.categoryProp = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.aggregation = n; } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'showAllData', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showAllData = v; } },
     // Legacy flat-format shims — setter-only
@@ -876,10 +872,7 @@ foam.CLASS({
         this.applyDateRangeFilter && this.applyDateRangeFilter();
       }
       var sink = this.displaySink.clone(this);
-      // The total is built for each run from the form's Sum or Count: the
-      // form edits that agent in place (its Property is picked after SUM is),
-      // so a total built when SUM was chosen would sum nothing.
-      if ( sink.aggregation ) sink.valueSink = sink.aggregation.createSink();
+      sink.buildTotal_();
       return sink;
     },
     function addSinkToE(e, s) { e.add(s); },

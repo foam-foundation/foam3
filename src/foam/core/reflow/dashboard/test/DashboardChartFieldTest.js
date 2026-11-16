@@ -31,6 +31,8 @@ foam.CLASS({
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.dao.TTLSelectCachingDAO',
+    'foam.mlang.sink.GroupBy',
+    'foam.u2.mlang.Pie',
     'foam.dao.ArraySink',
     'foam.mlang.sink.Sum'
   ],
@@ -44,7 +46,7 @@ foam.CLASS({
       await this.testGroupByChart(x, 'Bar', this.DashboardBarChartDAOAgent);
       await this.testGroupByChart(x, 'Pie', this.DashboardPieChartDAOAgent);
       await this.testStackedBar(x);
-      await this.testCalendar(x);
+      this.testCalendar(x);
       await this.testLineNewChart(x);
       await this.testLineOldFlow(x);
       await this.testEarlierNestedFlows(x);
@@ -62,6 +64,7 @@ foam.CLASS({
 
       var grid = await dao.select(this.GridBy.create({ xFunc: R.MONTH, yFunc: R.YEAR, acc: sum.createSink() }, x));
       x.test(! this.DashboardStackedBarSink.isInstance(grid), 'Cache: a plain GridBy select returns a plain GridBy');
+      x.test(Object.keys(grid.rows.groups).length === 2, 'Cache: the cached copy of a grid filled in the browser keeps its rows. Got: ' + Object.keys(grid.rows.groups).length);
 
       var agent = this.DashboardStackedBarChartDAOAgent.create({}, x);
       agent.displaySink.xFunc       = R.MONTH;
@@ -70,6 +73,11 @@ foam.CLASS({
       var chart = await dao.select(agent.createSink());
       x.test(this.DashboardStackedBarSink.isInstance(chart),
         'Cache: a Stacked Bar on the same fields gets its own result, not the cached GridBy. Got: ' + chart.cls_.id);
+
+      var group = await dao.select(this.GroupBy.create({ arg1: R.YEAR, arg2: sum.createSink() }, x));
+      x.test(! this.Pie.isInstance(group), 'Cache: a plain GroupBy select returns a plain GroupBy');
+      var pie = await dao.select(this.Pie.create({ arg1: R.YEAR, arg2: sum.createSink() }, x));
+      x.test(this.Pie.isInstance(pie), 'Cache: foam.u2.mlang.Pie on the same field gets its own result. Got: ' + pie.cls_.id);
     },
 
     // Flows saved by the version that first moved the settings to the sink:
@@ -256,7 +264,7 @@ foam.CLASS({
       x.test(total === 40, 'StackedBar: a reloaded chart sums all four rows. Got: ' + total);
     },
 
-    async function testCalendar(x) {
+    function testCalendar(x) {
       var R = this.DashboardTestRow;
 
       var agent = this.DashboardCalendarChartDAOAgent.create({}, x);
@@ -320,6 +328,15 @@ foam.CLASS({
       x.test(this.DashboardLineSink.isInstance(agent.displaySink), 'Line: clearing Group By goes back to one line');
       x.test(agent.displaySink.arg1 === R.MONTH, 'Line: X Property carries back to the single-line sink');
       x.test(agent.displaySink.othersLabel === 'Rest', 'Line: the single-line Top N settings come back with one line');
+
+      // Group By cleared on the multi-line form by removing the value, not
+      // writing null: the reused single-line form must not bring it back.
+      agent.displaySink.yFunc = R.YEAR;
+      agent.createSink();
+      agent.displaySink.clearProperty('yFunc');
+      agent.createSink();
+      agent.createSink();
+      x.test(this.DashboardLineSink.isInstance(agent.displaySink), 'Line: a cleared Group By stays cleared across runs');
       var sums = this.groupTotals(await dao.select(sink));
       x.test(sums === '{"1":20,"2":20}', 'Line: back on one line, the Sum still applies per month. Got: ' + sums);
 
@@ -335,7 +352,7 @@ foam.CLASS({
 
       var old = foam.json.parseString(
         '{"class":"foam.core.reflow.dashboard.DashboardLineChartDAOAgent","xProp":' + this.propJson('month') +
-        ',"groupBy":' + this.propJson('year') + ',"aggregationSink":' + this.sumJson() + '}', x);
+        ',"groupBy":' + this.propJson('year') + ',"aggregationSink":' + this.sumJson() + ',"sink":{}}', x);
       x.test(old.displaySink.arg1 && old.displaySink.arg1.name === 'month', 'Line: an old flow shows its X Property');
       x.test(old.displaySink.yFunc && old.displaySink.yFunc.name === 'year', 'Line: an old flow shows its Group By');
       x.test(this.SumDAOAgent.isInstance(old.displaySink.aggregation), 'Line: an old flow shows its Sum');

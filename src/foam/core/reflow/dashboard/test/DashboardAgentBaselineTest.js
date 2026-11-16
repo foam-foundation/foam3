@@ -217,6 +217,7 @@ foam.CLASS({
         animationDuration: 800,
         colors: ['$c1']
       }, x);
+      // With no Sum picked the total is a Count (valueSink).
       var sink = agent.createSink();
       var snapshot = this.snapshotSink(sink);
       x.test(snapshot === this.EXPECTED_CALENDAR, 'Calendar baseline matches. Got: ' + snapshot);
@@ -226,10 +227,8 @@ foam.CLASS({
   constants: [
     { name: 'EXPECTED_BAR',      value: '{class:"foam.core.reflow.dashboard.DashboardBarSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,horizontal:true,barThickness:20,xAxisLabel:"X",yAxisLabel:"Y",showGridLines:false,showLegend:false,maintainAspectRatio:true,height:400,legendPosition:"2",showTooltipSum:true,animate:false,animationDuration:500,colors:["$barChart1","$barChart2"]}' },
     { name: 'EXPECTED_PIE',      value: '{class:"foam.core.reflow.dashboard.DashboardPieSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,showPercentages:true,cutoutPercentage:50,disableLegendClick:true,colors:["$a","$b","$c"]}' },
-    // rows and cols follow X Axis and Stacked By now, so a chart with neither
-    // picked no longer carries a grouping by nothing.
-    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",xAxisLabel:"X",yAxisLabel:"Y",height:350,colors:["$s1","$s2"]}' },
+    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",xAxisLabel:"X",yAxisLabel:"Y",acc:{class:"foam.mlang.sink.Count"},rows:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},groupKeys:[],processArrayValuesIndividually:true},cols:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},height:350,colors:["$s1","$s2"]}' },
     { name: 'EXPECTED_LINE',     value: '{class:"foam.dao.ArraySink"}' },
-    { name: 'EXPECTED_CALENDAR', value: '{class:"foam.core.reflow.dashboard.DashboardCalendarSink",periodCount:30,map_:{},height:250,animationDuration:800,colors:["$c1"]}' }
+    { name: 'EXPECTED_CALENDAR', value: '{class:"foam.core.reflow.dashboard.DashboardCalendarSink",valueSink:{class:"foam.mlang.sink.Count"},periodCount:30,map_:{},height:250,animationDuration:800,colors:["$c1"]}' }
   ]
 });

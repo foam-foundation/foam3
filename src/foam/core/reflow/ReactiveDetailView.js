@@ -482,7 +482,20 @@ foam.CLASS({
     }
   `,
 
-  properties: [ [ 'collapsed', true ] ]
+  properties: [
+    {
+      name: 'collapsed',
+      // Sections start closed, except one holding a field with a validation
+      // error (an empty required field), so the field that keeps Run off and
+      // its "Required" text are in view without opening anything.
+      factory: function() {
+        var errors = this.data && this.data.errors_;
+        if ( ! errors || ! this.section ) return true;
+        var names = this.section.properties.map(p => p.name);
+        return ! errors.some(e => names.includes(e[0].name));
+      }
+    }
+  ]
 });
 
 

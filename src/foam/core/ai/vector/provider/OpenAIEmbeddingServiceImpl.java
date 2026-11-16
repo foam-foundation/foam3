@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -37,6 +38,7 @@ public class OpenAIEmbeddingServiceImpl extends OpenAIEmbeddingService {
 
       var req = HttpRequest.newBuilder()
         .uri(URI.create(getEndpoint()))
+        .timeout(Duration.ofMillis(getReadTimeout()))
         .header("Content-Type",  "application/json")
         .header("Authorization", "Bearer " + getApiKey())
         .POST(HttpRequest.BodyPublishers.ofString(body))
@@ -47,11 +49,13 @@ public class OpenAIEmbeddingServiceImpl extends OpenAIEmbeddingService {
       // request received."
       var resp = HttpClient.newBuilder()
         .version(HttpClient.Version.HTTP_1_1)
+        .connectTimeout(Duration.ofMillis(getConnectTimeout()))
         .build()
         .send(req, HttpResponse.BodyHandlers.ofString());
 
       if ( resp.statusCode() != 200 )
-        throw new RuntimeException("OpenAI returned HTTP " + resp.statusCode() + ": " + resp.body());
+        // The body is left out: a model server can echo the input text into its error.
+        throw new RuntimeException("OpenAI returned HTTP " + resp.statusCode());
 
       JSONArray data = new JSONObject(resp.body()).getJSONArray("data");
       VectorEmbedding[] results = new VectorEmbedding[data.length()];

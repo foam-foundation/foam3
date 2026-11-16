@@ -261,8 +261,9 @@ foam.LIB({
         s = percentageToDecimal(s);
         l = percentageToDecimal(l)
 
-        if ( typeof h == 'string' && h.indexOf('deg') != -1 ) 
-          h = Number(h.slice(0, h.indexOf('deg')));
+        // CSS writes the hue in degrees ('120' or '120deg'); hueToRGB wants 0 to 1.
+        h = parseFloat(h) / 360;
+        h = h - Math.floor(h);
 
         if ( s == 0 ) {
             r = g = b = l; // achromatic

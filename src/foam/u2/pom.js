@@ -47,6 +47,7 @@ foam.POM({
     { name: "test/CSSTokensJSTest",                               flags: "js&test|java&test" },
     { name: "test/CSSStatusTokensJSTest",                         flags: "js&test|java&test" },
     { name: "test/CSSTokensContrastTest",                         flags: "js&test|java&test" },
+    { name: "test/ColorParseTest",                                flags: "js&test|java&test" },
     { name: "test/CSSTokenOverrideVariantJSTest",                 flags: "js&test|java&test" },
     { name: "test/CSSTokenVariantKeyJSTest",                      flags: "js&test|java&test" },
     { name: "test/SafeHTMLViewJSTest",                            flags: "js&test|java&test" },

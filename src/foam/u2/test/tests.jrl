@@ -1,6 +1,7 @@
 p({"class":"foam.u2.test.CSSTokensJSTest","id":"CSSTokensJSTest"})
 p({"class":"foam.u2.test.CSSStatusTokensJSTest","id":"CSSStatusTokensJSTest"})
 p({"class":"foam.u2.test.CSSTokensContrastTest","id":"CSSTokensContrastTest"})
+p({"class":"foam.u2.test.ColorParseTest","id":"ColorParseTest"})
 p({"class":"foam.u2.test.CSSTokenOverrideVariantJSTest","id":"CSSTokenOverrideVariantJSTest"})
 p({"class":"foam.u2.test.CSSTokenVariantKeyJSTest","id":"CSSTokenVariantKeyJSTest"})
 p({"class":"foam.u2.test.CSSSpacingTokensJSTest","id":"CSSSpacingTokensJSTest"})

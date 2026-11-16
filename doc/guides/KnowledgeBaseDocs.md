@@ -86,8 +86,8 @@ Read **this** first.
 </hint>
 ```
 
-GitBook's `{% hint style="info" %}` is not supported and shows as plain text. Convert it to a
-`<hint>` tag when you migrate a page.
+GitBook `hint` blocks (the ones opened with a curly brace and a percent sign) are not supported
+and show as plain text. Convert each to a `<hint>` tag when you migrate a page.
 
 The editor toolbar also inserts `<toc></toc>` (contents list), `<search></search>` and
 `<glossary></glossary>`. Plain HTML, such as `<details>`, renders as HTML.
@@ -107,7 +107,7 @@ be unique across the whole app, so prefix them with the doc name.
 |---|---|
 | New `.md` never shows | `<flow>` tag at the top with no earlier `<flow` text, `knowledge` in `keywords`, folder the build walks, rebuilt |
 | Shows for some users only | The user's `spid`, `accessLevel` and the access list in the tag, and the `menu.read.knowledgeBase` permission |
-| Lost its formatting | GitBook syntax such as `{% hint %}`; rewrite it with the tags above |
+| Lost its formatting | GitBook syntax such as a `hint` block; rewrite it with the tags above |
 | App edit gone after a build | The edit was made outside DEVELOPMENT or TEST mode, so the file never changed; edit the `.md` |
 | Became a `.flow` file | The doc got a second block; delete it, set `source` back to the `.md`, save again, delete the stray `.flow` |
 | Image missing | Folder not named `images`, or another image already has that file name |

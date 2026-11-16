@@ -132,19 +132,19 @@ foam.CLASS({
     // The labels the form showed before the settings moved to the sink.
     function testLabels(x) {
       [
-        [ 'DashboardBarSink',        'arg1',         'Property' ],
-        [ 'DashboardPieSink',        'arg1',         'Property' ],
-        [ 'DashboardLineSink',       'arg1',         'X Property' ],
-        [ 'DashboardLineSink',       'yFunc',        'Group By (Multiple Lines)' ],
-        [ 'DashboardMultiLineSink',  'xFunc',        'X Property' ],
-        [ 'DashboardMultiLineSink',  'yFunc',        'Group By (Multiple Lines)' ],
-        [ 'DashboardStackedBarSink', 'xFunc',        'X Axis' ],
-        [ 'DashboardStackedBarSink', 'yFunc',        'Stacked By' ],
-        [ 'DashboardCalendarSink',   'dateProp',     'Date Property' ],
-        [ 'DashboardCalendarSink',   'categoryProp', 'Category Property' ]
+        [ this.DashboardBarSink,        'arg1',         'Property' ],
+        [ this.DashboardPieSink,        'arg1',         'Property' ],
+        [ this.DashboardLineSink,       'arg1',         'X Property' ],
+        [ this.DashboardLineSink,       'yFunc',        'Group By (Multiple Lines)' ],
+        [ this.DashboardMultiLineSink,  'xFunc',        'X Property' ],
+        [ this.DashboardMultiLineSink,  'yFunc',        'Group By (Multiple Lines)' ],
+        [ this.DashboardStackedBarSink, 'xFunc',        'X Axis' ],
+        [ this.DashboardStackedBarSink, 'yFunc',        'Stacked By' ],
+        [ this.DashboardCalendarSink,   'dateProp',     'Date Property' ],
+        [ this.DashboardCalendarSink,   'categoryProp', 'Category Property' ]
       ].forEach(function(row) {
-        var label = foam.lookup('foam.core.reflow.dashboard.' + row[0]).getAxiomByName(row[1]).label;
-        x.test(label === row[2], row[0] + '.' + row[1] + ' is labelled "' + row[2] + '". Got: ' + label);
+        var label = row[0].getAxiomByName(row[1]).label;
+        x.test(label === row[2], row[0].name + '.' + row[1] + ' is labelled "' + row[2] + '". Got: ' + label);
       });
     },
 
@@ -160,6 +160,12 @@ foam.CLASS({
       x.test(this.canRun(agent), name + ': picking Property in the form enables Run');
       var counts = this.groupTotals(await dao.select(agent.createSink()));
       x.test(counts === '{"2025":2,"2026":2}', name + ': new chart counts rows per year. Got: ' + counts);
+      agent.displaySink.aggregation = this.SumDAOAgent.create({}, x);
+      x.test(! this.canRun(agent), name + ': a Sum with no Property turns Run off');
+      agent.displaySink.aggregation.prop = R.AMOUNT;
+      x.test(this.canRun(agent), name + ': picking the Sum\'s Property turns Run back on');
+      var picked = this.groupTotals(await dao.select(agent.createSink()));
+      x.test(picked === '{"2025":20,"2026":20}', name + ': a Sum whose Property was picked after SUM sums amounts. Got: ' + picked);
 
       var old = foam.json.parseString(
         '{"class":"' + Agent.id + '","prop":' + this.propJson('year') + ',"sink":' + this.sumJson() + '}', x);
@@ -235,6 +241,16 @@ foam.CLASS({
       agent.displaySink.dateProp = R.MONTH;
       x.test(this.canRun(agent), 'Calendar: picking Date Property enables Run');
 
+      // A Category picked and then cleared holds Constant(null); the calendar
+      // must count rows under 'default', not skip them all.
+      var cal = this.DashboardCalendarSink.create({}, x);
+      cal.dateProp = foam.mlang.Constant.create({ value: new Date(Date.UTC(2026, 0, 15)) });
+      cal.categoryProp = R.YEAR;
+      cal.categoryProp = null;
+      cal.put(R.create({ id: 1, year: 2026, month: 1, amount: 10 }));
+      var cells = JSON.stringify(cal.map_);
+      x.test(cells === '{"2026-01-15":{"default":1}}', 'Calendar: a cleared Category still counts the row. Got: ' + cells);
+
       var old = foam.json.parseString(
         '{"class":"foam.core.reflow.dashboard.DashboardCalendarChartDAOAgent","prop":' + this.propJson('month') +
         ',"categoryProp":' + this.propJson('year') + ',"sink":' + this.sumJson() + '}', x);
@@ -265,6 +281,7 @@ foam.CLASS({
 
       agent.displaySink.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
       agent.displaySink.borderColors = [ '$l1' ];
+      agent.displaySink.othersLabel = 'Rest';
       agent.displaySink.yFunc = R.YEAR;
       sink = agent.createSink();
       x.test(this.DashboardMultiLineSink.isInstance(agent.displaySink), 'Line: Group By (Multiple Lines) switches to the multi-line sink');
@@ -272,13 +289,14 @@ foam.CLASS({
       x.test(agent.displaySink.yFunc === R.YEAR, 'Line: Group By carries over to the multi-line sink');
       x.test(this.SumDAOAgent.isInstance(agent.displaySink.aggregation), 'Line: the Sum carries over to the multi-line sink');
       x.test(foam.util.equals(agent.displaySink.borderColors, [ '$l1' ]), 'Line: Border Colors carry over to the multi-line sink');
-      x.test(this.Sum.isInstance(agent.displaySink.acc), 'Line: the multi-line sink adds up with Sum');
+      x.test(this.Sum.isInstance(sink.acc), 'Line: the multi-line run adds up with Sum');
       x.test(agent.getDatePropertyForFiltering() === R.MONTH, 'Line: the period filter reads X Property from the multi-line form');
 
       agent.displaySink.yFunc = null;
       sink = agent.createSink();
       x.test(this.DashboardLineSink.isInstance(agent.displaySink), 'Line: clearing Group By goes back to one line');
       x.test(agent.displaySink.arg1 === R.MONTH, 'Line: X Property carries back to the single-line sink');
+      x.test(agent.displaySink.othersLabel === 'Rest', 'Line: the single-line Top N settings come back with one line');
       var sums = this.groupTotals(await dao.select(sink));
       x.test(sums === '{"1":20,"2":20}', 'Line: back on one line, the Sum still applies per month. Got: ' + sums);
 

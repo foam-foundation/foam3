@@ -49,8 +49,12 @@ foam.CLASS({
       name:  'rows',
       javaCloneProperty: '// noop',
       javaFactory: 'return GROUP_BY(getYFunc(), GROUP_BY(getXFunc(), getAcc()));',
-      factory: function() {
-        return this.GROUP_BY(this.yFunc, this.GROUP_BY(this.xFunc, this.acc));
+      // An expression, not a one-time factory: a form can show a GridBy, and
+      // so read rows, before xFunc and yFunc are picked. A factory would keep
+      // a grouping by nothing, and the select then fails on the server with
+      // "GroupBy.getArg1() is null".
+      expression: function(xFunc, yFunc, acc) {
+        return this.GROUP_BY(yFunc, this.GROUP_BY(xFunc, acc));
       }
     },
     {
@@ -60,9 +64,8 @@ foam.CLASS({
       help:  'Columns.',
       javaCloneProperty: '// noop',
       javaFactory: 'return foam.mlang.MLang.GROUP_BY(getXFunc());',
-      factory: function() {
-        return this.GROUP_BY(this.xFunc);
-      }
+      // An expression for the same reason as rows: it must follow xFunc.
+      expression: function(xFunc) { return this.GROUP_BY(xFunc); }
     },
     { name: 'selection', hidden: true, expression: function(y) { return y; } },
     { name: 'x', hidden: true },

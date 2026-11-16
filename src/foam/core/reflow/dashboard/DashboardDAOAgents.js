@@ -72,10 +72,8 @@ foam.CLASS({
   ],
 
   methods: [
-    // Note: Subclasses must implement getDatePropertyForFiltering() to return the appropriate date property
-    // Bar charts: return this.prop
-    // Stacked bar charts: return this.prop2 (X-axis)
-    // Line charts: return this.xProp
+    // Each chart agent implements getDatePropertyForFiltering() and returns its
+    // form's grouping field: arg1, xFunc or dateProp.
 
     function getPeriodCalculator_(dateProp) {
       return foam.core.reflow.dashboard.DateKeys.calculatorFor(dateProp);
@@ -284,16 +282,13 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardBarSink',
       name: 'displaySink',
       hidden: true,
-      // The chart's form lives on the sink, so a missing field there (no
-      // Property picked) is what turns the Run button off.
+      // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardBarSink.create({}, this); }
     },
-    // Flows saved before the sink held the settings keep the grouping
-    // property and the aggregation on the agent: { prop: severity, sink: Sum }.
-    // These two only carry such values into the sink's form fields. The
-    // sink checks the field now, so the inherited Required check is dropped:
-    // it read this hidden copy, which a new chart never fills.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
@@ -364,7 +359,12 @@ foam.CLASS({
       // its filter changes, and the same sink would add the new rows to the
       // old counts (4 rows counted as 8 on the second run). displaySink only
       // holds the chart settings. The other chart agents below do the same.
-      return this.displaySink.clone(this);
+      var sink = this.displaySink.clone(this);
+      // The total is built for each run from the form's Sum or Count: the
+      // form edits that agent in place (its Property is picked after SUM is),
+      // so a total built when SUM was chosen would sum nothing.
+      if ( sink.aggregation ) sink.arg2 = sink.aggregation.createSink();
+      return sink;
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -396,17 +396,13 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardStackedBarSink',
       name: 'displaySink',
       hidden: true,
-      // The chart's form lives on the sink, so an empty X Axis or Stacked By
-      // there is what turns the Run button off.
+      // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardStackedBarSink.create({}, this); }
     },
-    // Flows saved before the sink held the settings keep the two grouping
-    // properties and the aggregation on the agent: { prop2: month,
-    // prop1: status, sink: Sum }. These only carry such values into the sink's
-    // form fields. The sink checks the fields now, so the inherited Required
-    // checks are dropped: they read these hidden copies, which a new chart
-    // never fills.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop2', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.xFunc = v; } },
     { name: 'prop1', hidden: true, transient: true, validateObj: null,
@@ -469,6 +465,10 @@ foam.CLASS({
       var sink = this.displaySink.clone(this);
       sink.clearProperty('rows');
       sink.clearProperty('cols');
+      // The total is built for each run from the form's Sum or Count: the
+      // form edits that agent in place (its Property is picked after SUM is),
+      // so a total built when SUM was chosen would sum nothing.
+      if ( sink.aggregation ) sink.acc = sink.aggregation.createSink();
       return sink;
     },
 
@@ -498,16 +498,13 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardPieSink',
       name: 'displaySink',
       hidden: true,
-      // The chart's form lives on the sink, so a missing field there (no
-      // Property picked) is what turns the Run button off.
+      // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardPieSink.create({}, this); }
     },
-    // Flows saved before the sink held the settings keep the grouping
-    // property and the aggregation on the agent: { prop: severity, sink: Sum }.
-    // These two only carry such values into the sink's form fields. The
-    // sink checks the field now, so the inherited Required check is dropped:
-    // it read this hidden copy, which a new chart never fills.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
@@ -562,7 +559,14 @@ foam.CLASS({
   ],
 
   methods: [
-    function createSink() { return this.displaySink.clone(this); },
+    function createSink() {
+      var sink = this.displaySink.clone(this);
+      // The total is built for each run from the form's Sum or Count: the
+      // form edits that agent in place (its Property is picked after SUM is),
+      // so a total built when SUM was chosen would sum nothing.
+      if ( sink.aggregation ) sink.arg2 = sink.aggregation.createSink();
+      return sink;
+    },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
       e.startContext({})
@@ -596,20 +600,17 @@ foam.CLASS({
       of: 'foam.dao.Sink',
       name: 'displaySink',
       hidden: true,
-      // The chart's form lives on the sink, so an empty X Property there is
-      // what turns the Run button off.
+      // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardLineSink.create({}, this); }
     },
-    // Flows saved before the sink held the settings keep the line settings
-    // on the agent: { xProp: settlementDate, groupBy: currency,
-    // aggregationSink: Sum }. These only carry such values into the sink's
-    // form fields; createSink() reads the form. Such a flow always starts on
-    // the single-line sink, whose X field is arg1.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
     { name: 'xProp', hidden: true, transient: true,
       setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'groupBy', hidden: true, transient: true,
       setter: function(v) { this.displaySink.yFunc = v; } },
+    { name: 'singleLineSink_', hidden: true, transient: true },
     // An old Line flow's total arrives in a context with no data behind it,
     // so its form could not list the chart's fields (the Sum's Property
     // picker threw on a null DAO). sink's preSet re-creates it in this
@@ -705,9 +706,12 @@ foam.CLASS({
 
       if ( wantMulti !== isMulti ) {
         var old = this.displaySink;
+        // Going back to one line reuses the single-line form it left, so its
+        // Top N settings (the multi-line form has none) come back with it.
         var next = wantMulti
           ? this.DashboardMultiLineSink.create({}, this)
-          : this.DashboardLineSink.create({}, this);
+          : this.singleLineSink_ || this.DashboardLineSink.create({}, this);
+        if ( wantMulti ) this.singleLineSink_ = old;
         [ 'periodCount', 'timeUnit', 'xAxisLabel', 'yAxisLabel', 'fill', 'tension', 'stepped',
           'showPoints', 'pointRadius', 'showGridLines', 'colors', 'alignment', 'maintainAspectRatio',
           'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
@@ -723,7 +727,14 @@ foam.CLASS({
 
       if ( this.displaySink.hasDefaultValue(this.xName_(this.displaySink)) ) return this.ArraySink.create();
       this.applyDateRangeFilter();
-      return this.displaySink.clone(this);
+      var sink = this.displaySink.clone(this);
+      // The total is built for each run from the form's Sum or Count: the
+      // form edits that agent in place (its Property is picked after SUM is),
+      // so a total built when SUM was chosen would sum nothing.
+      if ( sink.aggregation ) {
+        sink[this.DashboardMultiLineSink.isInstance(sink) ? 'acc' : 'arg2'] = sink.aggregation.createSink();
+      }
+      return sink;
     },
 
     function value(s) { return s; },
@@ -803,16 +814,13 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardCalendarSink',
       name: 'displaySink',
       hidden: true,
-      // The chart's form lives on the sink, so an empty Date Property there
-      // is what turns the Run button off.
+      // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardCalendarSink.create({ periodCount: 30 }, this); }
     },
-    // Flows saved before the sink held the settings keep the date, category
-    // and aggregation on the agent: { prop: createdAt, sink: Sum }. These
-    // only carry such values into the sink's form fields. The sink checks the
-    // date field now, so the inherited Required check is dropped: it read this
-    // hidden copy, which a new chart never fills.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
       setter: function(v) { this.displaySink.dateProp = v; } },
     { name: 'categoryProp', hidden: true, transient: true,
@@ -861,7 +869,12 @@ foam.CLASS({
       if ( ! this.displaySink.showAllData ) {
         this.applyDateRangeFilter && this.applyDateRangeFilter();
       }
-      return this.displaySink.clone(this);
+      var sink = this.displaySink.clone(this);
+      // The total is built for each run from the form's Sum or Count: the
+      // form edits that agent in place (its Property is picked after SUM is),
+      // so a total built when SUM was chosen would sum nothing.
+      if ( sink.aggregation ) sink.valueSink = sink.aggregation.createSink();
+      return sink;
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {

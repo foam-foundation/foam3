@@ -35,3 +35,25 @@ foam.CLASS({
     ]
   ]
 });
+
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'ChartChoiceFieldProperty',
+  extends: 'foam.core.reflow.dashboard.ChartFieldProperty',
+  flags: [],
+
+  documentation: `
+    An optional chart field that picks a plain property, such as Line's
+    "Group By (Multiple Lines)" or Calendar's Category Property.
+  `,
+
+  properties: [
+    {
+      name: 'view',
+      value: function(_, X) {
+        return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.dao ? X.dao.of : undefined };
+      }
+    }
+  ]
+});

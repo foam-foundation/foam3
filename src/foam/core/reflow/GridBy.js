@@ -80,6 +80,21 @@ foam.CLASS({
   ],
 
   methods: [
+    function init() {
+      this.SUPER();
+      // rows and cols are stored factories built from xFunc, yFunc and acc.
+      // A form can read them before the fields are picked, which would keep a
+      // grouping by nothing ("GroupBy.getArg1() is null" on the server), so a
+      // later change to any of the three clears them and the next read
+      // rebuilds. Listening here, not in a postSet, also covers subclasses
+      // that redeclare these fields with another property class.
+      var self = this;
+      function clear() { self.clearProperty('rows'); self.clearProperty('cols'); }
+      this.onDetach(this.xFunc$.sub(clear));
+      this.onDetach(this.yFunc$.sub(clear));
+      this.onDetach(this.acc$.sub(clear));
+    },
+
     {
       name: 'put',
       code: function put(obj, sub) {
@@ -97,7 +112,9 @@ foam.CLASS({
     },
 
     function toString() {
-      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc.toString()})`;
+      // ${this.acc} still calls acc.toString(), and a GridBy with no total yet
+      // (acc undefined) reads as undefined instead of throwing.
+      return `GridBy(${this.xFunc}, ${this.yFunc}, ${this.acc})`;
     }
   ]
 });

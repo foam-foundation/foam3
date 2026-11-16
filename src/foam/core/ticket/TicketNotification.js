@@ -7,13 +7,5 @@
 foam.CLASS({
   package: 'foam.core.ticket',
   name: 'TicketNotification',
-  extends: 'foam.core.notification.Notification',
-
-  properties: [
-    {
-      class: 'Reference',
-      of: 'foam.core.ticket.Ticket',
-      name: 'ticket'
-    }
-  ]
+  extends: 'foam.core.notification.Notification'
 });

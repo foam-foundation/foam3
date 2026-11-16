@@ -24,6 +24,10 @@ p({
   "serviceScript": """
     dao = new foam.dao.NullDAO.Builder(x).setOf(foam.core.ticket.Ticket.getOwnClassInfo()).build();
     dao = new foam.core.ticket.TicketOwnerDAO.Builder(x).setDelegate(dao).build();
+    // delete order is important. The TicketAddCommentDAO must decorate the RulerDAO
+    // so ticket rules can act on the Ticket with both an id and comment, before
+    // TicketAddCommentDAO removes the comments.
+    dao = new foam.core.ruler.RulerDAO(x, dao, "localTicketDAO");
     dao = new foam.core.ticket.TicketAddCommentDAO.Builder(x).setDelegate(dao).build();
     dao = new foam.dao.history.HistoryDAO(x, "ticketHistoryDAO", dao);
     dao = new foam.core.ticket.CloseTicketCommandDAO.Builder(x).setDelegate(dao).build();
@@ -41,6 +45,7 @@ p({
           foam.core.ticket.Ticket.LAST_MODIFIED
         )
       })
+      .setRuler(false)
       .setDecorator(dao)
       .setServiceProviderAware(true)
       .build()

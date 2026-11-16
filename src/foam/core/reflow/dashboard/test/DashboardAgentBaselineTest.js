@@ -199,8 +199,10 @@ foam.CLASS({
       agent.aggregationSink = sum;
       var sink = agent.createSink();
       x.test(this.DashboardMultiLineSink.isInstance(sink), 'Line+groupBy yields MultiLineSink. Got: ' + (sink && sink.cls_ && sink.cls_.id));
-      x.test(sink.xFunc === xProp, 'MultiLineSink.xFunc wired from agent.xProp');
-      x.test(sink.yFunc === yProp, 'MultiLineSink.yFunc wired from agent.groupBy');
+      // createSink() returns a copy of the form's sink, so the copy holds a
+      // clone of each property: compare names, not identity.
+      x.test(sink.xFunc && sink.xFunc.name === xProp.name, 'MultiLineSink.xFunc wired from agent.xProp');
+      x.test(sink.yFunc && sink.yFunc.name === yProp.name, 'MultiLineSink.yFunc wired from agent.groupBy');
       x.test(!! sink.acc,          'MultiLineSink.acc wired from agent.aggregationSink across Line→Multi swap');
     },
 
@@ -224,7 +226,9 @@ foam.CLASS({
   constants: [
     { name: 'EXPECTED_BAR',      value: '{class:"foam.core.reflow.dashboard.DashboardBarSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,horizontal:true,barThickness:20,xAxisLabel:"X",yAxisLabel:"Y",showGridLines:false,showLegend:false,maintainAspectRatio:true,height:400,legendPosition:"2",showTooltipSum:true,animate:false,animationDuration:500,colors:["$barChart1","$barChart2"]}' },
     { name: 'EXPECTED_PIE',      value: '{class:"foam.core.reflow.dashboard.DashboardPieSink",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true,showPercentages:true,cutoutPercentage:50,disableLegendClick:true,colors:["$a","$b","$c"]}' },
-    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",xAxisLabel:"X",yAxisLabel:"Y",rows:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},groupKeys:[],processArrayValuesIndividually:true},cols:{class:"foam.mlang.sink.GroupBy",arg2:{class:"foam.mlang.sink.Count"},groupKeys:[],processArrayValuesIndividually:true},height:350,colors:["$s1","$s2"]}' },
+    // rows and cols follow X Axis and Stacked By now, so a chart with neither
+    // picked no longer carries a grouping by nothing.
+    { name: 'EXPECTED_STACKED',  value: '{class:"foam.core.reflow.dashboard.DashboardStackedBarSink",xAxisLabel:"X",yAxisLabel:"Y",height:350,colors:["$s1","$s2"]}' },
     { name: 'EXPECTED_LINE',     value: '{class:"foam.dao.ArraySink"}' },
     { name: 'EXPECTED_CALENDAR', value: '{class:"foam.core.reflow.dashboard.DashboardCalendarSink",periodCount:30,map_:{},height:250,animationDuration:800,colors:["$c1"]}' }
   ]

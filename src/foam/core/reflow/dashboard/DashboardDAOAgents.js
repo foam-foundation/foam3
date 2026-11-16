@@ -284,15 +284,20 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardBarSink',
       name: 'displaySink',
       hidden: true,
+      // The chart's form lives on the sink, so a missing field there (no
+      // Property picked) is what turns the Run button off.
+      autoValidate: true,
       factory: function() { return this.DashboardBarSink.create({}, this); }
     },
-    // Inherited DAO-layer props → forward to displaySink
-    { name: 'prop', hidden: true, transient: true,
+    // Flows saved before the sink held the settings keep the grouping
+    // property and the aggregation on the agent: { prop: severity, sink: Sum }.
+    // These two only carry such values into the sink's form fields. The
+    // sink checks the field now, so the inherited Required check is dropped:
+    // it read this hidden copy, which a new chart never fills.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
       postSet: function(o, n) { this.displaySink.arg1 = n; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.arg2 = n.createSink();
-      } },
+      postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -391,17 +396,23 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardStackedBarSink',
       name: 'displaySink',
       hidden: true,
+      // The chart's form lives on the sink, so an empty X Axis or Stacked By
+      // there is what turns the Run button off.
+      autoValidate: true,
       factory: function() { return this.DashboardStackedBarSink.create({}, this); }
     },
-    // Inherited GridByDAOAgent DAO-layer props → hidden forwarders
-    { name: 'prop2', hidden: true, transient: true,
+    // Flows saved before the sink held the settings keep the two grouping
+    // properties and the aggregation on the agent: { prop2: month,
+    // prop1: status, sink: Sum }. These only carry such values into the sink's
+    // form fields. The sink checks the fields now, so the inherited Required
+    // checks are dropped: they read these hidden copies, which a new chart
+    // never fills.
+    { name: 'prop2', hidden: true, transient: true, validateObj: null,
       postSet: function(o, n) { this.displaySink.xFunc = n; } },
-    { name: 'prop1', hidden: true, transient: true,
+    { name: 'prop1', hidden: true, transient: true, validateObj: null,
       postSet: function(o, n) { this.displaySink.yFunc = n; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.acc = n.createSink();
-      } },
+      postSet: function(o, n) { this.displaySink.aggregation = n; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -480,15 +491,20 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardPieSink',
       name: 'displaySink',
       hidden: true,
+      // The chart's form lives on the sink, so a missing field there (no
+      // Property picked) is what turns the Run button off.
+      autoValidate: true,
       factory: function() { return this.DashboardPieSink.create({}, this); }
     },
-    // Inherited DAO-layer props → hidden back-compat forwarders to displaySink
-    { name: 'prop', hidden: true, transient: true,
+    // Flows saved before the sink held the settings keep the grouping
+    // property and the aggregation on the agent: { prop: severity, sink: Sum }.
+    // These two only carry such values into the sink's form fields. The
+    // sink checks the field now, so the inherited Required check is dropped:
+    // it read this hidden copy, which a new chart never fills.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
       postSet: function(o, n) { this.displaySink.arg1 = n; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.arg2 = n.createSink();
-      } },
+      postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -573,10 +589,16 @@ foam.CLASS({
       of: 'foam.dao.Sink',
       name: 'displaySink',
       hidden: true,
+      // The chart's form lives on the sink, so an empty X Property there is
+      // what turns the Run button off.
+      autoValidate: true,
       factory: function() { return this.DashboardLineSink.create({}, this); }
     },
-    // Line-specific DAO-layer props → hidden forwarders. Note: groupBy routes through
-    // createSink() swap (Line ↔ MultiLine), so keep postSet on local field only.
+    // Flows saved before the sink held the settings keep the line settings
+    // on the agent: { xProp: settlementDate, groupBy: currency,
+    // aggregationSink: Sum }. These only carry such values into the sink's
+    // form fields; createSink() reads the form. The X field is arg1 on the
+    // single-line sink and xFunc on the multi-line one.
     { name: 'xProp', hidden: true, transient: true,
       postSet: function(o, n) {
         if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
@@ -586,28 +608,16 @@ foam.CLASS({
         }
       } },
     { name: 'yProp', hidden: true, transient: true },
-    { name: 'groupBy', hidden: true, transient: true },
+    { name: 'groupBy', hidden: true, transient: true,
+      postSet: function(o, n) { this.displaySink.yFunc = n; } },
+    // An old Line flow's total arrives in a context with no data behind it,
+    // so its form could not list the chart's fields (the Sum's Property
+    // picker threw on a null DAO). sink's preSet re-creates it in this
+    // agent's context, so aggregationSink goes through sink.
     { name: 'aggregationSink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( ! n || ! n.createSink ) return;
-        var sink = n.createSink();
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.acc = sink;
-        } else {
-          this.displaySink.arg2 = sink;
-        }
-      } },
-    // AbstractSinkDAOAgent inherits `sink` — map it to the aggregation slot too
+      postSet: function(o, n) { this.sink = n; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( ! n || ! n.createSink ) return;
-        var sink = n.createSink();
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.acc = sink;
-        } else {
-          this.displaySink.arg2 = sink;
-        }
-      } },
+      postSet: function(o, n) { this.displaySink.aggregation = n; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -668,7 +678,20 @@ foam.CLASS({
   ],
 
   methods: [
-    function getDatePropertyForFiltering() { return this.xProp; },
+    function getDatePropertyForFiltering() { return this.xField_(this.displaySink); },
+
+    // The X field is arg1 on the single-line sink and xFunc on the
+    // multi-line one.
+    function xField_(sink) {
+      return this.DashboardMultiLineSink.isInstance(sink) ? sink.xFunc : sink.arg1;
+    },
+
+    // A field the form left empty holds Constant(null), not null: the
+    // property picker writes null when it first renders and the sink's
+    // expression property wraps it. So "is it set?" is not a truthy check.
+    function isEmpty_(expr) {
+      return ! expr || foam.mlang.Constant.isInstance(expr) && expr.value == null;
+    },
 
     function init() {
       this.SUPER();
@@ -680,10 +703,11 @@ foam.CLASS({
     },
 
     function createSink() {
-      this.applyDateRangeFilter();
-      if ( ! this.xProp ) return this.ArraySink.create();
-
-      var wantMulti = !! this.groupBy;
+      // Filling in "Group By (Multiple Lines)" turns the chart into one line
+      // per group (one line per currency), which the multi-line sink draws.
+      // Clearing it goes back to the single-line sink. The form shows that
+      // field on both sinks as yFunc, so the choice survives the switch.
+      var wantMulti = ! this.isEmpty_(this.displaySink.yFunc);
       var isMulti   = this.DashboardMultiLineSink.isInstance(this.displaySink);
 
       if ( wantMulti !== isMulti ) {
@@ -696,28 +720,17 @@ foam.CLASS({
           'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
           'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale',
           'xDateAxisMinScale', 'xDateAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale',
-          'yAxisMaxScale', 'autoSkip' ].forEach(function(p) {
+          'yAxisMaxScale', 'autoSkip', 'aggregation', 'yFunc' ].forEach(function(p) {
           // hasOwnProperty, so an unset scale bound stays unset on the new sink
-          if ( old && old.hasOwnProperty(p) ) next[p] = old[p];
+          if ( old.hasOwnProperty(p) ) next[p] = old[p];
         });
+        next[wantMulti ? 'xFunc' : 'arg1'] = this.xField_(old);
         this.displaySink = next;
       }
 
-      var aggSink = this.aggregationSink && this.aggregationSink.createSink
-        ? this.aggregationSink.createSink()
-        : null;
-      // Wire the copy, not displaySink, so the sink holds this agent's own
-      // xProp and groupBy rather than clones of them.
-      var sink = this.displaySink.clone(this);
-      if ( this.DashboardMultiLineSink.isInstance(sink) ) {
-        sink.xFunc = this.xProp;
-        sink.yFunc = this.groupBy;
-        if ( aggSink ) sink.acc = aggSink;
-      } else {
-        sink.arg1 = this.xProp;
-        if ( aggSink ) sink.arg2 = aggSink;
-      }
-      return sink;
+      if ( this.isEmpty_(this.xField_(this.displaySink)) ) return this.ArraySink.create();
+      this.applyDateRangeFilter();
+      return this.displaySink.clone(this);
     },
 
     function value(s) { return s; },
@@ -797,17 +810,22 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardCalendarSink',
       name: 'displaySink',
       hidden: true,
+      // The chart's form lives on the sink, so an empty Date Property there
+      // is what turns the Run button off.
+      autoValidate: true,
       factory: function() { return this.DashboardCalendarSink.create({ periodCount: 30 }, this); }
     },
-    // Inherited DAO-layer props → hidden forwarders
-    { name: 'prop', hidden: true, transient: true,
+    // Flows saved before the sink held the settings keep the date, category
+    // and aggregation on the agent: { prop: createdAt, sink: Sum }. These
+    // only carry such values into the sink's form fields. The sink checks the
+    // date field now, so the inherited Required check is dropped: it read this
+    // hidden copy, which a new chart never fills.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
       postSet: function(o, n) { this.displaySink.dateProp = n; } },
     { name: 'categoryProp', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.categoryProp = n; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.valueSink = n.createSink();
-      } },
+      postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'showAllData', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showAllData = v; } },
     // Legacy flat-format shims — setter-only

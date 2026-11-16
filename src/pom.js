@@ -200,7 +200,8 @@ foam.POM({
     { name: "foam/lang/test/StateMachineEnumJavaTest",                flags: "js&test|java&test" },
     { name: "foam/lang/test/FSMDAOTest",                              flags: "js&test|java&test" },
     { name: "foam/lang/test/FSMDAOLifecycleTest",                     flags: "js&test|java&test" },
-    { name: "foam/lang/test/NamedPropertyInfoTest",                   flags: "js&test|java&test" }
+    { name: "foam/lang/test/NamedPropertyInfoTest",                   flags: "js&test|java&test" },
+    { name: "foam/lang/test/EnumCompareJSTest",                       flags: "js&test|java&test" }
   ],
 
   javaFiles: [

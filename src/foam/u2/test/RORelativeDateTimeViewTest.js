@@ -103,6 +103,17 @@ foam.CLASS({
             x.test(foam.Date.relativeDateString(new Date(Date.UTC(2026, 10, 1, 23, 30)), U.WEEK, true) === 'last week',
               'utc WEEK: Sunday 23:30 UTC is last week on Monday 00:30 UTC');
           });
+          // The short date is in UTC too. West of UTC these are the day
+          // (and for Jan 1, the year) before in local time.
+          var oct1 = new Date(Date.UTC(2026, 9, 1));
+          x.test(foam.Date.relativeDateString(oct1, null, true) === 'Oct 1',
+            'utc short date: Oct 1 00:00 UTC reads Oct 1, got ' + foam.Date.relativeDateString(oct1, null, true));
+          var jan1 = new Date(Date.UTC(2026, 0, 1));
+          x.test(foam.Date.relativeDateString(jan1, null, true) === 'Jan 1',
+            'utc short date: the year is the UTC year, got ' + foam.Date.relativeDateString(jan1, null, true));
+          var lastYear = new Date(Date.UTC(2025, 10, 1));
+          x.test(foam.Date.relativeDateString(lastYear, U.DAY, true) === 'Nov 1, 2025',
+            'utc DAY past a year: Nov 1, 2025, got ' + foam.Date.relativeDateString(lastYear, U.DAY, true));
         });
       } finally {
         foam.Date.weekStart_ = realWeekStart;

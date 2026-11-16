@@ -966,7 +966,7 @@ foam.LIB({
       if ( abs < 3600000 )   return always.format(sign * Math.trunc(abs / 60000),    'minute');
       if ( abs < 86400000 )  return always.format(sign * Math.trunc(abs / 3600000),  'hour');
       if ( abs < 604800000 ) return always.format(sign * Math.trunc(abs / 86400000), 'day');
-      return D.absoluteDate_(date, locale);
+      return D.absoluteDate_(date, locale, opt_utc);
     },
     function relativeLocale_() {
       // The app's language first, so the text matches the app's labels. A
@@ -997,7 +997,7 @@ foam.LIB({
       [ now, then ].forEach(d => utc ? d.setUTCHours(0, 0, 0, 0) : d.setHours(0, 0, 0, 0));
       // Math.round: a day across a daylight-saving change is 23 or 25 hours.
       var days = Math.round((then - now) / 86400000);
-      if ( Math.abs(days) >= 365 ) return D.absoluteDate_(date, locale);
+      if ( Math.abs(days) >= 365 ) return D.absoluteDate_(date, locale, utc);
       var auto = D.relativeFormat_(locale, 'auto');
       if ( unit === 'day' ) return auto.format(days, 'day');
 
@@ -1018,10 +1018,13 @@ foam.LIB({
       } catch (x) {}
       return 1;
     },
-    function absoluteDate_(date, locale) {
-      // "Oct 30"; the year too when it is not this year's.
+    function absoluteDate_(date, locale, utc) {
+      // "Oct 30"; the year too when it is not this year's. In UTC when utc,
+      // so a DateTimeUTC value names the same day as its tooltip.
       var opts = { month: 'short', day: 'numeric' };
-      if ( date.getFullYear() !== new Date(Date.now()).getFullYear() ) opts.year = 'numeric';
+      var year = d => utc ? d.getUTCFullYear() : d.getFullYear();
+      if ( utc ) opts.timeZone = 'UTC';
+      if ( year(date) !== year(new Date(Date.now())) ) opts.year = 'numeric';
       return date.toLocaleDateString(locale, opts);
     },
     /** formats a date as MMM dd, YYYY

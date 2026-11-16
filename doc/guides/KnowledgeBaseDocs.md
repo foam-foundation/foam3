@@ -86,8 +86,8 @@ Read **this** first.
 </hint>
 ```
 
-GitBook's `hint` blocks, written between curly-brace-percent tags, are not supported and show as plain text. Convert each to a
-`<hint>` tag when you migrate a page.
+GitBook `hint` blocks (the ones opened with a curly brace and a percent sign) are not supported
+and show as plain text. Convert each to a `<hint>` tag when you migrate a page.
 
 The editor toolbar also inserts `<toc></toc>` (contents list), `<search></search>` and
 `<glossary></glossary>`. Plain HTML, such as `<details>`, renders as HTML.

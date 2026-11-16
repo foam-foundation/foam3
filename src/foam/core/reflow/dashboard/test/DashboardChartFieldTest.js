@@ -45,7 +45,45 @@ foam.CLASS({
       await this.testCalendar(x);
       await this.testLineNewChart(x);
       await this.testLineOldFlow(x);
+      await this.testEarlierNestedFlows(x);
       this.testLabels(x);
+    },
+
+    // Flows saved by the version that first moved the settings to the sink:
+    // the form's wrapper field (groupByProp, xProp, dateProperty) next to the
+    // real one, and a Stacked Bar's rows and cols grouped by nothing.
+    async function testEarlierNestedFlows(x) {
+      var dao = this.rowsDAO(x);
+      var P   = this.propJson.bind(this);
+      var D   = 'foam.core.reflow.dashboard.';
+
+      var pie = foam.json.parseString('{"class":"' + D + 'DashboardPieChartDAOAgent","displaySink":{"class":"' + D +
+        'DashboardPieSink","groupByProp":' + P('year') + ',"arg1":' + P('year') + ',"aggregation":' + this.sumJson() + '}}', x);
+      x.test(this.canRun(pie) && pie.displaySink.arg1.name === 'year', 'Earlier Pie flow: Property shows year and Run is on');
+      var sums = this.groupTotals(await dao.select(pie.createSink()));
+      x.test(sums === '{"2025":20,"2026":20}', 'Earlier Pie flow: sums per year. Got: ' + sums);
+
+      var noGroup = '{"class":"foam.mlang.sink.GroupBy","arg2":{"class":"foam.mlang.sink.Count"}}';
+      var stacked = foam.json.parseString('{"class":"' + D + 'DashboardStackedBarChartDAOAgent","displaySink":{"class":"' + D +
+        'DashboardStackedBarSink","xProp":' + P('month') + ',"yProp":' + P('year') + ',"xFunc":' + P('month') + ',"yFunc":' + P('year') +
+        ',"rows":{"class":"foam.mlang.sink.GroupBy","arg2":' + noGroup + '},"cols":' + noGroup + '}}', x);
+      x.test(this.canRun(stacked), 'Earlier Stacked Bar flow: Run is on');
+      var sink = await dao.select(stacked.createSink());
+      x.test(sink.cols.arg1 && sink.cols.arg1.name === 'month', 'Earlier Stacked Bar flow: columns group by X Axis, not by nothing');
+      var total = 0;
+      Object.values(sink.rows.groups).forEach(function(g) {
+        Object.values(g.groups).forEach(function(v) { total += v.value; });
+      });
+      x.test(total === 4, 'Earlier Stacked Bar flow: counts all four rows. Got: ' + total);
+
+      var line = foam.json.parseString('{"class":"' + D + 'DashboardLineChartDAOAgent","displaySink":{"class":"' + D +
+        'DashboardLineSink","groupByProp":' + P('month') + ',"arg1":' + P('month') + '}}', x);
+      x.test(this.canRun(line), 'Earlier Line flow: Run is on');
+      x.test(this.DashboardLineSink.isInstance(line.createSink()), 'Earlier Line flow: draws a line, not an ArraySink');
+
+      var cal = foam.json.parseString('{"class":"' + D + 'DashboardCalendarChartDAOAgent","displaySink":{"class":"' + D +
+        'DashboardCalendarSink","dateProperty":' + P('month') + ',"dateProp":' + P('month') + '}}', x);
+      x.test(this.canRun(cal) && cal.displaySink.dateProp.name === 'month', 'Earlier Calendar flow: Date Property shows month and Run is on');
     },
 
     function rowsDAO(x) {
@@ -226,12 +264,14 @@ foam.CLASS({
       x.test(counts === '{"1":2,"2":2}', 'Line: a new chart counts rows per month. Got: ' + counts);
 
       agent.displaySink.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      agent.displaySink.borderColors = [ '$l1' ];
       agent.displaySink.yFunc = R.YEAR;
       sink = agent.createSink();
       x.test(this.DashboardMultiLineSink.isInstance(agent.displaySink), 'Line: Group By (Multiple Lines) switches to the multi-line sink');
       x.test(agent.displaySink.xFunc === R.MONTH, 'Line: X Property carries over to the multi-line sink');
       x.test(agent.displaySink.yFunc === R.YEAR, 'Line: Group By carries over to the multi-line sink');
       x.test(this.SumDAOAgent.isInstance(agent.displaySink.aggregation), 'Line: the Sum carries over to the multi-line sink');
+      x.test(foam.util.equals(agent.displaySink.borderColors, [ '$l1' ]), 'Line: Border Colors carry over to the multi-line sink');
       x.test(this.Sum.isInstance(agent.displaySink.acc), 'Line: the multi-line sink adds up with Sum');
       x.test(agent.getDatePropertyForFiltering() === R.MONTH, 'Line: the period filter reads X Property from the multi-line form');
 

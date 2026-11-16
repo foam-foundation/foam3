@@ -295,7 +295,7 @@ foam.CLASS({
     // sink checks the field now, so the inherited Required check is dropped:
     // it read this hidden copy, which a new chart never fills.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
-      postSet: function(o, n) { this.displaySink.arg1 = n; } },
+      setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'topN', hidden: true, transient: true,
@@ -408,9 +408,9 @@ foam.CLASS({
     // checks are dropped: they read these hidden copies, which a new chart
     // never fills.
     { name: 'prop2', hidden: true, transient: true, validateObj: null,
-      postSet: function(o, n) { this.displaySink.xFunc = n; } },
+      setter: function(v) { this.displaySink.xFunc = v; } },
     { name: 'prop1', hidden: true, transient: true, validateObj: null,
-      postSet: function(o, n) { this.displaySink.yFunc = n; } },
+      setter: function(v) { this.displaySink.yFunc = v; } },
     { name: 'sink', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.aggregation = n; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
@@ -462,7 +462,14 @@ foam.CLASS({
 
     function createSink() {
       this.applyDateRangeFilter();
-      return this.displaySink.clone(this);
+      // A chart saved by an earlier version stored rows and cols grouped by
+      // nothing, because they were built before X Axis and Stacked By were
+      // picked. A stored value hides the sink's rows/cols expressions, so the
+      // run copy drops them and rebuilds both from the two fields.
+      var sink = this.displaySink.clone(this);
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      return sink;
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -502,7 +509,7 @@ foam.CLASS({
     // sink checks the field now, so the inherited Required check is dropped:
     // it read this hidden copy, which a new chart never fills.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
-      postSet: function(o, n) { this.displaySink.arg1 = n; } },
+      setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'topN', hidden: true, transient: true,
@@ -597,19 +604,12 @@ foam.CLASS({
     // Flows saved before the sink held the settings keep the line settings
     // on the agent: { xProp: settlementDate, groupBy: currency,
     // aggregationSink: Sum }. These only carry such values into the sink's
-    // form fields; createSink() reads the form. The X field is arg1 on the
-    // single-line sink and xFunc on the multi-line one.
+    // form fields; createSink() reads the form. Such a flow always starts on
+    // the single-line sink, whose X field is arg1.
     { name: 'xProp', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.xFunc = n;
-        } else {
-          this.displaySink.arg1 = n;
-        }
-      } },
-    { name: 'yProp', hidden: true, transient: true },
+      setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'groupBy', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.yFunc = n; } },
+      setter: function(v) { this.displaySink.yFunc = v; } },
     // An old Line flow's total arrives in a context with no data behind it,
     // so its form could not list the chart's fields (the Sum's Property
     // picker threw on a null DAO). sink's preSet re-creates it in this
@@ -678,19 +678,12 @@ foam.CLASS({
   ],
 
   methods: [
-    function getDatePropertyForFiltering() { return this.xField_(this.displaySink); },
+    function getDatePropertyForFiltering() { return this.displaySink[this.xName_(this.displaySink)]; },
 
     // The X field is arg1 on the single-line sink and xFunc on the
     // multi-line one.
-    function xField_(sink) {
-      return this.DashboardMultiLineSink.isInstance(sink) ? sink.xFunc : sink.arg1;
-    },
-
-    // A field the form left empty holds Constant(null), not null: the
-    // property picker writes null when it first renders and the sink's
-    // expression property wraps it. So "is it set?" is not a truthy check.
-    function isEmpty_(expr) {
-      return ! expr || foam.mlang.Constant.isInstance(expr) && expr.value == null;
+    function xName_(sink) {
+      return this.DashboardMultiLineSink.isInstance(sink) ? 'xFunc' : 'arg1';
     },
 
     function init() {
@@ -707,7 +700,7 @@ foam.CLASS({
       // per group (one line per currency), which the multi-line sink draws.
       // Clearing it goes back to the single-line sink. The form shows that
       // field on both sinks as yFunc, so the choice survives the switch.
-      var wantMulti = ! this.isEmpty_(this.displaySink.yFunc);
+      var wantMulti = ! this.displaySink.hasDefaultValue('yFunc');
       var isMulti   = this.DashboardMultiLineSink.isInstance(this.displaySink);
 
       if ( wantMulti !== isMulti ) {
@@ -720,15 +713,15 @@ foam.CLASS({
           'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
           'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale',
           'xDateAxisMinScale', 'xDateAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale',
-          'yAxisMaxScale', 'autoSkip', 'aggregation', 'yFunc' ].forEach(function(p) {
+          'yAxisMaxScale', 'autoSkip', 'aggregation', 'yFunc', 'borderColors' ].forEach(function(p) {
           // hasOwnProperty, so an unset scale bound stays unset on the new sink
           if ( old.hasOwnProperty(p) ) next[p] = old[p];
         });
-        next[wantMulti ? 'xFunc' : 'arg1'] = this.xField_(old);
+        if ( old.hasOwnProperty(this.xName_(old)) ) next[this.xName_(next)] = old[this.xName_(old)];
         this.displaySink = next;
       }
 
-      if ( this.isEmpty_(this.xField_(this.displaySink)) ) return this.ArraySink.create();
+      if ( this.displaySink.hasDefaultValue(this.xName_(this.displaySink)) ) return this.ArraySink.create();
       this.applyDateRangeFilter();
       return this.displaySink.clone(this);
     },
@@ -821,9 +814,9 @@ foam.CLASS({
     // date field now, so the inherited Required check is dropped: it read this
     // hidden copy, which a new chart never fills.
     { name: 'prop', hidden: true, transient: true, validateObj: null,
-      postSet: function(o, n) { this.displaySink.dateProp = n; } },
+      setter: function(v) { this.displaySink.dateProp = v; } },
     { name: 'categoryProp', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.categoryProp = n; } },
+      setter: function(v) { this.displaySink.categoryProp = v; } },
     { name: 'sink', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.aggregation = n; } },
     { name: 'showAllData', hidden: true, transient: true,

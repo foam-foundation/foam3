@@ -92,20 +92,7 @@ foam.CLASS({
   ],
 
   properties: [
-    // The grouping the chart draws, edited in the form and saved with the flow.
-    // The property picker can also give a date expression such as "by month".
-    // An empty field holds Constant(null), not null (the picker writes null
-    // when it first renders), so Required checks for that too.
-    {
-      name: 'arg1', label: 'Property',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(arg1) {
-        if ( ! arg1 || foam.mlang.Constant.isInstance(arg1) && arg1.value == null ) return 'Required';
-      }
-    },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Property', required: true },
     {
       // An FObjectProperty, so copying the sink into a flow's context also
       // moves the Sum or Count agent there. As a plain property it stayed in
@@ -423,20 +410,7 @@ foam.CLASS({
   `,
 
   properties: [
-    // The grouping the pie slices by, edited in the form and saved with the
-    // flow. The property picker can also give a date expression such as "by
-    // month". An empty field holds Constant(null), not null (the picker writes
-    // null when it first renders), so Required checks for that too.
-    {
-      name: 'arg1', label: 'Property',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(arg1) {
-        if ( ! arg1 || foam.mlang.Constant.isInstance(arg1) && arg1.value == null ) return 'Required';
-      }
-    },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Property', required: true },
     {
       class: 'FObjectProperty', generateJava: false,
       name: 'aggregation', label: 'Aggregation',
@@ -870,31 +844,8 @@ foam.CLASS({
   ],
 
   properties: [
-    // The two groupings the chart draws, edited in the form and saved with
-    // the flow: bars along the X axis (month), each bar split into stacks
-    // (status). The picker can also give a date expression such as "by
-    // month". An empty field holds Constant(null), not null (the picker writes
-    // null when it first renders), so Required checks for that too.
-    {
-      name: 'xFunc', label: 'X Axis',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(xFunc) {
-        if ( ! xFunc || foam.mlang.Constant.isInstance(xFunc) && xFunc.value == null ) return 'Required';
-      }
-    },
-    {
-      name: 'yFunc', label: 'Stacked By',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(yFunc) {
-        if ( ! yFunc || foam.mlang.Constant.isInstance(yFunc) && yFunc.value == null ) return 'Required';
-      }
-    },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'X Axis', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Stacked By', required: true },
     {
       class: 'FObjectProperty', generateJava: false,
       name: 'aggregation', label: 'Aggregation',
@@ -1609,25 +1560,12 @@ foam.CLASS({
   ],
 
   properties: [
-    // The X axis values, edited in the form and saved with the flow. The
-    // picker can also give a date expression such as "by month". An empty
-    // field holds Constant(null), not null (the picker writes null when it
-    // first renders), so Required checks for that too.
-    {
-      name: 'arg1', label: 'X Property', help: 'Property to group by (x-axis values)',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(arg1) {
-        if ( ! arg1 || foam.mlang.Constant.isInstance(arg1) && arg1.value == null ) return 'Required';
-      }
-    },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'X Property', help: 'Property to group by (x-axis values)', required: true },
     // Filling this in draws one line per group (one per currency). This sink
     // draws a single line, so the line agent swaps in DashboardMultiLineSink,
     // which has the same field, on the next run.
     {
-      class: 'foam.mlang.ExprProperty',
+      class: 'foam.core.reflow.dashboard.ChartFieldProperty',
       name: 'yFunc', label: 'Group By (Multiple Lines)',
       help: 'Optional: Group data by this property to create multiple lines',
       view: function(_, X) {
@@ -1871,23 +1809,11 @@ foam.CLASS({
   ],
 
   properties: [
-    // The X axis values, edited in the form and saved with the flow. The
-    // picker can also give a date expression such as "by month". An empty
-    // field holds Constant(null), not null (the picker writes null when it
-    // first renders), so Required checks for that too.
-    {
-      name: 'xFunc', label: 'X Property', help: 'Property to group by (x-axis values)',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(xFunc) {
-        if ( ! xFunc || foam.mlang.Constant.isInstance(xFunc) && xFunc.value == null ) return 'Required';
-      }
-    },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'X Property', help: 'Property to group by (x-axis values)', required: true },
     // One line per group (one per currency). Clearing it makes the line agent
     // swap back to the single-line DashboardLineSink on the next run.
     {
+      class: 'foam.core.reflow.dashboard.ChartFieldProperty',
       name: 'yFunc', label: 'Group By (Multiple Lines)',
       help: 'Optional: Group data by this property to create multiple lines',
       view: function(_, X) {
@@ -2554,22 +2480,20 @@ foam.CLASS({
     { name: 'displayOptions', title: 'Display', order: 1, collapsable: true,
       properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'animate', 'animationDuration'] },
     { name: 'colorConfig', title: 'Colors', order: 2, collapsable: true,
-      properties: ['colors'] }
+      properties: ['colors'] },
+    // The calendar draws no tooltips, but ChartDisplayMixin adds two tooltip
+    // switches. A mixin's properties install after this class's own, so an
+    // override cannot hide them; this section, never shown, holds them instead.
+    { name: 'unusedTooltips', isAvailable: function() { return false; },
+      properties: ['showTooltips', 'showTooltipSum'] }
   ],
 
   properties: [
-    // The day each record lands on, edited in the form and saved with the
-    // flow. The picker writes null when it first renders, so an empty field
-    // is null here.
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these two fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'dateProp', label: 'Date Property', required: true, generateJava: false },
     {
-      name: 'dateProp', label: 'Date Property',
-      view: function(_, X) {
-        return { class: 'foam.core.reflow.PropertyExprView',
-                 forCls: X.dao ? X.dao.of : undefined };
-      },
-      validateObj: function(dateProp) { if ( ! dateProp ) return 'Required'; }
-    },
-    {
+      class: 'foam.core.reflow.dashboard.ChartFieldProperty', generateJava: false,
       name: 'categoryProp', label: 'Category Property',
       view: function(_, X) {
         return { class: 'foam.core.reflow.PropertyChoiceView',
@@ -2596,11 +2520,7 @@ foam.CLASS({
         return showAllData ? foam.u2.DisplayMode.HIDDEN : foam.u2.DisplayMode.RW;
       } },
     { name: 'map_', hidden: true, factory: function() { return {}; } },
-    // Display & colors properties come from ChartDisplayMixin and ColorMappingMixin.
-    // The calendar draws no tooltips, so the mixin's two tooltip switches would
-    // sit under the sections and do nothing.
-    { name: 'showTooltips', hidden: true },
-    { name: 'showTooltipSum', hidden: true },
+    // Display & colors properties come from ChartDisplayMixin and ColorMappingMixin
     {
       name: 'chart_',
       hidden: true,

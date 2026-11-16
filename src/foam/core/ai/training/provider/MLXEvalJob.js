@@ -71,9 +71,9 @@ foam.CLASS({
     {
       class: 'Float',
       name: 'temperature',
-      documentation: 'Sampling temperature.',
-      value: 0.1,
-      javaValue: '0.1f'
+      documentation: 'Sampling temperature. 0 is greedy, so results compare across checkpoints.',
+      value: 0,
+      javaValue: '0f'
     },
     {
       class: 'Float',

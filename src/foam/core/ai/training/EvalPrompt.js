@@ -86,6 +86,17 @@ foam.CLASS({
       view: { class: 'foam.u2.tag.TextArea', rows: 4, cols: 80 }
     },
     {
+      class: 'String',
+      name: 'expectedResponse',
+      documentation: `
+        A correct reference answer. It must pass its own rubric, which checks
+        the rubric itself, and it is the reference for similarity scoring.
+        Seed values are indented two spaces so no line is exactly p({ or }),
+        which the journal reader takes as record boundaries; dedent before use.
+      `,
+      view: { class: 'foam.u2.tag.TextArea', rows: 16, cols: 80 }
+    },
+    {
       class: 'FObjectArray',
       of: 'foam.core.ai.training.EvalRubricItem',
       name: 'rubric',

@@ -187,7 +187,7 @@ foam.CLASS({
     },
     {
       name: 'removeAll_',
-      args: 'X x, long skip, long limit, java.util.Comparator order, Predicate predicate',
+      args: 'X x, long skip, long limit, foam.mlang.order.Comparator order, Predicate predicate',
       javaCode: `
         super.removeAll_(x, skip, limit, order, predicate);
         setDirty(true);

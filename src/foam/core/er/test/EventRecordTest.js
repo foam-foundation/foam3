@@ -53,14 +53,17 @@ foam.CLASS({
       EventRecord stored = (EventRecord) erDAO.find(er.getId());
       test( stored != null && alarm != null && alarm.getId().equals(stored.getAlarm()), "stored EventRecord references its alarm " + (stored != null ? stored.getAlarm() : null));
 
-      // The same failure recorded again keeps the alarm's note
+      DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
+      int raiseEmails = emailCount(emailMessageDAO, s);
+
+      // The same failure recorded again keeps the alarm's note, and sends no
+      // second notification while the alarm is still on.
       erDAO.put_(x, new EventRecord(x, this, s, s, s, s, LogLevel.ERROR, null));
       Thread.sleep(1000);
       alarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
       test( alarm != null && s.equals(alarm.getNote()), "repeated message keeps the alarm note, found: " + (alarm == null ? null : alarm.getNote()));
-
-      DAO emailMessageDAO = (DAO) x.get("emailMessageDAO");
-      int raiseEmails = emailCount(emailMessageDAO, s);
+      test( emailCount(emailMessageDAO, s) == raiseEmails, "repeated ERROR while the alarm is on sends no notification, found " + (emailCount(emailMessageDAO, s) - raiseEmails));
+      test( alarm != null && er.getId().equals(alarm.getEventRecord()), "alarm still names the record that raised it");
 
       er = new EventRecord();
       er.setX(x);
@@ -95,6 +98,16 @@ foam.CLASS({
       Thread.sleep(1000);
 
       test( emailCount(emailMessageDAO, s) == raiseEmails + 1, "INFO record after the clear sends no notification");
+
+      // The same failure after the clear is a new outage: it turns the alarm
+      // back on, the alarm names the new record, and it notifies again.
+      er = (EventRecord) erDAO.put_(x, new EventRecord(x, this, s, s, s, s, LogLevel.ERROR, null));
+      Thread.sleep(1000);
+      alarm = (Alarm) ((DAO) x.get("localAlarmDAO")).find(EQ(Alarm.NAME, er.alarmSummary()));
+      test( alarm != null && alarm.getIsActive() && er.getId().equals(alarm.getEventRecord()), "ERROR after the clear turns the alarm back on and the alarm names it");
+      test( emailCount(emailMessageDAO, s) == raiseEmails + 2, "ERROR after the clear sends a notification");
+      erDAO.put_(x, new EventRecord(x, this, s, s, s, s, LogLevel.INFO, null));
+      Thread.sleep(1000);
 
       // The alarm has no reason, so its notifications leave the reason line
       // out rather than show Unspecified.

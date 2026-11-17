@@ -231,6 +231,12 @@ foam.CLASS({
       factory: function() { return []; }
     },
     { class: 'Boolean', name: 'isLoading' },
+    {
+      class: 'String',
+      name: 'thinkingMsg',
+      documentation: `Shown while an answer is on its way, in place of THINKING: a host whose
+        model runs in the browser binds its download progress here.`
+    },
     { name: 'messagesContainer_' }
   ],
 
@@ -287,7 +293,7 @@ foam.CLASS({
                     .start('span').end()
                     .start('span').end()
                   .end()
-                  .add(self.THINKING)
+                  .add(self.thinkingMsg$.map(m => m || self.THINKING))
                 .end()
               .end();
             }

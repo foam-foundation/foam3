@@ -17,6 +17,10 @@ foam.CLASS({
     'foam.u2.ModuleLib'
   ],
 
+  messages: [
+    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' }
+  ],
+
   constants: {
     CDN: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
   },
@@ -28,18 +32,32 @@ foam.CLASS({
       value: 'Xenova/Qwen1.5-0.5B-Chat'
     },
     {
+      class: 'String',
+      name: 'status',
+      documentation: `What the model is doing before it can run, e.g. "Downloading the model to
+        this browser: onnx/model_quantized.onnx 45%". Empty once it is ready, so a view can
+        show it while a first call waits on the download.`,
+      transient: true
+    },
+    {
       name: 'pipeline_',
       transient: true
     }
   ],
 
   methods: [
+    // transformers.js reports each file of the model as it downloads: { status: 'progress', file, progress }
+    function onProgress_(p) {
+      if ( p.status === 'progress' ) this.status = this.DOWNLOADING + ': ' + p.file + ' ' + Math.round(p.progress) + '%';
+    },
+
     async function ensurePipeline_() {
       if ( this.pipeline_ ) return;
       const mod = await this.ModuleLib.create({ src: this.CDN }).installLib();
       if ( ! mod ) throw new Error('Failed to load Transformers.js from ' + this.CDN);
       mod.env.allowLocalModels = false;
-      this.pipeline_ = await mod.pipeline('text-generation', this.model);
+      this.pipeline_ = await mod.pipeline('text-generation', this.model, { progress_callback: p => this.onProgress_(p) });
+      this.status    = '';
     },
 
     async function complete(x, request) {

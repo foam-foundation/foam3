@@ -39,14 +39,19 @@ public class MarkdownChunkerServiceImpl extends MarkdownChunkerService {
       if ( body.length() <= getMaxChunkChars() ) {
         result.add(body);
       } else {
-        // section exceeds limit — split on paragraph breaks
-        String[]      paras = body.split("\n\n");
-        StringBuilder buf   = new StringBuilder();
+        // section exceeds limit — split on paragraph breaks. Every piece starts with
+        // the section's heading: a piece without it ("| Trap | What happens |" under
+        // "8. Known traps") is not found by a question that names the section.
+        String heading = section.heading;
+        if ( ! heading.isEmpty() && body.startsWith(heading) ) body = body.substring(heading.length()).strip();
+        String        prefix = heading.isEmpty() ? "" : heading + "\n\n";
+        String[]      paras  = body.split("\n\n");
+        StringBuilder buf    = new StringBuilder();
         for ( String para : paras ) {
           para = para.strip();
           if ( para.isEmpty() ) continue;
           if ( buf.length() > 0 && buf.length() + para.length() + 2 > getMaxChunkChars() ) {
-            result.add(buf.toString());
+            result.add(prefix + buf);
             buf.setLength(0);
             buf.append(para);
           } else {
@@ -54,7 +59,7 @@ public class MarkdownChunkerServiceImpl extends MarkdownChunkerService {
             buf.append(para);
           }
         }
-        if ( buf.length() > 0 ) result.add(buf.toString());
+        if ( buf.length() > 0 ) result.add(prefix + buf);
       }
     }
 

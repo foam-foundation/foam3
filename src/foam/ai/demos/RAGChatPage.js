@@ -9,9 +9,19 @@ foam.CLASS({
   name: 'RAGChatPage',
   extends: 'foam.u2.Controller',
 
-  documentation: 'Demo: index knowledge flows then chat with a local LLM using RAG.',
+  documentation: `Demo: index knowledge flows then chat with a local LLM using RAG.
+    The page answers the chat itself (it is the chat's ragService), so the
+    embedding provider picked here also embeds the question.`,
+
+  implements: [ 'foam.ai.llm.RAGService' ],
 
   requires: [
+    'foam.ai.llm.ChatMessage',
+    'foam.ai.llm.ChatRequest',
+    'foam.ai.llm.RAGAnswer',
+    'foam.ai.llm.RAGSource',
+    'foam.ai.vector.CosineComparator',
+    'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.ClientMarkdownChunkerService',
     'foam.ai.vector.provider.TransformersEmbeddingService',
     'foam.ai.llm.ConversationalLLMService',
@@ -28,8 +38,12 @@ foam.CLASS({
   ],
 
   exports: [
-    'embedder',
-    'llmService'
+    'as ragService'
+  ],
+
+  constants: [
+    { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
+    { name: 'RETRIEVAL_LIMIT',      value: 10   }
   ],
 
   css: `
@@ -96,6 +110,18 @@ foam.CLASS({
       }
     },
     {
+      class: 'FObjectProperty',
+      of: 'foam.ai.llm.LLMOptions',
+      name: 'options',
+      factory: function() {
+        return foam.ai.llm.LLMOptions.create({
+          maxTokens:    512,
+          temperature:  0.2,
+          systemPrompt: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
+        });
+      }
+    },
+    {
       class: 'Boolean',
       name: 'indexing'
     },
@@ -150,6 +176,36 @@ foam.CLASS({
   ],
 
   methods: [
+    // RAGService, in the browser: the demo's rows carry no daoKey and its local model
+    // answers in English, so daoKeys and locale are not used
+    async function ask(x, question) {
+      var qv   = await this.embedder.embed(x, question);
+      var sink = await this.vectorStoreDAO
+        .where(this.EQ(this.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
+        .orderBy(this.CosineComparator.create({ queryVector: qv.vector }))
+        .limit(this.RETRIEVAL_LIMIT).select();
+
+      var lines = [], sources = [], used = 0;
+      for ( var i = 0; i < sink.array.length; i++ ) {
+        var c    = sink.array[i];
+        var t    = (c.text || '').trim();
+        var cost = Math.ceil(t.length / 4);
+        if ( ! t || used + cost > this.CONTEXT_TOKEN_BUDGET ) break;
+        lines.push('[' + (i + 1) + '] ' + t);
+        used += cost;
+        if ( ! sources.some(s => s.sourceId === c.sourceId) ) {
+          sources.push(this.RAGSource.create({ daoKey: 'flowDAO', sourceId: c.sourceId }));
+        }
+      }
+      if ( ! lines.length ) return this.RAGAnswer.create();
+
+      var response = await this.llmService.chat(x, this.ChatRequest.create({
+        messages: [ this.ChatMessage.create({ role: 'USER', content: 'Context:\n' + lines.join('\n\n') + '\n\nQuestion: ' + question }) ],
+        options:  this.options
+      }));
+      return this.RAGAnswer.create({ answered: true, answer: response.content, sources: sources });
+    },
+
     function extractText_(flow) {
       var parts = [];
       if ( flow.name        ) parts.push('# ' + flow.name);
@@ -181,7 +237,7 @@ foam.CLASS({
         .end()
 
         .start().addClass(self.myClass('chat'))
-          .tag(self.RAGChat)
+          .tag(self.RAGChat, { title: 'RAG Chat' })
         .end();
     }
   ]

@@ -1,0 +1,1 @@
+p({"class":"foam.core.ai.vector.test.RAGTest","id":"RAGTest","description":"Ask AI: a search reads only chunks of records the caller can read, mixed vector lengths, re-embedding only changed docs, ask() sends and lists only readable docs"})

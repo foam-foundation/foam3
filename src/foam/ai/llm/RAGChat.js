@@ -9,29 +9,24 @@ foam.CLASS({
   name: 'RAGChat',
   extends: 'foam.u2.Controller',
 
-  documentation: 'RAG chat UI: embed query → kNN search → build context → local LLM → answer.',
+  documentation: `
+    Chat that answers questions from indexed records through ragService and
+    links the records each answer used. The records are those of daoKeys,
+    e.g. [ 'flowDAO' ] for the Knowledge Base, and only those the user can
+    read are searched. A view that hosts it adds its own buttons to the
+    header by overriding renderHeaderActions.
+  `,
 
   cssTokens: [
-    { name: 'headerBtnBg',     value: 'rgba(255,255,255,0.15)' },
-    { name: 'headerBtnBorder', value: 'rgba(255,255,255,0.3)'  },
-    { name: 'headerBtnHover',  value: 'rgba(255,255,255,0.25)' },
-    { name: 'headerSubtle',    value: 'rgba(255,255,255,0.75)' },
     { name: 'inputFocusShadow', value: '0 0 0 2px rgba(61,126,191,0.15)' }
   ],
 
   requires: [
-    'foam.ai.llm.ChatMessage',
-    'foam.ai.llm.ChatRole',
-    'foam.ai.llm.ChatRequest',
-    'foam.ai.vector.CosineComparator',
-    'foam.ai.vector.VectorEmbedding',
-    'foam.dao.ArraySink'
+    'foam.u2.view.MarkdownView'
   ],
 
   imports: [
-    'embedder',
-    'llmService',
-    'vectorStoreDAO'
+    'ragService'
   ],
 
   css: `
@@ -50,9 +45,10 @@ foam.CLASS({
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: $space-3_5 $space-5;
-      background: $backgroundBrand;
-      color: $textOnBrand;
+      padding: $space-2 $space-3 $space-2 $space-5;
+      background: $backgroundDefault;
+      color: $textDefault;
+      border-bottom: 1px solid $borderLight;
     }
     <<header-title {
       display: flex;
@@ -182,50 +178,59 @@ foam.CLASS({
     }
     <<send-btn:hover:not(:disabled) { background: $backgroundBrandSecondary; }
     <<send-btn:disabled { background: $borderDefault; cursor: not-allowed; }
-    <<clear-btn {
-      padding: $space-1_5 $space-2_5;
-      background: $headerBtnBg;
-      color: $textOnBrand;
-      border: 1px solid $headerBtnBorder;
-      border-radius: $radius;
-      cursor: pointer;
+    <<sources {
+      margin-top: $space-2_5;
+      padding-top: $space-2;
+      border-top: 1px solid $borderLight;
       font-size: $body-sm;
-      font-weight: $font-regular;
+      color: $textTertiary;
+      white-space: normal;
     }
-    <<clear-btn:hover { background: $headerBtnHover; }
-    <<status {
-      font-size: 11px;
-      color: $headerSubtle;
-      margin-left: $space-2;
+    <<source {
+      margin-left: $space-1_5;
+      color: $textBrand;
+      font-weight: $font-medium;
+      text-decoration: underline;
+      cursor: pointer;
     }
+    <<message-content-error { color: $hintWarningText; }
+    <<markdown { white-space: normal; }
+    <<markdown p:first-child { margin-top: 0; }
+    <<markdown p:last-child, <<markdown ul:last-child { margin-bottom: 0; }
   `,
 
-  constants: [
-    { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
-    { name: 'RETRIEVAL_LIMIT',      value: 10   }
+  messages: [
+    { name: 'ASK_AI',      message: 'Ask AI' },
+    { name: 'EMPTY_TITLE', message: 'Ask a question' },
+    { name: 'EMPTY_BODY',  message: 'Answers come from the documents you can open, with a link to each one.' },
+    { name: 'PLACEHOLDER', message: 'Ask a question about the documents…' },
+    { name: 'THINKING',    message: 'Searching the documents…' },
+    { name: 'SOURCES',     message: 'Sources:' },
+    { name: 'NO_ANSWER',   message: 'I couldn\'t find that in the docs.' },
+    { name: 'TRY_AGAIN',   message: 'I couldn\'t find that in the docs. Try other words.' },
+    { name: 'CLOSEST',     message: 'Closest:' },
+    { name: 'UNAVAILABLE', message: 'Ask AI is not available right now. Try again later.' }
   ],
 
   properties: [
     {
-      class: 'FObjectProperty',
-      of: 'foam.ai.llm.LLMOptions',
-      name: 'options',
-      factory: function() {
-        return foam.ai.llm.LLMOptions.create({
-          maxTokens:    512,
-          temperature:  0.2,
-          systemPrompt: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
-        });
-      }
+      class: 'StringArray',
+      name: 'daoKeys',
+      documentation: 'The DAOs whose indexed records answer, e.g. [ \'flowDAO\' ].'
+    },
+    {
+      class: 'String',
+      name: 'title',
+      factory: function() { return this.ASK_AI; }
     },
     { class: 'String',  name: 'inputText' },
     {
       class: 'Array',
       name: 'conversationHistory',
+      documentation: 'One entry per message: { role: \'user\' | \'assistant\', content, sources, closest, markdown, error }.',
       factory: function() { return []; }
     },
     { class: 'Boolean', name: 'isLoading' },
-    { class: 'String',  name: 'statusMsg' },
     { name: 'messagesContainer_' }
   ],
 
@@ -238,13 +243,10 @@ foam.CLASS({
         .addClass()
         .start('div').addClass(self.myClass('header'))
           .start('div').addClass(self.myClass('header-title'))
-            .add('RAG Chat')
-            .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
+            .add(self.title$)
           .end()
-          .start('button')
-            .addClass(self.myClass('clear-btn'))
-            .add('Clear')
-            .on('click', function() { self.clearChat_(); })
+          .start('div')
+            .call(self.renderHeaderActions, [self])
           .end()
         .end()
 
@@ -254,21 +256,26 @@ foam.CLASS({
           .add(self.dynamic(function(conversationHistory, isLoading) {
             if ( conversationHistory.length === 0 && ! isLoading ) {
               this.start('div').addClass(self.myClass('empty-state'))
-                .start('div').addClass(self.myClass('empty-icon')).add('💬').end()
-                .start('div').addClass(self.myClass('empty-title')).add('Ask about your indexed flows').end()
+                .start('div').addClass(self.myClass('empty-icon')).add('✦').end()
+                .start('div').addClass(self.myClass('empty-title')).add(self.EMPTY_TITLE).end()
+                .start('div').add(self.EMPTY_BODY).end()
               .end();
               return;
             }
             for ( var i = 0; i < conversationHistory.length; i++ ) {
-              var msg      = conversationHistory[i];
-              var roleName = msg.role.label;
+              var msg = conversationHistory[i];
               this.start('div')
                 .addClass(self.myClass('message-row'))
-                .addClass(self.myClass('message-row-' + roleName))
+                .addClass(self.myClass('message-row-' + msg.role))
                 .start('div')
                   .addClass(self.myClass('message-content'))
-                  .addClass(self.myClass('message-content-' + roleName))
-                  .add(msg.content)
+                  .addClass(self.myClass('message-content-' + msg.role))
+                  .enableClass(self.myClass('message-content-error'), !! msg.error)
+                  // an answer is markdown (lists, bold); the user's own text is shown as typed
+                  .callIfElse(msg.markdown,
+                    function() { this.addClass(self.myClass('markdown')).tag(self.MarkdownView, { data: msg.content }); },
+                    function() { this.add(msg.content); })
+                  .call(self.renderSources_, [self, msg.sources, msg.closest ? self.CLOSEST : self.SOURCES])
                 .end()
               .end();
             }
@@ -280,7 +287,7 @@ foam.CLASS({
                     .start('span').end()
                     .start('span').end()
                   .end()
-                  .add('Thinking…')
+                  .add(self.THINKING)
                 .end()
               .end();
             }
@@ -291,7 +298,7 @@ foam.CLASS({
           .start('div').addClass(self.myClass('input-wrapper'))
             .start('textarea')
               .addClass(self.myClass('input'))
-              .attrs({ placeholder: 'Ask a question about your indexed flows…', rows: 1 })
+              .attrs({ placeholder: self.PLACEHOLDER, rows: 1 })
               .on('input',   function(e) { self.inputText = e.target.value; })
               .on('keydown', function(e) {
                 if ( e.key === 'Enter' && ! e.shiftKey ) {
@@ -318,88 +325,89 @@ foam.CLASS({
         .end();
     },
 
-    function clearChat_() {
-      this.conversationHistory = [];
-      this.inputText           = '';
-      this.statusMsg           = '';
-      if ( this.llmService.clearHistory ) this.llmService.clearHistory();
+    // The header's buttons; a host view overrides it to add its own, e.g. Hide and Close.
+    function renderHeaderActions(self) {
+      this.startContext({ data: self })
+        .tag(self.CLEAR, { buttonStyle: 'TERTIARY' })
+      .endContext();
     },
 
-    function scrollToBottom_() {
+    function renderSources_(self, sources, label) {
+      if ( ! sources || ! sources.length ) return;
+      this.start('div').addClass(self.myClass('sources'))
+        .add(label)
+        .forEach(sources, function(s) {
+          this.start('a').addClass(self.myClass('source'))
+            .add(s.sourceId)
+            .on('click', function(e) { e.preventDefault(); self.openSource_(s); })
+          .end();
+        })
+      .end();
+    },
+
+    // Opens the record through the user's own DAO, so a link never shows more than the user can read
+    async function openSource_(source) {
+      var x   = this.__subContext__;
+      var dao = x[source.daoKey];
+      var obj = dao && await dao.find(source.sourceId);
+      if ( obj && obj.openIndexed ) obj.openIndexed(x);
+    },
+
+    // A question scrolls to the bottom, where the 'Searching' row shows; an answer
+    // scrolls to its own first line, so a long answer is read from the top.
+    function addMessage_(msg) {
+      this.conversationHistory = this.conversationHistory.concat([ msg ]);
       var container = this.messagesContainer_?.el_?.();
-      if ( container ) {
-        setTimeout(function() { container.scrollTop = container.scrollHeight; }, 50);
-      }
-    },
-
-    function countTokens_(text) {
-      return text ? Math.ceil(text.length / 4) : 0;
-    },
-
-    async function buildContext_(query) {
-      var qv   = await this.embedder.embed(this.__subContext__, query);
-      var cc   = this.CosineComparator.create({ queryVector: qv.vector });
-      var sink = await this.vectorStoreDAO
-        .where(this.EQ(this.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
-        .orderBy(cc).limit(this.RETRIEVAL_LIMIT).select(this.ArraySink.create());
-
-      var chunks = sink.array;
-      if ( ! chunks.length ) return '';
-
-      var lines = [];
-      var used  = 0;
-      for ( var i = 0; i < chunks.length; i++ ) {
-        var t    = (chunks[i].text || '').trim();
-        var cost = this.countTokens_(t);
-        if ( ! t || used + cost > this.CONTEXT_TOKEN_BUDGET ) break;
-        lines.push('[' + (i + 1) + '] ' + t);
-        used += cost;
-      }
-      return lines.join('\n\n');
+      if ( ! container ) return;
+      var rowClass = this.myClass('message-row');
+      // after the list has re-rendered with the new message
+      setTimeout(function() {
+        var rows = container.querySelectorAll('.' + rowClass);
+        var last = rows[rows.length - 1];
+        if ( msg.role === 'assistant' && last ) {
+          container.scrollTop += last.getBoundingClientRect().top - container.getBoundingClientRect().top - 12;
+        } else {
+          container.scrollTop = container.scrollHeight;
+        }
+      }, 100);
     },
 
     async function sendMessage_() {
-      var query = this.inputText.trim();
-      if ( ! query || this.isLoading ) return;
+      var question = this.inputText.trim();
+      if ( ! question || this.isLoading ) return;
 
       this.inputText = '';
       this.isLoading = true;
-      this.statusMsg = 'Searching…';
+      this.addMessage_({ role: 'user', content: question });
 
-      // Add plain query to display history
-      var userMsg = this.ChatMessage.create({ role: 'USER', content: query });
-      this.conversationHistory = this.conversationHistory.concat([ userMsg ]);
-      this.scrollToBottom_();
-
+      var reply;
       try {
-        var ragContext  = await this.buildContext_(query);
-        if ( ! ragContext ) this.statusMsg = 'No matching chunks — re-index with the current provider for grounded answers';
-        var userContent = ragContext
-          ? 'Context:\n' + ragContext + '\n\nQuestion: ' + query
-          : query;
-
-        this.statusMsg = 'Generating…';
-
-        var augMsg   = this.ChatMessage.create({ role: 'USER', content: userContent });
-        var response = await this.llmService.chat(
-          this.__subContext__,
-          this.ChatRequest.create({ messages: [ augMsg ], options: this.options })
-        );
-
-        this.conversationHistory = this.conversationHistory.concat([
-          this.ChatMessage.create({ role: 'ASSISTANT', content: response.content || '(no response)' })
-        ]);
-        this.statusMsg = '';
+        var answer = await this.ragService.ask(this.__subContext__, question, this.daoKeys, foam.locale);
+        reply = answer.answered
+          ? { role: 'assistant', content: answer.answer, sources: answer.sources, markdown: true }
+          : answer.sources.length
+            ? { role: 'assistant', content: this.NO_ANSWER, sources: answer.sources, closest: true }
+            : { role: 'assistant', content: this.TRY_AGAIN };
       } catch(e) {
+        // The reason (no budget left, gateway down) is logged on the server; the user gets one message
         console.error('RAGChat error:', e);
-        this.conversationHistory = this.conversationHistory.concat([
-          this.ChatMessage.create({ role: 'ASSISTANT', content: 'Error: ' + e.message })
-        ]);
-        this.statusMsg = '';
+        reply = { role: 'assistant', content: this.UNAVAILABLE, error: true };
       }
 
+      // before the answer is added, so the list re-renders once and keeps the scroll
       this.isLoading = false;
-      this.scrollToBottom_();
+      this.addMessage_(reply);
+    }
+  ],
+
+  actions: [
+    {
+      name: 'clear',
+      isEnabled: function(conversationHistory, isLoading) { return conversationHistory.length > 0 && ! isLoading; },
+      code: function() {
+        this.conversationHistory = [];
+        this.inputText           = '';
+      }
     }
   ]
 });

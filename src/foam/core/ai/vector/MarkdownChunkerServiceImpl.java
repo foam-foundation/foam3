@@ -45,12 +45,13 @@ public class MarkdownChunkerServiceImpl extends MarkdownChunkerService {
         String heading = section.heading;
         if ( ! heading.isEmpty() && body.startsWith(heading) ) body = body.substring(heading.length()).strip();
         String        prefix = heading.isEmpty() ? "" : heading + "\n\n";
+        int           room   = getMaxChunkChars() - prefix.length();
         String[]      paras  = body.split("\n\n");
         StringBuilder buf    = new StringBuilder();
         for ( String para : paras ) {
           para = para.strip();
           if ( para.isEmpty() ) continue;
-          if ( buf.length() > 0 && buf.length() + para.length() + 2 > getMaxChunkChars() ) {
+          if ( buf.length() > 0 && buf.length() + para.length() + 2 > room ) {
             result.add(prefix + buf);
             buf.setLength(0);
             buf.append(para);

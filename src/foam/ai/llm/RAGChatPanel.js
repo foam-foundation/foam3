@@ -20,26 +20,35 @@ foam.CLASS({
 
   imports: [ 'dock?' ],
 
+  cssTokens: [
+    // below the app's top bar, and the gap kept from the window's other edges
+    { name: 'panelTop',    value: '96px'  },
+    { name: 'panelGap',    value: '16px'  },
+    { name: 'panelWidth',  value: '460px' },
+    { name: 'panelShadow', value: '0 18px 50px rgba(26, 26, 26, 0.18), 0 2px 8px rgba(26, 26, 26, 0.06)' }
+  ],
+
   css: `
     << {
       position: fixed;
-      top: 96px;
-      right: 16px;
-      bottom: 16px;
-      width: 460px;
-      /* a phone or a narrow window: the panel keeps 16px from each side */
-      max-width: calc(100vw - 32px);
+      top: $panelTop;
+      right: $panelGap;
+      bottom: $panelGap;
+      width: $panelWidth;
+      /* a phone or a narrow window: the panel keeps the gap from each side */
+      max-width: calc(100vw - 2 * $panelGap);
       /* the chat fills its parent; the panel's height comes from top and bottom instead */
       height: auto;
       max-height: none;
       min-height: 0;
       z-index: $z-nav;
-      box-shadow: 0 18px 50px rgba(26, 26, 26, 0.18), 0 2px 8px rgba(26, 26, 26, 0.06);
+      box-shadow: $panelShadow;
     }
   `,
 
   messages: [
-    { name: 'WAITING', message: 'Ready for a question' }
+    { name: 'WAITING',      message: 'Ready for a question' },
+    { name: 'ANSWER_READY', message: 'Answer ready' }
   ],
 
   properties: [
@@ -49,18 +58,15 @@ foam.CLASS({
       factory: function() { return this.ASK_AI; }
     },
     {
-      class: 'Boolean',
-      name: 'shown',
-      value: true,
-      documentation: 'Whether the panel shows. Hiding it keeps the chat; its Dock card shows instead.'
-    },
-    {
       name: 'running',
       expression: function(isLoading) { return isLoading; }
     },
     {
       name: 'statusMsg',
-      expression: function(isLoading) { return isLoading ? this.THINKING : this.WAITING; }
+      // the Dock shows it in a toast when an answer comes while the panel is hidden
+      expression: function(isLoading, conversationHistory) {
+        return isLoading ? this.THINKING : conversationHistory.length ? this.ANSWER_READY : this.WAITING;
+      }
     },
     {
       name: 'cardHidden',
@@ -70,11 +76,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function render() {
-      this.SUPER();
-      this.show(this.shown$);
-    },
-
     function renderHeaderActions(self) {
       this.startContext({ data: self })
         .tag(self.CLEAR,      { buttonStyle: 'TERTIARY' })

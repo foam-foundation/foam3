@@ -67,7 +67,8 @@ p({
 
 // Ask AI on the Knowledge Base page: its button opens a chat that answers from the docs the
 // user can open (ragService, over flowDAO). Shown only to users granted menu.read.knowledgeBaseAsk;
-// without it the page shows no button. Hidden from the side menu under internal.
+// without it the page shows no button. Answering also needs service.ragService. Hidden from the
+// side menu under internal.
 p({
   "class":"foam.core.menu.Menu",
   "id":"knowledgeBaseAsk",

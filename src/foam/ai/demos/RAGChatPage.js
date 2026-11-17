@@ -9,24 +9,24 @@ foam.CLASS({
   name: 'RAGChatPage',
   extends: 'foam.u2.Controller',
 
+  implements: [ 'foam.ai.llm.RAGService' ],
+
   documentation: `Demo: index knowledge flows then chat with a local LLM using RAG.
     The page answers the chat itself (it is the chat's ragService), so the
     embedding provider picked here also embeds the question.`,
 
-  implements: [ 'foam.ai.llm.RAGService' ],
-
   requires: [
     'foam.ai.llm.ChatMessage',
     'foam.ai.llm.ChatRequest',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.ai.llm.RAGAnswer',
+    'foam.ai.llm.RAGChat',
     'foam.ai.llm.RAGSource',
+    'foam.ai.llm.provider.TransformersLLMService',
+    'foam.ai.vector.ClientMarkdownChunkerService',
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.VectorEmbedding',
-    'foam.ai.vector.ClientMarkdownChunkerService',
-    'foam.ai.vector.provider.TransformersEmbeddingService',
-    'foam.ai.llm.ConversationalLLMService',
-    'foam.ai.llm.provider.TransformersLLMService',
-    'foam.ai.llm.RAGChat'
+    'foam.ai.vector.provider.TransformersEmbeddingService'
   ],
 
   imports: [
@@ -200,7 +200,7 @@ foam.CLASS({
         .limit(this.RETRIEVAL_LIMIT).select();
 
       var lines = [], sources = [], used = 0;
-      for ( var i = 0; i < sink.array.length; i++ ) {
+      for ( var i = 0 ; i < sink.array.length ; i++ ) {
         var c    = sink.array[i];
         var t    = (c.text || '').trim();
         var cost = Math.ceil(t.length / 4);

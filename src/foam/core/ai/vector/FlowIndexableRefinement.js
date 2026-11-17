@@ -14,7 +14,10 @@ foam.CLASS({
 
   javaImports: [
     'foam.core.reflow.ScriptParser',
-    'java.util.Arrays'
+    'foam.util.SafetyUtil',
+    'java.util.Arrays',
+    'java.util.List',
+    'java.util.Map'
   ],
 
   methods: [
@@ -25,13 +28,13 @@ foam.CLASS({
       name: 'toIndexText',
       javaCode: `
         StringBuilder sb = new StringBuilder(getName());
-        if ( ! foam.util.SafetyUtil.isEmpty(getDescription()) ) sb.append("\\n\\n").append(getDescription());
+        if ( ! SafetyUtil.isEmpty(getDescription()) ) sb.append("\\n\\n").append(getDescription());
         Object blocks = ScriptParser.parseData(getScript());
         if ( blocks instanceof Object[] ) blocks = Arrays.asList((Object[]) blocks);
-        if ( ! ( blocks instanceof java.util.List ) ) return sb.toString();
-        for ( Object b : (java.util.List) blocks ) {
-          Object value = b instanceof java.util.Map ? ((java.util.Map) b).get("value") : null;
-          Object md    = value instanceof java.util.Map ? ((java.util.Map) value).get("markdown") : null;
+        if ( ! ( blocks instanceof List ) ) return sb.toString();
+        for ( Object b : (List) blocks ) {
+          Object value = b instanceof Map ? ((Map) b).get("value") : null;
+          Object md    = value instanceof Map ? ((Map) value).get("markdown") : null;
           if ( md instanceof String ) sb.append("\\n\\n").append((String) md);
         }
         return sb.toString();

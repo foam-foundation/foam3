@@ -18,7 +18,9 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' }
+    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' },
+    { name: 'LOADING',     message: 'Loading the model in this browser…' },
+    { name: 'WRITING',     message: 'Writing the answer in this browser…' }
   ],
 
   constants: {
@@ -46,9 +48,11 @@ foam.CLASS({
   ],
 
   methods: [
-    // transformers.js reports each file of the model as it downloads: { status: 'progress', file, progress }
+    // transformers.js reports each file of the model as it downloads ({ status: 'progress', file, progress })
+    // and 'done' when a file is in; the model then takes a few seconds to load before it runs
     function onProgress_(p) {
       if ( p.status === 'progress' ) this.status = this.DOWNLOADING + ': ' + p.file + ' ' + Math.round(p.progress) + '%';
+      if ( p.status === 'done' )     this.status = this.LOADING;
     },
 
     async function ensurePipeline_() {
@@ -89,13 +93,22 @@ foam.CLASS({
       var maxTokens   = (options && options.maxTokens) || 512;
       var temperature = (options && options.temperature !== 1.0) ? options.temperature : 0.2;
 
-      var out = await this.pipeline_(plainMsgs, {
-        max_new_tokens:     maxTokens,
-        do_sample:          true,
-        temperature:        temperature,
-        repetition_penalty: 1.1,
-        return_full_text:   false
-      });
+      // The model runs on the page's own thread and holds the screen until it is done: the
+      // status is set, and the screen given a moment to show it, before it starts
+      this.status = this.WRITING;
+      await new Promise(r => setTimeout(r, 50));
+      var out;
+      try {
+        out = await this.pipeline_(plainMsgs, {
+          max_new_tokens:     maxTokens,
+          do_sample:          true,
+          temperature:        temperature,
+          repetition_penalty: 1.1,
+          return_full_text:   false
+        });
+      } finally {
+        this.status = '';
+      }
 
       // With messages input, generated_text is an array; last entry is the assistant reply
       var result  = out[0]?.generated_text;

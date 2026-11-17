@@ -13,7 +13,8 @@ foam.CLASS({
     index() cuts the record's toIndexText() into chunks, embeds them in one
     embeddingService call and stores one VectorEmbedding per chunk, with ids
     <daoKey>:<sourceId>:<n>, e.g. "flowDAO:Getting Started:0". A record
-    whose text hashes as its chunks say (sourceHash) is left as it is. Otherwise
+    whose text hashes as its chunks say (sourceHash), embedded by the model
+    embeddingService uses now, is left as it is. Otherwise
     its new chunks replace every chunk it had, so an edit that leaves the doc
     shorter leaves no chunk of the old text behind.
   `,
@@ -22,14 +23,12 @@ foam.CLASS({
     'foam.ai.vector.EmbeddingService',
     'foam.ai.vector.Indexable',
     'foam.ai.vector.VectorEmbedding',
-    'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.lang.FObject',
     'foam.mlang.MLang',
     'java.nio.charset.StandardCharsets',
     'java.security.MessageDigest',
-    'java.util.HexFormat',
-    'java.util.List'
+    'java.util.HexFormat'
   ],
 
   methods: [
@@ -38,18 +37,21 @@ foam.CLASS({
       documentation: 'Replaces the chunks of obj, a record of the DAO daoKey, with chunks of its current text.',
       args: 'X x, String daoKey, FObject obj',
       javaCode: `
-        String   sourceId = String.valueOf(obj.getProperty("id"));
-        String[] chunks   = chunks(x, ((Indexable) obj).toIndexText(x));
-        String   hash     = chunksHash(chunks);
-        DAO      store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
-        VectorEmbedding first = (VectorEmbedding) store.find(daoKey + ":" + sourceId + ":0");
-        if ( first != null && hash.equals(first.getSourceHash()) ) return;
+        String           sourceId = String.valueOf(obj.getProperty("id"));
+        String[]         chunks   = chunks(x, ((Indexable) obj).toIndexText(x));
+        String           hash     = chunksHash(chunks);
+        EmbeddingService embedder = (EmbeddingService) x.get("embeddingService");
+        DAO              store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
+        VectorEmbedding  first    = (VectorEmbedding) store.find(daoKey + ":" + sourceId + ":0");
+        // the same text from another model is embedded again: its old vectors match no question now
+        if ( first != null && hash.equals(first.getSourceHash()) && embedder.getModel().equals(first.getEmbeddingModel()) ) return;
 
         // embedded before the old chunks go: a failed call (gateway down) keeps the doc searchable
-        VectorEmbedding[] embedded = chunks.length == 0 ? new VectorEmbedding[0]
-          : ((EmbeddingService) x.get("embeddingService")).embedAll(x, chunks);
+        VectorEmbedding[] embedded = chunks.length == 0 ? new VectorEmbedding[0] : embedder.embedAll(x, chunks);
         remove(x, daoKey, sourceId);
-        for ( int i = 0 ; i < embedded.length ; i++ ) {
+        // chunk 0 last: it holds the hash the next save trusts, so a save that fails part way
+        // leaves no chunk 0 and the doc is embedded again on its next save
+        for ( int i = embedded.length - 1 ; i >= 0 ; i-- ) {
           VectorEmbedding e = embedded[i];
           e.setId(daoKey + ":" + sourceId + ":" + i);
           e.setDaoKey(daoKey);
@@ -98,15 +100,11 @@ foam.CLASS({
       documentation: 'Removes every chunk of the record sourceId of the DAO daoKey.',
       args: 'X x, String daoKey, String sourceId',
       javaCode: `
-        // One remove per row, not removeAll: VectorStoreDAO marks its index for
-        // a rebuild on remove_, and removeAll would go straight to its delegate.
-        DAO store = ((DAO) x.get("vectorStoreDAO")).inX(x);
-        List rows = ((ArraySink) store
+        ((DAO) x.get("vectorStoreDAO")).inX(x)
           .where(MLang.AND(
             MLang.EQ(VectorEmbedding.DAO_KEY,   daoKey),
             MLang.EQ(VectorEmbedding.SOURCE_ID, sourceId)))
-          .select(new ArraySink())).getArray();
-        for ( Object row : rows ) store.remove((FObject) row);
+          .removeAll();
       `
     }
   ]

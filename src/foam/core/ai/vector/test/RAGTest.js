@@ -18,11 +18,17 @@ foam.CLASS({
   `,
 
   javaImports: [
-    'foam.ai.llm.*',
+    'foam.ai.llm.ChatRequest',
+    'foam.ai.llm.CompletionRequest',
+    'foam.ai.llm.LLMResponse',
+    'foam.ai.llm.LLMService',
+    'foam.ai.llm.RAGAnswer',
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.EmbeddingService',
     'foam.ai.vector.VectorEmbedding',
+    'foam.ai.vector.VectorStoreDAO',
     'foam.core.ai.llm.ServerRAGService',
+    'foam.core.ai.vector.MarkdownChunkerServiceImpl',
     'foam.core.ai.vector.RAGIndexer',
     'foam.core.ai.vector.ReadableSourcePredicate',
     'foam.core.reflow.Flow',
@@ -30,7 +36,6 @@ foam.CLASS({
     'foam.dao.DAO',
     'foam.dao.FilteredDAO',
     'foam.dao.MDAO',
-    'foam.ai.vector.VectorStoreDAO',
     'foam.lang.X',
     'foam.mlang.MLang',
     'java.util.ArrayList',
@@ -42,6 +47,8 @@ foam.CLASS({
     public static class Embedder implements EmbeddingService {
       public int     calls;
       public boolean fail;
+      public String  model = "fake";
+      public String getModel() { return model; }
       public VectorEmbedding embed(X x, String text) { return embedAll(x, new String[] { text })[0]; }
       public VectorEmbedding[] embedAll(X x, String[] texts) {
         calls++;
@@ -49,7 +56,7 @@ foam.CLASS({
         VectorEmbedding[] out = new VectorEmbedding[texts.length];
         for ( int i = 0 ; i < texts.length ; i++ ) {
           float a = texts[i].contains("alpha") ? 1f : 0f, b = texts[i].contains("beta") ? 1f : 0f;
-          out[i] = new VectorEmbedding.Builder(x).setText(texts[i]).setEmbeddingModel("fake").setVector(new float[] { a, b }).build();
+          out[i] = new VectorEmbedding.Builder(x).setText(texts[i]).setEmbeddingModel(model).setVector(new float[] { a, b }).build();
         }
         return out;
       }
@@ -141,13 +148,16 @@ foam.CLASS({
         test(holds && index.find("flowDAO:Doc A:0") != null, "Its chunks hold the doc's markdown, ids from flowDAO:Doc A:0");
         indexer.index(ix, "flowDAO", doc);
         test(embedder.calls == 1, "An unchanged doc is not embedded again");
+        embedder.model = "fake-2";
+        indexer.index(ix, "flowDAO", doc);
+        test(embedder.calls == 2 && "fake-2".equals(((VectorEmbedding) index.find("flowDAO:Doc A:0")).getEmbeddingModel()), "An unchanged doc is embedded again after a model switch");
         Flow shorter = (Flow) doc.fclone();
         shorter.setScript("[{\\"flowName\\":\\"markdown1\\",\\"cmd\\":\\"markdown\\",\\"value\\":{\\"class\\":\\"foam.core.reflow.Markdown\\",\\"markdown\\":\\"# A\\\\n\\\\nbeta only\\"}}]");
         indexer.index(ix, "flowDAO", shorter);
         List left = ((ArraySink) index.select(new ArraySink())).getArray();
         boolean oldText = false;
         for ( Object o : left ) oldText = oldText || ((VectorEmbedding) o).getText().contains("alpha three");
-        test(embedder.calls == 2 && left.size() < first && ! oldText, "A shorter edit is embedded again and leaves no chunk of the old text, got " + left.size());
+        test(embedder.calls == 3 && left.size() < first && ! oldText, "A shorter edit is embedded again and leaves no chunk of the old text, got " + left.size());
         embedder.fail = true;
         Flow longer = (Flow) doc.fclone();
         longer.setDescription("an edit made while the gateway is down");
@@ -156,10 +166,11 @@ foam.CLASS({
 
         // A long section is cut in pieces that each start with its heading
         String para = "word ".repeat(300).trim();
-        String[] pieces = new foam.core.ai.vector.MarkdownChunkerServiceImpl(x).chunk(x, "# Doc\\n\\n## 8. Known traps\\n\\n" + para + "\\n\\n" + para + "\\n\\n" + para);
+        MarkdownChunkerServiceImpl chunker = new MarkdownChunkerServiceImpl(x);
+        String[] pieces = chunker.chunk(x, "# Doc\\n\\n## 8. Known traps\\n\\n" + para + "\\n\\n" + para + "\\n\\n" + para);
         boolean headed = pieces.length > 1;
-        for ( String piece : pieces ) if ( piece.contains("word") ) headed = headed && piece.startsWith("8. Known traps\\n\\n");
-        test(headed, "Every piece of a long section starts with its heading, got " + pieces.length + " pieces");
+        for ( String piece : pieces ) if ( piece.contains("word") ) headed = headed && piece.startsWith("8. Known traps\\n\\n") && piece.length() <= chunker.getMaxChunkChars();
+        test(headed, "Every piece of a long section starts with its heading and stays within the size limit, got " + pieces.length + " pieces");
 
         // ask(): only readable chunks reach the model, and only their records are listed
         DAO kb = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();

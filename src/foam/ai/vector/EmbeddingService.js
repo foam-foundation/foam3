@@ -13,6 +13,12 @@ foam.INTERFACE({
 
   methods: [
     {
+      name: 'getModel',
+      type: 'String',
+      documentation: `The model the vectors come from, e.g. "nomic-embed-text", as set on each
+        VectorEmbedding's embeddingModel. A vector is only compared with vectors of the same model.`
+    },
+    {
       name:  'embed',
       async: true,
       type:  'foam.ai.vector.VectorEmbedding',

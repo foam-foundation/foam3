@@ -43,6 +43,8 @@ foam.CLASS({
     The index holds the rows of one vector length, the length of the last
     query: a store can mix models (384-number MiniLM rows beside 1536-number
     OpenAI rows), and a cosine score needs both vectors the same length.
+    Queries that alternate between two lengths rebuild the index each time,
+    so a store meant for one model should hold that model's rows only.
   */
   properties: [
     {
@@ -181,6 +183,14 @@ foam.CLASS({
         var result = super.remove_(x, obj);
         setDirty(true);
         return result;
+      `
+    },
+    {
+      name: 'removeAll_',
+      args: 'X x, long skip, long limit, java.util.Comparator order, Predicate predicate',
+      javaCode: `
+        super.removeAll_(x, skip, limit, order, predicate);
+        setDirty(true);
       `
     }
   ]

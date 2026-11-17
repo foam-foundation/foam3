@@ -251,7 +251,7 @@ foam.CLASS({
           .start('div').addClass(self.myClass('header-title'))
             .add(self.title$)
           .end()
-          .start('div')
+          .start()
             .call(self.renderHeaderActions, [self])
           .end()
         .end()
@@ -264,7 +264,7 @@ foam.CLASS({
               this.start('div').addClass(self.myClass('empty-state'))
                 .start('div').addClass(self.myClass('empty-icon')).add('✦').end()
                 .start('div').addClass(self.myClass('empty-title')).add(self.EMPTY_TITLE).end()
-                .start('div').add(self.EMPTY_BODY).end()
+                .start().add(self.EMPTY_BODY).end()
               .end();
               return;
             }

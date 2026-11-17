@@ -33,8 +33,10 @@ foam.CLASS({
     'foam.mlang.MLang',
     'foam.util.SafetyUtil',
     'java.util.ArrayList',
+    'java.util.Arrays',
     'java.util.LinkedHashMap',
     'java.util.List',
+    'java.util.Locale',
     'java.util.Map'
   ],
 
@@ -64,6 +66,13 @@ foam.CLASS({
         best chunks and an unrelated one ("What is the capital of France?") 0.11 to 0.18. Below
         it a chunk is neither sent to the model nor offered as a closest doc, so an unrelated
         question costs no model call. Tune it with the embedding model.`
+    },
+    {
+      class: 'Int',
+      name: 'maxQuestionChars',
+      value: 2000,
+      documentation: `The longest question read, in characters; a longer one is cut there. The
+        question goes whole into the embedding call and the prompt, so a pasted page would cost both.`
     },
     {
       class: 'Int',
@@ -111,7 +120,7 @@ Answer in the language named on the Answer in line, even when the documents or t
       type: 'String',
       args: 'String locale',
       javaCode: `
-        String name = java.util.Locale.forLanguageTag(SafetyUtil.isEmpty(locale) ? "en" : locale).getDisplayLanguage(java.util.Locale.ENGLISH);
+        String name = Locale.forLanguageTag(SafetyUtil.isEmpty(locale) ? "en" : locale).getDisplayLanguage(Locale.ENGLISH);
         return SafetyUtil.isEmpty(name) ? "English" : name;
       `
     },
@@ -120,9 +129,10 @@ Answer in the language named on the Answer in line, even when the documents or t
       javaCode: `
         String q = question == null ? "" : question.trim();
         if ( q.isEmpty() ) throw new IllegalArgumentException("A question is required");
+        if ( q.length() > getMaxQuestionChars() ) q = q.substring(0, getMaxQuestionChars());
 
         // an empty key would reach the rows with no source record, which no access check covers
-        String[] keys = java.util.Arrays.stream(daoKeys == null ? new String[0] : daoKeys)
+        String[] keys = Arrays.stream(daoKeys == null ? new String[0] : daoKeys)
           .filter(k -> ! SafetyUtil.isEmpty(k)).toArray(String[]::new);
         if ( keys.length == 0 ) return new RAGAnswer();
 
@@ -159,7 +169,8 @@ Answer in the language named on the Answer in line, even when the documents or t
         req.setPrompt("Documents:\\n\\n" + docs + "Answer in: " + answerLanguage(locale) + "\\nQuestion: " + q);
         LLMResponse reply = ((LLMService) getX().get("llmService")).complete(x, req);
         String text = reply.getContent() == null ? "" : reply.getContent().trim();
-        if ( text.isEmpty() || NO_ANSWER.equals(text) ) {
+        // startsWith: a model can end the reply with a full stop or add a line after it
+        if ( text.isEmpty() || text.startsWith(NO_ANSWER) ) {
           // no answer, but the closest docs the user can open are still worth a look
           answer.setSources(given.values().stream().limit(3).toArray(RAGSource[]::new));
           return answer;

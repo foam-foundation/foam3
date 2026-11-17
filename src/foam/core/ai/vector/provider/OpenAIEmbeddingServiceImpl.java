@@ -42,7 +42,12 @@ public class OpenAIEmbeddingServiceImpl extends OpenAIEmbeddingService {
         .POST(HttpRequest.BodyPublishers.ofString(body))
         .build();
 
-      var resp = HttpClient.newHttpClient()
+      // HTTP/1.1: on a plain http:// URL, HTTP/2 first sends "Upgrade: h2c", which
+      // OpenAI-compatible gateways served by uvicorn refuse with 400 "Invalid HTTP
+      // request received."
+      var resp = HttpClient.newBuilder()
+        .version(HttpClient.Version.HTTP_1_1)
+        .build()
         .send(req, HttpResponse.BodyHandlers.ofString());
 
       if ( resp.statusCode() != 200 )

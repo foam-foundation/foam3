@@ -7,6 +7,7 @@
 foam.POM({
   name: 'test',
   files: [
+    { name: 'LLMSendTest',  flags: 'js&test|java&test' },
     { name: 'LLMToolsTest', flags: 'js&test|java&test' }
   ]
 });

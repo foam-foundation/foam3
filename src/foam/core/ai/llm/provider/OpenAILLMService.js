@@ -161,9 +161,7 @@ foam.CLASS({
             JSONObject fn = new JSONObject();
             fn.put("name",        t.getName());
             fn.put("description", t.getDescription());
-            fn.put("parameters",  SafetyUtil.isEmpty(t.getInputSchema())
-              ? new JSONObject().put("type", "object").put("properties", new JSONObject())
-              : new JSONObject(t.getInputSchema()));
+            fn.put("parameters",  inputSchema(t));
             JSONObject tool = new JSONObject();
             tool.put("type",     "function");
             tool.put("function", fn);

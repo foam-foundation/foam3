@@ -124,6 +124,14 @@ foam.CLASS({
         return new JSONObject();
       }
     }
+
+    /** A tool's input schema as JSON. Both APIs require one, so a tool that takes no
+     *  input gets {"type":"object","properties":{}}. */
+    public static JSONObject inputSchema(LLMTool t) {
+      return SafetyUtil.isEmpty(t.getInputSchema())
+        ? new JSONObject().put("type", "object").put("properties", new JSONObject())
+        : new JSONObject(t.getInputSchema());
+    }
   `,
 
   properties: [

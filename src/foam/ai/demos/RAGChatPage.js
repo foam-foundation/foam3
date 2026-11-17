@@ -110,7 +110,7 @@ foam.CLASS({
       name: 'llmService',
       expression: function(provider) {
         if ( provider === 'openai' || provider === 'embeddingService' ) return this.serverLLMService;
-        return this.ConversationalLLMService.create({ delegate: this.TransformersLLMService.create() });
+        return this.ConversationalLLMService.create({ delegate: this.browserLLM_ });
       }
     },
     {
@@ -124,6 +124,16 @@ foam.CLASS({
           systemPrompt: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
         });
       }
+    },
+    {
+      name: 'browserLLM_',
+      factory: function() { return this.TransformersLLMService.create(); }
+    },
+    {
+      class: 'String',
+      name: 'modelStatus',
+      documentation: 'A browser model downloading, shown while indexing or answering waits on it.',
+      expression: function(embedder$status, browserLLM_$status) { return embedder$status || browserLLM_$status || ''; }
     },
     {
       class: 'Boolean',
@@ -239,11 +249,11 @@ foam.CLASS({
         .start().addClass(self.myClass('toolbar'))
           .tag(self.PROVIDER)
           .tag(self.INDEX)
-          .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
+          .start('span').addClass(self.myClass('status')).add(self.slot(function(modelStatus, statusMsg) { return modelStatus || statusMsg; })).end()
         .end()
 
         .start().addClass(self.myClass('chat'))
-          .tag(self.RAGChat, { title: 'RAG Chat' })
+          .tag(self.RAGChat, { title: 'RAG Chat', thinkingMsg$: self.modelStatus$ })
         .end();
     }
   ]

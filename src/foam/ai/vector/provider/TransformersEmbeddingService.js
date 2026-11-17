@@ -11,6 +11,10 @@ foam.CLASS({
 
   requires: ['foam.u2.ModuleLib'],
 
+  messages: [
+    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' }
+  ],
+
   constants: {
     CDN: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
   },
@@ -22,6 +26,14 @@ foam.CLASS({
       value: 'Xenova/all-MiniLM-L6-v2'
     },
     {
+      class: 'String',
+      name: 'status',
+      documentation: `What the model is doing before it can run, e.g. "Downloading the model to
+        this browser: onnx/model_quantized.onnx 45%". Empty once it is ready, so a view can
+        show it while a first call waits on the download.`,
+      transient: true
+    },
+    {
       name: 'pipeline_',
       transient: true,
       hidden: true
@@ -29,13 +41,19 @@ foam.CLASS({
   ],
 
   methods: [
+    // transformers.js reports each file of the model as it downloads: { status: 'progress', file, progress }
+    function onProgress_(p) {
+      if ( p.status === 'progress' ) this.status = this.DOWNLOADING + ': ' + p.file + ' ' + Math.round(p.progress) + '%';
+    },
+
     async function ensurePipeline_() {
       if ( ! this.pipeline_ ) {
         const mod = await this.ModuleLib.create({ src: this.CDN }).installLib();
         if ( ! mod ) throw new Error('Failed to load Transformers.js from ' + this.CDN);
         // only fetch from HuggingFace; skip the localhost /models/ probe
         mod.env.allowLocalModels = false;
-        this.pipeline_ = await mod.pipeline('feature-extraction', this.model);
+        this.pipeline_ = await mod.pipeline('feature-extraction', this.model, { progress_callback: p => this.onProgress_(p) });
+        this.status    = '';
       }
     },
 

@@ -13,19 +13,9 @@ foam.CLASS({
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.VectorEmbedding',
     'foam.dao.AbstractDAO',
-    'foam.dao.AbstractSink',
     'foam.dao.ArraySink',
-    'foam.dao.DAO',
-    'foam.lang.Detachable',
-    'foam.lang.PropertyInfo',
-    'foam.mlang.MLang',
     'foam.mlang.predicate.Predicate',
-    'foam.util.SafetyUtil',
-    'java.util.Arrays',
-    'java.util.HashMap',
-    'java.util.HashSet',
-    'java.util.Map',
-    'java.util.Set'
+    'java.util.Arrays'
   ],
 
   /*
@@ -53,16 +43,6 @@ foam.CLASS({
     The index holds the rows of one vector length, the length of the last
     query: a store can mix models (384-number MiniLM rows beside 1536-number
     OpenAI rows), and a cosine score needs both vectors the same length.
-
-    Access
-    ------
-    A row with a daoKey is a piece of a record in that DAO (a chunk of a
-    Knowledge Base flow in flowDAO), so it is only scored when the caller can
-    read that record: before scoring, one select as the caller lists the
-    readable records of each daoKey, and rows of other records are skipped.
-    A user who cannot open a doc never gets one of its chunks, and the rows
-    they may not read take no part in the ranking. A row with no daoKey
-    has no record to check and is scored as before.
   */
   properties: [
     {
@@ -87,18 +67,6 @@ foam.CLASS({
       class: 'StringArray',
       name: 'indexIds',
       networkTransient: true
-    },
-    {
-      // parallel to flatIndex: the daoKey of row i, empty for a row with no source record
-      class: 'StringArray',
-      name: 'indexDaoKeys',
-      networkTransient: true
-    },
-    {
-      // parallel to flatIndex: the sourceId of row i
-      class: 'StringArray',
-      name: 'indexSourceIds',
-      networkTransient: true
     }
   ],
 
@@ -106,7 +74,7 @@ foam.CLASS({
     {
       name: 'buildIndex_',
       documentation: 'Packs the vectors of every row that has length d; rows of another length are left out.',
-      args: 'X x, int d',
+      args: 'int d',
       javaCode: `
         // full scan of the delegate DAO to collect all embeddings
         var list = ((ArraySink) getDelegate().select(new ArraySink())).getArray();
@@ -114,63 +82,20 @@ foam.CLASS({
 
         // pack the vectors of length d into one contiguous float[n*d] in row-major order.
         // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexIds[i].
-        float[]  flat    = new float[n * d];
-        String[] ids     = new String[n];
-        String[] daoKeys = new String[n];
-        String[] sources = new String[n];
+        float[]  flat = new float[n * d];
+        String[] ids  = new String[n];
         int row = 0;
         for ( int i = 0 ; i < n ; i++ ) {
           var e = (VectorEmbedding) list.get(i);
           if ( e.getVector().length != d ) continue;
           System.arraycopy(e.getVector(), 0, flat, row * d, d);
-          ids[row]     = e.getId();
-          daoKeys[row] = e.getDaoKey();
-          sources[row] = e.getSourceId();
+          ids[row] = e.getId();
           row++;
         }
         setDim(d);
         setFlatIndex(Arrays.copyOf(flat, row * d));
         setIndexIds(Arrays.copyOf(ids, row));
-        setIndexDaoKeys(Arrays.copyOf(daoKeys, row));
-        setIndexSourceIds(Arrays.copyOf(sources, row));
         setDirty(false);
-      `
-    },
-    {
-      name: 'readableSources_',
-      documentation: `
-        The sourceIds the caller in x can read, per daoKey of the indexed rows,
-        e.g. { flowDAO: [ "Getting Started", "API Integration" ] }. One
-        select per daoKey, as the caller, limited to the sources the index holds.
-        A daoKey the context does not have reads as nothing readable. daoKeys and
-        sources are the arrays of the index snapshot the search scores.
-      `,
-      javaType: 'Map<String, Set<String>>',
-      args: 'X x, String[] daoKeys, String[] sources',
-      javaCode: `
-        Map<String, Set<String>> wanted = new HashMap<>();
-        for ( int i = 0 ; i < daoKeys.length ; i++ ) {
-          if ( SafetyUtil.isEmpty(daoKeys[i]) ) continue;
-          wanted.computeIfAbsent(daoKeys[i], k -> new HashSet<>()).add(sources[i]);
-        }
-
-        Map<String, Set<String>> readable = new HashMap<>();
-        for ( Map.Entry<String, Set<String>> e : wanted.entrySet() ) {
-          Set<String> ids = new HashSet<>();
-          readable.put(e.getKey(), ids);
-          DAO dao = (DAO) x.get(e.getKey());
-          if ( dao == null || dao.getOf() == null ) continue;
-          PropertyInfo pk = (PropertyInfo) dao.getOf().getAxiomByName("id");
-          dao.inX(x)
-            .where(MLang.IN(pk, e.getValue().toArray()))
-            .select(new AbstractSink() {
-              @Override
-              public void put(Object obj, Detachable sub) {
-                ids.add(String.valueOf(pk.get(obj)));
-              }
-            });
-        }
-        return readable;
       `
     },
     {
@@ -194,31 +119,22 @@ foam.CLASS({
         int d = cc.getQueryVector().length;
         // synchronized: two searches must not rebuild the index under each other
         float[]  flat;
-        String[] ids, daoKeys, sources;
+        String[] ids;
         synchronized ( this ) {
-          if ( getDirty() || getDim() != d ) buildIndex_(x, d);
-          flat    = getFlatIndex();
-          ids     = getIndexIds();
-          daoKeys = getIndexDaoKeys();
-          sources = getIndexSourceIds();
+          if ( getDirty() || getDim() != d ) buildIndex_(d);
+          flat = getFlatIndex();
+          ids  = getIndexIds();
         }
-
-        // rows of records the caller cannot read are never scored
-        Map<String, Set<String>> readable = readableSources_(x, daoKeys, sources);
-        int[] rows = new int[ids.length];
-        int   n    = 0;
-        for ( int i = 0 ; i < ids.length ; i++ ) {
-          if ( SafetyUtil.isEmpty(daoKeys[i]) || readable.get(daoKeys[i]).contains(sources[i]) ) rows[n++] = i;
-        }
+        int n = ids.length;
 
         // score each row via CosineComparator.score(flat, offset, dim) — the formula
         // lives in CosineComparator; the offset overload avoids a float[] copy per row.
         float[] scores = new float[n];
         for ( int i = 0; i < n; i++ ) {
-          scores[i] = cc.score(flat, rows[i] * d, d);
+          scores[i] = cc.score(flat, i * d, d);
         }
 
-        // sort by descending score to get ranking; ranked[] holds positions in rows[]
+        // sort row indices by descending score to get ranking
         Integer[] ranked = new Integer[n];
         for ( int i = 0; i < n; i++ ) ranked[i] = i;
         Arrays.sort(ranked, (a, b) -> Float.compare(scores[b], scores[a]));
@@ -228,7 +144,7 @@ foam.CLASS({
         long emitted = 0;
         long maxEmit = (limit > 0 && limit < AbstractDAO.MAX_SAFE_INTEGER) ? limit : Long.MAX_VALUE;
         for ( int i = 0; i < n && emitted < maxEmit; i++ ) {
-          var obj = (VectorEmbedding) getDelegate().find(ids[rows[ranked[i]]]);
+          var obj = (VectorEmbedding) getDelegate().find(ids[ranked[i]]);
           if ( obj == null ) continue;
           if ( predicate != null && !predicate.f(obj) ) continue;
           if ( skipped < skip ) { skipped++; continue; }

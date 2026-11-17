@@ -11,9 +11,9 @@ foam.CLASS({
 
   documentation: `
     ask(): the question is embedded, the nearest chunks of the given DAOs are
-    found among the records the caller can read (VectorStoreDAO checks each
-    chunk's record as the caller), and llmService answers from them. A
-    question no readable record covers costs no model call.
+    found among the records the caller can read (ReadableSourcePredicate
+    checks each chunk's record as the caller), and llmService answers from
+    them. A question no readable record covers costs no model call.
   `,
 
   javaImports: [
@@ -27,6 +27,7 @@ foam.CLASS({
     'foam.ai.vector.CosineComparator',
     'foam.ai.vector.EmbeddingService',
     'foam.ai.vector.VectorEmbedding',
+    'foam.core.ai.vector.ReadableSourcePredicate',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.mlang.MLang',
@@ -126,11 +127,12 @@ Answer in the language named on the Answer in line, even when the documents or t
         if ( keys.length == 0 ) return new RAGAnswer();
 
         VectorEmbedding qv = ((EmbeddingService) getX().get("embeddingService")).embed(x, q);
-        // vectorStoreDAO in the caller's context: it scores only chunks of records the caller can read
+        // only chunks of records the caller can read: the nearest unreadable ones are passed over
         List chunks = ((ArraySink) ((DAO) getX().get("vectorStoreDAO")).inX(x)
           .where(MLang.AND(
             MLang.IN(VectorEmbedding.DAO_KEY, keys),
-            MLang.EQ(VectorEmbedding.EMBEDDING_MODEL, qv.getEmbeddingModel())))
+            MLang.EQ(VectorEmbedding.EMBEDDING_MODEL, qv.getEmbeddingModel()),
+            new ReadableSourcePredicate.Builder(x).build()))
           .orderBy(new CosineComparator.Builder(x).setQueryVector(qv.getVector()).build())
           .limit(getRetrievalLimit())
           .select(new ArraySink())).getArray();

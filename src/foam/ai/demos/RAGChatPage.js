@@ -41,6 +41,10 @@ foam.CLASS({
     'as ragService'
   ],
 
+  messages: [
+    { name: 'NOT_INDEXED', message: 'Nothing is indexed for this provider yet. Click **Index Knowledge Flows** first.' }
+  ],
+
   constants: [
     { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
     { name: 'RETRIEVAL_LIMIT',      value: 10   }
@@ -197,6 +201,8 @@ foam.CLASS({
           sources.push(this.RAGSource.create({ daoKey: 'flowDAO', sourceId: c.sourceId }));
         }
       }
+      // no row of this model at all: the flows were not indexed with the picked provider yet
+      if ( ! sink.array.length ) return this.RAGAnswer.create({ answered: true, answer: this.NOT_INDEXED });
       if ( ! lines.length ) return this.RAGAnswer.create();
 
       var response = await this.llmService.chat(x, this.ChatRequest.create({

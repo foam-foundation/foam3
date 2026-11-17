@@ -10,8 +10,8 @@ foam.CLASS({
   extends: 'foam.core.test.Test',
 
   documentation: `
-    Ask AI over a stand-in embedder and model: a search scores only chunks of
-    records the caller can read, a store holding two vector lengths answers each
+    Ask AI over a stand-in embedder and model: a search with ReadableSourcePredicate
+    returns only chunks of records the caller can read, a store holding two vector lengths answers each
     query from rows of its length, the indexer embeds a record again only when
     its text changed and leaves no chunk of the old text, and ask() sends the
     model only readable chunks and lists only their records.
@@ -24,6 +24,7 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding',
     'foam.core.ai.llm.ServerRAGService',
     'foam.core.ai.vector.RAGIndexer',
+    'foam.core.ai.vector.ReadableSourcePredicate',
     'foam.core.reflow.Flow',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
@@ -80,9 +81,12 @@ foam.CLASS({
       return e;
     }
 
-    static List<String> ids(DAO store, X x, float... q) {
+    /** The ids a cosine search returns, nearest first; readable: only chunks of records x can read. */
+    static List<String> ids(DAO store, X x, boolean readable, float... q) {
+      DAO dao = store.inX(x);
+      if ( readable ) dao = dao.where(new ReadableSourcePredicate.Builder(x).build());
       List<String> out = new ArrayList<>();
-      for ( Object o : ((ArraySink) store.inX(x).orderBy(new CosineComparator.Builder(x).setQueryVector(q).build()).select(new ArraySink())).getArray() ) {
+      for ( Object o : ((ArraySink) dao.orderBy(new CosineComparator.Builder(x).setQueryVector(q).build()).select(new ArraySink())).getArray() ) {
         out.add(((VectorEmbedding) o).getId());
       }
       return out;
@@ -105,18 +109,21 @@ foam.CLASS({
         store.put(chunk("docDAO:s2:0", "docDAO", "s2", "secret alpha in s2", 1f, 0f));
         store.put(chunk("free", "", "", "a chunk with no source record", 0.5f, 0.5f));
 
-        List<String> seen = ids(store, caller, 1f, 0f);
+        List<String> seen = ids(store, caller, true, 1f, 0f);
         test(seen.contains("docDAO:s1:0"), "A chunk of a readable record is found, got " + seen);
         test(! seen.contains("docDAO:s2:0"), "A chunk of an unreadable record is never returned, even as the nearest, got " + seen);
-        test(seen.contains("free"), "A chunk with no source record is scored as before, got " + seen);
-        test(ids(store, system, 1f, 0f).get(0).equals("docDAO:s2:0"), "A caller who can read s2 gets it first");
+        test(! seen.contains("free"), "A chunk with no source record is not returned, got " + seen);
+        test(ids(store, system, true, 1f, 0f).get(0).equals("docDAO:s2:0"), "A caller who can read s2 gets it first");
+        List top = ((ArraySink) store.inX(caller).where(new ReadableSourcePredicate.Builder(caller).build())
+          .orderBy(new CosineComparator.Builder(x).setQueryVector(new float[] { 1f, 0f }).build()).limit(1).select(new ArraySink())).getArray();
+        test(top.size() == 1 && "docDAO:s1:0".equals(((VectorEmbedding) top.get(0)).getId()), "The unreadable nearest chunk does not use up the limit");
 
         store.put(chunk("three", "", "", "a 3-number chunk", 1f, 0f, 0f));
-        test(ids(store, caller, 1f, 0f, 0f).equals(List.of("three")), "A 3-number query reads only 3-number rows");
-        test(! ids(store, caller, 1f, 0f).contains("three"), "A 2-number query never reads a 3-number row");
+        test(ids(store, caller, false, 1f, 0f, 0f).equals(List.of("three")), "A 3-number query reads only 3-number rows");
+        test(! ids(store, caller, false, 1f, 0f).contains("three"), "A 2-number query never reads a 3-number row");
 
         store.remove(store.find("docDAO:s1:0"));
-        test(! ids(store, caller, 1f, 0f).contains("docDAO:s1:0"), "A removed chunk leaves the search");
+        test(! ids(store, caller, false, 1f, 0f).contains("docDAO:s1:0"), "A removed chunk leaves the search");
 
         // The indexer: embeds once, again only when the text changes, and leaves no old chunk
         Embedder embedder = new Embedder();

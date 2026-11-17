@@ -12,7 +12,8 @@ foam.CLASS({
   requires: ['foam.u2.ModuleLib'],
 
   messages: [
-    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' }
+    { name: 'DOWNLOADING', message: 'Downloading the model to this browser' },
+    { name: 'LOADING',     message: 'Loading the model in this browser…' }
   ],
 
   constants: {
@@ -41,9 +42,11 @@ foam.CLASS({
   ],
 
   methods: [
-    // transformers.js reports each file of the model as it downloads: { status: 'progress', file, progress }
+    // transformers.js reports each file of the model as it downloads ({ status: 'progress', file, progress })
+    // and 'done' when a file is in; the model then takes a few seconds to load before it runs
     function onProgress_(p) {
       if ( p.status === 'progress' ) this.status = this.DOWNLOADING + ': ' + p.file + ' ' + Math.round(p.progress) + '%';
+      if ( p.status === 'done' )     this.status = this.LOADING;
     },
 
     async function ensurePipeline_() {

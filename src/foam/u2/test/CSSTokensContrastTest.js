@@ -107,14 +107,17 @@ foam.CLASS({
       // A token that does not resolve comes back as a comment string, not a
       // colour; report that as one failed assertion and keep measuring the
       // rest instead of throwing out of luminance().
-      // An rgb(), rgba(), hsl() or hsla() colour becomes hex. A see-through
-      // one is laid over what sits under it: the pair's background for text,
-      // the page for a background.
+      // An rgb(), rgba(), hsl() or hsla() colour becomes hex. An opaque one
+      // needs nothing under it; a see-through one is laid over what sits
+      // under it: the pair's background for text, the page for a background.
+      var functional = c => /^(rgba?|hsla?)\(/i.test(c);
+      var opaque     = c => functional(c) && foam.Color.parse(c).alpha === undefined ? this.blend(c, c) : c;
       var resolve = (token, mode, under) => {
         var v = foam.CSS.returnTokenValue('$' + token, cls, modes[mode]);
-        if ( /^(rgba?|hsla?)\(/i.test(v) ) {
-          under = under || foam.CSS.returnTokenValue('$backgroundDefault', cls, modes[mode]);
-          if ( /^#[0-9a-f]{6}$/i.test(under) ) v = this.blend(v, under);
+        if ( functional(v) ) {
+          v = opaque(v);
+          under = opaque(under || foam.CSS.returnTokenValue('$backgroundDefault', cls, modes[mode]));
+          if ( functional(v) && /^#[0-9a-f]{6}$/i.test(under) ) v = this.blend(v, under);
         }
         if ( ! /^#[0-9a-f]{6}$/i.test(v) ) {
           x.test(false, `${mode}: ${token} resolves to a colour, got ${v}`);

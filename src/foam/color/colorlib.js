@@ -184,17 +184,13 @@ foam.LIB({
         str = str.slice(1);
         foam.assert( str.length == 6 || str.length == 8 );
         components = str.match(/../g).map(v => parseInt(v, 16));
-      } else if ( str.startsWith('rgb') ) {
-        components = str.substring(str.startsWith('rgba') ? 5 : 4, str.length-1).split(',');
-      } else if ( str.startsWith('hsl') ) {
-        // TODO: doesnt support relative HSL i.e. hsl(from....)
-        str = str.substring(str.startsWith('hsla') ? 5 : 4, str.length-1);
-        if ( str.indexOf(',') != -1 ) {
-          components = str.split(',');
-        } else {
-          components = str.split(' ').filter(v => v != '/')
-        }
-        components = foam.Color.hslToRgb(components);
+      } else if ( str.startsWith('rgb') || str.startsWith('hsl') ) {
+        // TODO: doesnt support relative colours i.e. hsl(from....)
+        // CSS writes the parts with commas, or with spaces and '/ alpha'.
+        var inner = str.substring(str.indexOf('(') + 1, str.length-1);
+        components = ( inner.indexOf(',') != -1 ? inner.split(',') : inner.split(' ') )
+          .map(v => v.trim()).filter(v => v && v != '/');
+        if ( str.startsWith('hsl') ) components = foam.Color.hslToRgb(components);
       }
 
       return {
@@ -252,8 +248,9 @@ foam.LIB({
         function percentageToDecimal(percentageString) {
           if ( typeof percentageString !== 'string' ) {
             return percentageString;
-          } else if ( ! percentageString.indexOf('%') ) {
-            return Number(percentageString)
+          } else if ( percentageString.indexOf('%') == -1 ) {
+            // CSS also writes saturation and lightness as plain numbers: hsl(220 90 56).
+            return Number(percentageString) / 100;
           }
           const numericalPart = percentageString.slice(0, -1);
           return parseFloat(numericalPart) / 100;

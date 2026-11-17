@@ -97,6 +97,15 @@ foam.CLASS({
       ]);
       own = this.line_(lines, 'light: textDefault');
       x.test(own && / #e9effa /i.test(own.msg), 'a see-through hsla() colour is laid over its background: ' + (own && own.msg));
+
+      // An opaque rgb() or hsl() needs nothing under it, so a theme whose page is hsl() is measured too,
+      // and see-through text is laid over that page: 50% black on hsl(0 0% 100%) is #808080 on #FFFFFF.
+      lines = await this.report_(x, mine, [
+        { theme: '', source: 'textDefault',       target: 'rgba(0, 0, 0, 0.5)' },
+        { theme: '', source: 'backgroundDefault', target: 'hsl(0 0% 100%)' }
+      ]);
+      own = this.line_(lines, 'light: textDefault');
+      x.test(own && / #808080 on backgroundDefault #ffffff /i.test(own.msg), 'an hsl() page is measured, and see-through text is laid over it: ' + (own && own.msg));
     }
   ]
 });

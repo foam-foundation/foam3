@@ -74,6 +74,11 @@ foam.CLASS({
     }
   ],
 
+  css: `
+    /* While "Confirm" shows, the action's own icon and label are hidden. */
+    ^confirming > :not(^confirm) { display: none; }
+  `,
+
   messages: [
     { name: 'CONFIRM',     message: 'Confirm' },
     { name: 'CONFIRM_MSG', message: 'Are you sure you want to ' }
@@ -112,6 +117,12 @@ foam.CLASS({
     {
       name: 'buttonState',
       factory: function() { return this.ButtonState.NO_CONFIRM; }
+    },
+    {
+      class: 'Int',
+      name: 'actionWidth_',
+      documentation: 'Width of the button as the action, measured when it switches to "Confirm".',
+      transient: true
     },
     {
       name: 'data',
@@ -175,23 +186,19 @@ foam.CLASS({
 
         this.attrs({ disabled: this.action.createIsEnabled$(this.__context__, this.data).map((e) => e ? false : 'disabled') });
       }
-    },
 
-    function showConfirm_() {
-      // "Confirm" replaces the label, but the button keeps at least the width
-      // it had as the action, and grows only when "Confirm" is wider. In a row
-      // of buttons the others do not shift under the pointer between the
-      // first click and the confirming one.
-      var el = this.el_();
-      this.style({ 'min-width': el ? el.offsetWidth + 'px' : '' });
-      this.removeAllChildren();
-      this.start().addClass('h600').add(this.CONFIRM).end();
-    },
-
-    function showAction_() {
-      this.style({ 'min-width': '' });
-      this.removeAllChildren();
-      this.addContent();
+      // Between the first click and the confirming one the button shows
+      // "Confirm" in place of its icon and label, following buttonState. It
+      // keeps at least the width it had as the action, and grows only when
+      // "Confirm" is wider, so in a row of buttons the others do not shift
+      // under the pointer before the second click.
+      var confirming$ = this.buttonState$.map((s) => s === this.ButtonState.DEBOUNCE || s === this.ButtonState.ARMED);
+      this.enableClass(this.myClass('confirming'), confirming$);
+      this.style({ 'min-width': this.slot(function(buttonState, actionWidth_) {
+        var confirming = buttonState === this.ButtonState.DEBOUNCE || buttonState === this.ButtonState.ARMED;
+        return confirming && actionWidth_ ? actionWidth_ + 'px' : '';
+      }) });
+      this.start().addClass(this.myClass('confirm'), 'h600').show(confirming$).add(this.CONFIRM).end();
     },
 
     function initCls() {
@@ -226,12 +233,11 @@ foam.CLASS({
           this.loading_ = running.get();
           this.onDetach(running.sub(() => { this.loading_ = running.get(); }));
         } else if ( this.buttonState == this.ButtonState.CONFIRM ) {
-          this.buttonState = this.ButtonState.DEBOUNCE;
-          this.showConfirm_();
+          this.actionWidth_ = this.el_() ? this.el_().offsetWidth : 0;
+          this.buttonState  = this.ButtonState.DEBOUNCE;
           this.debounce();
         } else if ( this.buttonState == this.ButtonState.ARMED ) {
           this.buttonState = this.ButtonState.CONFIRM;
-          this.showAction_();
           this.action && this.action.maybeCall(this.__subContext__, this.data);
         }
       } catch (x) {
@@ -259,18 +265,14 @@ foam.CLASS({
       mergeDelay: 6000,
       code: function() {
         if ( this.buttonState != this.ButtonState.ARMED ) return;
-        this.showAction_();
         this.buttonState = this.ButtonState.CONFIRM;
       }
     },
     {
       name: 'setConfirm',
       code: function(confirm) {
-        let newState    = confirm ? this.ButtonState.CONFIRM : this.ButtonState.NO_CONFIRM;
-        let stateChange = this.buttonState != newState;
-        this.buttonState = newState;
+        this.buttonState   = confirm ? this.ButtonState.CONFIRM : this.ButtonState.NO_CONFIRM;
         this.isDestructive = confirm;
-        if ( stateChange ) this.showAction_();
       }
     }
   ]

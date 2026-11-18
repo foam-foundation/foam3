@@ -356,6 +356,8 @@ view: function(_, X) {
 | Return elements from dynamic() | Build via side effects, early return OK |
 | Manual setAttribute in render() | `attribute: 'BOTH'` with `domName` |
 | Recreating reactive views | Cache element + `moveTo()` |
+| A listener or method named `load` in a view | Another name (`loadData`): `foam.u2.Element.load()` is the step that renders the element (`Element2.js:764`), so the view stays an empty `<div>` with none of its classes |
+| Only a `view` on a property shown in read-only summary rows | Add a `tableCellFormatter` that tags the same view: `foam.u2.detail.RowPropertyView` draws `tableCellFormatter` in VIEW mode, never `view` (`RowPropertyView.js:81-88`), so a Reference shows its raw id |
 | Full rerender on array change | Track by `$UID`, surgical add/remove |
 | Manual `.sub()` for property changes | `on: ['this.propertyChange.prop']` on listener |
 | `FObjectArrayView` for arrays | `TitledArrayView` with `valueView` + `propertyWhitelist` |

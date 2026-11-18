@@ -43,7 +43,3 @@ p({
   "class": "foam.core.reflow.test.FlowAuthorizationTest",
   "id": "FlowAuthorizationTest"
 })
-p({
-  "class": "foam.core.reflow.test.FlowTagListValueTest",
-  "id": "FlowTagListValueTest"
-})

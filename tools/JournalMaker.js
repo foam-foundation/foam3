@@ -127,19 +127,26 @@ function flowJournalEntry(attrs, name, source) {
 
   if ( attrs.childLock ) props.push(`"childLock": ${attrs.childLock === 'true'}`);
 
-  // Any other attribute holding a JSON array is a list property, copied as is.
-  // A list that does not parse stops the build: dropping an access list would
+  // Any other attribute holding an array is a list property, copied as is.
+  // A save from the browser writes it with unquoted keys, as FOAM's JSON does,
+  // e.g. [{userId:42,accessLevel:"2"}], which JSON.parse refuses; a hand-written
+  // tag usually quotes them. Reading it as a JavaScript literal accepts both.
+  // A list that does not read stops the build: dropping an access list would
   // publish the document to everyone.
   Object.keys(attrs).forEach(k => {
     if ( k === 'name' || k === 'keywords' || k === 'childLock' || k === 'markdown_' ) return;
     if ( FLOW_STRING_ATTRS.includes(k) ) return;
     var v = attrs[k].trim();
     if ( ! v.startsWith('[') ) return;
+    var list;
     try {
-      props.push(`"${k}": ${JSON.stringify(JSON.parse(v))}`);
+      list = new Function(`return (${v});`)();
     } catch (e) {
-      throw new Error(`${source}: <flow> attribute ${k} is not valid JSON: ${e.message}`);
+      list = e;
     }
+    if ( ! Array.isArray(list) )
+      throw new Error(`${source}: <flow> attribute ${k} is not a valid list: ${list instanceof Error ? list.message : v}`);
+    props.push(`"${k}": ${JSON.stringify(list)}`);
   });
 
   props.push(`"script": [

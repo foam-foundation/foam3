@@ -77,7 +77,7 @@ foam.CLASS({
         + '- `<command>(<params>)` runs the command and sends nothing back.\n'
         + '- <params> is an object literal, as the command\'s Params line describes: '
         + '`ask doc.readLines({doc: "file", from: 1, count: 20})`. A long string, such as code, goes inside '
-        + 'backticks as written and may span lines.\n'
+        + 'backticks as written and may span lines; write \\` for a backtick inside it.\n'
         + '- A reply with no command is your answer, in the shape the instructions above ask for.\n\n'
         + 'The commands:\n'
         + commands.map(c => '- ' + c.id + ': ' + ( c.description || '' )
@@ -107,8 +107,9 @@ foam.CLASS({
       var known = ( await this.commands_ ).map(c => c.id);
       var parts = this.parser_.parseString(content) || [ { text: content } ];
       // A call is a command when it is asked or names one of the agent's
-      // commands; foam.CLASS({...}) on a line of an answer is text
-      var isCommand = p => p.command && ( p.ask || known.indexOf(p.command) >= 0 );
+      // commands; foam.CLASS({...}) on a line of an answer is text. An ask
+      // that did not parse goes back as an error, so the model can fix it.
+      var isCommand = p => p.error || p.command && ( p.ask || known.indexOf(p.command) >= 0 );
       var commands  = parts.filter(isCommand);
       if ( ! commands.length ) return { said: content, commands: [] };
       var said = parts.filter(p => ! isCommand(p)).map(p => ( p.command ? p.source : p.text ).trim()).filter(t => t);
@@ -119,7 +120,7 @@ foam.CLASS({
       // What the asked commands returned, as the next user message; '' when none was asked
       var results = [];
       for ( var c of commands ) {
-        var response = await this.run(c.command, c.params);
+        var response = c.error || await this.run(c.command, c.params);
         if ( c.ask ) results.push('agent(' + JSON.stringify({ asked: c.source, response: response }) + ')');
       }
       return results.join('\n');

@@ -60,13 +60,18 @@ foam.CLASS({
 
         // embedded before the old chunks go: a failed call keeps the record searchable
         var embedded = chunks.length ? await x.embeddingService.embedAll(x, chunks) : [];
-        await this.remove(x, daoKey, sourceId);
         for ( var j = 0 ; j < embedded.length ; j++ ) {
           var chunk = embedded[j];
           chunk.id       = daoKey + ':' + sourceId + ':' + j;
           chunk.daoKey   = daoKey;
           chunk.sourceId = sourceId;
           await store.put(chunk);
+        }
+        // a shorter text leaves chunks past the new count, e.g. noteDAO:42:2 once it has 2
+        for ( var k = embedded.length ; ; k++ ) {
+          var extra = await store.find(daoKey + ':' + sourceId + ':' + k);
+          if ( ! extra ) break;
+          await store.remove(extra);
         }
         return true;
       },
@@ -78,8 +83,20 @@ foam.CLASS({
         if ( isIndexed(store, daoKey, sourceId, chunks, embedder.getModel()) ) return false;
 
         // embedded before the old chunks go: a failed call (gateway down) keeps the record searchable
-        VectorEmbedding[] embedded = chunks.length == 0 ? new VectorEmbedding[0] : embedder.embedAll(x, chunks);
-        remove(x, daoKey, sourceId);
+        replace(x, daoKey, sourceId, chunks.length == 0 ? new VectorEmbedding[0] : embedder.embedAll(x, chunks));
+        return true;
+      `
+    },
+    {
+      name: 'replace',
+      documentation: `Makes the chunks of the record sourceId of the DAO daoKey be embedded, in
+        order, e.g. "noteDAO:42:0" for the first. An empty embedded removes them all. The new
+        chunks are written over the old ones before any extra is removed, so a search made
+        meanwhile never finds the record with no chunks.`,
+      args: 'Context x, String daoKey, String sourceId, foam.ai.vector.VectorEmbedding[] embedded',
+      flags: ['java'],
+      javaCode: `
+        DAO store = ((DAO) x.get("vectorStoreDAO")).inX(x);
         for ( int i = 0 ; i < embedded.length ; i++ ) {
           VectorEmbedding e = embedded[i];
           e.setId(daoKey + ":" + sourceId + ":" + i);
@@ -87,7 +104,12 @@ foam.CLASS({
           e.setSourceId(sourceId);
           store.put(e);
         }
-        return true;
+        // a shorter text leaves chunks past the new count, e.g. noteDAO:42:2 once it has 2
+        for ( int i = embedded.length ; ; i++ ) {
+          VectorEmbedding extra = (VectorEmbedding) store.find(daoKey + ":" + sourceId + ":" + i);
+          if ( extra == null ) break;
+          store.remove(extra);
+        }
       `
     },
     {

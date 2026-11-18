@@ -79,7 +79,7 @@ foam.CLASS({
     'foam.core.theme.SubdomainAwareDAO'
   ],
 
-  imports: [ 'document', 'foam.ai.vector.EmbeddingSync embeddingSync?', 'log' ],
+  imports: [ 'document', 'log' ],
 
   javaImports: [
     'foam.lang.Indexer',
@@ -255,14 +255,13 @@ foam.CLASS({
           delegate = getFSMDAO();
         }
 
-        // Below the rules, the last-modified stamp and any decorator, so that
-        // EmbeddingSync marking a record embedded runs none of them.
+        // Below the rules and the last-modified stamp, so that EmbeddingSync
+        // marking a record embedded runs neither.
         if ( getEmbeddingAware() ) {
           foam.ai.vector.EmbeddingAwareDAO embeddingDAO = new foam.ai.vector.EmbeddingAwareDAO.Builder(getX())
             .setName(getName())
             .setDelegate(delegate)
             .build();
-          if ( getEmbeddingSync() != null ) getEmbeddingSync().add(embeddingDAO);
           delegate = embeddingDAO;
           indexes.add((foam.lang.PropertyInfo) getOf().getAxiomByName("embeddingStatus"));
         }
@@ -1320,7 +1319,6 @@ dao loading, which improves overall startup time.`,
 
       if ( this.embeddingAware ) {
         dao = this.EmbeddingAwareDAO.create({ name: this.name, delegate: dao }, this.__subContext__);
-        if ( this.embeddingSync ) this.embeddingSync.add(dao);
       }
 
       var cls = this.of;

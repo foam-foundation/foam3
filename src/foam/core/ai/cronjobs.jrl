@@ -1,6 +1,6 @@
-// Embeds the records that EmbeddingAwareDAO marked NEW or DIRTY since the last run, at most
-// embeddingSync's batchSize (50) AI calls per run. After a restart every record is NEW, and
-// one whose stored chunks still hold its text is marked embedded with no AI call.
+// A save already starts a sync, so this run is the safety net: it embeds the records left NEW or
+// DIRTY, e.g. while the provider was down, and the records loaded at boot, which are all NEW. One
+// whose stored chunks still hold its text is marked embedded with no AI call.
 p({
   "class": "foam.core.cron.Cron",
   "id": "embeddingSync",

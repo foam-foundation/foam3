@@ -1,0 +1,9 @@
+// One EmbeddingSync run in each state, timed by EmbeddingSyncBenchmark. Run one at a time:
+// ./build.sh java-benchmarks:EmbeddingSyncRestartRunner
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncIdleRunner", benchmarkId: "EmbeddingSyncIdle", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncRestartRunner", benchmarkId: "EmbeddingSyncRestart", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncSweepRunner", benchmarkId: "EmbeddingSyncSweep", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncFirstRunner", benchmarkId: "EmbeddingSyncFirst", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncFirstIndexedRunner", benchmarkId: "EmbeddingSyncFirstIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncRestartIndexedRunner", benchmarkId: "EmbeddingSyncRestartIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncSweepIndexedRunner", benchmarkId: "EmbeddingSyncSweepIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })

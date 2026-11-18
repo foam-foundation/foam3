@@ -15,8 +15,10 @@ foam.CLASS({
     query from rows of its length, the indexer embeds a record again only when
     its text changed and leaves no chunk of the old text, an EmbeddingAware DAO
     marks each save NEW, DIRTY or DISCARDED and EmbeddingSync embeds what it
-    marked, a failing provider costs two calls and one warning per sync
-    while one refused record does not stop the others,
+    marked, chunks of several records go in one call, a failing provider costs
+    three calls and one warning per sync while one refused record does not stop
+    the others, the first sync removes the chunks of a record that is gone, a
+    save starts a sync in the background,
     marking a flowDAO doc embedded adds no history row, journal line or
     lastModified, and ask() sends the model only readable chunks and lists only
     their records.
@@ -230,10 +232,14 @@ foam.CLASS({
         // because Flow implements EmbeddingAware, and the decorator adds itself to this embeddingSync
         Embedder      fake  = new Embedder();
         DAO           noteStore = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
-        EmbeddingSync sync  = new EmbeddingSync.Builder(x).build();
+        // the test runs each sync itself; the sync a save starts is checked further down
+        EmbeddingSync sync  = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
         X             tx    = x.put("vectorStoreDAO", noteStore).put("embeddingService", fake).put("embeddingSync", sync);
         DAO notes = new EasyDAO.Builder(tx).setOf(Flow.getOwnClassInfo()).setName("noteDAO").setAuthorize(false).build().inX(tx);
         String text3 = "# A\\n\\nalpha one\\n\\n## B\\n\\nbeta two\\n\\n## C\\n\\nalpha three";
+        // the chunks of Note Z, a record removed while the server was down: no remove_ saw it
+        new RAGIndexer().index(tx, "noteDAO", doc("Note Z", "# Z\\n\\nalpha z", true));
+        fake.calls = 0;
         notes.put(doc("Note A", text3, true));
         notes.put(doc("Note B", "# B\\n\\nbeta", false));
         test(status(notes, "Note A") == EmbeddingStatus.NEW && fake.calls == 0, "A new embeddable record is NEW, and the save makes no AI call");
@@ -242,6 +248,7 @@ foam.CLASS({
         test(status(notes, "Note A") == EmbeddingStatus.EMBEDDED && fake.calls == 1 && chunksOf(noteStore, "noteDAO", "Note A") > 1,
           "One sync embeds a NEW record in one call and marks it EMBEDDED, got " + status(notes, "Note A") + ", " + fake.calls + " calls");
         test(chunksOf(noteStore, "noteDAO", "Note B") == 0 && status(notes, "Note B") == EmbeddingStatus.DISCARDED, "A DISCARDED record gets no chunks");
+        test(chunksOf(noteStore, "noteDAO", "Note Z") == 0, "The first sync removes the chunks of a record that is gone");
         sync.sync(tx);
         test(fake.calls == 1, "A second sync makes no embedding call");
 
@@ -277,13 +284,15 @@ foam.CLASS({
         note.setDescription("alpha edited again");
         notes.put(note);
         notes.put(doc("Note C", "# C\\n\\nalpha c", true));
-        sync.setBatchSize(1);
         sync.sync(tx);
-        boolean oneLeft = ( status(notes, "Note A") == EmbeddingStatus.EMBEDDED ) != ( status(notes, "Note C") == EmbeddingStatus.EMBEDDED );
-        test(fake.calls == calls + 1 && oneLeft, "A sync makes at most batchSize calls and leaves the rest marked");
+        test(fake.calls == calls + 1 && status(notes, "Note A") == EmbeddingStatus.EMBEDDED && status(notes, "Note C") == EmbeddingStatus.EMBEDDED,
+          "The chunks of two waiting records go in one call, got " + ( fake.calls - calls ) + " calls");
+        calls = fake.calls;
+        for ( String n : new String[] { "Note L", "Note M", "Note N" } ) notes.put(doc(n, "# " + n + "\\n\\nalpha", true));
+        sync.setTextsPerCall(1);
         sync.sync(tx);
-        test(fake.calls == calls + 2 && status(notes, "Note A") == EmbeddingStatus.EMBEDDED && status(notes, "Note C") == EmbeddingStatus.EMBEDDED, "The next sync goes on where it stopped");
-        sync.setBatchSize(50);
+        test(fake.calls == calls + 3, "With textsPerCall 1, three one-chunk records take three calls, got " + ( fake.calls - calls ));
+        sync.setTextsPerCall(64);
 
         // A record loaded from a journal at boot: its chunks are already stored, so the sync finds them unchanged
         Flow d = doc("Note D", "# D\\n\\nbeta d", true);
@@ -337,8 +346,9 @@ foam.CLASS({
         sync.sync(down);
         sync.sync(down);
         boolean allDirty = status(notes, "Note E") == EmbeddingStatus.DIRTY && status(notes, "Note F") == EmbeddingStatus.DIRTY && status(notes, "Note G") == EmbeddingStatus.DIRTY;
-        test(fake.calls == calls + 4 && warnings.count == 2 && allDirty,
-          "A failing provider costs two calls and one warning per sync and leaves the 3 records DIRTY, got " + ( fake.calls - calls ) + " calls, " + warnings.count + " warnings");
+        // per sync: the call for all 3, then one record alone, then a second alone
+        test(fake.calls == calls + 6 && warnings.count == 2 && allDirty,
+          "A failing provider costs three calls and one warning per sync and leaves the 3 records DIRTY, got " + ( fake.calls - calls ) + " calls, " + warnings.count + " warnings");
         fake.fail = false;
         sync.sync(down);
         test(status(notes, "Note E") == EmbeddingStatus.EMBEDDED && status(notes, "Note F") == EmbeddingStatus.EMBEDDED && status(notes, "Note G") == EmbeddingStatus.EMBEDDED && warnings.count == 2,
@@ -355,10 +365,42 @@ foam.CLASS({
         warnings.seen  = "";
         calls          = fake.calls;
         sync.sync(down);
+        // the call for all 3 fails, then each goes alone: H refused, I and J embedded
         test(status(notes, "Note H") == EmbeddingStatus.NEW && status(notes, "Note I") == EmbeddingStatus.EMBEDDED && status(notes, "Note J") == EmbeddingStatus.EMBEDDED
-          && fake.calls == calls + 3 && warnings.count == 1,
+          && fake.calls == calls + 4 && warnings.count == 1,
           "A record the provider refuses keeps its status with one warning, and the others are embedded, got " + ( fake.calls - calls ) + " calls, " + warnings.count + " warnings: " + warnings.seen);
         fake.failOn = null;
+
+        // A save starts a sync in the background and returns before the AI call
+        Embedder      slow    = new Embedder();
+        EmbeddingSync live    = new EmbeddingSync.Builder(x).build();
+        DAO           liveStore = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+        X             lx      = x.put("vectorStoreDAO", liveStore).put("embeddingService", slow).put("embeddingSync", live);
+        live.setX(lx); // the sync a save starts runs in the sync's own context
+        DAO           liveDAO = new EasyDAO.Builder(lx).setOf(Flow.getOwnClassInfo()).setName("liveDAO").setAuthorize(false).build().inX(lx);
+        liveDAO.put(doc("Live A", "# Live\\n\\nalpha live", true));
+        test(await(() -> status(liveDAO, "Live A") == EmbeddingStatus.EMBEDDED) && slow.calls == 1 && chunksOf(liveStore, "liveDAO", "Live A") > 0,
+          "A save starts a sync, and the record is embedded with no sync called, got " + status(liveDAO, "Live A") + ", " + slow.calls + " calls");
+        slow.fail = true;
+        int liveCalls = slow.calls;
+        Flow liveEdit = edit(liveDAO, "Live A");
+        liveEdit.setDescription("alpha edited while the provider is down");
+        liveDAO.put(liveEdit);
+        // one record alone: its call, then its call on its own; both fail
+        test(await(() -> slow.calls == liveCalls + 2) && status(liveDAO, "Live A") == EmbeddingStatus.DIRTY,
+          "A save whose sync fails leaves the record DIRTY for the cron, got " + ( slow.calls - liveCalls ) + " calls");
+        liveDAO.put(doc("Live B", "# Live B\\n\\nbeta live", true));
+        // A and B: the call for both, then A alone, then B alone; two alone failing means the provider is down
+        test(await(() -> slow.calls == liveCalls + 5), "A second failing record marks the provider down, got " + ( slow.calls - liveCalls ) + " calls");
+        Thread.sleep(300);
+        int downCalls = slow.calls;
+        liveDAO.put(doc("Live C", "# Live C\\n\\nalpha c live", true));
+        Thread.sleep(500);
+        test(slow.calls == downCalls, "Once the provider is down, saves start no sync until a sync gets through");
+        slow.fail = false;
+        live.sync(lx);
+        test(status(liveDAO, "Live A") == EmbeddingStatus.EMBEDDED && status(liveDAO, "Live B") == EmbeddingStatus.EMBEDDED && status(liveDAO, "Live C") == EmbeddingStatus.EMBEDDED,
+          "The cron's sync embeds all three");
 
         // The real flowDAO: marking a doc embedded adds no history row, no journal line and no lastModified.
         // flowDAO runs a history rule on every save and journals each change; the sync writes the status
@@ -370,6 +412,9 @@ foam.CLASS({
         foam.mlang.predicate.Predicate ofDoc = MLang.EQ(FlowHistoryRecord.OBJECT_ID, name);
         DAO dao = (DAO) x.get("flowDAO");
         while ( dao instanceof ProxyDAO && ! ( dao instanceof EmbeddingAwareDAO ) ) dao = ((ProxyDAO) dao).getDelegate();
+        EmbeddingSync server = (EmbeddingSync) x.get("embeddingSync");
+        boolean onSave = server.getEmbedOnSave();
+        server.setEmbedOnSave(false);
         test(dao instanceof EmbeddingAwareDAO, "EasyDAO gave flowDAO an EmbeddingAwareDAO");
         try {
           flows.put(doc(name, "# Real\\n\\nalpha in flowDAO", true));
@@ -396,6 +441,7 @@ foam.CLASS({
         } finally {
           Object left2 = flows.find(name);
           if ( left2 != null ) flows.remove((foam.lang.FObject) left2);
+          server.setEmbedOnSave(onSave);
         }
 
         // A long section is cut in pieces that each start with its heading

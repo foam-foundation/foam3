@@ -1,0 +1,7 @@
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncIdle", scenario: "idle", rowCount: 100000, indexSourceId: false })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncRestart", scenario: "restart", rowCount: 100000, indexSourceId: false })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncSweep", scenario: "sweep", rowCount: 100000, indexSourceId: false })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncFirst", scenario: "first", rowCount: 20000, indexSourceId: false })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncFirstIndexed", scenario: "first", rowCount: 20000, indexSourceId: true })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncRestartIndexed", scenario: "restart", rowCount: 100000, indexSourceId: true })
+p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncSweepIndexed", scenario: "sweep", rowCount: 100000, indexSourceId: true })

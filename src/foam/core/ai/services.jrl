@@ -248,6 +248,9 @@ p({
       .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
       .setJournalName("vectorEmbeddings")
       .build();
+    // a record's chunks are found and replaced by sourceId on every embed, e.g. a million times
+    // after a restart: without the index each lookup reads every chunk
+    ((foam.dao.EasyDAO) jdao).addPropertyIndex(new foam.lang.PropertyInfo[] { foam.ai.vector.VectorEmbedding.SOURCE_ID });
     return new foam.ai.vector.VectorStoreDAO.Builder(x)
       .setDelegate(jdao)
       .build();
@@ -255,9 +258,10 @@ p({
 })
 
 // ── Embedding sync ──
-// Every EmbeddingAwareDAO that EasyDAO builds adds itself here; the "embeddingSync" cron
-// (cronjobs.jrl) then embeds the records they marked NEW or DIRTY. Not served: the browser
-// never starts a sync on the server.
+// Every EmbeddingAwareDAO adds itself here when it is built. A save of a NEW or DIRTY record
+// starts a sync in the background; the "embeddingSync" cron (cronjobs.jrl) catches what a save
+// could not, e.g. records left DIRTY while the provider was down. Not served: the browser never
+// starts a sync on the server.
 p({
   "class":"foam.core.boot.CSpec",
   "name":"embeddingSync",

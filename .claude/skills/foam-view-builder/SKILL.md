@@ -356,6 +356,7 @@ view: function(_, X) {
 | Return elements from dynamic() | Build via side effects, early return OK |
 | Manual setAttribute in render() | `attribute: 'BOTH'` with `domName` |
 | Recreating reactive views | Cache element + `moveTo()` |
+| `removeAllChildren()` then rebuilding when a state changes | Render from the state: `show(slot)`, `enableClass(cls, slot)` or `add(this.dynamic(...))` (3.3). To swap content, keep both parts and show one; every state change then updates the view with no code to remember |
 | Full rerender on array change | Track by `$UID`, surgical add/remove |
 | Manual `.sub()` for property changes | `on: ['this.propertyChange.prop']` on listener |
 | `FObjectArrayView` for arrays | `TitledArrayView` with `valueView` + `propertyWhitelist` |

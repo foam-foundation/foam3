@@ -281,10 +281,14 @@ public class AuthWebAgent
 
     if ( session == null ) {
       session = createSession(x);
-      if ( ! SafetyUtil.isEmpty(sessionId) ) session.setId(sessionId);
       // NOTE: don't use returned session — clusterTransient context is null after put.
       Session saved = (Session) sessionDAO.put(session);
       if ( SafetyUtil.isEmpty(session.getId()) ) session.setId(saved.getId());
+
+      HttpServletResponse resp = x.get(HttpServletResponse.class);
+      if ( resp != null ) {
+        createCookie(session, resp, req);
+      }
     }
 
     return session;
@@ -319,8 +323,30 @@ public class AuthWebAgent
         return null;
       }
 
+      // Rotate session ID to mitigate session fixation attacks
+      Session oldSession = session;
+      session = createSession(x);
       session.setUserId(user.getId());
-      session.setContext(session.applyTo(session.getContext()));
+      if ( oldSession != null ) {
+        session.setAgentId(oldSession.getAgentId());
+        session.setTwoFactorSuccess(oldSession.getTwoFactorSuccess());
+      }
+      Session saved = (Session) sessionDAO.put(session);
+      if ( SafetyUtil.isEmpty(session.getId()) ) session.setId(saved.getId());
+
+      X baseContext = session.getContext() != null ? session.getContext() : x;
+      session.setContext(session.applyTo(baseContext));
+
+      if ( oldSession != null && ! SafetyUtil.isEmpty(oldSession.getId()) &&
+           ! SafetyUtil.equals(oldSession.getId(), session.getId()) ) {
+        try {
+          sessionDAO.remove(oldSession);
+        } catch ( Throwable t ) {
+          logger.warning("Failed to remove old session during rotation", t);
+        }
+      }
+
+      createCookie(session, resp, req);
 
       String actAs = req.getParameter("actAs");
       if ( ! SafetyUtil.isEmpty(actAs) ) {
@@ -385,9 +411,28 @@ public class AuthWebAgent
   public Session createSession(X x) {
     HttpServletRequest req     = x.get(HttpServletRequest.class);
     Session            session = new Session((X) x.get(Boot.ROOT));
-    session.setRemoteHost(req.getRemoteHost());
+    if ( req != null ) {
+      session.setRemoteHost(req.getRemoteHost());
+    }
     session.setContext(session.applyTo(x));
     return session;
+  }
+
+  public void createCookie(Session session, HttpServletResponse resp, HttpServletRequest req) {
+    if ( session == null || resp == null || SafetyUtil.isEmpty(session.getId()) ) return;
+
+    Cookie cookie = new Cookie(SESSION_ID, session.getId());
+    cookie.setPath("/");
+    cookie.setHttpOnly(true);
+    if ( (req != null && req.isSecure()) ||
+         (req != null && "https".equalsIgnoreCase(req.getHeader("X-Forwarded-Proto"))) ) {
+      cookie.setSecure(true);
+    }
+    resp.addCookie(cookie);
+  }
+
+  public void createCookie(X x, Session session) {
+    createCookie(session, x.get(HttpServletResponse.class), x.get(HttpServletRequest.class));
   }
 
   public Cookie getCookie(HttpServletRequest req) {

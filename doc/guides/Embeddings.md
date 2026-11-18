@@ -262,6 +262,10 @@ The browser never sees the system prompt or the provider's API key. `llmService`
 
 ## 6. Client-only mode
 
+`RAGChat` only asks its context for `ragService`. Whoever puts `ragService` in the context decides where the work runs: a page that exports one runs everything in the browser, and an app's `ragService` CSpec runs it on the server. Each yellow tag names what an app overrides or sets.
+
+![Who answers ragService.ask: browser only, or with a server](images/embeddings-who-answers.png)
+
 The same `Note` model runs with no server, e.g. a demo page with browser models. After the first model download, nothing leaves the browser.
 
 ```mermaid

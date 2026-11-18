@@ -122,7 +122,7 @@ Each layer, from a saved record to an answer, and where an app changes it: yello
 
 ## 5. Server mode
 
-How a record gets its chunks, from the save to the safety-net cron:
+How a record gets its chunks: the save starts the sync, and the cron is the fallback:
 
 ![How a record gets its chunks](images/embeddings-record-to-chunks.png)
 
@@ -173,13 +173,15 @@ The chunks are removed as the system because they are the index's own rows. A us
 
 ```mermaid
 sequenceDiagram
-  participant W as a save's wake(), or the cron
+  participant Save as a save
+  participant Cron as the cron, a fallback
   participant Sync as EmbeddingSync
   participant EA as EmbeddingAwareDAO
   participant Idx as RAGIndexer
   participant Emb as embeddingService
   participant VS as vectorStoreDAO
-  W->>Sync: sync(x)
+  Save->>Sync: wake() starts sync(x) in the background
+  Cron-->>Sync: or sync(x), every 30 minutes
   loop each registered DAO
     Sync->>EA: sync(x, 64)
     EA->>EA: stream NEW and DIRTY records

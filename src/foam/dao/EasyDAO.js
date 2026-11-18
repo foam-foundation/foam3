@@ -258,11 +258,10 @@ foam.CLASS({
         // Below the rules and the last-modified stamp, so that EmbeddingSync
         // marking a record embedded runs neither.
         if ( getEmbeddingAware() ) {
-          foam.ai.vector.EmbeddingAwareDAO embeddingDAO = new foam.ai.vector.EmbeddingAwareDAO.Builder(getX())
+          delegate = new foam.ai.vector.EmbeddingAwareDAO.Builder(getX())
             .setName(getName())
             .setDelegate(delegate)
             .build();
-          delegate = embeddingDAO;
           indexes.add((foam.lang.PropertyInfo) getOf().getAxiomByName("embeddingStatus"));
         }
 
@@ -922,7 +921,7 @@ dao loading, which improves overall startup time.`,
       class: 'Boolean',
       documentation: `
         Adds EmbeddingAwareDAO when the model implements EmbeddingAware, so its
-        records are embedded for Ask AI. A DAO that talks to a server leaves
+        records are embedded for vector search. A DAO that talks to a server leaves
         that to the server's own DAO.
       `,
       expression: function(enableInterfaceDecorators, of, daoType) {

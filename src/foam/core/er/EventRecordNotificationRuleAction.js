@@ -70,15 +70,23 @@ foam.CLASS({
       // at WARN sent nothing when it went on, so its clear sends nothing
       // either; the alarm keeps the highest severity it was raised with.
       // EventRecordAlarmRule runs first, at a higher priority, and sets
-      // er.alarm only on the record that raised or cleared the alarm. An
+      // er.alarm on each record that raised or cleared the alarm. An
       // INFO record after the clear, such as the next successful poll of an
       // EmailFolderAgent, carries no alarm and sends nothing.
+      Alarm erAlarm = er.getAlarm() == null ? null :
+        (Alarm) ((DAO) x.get("alarmDAO")).find(er.getAlarm());
       if ( er.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() ) {
-        Alarm alarm = er.getAlarm() == null ? null :
-          (Alarm) ((DAO) x.get("alarmDAO")).find(er.getAlarm());
-        if ( alarm == null || alarm.getIsActive() ||
-             alarm.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() )
+        if ( erAlarm == null || erAlarm.getIsActive() ||
+             erAlarm.getSeverity().getOrdinal() < getNotificationSeverity().getOrdinal() )
           return;
+      } else if ( erAlarm != null && erAlarm.getIsActive() &&
+                  ! SafetyUtil.equals(er.getId(), erAlarm.getEventRecord()) ) {
+        // A failure that repeats while its alarm is still on was already
+        // reported. A service that fails on every call, such as an API
+        // rejecting an expired token, would otherwise send one notification
+        // per call. The alarm's eventRecord names the record that turned it
+        // on, and only that record notifies until an INFO record clears it.
+        return;
       }
 
       args.put("of", er.getClass().getSimpleName());

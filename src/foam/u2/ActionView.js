@@ -177,6 +177,23 @@ foam.CLASS({
       }
     },
 
+    function showConfirm_() {
+      // "Confirm" replaces the label, but the button keeps at least the width
+      // it had as the action, and grows only when "Confirm" is wider. In a row
+      // of buttons the others do not shift under the pointer between the
+      // first click and the confirming one.
+      var el = this.el_();
+      this.style({ 'min-width': el ? el.offsetWidth + 'px' : '' });
+      this.removeAllChildren();
+      this.start().addClass('h600').add(this.CONFIRM).end();
+    },
+
+    function showAction_() {
+      this.style({ 'min-width': '' });
+      this.removeAllChildren();
+      this.addContent();
+    },
+
     function initCls() {
       this.addClass();
       this.addClass(this.myClass(this.action.name));
@@ -210,13 +227,11 @@ foam.CLASS({
           this.onDetach(running.sub(() => { this.loading_ = running.get(); }));
         } else if ( this.buttonState == this.ButtonState.CONFIRM ) {
           this.buttonState = this.ButtonState.DEBOUNCE;
-          this.removeAllChildren();
-          this.start().addClass('h600').add(this.CONFIRM).end();
+          this.showConfirm_();
           this.debounce();
         } else if ( this.buttonState == this.ButtonState.ARMED ) {
           this.buttonState = this.ButtonState.CONFIRM;
-          this.removeAllChildren();
-          this.addContent();
+          this.showAction_();
           this.action && this.action.maybeCall(this.__subContext__, this.data);
         }
       } catch (x) {
@@ -244,8 +259,7 @@ foam.CLASS({
       mergeDelay: 6000,
       code: function() {
         if ( this.buttonState != this.ButtonState.ARMED ) return;
-        this.removeAllChildren();
-        this.addContent();
+        this.showAction_();
         this.buttonState = this.ButtonState.CONFIRM;
       }
     },
@@ -256,10 +270,7 @@ foam.CLASS({
         let stateChange = this.buttonState != newState;
         this.buttonState = newState;
         this.isDestructive = confirm;
-        if ( stateChange ) {
-          this.removeAllChildren();
-          this.addContent();
-        }
+        if ( stateChange ) this.showAction_();
       }
     }
   ]

@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid daoKey daoKeys sourceId embeddingModel storageTransient CosineComparator kNN Ollama Xenova Chunker chunker ragService llmService embeddingService vectorStoreDAO noteDAO docDAO EasyDAO nSpec isEmbeddable toIndexText openIndexed embeddingSync batchSize MDAO MiniLM Qwen cronjobs -->
+<!-- cspell:ignore spid daoKey daoKeys sourceId embeddingModel storageTransient CosineComparator kNN Ollama Xenova Chunker chunker ragService llmService embeddingService vectorStoreDAO noteDAO docDAO EasyDAO nSpec isEmbeddable toIndexText openIndexed embeddingSync textsPerCall embedOnSave MDAO MiniLM Qwen cronjobs -->
 <flow name="Embeddings" category="DOC/GUIDE" spid="foam" description="How a model opts in to embeddings with EmbeddingAware, how the status lifecycle and EmbeddingSync keep its vectors current, and how ragService answers questions from the records a user can read, on a server or in the browser." keywords="vector,embedding,rag,EmbeddingAware,EmbeddingStatus,EmbeddingSync,ragService,ReadableSourcePredicate"/>
 
 # Embeddings: Keep Any Model Searchable by Meaning
@@ -67,7 +67,7 @@ foam3's own `Flow` opts in this way. `FlowEmbeddingAwareRefinement` makes a flow
 
 ## 3. The status lifecycle
 
-Each record carries `embeddingStatus`. A save only sets the status: it is fast and calls no AI. `EmbeddingSync` reads the status later and does the slow work.
+Each record carries `embeddingStatus`. A save sets the status and wakes `EmbeddingSync`, which embeds the record in the background, so a save never waits on an AI call.
 
 ```mermaid
 stateDiagram-v2
@@ -98,19 +98,23 @@ A few cases follow from these rules:
 
 ## 4. Components
 
+Each layer, from a saved record to an answer, and where an app changes it: yellow is an extension point, gray is fixed.
+
+![Where you can extend: one row per layer](images/embeddings-extension-points.png)
+
 | Component | What it does | Why it exists | File |
 |---|---|---|---|
 | `EmbeddingAware` | The interface a model implements: `toIndexText`, `isEmbeddable`, `openIndexed`, and the `embeddingStatus` property. | The model says what text it has. Everything else reads that. | `src/foam/ai/vector/EmbeddingAware.js` |
 | `EmbeddingStatus` | The enum `NEW`, `EMBEDDED`, `DIRTY`, `DISCARDED`. `embeddingStatus` is `storageTransient`: kept in memory only. | The save path and the sync share work through it, so a save never waits for an AI call. | `src/foam/ai/vector/EmbeddingAware.js` |
-| `EmbeddingAwareDAO` | A `ProxyDAO`. A put compares old and new `toIndexText` and sets the status. A put that discards, a remove and a `removeAll` remove the chunks. `sync(x, limit)` embeds the DAO's `NEW` and `DIRTY` records and returns how many AI calls it made. | Marks what changed at the moment it changes, with no AI call, and owns the loop that embeds its records. | `src/foam/ai/vector/EmbeddingAwareDAO.js` |
-| `EasyDAO.embeddingAware` | Adds `EmbeddingAwareDAO` when `of` implements `EmbeddingAware`, adds it to `embeddingSync`, and indexes `embeddingStatus`. In Java it sits below the rules and the last-modified stamp, and above the GUID, subdomain and SPID decorators. In the browser it is skipped for a `CLIENT` DAO, which leaves the work to the server's DAO. | Opting in needs no nSpec change, as `LifecycleAware` adds `LifecycleAwareDAO`. | `src/foam/dao/EasyDAO.js` |
-| `EmbeddingSync` | Holds the `EmbeddingAwareDAO`s that EasyDAO built. `sync(x)` calls each one's `sync` until `batchSize` (50) AI calls are spent. On a server it is the `embeddingSync` service; in a browser an app exports one as `embeddingSync`. | No config lists the DAOs to sync, and one class runs the sync on a server and in a browser. | `src/foam/ai/vector/EmbeddingSync.js` |
-| `embeddingSync` cron | Calls `embeddingSync.sync(x)` every 5 minutes. | Runs the slow, failure-prone AI calls off the save path. | `src/foam/core/ai/cronjobs.jrl` |
+| `EmbeddingAwareDAO` | A `ProxyDAO`. A put compares old and new `toIndexText` and sets the status. A put that discards, a remove and a `removeAll` remove the chunks. A put that leaves a record `NEW` or `DIRTY` calls `embeddingSync.wake()`. `sync(x, textsPerCall)` embeds the DAO's `NEW` and `DIRTY` records, the chunks of many records in one call, and returns how many AI calls it made. When built, it adds itself to the context's `embeddingSync`. | Marks what changed at the moment it changes, with no AI call, and owns the loop that embeds its records. | `src/foam/ai/vector/EmbeddingAwareDAO.js` |
+| `EasyDAO.embeddingAware` | Adds `EmbeddingAwareDAO` when `of` implements `EmbeddingAware`, and indexes `embeddingStatus`. In Java it sits below the rules and the last-modified stamp, and above the GUID, subdomain and SPID decorators. In the browser it is skipped for a `CLIENT` DAO, which leaves the work to the server's DAO. | Opting in needs no nSpec change, as `LifecycleAware` adds `LifecycleAwareDAO`. | `src/foam/dao/EasyDAO.js` |
+| `EmbeddingSync` | Holds the `EmbeddingAwareDAO`s that added themselves. `wake()` starts a sync in the background: on a server on the thread pool, one sync at a time; in a browser 1 second after a change. `sync(x)` calls each one's `sync`. On a server it is the `embeddingSync` service; in a browser an app exports one as `embeddingSync`. | No config lists the DAOs to sync, and one class runs the sync on a server and in a browser. | `src/foam/ai/vector/EmbeddingSync.js` |
+| `embeddingSync` cron | Calls `embeddingSync.sync(x)` every 5 minutes. | Embeds what a save's sync could not: records loaded at boot, which are all `NEW`, and records left `DIRTY` while the provider was down. | `src/foam/core/ai/cronjobs.jrl` |
 | `RAGIndexer` | `index` cuts `toIndexText` into chunks, embeds them in one `embedAll` call and replaces every chunk the record had. It returns `false`, with no call, when the stored chunks already hold these texts from the same embedding model. `remove` deletes a record's chunks. Chunk ids are `<daoKey>:<sourceId>:<n>`, e.g. `noteDAO:42:0`. | One place owns chunk ids, the "already embedded?" check and the "replace all old chunks" rule, so a shorter text leaves no stale chunk. | `src/foam/core/ai/vector/RAGIndexer.js` |
 | Chunker | Splits markdown at `##` headings (`maxDepth` 2) and cuts long sections at 2,000 characters. Java: `MarkdownChunkerServiceImpl`. Browser: `ClientMarkdownChunkerService`. | One vector per section finds the passage that answers, where one vector per long record blurs topics. | `src/foam/core/ai/vector/MarkdownChunkerService.js`, `src/foam/ai/vector/ClientMarkdownChunkerService.js` |
 | `EmbeddingService` | Turns text into vectors: `embed`, `embedAll`, `getModel`. Providers: Ollama (the default), OpenAI, Transformers in the browser. | The provider is a CSpec choice, not a code change. | `src/foam/ai/vector/EmbeddingService.js`, `src/foam/core/ai/vector/provider/` |
 | `VectorEmbedding` | One chunk: `text`, `vector`, `embeddingModel`, `daoKey`, `sourceId`. | Links each vector to the record it came from, so search can check that record. | `src/foam/ai/vector/VectorEmbedding.js` |
-| `VectorStoreDAO` | Holds the chunks and answers `orderBy(CosineComparator)` with a cosine scan over a packed `float[]`. | Fast exact kNN inside a normal DAO. | `src/foam/ai/vector/VectorStoreDAO.js` |
+| `VectorStoreDAO` | Holds the chunks and answers `orderBy(CosineComparator)` with a cosine scan over a packed `float[]`. On a server the chunks are indexed on `sourceId`. | Fast exact kNN inside a normal DAO. The index finds one record's chunks without reading the others, which every embed and remove does. | `src/foam/ai/vector/VectorStoreDAO.js` |
 | `ReadableSourcePredicate` | True for a chunk whose record the asking user can find through that record's own DAO. Each record is looked up once per search. | The record's own access rules decide what a user can be answered from. | `src/foam/core/ai/vector/ReadableSourcePredicate.js` |
 | `RAGService` / `ragService` | `ask(x, question, daoKeys, locale)` returns a `RAGAnswer`: the answer, whether it was answered, and its sources. The server version is `ServerRAGService`. | The prompt, the search and the model call run on the server, as the asking user. | `src/foam/ai/llm/RAGService.js`, `src/foam/core/ai/llm/ServerRAGService.js` |
 | `llmService` | Writes the answer from the prompt `ragService` builds. | Any provider; see [LLM Services](LLM.md). | `src/foam/core/ai/services.jrl` |
@@ -118,19 +122,24 @@ A few cases follow from these rules:
 
 ## 5. Server mode
 
-The picture first. Three lanes: save, sync, ask.
+How a record gets its chunks, from the save to the safety-net cron:
+
+![How a record gets its chunks](images/embeddings-record-to-chunks.png)
+
+The three lanes: save, sync, ask.
 
 ```mermaid
 flowchart LR
   subgraph SAVE["Save: no AI call"]
     P["noteDAO.put(note)"] --> D["EmbeddingAwareDAO<br/>sets embeddingStatus"] --> S[("noteDAO storage")]
   end
-  subgraph SYNC["Sync: the embeddingSync cron, every 5 minutes"]
+  subgraph SYNC["Sync: woken by the save; the cron every 5 minutes catches the rest"]
     C["EmbeddingSync"] --> A["EmbeddingAwareDAO.sync"] --> I["RAGIndexer"] --> E["embeddingService"] --> V[("vectorStoreDAO")]
   end
   subgraph ASK["Ask: as the user"]
     Q["RAGChat"] --> R["ragService"] --> F["search, filtered by<br/>ReadableSourcePredicate"] --> L["llmService"]
   end
+  D -.->|"wake()"| C
   S -.->|"NEW / DIRTY"| A
   V -.->|"chunks"| F
 ```
@@ -155,52 +164,52 @@ sequenceDiagram
   EA-->>App: saved note
 ```
 
-The save makes no embedding call and does not wait. A provider that is down cannot fail a save.
+The save makes no embedding call and does not wait. It wakes `EmbeddingSync`, which embeds the record a moment later in the background. A provider that is down cannot fail a save.
 
 The chunks are removed as the system because they are the index's own rows. A user who may edit a record needs no right on `vectorStoreDAO`.
 
-### Sync: the cron embeds and stores
+### Sync: many records in one call
 
 ```mermaid
 sequenceDiagram
-  participant Cron as embeddingSync cron
+  participant W as a save's wake(), or the cron
   participant Sync as EmbeddingSync
   participant EA as EmbeddingAwareDAO
   participant Idx as RAGIndexer
   participant Emb as embeddingService
   participant VS as vectorStoreDAO
-  Cron->>Sync: sync(x)
-  loop each registered DAO, while the budget of 50 calls lasts
-    Sync->>EA: sync(x, budget left)
-    EA->>EA: select NEW and DIRTY
-    loop each record, until the budget is spent
-      EA->>Idx: index(x, "noteDAO", note)
+  W->>Sync: sync(x)
+  loop each registered DAO
+    Sync->>EA: sync(x, 64)
+    EA->>EA: stream NEW and DIRTY records
+    loop each record
+      EA->>Idx: chunks of toIndexText
       Idx->>VS: stored chunks hold these texts and this model?
       alt yes
-        Idx-->>EA: false, no AI call
+        EA->>EA: put(note with EMBEDDED), no AI call
       else no
-        Idx->>Emb: embedAll(chunks)
-        Emb-->>Idx: vectors
-        Idx->>VS: remove old chunks, put new chunks
-        Idx-->>EA: true, one AI call
+        EA->>EA: add its chunks to the batch
       end
-      EA->>EA: put(note with EMBEDDED), below the rules
+      opt the batch holds 64 chunks, or the records ran out
+        EA->>Emb: embedAll(the batch)
+        Emb-->>EA: vectors
+        EA->>VS: per record, write the new chunks, then remove the extra old ones
+        EA->>EA: put(each note with EMBEDDED), below the rules
+      end
     end
-    Note over Sync,EA: one failed call skips that record, two in a row stop the run
-    EA-->>Sync: AI calls made
   end
 ```
 
-The cron runs as the system, so it reads every opted-in record. The access check happens when someone asks, not here.
+On a server the sync runs as the system, so it reads every opted-in record. The access check happens when someone asks, not here. Only one sync runs at a time: a save made during a sync starts one more after it, and a burst of saves starts one, not one each.
 
 The status write goes to the decorator's own delegate, below the rules and the last-modified stamp. Since the status is not stored, it adds no journal line, no history row and no new last-modified date.
 
-When `embedAll` fails, the record keeps its old chunks and its status, and the sync tries the next record that needs a call:
+When the call for a batch fails, the records keep their old chunks and their status, and each record of the batch is tried in a call of its own:
 
-- **the next call works:** only the first record was refused. One warning names the DAO and the record id, and the run goes on;
-- **the next call fails too:** the provider is down. The run stops with one warning that names the DAO. An app with no embedding provider makes 2 calls and logs 1 warning every 5 minutes.
+- **a later call works:** only the record before it was refused. One warning names the DAO and the record id, and the sync goes on;
+- **the next call fails too:** the provider is down. The sync stops with one warning that names the DAO, and saves start no sync until a sync gets through. An app with no embedding provider makes 3 calls and logs 1 warning every 5 minutes.
 
-Either way the next run retries the failed records. Each failed call counts against the run's 50 calls.
+Either way the next sync retries the failed records.
 
 ### Boot: records from a journal or a seed
 
@@ -212,7 +221,7 @@ sequenceDiagram
   participant EA as EmbeddingAwareDAO
   participant Idx as RAGIndexer
   participant VS as vectorStoreDAO
-  Sync->>EA: sync(x, 50)
+  Sync->>EA: sync(x, 64)
   EA->>Idx: index(x, "noteDAO", note)
   Idx->>Idx: chunk toIndexText
   Idx->>VS: find noteDAO:42:0, noteDAO:42:1, ...
@@ -224,7 +233,9 @@ sequenceDiagram
   EA->>EA: put(note with EMBEDDED)
 ```
 
-A server that boots with a matching seed makes no embedding call at all. A record that needs no call costs no budget, so one run can mark every unchanged record `EMBEDDED`.
+A server that boots with a matching seed makes no embedding call at all, and one sync marks every unchanged record `EMBEDDED`.
+
+The first sync after a start also removes the chunks of records that are gone, e.g. a record dropped from a journal while the server was down, which no remove saw. It looks up one record per chunk 0, e.g. `noteDAO:42:0`.
 
 ### Ask: one call from the browser
 
@@ -304,7 +315,7 @@ The page does three things:
 |---|---|---|
 | Your model | Implements `EmbeddingAware`, writes `toIndexText` | The same |
 | Marks changes | `EmbeddingAwareDAO`, Java | `EmbeddingAwareDAO`, JS |
-| Runs the sync | The `embeddingSync` cron, every 5 minutes | The same `EmbeddingSync` class, 1 second after a change |
+| Runs the sync | A save's `wake()`, and the `embeddingSync` cron every 5 minutes | The same `EmbeddingSync` class, 1 second after a change |
 | Spots unchanged chunks | Same texts and same embedding model | Same texts and same embedding model |
 | Makes vectors | `embeddingService`, any provider | `TransformersEmbeddingService` (`Xenova/all-MiniLM-L6-v2`), in a Web Worker on WebGPU, else WebAssembly |
 | Stores vectors | `vectorStoreDAO` on the server | An MDAO in the page |
@@ -323,10 +334,10 @@ Another embedding model needs no code change. Set `model`, `pooling` and `queryP
 | `embeddingStatus` is not stored (`storageTransient`) | The sync's status writes add no journal line. | After a restart every record is `NEW`, and the first sync makes one text-compare pass over all of them. |
 | The decorator sits below the rules | The sync's status write runs no rule, adds no history row and keeps the last-modified date. | A rule cannot react to a record turning `EMBEDDED`. |
 | Remove is a hard remove | Remove keeps its usual meaning on every model that opts in. | A record added again is embedded again. A soft delete to `DISCARDED` would change what remove means on every model that opts in. |
-| The save path makes no AI call | Saves stay fast, and a provider outage fails no save. | An edit is searchable after the next cron run, up to 5 minutes later. |
-| 50 AI calls per run | One run stays short. | Re-embedding 500 records takes 10 runs, about 50 minutes. |
-| Two failed calls in a row stop the run | A provider that is down, or not set up, costs 2 calls and 1 warning per run. A single record the provider refuses is skipped with a warning. | A refused record is tried again on every run and logs a warning each time. Two refused records in a row look like an outage and stop the run. |
-| DAOs add themselves when EasyDAO builds them | No list of DAOs to keep in step with the code. | A DAO built lazily, on first use, joins the sync only then. Its records are embedded from that point on. |
+| The save path makes no AI call | Saves stay fast, and a provider outage fails no save. | An edit is searchable once its background sync returns, not when the save returns. |
+| The chunks of many records go in one call (`textsPerCall`, 64) | Embedding 20,000 new records of about 3 chunks each took 910 calls, not 20,000. | A text the provider refuses fails its whole call, so each record of that call is tried again on its own. |
+| Two failed calls in a row stop the run | A provider that is down, or not set up, costs 3 calls and 1 warning per run, and saves stop starting syncs. A single record the provider refuses is skipped with a warning. | A refused record is tried again on every run and logs a warning each time. Two refused records in a row look like an outage and stop the run. |
+| DAOs add themselves when they are built | No list of DAOs to keep in step with the code. | A DAO built lazily, on first use, joins the sync only then. Its records are embedded from that point on. |
 | Access is checked at ask time | One index serves every user; the record's own DAO decides. | Each search finds the record of every candidate chunk, once per record. |
 
 ## 8. Configuring
@@ -347,16 +358,17 @@ p({
 
 The OpenAI provider reads the credential `foam/llm/openai` from `credentialDAO` (`src/foam/core/ai/vector/provider/OpenAIEmbeddingService.js:31`). The credential rows are in `src/foam/core/ai/credentials.jrl`, and [Credential Management](CredentialManagement.md) explains the vault.
 
-Vectors of one model match no question embedded by another, and `VectorEmbedding.embeddingModel` keeps them apart. `RAGIndexer` treats chunks from another model as changed. After a restart every record is `NEW`, so the syncs after a provider change embed every record again, 50 per run.
+Vectors of one model match no question embedded by another, and `VectorEmbedding.embeddingModel` keeps them apart. `RAGIndexer` treats chunks from another model as changed. After a restart every record is `NEW`, so the first sync after a provider change embeds every record again.
 
 ### Tune the sync
 
 | Setting | Where | Default |
 |---|---|---|
 | How often the sync runs | The `Cron` row `embeddingSync` in `src/foam/core/ai/cronjobs.jrl` | Every 5 minutes |
-| AI calls per run | `batchSize` of the `embeddingSync` service in `src/foam/core/ai/services.jrl` | 50 |
+| Chunks sent in one call | `textsPerCall` of the `embeddingSync` service in `src/foam/core/ai/services.jrl` | 64 |
+| Whether a save starts a sync | `embedOnSave` of the same service | On. Off, only the cron embeds, e.g. to keep the provider's calls to set hours. |
 
-An app changes `batchSize` by overriding the `embeddingSync` CSpec, e.g. `new foam.ai.vector.EmbeddingSync.Builder(x).setBatchSize(20).build()`.
+An app changes them by overriding the `embeddingSync` CSpec, e.g. `new foam.ai.vector.EmbeddingSync.Builder(x).setTextsPerCall(32).build()`. An app that embeds records another way overrides the same CSpec with its own subclass of `EmbeddingSync`.
 
 ### Tune the answers
 

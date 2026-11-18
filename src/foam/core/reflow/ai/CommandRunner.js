@@ -71,7 +71,9 @@ foam.CLASS({
     async function protocol() {
       // Asked to test a long draft, the model often wrote it as a tool call (<invoke name=...>)
       // that runs nothing. Saying it has no tools, and that the ask line is how a tool is called
-      // here, with a multi-line example, took that from 6 in 30 replies to 0 in 40.
+      // here, with a multi-line example, stopped that: 0 in 40 test replies, against 6 in 30 before.
+      // The text repeats itself on purpose. Tidier versions without the repetition, or with a
+      // placeholder instead of the readLines example, failed 2 in 10, so test any change to it.
       var commands = await this.commands_;
       return '## How you reply\n\n'
         + 'You cannot make tool calls. This conversation has no tools, and tool calls are not allowed: '

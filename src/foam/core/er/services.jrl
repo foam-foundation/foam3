@@ -21,7 +21,6 @@ p({
       .setOf(foam.core.er.EventRecord.getOwnClassInfo())
       .setFuid(true)
       .setCluster(false)
-      .setSaf(false)
       .setInnerDAO(partitioned)
       .setPm(true)
       .setDecorator(

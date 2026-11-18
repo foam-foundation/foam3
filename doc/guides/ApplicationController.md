@@ -4,7 +4,7 @@
 
 `foam.core.controller.ApplicationController` is the top-level client shell for a FOAM application. It owns the application stack, authentication lifecycle, theming, navigation, notifications, and session management, and exports all of these as named services into the context so that every descendant view can import them by name without explicit wiring.
 
-Exported into the context as `ctrl` (`exports: ['as ctrl']`). It is also available on the browser console as `ctrl` because the page's `<foam>` tag has `id="ctrl"`, and the tag loader puts tagged objects on `globalThis` by id.
+Exported into the context as `ctrl` (`exports: ['as ctrl']`). It is also available on the browser console as `ctrl` because the page's `<foam>` tag has `id="ctrl"`, and the tag loader puts tagged objects on `globalThis` by id. After the client loads it also sets `globalThis.x` to its session context and `globalThis.MLang` to a `foam.mlang.Expressions` (`src/foam/core/controller/ApplicationController.js:484-486`), so a console script can write `x.userDAO.select(MLang.COUNT())`; see [Debugging.md](Debugging.md#browser-console-scripts).
 
 ## Responsibilities
 

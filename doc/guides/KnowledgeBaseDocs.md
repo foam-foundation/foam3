@@ -111,3 +111,27 @@ be unique across the whole app, so prefix them with the doc name.
 | App edit gone after a build | The edit was made outside DEVELOPMENT or TEST mode, so the file never changed; edit the `.md` |
 | Became a `.flow` file | The doc got a second block; delete it, set `source` back to the `.md`, save again, delete the stray `.flow` |
 | Image missing | Folder not named `images`, or another image already has that file name |
+
+## Writing a new document tag
+
+A feature of a document, such as `<toc>` or `<docnav>`, is an HTML tag the author writes, not an
+option of `MarkdownView`. That keeps the viewer the same for every document and lets the tags
+combine. Paths below are under `src/foam/`.
+
+- **Register the class as a tag** in a `foam.SCRIPT`:
+  `foam.__context__.registerElement(foam.u2.markdown.TableOfContents, 'toc')`
+  (`u2/markdown/TOC.js:500-501`). A variant of a tag is an attribute on it, not a second tag:
+  `<toc side>` is a `Boolean` property with `attribute: true`.
+- **Import the flow as optional.** The same tag may render outside a Console, in a test or a
+  preview. `<docnav>` imports `flow?` and `flowDAO?` and does nothing when they are absent
+  (`core/reflow/FlowDocumentNav.js:32`).
+- **Follow the flow's fields, not the flow.** Loading a document copies it into the Console's one
+  flow object (`core/reflow/Console.js:1843`), so a slot on the flow itself never fires. Watch its
+  fields: `this.dynamic(function(flow$name, flow$category) { ... })`
+  (`core/reflow/FlowDocumentNav.js:117`).
+- **A tag sits inside a paragraph.** Markdown wraps it in `div.mdParagraph`
+  (`u2/view/MarkdownView.js:554`). A tag that needs the page's layout, such as a sticky panel,
+  dissolves that wrapper in its own CSS: `.mdParagraph:has(> <<side) { display: contents; }`
+  (`u2/markdown/TOC.js:333`).
+- **Fetch only the names.** A flow carries its whole script; to list documents read
+  `select(this.PROJECTION(this.Flow.NAME))` (`core/reflow/FlowDocumentNav.js:159`).

@@ -103,6 +103,10 @@ var colour = foam.CSS.returnTokenValue('$textBrand', this.cls_, this.__subContex
 
 This goes through the override service and the active variant, so it returns the same value the CSS got. Listen for `themeChange` (or the theme's `activeVariants`) if the drawing has to follow a change.
 
+`returnTokenValue` returns anything that does not start with `$` unchanged, `''` included, and throws on `null` because it calls `token.startsWith` with no guard (`src/foam/lang/stdlib.js:1368-1370`). Put the fallback inside the call, `returnTokenValue(v || '$textDefault', ...)`: written outside, as `returnTokenValue(v, ...) || '$textDefault'`, the fallback reaches the canvas as the unresolved string `$textDefault`.
+
+A `class: 'Color'` property does this for you: its getter resolves a `$token` value on every read, and the stored text stays readable as `<prop>$raw` (`src/foam/lang/types.js:906-924`). So with no theme override `view.borderColor` gives `#0A4AC6` while `view.borderColor$raw` gives `$primary400`.
+
 ---
 
 ## 4. Images, navigation and other Theme fields
@@ -168,6 +172,7 @@ Do not add `/*%...%*/` macros to new CSS. `/*%FILL%*/`-style comments in SVG gly
 - **Unknown token:** the CSS gets `/* failed token replacement name, cls */` and the property is dropped. `CSSAuditTest` catches it; the browser does not complain.
 - **`variants` without `variantKey`** on a plain `CSSToken` renders the base value in every mode (class-load warning).
 - **Dark mode does nothing** until the Theme row has `useVariants: true`.
+- **Setting `activeVariants` yourself restyles nothing** when `useVariants` is off: the listener that reloads styles on an `activeVariants` change is installed only when the flag is on (`src/foam/lang/Window.js:180-186`). After `theme.activeVariants$set('density', 'compact')` on such a theme, call `foam.u2.CSS.reloadStyles(ctx)`.
 - **Theme and override journals** are read at server start. JS and CSS changes need a hard reload because the dev server sends `/src/**/*.js` as immutable.
 - **Tests:** the client-test page follows the OS colour scheme. Assert colours in explicit sub-contexts, e.g. `x.createSubContext({ theme: { activeVariants: { color: 'dark' } } })`, instead of assuming light.
 

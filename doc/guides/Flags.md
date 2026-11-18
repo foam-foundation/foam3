@@ -171,7 +171,8 @@ The browser and the build start from different defaults:
 ## What else the `test` flag controls
 
 With `test` off, the build also skips:
-- directories whose names end in `test` or `tests` (`tools/pmake.js:94-95`)
+- directories whose names end in `test` or `tests` (`tools/pmake.js:94-95`), including ones
+  that only happen to, such as `latest/` or `contest/`
 - `tests.jrl` files and journal files flagged `test` (`tools/JournalMaker.js:178-187`)
 
 ## Gotchas
@@ -182,6 +183,7 @@ With `test` off, the build also skips:
   has a client test, use `dev&web|web&test` (example: `ViewReloader`, `src/foam/u2/pom.js:118`).
 - **A model with no flags gets no Java.** An entry with no `flags:` is loaded everywhere, but
   `targetJava` generates Java only when the flags contain `java`
-  (`src/foam/java/refinements.js:2778`).- **Axiom flags are matched as whole words.** The Java generator looks for the literal word `java`
+  (`src/foam/java/refinements.js:2778`).
+- **Axiom flags are matched as whole words.** The Java generator looks for the literal word `java`
   in an axiom's flags array, without evaluating the expression. An axiom flagged
   `['java&test']` therefore fails the match and is dropped from the Java class.

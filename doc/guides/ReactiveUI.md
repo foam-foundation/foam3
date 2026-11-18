@@ -215,6 +215,7 @@ i.e. if you do `this.add(function()...)` instead of `this.add(self.dynamic(funct
 4. **Parameter names in `dynamic()` ARE the watched properties**
    - Rename a parameter → change what FOAM watches.
    - Use `$` for nested paths: `function(data$transactions)` watches `this.data.transactions`.
+   - Exception: `dynamic(fn, slotA, slotB)` watches the trailing slots instead and ignores the names (see [ReactivePatterns](ReactivePatterns.md) §5).
 
 5. **`this` inside `dynamic()` is not your View**
    - `this` = the Element (for DOM building). `self` = your view (captured before the call).

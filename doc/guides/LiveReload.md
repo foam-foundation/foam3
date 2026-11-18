@@ -136,5 +136,6 @@ A large checkout with extra top-level directories that hold `.js` files is the u
 ./build.sh server-tests:WatcherTest              # poll loop, rescan, skipDirs, WatchService path
 ./build.sh server-tests:SourceWatcherTest        # a changed .js becomes a SourceChange; off without core.webroot
 ./build.sh client-tests:ViewReloaderTest         # path lookup, css-only detection, cascade, in-place rebuild, popup roots
-./build.sh javaBenchmarks:SourceWatcherBenchmark # ticks per second over the current tree
 ```
+
+`SourceWatcherBenchmark` (ticks per second over the current tree) has a `benchmarks.jrl` row in `src/foam/core/fs/test/` but no `BenchmarkRunner` row, and `java-benchmarks` runs only runner rows: `./build.sh java-benchmarks:SourceWatcherBenchmark` runs nothing yet still prints `DONE RUNNING 1 BenchmarkRunners`, because that line counts the ids you passed (`src/foam/core/bench/BenchmarkRunnerScript.js:100-117`). Add a runner row whose `benchmarkId` is `SourceWatcherBenchmark` first; [Benchmarks.md](Benchmarks.md) covers the rows and how to read the result.

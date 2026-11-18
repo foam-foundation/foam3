@@ -9,3 +9,7 @@ p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorSto
 p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory10k", chunkCount: 10000, dim: 1536 })
 p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory100k", chunkCount: 100000, dim: 1536 })
 p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory100kDim384", chunkCount: 100000, dim: 384 })
+p({ class: "foam.core.ai.vector.test.VectorStoreSearchBenchmark", id: "VectorStoreSearchReadAll", chunkCount: 100000, dim: 384, readablePercent: 100 })
+p({ class: "foam.core.ai.vector.test.VectorStoreSearchBenchmark", id: "VectorStoreSearchReadFew", chunkCount: 100000, dim: 384, readablePercent: 1 })
+p({ class: "foam.core.ai.vector.test.VectorStoreSearchBenchmark", id: "VectorStoreSearchReadNone", chunkCount: 100000, dim: 384, readablePercent: 0 })
+p({ class: "foam.core.ai.vector.test.VectorStoreSearchBenchmark", id: "VectorStoreSearchMillionReadNone", chunkCount: 1000000, dim: 64, readablePercent: 0 })

@@ -9,6 +9,7 @@ foam.POM({
   files: [
     { name: 'RAGTest', flags: 'js&test|java&test' },
     { name: 'EmbeddingSyncBenchmark', flags: 'js&test|java&test' },
-    { name: 'VectorStoreMemoryBenchmark', flags: 'js&test|java&test' }
+    { name: 'VectorStoreMemoryBenchmark', flags: 'js&test|java&test' },
+    { name: 'VectorStoreSearchBenchmark', flags: 'js&test|java&test' }
   ]
 });

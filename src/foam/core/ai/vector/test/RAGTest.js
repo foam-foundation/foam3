@@ -191,6 +191,16 @@ foam.CLASS({
         List top = ((ArraySink) store.inX(caller).where(new ReadableSourcePredicate.Builder(caller).build())
           .orderBy(new CosineComparator.Builder(x).setQueryVector(new float[] { 1f, 0f }).build()).limit(1).select(new ArraySink())).getArray();
         test(top.size() == 1 && "docDAO:s1:0".equals(((VectorEmbedding) top.get(0)).getId()), "The unreadable nearest chunk does not use up the limit");
+        // against (1, 0): s2 scores 1, s1 0.8 and "free" 0.5
+        List<String> close = new ArrayList<>();
+        for ( Object o : ((ArraySink) store.inX(system).orderBy(new CosineComparator.Builder(x).setQueryVector(new float[] { 1f, 0f }).setMinScore(0.6f).build())
+          .select(new ArraySink())).getArray() ) close.add(((VectorEmbedding) o).getId());
+        test(close.equals(List.of("docDAO:s2:0", "docDAO:s1:0")), "A search with minScore 0.6 leaves out the row scoring 0.5, got " + close);
+        // a record DAO with numeric ids: the chunk's sourceId "42" is the user 42
+        DAO users = new MDAO(foam.core.auth.User.getOwnClassInfo());
+        users.put(new foam.core.auth.User.Builder(x).setId(42).build());
+        test(new ReadableSourcePredicate.Builder(x.put("userTestDAO", users)).build().f(chunk("userTestDAO:42:0", "userTestDAO", "42", "a user", 1f, 0f)),
+          "A chunk of a record with a numeric id is readable");
 
         store.put(chunk("three", "", "", "a 3-number chunk", 1f, 0f, 0f));
         test(ids(store, caller, false, 1f, 0f, 0f).equals(List.of("three")), "A 3-number query reads only 3-number rows");

@@ -33,8 +33,14 @@ foam.CLASS({
       flatIndex = [0.1, 0.2, 0.3,  0.4, 0.5, 0.6,  0.7, 0.8, 0.9, ...]
                    |--- row 0 ---|  |--- row 1 ---|  |--- row 2 ---|
 
-    indexIds runs in parallel: indexIds[i] is the id of the VectorEmbedding
-    whose vector occupies flatIndex[i*dim .. i*dim+dim-1].
+    indexRows runs in parallel: indexRows[i] is the VectorEmbedding whose
+    vector occupies flatIndex[i*dim .. i*dim+dim-1], so a search reads a
+    ranked row without a find.
+
+    A search scores every row, keeps the rows at or above the comparator's
+    minScore, sorts only those, and walks them best first through the
+    predicate until it has limit rows. With a minScore, a question close to
+    nothing reads no row at all, however large the store.
 
     Why: the cosine search loop reads flatIndex sequentially end-to-end —
     one big contiguous array is CPU-cache friendly. Chasing n separate object
@@ -65,9 +71,10 @@ foam.CLASS({
       networkTransient: true
     },
     {
-      // parallel to flatIndex: indexIds[i] is the VectorEmbedding id for row i
-      class: 'StringArray',
-      name: 'indexIds',
+      // parallel to flatIndex: indexRows[i] is the VectorEmbedding of row i
+      class: 'FObjectArray',
+      of: 'foam.ai.vector.VectorEmbedding',
+      name: 'indexRows',
       networkTransient: true
     }
   ],
@@ -83,20 +90,20 @@ foam.CLASS({
         int n    = list.size();
 
         // pack the vectors of length d into one contiguous float[n*d] in row-major order.
-        // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexIds[i].
-        float[]  flat = new float[n * d];
-        String[] ids  = new String[n];
+        // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexRows[i].
+        float[]           flat = new float[n * d];
+        VectorEmbedding[] rows = new VectorEmbedding[n];
         int row = 0;
         for ( int i = 0 ; i < n ; i++ ) {
           var e = (VectorEmbedding) list.get(i);
           if ( e.getVector().length != d ) continue;
           System.arraycopy(e.getVector(), 0, flat, row * d, d);
-          ids[row] = e.getId();
+          rows[row] = e;
           row++;
         }
         setDim(d);
         setFlatIndex(Arrays.copyOf(flat, row * d));
-        setIndexIds(Arrays.copyOf(ids, row));
+        setIndexRows(Arrays.copyOf(rows, row));
         setDirty(false);
       `
     },
@@ -120,43 +127,55 @@ foam.CLASS({
         CosineComparator cc = (CosineComparator) order;
         int d = cc.getQueryVector().length;
         // synchronized: two searches must not rebuild the index under each other
-        float[]  flat;
-        String[] ids;
+        float[]           flat;
+        VectorEmbedding[] rows;
         synchronized ( this ) {
           if ( getDirty() || getDim() != d ) buildIndex_(d);
           flat = getFlatIndex();
-          ids  = getIndexIds();
+          rows = getIndexRows();
         }
-        int n = ids.length;
+        int   n   = rows.length;
+        float min = cc.getMinScore();
 
-        // score each row via CosineComparator.score(flat, offset, dim) — the formula
-        // lives in CosineComparator; the offset overload avoids a float[] copy per row.
-        float[] scores = new float[n];
-        for ( int i = 0; i < n; i++ ) {
-          scores[i] = cc.score(flat, i * d, d);
+        // Score each row via CosineComparator.score(flat, offset, dim); the offset overload
+        // avoids a float[] copy per row. A row below minScore is dropped here, so it is never
+        // sorted or checked by the predicate. A kept row is one long, its score's sort key
+        // above its row number, so a primitive sort ranks them best first with no boxing.
+        long[] ranked = new long[n];
+        int    kept   = 0;
+        for ( int i = 0 ; i < n ; i++ ) {
+          float s = cc.score(flat, i * d, d);
+          if ( s >= min ) ranked[kept++] = ( (long) descending_(s) << 32 ) | i;
         }
-
-        // sort row indices by descending score to get ranking
-        Integer[] ranked = new Integer[n];
-        for ( int i = 0; i < n; i++ ) ranked[i] = i;
-        Arrays.sort(ranked, (a, b) -> Float.compare(scores[b], scores[a]));
+        Arrays.sort(ranked, 0, kept);
 
         // stream top results into the sink, honouring skip/limit/predicate
         long skipped = 0;
         long emitted = 0;
         long maxEmit = (limit > 0 && limit < AbstractDAO.MAX_SAFE_INTEGER) ? limit : Long.MAX_VALUE;
-        for ( int i = 0; i < n && emitted < maxEmit; i++ ) {
-          var obj = (VectorEmbedding) getDelegate().find(ids[ranked[i]]);
-          if ( obj == null ) continue;
-          if ( predicate != null && !predicate.f(obj) ) continue;
+        for ( int k = 0 ; k < kept && emitted < maxEmit ; k++ ) {
+          int             i   = (int) ranked[k];
+          VectorEmbedding obj = rows[i];
+          if ( predicate != null && ! predicate.f(obj) ) continue;
           if ( skipped < skip ) { skipped++; continue; }
           var scored = (VectorEmbedding) obj.fclone();
-          scored.setScore(scores[ranked[i]]);
+          scored.setScore(cc.score(flat, i * d, d));
           sink.put(scored, null);
           emitted++;
         }
         sink.eof();
         return sink;
+      `
+    },
+    {
+      name: 'descending_',
+      documentation: 'An int that sorts ascending as s sorts descending, e.g. 0.9 before 0.2 before -0.5.',
+      type: 'Integer',
+      args: 'float s',
+      javaCode: `
+        int b = Float.floatToIntBits(-s);
+        // flip the magnitude bits of a negative float, so the signed int order is the float order
+        return b ^ ( ( b >> 31 ) & 0x7fffffff );
       `
     },
     {

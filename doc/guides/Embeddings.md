@@ -267,7 +267,7 @@ Details from `ServerRAGService`:
 - a question is cut at 2,000 characters (`maxQuestionChars`);
 - the documents sent to the model stop at 18,000 characters (`contextChars`);
 - the answer is written in the language of `locale`, e.g. French for `fr`;
-- a chunk below `minScore` (0.25) is neither sent nor offered as a source, so an unrelated question costs no model call.
+- a chunk below `minScore` (0.25) is left out by the search itself, before its record is looked up, so an unrelated question looks up no record and costs no model call.
 
 The browser never sees the system prompt or the provider's API key. `llmService` stays served for features that call a model directly; the chat view calls only `ragService`.
 
@@ -338,7 +338,7 @@ Another embedding model needs no code change. Set `model`, `pooling` and `queryP
 | The chunks of many records go in one call (`textsPerCall`, 64) | Embedding 20,000 new records of about 3 chunks each took 910 calls, not 20,000. | A text the provider refuses fails its whole call, so each record of that call is tried again on its own. |
 | Two failed calls in a row stop the run | A provider that is down, or not set up, costs 3 calls and 1 warning per run, and saves stop starting syncs. A single record the provider refuses is skipped with a warning. | A refused record is tried again on every run and logs a warning each time. Two refused records in a row look like an outage and stop the run. |
 | DAOs add themselves when they are built | No list of DAOs to keep in step with the code. | A DAO built lazily, on first use, joins the sync only then. Its records are embedded from that point on. |
-| Access is checked at ask time | One index serves every user; the record's own DAO decides. | Each search finds the record of every candidate chunk, once per record. |
+| Access is checked at ask time | One index serves every user; the record's own DAO decides. | Each search looks up the record of every chunk at or above `minScore` until it has `retrievalLimit` readable ones, once per record. |
 | Exact search over every chunk, held in memory | Every answer finds the true nearest chunks, with no index to build or tune. | Memory and search time grow with the chunk count. The numbers are below. |
 
 ### Memory and search time
@@ -347,12 +347,23 @@ Another embedding model needs no code change. Set `model`, `pooling` and `queryP
 
 | Chunks | Vector size | Chunks | Packed index | Total per chunk | First search | Later searches |
 |---|---|---|---|---|---|---|
-| 1,000 | 1536 | 6 MB | 8 MB | 15.7 KB | 8 ms | 2 ms |
-| 10,000 | 1536 | 69 MB | 60 MB | 13.6 KB | 42 ms | 12 ms |
-| 100,000 | 1536 | 699 MB | 588 MB | 13.5 KB | 816 ms | 148 ms |
-| 100,000 | 384 | 257 MB | 148 MB | 4.3 KB | 235 ms | 72 ms |
+| 1,000 | 1536 | 6 MB | 8 MB | 15.7 KB | 11 ms | 5 ms |
+| 10,000 | 1536 | 70 MB | 60 MB | 13.7 KB | 52 ms | 10 ms |
+| 100,000 | 1536 | 700 MB | 588 MB | 13.5 KB | 458 ms | 95 ms |
+| 100,000 | 384 | 256 MB | 148 MB | 4.2 KB | 111 ms | 23 ms |
 
 A record of about 3 chunks costs about 40 KB with a 1536-number model. The first search also builds the packed index, and every write rebuilds it on the next search. Run it with `./build.sh java-benchmarks:VectorStoreMemory100kRunner`; the heap is read after a garbage collection, so the sizes are close, not exact.
+
+A search for a user who can read few records walks past the close chunks of the others. `VectorStoreSearchBenchmark` times the search `ragService` makes, with 1% of the chunks close to the question and `minScore` 0.25:
+
+| Chunks | Records the user can read | Records looked up | Search |
+|---|---|---|---|
+| 100,000 | all | 10 | 16 ms |
+| 100,000 | 1% | 992 | 17 ms |
+| 100,000 | none | 992 | 16 ms |
+| 1,000,000 | none | 32,128 | 31 ms |
+
+Only chunks at or above `minScore` are sorted and looked up, so the lookups follow the chunks close to the question, not the size of the store. The million-chunk row uses 64-number vectors, whose random scores pass 0.25 more often than a real model's.
 
 ## 8. Configuring
 

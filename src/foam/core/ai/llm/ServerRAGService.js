@@ -143,7 +143,7 @@ Answer in the language named on the Answer in line, even when the documents or t
             MLang.IN(VectorEmbedding.DAO_KEY, keys),
             MLang.EQ(VectorEmbedding.EMBEDDING_MODEL, qv.getEmbeddingModel()),
             new ReadableSourcePredicate.Builder(x).build()))
-          .orderBy(new CosineComparator.Builder(x).setQueryVector(qv.getVector()).build())
+          .orderBy(new CosineComparator.Builder(x).setQueryVector(qv.getVector()).setMinScore(getMinScore()).build())
           .limit(getRetrievalLimit())
           .select(new ArraySink())).getArray();
 
@@ -151,8 +151,6 @@ Answer in the language named on the Answer in line, even when the documents or t
         Map<String, RAGSource>   given   = new LinkedHashMap<>();
         for ( Object o : chunks ) {
           VectorEmbedding c = (VectorEmbedding) o;
-          // ranked best first, so the rest are further still
-          if ( c.getScore() < getMinScore() ) break;
           if ( docs.length() > 0 && docs.length() + c.getText().length() > getContextChars() ) break;
           docs.append('[').append(c.getSourceId()).append("]\\n").append(c.getText()).append("\\n\\n");
           RAGSource s = new RAGSource();

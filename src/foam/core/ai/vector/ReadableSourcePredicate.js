@@ -22,6 +22,7 @@ foam.CLASS({
   javaImports: [
     'foam.ai.vector.VectorEmbedding',
     'foam.dao.DAO',
+    'foam.lang.PropertyInfo',
     'foam.util.SafetyUtil',
     'java.util.HashMap',
     'java.util.Map'
@@ -45,7 +46,11 @@ foam.CLASS({
         VectorEmbedding e = (VectorEmbedding) obj;
         return getReadable_().computeIfAbsent(e.getDaoKey() + ":" + e.getSourceId(), k -> {
           Object dao = SafetyUtil.isEmpty(e.getDaoKey()) ? null : getX().get(e.getDaoKey());
-          return dao instanceof DAO && ((DAO) dao).inX(getX()).find(e.getSourceId()) != null;
+          if ( ! ( dao instanceof DAO ) ) return false;
+          DAO d = ((DAO) dao).inX(getX());
+          // sourceId is the id as text: "42" finds the user 42 only once it is the long 42
+          PropertyInfo id = (PropertyInfo) d.getOf().getAxiomByName("id");
+          return d.find(id == null ? e.getSourceId() : id.fromString(e.getSourceId())) != null;
         });
       `
     }

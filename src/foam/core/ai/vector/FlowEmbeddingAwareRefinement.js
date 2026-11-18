@@ -6,11 +6,16 @@
 
 foam.CLASS({
   package: 'foam.core.ai.vector',
-  name: 'FlowIndexableRefinement',
+  name: 'FlowEmbeddingAwareRefinement',
   refines: 'foam.core.reflow.Flow',
-  implements: [ 'foam.ai.vector.Indexable' ],
+  implements: [ 'foam.ai.vector.EmbeddingAware' ],
 
-  documentation: 'Lets Ask AI index a Flow: its name, description and markdown, opened as the Knowledge Base opens it.',
+  documentation: `
+    Lets Ask AI search the Knowledge Base: a Flow tagged with the keyword
+    "knowledge" is embedded from its name, description and markdown, and an
+    answer's source link opens it as the Knowledge Base does. Any other Flow,
+    e.g. a dashboard, is not embedded.
+  `,
 
   javaImports: [
     'foam.core.reflow.ScriptParser',
@@ -26,6 +31,17 @@ foam.CLASS({
       // markdown under the flow's name and description. Code, charts and
       // tables of other blocks are left out: they read as noise to a search.
       name: 'toIndexText',
+      code: function(x) {
+        var parts = [ this.name ];
+        if ( this.description ) parts.push(this.description);
+        var blocks;
+        try { blocks = JSON.parse(this.script || '[]'); } catch ( e ) { blocks = []; }
+        if ( Array.isArray(blocks) ) blocks.forEach(b => {
+          var md = b && b.value && b.value.markdown;
+          if ( typeof md === 'string' ) parts.push(md);
+        });
+        return parts.join('\n\n');
+      },
       javaCode: `
         StringBuilder sb = new StringBuilder(getName());
         if ( ! SafetyUtil.isEmpty(getDescription()) ) sb.append("\\n\\n").append(getDescription());
@@ -39,6 +55,12 @@ foam.CLASS({
         }
         return sb.toString();
       `
+    },
+    {
+      // The Knowledge Base lists the flows tagged "knowledge"; only those are searched
+      name: 'isEmbeddable',
+      code: function(x) { return ( this.keywords || [] ).includes('knowledge'); },
+      javaCode: 'return getKeywords() != null && Arrays.asList(getKeywords()).contains("knowledge");'
     },
     {
       // An answer's source link opens the document as the Knowledge Base does

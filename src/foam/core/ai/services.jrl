@@ -254,3 +254,14 @@ p({
   """
 })
 
+// ── Embedding sync ──
+// Every EmbeddingAwareDAO that EasyDAO builds adds itself here; the "embeddingSync" cron
+// (cronjobs.jrl) then embeds the records they marked NEW or DIRTY. Not served: the browser
+// never starts a sync on the server.
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"embeddingSync",
+  "serviceScript":"""
+    return new foam.ai.vector.EmbeddingSync.Builder(x).build();
+  """
+})

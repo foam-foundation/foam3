@@ -5,7 +5,7 @@
 
 > **New to FOAM?** Start with the [FOAM Tutorial](../tutorials/foam-tutorial.md) or the [Introduction for Developers](Intro.md).  
 > **Builds on:** [FOAM models](../fbe/models.md) · [DAOs](../fbe/dao.md) · [NanoServices](NanoServices.md) · [Credential Management](CredentialManagement.md)  
-> **Opens up:** [LLM Services](LLM.md) · [Dataset Generation](DatasetGeneration.md)  
+> **Opens up:** [Embeddings](Embeddings.md) · [LLM Services](LLM.md) · [Dataset Generation](DatasetGeneration.md)  
 > You can follow this guide without reading those first — if something in the Builds On list is unfamiliar, follow the link before continuing.
 
 Vector search finds items by meaning rather than exact wording. Content and queries are converted into numeric vectors (embeddings), and results are ranked by how close their vectors sit to the query's vector. The process has four stages: vectorizing the content, vectorizing the query, running a kNN (k-nearest neighbors) search, and scoring the results.
@@ -74,7 +74,7 @@ FOAM's vector search support is built around three layered abstractions: a data 
 
 | Property | Type | Purpose |
 |---|---|---|
-| `id` | String | Unique identifier (e.g. `"flowName:chunkIndex"`) |
+| `id` | String | Unique identifier (e.g. `"noteDAO:42:0"`, chunk 0 of record 42 of `noteDAO`) |
 | `text` | String | The original text that was embedded. Omit for DAO-record embeddings. |
 | `daoKey` | String | DAO key of the source record (e.g. `"alpacaSampleDAO"`). Empty for text-chunk embeddings. |
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
@@ -106,10 +106,10 @@ Because the interface is the only contract, the embedding backend is a configura
 
 | Provider | Where it runs | Notes |
 |---|---|---|
-| `foam.ai.vector.provider.TransformersEmbeddingService` | Browser (WebAssembly) | Loads a sentence-transformer via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required |
+| `foam.ai.vector.provider.TransformersEmbeddingService` | Browser, in a Web Worker, on WebGPU or WebAssembly | Loads a sentence-transformer via [Transformers.js](https://huggingface.co/docs/transformers.js) 4.3.2; no server required |
 | *(server-side providers)* | Java server | Can call OpenAI, Ollama, Cohere, or any HTTP embedding API |
 
-`TransformersEmbeddingService` defaults to `Xenova/all-MiniLM-L6-v2` (384 dimensions). The model name is a property — pointing it at a larger or domain-specific model requires only a configuration change, not a code change.
+`TransformersEmbeddingService` defaults to `Xenova/all-MiniLM-L6-v2` (384 dimensions). The model name, its pooling and its question prefix are properties — pointing it at a larger or domain-specific model requires only a configuration change, not a code change.
 
 ### Chunking
 
@@ -141,6 +141,8 @@ A minimum-score threshold is easy to apply after the fact:
 ```javascript
 var results = sink.array.filter(e => e.score >= 0.75);
 ```
+
+To keep a DAO's records embedded as they change, and to answer questions from only the records a user can read, see [Embeddings](Embeddings.md).
 
 ## Try It Live
 

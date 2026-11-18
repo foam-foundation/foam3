@@ -11,7 +11,7 @@ p({
       .setPm(true)
       .build();
     """,
-    "client":"{\"of\":\"foam.net.Host\"}"
+    "client":"""{"of":"foam.net.Host"}"""
 })
 
 p({
@@ -30,7 +30,7 @@ p({
       .setRuler(false)
       .build();
     """,
-    "client":"{\"of\":\"foam.net.Port\"}"
+    "client":"""{"of":"foam.net.Port"}"""
 })
 
 p({
@@ -45,5 +45,5 @@ p({
       .setJournalName("xForwardedForConfig")
       .build();
   """,
-  "client":"{\"of\":\"foam.net.XForwardedForConfig\"}"
+  "client":"""{"of":"foam.net.XForwardedForConfig"}"""
 })

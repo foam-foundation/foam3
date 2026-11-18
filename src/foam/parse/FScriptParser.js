@@ -33,8 +33,6 @@ foam.CLASS({
 
   documentation: 'A simple scripting language.',
 
-  constants: { CACHE: {} },
-
 /*
   static: [
     function test__() {
@@ -161,6 +159,14 @@ foam.CLASS({
     },
     {
       name: 'argSet',
+      factory: function() { return {}; }
+    },
+    {
+      // Parsed predicates by query text. Each parser keeps its own: a parsed
+      // predicate names the properties of this parser's 'of' and 'thisValue',
+      // so a cache shared by all parsers answered one Date property's
+      // 'thisValue<=maxDate' with the first Date property it compiled.
+      name: 'cache_',
       factory: function() { return {}; }
     },
     {
@@ -582,7 +588,7 @@ foam.CLASS({
   methods: [
     function parseString(str, opt_name) {
       var key = str + '/' + (opt_name || '');
-      var q   = this.CACHE[key];
+      var q   = this.cache_[key];
 
       if ( q == undefined ) {
         q = this.grammar_.parseString(str, opt_name);
@@ -591,7 +597,7 @@ foam.CLASS({
         } else {
           q = null;
         }
-        this.CACHE[key] = q;
+        this.cache_[key] = q;
       }
 
       return q;

@@ -58,7 +58,7 @@ foam.POM({
     tarballPath: ['', 'tarball-path', 'TARBALL_PATH', 'Path to the tarball to upload. Defaults to the last tar built.', () => BUILD_DIR + '/package/' + TARBALL, arg => TARBALL_PATH = arg],
     tests: ['', 'tests', 'TESTS', 'test cases to execute', '', arg => TESTS = arg],
     testHeaded: ['', 'test-headed', 'TEST_HEADED', 'Run the client tests from a regular browser view.  Normally client testing is performed via a \'headless\' browser. To see the test activity run with this flag. This also leaves the foam application running allowing inspection of results from the GUI', false, function(arg) { TEST_HEADED = arg ? this.bool(arg) : true; }],
-    testSuites: ['', 'test-suite', 'TEST_SUITES', 'Run all or specified test suites', '', arg => TEST_SUITES = arg],
+    testSuites: ['', 'test-suites', 'TEST_SUITES', 'Run all or specified test suites', '', arg => TEST_SUITES = arg],
     testSide: ['', 'test-side', 'TEST_SIDE', 'Specify server or client side testing. Defaults to \'both\'.  ex. --testSide:client.  Choose \'server\' or \'client\'', 'both', arg => TEST_SIDE = arg],
     timezone: ['', 'timezone', 'TIMEZONE', 'Set JVM user.timezone. NOTE: this only affects local deployment. In production the JVM will use the system timezone.', 'GMT', arg => TIMEZOME = arg],
     webPort: [ 'W', 'web-port', 'WEB_PORT', 'Port WebServer will listen on. HTTP defaults to 8080, HTTPS defaults to 8443.  SocketServer will use PORT+3', '8080', args => WEB_PORT = args ],

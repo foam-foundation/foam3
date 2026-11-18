@@ -11,6 +11,7 @@
       - [Quick File Navigation](#quick-file-navigation)
       - [Setting Breakpoints](#setting-breakpoints)
       - [Console Commands](#console-commands)
+      - [Browser Console Scripts](#browser-console-scripts)
       - [Network Debugging](#network-debugging)
   - [Java Debugging](#java-debugging)
     - [Starting the Server in Debug Mode](#starting-the-server-in-debug-mode)
@@ -68,14 +69,31 @@ someAsyncFunction()
   });
 ```
 
+#### Browser Console Scripts
+
+Once the client has loaded, `ApplicationController` puts two names on `globalThis` for console use (`src/foam/core/controller/ApplicationController.js:484-486`):
+
+- `x`, the session context, which holds every client DAO and service: `x.userDAO`, `x.translationService`;
+- `MLang`, a ready `foam.mlang.Expressions`, so `MLang.EQ(...)` and `MLang.COUNT()` work without setup.
+
+```javascript
+(async function() {
+  var User = foam.lookup('foam.core.auth.User');
+  var byGroup = await x.userDAO.select(MLang.GROUP_BY(User.GROUP, MLang.COUNT()));
+  for ( var k of byGroup.groupKeys ) console.log(k, byGroup.groups[k].value);
+})();
+```
+
+A DAO's context name is whatever its `CSpec` row in a `services.jrl` says, and it need not be `<model>DAO`. A wrong name is `undefined`, so the script fails with `Cannot read properties of undefined` on the first call; grep the `services.jrl` files for the name before pasting.
+
+A script that changes data should change nothing unless asked: a named function that only logs what it would do when called with no argument, and writes when called with `true`. Inside the loop, catch and log each row's error so one bad row does not stop the rest, and print the totals (changed, skipped, failed) at the end.
+
 #### Network Debugging
 - Use the Network tab to monitor HTTP requests
 - Filter requests by type (XHR, JS, CSS, etc.)
 - Inspect request/response headers and bodies
 - Analyze timing and performance
-- Enable "Disable cache" checkbox in the Network tab to prevent browser from caching JavaScript files
-  - This ensures you always get the latest version of your files during development
-  - Particularly useful when making changes to JavaScript code
+- Enable the "Disable cache" checkbox in the Network tab while you edit JavaScript. The server sends every file under `/*` with `Cache-Control: public,max-age=2419200,immutable` (`src/services.jrl:73`), so without it the browser can keep serving the old copy of an edited `.js` file for up to 28 days, and a normal reload does not ask the server again. "Disable cache" only works while DevTools is open; otherwise use a hard reload (`Cmd + Shift + R` / `Ctrl + Shift + R`).
 
 ## Java Debugging
 

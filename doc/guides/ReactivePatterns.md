@@ -150,6 +150,16 @@ this.add(this.dynamic(function(items) {
 
 **Use case**: UI rendering in views. The dynamic function rebuilds DOM whenever dependencies change. Not for computed values — for side effects.
 
+**Trailing slots replace the parameter names.** `dynamic(fn, slotA, slotB)` passes the trailing arguments as the `args` of the `DynamicFunction` (`FObject.js:750-751`), so the default `args` factory, the one that turns each parameter name into `obj.slot(name)`, never runs (`Slot.js:562-574`). Each trailing argument must be a Slot: it is subscribed with `.sub()` and read with `.get()` (`Slot.js:676`, `:707`), and its value goes to the parameter in the same position, whatever that parameter is named. Use this for a dependency a property path cannot name, such as a `Map` changed in place, which only its own property slot reports:
+
+```javascript
+this.add(this.dynamic(function(variants) {
+  // re-runs on every theme.activeVariants$set(...), which theme$.dot('activeVariants') misses
+}, this.theme.activeVariants$));
+```
+
+**Wrap it in `this.add(...)` when it builds DOM.** Only `add()` puts the `DynamicFunction` in a `FunctionNode`, whose `pre`/`post` hooks remove the previous run's children before the new ones appear (`Element2.js:1363-1365`, `:303-317`). A bare `this.dynamic(function() { this.start('div')... })` in `render()` appends a fresh copy of the content on every change and never removes the old one.
+
 ---
 
 ## 6. `this.slot(function(a, b) {...})` — Lazy Computed Slot

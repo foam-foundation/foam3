@@ -53,6 +53,37 @@ The framework registers these components in the build system, making them availa
 - **ConfirmationModal**: For simple confirmation dialogs with primary/secondary actions
 - **ApplicationPopup**: For complex workflows, wizards, and multi-step processes
 
+### Confirming a property change, or reverting it
+
+Changing one field sometimes throws away other data, for example a new `contactType` clearing the `addresses` entered for the old one, and the user should confirm first. `preSet` cannot ask: it must return the value synchronously, and a modal answers later. Ask from `postSet`, and on Cancel write the old value back.
+
+Two flags make that safe. A transient `changeReady_` skips the first `postSet`, which runs when the object is loaded, not edited. On revert, clear `changeReady_` **before** assigning the old value, or the revert runs `postSet` again and opens a second modal.
+
+```javascript
+requires: [ 'foam.u2.dialog.ConfirmationModal' ],
+imports: [ 'ctrl?' ],
+properties: [
+  { class: 'Boolean', name: 'changeReady_', hidden: true, transient: true },
+  {
+    class: 'Enum', of: 'com.example.ContactType', name: 'contactType',
+    postSet: function(old, nu) {
+      if ( ! this.changeReady_ ) { this.changeReady_ = true; return; }
+      if ( old === nu || ! this.addresses?.length || ! this.ctrl ) return;
+      var self = this;
+      this.ctrl.add(this.ConfirmationModal.create({
+        title: this.CHANGE_TITLE, modalStyle: 'WARN', closeable: false,
+        primaryAction:   foam.lang.Action.create({ name: 'clear', label: this.CLEAR_LABEL,
+          code: function() { self.addresses = []; } }),
+        secondaryAction: foam.lang.Action.create({ name: 'revert', label: this.REVERT_LABEL,
+          code: function() { self.changeReady_ = false; self.contactType = old; } })
+      }).add(this.CHANGE_BODY));
+    }
+  }
+]
+```
+
+`closeable: false` matters: `closeable` defaults to `true` (`src/foam/u2/dialog/Popup.js:102-106`), and a backdrop click or Escape then runs `closeModal`, not `secondaryAction` (`Popup.js:170-182`), which leaves the new value and the old addresses together. The buttons run `primaryAction` and `secondaryAction` through `maybeCall` and then close the dialog (`src/foam/u2/dialog/ConfirmationModal.js:58-90`).
+
 ## Notes
 
 There's also a legacy `PopupView` component that appears to be an older implementation with different positioning logic, but the dialog system primarily uses the `Popup` hierarchy described above. The framework also includes specialized modals like `PropertyModal`, a `ConfirmationModal` subclass for property editing scenarios.

@@ -9,7 +9,6 @@ foam.CLASS({
   name: 'BroadcastNotificationNotificationCitationView',
   extends: 'foam.core.notification.NotificationCitationView',
 
-  requires: ['foam.u2.HTMLView'],
   methods: [
     function render() {
       this
@@ -17,7 +16,8 @@ foam.CLASS({
       .start().addClass(this.myClass('created'))
         .add(this.created$)
       .end()
-      .start(this.HTMLView, { data$: this.description$ }).addClass('p', this.myClass('description'))
+      .start().addClass('p', this.myClass('description'))
+        .add(this.description$)
       .end();
     }
   ]
@@ -29,7 +29,6 @@ foam.CLASS({
   name: 'BroadcastNotificationNotificationMessageModal',
   extends: 'foam.core.notification.NotificationMessageModal',
 
-  requires: ['foam.u2.HTMLView'],
   methods: [
     function render() {
       this
@@ -42,7 +41,7 @@ foam.CLASS({
       .start(this.Rows)
         .addClass(this.myClass('container'))
         .start().addClass('p-bold').add(this.MESSAGE_MSG).end()
-        .start(this.HTMLView, { data$: this.description$ }).addClass(this.myClass('message')).end()
+        .start().addClass(this.myClass('message')).add(this.description$).end()
       .end();
     }
   ]

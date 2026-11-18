@@ -13,5 +13,5 @@ p({
       .setAuthorize(false)
       .build();
   """,
-  "client": "{\"of\":\"foam.support.model.SupportEmail\"}"
+  "client": """{"of":"foam.support.model.SupportEmail"}"""
 })

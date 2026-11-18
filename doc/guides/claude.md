@@ -99,8 +99,9 @@ properties: [
   // Typed short-form
   { class: 'String',  name: 'email' },
   { class: 'Int',     name: 'quantity', value: 1 },       // value = default
-  { class: 'Float',   name: 'price' },
-  { class: 'Boolean', name: 'paid', value: false },
+  { class: 'UnitValue', name: 'price', unitPropName: 'currency' }, // money: a Long in minor units (cents), see CurrencyAndUnits.md
+  { class: 'CurrencyCode', name: 'currency' },       // ISO code that price is denominated in
+  { class: 'Boolean', name: 'paid' },                // a Boolean already defaults to false
   { class: 'Date',    name: 'dueDate' },
   { class: 'Array',   name: 'tags' },
   { class: 'Map',     name: 'metadata' },
@@ -119,7 +120,7 @@ properties: [
 
   // Computed / derived (recalculates when dependencies change)
   {
-    class: 'Float',
+    class: 'UnitValue',
     name: 'total',
     expression: function(lineItems) {    // arg names ARE the dependency names
       return lineItems.reduce((s, li) => s + li.price * li.qty, 0);
@@ -772,7 +773,7 @@ Things the LLM does *not* need to generate: getters, setters, change notificatio
 | Forgetting to `detach()` listeners | Causes memory leaks; attach subs to `this.onDetach(sub)` |
 | `getDelegate().find(id)` inside a decorator | `getDelegate().find_(x, id)` — the argless form re-enters with the DAO's own context, so the stack runs as system ([DaoGotchas](DaoGotchas.md)) |
 | `getDelegate().select(sink)` in a `select_` override | `select_(x, sink, skip, limit, order, predicate)` — the arity-1 form drops every query argument |
-| Mutating an object returned by `put()`/`find()` | `fclone()` first; the returned instance is frozen |
+| Mutating an object returned by `put()`/`find()` | `fclone()` (Java) or `clone()` (JS) first; in Java the returned instance is frozen, and in JS a client MDAO hands back the cached row itself ([DaoGotchas](DaoGotchas.md)) |
 | `where(LTE(dateProp, now))` for a deadline sweep | `where(AND(HAS(dateProp), LTE(dateProp, now)))` — an unset Date satisfies `LTE` |
 | `LimitedSink` nested under `GROUP_BY` | `UNIQUE(key, LimitedSink(N))` — the nested form detaches the outer scan and truncates it silently |
 | `.add(prop)` for a permission-gated field | `.add(prop.__)` — the permission check lives in `PropertyBorder`, not the bare view ([PropertyGotchas](PropertyGotchas.md)) |
@@ -1328,6 +1329,7 @@ Each `p()` entry is a **partial object** — only the fields present are merged 
 - **Removing a property** — safe with no action required. Unknown fields in journal entries are silently ignored during deserialization.
 - **Renaming a property** — leave the old property in the model but mark it `hidden` and use its `javaPostSet` to write the new property. Journals are replayed on the Java server, where only `javaPostSet` runs (a JS `postSet` does not). On journal replay the old field sets the new one automatically, migrating all data on load. Remove the shim after the journal has been compacted.
 - **Changing a property's type** — use the same shim pattern: keep the old property with its original type, and in its `javaPostSet` convert and assign to the new property.
+- **Renaming or moving a class** — not supported. Every journal row stores the full class id (`"class":"com.example.Invoice"`), and the parser resolves it with `getClassInfo(className)`, then `Class.forName` (`src/foam/lib/json/FObjectParser.java:69-74`), with no alias table to map an old id to a new one. Moving `com.example.Invoice` to `com.example.billing.Invoice` leaves every existing row naming a class that no longer exists, so those rows stop loading. Evolve the class in place: add properties, hide old ones, and migrate them with the `javaPostSet` shim above.
 
 ```javascript
 // Migration shim: rename 'dueDate' → 'paymentDueDate'

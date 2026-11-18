@@ -30,6 +30,12 @@ foam.CLASS({
           ! sample.getInput()      .equals(old.getInput())       ||
           ! sample.getOutput()     .equals(old.getOutput());
 
+        sample.setCharCount(
+          sample.getInstruction().length() +
+          sample.getInput().length() +
+          sample.getOutput().length()
+        );
+
         if ( contentChanged ) {
           sample.setStatus(AlpacaSampleStatus.DIRTY);
           sample.setReviewed(false);

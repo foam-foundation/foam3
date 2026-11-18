@@ -315,28 +315,41 @@ foam.CLASS({
     {
       name: 'authorizeOnUpdate',
       javaCode: `
+        // The copy being saved comes from the caller, so it cannot vouch for itself: the
+        // write rules are read from the flow as stored. A save that also changes who can
+        // reach the flow (its access level, creator or access list) is for the stored
+        // creator or an admin only, so an editor of a PUBLIC_RW flow can change its blocks
+        // but cannot make it PRIVATE.
+        Flow stored = (Flow) oldObj;
+        stored.authorizeWrite(x);
+        if ( ! changesAccess(stored) ) return;
+
         User user = ((Subject) x.get("subject")).getUser();
-        if ( getCreatedBy() == user.getId() ) return;
-        if ( checkBypassAuthorization(x) ) return;
-
-        if ( getAccessLevel() == FlowAccess.PRIVATE || getAccessLevel() == FlowAccess.PUBLIC_RO ) throw new AuthorizationException();
-
-        if ( getAccessLevel() == FlowAccess.SHARED ) {
-          // check user accesss
-          if ( getSpecifiedUserAccess() != null ) {
-            var hasUserAccess = Arrays.stream(getSpecifiedUserAccess()).anyMatch(o ->
-              ((UserFlowAccess) o).getUserId() == user.getId() && ((UserFlowAccess) o).getAccessLevel() == foam.core.reflow.FlowAccess.PUBLIC_RW
-            );
-            if ( hasUserAccess ) return;
-          }
-
-          // check role access
-          throw new AuthorizationException();
-        }
+        if ( stored.getCreatedBy() == user.getId() || checkBypassAuthorization(x) ) return;
+        throw new AuthorizationException();
+      `
+    },
+    {
+      name: 'changesAccess',
+      type: 'Boolean',
+      args: 'Flow stored',
+      documentation: 'True when this copy changes who can reach the flow compared with stored.',
+      javaCode: `
+        return ACCESS_LEVEL.compare(this, stored) != 0
+          || CREATED_BY.compare(this, stored) != 0
+          || SPECIFIED_USER_ACCESS.compare(this, stored) != 0;
       `
     },
     {
       name: 'authorizeOnDelete',
+      javaCode: 'authorizeWrite(x);'
+    },
+    {
+      name: 'authorizeWrite',
+      args: 'X x',
+      documentation: `Throws unless the user in x may change this flow: its creator, an admin,
+        everyone on a PUBLIC_RW flow, or a user listed with PUBLIC_RW on a SHARED flow.
+        PRIVATE and PUBLIC_RO flows refuse everyone else.`,
       javaCode: `
         User user = ((Subject) x.get("subject")).getUser();
         if ( getCreatedBy() == user.getId() ) return;

@@ -62,6 +62,18 @@ or
 You can't use both at once, and they are optional if your objects already
 have unique identifiers.
 
+`seqNo`, `guid` and `fuid` are mutually exclusive (`src/foam/dao/EasyDAO.js:441`),
+but only the JS build checks it, and only for `seqNo` with `guid`
+(`EasyDAO.js:1279`). The Java build checks nothing: `fuid` silently wins over
+`seqNo` (`EasyDAO.js:195-197`), and `guid` is applied on top of either. Pick one.
+
+`seqProperty` exists only in JS (`generateJava: false`, `EasyDAO.js:469-470`).
+From Java, and so from a `services.jrl` `serviceScript`, name the property with
+`.setSeqPropertyName("seq")`; it defaults to `id` (`EasyDAO.js:464`) and applies to
+`seqNo` and `fuid` only. A Java `guid` always fills `id`, because the builder
+creates `GUIDDAO` without a property (`EasyDAO.js:205-206`) and its `property`
+defaults to `id` (`src/foam/dao/GUIDDAO.js:43-44`).
+
 ## Special Features
 
 ### String Deduplication

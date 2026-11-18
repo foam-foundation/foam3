@@ -119,3 +119,13 @@ p({
   id: "JournalReplayGzip",
   gzip: true
 })
+p({
+  class: "foam.core.benchmark.OMLoggerBenchmark",
+  id: "OMLoggerNewKeysBenchmark",
+  newKeys: true,
+  keyCount: 60000
+})
+p({
+  class: "foam.core.benchmark.OMLoggerBenchmark",
+  id: "OMLoggerSameKeysBenchmark"
+})

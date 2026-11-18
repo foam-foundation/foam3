@@ -138,9 +138,21 @@ foam.CLASS({
         so no single large file (e.g. a JRL with hundreds of entries) dominates
         the dataset. The shuffle is applied before truncation so the sample is
         not always biased toward the top of the file.
+        Files matching any entry in noChunkCapPaths are exempt from this limit.
       `,
       value: 0
-    }
+    },
+    {
+      class: 'StringArray',
+      name: 'noChunkCapPaths',
+      documentation: `
+        Path substrings whose matching files are exempt from maxChunksPerFile.
+        Use this for high-value files where every entry matters, e.g. services.jrl
+        which contains unique CSpec patterns that should all be represented.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
   ],
 
   methods: [
@@ -221,10 +233,16 @@ foam.CLASS({
 
         int maxChunks = getMaxChunksPerFile();
         if ( maxChunks > 0 && chunks.length > maxChunks ) {
-          List<String> cl = new ArrayList<>(Arrays.asList(chunks));
-          Collections.shuffle(cl);
-          chunks = cl.subList(0, maxChunks).toArray(new String[0]);
-          System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+          boolean exempt = false;
+          for ( String p : getNoChunkCapPaths() ) {
+            if ( item.contains(p) ) { exempt = true; break; }
+          }
+          if ( ! exempt ) {
+            List<String> cl = new ArrayList<>(Arrays.asList(chunks));
+            Collections.shuffle(cl);
+            chunks = cl.subList(0, maxChunks).toArray(new String[0]);
+            System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+          }
         }
 
         LLMService llm = (LLMService) x.get("llmService");
@@ -267,6 +285,13 @@ foam.CLASS({
       javaCode: `throw new UnsupportedOperationException("override buildSystemPrompt()");`
     },
     {
+      documentation: 'Build the user prompt sent to the LLM. Override to enrich with retrieved context or other signals.',
+      name: 'buildPrompt_',
+      type: 'String',
+      args: 'Context x, String chunk, String item, String category',
+      javaCode: `return "[category: " + category + "\\nSource chunk from " + item + ":\\n\\n" + chunk;`
+    },
+    {
       name: 'callLLM_',
       type: 'String',
       args: 'Context x, String chunk, String item, String category, LLMService llm',
@@ -279,7 +304,7 @@ foam.CLASS({
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(opts);
-        req.setPrompt("[category: " + category + "]\\nSource chunk from " + item + ":\\n\\n" + chunk);
+        req.setPrompt(buildPrompt_(x, chunk, item, category));
 
         LLMResponse resp = llm.complete(x, req);
 

@@ -15,7 +15,7 @@ Which hook, which type, and the three mistakes that produce shared state, stale 
 Each hook has one timing; using another produces a value that is stale, shared, or undefined.
 Don't: `factory:` for a value that depends on other properties; `preSet:` that side-effects; `postSet:` that computes this property's own value
 Do:    `value:` literal scalar · `factory:` per-instance object or needs `this` · `expression:` pure function of the named properties · `adapt:` coerce input · `postSet:` detach the old, subscribe the new, on other objects
-Review asked: "Don't use expression: and factory: interchangeably." (`doc/guides/claude.md:1629`)
+Review asked: "Don't use expression: and factory: interchangeably." (`doc/guides/claude.md:1072`)
 
 ### `value: []` shares one array across every instance
 `value` is evaluated once at class definition; every instance points at the same object.
@@ -23,8 +23,8 @@ Don't: `{ class: 'Array', name: 'ids', value: [] }`
 Do:    `{ class: 'Array', name: 'ids' }` (Array already has the factory), or `factory: function() { return []; }`
 Review asked: "Should never do value: [] otherwise all instances will share the same array" (PR #3821)
 
-### Return `null`, never `undefined`, from a factory or expression
-`undefined` means "not computed yet" to the getter, so an expression that returns it is re-run, and re-subscribed, on every read.
+### Return `null`, never `undefined`, from an expression
+`undefined` means "not computed yet" to the getter, so an expression that returns it is re-run, and re-subscribed, on every read (`foam/lang/FObject.js:508-510`). A factory is safe: its getter stores `undefined` as `null` (`foam/lang/Property.js:537-540`).
 Don't: `expression: function(x) { if ( ! x ) return; ... }`
 Do:    `return (some expression) || null;` — `null` is a real value and is cached
 Review asked: "'undefined' has a special meaning for factory and expression values that means they need to be computed. Returning undefined will cause them to be repeatedly calculated." (PR #5393)
@@ -43,7 +43,7 @@ Do:    `normalize: async function() { ... }` on the property
 ### Type the property to the domain
 A `String` column defeats indexing, arithmetic, comparison, the query parser, and journal size; `Float` loses cents.
 Don't: `class: 'String'` for an amount, a date, a direction code, an ISO currency
-Do:    `Double` for money, `Enum` + `of:` for codes, `Date`/`DateTimeUTC` for timestamps, `CurrencyCode`, `Int` for ISO numerics
+Do:    `UnitValue` (Long, minor units) or `DoubleUnitValue` plus a sibling `CurrencyCode` for money (`doc/guides/CurrencyAndUnits.md`), `Enum` + `of:` for codes, `Date`/`DateTimeUTC` for timestamps, `CurrencyCode`, `Int` for ISO numerics
 
 ### One date property, not a date beside a time beside a raw millisecond count
 Splitting an instant across properties means every reader reassembles it, and each one picks a different timezone.
@@ -70,6 +70,9 @@ Review asked: "More efficient to be a factory on a transient field."
 Enum properties default to ordinal 0, so a null check never fires; a factory-backed property reports unset until first read.
 Don't: `if ( getStatus() == null )`; `if ( ! xIsSet_ ) /* treat as absent */` when `x` has a factory
 Do:    `if ( ! statusIsSet_ )`; read the value and let the factory run
+A hook that writes another property's field directly (`otherProp_ = val;` in a `javaPreSet`) also sets
+`otherPropIsSet_ = true;`: the generated getter returns the default while the flag is false
+(`src/foam/java/refinements.js:506`).
 
 ### A per-subclass constant is a method override, not a property
 A property costs a settable field, a serialization slot, and a shadowing hazard; a method costs nothing.

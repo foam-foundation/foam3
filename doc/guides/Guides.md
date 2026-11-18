@@ -23,6 +23,9 @@ The FOAM Pom-O-Matic build system: POM file types (Tooling vs Build), the three 
 **[POM](POM.md)**
 Reference for POM (Project Object Model) file attributes: name/vendorId/version/licenses, multi-stage JS loading for startup performance, flags expressions for conditional inclusion (js/java/web/node/debug), JSLibs, and how the build processes sub-projects.
 
+**[Flags](Flags.md)**
+How build flags work: flag expressions on POM entries, `setFlags:`, setting flags with `./build.sh --flags:` and `pmake -flags=`, URL and script-tag flags, precedence, default values, and gotchas such as `dev` being off in built bundles.
+
 **[Context](Context.md)**
 Explains the immutable hierarchical key-value Context (X) — its get/put/putFactory API — and the three-level hierarchy: system context (boot), session context (per-user), and request context (per HTTP request). Read this before learning about imports and exports.
 
@@ -174,6 +177,9 @@ Overview of Reflow, FOAM's Jupyter-style interactive console: the Console contro
 **[ExportingFlows](ExportingFlows.md)**
 Step-by-step instructions for exporting a Reflow flow from the running app: open the flow DAO in Console, filter by name, open the Download link (JSON or journal format), copy it, and replace the entry in the `.jrl` source file.
 
+**[KnowledgeBaseDocs](KnowledgeBaseDocs.md)**
+How to add a `.md` file to the Knowledge Base with a `<flow>` tag, edit an existing doc from the file or from the app in development mode, write hints and images the viewer renders, and fix a doc that is missing or lost its formatting.
+
 **[Dashboard](Dashboard.md)**
 Quick-start guide for building FOAM3 dashboards: creating a `DashboardView` with widget menus in `menu.jrl`, configuring `CardWrapper`/`DAOTable`/count widgets, and optional `CitationView`s.
 
@@ -183,6 +189,9 @@ A comprehensive LLM-oriented FOAM3 reference covering all major concepts: class 
 ---
 
 ## Backend & Services
+
+**[CORE](CORE.md)**
+FOAM's Java application server and its service registry. Explains how Boot builds the whole server from the `cSpecDAO` (only that DAO is built in), how `services.jrl` files become `services.0`, how the ClientBuilder builds the client from the same CSpecs, and gives a full reference for every CSpec option: `serviceScript`/`serviceClass`/`service`, `lazy`, `serve`, `boxClass`, `authenticate`, `client` and more.
 
 **[NanoServices](NanoServices.md)**
 Comprehensive guide to FOAM's nano-service architecture: location-agnostic service access via context DI, the Box messaging layer (Box/Envelope/RPCMessage), Stub/Skeleton RPC generation, CSpec registration, and a complete `NotificationService` example.
@@ -269,6 +278,9 @@ Covers the FOAM test harness: running all/server/client tests from the build, ru
 
 **[APITesting](APITesting.md)**
 Covers FOAM's built-in API testing support via the DIG (Data Interchange Gateway) client, which lets tests act as external users with scoped sessions while retaining full server-side DAO access. Extends `foam.core.test.AbstractDIGTest`.
+
+**[Benchmarks](Benchmarks.md)**
+Timing FOAM code with `foam.core.bench`: the `Benchmark` and `BenchmarkRunner` journal rows, `./build.sh java-benchmarks[:ids]` and which ids it matches, reading `operationsS` from the INFO log or the `benchmarkResults` journal, the runner defaults, the PRODUCTION skip, and how to take a fair before-and-after sample.
 
 **[Porting](Porting.md)**
 Migration guide from FOAM1 to FOAM2/FOAM3: key API renames (`CLASS` → `foam.CLASS`, `lazyFactory` → `factory`, `defaultValueFn` → `expression`, `traits` → `implements`, `addListener` → `sub`) and behavioral differences (Promise-based DAO, CSS axiom, U2/U3 only, no built-in prototype extension).

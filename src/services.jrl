@@ -107,7 +107,7 @@ p({
   "lazy":false,
   "lazyOrder":-1,
   "serviceClass": "foam.core.column.ColumnConfigToPropertyConverter",
-  "client": "{\"class\":\"foam.core.column.ColumnConfigToPropertyConverter\"}"
+  "client": """{"class":"foam.core.column.ColumnConfigToPropertyConverter"}"""
 })
 
 p({
@@ -241,9 +241,9 @@ p({
   """
 })
 
-p({"class":"foam.core.boot.CSpec", "name":"demoObjectDAO",                      "serve":true,  "serviceScript":"return new foam.dao.EasyDAO.Builder(x).setJournalType(foam.dao.JournalType.SINGLE_JOURNAL).setJournalName(\"demoObjects\").setGuid(true).setOf(foam.core.demo.DemoObject.getOwnClassInfo()).build();", "client":"{\"of\":\"foam.core.demo.DemoObject\", \"remoteListenerSupport\": false}"})
+p({"class":"foam.core.boot.CSpec", "name":"demoObjectDAO",                      "serve":true,  "serviceScript":"""return new foam.dao.EasyDAO.Builder(x).setJournalType(foam.dao.JournalType.SINGLE_JOURNAL).setJournalName("demoObjects").setGuid(true).setOf(foam.core.demo.DemoObject.getOwnClassInfo()).build();""", "client":"""{"of":"foam.core.demo.DemoObject", "remoteListenerSupport": false}"""})
 
-p({"class":"foam.core.boot.CSpec", "name":"twofactor",                          "serve":true,  "authenticate": false, "boxClass":"foam.core.auth.twofactor.OTPAuthServiceSkeleton", "serviceClass":"foam.core.auth.twofactor.GoogleTOTPAuthService", "client":"{\"class\":\"foam.core.auth.twofactor.ClientOTPAuthService\"}"})
+p({"class":"foam.core.boot.CSpec", "name":"twofactor",                          "serve":true,  "authenticate": false, "boxClass":"foam.core.auth.twofactor.OTPAuthServiceSkeleton", "serviceClass":"foam.core.auth.twofactor.GoogleTOTPAuthService", "client":"""{"class":"foam.core.auth.twofactor.ClientOTPAuthService"}"""})
 p({
   "class":"foam.core.boot.CSpec",
   "name":"htmlDocDAO",
@@ -265,7 +265,7 @@ p({
     }
   """
 })
-p({"class":"foam.core.boot.CSpec", "name":"emailDocService",                  "lazy":false, "lazyOrder":-1, "serve":true,  "boxClass":"foam.core.auth.email.EmailDocInterfaceSkeleton", "serviceClass":"foam.core.auth.email.EmailDocService","client":"{\"class\":\"foam.core.auth.email.ClientEmailDocService\", \"delegate\": { \"class\":\"foam.box.HTTPBox\", \"url\":\"service/emailDocService\" } }"})
+p({"class":"foam.core.boot.CSpec", "name":"emailDocService",                  "lazy":false, "lazyOrder":-1, "serve":true,  "boxClass":"foam.core.auth.email.EmailDocInterfaceSkeleton", "serviceClass":"foam.core.auth.email.EmailDocService","client":"""{"class":"foam.core.auth.email.ClientEmailDocService", "delegate": { "class":"foam.box.HTTPBox", "url":"service/emailDocService" } }"""})
 
 p({
   "class":"foam.core.boot.CSpec",
@@ -277,7 +277,7 @@ p({
   }
 })
 
-p({"class":"foam.core.boot.CSpec","name":"appConfigService",                   "serve":true, "authenticate": false, "boxClass":"foam.core.app.AppConfigServiceSkeleton", "service":{"class":"foam.core.app.ContextLookupAppConfigService"}, "client":"{\"class\":\"foam.core.app.ClientAppConfigService\",\"delegate\":{\"class\":\"foam.box.HTTPBox\",\"url\":\"service/appConfigService\"}}"})
+p({"class":"foam.core.boot.CSpec","name":"appConfigService",                   "serve":true, "authenticate": false, "boxClass":"foam.core.app.AppConfigServiceSkeleton", "service":{"class":"foam.core.app.ContextLookupAppConfigService"}, "client":"""{"class":"foam.core.app.ClientAppConfigService","delegate":{"class":"foam.box.HTTPBox","url":"service/appConfigService"}}"""})
 
 p({
   "class":"foam.core.boot.CSpec",
@@ -454,7 +454,7 @@ p({
   "client":
   """
     {
-      \"of\":\"foam.core.export.report.Template\"
+      "of":"foam.core.export.report.Template"
     }
   """
 })
@@ -498,7 +498,7 @@ p({
 
     return dao;
   """,
-  "client": "{\"of\":\"foam.counter.Counter\"}"
+  "client": """{"of":"foam.counter.Counter"}"""
 })
 
 p({

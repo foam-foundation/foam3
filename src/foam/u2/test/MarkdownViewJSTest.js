@@ -13,7 +13,8 @@ foam.CLASS({
     Renders markdown through MarkdownView and checks the DOM. The first group
     pins behaviour that existing docs rely on, so a grammar change cannot
     quietly break them; the rest covers quotes, table headers, <tabs> and
-    <stepper>, which documents migrated from GitBook use.
+    <stepper>, which documents migrated from GitBook use, text in angle
+    brackets that is no tag, and links to a heading or to another document.
   `,
 
   requires: [
@@ -178,6 +179,166 @@ foam.CLASS({
       x.test(bg && bg.indexOf('http://example.com/a.png') != -1, 'a style value with a colon inside is kept whole, got ' + JSON.stringify(bg));
       x.test(styled && styled.style.color == 'red', 'the declaration after it still applies');
       v.remove();
+
+      // Scenario: angle brackets in a sentence and in inline code.
+      // "<name>" and "<= 10" are text. They used to be read as the start of
+      // a tag, and the rest of the page was dropped.
+      v = await render([
+        'Send `D,Q,<name>,0,<product>` as the first line.',
+        '',
+        'Amounts must be <= 10 and <name> is the file name.',
+        '',
+        'Last paragraph.',
+        ''
+      ].join('\n'));
+      x.test(q(v, 'code') && q(v, 'code').innerText == 'D,Q,<name>,0,<product>', 'inline code keeps its angle brackets, got ' + JSON.stringify(q(v, 'code') && q(v, 'code').innerText));
+      x.test(text(v).indexOf('must be <= 10 and <name> is the file name.') != -1, 'a bare "<" and a <word> in a sentence show as text, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('Last paragraph.') != -1, 'the page after the angle brackets still renders');
+      v.remove();
+
+      // Scenario: forty unclosed "<word>" texts on one page.
+      // A guide that writes List<String> all over: each is settled where it
+      // stands, so the page still parses at once.
+      var generics = [];
+      for ( var i = 0 ; i < 40 ; i++ ) generics.push('A List<String> named n' + i + '.');
+      v = await render(generics.join('\n\n') + '\n');
+      x.test(qa(v, '.mdParagraph').length == 40 && text(v).indexOf('A List<String> named n39.') != -1, 'forty <word> texts render as forty paragraphs, got ' + qa(v, '.mdParagraph').length);
+      v.remove();
+
+      // Scenario: angle brackets inside a step.
+      // A step's body is split at every tag; inline code and a code fence in
+      // it are not searched for tags.
+      v = await render([
+        '<stepper>',
+        '<step>',
+        '',
+        '### First',
+        '',
+        'Send `D,Q,<name>,0,<product>` first.',
+        '',
+        '```',
+        'H,<date>,<count>',
+        '<b>not bold</b>',
+        '```',
+        '</step>',
+        '',
+        '<step>',
+        '',
+        '### Second',
+        '',
+        'Then wait.',
+        '</step>',
+        '</stepper>',
+        '',
+        'After the steps.',
+        ''
+      ].join('\n'));
+      stepper = find(v, e => self.Stepper.isInstance(e));
+      steps = stepper ? [...stepper.el_().children].filter(c => c.classList.contains('foam-u2-markdown-Step')) : [];
+      x.test(steps.length == 2, 'both steps render when the first holds angle brackets, got ' + steps.length);
+      x.test(steps[0] && steps[0].querySelector('.mdParagraph code') && steps[0].querySelector('.mdParagraph code').innerText == 'D,Q,<name>,0,<product>', 'inline code inside a step keeps its angle brackets');
+      var pre = steps[0] && steps[0].querySelector('pre code');
+      x.test(pre && pre.innerText.indexOf('H,<date>,<count>') != -1 && pre.innerText.indexOf('<b>not bold</b>') != -1, 'a code fence inside a step shows its tags as text, got ' + JSON.stringify(pre && pre.innerText));
+      x.test(pre && ! pre.querySelector('b'), 'a tag inside a code fence is not rendered');
+      x.test(text(v).indexOf('After the steps.') != -1, 'the page after the stepper still renders');
+      v.remove();
+
+      // Scenario: an unclosed "<name>" inside a hint.
+      // It is text: it does not take the hint's own closing tag as its end.
+      v = await render([
+        '<hint category="hint">',
+        'Use the <name> of the file here.',
+        '</hint>',
+        '',
+        'After the hint.',
+        ''
+      ].join('\n'));
+      var hint = q(v, '.foam-u2-markdown-Hint');
+      x.test(hint && hint.innerText.replace(/\s+/g, ' ').indexOf('Use the <name> of the file here.') != -1, 'a <word> inside a hint shows as text, got ' + JSON.stringify(hint && hint.innerText));
+      x.test(text(v).indexOf('After the hint.') != -1, 'the page after the hint still renders');
+      v.remove();
+
+      // Scenario: tags closed in the wrong order.
+      // A closing tag closes only the tag of its own name. Here "</b>" does
+      // not close "<i>", so "<i>" is text inside the bold, and the "</i>"
+      // left over after it is text too.
+      v = await render([
+        '<b>one <i>two</b> three</i>',
+        '',
+        'After the tags.',
+        ''
+      ].join('\n'));
+      x.test(q(v, 'b') && q(v, 'b').innerText == 'one <i>two', 'a tag closed by another tag\'s closing tag shows as text, got ' + JSON.stringify(q(v, 'b') && q(v, 'b').innerText));
+      x.test(! q(v, 'i') && text(v).indexOf('three</i>') != -1, 'the closing tag left over shows as text, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('After the tags.') != -1, 'the page after the mismatched tags still renders');
+      v.remove();
+
+      // Set-up for the three link scenarios. A click must not reach the
+      // browser's own navigation when the link is handled here; this listener records that and then stops the
+      // navigation either way, so a failing check cannot leave the test page.
+      var prevented;
+      var guard = function(e) { prevented = e.defaultPrevented; e.preventDefault(); };
+      x.document.addEventListener('click', guard);
+      var loaded = [];
+      var flows  = foam.dao.ArrayDAO.create({ of: foam.core.reflow.Flow }, x);
+      await flows.put(foam.core.reflow.Flow.create({ name: 'Support and Contacts' }, x));
+      var linkX  = x.createSubContext({ flowDAO: flows, eval_: function(cmd) { loaded.push(cmd); } });
+      var renderIn = async (md, ctx) => {
+        var mv = self.MarkdownView.create({ data: md }, ctx);
+        mv.write(x.document.body);
+        await new Promise(r => setTimeout(r, 100));
+        return mv;
+      };
+
+      // Scenario: a link to another document by its flow name.
+      // The click loads that flow. The browser used to follow the href as
+      // well and show a 404 page.
+      v = await renderIn([
+        'See [the contacts](Support and Contacts).',
+        ''
+      ].join('\n'), linkX);
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(loaded.join() == 'load("Support and Contacts")', 'a link by flow name loads the flow, got ' + JSON.stringify(loaded));
+      x.test(prevented === true, 'and the browser does not follow the href to a 404, defaultPrevented=' + prevented);
+      v.remove();
+
+      // Scenario: a link to a heading of the same page.
+      // The click scrolls to the heading. The browser used to set the page
+      // hash, which the application reads as a route.
+      v = await renderIn([
+        '[Go to part two](#part-two)',
+        '',
+        '# Part one',
+        '',
+        'Text.',
+        '',
+        '## Part two',
+        '',
+        'More text.',
+        ''
+      ].join('\n'), linkX);
+      var target = x.document.getElementById('part-two');
+      x.test(target, 'the heading has the id the link names');
+      var scrolled = false;
+      if ( target ) target.scrollIntoView = function() { scrolled = true; };
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(scrolled, 'a link to a heading scrolls the heading into view');
+      x.test(prevented === true, 'and the page hash is left alone, defaultPrevented=' + prevented);
+      v.remove();
+
+      // Scenario: a "#" link that names no heading.
+      // It is an application route and still goes to the browser.
+      v = await renderIn([
+        '[Open the menu](#someMenu)',
+        ''
+      ].join('\n'), linkX);
+      prevented = undefined;
+      q(v, 'a').click();
+      x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);
+      v.remove();
+      x.document.removeEventListener('click', guard);
     }
   ]
 });

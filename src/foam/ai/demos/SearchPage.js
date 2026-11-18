@@ -18,6 +18,7 @@ foam.CLASS({
   ],
 
   imports: [
+    'embeddingService',
     'flowDAO',
     'openAIEmbeddingService',
     'vectorStoreDAO'
@@ -79,15 +80,18 @@ foam.CLASS({
       view: {
         class: 'foam.u2.view.ChoiceView',
         choices: [
-          ['transformers', 'Transformers (web)'],
-          ['openai', 'OpenAI']
+          ['transformers',      'Transformers (browser)'],
+          ['openai',            'OpenAI (api)'],
+          ['embeddingService',  'Default Embedding Service (local)']
         ]
       }
     },
     {
       name: 'embedder',
       expression: function(provider) {
-        return provider === 'openai' ? this.openAIEmbeddingService : this.TransformersEmbeddingService.create();
+        if ( provider === 'openai'           ) return this.openAIEmbeddingService;
+        if ( provider === 'embeddingService' ) return this.embeddingService;
+        return this.TransformersEmbeddingService.create();
       }
     },
     {
@@ -104,7 +108,7 @@ foam.CLASS({
       view: {
         class: 'foam.u2.TextField',
         onKey: false,
-        placeholder: 'Ask a question…',
+        placeholder: 'Ask a question...',
         size: 60
       }
     },
@@ -144,6 +148,7 @@ foam.CLASS({
               embedding.sourceId = flow.name;
               embedding.kind     = 'flow';
               await self.vectorStoreDAO.put(embedding);
+              await new Promise(function(c) { setTimeout(c,0); });
               count++;
             }
           }

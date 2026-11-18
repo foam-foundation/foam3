@@ -169,7 +169,7 @@ Compares FOAM and Web Components/Polymer (common Google origins, conceptual kins
 Argues that LLM-generated code repeats the code-generator liability trap at larger scale, and explains how FOAM's declaration-over-code approach avoids this by generating behaviour at runtime rather than shipping generated implementation code that accumulates as a maintenance burden.
 
 **[Embeddings](Embeddings.md)**
-How a model opts in to embeddings with `EmbeddingAware`: the `NEW`/`EMBEDDED`/`DIRTY`/`DISCARDED` status lifecycle, the sync cron that embeds in the background, and how `ragService` answers questions from only the records the asking user can read, on a server or in the browser.
+Make a model searchable by meaning and answer questions from it with Ask AI, in four steps. The design behind it, with its cases and choices, is in [Embeddings design](../architecture/Embeddings.md).
 
 **[agentsnotprotocols](agentsnotprotocols.md)**
 Drawing on Bill Joy's 2000 essay, argues that shipping executable agents rather than wire-protocol specifications eliminates interoperability problems. Explains how FOAM/CORE realises this: the CSpec registry delivers client agents on demand instead of requiring REST API negotiation.

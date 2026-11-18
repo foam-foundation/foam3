@@ -1,0 +1,18 @@
+// Dataset entry of the ML Lab menu section (see core/ai/training/menus.jrl).
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.dataset",
+  "parent": "ml",
+  "label": "Dataset",
+  "order": 3,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {
+      "class": "foam.comics.v2.DAOControllerConfig",
+      "daoKey": "datasetDAO",
+      "summaryView": { "class": "foam.ai.dataset.AlpacaSampleBrowseView" }
+    }
+  }
+})

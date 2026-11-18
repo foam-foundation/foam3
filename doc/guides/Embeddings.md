@@ -103,7 +103,7 @@ A few cases follow from these rules:
 | `EmbeddingAware` | The interface a model implements: `toIndexText`, `isEmbeddable`, `openIndexed`, and the `embeddingStatus` property. | The model says what text it has. Everything else reads that. | `src/foam/ai/vector/EmbeddingAware.js` |
 | `EmbeddingStatus` | The enum `NEW`, `EMBEDDED`, `DIRTY`, `DISCARDED`. `embeddingStatus` is `storageTransient`: kept in memory only. | The save path and the sync share work through it, so a save never waits for an AI call. | `src/foam/ai/vector/EmbeddingAware.js` |
 | `EmbeddingAwareDAO` | A `ProxyDAO`. A put compares old and new `toIndexText` and sets the status. A put that discards, a remove and a `removeAll` remove the chunks. `sync(x, limit)` embeds the DAO's `NEW` and `DIRTY` records and returns how many AI calls it made. | Marks what changed at the moment it changes, with no AI call, and owns the loop that embeds its records. | `src/foam/ai/vector/EmbeddingAwareDAO.js` |
-| `EasyDAO.embeddingAware` | Adds `EmbeddingAwareDAO` when `of` implements `EmbeddingAware`, adds it to `embeddingSync`, and indexes `embeddingStatus`. In Java it sits below the rules and the other decorators. In the browser it is skipped for a `CLIENT` DAO, which leaves the work to the server's DAO. | Opting in needs no nSpec change, as `LifecycleAware` adds `LifecycleAwareDAO`. | `src/foam/dao/EasyDAO.js` |
+| `EasyDAO.embeddingAware` | Adds `EmbeddingAwareDAO` when `of` implements `EmbeddingAware`, adds it to `embeddingSync`, and indexes `embeddingStatus`. In Java it sits below the rules and the last-modified stamp, and above the GUID, subdomain and SPID decorators. In the browser it is skipped for a `CLIENT` DAO, which leaves the work to the server's DAO. | Opting in needs no nSpec change, as `LifecycleAware` adds `LifecycleAwareDAO`. | `src/foam/dao/EasyDAO.js` |
 | `EmbeddingSync` | Holds the `EmbeddingAwareDAO`s that EasyDAO built. `sync(x)` calls each one's `sync` until `batchSize` (50) AI calls are spent. On a server it is the `embeddingSync` service; in a browser an app exports one as `embeddingSync`. | No config lists the DAOs to sync, and one class runs the sync on a server and in a browser. | `src/foam/ai/vector/EmbeddingSync.js` |
 | `embeddingSync` cron | Calls `embeddingSync.sync(x)` every 5 minutes. | Runs the slow, failure-prone AI calls off the save path. | `src/foam/core/ai/cronjobs.jrl` |
 | `RAGIndexer` | `index` cuts `toIndexText` into chunks, embeds them in one `embedAll` call and replaces every chunk the record had. It returns `false`, with no call, when the stored chunks already hold these texts from the same embedding model. `remove` deletes a record's chunks. Chunk ids are `<daoKey>:<sourceId>:<n>`, e.g. `noteDAO:42:0`. | One place owns chunk ids, the "already embedded?" check and the "replace all old chunks" rule, so a shorter text leaves no stale chunk. | `src/foam/core/ai/vector/RAGIndexer.js` |
@@ -258,7 +258,13 @@ Details from `ServerRAGService`:
 - the answer is written in the language of `locale`, e.g. French for `fr`;
 - a chunk below `minScore` (0.25) is neither sent nor offered as a source, so an unrelated question costs no model call.
 
+The browser never sees the system prompt or the provider's API key. `llmService` stays served for features that call a model directly; the chat view calls only `ragService`.
+
 ## 6. Client-only mode
+
+`RAGChat` only asks its context for `ragService`. Whoever puts `ragService` in the context decides where the work runs: a page that exports one runs everything in the browser, and an app's `ragService` CSpec runs it on the server. Each yellow tag names what an app overrides or sets.
+
+![Who answers ragService.ask: browser only, or with a server](images/embeddings-who-answers.png)
 
 The same `Note` model runs with no server, e.g. a demo page with browser models. After the first model download, nothing leaves the browser.
 
@@ -309,24 +315,7 @@ Both models run in a Web Worker, so the page stays responsive while they work. T
 
 Another embedding model needs no code change. Set `model`, `pooling` and `queryPrefix` of `TransformersEmbeddingService` together, since all three belong to the model. For example, `Snowflake/snowflake-arctic-embed-xs` takes pooling `cls` and a question prefix.
 
-## 7. Why `ragService` exists
-
-Two designs can answer a question from embedded records. In a browser-built prompt design, the chat view embeds the question, searches `vectorStoreDAO`, writes the prompt and calls `llmService` itself, and a button indexes the records from the browser. In the `ragService` design, the browser sends the question and gets back an answer with its sources.
-
-| Concern | Browser-built prompt | `ragService` |
-|---|---|---|
-| Who builds the prompt | The browser. The system prompt is a property of the view, and the view wraps the user's text in "Context: … Question: …". | The server. `ServerRAGService.systemPrompt` and the prompt text never reach the browser. |
-| What the search checks | The cosine scan reads chunks in the store's own context. Nothing checks the record a chunk comes from. | `ReadableSourcePredicate` finds each chunk's record as the asking user. A chunk of a record they cannot open is skipped. |
-| What the browser calls | `embeddingService`, `vectorStoreDAO` and `llmService`, with any prompt. | `ragService.ask`, with a question. |
-| Calls per question | Three: embed, search, generate. | One. |
-| An unrelated question | The model is called with the question alone. | Below `minScore` no model is called. |
-| Keeping the index current | A button, run by hand in the browser. | The save marks the record; the cron embeds it. |
-
-In both designs the provider's API key stays on the server, and the browser never reads it.
-
-`llmService` stays served for features that call a model directly. The chat view calls only `ragService`.
-
-## 8. Design choices and their costs
+## 7. Design choices and their costs
 
 | Choice | What it gives | What it costs |
 |---|---|---|
@@ -340,7 +329,7 @@ In both designs the provider's API key stays on the server, and the browser neve
 | DAOs add themselves when EasyDAO builds them | No list of DAOs to keep in step with the code. | A DAO built lazily, on first use, joins the sync only then. Its records are embedded from that point on. |
 | Access is checked at ask time | One index serves every user; the record's own DAO decides. | Each search finds the record of every candidate chunk, once per record. |
 
-## 9. Configuring
+## 8. Configuring
 
 ### Swap the embedding provider
 

@@ -192,24 +192,17 @@ The interface is the only contract — the backend is a configuration choice, no
 
 Swapping providers requires only a context configuration change — no changes to calling code.
 
-### Small models in the browser: what went wrong and what fixed it
+### Small models in the browser
 
-The RAG Chat demo first answered most questions wrong or after a minute. Each cause below was measured in Chrome on a Mac with WebGPU, over 132 knowledge flows cut into about 1,600 passages.
+The RAG Chat demo answers with `onnx-community/Qwen3-0.6B-ONNX` (thinking off) and the 5 closest passages.
 
-| What went wrong | What it did | Fix | After |
-|---|---|---|---|
-| The embedder returned NaN vectors for large WebGPU batches: 1 of 43 passages of one long document at fp32, all 43 at 8-bit | A NaN breaks the cosine sort, so the same long documents came back for every question | `TransformersEmbeddingService` embeds 8 texts a call, runs a NaN text again on its own, and throws if it is still NaN | 0 NaN vectors; the Context flow is the first source for "What is a Context in FOAM?" |
-| The demo kept the conversation history | Every question sent all earlier questions and their passages again: 13 messages after 6 questions, 40 to 60 s per answer, topics mixed | Each question goes to the model alone, with its own passages | One message per question |
-| Too much context for a 0.5B model (Qwen2.5-0.5B) | Context question: right with 3 passages (9.3 s), wrong with 5 (19.3 s) and with 10 (21.5 s) | `onnx-community/Qwen3-0.6B-ONNX`, thinking off, 5 passages | Right with 5 passages, in 1 to 3.4 s |
-| 16-bit weights on this WebGPU | q4f16 rambled, fp16 repeated one phrase | 4-bit weights (q4) on a GPU, 8-bit (q8) without one | Correct answers |
-| Transformers.js 3.8.1 on WebGPU | The answer model's output turned to garbage after its first answer | Transformers.js 4.3.2 | Stable over repeated questions |
+- **Weights:** 4-bit on a GPU, 8-bit without one. 16-bit weights repeat one phrase on WebGPU.
+- **Download:** the answer model is 0.6 to 0.9 GB, and the embedder is 23 to 90 MB.
+- **Embedding batches:** `TransformersEmbeddingService` embeds 8 texts a call. WebGPU can return NaN vectors for large batches, so it runs a NaN text again on its own and throws if it is still NaN.
+- **No history:** each question goes to the model alone with its own 5 passages. Sending earlier questions again slows every answer and mixes topics.
+- **Another embedder:** set `model`, `pooling` and `queryPrefix` together. No code change is needed.
 
-Choices that were tried and dropped:
-- **3 or 10 passages.** 3 left a scheduling answer thin. 10 took 3.4 to 5.7 s and listed sources off the topic. 5 kept every test answer right.
-- **A bigger model.** Qwen2.5-1.5B (about 1.2 GB) failed to load in the browser (`Error: 3587054648`, most likely out of memory).
-- **Another embedder.** `snowflake-arctic-embed-xs`, the same size as `all-MiniLM-L6-v2`, found the right document in the top 3 for 21 of 22 questions against 19. It picked longer passages, though, so prompts were about 2.5 times longer, answers took about 3 times longer, and one went wrong. MiniLM stays the default. Another embedder needs no code change: set `model`, `pooling` and `queryPrefix` together.
-
-What a 0.6B model still cannot do: the first answer waits for the one-time download (0.6 to 0.9 GB), answers stay short, and how-to answers can be thin. A question the documents do not cover gets "I don't know." Qwen2.5 answered it from general knowledge instead, e.g. "Paris" for the capital of France.
+What a 0.6B model cannot do: the first answer waits for the one-time download, answers stay short, and how-to answers can be thin. A question the documents do not cover gets "I don't know."
 
 ### ConversationalLLMService
 

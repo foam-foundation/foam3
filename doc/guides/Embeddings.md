@@ -109,7 +109,7 @@ Each layer, from a saved record to an answer, and where an app changes it: yello
 | `EmbeddingAwareDAO` | A `ProxyDAO`. A put compares old and new `toIndexText` and sets the status. A put that discards, a remove and a `removeAll` remove the chunks. A put that leaves a record `NEW` or `DIRTY` calls `embeddingSync.wake()`. `sync(x, textsPerCall)` embeds the DAO's `NEW` and `DIRTY` records, the chunks of many records in one call, and returns how many AI calls it made. When built, it adds itself to the context's `embeddingSync`. | Marks what changed at the moment it changes, with no AI call, and owns the loop that embeds its records. | `src/foam/ai/vector/EmbeddingAwareDAO.js` |
 | `EasyDAO.embeddingAware` | Adds `EmbeddingAwareDAO` when `of` implements `EmbeddingAware`, and indexes `embeddingStatus`. In Java it sits below the rules and the last-modified stamp, and above the GUID, subdomain and SPID decorators. In the browser it is skipped for a `CLIENT` DAO, which leaves the work to the server's DAO. | Opting in needs no nSpec change, as `LifecycleAware` adds `LifecycleAwareDAO`. | `src/foam/dao/EasyDAO.js` |
 | `EmbeddingSync` | Holds the `EmbeddingAwareDAO`s that added themselves. `wake()` starts a sync in the background: on a server on the thread pool, one sync at a time; in a browser 1 second after a change. `sync(x)` calls each one's `sync`. On a server it is the `embeddingSync` service; in a browser an app exports one as `embeddingSync`. | No config lists the DAOs to sync, and one class runs the sync on a server and in a browser. | `src/foam/ai/vector/EmbeddingSync.js` |
-| `embeddingSync` cron | Calls `embeddingSync.sync(x)` every 5 minutes. | Embeds what a save's sync could not: records loaded at boot, which are all `NEW`, and records left `DIRTY` while the provider was down. | `src/foam/core/ai/cronjobs.jrl` |
+| `embeddingSync` cron | The fallback: calls `embeddingSync.sync(x)` every 30 minutes. | Embeds what a save's sync could not: records loaded at boot, which are all `NEW`, and records left `DIRTY` while the provider was down. | `src/foam/core/ai/cronjobs.jrl` |
 | `RAGIndexer` | `index` cuts `toIndexText` into chunks, embeds them in one `embedAll` call and replaces every chunk the record had. It returns `false`, with no call, when the stored chunks already hold these texts from the same embedding model. `remove` deletes a record's chunks. Chunk ids are `<daoKey>:<sourceId>:<n>`, e.g. `noteDAO:42:0`. | One place owns chunk ids, the "already embedded?" check and the "replace all old chunks" rule, so a shorter text leaves no stale chunk. | `src/foam/core/ai/vector/RAGIndexer.js` |
 | Chunker | Splits markdown at `##` headings (`maxDepth` 2) and cuts long sections at 2,000 characters. Java: `MarkdownChunkerServiceImpl`. Browser: `ClientMarkdownChunkerService`. | One vector per section finds the passage that answers, where one vector per long record blurs topics. | `src/foam/core/ai/vector/MarkdownChunkerService.js`, `src/foam/ai/vector/ClientMarkdownChunkerService.js` |
 | `EmbeddingService` | Turns text into vectors: `embed`, `embedAll`, `getModel`. Providers: Ollama (the default), OpenAI, Transformers in the browser. | The provider is a CSpec choice, not a code change. | `src/foam/ai/vector/EmbeddingService.js`, `src/foam/core/ai/vector/provider/` |
@@ -133,12 +133,13 @@ flowchart LR
   subgraph SAVE["Save: no AI call"]
     P["noteDAO.put(note)"] --> D["EmbeddingAwareDAO<br/>sets embeddingStatus"] --> S[("noteDAO storage")]
   end
-  subgraph SYNC["Sync: woken by the save; the cron every 5 minutes catches the rest"]
+  subgraph SYNC["Sync: started by the save"]
     C["EmbeddingSync"] --> A["EmbeddingAwareDAO.sync"] --> I["RAGIndexer"] --> E["embeddingService"] --> V[("vectorStoreDAO")]
   end
   subgraph ASK["Ask: as the user"]
     Q["RAGChat"] --> R["ragService"] --> F["search, filtered by<br/>ReadableSourcePredicate"] --> L["llmService"]
   end
+  K["embeddingSync cron<br/>fallback, every 30 minutes"] -.->|"sync()"| C
   D -.->|"wake()"| C
   S -.->|"NEW / DIRTY"| A
   V -.->|"chunks"| F
@@ -207,7 +208,7 @@ The status write goes to the decorator's own delegate, below the rules and the l
 When the call for a batch fails, the records keep their old chunks and their status, and each record of the batch is tried in a call of its own:
 
 - **a later call works:** only the record before it was refused. One warning names the DAO and the record id, and the sync goes on;
-- **the next call fails too:** the provider is down. The sync stops with one warning that names the DAO, and saves start no sync until a sync gets through. An app with no embedding provider makes 3 calls and logs 1 warning every 5 minutes.
+- **the next call fails too:** the provider is down. The sync stops with one warning that names the DAO, and saves start no sync until a sync gets through. An app with no embedding provider makes 3 calls and logs 1 warning every 30 minutes.
 
 Either way the next sync retries the failed records.
 
@@ -315,7 +316,7 @@ The page does three things:
 |---|---|---|
 | Your model | Implements `EmbeddingAware`, writes `toIndexText` | The same |
 | Marks changes | `EmbeddingAwareDAO`, Java | `EmbeddingAwareDAO`, JS |
-| Runs the sync | A save's `wake()`, and the `embeddingSync` cron every 5 minutes | The same `EmbeddingSync` class, 1 second after a change |
+| Runs the sync | A save's `wake()`, and the `embeddingSync` cron every 30 minutes as a fallback | The same `EmbeddingSync` class, 1 second after a change |
 | Spots unchanged chunks | Same texts and same embedding model | Same texts and same embedding model |
 | Makes vectors | `embeddingService`, any provider | `TransformersEmbeddingService` (`Xenova/all-MiniLM-L6-v2`), in a Web Worker on WebGPU, else WebAssembly |
 | Stores vectors | `vectorStoreDAO` on the server | An MDAO in the page |
@@ -389,7 +390,7 @@ Vectors of one model match no question embedded by another, and `VectorEmbedding
 
 | Setting | Where | Default |
 |---|---|---|
-| How often the sync runs | The `Cron` row `embeddingSync` in `src/foam/core/ai/cronjobs.jrl` | Every 5 minutes |
+| How often the sync runs | The `Cron` row `embeddingSync` in `src/foam/core/ai/cronjobs.jrl` | Every 30 minutes |
 | Chunks sent in one call | `textsPerCall` of the `embeddingSync` service in `src/foam/core/ai/services.jrl` | 64 |
 | Whether a save starts a sync | `embedOnSave` of the same service | On. Off, only the cron embeds, e.g. to keep the provider's calls to set hours. |
 

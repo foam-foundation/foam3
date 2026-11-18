@@ -17,9 +17,9 @@ foam.CLASS({
     background: a note saved on a server is searchable a moment later, once
     the provider answers. In a browser the sync starts a second after the
     change, so a burst of saves costs one sync.
-    On a server the "embeddingSync" cron also calls sync() every 5 minutes. It
-    embeds what a save could not, e.g. records loaded at boot, which are all
-    NEW, or records left DIRTY while the provider was down.
+    On a server the "embeddingSync" cron is the fallback: it calls sync()
+    every 30 minutes to embed what a save could not, e.g. records loaded at
+    boot, which are all NEW, or records left DIRTY while the provider was down.
     When the provider is down, e.g. an app with no embedding provider, a sync
     stops with one warning, and saves start no sync until the cron's next run
     gets through. A single record the provider refuses gets one warning and

@@ -1,6 +1,7 @@
-// A save already starts a sync, so this run is the safety net: it embeds the records left NEW or
-// DIRTY, e.g. while the provider was down, and the records loaded at boot, which are all NEW. One
-// whose stored chunks still hold its text is marked embedded with no AI call.
+// The fallback: a save already starts a sync, so this run only catches what a save could not.
+// It embeds the records left NEW or DIRTY while the provider was down, and the records loaded at
+// boot, which are all NEW. One whose stored chunks still hold its text is marked embedded with no
+// AI call. When nothing waits, a run only scans the records' status.
 p({
   "class": "foam.core.cron.Cron",
   "id": "embeddingSync",
@@ -9,7 +10,7 @@ p({
     "class": "foam.core.cron.IntervalSchedule",
     "duration": {
       "class": "foam.core.cron.TimeHMS",
-      "minute": 5
+      "minute": 30
     }
   },
   "code": """

@@ -80,6 +80,13 @@ foam.CLASS({
             this.detailView.route = ctx.prop?.name || ctx.action?.name;
           }
           return this.SUPER(...arguments);
+        },
+        async function jump(p) {
+          await this.SUPER(...arguments);
+          // Back on the detail view: the route that push() set names a view that is gone.
+          if ( this.detailView && p == this.detailView.__subContext__.stackPos ) {
+            this.detailView.routeToMe();
+          }
         }
       ]
     }
@@ -95,7 +102,10 @@ foam.CLASS({
     {
       name: 'exportStack',
       factory: function() {
-        return this.Stack.create({ delegate_: this.stack });
+        let stack = this.Stack.create({ delegate_: this.stack });
+        // Stop following the real stack's pos once this view is gone.
+        this.onDetach(() => { stack.delegate_ = null; });
+        return stack;
       }
     },
     {

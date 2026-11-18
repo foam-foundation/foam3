@@ -28,7 +28,7 @@ p({
   "id": "DAOPromptRunningTest",
   "language": 0
 })
-p({"class":"foam.core.reflow.test.CommandToolTest","id":"CommandToolTest","description":"An AI agent runs its Reflow commands through one execute_command tool: its set only, params and context passed, the return value as result, confirm asked before a write","language":0})
+p({"class":"foam.core.reflow.test.CommandRunnerTest","id":"CommandRunnerTest","description":"An AI agent runs the Reflow commands it writes in its reply: its set only, params read without eval, results sent back for ask, a reply with no command is the answer, confirm asked before a write","language":0})
 p({
   "class": "foam.core.reflow.test.FlowDocumentDocsTest",
   "id": "FlowDocumentDocsTest",

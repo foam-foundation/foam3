@@ -35,15 +35,15 @@ foam.CLASS({
       class: 'String',
       name: 'inputSchema',
       documentation: `
-        JSON Schema of the one argument an AI agent passes when it runs this command through
-        a CommandTool, e.g. {"type":"object","properties":{"parserId":{"type":"string"}}};
+        JSON Schema of the one argument an AI agent passes when it writes this command in its
+        reply (CommandRunner), e.g. {"type":"object","properties":{"parserId":{"type":"string"}}};
         the script reads it as args[0]. Empty means the command takes no input.
       `
     },
     {
       class: 'Boolean',
       name: 'confirm',
-      documentation: 'A CommandTool asks the user before an AI agent runs this command, as for one that writes data.'
+      documentation: 'A CommandRunner asks the user before an AI agent runs this command, as for one that writes data.'
     },
     {
       class: 'String',

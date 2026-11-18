@@ -28,8 +28,7 @@ foam.CLASS({
       name: 'model',
       documentation: `A small chat model in ONNX form, downloaded once and kept in the browser's
         cache. The default is 919 MB on a GPU, with 4-bit weights, and 618 MB without one,
-        where it runs on 8-bit weights. Qwen2.5-0.5B-Instruct is smaller but answered
-        questions about the documents wrongly; Qwen2.5-1.5B-Instruct ran out of memory.`,
+        where it runs on 8-bit weights.`,
       value: 'onnx-community/Qwen3-0.6B-ONNX'
     },
     {

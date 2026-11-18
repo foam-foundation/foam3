@@ -58,9 +58,8 @@ foam.CLASS({
 
   constants: [
     { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
-    // How many passages go with each question. With the browser model, 5 kept every answer
-    // right; 10 doubled the time and listed sources off the topic; 3 left some answers thin,
-    // e.g. how to schedule a job
+    // How many passages go with each question: enough for a full answer while the small
+    // browser model still answers in a few seconds
     { name: 'RETRIEVAL_LIMIT',      value: 5    }
   ],
 

@@ -42,12 +42,16 @@ foam.CLASS({
         'an ask line gives its command and params: ' + JSON.stringify(parts[1]));
 
       // A parser's code passed as written, over several lines, in a backtick string
-      parts = parse('ask intake.testParser({\n  code: `foam.CLASS({\n  name: "P",\n  s: \'a\\\\nb\'\n})`\n})');
-      x.test(parts.length === 1 && parts[0].params.code === 'foam.CLASS({\n  name: "P",\n  s: \'a\\nb\'\n})',
-        'a command continues over lines until its brackets close: ' + JSON.stringify(parts));
+      parts = parse('ask code.check({\n  code: `foam.CLASS({\n  name: "P",\n  s: \'a\\nb\', r: /\\d+/, q: \'\\`\'\n})`\n})');
+      x.test(parts.length === 1 && parts[0].params.code === 'foam.CLASS({\n  name: "P",\n  s: \'a\\nb\', r: /\\d+/, q: \'`\'\n})',
+        'a command continues over lines until its brackets close, and its backtick string is kept as written: ' + JSON.stringify(parts));
 
-      parts = parse('<function_calls>\n<invoke name="intake.testParser">\n<parameter name="code">foam.CLASS({ name: "P" })</parameter>\n<parameter name="from">20</parameter>\n</invoke>\n</function_calls>');
-      x.test(parts.length === 1 && parts[0].ask && parts[0].command === 'intake.testParser'
+      parts = parse('Checking.\nask doc.readLines({doc: "file", from: 1');
+      x.test(parts.length === 2 && parts[1].ask && parts[1].error && parts[1].source === 'ask doc.readLines({doc: "file", from: 1',
+        'an ask whose call does not parse is an error, not text: ' + JSON.stringify(parts));
+
+      parts = parse('<function_calls>\n<invoke name="code.check">\n<parameter name="code">foam.CLASS({ name: "P" })</parameter>\n<parameter name="from">20</parameter>\n</invoke>\n</function_calls>');
+      x.test(parts.length === 1 && parts[0].ask && parts[0].command === 'code.check'
         && parts[0].params.code === 'foam.CLASS({ name: "P" })' && parts[0].params.from === 20,
         'Claude\'s tool-call format is read as ask, code as written, a number as a number: ' + JSON.stringify(parts));
 
@@ -95,7 +99,8 @@ foam.CLASS({
       x.test(turn.results.indexOf('There is no command named other.drop here.') > 0 && dropped.length === 0, 'a command outside the agent\'s set is refused');
 
       turn = await runner.runReply('ask demo.greet({name: window.secret()})');
-      x.test(turn.said.indexOf('window.secret') >= 0 && turn.results === '', 'params that are not a literal are never evaluated');
+      x.test(turn.results.indexOf('This did not run') > 0 && turn.results.indexOf('Hello') < 0,
+        'params that are not a literal are never evaluated, and the model hears the call did not run: ' + turn.results);
 
       x.test(( await runner.run('demo.save') ).indexOf('did not confirm') >= 0 && saved.length === 0, 'a confirm command does not run when the user says no');
       x.test(await runner.run('demo.save') === 'Saved.' && saved.length === 1, 'it runs once the user agrees');

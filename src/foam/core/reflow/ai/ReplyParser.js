@@ -27,11 +27,19 @@ foam.CLASS({
     With no tool registered, Claude still sometimes writes a call in its own
     tool-call format:
 
-      <invoke name="intake.testParser"><parameter name="code">foam.CLASS(...)</parameter></invoke>
+      <invoke name="code.check"><parameter name="code">foam.CLASS(...)</parameter></invoke>
 
-    That is read as ask intake.testParser({code: 'foam.CLASS(...)'}). A
+    That is read as ask code.check({code: 'foam.CLASS(...)'}). A
     parameter is kept as written, so code needs no escaping, unless it is a
     JSON number, boolean, array or object.
+
+    A backtick string is also kept as written: literal('\\n') and /\\d+/ in a
+    parser's code arrive unchanged; only a backslash before a backtick is
+    dropped. A quoted string reads \\n as a line break, as in JSON.
+
+    An ask line whose call does not parse, such as an unclosed bracket or
+    params that are not a literal, gives { ask: true, error, source }, so the
+    agent hears that it did not run instead of the line passing as its answer.
 
     Every other line is text.
   `,
@@ -39,7 +47,7 @@ foam.CLASS({
   methods: [
     function grammar(alt, anyChar, chars, eof, literal, notChars, optional, range, repeat, repeat0, seq, seq1, str, substring, sym, until) {
       return {
-        START: seq1(0, repeat(alt(sym('call'), sym('invoke'), sym('wrapper'), sym('line'))), eof()),
+        START: seq1(0, repeat(alt(sym('call'), sym('invoke'), sym('wrapper'), sym('brokenAsk'), sym('line'))), eof()),
 
         call: seq(
           sym('hws'),
@@ -57,6 +65,10 @@ foam.CLASS({
         // The tags around a tool call, and a closing tag the model doubled
         wrapper: seq(sym('hws'), alt('<function_calls>', '</function_calls>', '</invoke>'), sym('lineEnd')),
 
+        brokenAsk: seq1(0,
+          substring(seq(sym('hws'), 'ask', repeat(chars(' \t'), null, 1), sym('id'), sym('hws'), '(', repeat(notChars('\n')))),
+          alt('\n', eof())),
+
         line: alt(
           seq1(0, str(repeat(notChars('\n'))), '\n'),
           seq1(0, str(repeat(notChars('\n'), null, 1)), eof())),
@@ -73,7 +85,7 @@ foam.CLASS({
         string: alt(
           seq1(1, '"', str(repeat(alt(sym('escape'), notChars('"\\')))), '"'),
           seq1(1, '\'', str(repeat(alt(sym('escape'), notChars('\'\\')))), '\''),
-          seq1(1, '`', str(repeat(alt(sym('escape'), notChars('`\\')))), '`')),
+          seq1(1, '`', str(repeat(alt(seq1(1, '\\', '`'), notChars('`')))), '`')),
 
         escape: seq1(1, '\\', alt(
           seq1(1, 'u', substring(repeat(alt(range('0', '9'), range('a', 'f'), range('A', 'F')), null, 4, 4))),
@@ -140,6 +152,11 @@ foam.CLASS({
     },
 
     function wrapperAction() { return null; },
+
+    function brokenAskAction(source) {
+      return { ask: true, source: source.trim(),
+        error: 'This did not run: write ask <command>({...}) with literal params and every bracket and quote closed.' };
+    },
 
     function lineAction(text) { return { text: text }; },
 

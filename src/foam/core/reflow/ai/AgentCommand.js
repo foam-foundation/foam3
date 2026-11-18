@@ -174,7 +174,7 @@ foam.CLASS({
       // is one command; code fences and comments are dropped.
       var lines = [];
       ( this.ReplyParser.create().parseString(content) || [ { text: content } ] ).forEach(p => {
-        if ( p.command ) lines.push(p.source);
+        if ( p.text === undefined ) lines.push(p.source);
         else lines.push(...p.text.split('\n'));
       });
 

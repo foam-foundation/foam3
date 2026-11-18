@@ -5,3 +5,7 @@ p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSync
 p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncFirstIndexed", scenario: "first", rowCount: 20000, indexSourceId: true })
 p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncRestartIndexed", scenario: "restart", rowCount: 100000, indexSourceId: true })
 p({ class: "foam.core.ai.vector.test.EmbeddingSyncBenchmark", id: "EmbeddingSyncSweepIndexed", scenario: "sweep", rowCount: 100000, indexSourceId: true })
+p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory1k", chunkCount: 1000, dim: 1536 })
+p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory10k", chunkCount: 10000, dim: 1536 })
+p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory100k", chunkCount: 100000, dim: 1536 })
+p({ class: "foam.core.ai.vector.test.VectorStoreMemoryBenchmark", id: "VectorStoreMemory100kDim384", chunkCount: 100000, dim: 384 })

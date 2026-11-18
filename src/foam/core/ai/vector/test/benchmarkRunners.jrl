@@ -7,3 +7,7 @@ p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncFirstRunner", be
 p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncFirstIndexedRunner", benchmarkId: "EmbeddingSyncFirstIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })
 p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncRestartIndexedRunner", benchmarkId: "EmbeddingSyncRestartIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })
 p({ class: "foam.core.bench.BenchmarkRunner", id: "EmbeddingSyncSweepIndexedRunner", benchmarkId: "EmbeddingSyncSweepIndexed", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "VectorStoreMemory1kRunner", benchmarkId: "VectorStoreMemory1k", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "VectorStoreMemory10kRunner", benchmarkId: "VectorStoreMemory10k", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "VectorStoreMemory100kRunner", benchmarkId: "VectorStoreMemory100k", threadCount: 1, executionCount: 1, oneTimeSetup: true })
+p({ class: "foam.core.bench.BenchmarkRunner", id: "VectorStoreMemory100kDim384Runner", benchmarkId: "VectorStoreMemory100kDim384", threadCount: 1, executionCount: 1, oneTimeSetup: true })

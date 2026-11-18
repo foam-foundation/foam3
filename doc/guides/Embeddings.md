@@ -339,6 +339,20 @@ Another embedding model needs no code change. Set `model`, `pooling` and `queryP
 | Two failed calls in a row stop the run | A provider that is down, or not set up, costs 3 calls and 1 warning per run, and saves stop starting syncs. A single record the provider refuses is skipped with a warning. | A refused record is tried again on every run and logs a warning each time. Two refused records in a row look like an outage and stop the run. |
 | DAOs add themselves when they are built | No list of DAOs to keep in step with the code. | A DAO built lazily, on first use, joins the sync only then. Its records are embedded from that point on. |
 | Access is checked at ask time | One index serves every user; the record's own DAO decides. | Each search finds the record of every candidate chunk, once per record. |
+| Exact search over every chunk, held in memory | Every answer finds the true nearest chunks, with no index to build or tune. | Memory and search time grow with the chunk count. The numbers are below. |
+
+### Memory and search time
+
+`VectorStoreMemoryBenchmark` fills a `VectorStoreDAO` with chunks of 800 characters each and runs a search for the 10 nearest chunks. Each chunk is held twice: once as a `VectorEmbedding` with its text, and once in the packed `float[]` that the search scans.
+
+| Chunks | Vector size | Chunks | Packed index | Total per chunk | First search | Later searches |
+|---|---|---|---|---|---|---|
+| 1,000 | 1536 | 6 MB | 8 MB | 15.7 KB | 8 ms | 2 ms |
+| 10,000 | 1536 | 69 MB | 60 MB | 13.6 KB | 42 ms | 12 ms |
+| 100,000 | 1536 | 699 MB | 588 MB | 13.5 KB | 816 ms | 148 ms |
+| 100,000 | 384 | 257 MB | 148 MB | 4.3 KB | 235 ms | 72 ms |
+
+A record of about 3 chunks costs about 40 KB with a 1536-number model. The first search also builds the packed index, and every write rebuilds it on the next search. Run it with `./build.sh java-benchmarks:VectorStoreMemory100kRunner`; the heap is read after a garbage collection, so the sizes are close, not exact.
 
 ## 8. Configuring
 

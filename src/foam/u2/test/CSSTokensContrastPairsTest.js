@@ -81,10 +81,31 @@ foam.CLASS({
       x.test(own && ! own.ok && / #9db7e8 /i.test(own.msg),
         "see-through text is laid over the pair's background, so faint text on brand fails: " + (own && own.msg));
 
-      // An hsl() colour fails as not a colour until foam.Color.hslToRgb reads the hue in degrees.
+      // rgb(), hsl() and hsla() are measured too, not only rgba(): hsl(220 90% 56%) is #2A6DF4 on screen.
       lines = await this.report_(x, mine, [ { theme: '', source: 'textDefault', target: 'hsl(220 90% 56%)' } ]);
-      x.test(lines.some(l => ! l.ok && /textDefault resolves to a colour, got hsl/.test(l.msg)),
-        'an hsl() colour is reported, not measured with a wrong hue');
+      own = this.line_(lines, 'light: textDefault');
+      x.test(own && / #2a6df4 /i.test(own.msg), 'an hsl() colour is measured with its hue in degrees: ' + (own && own.msg));
+
+      lines = await this.report_(x, mine, [ { theme: '', source: 'textDefault', target: 'rgb(0, 0, 0)' } ]);
+      own = this.line_(lines, 'light: textDefault');
+      x.test(own && own.ok && / #000000 /i.test(own.msg), 'an rgb() colour is measured: ' + (own && own.msg));
+
+      // A see-through hsla() is laid over what sits under it, as rgba() is: 9% of hsl(219 90% 40%) on white is #E9EFFA.
+      lines = await this.report_(x, mine, [
+        { theme: '', source: 'textDefault',       target: 'hsla(219 90% 40% / 0.09)' },
+        { theme: '', source: 'backgroundDefault', target: '#FFFFFF' }
+      ]);
+      own = this.line_(lines, 'light: textDefault');
+      x.test(own && / #e9effa /i.test(own.msg), 'a see-through hsla() colour is laid over its background: ' + (own && own.msg));
+
+      // An opaque rgb() or hsl() needs nothing under it, so a theme whose page is hsl() is measured too,
+      // and see-through text is laid over that page: 50% black on hsl(0 0% 100%) is #808080 on #FFFFFF.
+      lines = await this.report_(x, mine, [
+        { theme: '', source: 'textDefault',       target: 'rgba(0, 0, 0, 0.5)' },
+        { theme: '', source: 'backgroundDefault', target: 'hsl(0 0% 100%)' }
+      ]);
+      own = this.line_(lines, 'light: textDefault');
+      x.test(own && / #808080 on backgroundDefault #ffffff /i.test(own.msg), 'an hsl() page is measured, and see-through text is laid over it: ' + (own && own.msg));
     }
   ]
 });

@@ -345,7 +345,7 @@ view: function(_, X) {
 | `this.E()` inside dynamic() | `this.start()` inside dynamic() |
 | `this.myClass()` inside dynamic() | `self.myClass()` (capture self first) |
 | `this.method()` inside event handler | `self.method()` |
-| Inline `style="..."` | CSS classes with `^` prefix |
+| Inline `style="..."` | CSS classes with the `<<` self-selector (`^` is the deprecated spelling) |
 | Hardcoded colors (`#04338D`, `red`) | FOAM semantic tokens (`$primary500`, `$textDestructive`) — theme/dark-mode aware (3.2) |
 | Raw color scale (`$blue500`) when semantic exists | Use semantic alias (`$primary500`) (3.2) |
 | Hand-rolled `font-size` / `font-weight` in custom CSS | Global typography class — `addClass('h300')`, `addClass('p-bold')`, `addClass('p-label')` (3.2.1) |
@@ -368,8 +368,7 @@ view: function(_, X) {
 | Modal popup for row detail | Faceted DetailView wrapper (3.22) |
 | `this.method` in `.sub()` callback | `.sub(this.method.bind(this))` — method refs lose `this` |
 | Embedded table shows wrong columns | `config: null` in `startContext` (3.22) |
-| Global localStorage overrides table columns | `columnStorage` factory returning `getItem: null` (3.22) |
-| `slot()` for async content in render chain | `dynamic()` — slot can cause DOM placement issues |
+| Global localStorage overrides table columns | `columnStorage: null` in `startContext` (3.22) |
 | `.add(prop)` for property with `writePermissionRequired` / `readPermissionRequired` | `.tag(prop.__, { config: { label: '', reserveLabelSpace: false } })` — bare `.add` skips PropertyBorder so the auth check never runs (3.27) |
 | `visibility: 'RO'` on model just to lock down a cell render | Route the cell through `prop.__` so model permission gate keeps working for admins (3.27) |
 | Per-variant colors hardcoded in `render()` / `factory:` for a variant-derived color | Tokens on the enum values + `expression: function(variant)` — follows the variant, still caller-overridable (3.31) |

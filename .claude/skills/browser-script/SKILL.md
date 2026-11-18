@@ -8,6 +8,9 @@ description: Use when writing a script to paste into the browser console of a ru
 A FOAM app's console has `x`, the client context with every DAO and service, and `MLang`, a ready
 `foam.mlang.Expressions`, both set by `ApplicationController` (`globalThis.x`, `globalThis.MLang`).
 A script reads `x.someDAO` directly and never redeclares `x`; the controller itself is `x.ctrl`.
+The framework side (where `x` and `MLang` come from, the cache header that keeps old JS in the tab) is
+in `doc/guides/Debugging.md`, "Browser Console Scripts"; result shapes for `GROUP_BY` and `UNIQUE` are
+in `doc/guides/Dao.md`, "Common Sinks".
 
 ## Before writing
 

@@ -25,13 +25,13 @@ Review asked: "Please use CSSTokens for all colors." (PR #3946); "You should alw
 
 ### Scope every class with `myClass()`; set internals, never footprint
 An unscoped class collides with `Fonts.js`; a root `height`/`width` on a reusable view forces every embedder to fight it.
-Don't: `.row { ... }`; `^ { width: 100%; height: 300px; }` on a shared view; `!important`
-Do:    `^row { ... }` with `addClass(this.myClass('row'))`; `^pos > * { height: 100% }`; the embedder sets the footprint
+Don't: `.row { ... }`; `<< { width: 100%; height: 300px; }` on a shared view; `!important`
+Do:    `<<row { ... }` with `addClass(this.myClass('row'))`; `<<pos > * { height: 100% }`; the embedder sets the footprint
 
 ### A scroll pane needs `min-height: 0` on every flex ancestor with visible overflow
 A flex item will not shrink below its own content, so `flex: 1; overflow: auto` grows instead of scrolling and pushes the footer below it out of view. The pane itself is already exempt — a box whose overflow is not `visible` has an automatic minimum size of zero — so the declaration belongs on the ancestors, not on the scroll pane.
 Don't: `min-height: 0` beside `overflow-y: auto` (a no-op); a view that fills its parent via `height: 100%` when it has siblings
-Do:    `^ { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
+Do:    `<< { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
 Review asked: "`overflow-y: auto` already makes this a scroll container, whose flex automatic minimum size is 0, so this `min-height: 0` is a no-op" (foam3 PR #5451)
 
 ### `rem` over `px`; Fonts classes over `h3`; ThemeGlyphs over a new SVG
@@ -41,8 +41,8 @@ Do:    `width: 1.2rem`; `addClass('h300')` from Fonts.js; `themeIcon: 'dropdown'
 
 ### An SVG is coloured with `fill`, not `color`
 `color` styles text; on an `<svg>` it does nothing, so the icon silently keeps its authored colour.
-Don't: `^icon { color: $primary500; }` on an SVG
-Do:    `^icon { fill: $primary500; }`; `stroke` for an outline glyph
+Don't: `<<icon { color: $primary500; }` on an SVG
+Do:    `<<icon { fill: $primary500; }`; `stroke` for an outline glyph
 
 ### Extend the border, tabs, or detail view that already exists
 A second collapsible or tab view splits every future fix in two and loses the theming and keyboard behaviour the original carries.

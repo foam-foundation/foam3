@@ -26,8 +26,12 @@ foam.CLASS({
 
 - `package` + `name` form the class id (`com.example.Transaction`). That id is written into
   journals, `services.jrl`, and every `of:` reference — it is the model's identity on disk.
-- `aliases` lets journal or upload data arrive under a different key (`account_id` →
-  `accountId`) without a transform in between.
+- `aliases` lets an upload column header or a query name the property by another key
+  (`account_id` → `accountId`): `ColumnParser` and the query parsers match them
+  (`src/foam/core/reflow/ColumnParser.js:89-90`, `src/foam/parse/QueryParser.js:285-287`).
+  The journal and network JSON parsers do not: they register only `name` and `shortName`
+  (`src/foam/lib/json/ModelParserFactory.java:221-222`, `src/foam/lang/JSON.js:847-851`),
+  so a journal row keyed `account_id` loses that value.
 - A new `.js` file starts with the Apache `@license` header every other file in the tree carries
   — copy it from a neighbouring model rather than retyping it.
 
@@ -91,9 +95,12 @@ properties where "unset" is meaningful, defeats the `propertyNameIsSet_` check.
 
 - When the source data carries its own preserved identifiers, keep them and declare a
   multi-part key instead: `ids: ['seq']`.
-- `seqNo`, `guid`, and `fuid` are **mutually exclusive** — pick one (`src/foam/dao/EasyDAO.js:417-435`).
+- `seqNo`, `guid`, and `fuid` are **mutually exclusive** — pick one
+  (`src/foam/dao/EasyDAO.js:441`, `:451`, `:457`). Only the JS build checks, and only `seqNo`
+  with `guid` (`:1279`); in Java `fuid` silently wins over `seqNo` (`:195-197`).
 - The sequence lands on the property named by `seqPropertyName`, which defaults to `id`
-  (`src/foam/dao/EasyDAO.js:440-441`). Set it explicitly if your identifier is named anything else.
+  (`src/foam/dao/EasyDAO.js:464`). Set it explicitly if your identifier is named anything else.
+  It applies to `seqNo` and `fuid`; a Java `guid` always fills `id` (`:205-206`).
 
 ## 4. Register the DAO in `services.jrl`
 
@@ -127,10 +134,11 @@ name. Flags select which targets the file is generated for:
 | JS only | `files:` | `"js"` |
 | Java only (a real `.java` file) | `javaFiles:` | (none, or `"test"`) |
 | Dual implementation (separate JS and Java files) | BOTH | `"js"` in `files:`, entry in `javaFiles:` |
-| Test files | either | append `&test` |
+| Test files | either | plain flags in a pom the parent lists with `flags: 'test'`; append `&test` only in a pom without that gate |
 
 A `.jrl` in the same directory as the `pom.js` auto-loads — do **not** add it to the POM.
-`journalFiles:` is only for pulling journals in from another directory, which is rare.
+`journalFiles:` does not pull journals in from anywhere: it only lists journals flagged `test`
+so a build without `test` drops them (`tools/JournalMaker.js:178-185`).
 
 ## Further reading
 

@@ -14,7 +14,10 @@ foam.POM({
     // Block for proposing the execution of another command
     { name: 'Propose', flags: 'js' },
 
-    // One execute_command tool through which an AI agent runs its commands
-    { name: 'CommandTool', flags: 'js' }
+    // Reads an AI agent's reply into the commands it calls and the text around them
+    { name: 'ReplyParser', flags: 'js' },
+
+    // Runs the Reflow commands an AI agent writes in its reply
+    { name: 'CommandRunner', flags: 'js' }
   ]
 });

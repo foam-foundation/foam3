@@ -227,9 +227,7 @@ foam.CLASS({
           JSONObject tool = new JSONObject();
           tool.put("name",        t.getName());
           tool.put("description", t.getDescription());
-          tool.put("input_schema", SafetyUtil.isEmpty(t.getInputSchema())
-            ? new JSONObject().put("type", "object").put("properties", new JSONObject())
-            : new JSONObject(t.getInputSchema()));
+          tool.put("input_schema", inputSchema(t));
           tools.put(tool);
         }
         if ( options.getWebSearch() ) {

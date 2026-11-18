@@ -71,18 +71,35 @@ foam.CLASS({
     async function protocol() {
       var commands = await this.commands_;
       return '## How you reply\n\n'
-        + 'You have no tools. To run a command, write it in your reply on a line of its own:\n\n'
+        + 'You have no tools. To run a command, write it in your reply on a line of its own. '
+        + 'Never write a tool call such as <invoke>, <function_calls> or <parameter> tags, or a JSON call: '
+        + 'they run nothing.\n\n'
         + '- `ask <command>(<params>)` runs the command, and its result comes back in the next message as '
         + 'agent({"asked": ..., "response": ...}). Use it to read or check something before you answer.\n'
         + '- `<command>(<params>)` runs the command and sends nothing back.\n'
-        + '- <params> is an object literal, as the command\'s Params line describes: '
-        + '`ask doc.readLines({doc: "file", from: 1, count: 20})`. A long string, such as code, goes inside '
-        + 'backticks as written and may span lines; write \\` for a backtick inside it.\n'
+        + '- <params> is an object literal with the keys the command\'s Call line shows: '
+        + '`ask doc.readLines({doc: "file", from: 1, count: 20})`.\n'
+        + '- A long string, such as code, goes inside backticks as written and may span lines, in the same '
+        + 'call: ask <command>({code: `foam.CLASS({ ... })`}). Write \\` for a backtick inside it.\n'
         + '- A reply with no command is your answer, in the shape the instructions above ask for.\n\n'
+        + 'Wrong: `<invoke name="<command>"><parameter name="code">...</parameter></invoke>` runs nothing. '
+        + 'Right: `ask <command>({code: `...`})`.\n\n'
         + 'The commands:\n'
         + commands.map(c => '- ' + c.id + ': ' + ( c.description || '' )
-          + ( c.inputSchema ? ' Params: ' + c.inputSchema : ' No params.' )
+          + ( c.inputSchema ? '\n  ' + this.callLine_(c) : ' No params.' )
           + ( c.confirm ? ' The user confirms before it runs.' : '' )).join('\n');
+    },
+
+    function callLine_(c) {
+      // The call as the model writes it, such as "Call: `ask doc.readLines({doc: <string>, from: <integer>, count?: <integer>})`.
+      // doc: The document's name." A JSON Schema listed as it is reads as a tool definition, and
+      // the model then answered in its tool-call format instead of writing the line.
+      var schema = JSON.parse(c.inputSchema);
+      var keys   = Object.keys(schema.properties || {});
+      var type   = k => '<' + schema.properties[k].type + '>';
+      var call   = keys.map(k => k + ( ( schema.required || [] ).indexOf(k) < 0 ? '?' : '' ) + ': ' + type(k)).join(', ');
+      return 'Call: `ask ' + c.id + '({' + call + '})`. '
+        + keys.filter(k => schema.properties[k].description).map(k => k + ': ' + schema.properties[k].description.replace(/\.$/, '') + '.').join(' ');
     },
 
     async function run(id, params) {

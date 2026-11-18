@@ -24,15 +24,6 @@ foam.CLASS({
     code can be passed as written inside a backtick string. Splitting on every
     newline instead sent each line of such a command back as a Syntax Error.
 
-    With no tool registered, Claude still sometimes writes a call in its own
-    tool-call format:
-
-      <invoke name="code.check"><parameter name="code">foam.CLASS(...)</parameter></invoke>
-
-    That is read as ask code.check({code: 'foam.CLASS(...)'}). A
-    parameter is kept as written, so code needs no escaping, unless it is a
-    JSON number, boolean, array or object.
-
     A backtick string is also kept as written: literal('\\n') and /\\d+/ in a
     parser's code arrive unchanged; only a backslash before a backtick is
     dropped. A quoted string reads \\n as a line break, as in JSON.
@@ -45,25 +36,15 @@ foam.CLASS({
   `,
 
   methods: [
-    function grammar(alt, anyChar, chars, eof, literal, notChars, optional, range, repeat, repeat0, seq, seq1, str, substring, sym, until) {
+    function grammar(alt, anyChar, chars, eof, literal, notChars, optional, range, repeat, repeat0, seq, seq1, str, substring, sym) {
       return {
-        START: seq1(0, repeat(alt(sym('call'), sym('invoke'), sym('wrapper'), sym('brokenAsk'), sym('line'))), eof()),
+        START: seq1(0, repeat(alt(sym('call'), sym('brokenAsk'), sym('line'))), eof()),
 
         call: seq(
           sym('hws'),
           optional(seq1(0, literal('ask', true), repeat(chars(' \t'), null, 1)), false),
           sym('id'), sym('hws'), '(', sym('ws'), optional(sym('value')), sym('ws'), ')', optional(';'),
           sym('lineEnd')),
-
-        invoke: seq(
-          sym('hws'), '<invoke name="', sym('id'), '">', sym('ws'),
-          repeat(sym('parameter'), sym('ws')), sym('ws'), '</invoke>',
-          sym('lineEnd')),
-
-        parameter: seq('<parameter name="', sym('identifier'), '">', str(until('</parameter>'))),
-
-        // The tags around a tool call, and a closing tag the model doubled
-        wrapper: seq(sym('hws'), alt('<function_calls>', '</function_calls>', '</invoke>'), sym('lineEnd')),
 
         brokenAsk: seq1(0,
           substring(seq(sym('hws'), 'ask', repeat(chars(' \t'), null, 1), sym('id'), sym('hws'), '(', repeat(notChars('\n')))),
@@ -135,23 +116,6 @@ foam.CLASS({
     function callAction(a) {
       return this.command_(a[1], a[2], a[6] === null || a[6] === undefined ? {} : a[6]);
     },
-
-    function invokeAction(a) {
-      var params = {};
-      a[5].forEach(p => params[p[0]] = p[1]);
-      return this.command_(true, a[2], params);
-    },
-
-    function parameterAction(a) {
-      var value = a[3];
-      try {
-        var v = JSON.parse(value);
-        if ( v !== null && typeof v !== 'string' ) value = v;
-      } catch (e) {}
-      return [ a[1], value ];
-    },
-
-    function wrapperAction() { return null; },
 
     function brokenAskAction(source) {
       return { ask: true, source: source.trim(),

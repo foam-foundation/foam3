@@ -169,9 +169,8 @@ foam.CLASS({
       console.log('*** AGENT RESPONSE: ', content);
 
       // A command such as markdown(`...`) may continue over several lines
-      // until its brackets close, and a call in Claude's own tool-call format
-      // (<invoke name="...">) is read as ask (ReplyParser). Every other line
-      // is one command; code fences and comments are dropped.
+      // until its brackets close (ReplyParser). Every other line is one
+      // command; code fences and comments are dropped.
       var lines = [];
       ( this.ReplyParser.create().parseString(content) || [ { text: content } ] ).forEach(p => {
         if ( p.text === undefined ) lines.push(p.source);

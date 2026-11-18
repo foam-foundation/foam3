@@ -50,11 +50,6 @@ foam.CLASS({
       x.test(parts.length === 2 && parts[1].ask && parts[1].error && parts[1].source === 'ask doc.readLines({doc: "file", from: 1',
         'an ask whose call does not parse is an error, not text: ' + JSON.stringify(parts));
 
-      parts = parse('<function_calls>\n<invoke name="code.check">\n<parameter name="code">foam.CLASS({ name: "P" })</parameter>\n<parameter name="from">20</parameter>\n</invoke>\n</function_calls>');
-      x.test(parts.length === 1 && parts[0].ask && parts[0].command === 'code.check'
-        && parts[0].params.code === 'foam.CLASS({ name: "P" })' && parts[0].params.from === 20,
-        'Claude\'s tool-call format is read as ask, code as written, a number as a number: ' + JSON.stringify(parts));
-
       parts = parse('It\'s a fixed-width file.\nask doc.readLines({doc: "file"})');
       x.test(parts.length === 2 && parts[1].command === 'doc.readLines', 'an apostrophe in text does not swallow the lines after it');
 
@@ -82,7 +77,8 @@ foam.CLASS({
       }, agentX);
 
       var protocol = await runner.protocol();
-      x.test(protocol.indexOf('- demo.greet: Greet someone Params: {"type"') >= 0, 'each command is listed with its params');
+      x.test(protocol.indexOf('- demo.greet: Greet someone\n  Call: `ask demo.greet({name?: <string>})`.') >= 0,
+        'each command is listed as the call to write, not as a JSON Schema the model could read as a tool definition: ' + protocol);
       x.test(protocol.indexOf('- demo.save: Save the data No params. The user confirms before it runs.') >= 0, 'a confirm command says so');
       x.test(protocol.indexOf('other.drop') < 0, 'a command outside the agent\'s set is not listed');
 

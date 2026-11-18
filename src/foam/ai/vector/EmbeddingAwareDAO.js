@@ -84,7 +84,7 @@ foam.CLASS({
         int      k     = 0;
         for ( String[] chunks : p.chunks ) for ( String t : chunks ) texts[k++] = t;
         try {
-          embedded = ((EmbeddingService) x.get("embeddingService")).embedAll(x, texts);
+          embedded = indexer.embedAll(x, texts);
           p.calls++;
         } catch ( RuntimeException e ) {
           p.calls++;
@@ -290,8 +290,8 @@ foam.CLASS({
       },
       javaCode: `
         if ( ! getSwept_() ) {
-          setSwept_(true);
           sweep_(x);
+          setSwept_(true);
         }
         PropertyInfo status   = (PropertyInfo) getOf().getAxiomByName("embeddingStatus");
         DAO          store    = ((DAO) x.get("vectorStoreDAO")).inX(x);

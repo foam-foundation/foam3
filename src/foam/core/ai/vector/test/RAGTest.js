@@ -392,11 +392,9 @@ foam.CLASS({
         liveDAO.put(doc("Live B", "# Live B\\n\\nbeta live", true));
         // A and B: the call for both, then A alone, then B alone; two alone failing means the provider is down
         test(await(() -> slow.calls == liveCalls + 5), "A second failing record marks the provider down, got " + ( slow.calls - liveCalls ) + " calls");
-        Thread.sleep(300);
-        int downCalls = slow.calls;
+        test(await(() -> live.getDown_()), "The sync marks the provider down");
         liveDAO.put(doc("Live C", "# Live C\\n\\nalpha c live", true));
-        Thread.sleep(500);
-        test(slow.calls == downCalls, "Once the provider is down, saves start no sync until a sync gets through");
+        test(! live.getRequested_().get(), "Once the provider is down, saves start no sync until a sync gets through");
         slow.fail = false;
         live.sync(lx);
         test(status(liveDAO, "Live A") == EmbeddingStatus.EMBEDDED && status(liveDAO, "Live B") == EmbeddingStatus.EMBEDDED && status(liveDAO, "Live C") == EmbeddingStatus.EMBEDDED,

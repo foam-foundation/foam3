@@ -25,7 +25,8 @@ foam.CLASS({
   `,
 
   requires: [
-    { path: 'foam.ai.vector.ClientMarkdownChunkerService', flags: ['js'] }
+    { path: 'foam.ai.vector.ClientMarkdownChunkerService', flags: ['js'] },
+    { path: 'foam.ai.vector.VectorEmbedding', flags: ['js'] }
   ],
 
   javaImports: [
@@ -59,20 +60,7 @@ foam.CLASS({
         if ( same ) return false;
 
         // embedded before the old chunks go: a failed call keeps the record searchable
-        var embedded = chunks.length ? await x.embeddingService.embedAll(x, chunks) : [];
-        for ( var j = 0 ; j < embedded.length ; j++ ) {
-          var chunk = embedded[j];
-          chunk.id       = daoKey + ':' + sourceId + ':' + j;
-          chunk.daoKey   = daoKey;
-          chunk.sourceId = sourceId;
-          await store.put(chunk);
-        }
-        // a shorter text leaves chunks past the new count, e.g. noteDAO:42:2 once it has 2
-        for ( var k = embedded.length ; ; k++ ) {
-          var extra = await store.find(daoKey + ':' + sourceId + ':' + k);
-          if ( ! extra ) break;
-          await store.remove(extra);
-        }
+        await this.replace(x, daoKey, sourceId, chunks.length ? await this.embedAll(x, chunks) : []);
         return true;
       },
       javaCode: `
@@ -83,7 +71,7 @@ foam.CLASS({
         if ( isIndexed(store, daoKey, sourceId, chunks, embedder.getModel()) ) return false;
 
         // embedded before the old chunks go: a failed call (gateway down) keeps the record searchable
-        replace(x, daoKey, sourceId, chunks.length == 0 ? new VectorEmbedding[0] : embedder.embedAll(x, chunks));
+        replace(x, daoKey, sourceId, chunks.length == 0 ? new VectorEmbedding[0] : embedAll(x, chunks));
         return true;
       `
     },
@@ -93,23 +81,57 @@ foam.CLASS({
         order, e.g. "noteDAO:42:0" for the first. An empty embedded removes them all. The new
         chunks are written over the old ones before any extra is removed, so a search made
         meanwhile never finds the record with no chunks.`,
+      async: true,
       args: 'Context x, String daoKey, String sourceId, foam.ai.vector.VectorEmbedding[] embedded',
-      flags: ['java'],
+      code: async function(x, daoKey, sourceId, embedded) {
+        var store = x.vectorStoreDAO;
+        var ids   = [];
+        for ( var i = 0 ; i < embedded.length ; i++ ) {
+          var e = embedded[i];
+          e.id       = daoKey + ':' + sourceId + ':' + i;
+          e.daoKey   = daoKey;
+          e.sourceId = sourceId;
+          ids.push(e.id);
+          await store.put(e);
+        }
+        // a shorter text leaves chunks past the new count, e.g. noteDAO:42:2 once it has 2
+        var E = this.VectorEmbedding;
+        await store.where(this.AND(this.EQ(E.DAO_KEY, daoKey), this.EQ(E.SOURCE_ID, sourceId), this.NOT(this.IN(E.ID, ids)))).removeAll();
+      },
       javaCode: `
-        DAO store = ((DAO) x.get("vectorStoreDAO")).inX(x);
+        DAO      store = ((DAO) x.get("vectorStoreDAO")).inX(x);
+        String[] ids   = new String[embedded.length];
         for ( int i = 0 ; i < embedded.length ; i++ ) {
           VectorEmbedding e = embedded[i];
-          e.setId(daoKey + ":" + sourceId + ":" + i);
+          ids[i] = daoKey + ":" + sourceId + ":" + i;
+          e.setId(ids[i]);
           e.setDaoKey(daoKey);
           e.setSourceId(sourceId);
           store.put(e);
         }
         // a shorter text leaves chunks past the new count, e.g. noteDAO:42:2 once it has 2
-        for ( int i = embedded.length ; ; i++ ) {
-          VectorEmbedding extra = (VectorEmbedding) store.find(daoKey + ":" + sourceId + ":" + i);
-          if ( extra == null ) break;
-          store.remove(extra);
-        }
+        store.where(MLang.AND(
+          MLang.EQ(VectorEmbedding.DAO_KEY, daoKey),
+          MLang.EQ(VectorEmbedding.SOURCE_ID, sourceId),
+          MLang.NOT(MLang.IN(VectorEmbedding.ID, ids)))).removeAll();
+      `
+    },
+    {
+      name: 'embedAll',
+      documentation: `The vectors of texts, one per text, in order. A provider that answers with
+        another count fails the call, as a refused one does, so no record loses a chunk.`,
+      type: 'foam.ai.vector.VectorEmbedding[]',
+      async: true,
+      args: 'Context x, String[] texts',
+      code: async function(x, texts) {
+        var embedded = await x.embeddingService.embedAll(x, texts);
+        if ( embedded.length != texts.length ) throw new Error('Asked for ' + texts.length + ' vectors, got ' + embedded.length);
+        return embedded;
+      },
+      javaCode: `
+        VectorEmbedding[] embedded = ((EmbeddingService) x.get("embeddingService")).embedAll(x, texts);
+        if ( embedded.length != texts.length ) throw new RuntimeException("Asked for " + texts.length + " vectors, got " + embedded.length);
+        return embedded;
       `
     },
     {

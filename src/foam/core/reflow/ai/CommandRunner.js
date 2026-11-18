@@ -69,8 +69,19 @@ foam.CLASS({
 
   methods: [
     async function protocol() {
+      // Asked to test a long draft, the model often wrote it as a tool call (<invoke name=...>)
+      // that runs nothing. Saying it has no tools, and that the ask line is how a tool is called
+      // here, with a multi-line example, took that from 6 in 30 replies to 0 in 40.
       var commands = await this.commands_;
       return '## How you reply\n\n'
+        + 'You cannot make tool calls. This conversation has no tools, and tool calls are not allowed: '
+        + 'an <invoke> or <function_calls> block runs nothing. You run commands only by writing lines, as described here.\n\n'
+        + 'Here a tool call is a line in your reply. When you want to call a tool, write `ask <command>({...})` on its own line: '
+        + 'that line is the tool call, and it is the only shape that runs. The arguments are the same JSON object you would send '
+        + 'to a tool, with the keys from the command\'s Call line. A long string, such as code, goes inside backticks as written '
+        + 'and may span lines:\n\n'
+        + 'ask <command>({code: `foam.CLASS({\n  name: \'Example\'\n})`})\n\n'
+        + 'Its result comes back in the next message as agent({"asked": ..., "response": ...}).\n\n'
         + 'You have no tools. To run a command, write it in your reply on a line of its own. '
         + 'Never write a tool call such as <invoke>, <function_calls> or <parameter> tags, or a JSON call: '
         + 'they run nothing.\n\n'
@@ -87,7 +98,9 @@ foam.CLASS({
         + 'The commands:\n'
         + commands.map(c => '- ' + c.id + ': ' + ( c.description || '' )
           + ( c.inputSchema ? '\n  ' + this.callLine_(c) : ' No params.' )
-          + ( c.confirm ? ' The user confirms before it runs.' : '' )).join('\n');
+          + ( c.confirm ? ' The user confirms before it runs.' : '' )).join('\n')
+        + '\n\nWhen you run a command, you may say a brief sentence first. '
+        + 'Do not include internal or system XML tags in your response.';
     },
 
     function callLine_(c) {

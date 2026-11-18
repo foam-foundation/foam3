@@ -81,6 +81,8 @@ foam.CLASS({
         'each command is listed as the call to write, not as a JSON Schema the model could read as a tool definition: ' + protocol);
       x.test(protocol.indexOf('- demo.save: Save the data No params. The user confirms before it runs.') >= 0, 'a confirm command says so');
       x.test(protocol.indexOf('other.drop') < 0, 'a command outside the agent\'s set is not listed');
+      x.test(protocol.indexOf('You cannot make tool calls.') >= 0 && protocol.indexOf('that line is the tool call') >= 0,
+        'the model is told it has no tools and that the ask line is how a tool is called here');
 
       var turn = await runner.runReply('Greeting first.\nask demo.greet({name: "Ada"})\ndemo.silent()');
       x.test(turn.results === 'agent(' + JSON.stringify({ asked: 'ask demo.greet({"name":"Ada"})', response: 'Hello, Ada' }) + ')',

@@ -356,7 +356,6 @@ view: function(_, X) {
 | Return elements from dynamic() | Build via side effects, early return OK |
 | Manual setAttribute in render() | `attribute: 'BOTH'` with `domName` |
 | Recreating reactive views | Cache element + `moveTo()` |
-| `removeAllChildren()` then rebuilding when a state changes | Render from the state: `show(slot)`, `enableClass(cls, slot)` or `add(this.dynamic(...))` (3.3). To swap content, keep both parts and show one; every state change then updates the view with no code to remember |
 | Full rerender on array change | Track by `$UID`, surgical add/remove |
 | Manual `.sub()` for property changes | `on: ['this.propertyChange.prop']` on listener |
 | `FObjectArrayView` for arrays | `TitledArrayView` with `valueView` + `propertyWhitelist` |
@@ -376,6 +375,14 @@ view: function(_, X) {
 | `callIf(this.reactiveProp, ...)` for something that changes after render | `enableClass(cls, slot)` / `show(slot)` / `add(slot.map(...))` — `callIf` runs once (3.31) |
 | `cssTokens:` color entry without `class: 'foam.u2.ColorToken'` | Declare the class — a bare `CSSToken` has an empty `variantKey`, so a theme's dark override never matches (3.31) |
 | `MyView.create({ someCssToken: ... })` to retune a color per instance | `cssTokens` are class constants; per-instance control is a property + `enableClass` (3.31) |
+
+## Usually Better (prefer, not a ban)
+
+These work, but the right-hand form is usually simpler. Use the left-hand one when it is the only option.
+
+| Works | Usually Better |
+|-------|----------------|
+| `removeAllChildren()` then rebuilding when a state changes | Render from the state: `show(slot)`, `enableClass(cls, slot)` or `add(this.dynamic(...))` (3.3). To swap content, keep both parts and show one; every state change then updates the view with no code to remember. Clearing a slot another view owns and recreates, like the Console's `titlePrefix`, still needs `removeAllChildren()` (foam-design-patterns `references/reflow.md`) |
 
 ---
 

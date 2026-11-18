@@ -56,6 +56,8 @@ stateDiagram-v2
 
 ## 4. Components
 
+Where an app can extend, one row per layer, from a saved record (1) to an answer (9):
+
 ![Where an app can extend: one row per layer](images/embeddings-extension-points.png)
 
 | Component | Role | File |

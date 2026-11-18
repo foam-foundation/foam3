@@ -82,6 +82,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.approvalRequestDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"service.approvalRequestClassificationDAO"})
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"menu.read.set-password"})
+p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"basicUser",targetId:"lifecyclestate.read.active"})
 
 // foam
 p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"foam",targetId:"group.read.foam"})

@@ -39,6 +39,17 @@ foam.CLASS({
       }
       return props;
     }
+
+    // A list property's value in the <flow> tag, e.g. [{"userId":42,"accessLevel":"2"}].
+    // The build reads it with JSON.parse (tools/JournalMaker.js), which refuses the
+    // formatter's default unquoted keys, [{userId:42,...}], and stops the build.
+    public static String listTagValue(foam.lang.X x, foam.lang.PropertyInfo p, foam.lang.FObject[] list) {
+      foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter(x);
+      formatter.setQuoteKeys(true);
+      formatter.setOutputDefaultClassNames(false);
+      formatter.output(list, list[0].getClassInfo(), p);
+      return formatter.builder().toString();
+    }
   `,
 
   constants: [
@@ -162,11 +173,8 @@ foam.CLASS({
               foam.lang.FObject[] list = (foam.lang.FObject[]) p.get(newFlow);
               if ( list == null || list.length == 0 ) continue;
 
-              foam.lib.formatter.JSONFObjectFormatter formatter = new foam.lib.formatter.JSONFObjectFormatter(x);
-              formatter.setOutputDefaultClassNames(false);
-              formatter.output(list, list[0].getClassInfo(), p);
               flowTagBuilder.append(' ').append(p.getName()).append("='")
-                .append(escapeListAttr(formatter.builder().toString())).append("'");
+                .append(escapeListAttr(listTagValue(x, p, list))).append("'");
             }
 
             // Forcibly childLock flows that save to .md files

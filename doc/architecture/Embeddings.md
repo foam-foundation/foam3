@@ -56,8 +56,6 @@ stateDiagram-v2
 
 ## 4. Components
 
-Yellow is where an app changes the behaviour; gray is fixed.
-
 ![Where an app can extend: one row per layer](images/embeddings-extension-points.png)
 
 | Component | Role | File |

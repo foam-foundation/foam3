@@ -7,7 +7,7 @@
 foam.CLASS({
   package: 'foam.ai.llm',
   name: 'RAGSource',
-  documentation: 'A record an answer was built from: its DAO and its id, e.g. flowDAO and "Treasury Control Guide".',
+  documentation: 'A record an answer was built from: its DAO and its id, e.g. flowDAO and "Getting Started Guide".',
 
   properties: [
     { class: 'String', name: 'daoKey'   },

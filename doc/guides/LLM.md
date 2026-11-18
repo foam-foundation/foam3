@@ -4,7 +4,7 @@
 
 > **New to FOAM?** Start with the [FOAM Tutorial](../tutorials/foam-tutorial.md) or the [Introduction for Developers](Intro.md).  
 > **Builds on:** [FOAM models](../fbe/models.md) · [NanoServices](NanoServices.md) · [Credential Management](CredentialManagement.md)  
-> **Opens up:** [Vector Search](VectorSearch.md) · [Dataset Generation](DatasetGeneration.md)  
+> **Opens up:** [Vector Search](VectorSearch.md) · [Embeddings](Embeddings.md) · [Dataset Generation](DatasetGeneration.md)  
 > You can follow this guide without reading those first — if something in the Builds On list is unfamiliar, follow the link before continuing.
 
 The features that code enables are valuable assets. The code itself is a liability.
@@ -187,10 +187,29 @@ The interface is the only contract — the backend is a configuration choice, no
 
 | Provider | Where it runs | Notes |
 |---|---|---|
-| `foam.ai.llm.provider.TransformersLLMService` | Browser (WebAssembly) | Loads a text-generation pipeline via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required. Defaults to `Xenova/Qwen1.5-0.5B-Chat`. |
+| `foam.ai.llm.provider.TransformersLLMService` | Browser, in a Web Worker, on WebGPU or WebAssembly | Loads a text-generation pipeline via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required. Defaults to `onnx-community/Qwen3-0.6B-ONNX` (about 0.9 GB on a GPU), on Transformers.js 4.3.2. |
 | *(server-side providers)* | Java server | Implement `LLMService` to call OpenAI, Anthropic, Ollama, or any HTTP completion API |
 
 Swapping providers requires only a context configuration change — no changes to calling code.
+
+### Small models in the browser: what went wrong and what fixed it
+
+The RAG Chat demo first answered most questions wrong or after a minute. Each cause below was measured in Chrome on a Mac with WebGPU, over 132 knowledge flows cut into about 1,600 passages.
+
+| What went wrong | What it did | Fix | After |
+|---|---|---|---|
+| The embedder returned NaN vectors for large WebGPU batches: 1 of 43 passages of one long document at fp32, all 43 at 8-bit | A NaN breaks the cosine sort, so the same long documents came back for every question | `TransformersEmbeddingService` embeds 8 texts a call, runs a NaN text again on its own, and throws if it is still NaN | 0 NaN vectors; the Context flow is the first source for "What is a Context in FOAM?" |
+| The demo kept the conversation history | Every question sent all earlier questions and their passages again: 13 messages after 6 questions, 40 to 60 s per answer, topics mixed | Each question goes to the model alone, with its own passages | One message per question |
+| Too much context for a 0.5B model (Qwen2.5-0.5B) | Context question: right with 3 passages (9.3 s), wrong with 5 (19.3 s) and with 10 (21.5 s) | `onnx-community/Qwen3-0.6B-ONNX`, thinking off, 5 passages | Right with 5 passages, in 1 to 3.4 s |
+| 16-bit weights on this WebGPU | q4f16 rambled, fp16 repeated one phrase | 4-bit weights (q4) on a GPU, 8-bit (q8) without one | Correct answers |
+| Transformers.js 3.8.1 on WebGPU | The answer model's output turned to garbage after its first answer | Transformers.js 4.3.2 | Stable over repeated questions |
+
+Choices that were tried and dropped:
+- **3 or 10 passages.** 3 left a scheduling answer thin. 10 took 3.4 to 5.7 s and listed sources off the topic. 5 kept every test answer right.
+- **A bigger model.** Qwen2.5-1.5B (about 1.2 GB) failed to load in the browser (`Error: 3587054648`, most likely out of memory).
+- **Another embedder.** `snowflake-arctic-embed-xs`, the same size as `all-MiniLM-L6-v2`, found the right document in the top 3 for 21 of 22 questions against 19. It picked longer passages, though, so prompts were about 2.5 times longer, answers took about 3 times longer, and one went wrong. MiniLM stays the default. Another embedder needs no code change: set `model`, `pooling` and `queryPrefix` together.
+
+What a 0.6B model still cannot do: the first answer waits for the one-time download (0.6 to 0.9 GB), answers stay short, and how-to answers can be thin. A question the documents do not cover gets "I don't know." Qwen2.5 answered it from general knowledge instead, e.g. "Paris" for the capital of France.
 
 ### ConversationalLLMService
 
@@ -235,4 +254,6 @@ Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through 
 
 ## Try It Live
 
-Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the top matching chunks are retrieved and packed into the system context, and the local LLM generates a grounded answer — all in the browser, no server or API key required.
+Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the 5 closest chunks are retrieved and placed before the question, and the local LLM generates a grounded answer — all in the browser, no server or API key required.
+
+That demo runs everything in the browser. On a server, `ragService` builds the prompt, searches only the records the asking user can read, and calls `llmService`; see [Embeddings](Embeddings.md).

@@ -237,6 +237,20 @@ foam.CLASS({
       documentation: `Shown while an answer is on its way, in place of THINKING: a host whose
         model runs in the browser binds its download progress here.`
     },
+    {
+      class: 'String',
+      name: 'partial',
+      documentation: `The answer so far, from a host whose model streams it, e.g. "The Getting
+        Started" after three words. While it is set, it shows in a reply bubble that grows as
+        the model writes, in place of the waiting bubble. A host that leaves it empty gets the
+        waiting bubble until the whole answer arrives.`,
+      postSet: function() {
+        // The list follows the reply as it grows, unless the user has scrolled up to read:
+        // checked here, before the new text is drawn, then scrolled once it is.
+        var c = this.messagesContainer_?.el_?.();
+        if ( this.partial && c && c.scrollHeight - c.scrollTop - c.clientHeight < 40 ) setTimeout(() => { c.scrollTop = c.scrollHeight; }, 100);
+      }
+    },
     { name: 'messagesContainer_' }
   ],
 
@@ -286,7 +300,14 @@ foam.CLASS({
               .end();
             }
             if ( isLoading ) {
+              this.start('div').addClass(self.myClass('message-row')).addClass(self.myClass('message-row-assistant'))
+                .show(self.partial$.map(p => !! p))
+                .start('div').addClass(self.myClass('message-content')).addClass(self.myClass('message-content-assistant'))
+                  .add(self.partial$)
+                .end()
+              .end();
               this.start('div').addClass(self.myClass('loading-row'))
+                .show(self.partial$.map(p => ! p))
                 .start('div').addClass(self.myClass('loading-content'))
                   .start('div').addClass(self.myClass('loading-dots'))
                     .start('span').end()

@@ -38,14 +38,6 @@ foam.CLASS({
       name: 'embeddingModel'  // e.g. 'nomic-embed-text'
     },
     {
-      class: 'String',
-      name: 'sourceHash',
-      documentation: `SHA-256 of the source record's chunks when they were embedded, the
-        same on every chunk of the record. RAGIndexer re-embeds a record only when its
-        chunks hash differently (its text changed, or the way it is cut), so a save that
-        leaves the text alone, or a re-export of unchanged docs, costs no embedding call.`
-    },
-    {
       class: 'foam.lang.FloatArray',
       name: 'vector'
     },

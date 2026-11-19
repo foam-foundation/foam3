@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator ragService minScore daoKeys -->
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator ragService minScore daoKeys openIndexed createMenu -->
 <flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
@@ -162,3 +162,24 @@ The question is embedded, the nearest chunks are read, and `llmService` writes t
 **Nothing close enough.** A chunk scoring under `minScore` (default 0.25 cosine) counts as not close. When none reaches it, `ask` makes no model call and returns `answered: false` with no sources. When the model replies that the records hold no answer, `ask` returns `answered: false` with up to 3 of the closest readable records. Change the prompt or `minScore` by setting a `ServerRAGService` subclass as the `ragService` CSpec.
 
 **The Knowledge Base.** The SimilaritySearch flow's **Index Knowledge Flows** writes each chunk with `daoKey` `flowDAO` and the flow's name as `sourceId`, so `ask(x, question, ['flowDAO'], locale)` searches the Knowledge Base. Pick the `embeddingService` provider before indexing: `ask` reads only the chunks of the model that embeds the question, so chunks made by a browser model are not read on the server. Export `vectorStoreDAO` to ship them with a deployment.
+
+## Adding the Ask AI Chat
+
+`RAGChatPanel` is a chat that calls `ragService` and links the records each answer used. A menu opens it in the app's Dock, so it stays beside the page the user walks to:
+
+```json
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"noteAsk",
+  "label":"Ask AI",
+  "handler":{
+    "class":"foam.u2.dock.DockMenu",
+    "view":{ "class":"foam.ai.llm.RAGChatPanel", "daoKeys":["noteDAO"] }
+  },
+  "parent":"internal"
+})
+```
+
+Give the model an `openIndexed(x)` method so a source link opens the record, e.g. by pushing its detail view. Without it, the link does nothing. `Flow` has one, so a link opens the document as the Knowledge Base does.
+
+The `knowledgeBaseAsk` menu in `src/foam/core/reflow/menus.jrl` is a working example: the Knowledge Base page points its create button at it with `createMenu`. The user needs both the menu's read permission (`menu.read.noteAsk`) and `service.ragService`. With the menu alone, the chat answers "Ask AI is not available right now. Try again later."

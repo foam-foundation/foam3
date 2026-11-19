@@ -147,7 +147,7 @@ All three steps run entirely in the browser — no API key, no server round-trip
 
 ### Try it
 
-Index the flows above first (the vector store is shared), then ask questions below.
+Click **Index Knowledge Flows**: the page chunks each knowledge flow and embeds it, with no server-side index. The chunks are kept in this page only, so they are embedded again on each visit. Then ask questions below.
 
 <foam class="foam.ai.demos.RAGChatPage"></foam>"""
       },

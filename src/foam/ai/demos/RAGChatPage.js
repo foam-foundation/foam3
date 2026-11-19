@@ -9,26 +9,52 @@ foam.CLASS({
   name: 'RAGChatPage',
   extends: 'foam.u2.Controller',
 
-  documentation: 'Demo: index knowledge flows then chat with a local LLM using RAG.',
+  implements: [ 'foam.ai.llm.RAGService' ],
+
+  documentation: `Demo: chat with a local LLM over the knowledge flows, with no server-side index.
+    Index Knowledge Flows chunks the knowledge flows and embeds them, with the provider picked
+    here, into a store in this page. The page answers the chat itself (it is the chat's
+    ragService), so that provider also embeds the question.`,
 
   requires: [
-    'foam.ai.vector.ClientMarkdownChunkerService',
-    'foam.ai.vector.provider.TransformersEmbeddingService',
+    'foam.ai.llm.ChatMessage',
+    'foam.ai.llm.ChatRequest',
+    'foam.ai.llm.RAGAnswer',
+    'foam.ai.llm.RAGChat',
+    'foam.ai.llm.RAGSource',
     'foam.ai.llm.provider.TransformersLLMService',
-    'foam.ai.llm.RAGChat'
+    'foam.ai.vector.CosineComparator',
+    'foam.ai.vector.VectorEmbedding',
+    'foam.ai.vector.provider.TransformersEmbeddingService',
+    'foam.ai.vector.ClientMarkdownChunkerService',
+    'foam.core.reflow.Flow',
+    'foam.dao.MDAO'
   ],
 
   imports: [
     'embeddingService',
     'flowDAO',
     'llmService as serverLLMService',
-    'openAIEmbeddingService',
-    'vectorStoreDAO'
+    'openAIEmbeddingService'
   ],
 
   exports: [
-    'embedder',
-    'llmService'
+    'as ragService',
+    'embedder as embeddingService',
+    'store as vectorStoreDAO'
+  ],
+
+  messages: [
+    { name: 'LOADING',     message: 'Loading…' },
+    { name: 'EMBEDDED',    message: 'flows embedded' },
+    { name: 'NO_FLOWS',    message: 'There are no knowledge flows to index.' },
+    { name: 'STOPPED',     message: 'Embedding stopped before every flow was embedded. See the browser console, then try again.' },
+    { name: 'FAILED',      message: 'The documents could not be loaded. Try again.' },
+    { name: 'NOT_INDEXED', message: 'Nothing is indexed for this provider yet. Click **Index Knowledge Flows**, then ask again once the flows are embedded.' }
+  ],
+
+  constants: [
+    { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 }
   ],
 
   css: `
@@ -60,10 +86,14 @@ foam.CLASS({
 
   properties: [
     {
+      name: 'store',
+      documentation: `The chunks, in this page only. A plain MDAO: VectorStoreDAO's index runs only
+        on a server, and a few hundred chunks sort by CosineComparator fast enough here.`,
+      factory: function() { return this.MDAO.create({ of: this.VectorEmbedding }); }
+    },
+    {
       name: 'chunker',
-      factory: function() {
-        return this.ClientMarkdownChunkerService.create();
-      }
+      factory: function() { return this.ClientMarkdownChunkerService.create(); }
     },
     {
       class: 'String',
@@ -91,19 +121,51 @@ foam.CLASS({
       name: 'llmService',
       expression: function(provider) {
         if ( provider === 'openai' || provider === 'embeddingService' ) return this.serverLLMService;
-        // no conversation history: each question carries its own passages, so earlier turns
-        // only make the small model's prompt longer
+        // no conversation history: each question carries its own passages, so the small model
+        // gets a short prompt
         return this.browserLLM_;
+      }
+    },
+    {
+      class: 'Int',
+      name: 'retrievalLimit',
+      documentation: `How many passages go with each question. The small browser model answers
+        better from 5; a server model takes more.`,
+      expression: function(provider) { return provider === 'transformers' ? 5 : 10; }
+    },
+    {
+      class: 'FObjectProperty',
+      of: 'foam.ai.llm.LLMOptions',
+      name: 'options',
+      expression: function(provider) {
+        if ( provider === 'transformers' ) {
+          return foam.ai.llm.LLMOptions.create({
+            maxTokens:    256,
+            systemPrompt: 'Answer the question using only the numbered context passages. Answer in two to four plain sentences, with no headings, lists or conclusion. Use the names exactly as the context spells them. If the context does not hold the answer, reply only: I don\'t know.'
+          });
+        }
+        // A server model has no ServerRAGService here to hold the grounding prompt: the page
+        // builds the prompt itself, so it states the rules the service would.
+        return foam.ai.llm.LLMOptions.create({
+          maxTokens:    512,
+          temperature:  0.2,
+          systemPrompt: 'Answer using only the provided context. If the answer is not in the context, say "I don\'t know." Be brief and direct.'
+        });
       }
     },
     {
       name: 'browserEmbedder_',
       factory: function() { return this.TransformersEmbeddingService.create(); }
     },
-    { name: 'chat_', hidden: true, transient: true },
     {
       name: 'browserLLM_',
       factory: function() { return this.TransformersLLMService.create(); }
+    },
+    {
+      class: 'Boolean',
+      name: 'detached_',
+      hidden: true,
+      transient: true
     },
     {
       class: 'String',
@@ -127,94 +189,94 @@ foam.CLASS({
       label: 'Index Knowledge Flows',
       isEnabled: function(indexing) { return ! indexing; },
       code: async function(x) {
-        var self = this;
-        self.indexing  = true;
-        self.statusMsg = 'Loading flows…';
-
+        this.indexing  = true;
+        this.statusMsg = this.LOADING;
+        var flows;
         try {
-          var sink  = await self.flowDAO.where(self.IN(self.flowDAO.of.KEYWORDS, 'knowledge')).select();
-          var flows = sink.array;
-          var count = 0;
-
-          for ( var fi = 0; fi < flows.length; fi++ ) {
-            var flow = flows[fi];
-            var text = self.extractText_(flow);
-            if ( ! text ) continue;
-
-            self.statusMsg = 'Indexing ' + (fi + 1) + ' / ' + flows.length + ': ' + flow.name;
-            var chunks = await self.chunker.chunk(x, text);
-
-            // the chunks are documents: embedAll, since embed is for a search question
-            var embeddings = await self.embedder.embedAll(x, chunks);
-            for ( var ci = 0; ci < embeddings.length; ci++ ) {
-              var embedding    = embeddings[ci];
-              embedding.id       = flow.name + ':' + ci;
-              embedding.sourceId = flow.name;
-              embedding.kind     = 'flow';
-              await self.vectorStoreDAO.put(embedding);
-              count++;
-            }
-          }
-
-          self.statusMsg = 'Ready — ' + count + ' chunks from ' + flows.length + ' flows';
-        } catch(err) {
+          // emptied first: a provider picked since the last click embeds every flow again
+          await this.store.removeAll();
+          flows = ( await this.flowDAO.where(this.IN(this.Flow.KEYWORDS, 'knowledge')).select() ).array;
+          if ( ! flows.length ) this.statusMsg = this.NO_FLOWS;
+        } catch ( err ) {
           console.error(err);
-          self.statusMsg = 'Error: ' + err.message;
+          this.statusMsg = this.FAILED;
+          flows = [];
         }
-
-        self.indexing = false;
-      }
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'tuneChat_',
-      documentation: `5 passages and a short answer keep the small browser model on the context.
-        Any other provider gets RAGChat's own defaults back.`,
-      code: function() {
-        var chat = this.chat_;
-        if ( ! chat ) return;
-        if ( this.provider === 'transformers' ) {
-          chat.retrievalLimit = 5;
-          chat.options = foam.ai.llm.LLMOptions.create({
-            maxTokens:    256,
-            systemPrompt: 'Answer the question using only the numbered context passages. Answer in two to four plain sentences, with no headings, lists or conclusion. Use the names exactly as the context spells them. If the context does not hold the answer, reply only: I don\'t know.'
-          });
-        } else {
-          chat.clearProperty('retrievalLimit');
-          chat.clearProperty('options');
+        try {
+          // counted as they are embedded, e.g. "40 of 132 flows embedded"
+          for ( var i = 0 ; i < flows.length && ! this.detached_ ; i++ ) {
+            await this.embedFlow_(x, flows[i]);
+            this.statusMsg = ( i + 1 ) + ' of ' + flows.length + ' ' + this.EMBEDDED;
+          }
+        } catch ( err ) {
+          console.error(err);
+          this.statusMsg = this.STOPPED;
         }
+        this.indexing = false;
       }
     }
   ],
 
   methods: [
-    function extractText_(flow) {
-      var parts = [];
-      if ( flow.name        ) parts.push('# ' + flow.name);
-      if ( flow.description ) parts.push(flow.description);
-      if ( flow.notes       ) parts.push(flow.notes);
-      if ( flow.keywords && flow.keywords.length ) {
-        parts.push('Keywords: ' + flow.keywords.join(', '));
-      }
+    // A flow's chunks carry daoKey flowDAO and its name as sourceId, so a source link
+    // opens the flow from the app's own flowDAO
+    async function embedFlow_(x, flow) {
+      var text = [ flow.name, flow.description ].filter(t => t);
       try {
-        var cmds = JSON.parse(flow.script || '[]');
-        for ( var cmd of cmds ) {
-          if ( cmd && cmd.value && cmd.value.markdown ) parts.push(cmd.value.markdown);
+        JSON.parse(flow.script || '[]').forEach(b => { if ( b && b.value && b.value.markdown ) text.push(b.value.markdown); });
+      } catch ( e ) {}
+      var chunks     = await this.chunker.chunk(x, text.join('\n\n'));
+      // the chunks are documents: embedAll, since embed is for a search question
+      var embeddings = await this.embedder.embedAll(x, chunks);
+      for ( var i = 0 ; i < embeddings.length ; i++ ) {
+        var e = embeddings[i];
+        e.id       = 'flowDAO:' + flow.name + ':' + i;
+        e.daoKey   = 'flowDAO';
+        e.sourceId = flow.name;
+        await this.store.put(e);
+      }
+    },
+
+    // RAGService, in the browser: it searches this page's own store, and its local model
+    // answers in English, so daoKeys and locale are not used
+    async function ask(x, question) {
+      var qv   = await this.embedder.embed(x, question);
+      var sink = await this.store
+        .where(this.EQ(this.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
+        .orderBy(this.CosineComparator.create({ queryVector: qv.vector }))
+        .limit(this.retrievalLimit).select();
+
+      var lines = [], sources = [], used = 0;
+      for ( var i = 0 ; i < sink.array.length ; i++ ) {
+        var c    = sink.array[i];
+        var t    = (c.text || '').trim();
+        var cost = Math.ceil(t.length / 4);
+        if ( ! t || used + cost > this.CONTEXT_TOKEN_BUDGET ) break;
+        lines.push('[' + (i + 1) + '] ' + t);
+        used += cost;
+        if ( ! sources.some(s => s.sourceId === c.sourceId) ) {
+          sources.push(this.RAGSource.create({ daoKey: c.daoKey, sourceId: c.sourceId }));
         }
-      } catch(e) {}
-      return parts.join('\n\n');
+      }
+      // no row of this model at all: the flows were not indexed with the picked provider yet
+      if ( ! sink.array.length ) return this.RAGAnswer.create({ answered: true, answer: this.NOT_INDEXED });
+      if ( ! lines.length ) return this.RAGAnswer.create();
+
+      var response = await this.llmService.chat(x, this.ChatRequest.create({
+        messages: [ this.ChatMessage.create({ role: 'USER', content: 'Context:\n' + lines.join('\n\n') + '\n\nQuestion: ' + question }) ],
+        options:  this.options
+      }));
+      return this.RAGAnswer.create({ answered: true, answer: response.content, sources: sources });
     },
 
     function render() {
       var self = this;
       self.SUPER();
-      self.onDetach(self.provider$.sub(self.tuneChat_));
-      // the workers hold the models in memory: end them with the page
+      // the workers hold the models in memory: end the ones this page started with it
       self.onDetach(() => {
-        self.browserEmbedder_.terminate();
-        self.browserLLM_.terminate();
+        self.detached_ = true;
+        if ( self.hasOwnProperty('browserEmbedder_') ) self.browserEmbedder_.terminate();
+        if ( self.hasOwnProperty('browserLLM_') ) self.browserLLM_.terminate();
       });
       self
         .addClass()
@@ -228,9 +290,8 @@ foam.CLASS({
 
         .start().addClass(self.myClass('chat'))
           // the browser model's answer shows word by word as it writes it
-          .tag(self.RAGChat, { thinkingMsg$: self.modelStatus$, partial$: self.browserLLM_.text$ }, self.chat_$)
+          .tag(self.RAGChat, { title: 'RAG Chat', thinkingMsg$: self.modelStatus$, partial$: self.browserLLM_.text$ })
         .end();
-      self.tuneChat_();
     }
   ]
 });

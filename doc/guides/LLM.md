@@ -248,3 +248,5 @@ Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through 
 ## Try It Live
 
 Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the 5 closest chunks are retrieved and placed before the question, and the local LLM generates a grounded answer — all in the browser, no server or API key required.
+
+That demo runs everything in the browser. On a server, `ragService` builds the prompt, searches only the records the asking user can read, and calls `llmService`; see [Vector Search](VectorSearch.md#answering-questions-on-the-server).

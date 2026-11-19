@@ -8,7 +8,6 @@ foam.POM({
   name: 'vector',
   files: [
     { name: 'MarkdownChunkerService',       flags: 'js|java' },
-    { name: 'FlowEmbeddingAwareRefinement', flags: 'js|java' },
     { name: 'RAGIndexer',                   flags: 'js|java' }
   ],
   javaFiles: [

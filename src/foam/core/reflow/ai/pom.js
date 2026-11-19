@@ -12,6 +12,9 @@ foam.POM({
     { name: 'AskCommand', flags: 'js|java' },
 
     // Block for proposing the execution of another command
-    { name: 'Propose', flags: 'js' }
+    { name: 'Propose', flags: 'js' },
+
+    // Flow as EmbeddingAware, so a Knowledge Base flow is embedded when it is saved
+    { name: 'FlowEmbeddingAwareRefinement', flags: 'js|java' }
   ]
 });

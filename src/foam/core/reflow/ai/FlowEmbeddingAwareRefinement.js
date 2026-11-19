@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai.vector',
+  package: 'foam.core.reflow.ai',
   name: 'FlowEmbeddingAwareRefinement',
   refines: 'foam.core.reflow.Flow',
   implements: [ 'foam.ai.vector.EmbeddingAware' ],

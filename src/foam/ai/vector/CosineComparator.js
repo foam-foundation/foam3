@@ -17,6 +17,15 @@ foam.CLASS({
     {
       class: 'foam.lang.FloatArray',
       name: 'queryVector'
+    },
+    {
+      class: 'Float',
+      name: 'minScore',
+      value: -1,
+      javaValue: '-1f',
+      documentation: `The lowest score a row needs to be returned. VectorStoreDAO leaves out
+        every row below it before ranking or reading any, so a search for 10 rows among a
+        million reads only the rows close to the query. The default, -1, keeps every row.`
     }
   ],
 

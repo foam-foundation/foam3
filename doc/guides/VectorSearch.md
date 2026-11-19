@@ -74,7 +74,7 @@ FOAM's vector search support is built around three layered abstractions: a data 
 
 | Property | Type | Purpose |
 |---|---|---|
-| `id` | String | Unique identifier (e.g. `"flowName:chunkIndex"`) |
+| `id` | String | Unique identifier (e.g. `"noteDAO:42:0"`, chunk 0 of record 42 of `noteDAO`) |
 | `text` | String | The original text that was embedded. Omit for DAO-record embeddings. |
 | `daoKey` | String | DAO key of the source record (e.g. `"alpacaSampleDAO"`). Empty for text-chunk embeddings. |
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
@@ -136,11 +136,24 @@ The `.where()` guard ensures query and stored vectors share the same model. `Vec
 
 Each returned `VectorEmbedding` is a clone with its `score` property set to the cosine similarity against the query vector. Because `score` is `storageTransient`, it is never written back to the journal — it exists only in memory for the duration of the result.
 
-A minimum-score threshold is easy to apply after the fact:
+A minimum-score threshold can be applied after the fact:
 
 ```javascript
 var results = sink.array.filter(e => e.score >= 0.75);
 ```
+
+On the server, set `minScore` on the comparator instead: `VectorStoreDAO` drops every row below it before sorting, and before the `where()` predicate sees any row, so a question close to nothing makes no predicate call at all, however large the store. The default, -1, keeps every row.
+
+```java
+dao.where(predicate)
+  .orderBy(new CosineComparator.Builder(x).setQueryVector(q).setMinScore(0.25f).build())
+  .limit(10)
+  .select(new ArraySink());
+```
+
+The predicate runs on the remaining rows from nearest to farthest, and `limit` counts only the rows it keeps: with `limit(1)`, a nearest row the predicate rejects does not use the limit up, and the search returns the nearest row it accepts.
+
+The index holds the rows of one vector length, the length of the last query, because a cosine score needs two vectors of the same length. A store can hold rows from two models (384 numbers and 1536 numbers), and each query reads only the rows of its own length. Queries that alternate between two lengths rebuild the index each time, so a store meant for one model should hold that model's rows only. `removeAll` marks the index for a rebuild, so removed rows do not come back.
 
 ## Try It Live
 

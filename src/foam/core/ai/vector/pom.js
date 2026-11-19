@@ -14,6 +14,7 @@ foam.POM({
     { name: 'MarkdownChunkerServiceImpl' }
   ],
   projects: [
-    { name: 'provider/pom' }
+    { name: 'provider/pom' },
+    { name: 'test/pom', flags: 'test' }
   ]
 });

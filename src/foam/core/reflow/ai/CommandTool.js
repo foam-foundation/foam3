@@ -52,7 +52,7 @@ foam.CLASS({
       name: 'predicate',
       documentation: `Which commands the model may call. Empty, any script runs, as at the
         prompt. Set, a script must be one call of a matching command with JSON data as its
-        argument, such as doc.readLines({"from": 1}), and anything else is refused.`
+        argument, such as name({"key": "value"}), and anything else is refused.`
     },
     {
       name: 'commandX',
@@ -113,7 +113,7 @@ foam.CLASS({
       var call = script.trim();
       if ( call.endsWith(';') ) call = call.substring(0, call.length - 1).trim();
       var open = call.indexOf('(');
-      if ( open < 0 || ! call.endsWith(')') ) return 'Send one command call, such as doc.readLines({"from": 1}).';
+      if ( open < 0 || ! call.endsWith(')') ) return 'Send one command call, such as name({"key": "value"}).';
       var id  = call.substring(0, open).trim();
       var arg = call.substring(open + 1, call.length - 1).trim();
       if ( arg ) {

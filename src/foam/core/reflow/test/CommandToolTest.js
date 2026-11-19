@@ -80,19 +80,19 @@ foam.CLASS({
         // A block under a childTransient parent is never drawn: its value is the answer.
         var hidden = { childTransient: true };
         var hiddenX = x.createSubContext({ eval_: async function() { return { flowName: 'a', flowParent: hidden, value: foam.lang.StringHolder.create({ value: 'Started.' }), answer: () => { throw 'not drawn'; } }; } });
-        x.test(await call(this.CommandTool.create({ flowParent: hidden }, hiddenX), 'report.load()') === reply('a', 'Started.'), 'a hidden block answers with what its script returned');
+        x.test(await call(this.CommandTool.create({ flowParent: hidden }, hiddenX), 'report_load()') === reply('a', 'Started.'), 'a hidden block answers with what its script returned');
 
         // A predicate lets through only one call of a matching command with JSON data,
         // so text the model read in a file cannot make it run anything else.
         var cmdX = evalX.createSubContext({ commandDAO: this.ArrayDAO.create({ of: this.Command, array: [
-          this.Command.create({ id: 'doc.readLines' }), this.Command.create({ id: 'report.load' }) ] }) });
-        var limited = this.CommandTool.create({ predicate: this.STARTS_WITH(this.Command.ID, 'doc.') }, cmdX);
-        blocks['doc.readLines({"from": 1})'] = block('a', 'line 1');
-        x.test(await call(limited, 'doc.readLines({"from": 1})') === reply('a', 'line 1'), 'a matching command with JSON data runs');
+          this.Command.create({ id: 'doc_readLines' }), this.Command.create({ id: 'report_load' }) ] }) });
+        var limited = this.CommandTool.create({ predicate: this.STARTS_WITH(this.Command.ID, 'doc_') }, cmdX);
+        blocks['doc_readLines({"from": 1})'] = block('a', 'line 1');
+        x.test(await call(limited, 'doc_readLines({"from": 1})') === reply('a', 'line 1'), 'a matching command with JSON data runs');
         var ran = typed.length;
-        x.test(( await call(limited, 'doc.readLines({ from: 1 })') ).startsWith('The argument of doc.readLines must be JSON'), 'an argument that is not JSON data is refused');
-        x.test(( await call(limited, 'doc.readLines({"from": 1}); fetch("x")') ).startsWith('The argument of'), 'a second statement after the call is refused');
-        x.test(await call(limited, 'report.load()') === 'There is no command named report.load here.', 'a command outside the predicate is refused');
+        x.test(( await call(limited, 'doc_readLines({ from: 1 })') ).startsWith('The argument of doc_readLines must be JSON'), 'an argument that is not JSON data is refused');
+        x.test(( await call(limited, 'doc_readLines({"from": 1}); fetch("x")') ).startsWith('The argument of'), 'a second statement after the call is refused');
+        x.test(await call(limited, 'report_load()') === 'There is no command named report_load here.', 'a command outside the predicate is refused');
         x.test(( await call(limited, 'h1("x")') ) === 'There is no command named h1 here.', 'a script that is not a listed command is refused');
         x.test(typed.length === ran, 'nothing refused reaches eval_');
 

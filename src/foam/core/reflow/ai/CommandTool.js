@@ -13,7 +13,7 @@ foam.CLASS({
     script and run() evaluates it with the Console's eval_, exactly as if the user had
     typed it at the prompt: a command such as daos, or JavaScript that builds on the
     flow, such as h1(title1.title + " Part 2"); block.shown = false. The result sent back
-    to the model is the value of the block the script made, or its error.
+    is what the ask command returns: the block's name and its answer, or its error.
 
       var tool = CommandTool.create(null, x);   // x is a Console's context, holding eval_
       request.tools = [ tool.tool() ];
@@ -51,11 +51,13 @@ foam.CLASS({
     function tool() {
       return this.LLMTool.create({
         name: this.TOOL_NAME,
-        description: 'Run a script at the Reflow prompt, as the user would type it: a command, or JavaScript that reads and changes the flow\'s blocks by name. Returns the value of the block it made, or its error.',
+        description: 'Run a script at the Reflow prompt, as the user would type it: a command, or JavaScript that reads and changes the flow\'s blocks by name. Returns {blockName, response}: the name of the block it made and what that block shows, or its error.',
         inputSchema: JSON.stringify({
           type: 'object',
           properties: {
-            script: { type: 'string', description: 'What to type at the prompt, e.g. h1(title1.title + " Part 2")' }
+            // No double quotes here: the schema reaches the server as a JSON string
+            // inside JSON, and an escaped quote in it fails org.json there.
+            script: { type: 'string', description: "What to type at the prompt, e.g. h1(title1.title + ' Part 2')" }
           },
           required: [ 'script' ]
         })
@@ -74,27 +76,19 @@ foam.CLASS({
 
       var block = await this.eval_(this.prefix + input.script, true, true, this.flowParent || undefined);
       if ( ! block ) return 'Done.';
-      if ( block.error ) return 'Error: ' + block.error;
-      // Wait as loading a saved flow does (Console.includeScript), so after
-      // input('Delete order 1234?', ['Yes', 'No']) the answer is in the result.
-      await block.value?.onLoad?.();
-      // A proposed script (prefix "propose ") runs only when the user accepts it.
-      if ( block.value?.decided ) {
-        block = await block.value.decided;
-        if ( ! block ) return 'The user rejected it, so it did not run.';
-        if ( block.error ) return 'Error: ' + block.error;
-      }
-      return this.resultText_(block);
+      var response = block.error ? 'Error: ' + block.error : await this.response_(block);
+      if ( typeof response === 'string' && response.length > this.MAX_RESULT ) response = response.substring(0, this.MAX_RESULT) + ' ... (cut)';
+      // The same reply the ask command gives, so the model can refer back to the block by name.
+      return JSON.stringify({ blockName: block.flowName, response: response });
     },
 
-    function resultText_(block) {
-      var v = block.value;
-      var text = v === undefined || v === null ? '' :
-        v.cls_ && v.cls_.getAxiomByName('value') ? String(v.value) :
-        foam.lang.FObject.isInstance(v) ? v.cls_.id :
-        foam.json.stringify(v);
-      text = block.flowName + ( text ? ': ' + text : '' );
-      return text.length > this.MAX_RESULT ? text.substring(0, this.MAX_RESULT) + ' ... (cut)' : text;
+    async function response_(block) {
+      // A block under a childTransient parent is never drawn, so it has no text
+      // to read; what its script returned is the answer.
+      if ( block.flowParent?.childTransient ) return block.value?.value === undefined ? '' : String(block.value.value);
+      // Block.answer waits on what the block waits on, such as the user's
+      // answer to input('Delete order 1234?', ...), else returns its text.
+      return block.answer();
     }
   ]
 });

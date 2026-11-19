@@ -77,17 +77,20 @@ foam.CLASS({
       name: 'command'
     },
     {
-      name: 'decided',
+      name: 'decided_',
       transient: true,
       hidden: true,
-      documentation: `Resolves when the user decides: with the block the accepted command
-        made, or null when they reject it. An agent's tool waits on it, so the model
-        sees what the command did before its next step.`,
       factory: function() { return foam.lang.Latch.create(); }
     }
   ],
 
   methods: [
+    function answer() {
+      // An agent that proposes a command waits here, so it sees what the command
+      // did, or that the user rejected it, before its next step.
+      return this.decided_;
+    },
+
     function render() {
       this.addClass().
         start('span').addClass(this.myClass('command')).add(this.COMMAND).end().
@@ -109,7 +112,7 @@ foam.CLASS({
       code: async function() {
         var made = await this.eval_(this.command);
         this.block.del();
-        this.decided.resolve(made);
+        this.decided_.resolve(made.error ? 'Error: ' + made.error : await made.answer());
       }
     },
     {
@@ -117,7 +120,7 @@ foam.CLASS({
       label: '✕',
       code: function() {
         this.block.del();
-        this.decided.resolve(null);
+        this.decided_.resolve('The user rejected it, so it did not run.');
       }
     }
   ]

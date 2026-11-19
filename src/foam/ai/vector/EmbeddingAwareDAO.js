@@ -52,6 +52,7 @@ foam.CLASS({
     'foam.lang.PropertyInfo',
     'foam.lang.X',
     'foam.mlang.MLang',
+    'foam.mlang.sink.Count',
     'foam.util.SafetyUtil',
     'java.util.ArrayList',
     'java.util.Arrays',
@@ -59,71 +60,114 @@ foam.CLASS({
   ],
 
   javaCode: `
+    /** The provider is down, e.g. none is configured: two embedding calls failed in a row, so every other record would fail the same way. */
+    public static class ProviderDownException extends RuntimeException {
+      public ProviderDownException(Throwable cause) { super(cause); }
+    }
+
     /**
-     * The records of one sync waiting for one embedAll call, the chunks of each, and how
-     * the sync went: the AI calls made, and a record whose own call failed until a later
-     * call shows whether only that record was refused or the provider is down.
+     * The records of one sync waiting for embedding, the chunks of each, and how the sync went:
+     * the AI calls made, and a record whose own call failed until a later call shows whether
+     * only that record was refused or the provider is down.
      */
     protected static class Pending {
       List<FObject>  records = new ArrayList<>();
       List<String[]> chunks  = new ArrayList<>();
+      int            perCall;
       int            texts;
       int            calls;
       FObject        failed;
       Throwable      error;
 
+      Pending(int perCall) { this.perCall = Math.max(1, perCall); }
       void clear() { records.clear(); chunks.clear(); texts = 0; }
     }
 
+    /** One lock per group of ids, so a user's save and the sync's status write on one record never interleave. */
+    protected final Object[] locks_ = newLocks_();
+
+    private static Object[] newLocks_() {
+      Object[] locks = new Object[64];
+      for ( int i = 0 ; i < locks.length ; i++ ) locks[i] = new Object();
+      return locks;
+    }
+
+    protected Object lock_(Object id) {
+      return locks_[( String.valueOf(id).hashCode() & 0x7fffffff ) % locks_.length];
+    }
+
     /**
-     * Embeds the chunks of every waiting record in one call, e.g. 64 chunks of 30 records,
-     * so a million records cost tens of thousands of round trips to the provider, not a
-     * million. When the call fails, each record is tried in a call of its own: either one
+     * The vectors of texts, at most perCall texts to a call, so a record of 500 chunks is not
+     * one huge request. Counts every call, failed or not.
+     */
+    protected VectorEmbedding[] embedAll_(X x, Pending p, String[] texts) {
+      RAGIndexer       indexer  = new RAGIndexer();
+      VectorEmbedding[] out     = new VectorEmbedding[texts.length];
+      for ( int at = 0 ; at < texts.length ; at += p.perCall ) {
+        int end = Math.min(texts.length, at + p.perCall);
+        p.calls++;
+        VectorEmbedding[] part = indexer.embedAll(x, Arrays.copyOfRange(texts, at, end));
+        System.arraycopy(part, 0, out, at, part.length);
+      }
+      return out;
+    }
+
+    /**
+     * Embeds the chunks of every waiting record, up to textsPerCall chunks to a call, e.g. 64
+     * chunks of 30 records, so a million records cost tens of thousands of round trips to the
+     * provider, not a million. When a call fails, each record is tried on its own: either one
      * record is refused, and the others are embedded, or the provider is down.
      */
     protected void flush_(X x, Pending p) {
       if ( p.records.isEmpty() ) return;
-      RAGIndexer indexer = new RAGIndexer();
       VectorEmbedding[] embedded = new VectorEmbedding[0];
       if ( p.texts > 0 ) {
         String[] texts = new String[p.texts];
         int      k     = 0;
         for ( String[] chunks : p.chunks ) for ( String t : chunks ) texts[k++] = t;
         try {
-          embedded = indexer.embedAll(x, texts);
-          p.calls++;
+          embedded = embedAll_(x, p, texts);
         } catch ( RuntimeException e ) {
-          p.calls++;
-          for ( FObject obj : p.records ) embedOne_(x, p, obj);
+          for ( int i = 0 ; i < p.records.size() ; i++ ) embedOne_(x, p, p.records.get(i), p.chunks.get(i));
           p.clear();
           return;
         }
       }
       int at = 0;
       for ( int i = 0 ; i < p.records.size() ; i++ ) {
-        FObject obj = p.records.get(i);
-        int     n   = p.chunks.get(i).length;
-        indexer.replace(x, getName(), String.valueOf(obj.getProperty("id")), Arrays.copyOfRange(embedded, at, at + n));
+        int n = p.chunks.get(i).length;
+        store_(x, p.records.get(i), Arrays.copyOfRange(embedded, at, at + n));
         at += n;
-        finish_(x, obj, true);
       }
       if ( p.texts > 0 ) refusedAlone_(x, p);
       p.clear();
     }
 
-    /** One record in a call of its own, after its batch failed. Two such calls failing in a row mean the provider is down. */
-    protected void embedOne_(X x, Pending p, FObject obj) {
-      try {
-        if ( ! embed_(x, obj) ) return;
-        p.calls++;
-      } catch ( RuntimeException e ) {
-        p.calls++;
-        if ( p.failed != null ) throw e;
-        p.failed = obj;
-        p.error  = e;
-        return;
+    /** One record in calls of its own, after its batch failed. Two records failing in a row mean the provider is down. */
+    protected void embedOne_(X x, Pending p, FObject obj, String[] chunks) {
+      VectorEmbedding[] embedded = new VectorEmbedding[0];
+      if ( chunks.length > 0 ) {
+        try {
+          embedded = embedAll_(x, p, chunks);
+        } catch ( RuntimeException e ) {
+          if ( p.failed != null ) throw new ProviderDownException(e);
+          p.failed = obj;
+          p.error  = e;
+          return;
+        }
       }
-      refusedAlone_(x, p);
+      store_(x, obj, embedded);
+      if ( chunks.length > 0 ) refusedAlone_(x, p);
+    }
+
+    /** Writes the chunks of a record and marks it EMBEDDED. A store that fails for one record leaves that record for the next sync. */
+    protected void store_(X x, FObject obj, VectorEmbedding[] embedded) {
+      try {
+        new RAGIndexer().replace(x, getName(), String.valueOf(obj.getProperty("id")), embedded);
+        finish_(x, obj, true);
+      } catch ( RuntimeException e ) {
+        Loggers.logger(x, this).warning("Embedding could not store one record, retried on the next sync", getName(), obj.getProperty("id"), e);
+      }
     }
 
     /** A call worked after a record's own call failed: only that record was refused. */
@@ -139,6 +183,14 @@ foam.CLASS({
       class: 'String',
       name: 'name',
       documentation: `The DAO's service name, e.g. "noteDAO": the daoKey of its chunks.`
+    },
+    {
+      name: 'locks_',
+      documentation: 'The save or status write waiting on each record id, see withLock_.',
+      flags: ['js'],
+      factory: function() { return {}; },
+      hidden: true,
+      transient: true
     },
     {
       class: 'Boolean',
@@ -172,6 +224,26 @@ foam.CLASS({
       }
     },
     {
+      name: 'withLock_',
+      documentation: `
+        Runs fn after every earlier call for the same id has finished, so a user's save and the
+        sync's status write on one record never interleave across their awaits.
+      `,
+      flags: ['js'],
+      code: async function(id, fn) {
+        var key  = String(id);
+        var prev = this.locks_[key] || Promise.resolve();
+        var run  = prev.then(fn);
+        var tail = run.catch(() => {});
+        this.locks_[key] = tail;
+        try {
+          return await run;
+        } finally {
+          if ( this.locks_[key] === tail ) delete this.locks_[key];
+        }
+      }
+    },
+    {
       name: 'configured_',
       documentation: 'Whether the context has what indexing needs: the embedder, the chunk store and, on a server, the thread pool.',
       type: 'Boolean',
@@ -185,13 +257,16 @@ foam.CLASS({
     {
       name: 'put_',
       code: async function(x, obj) {
-        var old    = await this.delegate.find_(x, obj.id);
-        var status = this.statusAfterPut(x, old, obj);
-        if ( obj.embeddingStatus !== status ) {
-          obj = obj.clone();
-          obj.embeddingStatus = status;
-        }
-        var saved = await this.delegate.put_(x, obj);
+        var old, status, saved;
+        await this.withLock_(obj.id, async () => {
+          old    = await this.delegate.find_(x, obj.id);
+          status = this.statusAfterPut(x, old, obj);
+          if ( obj.embeddingStatus !== status ) {
+            obj = obj.clone();
+            obj.embeddingStatus = status;
+          }
+          saved = await this.delegate.put_(x, obj);
+        });
         if ( this.configured_() && status === this.EmbeddingStatus.DISCARDED && old && old.embeddingStatus !== this.EmbeddingStatus.DISCARDED ) {
           await this.RAGIndexer.create().remove(this.__context__, this.name, String(obj.id));
         }
@@ -199,13 +274,20 @@ foam.CLASS({
         return saved;
       },
       javaCode: `
-        EmbeddingAware  old    = (EmbeddingAware) getDelegate().find_(x, obj);
-        EmbeddingStatus status = statusAfterPut(x, old, (EmbeddingAware) obj);
-        if ( ((EmbeddingAware) obj).getEmbeddingStatus() != status ) {
-          obj = obj.fclone();
-          ((EmbeddingAware) obj).setEmbeddingStatus(status);
+        EmbeddingAware  old;
+        EmbeddingStatus status;
+        FObject         saved;
+        // The status write of a sync reads the record, then writes it back; this lock keeps a
+        // save from landing between the two and being overwritten.
+        synchronized ( lock_(obj.getProperty("id")) ) {
+          old    = (EmbeddingAware) getDelegate().find_(x, obj);
+          status = statusAfterPut(x, old, (EmbeddingAware) obj);
+          if ( ((EmbeddingAware) obj).getEmbeddingStatus() != status ) {
+            obj = obj.fclone();
+            ((EmbeddingAware) obj).setEmbeddingStatus(status);
+          }
+          saved = getDelegate().put_(x, obj);
         }
-        FObject saved = getDelegate().put_(x, obj);
         // The chunks are the index's own rows, not the user's: removed as the
         // system, so a user who may edit a record needs no right on the index.
         if ( configured_() && status == EmbeddingStatus.DISCARDED && old != null && old.getEmbeddingStatus() != EmbeddingStatus.DISCARDED ) {
@@ -268,16 +350,22 @@ foam.CLASS({
         the chunks of up to textsPerCall waiting chunks go in one call; a
         browser embeds one record a call, since its embedder runs in the page.
         When a call fails, the sync tries more records one at a time: if two
-        fail in a row, the provider is down, e.g. none is configured, and the
-        error is thrown to the caller, which stops the sync. If one works, only
-        the first record is refused, e.g. a text the provider rejects: one
-        warning names it and the sync goes on. Either way the failed records
-        keep their status, so the next sync retries them.
+        fail in a row, the provider is down, e.g. none is configured, and a
+        ProviderDownException goes to the caller, which stops the sync. If one
+        works, only the first record is refused, e.g. a text the provider
+        rejects: one warning names it and the sync goes on. A record whose
+        toIndexText or isEmbeddable throws is skipped with a warning and never
+        counts as the provider being down. Either way these records keep their
+        status, so the next sync retries them. A context with no embedder, chunk
+        store or thread pool does nothing and returns 0.
+        Each call carries at most textsPerCall chunks: a record of more chunks
+        goes in several calls.
       `,
       type: 'Integer',
       async: true,
       args: 'Context x, int textsPerCall',
       code: async function(x) {
+        if ( ! this.configured_() ) return 0;
         var status = this.of.getAxiomByName('embeddingStatus');
         // The browser's select does not wait for an async put, so the records are listed first
         var todo   = await this.delegate.select_(x, this.ArraySink.create(), 0, Number.MAX_SAFE_INTEGER, null,
@@ -306,29 +394,34 @@ foam.CLASS({
         return calls;
       },
       javaCode: `
-        if ( ! getSwept_() ) {
-          sweep_(x);
-          setSwept_(true);
-        }
+        if ( ! configured_() ) return 0;
+        if ( ! getSwept_() ) setSwept_(sweep_(x));
         PropertyInfo status   = (PropertyInfo) getOf().getAxiomByName("embeddingStatus");
         DAO          store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
         RAGIndexer   indexer  = new RAGIndexer();
-        Pending      pending  = new Pending();
+        Pending      pending  = new Pending(textsPerCall);
         // Streamed rather than listed first: after a restart every record waits, e.g. a
         // million of them. MDAO selects from a snapshot, so marking a record while the
         // select runs is safe.
         getDelegate().select_(x, new AbstractSink() {
           public void put(Object o, Detachable sub) {
-            FObject obj = (FObject) o;
-            String  id  = String.valueOf(obj.getProperty("id"));
-            if ( ! ((EmbeddingAware) obj).isEmbeddable(x) ) {
-              indexer.remove(x, getName(), id);
-              finish_(x, obj, false);
-              return;
-            }
-            String[] chunks = indexer.chunks(x, ((EmbeddingAware) obj).toIndexText(x));
-            if ( indexer.isIndexed(store, getName(), id, chunks) ) {
-              finish_(x, obj, true);
+            FObject  obj    = (FObject) o;
+            String[] chunks;
+            try {
+              String id = String.valueOf(obj.getProperty("id"));
+              if ( ! ((EmbeddingAware) obj).isEmbeddable(x) ) {
+                indexer.remove(x, getName(), id);
+                finish_(x, obj, false);
+                return;
+              }
+              chunks = indexer.chunks(x, ((EmbeddingAware) obj).toIndexText(x));
+              if ( indexer.isIndexed(store, getName(), id, chunks) ) {
+                finish_(x, obj, true);
+                return;
+              }
+            } catch ( RuntimeException e ) {
+              // one record that cannot be read must not stop the others, nor look like a provider that is down
+              Loggers.logger(x, this).warning("Embedding skipped one record that could not be read, retried on the next sync", getName(), obj.getProperty("id"), e);
               return;
             }
             pending.records.add(obj);
@@ -347,20 +440,27 @@ foam.CLASS({
       name: 'sweep_',
       documentation: `
         Removes the chunks whose record is gone, e.g. a record dropped from a
-        journal while the server was down, which no remove_ saw. Each record
-        with chunks has one chunk 0, e.g. "noteDAO:42:0", so the sweep looks up
-        one record per chunk 0. A sourceId that cannot be read back as an id
-        keeps its chunks.
+        journal while the server was down, which no remove_ saw, and returns
+        true once a whole pass has run, so a failed pass is tried again by the
+        next sync. It assumes that this DAO's name is the daoKey of its chunks
+        alone, that each record with chunks has one chunk 0, e.g. "noteDAO:42:0",
+        and that a record's id can be read back from the chunk's sourceId; a
+        sourceId that cannot keeps its chunks. A DAO that holds no record at
+        all while its chunks exist is left alone: it may not have loaded yet,
+        and sweeping it would remove every chunk.
       `,
+      type: 'Boolean',
       args: 'Context x',
       flags: ['java'],
       javaCode: `
-        PropertyInfo id    = getPrimaryKey();
-        List<String> gone  = new ArrayList<>();
+        PropertyInfo id        = getPrimaryKey();
+        List<String> gone      = new ArrayList<>();
+        int[]        withChunk = { 0 };
         ((DAO) x.get("vectorStoreDAO")).inX(x).where(MLang.EQ(VectorEmbedding.DAO_KEY, getName())).select(new AbstractSink() {
           public void put(Object o, Detachable sub) {
             VectorEmbedding e = (VectorEmbedding) o;
             if ( ! e.getId().endsWith(":0") ) return;
+            withChunk[0]++;
             Object key;
             try {
               key = id.fromString(e.getSourceId());
@@ -370,16 +470,22 @@ foam.CLASS({
             if ( getDelegate().find_(x, key) == null ) gone.add(e.getSourceId());
           }
         });
+        if ( withChunk[0] > 0 && ((Count) getDelegate().select_(x, MLang.COUNT(), 0, Long.MAX_VALUE, null, null)).getValue() == 0 ) {
+          Loggers.logger(x, this).info("Left the chunks alone: the DAO holds no record, it may not have loaded", getName(), withChunk[0]);
+          return false;
+        }
         RAGIndexer indexer = new RAGIndexer();
         for ( String sourceId : gone ) indexer.remove(x, getName(), sourceId);
         if ( ! gone.isEmpty() ) Loggers.logger(x, this).info("Removed the chunks of records that are gone", getName(), gone.size());
+        return true;
       `
     },
     {
       name: 'embed_',
-      documentation: 'Brings the chunks of one NEW or DIRTY record in line with it; true if that took an AI call.',
+      documentation: 'Brings the chunks of one NEW or DIRTY record in line with it; true if that took an AI call. A browser embeds one record a call.',
       type: 'Boolean',
       async: true,
+      flags: ['js'],
       args: 'Context x, foam.lang.FObject obj',
       code: async function(x, obj) {
         var S          = this.EmbeddingStatus;
@@ -392,28 +498,19 @@ foam.CLASS({
         } else {
           await indexer.remove(x, this.name, id);
         }
-        var current    = await this.delegate.find_(x, obj.id);
-        if ( ! current || current.embeddingStatus === S.DISCARDED ) {
-          await indexer.remove(x, this.name, id);
-        } else if ( current.equals(obj) ) {
-          current = current.clone();
-          current.embeddingStatus = embeddable ? S.EMBEDDED : S.DISCARDED;
-          await this.delegate.put_(x, current);
-        }
+        // read and written back with no save in between, see put_
+        await this.withLock_(obj.id, async () => {
+          var current = await this.delegate.find_(x, obj.id);
+          if ( ! current || current.embeddingStatus === S.DISCARDED ) {
+            await indexer.remove(x, this.name, id);
+          } else if ( current.equals(obj) ) {
+            current = current.clone();
+            current.embeddingStatus = embeddable ? S.EMBEDDED : S.DISCARDED;
+            await this.delegate.put_(x, current);
+          }
+        });
         return called;
-      },
-      javaCode: `
-        RAGIndexer indexer    = new RAGIndexer();
-        boolean    embeddable = ((EmbeddingAware) obj).isEmbeddable(x);
-        boolean    called     = false;
-        if ( embeddable ) {
-          called = indexer.index(x, getName(), obj, getDelegate());
-        } else {
-          indexer.remove(x, getName(), String.valueOf(obj.getProperty("id")));
-        }
-        finish_(x, obj, embeddable);
-        return called;
-      `
+      }
     },
     {
       name: 'finish_',
@@ -424,16 +521,20 @@ foam.CLASS({
         // The record may have changed while the AI call ran. Removed or
         // discarded meanwhile: the chunks just written must go too. Edited
         // meanwhile: its status stays, so the next sync embeds the new text.
-        FObject current = getDelegate().find_(x, obj);
-        if ( current == null || ((EmbeddingAware) current).getEmbeddingStatus() == EmbeddingStatus.DISCARDED ) {
-          new RAGIndexer().remove(x, getName(), String.valueOf(obj.getProperty("id")));
-        } else if ( current.equals(obj) ) {
-          // Written below the rules and the last-modified stamp, and the
-          // status is not stored, so marking a record embedded leaves no
-          // journal line, no history and no new lastModified.
-          current = current.fclone();
-          ((EmbeddingAware) current).setEmbeddingStatus(embeddable ? EmbeddingStatus.EMBEDDED : EmbeddingStatus.DISCARDED);
-          getDelegate().put_(x, current);
+        // Read and written back under the record's lock, so a save that lands in
+        // between waits and is not overwritten by this older copy.
+        synchronized ( lock_(obj.getProperty("id")) ) {
+          FObject current = getDelegate().find_(x, obj);
+          if ( current == null || ((EmbeddingAware) current).getEmbeddingStatus() == EmbeddingStatus.DISCARDED ) {
+            new RAGIndexer().remove(x, getName(), String.valueOf(obj.getProperty("id")));
+          } else if ( current.equals(obj) ) {
+            // Written below the rules and the last-modified stamp, and the
+            // status is not stored, so marking a record embedded leaves no
+            // journal line, no history and no new lastModified.
+            current = current.fclone();
+            ((EmbeddingAware) current).setEmbeddingStatus(embeddable ? EmbeddingStatus.EMBEDDED : EmbeddingStatus.DISCARDED);
+            getDelegate().put_(x, current);
+          }
         }
       `
     }

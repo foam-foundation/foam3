@@ -20,11 +20,18 @@ foam.CLASS({
     text needs no call, a save starts a sync in the background, a record
     edited while its embedding call runs is embedded again by the next sync, and
     a context with no embedder or chunk store saves and removes without error,
-    and marking a record EMBEDDED fires no rule and writes no journal line.
+    marking a record EMBEDDED fires no rule and writes no journal line, a save
+    that lands while the sync marks the record is not overwritten, a record that
+    cannot be read is skipped with one warning and the others are embedded, a
+    call carries at most textsPerCall chunks, a sync asked for while one runs does
+    not wait for it, a context with nothing configured makes no warning, the sweep
+    leaves chunks alone while the DAO holds no record, and a refused thread
+    submit does not fail the save.
   `,
 
   javaImports: [
     'foam.ai.vector.EmbeddingAware',
+    'foam.ai.vector.EmbeddingAwareDAO',
     'foam.ai.vector.EmbeddingService',
     'foam.ai.vector.EmbeddingStatus',
     'foam.ai.vector.EmbeddingSync',
@@ -42,11 +49,19 @@ foam.CLASS({
     'foam.dao.EasyDAO',
     'foam.dao.JournalType',
     'foam.dao.MDAO',
+    'foam.dao.ProxyDAO',
+    'foam.lang.Agency',
+    'foam.lang.ContextAgent',
+    'foam.lang.FObject',
     'foam.lang.X',
     'foam.mlang.MLang',
     'foam.mlang.sink.Count',
     'foam.test.TestUtils',
     'java.io.File',
+    'java.util.concurrent.CompletableFuture',
+    'java.util.concurrent.CountDownLatch',
+    'java.util.concurrent.Future',
+    'java.util.concurrent.TimeUnit',
     'java.util.concurrent.atomic.AtomicInteger',
     'java.util.function.BooleanSupplier'
   ],
@@ -99,6 +114,28 @@ foam.CLASS({
       public void debug(Object... args) { }
     }
 
+    /** A DAO that stops after the first find_ once armed, so a test can save a record while the sync holds it. */
+    public static class PausingDAO extends ProxyDAO {
+      public volatile boolean pause;
+      public final CountDownLatch paused = new CountDownLatch(1);
+      public final CountDownLatch resume = new CountDownLatch(1);
+      public FObject find_(X x, Object id) {
+        FObject found = super.find_(x, id);
+        if ( pause ) {
+          pause = false;
+          paused.countDown();
+          try { resume.await(5, TimeUnit.SECONDS); } catch ( InterruptedException e ) { Thread.currentThread().interrupt(); }
+        }
+        return found;
+      }
+    }
+
+    /** An agency whose pool is full: every job is refused. */
+    public static class RefusingAgency implements Agency {
+      public Future<?> submit(X x, ContextAgent agent, String description) { throw new RuntimeException("pool is full"); }
+      public void schedule(X x, ContextAgent agent, String description, long delay) { throw new RuntimeException("pool is full"); }
+    }
+
     static RAGNote note(String id, String body) {
       RAGNote n = new RAGNote();
       n.setId(id);
@@ -108,10 +145,10 @@ foam.CLASS({
     }
 
     /** Stores the chunks of a record that is not in noteDAO, as left by an earlier run of the server. */
-    static void seed(X x, RAGNote n) {
+    static void seed(X x, String daoKey, RAGNote n) {
       DAO source = new MDAO(RAGNote.getOwnClassInfo());
       source.put(n);
-      new RAGIndexer().index(x, "noteDAO", n, source);
+      new RAGIndexer().index(x, daoKey, n, source);
     }
 
     static RAGNote edit(DAO dao, String id) { return (RAGNote) dao.find(id).fclone(); }
@@ -153,7 +190,7 @@ foam.CLASS({
         String        text3 = "alpha one\\n\\n## Part\\n\\nbeta two\\n\\n## Last\\n\\nalpha three";
 
         // the chunks of note z, a record removed while the server was down: no remove_ saw it
-        seed(tx, note("z", "alpha z"));
+        seed(tx, "noteDAO", note("z", "alpha z"));
         fake.calls = 0;
         notes.put(note("n1", text3));
         RAGNote hidden = note("n2", "beta hidden");
@@ -215,7 +252,7 @@ foam.CLASS({
 
         // A record loaded from a journal at boot: its chunks are already stored, so the sync finds them unchanged
         RAGNote d = note("d", "beta d");
-        seed(tx, d);
+        seed(tx, "noteDAO", d);
         calls = fake.calls;
         notes.put(d);
         test(status(notes, "d") == EmbeddingStatus.NEW, "A record whose chunks were stored before is NEW until a sync");
@@ -224,7 +261,7 @@ foam.CLASS({
 
         // A record whose text changed while the server was down: its stored chunks hold the old
         // text, and it loads NEW from the journal, so the sync embeds it again
-        seed(tx, note("k", "beta old"));
+        seed(tx, "noteDAO", note("k", "beta old"));
         calls = fake.calls;
         notes.put(note("k", "beta new"));
         sync.sync(tx);
@@ -389,6 +426,118 @@ foam.CLASS({
           plain.remove(plain.find("p1"));
         } catch ( RuntimeException e ) { worked = false; }
         test(worked && plain.find("p1") == null, "A context with no embedder or chunk store saves and removes without error");
+
+        // A user's save lands between the sync reading the record and writing its status back:
+        // the save must win, not be overwritten by the older copy.
+        PausingDAO pausing = new PausingDAO();
+        pausing.setX(x);
+        pausing.setDelegate(new MDAO(RAGNote.getOwnClassInfo()));
+        EmbeddingSync raceSync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X raceX = tx.put("embeddingSync", raceSync);
+        DAO race = new EmbeddingAwareDAO.Builder(raceX).setName("raceDAO").setDelegate(pausing).build().inX(raceX);
+        race.put(note("w", "alpha first"));
+        pausing.pause = true;
+        Thread syncing = new Thread(() -> raceSync.sync(raceX));
+        syncing.start();
+        test(pausing.paused.await(5, TimeUnit.SECONDS), "The sync is between reading the record and writing its status");
+        RAGNote windowEdit = edit(race, "w");
+        windowEdit.setBody("beta saved in the window");
+        Thread saving = new Thread(() -> race.put(windowEdit));
+        saving.start();
+        Thread.sleep(300);
+        pausing.resume.countDown();
+        syncing.join(5000);
+        saving.join(5000);
+        RAGNote afterRace = (RAGNote) race.find("w");
+        test(afterRace.getBody().equals("beta saved in the window") && status(race, "w") == EmbeddingStatus.DIRTY,
+          "A save that lands while the sync marks the record is kept and leaves it DIRTY, got " + afterRace.getBody() + ", " + status(race, "w"));
+
+        // A record whose text cannot be built is skipped with one warning; the others are embedded and the provider is not marked down
+        Warnings poisonWarnings = new Warnings();
+        EmbeddingSync poisonSync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X poisonX = tx.put("embeddingSync", poisonSync).put("logger", poisonWarnings);
+        DAO poisoned = new EasyDAO.Builder(poisonX).setOf(RAGNote.getOwnClassInfo()).setName("poisonNoteDAO").setAuthorize(false).build().inX(poisonX);
+        for ( String id : new String[] { "pa", "pz", "pb" } ) poisoned.put(note(id, "alpha " + id));
+        RAGNote.explodeOn = "pz";
+        try {
+          poisonSync.sync(poisonX);
+        } finally {
+          RAGNote.explodeOn = null;
+        }
+        test(status(poisoned, "pa") == EmbeddingStatus.EMBEDDED && status(poisoned, "pb") == EmbeddingStatus.EMBEDDED && status(poisoned, "pz") == EmbeddingStatus.NEW
+          && poisonWarnings.count == 1 && ! poisonSync.getDown_(),
+          "A record that cannot be read is skipped with one warning, the others are embedded and the provider is not down, got " + poisonWarnings.count + " warnings: " + poisonWarnings.seen);
+        poisonSync.sync(poisonX);
+        test(status(poisoned, "pz") == EmbeddingStatus.EMBEDDED, "The next sync embeds it once it can be read");
+
+        // A call carries at most textsPerCall chunks: five chunks at 2 a call take three calls
+        Embedder     capFake = new Embedder();
+        EmbeddingSync capSync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).setTextsPerCall(2).build();
+        DAO          capStore = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+        X            capX = x.put("vectorStoreDAO", capStore).put("embeddingService", capFake).put("embeddingSync", capSync);
+        DAO          capNotes = new EasyDAO.Builder(capX).setOf(RAGNote.getOwnClassInfo()).setName("noteDAO").setAuthorize(false).build().inX(capX);
+        capNotes.put(note("big", "alpha 1\\n\\n## Two\\n\\nbeta 2\\n\\n## Three\\n\\nalpha 3\\n\\n## Four\\n\\nbeta 4\\n\\n## Five\\n\\nalpha 5"));
+        capSync.sync(capX);
+        long capChunks = chunksOf(capStore, "big");
+        test(capChunks >= 3 && capFake.calls == ( capChunks + 1 ) / 2 && status(capNotes, "big") == EmbeddingStatus.EMBEDDED,
+          "A record of " + capChunks + " chunks goes in " + capFake.calls + " calls of at most 2 chunks");
+
+        // A sync asked for while one runs returns at once instead of waiting for it
+        Embedder       busyFake = new Embedder();
+        EmbeddingSync  busySync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X              busyX = x.put("vectorStoreDAO", new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build())
+          .put("embeddingService", busyFake).put("embeddingSync", busySync);
+        DAO            busyNotes = new EasyDAO.Builder(busyX).setOf(RAGNote.getOwnClassInfo()).setName("busyNoteDAO").setAuthorize(false).build().inX(busyX);
+        busyNotes.put(note("b1", "alpha busy"));
+        boolean[] returnedAtOnce = { false };
+        busyFake.onEmbed = () -> {
+          Thread other = new Thread(() -> busySync.sync(busyX));
+          other.start();
+          try { other.join(2000); } catch ( InterruptedException e ) { Thread.currentThread().interrupt(); }
+          returnedAtOnce[0] = ! other.isAlive();
+        };
+        busySync.sync(busyX);
+        test(returnedAtOnce[0] && status(busyNotes, "b1") == EmbeddingStatus.EMBEDDED, "A sync asked for while one runs does not wait for it");
+
+        // Nothing configured: no warning, no error, and the record stays NEW
+        Warnings quiet = new Warnings();
+        EmbeddingSync emptySync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X emptyX = x.put("embeddingService", null).put("vectorStoreDAO", null).put("threadPool", null).put("embeddingSync", emptySync).put("logger", quiet);
+        DAO emptyNotes = new EasyDAO.Builder(emptyX).setOf(RAGNote.getOwnClassInfo()).setName("emptyNoteDAO").setAuthorize(false).build().inX(emptyX);
+        emptyNotes.put(note("e1", "alpha"));
+        emptySync.sync(emptyX);
+        test(quiet.count == 0 && ! emptySync.getDown_() && status(emptyNotes, "e1") == EmbeddingStatus.NEW, "A sync with no embedder, chunk store or thread pool does nothing quietly");
+
+        // The sweep leaves the chunks alone while the DAO holds no record, and runs once it holds one
+        Embedder     sweepFake = new Embedder();
+        DAO          sweepStore = new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build();
+        EmbeddingSync sweepSync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X            sweepX = x.put("vectorStoreDAO", sweepStore).put("embeddingService", sweepFake).put("embeddingSync", sweepSync);
+        DAO          sweepNotes = new EasyDAO.Builder(sweepX).setOf(RAGNote.getOwnClassInfo()).setName("sweepNoteDAO").setAuthorize(false).build().inX(sweepX);
+        seed(sweepX, "sweepNoteDAO", note("g", "alpha gone"));
+        sweepSync.sync(sweepX);
+        test(sweepStore.find("sweepNoteDAO:g:0") != null, "The sweep leaves the chunks alone while the DAO holds no record");
+        sweepNotes.put(note("h", "beta here"));
+        sweepSync.sync(sweepX);
+        test(sweepStore.find("sweepNoteDAO:g:0") == null && status(sweepNotes, "h") == EmbeddingStatus.EMBEDDED, "Once the DAO holds a record, the sweep removes the chunks of the record that is gone");
+
+        // A refused thread submit does not fail the save, and the next save may ask again
+        EmbeddingSync fullSync = new EmbeddingSync.Builder(x).build();
+        X fullX = x.put("vectorStoreDAO", new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build())
+          .put("embeddingService", new Embedder()).put("embeddingSync", fullSync);
+        fullSync.setX(fullX.put("threadPool", new RefusingAgency()));
+        DAO fullNotes = new EasyDAO.Builder(fullX).setOf(RAGNote.getOwnClassInfo()).setName("fullNoteDAO").setAuthorize(false).build().inX(fullX);
+        boolean fullSaved = true;
+        try { fullNotes.put(note("f1", "alpha")); } catch ( RuntimeException e ) { fullSaved = false; }
+        test(fullSaved && fullNotes.find("f1") != null && ! fullSync.getRequested_().get(), "A refused thread submit does not fail the save and leaves no sync waiting");
+
+        // A DAO with no name does not break the registry
+        EmbeddingSync nameSync = new EmbeddingSync.Builder(x).build();
+        boolean nameOk = true;
+        try {
+          for ( int i = 0 ; i < 2 ; i++ ) nameSync.add(new EmbeddingAwareDAO.Builder(x).setName(null).setDelegate(new MDAO(RAGNote.getOwnClassInfo())).build());
+        } catch ( RuntimeException e ) { nameOk = false; }
+        test(nameOk, "Adding a DAO with no name does not throw");
       `
     }
   ]

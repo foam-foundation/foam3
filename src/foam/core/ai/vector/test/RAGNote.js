@@ -22,11 +22,19 @@ foam.CLASS({
     { class: 'Boolean', name: 'pinned' }
   ],
 
+  javaCode: `
+    /** The id of a record whose toIndexText throws, to test a record that cannot be read; null for none. */
+    public static volatile String explodeOn;
+  `,
+
   methods: [
     {
       name: 'toIndexText',
       code: function(x) { return '# ' + this.title + '\n\n' + this.body; },
-      javaCode: 'return "# " + getTitle() + "\\n\\n" + getBody();'
+      javaCode: `
+        if ( getId().equals(explodeOn) ) throw new RuntimeException("cannot build the text of " + getId());
+        return "# " + getTitle() + "\\n\\n" + getBody();
+      `
     },
     {
       name: 'isEmbeddable',

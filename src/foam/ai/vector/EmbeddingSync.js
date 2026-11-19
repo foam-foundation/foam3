@@ -34,6 +34,7 @@ foam.CLASS({
     'foam.lang.Agency',
     'foam.lang.ContextAgent',
     'foam.lang.X',
+    'foam.util.SafetyUtil',
     'java.util.List',
     'java.util.concurrent.CopyOnWriteArrayList',
     'java.util.concurrent.atomic.AtomicBoolean'
@@ -81,6 +82,26 @@ foam.CLASS({
       transient: true
     },
     {
+      class: 'Object',
+      name: 'syncing_',
+      documentation: 'Whether a sync is running now. A sync asked for meanwhile does not wait for it: it sets again_ and returns.',
+      javaType: 'AtomicBoolean',
+      javaFactory: 'return new AtomicBoolean();',
+      flags: ['java'],
+      hidden: true,
+      transient: true
+    },
+    {
+      class: 'Object',
+      name: 'again_',
+      documentation: 'Whether a sync was asked for while one was running, so the running one makes another pass.',
+      javaType: 'AtomicBoolean',
+      javaFactory: 'return new AtomicBoolean();',
+      flags: ['java'],
+      hidden: true,
+      transient: true
+    },
+    {
       class: 'Boolean',
       name: 'down_',
       documentation: 'Whether the last sync stopped because the provider was down. Saves start no sync until a sync gets through.',
@@ -108,7 +129,7 @@ foam.CLASS({
         this.wake();
       },
       javaCode: `
-        getDaos_().removeIf(d -> d.getName().equals(dao.getName()));
+        getDaos_().removeIf(d -> SafetyUtil.equals(d.getName(), dao.getName()));
         getDaos_().add(dao);
       `
     },
@@ -122,9 +143,15 @@ foam.CLASS({
       javaCode: `
         // One sync waiting is enough: it embeds every record marked before it starts.
         if ( ! getEmbedOnSave() || getDown_() || getRequested_().getAndSet(true) ) return;
-        ((Agency) getX().get("threadPool")).submit(getX(), new ContextAgent() {
-          public void execute(X x) { sync(x); }
-        }, "embeddingSync");
+        try {
+          ((Agency) getX().get("threadPool")).submit(getX(), new ContextAgent() {
+            public void execute(X x) { sync(x); }
+          }, "embeddingSync");
+        } catch ( RuntimeException e ) {
+          // no sync is queued after all: let the next save ask again, and never fail the save
+          getRequested_().set(false);
+          Loggers.logger(getX(), this).warning("Embedding sync could not be started, retried on the next save or cron run", e);
+        }
       `
     },
     {
@@ -144,22 +171,42 @@ foam.CLASS({
         }
       },
       javaCode: `
-        // one sync at a time: a save's sync and the cron's never embed the same record twice
-        synchronized ( this ) {
-          getRequested_().set(false);
-          for ( EmbeddingAwareDAO dao : getDaos_() ) {
-            try {
-              dao.sync(x, getTextsPerCall());
-            } catch ( Throwable t ) {
-              // Two calls in a row failed: the provider is down, e.g. none is
-              // configured, and every other record would fail the same way.
-              Loggers.logger(x, this).warning("Embedding sync stopped, retried on the next sync", dao.getName(), t);
-              setDown_(true);
-              return;
-            }
+        // One sync at a time, and a sync asked for meanwhile does not queue behind it, e.g. the
+        // cron arriving while a save's sync runs: it marks again_ and the running one passes again.
+        while ( getSyncing_().compareAndSet(false, true) ) {
+          try {
+            getRequested_().set(false);
+            getAgain_().set(false);
+            syncAll_(x);
+          } finally {
+            getSyncing_().set(false);
           }
-          setDown_(false);
+          if ( ! getAgain_().get() || getDown_() ) return;
         }
+        getAgain_().set(true);
+      `
+    },
+    {
+      name: 'syncAll_',
+      documentation: 'One pass over every DAO added. Stops at the first DAO whose provider is down.',
+      args: 'Context x',
+      flags: ['java'],
+      javaCode: `
+        for ( EmbeddingAwareDAO dao : getDaos_() ) {
+          try {
+            dao.sync(x, getTextsPerCall());
+          } catch ( EmbeddingAwareDAO.ProviderDownException e ) {
+            // Two calls in a row failed: the provider is down, e.g. none is configured,
+            // and every other record would fail the same way.
+            Loggers.logger(x, this).warning("Embedding sync stopped, retried on the next sync", dao.getName(), e);
+            setDown_(true);
+            return;
+          } catch ( RuntimeException e ) {
+            // This DAO failed for a reason of its own: the others still get their turn.
+            Loggers.logger(x, this).warning("Embedding sync of one DAO failed, retried on the next sync", dao.getName(), e);
+          }
+        }
+        setDown_(false);
       `
     }
   ],

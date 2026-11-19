@@ -18,21 +18,20 @@ foam.CLASS({
       var tool = CommandTool.create(null, x);   // x is a Console's context, holding eval_
       request.tools = [ tool.tool() ];
       use.result    = await tool.run(use);      // for each LLMToolUse in the reply
+
+    An agent that reads text it did not write, such as an uploaded file, sets predicate:
+    a line in that file could otherwise steer the model into running any script as the user.
   `,
 
   requires: [
-    'foam.ai.llm.LLMTool'
+    'foam.ai.llm.LLMTool',
+    'foam.core.reflow.Block'
   ],
 
-  imports: [ 'eval_' ],
+  imports: [ 'commandDAO?', 'eval_' ],
 
   constants: [
-    { name: 'TOOL_NAME', value: 'execute_command' },
-    {
-      name: 'MAX_RESULT',
-      documentation: 'The most characters of one result sent back, so a script that prints a large table does not fill the conversation.',
-      value: 4000
-    }
+    { name: 'TOOL_NAME', value: 'execute_command' }
   ],
 
   properties: [
@@ -42,8 +41,32 @@ foam.CLASS({
       documentation: 'Put before every script, e.g. "propose " so the user accepts each block before it runs.'
     },
     {
+      class: 'Int',
+      name: 'maxResult',
+      value: 4000,
+      documentation: `The most characters of one result sent back, so a script that prints a
+        large table does not fill the conversation. Raise it for a command that returns a
+        long read on purpose, such as a page of a document.`
+    },
+    {
+      name: 'predicate',
+      documentation: `Which commands the model may call. Empty, any script runs, as at the
+        prompt. Set, a script must be one call of a matching command with JSON data as its
+        argument, such as doc.readLines({"from": 1}), and anything else is refused.`
+    },
+    {
+      name: 'commandX',
+      documentation: `The context the scripts run in, holding what their commands read, such
+        as the screen they drive. Set, the scripts run under a hidden block in it, so they
+        add nothing to the flow the user sees.`
+    },
+    {
       name: 'flowParent',
-      documentation: 'The block the scripts\' blocks are added under; empty adds them to the flow, where the user sees them.'
+      documentation: 'The block the scripts\' blocks are added under; empty adds them to the flow, where the user sees them.',
+      factory: function() {
+        // A childTransient block draws none of its children.
+        return this.commandX ? this.Block.create({ childTransient: true }, this.commandX) : undefined;
+      }
     }
   ],
 
@@ -73,13 +96,35 @@ foam.CLASS({
         return 'The input was not JSON.';
       }
       if ( ! input || typeof input.script !== 'string' ) return 'The input has no script.';
+      var refusal = this.predicate ? await this.refusal_(input.script) : '';
+      if ( refusal ) return refusal;
 
       var block = await this.eval_(this.prefix + input.script, true, true, this.flowParent || undefined);
       if ( ! block ) return 'Done.';
       var response = block.error ? 'Error: ' + block.error : await this.response_(block);
-      if ( typeof response === 'string' && response.length > this.MAX_RESULT ) response = response.substring(0, this.MAX_RESULT) + ' ... (cut)';
+      if ( typeof response === 'string' && response.length > this.maxResult ) response = response.substring(0, this.maxResult) + ' ... (cut)';
       // The same reply the ask command gives, so the model can refer back to the block by name.
       return JSON.stringify({ blockName: block.flowName, response: response });
+    },
+
+    async function refusal_(script) {
+      // A script that is one call with JSON data as its argument runs nothing but
+      // that command: JSON.parse accepts data only, never code.
+      var call = script.trim();
+      if ( call.endsWith(';') ) call = call.substring(0, call.length - 1).trim();
+      var open = call.indexOf('(');
+      if ( open < 0 || ! call.endsWith(')') ) return 'Send one command call, such as doc.readLines({"from": 1}).';
+      var id  = call.substring(0, open).trim();
+      var arg = call.substring(open + 1, call.length - 1).trim();
+      if ( arg ) {
+        try {
+          JSON.parse(arg);
+        } catch (e) {
+          return 'The argument of ' + id + ' must be JSON data, with double-quoted keys and strings.';
+        }
+      }
+      if ( ! await this.commandDAO.where(this.predicate).find(id) ) return 'There is no command named ' + id + ' here.';
+      return '';
     },
 
     async function response_(block) {

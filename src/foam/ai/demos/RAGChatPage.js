@@ -19,6 +19,7 @@ foam.CLASS({
   requires: [
     'foam.ai.llm.ChatMessage',
     'foam.ai.llm.ChatRequest',
+    'foam.ai.llm.ConversationalLLMService',
     'foam.ai.llm.RAGAnswer',
     'foam.ai.llm.RAGChat',
     'foam.ai.llm.RAGSource',
@@ -121,9 +122,7 @@ foam.CLASS({
       name: 'llmService',
       expression: function(provider) {
         if ( provider === 'openai' || provider === 'embeddingService' ) return this.serverLLMService;
-        // no conversation history: each question carries its own passages, so the small model
-        // gets a short prompt
-        return this.browserLLM_;
+        return this.browserChat_;
       }
     },
     {
@@ -162,6 +161,16 @@ foam.CLASS({
       factory: function() { return this.TransformersLLMService.create(); }
     },
     {
+      name: 'browserChat_',
+      documentation: `The browser model with the conversation so far, so a follow-up such as "and its
+        limits?" knows what "its" is. ask sends the passages in the system prompt of each call, so
+        the history keeps only questions and answers and the small model's prompt stays short.
+        6 messages is the last 3 questions with their answers.`,
+      factory: function() {
+        return this.ConversationalLLMService.create({ delegate: this.browserLLM_, maxHistory: 6 });
+      }
+    },
+    {
       class: 'Boolean',
       name: 'detached_',
       hidden: true,
@@ -193,8 +202,6 @@ foam.CLASS({
         this.statusMsg = this.LOADING;
         var flows;
         try {
-          // emptied first: a provider picked since the last click embeds every flow again
-          await this.store.removeAll();
           flows = ( await this.flowDAO.where(this.IN(this.Flow.KEYWORDS, 'knowledge')).select() ).array;
           if ( ! flows.length ) this.statusMsg = this.NO_FLOWS;
         } catch ( err ) {
@@ -262,9 +269,13 @@ foam.CLASS({
       if ( ! sink.array.length ) return this.RAGAnswer.create({ answered: true, answer: this.NOT_INDEXED });
       if ( ! lines.length ) return this.RAGAnswer.create();
 
+      // the passages go in this call's system prompt and the message is the question alone, so the
+      // conversation history the browser model keeps holds no passages
+      var options = this.options.clone();
+      options.systemPrompt = this.options.systemPrompt + '\n\nContext:\n' + lines.join('\n\n');
       var response = await this.llmService.chat(x, this.ChatRequest.create({
-        messages: [ this.ChatMessage.create({ role: 'USER', content: 'Context:\n' + lines.join('\n\n') + '\n\nQuestion: ' + question }) ],
-        options:  this.options
+        messages: [ this.ChatMessage.create({ role: 'USER', content: question }) ],
+        options:  options
       }));
       return this.RAGAnswer.create({ answered: true, answer: response.content, sources: sources });
     },

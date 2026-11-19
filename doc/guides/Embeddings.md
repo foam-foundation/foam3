@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid embeddingService vectorStoreDAO noteDAO EasyDAO isEmbeddable toIndexText openIndexed embeddingSync textsPerCall embedOnSave Ollama -->
+<!-- cspell:ignore spid embeddingService vectorStoreDAO noteDAO EasyDAO isEmbeddable toIndexText embeddingSync textsPerCall embedOnSave Ollama -->
 <flow name="Embeddings" category="DOC/GUIDE" spid="foam" description="Make a model searchable by meaning: opt the model in with EmbeddingAware, leave records out, and check the chunks appear in vectorStoreDAO." keywords="vector,embedding,EmbeddingAware,EmbeddingAwareDAO"/>
 
 # Embeddings: Make a Model Searchable by Meaning
@@ -46,12 +46,9 @@ That is all. Keep `noteDAO` a plain `EasyDAO`: it sees the interface and adds `E
 
 A save that leaves `toIndexText` as it was, e.g. one that only sets a flag, keeps the status. The status is kept in memory only: after a restart every note is `NEW` again, and the first sync finds its stored chunks unchanged and makes no AI call.
 
-## Step 2 (optional): leave records out, open sources
+## Step 2 (optional): leave records out
 
-| Method | Write it when | Example |
-|---|---|---|
-| `isEmbeddable(x)` | Some records must not be searched. Default: every record. | Return `false` for a draft. A record that turns `false` loses its chunks. |
-| `openIndexed(x)` | A link to a search result should open the record. | Push the record's detail view. |
+Write `isEmbeddable(x)` when some records must not be searched, e.g. return `false` for a draft. The default is every record. A record that turns `false` loses its chunks.
 
 ## Step 3: check it works
 
@@ -75,4 +72,5 @@ A server embeds up to `textsPerCall` chunks of as many records as it takes in on
 |---|---|---|
 | A note stays `NEW` or `DIRTY` | The provider is down or not set up. The log has an "Embedding sync stopped" warning. | Fix the provider. The next sync, at the latest the cron, embeds it. |
 | One note stays `NEW` while the others are `EMBEDDED` | The provider refuses its text. The log names it. | Change its text. |
-| Every note is embedded again after a deploy | The embedding provider or model changed. Vectors of two models do not match. | Expected, once. |
+
+A server with no embedding provider configured skips indexing and never fails a save.

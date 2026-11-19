@@ -13,16 +13,6 @@ foam.INTERFACE({
 
   methods: [
     {
-      name: 'getModel',
-      // ClientEmbeddingService, the browser's stub of a server provider, answers every call with
-      // a promise, and foam.lang.Stub asserts that each method it stubs is async or void
-      async: true,
-      type: 'String',
-      documentation: `The model the vectors come from, e.g. "nomic-embed-text", as set on each
-        VectorEmbedding's embeddingModel. A record whose stored chunks come from another model is
-        embedded again.`
-    },
-    {
       name:  'embed',
       async: true,
       type:  'foam.ai.vector.VectorEmbedding',

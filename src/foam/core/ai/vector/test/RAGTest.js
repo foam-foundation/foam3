@@ -17,7 +17,9 @@ foam.CLASS({
     a failing provider costs three calls and one warning per sync while one
     refused record does not stop the others, the first sync removes the chunks
     of a record that is gone, a record whose stored chunks already hold its
-    text needs no call, and a save starts a sync in the background.
+    text needs no call, a save starts a sync in the background, a record
+    edited while its embedding call runs is embedded again by the next sync, and
+    a context with no embedder or chunk store saves and removes without error.
   `,
 
   javaImports: [
@@ -44,10 +46,16 @@ foam.CLASS({
       public int     calls;
       public boolean fail;
       public String  failOn;
-      public String getModel() { return "fake"; }
+      /** Runs once, while a call is in flight, e.g. to save the record again. */
+      public Runnable onEmbed;
       public VectorEmbedding embed(X x, String text) { return embedAll(x, new String[] { text })[0]; }
       public VectorEmbedding[] embedAll(X x, String[] texts) {
         calls++;
+        if ( onEmbed != null ) {
+          Runnable r = onEmbed;
+          onEmbed = null;
+          r.run();
+        }
         if ( fail ) throw new RuntimeException("gateway down");
         for ( String t : texts ) if ( failOn != null && t.contains(failOn) ) throw new RuntimeException("text refused");
         VectorEmbedding[] out = new VectorEmbedding[texts.length];
@@ -86,6 +94,13 @@ foam.CLASS({
       n.setTitle("Note " + id);
       n.setBody(body);
       return n;
+    }
+
+    /** Stores the chunks of a record that is not in noteDAO, as left by an earlier run of the server. */
+    static void seed(X x, RAGNote n) {
+      DAO source = new MDAO(RAGNote.getOwnClassInfo());
+      source.put(n);
+      new RAGIndexer().index(x, "noteDAO", n, source);
     }
 
     static RAGNote edit(DAO dao, String id) { return (RAGNote) dao.find(id).fclone(); }
@@ -127,7 +142,7 @@ foam.CLASS({
         String        text3 = "alpha one\\n\\n## Part\\n\\nbeta two\\n\\n## Last\\n\\nalpha three";
 
         // the chunks of note z, a record removed while the server was down: no remove_ saw it
-        new RAGIndexer().index(tx, "noteDAO", note("z", "alpha z"));
+        seed(tx, note("z", "alpha z"));
         fake.calls = 0;
         notes.put(note("n1", text3));
         RAGNote hidden = note("n2", "beta hidden");
@@ -189,7 +204,7 @@ foam.CLASS({
 
         // A record loaded from a journal at boot: its chunks are already stored, so the sync finds them unchanged
         RAGNote d = note("d", "beta d");
-        new RAGIndexer().index(tx, "noteDAO", d);
+        seed(tx, d);
         calls = fake.calls;
         notes.put(d);
         test(status(notes, "d") == EmbeddingStatus.NEW, "A record whose chunks were stored before is NEW until a sync");
@@ -198,7 +213,7 @@ foam.CLASS({
 
         // A record whose text changed while the server was down: its stored chunks hold the old
         // text, and it loads NEW from the journal, so the sync embeds it again
-        new RAGIndexer().index(tx, "noteDAO", note("k", "beta old"));
+        seed(tx, note("k", "beta old"));
         calls = fake.calls;
         notes.put(note("k", "beta new"));
         sync.sync(tx);
@@ -293,6 +308,29 @@ foam.CLASS({
         live.sync(lx);
         test(status(liveDAO, "a") == EmbeddingStatus.EMBEDDED && status(liveDAO, "b") == EmbeddingStatus.EMBEDDED && status(liveDAO, "c") == EmbeddingStatus.EMBEDDED,
           "The cron's sync embeds all three");
+
+        // a record edited while its embedding call runs: the chunks just written hold the old text,
+        // so it stays DIRTY and the next sync embeds the later text
+        notes.put(note("r", "alpha first"));
+        fake.onEmbed = () -> notes.put(note("r", "beta later"));
+        sync.sync(tx);
+        test(status(notes, "r") == EmbeddingStatus.DIRTY, "A record edited while its call runs stays DIRTY, got " + status(notes, "r"));
+        sync.sync(tx);
+        test(status(notes, "r") == EmbeddingStatus.EMBEDDED && chunksOf(store, "r") > 0 && ! anyChunkHolds(store, "alpha first") && anyChunkHolds(store, "beta later"),
+          "The next sync ends with the chunks of the later text");
+
+        // no embedder, chunk store or thread pool in the context: saves and removes still work
+        X     bare  = x.put("embeddingService", null).put("vectorStoreDAO", null).put("threadPool", null).put("embeddingSync", null);
+        DAO   plain = new EasyDAO.Builder(bare).setOf(RAGNote.getOwnClassInfo()).setName("bareNoteDAO").setAuthorize(false).build().inX(bare);
+        boolean worked = true;
+        try {
+          plain.put(note("p1", "alpha"));
+          RAGNote hiddenP = edit(plain, "p1");
+          hiddenP.setDraft(true);
+          plain.put(hiddenP);
+          plain.remove(plain.find("p1"));
+        } catch ( RuntimeException e ) { worked = false; }
+        test(worked && plain.find("p1") == null, "A context with no embedder or chunk store saves and removes without error");
       `
     }
   ]

@@ -12,14 +12,13 @@ foam.CLASS({
 
   documentation: `
     Keeps the chunks of one EmbeddingAware record in vectorStoreDAO, so it can
-    be searched by meaning. index() cuts the record's toIndexText() into chunks, embeds
-    them in one embeddingService call and stores one VectorEmbedding per
-    chunk, with ids <daoKey>:<sourceId>:<n>, e.g. "noteDAO:42:0".
-    A record whose stored chunks already hold exactly these texts, embedded
-    by the model embeddingService uses now, costs no call: this is how a
-    record loaded from a journal at boot is found unchanged. Otherwise its
-    new chunks replace every chunk it had, so an edit that leaves the record
-    shorter leaves no chunk of the old text behind.
+    be searched by meaning. index() cuts the record's toIndexText() into chunks,
+    embeds them in one embeddingService call and stores one VectorEmbedding per
+    chunk, with ids <daoKey>:<sourceId>:<n>, e.g. "noteDAO:42:0". A record whose
+    stored chunks already hold exactly these texts costs no call, e.g. a record
+    saved again with the same text. Otherwise its new chunks replace every chunk
+    it had, so an edit that leaves the record shorter leaves no chunk of the old
+    text behind. A failed embedding call keeps the old chunks.
     The same steps run in a browser, with the browser's chunker, embedder and
     store.
   `,
@@ -41,37 +40,49 @@ foam.CLASS({
   methods: [
     {
       name: 'index',
-      documentation: `Makes the chunks of obj, a record of the DAO daoKey, hold its current
-        text, and returns true if that took an embedding call.`,
+      documentation: `
+        Makes the chunks of obj, a record of the DAO daoKey, hold its text, and
+        returns true if it wrote chunks. source is the DAO that stores the
+        record: when the call that embeds the text returns, the stored record
+        is read again, and if its text is no longer the one embedded, the
+        vectors are dropped, because the save that changed it runs its own
+        index(). The vectors are written one DAO put after that check, so the
+        gap is that short, not as long as an embedding call.
+      `,
       type: 'Boolean',
       async: true,
-      args: 'Context x, String daoKey, foam.lang.FObject obj',
-      code: async function(x, daoKey, obj) {
+      args: 'Context x, String daoKey, foam.lang.FObject obj, foam.dao.DAO source',
+      code: async function(x, daoKey, obj, source) {
         var sourceId = String(obj.id);
-        var chunks   = await this.chunks(x, obj.toIndexText(x));
+        var text     = obj.toIndexText(x);
+        var chunks   = await this.chunks(x, text);
         var store    = x.vectorStoreDAO;
-        // a page can switch provider, and a search reads only the vectors of the current model
-        var model    = await x.embeddingService.getModel();
         var same     = true;
         for ( var i = 0 ; same && i <= chunks.length ; i++ ) {
           var e = await store.find(daoKey + ':' + sourceId + ':' + i);
-          same = i == chunks.length ? ! e : !! e && e.text === chunks[i] && e.embeddingModel === model;
+          same = i == chunks.length ? ! e : !! e && e.text === chunks[i];
         }
         if ( same ) return false;
 
         // embedded before the old chunks go: a failed call keeps the record searchable
-        await this.replace(x, daoKey, sourceId, chunks.length ? await this.embedAll(x, chunks) : []);
+        var embedded = chunks.length ? await this.embedAll(x, chunks) : [];
+        var now = await source.find_(x, obj.id);
+        if ( ! now || now.toIndexText(x) !== text ) return false;
+        await this.replace(x, daoKey, sourceId, embedded);
         return true;
       },
       javaCode: `
-        String           sourceId = String.valueOf(obj.getProperty("id"));
-        String[]         chunks   = chunks(x, ((EmbeddingAware) obj).toIndexText(x));
-        EmbeddingService embedder = (EmbeddingService) x.get("embeddingService");
-        DAO              store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
-        if ( isIndexed(store, daoKey, sourceId, chunks, embedder.getModel()) ) return false;
+        String   sourceId = String.valueOf(obj.getProperty("id"));
+        String   text     = ((EmbeddingAware) obj).toIndexText(x);
+        String[] chunks   = chunks(x, text);
+        DAO      store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
+        if ( isIndexed(store, daoKey, sourceId, chunks) ) return false;
 
         // embedded before the old chunks go: a failed call (gateway down) keeps the record searchable
-        replace(x, daoKey, sourceId, chunks.length == 0 ? new VectorEmbedding[0] : embedAll(x, chunks));
+        VectorEmbedding[] embedded = chunks.length == 0 ? new VectorEmbedding[0] : embedAll(x, chunks);
+        FObject now = source.find_(x, obj);
+        if ( now == null || ! text.equals(((EmbeddingAware) now).toIndexText(x)) ) return false;
+        replace(x, daoKey, sourceId, embedded);
         return true;
       `
     },
@@ -119,7 +130,8 @@ foam.CLASS({
     {
       name: 'embedAll',
       documentation: `The vectors of texts, one per text, in order. A provider that answers with
-        another count fails the call, as a refused one does, so no record loses a chunk.`,
+        another count fails the call, as a refused one does, so no record loses a chunk. A sync
+        passes the chunks of several records at once.`,
       type: 'foam.ai.vector.VectorEmbedding[]',
       async: true,
       args: 'Context x, String[] texts',
@@ -136,15 +148,15 @@ foam.CLASS({
     },
     {
       name: 'isIndexed',
-      documentation: `True when the store holds exactly these chunks for the record, in order, embedded
-        by model: a chunk missing, one more, another text or another model all mean no.`,
+      documentation: `True when the store holds exactly these chunk texts for the record, in order:
+        a chunk missing, one more or another text all mean no.`,
       type: 'Boolean',
-      args: 'foam.dao.DAO store, String daoKey, String sourceId, String[] chunks, String model',
+      args: 'foam.dao.DAO store, String daoKey, String sourceId, String[] chunks',
       flags: ['java'],
       javaCode: `
         for ( int i = 0 ; i < chunks.length ; i++ ) {
           VectorEmbedding e = (VectorEmbedding) store.find(daoKey + ":" + sourceId + ":" + i);
-          if ( e == null || ! chunks[i].equals(e.getText()) || ! model.equals(e.getEmbeddingModel()) ) return false;
+          if ( e == null || ! chunks[i].equals(e.getText()) ) return false;
         }
         return store.find(daoKey + ":" + sourceId + ":" + chunks.length) == null;
       `

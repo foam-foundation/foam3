@@ -22,6 +22,12 @@ foam.CLASS({
     the background. Any other put, e.g. one that only moves a block of a document,
     leaves the status as it was. A remove deletes the record and its chunks.
     sync() embeds the NEW and DIRTY records, called by EmbeddingSync.
+    A failed embedding call leaves the record NEW or DIRTY, so the next sync
+    retries it. A context with no embeddingService, vectorStoreDAO or (on a
+    server) threadPool removes no chunks and starts no sync, so a save and a
+    remove always work without an AI provider.
+    The chunks are removed as the system context, so a user who may edit a
+    record needs no right on the index.
     Chunks are stored under this DAO's name, e.g. "noteDAO:42:0" for the
     first chunk of note 42.
   `,
@@ -166,6 +172,17 @@ foam.CLASS({
       }
     },
     {
+      name: 'configured_',
+      documentation: 'Whether the context has what indexing needs: the embedder, the chunk store and, on a server, the thread pool.',
+      type: 'Boolean',
+      code: function() {
+        return !! ( this.__context__.embeddingService && this.__context__.vectorStoreDAO );
+      },
+      javaCode: `
+        return getX().get("threadPool") != null && getX().get("embeddingService") != null && getX().get("vectorStoreDAO") != null;
+      `
+    },
+    {
       name: 'put_',
       code: async function(x, obj) {
         var old    = await this.delegate.find_(x, obj.id);
@@ -175,10 +192,10 @@ foam.CLASS({
           obj.embeddingStatus = status;
         }
         var saved = await this.delegate.put_(x, obj);
-        if ( status === this.EmbeddingStatus.DISCARDED && old && old.embeddingStatus !== this.EmbeddingStatus.DISCARDED ) {
+        if ( this.configured_() && status === this.EmbeddingStatus.DISCARDED && old && old.embeddingStatus !== this.EmbeddingStatus.DISCARDED ) {
           await this.RAGIndexer.create().remove(this.__context__, this.name, String(obj.id));
         }
-        if ( this.embeddingSync && ( status === this.EmbeddingStatus.NEW || status === this.EmbeddingStatus.DIRTY ) ) this.embeddingSync.wake();
+        if ( this.configured_() && this.embeddingSync && ( status === this.EmbeddingStatus.NEW || status === this.EmbeddingStatus.DIRTY ) ) this.embeddingSync.wake();
         return saved;
       },
       javaCode: `
@@ -191,11 +208,11 @@ foam.CLASS({
         FObject saved = getDelegate().put_(x, obj);
         // The chunks are the index's own rows, not the user's: removed as the
         // system, so a user who may edit a record needs no right on the index.
-        if ( status == EmbeddingStatus.DISCARDED && old != null && old.getEmbeddingStatus() != EmbeddingStatus.DISCARDED ) {
+        if ( configured_() && status == EmbeddingStatus.DISCARDED && old != null && old.getEmbeddingStatus() != EmbeddingStatus.DISCARDED ) {
           new RAGIndexer().remove(getX(), getName(), String.valueOf(obj.getProperty("id")));
         }
         // the sync embeds it in the background; the save does not wait
-        if ( getEmbeddingSync() != null && ( status == EmbeddingStatus.NEW || status == EmbeddingStatus.DIRTY ) ) getEmbeddingSync().wake();
+        if ( configured_() && getEmbeddingSync() != null && ( status == EmbeddingStatus.NEW || status == EmbeddingStatus.DIRTY ) ) getEmbeddingSync().wake();
         return saved;
       `
     },
@@ -203,13 +220,13 @@ foam.CLASS({
       name: 'remove_',
       code: async function(x, obj) {
         var removed = await this.delegate.remove_(x, obj);
-        await this.RAGIndexer.create().remove(this.__context__, this.name, String(obj.id));
+        if ( this.configured_() ) await this.RAGIndexer.create().remove(this.__context__, this.name, String(obj.id));
         return removed;
       },
       javaCode: `
         FObject removed = getDelegate().remove_(x, obj);
         // removed as the system: see put_
-        new RAGIndexer().remove(getX(), getName(), String.valueOf(obj.getProperty("id")));
+        if ( configured_() ) new RAGIndexer().remove(getX(), getName(), String.valueOf(obj.getProperty("id")));
         return removed;
       `
     },
@@ -295,7 +312,6 @@ foam.CLASS({
         }
         PropertyInfo status   = (PropertyInfo) getOf().getAxiomByName("embeddingStatus");
         DAO          store    = ((DAO) x.get("vectorStoreDAO")).inX(x);
-        String       model    = ((EmbeddingService) x.get("embeddingService")).getModel();
         RAGIndexer   indexer  = new RAGIndexer();
         Pending      pending  = new Pending();
         // Streamed rather than listed first: after a restart every record waits, e.g. a
@@ -311,7 +327,7 @@ foam.CLASS({
               return;
             }
             String[] chunks = indexer.chunks(x, ((EmbeddingAware) obj).toIndexText(x));
-            if ( indexer.isIndexed(store, getName(), id, chunks, model) ) {
+            if ( indexer.isIndexed(store, getName(), id, chunks) ) {
               finish_(x, obj, true);
               return;
             }
@@ -372,7 +388,7 @@ foam.CLASS({
         var embeddable = this.embeddable_(x, obj);
         var called     = false;
         if ( embeddable ) {
-          called = await indexer.index(x, this.name, obj);
+          called = await indexer.index(x, this.name, obj, this.delegate);
         } else {
           await indexer.remove(x, this.name, id);
         }
@@ -391,7 +407,7 @@ foam.CLASS({
         boolean    embeddable = ((EmbeddingAware) obj).isEmbeddable(x);
         boolean    called     = false;
         if ( embeddable ) {
-          called = indexer.index(x, getName(), obj);
+          called = indexer.index(x, getName(), obj, getDelegate());
         } else {
           indexer.remove(x, getName(), String.valueOf(obj.getProperty("id")));
         }

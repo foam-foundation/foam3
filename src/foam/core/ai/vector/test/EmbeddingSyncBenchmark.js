@@ -85,8 +85,8 @@ foam.CLASS({
         RAGIndexer indexer = new RAGIndexer();
         for ( int i = 0 ; i < n ; i++ ) {
           RAGNote d = RAGTest.note("n" + i, "alpha " + i + "\\n\\n## More\\n\\nbeta " + i);
-          if ( ! "first".equals(scenario) ) indexer.index(tx, "noteDAO", d);
           notes.put(d);
+          if ( ! "first".equals(scenario) ) indexer.index(tx, "noteDAO", d, notes);
         }
         if ( "idle".equals(scenario) ) sync.sync(tx);
         if ( "sweep".equals(scenario) ) {

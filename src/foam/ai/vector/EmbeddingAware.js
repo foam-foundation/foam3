@@ -72,12 +72,6 @@ foam.INTERFACE({
       type: 'Boolean',
       args: 'Context x',
       javaCode: 'return true;'
-    },
-    {
-      name: 'openIndexed',
-      documentation: 'Opens the record for a user who followed a source link to it.',
-      args: 'Context x',
-      flags: ['web']
     }
   ]
 });

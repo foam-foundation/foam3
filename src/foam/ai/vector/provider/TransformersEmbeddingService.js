@@ -301,8 +301,12 @@ foam.CLASS({
     },
 
     async function embedAll(x, texts) {
-      await this.pipeline_.load();
-      this.status = '';
+      // a failed download must not leave "Preparing… 35%" on screen over the error
+      try {
+        await this.pipeline_.load();
+      } finally {
+        this.status = '';
+      }
       var options = { pooling: this.pooling, normalize: true };
       var vectors = [];
       for ( var i = 0 ; i < texts.length ; i += this.BATCH_SIZE ) {

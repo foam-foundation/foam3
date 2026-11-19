@@ -113,7 +113,23 @@ A service that needs to start threads, open sockets or schedule work implements
 | `reload()` | Its CSpec's `service`, `serviceClass` or `serviceScript` is changed at runtime. |
 | `stop()` | At JVM shutdown, through `ShutdownHook`. |
 
-All three default to doing nothing.
+All three default to doing nothing. Four details catch people out:
+
+- **A failed `start()` does not stop boot.** The exception is caught and written to the CSpec's
+  `status` and `message`, and boot carries on (`CSpecFactory.java:133-138,155-156`). Check the
+  Services admin screen, not the boot log's last line, to know a service is up.
+- **The first caller of a lazy service may get it before `start()` has finished.** For a lazy
+  service `start()` is submitted to the `threadPool` and `x.get()` returns at once. It runs inline
+  only when there is no `threadPool`, the service is non-lazy, or its name contains `pool`
+  (`CSpecFactory.java:118-141`). A service whose methods need what `start()` builds must guard
+  for it.
+- **`stop()` is not guaranteed.** `ShutdownHook` skips every `stop()` in TEST mode
+  (`ShutdownHook.java:72-80`), and nothing runs on `kill -9`. Do not make `stop()` the only place a
+  durable flush happens.
+- **`init_()` runs only for some creation paths.** A generated `Builder`'s `build()` calls it
+  (`foam/java/Builder.js:86`), and so does the JSON parser for an inline `service` object
+  (`FObjectParser.java:141-143`). A `serviceClass` is created with `newInstance()`
+  (`CSpec.js:307-308`) and never gets `init_()`; put that setup in `start()` instead.
 
 ### 1.4 Sub-context names
 
@@ -883,7 +899,7 @@ script) is written to the live `services` journal and picked up by Boot's listen
 
 | The running service is | What happens |
 |---|---|
-| A `COREService` | `reload()` is called. If the new object is an FObject, the existing instance copies its properties, because other services may hold a reference to it. |
+| A `COREService` | `reload()` is called on the running instance (`CSpecFactory.java:192-200`). Nothing from the new CSpec or its object is copied in, and the service's `getCSpec()` still returns the old CSpec. `reload()` must re-read its own configuration, as `SMTPAgent.reload` re-reads its `EmailServiceConfig` (`SMTPAgent.js:210-222`). |
 | A DAO | The `ProxyDAO`'s delegate is cleared, and the next access rebuilds the DAO and replays its journal. Not supported for clustered DAOs. |
 | Anything else | The cached instance is dropped. A non-lazy service is rebuilt immediately; a lazy one on next access. |
 
@@ -969,6 +985,25 @@ p({
 ```
 
 The class implements `COREService` and starts its timer in `start()`.
+
+### A rate limit shared by callers
+
+```
+p({
+  "class":"foam.core.boot.CSpec",
+  "name":"smtpAgentThrottle",
+  "serviceScript":"""
+    return new foam.core.pool.Throttle.Builder(x).setRate(14.0F).build();
+  """
+})
+```
+
+A `foam.core.pool.Throttle` spaces calls to `throttle()` at `1000 / rate` ms apart, across every
+thread that shares it (`Throttle.js:56-79`). Give each external vendor its own Throttle CSpec, and
+have the caller hold the CSpec name rather than the object, as `SMTPAgent.throttler` does. The
+caller looks it up on each send and skips the limit when the CSpec is missing
+(`SMTPAgent.js:453-457`), so a misspelt name means no limit, not an error. `throttle()` sleeps
+outside its lock, so many callers can wait at once, each for its own slot.
 
 ### A public web endpoint
 

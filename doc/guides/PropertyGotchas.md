@@ -27,6 +27,7 @@ A `postSet` runs only when the **setter** is invoked. Three initialization paths
 1. **A `value:` default.** The getter returns the default without ever calling the setter, so a property declared `value: true` and never assigned fires `postSet` zero times.
 2. **A `prop$` slot binding.** The slot setter runs `prop.toSlot(this).linkFrom(slot2)` (`src/foam/lang/Property.js:507`), and `linkFrom`'s initial sync is guarded by `if ( ! foam.util.is(s1.get(), s2.get()) )` (`src/foam/lang/Slot.js:149`, initial call `l2()` at `:164`). **If the bound values are already equal, no set happens and `postSet` never fires.** The classic trap is `value: true` on the view property plus a source that is already `true` — the `postSet` meant to build a predicate or switch a class runs never.
 3. **Deserialization and `copyFrom` ordering.** `postSet` fires per property in declaration order, so siblings it reads may not be set yet.
+4. **An object built on the server.** A JS `postSet` exists only in the browser. The generated Java setter is assembled from `javaAdapt`, `javaAssertValue`, `javaPreSet` and `javaPostSet` alone (`src/foam/java/refinements.js:427-462`), so an object created by a Java rule or service never runs it. A JS `postSet` that fills a display name with `userDAO.find(n).then(...)` stays blank for every server-created row, and races the caller even in the browser; use a `javaFactory` on a `storageTransient` property instead.
 
 Derive initial state instead of hooking it: `expression:` for a reactive derived value, `factory:` for once-at-first-read, or an explicit idempotent call in `init()`/`render()` for setup that must run even when the transition never happens. Keep `postSet` for reacting to a live change.
 
@@ -46,6 +47,8 @@ This is why two expressions over the same dependency behave differently: one fee
 For a derived value that must update on every change of an async-populated array, do not use an `expression`. Compute it in a `this.dynamic(function(dep) { this.x = ... })` block (`src/foam/lang/FObject.js:748`, backed by `DynamicFunction` at `src/foam/lang/Slot.js:637`) and store it in a **plain** property — a plain `PropertySlot` pushes on every set, with no private-cache laziness and no one-shot detach.
 
 Corollary: because the cache lives in `private_`, `hasOwnProperty(name)` stays **false** even after the expression has fired, so code branching on `hasOwnProperty` treats an expression default as unset.
+
+**An expression that returns `undefined` is never cached.** `hasOwnPrivate_` treats an `undefined` private value as absent (`src/foam/lang/FObject.js:508-510`), so `eFactoryGetter` re-runs the expression on every read, and each run subscribes to every dependency again (`Property.js:681-689`). `expression: function(x) { if ( ! x ) return; ... }` therefore recomputes and adds listeners on each access while `x` is empty. Return `null` instead. A `factory` does not have this problem: its getter stores `undefined` as `null` (`Property.js:537-540`).
 
 ### `javaFactory` is frozen-safe
 
@@ -98,6 +101,8 @@ So `javaCompare: 'return 0;'` on an array property is discarded with no warning.
 
 That asymmetry is a useful lever: a staging field that must reach the server on a put but never be journaled is `storageTransient: true`, **not** `transient: true` (which also sets `networkTransient` and drops it on the wire). Because decode never filters, the client simply starting to send the field is enough — the server reads it with no recompile.
 
+**`externalTransient` alone hides a property only from external output.** Only the DIG outputters test it: JS `foam.json.Dig` (`src/foam/lang/JSON.js:768`) and Java `foam.lib.ExternalPropertyPredicate` (`src/foam/lib/ExternalPropertyPredicate.js:15`, used by `src/foam/core/dig/DigUtil.java:92,140`). The `Network` and `Storage` outputters check only `networkTransient` and `storageTransient` (`JSON.js:757,780`), so an `externalTransient: true` field such as `createdBy` is still journaled and still sent to the browser. Set `networkTransient` as well when the client must not see it.
+
 **`searchable` is derived from `transient`, not defaulted:**
 
 ```javascript
@@ -143,6 +148,8 @@ Levers, in order of preference:
 1. **Set-on-write isSet flip.** A sibling property's `javaPostSet` sets the backing flag — `javaPostSet: 'derivedPropIsSet_ = true;'` on the driving property. Journal replay and puts both run setters, so every record with the driver set becomes serializable, while the value itself still comes fresh from the getter at output time. Do **not** do DAO lookups in that postSet: deserialization contexts have no DAOs.
 2. **Persist the value.** Costs storage and adds staleness risk.
 3. **Resolve client-side.** No server change, but per-row async and no server-side search benefit.
+
+The same flag decides what a getter returns. A hook that writes another property's backing field directly, `otherProp_ = val;` in a `javaPreSet`, must also write `otherPropIsSet_ = true;`. The generated getter tests the flag before it reads the field and returns the default (or runs the `javaFactory`) while the flag is false (`src/foam/java/refinements.js:503-508`), so the written value is invisible.
 
 **There is no isSet override hook.** The generated `PropertyInfo.isSet` body is hardcoded to `return o.<name>IsSet_;` (`src/foam/java/PropertyInfo.js:212-217`); there is no `javaIsSet` counterpart to `javaGetter`/`javaSetter` (`src/foam/java/refinements.js:253-257`). Adding one would be the framework-level fix for "derived and serializable".
 
@@ -211,6 +218,14 @@ It is a JS-only key that still produces a real Java axiom, because genjava runs 
 
 Use it when a facade or simplified model needs a field from an unrelated model it cannot `extends`. This is distinct from the runtime `copyFrom(o)` method (`src/foam/lang/FObject.js:982`), which merges another object's **values** into `this`.
 
+### An object or array in `value:` is shared by every instance
+
+The `value:` default is evaluated once, when the class is defined, and `valueGetter` hands back that same object to every instance that has not set its own (`src/foam/lang/Property.js:551-555`). With `{ class: 'Array', name: 'ids', value: [] }`, a `push` on one object's `ids` shows up on every other object that still holds the default. `Array` already has a per-instance `factory: function() { return []; }` (`src/foam/lang/types.js:510-513`), so leave `value:` off; for a `Map` or plain object, write the `factory` yourself.
+
+### Async coercion belongs in `normalize`, not `postSet`
+
+A `postSet` that starts a DAO `find` and writes the property when it resolves loses the race with the caller: the object can be put, or rendered, before the write lands. `normalize` is the async hook for this. `FObject.normalizeObj()` awaits each property's `normalize` and sets the result (`src/foam/lang/FObject.js:807-815`), and `RequestResponseClientDAO.put_` awaits `normalizeObj()` before sending (`src/foam/dao/RequestResponseClientDAO.js:33`). `CurrencyCode` uses it to turn `"840"` into `"USD"` (below). Note that `ClientDAO.put_` calls `normalizeObj()` without awaiting it (`src/foam/dao/ClientDAO.js:39`), so on that path the put can still go out first.
+
 ### Property names take no trailing underscore
 
 A trailing underscore is FOAM's convention for transient internal scratch fields, so using it on a real property mislabels intent. Java accessors derive from the name by capitalizing — `resolvedValue` becomes `getResolvedValue()`/`setResolvedValue()` — so renaming the property later renames every accessor.
@@ -227,9 +242,13 @@ Verify before trusting an assignment: `obj.cls_.getAxiomByName('foo')` should re
 
 The HTTP and WebSocket boxes serialize with short names — `setOutputShortNames(true)` in `src/foam/box/HTTPBox.js:140`, `HTTPReplyBox.js:40`, `RawWebSocketBox.js:53` — and the outputter emits the shortName when set (`src/foam/lib/formatter/JSONFObjectFormatter.java:709`; `src/foam/lib/json/Outputter.java:499` for the plain outputter). A model with no short names ships full property keys, roughly doubling the payload on wide records.
 
-Adding one to an existing model is safe: the Java parser registers BOTH the full name and the shortName as parse keys (`src/foam/lib/json/ModelParserFactory.java:221-222`), so journals written with long keys still replay. Aliases are not registered as Java parse keys, so a shortName may reuse an alias code without conflict on the server path.
+Adding one to an existing model is safe: the Java parser registers BOTH the full name and the shortName as parse keys (`src/foam/lib/json/ModelParserFactory.java:221-222`), so journals written with long keys still replay.
 
-`shortName` must be **unique within the class including inherited properties** — both parsers key properties by shortName (`src/foam/lib/json/ModelParserFactory.java:222`, `src/foam/lang/JSON.js:850`), so a duplicate collides with another property's key — so check the parents and interfaces before adding one to a subclass.
+**Changing or removing a shipped shortName is not safe.** Rows already written with the old short key no longer match any parse key, and the Java parser skips an unknown key without a warning (`ModelParserFactory.java:237-239`, `UnknownPropertyParser`). A journal row `{"st":"OPEN"}` written before `status` changed its shortName from `st` to `s` replays with `status` unset.
+
+`shortName` must be **unique within the class including inherited properties** — both parsers key properties by shortName (`src/foam/lib/json/ModelParserFactory.java:222`, `src/foam/lang/JSON.js:850`), so a duplicate collides with another property's key — so check the parents and interfaces before adding one to a subclass. The two runtimes resolve a collision differently: the Java key table probes from the hashed slot and stops at the first entry registered for that key (`ModelParserFactory.java:134-139`), while the JS map is built with plain assignment and keeps the last (`JSON.js:849-850`). The same row can then set one property on the server and another in the browser.
+
+**Aliases are not JSON keys.** Neither JSON parser registers `aliases` (`ModelParserFactory.java:221-222`, `JSON.js:849-850`), so a journal or network payload that spells a property with an alias is not recognised. Aliases are matched only by name lookups outside JSON: the query parsers (`src/foam/parse/QueryParser.js:285-287`, `src/foam/parse/SimpleQueryParser.java:460-461`), `ClassInfoImpl.getAxiomByNameOrShortNameOrAlias` (`src/foam/lang/ClassInfoImpl.java:202`) and upload column mapping (`ColumnParser`, below). Because the Java parser ignores aliases, a shortName may reuse an alias code without conflict on the server path.
 
 ### Imports are writable
 

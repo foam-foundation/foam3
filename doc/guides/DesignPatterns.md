@@ -207,3 +207,54 @@ This three-level application of MVC is what allows FOAM's generic views to work 
 > 4. **The meta-model** — `foam.lang.Model` itself: the FOAM class that describes all other class declarations. It is simultaneously a class declaration (sense 2) and a domain object (sense 3), and is described by itself — the meta-circular point from the [Meta-Circular](Concepts.md#meta-circular) section.
 >
 > Senses 2, 3, and 4 collapse cleanly: every class declaration is a domain object that is an instance of `foam.lang.Model`, which is itself described by a class declaration. The MVC sense (1) is orthogonal — any of the others can serve as an MVC Model simply by being passed as `data` to a View.
+
+## Review principles
+
+The patterns above say what FOAM is built from. The principles below say how a change should fit
+into it. They are the questions FOAM maintainers ask of a change most often, and most review
+comments are one of the first five.
+
+**Declare what things are, not what to do when things happen.** The declaration is what the
+framework regenerates behaviour from; a handler is code that must be maintained by hand. An event
+listener that styles a node, validates a field or copies a value is usually a slot bound at
+declaration, a `validateObj` or an `expression:` instead.
+
+**Ask the object; never keep a registry about it.** A map, set or counter in a consumer that
+describes state another object holds goes stale when that object changes. Ask the owner. `MDAO`
+does not keep a set of the indexes it has added: `Index.covers(Index)` answers whether an index is
+redundant, and `AltIndex.addIndex` asks it (`Index.java:72`, `AltIndex.java:45`).
+
+**More implementations behind fewer interfaces.** A new `DAO`, `Sink`, `View`, `Predicate` or
+`Agent` composes with everything already written for that interface; a new interface composes with
+nothing. Before adding a mechanism, look for the interface it is one more implementation of.
+
+**Extend without being specific.** A shared class (a base view, a controller, a model every flow
+uses) serves callers that never use your feature. Teaching it the feature couples every caller to
+it. Give the shared class a generic extension point instead (an exported empty view, a hook
+method, a property whose default is today's behaviour) and keep the feature in its own class.
+
+**Delete the second statement of anything already stated.** A restated default or a duplicated
+fact is a second source of truth. The [Style Guide](StyleGuide.md) lists the common restatements.
+
+Seven more come up often enough to state:
+
+- **Choose the layer by its trigger.** A property hook reacts to one object's own state. A DAO
+  decorator applies when the stored shape differs from the served one. A rule propagates a change
+  to other models after a write, and can be enabled or reordered without a code change. A
+  `COREService` owns a clock or an I/O boundary. An FSM owns named states driven by an operator or
+  a partner. Logic in the wrong layer runs at the wrong time or is written twice.
+- **Enum values carry their own behaviour.** A label, a colour or a method belongs on the enum
+  value, not in a `switch` in each caller: a new value then works everywhere without editing the
+  callers.
+- **Refine downstream; keep the core minimal.** A property added to a core class loads in every
+  application. A `refines:` in the feature's own package loads only with the feature.
+- **Interface defaults fail toward the status quo.** When a default answer can be wrong, choose the
+  one whose mistake is cheap. `Index.covers` defaults to `false`: a wrong `false` builds one
+  redundant index, a wrong `true` silently loses one (`Index.java:60-74`).
+- **Log when work is skipped.** A request that is declined silently looks the same as one that
+  never arrived. `AltIndex.addIndex` logs the covered index before returning (`AltIndex.java:45-48`).
+- **Java code generation lives in `src/foam/java/refinements.js`.** A core model says what an axiom
+  is; the Java it emits is added by the Java refinement layer, so a JS-only build never loads it.
+- **The clever version has to beat the plain one on a number.** A bounded cache or a lock-free
+  structure is code someone maintains for good. Write the plain version first, run both on the
+  same input, and keep the complex one only for the measured gap.

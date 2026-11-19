@@ -295,7 +295,7 @@ crash, but edits made before the path exists are lost.
 
 **A chain ends at an object, not inside it.** A `SubSlot` publishes only when the value it holds changes identity: `valueChange` re-reads the value and assigns it, and an assignment of the same object publishes nothing (`src/foam/lang/Slot.js:400-403`). A `Map` property changed in place keeps the same object. `theme.activeVariants$set('color', 'dark')` writes the key into the existing map and publishes on the theme's own `activeVariants` slot (`src/foam/lang/types.js:1129-1136`), so `theme$.dot('activeVariants')` stays silent while `theme.activeVariants$` fires.
 
-For anything that must react to a key changing inside a `Map` or `Object` property, subscribe to the property slot itself, or pass it to `dynamic(fn, ...slots)`:
+For anything that must react to a key changing inside a `Map` or `Object` property, subscribe to the property slot itself, or pass it to `dynamic(fn, ...slots)`. Trailing slots replace the dependencies the parameter names would declare (see [ReactivePatterns](ReactivePatterns.md) §5):
 
 ```javascript
 // silent when the colour scheme flips: same map object, new key

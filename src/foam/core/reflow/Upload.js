@@ -79,7 +79,7 @@ foam.CLASS({
     << .col-property { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
     << .col-type { width: 10%; }
     << .col-value { width: 20%; }
-    << .col-sample { width: 20%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 12px $inputHorizontalPadding; }
+    << .col-sample { width: 20%; overflow-wrap: anywhere; padding: 12px $inputHorizontalPadding; }
     << .col-dateformat { width: 20%; }
     << .col-required { width: 10%; padding: 12px $inputHorizontalPadding; }
   `,

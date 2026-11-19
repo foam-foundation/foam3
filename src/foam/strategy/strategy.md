@@ -80,8 +80,7 @@ an ISO 20022 `Outputter` that applies only to transactions: it carries
 `target: 'Transaction'` and is offered only when the caller asks for
 `Outputter` with that target (`StrategyReference.js:47-68`).
 
-No row in the current deployment sets `target`; all 129 references in
-`/opt/paytic/journals/strategyReferences.0` are general.
+No reference that foam3 registers sets `target`; all of them are general.
 
 ## Services
 
@@ -133,9 +132,6 @@ client; the two choice views below do not.
 | `foam.u2.view.FObjectView` | Imports `strategizer?`. When present it calls `query(null, this.of.id, null, this.predicate)`, maps each reference to `[strategy.id, label \|\| strategy.model_.label]` and sorts by label (`foam3/src/foam/u2/view/FObjectView.js:207-231`). With no references it offers the `of` class itself unless `skipBaseClass` is set. Without a strategizer in context it falls back to `choicesFallback`, which walks the implements and extends relations (`FObjectView.js:232-235`). |
 | `foam.u2.view.StrategizerChoiceView` | A `ChoiceView` with `desiredModelId` and `target` properties. Re-queries when either changes; the first choice is `[null, 'Select...']`; the choice value is the strategy class itself (`foam3/src/foam/u2/view/StrategizerChoiceView.js:33-55`). |
 | `foam.u2.view.StrategizerRichChoiceView` | A searchable `RichChoiceView`. Queries once in `init`, loads `LabeledValue`s into an `MDAO`, and falls back to `strategy.name` (not the model label) when `label` is empty (`foam3/src/foam/u2/view/StrategizerRichChoiceView.js:62-86`). |
-| `com.paytic.dynamic.DModel` | Passes `EQ(DESIRED_MODEL_ID, 'com.paytic.dynamic.DProperty')` as the `FObjectView` predicate for property types (`src/com/paytic/dynamic/DModel.js:189`). |
-| `com.paytic.identity.ProgramMappingRuleActionView` | Passes a predicate on `StrategyReference.ID` to show only the program-mapping rule actions (`src/com/paytic/identity/ProgramMappingRuleActionView.js:44-52`). |
-| `com.paytic.flow.fileupload.FileUploadConfig` | Reads `strategyDAO` directly, without the strategizer, to list `DProperty` types (`src/com/paytic/flow/fileupload/FileUploadConfig.js:1852-1853`). |
 
 ### Example: restricting the choices on one property
 
@@ -182,7 +178,7 @@ At build time `JournalMaker` concatenates every `strategyReferences.jrl` in the
 build into one runtime journal, prefixing each file's rows with
 `// The following lines were copied from "<path>"`
 (`foam3/tools/JournalMaker.js:140-168`). The result is
-`/opt/paytic/journals/strategyReferences.0` in a PTV3 deployment.
+`journals/strategyReferences.0` in the deployment directory.
 
 Guidelines:
 
@@ -212,44 +208,34 @@ Guidelines:
 
 Read access is checked per row as `strategyreference.read.<id>`. Since the
 strategizer queries through `inX(x)`, a user sees only the choices they hold
-read permission for. PTV3 uses this to scope choices by role, for example:
-
-- `RoleReflow` holds `strategyreference.read.dynamic.*`, which covers the
-  `dynamic.*` property types (`journals/groupPermissionJunctions.jrl:278`).
-- `RoleInvoicing` holds `strategyreference.read.com.paytic.flow.invoice.*`
-  (`journals/groupPermissionJunctions.jrl:319`).
-- `RoleReflowSchedule` holds one grant per `Schedule` strategy id
-  (`journals/groupPermissionJunctions.jrl:363-367`).
+read permission for. An application can use this to scope choices by role,
+for example by granting one group `strategyreference.read.dynamic.*`, which
+covers a whole family of ids, and another group one grant per `Schedule`
+strategy id.
 
 A user without any matching read permission gets an empty result, and
 `FObjectView` then offers only the base class.
 
-## Strategies in the current deployment
+## Strategies foam3 registers
 
-From `/opt/paytic/journals/strategyReferences.0` (129 references):
+From the `strategyReferences.jrl` files under `foam3/src` (86 references). An
+application adds its own rows to the same runtime journal.
 
 | Desired model | Count | Strategies | Source journal |
 |---------------|------:|------------|----------------|
-| `foam.mlang.predicate.Predicate` | 34 | `Eq`, `Neq`, `And`, `Or`, `True`, `False`, `Contains`, `ContainsIC`, `StartsWith`, `StartsWithIC`, `EndsWith`, `In`, `Lt`, `Lte`, `Gt`, `Gte`, `Has`, `Not`, `IsInstanceOf`, `Keyword`, `DotF`, `IsClassOf`, `RegExp`, `OlderThan`; ruler predicates `NewEqOld`, `PropertyChangePredicate`, `PropertyEQProperty`, `PropertyEQValue`, `PropertyHasValue`, `PropertyIsClass`, `PropertyIsInstance`, `PropertyNEQValue`; `SpidAwarePredicate` ("SPID Aware"), `SpidHierarchyPredicate` ("SPID Hierarchy") | `foam3/src/strategyReferences.jrl` |
+| `foam.mlang.predicate.Predicate` | 33 | `Eq`, `Neq`, `And`, `Or`, `True`, `False`, `Contains`, `ContainsIC`, `StartsWith`, `StartsWithIC`, `EndsWith`, `In`, `Lt`, `Lte`, `Gt`, `Gte`, `Has`, `Not`, `IsInstanceOf`, `Keyword`, `DotF`, `IsClassOf`, `RegExp`, `OlderThan`; ruler predicates `NewEqOld`, `PropertyChangePredicate`, `PropertyEQProperty`, `PropertyEQValue`, `PropertyHasValue`, `PropertyIsClass`, `PropertyIsInstance`, `PropertyNEQValue` (`IsInstanceOf` is registered twice) | `foam3/src/strategyReferences.jrl` |
 | `foam.mlang.Expr` | 15 | `PropertyExpr`, `Constant`, `ArrayConstant`, `PredicateExpr`, `ContextObject`, `CurrentTime`, `StringLength`, `IdentityExpr`, `IsValid`, `Dot`, `Add`, `Subtract`, `Divide`, `Multiply`, `TimeOfDay` | `foam3/src/strategyReferences.jrl` |
 | `foam.Class` | 2 | `foam.core.auth.User`, `foam.core.auth.Group` | `foam3/src/strategyReferences.jrl` |
 | `foam.util.BaseFluentSpec` | 3 | `AddFluentSpec`, `RemoveFluentSpec`, `AddBeforeFluentSpec` | `foam3/src/foam/util/` |
-| `foam.core.auth.Credential` | 11 | `Credential`, `JOSEPayloadCredential`, `BearerCredential`, `MastercomAPICredential`, `JWTCredential`, `VisaAPICredential`, `BasicAuthCredential`, `SigningKeyCredential`, `SSHCredential`, `JschCredential`, `GpgCredential` | `foam3/src/foam/core/auth/`, `src/com/paytic/schema/credentials/` |
+| `foam.core.auth.Credential` | 1 | `Credential` | `foam3/src/foam/core/auth/` |
 | `foam.core.grant.Grant` | 9 | `SuperUserGrant`, `PermissionGrant`, `CompoundGrant`, `SharedGrant`, `UserGrant`, `GroupGrant`, `SPIDGrant`, `PermissionedGrant`, `RecordingGrant` | `foam3/src/foam/core/grant/` |
 | `foam.core.ticket.Ticket` | 4 | `UserLifecycleTicket`, `PIIReportTicket`, `UserCapabilityTicket`, `Ticket` | `foam3/src/foam/core/{auth/ruler,pii,crunch,ticket}/` |
 | `foam.core.so.SystemOutageTask` | 2 | `SystemNotificationTask`, `MessageTask` | `foam3/src/foam/core/so/` |
+| `foam.core.bench.Benchmark` | 3 | `Benchmark`, `TestScriptBenchmark`, `DIGBenchmark` | `foam3/src/foam/core/{bench,dig/bench}/` |
+| `foam.core.bench.BenchmarkRunner` | 2 | `BenchmarkRunner`, `DistributedDIGBenchmarkRunner` | `foam3/src/foam/core/{bench,dig/bench}/` |
 | `foam.core.cron.Schedule` | 5 | `OrSchedule`, `CronSchedule`, `IntervalSchedule`, `SimpleIntervalSchedule`, `TimeOfDaySchedule` | `foam3/src/foam/core/cron/` |
 | `foam.core.notification.NotificationSetting` | 6 | `NotificationSetting` ("In-App Notification"), `EmailSetting`, `SlackSetting`, `GoogleChatSetting`, `SMSSetting`, `PushSetting` | `foam3/src/foam/core/notification/` |
 | `foam.core.notification.broadcast.BroadcastNotificationFacade` | 1 | itself ("Broadcast Notification") | `foam3/src/foam/core/notification/broadcast/` |
-| `foam.core.ruler.RuleAction` | 3 | `JShellRuleAction`, `ProgramMappingRuleAction`, `AutoProgramMappingRuleAction` | `journals/strategyReferences.jrl` |
-| `com.paytic.dynamic.DProperty` | 10 | Long, String, Boolean, Double, Date, DateTime, DateTimeUTC, Currency, CurrencyCode, CountryCode property types, each with a format hint in its label | `src/com/paytic/dynamic/` |
-| `com.paytic.flow.invoice.LineItem` | 5 | `BasicLineItem`, `ServiceLineItem`, `ProductLineItem`, `DiscountLineItem`, `FeeLineItem` | `src/com/paytic/flow/invoice/` |
-| `com.paytic.flow.invoice.fee.FeeType` | 4 | `FixedPerUnitFeeType`, `FixedPerVolumeUnitFeeType`, `PercentageOfVolumeFeeType`, `TieredDynamicFeeType` | `src/com/paytic/flow/invoice/fee/` |
-| `com.paytic.flow.fileupload.intake.strategy.filedetection.FileDetectionStrategy` | 4 | `ModificationDateStrategy`, `FilenamePatternStrategy`, `CombinedStrategy`, `DateFilterStrategy` | `src/com/paytic/flow/fileupload/intake/` |
-| `com.paytic.flow.fileupload.intake.strategy.routing.FileRoutingStrategy` | 4 | `MappingBasedRoutingStrategy`, `PatternBasedRoutingStrategy`, `ChainedRoutingStrategy`, `StaticRoutingStrategy` | `src/com/paytic/flow/fileupload/intake/` |
-| `com.paytic.flow.fileupload.intake.strategy.filedetection.dateconditions.DateCondition` | 3 | `DaysBackCondition`, `DateRangeCondition`, `FromDateCondition` | `src/com/paytic/flow/fileupload/intake/` |
-| `com.paytic.flow.fileupload.intake.channels.ChannelConfig` | 3 | `LocalChannel`, `SFTPChannel`, `S3Channel` | `src/com/paytic/flow/fileupload/intake/` |
-| `com.paytic.flow.fileupload.intake.strategy.filedetection.dateextractors.DateExtractor` | 1 | `FilenameDateExtractor` | `src/com/paytic/flow/fileupload/intake/` |
 
 The journal is regenerated on every build, so treat this table as a snapshot
-and read the journal for the current list.
+and read the journal for the current list, including an application's rows.

@@ -1,0 +1,101 @@
+// Default ML Lab menu section, only built with the ml flag (see core/ai/pom.js).
+// An app can use it as is, or override any entry by id in its own menus.jrl.
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml",
+  "label": "ML Lab",
+  "authenticate": true,
+  "handler": {"class": "foam.core.menu.SubMenu"}
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.scripts",
+  "parent": "ml",
+  "label": "Scripts",
+  "order": 1,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "scriptDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.jobs",
+  "parent": "ml",
+  "label": "Jobs",
+  "order": 2,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "jobDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.trainingRuns",
+  "parent": "ml",
+  "label": "Training Runs",
+  "order": 4,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "trainingRunDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.trainingMetrics",
+  "parent": "ml",
+  "label": "Training Metrics",
+  "order": 5,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "trainingMetricDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.evalPrompts",
+  "parent": "ml",
+  "label": "Eval Prompts",
+  "order": 6,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "evalPromptDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.evalRuns",
+  "parent": "ml",
+  "label": "Eval Runs",
+  "order": 7,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "evalRunDAO"}
+  }
+})
+
+p({
+  "class": "foam.core.menu.Menu",
+  "id": "ml.evalResults",
+  "parent": "ml",
+  "label": "Eval Results",
+  "order": 8,
+  "authenticate": true,
+  "handler": {
+    "class": "foam.core.menu.DAOMenu2",
+    "config": {"class": "foam.comics.v2.DAOControllerConfig", "daoKey": "evalResultDAO"}
+  }
+})

@@ -126,13 +126,16 @@ TODO
     ...
     version: '1.0.0',
 ```
-- projects -  (and flags  -   test)
-- files -
-- javaFiles -
-- journalFiles - 
+- projects - child POMs, each `{ name, flags }`. A sub-directory that has its own pom is built only when listed here. See [POM](./POM.md#projects).
+- files - FOAM classes, as `{ name, flags }` without the `.js`. The table of which key and flag each file type takes is in [POM](./POM.md#files).
+- javaFiles - hand-written `.java` files, without the extension.
+- journalFiles - not a list of journals to load. Every `.jrl` beside a loaded pom is loaded already; this list only marks journals flagged `test` so a build without `test` drops them (`tools/JournalMaker.js:178-185`).
 - flowDocFiles - (FUTURE) 
 - tasks - (project defined tasks)
-- copy - (build provided tasks)
+- copy - files to copy into the build directory, `{ source, target }` or `{ source, targetDir }`. Without either, the file lands in `journals/` (`tools/CopyMaker.js:23-36`), which a browser cannot fetch, so a client test that reads a data file needs a `target` under `webroot/`:
+```
+  copy: [ { source: '../data/matrix.jrl', target: 'webroot/my-test/matrix.jrl' } ]   // fetch('/my-test/matrix.jrl')
+```
 - Tooling specific - java, javaDependencies, javaFiles (above)
 
 ### Creating a Build POM Tasks
@@ -174,6 +177,7 @@ Option **--flags:test** will include all source and configuration flagged as `te
 # Options and Tasks of interest
 
 - **--nop:option** - The No-Op option takes a comman seperated list of task names not to execute. For example if you are dealing with pure .java files, then issuing --nop:genJS will speed your build times.
+- **-N / --app-name** and **-W / --web-port** - To run two applications side by side, give each its own `-N<name>`, which sets the deployment directory `/opt/<name>` and so its journals, and its own `-W<port>` (`tools/StandardTooling.js:11-12`, `tools/JavaTooling.js:64`). A test run ignores `-N`: it always uses `APP_NAME=test` under `/tmp` (`tools/JavaTooling.js:628-631`), so two test runs at once share `/tmp/test/journals`.
 - **-l / --live-reload** - Source runs only: watches the `.js` files under the project root and pushes each save to the open browser, which reloads the changed class in place. See `doc/guides/LiveReload.md`.
 
 # Additional Tooling

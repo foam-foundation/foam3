@@ -156,6 +156,11 @@ foam.CLASS({
 
   imports: [ 'scope?' ],
 
+  messages: [
+    { name: 'UNEXPECTED_TEXT', message: 'Unexpected text "{text}" after "{after}"' },
+    { name: 'FORMULA_MISTAKE', message: 'The formula has a mistake. Check the brackets, commas and quotes.' }
+  ],
+
   properties: [
     {
       class: 'String',
@@ -643,19 +648,22 @@ foam.CLASS({
     function compileFormula(of, formula) {
       /**
        * Parse an AScript formula over the columns of 'of'. The whole text
-       * must parse: the parser alone stops where the text stops making
-       * sense and keeps the front, so "UPPER(name) x" would quietly mean
-       * UPPER(name). Throws, naming the text that did parse, otherwise.
+       * must parse: the parser alone stops at the first text it cannot read
+       * and keeps the front, so "UPPER(name) x" would quietly mean
+       * UPPER(name). Throws otherwise, naming the leftover text and what
+       * came before it: Unexpected text "x" after "UPPER(name)".
        */
       var text = formula.trim();
       var ps   = this.AScriptParser.create({ of: of }).grammar_.parse(
         foam.parse.StringPStream.create({ str: text }), undefined, 'EXPR');
 
       if ( ! ps || ps.pos < text.length || ! ps.value ) {
-        var done = ps && ps.value ? text.substring(0, ps.pos) : '';
-        throw new Error(done ?
-          'The formula stops making sense after "' + done + '"' :
-          'The formula does not parse');
+        // 'UPPER(name) x' reads as UPPER(name) with 'x' left over: name both parts.
+        throw new Error(ps && ps.value ?
+          this.UNEXPECTED_TEXT
+            .replace('{text}', text.substring(ps.pos).trim())
+            .replace('{after}', text.substring(0, ps.pos).trim()) :
+          this.FORMULA_MISTAKE);
       }
       return ps.value.partialEval ? ps.value.partialEval() : ps.value;
     },

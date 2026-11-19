@@ -21,24 +21,24 @@ foam.CLASS({
   ],
 
   css: `
-    ^ {
+    << {
       display: flex;
       flex-direction: column;
       gap: $inputVerticalPadding;
     }
-    ^header {
+    <<header {
       display: flex;
       align-items: center;
       gap: 8px;
       font-weight: $font-bold;
       color: $textDefault;
     }
-    ^content {
+    <<content {
       padding: 16px;
       border: 1px solid $borderLight;
       border-radius: $inputBorderRadius;
     }
-    ^error {
+    <<error {
       color: $destructive500;
       font-size: 12px;
     }
@@ -80,10 +80,10 @@ foam.CLASS({
 
 **Selectors:**
 ```css
-^                           /* Root element */
-^header                     /* Child: .foam-pkg-MyView-header */
-^ .foam-u2-Accordion        /* Framework child components */
-^:hover                     /* Pseudo-classes */
+<<                           /* Root element */
+<<header                     /* Child: .foam-pkg-MyView-header */
+<< .foam-u2-Accordion        /* Framework child components */
+<<:hover                     /* Pseudo-classes */
 ```
 
 **FOAM CSS Tokens — full set defined in `foam3/src/foam/u2/CSSTokens.js`. Use these instead of hardcoded values:**
@@ -180,12 +180,12 @@ $font1       /* 'Source Sans Pro', sans-serif */
 | `p-label-lg-light` | 1.4rem | `$font-regular` | Larger form labels (muted) |
 
 **Misc title / status helpers**:
-- `headerTitle` — 2.4rem `$font-extra-bold` (page header titles, uses `^` selector)
+- `headerTitle` — 2.4rem `$font-extra-bold` (page header titles, uses `<<` selector)
 - `title-light` — 2rem `$font-light`
 - `large-title` — responsive 2.8rem→8.4rem (mobile→desktop), bold center-aligned
 - `dao-title` — 3.6rem `$font-medium` (DAO landing titles)
 - `enum-label` — 1rem `$font-medium`, centered (badge text)
-- `^ .generic-status` — inline-block badge; size 1.2rem, white text, uses `^` parent prefix
+- `<< .generic-status` — inline-block badge; size 1.2rem, white text, uses `<<` parent prefix
 - `lighter` / `bolder` — weight modifiers when reusing a heading class
 
 **Mobile / kiosk variants** (large touch surfaces): `md-button`, `md-title`, `md-title-sm`, `md-text`, `md-text-light`, `md-text-sm`, `md-text-sm-bold`, `md-text-xs`, `md-text-xs-bold`, `md-text-xxs`.
@@ -238,7 +238,8 @@ this.start().addClass('p-semiBold').add(this.label).end()
 - `this.data.dynamic(function(prop1, prop2) {...})` when every argument belongs to `data`
 - Multiple sources: `this.dynamic(function(prop1, prop2) {...})`; a `$` inside a name is a path — `function(mapping$isDynamic, fileHeaders)` watches `mapping.isDynamic` and receives its **value**, the same way the `$` chain below does
 - Every argument arrives as a value, never a slot: FOAM resolves each name with `obj.slot(name)` and applies `.get()` before calling (`foam3/src/foam/lang/Slot.js:566-568, 593-595`; the path split is `FObject.js:792-802`). Use the parameter directly; `this.mapping.isDynamic` reads the same thing a second time
-- Do not pass a trailing property list to `dynamic()` — the argument names already declare the dependencies
+- Do not pass trailing property names to `dynamic()`. Trailing arguments must be Slots, and they replace the dependencies the parameter names declare; use them only for a dependency a path cannot name, such as a `Map` changed in place (`foam3/doc/guides/ReactivePatterns.md` §5)
+- Wrap a DOM-building `dynamic()` in `this.add(...)`; a bare `this.dynamic()` never removes the previous run's content (same §5)
 - Do not construct a `SimpleSlot` by hand for a reactive object; `object.dynamic()` already does it
 - Inside the callback use `this.start()`, never `this.E()`, and `self.myClass()` rather than `this.myClass()` — capture `var self = this` outside the callback first
 - Build by side effect; the callback's return value is ignored
@@ -280,7 +281,7 @@ foam.CLASS({
     {
       name: 'basicInfo',
       title: 'Basic Information',
-      permissionRequired: true       // Requires write permission to see
+      permissionRequired: true       // Shown only with permission mymodel.section.basicinfo (SectionAxiom.js:84-93)
     },
     {
       name: 'address',
@@ -371,8 +372,8 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   css: `
-    ^tableview { display: flex; align-items: center; }
-    ^badge { padding: 2px 5px; background-color: $grey100; margin-right: 5px; }
+    <<tableview { display: flex; align-items: center; }
+    <<badge { padding: 2px 5px; background-color: $grey100; margin-right: 5px; }
   `,
 
   properties: [ 'obj' ],
@@ -462,16 +463,17 @@ tableCellFormatter: function(value, obj, axiom) {
 
 ### 3.8 DoubleUnitValue (Currency Display)
 
-The default view is `CurrencyView`, a `ModeAltView` (`foam3/src/foam/u2/view/CurrencyView.js:10`). Rendering one read-only inside a custom view needs two things in context:
+The default view is `foam.u2.view.CurrencyView`, a `ModeAltView` (`foam3/src/foam/u2/view/CurrencyView.js:10`). Under `controllerMode: VIEW` its read face is `foam.u2.CurrencyView`, which shows `12.34` with **no symbol**: `hideSymbol` defaults to `true`, and its `currency` defaults to `CAD`, not the sibling property (`foam3/src/foam/u2/CurrencyView.js:34-41`). `controllerMode: VIEW` alone therefore gives a read-only number, not a formatted amount.
 
-1. `controllerMode: VIEW` — so the read-only `ValueView` is picked instead of an editable input
-2. `objData` — the parent object, so `ValueView` can resolve the property's `unitPropName` (e.g. `currency`) off it (`foam3/src/foam/u2/view/ValueView.js:43-50`)
+To show the symbol of the record's own currency, tag `foam.u2.view.ValueView` with `objData` in context, so it can read the property's `unitPropName` (e.g. `currency`) off the parent object (`foam3/src/foam/u2/view/ValueView.js:41-51`). This is what the money table cell does:
 
 ```javascript
-startContext({ controllerMode: foam.u2.ControllerMode.VIEW, objData: this.data }).
-  start().add(this.data.OPENING_BALANCE).end().
-endContext()
+this.startContext({ objData: this.data }).
+  tag(foam.u2.view.ValueView, { prop: this.data.OPENING_BALANCE, data: this.data.openingBalance }).
+endContext();
 ```
+
+Full table of read/write faces: `foam3/doc/guides/CurrencyAndUnits.md`, "The default view has two faces".
 
 ### 3.9 ViewCustomizer (Dynamic View by Context)
 
@@ -505,7 +507,7 @@ properties: [
       if ( old === nu || ! this.dependentArray?.length || ! this.ctrl ) return;
       var self = this;
       this.ctrl.add(this.ConfirmationModal.create({
-        title: 'Field Changed', modalStyle: 'WARN',
+        title: 'Field Changed', modalStyle: 'WARN', closeable: false,  // backdrop/Escape would skip the revert
         primaryAction: foam.lang.Action.create({ name: 'confirm', label: 'Clear Data',
           code: function() { self.dependentArray = []; } }),
         secondaryAction: foam.lang.Action.create({ name: 'cancel', label: 'Revert',
@@ -515,6 +517,8 @@ properties: [
   }
 ]
 ```
+
+Why `closeable: false`, with citations: `foam3/doc/guides/Modals.md`, "Confirming a property change, or reverting it".
 
 **Reference**: `foam3/src/foam/u2/dialog/ConfirmationModal.js`; the framework does the same thing for an action's own `confirmationRequired` at `foam3/src/foam/u2/ActionView.js:199`.
 
@@ -672,77 +676,7 @@ For showing/hiding a property based on sibling properties on the **same** model,
 
 ### 3.14 Version Counter for Nested FObjectArray Reactivity
 
-When a property (like a DAO filter) depends on changes **inside** an FObjectArray's child items, normal reactivity won't detect it (the array reference doesn't change). Use a transient version counter:
-
-```javascript
-// Step 1: Transient version counter
-{
-  class: 'Int',
-  name: 'addressCurrencyVersion_',
-  hidden: true,
-  transient: true
-},
-
-// Step 2: FObjectArray with subscription management in postSet
-{
-  class: 'FObjectArray',
-  of: 'com.example.Address',
-  name: 'addresses',
-  postSet: function(old, nu) {
-    // Clean up old subscriptions (prevent memory leaks)
-    if ( this.addressSubs_ ) {
-      this.addressSubs_.forEach(function(s) { s.detach(); });
-    }
-    var self = this;
-    // Subscribe to each child's property changes
-    this.addressSubs_ = (nu || []).map(function(ss) {
-      return ss.sub(function() { self.addressCurrencyVersion_++; });
-    });
-    // Bump version for the array change itself
-    self.addressCurrencyVersion_++;
-  }
-},
-
-// Step 3: View that reacts to the version counter
-{
-  class: 'Reference',
-  of: 'foam.lang.Currency',
-  name: 'defaultCurrency',
-  view: function(_, X) {
-    var E = foam.mlang.Expressions.create();
-    var section = foam.u2.view.RichChoiceViewSection.create({
-      heading: 'Account Currencies',
-      dao: X.currencyDAO
-    }, X);
-
-    function updateDAO() {
-      var currencies = (X.data.addresses || [])
-        .map(function(ss) { return ss.currency; })
-        .filter(function(c) { return c; });
-      section.dao = currencies.length > 0
-        ? X.currencyDAO.where(E.IN(foam.lang.Currency.ID, currencies))
-        : X.currencyDAO;
-    }
-
-    // Subscribe to version counter — fires when ANY address changes
-    section.onDetach(X.data.addressCurrencyVersion_$.sub(updateDAO));
-    updateDAO();  // Initial population
-
-    return {
-      class: 'foam.u2.view.RichChoiceReferenceView',
-      sections: [section]
-    };
-  },
-  // Validation also tracks the version counter for reactivity
-  validateObj: function(defaultCurrency, addresses, addressCurrencyVersion_) {
-    if ( ! defaultCurrency ) return;
-    if ( addresses && addresses.length > 0 ) {
-      var found = addresses.some(function(ss) { return ss.currency === defaultCurrency; });
-      if ( ! found ) return this.DEFAULT_CURRENCY_NOT_IN_LIST;
-    }
-  }
-}
-```
+Editing a field inside a `TitledArrayView` row does not replace the array, so nothing watching the array property fires. The fix is a transient `Int` counter bumped by subscriptions to each item, set up in the array's `postSet`, and named as a parameter by whatever must react (`validateObj`, a view's `.sub`). The pattern, its cause and the code live in `foam3/doc/guides/U3.md`, "Reacting to an edit inside a row".
 
 ### 3.15 supportingLabel as Reactive Function
 
@@ -921,7 +855,7 @@ Use the right metadata property for each purpose:
 Three knobs worth knowing before you write around them:
 
 - **Collapsible rows** — `collapseBehaviour` is `NONE` / `ALLOW_COLLAPSE` / `START_COLLAPSED` (`TitledArrayView.js:146`), exported to the rows (`:150`). `START_COLLAPSED` earns its keep past about ten entries.
-- **Row title** — each row shows `value.toSummary()` when the item has one, and falls back to `'New ' + of.model_.label` when it does not (`TitledArrayView.js:85`). To change the fallback, set `label` on the item model; to change the title itself, give the item a `toSummary`.
+- **Row title** — each row shows `value.toSummary()` (`TitledArrayView.js:85`), which for an FObject defaults to its `id` (`foam3/src/foam/lang/FObject.js:1068-1070`); give the item model a `toSummary` for a readable title. The `'New ' + label` branch only applies to values with no `toSummary`.
 - **Choices from a sibling array** — a `ChoiceView` inside `propertyWhitelist` takes `choices$: ExpressionSlot` over `X.data$.dot('items')` (3.12), so the options recompute when the array does.
 
 **Reference**: `foam3/src/foam/u2/view/TitledArrayView.js`
@@ -1103,47 +1037,22 @@ function init() {
 }
 ```
 
-**4. Use `dynamic()` not `slot()` for content in render chains:**
-`slot()` can cause DOM placement issues with async rendering — content renders outside its container. Use `dynamic()` instead, which re-renders in-place.
-
 #### Embedded Tables: Preventing Column Leakage
 
 When rendering tables inside a custom DetailView, the parent DAOController's `config` leaks into child tables via context, causing all tables to use the parent model's `tableColumns`. Fix with two context overrides:
 
 ```javascript
-exports: ['columnStorage'],
-
-properties: [
-  {
-    name: 'columnStorage',
-    documentation: 'Prevents global localStorage column prefs from overriding model tableColumns',
-    factory: function() {
-      return {
-        storage_: {},
-        getItem: function() { return null; },
-        setItem: function() {},
-        removeItem: function() {},
-        clear: function() {}
-      };
-    }
-  }
-],
-
-methods: [
-  function render() {
-    this
-      .startContext({
-        columnStorage: this.columnStorage,  // Override global localStorage
-        config: null                         // Prevent parent DAOController config leakage
-      })
-        .tag(foam.u2.table.TableView, { data: this.myDAO })
-      .endContext();
-  }
-]
+this
+  .startContext({
+    config: null,        // Prevent parent DAOController config leakage
+    columnStorage: null  // Ignore saved localStorage column prefs
+  })
+    .tag(foam.u2.table.TableView, { data: this.myDAO })
+  .endContext();
 ```
 
 - **`config: null`** — Forces TableView's `selectedColumnNames` expression to fall back to each DAO model's own `tableColumns` instead of using the parent DAOController's config
-- **`columnStorage` factory** — Returns `null` from `getItem()`, preventing global `localStorage` column preferences from overriding model defaults
+- **`columnStorage: null`** — The table imports `columnStorage?` and skips saved preferences when it is null, so the model's defaults win (`foam3/src/foam/u2/table/UnstyledTableView.js:135`, `:150`, `:561`). No stub object or export is needed
 
 #### Editable Controls Inside DetailView
 
@@ -1213,7 +1122,7 @@ DetailView renders in VIEW mode by default. To render editable controls (e.g., C
 - Put the adaptation CSS on the shared view (controller) or on the popup shell — not duplicated across every host
 - When a framework view has native-context assumptions that don't match your use case, consider whether you're using the right primitive before papering over with CSS
 
-**Example**: keep the `^list` adaptation CSS on the shared view (or the popup shell) — one override set serving every host that embeds it.
+**Example**: keep the `<<list` adaptation CSS on the shared view (or the popup shell) — one override set serving every host that embeds it.
 
 ---
 
@@ -1360,7 +1269,7 @@ properties: [
 
 **Why `expression`, not `factory` or `value`**: an expression recomputes when `variant` changes, and stops the moment the caller sets the property — the generated factory only invalidates while the instance has no own value (`foam3/src/foam/lang/Property.js:127-137`, `:670`). That is the "preset with overrides" contract; a `factory` snapshots once and never follows the variant.
 
-**Why `class: 'Color'`**: it is a real property type (`foam3/src/foam/lang/types.js:851`) whose getter resolves a `$token` to a concrete color on read (`types.js:869-878`), so `.style({ color: this.iconColor$ })` and any child's plain color prop get a usable value. The raw token stays reachable as `iconColor$raw` (`types.js:879-883`).
+**Why `class: 'Color'`**: it is a real property type (`foam3/src/foam/lang/types.js:896`) whose getter resolves a `$token` to a concrete color on read (`types.js:914-921`), so `.style({ color: this.iconColor$ })` and any child's plain color prop get a usable value. The raw token stays reachable as `iconColor$raw` (`types.js:922-926`).
 
 Name the color props for this component's roles (`accentColor` = surface, `iconColor` = foreground; yours might be `labelColor`, `borderColor`).
 
@@ -1378,11 +1287,11 @@ function render() {
 }
 ```
 
-`myClass(this.variant)` string-concatenates the enum, and `Enum.toString()` returns its `name` (`foam3/src/foam/lang/Enum.js:412`), so the class is `.<pkg>-<Class>-<VARIANT>`. Name the hook in the class `documentation:`. Multiple `.addClass()` arguments stack (`foam3/src/foam/u2/Element2.js:1144-1148`).
+`myClass(this.variant)` string-concatenates the enum, and `Enum.toString()` returns its `name` (`foam3/src/foam/lang/Enum.js:419`), so the class is `.<pkg>-<Class>-<VARIANT>`. Name the hook in the class `documentation:`. Multiple `.addClass()` arguments stack (`foam3/src/foam/u2/Element2.js:1158-1164`).
 
 **Static vs reactive — decide by who changes `variant`:**
 - Callers set it once at `.tag(...)` time (cards, banners): the static form above.
-- The same element's variant changes at runtime (status transitions, toggles): the static class goes stale. Use the Button form — a derived name property plus a slot-based class (`Button.js:498-505`, `:521-523`):
+- The same element's variant changes at runtime (status transitions, toggles): the static class goes stale. Use the Button form — a derived name property plus a slot-based class (`tag/Button.js:515-520`, `:537-539`):
 
 ```javascript
 { name: 'styleClass_', expression: function(variant) { return variant.name.toLowerCase(); } }
@@ -1390,7 +1299,7 @@ function render() {
 this.addClass(this.slot(function(styleClass_) { return this.myClass(styleClass_); }));
 ```
 
-Per-variant rules then live in the `css:` template, one `^<variant>` block each (`^primary` at `Button.js:128`, `^secondary` at `:176`). The two forms compose: keep `.addClass(this.myClass())` for the base class and add the variant class in a second `.addClass(slot)` call.
+Per-variant rules then live in the `css:` template, one `<<<variant>` block each (`<<primary` at `tag/Button.js:150`, `<<secondary` at `:194`). The two forms compose: keep `.addClass(this.myClass())` for the base class and add the variant class in a second `.addClass(slot)` call.
 
 #### 4. Layout variants (structure, not color)
 
@@ -1401,7 +1310,7 @@ The presence of a prop can pick the layout — centre the header when there is n
 .callIf(this.icon, function() { /* icon block */ })
 ```
 
-`callIf` runs once (`foam3/src/foam/lang/Fluent.js:33`). Fine for construction-time props like `icon`; wrong for anything that changes later — those take `enableClass(cls, slot)`, `show(slot)` or `add(slot.map(...))`. `enableClass` takes a third `opt_negate` argument that inverts the slot (`foam3/src/foam/u2/Element2.js:1179-1181`), so `enableClass(self.myClass('no-icon'), self.icon$, true)` adds the class exactly when the icon is absent.
+`callIf` runs once (`foam3/src/foam/lang/Fluent.js:33`). Fine for construction-time props like `icon`; wrong for anything that changes later — those take `enableClass(cls, slot)`, `show(slot)` or `add(slot.map(...))`. `enableClass` takes a third `opt_negate` argument that inverts the slot (`foam3/src/foam/u2/Element2.js:1194-1206`), so `enableClass(self.myClass('no-icon'), self.icon$, true)` adds the class exactly when the icon is absent.
 
 #### 5. When a token has to become a concrete color string
 
@@ -1436,7 +1345,7 @@ cssTokens: [
     value: '$textBrandSecondary'   // may reference another token
   }
 ],
-css: `^active { color: $tabActiveColor; }`
+css: `<<active { color: $tabActiveColor; }`
 ```
 
 In-tree example: `foam.u2.Tabs` (`foam3/src/foam/u2/Tabs.js:75-85`).

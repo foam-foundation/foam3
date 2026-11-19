@@ -279,6 +279,9 @@ Covers the FOAM test harness: running all/server/client tests from the build, ru
 **[APITesting](APITesting.md)**
 Covers FOAM's built-in API testing support via the DIG (Data Interchange Gateway) client, which lets tests act as external users with scoped sessions while retaining full server-side DAO access. Extends `foam.core.test.AbstractDIGTest`.
 
+**[Benchmarks](Benchmarks.md)**
+Timing FOAM code with `foam.core.bench`: the `Benchmark` and `BenchmarkRunner` journal rows, `./build.sh java-benchmarks[:ids]` and which ids it matches, reading `operationsS` from the INFO log or the `benchmarkResults` journal, the runner defaults, the PRODUCTION skip, and how to take a fair before-and-after sample.
+
 **[Porting](Porting.md)**
 Migration guide from FOAM1 to FOAM2/FOAM3: key API renames (`CLASS` → `foam.CLASS`, `lazyFactory` → `factory`, `defaultValueFn` → `expression`, `traits` → `implements`, `addListener` → `sub`) and behavioral differences (Promise-based DAO, CSS axiom, U2/U3 only, no built-in prototype extension).
 

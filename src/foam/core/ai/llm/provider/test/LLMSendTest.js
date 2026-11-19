@@ -12,8 +12,9 @@ foam.CLASS({
   documentation: `
     The HTTP side of the providers, against a local server that answers each request with
     the next scripted reply: which failures are retried and how often, what the caller is
-    told when retries run out, and that a listener that throws ends the call at once, even
-    while the provider waits to retry.
+    told when retries run out, that a listener that throws ends the call at once, even
+    while the provider waits to retry, that requests go out as HTTP/1.1, and that a slow
+    reply is read to its end while one that stops half way ends the call.
   `,
 
   javaImports: [
@@ -26,6 +27,7 @@ foam.CLASS({
     'java.util.ArrayList',
     'java.util.Collections',
     'java.util.List',
+    'java.util.concurrent.Executors',
     'java.util.concurrent.atomic.AtomicInteger',
     'org.json.JSONArray',
     'org.json.JSONObject'
@@ -35,9 +37,11 @@ foam.CLASS({
     {
       name: 'runTest',
       javaCode: `
-        // each entry: { status, retry-after header or null, body }
-        List<Object[]> replies = Collections.synchronizedList(new ArrayList<>());
-        List<String>   bodies  = Collections.synchronizedList(new ArrayList<>());
+        // each entry: { status, retry-after header or null, body }, or for a reply sent in
+        // pieces: { status, null, String[] pieces, gap in ms before each piece after the first }
+        List<Object[]> replies   = Collections.synchronizedList(new ArrayList<>());
+        List<String>   bodies    = Collections.synchronizedList(new ArrayList<>());
+        List<String>   protocols = Collections.synchronizedList(new ArrayList<>());
         HttpServer server;
         try {
           server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -46,13 +50,31 @@ foam.CLASS({
         }
         server.createContext("/", ex -> {
           bodies.add(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+          protocols.add(ex.getProtocol() + ( ex.getRequestHeaders().containsKey("Upgrade") ? " Upgrade" : "" ));
           Object[] r = replies.isEmpty() ? new Object[] { 500, null, "" } : replies.remove(0);
+          if ( r[2] instanceof String[] ) {
+            ex.sendResponseHeaders((Integer) r[0], 0);
+            try {
+              String[] pieces = (String[]) r[2];
+              for ( int i = 0 ; i < pieces.length ; i++ ) {
+                if ( i > 0 ) Thread.sleep((Integer) r[3]);
+                ex.getResponseBody().write(pieces[i].getBytes(StandardCharsets.UTF_8));
+                ex.getResponseBody().flush();
+              }
+            } catch (Exception e) {
+              // the caller gave up on a stalled reply and closed the connection
+            }
+            ex.close();
+            return;
+          }
           if ( r[1] != null ) ex.getResponseHeaders().add("retry-after", (String) r[1]);
           byte[] b = ((String) r[2]).getBytes(StandardCharsets.UTF_8);
           ex.sendResponseHeaders((Integer) r[0], b.length == 0 ? -1 : b.length);
           if ( b.length > 0 ) ex.getResponseBody().write(b);
           ex.close();
         });
+        java.util.concurrent.ExecutorService pool = Executors.newCachedThreadPool();
+        server.setExecutor(pool);
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
 
@@ -130,6 +152,32 @@ foam.CLASS({
             "stopped", "stop after text: the listener's exception reaches the caller");
           test(bodies.size() == 1, "stop after text: sent once, got " + bodies.size());
 
+          // requests go out as HTTP/1.1: HTTP/2's "Upgrade: h2c" breaks a uvicorn gateway
+          expect(protocols.get(0), "HTTP/1.1", "requests are HTTP/1.1, with no Upgrade header");
+
+          // a reply that takes longer than readTimeout in all is read, since each piece comes in time
+          claude.setReadTimeout(1000);
+          String[] pieces = reply.split("(?<=\\n\\n)");
+          replies.add(new Object[] { 200, null, pieces, 400 });
+          expect(claude.chat(x, chat(ChatRole.USER, "Hi")).getContent(), expected, "slow reply: " + pieces.length + " pieces 0.4 s apart, longer than the 1 s readTimeout in all, is read");
+
+          // a reply that stops half way ends the call once readTimeout passes, with no retry
+          bodies.clear();
+          replies.add(new Object[] { 200, null, new String[] { pieces[0], pieces[1] }, 5000 });
+          start = System.currentTimeMillis();
+          expect(failure(claude, x, chat(ChatRole.USER, "Hi")), "The AI service could not be reached", "stalled reply: the caller is told it could not be reached");
+          long took = System.currentTimeMillis() - start;
+          test(took >= 1000 && took < 3000 && bodies.size() == 1, "stalled reply: ends about 1 s after the last piece, with no retry; took " + took + " ms, " + bodies.size() + " requests");
+
+          // an error reply that stalls after its headers ends the call too, instead of hanging
+          bodies.clear();
+          replies.add(new Object[] { 502, null, new String[] { "{\\"error\\":", "}" }, 5000 });
+          start = System.currentTimeMillis();
+          expect(failure(claude, x, chat(ChatRole.USER, "Hi")), "The AI service could not be reached", "stalled 502: the caller is told it could not be reached");
+          took = System.currentTimeMillis() - start;
+          test(took >= 1000 && took < 3000 && bodies.size() == 1, "stalled 502: ends about 1 s after its headers, with no retry; took " + took + " ms, " + bodies.size() + " requests");
+          claude.setReadTimeout(600000);
+
           // Claude takes SYSTEM messages in the system prompt, not as turns
           bodies.clear();
           replies.add(new Object[] { 200, null, reply });
@@ -147,6 +195,7 @@ foam.CLASS({
           expect(withSystem.getOptions().getSystemPrompt(), "Be brief.", "claude: the caller's options are left as they were");
         } finally {
           server.stop(0);
+          pool.shutdownNow();
         }
 
         // nothing listening: the connection is refused, retried, then the caller is told

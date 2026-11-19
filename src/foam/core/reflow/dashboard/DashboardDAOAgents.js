@@ -72,10 +72,8 @@ foam.CLASS({
   ],
 
   methods: [
-    // Note: Subclasses must implement getDatePropertyForFiltering() to return the appropriate date property
-    // Bar charts: return this.prop
-    // Stacked bar charts: return this.prop2 (X-axis)
-    // Line charts: return this.xProp
+    // Each chart agent implements getDatePropertyForFiltering() and returns its
+    // form's grouping field: arg1, xFunc or dateProp.
 
     function getPeriodCalculator_(dateProp) {
       return foam.core.reflow.dashboard.DateKeys.calculatorFor(dateProp);
@@ -232,6 +230,23 @@ foam.CLASS({
   ],
 
   methods: [
+    // A DAO that caches selects (TTLSelectCachingDAO) keys them by the sink's
+    // toString(). Without this a chart sink keeps its parent's, so a Stacked
+    // Bar on the same two fields as a plain GridBy view got the GridBy's
+    // cached result back and drew a table. Naming the class keeps them apart.
+    function toString() { return this.cls_.id + ':' + this.SUPER(); },
+
+    // Builds this run's total from the form's Sum or Count into the field the
+    // sink totals with (TOTAL_SLOT: arg2 by default, acc or valueSink). It is
+    // built per run because the form edits the Sum in place: its Property is
+    // picked after SUM, so a total built when SUM was chosen would sum nothing.
+    // With nothing picked the total is a Count, as the form shows; a Stacked
+    // Bar sent to the server with no total failed in GroupBy.put.
+    function buildTotal_() {
+      var agg = this.aggregation || foam.core.reflow.CountDAOAgent.create({}, this);
+      this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
+    },
+
     function addChartDisplayToE(e) {
       var self = this;
       // Add chart display configuration fields to the UI
@@ -284,15 +299,17 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardBarSink',
       name: 'displaySink',
       hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
       factory: function() { return this.DashboardBarSink.create({}, this); }
     },
-    // Inherited DAO-layer props → forward to displaySink
-    { name: 'prop', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.arg1 = n; } },
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop2: month, prop1: status, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
+      setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.arg2 = n.createSink();
-      } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -359,7 +376,9 @@ foam.CLASS({
       // its filter changes, and the same sink would add the new rows to the
       // old counts (4 rows counted as 8 on the second run). displaySink only
       // holds the chart settings. The other chart agents below do the same.
-      return this.displaySink.clone(this);
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -391,17 +410,19 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardStackedBarSink',
       name: 'displaySink',
       hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
       factory: function() { return this.DashboardStackedBarSink.create({}, this); }
     },
-    // Inherited GridByDAOAgent DAO-layer props → hidden forwarders
-    { name: 'prop2', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.xFunc = n; } },
-    { name: 'prop1', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.yFunc = n; } },
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ xProp: date, groupBy: currency, aggregationSink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
+    { name: 'prop2', hidden: true, transient: true, validateObj: null,
+      setter: function(v) { this.displaySink.xFunc = v; } },
+    { name: 'prop1', hidden: true, transient: true, validateObj: null,
+      setter: function(v) { this.displaySink.yFunc = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.acc = n.createSink();
-      } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -451,7 +472,15 @@ foam.CLASS({
 
     function createSink() {
       this.applyDateRangeFilter();
-      return this.displaySink.clone(this);
+      // A chart saved by an earlier version stored rows and cols grouped by
+      // nothing, because they were built before X Axis and Stacked By were
+      // picked. A stored value hides the sink's rows/cols expressions, so the
+      // run copy drops them and rebuilds both from the two fields.
+      var sink = this.displaySink.clone(this);
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      sink.buildTotal_();
+      return sink;
     },
 
     function addSinkToE(e, s) { e.add(s); },
@@ -480,15 +509,17 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardPieSink',
       name: 'displaySink',
       hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
       factory: function() { return this.DashboardPieSink.create({}, this); }
     },
-    // Inherited DAO-layer props → hidden back-compat forwarders to displaySink
-    { name: 'prop', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.arg1 = n; } },
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: createdAt, categoryProp: status, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
+      setter: function(v) { this.displaySink.arg1 = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.arg2 = n.createSink();
-      } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'topN', hidden: true, transient: true,
       postSet: function(o, n) { this.displaySink.topN = n; } },
     { name: 'sortOrder', hidden: true, transient: true,
@@ -539,7 +570,11 @@ foam.CLASS({
   ],
 
   methods: [
-    function createSink() { return this.displaySink.clone(this); },
+    function createSink() {
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {
       e.startContext({})
@@ -573,41 +608,23 @@ foam.CLASS({
       of: 'foam.dao.Sink',
       name: 'displaySink',
       hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
       factory: function() { return this.DashboardLineSink.create({}, this); }
     },
-    // Line-specific DAO-layer props → hidden forwarders. Note: groupBy routes through
-    // createSink() swap (Line ↔ MultiLine), so keep postSet on local field only.
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
     { name: 'xProp', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.xFunc = n;
-        } else {
-          this.displaySink.arg1 = n;
-        }
-      } },
-    { name: 'yProp', hidden: true, transient: true },
-    { name: 'groupBy', hidden: true, transient: true },
+      setter: function(v) { this.displaySink.arg1 = v; } },
+    { name: 'groupBy', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.yFunc = v; } },
+    { name: 'singleLineSink_', hidden: true, transient: true },
+    // Saved Network Fees flows follow aggregationSink with an empty
+    // "sink": {}, so both only take an object that can build a total.
     { name: 'aggregationSink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( ! n || ! n.createSink ) return;
-        var sink = n.createSink();
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.acc = sink;
-        } else {
-          this.displaySink.arg2 = sink;
-        }
-      } },
-    // AbstractSinkDAOAgent inherits `sink` — map it to the aggregation slot too
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( ! n || ! n.createSink ) return;
-        var sink = n.createSink();
-        if ( this.DashboardMultiLineSink.isInstance(this.displaySink) ) {
-          this.displaySink.acc = sink;
-        } else {
-          this.displaySink.arg2 = sink;
-        }
-      } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     // Legacy flat-format shims — setter-only, forward to displaySink
     { name: 'timeUnit', hidden: true, transient: true,
       setter: function(v) { this.displaySink.timeUnit = v; } },
@@ -668,7 +685,13 @@ foam.CLASS({
   ],
 
   methods: [
-    function getDatePropertyForFiltering() { return this.xProp; },
+    function getDatePropertyForFiltering() { return this.displaySink[this.xName_(this.displaySink)]; },
+
+    // The X field is arg1 on the single-line sink and xFunc on the
+    // multi-line one.
+    function xName_(sink) {
+      return this.DashboardMultiLineSink.isInstance(sink) ? 'xFunc' : 'arg1';
+    },
 
     function init() {
       this.SUPER();
@@ -680,43 +703,39 @@ foam.CLASS({
     },
 
     function createSink() {
-      this.applyDateRangeFilter();
-      if ( ! this.xProp ) return this.ArraySink.create();
-
-      var wantMulti = !! this.groupBy;
+      // Filling in "Group By (Multiple Lines)" turns the chart into one line
+      // per group (one line per currency), which the multi-line sink draws.
+      // Clearing it goes back to the single-line sink. The form shows that
+      // field on both sinks as yFunc, so the choice survives the switch.
+      var wantMulti = ! this.displaySink.hasDefaultValue('yFunc');
       var isMulti   = this.DashboardMultiLineSink.isInstance(this.displaySink);
 
       if ( wantMulti !== isMulti ) {
         var old = this.displaySink;
+        // Going back to one line reuses the single-line form it left, so its
+        // Top N settings (the multi-line form has none) come back with it.
         var next = wantMulti
           ? this.DashboardMultiLineSink.create({}, this)
-          : this.DashboardLineSink.create({}, this);
+          : this.singleLineSink_ || this.DashboardLineSink.create({}, this);
+        if ( wantMulti ) this.singleLineSink_ = old;
         [ 'periodCount', 'timeUnit', 'xAxisLabel', 'yAxisLabel', 'fill', 'tension', 'stepped',
           'showPoints', 'pointRadius', 'showGridLines', 'colors', 'alignment', 'maintainAspectRatio',
           'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum',
           'animate', 'animationDuration', 'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale',
           'xDateAxisMinScale', 'xDateAxisMaxScale', 'toggleCustomYScale', 'yAxisMinScale',
-          'yAxisMaxScale', 'autoSkip' ].forEach(function(p) {
+          'yAxisMaxScale', 'autoSkip', 'aggregation', 'yFunc', 'borderColors' ].forEach(function(p) {
           // hasOwnProperty, so an unset scale bound stays unset on the new sink
-          if ( old && old.hasOwnProperty(p) ) next[p] = old[p];
+          if ( old.hasOwnProperty(p) ) next[p] = old[p];
         });
+        if ( old.hasOwnProperty(this.xName_(old)) ) next[this.xName_(next)] = old[this.xName_(old)];
+        if ( ! wantMulti ) next.clearProperty('yFunc');
         this.displaySink = next;
       }
 
-      var aggSink = this.aggregationSink && this.aggregationSink.createSink
-        ? this.aggregationSink.createSink()
-        : null;
-      // Wire the copy, not displaySink, so the sink holds this agent's own
-      // xProp and groupBy rather than clones of them.
+      if ( this.displaySink.hasDefaultValue(this.xName_(this.displaySink)) ) return this.ArraySink.create();
+      this.applyDateRangeFilter();
       var sink = this.displaySink.clone(this);
-      if ( this.DashboardMultiLineSink.isInstance(sink) ) {
-        sink.xFunc = this.xProp;
-        sink.yFunc = this.groupBy;
-        if ( aggSink ) sink.acc = aggSink;
-      } else {
-        sink.arg1 = this.xProp;
-        if ( aggSink ) sink.arg2 = aggSink;
-      }
+      sink.buildTotal_();
       return sink;
     },
 
@@ -797,17 +816,19 @@ foam.CLASS({
       of: 'foam.core.reflow.dashboard.DashboardCalendarSink',
       name: 'displaySink',
       hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
       factory: function() { return this.DashboardCalendarSink.create({ periodCount: 30 }, this); }
     },
-    // Inherited DAO-layer props → hidden forwarders
-    { name: 'prop', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.dateProp = n; } },
+    // Flows saved before the form moved to the sink keep these on the agent
+    // ({ prop: severity, sink: Sum }); they only forward into the form.
+    // validateObj: null drops the inherited Required; the form checks the field.
+    { name: 'prop', hidden: true, transient: true, validateObj: null,
+      setter: function(v) { this.displaySink.dateProp = v; } },
     { name: 'categoryProp', hidden: true, transient: true,
-      postSet: function(o, n) { this.displaySink.categoryProp = n; } },
+      setter: function(v) { this.displaySink.categoryProp = v; } },
     { name: 'sink', hidden: true, transient: true,
-      postSet: function(o, n) {
-        if ( n && n.createSink ) this.displaySink.valueSink = n.createSink();
-      } },
+      setter: function(v) { if ( v && v.createSink ) this.displaySink.aggregation = v; } },
     { name: 'showAllData', hidden: true, transient: true,
       setter: function(v) { this.displaySink.showAllData = v; } },
     // Legacy flat-format shims — setter-only
@@ -850,7 +871,9 @@ foam.CLASS({
       if ( ! this.displaySink.showAllData ) {
         this.applyDateRangeFilter && this.applyDateRangeFilter();
       }
-      return this.displaySink.clone(this);
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {

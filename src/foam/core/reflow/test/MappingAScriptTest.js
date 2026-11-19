@@ -58,9 +58,9 @@ foam.CLASS({
       x.test(sample.formulaParser_ && sample.formulaParser_.of === sample.columns_(Object.keys(row)).of, 'The editor suggests the same column names the formula reads');
 
       sample.formula = 'UPPER(customer_Name) zz';
-      x.test(String(sample.sampleValue).indexOf('stops making sense after "UPPER(customer_Name)') !== -1, 'Text after a valid formula is an error, not ignored: ' + sample.sampleValue);
+      x.test(String(sample.sampleValue).indexOf('Unexpected text "zz" after "UPPER(customer_Name)"') !== -1, 'Text after a valid formula is an error naming the extra text: ' + sample.sampleValue);
       sample.formula = 'ROUND(amount';
-      x.test(String(sample.sampleValue).indexOf('⚠ Error') === 0, 'An unfinished formula shows an error: ' + sample.sampleValue);
+      x.test(String(sample.sampleValue).indexOf('⚠ Error: ' + sample.FORMULA_MISTAKE) === 0, 'An unfinished formula says to check the brackets, commas and quotes: ' + sample.sampleValue);
 
       var broken = this.Mapping.create({ of: of, property: 'name', type: MT.ASCRIPT, formula: 'ROUND(amount' });
       var o2 = of.create();

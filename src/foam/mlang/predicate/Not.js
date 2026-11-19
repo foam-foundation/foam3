@@ -55,7 +55,7 @@ foam.CLASS({
         } else if (this.Gte.isInstance(this.arg1)) {
           return this.Lt.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.Gt.isInstance(this.arg1)) {
-          return this.Lte.create({arg1: this.arg1.arg1, arg2: this.arg1.arg22});
+          return this.Lte.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.Lte.isInstance(this.arg1)) {
           return this.Gt.create({arg1: this.arg1.arg1, arg2: this.arg1.arg2});
         } else if (this.And.isInstance(this.arg1)) {

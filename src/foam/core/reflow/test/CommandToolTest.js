@@ -77,6 +77,7 @@ foam.CLASS({
         decide('Done');
         x.test(await pending === reply('propose', 'Done'), 'a proposed script returns what the accepted command shows');
         x.test(typed[typed.length - 1].script === 'propose h1("Done")' && typed[typed.length - 1].flowParent === parent, 'the prefix and flowParent are passed to eval_');
+        x.test(typed[typed.length - 1].ignoreHistory === true, 'a proposed script stays out of the history until the user accepts it');
 
         // A block under a childTransient parent is never drawn: its value is the answer.
         var hidden = { childTransient: true };

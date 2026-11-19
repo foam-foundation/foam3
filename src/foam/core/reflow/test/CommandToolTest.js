@@ -73,7 +73,7 @@ foam.CLASS({
         // A block under a childTransient parent is never drawn: its value is the answer.
         var hidden = { childTransient: true };
         var hiddenX = x.createSubContext({ eval_: async function() { return { flowName: 'a', flowParent: hidden, value: foam.lang.StringHolder.create({ value: 'Started.' }), answer: () => { throw 'not drawn'; } }; } });
-        x.test(await call(this.CommandTool.create({ flowParent: hidden }, hiddenX), 'intake.findSpec()') === reply('a', 'Started.'), 'a hidden block answers with what its script returned');
+        x.test(await call(this.CommandTool.create({ flowParent: hidden }, hiddenX), 'report.load()') === reply('a', 'Started.'), 'a hidden block answers with what its script returned');
 
         // CommandChat: the model runs one script, sees its result, then answers.
         var requests = [];

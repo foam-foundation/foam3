@@ -14,32 +14,65 @@ foam.CLASS({
     'foam.ai.llm.ChatRole',
     'foam.ai.llm.ChatRequest',
     'foam.ai.llm.LLMResponse',
-    'foam.u2.ModuleLib'
+    'foam.ai.vector.provider.TransformersPipeline'
   ],
 
-  constants: {
-    CDN: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
-  },
+  messages: [
+    { name: 'PREPARING', message: 'Preparing the assistant…' },
+    { name: 'WRITING',   message: 'Writing the answer…' }
+  ],
 
   properties: [
     {
       class: 'String',
       name: 'model',
-      value: 'Xenova/Qwen1.5-0.5B-Chat'
+      documentation: `A small chat model in ONNX form, downloaded once and kept in the browser's
+        cache. The default is 919 MB on a GPU, with 4-bit weights, and 618 MB without one,
+        where it runs on 8-bit weights.`,
+      value: 'onnx-community/Qwen3-0.6B-ONNX'
+    },
+    {
+      class: 'String',
+      name: 'status',
+      documentation: `What the model is doing, e.g. "Preparing the assistant… 60%" while it
+        downloads, then "Writing the answer…". Empty when no answer is waiting, so a view can
+        show it while a question waits on the model.`,
+      transient: true
+    },
+    {
+      class: 'String',
+      name: 'text',
+      documentation: `The answer so far while the model writes it, e.g. "The Getting Started"
+        after three words, so a view can show it word by word. Empty when no answer is waiting.`,
+      transient: true
     },
     {
       name: 'pipeline_',
-      transient: true
+      documentation: 'Runs the model in a Web Worker, so the page stays responsive while it writes.',
+      transient: true,
+      hidden: true,
+      factory: function() {
+        return this.TransformersPipeline.create({
+          task:       'text-generation',
+          model:      this.model,
+          // 4-bit weights on the GPU: 8-bit ones answer far more slowly there
+          dtype:      { gpu: 'q4', wasm: 'q8' },
+          onProgress: percent => this.onProgress_(percent),
+          onText:     text => { this.text += text; }
+        });
+      }
     }
   ],
 
   methods: [
-    async function ensurePipeline_() {
-      if ( this.pipeline_ ) return;
-      const mod = await this.ModuleLib.create({ src: this.CDN }).installLib();
-      if ( ! mod ) throw new Error('Failed to load Transformers.js from ' + this.CDN);
-      mod.env.allowLocalModels = false;
-      this.pipeline_ = await mod.pipeline('text-generation', this.model);
+    // ends the worker that holds the model, e.g. when the page is removed
+    function terminate() {
+      this.pipeline_.terminate();
+    },
+
+    // once every byte is in, the model takes a few seconds to load: the percent is dropped then
+    function onProgress_(percent) {
+      this.status = percent < 100 ? this.PREPARING + ' ' + percent + '%' : this.PREPARING;
     },
 
     async function complete(x, request) {
@@ -68,16 +101,30 @@ foam.CLASS({
         plainMsgs.push({ role: messages[i].role.label, content: messages[i].content });
       }
 
-      var maxTokens   = (options && options.maxTokens) || 512;
-      var temperature = (options && options.temperature !== 1.0) ? options.temperature : 0.2;
-
-      var out = await this.pipeline_(plainMsgs, {
-        max_new_tokens:     maxTokens,
-        do_sample:          true,
-        temperature:        temperature,
+      // A small model sampled at random drifts off the context, so it picks the likeliest word
+      // each time unless the caller asks for a temperature
+      var generation = {
+        max_new_tokens:     ( options && options.maxTokens ) || 256,
+        do_sample:          !! ( options && options.temperature > 0 ),
         repetition_penalty: 1.1,
-        return_full_text:   false
-      });
+        return_full_text:   false,
+        // Qwen3 writes its reasoning before the answer unless told not to: enable_thinking false
+        // makes its chat template open the answer with an empty <think></think> block, so all
+        // of max_new_tokens go to the answer and the reply holds no reasoning
+        tokenizer_encode_kwargs: { enable_thinking: false }
+      };
+      if ( generation.do_sample ) generation.temperature = options.temperature;
+
+      var out;
+      try {
+        // inside the try: a failed download clears its "Preparing…" status
+        await this.pipeline_.load();
+        this.status = this.WRITING;
+        out = await this.pipeline_.run(plainMsgs, generation);
+      } finally {
+        this.status = '';
+        this.text   = '';
+      }
 
       // With messages input, generated_text is an array; last entry is the assistant reply
       var result  = out[0]?.generated_text;

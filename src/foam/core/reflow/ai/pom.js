@@ -18,9 +18,6 @@ foam.POM({
     { name: 'CommandTool', flags: 'js' },
 
     // One request in which the model may run scripts through CommandTool before it answers
-    { name: 'CommandChat', flags: 'js' },
-
-    // Flow.openIndexed, so a source link under an Ask AI answer opens the flow
-    { name: 'FlowOpenIndexedRefinement', flags: 'js' }
+    { name: 'CommandChat', flags: 'js' }
   ]
 });

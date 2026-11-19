@@ -28,6 +28,10 @@ foam.CLASS({
       value: '$foam.core.menu.VerticalMenu.menuBackground'
     },
     {
+      name: 'topNavHeight',
+      value: '64px'
+    },
+    {
       name: 'borderSize',
       value: '2px solid'
     },
@@ -45,7 +49,7 @@ foam.CLASS({
       border-bottom: $borderSize;
       border-color: $borderColor;
       display: flex;
-      min-height: 64px;
+      min-height: $topNavHeight;
       justify-content: space-between;
       padding: 8px 16px;
       position: relative;

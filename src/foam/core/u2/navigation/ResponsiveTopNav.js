@@ -60,9 +60,6 @@ foam.CLASS({
     <<components-container<<logo-adjust {
       gap: 16px;
     }
-    <<menuControl.foam-u2-view-NavigationButton {
-      justify-content: flex-start;
-    }
     <<logo {
       position: fixed;
       left: 50%;

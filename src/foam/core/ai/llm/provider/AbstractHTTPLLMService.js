@@ -36,15 +36,22 @@ foam.CLASS({
     'java.io.InputStream',
     'java.io.InputStreamReader',
     'java.io.InterruptedIOException',
-    'java.io.OutputStream',
     'java.io.Reader',
     'java.net.ConnectException',
-    'java.net.HttpURLConnection',
     'java.net.SocketTimeoutException',
-    'java.net.URL',
+    'java.net.URI',
+    'java.net.http.HttpClient',
+    'java.net.http.HttpConnectTimeoutException',
+    'java.net.http.HttpRequest',
+    'java.net.http.HttpResponse',
     'java.nio.charset.StandardCharsets',
+    'java.time.Duration',
     'java.util.LinkedHashMap',
     'java.util.Map',
+    'java.util.concurrent.Executors',
+    'java.util.concurrent.ScheduledExecutorService',
+    'java.util.concurrent.ScheduledFuture',
+    'java.util.concurrent.TimeUnit',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -103,6 +110,66 @@ foam.CLASS({
       }
     }
 
+    /**
+     * A streamed reply's body that ends with a SocketTimeoutException when no byte arrives
+     * for idleMs. HttpClient's own timeout covers the wait for the reply to start, but none
+     * covers a stream that stops half way: a reply that pauses for 10 minutes would hang
+     * the call for good. A timer checks the gap and closes the body, which ends a blocked read.
+     */
+    public static class IdleTimeoutInputStream extends java.io.FilterInputStream {
+      private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "llm-idle-timeout");
+        t.setDaemon(true);
+        return t;
+      });
+
+      private final long               idleMs_;
+      private final ScheduledFuture<?> check_;
+      private volatile long            last_ = System.currentTimeMillis();
+      private volatile boolean         timedOut_;
+
+      public IdleTimeoutInputStream(InputStream in, long idleMs) {
+        super(in);
+        idleMs_ = idleMs;
+        long every = Math.max(10, Math.min(1000, idleMs / 4));
+        check_ = TIMER.scheduleWithFixedDelay(this::check, every, every, TimeUnit.MILLISECONDS);
+      }
+
+      private void check() {
+        if ( System.currentTimeMillis() - last_ < idleMs_ ) return;
+        timedOut_ = true;
+        check_.cancel(false);
+        try { in.close(); } catch (IOException e) { /* the reader learns it from its read */ }
+      }
+
+      public int read() throws IOException {
+        byte[] one = new byte[1];
+        return read(one, 0, 1) == -1 ? -1 : one[0] & 0xff;
+      }
+
+      public int read(byte[] b, int off, int len) throws IOException {
+        int n;
+        try {
+          n = in.read(b, off, len);
+        } catch (IOException e) {
+          if ( timedOut_ ) throw timeout();
+          throw e;
+        }
+        if ( n == -1 && timedOut_ ) throw timeout();
+        last_ = System.currentTimeMillis();
+        return n;
+      }
+
+      private SocketTimeoutException timeout() {
+        return new SocketTimeoutException("No part of the reply for " + idleMs_ + " ms");
+      }
+
+      public void close() throws IOException {
+        check_.cancel(false);
+        in.close();
+      }
+    }
+
     /** The payload of the next "data:" line of a server-sent event stream; null at its
      *  end. An empty "data:" line or a ": keep-alive" comment is skipped, but still tells
      *  the listener the call is alive. */
@@ -154,7 +221,26 @@ foam.CLASS({
       name: 'readTimeout',
       value: 600000,
       units: 'ms',
-      documentation: 'The longest wait for the next piece of a streamed reply, not for the whole of it.'
+      documentation: 'The longest wait for the reply to start, then for each next piece of it, not for the whole of it.'
+    },
+    {
+      class: 'Object',
+      name: 'httpClient',
+      javaType: 'java.net.http.HttpClient',
+      visibility: 'HIDDEN',
+      transient: true,
+      documentation: `
+        One client for every call, so calls reuse its connections. HTTP/1.1, because on a
+        plain http:// URL HttpClient's default HTTP/2 sends an "Upgrade: h2c" request, which
+        an OpenAI-compatible gateway served by uvicorn rejects with 400 "Invalid HTTP request
+        received".
+      `,
+      javaFactory: `
+        return HttpClient.newBuilder()
+          .version(HttpClient.Version.HTTP_1_1)
+          .connectTimeout(Duration.ofMillis(getConnectTimeout()))
+          .build();
+      `
     },
     {
       class: 'Int',
@@ -292,45 +378,37 @@ foam.CLASS({
       javaThrows: [ 'java.io.IOException' ],
       args: 'Context x, org.json.JSONObject body, Map headers, foam.ai.llm.LLMProgress progress',
       javaCode: `
-        Logger logger = Loggers.logger(x, this);
-        byte[] bytes  = body.toString().getBytes(StandardCharsets.UTF_8);
+        Logger                     logger  = Loggers.logger(x, this);
+        HttpRequest.Builder        builder = HttpRequest.newBuilder(URI.create(getBaseURL()))
+          .timeout(Duration.ofMillis(getReadTimeout()))
+          .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
+        for ( Object e : headers.entrySet() ) {
+          Map.Entry h = (Map.Entry) e;
+          builder.header((String) h.getKey(), (String) h.getValue());
+        }
+        HttpRequest request = builder.build();
         for ( int attempt = 0 ; ; attempt++ ) {
-          HttpURLConnection conn = null;
-          boolean           sent = false;
           try {
-            conn = (HttpURLConnection) new URL(getBaseURL()).openConnection();
-            conn.setRequestMethod("POST");
-            for ( Object e : headers.entrySet() ) {
-              Map.Entry h = (Map.Entry) e;
-              conn.setRequestProperty((String) h.getKey(), (String) h.getValue());
-            }
-            conn.setDoOutput(true);
-            conn.setConnectTimeout(getConnectTimeout());
-            conn.setReadTimeout(getReadTimeout());
-            try ( OutputStream os = conn.getOutputStream() ) {
-              os.write(bytes);
-            }
-            sent = true;
-            int status = conn.getResponseCode();
-            if ( status == HttpURLConnection.HTTP_OK ) {
-              try ( BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8)) ) {
+            HttpResponse<InputStream> resp = getHttpClient().send(request, HttpResponse.BodyHandlers.ofInputStream());
+            int status = resp.statusCode();
+            if ( status == 200 ) {
+              try ( BufferedReader in = new BufferedReader(new InputStreamReader(
+                      new IdleTimeoutInputStream(resp.body(), getReadTimeout()), StandardCharsets.UTF_8)) ) {
                 return (JSONObject) readStream(in, progress);
               }
             }
-            String error = read(conn.getErrorStream());
+            String error = read(resp.body());
             if ( ! retryable(status) || attempt >= getMaxRetries() ) {
               throw new StatusError(status, "HTTP error " + status + ": " + error);
             }
-            long wait = backoff(attempt, conn.getHeaderField("retry-after"));
+            long wait = backoff(attempt, resp.headers().firstValue("retry-after").orElse(null));
             logger.warning("Model busy, retrying", "status", status, "attempt", attempt + 1, "waitMs", wait);
             pause(wait, progress);
-          } catch (ConnectException | EarlyStreamError e) {
+          } catch (ConnectException | HttpConnectTimeoutException | EarlyStreamError e) {
             retry(logger, e, attempt, progress);
-          } catch (SocketTimeoutException e) {
-            if ( sent ) throw e;
-            retry(logger, e, attempt, progress);
-          } finally {
-            if ( conn != null ) conn.disconnect();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InterruptedIOException("Interrupted while calling the AI service");
           }
         }
       `

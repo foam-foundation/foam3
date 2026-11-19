@@ -142,6 +142,13 @@ foam.CLASS({
             self.statusMsg = 'Indexing ' + (fi + 1) + ' / ' + flows.length + ': ' + flow.name;
             var chunks = await self.chunker.chunk(x, text);
 
+            // a re-index must not leave the flow's older chunks behind: ids made before
+            // the flowDAO: prefix (Getting Started:0), or chunks past the end of a flow
+            // that got shorter, would still be searched and answer with stale text
+            await self.vectorStoreDAO.where(self.AND(
+              self.EQ(self.VectorEmbedding.KIND,      'flow'),
+              self.EQ(self.VectorEmbedding.SOURCE_ID, flow.name))).removeAll();
+
             for ( var ci = 0; ci < chunks.length; ci++ ) {
               var embedding = await self.embedder.embed(x, chunks[ci]);
               // daoKey and sourceId name the flow, so ragService can check the reader may open it;

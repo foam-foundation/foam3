@@ -14,8 +14,9 @@ foam.CLASS({
     ReadableSourcePredicate returns only chunks of records the caller can find
     through their own DAO, a chunk with no daoKey is never returned, a record is
     looked up once however many chunks it has, and ask() sends the model only
-    readable chunks at or above minScore, lists only their records, and makes
-    no model call when none qualifies. A long section is cut in pieces that
+    readable chunks at or above minScore, lists only their records. When none
+    qualifies it makes no model call with documentsOnly, and otherwise sends the
+    question alone. A long section is cut in pieces that
     each start with its heading.
   `,
 
@@ -60,10 +61,12 @@ foam.CLASS({
     public static class Model implements LLMService {
       public String reply = "Alpha is the first letter [s1].";
       public String prompt;
+      public String system;
       public int    calls;
       public LLMResponse complete(X x, CompletionRequest r) {
         calls++;
         prompt = r.getPrompt();
+        system = r.getOptions() == null ? "" : r.getOptions().getSystemPrompt();
         LLMResponse res = new LLMResponse();
         res.setContent(reply);
         return res;
@@ -157,12 +160,20 @@ foam.CLASS({
         test(a.getAnswered() && a.getAnswer().contains("[s1]") && a.getSources().length == 1 && "s1".equals(a.getSources()[0].getSourceId()), "The answer lists the readable doc only");
         test(! model.prompt.contains("secret"), "The model is never sent a chunk the user cannot read");
         test(model.prompt.contains("Answer in: French"), "The model is told the language of the user's screens, French for fr");
+        // documentsOnly: a question no readable chunk covers gets no answer and no model call
+        ServerRAGService only = new ServerRAGService.Builder(sx).setDocumentsOnly(true).build();
         int before = model.calls;
-        RAGAnswer far = rag.ask(sx.put("docDAO", counted), "What is the capital of France?", new String[] { "docDAO" }, "en");
-        test(! far.getAnswered() && far.getSources().length == 0 && model.calls == before, "A question with no chunk at or above minScore costs no model call and offers no source");
-        test(! rag.ask(sx.put("docDAO", counted), "What is alpha?", new String[] { "" }, "en").getAnswered() && model.calls == before, "An empty daoKey reaches no chunk and no model call");
+        RAGAnswer far = only.ask(sx.put("docDAO", counted), "What is the capital of France?", new String[] { "docDAO" }, "en");
+        test(! far.getAnswered() && far.getSources().length == 0 && model.calls == before, "With documentsOnly, a question with no chunk at or above minScore costs no model call and offers no source");
+        test(! only.ask(sx.put("docDAO", counted), "What is alpha?", new String[] { "" }, "en").getAnswered() && model.calls == before, "An empty daoKey reaches no chunk and no model call");
         X nobody = sx.put("docDAO", new FilteredDAO.Builder(x).setPredicate(MLang.EQ(VectorEmbedding.ID, "none")).setDelegate(docs).build());
-        test(! rag.ask(nobody, "What is alpha?", new String[] { "docDAO" }, "fr").getAnswered() && model.calls == before, "With no readable doc there is no answer and no model call");
+        test(! only.ask(nobody, "What is alpha?", new String[] { "docDAO" }, "fr").getAnswered() && model.calls == before, "With documentsOnly and no readable doc there is no answer and no model call");
+        // by default the same question goes to the model on its own: no documents, no grounding prompt, no sources
+        model.reply = "Paris.";
+        RAGAnswer open = rag.ask(nobody, "What is the capital of France?", new String[] { "docDAO" }, "en");
+        test(open.getAnswered() && "Paris.".equals(open.getAnswer()) && open.getSources().length == 0 && model.calls == before + 1, "By default a question no document covers is answered by the model, with no source");
+        test(! model.prompt.contains("Documents:") && model.prompt.contains("Question: What is the capital of France?") && foam.util.SafetyUtil.isEmpty(model.system), "That call carries only the question, without the documents-only prompt");
+        model.reply = "Alpha is the first letter [s1].";
         // two readable docs: the model cites them by number, and the sources are the ones it names
         kb.put(chunk("docDAO:s3:0", "docDAO", "s3", "alpha also starts the alphabet", 0.6f, 0.4f));
         X two = sx.put("docDAO", new FilteredDAO.Builder(x).setPredicate(MLang.OR(MLang.EQ(VectorEmbedding.ID, "s1"), MLang.EQ(VectorEmbedding.ID, "s3"))).setDelegate(docs).build());

@@ -34,6 +34,7 @@ foam.CLASS({
         await dao.put(this.Command.create({ id: 'demo.save', description: 'Save the data', confirm: true,
           script: 'this.__context__.saved.push(1); return "Saved.";' }));
         await dao.put(this.Command.create({ id: 'demo.silent', description: 'Return nothing', script: 'var a = 1;' }));
+        await dao.put(this.Command.create({ id: 'demo.list', description: 'List the ids', script: 'return [ 1, 2 ];' }));
         await dao.put(this.Command.create({ id: 'other.drop', description: 'Drop everything', script: 'return "dropped";' }));
 
         var saved = [];
@@ -48,7 +49,7 @@ foam.CLASS({
         var def = await tool.tool();
         var schema = JSON.parse(def.inputSchema);
         x.test(def.name === 'execute_command', 'one tool named execute_command');
-        x.test(schema.properties.command.enum.sort().join() === 'demo.greet,demo.save,demo.silent',
+        x.test(schema.properties.command.enum.sort().join() === 'demo.greet,demo.list,demo.save,demo.silent',
           'only the agent\'s commands are offered: ' + schema.properties.command.enum);
         x.test(def.description.indexOf('demo.greet: Greet someone Params: {"type"') >= 0, 'each command is described with its params');
         x.test(def.description.indexOf('demo.save: Save the data No params. The user confirms before it runs.') >= 0, 'a confirm command says so');
@@ -56,11 +57,21 @@ foam.CLASS({
         var call = (command, params) => tool.run(this.LLMToolUse.create({ id: 'c', name: 'execute_command', inputJson: JSON.stringify({ command: command, params: params }) }));
         x.test(await call('demo.greet', { name: 'Ada' }) === 'Hello, Ada', 'the command gets the params and the agent\'s context');
         x.test(await call('demo.silent') === 'Done.', 'a command that returns nothing reads as Done.');
+        x.test(await call('demo.list') === '[1,2]', 'a command that returns an array reads as JSON: ' + await call('demo.list'));
         x.test(( await call('other.drop') ).indexOf('There is no command named other.drop') === 0, 'a command outside the agent\'s set is refused');
         x.test(( await call('demo.save') ).indexOf('did not confirm') >= 0 && saved.length === 0, 'a confirm command does not run when the user says no');
         x.test(await call('demo.save') === 'Saved.' && saved.length === 1, 'it runs once the user agrees');
         x.test(( await tool.run(this.LLMToolUse.create({ name: 'eval', inputJson: '{}' })) ).indexOf('There is no tool named eval') === 0, 'another tool name is refused');
         x.test(await tool.run(this.LLMToolUse.create({ name: 'execute_command', inputJson: 'not json' })) === 'The input was not JSON.', 'unreadable input is refused');
+        x.test(await tool.run(this.LLMToolUse.create({ name: 'execute_command', inputJson: 'null' })) === 'The input was not a JSON object.', 'input that is not an object is refused');
+
+        var closed = this.CommandTool.create({
+          predicate: foam.mlang.Expressions.create().STARTS_WITH(this.Command.ID, 'demo.'),
+          commandX: agentX,
+          askConfirm: async function() { throw new Error('dialog closed'); }
+        }, agentX);
+        var answer = await closed.run(this.LLMToolUse.create({ name: 'execute_command', inputJson: '{"command":"demo.save"}' }));
+        x.test(answer.indexOf('dialog closed') >= 0 && saved.length === 1, 'a confirm that fails comes back as the result, and the command does not run: ' + answer);
       }
     }
   ]

@@ -35,15 +35,15 @@ foam.CLASS({
       class: 'String',
       name: 'inputSchema',
       documentation: `
-        JSON Schema of the one argument an AI agent passes when it runs this command through
-        a CommandTool, e.g. {"type":"object","properties":{"parserId":{"type":"string"}}};
-        the script reads it as args[0]. Empty means the command takes no input.
+        JSON Schema of the command's one argument, e.g.
+        {"type":"object","properties":{"parserId":{"type":"string"}}}; the script reads it
+        as args[0]. Empty means the command takes no input.
       `
     },
     {
       class: 'Boolean',
       name: 'confirm',
-      documentation: 'A CommandTool asks the user before an AI agent runs this command, as for one that writes data.'
+      documentation: 'Ask the user before the command runs without a Console, as for one that writes data.'
     },
     {
       class: 'String',
@@ -69,7 +69,7 @@ foam.CLASS({
 
     async function execute(...args) {
       with ( this ) {
-        // outside a Console, as when an AI agent runs the command, there is no addValue
+        // A command run without a Console has no addValue to print to.
         with ( { args: args, addValue: this.addValue && this.addValue.bind(this) } ) {
           try {
             // Use arrow function to preserve this binding and with context

@@ -11,9 +11,9 @@ foam.CLASS({
   documentation: `
     Lets an AI agent run Reflow commands through one tool, execute_command, instead of a
     tool per action written into each agent. The agent's commands are the rows of
-    commandDAO its predicate matches, e.g. ids starting with "report."; commandDAO only
-    returns the ones the user may read (command.read.<id>), so the agent can never do
-    more than its user.
+    commandDAO its predicate matches, e.g. ids starting with "report.". A command with
+    permissionRequired is listed only when the user may read it (command.read.<id>), so
+    gate any command an agent must not run for every user that way.
 
     The model names a command and passes its params; run() looks the command up by id
     among those rows and executes it in commandX, the context the agent's screen gives
@@ -89,15 +89,17 @@ foam.CLASS({
       } catch (e) {
         return 'The input was not JSON.';
       }
+      if ( ! input || typeof input !== 'object' ) return 'The input was not a JSON object.';
       var command = ( await this.commands_ ).find(c => c.id === input.command);
       if ( ! command ) return 'There is no command named ' + input.command + ' here.';
       var params = input.params || {};
-      if ( command.confirm && ! await this.askConfirm(command, params) ) {
-        return 'The user did not confirm ' + command.id + ', so it did not run.';
-      }
       try {
+        if ( command.confirm && ! await this.askConfirm(command, params) ) {
+          return 'The user did not confirm ' + command.id + ', so it did not run.';
+        }
         var result = await command.clone(this.commandX || this.__context__).execute(params);
-        return result === undefined || result === null ? 'Done.' : String(result);
+        return result === undefined || result === null ? 'Done.' :
+          typeof result === 'string' ? result : foam.json.stringify(result);
       } catch (e) {
         return command.id + ' failed: ' + ( e && e.message || e );
       }

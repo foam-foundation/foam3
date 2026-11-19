@@ -345,7 +345,7 @@ view: function(_, X) {
 | `this.E()` inside dynamic() | `this.start()` inside dynamic() |
 | `this.myClass()` inside dynamic() | `self.myClass()` (capture self first) |
 | `this.method()` inside event handler | `self.method()` |
-| Inline `style="..."` | CSS classes with `^` prefix |
+| Inline `style="..."` | CSS classes with the `<<` self-selector (`^` is the deprecated spelling) |
 | Hardcoded colors (`#04338D`, `red`) | FOAM semantic tokens (`$primary500`, `$textDestructive`) — theme/dark-mode aware (3.2) |
 | Raw color scale (`$blue500`) when semantic exists | Use semantic alias (`$primary500`) (3.2) |
 | Hand-rolled `font-size` / `font-weight` in custom CSS | Global typography class — `addClass('h300')`, `addClass('p-bold')`, `addClass('p-label')` (3.2.1) |
@@ -356,6 +356,8 @@ view: function(_, X) {
 | Return elements from dynamic() | Build via side effects, early return OK |
 | Manual setAttribute in render() | `attribute: 'BOTH'` with `domName` |
 | Recreating reactive views | Cache element + `moveTo()` |
+| A listener or method named `load` in a view | Another name (`loadData`): `foam.u2.Element.load()` is the step that renders the element (`Element2.js:764`), so the view stays an empty `<div>` with none of its classes. A listener named `load` logs `Assertion failed: Attempt to override non-listener load` as the class loads (`Listener.js:103-106`); a method named `load` logs nothing |
+| Only a `view` on a property shown in read-only summary rows | Add a `tableCellFormatter`: in VIEW mode on a row wider than 320px, `foam.u2.detail.RowPropertyView` draws `tableCellFormatter`, not `view` (`RowPropertyView.js:58,81-88`), so a Reference shows its raw id. For the summary text, use `foam.u2.view.ReferenceToSummaryCellFormatter` (references/patterns.md, Reference Formatter); to keep the view itself, such as a link that opens a popup, tag it from the formatter |
 | Full rerender on array change | Track by `$UID`, surgical add/remove |
 | Manual `.sub()` for property changes | `on: ['this.propertyChange.prop']` on listener |
 | `FObjectArrayView` for arrays | `TitledArrayView` with `valueView` + `propertyWhitelist` |
@@ -368,14 +370,21 @@ view: function(_, X) {
 | Modal popup for row detail | Faceted DetailView wrapper (3.22) |
 | `this.method` in `.sub()` callback | `.sub(this.method.bind(this))` — method refs lose `this` |
 | Embedded table shows wrong columns | `config: null` in `startContext` (3.22) |
-| Global localStorage overrides table columns | `columnStorage` factory returning `getItem: null` (3.22) |
-| `slot()` for async content in render chain | `dynamic()` — slot can cause DOM placement issues |
+| Global localStorage overrides table columns | `columnStorage: null` in `startContext` (3.22) |
 | `.add(prop)` for property with `writePermissionRequired` / `readPermissionRequired` | `.tag(prop.__, { config: { label: '', reserveLabelSpace: false } })` — bare `.add` skips PropertyBorder so the auth check never runs (3.27) |
 | `visibility: 'RO'` on model just to lock down a cell render | Route the cell through `prop.__` so model permission gate keeps working for admins (3.27) |
 | Per-variant colors hardcoded in `render()` / `factory:` for a variant-derived color | Tokens on the enum values + `expression: function(variant)` — follows the variant, still caller-overridable (3.31) |
 | `callIf(this.reactiveProp, ...)` for something that changes after render | `enableClass(cls, slot)` / `show(slot)` / `add(slot.map(...))` — `callIf` runs once (3.31) |
 | `cssTokens:` color entry without `class: 'foam.u2.ColorToken'` | Declare the class — a bare `CSSToken` has an empty `variantKey`, so a theme's dark override never matches (3.31) |
 | `MyView.create({ someCssToken: ... })` to retune a color per instance | `cssTokens` are class constants; per-instance control is a property + `enableClass` (3.31) |
+
+## Usually Better (prefer, not a ban)
+
+These work, but the right-hand form is usually simpler. Use the left-hand one when it is the only option.
+
+| Works | Usually Better |
+|-------|----------------|
+| `removeAllChildren()` then rebuilding when a state changes | Render from the state: `show(slot)`, `enableClass(cls, slot)` or `add(this.dynamic(...))` (3.3). To swap content, keep both parts and show one; every state change then updates the view with no code to remember. Clearing a slot another view owns and recreates, like the Console's `titlePrefix`, still needs `removeAllChildren()` (foam-design-patterns `references/reflow.md`) |
 
 ---
 

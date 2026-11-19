@@ -1,4 +1,7 @@
-To install, add this to a services.jrl file:
+To install, add this to a services.jrl file. The client chain below includes
+com.example.auth.GrantCachedAuthService, a client-side permission cache that
+foam3 does not provide: substitute your application's own, or remove that layer
+so AuthorizeAnonymousClientDecorator delegates straight to ClientLoginAuthService.
 
 p({
   "class": "foam.core.boot.CSpec",
@@ -8,7 +11,6 @@ p({
   "boxClass": "foam.core.auth.AuthServiceSkeleton",
   "serviceScript": """
     auth = new foam.core.auth.UserAndGroupAuthService(x);
-    // auth = new com.paytic.http.AvaAuthService.Builder(x).setDelegate(auth).build();
     auth = new foam.core.auth.CapabilityAuthService.Builder(x).setDelegate(auth).build();
     auth = new foam.core.auth.EnabledCheckAuthService.Builder(x)
       .setDelegate(auth)
@@ -51,7 +53,7 @@ p({
       "class": "foam.core.auth.AuthorizeAnonymousClientDecorator",
       "delegate":
       {
-        "class":"com.paytic.auth.GrantCachedAuthService",
+        "class":"com.example.auth.GrantCachedAuthService",
         "delegate":{
           "class":"foam.core.auth.ClientLoginAuthService"
         }

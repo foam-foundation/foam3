@@ -444,7 +444,7 @@ p({class:"foam.core.auth.GroupPermissionJunction",sourceId:"example-group",targe
             shell.set("currentScript", this);
             shell.set("scriptParameter", sp);
             shell.set("x", x.put("out", ps));
-            shell.eval("runScript(String name) { script = x.get("+getDaoKey()+").find(name); if ( script != null ) eval(script.code); }");
+            shell.eval("runScript(String name) { script = x.get(\\\""+getDaoKey()+"\\\").find(name); if ( script == null ) throw new RuntimeException(\\\"runScript: no script \\\" + name); eval(script.getCode()); }");
             shell.eval("foam.lang.X sudo(String user) { foam.util.Auth.sudo(x, (String) user); }");
             shell.eval("foam.lang.X sudo(Object id) { foam.util.Auth.sudo(x, id); }");
           } catch (EvalError e) {

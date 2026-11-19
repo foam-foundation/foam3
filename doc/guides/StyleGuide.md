@@ -49,6 +49,9 @@ for ( var i = 0 ; i < a.length ; i++ ) a[i] = '';
         .end();
 ```
 
+* `catch` keeps the plain Java form, with no spaces inside the parentheses: `} catch (Throwable t) {`.
+* No `else` after a `return`: write `if ( a ) return 1; return 2;`.
+
 ## Naming
 
 * Model names should be capitalized CamelCase. Ex. `Model`, `Photo`, `EMail`.
@@ -56,11 +59,27 @@ for ( var i = 0 ; i < a.length ; i++ ) a[i] = '';
 * Properties should start with a lower-case character and be camelCase. Ex. `parent`, `firstName`
 * Non-public properties and methods can end with an underscore (`_`). Ex. `listeners_`
 * Use `NAMES_LIKE_THIS` for constant and message names.
+* A refinement's file and name end in `Refinement`. Ex. `GroupPermissionJunctionRefinement`
+* A file is named after the model it defines. Ex. `MetricOperation.js` defines `MetricOperation`
+* A mixin is not named `Utils`; name what it adds. Ex. `foam.u2.memento.Memorable`
+* Rule ids are package-qualified, so two packages' rules cannot collide. Ex. `foam_core_referral_BuildReferralCodeURL`
 
 ## Modelling
 Code should be modeled rather than created as conventional JS prototypes.
 
 Provide property labels when the default labelization of the property name will not be helpful or attractive to users.
+
+Write the axioms of a `foam.CLASS` in this order: `package`, `name`, a blank line, `extends` /
+`implements` / `mixins` / `refines`, `requires`, `imports`, `exports`, `javaImports`,
+`documentation`, `tableColumns` / `searchColumns`, `sections`, `constants`, `messages`, `css`,
+`properties`, `methods`, `listeners`, `actions`.
+
+Do not restate a default. Each of these says something the framework already says:
+* `start('div')`: `start()` creates a `div`, the default `nodeName` (`Element2.js:634-641`).
+* `addClass(this.myClass())`: `addClass()` with no argument adds `myClass()` (`Element2.js:1167-1168`).
+* `implements: ['foam.mlang.Expressions']` on a view: every `foam.u2.Element` already implements it (`Element2.js:485-487`).
+* `after: false` on a rule or `async: false` on a method: both default to false.
+* `{ name: 'data' }` for a property that sets nothing else: write `'data'`.
 
 ## Line Length
 Line lengths should be 80 characters or less, except for embedded data, like templates or sprites, or when modifying the code to make it fit in less than 80 characters would actually makes it less readable.
@@ -83,6 +102,11 @@ When using a DAO as a regular client from outside of a decorator for that DAO, u
 ```
 
 ## Other
+ * Use single quotes; use a template literal only to interpolate.
+ * Sort the entries of `requires`, `imports`, `exports`, `javaImports` and a pom's file lists
+   alphabetically, so a merge adds a line instead of conflicting.
+ * Put formatting changes in their own commit, never mixed with a behaviour change, so the
+   behaviour diff stays readable.
  * Do not quote map keys unless necessary.
  * Do not leave trailing unnecessary commas (this is implicit in the Google
    style guide).

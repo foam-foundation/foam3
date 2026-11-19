@@ -324,11 +324,11 @@ this.slot(function(prop1, prop2) {
 ```javascript
 // Auto-binds to data properties
 this.add(function(firstName, lastName) {
-  this.start('div').add(`Name: ${firstName} ${lastName}`).end();
+  this.start().add(`Name: ${firstName} ${lastName}`).end();
 });
 
 // For object properties, use this.dynamic() directly
-this.start('div')
+this.start()
   .add(this.dynamic(function(myProp, otherProp) {
     this.add(`Values: ${myProp} ${otherProp}`);
   }))
@@ -429,13 +429,13 @@ View with context injection:
 foam.CLASS({
   name: 'UserView',
   extends: 'foam.u2.View',
-  imports: ['userDAO', 'stack', 'ctrl'],
+  imports: ['userDAO', 'stack'],
   exports: ['data as selectedUser'],
   requires: ['foam.u2.detail.SectionedDetailView'],
   
   methods: [
     function render() {
-      // SectionedDetailView inherits userDAO, stack, ctrl, selectedUser
+      // SectionedDetailView inherits userDAO, stack, selectedUser
       this.add(this.SectionedDetailView.create({
         data: this.data
       }));

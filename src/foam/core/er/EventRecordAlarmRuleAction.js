@@ -44,14 +44,20 @@ whose journal is write-only and not replayed, so they are dropped on restart.`,
       String name = er.alarmSummary();
       Alarm alarm = (Alarm) alarmDAO.find(EQ(Alarm.NAME, name));
       if ( er.getSeverity().getOrdinal() >= getAlarmSeverity().getOrdinal() ) {
+        // The alarm's eventRecord names the record that turned it on or
+        // raised its severity. A repeat of a failure already reported, such
+        // as a second ERROR while the alarm is still on, leaves it alone, so
+        // the notification rule can tell the two apart.
+        boolean raised = alarm == null || ! alarm.getIsActive() ||
+          er.getSeverity().getOrdinal() > alarm.getSeverity().getOrdinal();
         if ( alarm == null ) {
           alarm = new Alarm(name);
           alarm.setSeverity(er.getSeverity());
           alarm.setClusterable(er.getClusterable());
-          alarm.setEventRecord(er.getId());
         } else {
           alarm = (Alarm) alarm.fclone();
         }
+        if ( raised ) alarm.setEventRecord(er.getId());
         StringBuilder note = new StringBuilder();
         if ( ! SafetyUtil.equals(er.getMessage(), alarm.getNote()) ) {
           note.append(er.getMessage());

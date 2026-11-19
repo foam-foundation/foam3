@@ -121,6 +121,8 @@ The engine never guesses the axis from the map's keys. `dark` is a value on the 
 
 **Where.** On the shared list when more than one view will read it. On the view's own `cssTokens:` when only that view and its subclasses care (Button's `buttonRadius`). A theme can override either by name.
 
+A token on `cssTokens:` is a class constant, not a property: installing it defines `MyView.BUTTON_RADIUS` on the class (`src/foam/u2/CSSToken.js:102-109`), so `MyView.create({ buttonRadius: '0' })` changes nothing. To retune it for a variant of the view, declare the same token name again in a subclass's `cssTokens:`; for a per-instance choice, use a property and `enableClass`.
+
 **Name.** Say what the value is for, not what it is: `backgroundSecondary`, not `grey200`. The atomic tokens (`$grey200`, `$primary400`) exist so the semantic ones can point at them; views read the semantic ones.
 
 **Value.** A token if one exists, else rem, never px. The scales below are the tokens for size-like values:
@@ -179,7 +181,7 @@ Light reads the `light` entry. Dark finds no entry and no `target`, so it falls 
 
 **Rows are keyed by (theme, source).** A second row for the same pair replaces the first. Put the light and dark entries on one row.
 
-**A row is not a token.** It carries no `variantKey` of its own; it borrows the token's. And it installs no derived forms, so `$backgroundDefault$hover` still comes from the framework's `ColorToken`, shifted by `hoverModifier` from whatever the row resolved to.
+**A row is not a token.** It carries no `variantKey` of its own; it borrows the token's (`CSSTokenOverrideService.js:114-115`). A `dark` entry on a row for a token with no `variantKey`, such as `buttonRadius`, is therefore never read: the service asks only for `source-<mode>` of the token's own axis. And it installs no derived forms, so `$backgroundDefault$hover` still comes from the framework's `ColorToken`, shifted by `hoverModifier` from whatever the row resolved to.
 
 ---
 

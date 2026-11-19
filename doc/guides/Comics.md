@@ -131,6 +131,15 @@ The view form rendered is `config.detailView` (defaults to `foam.u2.detail.Tabbe
 
 `DetailView` exports itself as `stack`, routing sub-view pushes through its own `Stack` subclass so they stay inside the detail panel rather than replacing the whole controller.
 
+### Per-model replacements: `{Model}DetailView` and `{Model}CreateView`
+
+`DetailView` and `CreateView` both carry a `foam.pattern.Faceted` axiom (`src/foam/comics/v3/DetailView.js:16`, `CreateView.js:23`). When one is created with `of` (or with `data`, whose class is used), `create()` looks up the class `<package>.<Model><FacetName>` and, if it is loaded, creates that instead (`src/foam/pattern/Faceted.js:72-120`). So for `com.example.Invoice`, a class `com.example.InvoiceDetailView` that extends `foam.comics.v3.DetailView` replaces the view/edit state with no config.
+
+Two traps:
+
+- **The two states facet independently.** `InvoiceDetailView` does not change the Create button, which creates `CreateView` and therefore looks for `InvoiceCreateView`. Define both to customise both.
+- **A missing class falls back silently.** The lookup is `X.maybeLookup(id) || of[name] || this` (`Faceted.js:93`), so a class that is misnamed or not in the build renders the default view with no error. In the browser console, `com.example.InvoiceDetailView` must print a class, not `undefined`.
+
 ## DAOControllerConfig
 
 `foam.comics.v2.DAOControllerConfig` is the single configuration object consumed by all three micro-controllers. Pass it as the `config` property of `DAOController`, or let it be auto-created from the DAO.
@@ -252,6 +261,12 @@ config.CRUDEnabledActionsAuth = foam.comics.v2.CRUDEnabledActionsAuth.create({
 | `createController` | ViewSpec pushed onto the stack for the `'create'` route; defaults to `foam.comics.v3.CreateView` |
 | `click` | Override the row-click handler; receives `(obj, id)` |
 | `disableSelection` | `true` to make rows non-clickable |
+
+### Comics pieces inside a custom view
+
+- **An embedded table takes the outer controller's columns.** A table imports `config` from its context and shows `config.tableColumns` (`src/foam/u2/table/UnstyledTableView.js:51`, `:171-174`), so a `TableView` placed inside a custom `DetailView` shows the parent model's columns. Clear both context values: `this.startContext({ config: null, columnStorage: null }).tag(foam.u2.table.TableView, { data: this.lineItemDAO }).endContext()`. `columnStorage: null` also stops saved column choices from another table overriding the model's (`:135`, `:150`).
+- **A custom browse view must set its own title.** Only `DAOController` calls `stack.setTitle` (`src/foam/comics/v3/DAOController.js:106`); a view that embeds `DAOView` directly gets no title or breadcrumb. Call `this.stack.setTitle(this.viewTitle$, this)` in `render()`; the stack clears a slot title when the view detaches (`src/foam/core/u2/navigation/Stack.js:254-271`).
+- **`config.DAOActions` run against the browser view.** The toolbar renders them with `data` set to the `DAOBrowserView` (`src/foam/comics/v2/DAOBrowserView.js:356-358`), so an action's `code` cannot reach your view through `this`. Build the action in `render()` with a closure: `DAOActions: [ this.Action.create({ name: 'reload', code: () => self.load() }) ]`.
 
 ---
 

@@ -116,14 +116,20 @@ Common source key shapes are:
 | Property label | `Class.PROPERTY.label` |
 | Action label | `Class.ACTION.label` |
 | Property `units` suffix (`units: 'days'`) | `foam.units.<units>`, e.g. `foam.units.days`, shared by every property (`foam3/src/foam/u2/view/ValueView.js:58`, `foam3/src/foam/u2/TextField.js:77`) |
+| Other property text | `Class.PROPERTY.placeholder`, `Class.PROPERTY.documentation` |
+| Duration unit words | `foam.time.TimeUnit.<UNIT>.label`, `.plural`, `.shorthand`, e.g. `foam.time.TimeUnit.YEAR.plural` (`foam3/src/foam/lang/Duration.js:35-37`) |
+| Currency name | `<currency id>.name`, e.g. `CAD.name` (`foam3/src/foam/lang/Currency.js:142`) |
+| Country-specific error | `<country id in lower case>.<class>.<PROPERTY>.error`, with a literal `*.` key as the fallback, e.g. `ca.foam.core.auth.Address.POSTAL_CODE.error` then `*.foam.core.auth.Address.POSTAL_CODE.error`. The caller tries both keys itself (`foam3/src/foam/core/auth/Address.js:241-243`); `*` is not a wildcard |
 
 Use the fully qualified model id for class-owned keys. FOAM's extraction scripts (see [Automated String Extraction](#automated-string-extraction)) build these keys with `o.id + '.' + foam.String.constantize(axiom.name)` and append suffixes such as `.label` for properties and actions.
+
+A key must match exactly; nothing resolves a near miss. A class-owned key is walked as a JavaScript path from `globalThis`, and `installLanguage()` skips a path it cannot walk without any message (`foam3/src/foam/core/controller/ApplicationController.js:591-596`). So the member must be the constant name: `com.example.Case.CASE_NUMBER.label` works, while `com.example.Case.caseNumber.label` is a dead row, because the class has no `caseNumber` member.
 
 ## Choosing the Right Pattern
 
 | The string is… | Use | Editable at runtime? |
 |---|---|---|
-| declared on your own model or view | `message: '...'` in the base language, plus a `Locale` row per shipped locale keyed `<class id>.<NAME>` — the translation service sends the client only the viewer's locale | Yes |
+| declared on your own model or view | `message: '...'` in the base language, plus a `Locale` row per shipped locale keyed `<class id>.<NAME>` — the translation service sends the client only the viewer's locale. Not for a `template: true` message: see [the lifecycle](#message-override-lifecycle) | Yes |
 | needed on the client before any round trip (a boot-time label, a login-page error) | `messageMap: { en, fr }` or an inline `label: { en, fr }` map. Every inline language ships in the client JS for every user, so keep this set small | Default is code; a `Locale` row still overrides it |
 | framework-driven, looked up by a source key — menu label, DAO browse/create title, class action label/tooltip | a `Locale` row in `localeDAO` keyed by that source key | Yes |
 
@@ -146,13 +152,14 @@ p({
 })
 ```
 
-DAO-backed menus also translate controller titles and create buttons with these runtime keys. The create button is keyed by the model, not the menu (`DAOControllerConfig.createTitle` in `foam3/src/foam/comics/v2/DAOControllerConfig.js`):
+DAO-backed menus also translate controller titles and create buttons with these runtime keys. The create button looks up a menu key first and falls back to a model key, so one model shown under two menus can carry two button labels (`foam3/src/foam/comics/v2/DAOBrowseControllerView.js:282-296`):
 
 | UI String | Source Key |
 |---|---|
 | Menu label | `menuId.label` |
 | DAO browse title | `menuId.browseTitle` |
-| DAO create button/title | `<model id>.CREATE_TITLE.label` |
+| Create button, default browse view | `menuId.createTitle`; when it has no row, `config.createTitle`, which is `<model id>.CREATE_TITLE.label` (`foam3/src/foam/comics/v2/DAOControllerConfig.js:181-191`) |
+| Create button, menu with a `createControllerView` | `menuId.handler.createControllerView.view.title`; when it has no row, the view's own `title` |
 
 Example:
 
@@ -210,6 +217,8 @@ flowchart TD
   C -->|"at boot: installLanguage()<br/>walks source as a path and assigns"| D["MyView.HELLO setter fires<br/>→ messageMap[locale] = Salut"]
   D --> E["this.HELLO now returns 'Salut'"]
 ```
+
+**A `template: true` message does not take a `Locale` row.** A template is compiled once, when its class is built, from the text the message has at that moment (`foam3/src/foam/i18n/Messages.js:140-154`). `installLanguage()` reaches the message by walking the row's source path, and walking `com.example.MyView` builds the class (`foam3/src/foam/lang/stdlib.js:1229-1243`) before the translation is assigned. The assignment updates `messageMap`, and `MyView.GREETING` reads the new text, but `this.GREETING({ name })` still returns the coded English. Put a template message's translations in its `messageMap`, which is read when the class is built (by then `foam.locale` already holds the saved language, `foam3/src/foam/lang/Boot.js:199,216`), or translate at the call with `translationService.getTranslation(foam.locale, '<class id>.<NAME>', defaultText, replacementMap)`, which fills the `${}` keys itself (`foam3/src/foam/i18n/ClientCacheTranslationService.js:127-136`).
 
 ## Source References
 

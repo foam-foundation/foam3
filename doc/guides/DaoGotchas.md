@@ -94,6 +94,10 @@ this.MyFilteredDAO.create({ of: this.of, delegate: delegate }, this.__subContext
 
 If the predicate short-circuits to `TRUE` while its scoping value is unset, the crash only appears once a real value is selected.
 
+### A decorator's `cmd_` delegates what it does not own, and never throws
+
+`cmd` is a probe: callers send a command down the chain to whoever handles it, such as `AddIndexCommand` reaching the MDAO, or `DownloadDAOAgent` asking `cmd('serviceName?')`. `ProxyDAO.cmd_` returns the delegate's answer (`src/foam/dao/ProxyDAO.js:50-58`), and only the leaf answers `null` for "not handled" (`src/foam/dao/AbstractDAO.js:540-541`). An override handles its own commands and ends with `return getDelegate().cmd_(x, obj);`. Returning `null` early stops the command reaching the store below, and throwing breaks every caller that is only asking.
+
 ### A method with only `javaCode` has no JS implementation
 
 `javaCode` generates Java only, `code` generates JS only. Calling a `javaCode`-only method from JS throws `this.<name> is not a function`.
@@ -125,6 +129,8 @@ dao.put(next);
 ```
 
 This bites hardest when driving a multi-step lifecycle through a real DAO in a test. The freeze is deliberate: DAOs avoid sharing mutable references between writers and readers.
+
+**JS has no freeze, so the opposite trap applies.** A JS `MDAO.find_` resolves with the stored instance itself (`src/foam/dao/MDAO.js:159-178`, `findSync_` returns `index.get()`), and JS `FObject` has no freeze. Setting `found.status = 'CLOSED'` on a client-side MDAO result changes the cached row in place, with no put, no `on.put` event and no server write, so other views show the edit while the server never hears of it. `clone()` the result, change the clone, and `put` it.
 
 ### Client caching is decided by ClientBuilder, and only for a top-level `EasyDAO`
 
@@ -219,6 +225,14 @@ Use the resolved sink instead:
 var rows = (await dao.select()).array;
 mdao.index.bulkLoad(rows);
 ```
+
+The rule is general: always read the sink `select` returns, in Java and JS alike, never the one you passed in.
+
+The sink's class also decides where it runs. `ClientDAO.select_` sends a `foam.lang.Serializable` sink to the server; any other sink makes it fetch every matching row into an `ArraySink` and replay them into your sink in the browser (`src/foam/dao/ClientDAO.js:68-87`). `ArraySink`, `Count` and `GroupBy` are all `Serializable` (`ArraySink.js:11`, `mlang/sink/Count.js:11`, `mlang/sink/GroupBy.js:11`), so they reduce server-side. Three consequences:
+
+- **Existence is `find`, count is `COUNT()`.** `dao.find(predicate)` is `where(p).limit(1)` (`src/foam/dao/AbstractDAO.js:492-494`, Java `:509-512`); `select(COUNT())` returns one number. An `ArraySink` followed by `isEmpty()` or `size()` ships the rows to answer a yes/no question.
+- **Batch lookups in one query.** Counting rows for 200 ids is one `where(IN(Model.KEY, ids)).select(GROUP_BY(Model.KEY, COUNT()))`, not 200 selects.
+- **A hand-written sink that is not `Serializable` downloads the whole result** before it sees the first row.
 
 ### A `select_` that hydrates rows must filter on the sink
 
@@ -319,6 +333,12 @@ Two levers when a rule keeps overwriting a value you need:
 
 And when auditing what a deployment actually does: **the runtime rule set can differ from the journals in the repository.** Read the live rule DAO, not the checked-in files.
 
+### Inside a `RuleAction`, `x` reads and `ruler.getX()` writes
+
+A synchronous rule's action receives `x` wrapped in a `ReadOnlyDAOContext` over the user's context (`src/foam/core/ruler/RuleEngine.java:205-207`), which hands back every DAO as a `ReadOnlyDAO` (`src/foam/lang/ReadOnlyDAOContext.java:24-28`), so `((DAO) x.get("fooDAO")).put(obj)` throws `Cannot put into ReadOnlyDAO`. Read through `x`. Write through `ruler.getX()`, the system context the engine was built with (`RuleEngine.java:40`), as `CreateReferralCodeRuleAction` does (`src/foam/core/referral/CreateReferralCodeRuleAction.js:32,41`), or submit the write to `agency`, which runs after the matching rules have been applied (`RuleEngine.java:71,108`) and is what `RuleAction`'s own documentation asks for (`src/foam/core/ruler/RuleAction.js:35`).
+
+To change the object being put, set fields on `obj` and do not put it yourself. A before rule's change is stored by the put that follows (`src/foam/core/ruler/RulerDAO.js:187`), and when an after rule changes the object, `RulerDAO.put_` notices the difference and puts it again (`:198-206`).
+
 ### `where(pred).removeAll()` is a targeted delete
 
 `FilteredDAO.removeAll_` forwards to the delegate with `predicate == null ? predicateIn(x) : AND(predicateIn(x), predicate)` (`src/foam/dao/FilteredDAO.js:92`). A bare `removeAll()` passes null, so the delete runs with the `where` predicate and clears only the matching subset.
@@ -350,7 +370,7 @@ To make it look like pure MLang for a canned query or a `RichChoiceView`, either
 
 Two paths, and `DownloadDAOAgent` picks between them by asking `dao.cmd('serviceName?')` (`src/foam/core/reflow/DownloadDAOAgent.js:53`):
 
-1. **DIG, for server-registered DAOs** — `GET /service/dig?dao=<serviceName>&format=jsonj&sessionId=<id>` (parameters at `src/foam/core/dig/DigWebAgent.java:32-34`, JSONJ output at `DigUtil.java:130`). Serialization happens server-side, so the browser never materializes the objects; safe for very large tables. **Page size defaults to 1000 and a `limit` parameter can only lower it** (`src/foam/core/dig/drivers/DigFormatDriver.js:43,212-226`) — `limit=1000000` is silently ignored and you still get 1000 rows. `limit=0` means all but requires the `service.dig.read-all-records` permission; without it, paginate with `skip`.
+1. **DIG, for server-registered DAOs** — `GET /service/dig?dao=<serviceName>&format=jsonj&sessionId=<id>` (parameters at `src/foam/core/dig/DigWebAgent.java:32-34`, JSONJ output at `DigUtil.java:130`). Serialization happens server-side, so the browser never materializes the objects; safe for very large tables. **Page size defaults to 1000 and a `limit` parameter can only lower it** (`src/foam/core/dig/drivers/DigFormatDriver.js:43,212-226`) — `limit=1000000` is silently ignored and you still get 1000 rows. `limit=0` means all but requires the `service.dig.read-all-records` permission; without it, paginate with `skip`. A response of exactly 1000 rows therefore means more remain. The other query parameters are `q` (an MQL query string), `predicate` (a serialized MLang predicate, ANDed with `q`), `id`, `columns` (comma-separated; `networkTransient` properties are dropped) and `skip` (`DigFormatDriver.js:144-208`). `format` is looked up upper-cased in `digFormatDAO` (`DigWebAgent.java:41`); the shipped ids are `JSON`, `JSONJ`, `CSV`, `CSVSHEETS`, `HTML` and `XML` (`src/foam/core/dig/format/digformats.jrl`).
 2. **Client export drivers, for anything local** — `foam.core.export.JSONJDriver.exportDAO(x, dao)` selects everything into the browser and stringifies. This is the only option for an in-memory MDAO that DIG cannot see, and it is memory-bound.
 
 `DownloadDAOAgent` also shows a useful trick: a fake `ArraySink` whose `setPredicate` throws captures the DAO's active filter, which is then appended to the DIG URL as `&predicate=` plus the serialized predicate, `foam.json.Network.stringify(p)` (`DownloadDAOAgent.js:99-105`), so an export honours the current view filter. `p.toMQL()` is used only for the link title.

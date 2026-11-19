@@ -53,20 +53,21 @@ enforces, in this order:
 2. **`messageMap: { en, fr }` on the axiom** — only for text that must exist client-side before any round trip (a boot-time label, an error the login page shows). Every inline language ships in the client JS for every user, and the shape does not scale past a couple of languages.
 3. **Inline `label: { en, fr }` on a property or action** — same cost as 2; `String.adapt` picks the viewer's locale from the object (`src/foam/lang/types.js:47-62`). Same "minimal set" test applies.
 
+**Exception: a `template: true` message takes `messageMap`, never a row.** The template is compiled from the message's text when its class is built (`Messages.js:140-154`), and `installLanguage` builds the class while walking the row's path, before it assigns the row, so `this.MSG({...})` keeps the English (`doc/guides/i18n-advanced.md`, Message Override Lifecycle). A row keyed to a template message is a finding: `file:line | message name | template message — move the translation into messageMap`.
+
 So the entry itself stays English:
 
 ```javascript
 messages: [
   { name: 'CLIENT', message: 'Client' },
-  { name: 'TOOLTIP', message: 'Isolated to ${programName}.', template: true }
+  { name: 'TOOLTIP', messageMap: { en: 'Isolated to ${programName}.', fr: 'Isolées au programme ${programName}.' }, template: true }
 ]
 ```
 
-and each shipped locale is a journal row beside the class (French shown):
+and each shipped locale of a plain message is a journal row beside the class (French shown):
 
 ```
-p({ class: "foam.i18n.Locale", locale: "fr", source: "com.example.MyView.CLIENT",  target: "Client" })
-p({ class: "foam.i18n.Locale", locale: "fr", source: "com.example.MyView.TOOLTIP", target: "Isolées au programme ${programName}." })
+p({ class: "foam.i18n.Locale", locale: "fr", source: "com.example.MyView.CLIENT", target: "Client" })
 ```
 
 Never write `fr:` beside `message:` — `MessageAxiom` has `name`, `messageMap`, `message`, and
@@ -164,6 +165,8 @@ truncated sweep must never read as "all clean".
 - Copying the same new message into N files instead of one shared definition.
 - Adding a message with no `locales.jrl` row for a shipped locale, or with `fr:` next to `message:` (a key
   the axiom never reads).
+- Translating a `template: true` message with a `locales.jrl` row; the compiled template never sees it.
+  Use `messageMap`.
 - Reaching for `messageMap: { en, fr }` by default. It is the fallback for text that must be
   client-side before a round trip, not the norm; every inline language ships to every user.
 - Writing a locale key with a camelCase property (`caseNumber.label`); the runtime reads

@@ -73,10 +73,24 @@ after `flags:` (`src/foam.js:242`):
 An entry whose flags don't match is skipped (`src/foam.js:235-246`). If the entry is in
 `projects:`, the whole sub-POM is skipped, along with every file inside it.
 
-A model takes its flags from the POM entry that loaded it, unless the model declares its own
-`flags:` (`src/foam/lang/EndBoot.js:334`). So the entry's flags also decide the model's targets:
+A model takes its flags from its own `files:` entry, unless the model declares its own `flags:`
+(`src/foam/lang/EndBoot.js:334`). So the file entry's flags also decide the model's targets:
 Java source is generated only if those flags contain `java`, or `java&test` in a test build
 (`targetJava`, `src/foam/java/refinements.js:2775-2779`).
+
+The flags on a `projects:` entry only decide whether the sub-POM loads. They are not passed
+down to its files, so the two levels combine like an AND:
+
+```js
+// core/ai/pom.js
+projects: [ { name: 'training/pom', flags: 'ml' } ]
+
+// core/ai/training/pom.js
+files: [ { name: 'TrainingRun', flags: 'js|java' } ]
+```
+
+`TrainingRun` is loaded only when `ml` is on, and then gets JS and Java because its own entry
+says `js|java`. Its flags are `js|java`, not `ml`.
 
 ### `setFlags:`
 
@@ -168,10 +182,36 @@ The browser and the build start from different defaults:
 | `swift` | false | false |
 | `sql` | not set | true |
 
+### Where `js` and `java` come from
+
+An app never passes `js` or `java` itself. Both are already on in every build: they are in the
+build's defaults (`src/foam_node.js:11-21`), and the Java step turns `java` on again
+for itself, whatever `--flags:` says (`tools/JavaMaker.js:32-34`). So when a file entry says
+`flags: 'js|java'`, the build both loads the model and generates its Java.
+
+In the browser, running from source, `java` is off, so an entry flagged only `java` is never
+loaded there. A `js|java` entry still loads, because `js` is on.
+
+A built `foam-bin.js` keeps no flags of its own: it contains just the files the build selected.
+
+## Feature flags
+
+Some optional parts of FOAM are off unless an app turns them on. An unset flag counts as false,
+so a project entry flagged with one is skipped, along with its models and every `.jrl` in its
+directory.
+
+| Flag | Includes |
+|---|---|
+| `ml` | ML training: `foam/core/ai/dataset`, `foam/core/ai/training` and `foam/ai/dataset` (AlpacaSample, TrainingRun, EvalPrompt/Run/Result, MLXTrainingJob, MLXEvalJob, their DAOs and rules), plus a default ML Lab menu section (ids `ml.*`) |
+
+Turn one on in the app's top-level POM with `setFlags: { ml: true }`. Override any of the
+default ML Lab menus by id in the app's own `menus.jrl`.
+
 ## What else the `test` flag controls
 
 With `test` off, the build also skips:
-- directories whose names end in `test` or `tests` (`tools/pmake.js:94-95`)
+- directories whose names end in `test` or `tests` (`tools/pmake.js:94-95`), including ones
+  that only happen to, such as `latest/` or `contest/`
 - `tests.jrl` files and journal files flagged `test` (`tools/JournalMaker.js:178-187`)
 
 ## Gotchas
@@ -182,6 +222,7 @@ With `test` off, the build also skips:
   has a client test, use `dev&web|web&test` (example: `ViewReloader`, `src/foam/u2/pom.js:118`).
 - **A model with no flags gets no Java.** An entry with no `flags:` is loaded everywhere, but
   `targetJava` generates Java only when the flags contain `java`
-  (`src/foam/java/refinements.js:2778`).- **Axiom flags are matched as whole words.** The Java generator looks for the literal word `java`
+  (`src/foam/java/refinements.js:2778`).
+- **Axiom flags are matched as whole words.** The Java generator looks for the literal word `java`
   in an axiom's flags array, without evaluating the expression. An axiom flagged
   `['java&test']` therefore fails the match and is dropped from the Java class.

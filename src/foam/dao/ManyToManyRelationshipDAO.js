@@ -27,6 +27,11 @@ foam.CLASS({
 
   implements: [ { path: 'foam.mlang.Expressions', flags: ['js'], java: false } ],
 
+  requires: [
+    { path: 'foam.dao.PredicatedSink', flags: ['js'] },
+    { path: 'foam.dao.ResetListener',  flags: ['js'] }
+  ],
+
   documentation: 'Adapts a DAO based on a *:* Relationship.',
 
   properties: [
@@ -55,6 +60,22 @@ foam.CLASS({
         return this.relationship.junctionDAO.find(junction.id).then(function(a) {
           return a && self.delegate.find_(x, id);
         });
+      }
+    },
+    {
+      name: 'listen_',
+      flags: ['js'],
+      code: function listen_(x, sink, predicate) {
+        var listener = this.SUPER(x, sink, predicate);
+        // select_ also reads the junction store: a link of this source added or removed
+        // changes the answer while the target store stays the same, so tell the sink to
+        // read again. The predicate is on the sink: a JS DAO's listen(sink, predicate)
+        // turns every change into a reset without checking the predicate.
+        listener.onDetach(this.relationship.junctionDAO.listen(this.PredicatedSink.create({
+          predicate: this.EQ(this.relationship.sourceProperty, this.relationship.sourceId),
+          delegate:  this.ResetListener.create({ delegate: sink })
+        })));
+        return listener;
       }
     },
     {

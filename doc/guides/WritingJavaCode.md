@@ -166,6 +166,29 @@ This is fine as long as `FileProcessor` never has to make a round trip to the br
 
 ---
 
+## Conventions in javaCode
+
+These apply to `javaCode` in a model and to a handwritten `.java` file alike.
+
+- **Log with separate arguments.** Get the logger with `Loggers.logger(x, this)` and pass each
+  value as its own argument: `logger.info("reload", getId(), count)`, not
+  `logger.info("reload " + getId())`. `LogLevelFilterLogger` drops a disabled level before the
+  arguments are joined (`LogLevelFilterLogger.js:67,78`), so separate arguments cost nothing when
+  the level is off; a `+` builds the string every time.
+- **Never swallow an exception.** An empty `catch` hides the failure from the log and from the
+  CSpec `status`. Log it, or rethrow it wrapped in a `RuntimeException`.
+- **Close a PM in `finally`.** `PM pm = PM.create(x, this.getClass(), "send");` then
+  `try { ... } finally { pm.log(x); }`, so a thrown exception still records the time.
+- **Test strings with `foam.util.SafetyUtil.isEmpty(s)`**, which treats `null` and blank text alike
+  (`SafetyUtil.java:401-403`).
+- **Declare a method with a string `args:`** (`args: 'Context x, String daoKey'`) and list checked
+  exceptions in `javaThrows: [ 'IOException' ]` rather than catching them only to satisfy `javac`.
+- **Share state between threads safely.** A service is one instance used by every request thread.
+  Use a `java.util.concurrent` collection, or mark the method or property `synchronized: true`,
+  which the Java generator puts on the getter, setter and method (`refinements.js:504,517`).
+- **Keep allocation off per-row paths.** Code inside a sink's `put`, a DAO decorator or a
+  comparator runs once per row. Build parsers, formatters and lookups once, outside it.
+
 ## Adding a client companion
 
 Suppose the bulk of your logic is Java — file I/O, complex parsing, external library calls — and Option B is the natural fit. The implementation lives in a `.java` file, the properties are declared in the FOAM base class (so you can configure them in CSpecs that instantiate this class), and everything works perfectly on the server.

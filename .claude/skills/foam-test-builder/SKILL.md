@@ -79,14 +79,15 @@ test(! ((AuthService) x.get("auth")).check(ux, "*"), "the test user is not an ad
 | Test | pom `files:` flag | `tests.jrl` row |
 |---|---|---|
 | server test | `js\|java` | `p({"class":"pkg.MyServerTest","id":"MyServerTest","description":"..."})` |
-| client test | `js\|java` too | same, plus `"language": 0` |
+| client test extending `JSTest` | `js\|java` too | same; `JSTest` sets `language` to `JS` itself (`JSTest.js:22-26`) |
+| client test extending plain `Test` with a JS `runTest` | `js\|java` too | same, plus `"language": 0` |
 | standalone `.java` test | `javaFiles:` entry, `flags: "test"` | same as server |
 
 The flags are plain `js|java` because the parent pulls in the test pom with `{ name: 'test/pom', flags: 'test' }`, and that flag already keeps every file in it out of a production build. Adding `&test` to each file repeats it. Only a test file listed in a pom without that gate, such as a legacy test beside its code, needs `js&test|java&test`.
 
-The client row keeps the `java` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there. The Java stub instantiates and is skipped by `language: 0`.
+The client row keeps the `java` half because the server instantiates every journalled test at boot, when it replays `tests.jrl` into `testDAO`; a JS-only class throws `ERROR CREATING: pkg.MyClientTest` there (`src/foam/lang/SimpleFacetManager.java:120`). The Java stub instantiates, and the server runner skips it because its `language` is `JS`.
 
-A `tests.jrl` loads because the pom walk reaches its directory: the directory of a loaded `pom.js`, or any directory under it that has no pom of its own (`pmake.js`). Two things stop the walk without the `test` flag: any directory named `test` or `tests` is skipped, and any `tests.jrl` is skipped (`JournalMaker.js`), which is why a test pom sits under `projects:` with `flags: 'test'`. `journalFiles:` is an exclude list, not a registration. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
+A `tests.jrl` loads because the pom walk reaches its directory: the directory of a loaded `pom.js`, or any directory under it that has no pom of its own (`pmake.js`). Two things stop the walk without the `test` flag: any directory whose name ends in `test` or `tests` is skipped, `latest/` included (`pmake.js:94-95`), and any `tests.jrl` is skipped (`JournalMaker.js:186-187`), which is why a test pom sits under `projects:` with `flags: 'test'`. `journalFiles:` is an exclude list, not a registration. A journal never goes in `files:`, which expects JS modules and fails the build with `Cannot find module .../tests.js`. No comments inside a `.jrl`.
 
 ## Run it
 
@@ -136,7 +137,7 @@ Trust the tally and the `✘ FAILURE:` lines, never the exit code: the build exi
 grep -niE "PASSED:|FAILED:|✘ FAILURE|Test not run|ERROR CREATING" test.log
 ```
 
-Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any registered class ...`, `Element N of actions is not an instance of Action ...` on every run; none of them is the test. Client results arrive after the `BrowserAgent ... Launching` line, from the browser; a terminal `Client tests made no progress for 30 seconds after N results. Tests may still be running in the browser.` means the browser has not reported back yet, not that a test failed.
+Boot prints `Assertion failed: Axiom name conflict ...`, `Could not find any registered class ...`, `Element N of actions is not an instance of Action ...` on every run; none of them is the test. Client results arrive after the `BrowserAgent ... Launching` line, from the browser; a terminal `Client tests made no progress for 30 seconds after N results. Tests may still be running in the browser.` means the browser stopped reporting, and the runner counts it as one failed test (`TestRunnerScript.js:511-518`): rerun with `--test-headed` to see where it stalled.
 
 ## When it will not run
 

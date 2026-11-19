@@ -447,6 +447,12 @@ foam.INTERFACE({
 });
 ```
 
+Every argument and return value crosses the network as JSON, so it must be data. Do not take a
+DAO as an argument. Take the DAO's name and look it up on the server in the caller's context, so
+the server's own decorators and authorization apply, as `HistoryRecordService` does with `String daoKey` (`HistoryRecordService.js:21`,
+resolved by `x.get(daoKey)` in `HistoryRecordServiceServer.js:75`). Pass a filter the same way, as
+data, not as a DAO with a `where` already applied.
+
 ### Step 3: Implement the Server-Side Service
 
 ```javascript

@@ -110,7 +110,7 @@ Recorder limits: a regex selector (`role=button[name=/export/i]`) cannot be expo
 | Mistake | Fix |
 |---|---|
 | Same `-N` for both servers | distinct names; check `/opt/<name>/journals` exists per side |
-| Edited source, browser shows old JS | server sends `Cache-Control: immutable`; `shots.mjs` clears cache on open, otherwise Cmd+Shift+R |
+| Edited source, browser shows old JS | `/*` is served `max-age=2419200,immutable` (`src/services.jrl:73`, see `doc/guides/Debugging.md`, Network Debugging); `shots.mjs` clears cache on open, otherwise Cmd+Shift+R |
 | Mark on a checked checkbox / `<select>` to show `color-scheme` | no pixel change in page bitmap; describe in text |
 | Mark selector with a comma and `>>` chain | one chain per mark; split into two marks |
 | Screenshot of the wrong branch | `git -C <worktree> log -1` before building each side |

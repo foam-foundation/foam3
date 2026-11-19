@@ -424,11 +424,13 @@ foam.CLASS({
       class: 'Float',
       name: 'width',
       shortName: 'w',
+      attribute: true
     },
     {
       class: 'Float',
       name: 'height',
-      shortName: 'h'
+      shortName: 'h',
+      attribute: true
     },
     {
       class: 'foam.graphics.Radians',
@@ -1443,17 +1445,17 @@ foam.CLASS({
         height: this.slot(function(devicePixelRatio, height) { return height * devicePixelRatio; })
       });
 
-      const mqString = `(resolution: ${window.devicePixelRatio}dppx)`;
-      const media = matchMedia(mqString);
+      const mqString = `(resolution: ${this.window.devicePixelRatio}dppx)`;
+      const media = this.window.matchMedia(mqString);
       const callback = () => {
-        this.devicePixelRatio = window.devicePixelRatio;
+        this.devicePixelRatio = this.window.devicePixelRatio;
       };
 
       media.addEventListener("change", callback);
       this.onDetach(() => {
         media.removeEventListener("change", callback);
       });
-      
+
       this.sub('onload', this.paint);
       this.cview$.valueSub('invalidated', this.paint);
       this.devicePixelRatio$.sub(this.paint);

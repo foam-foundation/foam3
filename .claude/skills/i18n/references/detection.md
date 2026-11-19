@@ -102,7 +102,7 @@ client map hit (`ClientCacheTranslationService.js:127`). The key must equal, ver
 what a consumer builds. Two consumer mechanisms:
 
 1. **Call-site `getTranslation`/`translate`** — caller concatenates the key.
-2. **`installLanguage()` global-path assignment** (`src/foam/core/controller/ApplicationController.js:579-601`) —
+2. **`installLanguage()` global-path assignment** (`src/foam/core/controller/ApplicationController.js:582-603`) —
    splits the key on `.`, resolves it as an object path from `globalThis`, assigns the
    target there. Class-based keys therefore must be a **resolvable global path**:
    FQN + **CONSTANTIZED** member (class constants are uppercase). Unresolvable paths are
@@ -111,8 +111,8 @@ what a consumer builds. Two consumer mechanisms:
 | Key shape | Consumed by | Valid example |
 |---|---|---|
 | `<menuId>.label` | AbstractMenu.js:32 | `fraudReports.label` |
-| `<menuId>.browseTitle` / `.createTitle` | comics/v2/DAOBrowseControllerView.js:138,303 | `fraudReports.browseTitle` |
-| `<fqn>.MESSAGE_NAME` | installLanguage | `com.x.MyView.TITLE` |
+| `<menuId>.browseTitle` / `.createTitle` | comics/v2/DAOBrowseControllerView.js:136,285,294 | `fraudReports.browseTitle` |
+| `<fqn>.MESSAGE_NAME` (not a `template: true` message: its template is compiled before the row is installed, `src/foam/i18n/Messages.js:140-154`) | installLanguage | `com.x.MyView.TITLE` |
 | `<fqn>.<PROP_CONSTANT>.label` (also `.documentation`, `.placeholder`) | installLanguage | `com.x.FraudCase.CASE_NUMBER.label` |
 | `foam.time.TimeUnit.<VALUE>.label/.plural/.shorthand`, `<currencyId>.name` | `src/foam/lang/Duration.js:35-37`, `src/foam/lang/Currency.js:142` | `CAD.name` |
 
@@ -170,7 +170,8 @@ view still renders the same text.
 
 - No remaining literal at the fixed site (re-run the grep on that file → 0 hits).
 - Every `${}` placeholder in a new template message is supplied (Way 1) or exists as a
-  property (Way 2). A missing key renders blank.
+  property (Way 2). A missing key prints the word `undefined`, and a dotted key `${a.b}`
+  throws when `a` is missing (`src/foam/i18n/MessageTemplateParser.js:49-59`).
 - For Way 2 used inside an `expression`, every property the message reads is in the
   expression's argument list (see the reactivity callout in `i18n.md`).
 - Build/lint the changed file so the new `messages:` axiom loads.

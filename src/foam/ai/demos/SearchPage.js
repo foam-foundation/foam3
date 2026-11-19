@@ -108,7 +108,7 @@ foam.CLASS({
       view: {
         class: 'foam.u2.TextField',
         onKey: false,
-        placeholder: 'Ask a question…',
+        placeholder: 'Ask a question...',
         size: 60
       }
     },
@@ -148,6 +148,7 @@ foam.CLASS({
               embedding.sourceId = flow.name;
               embedding.kind     = 'flow';
               await self.vectorStoreDAO.put(embedding);
+              await new Promise(function(c) { setTimeout(c,0); });
               count++;
             }
           }

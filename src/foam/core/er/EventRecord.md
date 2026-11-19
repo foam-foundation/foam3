@@ -42,6 +42,8 @@ eventRecordDAO.put(er);
 
 Alarms are raised on WARN or ERROR level.  A raised Alarm will be cleared if an EventRecord of severity INFO is created with a matching **event**, **partner**, **code**.
 
+Only the record that turns an Alarm on, or raises its severity, sends a notification. The Alarm's **eventRecord** names that record. The same failure recorded again while the Alarm is on, such as an API rejecting every call with an expired token, is stored and logged but sends nothing. After an INFO record clears the Alarm, the next failure notifies again.
+
 # Event Record Response
 
 An Event Record Response is a detailed description of an Event Record and what to do when one is encountered.

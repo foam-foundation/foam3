@@ -25,13 +25,13 @@ Review asked: "Please use CSSTokens for all colors." (PR #3946); "You should alw
 
 ### Scope every class with `myClass()`; set internals, never footprint
 An unscoped class collides with `Fonts.js`; a root `height`/`width` on a reusable view forces every embedder to fight it.
-Don't: `.row { ... }`; `^ { width: 100%; height: 300px; }` on a shared view; `!important`
-Do:    `^row { ... }` with `addClass(this.myClass('row'))`; `^pos > * { height: 100% }`; the embedder sets the footprint
+Don't: `.row { ... }`; `<< { width: 100%; height: 300px; }` on a shared view; `!important`
+Do:    `<<row { ... }` with `addClass(this.myClass('row'))`; `<<pos > * { height: 100% }`; the embedder sets the footprint
 
 ### A scroll pane needs `min-height: 0` on every flex ancestor with visible overflow
 A flex item will not shrink below its own content, so `flex: 1; overflow: auto` grows instead of scrolling and pushes the footer below it out of view. The pane itself is already exempt — a box whose overflow is not `visible` has an automatic minimum size of zero — so the declaration belongs on the ancestors, not on the scroll pane.
 Don't: `min-height: 0` beside `overflow-y: auto` (a no-op); a view that fills its parent via `height: 100%` when it has siblings
-Do:    `^ { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
+Do:    `<< { flex: 1; min-height: 0 }` on the ancestor that shares a container; a scroll pane that only sets `flex: 1; overflow-y: auto`
 Review asked: "`overflow-y: auto` already makes this a scroll container, whose flex automatic minimum size is 0, so this `min-height: 0` is a no-op" (foam3 PR #5451)
 
 ### `rem` over `px`; Fonts classes over `h3`; ThemeGlyphs over a new SVG
@@ -41,8 +41,8 @@ Do:    `width: 1.2rem`; `addClass('h300')` from Fonts.js; `themeIcon: 'dropdown'
 
 ### An SVG is coloured with `fill`, not `color`
 `color` styles text; on an `<svg>` it does nothing, so the icon silently keeps its authored colour.
-Don't: `^icon { color: $primary500; }` on an SVG
-Do:    `^icon { fill: $primary500; }`; `stroke` for an outline glyph
+Don't: `<<icon { color: $primary500; }` on an SVG
+Do:    `<<icon { fill: $primary500; }`; `stroke` for an outline glyph
 
 ### Extend the border, tabs, or detail view that already exists
 A second collapsible or tab view splits every future fix in two and loses the theming and keyboard behaviour the original carries.
@@ -53,6 +53,18 @@ Do:    grep `src/foam/u2/` first, then extend: `foam.u2.borders.ExpandableBorder
 A border that hard-codes its body is single-use; one that takes a slot serves every caller.
 Don't: a panel that renders its own fixed table
 Do:    the `ExpandableBorder` shape — a `title` and a `content$` slot the consumer fills (`src/foam/u2/borders/ExpandableBorder.js`)
+
+### CSS a view needs on a box around it lives in the view
+A container that names one child's class has learned that child; the next child adds another rule. The child's own CSS reaches out, keyed to its own class.
+Don't: `<<content:has(.foam-u2-markdown-TableOfContents-side) { overflow: visible; }` in `Block.js`
+Do:    `.foam-core-reflow-Block-content:has(<<side) { overflow: visible; }` in `TOC.js`
+Cite: `u2/markdown/TOC.js` (the `side` rules)
+
+### A new view takes its specifics as properties, defaulting to today's use
+A view hard-wired to one keyword, route or label serves one feature. The same view with those as properties (attributes, for a markdown tag) serves every caller, and the defaults keep the current uses unchanged.
+Don't: `'knowledge'` and `'#knowledgeBase'` written into the tag
+Do:    `keyword` and `home` String properties with `attribute: true` and those values as defaults; a label read from the object it names (the menu's own `label`)
+Cite: `core/reflow/FlowDocumentNav.js`
 
 ### Toggle a class or bind a slot before reaching for `dynamic()`
 Each step up the ladder rebuilds more DOM; `dynamic()` is for structure changes only, and it builds into `this`.

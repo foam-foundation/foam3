@@ -13,7 +13,8 @@ foam.CLASS({
     ask(): the question is embedded, the nearest chunks of the given DAOs are
     found among the records the caller can read (ReadableSourcePredicate
     checks each chunk's record as the caller), and llmService answers from
-    them. A question no readable record covers costs no model call.
+    them. A question no readable record covers goes to the model without
+    documents, or, with documentsOnly, gets no answer and costs no model call.
     The worst case of a search is one authorized find per record: the
     predicate looks up each unreadable record ranked above the retrieval
     limit once, so a caller who can read little of a large index pays for
@@ -71,7 +72,8 @@ foam.CLASS({
         scored 0.28 to 0.57 on its best chunks and an unrelated one ("What is the capital of
         France?") 0.11 to 0.18. Below
         it a chunk is neither sent to the model nor offered as a closest doc, so an unrelated
-        question costs no model call. Tune it with the embedding model.`
+        question gets no documents (and, with documentsOnly, no model call). Tune it with the
+        embedding model.`
     },
     {
       class: 'Int',

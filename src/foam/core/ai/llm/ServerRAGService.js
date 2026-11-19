@@ -101,6 +101,15 @@ Answer in the language named on the Answer in line, even when the documents or t
       class: 'Int',
       name: 'maxTokens',
       value: 1024
+    },
+    {
+      class: 'Boolean',
+      name: 'documentsOnly',
+      documentation: `True when the answer must come from the documents: a question no chunk
+        covers, e.g. "What is the capital of France?" asked of a product's docs, gets no answer
+        and costs no model call. An app's help chat sets it, so the model never invents an answer
+        about the app. False sends that question to the model on its own, with no documents and
+        no sources, so a model tuned on the topic still answers.`
     }
   ],
 
@@ -173,7 +182,21 @@ Answer in the language named on the Answer in line, even when the documents or t
         }
 
         RAGAnswer answer = new RAGAnswer();
-        if ( given.isEmpty() ) return answer;
+        if ( given.isEmpty() ) {
+          if ( getDocumentsOnly() ) return answer;
+          // no system prompt: it asks for an answer from the documents only, and there are none,
+          // so the model would always reply NO_ANSWER
+          LLMOptions bare = options(x);
+          bare.setSystemPrompt("");
+          CompletionRequest plain = new CompletionRequest();
+          plain.setOptions(bare);
+          plain.setPrompt("Answer in: " + answerLanguage(locale) + "\\nQuestion: " + q);
+          LLMResponse r = ((LLMService) getX().get("llmService")).complete(x, plain);
+          String t = r.getContent() == null ? "" : r.getContent().trim();
+          answer.setAnswered(! t.isEmpty());
+          answer.setAnswer(t);
+          return answer;
+        }
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(options(x));

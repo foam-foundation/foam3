@@ -75,10 +75,22 @@ foam.CLASS({
     {
       class: 'String',
       name: 'command'
+    },
+    {
+      name: 'decided_',
+      transient: true,
+      hidden: true,
+      factory: function() { return foam.lang.Latch.create(); }
     }
   ],
 
   methods: [
+    function answer() {
+      // An agent that proposes a command waits here, so it sees what the command
+      // did, or that the user rejected it, before its next step.
+      return this.decided_;
+    },
+
     function render() {
       this.addClass().
         start('span').addClass(this.myClass('command')).add(this.COMMAND).end().
@@ -97,9 +109,10 @@ foam.CLASS({
     {
       name: 'accept',
       label: '✓',
-      code: function() {
-        this.eval_(this.command);
+      code: async function() {
+        var made = await this.eval_(this.command);
         this.block.del();
+        this.decided_.resolve(made.error ? 'Error: ' + made.error : await made.answer());
       }
     },
     {
@@ -107,6 +120,7 @@ foam.CLASS({
       label: '✕',
       code: function() {
         this.block.del();
+        this.decided_.resolve('The user rejected it, so it did not run.');
       }
     }
   ]

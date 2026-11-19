@@ -38,7 +38,7 @@ foam.CLASS({
       name: 'runTest',
       javaCode: `
         // each entry: { status, retry-after header or null, body }, or for a reply sent in
-        // pieces: { 200, null, String[] pieces, gap in ms before each piece after the first }
+        // pieces: { status, null, String[] pieces, gap in ms before each piece after the first }
         List<Object[]> replies   = Collections.synchronizedList(new ArrayList<>());
         List<String>   bodies    = Collections.synchronizedList(new ArrayList<>());
         List<String>   protocols = Collections.synchronizedList(new ArrayList<>());
@@ -53,7 +53,7 @@ foam.CLASS({
           protocols.add(ex.getProtocol() + ( ex.getRequestHeaders().containsKey("Upgrade") ? " Upgrade" : "" ));
           Object[] r = replies.isEmpty() ? new Object[] { 500, null, "" } : replies.remove(0);
           if ( r[2] instanceof String[] ) {
-            ex.sendResponseHeaders(200, 0);
+            ex.sendResponseHeaders((Integer) r[0], 0);
             try {
               String[] pieces = (String[]) r[2];
               for ( int i = 0 ; i < pieces.length ; i++ ) {
@@ -73,7 +73,8 @@ foam.CLASS({
           if ( b.length > 0 ) ex.getResponseBody().write(b);
           ex.close();
         });
-        server.setExecutor(Executors.newCachedThreadPool());
+        java.util.concurrent.ExecutorService pool = Executors.newCachedThreadPool();
+        server.setExecutor(pool);
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/";
 
@@ -167,6 +168,14 @@ foam.CLASS({
           expect(failure(claude, x, chat(ChatRole.USER, "Hi")), "The AI service could not be reached", "stalled reply: the caller is told it could not be reached");
           long took = System.currentTimeMillis() - start;
           test(took >= 1000 && took < 3000 && bodies.size() == 1, "stalled reply: ends about 1 s after the last piece, with no retry; took " + took + " ms, " + bodies.size() + " requests");
+
+          // an error reply that stalls after its headers ends the call too, instead of hanging
+          bodies.clear();
+          replies.add(new Object[] { 502, null, new String[] { "{\\"error\\":", "}" }, 5000 });
+          start = System.currentTimeMillis();
+          expect(failure(claude, x, chat(ChatRole.USER, "Hi")), "The AI service could not be reached", "stalled 502: the caller is told it could not be reached");
+          took = System.currentTimeMillis() - start;
+          test(took >= 1000 && took < 3000 && bodies.size() == 1, "stalled 502: ends about 1 s after its headers, with no retry; took " + took + " ms, " + bodies.size() + " requests");
           claude.setReadTimeout(600000);
 
           // Claude takes SYSTEM messages in the system prompt, not as turns
@@ -186,6 +195,7 @@ foam.CLASS({
           expect(withSystem.getOptions().getSystemPrompt(), "Be brief.", "claude: the caller's options are left as they were");
         } finally {
           server.stop(0);
+          pool.shutdownNow();
         }
 
         // nothing listening: the connection is refused, retried, then the caller is told

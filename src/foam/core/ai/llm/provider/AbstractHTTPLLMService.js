@@ -378,8 +378,8 @@ foam.CLASS({
       javaThrows: [ 'java.io.IOException' ],
       args: 'Context x, org.json.JSONObject body, Map headers, foam.ai.llm.LLMProgress progress',
       javaCode: `
-        Logger                     logger  = Loggers.logger(x, this);
-        HttpRequest.Builder        builder = HttpRequest.newBuilder(URI.create(getBaseURL()))
+        Logger              logger  = Loggers.logger(x, this);
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(getBaseURL()))
           .timeout(Duration.ofMillis(getReadTimeout()))
           .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
         for ( Object e : headers.entrySet() ) {
@@ -397,7 +397,8 @@ foam.CLASS({
                 return (JSONObject) readStream(in, progress);
               }
             }
-            String error = read(resp.body());
+            // an error reply can stall too, e.g. a proxy that sends 502 and then nothing
+            String error = read(new IdleTimeoutInputStream(resp.body(), getReadTimeout()));
             if ( ! retryable(status) || attempt >= getMaxRetries() ) {
               throw new StatusError(status, "HTTP error " + status + ": " + error);
             }
@@ -479,7 +480,6 @@ foam.CLASS({
       javaThrows: [ 'java.io.IOException' ],
       args: 'java.io.InputStream is',
       javaCode: `
-        if ( is == null ) return "";
         try ( Reader r = new InputStreamReader(is, StandardCharsets.UTF_8) ) {
           StringBuilder sb = new StringBuilder();
           char[] buf = new char[8192];

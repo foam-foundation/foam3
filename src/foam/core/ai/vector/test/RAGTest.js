@@ -19,7 +19,8 @@ foam.CLASS({
     of a record that is gone, a record whose stored chunks already hold its
     text needs no call, a save starts a sync in the background, a record
     edited while its embedding call runs is embedded again by the next sync, and
-    a context with no embedder or chunk store saves and removes without error.
+    a context with no embedder or chunk store saves and removes without error,
+    and marking a record EMBEDDED fires no rule and writes no journal line.
   `,
 
   javaImports: [
@@ -30,13 +31,23 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding',
     'foam.ai.vector.VectorStoreDAO',
     'foam.core.ai.vector.RAGIndexer',
+    'foam.core.auth.LifecycleState',
+    'foam.core.dao.Operation',
+    'foam.core.fs.FileSystemStorage',
+    'foam.core.fs.Storage',
+    'foam.core.ruler.Rule',
+    'foam.core.ruler.RuleGroup',
     'foam.dao.ArraySink',
     'foam.dao.DAO',
     'foam.dao.EasyDAO',
+    'foam.dao.JournalType',
     'foam.dao.MDAO',
     'foam.lang.X',
     'foam.mlang.MLang',
     'foam.mlang.sink.Count',
+    'foam.test.TestUtils',
+    'java.io.File',
+    'java.util.concurrent.atomic.AtomicInteger',
     'java.util.function.BooleanSupplier'
   ],
 
@@ -308,6 +319,53 @@ foam.CLASS({
         live.sync(lx);
         test(status(liveDAO, "a") == EmbeddingStatus.EMBEDDED && status(liveDAO, "b") == EmbeddingStatus.EMBEDDED && status(liveDAO, "c") == EmbeddingStatus.EMBEDDED,
           "The cron's sync embeds all three");
+
+        // The rule engine and a journal run above and below the decorator. A user's save fires the
+        // rules and writes a journal line; a sync marking the record EMBEDDED must do neither, since
+        // the status is not stored and no user changed the record.
+        X rx = TestUtils.mockDAO(x, "localRuleDAO");
+        DAO ruleDAO = (DAO) rx.get("localRuleDAO");
+        RuleGroup group = new RuleGroup();
+        group.setId("ragSync:count puts");
+        ((DAO) rx.get("ruleGroupDAO")).put(group);
+        AtomicInteger beforePuts = new AtomicInteger();
+        AtomicInteger afterPuts  = new AtomicInteger();
+        for ( boolean after : new boolean[] { false, true } ) {
+          Rule counter = new Rule();
+          counter.setId("ragSyncCount" + after);
+          counter.setName("rule. counts the puts of ruledNoteDAO " + ( after ? "after" : "before" ));
+          counter.setRuleGroup("ragSync:count puts");
+          counter.setDaoKey("ruledNoteDAO");
+          counter.setOperation(Operation.CREATE_OR_UPDATE);
+          counter.setAfter(after);
+          counter.setLifecycleState(LifecycleState.ACTIVE);
+          AtomicInteger puts = after ? afterPuts : beforePuts;
+          counter.setAction((x1, obj, oldObj, ruler, rule, agent) -> puts.incrementAndGet());
+          ruleDAO.put_(rx, counter);
+        }
+        String dir = System.getProperty("java.io.tmpdir") + File.separator + "ragsync_" + System.nanoTime();
+        new File(dir).mkdirs();
+        FileSystemStorage fs = new FileSystemStorage(dir);
+        Embedder ruledFake = new Embedder();
+        EmbeddingSync ruledSync = new EmbeddingSync.Builder(x).setEmbedOnSave(false).build();
+        X ruledX = rx.put(Storage.class, fs).put(FileSystemStorage.class, fs)
+          .put("vectorStoreDAO", new VectorStoreDAO.Builder(x).setDelegate(new MDAO(VectorEmbedding.getOwnClassInfo())).build())
+          .put("embeddingService", ruledFake).put("embeddingSync", ruledSync);
+        DAO ruled = new EasyDAO.Builder(ruledX).setOf(RAGNote.getOwnClassInfo()).setName("ruledNoteDAO").setAuthorize(false)
+          .setJournalType(JournalType.SINGLE_JOURNAL).setJournalName("ragSyncRuled").build().inX(ruledX);
+        File ruledJournal = fs.get("ragSyncRuled");
+        ruled.put(note("r1", "alpha ruled"));
+        test(await(() -> beforePuts.get() == 1 && afterPuts.get() == 1 && ruledJournal.length() > 0), "A user's save fires the rules and writes a journal line, so the checks below could see one, got " + beforePuts + " and " + afterPuts + " rule runs, " + ruledJournal.length() + " bytes");
+        long bytes = ruledJournal.length();
+        ruledSync.sync(ruledX);
+        Thread.sleep(500);
+        test(status(ruled, "r1") == EmbeddingStatus.EMBEDDED, "The sync embedded the record, got " + status(ruled, "r1"));
+        test(beforePuts.get() == 1 && afterPuts.get() == 1, "Marking it EMBEDDED fires no rule, got " + beforePuts + " and " + afterPuts + " rule runs");
+        test(ruledJournal.length() == bytes, "Marking it EMBEDDED writes no journal line, " + ruledJournal.length() + " bytes was " + bytes);
+        RAGNote ruledEdit = edit(ruled, "r1");
+        ruledEdit.setBody("beta ruled edit");
+        ruled.put(ruledEdit);
+        test(await(() -> beforePuts.get() == 2 && afterPuts.get() == 2 && ruledJournal.length() > bytes) && status(ruled, "r1") == EmbeddingStatus.DIRTY, "A user's edit fires the rules again and writes a journal line");
 
         // a record edited while its embedding call runs: the chunks just written hold the old text,
         // so it stays DIRTY and the next sync embeds the later text

@@ -72,5 +72,6 @@ A server embeds up to `textsPerCall` chunks of as many records as it takes in on
 |---|---|---|
 | A note stays `NEW` or `DIRTY` | The provider is down or not set up. The log has an "Embedding sync stopped" warning. | Fix the provider. The next sync, at the latest the cron, embeds it. |
 | One note stays `NEW` while the others are `EMBEDDED` | The provider refuses its text. The log names it. | Change its text. |
+| Search misses notes after you change the embedding provider or model | Vectors of two models do not match, and a sync compares chunk text only, so it keeps the old vectors. | Clear `vectorStoreDAO`. The next sync finds no chunks and embeds every note again. |
 
 A server with no embedding provider configured skips indexing and never fails a save.

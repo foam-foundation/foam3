@@ -142,8 +142,10 @@ foam.CLASS({
             self.statusMsg = 'Indexing ' + (fi + 1) + ' / ' + flows.length + ': ' + flow.name;
             var chunks = await self.chunker.chunk(x, text);
 
-            for ( var ci = 0; ci < chunks.length; ci++ ) {
-              var embedding = await self.embedder.embed(x, chunks[ci]);
+            // the chunks are documents: embedAll, since embed is for a search question
+            var embeddings = await self.embedder.embedAll(x, chunks);
+            for ( var ci = 0; ci < embeddings.length; ci++ ) {
+              var embedding = embeddings[ci];
               embedding.id       = flow.name + ':' + ci;
               // daoKey and sourceId name the flow, so ragService can check the reader may open it
               embedding.daoKey   = 'flowDAO';

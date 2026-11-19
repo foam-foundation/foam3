@@ -78,10 +78,10 @@ Because the interface is the only contract, the embedding backend is a configura
 
 | Provider | Where it runs | Notes |
 |---|---|---|
-| `foam.ai.vector.provider.TransformersEmbeddingService` | Browser (WebAssembly) | Loads a sentence-transformer via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required |
+| `foam.ai.vector.provider.TransformersEmbeddingService` | Browser, in a Web Worker, on WebGPU or WebAssembly | Loads a sentence-transformer via [Transformers.js](https://huggingface.co/docs/transformers.js) 4.3.2; no server required |
 | *(server-side providers)* | Java server | Can call OpenAI, Ollama, Cohere, or any HTTP embedding API |
 
-`TransformersEmbeddingService` defaults to `Xenova/all-MiniLM-L6-v2` (384 dimensions). The model name is a property — pointing it at a larger or domain-specific model requires only a configuration change, not a code change.
+`TransformersEmbeddingService` defaults to `Xenova/all-MiniLM-L6-v2` (384 dimensions). The model name, its pooling and its question prefix are properties — pointing it at a larger or domain-specific model requires only a configuration change, not a code change.
 
 ### Chunking
 
@@ -139,11 +139,11 @@ Retrieval-Augmented Generation (RAG) extends similarity search by feeding the re
 
 The pipeline has three steps:
 
-1. **Retrieve** — the query is embedded and the top-k most relevant chunks are fetched from the vector store (same kNN search as above).
-2. **Augment** — the chunks are packed into the model's system prompt as context, respecting a token budget so the total stays within the model's context window.
-3. **Generate** — a local language model reads the system prompt + conversation history and produces a grounded answer.
+1. **Retrieve** — the question is embedded and the 5 closest chunks are fetched from the vector store (same kNN search as above).
+2. **Augment** — the chunks are placed before the question as context, within a token budget so the prompt fits the model's context window.
+3. **Generate** — a local language model reads the question with its chunks and writes the answer word by word. With the browser model, each question is sent on its own, without the earlier ones, so a small model is not distracted by older passages.
 
-All three steps run entirely in the browser — no API key, no server round-trip. The embedding model (`Xenova/all-MiniLM-L6-v2`) and the LLM (`Xenova/Qwen1.5-0.5B-Chat`) are both loaded from a CDN and run via WebAssembly on first use.
+All three steps run entirely in the browser — no API key, no server round-trip. The embedding model (`Xenova/all-MiniLM-L6-v2`) and the LLM (`onnx-community/Qwen3-0.6B-ONNX`, about 0.9 GB) are both loaded with Transformers.js 4.3.2 from a CDN on first use and run in a Web Worker, on the GPU through WebGPU when the browser has one, otherwise in WebAssembly.
 
 ### Try it
 

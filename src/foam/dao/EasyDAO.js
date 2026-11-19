@@ -255,12 +255,14 @@ foam.CLASS({
           delegate = getFSMDAO();
         }
 
-        // Inside the rules and the last-modified stamp, so a record is embedded as stored.
+        // Below the rules and the last-modified stamp, so that EmbeddingSync
+        // marking a record embedded runs neither.
         if ( getEmbeddingAware() ) {
           delegate = new foam.ai.vector.EmbeddingAwareDAO.Builder(getX())
             .setName(getName())
             .setDelegate(delegate)
             .build();
+          indexes.add((foam.lang.PropertyInfo) getOf().getAxiomByName("embeddingStatus"));
         }
 
         delegate = getOuterDAO(delegate);

@@ -16,8 +16,8 @@ foam.CLASS({
     them in one embeddingService call and stores one VectorEmbedding per
     chunk, with ids <daoKey>:<sourceId>:<n>, e.g. "noteDAO:42:0".
     A record whose stored chunks already hold exactly these texts, embedded
-    by the model embeddingService uses now, costs no call, e.g. a record
-    saved again with the same text. Otherwise its
+    by the model embeddingService uses now, costs no call: this is how a
+    record loaded from a journal at boot is found unchanged. Otherwise its
     new chunks replace every chunk it had, so an edit that leaves the record
     shorter leaves no chunk of the old text behind.
     The same steps run in a browser, with the browser's chunker, embedder and

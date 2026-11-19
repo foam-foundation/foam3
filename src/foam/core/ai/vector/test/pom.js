@@ -8,6 +8,7 @@ foam.POM({
   name: 'test',
   files: [
     { name: 'RAGNote', flags: 'js&test|java&test' },
-    { name: 'RAGTest', flags: 'js&test|java&test' }
+    { name: 'RAGTest', flags: 'js&test|java&test' },
+    { name: 'EmbeddingSyncBenchmark', flags: 'js&test|java&test' }
   ]
 });

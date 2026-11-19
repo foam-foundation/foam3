@@ -75,6 +75,15 @@ foam.CLASS({
     {
       class: 'String',
       name: 'command'
+    },
+    {
+      name: 'decided',
+      transient: true,
+      hidden: true,
+      documentation: `Resolves when the user decides: with the block the accepted command
+        made, or null when they reject it. An agent's tool waits on it, so the model
+        sees what the command did before its next step.`,
+      factory: function() { return foam.lang.Latch.create(); }
     }
   ],
 
@@ -97,9 +106,10 @@ foam.CLASS({
     {
       name: 'accept',
       label: '✓',
-      code: function() {
-        this.eval_(this.command);
+      code: async function() {
+        var made = await this.eval_(this.command);
         this.block.del();
+        this.decided.resolve(made);
       }
     },
     {
@@ -107,6 +117,7 @@ foam.CLASS({
       label: '✕',
       code: function() {
         this.block.del();
+        this.decided.resolve(null);
       }
     }
   ]

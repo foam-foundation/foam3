@@ -15,7 +15,7 @@ foam.CLASS({
     through their own DAO, a chunk with no daoKey is never returned, a record is
     looked up once however many chunks it has, and ask() sends the model only
     readable chunks at or above minScore, lists only their records. When none
-    qualifies it makes no model call with documentsOnly, and otherwise sends the
+    qualifies it makes no model call with requireRetrievedContext, and otherwise sends the
     question alone. A long section is cut in pieces that
     each start with its heading.
   `,
@@ -160,14 +160,14 @@ foam.CLASS({
         test(a.getAnswered() && a.getAnswer().contains("[s1]") && a.getSources().length == 1 && "s1".equals(a.getSources()[0].getSourceId()), "The answer lists the readable doc only");
         test(! model.prompt.contains("secret"), "The model is never sent a chunk the user cannot read");
         test(model.prompt.contains("Answer in: French"), "The model is told the language of the user's screens, French for fr");
-        // documentsOnly: a question no readable chunk covers gets no answer and no model call
-        ServerRAGService only = new ServerRAGService.Builder(sx).setDocumentsOnly(true).build();
+        // requireRetrievedContext: a question no readable chunk covers gets no answer and no model call
+        ServerRAGService only = new ServerRAGService.Builder(sx).setRequireRetrievedContext(true).build();
         int before = model.calls;
         RAGAnswer far = only.ask(sx.put("docDAO", counted), "What is the capital of France?", new String[] { "docDAO" }, "en");
-        test(! far.getAnswered() && far.getSources().length == 0 && model.calls == before, "With documentsOnly, a question with no chunk at or above minScore costs no model call and offers no source");
+        test(! far.getAnswered() && far.getSources().length == 0 && model.calls == before, "With requireRetrievedContext, a question with no chunk at or above minScore costs no model call and offers no source");
         test(! only.ask(sx.put("docDAO", counted), "What is alpha?", new String[] { "" }, "en").getAnswered() && model.calls == before, "An empty daoKey reaches no chunk and no model call");
         X nobody = sx.put("docDAO", new FilteredDAO.Builder(x).setPredicate(MLang.EQ(VectorEmbedding.ID, "none")).setDelegate(docs).build());
-        test(! only.ask(nobody, "What is alpha?", new String[] { "docDAO" }, "fr").getAnswered() && model.calls == before, "With documentsOnly and no readable doc there is no answer and no model call");
+        test(! only.ask(nobody, "What is alpha?", new String[] { "docDAO" }, "fr").getAnswered() && model.calls == before, "With requireRetrievedContext and no readable doc there is no answer and no model call");
         // by default the same question goes to the model on its own: no documents, no grounding prompt, no sources
         model.reply = "Paris.";
         RAGAnswer open = rag.ask(nobody, "What is the capital of France?", new String[] { "docDAO" }, "en");

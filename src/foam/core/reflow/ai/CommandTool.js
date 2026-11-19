@@ -9,74 +9,57 @@ foam.CLASS({
   name: 'CommandTool',
 
   documentation: `
-    Lets an AI agent run Reflow commands through one tool, execute_command, instead of a
-    tool per action written into each agent. The agent's commands are the rows of
-    commandDAO its predicate matches, e.g. ids starting with "report.". A command with
-    permissionRequired is listed only when the user may read it (command.read.<id>), so
-    gate any command an agent must not run for every user that way.
+    Gives an AI agent the Reflow prompt as one tool, execute_command. The model sends a
+    script and run() evaluates it with the Console's eval_, exactly as if the user had
+    typed it at the prompt: a command such as daos, or JavaScript that builds on the
+    flow, such as h1(title1.title + " Part 2"); block.shown = false. The result sent back
+    is what the ask command returns: the block's name and its answer, or its error.
 
-    The model names a command and passes its params; run() looks the command up by id
-    among those rows and executes it in commandX, the context the agent's screen gives
-    its commands. The model's text is never evaluated. A command marked confirm runs
-    only after askConfirm resolves true.
-
-      var tool = CommandTool.create({ predicate: STARTS_WITH(Command.ID, 'report.'), commandX: x });
-      request.tools = [ await tool.tool() ];
-      use.result    = await tool.run(use);   // for each LLMToolUse in the reply
+      var tool = CommandTool.create(null, x);   // x is a Console's context, holding eval_
+      request.tools = [ tool.tool() ];
+      use.result    = await tool.run(use);      // for each LLMToolUse in the reply
   `,
 
   requires: [
-    'foam.ai.llm.LLMTool',
-    'foam.dao.ArraySink'
+    'foam.ai.llm.LLMTool'
   ],
 
-  imports: [ 'commandDAO' ],
+  imports: [ 'eval_' ],
 
   constants: [
-    { name: 'TOOL_NAME', value: 'execute_command' }
+    { name: 'TOOL_NAME', value: 'execute_command' },
+    {
+      name: 'MAX_RESULT',
+      documentation: 'The most characters of one result sent back, so a script that prints a large table does not fill the conversation.',
+      value: 4000
+    }
   ],
 
   properties: [
     {
-      name: 'predicate',
-      documentation: 'Which commands this agent may run.'
+      class: 'String',
+      name: 'prefix',
+      documentation: 'Put before every script, e.g. "propose " so the user accepts each block before it runs.'
     },
     {
-      name: 'commandX',
-      documentation: 'The context a command runs in: what its script imports, such as the screen it drives.'
-    },
-    {
-      class: 'Function',
-      name: 'askConfirm',
-      documentation: 'Asked before a command marked confirm runs; resolves true to run it. The default refuses.',
-      value: async function(command, params) { return false; }
-    },
-    {
-      name: 'commands_',
-      documentation: 'The matching commands, read once.',
-      factory: function() {
-        var dao = this.predicate ? this.commandDAO.where(this.predicate) : this.commandDAO;
-        return dao.select(this.ArraySink.create()).then(s => s.array);
-      }
+      name: 'flowParent',
+      documentation: 'The block the scripts\' blocks are added under; empty adds them to the flow, where the user sees them.'
     }
   ],
 
   methods: [
-    async function tool() {
-      var commands = await this.commands_;
-      var lines = commands.map(c => '- ' + c.id + ': ' + ( c.description || '' )
-        + ( c.inputSchema ? ' Params: ' + c.inputSchema : ' No params.' )
-        + ( c.confirm ? ' The user confirms before it runs.' : '' ));
+    function tool() {
       return this.LLMTool.create({
         name: this.TOOL_NAME,
-        description: 'Run one of these commands with its params:\n' + lines.join('\n'),
+        description: 'Run a script at the Reflow prompt, as the user would type it: a command, or JavaScript that reads and changes the flow\'s blocks by name. Returns {blockName, response}: the name of the block it made and what that block shows, or its error.',
         inputSchema: JSON.stringify({
           type: 'object',
           properties: {
-            command: { type: 'string', enum: commands.map(c => c.id) },
-            params:  { type: 'object', description: 'The command\'s params, as its Params line describes; {} when it has none.' }
+            // No double quotes here: the schema reaches the server as a JSON string
+            // inside JSON, and an escaped quote in it fails org.json there.
+            script: { type: 'string', description: "What to type at the prompt, e.g. h1(title1.title + ' Part 2')" }
           },
-          required: [ 'command' ]
+          required: [ 'script' ]
         })
       });
     },
@@ -89,20 +72,23 @@ foam.CLASS({
       } catch (e) {
         return 'The input was not JSON.';
       }
-      if ( ! input || typeof input !== 'object' ) return 'The input was not a JSON object.';
-      var command = ( await this.commands_ ).find(c => c.id === input.command);
-      if ( ! command ) return 'There is no command named ' + input.command + ' here.';
-      var params = input.params || {};
-      try {
-        if ( command.confirm && ! await this.askConfirm(command, params) ) {
-          return 'The user did not confirm ' + command.id + ', so it did not run.';
-        }
-        var result = await command.clone(this.commandX || this.__context__).execute(params);
-        return result === undefined || result === null ? 'Done.' :
-          typeof result === 'string' ? result : foam.json.stringify(result);
-      } catch (e) {
-        return command.id + ' failed: ' + ( e && e.message || e );
-      }
+      if ( ! input || typeof input.script !== 'string' ) return 'The input has no script.';
+
+      var block = await this.eval_(this.prefix + input.script, true, true, this.flowParent || undefined);
+      if ( ! block ) return 'Done.';
+      var response = block.error ? 'Error: ' + block.error : await this.response_(block);
+      if ( typeof response === 'string' && response.length > this.MAX_RESULT ) response = response.substring(0, this.MAX_RESULT) + ' ... (cut)';
+      // The same reply the ask command gives, so the model can refer back to the block by name.
+      return JSON.stringify({ blockName: block.flowName, response: response });
+    },
+
+    async function response_(block) {
+      // A block under a childTransient parent is never drawn, so it has no text
+      // to read; what its script returned is the answer.
+      if ( block.flowParent?.childTransient ) return block.value?.value === undefined ? '' : String(block.value.value);
+      // Block.answer waits on what the block waits on, such as the user's
+      // answer to input('Delete order 1234?', ...), else returns its text.
+      return block.answer();
     }
   ]
 });

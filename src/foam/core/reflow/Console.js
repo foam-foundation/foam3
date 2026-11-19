@@ -1454,9 +1454,19 @@ foam.CLASS({
       }
 
       cmds.forEach(c => {
-        this.localScope[c.id] = async (...args) => {
+        var run = this.localScope[c.id] = async (...args) => {
           var cmd = c.clone(this.currentBlock);
           return await cmd.execute.apply(cmd, args);
+        };
+        // A command whose id has dots, such as report.readLines, can only be
+        // typed as "report.readLines 1", which passes its argument as a string.
+        // Also reach it as report.readLines({ from: 1 }), so a script can pass
+        // an object.
+        var path = c.id.split('.');
+        if ( path.length > 1 ) {
+          var o = this.localScope;
+          path.slice(0, -1).forEach(p => o = o[p] = o[p] || {});
+          o[path[path.length - 1]] = run;
         }
       });
 

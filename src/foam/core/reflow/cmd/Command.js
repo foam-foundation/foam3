@@ -33,20 +33,6 @@ foam.CLASS({
     { class: 'StringArray', name: 'keywords' },
     {
       class: 'String',
-      name: 'inputSchema',
-      documentation: `
-        JSON Schema of the command's one argument, e.g.
-        {"type":"object","properties":{"parserId":{"type":"string"}}}; the script reads it
-        as args[0]. Empty means the command takes no input.
-      `
-    },
-    {
-      class: 'Boolean',
-      name: 'confirm',
-      documentation: 'Ask the user before the command runs without a Console, as for one that writes data.'
-    },
-    {
-      class: 'String',
       name: 'parserClass',
       documentation: 'Optional Grammar class id used to autocomplete this command\'s argument (e.g. DAOTargetParser for a DAO name).'
     },
@@ -69,8 +55,7 @@ foam.CLASS({
 
     async function execute(...args) {
       with ( this ) {
-        // A command run without a Console has no addValue to print to.
-        with ( { args: args, addValue: this.addValue && this.addValue.bind(this) } ) {
+        with ( { args: args, addValue: this.addValue.bind(this) } ) {
           try {
             // Use arrow function to preserve this binding and with context
             var result = await eval('(async () => { ' + this.script + ' })()');

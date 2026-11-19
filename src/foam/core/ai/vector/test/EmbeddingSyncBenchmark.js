@@ -12,7 +12,9 @@ foam.CLASS({
   documentation: `
     Times one EmbeddingSync run over rowCount records of an EmbeddingAware DAO,
     in one of four states:
-      idle:    every record is EMBEDDED, so there is nothing to do;
+      idle:    every record is EMBEDDED, so there is nothing to do. An untimed
+               first sync marks them, and it makes the sweep, so the timed run
+               leaves the sweep out, unlike restart, sweep and first;
       restart: every record is NEW and its stored chunks hold its text, as
                after a server restart, so no AI call is needed;
       sweep:   as restart, and 1 record in 100 was removed while the server

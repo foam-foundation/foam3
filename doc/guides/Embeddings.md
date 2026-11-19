@@ -58,11 +58,11 @@ Write `isEmbeddable(x)` when some records must not be searched, e.g. return `fal
 
 ## Change the defaults
 
-| To change | Override | Default |
+| To change | How | Default |
 |---|---|---|
 | How often the fallback sync runs | The `embeddingSync` row in `src/foam/core/ai/cronjobs.jrl` | Every 30 minutes |
-| Embed on save | `embedOnSave` of the `embeddingSync` CSpec. Off: only the cron embeds. | On |
-| Chunks per AI call | `textsPerCall` of the `embeddingSync` CSpec | 64 |
+| Embed on save | Replace the `embeddingSync` CSpec's `serviceScript` with `new foam.ai.vector.EmbeddingSync.Builder(x).setEmbedOnSave(false).build()`. Off: only the cron embeds. | On |
+| Chunks per AI call | The same script, with `.setTextsPerCall(32)` | 64 |
 
 A server embeds up to `textsPerCall` chunks of as many records as it takes in one call, so a million records cost tens of thousands of round trips, not a million. The first sync after a start also removes the chunks of records that are gone, e.g. dropped from a journal while the server was down.
 
@@ -71,7 +71,7 @@ A server embeds up to `textsPerCall` chunks of as many records as it takes in on
 | You see | Why | Do |
 |---|---|---|
 | A note stays `NEW` or `DIRTY` | The provider is down or not set up. The log has an "Embedding sync stopped" warning. | Fix the provider. The next sync, at the latest the cron, embeds it. |
-| One note stays `NEW` while the others are `EMBEDDED` | The provider refuses its text, or its `toIndexText` throws. The log names it. | Change its text. |
+| One note stays `NEW` while the others are `EMBEDDED` | The provider refuses its text, or its `toIndexText` throws. The log names it. If it is the only note waiting, the provider may be down instead. | Change its text, or check the provider. |
 | Search misses notes after you change the embedding provider or model | Vectors of two models do not match, and a sync compares chunk text only, so it keeps the old vectors. | Clear `vectorStoreDAO`. The next sync finds no chunks and embeds every note again. |
 
 A server with no embedding provider configured skips indexing and never fails a save.

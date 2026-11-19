@@ -53,8 +53,7 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Flow',
-    'foam.core.reflow.Markdown',
-    'foam.core.reflow.ai.ReplyParser'
+    'foam.core.reflow.Markdown'
   ],
 
   properties: [
@@ -168,18 +167,13 @@ foam.CLASS({
 
       console.log('*** AGENT RESPONSE: ', content);
 
-      // A command such as markdown(`...`) may continue over several lines
-      // until its brackets close (ReplyParser). Every other line is one
-      // command; code fences and comments are dropped.
-      var lines = [];
-      ( this.ReplyParser.create().parseString(content) || [ { text: content } ] ).forEach(p => {
-        if ( p.text === undefined ) lines.push(p.source);
-        else lines.push(...p.text.split('\n'));
-      });
+      // Strip code fences if LLM wrapped them despite instructions
+      content = content.replace(/^```[\w]*\n?/gm, '').replace(/^```$/gm, '');
 
-      return lines
+      return content
+        .split('\n')
         .map(l => l.trim())
-        .filter(l => l && ! l.startsWith('```') && ! l.startsWith('//') && ! l.startsWith('#'));
+        .filter(l => l && ! l.startsWith('//') && ! l.startsWith('#'));
     }
   ]
 });

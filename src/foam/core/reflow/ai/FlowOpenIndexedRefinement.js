@@ -5,7 +5,7 @@
  */
 
 foam.CLASS({
-  package: 'foam.core.ai.vector',
+  package: 'foam.core.reflow.ai',
   name: 'FlowOpenIndexedRefinement',
   refines: 'foam.core.reflow.Flow',
 

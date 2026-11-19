@@ -145,6 +145,8 @@ foam.CLASS({
             for ( var ci = 0; ci < chunks.length; ci++ ) {
               var embedding = await self.embedder.embed(x, chunks[ci]);
               embedding.id       = flow.name + ':' + ci;
+              // daoKey and sourceId name the flow, so ragService can check the reader may open it
+              embedding.daoKey   = 'flowDAO';
               embedding.sourceId = flow.name;
               embedding.kind     = 'flow';
               await self.vectorStoreDAO.put(embedding);

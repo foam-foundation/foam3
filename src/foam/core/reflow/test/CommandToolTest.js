@@ -13,6 +13,7 @@ foam.CLASS({
     An agent has the Reflow prompt as one execute_command tool: the model's script goes
     to eval_ as typed, the result is the block's name and answer or its error, a proposed
     script waits for the user, and CommandChat sends each result back until the model answers.
+    With a predicate, only one call of a matching command with JSON data runs.
   `,
 
   requires: [
@@ -20,8 +21,12 @@ foam.CLASS({
     'foam.ai.llm.LLMOptions',
     'foam.ai.llm.LLMToolUse',
     'foam.core.reflow.ai.CommandChat',
-    'foam.core.reflow.ai.CommandTool'
+    'foam.core.reflow.ai.CommandTool',
+    'foam.core.reflow.cmd.Command',
+    'foam.dao.ArrayDAO'
   ],
+
+  implements: [ 'foam.mlang.Expressions' ],
 
   methods: [
     {
@@ -56,6 +61,8 @@ foam.CLASS({
         x.test(await call(tool, 'nosuch()') === reply('error', 'Error: nosuch is not defined'), 'an error comes back as the response');
         var big = JSON.parse(await call(tool, 'big()')).response;
         x.test(big.length < 4100 && big.endsWith('(cut)'), 'a large response is cut: ' + big.length);
+        var long = JSON.parse(await call(this.CommandTool.create({ maxResult: 6000 }, evalX), 'big()')).response;
+        x.test(long.length === 5000, 'a larger maxResult sends the whole response back');
         x.test(await tool.run(this.LLMToolUse.create({ name: 'eval', inputJson: '{}' })) === 'There is no tool named eval.', 'another tool name is refused');
         x.test(await tool.run(this.LLMToolUse.create({ name: 'execute_command', inputJson: 'not json' })) === 'The input was not JSON.', 'unreadable input is refused');
         x.test(await tool.run(this.LLMToolUse.create({ name: 'execute_command', inputJson: '{}' })) === 'The input has no script.', 'input with no script is refused');
@@ -74,6 +81,27 @@ foam.CLASS({
         var hidden = { childTransient: true };
         var hiddenX = x.createSubContext({ eval_: async function() { return { flowName: 'a', flowParent: hidden, value: foam.lang.StringHolder.create({ value: 'Started.' }), answer: () => { throw 'not drawn'; } }; } });
         x.test(await call(this.CommandTool.create({ flowParent: hidden }, hiddenX), 'report.load()') === reply('a', 'Started.'), 'a hidden block answers with what its script returned');
+
+        // A predicate lets through only one call of a matching command with JSON data,
+        // so text the model read in a file cannot make it run anything else.
+        var cmdX = evalX.createSubContext({ commandDAO: this.ArrayDAO.create({ of: this.Command, array: [
+          this.Command.create({ id: 'doc.readLines' }), this.Command.create({ id: 'report.load' }) ] }) });
+        var limited = this.CommandTool.create({ predicate: this.STARTS_WITH(this.Command.ID, 'doc.') }, cmdX);
+        blocks['doc.readLines({"from": 1})'] = block('a', 'line 1');
+        x.test(await call(limited, 'doc.readLines({"from": 1})') === reply('a', 'line 1'), 'a matching command with JSON data runs');
+        var ran = typed.length;
+        x.test(( await call(limited, 'doc.readLines({ from: 1 })') ).startsWith('The argument of doc.readLines must be JSON'), 'an argument that is not JSON data is refused');
+        x.test(( await call(limited, 'doc.readLines({"from": 1}); fetch("x")') ).startsWith('The argument of'), 'a second statement after the call is refused');
+        x.test(await call(limited, 'report.load()') === 'There is no command named report.load here.', 'a command outside the predicate is refused');
+        x.test(( await call(limited, 'h1("x")') ) === 'There is no command named h1 here.', 'a script that is not a listed command is refused');
+        x.test(typed.length === ran, 'nothing refused reaches eval_');
+
+        // commandX: the scripts run under a hidden block in that context.
+        var screenX = x.createSubContext({ screen: 'upload' });
+        var hiddenTool = this.CommandTool.create({ commandX: screenX }, evalX);
+        await call(hiddenTool, 'nosuch()');
+        var parentUsed = typed[typed.length - 1].flowParent;
+        x.test(parentUsed && parentUsed.childTransient && parentUsed.__context__.screen === 'upload', 'commandX gives a hidden block in that context');
 
         // CommandChat: the model runs one script, sees its result, then answers.
         var requests = [];

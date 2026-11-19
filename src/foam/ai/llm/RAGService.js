@@ -36,7 +36,7 @@ foam.CLASS({
       class: 'FObjectArray',
       of: 'foam.ai.llm.RAGSource',
       name: 'sources',
-      documentation: 'The records the answer names, or every record it was given when it names none; with no answer, the closest ones.'
+      documentation: 'The records the answer names, or every record it was given when it names none; with no answer, the closest ones. Empty when the model answered without documents.'
     }
   ]
 });

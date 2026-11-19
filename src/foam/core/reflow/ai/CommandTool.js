@@ -58,7 +58,8 @@ foam.CLASS({
       name: 'commandX',
       documentation: `The context the scripts run in, holding what their commands read, such
         as the screen they drive. Set, the scripts run under a hidden block in it, so they
-        add nothing to the flow the user sees.`
+        add nothing to the flow the user sees, nor to the prompt's history. Empty, each script
+        goes into the history like a typed one, so the history command lists what an agent ran.`
     },
     {
       name: 'flowParent',
@@ -99,7 +100,7 @@ foam.CLASS({
       var refusal = this.predicate ? await this.refusal_(input.script) : '';
       if ( refusal ) return refusal;
 
-      var block = await this.eval_(this.prefix + input.script, true, true, this.flowParent || undefined);
+      var block = await this.eval_(this.prefix + input.script, true, !! this.commandX, this.flowParent || undefined);
       if ( ! block ) return 'Done.';
       var response = block.error ? 'Error: ' + block.error : await this.response_(block);
       if ( typeof response === 'string' && response.length > this.maxResult ) response = response.substring(0, this.maxResult) + ' ... (cut)';

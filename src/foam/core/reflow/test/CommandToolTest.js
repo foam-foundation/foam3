@@ -44,7 +44,7 @@ foam.CLASS({
         var decision;
         var proposal = { flowName: 'propose', answer: () => decision };
         var evalX = x.createSubContext({ eval_: async function(script, ignoreSelect, ignoreHistory, flowParent) {
-          typed.push({ script: script, flowParent: flowParent });
+          typed.push({ script: script, flowParent: flowParent, ignoreHistory: ignoreHistory });
           return script.startsWith('propose ') ? proposal : blocks[script];
         } });
         var reply = (name, response) => JSON.stringify({ blockName: name, response: response });
@@ -57,6 +57,7 @@ foam.CLASS({
         var call = (t, script) => t.run(this.LLMToolUse.create({ id: 'c', name: 'execute_command', inputJson: JSON.stringify({ script: script }) }));
         x.test(await call(tool, 'h1(title1.title + " Part 2")') === reply('h1', 'Sales Part 2'), 'JavaScript runs as typed and the block\'s name and answer come back');
         x.test(typed[0].script === 'h1(title1.title + " Part 2")' && typed[0].flowParent === undefined, 'the script reaches eval_ unchanged, into the flow');
+        x.test(typed[0].ignoreHistory === false, 'a script run into the flow goes into the prompt\'s history, like a typed one');
         x.test(await call(tool, 'block.shown = false') === reply('a', ''), 'a block that shows nothing comes back with its name');
         x.test(await call(tool, 'nosuch()') === reply('error', 'Error: nosuch is not defined'), 'an error comes back as the response');
         var big = JSON.parse(await call(tool, 'big()')).response;
@@ -102,6 +103,7 @@ foam.CLASS({
         await call(hiddenTool, 'nosuch()');
         var parentUsed = typed[typed.length - 1].flowParent;
         x.test(parentUsed && parentUsed.childTransient && parentUsed.__context__.screen === 'upload', 'commandX gives a hidden block in that context');
+        x.test(typed[typed.length - 1].ignoreHistory === true, 'a script run under a hidden block stays out of the prompt\'s history');
 
         // CommandChat: the model runs one script, sees its result, then answers.
         var requests = [];

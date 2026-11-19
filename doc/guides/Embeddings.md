@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid embeddingService vectorStoreDAO noteDAO EasyDAO isEmbeddable toIndexText openIndexed Ollama -->
+<!-- cspell:ignore spid embeddingService vectorStoreDAO noteDAO EasyDAO isEmbeddable toIndexText Ollama -->
 <flow name="Embeddings" category="DOC/GUIDE" spid="foam" description="Make a model searchable by meaning: opt the model in with EmbeddingAware, leave records out, and check the chunks appear in vectorStoreDAO." keywords="vector,embedding,EmbeddingAware,EmbeddingAwareDAO"/>
 
 # Embeddings: Make a Model Searchable by Meaning
@@ -35,12 +35,9 @@ foam.CLASS({
 
 That is all. Keep `noteDAO` a plain `EasyDAO`: it sees the interface and adds `EmbeddingAwareDAO`. A save stores the note first, then embeds it in the background, so the save never waits on the provider. A save that leaves `toIndexText` as it was, e.g. one that only sets a flag, makes no call. Removing a note removes its chunks.
 
-## Step 2 (optional): leave records out, open sources
+## Step 2 (optional): leave records out
 
-| Method | Write it when | Example |
-|---|---|---|
-| `isEmbeddable(x)` | Some records must not be searched. Default: every record. | Return `false` for a draft. A record that turns `false` loses its chunks. |
-| `openIndexed(x)` | A link to a search result should open the record. | Push the record's detail view. |
+Write `isEmbeddable(x)` when some records must not be searched, e.g. return `false` for a draft. The default is every record. A record that turns `false` loses its chunks.
 
 ## Step 3: check it works
 
@@ -48,4 +45,4 @@ That is all. Keep `noteDAO` a plain `EasyDAO`: it sees the interface and adds `E
 2. Within a few seconds, open `vectorStoreDAO`. It holds one row per chunk of the note, with ids like `noteDAO:42:0`, `noteDAO:42:1`.
 3. Edit the note's body. The rows now hold the new text, and none holds the old.
 
-If no rows appear, the log holds an "Embedding failed" warning from the provider. The note is stored either way, and is embedded again the next time its text changes.
+If no rows appear, the log holds an "Embedding failed" warning from the provider. The note is stored either way. It keeps its old chunks, or has none if it is new, and nothing retries until its text changes. A server with no embedding provider configured skips indexing and never fails a save.

@@ -13,8 +13,10 @@ foam.CLASS({
     EmbeddingAwareDAO over a stand-in embedder: a put embeds the record, an
     edit embeds it again and leaves no chunk of the old text, a put that leaves
     the text as it was makes no AI call, a record that turns not embeddable
-    loses its chunks, a remove clears them, and a failing provider does not
-    fail the put. The test replaces the "threadPool" of the context with an
+    loses its chunks, a remove clears them, a failing provider does not fail
+    the put, a save made while the earlier save's embedding call is in flight
+    ends with the chunks of the later text, and a context with no embedder or
+    chunk store saves and removes without error. The test replaces the "threadPool" of the context with an
     agency that runs each job on the calling thread, so the background
     embedding is finished when the put returns and the test checks the chunks
     with no sleep.
@@ -42,10 +44,16 @@ foam.CLASS({
     public static class Embedder implements EmbeddingService {
       public int     calls;
       public boolean fail;
-      public String getModel() { return "fake"; }
+      /** Runs once, while a call is in flight, e.g. to save the record again. */
+      public Runnable onEmbed;
       public VectorEmbedding embed(X x, String text) { return embedAll(x, new String[] { text })[0]; }
       public VectorEmbedding[] embedAll(X x, String[] texts) {
         calls++;
+        if ( onEmbed != null ) {
+          Runnable r = onEmbed;
+          onEmbed = null;
+          r.run();
+        }
         if ( fail ) throw new RuntimeException("gateway down");
         VectorEmbedding[] out = new VectorEmbedding[texts.length];
         for ( int i = 0 ; i < texts.length ; i++ ) {
@@ -133,6 +141,22 @@ foam.CLASS({
         boolean saved = true;
         try { notes.put(note("n3", "beta three")); } catch ( RuntimeException e ) { saved = false; }
         test(saved && notes.find("n3") != null && chunksOf(store, "n3") == 0, "A failing provider does not fail the put: the record is stored with no chunks");
+        fake.fail = false;
+
+        // the record is saved again while the first save's embedding call runs
+        fake.onEmbed = () -> notes.put(note("n4", "beta later"));
+        notes.put(note("n4", "alpha first"));
+        test(chunksOf(store, "n4") > 0 && ! anyChunkHolds(store, "alpha first") && anyChunkHolds(store, "beta later"), "A save made while an earlier save is embedding ends with the chunks of the later text");
+
+        // no embedder and no chunk store in the context: saves and removes still work
+        X     bare  = x.put("embeddingService", null).put("vectorStoreDAO", null).put("threadPool", new InlineAgency());
+        DAO   plain = new EasyDAO.Builder(bare).setOf(RAGNote.getOwnClassInfo()).setName("bareNoteDAO").setAuthorize(false).build().inX(bare);
+        boolean worked = true;
+        try {
+          plain.put(note("p1", "alpha"));
+          plain.remove(plain.find("p1"));
+        } catch ( RuntimeException e ) { worked = false; }
+        test(worked && plain.find("p1") == null, "A context with no embedder or chunk store saves and removes without error");
       `
     }
   ]

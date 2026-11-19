@@ -29,6 +29,10 @@ foam.CLASS({
   ],
 
   methods: [
+    function getModel() {
+      return this.model;
+    },
+
     async function ensurePipeline_() {
       if ( ! this.pipeline_ ) {
         const mod = await this.ModuleLib.create({ src: this.CDN }).installLib();

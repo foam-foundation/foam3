@@ -21,11 +21,12 @@ foam.CLASS({
     {
       class: 'Float',
       name: 'minScore',
-      value: -1,
-      javaValue: '-1f',
+      value: -Infinity,
+      javaValue: 'Float.NEGATIVE_INFINITY',
       documentation: `The lowest score a row needs to be returned. VectorStoreDAO leaves out
-        every row below it before ranking or reading any, so a search for 10 rows among a
-        million reads only the rows close to the query. The default, -1, keeps every row.`
+        every row below it before ranking and before the predicate sees any, so a search for
+        10 rows among a million asks the predicate about only the rows close to the query.
+        The default, negative infinity, keeps every row, whatever its score.`
     }
   ],
 

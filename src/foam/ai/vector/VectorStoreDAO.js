@@ -89,10 +89,16 @@ foam.CLASS({
         var list = ((ArraySink) getDelegate().select(new ArraySink())).getArray();
         int n    = list.size();
 
-        // pack the vectors of length d into one contiguous float[n*d] in row-major order.
+        // Count the rows of length d first, so both arrays are allocated once at their final
+        // size: a store of 1536-number rows holding 100000 of them would otherwise peak at
+        // twice the index while a trimmed copy is made.
+        int count = 0;
+        for ( int i = 0 ; i < n ; i++ ) if ( ((VectorEmbedding) list.get(i)).getVector().length == d ) count++;
+
+        // pack the vectors of length d into one contiguous float[count*d] in row-major order.
         // row i occupies flatIndex[i*d .. i*d+d-1], parallel to indexRows[i].
-        float[]           flat = new float[n * d];
-        VectorEmbedding[] rows = new VectorEmbedding[n];
+        float[]           flat = new float[count * d];
+        VectorEmbedding[] rows = new VectorEmbedding[count];
         int row = 0;
         for ( int i = 0 ; i < n ; i++ ) {
           var e = (VectorEmbedding) list.get(i);
@@ -102,8 +108,8 @@ foam.CLASS({
           row++;
         }
         setDim(d);
-        setFlatIndex(Arrays.copyOf(flat, row * d));
-        setIndexRows(Arrays.copyOf(rows, row));
+        setFlatIndex(flat);
+        setIndexRows(rows);
         setDirty(false);
       `
     },
@@ -119,12 +125,15 @@ foam.CLASS({
         { name: 'predicate', type: 'foam.mlang.predicate.Predicate' }
       ],
       javaCode: `
-        // only intercept when the caller used orderBy(CosineComparator);
-        // all other queries fall through to the delegate unchanged
+        // only intercept when the caller used orderBy(CosineComparator) with a query vector;
+        // all other queries, including one with no query vector, fall through to the delegate unchanged
         if ( !(order instanceof CosineComparator) ) {
           return super.select_(x, sink, skip, limit, order, predicate);
         }
         CosineComparator cc = (CosineComparator) order;
+        if ( cc.getQueryVector() == null || cc.getQueryVector().length == 0 ) {
+          return super.select_(x, sink, skip, limit, order, predicate);
+        }
         int d = cc.getQueryVector().length;
         // synchronized: two searches must not rebuild the index under each other
         float[]           flat;
@@ -139,13 +148,14 @@ foam.CLASS({
 
         // Score each row via CosineComparator.score(flat, offset, dim); the offset overload
         // avoids a float[] copy per row. A row below minScore is dropped here, so it is never
-        // sorted or checked by the predicate. A kept row is one long, its score's sort key
+        // sorted or checked by the predicate; a NaN score is not below anything, so it is kept
+        // and ranked last. A kept row is one long, its score's sort key
         // above its row number, so a primitive sort ranks them best first with no boxing.
         long[] ranked = new long[n];
         int    kept   = 0;
         for ( int i = 0 ; i < n ; i++ ) {
           float s = cc.score(flat, i * d, d);
-          if ( s >= min ) ranked[kept++] = ( (long) descending_(s) << 32 ) | i;
+          if ( ! ( s < min ) ) ranked[kept++] = ( (long) descending_(s) << 32 ) | i;
         }
         Arrays.sort(ranked, 0, kept);
 

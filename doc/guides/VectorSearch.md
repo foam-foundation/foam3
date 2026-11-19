@@ -142,6 +142,19 @@ A minimum-score threshold is easy to apply after the fact:
 var results = sink.array.filter(e => e.score >= 0.75);
 ```
 
+On the server, set `minScore` on the comparator instead: `VectorStoreDAO` drops every row below it before sorting, and before the `where()` predicate sees any row, so rows below `minScore` make no predicate call. The default, negative infinity, keeps every row.
+
+```java
+dao.where(predicate)
+  .orderBy(new CosineComparator.Builder(x).setQueryVector(q).setMinScore(0.25f).build())
+  .limit(10)
+  .select(new ArraySink());
+```
+
+The predicate runs on the remaining rows from nearest to farthest, and `limit` counts only the rows it keeps: with `limit(1)`, a nearest row the predicate rejects does not use the limit up, and the search returns the nearest row it accepts.
+
+The index holds the rows of one vector length, the length of the last query, because a cosine score needs two vectors of the same length. A store can hold rows from two models (384 numbers and 1536 numbers), and each query reads only the rows of its own length. Queries that alternate between two lengths rebuild the index each time, so a store meant for one model should hold that model's rows only. `removeAll` marks the index for a rebuild, so removed rows do not come back. The index is rebuilt only after a write through this DAO: a row written to the backing DAO beneath it is not seen until a write through this DAO marks the index for a rebuild.
+
 ## Try It Live
 
 Open the **SimilaritySearch** flow in REFLOW to index FOAM's knowledge flows and run live queries against them. The demo uses `TransformersEmbeddingService` entirely in the browser — no server required. A RAG chat view is also included that feeds the retrieved chunks to a local LLM for grounded answers.

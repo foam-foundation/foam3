@@ -1,4 +1,4 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator -->
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator ragService minScore daoKeys -->
 <flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
@@ -145,3 +145,20 @@ var results = sink.array.filter(e => e.score >= 0.75);
 ## Try It Live
 
 Open the **SimilaritySearch** flow in REFLOW to index FOAM's knowledge flows and run live queries against them. The demo uses `TransformersEmbeddingService` entirely in the browser — no server required. A RAG chat view is also included that feeds the retrieved chunks to a local LLM for grounded answers.
+
+## Answering Questions on the Server
+
+`ragService` answers a question from the chunks in `vectorStoreDAO`, using only the records the caller can read. Call it with the DAOs to search:
+
+```javascript
+var answer = await x.ragService.ask(x, 'How do I pin a note?', [ 'noteDAO' ], 'en');
+// answer.answered, answer.answer, answer.sources: [ { daoKey: 'noteDAO', sourceId: '42' } ]
+```
+
+The question is embedded, the nearest chunks are read, and `llmService` writes the answer from them and cites the records it used. `locale` is the language of the user's screens; the answer is written in it. The browser gets `ragService` only: the prompt, the search and the model call stay on the server.
+
+**Who sees what.** A chunk names its record with `daoKey` and `sourceId`, e.g. `flowDAO` and `Getting Started`. `ReadableSourcePredicate` finds that record through the DAO of that name, in the caller's context, so the DAO's own authorization decides. A chunk of a record the caller cannot find is never sent to the model or offered as a source, and a chunk with no `daoKey` is never returned.
+
+**Nothing close enough.** A chunk scoring under `minScore` (default 0.25 cosine) counts as not close. When none reaches it, `ask` makes no model call and returns `answered: false` with no sources. When the model replies that the records hold no answer, `ask` returns `answered: false` with up to 3 of the closest readable records. Change the prompt or `minScore` by setting a `ServerRAGService` subclass as the `ragService` CSpec.
+
+**The Knowledge Base.** The SimilaritySearch flow's **Index Knowledge Flows** writes each chunk with `daoKey` `flowDAO` and the flow's name as `sourceId`, so `ask(x, question, ['flowDAO'], locale)` searches the Knowledge Base. Pick the `embeddingService` provider before indexing: `ask` reads only the chunks of the model that embeds the question, so chunks made by a browser model are not read on the server. Export `vectorStoreDAO` to ship them with a deployment.

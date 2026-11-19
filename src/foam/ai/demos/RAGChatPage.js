@@ -14,7 +14,6 @@ foam.CLASS({
   requires: [
     'foam.ai.vector.ClientMarkdownChunkerService',
     'foam.ai.vector.provider.TransformersEmbeddingService',
-    'foam.ai.llm.ConversationalLLMService',
     'foam.ai.llm.provider.TransformersLLMService',
     'foam.ai.llm.RAGChat'
   ],
@@ -85,15 +84,32 @@ foam.CLASS({
       expression: function(provider) {
         if ( provider === 'openai'           ) return this.openAIEmbeddingService;
         if ( provider === 'embeddingService' ) return this.embeddingService;
-        return this.TransformersEmbeddingService.create();
+        return this.browserEmbedder_;
       }
     },
     {
       name: 'llmService',
       expression: function(provider) {
         if ( provider === 'openai' || provider === 'embeddingService' ) return this.serverLLMService;
-        return this.ConversationalLLMService.create({ delegate: this.TransformersLLMService.create() });
+        // no conversation history: each question carries its own passages, so earlier turns
+        // only make the small model's prompt longer
+        return this.browserLLM_;
       }
+    },
+    {
+      name: 'browserEmbedder_',
+      factory: function() { return this.TransformersEmbeddingService.create(); }
+    },
+    { name: 'chat_', hidden: true, transient: true },
+    {
+      name: 'browserLLM_',
+      factory: function() { return this.TransformersLLMService.create(); }
+    },
+    {
+      class: 'String',
+      name: 'modelStatus',
+      documentation: 'A browser model downloading, shown while indexing or answering waits on it.',
+      expression: function(embedder$status, browserLLM_$status) { return embedder$status || browserLLM_$status || ''; }
     },
     {
       class: 'Boolean',
@@ -128,8 +144,10 @@ foam.CLASS({
             self.statusMsg = 'Indexing ' + (fi + 1) + ' / ' + flows.length + ': ' + flow.name;
             var chunks = await self.chunker.chunk(x, text);
 
-            for ( var ci = 0; ci < chunks.length; ci++ ) {
-              var embedding    = await self.embedder.embed(x, chunks[ci]);
+            // the chunks are documents: embedAll, since embed is for a search question
+            var embeddings = await self.embedder.embedAll(x, chunks);
+            for ( var ci = 0; ci < embeddings.length; ci++ ) {
+              var embedding    = embeddings[ci];
               embedding.id       = flow.name + ':' + ci;
               embedding.sourceId = flow.name;
               embedding.kind     = 'flow';
@@ -145,6 +163,28 @@ foam.CLASS({
         }
 
         self.indexing = false;
+      }
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'tuneChat_',
+      documentation: `5 passages and a short answer keep the small browser model on the context.
+        Any other provider gets RAGChat's own defaults back.`,
+      code: function() {
+        var chat = this.chat_;
+        if ( ! chat ) return;
+        if ( this.provider === 'transformers' ) {
+          chat.retrievalLimit = 5;
+          chat.options = foam.ai.llm.LLMOptions.create({
+            maxTokens:    256,
+            systemPrompt: 'Answer the question using only the numbered context passages. Answer in two to four plain sentences, with no headings, lists or conclusion. Use the names exactly as the context spells them. If the context does not hold the answer, reply only: I don\'t know.'
+          });
+        } else {
+          chat.clearProperty('retrievalLimit');
+          chat.clearProperty('options');
+        }
       }
     }
   ],
@@ -170,6 +210,12 @@ foam.CLASS({
     function render() {
       var self = this;
       self.SUPER();
+      self.onDetach(self.provider$.sub(self.tuneChat_));
+      // the workers hold the models in memory: end them with the page
+      self.onDetach(() => {
+        self.browserEmbedder_.terminate();
+        self.browserLLM_.terminate();
+      });
       self
         .addClass()
         .start('h2').add('RAG Chat').end()
@@ -177,12 +223,14 @@ foam.CLASS({
         .start().addClass(self.myClass('toolbar'))
           .tag(self.PROVIDER)
           .tag(self.INDEX)
-          .start('span').addClass(self.myClass('status')).add(self.statusMsg$).end()
+          .start('span').addClass(self.myClass('status')).add(self.slot(function(modelStatus, statusMsg) { return modelStatus || statusMsg; })).end()
         .end()
 
         .start().addClass(self.myClass('chat'))
-          .tag(self.RAGChat)
+          // the browser model's answer shows word by word as it writes it
+          .tag(self.RAGChat, { thinkingMsg$: self.modelStatus$, partial$: self.browserLLM_.text$ }, self.chat_$)
         .end();
+      self.tuneChat_();
     }
   ]
 });

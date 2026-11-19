@@ -201,8 +201,7 @@ foam.CLASS({
   `,
 
   constants: [
-    { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 },
-    { name: 'RETRIEVAL_LIMIT',      value: 10   }
+    { name: 'CONTEXT_TOKEN_BUDGET', value: 1200 }
   ],
 
   properties: [
@@ -218,6 +217,12 @@ foam.CLASS({
         });
       }
     },
+    {
+      class: 'Int',
+      name: 'retrievalLimit',
+      documentation: 'How many passages go with each question. A host with a small model sets fewer.',
+      value: 10
+    },
     { class: 'String',  name: 'inputText' },
     {
       class: 'Array',
@@ -225,6 +230,29 @@ foam.CLASS({
       factory: function() { return []; }
     },
     { class: 'Boolean', name: 'isLoading' },
+    {
+      class: 'String',
+      name: 'thinkingMsg',
+      documentation: `Shown while an answer is on its way, in place of "Thinking…": a host whose
+        model runs in the browser binds its download progress here.`
+    },
+    {
+      class: 'String',
+      name: 'partial',
+      documentation: `The answer so far, from a host whose model streams it, e.g. "The Getting
+        Started" after three words. While it is set, it shows in a reply bubble that grows as
+        the model writes, in place of the waiting bubble.`,
+      postSet: function() {
+        // The list follows the reply as it grows, unless the user has scrolled up to read:
+        // checked here, before the new text is drawn, and scrolled at most once a frame.
+        var c = this.messagesContainer_?.el_?.();
+        if ( ! this.partial || ! c || this.scrollQueued_ ) return;
+        if ( c.scrollHeight - c.scrollTop - c.clientHeight >= 40 ) return;
+        this.scrollQueued_ = true;
+        requestAnimationFrame(() => { this.scrollQueued_ = false; this.scrollToBottom_(); });
+      }
+    },
+    { name: 'scrollQueued_', hidden: true, transient: true },
     { class: 'String',  name: 'statusMsg' },
     { name: 'messagesContainer_' }
   ],
@@ -273,14 +301,21 @@ foam.CLASS({
               .end();
             }
             if ( isLoading ) {
+              this.start('div').addClass(self.myClass('message-row')).addClass(self.myClass('message-row-assistant'))
+                .show(self.partial$.map(p => !! p))
+                .start('div').addClass(self.myClass('message-content')).addClass(self.myClass('message-content-assistant'))
+                  .add(self.partial$)
+                .end()
+              .end();
               this.start('div').addClass(self.myClass('loading-row'))
+                .show(self.partial$.map(p => ! p))
                 .start('div').addClass(self.myClass('loading-content'))
                   .start('div').addClass(self.myClass('loading-dots'))
                     .start('span').end()
                     .start('span').end()
                     .start('span').end()
                   .end()
-                  .add('Thinking…')
+                  .add(self.thinkingMsg$.map(m => m || 'Thinking…'))
                 .end()
               .end();
             }
@@ -341,7 +376,7 @@ foam.CLASS({
       var cc   = this.CosineComparator.create({ queryVector: qv.vector });
       var sink = await this.vectorStoreDAO
         .where(this.EQ(this.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
-        .orderBy(cc).limit(this.RETRIEVAL_LIMIT).select(this.ArraySink.create());
+        .orderBy(cc).limit(this.retrievalLimit).select(this.ArraySink.create());
 
       var chunks = sink.array;
       if ( ! chunks.length ) return '';

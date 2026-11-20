@@ -13,6 +13,10 @@ foam.POM({
     `
   ],
 
+  projects: [
+    { name: "test/pom",                                           flags: "test" }
+  ],
+
   files: [
     { name: "Remote",                                             flags: "js" },
     { name: "Box",                                                flags: "js|java" },

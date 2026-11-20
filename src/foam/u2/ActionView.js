@@ -187,6 +187,11 @@ foam.CLASS({
         this.attrs({ disabled: this.action.createIsEnabled$(this.__context__, this.data).map((e) => e ? false : 'disabled') });
       }
 
+      // Only an action with confirmationRequired ever leaves NO_CONFIRM (via
+      // setConfirm above), so other buttons get no hidden "Confirm" node: it
+      // would still show up in the button's textContent, e.g. "Light themeConfirm".
+      if ( ! this.action?.confirmationRequired ) return;
+
       // Between the first click and the confirming one the button shows
       // "Confirm" in place of its icon and label, following buttonState. It
       // keeps at least the width it had as the action, and grows only when

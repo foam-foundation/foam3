@@ -13,7 +13,8 @@ foam.CLASS({
     ask(): the question is embedded, the nearest chunks of the given DAOs are
     found among the records the caller can read (ReadableSourcePredicate
     checks each chunk's record as the caller), and llmService answers from
-    them. A question no readable record covers costs no model call.
+    them. A question no readable record covers goes to the model without
+    documents, or, with requireRetrievedContext, gets no answer and costs no model call.
     The worst case of a search is one authorized find per record: the
     predicate looks up each unreadable record ranked above the retrieval
     limit once, so a caller who can read little of a large index pays for
@@ -71,7 +72,8 @@ foam.CLASS({
         scored 0.28 to 0.57 on its best chunks and an unrelated one ("What is the capital of
         France?") 0.11 to 0.18. Below
         it a chunk is neither sent to the model nor offered as a closest doc, so an unrelated
-        question costs no model call. Tune it with the embedding model.`
+        question gets no documents (and, with requireRetrievedContext, no model call). Tune it with the
+        embedding model.`
     },
     {
       class: 'Int',
@@ -101,6 +103,15 @@ Answer in the language named on the Answer in line, even when the documents or t
       class: 'Int',
       name: 'maxTokens',
       value: 1024
+    },
+    {
+      class: 'Boolean',
+      name: 'requireRetrievedContext',
+      documentation: `True when an answer needs retrieved context: if the search finds no chunk
+        to add to the prompt, e.g. "What is the capital of France?" asked of a product's docs,
+        ask returns no answer and makes no model call. Set it when the model must not answer
+        from its own knowledge. False sends that question to the model on its own, with no
+        documents and no sources.`
     }
   ],
 
@@ -173,7 +184,21 @@ Answer in the language named on the Answer in line, even when the documents or t
         }
 
         RAGAnswer answer = new RAGAnswer();
-        if ( given.isEmpty() ) return answer;
+        if ( given.isEmpty() ) {
+          if ( getRequireRetrievedContext() ) return answer;
+          // no system prompt: it asks for an answer from the documents only, and there are none,
+          // so the model would always reply NO_ANSWER
+          LLMOptions bare = options(x);
+          bare.setSystemPrompt("");
+          CompletionRequest plain = new CompletionRequest();
+          plain.setOptions(bare);
+          plain.setPrompt("Answer in: " + answerLanguage(locale) + "\\nQuestion: " + q);
+          LLMResponse r = ((LLMService) getX().get("llmService")).complete(x, plain);
+          String t = r.getContent() == null ? "" : r.getContent().trim();
+          answer.setAnswered(! t.isEmpty());
+          answer.setAnswer(t);
+          return answer;
+        }
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(options(x));

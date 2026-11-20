@@ -228,6 +228,24 @@ foam.CLASS({
       `
     },
     {
+      name: 'requestURL',
+      documentation: `
+        Sends the call to an OpenAI-compatible endpoint when the credential has a url: with
+        url http://host:8001 (a trailing slash is dropped) it goes to http://host:8001/v1/chat/completions. The url is read
+        on every call, as the key is, so an edit applies without a restart. It replaces only
+        OpenAI's own endpoint: a baseURL set on the instance, or one a subclass declares
+        (Ollama's http://localhost:11434/v1/chat/completions), still wins.
+      `,
+      javaCode: `
+        if ( baseURLIsSet_ || ! BASE_URL.isDefaultValue(this) ) return getBaseURL();
+        foam.core.auth.Credential cred = (foam.core.auth.Credential)
+          ((DAO) getX().get("credentialDAO")).find(getCredentialId());
+        if ( cred == null || SafetyUtil.isEmpty(cred.getUrl()) ) return getBaseURL();
+        String url = cred.getUrl();
+        return ( url.endsWith("/") ? url.substring(0, url.length() - 1) : url ) + "/v1/chat/completions";
+      `
+    },
+    {
       name: 'readStream',
       documentation: `
         Rebuilds a chat-completions reply from its streamed chunks, in the shape a call

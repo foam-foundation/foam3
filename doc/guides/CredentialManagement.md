@@ -252,6 +252,11 @@ properties: [
 - `ClaudeLLMService` and `OpenAILLMService` define this pattern. `DeepSeekLLMService` and
   `OllamaLLMService` extend `OpenAILLMService` and inherit the factory: DeepSeek overrides
   `credentialId`; Ollama runs locally without a key and only overrides `baseURL` / `defaultModel`.
+- A `url` on the `foam/llm/openai` credential, host only (e.g. `http://host:8001`), points
+  `OpenAILLMService` at an OpenAI-compatible endpoint, `<url>/v1/chat/completions`, and
+  `OpenAIEmbeddingServiceImpl` at `<url>/v1/embeddings`. It is read on every call, so an edit
+  applies without a restart. A `baseURL` set on the instance, or one a subclass declares (Ollama,
+  DeepSeek), still wins.
 
 ---
 

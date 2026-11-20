@@ -11,6 +11,7 @@ foam.POM({
   ],
   files: [
     { name: 'DockItem', flags: 'js' },
-    { name: 'Dock',     flags: 'js' }
+    { name: 'Dock',     flags: 'js' },
+    { name: 'DockMenu', flags: 'js' }
   ]
 });

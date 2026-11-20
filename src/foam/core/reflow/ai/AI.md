@@ -127,9 +127,9 @@ FLOW/Agent supports multiple LLM providers through the `LLMService` interface. E
 API keys are stored as vault aliases in `foam3/src/foam/core/ai/credentials.jrl` and resolved at runtime via `credentialDAO`. The literal values live in `../var/dev-secrets.env` (gitignored — never commit it):
 
 ```
-foam/ai/llm/claude/api-key=sk-ant-api03-xxxxx
-foam/ai/llm/openai/api-key=sk-xxxxx
-foam/ai/llm/deepseek/api-key=sk-xxxxx
+foam/llm/claude/api-key=sk-ant-api03-xxxxx
+foam/llm/openai/api-key=sk-xxxxx
+foam/llm/deepseek/api-key=sk-xxxxx
 ```
 
 Copy `dev-secrets.env.template` to `dev-secrets.env` and fill in real values. Ollama runs locally and requires no API key.

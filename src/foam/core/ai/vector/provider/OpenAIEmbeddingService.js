@@ -42,9 +42,9 @@ foam.CLASS({
       documentation: 'Read from the credential on every call, as the endpoint is, so a key and url changed together are used together on the next call.',
       javaGetter: `
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
-          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/ai/llm/openai");
+          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
         if ( cred == null )
-          throw new RuntimeException("Embedding credential not found: foam/ai/llm/openai");
+          throw new RuntimeException("Embedding credential not found: foam/llm/openai");
         return cred.getApiKeySecret(getX());
       `
     }

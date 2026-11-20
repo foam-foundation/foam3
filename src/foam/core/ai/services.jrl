@@ -33,8 +33,8 @@ p({
 })
 
 // ── To swap providers, change the credential id and provider class: ──
-//   "foam/ai/llm/openai"   + foam.core.ai.llm.provider.OpenAILLMService
-//   "foam/ai/llm/deepseek" + foam.core.ai.llm.provider.DeepSeekLLMService
+//   "foam/llm/openai"   + foam.core.ai.llm.provider.OpenAILLMService
+//   "foam/llm/deepseek" + foam.core.ai.llm.provider.DeepSeekLLMService
 //   Ollama: no credential needed — OllamaLLMService.Builder(x).build() directly
 
 // ── Embedding service — default provider: Ollama ──

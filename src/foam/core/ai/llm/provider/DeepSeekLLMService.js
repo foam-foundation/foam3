@@ -19,7 +19,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'credentialId',
-      value: 'foam/ai/llm/deepseek'
+      value: 'foam/llm/deepseek'
     },
     {
       class: 'String',

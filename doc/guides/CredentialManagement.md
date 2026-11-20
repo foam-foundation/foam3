@@ -106,20 +106,20 @@ Set `vault` to the CSpec name of the backend, and put the secret's **alias** in 
 
 ```javascript
 c({ "class": "foam.core.auth.APIKeyCredential",
-    "id":          "foam/ai/llm/claude",
+    "id":          "foam/llm/claude",
     "serviceName": "ClaudeLLMService",
     "vault":       "vaultSecrets",         // which vault CSpec to use
-    "apiKey":      "foam/ai/llm/claude/api-key" })  // alias, not the literal key
+    "apiKey":      "foam/llm/claude/api-key" })  // alias, not the literal key
 ```
 
-At runtime `getApiKeySecret(x)` calls `resolveSecret(x, "foam/ai/llm/claude/api-key")`, which routes
-to `vaultSecrets.getSecret(x, "foam/ai/llm/claude/api-key")` and returns the real key.
+At runtime `getApiKeySecret(x)` calls `resolveSecret(x, "foam/llm/claude/api-key")`, which routes
+to `vaultSecrets.getSecret(x, "foam/llm/claude/api-key")` and returns the real key.
 
 **Without a vault** (literal shortcut for local testing only):
 
 ```javascript
 c({ "class": "foam.core.auth.APIKeyCredential",
-    "id":    "foam/ai/llm/claude",
+    "id":    "foam/llm/claude",
     "apiKey": "sk-ant-api03-..." })   // literal — vault property absent
 ```
 
@@ -148,9 +148,9 @@ c({ "class": "foam.core.auth.APIKeyCredential",
 ```sh
 # One KEY=VALUE per line.  Lines starting with # are comments; blank lines ignored.
 # Split on the FIRST '='.  Values may contain '='.  Key and value are trimmed.
-foam/ai/llm/claude/api-key=sk-ant-api03-REAL_KEY_HERE
-foam/ai/llm/openai/api-key=sk-REAL_KEY_HERE
-foam/ai/llm/deepseek/api-key=sk-REAL_KEY_HERE
+foam/llm/claude/api-key=sk-ant-api03-REAL_KEY_HERE
+foam/llm/openai/api-key=sk-REAL_KEY_HERE
+foam/llm/deepseek/api-key=sk-REAL_KEY_HERE
 ```
 
 - The file is **gitignored**; never commit it.
@@ -203,13 +203,13 @@ No other file changes. `credentials.jrl` references `"vault":"vaultSecrets"` in 
 ```
   Credential (vault="vaultSecrets", apiKey holds an alias)
         │  getApiKeySecret(x)
-        │    resolveSecret(x, "foam/ai/llm/claude/api-key")
+        │    resolveSecret(x, "foam/llm/claude/api-key")
         ▼
   vault set?  ──no──▶  return alias unchanged  (literal API key)
         │ yes
         ▼
   x.get("vaultSecrets") : KeyStoreManager
-        │  getSecret(x, "foam/ai/llm/claude/api-key")
+        │  getSecret(x, "foam/llm/claude/api-key")
         ▼
   FileKeyStoreManager          ──▶  reads dev-secrets.env  (local dev)
   AWSSecretsManager            ──▶  AWS API call            (ECS / prod)
@@ -230,7 +230,7 @@ properties: [
   {
     class: 'String',
     name:  'credentialId',
-    value: 'foam/ai/llm/claude'       // which row to find in credentialDAO
+    value: 'foam/llm/claude'       // which row to find in credentialDAO
   },
   {
     class: 'String',
@@ -270,12 +270,12 @@ resolve:
 // foam3/src/foam/core/ai/credentials.jrl
 
 // LLM providers
-c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/ai/llm/claude",
-    "serviceName":"ClaudeLLMService",   "vault":"vaultSecrets", "apiKey":"foam/ai/llm/claude/api-key"   })
-c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/ai/llm/openai",
-    "serviceName":"OpenAILLMService",   "vault":"vaultSecrets", "apiKey":"foam/ai/llm/openai/api-key"   })
-c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/ai/llm/deepseek",
-    "serviceName":"DeepSeekLLMService", "vault":"vaultSecrets", "apiKey":"foam/ai/llm/deepseek/api-key" })
+c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/claude",
+    "serviceName":"ClaudeLLMService",   "vault":"vaultSecrets", "apiKey":"foam/llm/claude/api-key"   })
+c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/openai",
+    "serviceName":"OpenAILLMService",   "vault":"vaultSecrets", "apiKey":"foam/llm/openai/api-key"   })
+c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/llm/deepseek",
+    "serviceName":"DeepSeekLLMService", "vault":"vaultSecrets", "apiKey":"foam/llm/deepseek/api-key" })
 // OllamaLLMService: local, no credential needed
 
 // Vector / embedding providers
@@ -289,9 +289,9 @@ Aliases use a hierarchical path: `<namespace>/<subsystem>/<provider>/<field>`.
 
 | Provider | Alias |
 |---|---|
-| Claude | `foam/ai/llm/claude/api-key` |
-| OpenAI | `foam/ai/llm/openai/api-key` |
-| DeepSeek | `foam/ai/llm/deepseek/api-key` |
+| Claude | `foam/llm/claude/api-key` |
+| OpenAI | `foam/llm/openai/api-key` |
+| DeepSeek | `foam/llm/deepseek/api-key` |
 | (future) OpenAI embedding | `foam/embedding/openai/api-key` |
 
 The `foam/` prefix identifies secrets that live in the `foam3` layer (not application-specific).
@@ -321,9 +321,9 @@ The file lives in the application folder under `/opt` (outside the code tree) an
 # dev-secrets.env is gitignored; never commit it.
 
 # LLM providers
-foam/ai/llm/claude/api-key=sk-ant-api03-REAL_KEY_HERE
-foam/ai/llm/openai/api-key=sk-REAL_KEY_HERE
-foam/ai/llm/deepseek/api-key=sk-REAL_KEY_HERE
+foam/llm/claude/api-key=sk-ant-api03-REAL_KEY_HERE
+foam/llm/openai/api-key=sk-REAL_KEY_HERE
+foam/llm/deepseek/api-key=sk-REAL_KEY_HERE
 # Ollama: local, no key needed
 ```
 

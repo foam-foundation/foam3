@@ -38,7 +38,7 @@ foam.CLASS({
     {
       class: 'String',
       name: 'credentialId',
-      value: 'foam/ai/llm/claude'
+      value: 'foam/llm/claude'
     },
     {
       class: 'String',

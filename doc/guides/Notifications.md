@@ -142,6 +142,42 @@ p({
 })
 ```
 
+## NOC - Network Operations Control Notifications, Emails, Alarms
+
+A system-wide component, such as a cron job, reports a problem by putting an `EventRecord` into `eventRecordDAO`. The cron system does this already: when a script throws, `Script.runScript` records an `EventRecord` of severity ERROR, and the `Cron` then disables itself with a WARN record, "disable on error".
+
+The rules in `src/foam/core/er/rules.jrl` turn the record into an alarm and a notification:
+
+- **An Alarm** is raised by `foam-core-er-EventRecordAlarmRule` for every record with `raiseAlarm` set, which is the default.
+- **A Notification** is sent by `foam-core-er-EventRecordNotificationRule` for a record at ERROR or above. A WARN or INFO record sends one only when it clears an alarm raised at ERROR, and a repeat of the same failure while its alarm is on sends nothing.
+- **An email** follows from the notification, through the reader's `EmailSetting`.
+
+The preconfigured notification template is `foam-core-er-EventRecordNotificationTemplate` (row id 3 in `src/foam/core/er/notificationTemplates.jrl`). It uses the email template `foam-core-er-EventRecordEmailTemplate`, `notificationType: "NOC"`, and the group `noc`.
+
+To receive these notifications and emails, put your user in group `noc`, or create a user for this purpose. foam3 does not create the `noc` group, so the application must add it; without it, `NotificationExpansionDAO` logs `Notification group not found` and nothing is sent:
+
+```
+deployment/your-app/groups.jrl
+
+p({
+  class:"foam.core.auth.Group",
+  id:"noc",
+  description:"Receives system alarm notifications",
+  parent:"basicUser"
+})
+```
+
+Moving a user into another group also changes the permissions they inherit, so pick a parent that grants nothing beyond what the user already has. An application can send these notifications to one of its own groups instead by replaying row id 3 with only `groupId`:
+
+```
+deployment/your-app/notificationTemplates.jrl
+
+p({
+  id: 3,
+  groupId: "your-ops-group"
+})
+```
+
 ## Google Chat
 
 `GoogleChatSetting` posts a notification to a Google Chat space as a Cards V2 card when the notification has a `googleChatWebhook`. The card's title is the first line of `googleChatMessage`, or of the `body` when there is no message, and its subtitle is the server's host name. Posts go through the `googleChatNotificationThrottler`.

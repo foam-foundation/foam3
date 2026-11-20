@@ -25,8 +25,9 @@ foam.CLASS({
         if ( endpointIsSet_ ) return endpoint_;
         foam.core.auth.Credential cred = (foam.core.auth.Credential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
-        return cred == null || foam.util.SafetyUtil.isEmpty(cred.getUrl())
-          ? "https://api.openai.com/v1/embeddings" : cred.getUrl() + "/v1/embeddings";
+        if ( cred == null || foam.util.SafetyUtil.isEmpty(cred.getUrl()) ) return "https://api.openai.com/v1/embeddings";
+        String url = cred.getUrl();
+        return ( url.endsWith("/") ? url.substring(0, url.length() - 1) : url ) + "/v1/embeddings";
       `
     },
     {
@@ -38,7 +39,8 @@ foam.CLASS({
       class: 'String',
       name: 'apiKey',
       hidden: true,
-      javaFactory: `
+      documentation: 'Read from the credential on every call, as the endpoint is, so a key and url changed together are used together on the next call.',
+      javaGetter: `
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
         if ( cred == null )

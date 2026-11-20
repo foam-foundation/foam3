@@ -42,8 +42,9 @@ foam.CLASS({
       javaCode: `
         List<String> pathsA = Collections.synchronizedList(new ArrayList<>());
         List<String> pathsB = Collections.synchronizedList(new ArrayList<>());
-        HttpServer a = stub(pathsA);
-        HttpServer b = stub(pathsB);
+        List<String> auths  = Collections.synchronizedList(new ArrayList<>());
+        HttpServer a = stub(pathsA, auths);
+        HttpServer b = stub(pathsB, auths);
         String urlA = "http://127.0.0.1:" + a.getAddress().getPort();
         String urlB = "http://127.0.0.1:" + b.getAddress().getPort();
 
@@ -56,7 +57,6 @@ foam.CLASS({
         };
         openai.setX(tx);
         OpenAIEmbeddingServiceImpl embeddings = new OpenAIEmbeddingServiceImpl(tx);
-        embeddings.setApiKey("test-key");
 
         try {
           // a credential url sends the call to <url>/v1/chat/completions
@@ -76,6 +76,18 @@ foam.CLASS({
           embeddings.embed(tx, "hello");
           expect(pathsB.get(pathsB.size() - 1), "/v1/embeddings", "embeddings, url B: the second call goes to B");
           test(pathsA.isEmpty(), "embeddings, url B: nothing more reaches A, got " + pathsA);
+
+          // a key changed on the credential is sent on the next embeddings call
+          APIKeyCredential rotated = (APIKeyCredential) ((APIKeyCredential) credentialDAO.find("foam/llm/openai")).fclone();
+          rotated.setApiKey("key-2");
+          credentialDAO.put(rotated);
+          embeddings.embed(tx, "hello");
+          expect(auths.get(auths.size() - 1), "Bearer key-2", "embeddings: a changed key is used on the next call");
+
+          // a url saved with a trailing slash gives one slash before /v1
+          credential(credentialDAO, "foam/llm/openai", urlB + "/");
+          expect(openai.requestURL(), urlB + "/v1/chat/completions", "trailing slash: chat url has one slash");
+          expect(embeddings.getEndpoint(), urlB + "/v1/embeddings", "trailing slash: embeddings url has one slash");
 
           // a baseURL set on the instance wins over the credential url
           OpenAILLMService explicit = new OpenAILLMService() {
@@ -118,9 +130,9 @@ foam.CLASS({
     },
     {
       name: 'stub',
-      documentation: 'A local server that records each request path and answers as a chat-completions stream or an embeddings reply.',
+      documentation: 'A local server that records each request path and Authorization header, and answers as a chat-completions stream or an embeddings reply.',
       type: 'com.sun.net.httpserver.HttpServer',
-      args: 'List paths',
+      args: 'List paths, List auths',
       javaCode: `
         HttpServer server;
         try {
@@ -132,6 +144,7 @@ foam.CLASS({
           ex.getRequestBody().readAllBytes();
           String path = ex.getRequestURI().getPath();
           paths.add(path);
+          auths.add(ex.getRequestHeaders().getFirst("Authorization"));
           String reply = path.endsWith("/embeddings")
             ? "{\\"data\\":[{\\"index\\":0,\\"embedding\\":[0.5]}]}"
             : "data: {\\"choices\\":[{\\"delta\\":{\\"content\\":\\"ok\\"}}]}\\n\\ndata: [DONE]\\n\\n";

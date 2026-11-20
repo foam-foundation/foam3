@@ -17,14 +17,14 @@ foam.CLASS({
       name: 'endpoint',
       documentation: `
         Where embeddings are requested. Unless set on the instance, a url on credential
-        foam/llm/openai, host only (e.g. http://host:8001), sends them to an OpenAI-compatible
+        foam/ai/llm/openai, host only (e.g. http://host:8001), sends them to an OpenAI-compatible
         endpoint at <url>/v1/embeddings; without one they go to OpenAI. The url is read on
         every call, so an edit applies without a restart.
       `,
       javaGetter: `
         if ( endpointIsSet_ ) return endpoint_;
         foam.core.auth.Credential cred = (foam.core.auth.Credential)
-          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
+          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/ai/llm/openai");
         if ( cred == null || foam.util.SafetyUtil.isEmpty(cred.getUrl()) ) return "https://api.openai.com/v1/embeddings";
         String url = cred.getUrl();
         return ( url.endsWith("/") ? url.substring(0, url.length() - 1) : url ) + "/v1/embeddings";

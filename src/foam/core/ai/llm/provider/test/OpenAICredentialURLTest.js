@@ -50,7 +50,7 @@ foam.CLASS({
 
         DAO credentialDAO = new MDAO(Credential.getOwnClassInfo());
         X   tx            = x.put("credentialDAO", credentialDAO);
-        credential(credentialDAO, "foam/llm/openai", urlA);
+        credential(credentialDAO, "foam/ai/llm/openai", urlA);
 
         OpenAILLMService openai = new OpenAILLMService() {
           public String getApiKey() { return "test-key"; }
@@ -67,7 +67,7 @@ foam.CLASS({
           expect(pathsA.get(pathsA.size() - 1), "/v1/embeddings", "embeddings, url A: the request goes to /v1/embeddings on A");
 
           // a url changed between two calls sends the second call to the new url
-          credential(credentialDAO, "foam/llm/openai", urlB);
+          credential(credentialDAO, "foam/ai/llm/openai", urlB);
           pathsA.clear();
           expect(openai.chat(tx, chat("Hi")).getContent(), "ok", "url B: the reply is read");
           expect(String.join(",", pathsB), "/v1/chat/completions", "url B: the second call goes to B");
@@ -78,14 +78,14 @@ foam.CLASS({
           test(pathsA.isEmpty(), "embeddings, url B: nothing more reaches A, got " + pathsA);
 
           // a key changed on the credential is sent on the next embeddings call
-          APIKeyCredential rotated = (APIKeyCredential) ((APIKeyCredential) credentialDAO.find("foam/llm/openai")).fclone();
+          APIKeyCredential rotated = (APIKeyCredential) ((APIKeyCredential) credentialDAO.find("foam/ai/llm/openai")).fclone();
           rotated.setApiKey("key-2");
           credentialDAO.put(rotated);
           embeddings.embed(tx, "hello");
           expect(auths.get(auths.size() - 1), "Bearer key-2", "embeddings: a changed key is used on the next call");
 
           // a url saved with a trailing slash gives one slash before /v1
-          credential(credentialDAO, "foam/llm/openai", urlB + "/");
+          credential(credentialDAO, "foam/ai/llm/openai", urlB + "/");
           expect(openai.requestURL(), urlB + "/v1/chat/completions", "trailing slash: chat url has one slash");
           expect(embeddings.getEndpoint(), urlB + "/v1/embeddings", "trailing slash: embeddings url has one slash");
 
@@ -107,18 +107,18 @@ foam.CLASS({
           // Ollama and DeepSeek keep the baseURL they declare, whatever the credentials hold
           OllamaLLMService ollama = new OllamaLLMService();
           ollama.setX(tx);
-          expect(ollama.requestURL(), "http://localhost:11434/v1/chat/completions", "ollama: ignores the url on foam/llm/openai");
+          expect(ollama.requestURL(), "http://localhost:11434/v1/chat/completions", "ollama: ignores the url on foam/ai/llm/openai");
           DeepSeekLLMService deepseek = new DeepSeekLLMService();
           deepseek.setX(tx);
-          credential(credentialDAO, "foam/llm/deepseek", urlB);
+          credential(credentialDAO, "foam/ai/llm/deepseek", urlB);
           expect(deepseek.requestURL(), "https://api.deepseek.com/chat/completions", "deepseek: ignores a url on its own credential");
 
           // with no url, and with no credential at all, the default is used
-          credential(credentialDAO, "foam/llm/openai", "");
+          credential(credentialDAO, "foam/ai/llm/openai", "");
           expect(openai.requestURL(), "https://api.openai.com/v1/chat/completions", "no url: OpenAI's endpoint");
           expect(embeddings.getEndpoint(), "https://api.openai.com/v1/embeddings", "embeddings, no url: OpenAI's endpoint");
 
-          credentialDAO.remove(credentialDAO.find("foam/llm/openai"));
+          credentialDAO.remove(credentialDAO.find("foam/ai/llm/openai"));
           expect(openai.requestURL(), "https://api.openai.com/v1/chat/completions", "no credential: OpenAI's endpoint");
           expect(embeddings.getEndpoint(), "https://api.openai.com/v1/embeddings", "embeddings, no credential: OpenAI's endpoint");
           expect(ollama.requestURL(), "http://localhost:11434/v1/chat/completions", "ollama, no credential: its own endpoint, no error");

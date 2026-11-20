@@ -14,3 +14,7 @@ p({
   class: "foam.core.notification.test.NotificationLocaleTemplateTest",
   id: "NotificationLocaleTemplateTest"
 })
+p({
+  class: "foam.core.notification.test.EmailSettingBodyTest",
+  id: "EmailSettingBodyTest"
+})

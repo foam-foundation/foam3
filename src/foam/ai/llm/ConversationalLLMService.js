@@ -31,31 +31,19 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'maxHistory',
-      documentation: 'Max messages to retain. Older messages are trimmed in pairs.',
+      documentation: 'Messages kept after a cut; the oldest go first.',
       value: 50
-    },
-    {
-      class: 'Boolean',
-      name: 'keepPromptPrefix',
-      documentation: `True for a model that reuses its work on the start of a prompt that matches
-        an earlier call: a server API keeps it in its KV cache and bills those tokens at about a
-        tenth of the price. Dropping the oldest messages changes that start, so the history is cut
-        only once it passes maxHistory + maxOverflow, and most turns resend an unchanged start.
-        A caller adding per-turn text (retrieved passages) puts it in the user message, so the
-        system prompt stays the same too.
-        False for a model that reruns the whole prompt on every call, such as
-        TransformersLLMService in the browser: there a shorter prompt is the only saving, so the
-        history is cut to maxHistory every turn, and per-turn text goes in the system prompt so
-        the history keeps only questions and answers.`,
-      value: true
     },
     {
       class: 'Int',
       name: 'maxOverflow',
       documentation: `How many messages past maxHistory the history may grow before it is cut back
-        to maxHistory in one step. With 6 and 6, the history grows to 12 messages and then drops to
-        the last 6.`,
-      expression: function(keepPromptPrefix, maxHistory) { return keepPromptPrefix ? maxHistory : 0; }
+        to maxHistory in one step. A model that caches the start of its prompt, as server APIs do,
+        reuses that start only while it stays the same, so cutting once every few turns keeps most
+        calls cheap. With maxHistory 6 and maxOverflow 6 the history grows to 12 messages, then
+        drops to the last 6. Set 0 for a model that reruns the whole prompt on every call: there
+        only a shorter prompt saves time, so the history is cut every turn.`,
+      expression: function(maxHistory) { return Math.floor(maxHistory / 2); }
     }
   ],
 

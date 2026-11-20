@@ -163,12 +163,12 @@ foam.CLASS({
     {
       name: 'browserChat_',
       documentation: `The browser model with the conversation so far, so a follow-up such as "and its
-        limits?" knows what "its" is. The browser model keeps no cache between calls, so
-        keepPromptPrefix is off: ask sends the passages in the system prompt of each call, the
-        history keeps only questions and answers, and the small model's prompt stays short.
-        6 messages is the last 3 questions with their answers.`,
+        limits?" knows what "its" is. The browser model keeps no cache between calls, so the
+        history is cut every turn (maxOverflow 0), ask sends the passages in the system prompt of
+        each call, the history keeps only questions and answers, and the small model's prompt
+        stays short. 6 messages is the last 3 questions with their answers.`,
       factory: function() {
-        return this.ConversationalLLMService.create({ delegate: this.browserLLM_, maxHistory: 6, keepPromptPrefix: false });
+        return this.ConversationalLLMService.create({ delegate: this.browserLLM_, maxHistory: 6, maxOverflow: 0 });
       }
     },
     {
@@ -276,7 +276,7 @@ foam.CLASS({
       var context = 'Context:\n' + lines.join('\n\n');
       var options = this.options;
       var message = context + '\n\nQuestion: ' + question;
-      if ( this.llmService.keepPromptPrefix === false ) {
+      if ( this.llmService === this.browserChat_ ) {
         options = this.options.clone();
         options.systemPrompt = this.options.systemPrompt + '\n\n' + context;
         message = question;

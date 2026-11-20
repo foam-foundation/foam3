@@ -11,6 +11,8 @@ p({
       "class":"foam.comics.v2.DAOControllerConfig",
       "daoKey":"flowDAO",
       "browseTitle":"Knowledge Base",
+      "createMenu":"knowledgeBaseAsk",
+      "createTitle":"Ask AI",
       "createPredicate":{"class":"foam.mlang.predicate.False"},
       "editPredicate":{"class":"foam.mlang.predicate.False"},
       "deletePredicate":{"class":"foam.mlang.predicate.False"},
@@ -61,4 +63,20 @@ p({
       }
     }
   }
+})
+
+// Ask AI on the Knowledge Base page: its button opens a chat that answers from the docs the
+// user can open (ragService, over flowDAO). Shown only to users granted menu.read.knowledgeBaseAsk;
+// without it the page shows no button. Answering also needs service.ragService. Hidden from the
+// side menu under internal.
+p({
+  "class":"foam.core.menu.Menu",
+  "id":"knowledgeBaseAsk",
+  "label":"Ask AI",
+  "themeIcon":"documentation",
+  "handler":{
+    "class":"foam.u2.dock.DockMenu",
+    "view":{ "class":"foam.ai.llm.RAGChatPanel", "daoKeys":["flowDAO"] }
+  },
+  "parent":"internal"
 })

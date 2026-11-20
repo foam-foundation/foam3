@@ -89,8 +89,30 @@ a POM in the files section in the required position.
 Like with files, individual projects can include flags: information which determines
 when the project is and isn't loaded. (See below.)
 
+Each entry is an object, `{ name: 'test/pom', flags: 'test' }`. A bare string such as
+`'test/pom'` has no `name`, so it loads nothing and reports nothing: the loader reads
+`f.name` and `f.flags` (`src/foam.js:233-243`) and `require` returns early on an empty name
+(`src/foam_node.js:38`).
+
+**A sub-directory with its own `pom.js` is skipped by the parent's directory walk**, sources and
+`.jrl` files alike (`tools/pmake.js:82`), unless the parent lists that pom here. A directory
+without a pom is walked as part of its parent, so either give the sub-directory a pom and add
+`{ name: 'parsers/pom' }` to `projects:`, or leave it without one and list its files
+path-prefixed in the parent: `{ name: 'parsers/MyThing', flags: 'js' }`.
+
 ### files
-List of source files to be loaded.
+List of source files to be loaded, without the `.js` extension.
+
+| File | Key | flags |
+|---|---|---|
+| FOAM class, JS and Java | `files:` | `js\|java` |
+| FOAM class, JS only | `files:` | `js` |
+| hand-written `.java` | `javaFiles:` | none; a name ending in `*` takes a whole tree (`tools/JavacMaker.js:40-51`) |
+| class with a separate `.js` and `.java` | both | `js` in `files:`, plus the `javaFiles:` entry |
+
+Never list a `.jrl` here. Every entry is loaded as `<name>.js` (`src/foam_node.js:43`), so a
+journal entry fails the build with `Cannot find module .../tests.js`; a `.jrl` beside a loaded
+pom is picked up without an entry (see [Journals](./Journals.md)).
 
 #### flags
 

@@ -41,6 +41,40 @@ A flow with the `knowledge` keyword is a Knowledge Base document, usually a `.md
 - **The header's empty views** - the Console exports `titlePrefix` (left of the flow's name) and `titleSuffix` (after its version), empty views a flow's own content can fill; `<docnav>` puts its crumb in `titlePrefix`. A view that fills one follows the property, since the header sets a new one each time it is drawn.
 - **Links between documents** - `[text](Other Document)` opens the flow named "Other Document" in place; `[text](#heading-id)` scrolls to a heading of this page.
 
+## Authoring Blocks
+
+A flow is a saved document of named blocks, so a block is written to be saved and reloaded, not
+run once. Paths below are under `src/foam/core/reflow/`.
+
+- **A block's name is its variable.** A block named `uploads` puts its value in the flow scope as
+  `uploads`, and the block itself as `uploads$block` (`DependencyScanner.js:11-16`). Name a block
+  before another block reads it. Renaming in the editor offers to rewrite the blocks that refer to
+  the old name (`Console.js:1981-2025`); a rename made any other way, such as in the script or a
+  `.jrl`, leaves those references broken.
+- **Gate visibility with a formula, not an assignment.** `shown` is saved with the block
+  (`Block.js:263-266`), so a script that assigns `summary$block.shown = ...` edits the document,
+  and the saved value is whatever the last run left. Put a `reactions_` formula on the block
+  instead, `shown: uploads.count > 0`: the formula is what is saved, and it is re-evaluated about
+  once a second after every load (`ReactiveDetailView.js:91-140`).
+- **Filter with an `aql` or `where` string.** A predicate saved as an object carries its class
+  into the script, while a string is parsed against the DAO's model when the block runs
+  (`DAOPrompt.js:262-279`).
+- **Call `run()` after changing an agent in code.** A DAO block redraws when its `data` or
+  `version` changes (`DAOPrompt.js:37-44`). A filter (`where`, `aql`, `order`) refilters it by itself
+  (`DAOPrompt.js:262`), but setting any other property does not. `run()` increments `version` (`DAOPrompt.js:570-579`).
+- **Mark derived state `transient`.** A property computed from others is otherwise saved in the
+  script and the undo history, and grows both.
+- **Keep per-flow state off `globalThis`.** Clearing a flow resets its scope (`Console.js:1408-1417`)
+  but not globals, which then leak into the next flow opened in the tab. Keep state in a block or a
+  property of the Console.
+- **Repair a broken block with `BadBlock.repair`.** A block whose script fails to load becomes a
+  `BadBlock` showing its JSON; correct the JSON there and `repair` writes it back into the flow
+  (`BadBlock.js:47-67`). Do not hand-edit the escaped `script` string in a `.jrl`.
+- **Commands and agents are journal rows.** Commands are in `cmd/cmds.jrl` and DAO agents in
+  `agents.jrl`; look there before writing a new one. `permissionRequired: true` on a row hides it
+  from users without `command.read.<id>` or `agent.read.<id>` (`cmd/Command.js:79-89`,
+  `SinkAgent.js:56-66`).
+
 ## UI Components
 
 The system includes several specialized UI components:

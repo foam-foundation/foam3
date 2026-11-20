@@ -119,6 +119,18 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
 - **SystemAuthService** - System-level permissions
 - **FailedLoginAuthService** - Failed login attempt tracking
 
+### Catalogue vs grant
+
+A row in `permissions.jrl` (the `permissionDAO`) grants nothing. It only documents a permission
+so that the permission-matrix views can list it (`PermissionTableView.js:492`). A group holds a
+permission only through a `GroupPermissionJunction` row: `Group.implies` reads that junction and
+nothing else, following `@<RoleName>` targets into the role group (`Group.js:167-200`).
+Capabilities are the other route, through `CapabilityAuthService`.
+
+`admin` and `system` both hold `*` (`src/groupPermissionJunctions.jrl:2,5`), so a test or manual
+check run as either passes every check. Test a permission as a user in the real role, and first
+assert that this user does not hold `*`.
+
 ## Core Data Models
 
 ### Authentication Models
@@ -155,6 +167,16 @@ boolean foam.core.auth.AuthService.check(X x, String permission)
   - `create` operations don't include `<id>`
   - ~50% of all permissions follow the `<prefix>.read.<id>` pattern
   - Alternative authorizers available: `AuthorizableAuthorizer`, `GlobalCreateAuthorizer`, etc.
+- **Reading through the DAO is the read check.** `AuthorizationDAO.find_` returns `null` when
+  `authorizeOnRead` denies, and `select_` ANDs the caller's read predicate into the query
+  (`AuthorizationDAO.js:74-95`). Code that reads through the authorized DAO in the caller's context
+  (`dao.inX(x).find(id)`) needs no separate `canRead` helper. A row that is returned may still have
+  fields removed by `PermissionedPropertyDAO` (pattern 4).
+- **A menu whose parent is not readable is missing from the side menu.** `Menu.authorizeOnRead`
+  checks only the menu's own `menu.read.<id>` (`Menu.js:249-261`), but `VerticalMenu` draws a
+  `TreeView` that starts from the root menus and reaches each child through its parent's
+  `children` (`TreeView.js:530-531`, `VerticalMenu.js:152-166`). Grant `menu.read` on every
+  ancestor, not only the leaf.
 
 ### 4. Property-Level Access
 - **Pattern:** `<modelName>.<ro|rw>.<propertyName>`

@@ -228,9 +228,9 @@ The `sub` argument passed to `put()` and `remove()` is a `Detachable` — an obj
 | `SUM(prop)` | Sums a numeric property | `.value` |
 | `MAX(prop)` | Finds the maximum value of a property | `.value` |
 | `MIN(prop)` | Finds the minimum value of a property | `.value` |
-| `GROUP_BY(prop, sink)` | Groups results by property value | `.groups` |
+| `GROUP_BY(prop, sink)` | Groups results by property value; the inner sink defaults to `COUNT()` | `.groupKeys`, and `.groups[key]` is one inner sink per key, e.g. `.groups[key].value` for a count |
 | `MAP(prop)` | Projects a single property from each object | `.delegate.array` |
-| `UNIQUE(prop, sink)` | Passes only objects with distinct values of prop | — |
+| `UNIQUE(prop, sink)` | Passes only the first object for each distinct value of prop to `sink` | `.delegate`, the sink you passed: `.delegate.array` for an `ArraySink` |
 
 ### Sink examples
 
@@ -249,7 +249,11 @@ console.log(total.value);
 
 // Group by status
 var groups = await dao.select(GROUP_BY(Invoice.STATUS, COUNT()));
-console.log(groups.groups);
+for ( var k of groups.groupKeys ) console.log(k, groups.groups[k].value);
+
+// One object per distinct status
+var unique = await dao.select(UNIQUE(Invoice.STATUS, foam.dao.ArraySink.create()));
+console.log(unique.delegate.array);
 ```
 
 ### Inline Sinks

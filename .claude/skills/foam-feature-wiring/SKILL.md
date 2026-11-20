@@ -90,26 +90,30 @@ that can never match anything, and nothing reports it.
 (`src/groupPermissionJunctions.jrl:2` and `:5`). An ungranted feature works for you and is invisible
 to every ordinary user. Test as a real role, or read the grants.
 
-### 5. A JS test without `language: 0` is handed to the wrong runner
+### 5. A test the build never registers
 
-`Script.language` defaults to `BEANSHELL` (`src/foam/core/script/Script.js`, ~line 256). A
-`tests.jrl` entry for a JS test therefore states it:
+The parent POM must reference the test project as an object with the `test` flag:
+
+```javascript
+projects: [ { name: 'test/pom', flags: 'test' } ]   // carries the test flag
+projects: [ 'test/pom' ]                            // wrong: a string has no name, so nothing loads
+```
+
+The loader reads `f.name` and `f.flags` from each entry (`src/foam.js:233-243`), and `require`
+returns early on an empty name (`src/foam_node.js:38`), so a bare string is dropped without a
+message. Without the flag the walk skips any directory whose name ends in `test` or `tests`
+(`tools/pmake.js:94-95`) and `JournalMaker` skips `tests.jrl` (`tools/JournalMaker.js:186-187`).
+The test is never registered and never reported as missing.
+
+A client test that extends `foam.core.test.JSTest` needs nothing more on its row: `JSTest` sets
+`language` to `JS` itself (`src/foam/core/test/JSTest.js:22-26`). Only a plain
+`foam.core.test.Test` whose `runTest` is JS must state it, because `Script.language` defaults to
+`BEANSHELL` (`src/foam/core/script/Script.js:255-256`) and the server would run its empty Java
+`runTest` instead:
 
 ```javascript
 p({ "class": "com.example.MyTest", "id": "MyTest", "language": 0 })
 ```
-
-The parent POM must reference the test project in **object form**, because only an object carries
-flags:
-
-```javascript
-projects: [ { name: 'test/pom', flags: 'test' } ]   // carries the test flag
-projects: [ 'test/pom' ]                            // a string has no flags
-```
-
-Without the flag the walk skips any directory named `test` or `tests` (`pmake.js`, ~line 94) and
-`JournalMaker` skips `tests.jrl` (`tools/JournalMaker.js`, ~line 63). The test is never registered
-and never reported as missing.
 
 ## `services.jrl` — the CSpec contract
 
@@ -155,9 +159,11 @@ Declare the multi-column indexes your queries need instead.
 
 ## Journals: `p()` vs `c()`
 
-`p({...})` is a partial merge across journals; `c({...})` is a full replace. A later journal that
-uses `c()` on a CSpec silently clobbers every field the first journal set. Prefer `p()` unless you
-intend replacement.
+On replay `c({...})` merges exactly like `p({...})`: an entry for an id that already exists is
+merged onto the stored object, so a later journal's `c()` with fewer fields does not clear the
+fields an earlier journal set (`src/foam/dao/F3FileJournal.js:191-198`). The source marks this as
+a workaround that may become configurable per DAO (`honorCreate`), so prefer `p()` and do not rely
+on `c()` either replacing or merging.
 
 Editing a CSpec's `service`, `serviceClass`, or `serviceScript` at runtime calls `reload()` on a
 `COREService`; editing any other CSpec field does not
@@ -175,5 +181,5 @@ Work outward from the data; each step rules out one silent failure.
 4. **Does the menu render but show nothing?** The `client` block is missing.
 5. **Do rows exist but not for this user?** A decorator is scoping them (a tenant or partition key
    a DAO decorator stamps) and the rows were written without that field set.
-6. **Did the test not run?** `language: 0`, the object-form `projects:` entry, and the `test` flag
-   (§5).
+6. **Did the test not run?** The object-form `projects:` entry, the `test` flag, and `language` on
+   a plain `Test` row (§5).

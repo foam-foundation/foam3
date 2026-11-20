@@ -41,6 +41,8 @@ Exclude tests cases by prefixing their `id` with a `-` (dash).
 Tests can be grouped with the `testSuite` property.  The `TestRunnerScript`, which is responsible for invoking the tests, will filter by `testSuite` identifiers. 
 - `./build.sh run-tests --test-suites:Authentication,Security`: run all tests where `testSuite` matches the listed identifiers.
 
+`testSuite` is a single `String` (`src/foam/core/test/Test.js:72-75`), so a test belongs to one suite. Test ids given as well are ANDed with the suites: `server-tests:A,B --test-suites:Smoke` runs only those of `A` and `B` tagged `Smoke` (`src/foam/core/test/TestRunnerScript.js:357-366`).
+
 ### Test Output
 
 #### Per Test Output
@@ -89,6 +91,13 @@ TEST REPORT CLIENT - TEST CASES: 12, TESTS: 1374 (PT1M6.038S)
  FAILED: 1
 ```
 
+Read the `PASSED:` / `FAILED:` tally and the `✘ FAILURE:` lines, not the build's exit code, and ignore boot noise such as `Assertion failed: Axiom name conflict`, which prints on every run and is not a test result.
+
+If the browser stops reporting, the client run ends with `FAILURE: Client tests made no progress for N seconds after M results. Tests may still be running in the browser.`, and that counts as one failed test (`src/foam/core/test/TestRunnerScript.js:511-518`).
+
+#### Log Level
+A test run logs ERROR only, so a `logger.warning` in the code under test never shows. Add `--log-level:WARN`, `INFO` or `DEBUG` to see more (`src/foam/core/test/TestRunnerScript.js:296-303`).
+
 ## Running Client Test Cases from a FOAM Application
 
 Build with option `--flags:test` and `-Jdemo` (if no other login users will be available).
@@ -107,7 +116,7 @@ Both modeled and script tests can target Java and Javascript.
 
 ### Modeled Test Case
 Steps for adding a modeled test case:
-1. Create a FOAM model in a `test` directory in the same package as model you testing
+1. Create a FOAM model in the `test` sub-directory of the package you are testing, in package `<pkg>.test`; for example `src/foam/dao/test/` holds `foam.dao.test.*`
 1. The model will extend:
 	- foam.core.test.Test  - for a Java, server side, test case.
 	- foam.core.test.JSTest - for a Javascript, client side, test case.
@@ -150,6 +159,18 @@ Steps for adding a modeled test case:
 	})
 	```
 
+#### Registering a client test
+- Flag a client test `js|java` like a server test. The server replays every `tests.jrl` row into `testDAO` at boot, so it must be able to create the class; a `js`-only class prints `ERROR CREATING: <class>` (`src/foam/lang/SimpleFacetManager.java:120`).
+- `language` decides which runner picks a row: the server runs `BEANSHELL` and `JSHELL`, the browser runs `JS` (`src/foam/core/test/TestRunnerScript.js:350-355`, `:430-435`). `Script.language` defaults to `BEANSHELL` (`src/foam/core/script/Script.js:255-256`).
+- A test that extends `foam.core.test.JSTest` sets `language` to `JS` itself (`src/foam/core/test/JSTest.js:22-26`), so its row needs nothing more. Only a plain `foam.core.test.Test` whose `runTest` is JS needs `"language": 0` (`JS` is the first `Language` value) on its row; without it, the server runs the empty Java `runTest` and reports it passed with 0 assertions.
+- A test class with no Java at all can still be registered: flag it `js`, and write the row with `class: "foam.core.test.JSTest"` and `source:` set to the test's class id. The browser creates the `source` class and calls its `runTest` (`src/foam/core/test/Test.js:354-358`).
+
+#### Testing as a non-admin user
+Putting only a `subject` on the context keeps the test runner's own admin group, so `auth.check(x, "*")` stays true and every permission assertion passes for the wrong reason. Either put a `ProxyAuthService` with an overridden `check` on the context (for example `src/foam/core/auth/test/PermissionedPropertyDAOTest.js`), or save the user in `localUserDAO` and sign in with `foam.util.Auth.sudo(x, user)`, which applies a real `Session` (`src/foam/util/Auth.java:61-78`); the session throws `UserNotFoundException` for a user that is not saved (`src/foam/core/session/Session.js:345-346`, `:486-489`). Start with an assertion that the user does not hold `*`.
+
+#### Reading a data file from a client test
+A client test runs in a browser against the built webroot, so a `fetch` of a repository path returns 404. Copy the file into the webroot with the test pom's `copy:` block and fetch the copied path; see `copy` in [Build](./Build.md#build-pom-fields).
+
 ### Script Test Case
 Steps for adding a Script Test Case
 1. Launch your FOAM application with build option: `--flags:test`.
@@ -166,6 +187,18 @@ Steps for adding a Script Test Case
 		```
 1.  Save
 1.  To persist the Test, copy the most recent  `p({})`  block from the  `journals/tests`  to  `test/tests.jrl`
+
+## When a Test Does Not Run
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| nothing runs, no warning | `enabled: false` on the row; both runners select `EQ(Test.ENABLED, true)` | remove the field or set it `true` |
+| `Test not run: MyTest` | no row in a loaded `tests.jrl`, an id typo, or a client test run with `server-tests` | check the id, and that the pom walk reaches the `tests.jrl` |
+| `ERROR CREATING: <class>` at boot | the test class is flagged `js` only | flag it `js\|java` |
+| `Cannot find module .../tests.js` | a `.jrl` is listed in the pom's `files:` | remove it; see [POM](./POM.md#files) |
+| `this.test is not a function` | `this.test(...)` in a JS `runTest` | `x.test(...)` |
+| a JS test passes with 0 assertions | the server ran the empty Java `runTest` | extend `JSTest`, or add `"language": 0` to the row |
+| `Client tests made no progress ...` | the browser stopped reporting; counted as one failure | run with `--test-headed` and watch the browser |
 
 # Automation
 The FOAM repository runs all Java/Server tests on each PR update.  Equivalent to:

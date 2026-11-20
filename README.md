@@ -136,10 +136,13 @@ All code should follow the [style guide.](doc/guides/StyleGuide.md)
 
 ## Testing
 To run all, Java and Javacript, tests from the command-line, run:
-`./build.sh --run-tests`
+`./build.sh -W9090 --run-tests`
 
 To run individual tests from the command-line, run:
-`./build.sh --run-tests:testName1,testName2,...testNameN`
+`./build.sh -W9090 --run-tests:testName1,testName2,...testNameN`
+
+The `-W9090` option runs the test server on port 9090 so that it doesn't conflict
+with a server that may already be running on the default port 8080.
 
 <!--
 * _npm test_ runs standard unit tests.

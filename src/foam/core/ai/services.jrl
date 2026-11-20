@@ -32,26 +32,6 @@ p({
   """
 })
 
-// ── Dataset generation ──
-// Journaled DAO for Alpaca-format SFT training samples produced by DatasetGenerator.
-// Not HTTP-served — server-side / offline use only.
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "datasetDAO",
-  "serve": true,
-  "client": "{\"of\":\"foam.core.ai.dataset.AlpacaSample\"}",
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.dataset.AlpacaSample.getOwnClassInfo())
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("dataset")
-      .build();
-  """
-})
-
-
 // ── To swap providers, change the credential id and provider class: ──
 //   "foam/llm/openai"   + foam.core.ai.llm.provider.OpenAILLMService
 //   "foam/llm/deepseek" + foam.core.ai.llm.provider.DeepSeekLLMService
@@ -108,99 +88,31 @@ p({
   """
 })
 
-// ── Training DAOs ──
-// trainingRunDAO  — one record per MLXTrainingJob submission; persists loss, status, and adapter path.
-// trainingMetricDAO — per-iteration metrics (loss, speed, tokens/sec); multi-part key [runId, iteration].
+// ── Ask AI over indexed records ──
+// ragService.ask answers from the chunks in vectorStoreDAO, searching only the records the
+// caller can read. The browser gets this service, never llmService. An app overrides the
+// CSpec to read its prompt from configuration.
 p({
   "class": "foam.core.boot.CSpec",
-  "name": "trainingRunDAO",
-  "serve": true,
-  "client": "{\"of\":\"foam.core.ai.training.TrainingRun\"}",
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.training.TrainingRun.getOwnClassInfo())
-      .setGuid(true)
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("trainingRuns")
-      .build();
-  """
-})
-
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "trainingMetricDAO",
-  "serve": true,
-  "client": "{\"of\":\"foam.core.ai.training.TrainingMetric\"}",
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.training.TrainingMetric.getOwnClassInfo())
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("trainingMetrics")
-      .build();
-  """
-})
-
-// ── Eval DAOs ──
-// evalPromptDAO  — library of prompts with rubric items; read by MLXEvalJob before each run.
-// evalRunDAO     — one record per MLXEvalJob execution; tracks pass rate and status.
-// evalResultDAO  — per-prompt result for one run; composite key [evalRunId, promptId].
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "evalPromptDAO",
+  "name": "ragService",
   "lazy": true,
   "serve": true,
   "authenticate": true,
-  "client": "{\"of\":\"foam.core.ai.training.EvalPrompt\"}",
+  "boxClass": "foam.ai.llm.RAGServiceSkeleton",
   "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.training.EvalPrompt.getOwnClassInfo())
-      .setSeqNo(true)
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("evalPrompts")
-      .build();
-  """
-})
-
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "evalRunDAO",
-  "lazy": true,
-  "serve": true,
-  "authenticate": true,
-  "client": "{\"of\":\"foam.core.ai.training.EvalRun\"}",
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.training.EvalRun.getOwnClassInfo())
-      .setGuid(true)
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("evalRuns")
-      .build();
-  """
-})
-
-p({
-  "class": "foam.core.boot.CSpec",
-  "name": "evalResultDAO",
-  "lazy": true,
-  "serve": true,
-  "authenticate": true,
-  "client": "{\"of\":\"foam.core.ai.training.EvalResult\"}",
-  "serviceScript": """
-    return new foam.dao.EasyDAO.Builder(x)
-      .setOf(foam.core.ai.training.EvalResult.getOwnClassInfo())
-      .setPm(true)
-      .setAuthorize(true)
-      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
-      .setJournalName("evalResults")
-      .build();
+    return new foam.core.ai.llm.ServerRAGService.Builder(x).build();
+  """,
+  "client": """
+    {
+      "class": "foam.ai.llm.ClientRAGService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/ragService"
+        }
+      }
+    }
   """
 })
 

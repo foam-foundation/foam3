@@ -1,0 +1,20 @@
+// ── Dataset generation ──
+// Journaled DAO for Alpaca-format SFT training samples produced by DatasetGenerator.
+// Only built with the ml flag (see core/ai/pom.js).
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "datasetDAO",
+  "serve": true,
+  "client": "{\"of\":\"foam.core.ai.dataset.AlpacaSample\"}",
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.ai.dataset.AlpacaSample.getOwnClassInfo())
+      .setPm(true)
+      .setAuthorize(true)
+      .setJournalType(foam.dao.JournalType.SINGLE_JOURNAL)
+      .setJournalName("dataset")
+      .build();
+  """
+})
+
+

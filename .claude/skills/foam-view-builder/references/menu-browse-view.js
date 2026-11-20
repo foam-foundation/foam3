@@ -52,7 +52,7 @@ foam.CLASS({
   ],
 
   css: `
-    ^ { padding: 24px; height: 100%; box-sizing: border-box; }
+    << { padding: 24px; height: 100%; box-sizing: border-box; }
   `,
 
   properties: [
@@ -91,8 +91,9 @@ foam.CLASS({
       // TITLE + BREADCRUMB: a custom view sets this itself. The embedded
       // foam.comics.v3.DAOView never calls stack.setTitle — only DAOController
       // does (foam3/src/foam/comics/v3/DAOController.js:106), and this view
-      // embeds the former. Stack.setTitle: foam3/src/foam/core/u2/navigation/Stack.js:254.
-      this.onDetach(this.stack.setTitle(this.viewTitle$, this));
+      // embeds the former. Stack.setTitle returns nothing and clears a slot
+      // title itself when this view detaches (foam3/src/foam/core/u2/navigation/Stack.js:254-271).
+      this.stack.setTitle(this.viewTitle$, this);
 
       // BROWSE TABLE via the comics DAO stack: AQL search, filter chips, column
       // config, count and CSV export come for free. Never hand-roll

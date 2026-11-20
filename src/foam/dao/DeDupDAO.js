@@ -21,7 +21,10 @@ foam.CLASS({
   extends: 'foam.dao.ProxyDAO',
 
   javaImports: [
-    'foam.lang.FObject'
+    'foam.lang.FObject',
+    'foam.lang.PropertyInfo',
+    'foam.util.Interner',
+    'java.util.List'
   ],
 
   documentation: `
@@ -61,8 +64,19 @@ foam.CLASS({
         }
       },
       javaCode: `
-        // Server-side strings are interned while a journal replays
-        // (foam.util.StringInterner); a live put keeps its values as given.
+        // A replay's strings are already deduplicated by its StringInterner;
+        // DeDupDAO sits outside the journal and sees only live puts. Each
+        // String goes to Interner.GLOBAL, which holds the values replays saw
+        // twice, so a live record shares their instances. A frozen object came
+        // out of a DAO and already carries shared values.
+        if ( obj == null || obj.isFrozen() ) return;
+
+        List<PropertyInfo> props = obj.getClassInfo().getAxiomsByClass(PropertyInfo.class);
+        for ( PropertyInfo prop : props ) {
+          if ( ! prop.isSet(obj) ) continue;
+          Object val = prop.get(obj);
+          if ( val instanceof String ) prop.set(obj, Interner.GLOBAL.intern((String) val));
+        }
       `
     }
   ]

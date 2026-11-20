@@ -38,6 +38,7 @@ foam.POM({
     { name: "test/SafetyUtilTest",                                flags: "js&test|java&test" },
     { name: "test/StringInternerTest",                            flags: "js&test|java&test" },
     { name: "test/StringInternerConcurrencyTest",                 flags: "js&test|java&test" },
+    { name: "test/LruInternerTest",                               flags: "js&test|java&test" },
     { name: "test/DateUtilTest",                                  flags: "js&test|java&test" },
     { name: "test/DateUtilJSTest",                                flags: "js&test|java&test" },
     { name: "test/TextDiffJSTest",                                flags: "js&test|java&test" },
@@ -64,6 +65,9 @@ foam.POM({
   javaFiles: [
     { name: "QuickSortTest",                                      flags: "test" },
     { name: "LRULinkedHashMap" },
+    { name: "Interner" },
+    { name: "JvmInterner" },
+    { name: "LruInterner" },
     { name: "StringInterner" },
     { name: "AddressUtil" },
     { name: "SyncFastTimestamper" },

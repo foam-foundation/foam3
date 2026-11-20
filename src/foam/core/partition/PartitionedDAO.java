@@ -186,6 +186,17 @@ public class PartitionedDAO
       synchronous half of compaction can throw here; once dispatched, the
       rewrite records its own errors the same way. */
   public Object cmd_(X x, Object cmd) {
+    // LAST_CMD asks for the terminal storage DAO at the bottom of a delegate
+    // chain; a plain MDAO answers with itself. A partitioned DAO has no single
+    // MDAO -- it routes each row to a per-partition MDAO -- so without this it
+    // falls through to AbstractDAO.cmd_ and returns null. Callers such as the
+    // SAF receiver then have nowhere to apply a replicated row. Return this: a
+    // put_ on it routes to the correct partition, and because the partitioned
+    // DAO sits below the SAF and Ruler decorators, the write skips re-broadcast
+    // and the rule engine, exactly as a direct MDAO write would.
+    if ( foam.dao.DAO.LAST_CMD.equals(cmd) ) {
+      return this;
+    }
     if ( cmd instanceof foam.dao.compaction.CompactionCmd ) {
       foam.dao.compaction.CompactionCmd cc = (foam.dao.compaction.CompactionCmd) cmd;
       for ( String part : getPartitions() ) {

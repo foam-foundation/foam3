@@ -36,6 +36,13 @@ public class SessionDAOSkeleton
     else if ( "pipe".equals(n)      ) { rpc.setName("pipe_"); }
     else if ( "cmd".equals(n)       ) { rpc.setName("cmd_"); }
 
+    RemoteListeners listeners = (RemoteListeners) envelope.getX().get("remoteListeners");
+    if ( listeners != null ) {
+      // After the renames above, so both spellings (cmd, cmd_) are caught.
+      if ( "cmd_".equals(rpc.getName()) && stopListening(listeners, rpc, envelope) ) return;
+      if ( "listen_".equals(rpc.getName()) ) trackListen(listeners, rpc);
+    }
+
     if ( "put_".equals(n) ) {
       DAO delegate = (DAO) getDelegateFactory().create(envelope.getX());
 
@@ -55,4 +62,29 @@ public class SessionDAOSkeleton
     super.send(envelope);
   }
 
+
+  /** A stop from the client: stop that listener and answer here. The DAO never sees it. */
+  protected boolean stopListening(RemoteListeners listeners, RPCMessage rpc, foam.box.Envelope envelope) {
+    Object[] args = rpc.getArgs();
+    if ( args == null ) return false;
+    for ( Object a : args ) {
+      if ( a instanceof StopListeningCmd ) {
+        listeners.stop(((StopListeningCmd) a).getName());
+        if ( envelope.getReplyBox() != null ) {
+          envelope.getReplyBox().send(new foam.box.Envelope(getX().create(foam.box.RPCReturnMessage.class), null));
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** A listen from the client: remember it by its SubBox name, so it can be stopped. */
+  protected void trackListen(RemoteListeners listeners, RPCMessage rpc) {
+    Object[] args = rpc.getArgs();
+    if ( args == null || args.length < 2 || ! ( args[1] instanceof ClientSink ) ) return;
+    foam.box.Box box = ((ClientSink) args[1]).getDelegate();
+    if ( ! ( box instanceof foam.box.SubBox ) ) return;
+    args[1] = listeners.track(((foam.box.SubBox) box).getName(), (Sink) args[1]);
+  }
 }

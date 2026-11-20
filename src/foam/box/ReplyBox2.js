@@ -7,11 +7,19 @@ foam.CLASS({
       class: 'Boolean',
       name: 'once',
       value: true
+    },
+    {
+      name: 'exported',
+      transient: true,
+      hidden: true,
+      generateJava: false,
+      documentation: 'The SubBox this box was last sent as. Its name is how the far side reaches it.'
     }
   ],
   methods: [
     function outputJSON(outputter) {
-      outputter.output(outputter.__context__.subBox(this, this.once));
+      this.exported = outputter.__context__.subBox(this, this.once);
+      outputter.output(this.exported);
     }
   ]
 });

@@ -28,9 +28,9 @@ foam.CLASS({
       hidden: true,
       javaFactory: `
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
-          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
+          ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/ai/llm/openai");
         if ( cred == null )
-          throw new RuntimeException("Embedding credential not found: foam/llm/openai");
+          throw new RuntimeException("Embedding credential not found: foam/ai/llm/openai");
         return cred.getApiKeySecret(getX());
       `
     }

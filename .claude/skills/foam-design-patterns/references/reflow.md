@@ -91,12 +91,12 @@ Cite: foam3 `39090d486f`, `24f3316d6c`, `lib.js:7-20`
 ## AI agents
 
 An agent is one more user of the Console: it types Reflow commands and the platform runs them as it would the user's.
-The design is in `src/foam/core/reflow/ai/AI.md`. Cites are `foam3/src/foam/core/reflow/ai/<file>:<line>` unless the path says otherwise.
+The design is in `foam3/src/foam/core/reflow/ai/AI.md`. Cites in this section are `foam3/src/foam/core/reflow/ai/<file>:<line>`; a cite that starts with `foam3/` is a full path.
 
 | Principle | One-line test |
 |---|---|
 | An agent's abilities are commands | does the change add an LLM tool other than `execute_command`? |
-| What an agent runs shows in the flow | does an agent run a script under a hidden block without a `predicate`? |
+| What an agent runs shows in the flow | does an agent run scripts the user never sees? |
 | Agent knowledge is a `systemPrompt` flow | is there a prompt string in a command or service? |
 | The LLM writes the flow once | does a repeated job call the LLM to redo the same work? |
 | LLM behaviour shared by callers is a decorator | does one caller mask, log or retry around `llmService`? |
@@ -104,22 +104,23 @@ The design is in `src/foam/core/reflow/ai/AI.md`. Cites are `foam3/src/foam/core
 ### An agent's abilities are Reflow commands; add a command, never a tool
 Every command the user may run is open to the agent, under the same permissions and journal, so a new command is a new ability with no glue.
 The one `execute_command` tool carries a script typed at the prompt; it is not a registry.
-Don't: an LLM tool schema per ability; a provider tool such as web search, which no permission covers and no block shows
+Don't: an LLM tool schema per ability
 Do:    a command row in `cmds.jrl` with `permissionRequired: true`; the agent reaches it through `execute_command`
 Cite: `CommandTool.js:74-88`, `AgentCommand.js:85-93`, `cmds.jrl`
 
 ### What an agent runs shows in the flow; `propose` is the default
 The reply is the plan, the trace and the work product: the user reads the commands, not a summary of them.
 `?` and `plan` wrap each script in `propose`, which the user edits, accepts or rejects; `!` and `agent` run it directly once a workflow is proven.
-Don't: an agent that runs scripts nobody sees, unless it reads text it did not write, such as an uploaded file; then a `predicate` limits what it may call
+Don't: an agent that runs scripts nobody sees
 Do:    start with `?`; an accepted proposal runs through `eval_` and enters the prompt history like a typed command
-Cite: `cmds.jrl` (`dryRun`), `Propose.js:108-116`, `CommandTool.js:99-105`
+An agent that reads text it did not write, such as an uploaded file, sets `predicate` on its `CommandTool`: each script must then be one call of a matching command with JSON data as its argument, so a line in that text cannot make it run anything else.
+Cite: `cmds.jrl` (`dryRun`), `Propose.js:108-116`, `CommandTool.js:52-56,99-105`
 
 ### Agent knowledge is a FLOW document, not a string in code
 Flows named `systemPrompt*` are the agent's knowledge. A flow has an access level, so the prompt can be layered: global, per service provider, per role, personal, per agent. It is edited without a release.
 Don't: a prompt literal in a command, a service or a journal row of strings
-Do:    a flow named `systemPrompt-<topic>` with Markdown blocks, readable by the users whose agent needs it
-Cite: `AgentCommand.js:108-128`, `AI.md` (System Prompts)
+Do:    a flow named `systemPrompt-<topic>` with Markdown blocks, readable by the users whose agent needs it. Only Markdown blocks reach the prompt; any other block, such as a `daos` command, is dropped without a message
+Cite: `AgentCommand.js:108-128` (Markdown only at 115-118), `AI.md` (System Prompts)
 
 ### The LLM writes the flow once; the saved flow runs without it
 Generated commands are source code. Review them, keep them, pin them with a FLOAT test, then delete the agent block. The saved flow costs no tokens and sends no data out on each run.
@@ -131,7 +132,7 @@ Cite: `AI.md` (Compiling Flows)
 Logging, performance monitoring, conversation memory, masking and routing wrap `llmService` in its service stack, so every caller gets them. A provider is a class that changes the URL and model.
 Don't: masking or retry code inside one caller; a new provider that copies a reply parser
 Do:    a proxy decorator in the `llmService` stack; a provider that extends `OpenAILLMService` and sets `baseURL` and model
-Cite: `foam/core/ai/llm/LoggingLLMService.js:8-10`, `foam/ai/llm/ConversationalLLMService.js:10`, `foam/core/ai/llm/provider/OllamaLLMService.js:10-27`, `foam/core/ai/services.jrl:8`
+Cite: `foam3/src/foam/core/ai/services.jrl:3` (the stack), `foam3/src/foam/core/ai/llm/LoggingLLMService.js:8-10`, `foam3/src/foam/core/ai/llm/PMLLMService.js:8-10`, `foam3/src/foam/ai/llm/ConversationalLLMService.js:10`, `foam3/src/foam/core/ai/llm/provider/OllamaLLMService.js:10-30`
 
 ## Markdown documents
 

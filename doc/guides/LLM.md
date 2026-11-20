@@ -212,7 +212,11 @@ What a 0.6B model cannot do: the first answer waits for the one-time download, a
 |---|---|
 | `history` | Accumulated `ChatMessage[]` across all calls |
 | `maxHistory` | Maximum messages to retain (default 50); older messages are trimmed to stay within model context limits |
+| `keepPromptPrefix` | True (default) for a model that caches the start of its prompt, as server APIs do: the history is cut only past `maxHistory + maxOverflow`, so most turns resend an unchanged start. False for a model that reruns the whole prompt every call, such as `TransformersLLMService`: the history is cut to `maxHistory` every turn |
+| `maxOverflow` | Messages the history may grow past `maxHistory` before it is cut back to `maxHistory` in one step; defaults to `maxHistory` when `keepPromptPrefix` is on, 0 when off |
 | `clearHistory()` | Resets the conversation |
+
+A caller that adds text to each turn, such as retrieved passages, keeps the system prompt fixed and puts that text in the user message when `keepPromptPrefix` is on, so the start of the prompt does not change. When it is off, the text goes in that call's system prompt and the history keeps only the questions and answers; the RAG Chat demo does this for the browser model.
 
 When a caller passes `stateless: true` in `LLMOptions`, the decorator passes the request straight through to the delegate, bypassing both history injection and recording. This is the right choice for a caller that already sends its full conversation history on every request — without `stateless`, the decorator's own accumulated history would be prepended, sending each earlier message twice.
 

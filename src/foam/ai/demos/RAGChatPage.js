@@ -163,11 +163,12 @@ foam.CLASS({
     {
       name: 'browserChat_',
       documentation: `The browser model with the conversation so far, so a follow-up such as "and its
-        limits?" knows what "its" is. ask sends the passages in the system prompt of each call, so
-        the history keeps only questions and answers and the small model's prompt stays short.
+        limits?" knows what "its" is. The browser model keeps no cache between calls, so
+        keepPromptPrefix is off: ask sends the passages in the system prompt of each call, the
+        history keeps only questions and answers, and the small model's prompt stays short.
         6 messages is the last 3 questions with their answers.`,
       factory: function() {
-        return this.ConversationalLLMService.create({ delegate: this.browserLLM_, maxHistory: 6 });
+        return this.ConversationalLLMService.create({ delegate: this.browserLLM_, maxHistory: 6, keepPromptPrefix: false });
       }
     },
     {
@@ -269,12 +270,19 @@ foam.CLASS({
       if ( ! sink.array.length ) return this.RAGAnswer.create({ answered: true, answer: this.NOT_INDEXED });
       if ( ! lines.length ) return this.RAGAnswer.create();
 
-      // the passages go in this call's system prompt and the message is the question alone, so the
-      // conversation history the browser model keeps holds no passages
-      var options = this.options.clone();
-      options.systemPrompt = this.options.systemPrompt + '\n\nContext:\n' + lines.join('\n\n');
+      // A server model caches the start of its prompt, so the passages go in the message and the
+      // system prompt stays the same on every call. The browser model reruns the whole prompt each
+      // time, so they go in this call's system prompt and its history holds only the questions.
+      var context = 'Context:\n' + lines.join('\n\n');
+      var options = this.options;
+      var message = context + '\n\nQuestion: ' + question;
+      if ( this.llmService.keepPromptPrefix === false ) {
+        options = this.options.clone();
+        options.systemPrompt = this.options.systemPrompt + '\n\n' + context;
+        message = question;
+      }
       var response = await this.llmService.chat(x, this.ChatRequest.create({
-        messages: [ this.ChatMessage.create({ role: 'USER', content: question }) ],
+        messages: [ this.ChatMessage.create({ role: 'USER', content: message }) ],
         options:  options
       }));
       return this.RAGAnswer.create({ answered: true, answer: response.content, sources: sources });

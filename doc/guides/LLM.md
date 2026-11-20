@@ -231,7 +231,7 @@ return new foam.core.ai.llm.LoggingLLMService.Builder(x)
 
 The decorator stack stays the same; only the innermost builder changes. Other available server-side providers: `DeepSeekLLMService`, and `OllamaLLMService` (Ollama requires no credential — `.build()` directly with no API key setup). All share the same `LLMService` interface and work identically from calling code.
 
-Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through the vault rather than from a config file or environment variable. Each provider's credential entry is pre-declared in `foam/core/ai/credentials.jrl`, mapping a provider ID (e.g. `"foam/llm/openai"`) to a named alias inside a vault CSpec (`vaultSecrets`). The vault implementation itself is configured per deployment — a local file keystore for development, a secrets manager (e.g. AWS Secrets Manager) in production — so the same credential entries work across environments without change. See [CredentialManagement.md](CredentialManagement.md) for how to configure the vault and store keys.
+Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through the vault rather than from a config file or environment variable. Each provider's credential entry is pre-declared in `foam/core/ai/credentials.jrl`, mapping a provider ID (e.g. `"foam/ai/llm/openai"`) to a named alias inside a vault CSpec (`vaultSecrets`). The vault implementation itself is configured per deployment — a local file keystore for development, a secrets manager (e.g. AWS Secrets Manager) in production — so the same credential entries work across environments without change. See [CredentialManagement.md](CredentialManagement.md) for how to configure the vault and store keys.
 
 ## Try It Live
 

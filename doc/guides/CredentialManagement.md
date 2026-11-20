@@ -280,7 +280,7 @@ c({ "class":"foam.core.auth.APIKeyCredential", "id":"foam/ai/llm/deepseek",
 
 ### Alias naming convention
 
-Aliases use a hierarchical path: the package of the service that reads them, then `<provider>/<field>`. The LLM providers serve `foam.ai.llm`, so their aliases start `foam/ai/llm/`.
+Aliases use a hierarchical path: `<namespace>/<subsystem>/<provider>/<field>`.
 
 | Provider | Alias |
 |---|---|

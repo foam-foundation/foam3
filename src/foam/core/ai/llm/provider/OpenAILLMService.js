@@ -56,6 +56,11 @@ foam.CLASS({
     },
     {
       name: 'baseURL',
+      documentation: `
+        OpenAI's chat-completions endpoint. To use another OpenAI-compatible endpoint, put its
+        host only, e.g. http://host:8001, in the url of the credential: calls then go to
+        <url>/v1/chat/completions (see requestURL).
+      `,
       value: 'https://api.openai.com/v1/chat/completions'
     }
   ],
@@ -225,6 +230,24 @@ foam.CLASS({
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("Authorization", "Bearer " + getApiKey());
         return headers;
+      `
+    },
+    {
+      name: 'requestURL',
+      documentation: `
+        Sends the call to an OpenAI-compatible endpoint when the credential has a url: with
+        url http://host:8001 it goes to http://host:8001/v1/chat/completions. The url is read
+        on every call, as the key is, so an edit applies without a restart. It replaces only
+        OpenAI's own endpoint: a baseURL set on the instance, or one a subclass declares
+        (Ollama's http://localhost:11434/v1/chat/completions), still wins.
+      `,
+      javaCode: `
+        // BASE_URL is this class's property, so isDefaultValue is true only while baseURL is
+        // still https://api.openai.com/v1/chat/completions, never for a subclass's own default
+        if ( baseURLIsSet_ || ! BASE_URL.isDefaultValue(this) ) return getBaseURL();
+        foam.core.auth.Credential cred = (foam.core.auth.Credential)
+          ((DAO) getX().get("credentialDAO")).find(getCredentialId());
+        return cred == null || SafetyUtil.isEmpty(cred.getUrl()) ? getBaseURL() : cred.getUrl() + "/v1/chat/completions";
       `
     },
     {

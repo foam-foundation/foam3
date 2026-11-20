@@ -366,6 +366,15 @@ foam.CLASS({
       `
     },
     {
+      name: 'requestURL',
+      documentation: `
+        Where send posts the request, read on every call: baseURL. A provider whose
+        endpoint can change while the server runs overrides it.
+      `,
+      type: 'String',
+      javaCode: 'return getBaseURL();'
+    },
+    {
       name: 'send',
       documentation: `
         POSTs the body and reads the streamed reply back into one reply, retrying rate
@@ -379,7 +388,7 @@ foam.CLASS({
       args: 'Context x, org.json.JSONObject body, Map headers, foam.ai.llm.LLMProgress progress',
       javaCode: `
         Logger              logger  = Loggers.logger(x, this);
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(getBaseURL()))
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(requestURL()))
           .timeout(Duration.ofMillis(getReadTimeout()))
           .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8));
         for ( Object e : headers.entrySet() ) {

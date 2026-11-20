@@ -142,6 +142,38 @@ p({
 })
 ```
 
+## Google Chat
+
+`GoogleChatSetting` posts a notification to a Google Chat space as a Cards V2 card when the notification has a `googleChatWebhook`. The card's title is the first line of `googleChatMessage`, or of the `body` when there is no message, and its subtitle is the server's host name. Posts go through the `googleChatNotificationThrottler`.
+
+To send EventRecord alerts to a space, copy the EventRecord notification template (id 3 in `src/foam/core/er/notificationTemplates.jrl`) into the production deployment and add the space's webhook URL:
+
+```
+deployment/some-production-environment/notificationTemplates.jrl
+
+p({
+  class:"foam.core.notification.Notification",
+  id: 3,
+  template: "foam-core-er-EventRecordNotificationTemplate",
+  emailName:"foam-core-er-EventRecordEmailTemplate",
+  groupId: "noc",
+  notificationType: "NOC",
+  googleChatWebhook: "https://chat.googleapis.com/v1/spaces/example/messages?key=example"
+})
+```
+
+The user must also have a `GoogleChatSetting`. foam3's `notificationSettingDefaults.jrl` enables one for every spid (`*`); a deployment that does not keep that default can add one for its own spid:
+
+```
+deployment/some-production-environment/notificationSettingDefaults.jrl
+
+p({
+  class:"foam.core.notification.GoogleChatSetting",
+  "id":"a-unique-id",
+  "spid":"your-spid"
+})
+```
+
 ## Notification Display and Views
 
 Users access notifications through the notifications bell icon, which displays notifications in a list format. Each row is rendered by `NotificationCitationView`, which shows the date and the body, or the toast message when there is no body. Clicking a row opens `NotificationMessageModal`, which shows the `body` from `emailArgs` as plain text with its line breaks, falling back to the notification's own `body` and toast messages.

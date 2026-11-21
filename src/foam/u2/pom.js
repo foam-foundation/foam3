@@ -53,6 +53,7 @@ foam.POM({
     { name: "test/CSSTokenOverrideVariantJSTest",                 flags: "js&test|java&test" },
     { name: "test/CSSTokenVariantKeyJSTest",                      flags: "js&test|java&test" },
     { name: "test/SafeHTMLViewJSTest",                            flags: "js&test|java&test" },
+    { name: "test/ActionViewConfirmJSTest",                       flags: "js&test|java&test" },
     { name: "test/CSSSpacingTokensJSTest",                        flags: "js&test|java&test" },
     { name: "test/CSSRadiusTokensJSTest",                         flags: "js&test|java&test" },
     { name: "test/CSSElevationTokensJSTest",                      flags: "js&test|java&test" },

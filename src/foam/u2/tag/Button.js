@@ -107,6 +107,12 @@ foam.CLASS({
       display: none;
     }
 
+    /* The label's wrapper adds no box of its own. A class, not an inline
+       style, so a state rule (ActionView's ^confirming) can still hide it. */
+    <<labelWrap {
+      display: contents;
+    }
+
     << img {
       vertical-align: middle;
     }
@@ -573,7 +579,7 @@ foam.CLASS({
         }
       }))
       this.add(this.slot(function(label) {
-        let e = this.E().show(!! label).style({ display: 'contents' });
+        let e = this.E().show(!! label).addClass(this.myClass('labelWrap'));
         if ( foam.String.isInstance(this.label)  ) {
           if ( this.buttonStyle == 'LINK' || this.buttonStyle == 'UNSTYLED' ) {
             e.start().addClass('p').add(this.label$).end();

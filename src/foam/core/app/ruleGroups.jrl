@@ -1,0 +1,8 @@
+p({
+  "class":"foam.core.ruler.RuleGroup",
+  "id":"Health"
+})
+// "predicate":{
+//   "class":"foam.mlang.predicate.IsInstanceOf",
+//   "of":"foam.core.app.HealthAware"
+// }

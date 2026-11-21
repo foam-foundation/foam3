@@ -75,8 +75,10 @@ foam.CLASS({
   ],
 
   css: `
-    /* While "Confirm" shows, the action's own icon and label are hidden. */
-    ^confirming > :not(^confirm) { display: none; }
+    /* While "Confirm" shows, the action's own icon and label are hidden.
+       Button sets display on its label wrapper inline (display: contents),
+       and an inline style wins over a class rule, so this one is important. */
+    ^confirming > :not(^confirm) { display: none !important; }
   `,
 
   messages: [
@@ -191,14 +193,18 @@ foam.CLASS({
       // "Confirm" in place of its icon and label, following buttonState. It
       // keeps at least the width it had as the action, and grows only when
       // "Confirm" is wider, so in a row of buttons the others do not shift
-      // under the pointer before the second click.
+      // under the pointer before the second click. The "Confirm" label is
+      // in the button only while it asks: a button that is not asking, or
+      // never asks, holds its own icon and label and nothing else.
       var confirming$ = this.buttonState$.map((s) => s === this.ButtonState.DEBOUNCE || s === this.ButtonState.ARMED);
       this.enableClass(this.myClass('confirming'), confirming$);
       this.style({ 'min-width': this.slot(function(buttonState, actionWidth_) {
         var confirming = buttonState === this.ButtonState.DEBOUNCE || buttonState === this.ButtonState.ARMED;
         return confirming && actionWidth_ ? actionWidth_ + 'px' : '';
       }) });
-      this.start().addClass(this.myClass('confirm'), 'h600').show(confirming$).add(this.CONFIRM).end();
+      this.add(confirming$.map((confirming) => confirming ?
+        this.E().addClass(this.myClass('confirm'), 'h600').add(this.CONFIRM) :
+        null));
     },
 
     function initCls() {

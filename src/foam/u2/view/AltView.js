@@ -13,9 +13,8 @@ foam.CLASS({
 
   documentation: `Provides the ability to switch between multiple views for a data set.
     Takes a views property which should be the value of an array containing arrays that contain desired views, and label.
-    Ex. views: [[ { class: 'foam.u2.table.TableView' }, 'Table' ]]`,
-
-  requires: [ 'foam.u2.view.RadioView' ],
+    Ex. views: [[ { class: 'foam.u2.table.TableView' }, 'Table' ]]
+    The switch is selectorView (radio buttons unless set): any choice view, given the views' labels.`,
 
   css: `
     << {
@@ -30,7 +29,7 @@ foam.CLASS({
          altview. This means the above flex: 1 doesnt make the content overflow this div */
       min-height: 0;
     }
-    << .property-selectedView { margin-bottom: 6px; }
+    << .property-selectedViewLabel { margin-bottom: 6px; }
     << .foam-u2-view-RadioView.foam-u2-view-RadioView-horizontal-radio .choice {
       display: inline-flex;
     }
@@ -46,10 +45,14 @@ foam.CLASS({
       factory: function() { return []; }
     },
     {
+      class: 'foam.u2.ViewSpec',
+      name: 'selectorView',
+      documentation: `The switch: any choice view. It draws selectedViewLabel, so it is given choices as
+        [label, label] pairs and data as the picked view's label.`,
+      value: { class: 'foam.u2.view.RadioView', isHorizontal: true, columns: 8 }
+    },
+    {
       name: 'selectedView',
-      view: function(_, X) {
-        return X.data.RadioView.create({choices: X.data.views, isHorizontal: true, columns: 8}, X);
-      },
       documentation: `Set one of the views as the selectedView.
 
         Default to the first item of the views property.
@@ -91,12 +94,28 @@ foam.CLASS({
           return this.views[nu][0];
         }
         return nu;
+      },
+      postSet: function(_, nu) {
+        var view  = this.views.find(v => v[0] === nu);
+        var label = view ? view[1] : '';
+        if ( this.selectedViewLabel !== label ) this.selectedViewLabel = label;
       }
     },
     {
       class: 'String',
       name: 'selectedViewLabel',
-      memorable: true
+      documentation: 'The label of the picked view. The switch draws it, and the address keeps it.',
+      memorable: true,
+      view: function(_, X) {
+        // labels as values: a choice view that holds text can draw them
+        return foam.u2.ViewSpec.createView(X.data.selectorView,
+          { choices: X.data.views.map(v => [ v[1], v[1] ]) }, X.data, X);
+      },
+      postSet: function(_, nu) {
+        // a label that names no view (an old address) changes nothing; render clears it
+        var view = this.views.find(v => v[1] === nu);
+        if ( view && view[0] !== this.selectedView ) this.selectedView = view[0];
+      }
     }
   ],
 
@@ -105,19 +124,14 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
-      if ( this.selectedViewLabel ) {
-        var viewSelectedWithMemento = this.views.find(v => foam.Array.isInstance(v) && v[1] == this.selectedViewLabel);
-        if ( viewSelectedWithMemento ) {
-          this.selectedView = viewSelectedWithMemento[1];
-        } else {
-          this.selectedViewLabel = '';
-        }
-      }
+      // The address may have set the label before views was set: apply it now. No label: the first view.
+      var fromAddress = this.views.find(v => v[1] === this.selectedViewLabel);
+      this.selectedView = fromAddress ? fromAddress[0] : this.selectedView;
 
       this.addClass()
       this.startContext({data: this})
         this.start()
-          .add(this.SELECTED_VIEW)
+          .add(this.SELECTED_VIEW_LABEL)
         .end()
       .endContext()
       .start('div')
@@ -126,18 +140,6 @@ foam.CLASS({
           return self.E().tag(v, {data$: self.data$});
         }))
       .end();
-
-      this.onDetach(this.selectedView$.sub(function() {
-        self.setMementoWithSelectedView();
-      }));
-    }
-  ],
-
-  actions: [
-    function setMementoWithSelectedView() {
-      if ( ! this.memento_ ) return;
-      var view = this.views.find(v => v[0] == this.selectedView);
-      this.selectedViewLabel = view ? view[1] : '';
     }
   ]
 });

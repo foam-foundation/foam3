@@ -15,8 +15,6 @@ foam.CLASS({
     Takes a views property which should be the value of an array containing arrays that contain desired views, and label.
     Ex. views: [[ { class: 'foam.u2.table.TableView' }, 'Table' ]]`,
 
-  requires: [ 'foam.u2.view.RadioView' ],
-
   css: `
     << {
       margin: auto; width: 100%;
@@ -46,10 +44,14 @@ foam.CLASS({
       factory: function() { return []; }
     },
     {
+      class: 'foam.u2.ViewSpec',
+      name: 'selectorView',
+      documentation: `The control that picks a view: any choice view. It is given choices, a list of
+        [label, label], and data, the label of the picked view.`,
+      value: { class: 'foam.u2.view.RadioView', isHorizontal: true, columns: 8 }
+    },
+    {
       name: 'selectedView',
-      view: function(_, X) {
-        return X.data.RadioView.create({choices: X.data.views, isHorizontal: true, columns: 8}, X);
-      },
       documentation: `Set one of the views as the selectedView.
 
         Default to the first item of the views property.
@@ -114,12 +116,16 @@ foam.CLASS({
         }
       }
 
+      // The selector works on labels (text), so any choice view can be the selector.
+      var label = foam.lang.SimpleSlot.create();
+      this.onDetach(this.selectedView$.relateTo(label,
+        function(v) { var view = self.views.find(w => w[0] == v); return view ? view[1] : ''; },
+        function(l) { var view = self.views.find(w => w[1] == l); return view ? view[0] : self.selectedView; }));
+
       this.addClass()
-      this.startContext({data: this})
-        this.start()
-          .add(this.SELECTED_VIEW)
-        .end()
-      .endContext()
+      this.start().addClass('property-selectedView')
+        .tag(this.selectorView, { choices: this.views.map(v => [ v[1], v[1] ]), data$: label })
+      .end()
       .start('div')
         .add(this.selectedView$.map(function(v) {
           if ( foam.String.isInstance(v) ) v = { class: v };

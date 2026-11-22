@@ -44,6 +44,9 @@ foam.CLASS({
       grid-gap: 8px;
       align-items: start;
     }
+    <<region {
+      display: contents;
+    }
   `,
 
   classes: [
@@ -68,6 +71,9 @@ foam.CLASS({
         <<two-column.lg {
           grid-template-columns: 2fr 1fr;
         }
+        <<secondLine {
+          display: contents;
+        }
       `,
       methods: [
         function render() {
@@ -91,7 +97,7 @@ foam.CLASS({
           .end()
           .add(self.slot(function(data$structured) {
             if ( data$structured ) console.warn('Using autocompleter with structured addresses may cause validation issues');
-            return this.E().style({ display: 'contents' })
+            return this.E().addClass(self.myClass('secondLine'))
             .tag(data$structured ? self.data.SUITE.__ : self.data.ADDRESS2.__)
           }))
         .end();
@@ -268,7 +274,7 @@ foam.CLASS({
           .style({ 'flex-direction': this.inlineSize$.map(v => v >= this.DisplayWidth.MD.minWidth ? 'row' : 'column') })
           .tag(this.data.CITY.__)
           .add(this.slot(function(data) {
-            return this.E().style({display: 'contents'})
+            return this.E().addClass(this.myClass('region'))
               .tag(data.REGION_ID.__, { 
                 config: {
                   view: {

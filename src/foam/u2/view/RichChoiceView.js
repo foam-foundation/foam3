@@ -317,6 +317,10 @@ foam.CLASS({
     <<container .highlighted.disabled {
       background-color: unset;
     }
+
+    <<actionWrap {
+      display: contents;
+    }
   `,
 
   properties: [
@@ -811,7 +815,7 @@ foam.CLASS({
 
     function addAction(action, actionData) {
       var self = this;
-      let e = this.E().style({ 'display': 'contents' })
+      let e = this.E().addClass(self.myClass('actionWrap'));
       if ( action && actionData ) {
         return e
           .start(self.DefaultActionView, { action: action, data: actionData })

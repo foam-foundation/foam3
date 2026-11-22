@@ -24,6 +24,9 @@ foam.CLASS({
       flex-direction: column;
       gap: 1rem;
     }
+    <<alert {
+      display: contents;
+    }
   `,
   properties: [
     {
@@ -42,7 +45,7 @@ foam.CLASS({
     function render() {
       this.addClass().tag('', {}, this.futureContent_$)
       .add(this.slot(function(source) {
-        let e = this.E().style({ display: 'contents' });
+        let e = this.E().addClass(this.myClass('alert'));
         return source ?
         e.start(this.InlineNotificationMessage, { type: 'WARN' }).add(this.source).end() :
         e;

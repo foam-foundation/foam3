@@ -68,6 +68,10 @@ foam.CLASS({
 
       width: 100%;
     }
+
+    <<row {
+      display: flex;
+    }
   `,
 
   properties: [
@@ -136,7 +140,7 @@ foam.CLASS({
       this.addClass()
         .add(this.slot(function(mode, currency) {
           if ( mode === foam.u2.DisplayMode.RW ) {
-            return this.E().style({ 'display': 'flex' }).start().addClass(self.myClass('container-selection'))
+            return this.E().addClass(self.myClass('row')).start().addClass(self.myClass('container-selection'))
               .start('p').addClass(self.myClass('label-currency'))
                 .add(currency ? `${currency.id} ${currency.symbol}` : '--')
               .end()

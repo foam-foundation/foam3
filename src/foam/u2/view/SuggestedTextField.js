@@ -225,7 +225,7 @@
               })
             .end();
         })
-        .add(this.refineInput$.map(v => v ? self.MORE_SUGGESTIONS : this.E().style({ display: 'contents' })));
+        .add(this.refineInput$.map(v => v ? self.MORE_SUGGESTIONS : this.E().hide()));
     },
     function fromProperty(p) {
       this.prop = p;

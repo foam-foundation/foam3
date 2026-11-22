@@ -25,6 +25,9 @@ foam.CLASS({
     <<image img{
       width: 8rem;
     }
+    <<logo {
+      display: contents;
+    }
   `,
 
   properties: [
@@ -52,7 +55,7 @@ foam.CLASS({
         .addClass(this.myClass())
         .startContext({ data: this })
           .add(this.slot(function(logoSpec) {
-            return this.E().style({ display: 'contents' })
+            return this.E().addClass(self.myClass('logo'))
               .start(logoSpec)
                 .addClass(self.myClass('image'))
               .end();

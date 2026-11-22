@@ -171,13 +171,13 @@ foam.CLASS({
         let el = this.E().addClass(this.myClass('label' + '-' + prop.name));
         return prop$label ?
           el.call(prop.labelFormatter, [data, prop]) :
-          ( prop$reserveLabelSpace ? el : this.E().style({ display: 'contents' }) )
+          ( prop$reserveLabelSpace ? el : this.E().hide() )
       });
       var supportingLabelSlot = this.slot(function(prop$supportingLabel) {
         let el = this.E().addClass(this.myClass('supportingLabel' + '-' + prop.name));
         return prop$supportingLabel ?
           el.call(prop.supportingLabel, [data, prop]) :
-          this.E().style({ display: 'contents' })
+          this.E().hide()
       });
 
       var viewSlot = prop.view$.map(v => {

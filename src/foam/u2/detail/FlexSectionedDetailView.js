@@ -57,7 +57,7 @@ foam.CLASS({
             .forEach(sections, function (section) {
               const isAvailable$ = section.createIsAvailableFor(self.data$, self.__subContext__.controllerMode$);
               this.add(isAvailable$.map(function(isAvailable) {
-                if ( ! isAvailable ) return self.E().style({ display: 'none' });
+                if ( ! isAvailable ) return self.E().hide();
 
                 return self.border.create()
                   .tag(section.view, {

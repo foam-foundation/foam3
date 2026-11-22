@@ -208,7 +208,8 @@ foam.CLASS({
             })
             .add(this.slot(function(loadLatch, collapsed) {
               if ( ! loadLatch || ! section.properties.length ) return;
-              var view = this.E().style({ display: 'contents' })
+              // The outer element is never attached: the Grid is what is returned.
+              var view = this.E()
                 .start(self.Grid, {})
                 .hide(section.collapsable$.and(self.collapsed$))
                 .addClass(self.myClass('grid'));

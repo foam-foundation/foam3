@@ -35,6 +35,9 @@ foam.CLASS({
       width: 100%;
       left: 0;
     }
+    <<description {
+      display: contents;
+    }
   `,
   properties: [
     {
@@ -62,7 +65,7 @@ foam.CLASS({
           .start().addClass(this.myClass('statusLabel')).start().addClass('h600').add('Status: ').end().add(this.data$.map(v => v && v.label)).end()
           .start().style({ background: colorOf('color') }).addClass(this.myClass('hr')).end()
           .add(this.slot(function(data, descriptionOverrides) {
-            let e = this.E().style({ display: 'contents' });
+            let e = this.E().addClass(self.myClass('description'));
             if ( self.descriptionOverrides[data] ) {
               e.tag(self.descriptionOverrides[data]);
             } else {

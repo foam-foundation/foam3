@@ -59,7 +59,9 @@ foam.CLASS({
     << .foam-u2-borders-ExpandableBorder-container {
       padding: 10px;
     }
-
+    <<typeOptions {
+      display: contents;
+    }
   `,
 
   properties: [
@@ -192,7 +194,7 @@ foam.CLASS({
            }))
           .end()
           .start()
-            .style({ display: 'contents' })
+            .addClass(this.myClass('typeOptions'))
             .show(this.isDataTypeSelected$)
             .start(this.NOTE.__).end()
             .start().addClass(this.myClass('divided-sec'))

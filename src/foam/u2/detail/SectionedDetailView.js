@@ -62,7 +62,7 @@ foam.CLASS({
                 // whitespace that ruins the layout. Therefore we explicitly
                 // return a dummy element here and set display: none so that the
                 // grid doesn't add whitespace around it.
-                if ( ! isAvailable ) return self.E().style({ display: 'none' });
+                if ( ! isAvailable ) return self.E().hide();
 
                 // Support string titles and functions
                 var title$ = foam.Function.isInstance(s.title) ?

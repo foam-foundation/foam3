@@ -94,6 +94,12 @@ foam.CLASS({
     <<hide {
       display: none !important;
     }
+
+    <<indicator {
+      display: inline-block;
+      float: left;
+      margin-right: 15px;
+    }
   `,
 
   properties: [
@@ -298,12 +304,7 @@ foam.CLASS({
             .addClass(wizardlet.isHidden$.map(v => v && self.myClass('hide')))
             .add(wizardlet.slot(function (indicator) {
               return self.E()
-                .style({
-                  // TODO: move to CSS axiom
-                  display: 'inline-block',
-                  float: 'left',
-                  'margin-right': '15px'
-                })
+                .addClass(self.myClass('indicator'))
                 .start(self.CircleIndicator, self.configureIndicator(
                   wizardlet, isCurrent, self.calculateWizardletDisplayNumber(
                     wizardlet, self.data.wizardlets)

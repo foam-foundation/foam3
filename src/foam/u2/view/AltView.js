@@ -95,7 +95,10 @@ foam.CLASS({
         }
         return nu;
       },
-      postSet: function(_, nu) {
+      postSet: function(old, nu) {
+        // the first set is a default (a create arg or the factory): a label the address
+        // already gave wins, and render applies it
+        if ( old === undefined && this.selectedViewLabel ) return;
         var view  = this.views.find(v => v[0] === nu);
         var label = view ? view[1] : '';
         if ( this.selectedViewLabel !== label ) this.selectedViewLabel = label;
@@ -106,15 +109,21 @@ foam.CLASS({
       name: 'selectedViewLabel',
       documentation: 'The label of the picked view. The switch draws it, and the address keeps it.',
       memorable: true,
+      // an address with no label gives '' (not undefined), so postSet runs
+      fromString: function(s) { return s || ''; },
       view: function(_, X) {
         // labels as values: a choice view that holds text can draw them
         return foam.u2.ViewSpec.createView(X.data.selectorView,
           { choices: X.data.views.map(v => [ v[1], v[1] ]) }, X.data, X);
       },
       postSet: function(_, nu) {
-        // a label that names no view (an old address) changes nothing; render clears it
         var view = this.views.find(v => v[1] === nu);
-        if ( view && view[0] !== this.selectedView ) this.selectedView = view[0];
+        if ( view ) {
+          if ( view[0] !== this.selectedView ) this.selectedView = view[0];
+        } else if ( this.hasOwnProperty('selectedView') ) {
+          // names no view (a stale address): keep the shown view and put its label back
+          this.selectedView = this.selectedView;
+        }
       }
     }
   ],
@@ -124,7 +133,8 @@ foam.CLASS({
       this.SUPER();
       var self = this;
 
-      // The address may have set the label before views was set: apply it now. No label: the first view.
+      // views may have arrived after the label (the address) or after selectedView (an arg):
+      // apply the address's label, or set selectedView again so its postSet writes the label
       var fromAddress = this.views.find(v => v[1] === this.selectedViewLabel);
       this.selectedView = fromAddress ? fromAddress[0] : this.selectedView;
 

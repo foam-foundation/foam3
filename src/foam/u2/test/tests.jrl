@@ -18,3 +18,4 @@ p({"class":"foam.u2.test.ViewReloaderTest","id":"ViewReloaderTest","description"
 p({"class":"foam.u2.test.MarkdownViewJSTest","id":"MarkdownViewJSTest","description":"MarkdownView renders existing markdown unchanged, plus quotes, table headers, tabs, steppers, text in angle brackets, and links to a heading or another document","language":0})
 p({"class":"foam.u2.test.SafeHTMLViewJSTest","id":"SafeHTMLViewJSTest"})
 p({"class":"foam.u2.test.RelationshipPickerJSTest","id":"RelationshipPickerJSTest","description":"*:* picker in a v3 detail view: going back keeps a view on screen, a link change refreshes the list","language":0})
+p({"class":"foam.u2.test.FixedStylesJSTest","id":"FixedStylesJSTest","description":"Styles that never change come from a view's CSS, not from an inline style","language":0})

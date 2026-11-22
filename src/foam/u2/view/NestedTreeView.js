@@ -20,6 +20,9 @@ foam.CLASS({
           justify-content: flex-start;
           gap: 8px;
         }
+        <<toggle-icon {
+          transform: rotate(180deg);
+        }
       `,
 
       methods: [
@@ -30,7 +33,6 @@ foam.CLASS({
              addClass(self.myClass('select-level'))
             .start(self.Image, { glyph: 'next' })
             .addClass(self.myClass('toggle-icon'))
-            .style({ 'transform': 'rotate(180deg)' })
             .end()
             .callIfElse(row.rowConfig?.[row.data.id],
               function() {

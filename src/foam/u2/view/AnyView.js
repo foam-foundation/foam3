@@ -21,6 +21,7 @@ foam.CLASS({
 
   css: `
     << select { margin-right: 8px; padding-right: 24px; }
+    <<value { flex: 1; }
   `,
 
   classes: [
@@ -171,7 +172,7 @@ foam.CLASS({
             .end()
           })
           .start()
-            .style({flex: 1})
+            .addClass(this.myClass('value'))
             .add(this.slot(function(selected) {
               return self.E()
               .tag(selected.view, {data$: self.data$});

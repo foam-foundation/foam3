@@ -28,6 +28,9 @@ foam.CLASS({
       padding-top: $inputVerticalPadding;
       padding-bottom: $inputVerticalPadding;
     }
+    <<escaped {
+      white-space: pre;
+    }
   `,
 
   properties: [
@@ -66,7 +69,7 @@ foam.CLASS({
       this.SUPER();
       this.addClass();
       if ( this.escapeTextArea ) {
-        this.style({'white-space': 'pre'});
+        this.addClass(this.myClass('escaped'));
       }
       this.attrs({rows: this.rows, cols: this.cols, placeholder: this.placeholder$, wrap: this.wrap});
       if ( this.maxLength ) this.attrs({maxLength: this.maxLength});

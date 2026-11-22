@@ -74,6 +74,15 @@ foam.CLASS({
     padding: 16px 24px;
     width: 100%;
   }
+  /* Cols' own CSS is installed after this view's and sets justify-content
+     too, so this rule names both classes to win. */
+  <<nav.foam-u2-layout-Cols {
+    justify-content: flex-end;
+  }
+  <<counterRow {
+    box-sizing: border-box;
+    gap: 4px;
+  }
   <<buttons svg{
     width: 1em;
     height: 1em;
@@ -194,10 +203,10 @@ foam.CLASS({
             ctx: this
           }, this.scrollEl_$)
         .end()
-        .start(view.Cols).addClass(view.myClass('nav')).style({ 'justify-content': 'flex-end'})
+        .start(view.Cols).addClass(view.myClass('nav'))
           .startContext({ data: view.scrollEl_ })
             .start(view.Cols)
-              .style({ gap: '4px', 'box-sizing': 'border-box' })
+              .addClass(view.myClass('counterRow'))
               .start('').add(view.scrollEl_$.dot('topRow')).addClass(this.myClass('counters')).end()
               .add('-')
               .start('').add(view.scrollEl_$.dot('bottomRow')).addClass(this.myClass('counters')).end()

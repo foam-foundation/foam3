@@ -522,7 +522,7 @@ foam.CLASS({
     },
     {
       class: 'foam.mlang.predicate.PredicateProperty',
-      name: 'filter',
+      name: 'searchPredicate',
       documentation: `A search. The tree shows the rows it accepts with the rows
         above them, and opens those, as MUI X and AG Grid do for a filtered
         tree. Every row the tree can draw is judged, wherever the relationship
@@ -532,13 +532,13 @@ foam.CLASS({
     },
     {
       name: 'hiddenIds_',
-      documentation: `With a filter: the ids of rows that neither pass it nor
+      documentation: `With a searchPredicate: the ids of rows that neither pass it nor
         have a row below them that does. Null hides nothing.`,
       value: null
     },
     {
       name: 'openIds_',
-      documentation: 'With a filter: the ids of rows with a match below them; they open.',
+      documentation: 'With a searchPredicate: the ids of rows with a match below them; they open.',
       value: null
     },
     {
@@ -597,7 +597,7 @@ foam.CLASS({
       var self = this;
       var isFirstSet = false;
 
-      this.onDetach(this.filter$.sub(this.updateHiddenIds));
+      this.onDetach(this.searchPredicate$.sub(this.updateHiddenIds));
       this.onDetach(this.data$proxy.on.sub(this.updateHiddenIds));
       this.updateHiddenIds();
 
@@ -629,15 +629,15 @@ foam.CLASS({
     {
       name: 'updateHiddenIds',
       documentation: `Walks the tree from its top rows through the relationship,
-        as the rows draw it: a row shows if the filter accepts it or a row
+        as the rows draw it: a row shows if searchPredicate accepts it or a row
         below it shows; a row with a shown row below it opens.`,
       isMerged: true,
       delay: 50,
       code: async function() {
         var run    = ++this.hiddenIdsRun_;
         // A list screen with no search passes AND(TRUE, TRUE): simplify first.
-        var filter = this.filter?.partialEval();
-        if ( ! filter || this.True.isInstance(filter) ) {
+        var search = this.searchPredicate?.partialEval();
+        if ( ! search || this.True.isInstance(search) ) {
           this.hiddenIds_ = null;
           this.openIds_   = null;
           return;
@@ -648,14 +648,14 @@ foam.CLASS({
         var hidden  = {};
         var open    = {};
         var seen    = {};
-        // Answers whether obj or a row below it passes the filter.
+        // Answers whether obj or a row below it passes the search.
         var judge = async obj => {
           if ( seen[obj.id] ) return false;
           seen[obj.id] = true;
           var children = (await obj[forward].select()).array;
           var below    = (await Promise.all(children.map(judge))).some(b => b);
           if ( below ) open[obj.id] = true;
-          var shown = below || filter.f(obj);
+          var shown = below || search.f(obj);
           if ( ! shown ) hidden[obj.id] = true;
           return shown;
         };

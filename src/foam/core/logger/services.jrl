@@ -14,7 +14,7 @@ p({
       .setRuler(false)
       .setSeqNo(true)
       .setCluster(false)
-      .setSaf(false)
+      .setSaf(true)
       .setDecorator(new foam.core.logger.RepeatLogMessageDAO.Builder(x)
         .setDelegate(new foam.core.logger.LogMessageDAO.Builder(x)
           .setDelegate(new foam.core.logger.StdoutLoggerDAO.Builder(x)

@@ -36,6 +36,9 @@ foam.CLASS({
     'java.net.InetAddress',
     'java.net.InetSocketAddress',
     'java.net.MulticastSocket',
+    'java.net.NetworkInterface',
+    'java.util.ArrayList',
+    'java.util.List',
     'java.util.Timer'
   ],
 
@@ -67,10 +70,16 @@ foam.CLASS({
       class: 'String'
     },
     {
-      documentation: 'Evironments such as AWS do not support multicast',
-      name: 'useMulticast',
-      class: 'Boolean',
-      value: true
+      documentation: `How heartbeats are delivered and received. BROADCAST
+        (default) multicasts to the group on the OS default interface.
+        LOOPBACK multicasts but pins the loopback interface, for several
+        instances on one host (local dev) where a VPN would otherwise swallow
+        the multicast. DIRECT unicasts to each peer from getPeers(), for
+        environments such as AWS that do not support multicast.`,
+      name: 'mode',
+      class: 'Enum',
+      of: 'foam.core.app.HeartbeatMode',
+      value: 'BROADCAST'
     },
     {
       name: 'timer',
@@ -104,7 +113,7 @@ foam.CLASS({
         Loggers.logger(getX(), this).info("broadcaster", "start", getMulticastAddress(), getSendPort(), getPort(), "disabled on localhost");
         return;
       }
-      Loggers.logger(getX(), this).info("broadcaster", "start", "multicast", getUseMulticast(), getMulticastAddress(), getSendPort(), getPort());
+      Loggers.logger(getX(), this).info("broadcaster", "start", getMode().getName(), getMulticastAddress(), getSendPort(), getPort());
       Agency agency = (Agency) getX().get("threadPool");
       agency.submit(getX(), this, this.getClass().getSimpleName());
 
@@ -127,11 +136,7 @@ foam.CLASS({
 
               DatagramSocket socket = null;
               try {
-                if ( getSendPort() == 0 ) {
-                  socket = new DatagramSocket();
-                } else {
-                  socket = new DatagramSocket(getSendPort());
-                }
+                socket = createSendSocket();
                 DatagramPacket[] packets = getPackets(x, data);
                 for ( DatagramPacket packet : packets ) {
                   try {
@@ -162,16 +167,31 @@ foam.CLASS({
       name: 'execute',
       javaCode: `
       Logger logger = Loggers.logger(x, this);
-      logger.info("listener", "start", "multicast", getUseMulticast(), getMulticastAddress(), getPort());
+      logger.info("listener", "start", getMode().getName(), getMulticastAddress(), getPort());
       byte[] buf = new byte[512];
-      MulticastSocket socket = null;
-      InetAddress group = null;
+      DatagramSocket socket = null;
+      MulticastSocket mcastSocket = null;
+      InetSocketAddress groupAddr = null;
       FObject self = (FObject) x.get("Health");
 
       try {
-        socket = new MulticastSocket(getPort());
-        group = InetAddress.getByName(getMulticastAddress());
-        socket.joinGroup(group);
+        if ( getMode() == HeartbeatMode.DIRECT ) {
+          // Unicast: no group to join, just bind the port and receive.
+          socket = new DatagramSocket(getPort());
+        } else {
+          mcastSocket = new MulticastSocket(getPort());
+          InetAddress group = InetAddress.getByName(getMulticastAddress());
+          if ( getMode() == HeartbeatMode.LOOPBACK ) {
+            groupAddr = new InetSocketAddress(group, getPort());
+            mcastSocket.joinGroup(groupAddr, getLoopbackInterface());
+          } else {
+            // BROADCAST: default interface, deprecated join preserves the
+            // original interface-selection behaviour exactly.
+            mcastSocket.joinGroup(group);
+            groupAddr = new InetSocketAddress(group, getPort());
+          }
+          socket = mcastSocket;
+        }
         while (true) {
           DatagramPacket packet = new DatagramPacket(buf, buf.length);
           socket.receive(packet);
@@ -206,14 +226,18 @@ foam.CLASS({
       } catch ( IOException e ) {
         logger.warning("listener", "exit", e.getMessage(), e);
       } finally {
-        if ( socket != null ) {
+        if ( mcastSocket != null && groupAddr != null ) {
           try {
-            socket.leaveGroup(group);
-            socket.close();
+            if ( getMode() == HeartbeatMode.LOOPBACK ) {
+              mcastSocket.leaveGroup(groupAddr, getLoopbackInterface());
+            } else {
+              mcastSocket.leaveGroup(groupAddr.getAddress());
+            }
           } catch ( IOException e ) {
             // nop
           }
         }
+        if ( socket != null ) socket.close();
       }
       `
     },
@@ -223,11 +247,63 @@ foam.CLASS({
       javaType: 'java.net.DatagramPacket[]',
       javaThrows: [ 'java.io.IOException' ],
       javaCode: `
-        if ( getUseMulticast() ) {
-          byte[] buf = data.getBytes();
-          return new DatagramPacket[] { new DatagramPacket(buf, buf.length, InetAddress.getByName(getMulticastAddress()), getPort()) };
+        byte[] buf = data.getBytes();
+        if ( getMode() == HeartbeatMode.DIRECT ) {
+          // One unicast packet per peer. getPeers is empty in foam3 core;
+          // foam-saf refines it to return the enabled SAF peers.
+          List peers = getPeers(x);
+          DatagramPacket[] packets = new DatagramPacket[peers.size()];
+          for ( int i = 0 ; i < peers.size() ; i++ ) {
+            packets[i] = new DatagramPacket(buf, buf.length, (InetSocketAddress) peers.get(i));
+          }
+          return packets;
         }
-        throw new UnsupportedOperationException("getSockets");
+        // BROADCAST and LOOPBACK both address the multicast group; LOOPBACK
+        // pins the egress interface on the socket (see createSendSocket), it
+        // does not change the destination address.
+        return new DatagramPacket[] { new DatagramPacket(buf, buf.length, InetAddress.getByName(getMulticastAddress()), getPort()) };
+      `
+    },
+    {
+      documentation: `DIRECT-mode unicast targets, one InetSocketAddress per
+        peer. Empty in foam3 core so DIRECT sends nowhere on its own; a
+        deployment that uses DIRECT refines this (foam-saf does, from its
+        enabled SAFConfigs) to supply the peers.`,
+      name: 'getPeers',
+      args: 'X x',
+      javaType: 'java.util.List',
+      javaCode: `
+        return new ArrayList();
+      `
+    },
+    {
+      documentation: `The loopback NetworkInterface, resolved portably (lo0 on
+        macOS, lo on Linux) so LOOPBACK mode needs no hardcoded interface name.`,
+      name: 'getLoopbackInterface',
+      javaType: 'java.net.NetworkInterface',
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        return NetworkInterface.getByInetAddress(InetAddress.getLoopbackAddress());
+      `
+    },
+    {
+      documentation: `The send socket for the current mode. LOOPBACK needs a
+        MulticastSocket with its interface pinned to loopback so the group
+        packet egresses lo0; BROADCAST and DIRECT use a plain DatagramSocket.`,
+      name: 'createSendSocket',
+      javaType: 'java.net.DatagramSocket',
+      javaThrows: [ 'java.io.IOException' ],
+      javaCode: `
+        if ( getMode() == HeartbeatMode.LOOPBACK ) {
+          MulticastSocket socket = getSendPort() == 0
+            ? new MulticastSocket()
+            : new MulticastSocket(getSendPort());
+          socket.setNetworkInterface(getLoopbackInterface());
+          return socket;
+        }
+        return getSendPort() == 0
+          ? new DatagramSocket()
+          : new DatagramSocket(getSendPort());
       `
     }
   ]

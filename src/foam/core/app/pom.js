@@ -12,6 +12,7 @@ foam.POM({
     { name: "AppDownloadBadgeService",              flags: "web" },
     { name: "ClientAppConfigService",               flags: "js" },
     { name: "ContextLookupAppConfigService",        flags: "js|java" },
+    { name: "HeartbeatMode",                        flags: "js|java" },
     { name: "Health",                               flags: "js|java" },
     { name: "HealthAware",                          flags: "js|java" },
     { name: "HealthFactory",                        flags: "js|java" },

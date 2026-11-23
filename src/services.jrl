@@ -180,7 +180,8 @@ p({
       ],
       "cache": true,
       "ttlSelectPurgeTime": 0,
-      "ttlPurgeTime": 0
+      "ttlPurgeTime": 0,
+      "clientIndices": "parent"
     }
   """
 })

@@ -20,6 +20,11 @@ foam.CLASS({
     'foam.u2.view.TreeView'
   ],
 
+  // The Tree opens a row on double-click (a single click selects it and opens or closes its branch),
+  // through the dblclick it imports; hand it the screen's own click, as InlineDAOControllerView does.
+  imports: [ 'click?' ],
+  exports: [ 'click as dblclick' ],
+
   properties: [
     'relationship'
   ],

@@ -75,7 +75,19 @@ foam.CLASS({
       name: 'dryRun',
       documentation: 'If true, show generated commands without executing.',
       value: true
+    },
+    {
+      class: 'Int',
+      name: 'maxRetries',
+      documentation: `How many replies in a row may have a line that fails. Each Syntax
+        Error goes back to the agent for another reply; a model that keeps
+        writing the same bad line would otherwise call itself without end.`,
+      value: 3
     }
+  ],
+
+  messages: [
+    { name: 'TOO_MANY_RETRIES', message: 'I stopped after ${n} replies in a row had a line that failed. Try asking again with more detail.', template: true }
   ],
 
   methods: [
@@ -113,13 +125,20 @@ foam.CLASS({
       // ── 4. Insert commands into the flow ──
       for ( var i = 0 ; i < lines.length ; i++ ) {
         if ( lines[i].trim() != '' ) {
-          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
+          // An ask sends its answer to an agent. Name this one, unless it is
+          // the plain agent, so a preview's follow-up is proposed too: "ask info"
+          // from ? becomes "ask @? info".
+          var line  = this.id === 'agent' ? lines[i] : lines[i].replace(/^ask\s+/, 'ask @' + this.id + ' ');
+          var block = await this.eval_((this.dryRun ? 'propose ' : '') + line, true, true);
 
           if ( this.BadBlock.isInstance(block.value) ) {
-            // JSON.stringify escapes the quotes and newlines in the command
-            // and error, so the agent(...) call is valid JavaScript for eval_.
-            const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
-            await this.eval_(`agent(${reply})`, true, true);
+            const retry = this.retryOf_(q) + 1;
+            if ( retry > this.maxRetries ) {
+              await this.eval_(`markdown(${JSON.stringify(this.TOO_MANY_RETRIES({ n: this.maxRetries }))})`, true, true);
+              break;
+            }
+            const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error, retry: retry });
+            await this.eval_(`${this.id} ${reply}`, true, true);
           } else {
             // Run the agent's lines the way loading a saved flow runs its
             // blocks (Console.includeScript): wait on each block's onLoad. So
@@ -132,6 +151,16 @@ foam.CLASS({
 
       // -- 5. Delete this block, since it was just a prompt, not a block
       setTimeout(() => this.block.del(), 100);
+    },
+
+    function retryOf_(q) {
+      // How many Syntax Error replies in a row led to this request: 2 when q is
+      // '{"message":"Syntax Error",...,"retry":2}', 0 for a user's request.
+      try {
+        return ( foam.String.isInstance(q) ? JSON.parse(q) : q ).retry || 0;
+      } catch (x) {
+        return 0;
+      }
     },
 
     async function buildSystemPrompt_() {

@@ -67,6 +67,8 @@ The agent can ask for:
 | Read a flow document | `ask this.includeFlow("flowName")` |
 | Get user input | `ask input("What date range?")` |
 
+The answer goes back to the agent that asked. An agent other than the plain `agent` names itself, so `ask info` from `?` runs as `ask @? info`, and the follow-up stays a proposal.
+
 #### `propose` — Present a Command for Review
 
 Displays a single command in an editable text field with accept (✓) and reject (✕) buttons. When an agent runs in safe mode (`?`), all of its generated commands are automatically converted into `propose` blocks so the user can validate each one before it executes.

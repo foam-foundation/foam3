@@ -3,19 +3,19 @@
  * Copyright 2026 The FOAM Authors. All Rights Reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * AgentCommand: the LLM works the flow through the Reflow prompt.
+ * AgentCommand: The LLM doesn't return markdown — it returns REFLOW commands.
  *
  * Flow:
  *   1. User types:  agent "show me overdue invoices and chart them by age"
- *   2. AgentCommand sends the request with the system prompt (the Markdown
- *      blocks of the flows named systemPrompt...) and one tool,
- *      execute_command, whose input is a script typed at the prompt.
- *   3. The model calls it as often as it needs, e.g.
+ *   2. AgentCommand builds a system prompt containing:
+ *      - Available commands (from commandDAO)
+ *      - Available DAOs and their models (from context)
+ *      - The user's prompt
+ *   3. LLMService returns a string of REFLOW commands, e.g.:
  *        dao query invoiceDAO where status = 'OVERDUE' to table
- *        h1(title1.title + " Part 2"); block.shown = false
- *      Each script runs through eval_, as if the user had typed it, and the
- *      block it made, or its error, goes back to the model.
- *   4. The model's last reply, if it has text, is shown as Markdown.
+ *        chart bar --x daysOverdue --y amount --title "Overdue by Age" // TODO: fix
+ *   4. PromptCommand parses each line and inserts them into the
+ *      current flow document, where they execute in sequence.
  *
  * The LLM is just another user of the environment.
  * Permissions, validation, journaling — all inherited.
@@ -27,12 +27,12 @@ foam.CLASS({
   extends: 'foam.core.reflow.cmd.Command',
 
   documentation: `
-    REFLOW command that delegates to an LLM, which works the flow
-    through one tool, execute_command: each call is a script run at
-    the Reflow prompt, a command or JavaScript, and its block is added
-    to the current flow.
+    REFLOW command that delegates to an LLM, which responds with
+    REFLOW commands rather than markdown. The commands are parsed
+    and inserted into the current flow for execution.
 
-    Text the LLM answers with at the end is shown as Markdown.
+    If the LLM wants to respond conversationally, it uses the
+    markdown command — text is just one capability among many.
 
     Because 'agent' is itself a command, agents can delegate
     to other agents: router → specialist, cheap triage → expensive.
@@ -51,11 +51,9 @@ foam.CLASS({
   ],
 
   requires: [
-    'foam.ai.llm.LLMOptions',
+    'foam.core.reflow.BadBlock',
     'foam.core.reflow.Flow',
-    'foam.core.reflow.Markdown',
-    'foam.core.reflow.ai.CommandChat',
-    'foam.core.reflow.ai.CommandTool'
+    'foam.core.reflow.Markdown'
   ],
 
   properties: [
@@ -76,32 +74,68 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'dryRun',
-      documentation: 'If true, each script is proposed and runs only when the user accepts it.',
+      documentation: 'If true, show generated commands without executing.',
       value: true
     }
   ],
 
   methods: [
     async function execute(q) {
-      var answer;
+      // ── 1. Build the system prompt with environment context ──
+      var systemPrompt = await this.buildSystemPrompt_();
+
+      // ── 2. Call LLMService ──
+      var request = foam.ai.llm.CompletionRequest.create({
+        prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
+        options: foam.ai.llm.LLMOptions.create({
+          systemPrompt: systemPrompt,
+          model:        this.model
+//          temperature:  0.2  // low temp for structured command output
+        })
+      });
+
+      var result;
       try {
-        answer = await this.CommandChat.create({
-          options: this.LLMOptions.create({
-            systemPrompt: await this.buildSystemPrompt_(),
-            model:        this.model
-          }),
-          tool: this.CommandTool.create({ prefix: this.dryRun ? 'propose ' : '' }, this)
-        }, this).ask(foam.String.isInstance(q) ? q : JSON.stringify(q));
+        result = await this.llmService.complete(x, request);
+        // Use when offline. TODO: make a mock llmService for when offline
+        // result = { content: 'h1 done' };
       } catch (e) {
         throw 'LLM error: ' + e;
-      }
-
-      if ( answer ) {
-        this.out.tag(this.Markdown, { markdown: answer });
+//        flow.insertError('LLM error: ' + e.message);
         return;
       }
 
-      // Nothing to say, so delete this block: it was just a prompt, not a block
+      // ── 3. Parse response into command lines ──
+      var lines = this.parseCommandLines_(result.content);
+
+      if ( ! lines.length ) {
+        // LLM returned nothing parseable — show raw as markdown fallback
+        this.out.tag(this.Markdown, {markdown: result.content});
+        return;
+      }
+
+      // ── 4. Insert commands into the flow ──
+      for ( var i = 0 ; i < lines.length ; i++ ) {
+        if ( lines[i].trim() != '' ) {
+          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
+
+          if ( this.BadBlock.isInstance(block.value) ) {
+            // JSON.stringify escapes the quotes and newlines in the command
+            // and error, so the agent(...) call is valid JavaScript for eval_.
+            const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
+            console.log("**** AgentCommand Error: " + reply);
+            await this.eval_(`agent(${reply})`, true, true);
+          } else {
+              // Run the agent's lines the way loading a saved flow runs its
+            // blocks (Console.includeScript): wait on each block's onLoad. So
+            // after input('Delete order 1234?', ['Yes', 'No']) the agent's
+            // next line waits until the user has answered.
+            await block?.value?.onLoad?.();
+          }
+        }
+      }
+
+      // -- 5. Delete this block, since it was just a prompt, not a block
       setTimeout(() => this.block.del(), 100);
     },
 
@@ -126,6 +160,20 @@ foam.CLASS({
       }
 
       return this.systemPrompt;
+    },
+
+    function parseCommandLines_(content) {
+      if ( ! content ) return [];
+
+      console.log('*** AGENT RESPONSE: ', content);
+
+      // Strip code fences if LLM wrapped them despite instructions
+      content = content.replace(/^```[\w]*\n?/gm, '').replace(/^```$/gm, '');
+
+      return content
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l && ! l.startsWith('//') && ! l.startsWith('#'));
     }
   ]
 });

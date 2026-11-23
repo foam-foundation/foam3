@@ -62,6 +62,7 @@ foam.POM({
     { name: "test/MenuHookNamesJSTest",                           flags: "js&test|java&test" },
     { name: "test/RecorderHooksJSTest",                           flags: "js&test|java&test" },
     { name: "test/TreeViewOpenJSTest",                            flags: "js&test|java&test" },
+    { name: "test/TreeViewSearchJSTest",                          flags: "js&test|java&test" },
     { name: "test/RORelativeDateTimeViewTest",                    flags: "js&test|java&test" },
     { name: "test/ColorSchemeToggleTest",                         flags: "js&test|java&test" },
     { name: "test/MarkdownViewJSTest",                            flags: "js&test|java&test" },

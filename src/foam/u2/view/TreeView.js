@@ -172,6 +172,13 @@ foam.CLASS({
       }
     },
     {
+      class: 'Boolean',
+      name: 'openedBySearch_',
+      documentation: `True while this row is open only because a search opened
+        it (a match is below it). When the search no longer needs it, the row
+        closes again; a click on it makes the state the person's own.`
+    },
+    {
       class: 'Function',
       name: 'formatter'
     },
@@ -259,8 +266,8 @@ foam.CLASS({
       this.onDetach(this.data[self.relationship.forwardName].listen({ put: cb }));
       cb();
 
-      this.onDetach(this.treeOpenIds$.sub(this.openIfAboveAMatch));
-      this.openIfAboveAMatch();
+      this.onDetach(this.treeOpenIds$.sub(this.followSearch));
+      this.followSearch();
 
       var labelString = this.data.label;
       if ( this.translationService ) {
@@ -386,8 +393,17 @@ foam.CLASS({
       this.dblclick && this.dblclick(this.data);
     },
 
-    function openIfAboveAMatch() {
-      if ( this.treeOpenIds?.[this.data.id] ) this.expanded = true;
+    function followSearch() {
+      // A search opens the rows above its matches; once it no longer needs a
+      // row open, the row goes back to how it was before the search.
+      var aboveAMatch = !! this.treeOpenIds?.[this.data.id];
+      if ( aboveAMatch && ! this.expanded ) {
+        this.openedBySearch_ = true;
+        this.expanded        = true;
+      } else if ( ! aboveAMatch && this.openedBySearch_ ) {
+        this.openedBySearch_ = false;
+        this.expanded        = false;
+      }
     },
 
     function onDragStart(e) {
@@ -456,8 +472,9 @@ foam.CLASS({
       name: 'toggleExpanded',
       label: '',
       code: function() {
-        this.expanded  = ! this.expanded;
-        this.selection = this.data;
+        this.openedBySearch_ = false;
+        this.expanded        = ! this.expanded;
+        this.selection       = this.data;
       }
     }
   ]
@@ -471,6 +488,7 @@ foam.CLASS({
 
   requires: [
     'foam.mlang.ExpressionsSingleton',
+    'foam.mlang.predicate.True',
     'foam.u2.view.TreeViewRow'
   ],
 
@@ -503,24 +521,24 @@ foam.CLASS({
       name: 'data'
     },
     {
-      class: 'foam.dao.DAOProperty',
-      name: 'treeDAO',
-      documentation: `The whole tree, when data holds only some of its rows (a
-        search's matches). The tree then shows data's rows with their ancestors
-        from treeDAO, ancestors open, as MUI X and AG Grid do for a filtered
-        tree. Unset: data is the whole tree and every row shows.`
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'filter',
+      documentation: `A search. The tree shows the rows it accepts with the rows
+        above them, and opens those, as MUI X and AG Grid do for a filtered
+        tree. Every row the tree can draw is judged, wherever the relationship
+        found it: Data Management builds its DAO menus itself, so they are in
+        no DAO the caller holds. data stays the whole tree. Unset or TRUE:
+        every row shows.`
     },
     {
       name: 'hiddenIds_',
-      documentation: `With treeDAO: the ids of treeDAO's rows that are neither a
-        match nor an ancestor of one. Rows a relationship builds from another
-        source (Data Management's DAO menus) are not in treeDAO, so the search
-        cannot judge them: they follow their parent. Null hides nothing.`,
+      documentation: `With a filter: the ids of rows that neither pass it nor
+        have a row below them that does. Null hides nothing.`,
       value: null
     },
     {
       name: 'openIds_',
-      documentation: 'With treeDAO: the ids of rows with a match below them; they open.',
+      documentation: 'With a filter: the ids of rows with a match below them; they open.',
       value: null
     },
     {
@@ -573,18 +591,15 @@ foam.CLASS({
     function render() {
       this.startExpanded = this.startExpanded;
 
-      var of   = this.__context__.lookup(this.relationship.sourceModel);
-      var tree = this.treeDAO ? this.treeDAO$proxy : this.data$proxy;
-      var dao  = tree.where(
+      var of  = this.__context__.lookup(this.relationship.sourceModel);
+      var dao = this.data$proxy.where(
         this.EQ(of.getAxiomByName(this.relationship.inverseName), this.defaultRoot));
       var self = this;
       var isFirstSet = false;
 
-      if ( this.treeDAO ) {
-        this.onDetach(this.data$proxy.on.sub(this.updateHiddenIds));
-        this.onDetach(this.treeDAO$proxy.on.sub(this.updateHiddenIds));
-        this.updateHiddenIds();
-      }
+      this.onDetach(this.filter$.sub(this.updateHiddenIds));
+      this.onDetach(this.data$proxy.on.sub(this.updateHiddenIds));
+      this.updateHiddenIds();
 
       this.addClass().
         select(dao, function( obj ) {
@@ -613,38 +628,40 @@ foam.CLASS({
   listeners: [
     {
       name: 'updateHiddenIds',
-      documentation: `Shown: the rows data holds (the matches), then their parents
-        from treeDAO, one query per level up to defaultRoot; a parent outside
-        treeDAO stops the climb, so a scope such as "enabled menus only" holds.
-        Hidden: every other row of treeDAO.`,
+      documentation: `Walks the tree from its top rows through the relationship,
+        as the rows draw it: a row shows if the filter accepts it or a row
+        below it shows; a row with a shown row below it opens.`,
       isMerged: true,
       delay: 50,
       code: async function() {
-        var run        = ++this.hiddenIdsRun_;
-        var of         = this.__context__.lookup(this.relationship.sourceModel);
-        var parentProp = of.getAxiomByName(this.relationship.inverseName);
-        var shown      = {};
-        var open       = {};
-        var level      = (await this.data.select()).array;
-
-        while ( level.length ) {
-          var parentIds = [];
-          level.forEach(o => { shown[o.id] = true; });
-          level.forEach(o => {
-            var p = parentProp.f(o);
-            if ( ! p || foam.util.equals(p, this.defaultRoot) ) return;
-            open[p] = true;
-            if ( ! shown[p] && ! parentIds.includes(p) ) parentIds.push(p);
-          });
-          level = parentIds.length ?
-            (await this.treeDAO.where(this.IN(of.ID, parentIds)).select()).array :
-            [];
+        var run    = ++this.hiddenIdsRun_;
+        // A list screen with no search passes AND(TRUE, TRUE): simplify first.
+        var filter = this.filter?.partialEval();
+        if ( ! filter || this.True.isInstance(filter) ) {
+          this.hiddenIds_ = null;
+          this.openIds_   = null;
+          return;
         }
 
-        var hidden = {};
-        (await this.treeDAO.select()).array.forEach(o => {
-          if ( ! shown[o.id] ) hidden[o.id] = true;
-        });
+        var of      = this.__context__.lookup(this.relationship.sourceModel);
+        var forward = this.relationship.forwardName;
+        var hidden  = {};
+        var open    = {};
+        var seen    = {};
+        // Answers whether obj or a row below it passes the filter.
+        var judge = async obj => {
+          if ( seen[obj.id] ) return false;
+          seen[obj.id] = true;
+          var children = (await obj[forward].select()).array;
+          var below    = (await Promise.all(children.map(judge))).some(b => b);
+          if ( below ) open[obj.id] = true;
+          var shown = below || filter.f(obj);
+          if ( ! shown ) hidden[obj.id] = true;
+          return shown;
+        };
+        var top = await this.data.where(
+          this.EQ(of.getAxiomByName(this.relationship.inverseName), this.defaultRoot)).select();
+        await Promise.all(top.array.map(judge));
 
         if ( run !== this.hiddenIdsRun_ ) return;
         this.hiddenIds_ = hidden;

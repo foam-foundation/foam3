@@ -9,14 +9,16 @@ foam.CLASS({
   name: 'TreeViewSearchJSTest',
   extends: 'foam.core.test.JSTest',
 
-  documentation: `A TreeView given treeDAO (the whole tree) and data (a search's
-    matches) shows the matches with their ancestors, ancestors open; a match's
-    hidden children leave it no open/close arrow; a parent outside treeDAO
-    stops the climb; a child outside treeDAO follows its parent; a new search
-    replaces the shown rows; without treeDAO every row shows, as before.`,
+  documentation: `A TreeView given a filter shows the rows it accepts with
+    their ancestors, ancestors open; a match's hidden children leave it no
+    open/close arrow; rows the relationship builds from another source (Data
+    Management's DAO menus) are judged too; a new filter replaces the shown
+    rows; clearing it shows every row and closes the rows the search opened;
+    without a filter every row shows.`,
 
   requires: [
     'foam.core.menu.Menu',
+    'foam.core.menu.PseudoMenu',
     'foam.dao.ArrayDAO',
     'foam.mlang.ExpressionsSingleton',
     'foam.u2.view.TreeView'
@@ -52,20 +54,25 @@ foam.CLASS({
       // are created in the context that carries the DAO.
       var menuDAO = this.ArrayDAO.create({ of: this.Menu }, x);
       var mx = x.createSubContext({ menuDAO: menuDAO });
+      // Like Data Management: a menu that builds its own children, which are
+      // in no DAO the tree's caller holds.
+      var stores = this.PseudoMenu.create({ id: 'admin.stores', parent: 'admin', label: 'Stores' }, mx);
+      stores.children_.put(this.Menu.create({ id: 'admin.stores.reports', parent: 'admin.stores', label: 'Report DAO' }, mx));
       menuDAO.put(this.Menu.create({ id: 'admin', label: 'Admin' }, mx));
       menuDAO.put(this.Menu.create({ id: 'admin.data', parent: 'admin', label: 'Data' }, mx));
       menuDAO.put(this.Menu.create({ id: 'admin.data.agents', parent: 'admin.data', label: 'Agents' }, mx));
       menuDAO.put(this.Menu.create({ id: 'admin.users', parent: 'admin', label: 'Users' }, mx));
+      menuDAO.put(stores);
       menuDAO.put(this.Menu.create({ id: 'help', label: 'Help' }, mx));
       var M   = this.Menu;
       var E   = this.ExpressionsSingleton.create();
       var rel = foam.core.menu.MenuMenuChildrenRelationship;
       var fmt = function(data) { this.add(data.label); };
-      var search = label => menuDAO.where(E.EQ(M.LABEL, label));
+      var all = [ 'admin', 'admin.data', 'admin.data.agents', 'admin.users', 'admin.stores', 'admin.stores.reports', 'help' ];
 
       // A match two levels down shows with its parents, and they open.
       var tree = await mount(this.TreeView.create({
-        data: search('Agents'), treeDAO: menuDAO, relationship: rel, startExpanded: false, formatter: fmt
+        data: menuDAO, filter: E.EQ(M.LABEL, 'Agents'), relationship: rel, startExpanded: false, formatter: fmt
       }, mx));
       var root = tree.el_();
       x.test(await waitShown(root, [ 'admin', 'admin.data', 'admin.data.agents' ]),
@@ -73,44 +80,38 @@ foam.CLASS({
       x.test(row(root, 'admin')?.getAttribute('aria-expanded') === 'true',
         'a parent of a match opens, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
 
-      // A new search replaces the shown rows; a matched row whose children are
+      // A new filter replaces the shown rows; a matched row whose children are
       // all hidden draws no open/close arrow.
-      tree.data = search('Admin');
+      tree.filter = E.EQ(M.LABEL, 'Admin');
       x.test(await waitShown(root, [ 'admin' ]),
-        'a new search replaces the shown rows, got ' + JSON.stringify(shownIds(root)));
+        'a new filter replaces the shown rows, got ' + JSON.stringify(shownIds(root)));
       x.test(! row(root, 'admin')?.hasAttribute('aria-expanded'),
         'a match whose children are all hidden has no open/close state, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
+
+      // A row from another source is judged by the filter like any other.
+      tree.filter = E.CONTAINS_IC(M.LABEL, 'report');
+      x.test(await waitShown(root, [ 'admin', 'admin.stores', 'admin.stores.reports' ]),
+        'a row its parent builds itself is found by the filter, got ' + JSON.stringify(shownIds(root)));
+
+      // Clearing the filter shows every row again, and the rows the search
+      // opened close: the tree is as it was before the search. A list screen
+      // with no search passes AND(TRUE, TRUE), which counts as no search.
+      tree.filter = E.AND(E.TRUE, E.TRUE);
+      for ( var i = 0 ; i < 30 && row(root, 'admin')?.getAttribute('aria-expanded') !== 'false' ; i++ ) await settle();
+      x.test(row(root, 'admin')?.getAttribute('aria-expanded') === 'false',
+        'a row the search opened closes when the search is cleared, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
+      x.test(await waitShown(root, [ 'admin', 'help' ]),
+        'a cleared filter shows the top rows, closed, got ' + JSON.stringify(shownIds(root)));
       tree.remove();
 
-      // A parent outside treeDAO stops the climb: a scope such as "enabled
-      // menus only" is never widened by a search.
-      var scoped = await mount(this.TreeView.create({
-        data: search('Agents'), treeDAO: menuDAO.where(E.NEQ(M.ID, 'admin')), relationship: rel, startExpanded: false, formatter: fmt
-      }, mx));
-      await new Promise(r => setTimeout(r, 500));
-      x.test(shownIds(scoped.el_()).length === 0,
-        'a match whose parent is outside treeDAO does not bring the parent back, got ' + JSON.stringify(shownIds(scoped.el_())));
-      scoped.remove();
-
-      // A child the relationship builds from another source (not in treeDAO,
-      // like Data Management's DAO menus) cannot be judged by the search: it
-      // follows its parent, and its parent keeps its open/close arrow.
-      var mixed = await mount(this.TreeView.create({
-        data: search('Admin'), treeDAO: menuDAO.where(E.NEQ(M.ID, 'admin.users')), relationship: rel, startExpanded: true, formatter: fmt
-      }, mx));
-      x.test(await waitShown(mixed.el_(), [ 'admin', 'admin.users' ]),
-        'a child outside treeDAO follows its shown parent, got ' + JSON.stringify(shownIds(mixed.el_())));
-      x.test(mixed.el_().querySelector('[name="admin"]')?.getAttribute('aria-expanded') === 'true',
-        'its parent keeps its open/close state, got ' + mixed.el_().querySelector('[name="admin"]')?.getAttribute('aria-expanded'));
-      mixed.remove();
-
-      // Without treeDAO, data is the whole tree and every row shows.
+      // Without a filter every row shows.
       var plain = await mount(this.TreeView.create({
         data: menuDAO, relationship: rel, startExpanded: true, formatter: fmt
       }, mx));
-      x.test(await waitShown(plain.el_(), [ 'admin', 'admin.data', 'admin.data.agents', 'admin.users', 'help' ]),
-        'without treeDAO every row shows, got ' + JSON.stringify(shownIds(plain.el_())));
+      x.test(await waitShown(plain.el_(), all),
+        'without a filter every row shows, got ' + JSON.stringify(shownIds(plain.el_())));
       plain.remove();
+
     }
   ]
 });

@@ -48,6 +48,17 @@ foam.CLASS({
       value: ''
     },
     {
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'menuFilter_',
+      documentation: 'The search box as a test on each menu row, as in VerticalMenu.',
+      expression: function(menuSearch) {
+        var text = menuSearch.trim();
+        return text ?
+          this.OR(this.CONTAINS_IC(this.Menu.LABEL, text), this.CONTAINS_IC(this.Menu.KEYWORDS, text)) :
+          this.TRUE;
+      }
+    },
+    {
       name: 'profileImg',
       factory: function() {
         return this.MDProfileImageView.create({ label: this.subject.user?.legalName,
@@ -88,8 +99,8 @@ foam.CLASS({
               class: 'foam.u2.view.TreeView',
               data: self.dao_,
               relationship: foam.core.menu.MenuMenuChildrenRelationship,
-              startExpanded: true,
-              query: self.menuSearch$,
+              startExpanded: false,
+              filter$: self.menuFilter_$,
               onClickAddOn: function(data) { self.openMenu(data); },
               selection$: self.currentMenu$,
               formatter: function(data) { this.add(data.label); },

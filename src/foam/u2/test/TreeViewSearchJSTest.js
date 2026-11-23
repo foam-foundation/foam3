@@ -14,11 +14,13 @@ foam.CLASS({
     open/close arrow; rows the relationship builds from another source (Data
     Management's DAO menus) are judged too; a new filter replaces the shown
     rows; clearing it shows every row and closes the rows the search opened;
-    without a filter every row shows.`,
+    without a filter every row shows; a tree that starts closed starts closed
+    at every level. VerticalMenu's search box finds a menu by label or keyword.`,
 
   requires: [
     'foam.core.menu.Menu',
     'foam.core.menu.PseudoMenu',
+    'foam.core.menu.VerticalMenu',
     'foam.dao.ArrayDAO',
     'foam.mlang.ExpressionsSingleton',
     'foam.u2.view.TreeView'
@@ -112,6 +114,32 @@ foam.CLASS({
         'without a filter every row shows, got ' + JSON.stringify(shownIds(plain.el_())));
       plain.remove();
 
+      // A tree that starts closed (the side menus) starts closed at every
+      // level: opening a top row shows its children closed.
+      var closed = await mount(this.TreeView.create({
+        data: menuDAO, relationship: rel, startExpanded: false, formatter: fmt
+      }, mx));
+      row(closed.el_(), 'admin')?.click();
+      x.test(await waitShown(closed.el_(), [ 'admin', 'admin.data', 'admin.users', 'admin.stores', 'help' ]),
+        'opening a top row shows its children, got ' + JSON.stringify(shownIds(closed.el_())));
+      x.test(row(closed.el_(), 'admin.data')?.getAttribute('aria-expanded') === 'false',
+        'a child row starts closed too, got ' + row(closed.el_(), 'admin.data')?.getAttribute('aria-expanded'));
+      closed.remove();
+
+      // VerticalMenu's search box finds a menu by label or by keyword.
+      var nav = this.VerticalMenu.create({}, mx.createSubContext({
+        currentMenu: null, loginSuccess: true, pushMenu: () => {},
+        theme: { showNavSearch: true, navigationRootMenu: '' }
+      }));
+      var smtp = this.Menu.create({ id: 'mail', label: 'Email Service', keywords: [ 'smtp' ] }, mx);
+      nav.menuSearch = 'SMTP';
+      x.test(nav.menuFilter_.f(smtp), 'the side menu search finds a menu by keyword, case ignored');
+      nav.menuSearch = 'email';
+      x.test(nav.menuFilter_.f(smtp), 'the side menu search finds a menu by label, case ignored');
+      nav.menuSearch = 'agents';
+      x.test(! nav.menuFilter_.f(smtp), 'the side menu search skips a menu that holds the text nowhere');
+      nav.menuSearch = '  ';
+      x.test(E.TRUE.cls_.isInstance(nav.menuFilter_), 'blank text is no search');
     }
   ]
 });

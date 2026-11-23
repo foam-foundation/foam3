@@ -128,6 +128,18 @@ foam.CLASS({
       value: ''
     },
     {
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'menuFilter_',
+      documentation: `The search box as a test on each menu row: its label or one
+        of its keywords holds the text, case ignored. TRUE with no text.`,
+      expression: function(menuSearch) {
+        var text = menuSearch.trim();
+        return text ?
+          this.OR(this.CONTAINS_IC(this.Menu.LABEL, text), this.CONTAINS_IC(this.Menu.KEYWORDS, text)) :
+          this.TRUE;
+      }
+    },
+    {
       name: 'nodeName',
       value: 'nav'
     },
@@ -152,8 +164,8 @@ foam.CLASS({
           class: 'foam.u2.view.TreeView',
           data: self.dao_,
           relationship: foam.core.menu.MenuMenuChildrenRelationship,
-          startExpanded: true,
-          query: self.menuSearch$,
+          startExpanded: false,
+          filter$: self.menuFilter_$,
           onClickAddOn: function(data, hasChildren) { self.openMenu(data, hasChildren); },
           selection$: self.currentMenu$.map(m => m),
           formatter: function(data) {

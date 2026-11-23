@@ -163,13 +163,9 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'expanded',
-      postSet: function(o, n) {
-        if ( n ) {
-          delete this.collapsed[this.data.id];
-        } else if ( this.hasChildren ) {
-          this.collapsed[this.data.id] = true;
-        }
-      }
+      // Remembered by id, so a row drawn again (its parent's children reload)
+      // keeps the state the person or a search gave it.
+      postSet: function(o, n) { this.collapsed[this.data.id] = ! n; }
     },
     {
       class: 'Boolean',
@@ -197,24 +193,8 @@ foam.CLASS({
         place. Such a row is not a disclosure, so it carries no aria-expanded.`
     },
     {
-      class: 'Boolean',
-      name: 'doesThisIncludeSearch',
-      value: false
-    },
-    'query',
-    {
-      class: 'Boolean',
-      name: 'showThisRootOnSearch'
-    },
-    {
       class: 'Array',
       name: 'subMenus'
-    },
-    'showRootOnSearch',
-    {
-      class: 'Boolean',
-      name: 'updateThisRoot',
-      value: false
     },
     {
       class: 'Function',
@@ -242,20 +222,6 @@ foam.CLASS({
     function render() {
       this.SUPER();
       var self = this;
-      var controlledSearchSlot;
-
-      if ( this.query ) {
-        controlledSearchSlot = foam.lang.SimpleSlot.create();
-        this.query.sub(function() {
-          self.updateThisRoot = true;
-          self.showThisRootOnSearch = false;
-          controlledSearchSlot.set(self.query.get());
-          self.updateThisRoot = false;
-        });
-      }
-
-      if ( self.showRootOnSearch )
-        self.showRootOnSearch.set(self.showRootOnSearch.get() || self.doesThisIncludeSearch);
 
       var cb = () => {
         this.data[self.relationship.forwardName].select().then(function( val ) {
@@ -288,35 +254,8 @@ foam.CLASS({
       // Regular menu item rendering
       this.
         addClass(this.myClass()).
-        show(this.slot(function( showTreeRow, hasChildren, showThisRootOnSearch, updateThisRoot, treeHiddenIds ) {
-          if ( ! showTreeRow ) return false;
-          if ( treeHiddenIds?.[self.data.id] ) return false;
-          if ( ! self.query ) return true;
-          var isThisItemRelatedToSearch = false;
-          if ( ! updateThisRoot ) {
-            self.doesThisIncludeSearch = self.query.get() ? self.data.label.toLowerCase().includes(self.query.get().toLowerCase()) : true;
-
-            if ( self.query.get() && !self.doesThisIncludeSearch && self.data.keywords ) {
-              for ( var i = 0 ; i < self.data.keywords.length ; i++ ) {
-                if ( self.data.keywords[i].toLowerCase().includes(self.query.get().toLowerCase()) ) {
-                  self.doesThisIncludeSearch = true;
-                  break;
-                }
-              }
-            }
-
-            isThisItemRelatedToSearch = self.query.get() ? ( self.doesThisIncludeSearch && ( ! hasChildren || self.data.parent !== '' ) ) || ( hasChildren && showThisRootOnSearch ) : true;
-            if ( self.showRootOnSearch )
-              self.showRootOnSearch.set(self.showRootOnSearch.get() || isThisItemRelatedToSearch);
-          } else {
-            isThisItemRelatedToSearch = true;
-          }
-          if ( ! self.query.get() ) {
-            self.expanded = false;
-          } else if ( self.query.get() && isThisItemRelatedToSearch ) {
-            self.expanded = true;
-          }
-          return isThisItemRelatedToSearch;
+        show(this.slot(function(showTreeRow, treeHiddenIds) {
+          return showTreeRow && ! treeHiddenIds?.[self.data.id];
         })).
         enableClass(this.myClass('selected'), this.selected_$).
         on('dblclick', this.onDblClick).
@@ -370,9 +309,7 @@ foam.CLASS({
                 data:             obj,
                 formatter:        self.formatter,
                 relationship:     self.relationship,
-                expanded:         ! self.collapsed[obj.id],
-                showRootOnSearch: self.showThisRootOnSearch$,
-                query:            controlledSearchSlot,
+                expanded:         obj.id in self.collapsed ? ! self.collapsed[obj.id] : self.startExpanded,
                 onClickAddOn:     self.onClickAddOn,
                 // Inline children of a drill-in row (startExpanded) share its
                 // click handler, so a click on one replaces the list too.
@@ -561,7 +498,6 @@ foam.CLASS({
       name: 'startExpanded',
       value: false
     },
-    'query',
     {
       class: 'Function',
       name: 'onClickAddOn'
@@ -613,7 +549,6 @@ foam.CLASS({
             relationship: self.relationship,
             expanded:     self.startExpanded,
             formatter:    self.formatter,
-            query:        self.query,
             onClickAddOn: self.onClickAddOn,
             level:        0
           });

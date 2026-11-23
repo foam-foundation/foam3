@@ -120,14 +120,6 @@ foam.CLASS({
             // and error, so the agent(...) call is valid JavaScript for eval_.
             const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
             await this.eval_(`agent(${reply})`, true, true);
-            break;
-          } else if ( /^ask\b/.test(lines[i].trim()) ) {
-            // An ask sends its answer back to the agent, which has already
-            // replied with what to run next. The lines after the ask were
-            // written before the agent saw that answer, so running them repeats
-            // its work: a reply of "ask info" then "ask FROM commandDAO ..."
-            // read the command list twice and drew the heading twice.
-            break;
           } else {
             // Run the agent's lines the way loading a saved flow runs its
             // blocks (Console.includeScript): wait on each block's onLoad. So

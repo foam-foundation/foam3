@@ -107,14 +107,15 @@ public abstract class AbstractFObjectFormatter
   }
 
   protected synchronized List getProperties(PropertyInfo parentProp, ClassInfo info) {
-    String of = info.getName();
+    String of         = info.getName();
+    String permPrefix = info.getSimpleName().toLowerCase();
 
     if ( ! propertyMap_.containsKey(of) ) {
       List<PropertyInfo> filteredAxioms = new ArrayList<>();
       Iterator e = info.getAxiomsByClass(PropertyInfo.class).iterator();
       while ( e.hasNext() ) {
         PropertyInfo prop = (PropertyInfo) e.next();
-        if ( propertyPredicate_ == null || propertyPredicate_.propertyPredicateCheck(this.x_, of, prop) ) {
+        if ( propertyPredicate_ == null || propertyPredicate_.propertyPredicateCheck(this.x_, permPrefix, prop) ) {
           filteredAxioms.add(prop);
         }
       }

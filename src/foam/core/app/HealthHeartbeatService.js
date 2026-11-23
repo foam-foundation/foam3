@@ -127,40 +127,42 @@ foam.CLASS({
               Health health = (Health) x.get("Health");
               health.setHeartbeatTime(System.currentTimeMillis());
               health.setHeartbeatSchedule(getTimerInterval());
-              FObjectFormatter formatter = (FObjectFormatter) getFormatter();
-              formatter.reset();
-              formatter.output(health);
-              String data = formatter.builder().toString();
-              // ((Logger) x.get("logger")).debug("HealthHeartbeatService", "broadcaster", "broadcasting", data);
-              byte[] buf = data.getBytes();
-
-              DatagramSocket socket = null;
-              try {
-                socket = createSendSocket();
-                DatagramPacket[] packets = getPackets(x, data);
-                for ( DatagramPacket packet : packets ) {
-                  try {
-                    socket.send(packet);
-                  } catch ( IOException e ) {
-                    if ( "Host is down".equals(e.getMessage()) ) {
-                      ((Logger) x.get("logger")).debug("HealthHeartbeatService", "broadcasting", packet.getAddress()+":"+packet.getPort(), e.getMessage());
-                    } else {
-                      ((Logger) x.get("logger")).warning("HealthHeartbeatService", "broadcasting", packet.getAddress()+":"+packet.getPort(), data, e.getMessage());
-                    }
-                  }
-                }
-              } catch ( IOException e ) {
-                ((Logger) x.get("logger")).error("HealthHeartbeatService", "broadcasting", data, e.getMessage(), e);
-              } finally {
-                if ( socket != null ) socket.close();
-                pm.log(x);
-              }
+              sendHealth(x, health);
+              pm.log(x);
             }
           }
         ),
         getInitialTimerDelay(),
         getTimerInterval()
       );
+      `
+    },
+    {
+      documentation: `COREService stop, called by CSpecFactory.shutdown() on a
+        graceful JVM shutdown. Cancel the periodic heartbeat and send one final
+        DOWN heartbeat, so a monitor records this instance as intentionally down
+        instead of waiting for missed heartbeats to time out. Best-effort: never
+        let heartbeat trouble hold up shutdown.`,
+      name: 'stop',
+      javaCode: `
+      Timer timer = (Timer) getTimer();
+      if ( timer != null ) {
+        timer.cancel();
+        clearTimer();
+      }
+      if ( "localhost".equals(System.getProperty("hostname", "localhost")) ) {
+        return;
+      }
+      try {
+        X x = getX();
+        Health health = (Health) x.get("Health");
+        health.setStatus(HealthStatus.DOWN);
+        health.setHeartbeatTime(System.currentTimeMillis());
+        sendHealth(x, health);
+        Loggers.logger(x, this).info("broadcaster", "stop", "sent DOWN", getMode().getName());
+      } catch ( Throwable t ) {
+        Loggers.logger(getX(), this).warning("broadcaster", "stop", t.getMessage());
+      }
       `
     },
     {
@@ -239,6 +241,40 @@ foam.CLASS({
         }
         if ( socket != null ) socket.close();
       }
+      `
+    },
+    {
+      documentation: `Format a Health and send it as a heartbeat, honouring the
+        current mode. Shared by the periodic broadcaster and by stop()'s final
+        DOWN heartbeat.`,
+      name: 'sendHealth',
+      args: 'X x, foam.core.app.Health health',
+      javaCode: `
+        FObjectFormatter formatter = (FObjectFormatter) getFormatter();
+        formatter.reset();
+        formatter.output(health);
+        String data = formatter.builder().toString();
+
+        DatagramSocket socket = null;
+        try {
+          socket = createSendSocket();
+          DatagramPacket[] packets = getPackets(x, data);
+          for ( DatagramPacket packet : packets ) {
+            try {
+              socket.send(packet);
+            } catch ( IOException e ) {
+              if ( "Host is down".equals(e.getMessage()) ) {
+                ((Logger) x.get("logger")).debug("HealthHeartbeatService", "broadcasting", packet.getAddress()+":"+packet.getPort(), e.getMessage());
+              } else {
+                ((Logger) x.get("logger")).warning("HealthHeartbeatService", "broadcasting", packet.getAddress()+":"+packet.getPort(), data, e.getMessage());
+              }
+            }
+          }
+        } catch ( IOException e ) {
+          ((Logger) x.get("logger")).error("HealthHeartbeatService", "broadcasting", data, e.getMessage(), e);
+        } finally {
+          if ( socket != null ) socket.close();
+        }
       `
     },
     {

@@ -14,7 +14,8 @@ foam.CLASS({
     pins behaviour that existing docs rely on, so a grammar change cannot
     quietly break them; the rest covers quotes, table headers, <tabs> and
     <stepper>, which documents migrated from GitBook use, text in angle
-    brackets that is no tag, and links to a heading or to another document.
+    brackets that is no tag, links to a heading or to another document,
+    and untrusted text, whose tags, links and images show as written.
   `,
 
   requires: [
@@ -339,6 +340,21 @@ foam.CLASS({
       x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);
       v.remove();
       x.document.removeEventListener('click', guard);
+
+      // Scenario: untrusted text, such as an LLM reply that quotes a file a
+      // user uploaded. Markdown still renders; a tag, a link (which can load
+      // a flow by name) and an image show as the text they were written as.
+      v = self.MarkdownView.create({
+        trusted: false,
+        data: '**bold** and `code`\n\n- one\n- two\n\n<b onclick="x()">tag</b> [flow](My Flow) ![pic](images/a.png)\n'
+      }, x);
+      v.write(x.document.body);
+      await new Promise(r => setTimeout(r, 50));
+      x.test(q(v, 'strong') && q(v, 'code') && qa(v, 'ul li').length == 2, 'untrusted text still renders bold, code and a list');
+      x.test(! q(v, 'b, a, img'), 'untrusted text renders no tag, link or image element, got ' + v.el_().innerHTML);
+      x.test(text(v).indexOf('<b onclick="x()">tag</b> [flow](My Flow) ![pic](images/a.png)') != -1,
+        'the tag, link and image show as written, got ' + JSON.stringify(text(v)));
+      v.remove();
     }
   ]
 });

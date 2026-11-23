@@ -46,6 +46,8 @@ foam.CLASS({
     'window'
   ],
 
+  requires: [ 'foam.parse.ParserWithAction' ],
+
   css: `
     << a {
       color: $link;
@@ -403,6 +405,9 @@ foam.CLASS({
         },
 
         function htmlBlock(tag) {
+          // Untrusted text gets no tags: failing the rule here lets the parse
+          // fall through to plain text, so the tag shows as written.
+          if ( ! this.trusted ) return this.ParserWithAction.NO_PARSE;
           let tagName    = tag.tagName;
           let attributes = tag.attributes;
           let content    = tag.content;
@@ -563,6 +568,7 @@ foam.CLASS({
         },
 
         function image(v) {
+          if ( ! this.trusted ) return this.ParserWithAction.NO_PARSE;
           let alt = v[1], url = v[3], title = v[4] || '';
           return function() {
             this.start('img').attrs({
@@ -574,6 +580,9 @@ foam.CLASS({
         },
 
         function link(v) {
+          // A link to a flow name is loaded through eval (core/reflow/Link.js),
+          // so untrusted text shows its links as written too.
+          if ( ! this.trusted ) return this.ParserWithAction.NO_PARSE;
           let title = v[1], url = v[3];
           return function() { this.start('a').attrs({href: url}).add(title); };
         },
@@ -635,6 +644,16 @@ foam.CLASS({
     {
       class: 'String',
       name: 'data'
+    },
+    {
+      class: 'Boolean',
+      name: 'trusted',
+      value: true,
+      documentation: `False when the text comes from someone who must not
+        add elements to the page, such as an LLM reply that quotes a file a
+        user uploaded. HTML tags, links and images then show as the text
+        they were written as: <b>x</b> stays those eight characters instead
+        of bold. Bold, italics, code, lists, headings and tables still render.`
     },
     'lastGoodTokens_',
     {

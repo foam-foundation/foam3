@@ -44,6 +44,13 @@ foam.CLASS({
         drops to the last 6. Set 0 for a model that reruns the whole prompt on every call: there
         only a shorter prompt saves time, so the history is cut every turn.`,
       expression: function(maxHistory) { return Math.floor(maxHistory / 2); }
+    },
+    {
+      name: 'inbox',
+      documentation: `What was said to the model while a caller was still acting on its last
+        reply. A Reflow agent sets this to an array for as long as it runs the commands of a
+        reply: the answers of its asks gather here and go out together as its next request.
+        Unset when no caller is acting on a reply.`
     }
   ],
 
@@ -61,13 +68,16 @@ foam.CLASS({
       // adding ours would send each of them twice.
       if ( request.options && request.options.stateless ) return this.delegate.chat(x, request);
 
-      var i;
-      for ( i = 0; i < request.messages.length; i++ ) this.history.push(request.messages[i]);
-
       var response = await this.delegate.chat(x, this.ChatRequest.create({
-        messages: this.history,
+        messages: this.history.concat(request.messages),
         options:  request.options
       }));
+
+      // A request joins the history only with its reply. Added before the call,
+      // a request whose call failed, such as on a gateway timeout, stayed in the
+      // history unanswered, and the next call sent two user messages in a row.
+      var i;
+      for ( i = 0; i < request.messages.length; i++ ) this.history.push(request.messages[i]);
 
       // the turn keeps its tool calls and thinking, or the next request sends the
       // results of calls the model never made, which the provider refuses

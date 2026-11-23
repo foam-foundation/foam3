@@ -480,8 +480,19 @@ foam.CLASS({
     async function answer() {
       /** Generate an answer for an LLM **/
       await this.onLoad();
-      if ( this.value && this.value.VALUE ) return this.value.value;
-      return '';
+      if ( ! this.value || ! this.value.VALUE ) return '';
+
+      // The answer holds one page of rows: LIMIT, 100 when the query sets
+      // none. An agent that asked for 482 DAOs got 100 with no sign that rows
+      // were missing, so it kept asking again to finish the list. Say which
+      // rows the answer holds and how to ask for all of them or the next page.
+      var total = (await this.filteredDAO_.select(this.COUNT())).value;
+      var shown = this.limit ? Math.min(this.limit, total - this.skip) : total - this.skip;
+      if ( this.skip + shown >= total ) return this.value.value;
+
+      return this.value.value +
+        `\nRows ${this.skip + 1} to ${this.skip + shown} of ${total}. ` +
+        `Right after the DAO name, add LIMIT ${total} for all rows, or SKIP ${this.skip + shown} for the next ${this.limit}.`;
     },
 
     /*

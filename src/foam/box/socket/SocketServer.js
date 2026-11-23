@@ -22,9 +22,13 @@ foam.CLASS({
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
     'foam.net.Port',
+    'foam.util.SafetyUtil',
     'java.io.IOException',
+    'java.net.BindException',
+    'java.net.InetAddress',
     'java.net.ServerSocket',
     'java.net.Socket',
+    'java.net.UnknownHostException',
     'javax.net.ssl.SSLContext',
     'javax.net.ssl.SSLServerSocket'
   ],
@@ -34,6 +38,21 @@ foam.CLASS({
       class: 'Int',
       name: 'port',
       javaFactory: 'return Port.get(getX(), "SocketServer");'
+    },
+    {
+      class: 'String',
+      name: 'bindAddress',
+      documentation: 'The one address the socket server listens on, for example 127.0.0.1 so only this machine can connect. Empty listens on every address. The system property socket.bindAddress sets the default. This moves the socket server only, which cluster nodes also use to reach each other: a cluster or Docker setup leaves it empty. For a server only this computer can reach, set http.bindAddress and socket.bindAddress together.',
+      javaFactory: `return System.getProperty("socket.bindAddress", "");`
+    },
+    {
+      documentation: 'The listening socket, kept so a caller can read its address or close it.',
+      class: 'Object',
+      name: 'serverSocket',
+      flags: ['java'],
+      javaType: 'java.net.ServerSocket',
+      hidden: true,
+      transient: true
     },
     {
       class: 'String',
@@ -55,22 +74,30 @@ foam.CLASS({
 
   methods: [
     {
+      name: 'openServerSocket',
+      type: 'ServerSocket',
+      javaThrows: ['java.lang.Exception'],
+      documentation: 'Opens the listening socket on the port and bindAddress, with SSL when the context factory enables it. Throws UnknownHostException for an address that cannot be parsed and BindException when the address or port cannot be used.',
+      javaCode: `
+        InetAddress address = SafetyUtil.isEmpty(getBindAddress()) ? null : InetAddress.getByName(getBindAddress());
+        SslContextFactory contextFactory = (SslContextFactory) getX().get("sslContextFactory");
+
+        // Backlog 0 is Java's default of 50.
+        if ( contextFactory != null && contextFactory.getEnableSSL() ) {
+          SSLServerSocket sslServerSocket = (SSLServerSocket) contextFactory.getSSLContext(getX()).getServerSocketFactory().createServerSocket(getPort(), 0, address);
+          sslServerSocket.setNeedClientAuth(true);
+          return sslServerSocket;
+        }
+        return new ServerSocket(getPort(), 0, address);
+      `
+    },
+    {
       name: 'start',
       javaCode: `
         final Logger logger = Loggers.logger(getX(), this, "port", String.valueOf(getPort()));
         try {
-          ServerSocket serverSocket0 = null;
-          SslContextFactory contextFactory = (SslContextFactory) getX().get("sslContextFactory");
-
-          if ( contextFactory != null && contextFactory.getEnableSSL() ) {
-            SSLServerSocket sslServerSocket = (SSLServerSocket) contextFactory.getSSLContext(getX()).getServerSocketFactory().createServerSocket(getPort());
-            sslServerSocket.setNeedClientAuth(true);
-            serverSocket0 = sslServerSocket;
-          } else {
-            serverSocket0 = new ServerSocket(getPort());
-          }
-
-          final ServerSocket serverSocket = serverSocket0;
+          final ServerSocket serverSocket = openServerSocket();
+          setServerSocket(serverSocket);
 
           Agency agency = (Agency) getX().get(getThreadPoolName());
           final X x_ = getX();
@@ -101,7 +128,8 @@ foam.CLASS({
                 }
               }
             } catch ( IOException ioe ) {
-              logger.error("SocketServer.accept-" + getPort() + " terminate", ioe);
+              // Closing the socket ends accept; only an unexpected failure is an error.
+              if ( ! serverSocket.isClosed() ) logger.error("SocketServer.accept-" + getPort() + " terminate", ioe);
             } catch ( Exception e) {
               logger.error("SocketServer.accept-" + getPort() + " terminate", e);
             }
@@ -110,7 +138,12 @@ foam.CLASS({
           serverThread.setPriority(Thread.MAX_PRIORITY);
           serverThread.start();
 
-        } catch (java.net.BindException e) {
+        } catch ( UnknownHostException e ) {
+          // An address that is not an address stops the server: it cannot listen where it was told to.
+          logger.error("bindAddress is not a valid address: " + getBindAddress(), e);
+          System.exit(1);
+        } catch ( BindException e ) {
+          // A port in use stops the server for the same reason.
           logger.error(e.getMessage(), e);
           System.exit(1);
         } catch ( Exception e ) {

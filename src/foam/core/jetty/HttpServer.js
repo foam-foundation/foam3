@@ -34,6 +34,7 @@ foam.CLASS({
     'java.io.InputStream',
     'java.io.IOException',
     'java.io.PrintStream',
+    'java.net.InetAddress',
     'java.net.URI',
     'java.net.URL',
     'java.nio.file.Paths',
@@ -95,6 +96,12 @@ foam.CLASS({
       if ( getEnableHttps() ) return 8443;
       return 8080;
       `
+    },
+    {
+      class: 'String',
+      name: 'bindAddress',
+      documentation: "The one address to listen on, for example 127.0.0.1 so only this machine can connect. Empty listens on every address (Jetty's setHost is not called). A value that does not resolve stops the server. The system property http.bindAddress sets the default.",
+      javaFactory: `return System.getProperty("http.bindAddress", "");`
     },
     {
       class: 'Boolean',
@@ -252,9 +259,45 @@ foam.CLASS({
       `
     },
     {
+      name: 'resolveBindAddress',
+      type: 'InetAddress',
+      javaThrows: ['java.net.UnknownHostException'],
+      documentation: 'Resolves bindAddress now, because Jetty only stores the string and fails inside server.start(), which would leave the process up with no HTTP listener. Answers null when bindAddress is empty. Throws UnknownHostException for an address that cannot be parsed.',
+      javaCode: `
+      return SafetyUtil.isEmpty(getBindAddress()) ? null : InetAddress.getByName(getBindAddress());
+      `
+    },
+    {
+      name: 'startListening',
+      type: 'Boolean',
+      javaThrows: ['java.lang.Exception'],
+      args: [ { name: 'server', type: 'org.eclipse.jetty.server.Server' } ],
+      documentation: 'Starts the Jetty server. Answers false when bindAddress is set and this machine cannot listen on it: Jetty throws an IOException caused by a BindException from start(), which would otherwise be logged and leave the process up with no HTTP listener. Any other failure, and any failure with an empty bindAddress, is thrown as before.',
+      javaCode: `
+      try {
+        server.start();
+      } catch ( Exception e ) {
+        // Jetty wraps the BindException: look down the cause chain.
+        Throwable cause = e;
+        while ( cause != null && ! ( cause instanceof java.net.BindException ) ) cause = cause.getCause();
+        if ( cause == null || SafetyUtil.isEmpty(getBindAddress()) ) throw e;
+        getLogger().error("bindAddress " + getBindAddress() + " cannot be bound: " + cause.getMessage());
+        return false;
+      }
+      return true;
+      `
+    },
+    {
       name: 'start',
       javaCode: `
       clearLogger();
+
+      try {
+        resolveBindAddress();
+      } catch ( java.net.UnknownHostException e ) {
+        getLogger().error("bindAddress is not a valid address: " + getBindAddress(), e);
+        System.exit(1);
+      }
 
       try {
         int port = getPort();
@@ -294,6 +337,7 @@ foam.CLASS({
             server,
             new HttpConnectionFactory(config));
           connector.setPort(port);
+          if ( ! SafetyUtil.isEmpty(getBindAddress()) ) connector.setHost(getBindAddress());
           connector.addBean(stats);
           server.addConnector(connector);
         }
@@ -431,7 +475,7 @@ foam.CLASS({
 
         this.configHttps(server);
 
-        server.start();
+        if ( ! startListening(server) ) System.exit(1);
         setServer(server);
       } catch(Exception e) {
         getLogger().error(e);
@@ -583,6 +627,7 @@ foam.CLASS({
               http11);
           }
           connector.setPort(port);
+          if ( ! SafetyUtil.isEmpty(getBindAddress()) ) connector.setHost(getBindAddress());
           connector.addBean(new ConnectionStatistics());
 
           server.addConnector(connector);

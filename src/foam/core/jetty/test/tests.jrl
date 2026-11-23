@@ -1,0 +1,4 @@
+p({
+  class:"foam.core.jetty.test.BindAddressTest",
+  id:"BindAddressTest"
+})

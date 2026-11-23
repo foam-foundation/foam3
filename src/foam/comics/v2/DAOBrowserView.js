@@ -133,6 +133,7 @@ foam.CLASS({
   exports: [
     'config',
     'data as dao',
+    'predicate as browserPredicate',
     'filteredTableColumns',
     'searchColumns',
     'serviceName'
@@ -203,10 +204,20 @@ foam.CLASS({
       }
     },
     {
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'predicate',
+      documentation: `The canned query and the search together: what
+        predicatedDAO shows. Exported as browserPredicate for a summary view
+        that judges rows itself (TreeAltView's Tree draws parents the search
+        filters out).`,
+      expression: function(cannedPredicate, searchPredicate) {
+        return this.AND(cannedPredicate, searchPredicate);
+      }
+    },
+    {
       class: 'foam.dao.DAOProperty',
       name: 'predicatedDAO',
-      expression: function(config, cannedPredicate, searchPredicate) {
-        var predicate = this.AND(cannedPredicate, searchPredicate);
+      expression: function(config, predicate) {
         return config.dao$proxy.where(predicate);
       }
     },

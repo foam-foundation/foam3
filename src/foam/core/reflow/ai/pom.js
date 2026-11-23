@@ -9,6 +9,7 @@ foam.POM({
     { name: 'LLMCommand',     flags: 'js|java' },
 
     // Command to allow LLMs to ask questions and get results
+    { name: 'AskCommand', flags: 'js|java' },
 
     // Block for proposing the execution of another command
     { name: 'Propose', flags: 'js' },

@@ -44,14 +44,6 @@
 		"parserClass": "foam.core.reflow.parser.DAOTargetParser"
 	},
 	{
-		"class": "foam.core.reflow.ai.AskCommand",
-		"id": "ask",
-		"description": "Ask a question and return the response to the agent",
-		"icon": "/images/aiAgent.svg",
-		"permissionRequired": true,
-		"hidden": true
-	},
-	{
 		"class": "foam.core.reflow.cmd.Button",
 		"id": "button",
 		"icon": "input"

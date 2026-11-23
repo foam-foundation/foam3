@@ -75,63 +75,105 @@ foam.CLASS({
       name: 'dryRun',
       documentation: 'If true, show generated commands without executing.',
       value: true
+    },
+    {
+      class: 'Int',
+      name: 'maxTurns',
+      documentation: `The most replies one request may take. Each answer to an ask and each
+        failed line costs one more reply; a model that keeps writing the same bad
+        line would otherwise call itself without end.`,
+      value: 10
     }
+  ],
+
+  messages: [
+    { name: 'TOO_MANY_TURNS', message: 'I stopped after ${n} replies without finishing. Try asking again with more detail.', template: true }
   ],
 
   methods: [
     async function execute(q) {
-      // ── 1. Build the system prompt with environment context ──
       var systemPrompt = await this.buildSystemPrompt_();
 
-      // ── 2. Call LLMService ──
-      var request = foam.ai.llm.CompletionRequest.create({
-        prompt: foam.String.isInstance(q) ? q : JSON.stringify(q),
-        options: foam.ai.llm.LLMOptions.create({
-          systemPrompt: systemPrompt,
-          model:        this.model
-        })
-      });
+      // One conversation, one turn at a time. A reply that asks for results,
+      // or has a line that fails, gets its answer as the next turn of this
+      // same loop, so the follow-up keeps this agent's dryRun and model. A
+      // nested agent(...) call per answer used to resume the old reply after
+      // the follow-up: in "ask info" then h1("Stale"), the stale heading was
+      // drawn after the agent's real answer.
+      var prompt = foam.String.isInstance(q) ? q : JSON.stringify(q);
+      for ( var turn = 1 ; prompt ; turn++ ) {
+        if ( turn > this.maxTurns ) {
+          await this.eval_(`markdown(${JSON.stringify(this.TOO_MANY_TURNS({ n: this.maxTurns }))})`, true, true);
+          break;
+        }
 
-      var result;
-      try {
-        result = await this.llmService.complete(this.__subContext__, request);
-      } catch (e) {
-        throw 'LLM error: ' + e;
+        var result;
+        try {
+          result = await this.llmService.complete(this.__subContext__, foam.ai.llm.CompletionRequest.create({
+            prompt:  prompt,
+            options: foam.ai.llm.LLMOptions.create({ systemPrompt: systemPrompt, model: this.model })
+          }));
+        } catch (e) {
+          throw 'LLM error: ' + e;
+        }
+
+        prompt = await this.runReply_(result.content);
       }
 
-      // ── 3. Parse response into command lines ──
-      var lines = this.parseCommandLines_(result.content);
+      // Delete this block, since it was just a prompt, not a block
+      setTimeout(() => this.block.del(), 100);
+    },
+
+    // Runs one reply and returns what goes back to the model: the answers to
+    // its asks, or the line that failed. Empty when the reply is done.
+    async function runReply_(content) {
+      var lines = this.parseCommandLines_(content);
 
       // A reply with no command line, such as one made only of '# ...' lines,
       // still reaches the user as a markdown block of its own. Drawn inside
       // this block instead, it would keep the block, and a saved flow would
       // send the same prompt again on every load.
-      if ( ! lines.length && result.content ) {
-        await this.eval_(`markdown(${JSON.stringify(result.content)})`, true, true);
+      if ( ! lines.length && content ) {
+        await this.eval_(`markdown(${JSON.stringify(content)})`, true, true);
+        return '';
       }
 
-      // ── 4. Insert commands into the flow ──
+      var answers = [];
       for ( var i = 0 ; i < lines.length ; i++ ) {
-        if ( lines[i].trim() != '' ) {
-          var block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
+        const ask = lines[i].match(/^ask\s+(.*)$/);
 
-          if ( this.BadBlock.isInstance(block.value) ) {
-            // JSON.stringify escapes the quotes and newlines in the command
-            // and error, so the agent(...) call is valid JavaScript for eval_.
-            const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
-            await this.eval_(`agent(${reply})`, true, true);
-          } else {
-            // Run the agent's lines the way loading a saved flow runs its
-            // blocks (Console.includeScript): wait on each block's onLoad. So
-            // after input('Delete order 1234?', ['Yes', 'No']) the agent's
-            // next line waits until the user has answered.
-            await block?.value?.onLoad?.();
-          }
+        // The agent wrote the lines after its asks before it saw the answers,
+        // so they wait: it writes them again in its next reply, knowing the
+        // results. The asks right after one another still run together, so
+        // "ask info" then "ask FROM commandDAO ..." costs one turn, not two.
+        if ( answers.length && ! ask ) break;
+
+        const cmd   = ask ? ask[1] : lines[i];
+        const block = await this.eval_((this.dryRun ? 'propose ' : '') + cmd, true, true);
+
+        if ( this.BadBlock.isInstance(block.value) ) {
+          return JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
+        }
+
+        if ( ask ) {
+          // In a preview the asked command is proposed, and its answer waits
+          // until the user accepts or rejects it (Propose.answer).
+          answers.push({ asked: cmd, blockName: block.flowName, response: await block.answer() });
+          // The asked block goes once answered: kept, a saved flow would run
+          // it again on every load. A proposal removes itself when the user
+          // decides.
+          if ( ! this.dryRun ) setTimeout(() => block.del(), 100);
+        } else {
+          // Run the agent's lines the way loading a saved flow runs its
+          // blocks (Console.includeScript): wait on each block's onLoad. So
+          // after input('Delete order 1234?', ['Yes', 'No']) the agent's
+          // next line waits until the user has answered.
+          await block?.value?.onLoad?.();
         }
       }
 
-      // -- 5. Delete this block, since it was just a prompt, not a block
-      setTimeout(() => this.block.del(), 100);
+      if ( ! answers.length ) return '';
+      return JSON.stringify(answers.length === 1 ? answers[0] : answers);
     },
 
     async function buildSystemPrompt_() {

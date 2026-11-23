@@ -42,7 +42,7 @@ But is also included when you initially did `ask now`
 Reading flow documents is especially useful — many contain manual pages, documentation, and domain knowledge that will help you perform tasks accurately.
 
 Always prefer `ask` over assumptions. If you're unsure which DAO to use query the cSpecDAO as explained above. If you're unsure what fields a DAO has, `ask describe daoName`. If you need domain context, look for relevant flows with `ask FROM flowDAO ...` command from above and read them.
-The `ask` response is sent as an `agent` command so if you respond after receiving an `ask` response, then be sure to respond with REFLOW commands, not with direct markdown text.
+Each `ask` runs, and its answer comes back to you as the next message, so reply to it with REFLOW commands, not with direct markdown text. Several `ask` lines in a row all run, and their answers come back together as a JSON array, in order. Lines after your `ask` lines do not run: you have not seen the answers yet, so write those lines in your next reply.
 
 ## Asking the User with `input`
 

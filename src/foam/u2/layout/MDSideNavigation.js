@@ -49,7 +49,7 @@ foam.CLASS({
     },
     {
       class: 'foam.mlang.predicate.PredicateProperty',
-      name: 'menuFilter_',
+      name: 'menuSearchPredicate_',
       documentation: 'The search box as a test on each menu row, as in VerticalMenu.',
       expression: function(menuSearch) {
         var text = menuSearch.trim();
@@ -100,7 +100,7 @@ foam.CLASS({
               data: self.dao_,
               relationship: foam.core.menu.MenuMenuChildrenRelationship,
               startExpanded: false,
-              filter$: self.menuFilter_$,
+              searchPredicate$: self.menuSearchPredicate_$,
               onClickAddOn: function(data) { self.openMenu(data); },
               selection$: self.currentMenu$,
               formatter: function(data) { this.add(data.label); },

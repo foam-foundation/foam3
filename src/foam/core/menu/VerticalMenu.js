@@ -129,7 +129,7 @@ foam.CLASS({
     },
     {
       class: 'foam.mlang.predicate.PredicateProperty',
-      name: 'menuFilter_',
+      name: 'menuSearchPredicate_',
       documentation: `The search box as a test on each menu row: its label or one
         of its keywords holds the text, case ignored. TRUE with no text.`,
       expression: function(menuSearch) {
@@ -165,7 +165,7 @@ foam.CLASS({
           data: self.dao_,
           relationship: foam.core.menu.MenuMenuChildrenRelationship,
           startExpanded: false,
-          filter$: self.menuFilter_$,
+          searchPredicate$: self.menuSearchPredicate_$,
           onClickAddOn: function(data, hasChildren) { self.openMenu(data, hasChildren); },
           selection$: self.currentMenu$.map(m => m),
           formatter: function(data) {

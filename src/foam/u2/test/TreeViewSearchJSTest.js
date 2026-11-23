@@ -133,13 +133,13 @@ foam.CLASS({
       }));
       var smtp = this.Menu.create({ id: 'mail', label: 'Email Service', keywords: [ 'smtp' ] }, mx);
       nav.menuSearch = 'SMTP';
-      x.test(nav.menuFilter_.f(smtp), 'the side menu search finds a menu by keyword, case ignored');
+      x.test(nav.menuSearchPredicate_.f(smtp), 'the side menu search finds a menu by keyword, case ignored');
       nav.menuSearch = 'email';
-      x.test(nav.menuFilter_.f(smtp), 'the side menu search finds a menu by label, case ignored');
+      x.test(nav.menuSearchPredicate_.f(smtp), 'the side menu search finds a menu by label, case ignored');
       nav.menuSearch = 'agents';
-      x.test(! nav.menuFilter_.f(smtp), 'the side menu search skips a menu that holds the text nowhere');
+      x.test(! nav.menuSearchPredicate_.f(smtp), 'the side menu search skips a menu that holds the text nowhere');
       nav.menuSearch = '  ';
-      x.test(E.TRUE.cls_.isInstance(nav.menuFilter_), 'blank text is no search');
+      x.test(E.TRUE.cls_.isInstance(nav.menuSearchPredicate_), 'blank text is no search');
     }
   ]
 });

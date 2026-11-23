@@ -13,12 +13,12 @@ When two refinements set the **same property's `value`** (or default), which one
 
 ## The rule
 
-A class is *built* the first time something looks it up (`foam.lookup`, or a subclass being built, `foam3/src/foam/lang/Boot.js:138-140`). Until then FOAM only holds its model.
+A class is *built* the first time something looks it up (`foam.lookup`, or a subclass being built); the class factory registered at `foam3/src/foam/lang/EndBoot.js:337-346` builds it on that first lookup. Until then FOAM only holds its model.
 
 - **Class already built: last-wins.** A refinement that loads after the class is built applies at once, so refinements apply in load order and the last one's `value` wins.
 - **Class not built yet: first-wins.** A refinement that loads before the class is built waits for it, and the waiting ones run **newest-first** when the class is finally built, so the **first**-loaded one is applied last and wins. `foam.CLASS` queues them with `foam.pubsub.sub` (`foam3/src/foam/lang/EndBoot.js:318-330`), and `sub` puts each new listener at the head of the list (`foam3/src/foam/lang/FObject.js:711-727`).
 
-Java generation loads every file before it looks any class up (`foam3/tools/JavaMaker.js:41-56`), so in the Java build nearly every refinement waits and the **first** one wins. The JS bundle runs the same `foam.CLASS` in the browser, so it gives the opposite answer only when something builds the class before the refinements load. **The server's runtime value is the Java one** — read it from the generated getter in `build/src/java/<pkg>/<Model>.java`.
+Java generation loads every file (`foam3/src/foam.js:298-300`) before it looks any class up (`foam3/tools/JavaMaker.js:41-56`), so in the Java build nearly every refinement waits and the **first** one wins. The JS bundle runs the same `foam.CLASS` in the browser, so it gives the opposite answer only when something builds the class earlier there, or when the bundle loads the files in a different order (`foam3/tools/JSMaker.js:61-95`). **The server's runtime value is the Java one** — read it from the generated getter in `build/src/java/<pkg>/<Model>.java`.
 
 ## Pom load order
 
@@ -32,8 +32,6 @@ When nothing builds the class before both refinements load (the usual case in th
 
 - Put your refinement in `files` and the library it overrides in `postProjects` of the **same pom** — `files` load before `postProjects`, so yours applies first and wins. **Or**
 - List it earlier in a `projects` list, or earlier in a `-J` journal sequence.
-
-(If something builds the class between the two loads, the order flips and the later one wins.)
 
 ## Worked example
 
@@ -51,7 +49,7 @@ Loading `AppHealthRefines` **after** the library (a separate pom pulled later, o
 ## Gotchas
 
 - **Don't diagnose from the JS bundle.** `build/js/foam-bin*.js` can show the *opposite* of the server's Java default. Read `build/src/java/<pkg>/<Model>.java`.
-- **A duplicate library reference can re-apply its refinement.** Referencing the same library sub-pom from two places is deduped in the JS build but can re-apply in the Java pass, re-asserting the library's value after yours.
+- **A second copy of the library can re-apply its refinement.** The loader skips a file it has already loaded by resolved path, in both builds (`foam3/src/foam_node.js:43-45`, `foam3/src/foam.js:109`), so the same sub-pom listed twice applies its refinement once. A copy of the library under another path loads again and re-asserts the library's value after yours.
 - **A reorder needs no clean build.** Java generation regenerates every model on each build and rewrites a `.java` whose text changed (`foam3/src/foam/java/refinements.js:2753-2766`), so a pom-only reorder shows up on a plain build.
 
 ## Diagnosing a wrong default

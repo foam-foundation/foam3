@@ -51,13 +51,13 @@ foam.CLASS({
         ],
         [ {
             // AltView hands every view the searched rows. The Tree draws the
-            // whole store instead and takes the search as its filter, so a
+            // whole store instead and takes the search as its searchPredicate, so a
             // match shows with its parent rows.
             // Without a config (an older list screen), it follows AltView's data.
             create: function(args, x) {
               return self.TreeView.create({
                 ...( self.config ? { data: self.config.dao } : { data$: args.data$ } ),
-                filter$:       self.browserPredicate$,
+                searchPredicate$: self.browserPredicate$,
                 relationship:  relationship,
                 startExpanded: true,
                 formatter:     function(data) { this.add(data.label); }

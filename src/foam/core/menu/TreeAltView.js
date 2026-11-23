@@ -26,13 +26,19 @@ foam.CLASS({
   exports: [ 'click as dblclick' ],
 
   properties: [
-    'relationship'
+    'relationship',
+    {
+      name: 'config',
+      documentation: `The list screen's config; DAOBrowserView passes it to its
+        summary view. Its dao is the whole, unsearched store: the Tree takes it
+        as treeDAO, so a search shows the matches with their parent rows.`
+    }
   ],
 
   methods: [
     function init() {
       var relationship = typeof this.relationship === 'object' ?
-        relationship :
+        this.relationship :
         foam.lookup(this.relationship);
 
       this.views = [
@@ -45,6 +51,7 @@ foam.CLASS({
         [ {
             class: 'foam.u2.view.TreeView',
             relationship: relationship,
+            treeDAO: this.config?.dao,
             startExpanded: true,
             formatter: function(data) { this.add(data.label); }
           }, 'Tree' ]

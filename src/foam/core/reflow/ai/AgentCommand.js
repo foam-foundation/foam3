@@ -96,7 +96,10 @@ foam.CLASS({
 
       // One conversation, one turn at a time. A reply that asks for results,
       // or has a line that fails, gets its answer as the next turn of this
-      // same loop, so the follow-up keeps this agent's dryRun and model.
+      // same loop, so the follow-up keeps this agent's dryRun and model. A
+      // nested agent(...) call per answer used to resume the old reply after
+      // the follow-up: in "ask info" then h1("Stale"), the stale heading was
+      // drawn after the agent's real answer.
       var prompt = foam.String.isInstance(q) ? q : JSON.stringify(q);
       for ( var turn = 1 ; prompt ; turn++ ) {
         if ( turn > this.maxTurns ) {
@@ -137,7 +140,7 @@ foam.CLASS({
 
       var answers = [];
       for ( var i = 0 ; i < lines.length ; i++ ) {
-        const ask = /^ask\s/.test(lines[i]);
+        const ask = lines[i].match(/^ask\s+(.*)$/);
 
         // The agent wrote the lines after its asks before it saw the answers,
         // so they wait: it writes them again in its next reply, knowing the
@@ -145,17 +148,21 @@ foam.CLASS({
         // "ask info" then "ask FROM commandDAO ..." costs one turn, not two.
         if ( answers.length && ! ask ) break;
 
-        const block = await this.eval_((this.dryRun ? 'propose ' : '') + lines[i], true, true);
+        const cmd   = ask ? ask[1] : lines[i];
+        const block = await this.eval_((this.dryRun ? 'propose ' : '') + cmd, true, true);
 
         if ( this.BadBlock.isInstance(block.value) ) {
           return JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
         }
 
         if ( ask ) {
-          // An ask block answers with what it asked (AskCommand.answer). In a
-          // preview the ask is proposed, and answers once the user accepts or
-          // rejects it (Propose.answer).
-          answers.push(await block.answer());
+          // In a preview the asked command is proposed, and its answer waits
+          // until the user accepts or rejects it (Propose.answer).
+          answers.push({ asked: cmd, blockName: block.flowName, response: await block.answer() });
+          // The asked block goes once answered: kept, a saved flow would run
+          // it again on every load. A proposal removes itself when the user
+          // decides.
+          if ( ! this.dryRun ) setTimeout(() => block.del(), 100);
         } else {
           // Run the agent's lines the way loading a saved flow runs its
           // blocks (Console.includeScript): wait on each block's onLoad. So

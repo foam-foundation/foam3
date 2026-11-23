@@ -304,7 +304,7 @@ foam.CLASS({
           return isThisItemRelatedToSearch;
         })).
         enableClass(this.myClass('selected'), this.selected_$).
-        on('dblclick', function() { self.dblclick && self.dblclick(self.data); }).
+        on('dblclick', this.onDblClick).
         callIf(this.draggable, function() {
           this.
           attrs({ draggable: 'true' }).
@@ -371,6 +371,13 @@ foam.CLASS({
   ],
 
   listeners: [
+    function onDblClick(e) {
+      // A row's element holds its child rows, so without this a double-click
+      // on a child also reaches every parent row and the top one opens last.
+      e.stopPropagation();
+      this.dblclick && this.dblclick(this.data);
+    },
+
     function onDragStart(e) {
       e.dataTransfer.setData('application/x-foam-obj-id', this.data.id);
       e.stopPropagation();

@@ -22,7 +22,11 @@ foam.CLASS({
           'markdown("plain \\"quoted\\" text")',
           'var re = /\\d+/; re.test("12")',
           'markdown("line1\\nline2")',
-          'h1 Hello'
+          'h1 Hello',
+          'markdown("a \\\\ b")',
+          'markdown("\\u0041")',
+          'h1 One\nh1 Two',
+          'markdown("a\tb")'
         ];
 
         // The outputter settings Console.generateScriptString uses on Save.

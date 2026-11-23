@@ -115,9 +115,10 @@ foam.CLASS({
       // default JSON escape keeps an existing \" as it is, so Save wrote
       // markdown("a \"b\" c") back as markdown("a "b" c") and the block
       // failed when the flow loaded. Escaping every backslash keeps the
-      // command as typed. A triple-quoted block does its own escaping.
+      // command as typed. The outputter escapes the result once more, which
+      // leaves it alone: the forced pass writes only whole \\, \" and \u00XX
+      // pairs, and the second pass keeps those as they are.
       toJSON: function(value, outputter) {
-        if ( outputter.multiLineOutput && value.indexOf('\n') != -1 ) return value;
         return outputter.escape(value, true);
       }
     },

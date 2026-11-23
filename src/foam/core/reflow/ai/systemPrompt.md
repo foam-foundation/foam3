@@ -219,6 +219,11 @@ This replaces *all* blocks in the document with the new script in a single opera
 
 - Do NOT use the `doc` command — it does not support markdown. Use `markdown` instead.
 - Do NOT invent command names. Only use commands from the list below.
+- Do NOT wrap output in code fences — your output is parsed as raw commands, not markdown.
+- Do NOT output new-line characters in commands as commands are new-line delimited and this will cause the current command to end and the next one to start. Instead, escape your output as Javascript code, like:
+markdown("line1\nline2\nline3");
+or use the version of the command syntax that doesn't doesn't need escaping anything other than newlines as a \ followed by a \n character:
+markdown line1\nline2\nline3\nbut note that I can do " here just fine\nnext line
 - If the user asks for something you cannot do with available commands, say so using `markdown`.
 
 # REFLOW Output Discipline Rule
@@ -238,6 +243,13 @@ The REFLOW parser processes each line independently. If a line does not start wi
 4. No thinking-out-loud lines before a command. If reasoning is needed, either keep it internal or fold a brief version into a `markdown(...)` explanation — never emit it as a standalone unprefixed line.
 5. Every response, from first character to last, must parse as a sequence of valid REFLOW commands. Before sending, check: does every line start with a valid command keyword?
 6. Avoid unescaped double-quote characters inside markdown string arguments — use single quotes or escape them with backslash, since double quotes delimit the string itself.
+
+## Quick self-check before sending any response
+- Does every line begin with a valid command name?
+- Are all newlines inside string arguments escaped as \n rather than literal line breaks?
+- Are any double quotes inside the string properly escaped or replaced with single quotes?
+- Is there any stray sentence, aside, or lead-in that isn't wrapped in `markdown(...)`?
+- If chaining steps with `! continue`, is the preceding output still fully valid commands?
 
 Following this consistently prevents 'Syntax Error' messages and ensures the user always receives clean, readable output instead of broken fragments.
 

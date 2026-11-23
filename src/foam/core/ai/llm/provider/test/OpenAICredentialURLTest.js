@@ -15,7 +15,7 @@ foam.CLASS({
     OpenAI-compatible endpoint, a changed url takes effect on the next call, no url keeps
     OpenAI's endpoint, and a baseURL set on the instance or declared by a subclass (Ollama,
     DeepSeek) still wins. A key set on the instance with setApiKey is sent as given and
-    needs no credential row.
+    needs no credential row, and a local Ollama needs no key at all.
   `,
 
   javaImports: [
@@ -124,6 +124,13 @@ foam.CLASS({
           expect(openai.requestURL(), "https://api.openai.com/v1/chat/completions", "no credential: OpenAI's endpoint");
           expect(embeddings.getEndpoint(), "https://api.openai.com/v1/embeddings", "embeddings, no credential: OpenAI's endpoint");
           expect(ollama.requestURL(), "http://localhost:11434/v1/chat/completions", "ollama, no credential: its own endpoint, no error");
+
+          // a local Ollama with no key and no credential row still gets a reply, sent with no Authorization header
+          OllamaLLMService keyless = new OllamaLLMService();
+          keyless.setX(tx);
+          keyless.setBaseURL(urlA + "/ollama");
+          expect(keyless.chat(tx, chat("Hi")).getContent(), "ok", "ollama, no key: the reply is read with no credential row");
+          test(auths.get(auths.size() - 1) == null, "ollama, no key: no Authorization header is sent, got " + auths.get(auths.size() - 1));
 
           // a baseURL and key set in code need no credential row, and the key set is the one sent
           OpenAILLMService coded = new OpenAILLMService();

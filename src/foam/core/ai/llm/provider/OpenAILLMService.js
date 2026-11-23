@@ -42,8 +42,13 @@ foam.CLASS({
     {
       class: 'String',
       name: 'apiKey',
-      documentation: 'Read from the credential on every call, so a key rotated in the vault is used on the next one.',
+      documentation: `
+        A key set on the instance, as in setApiKey("sk-..."), is sent as given. Otherwise the
+        key is read from the credential on every call, so a key rotated in the vault is used
+        on the next one.
+      `,
       javaGetter: `
+        if ( apiKeyIsSet_ ) return apiKey_;
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find(getCredentialId());
         if ( cred == null ) throw new RuntimeException("LLM credential not found: " + getCredentialId());

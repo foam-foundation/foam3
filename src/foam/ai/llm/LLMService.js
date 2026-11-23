@@ -123,6 +123,12 @@ foam.CLASS({
         comes back with its thinking unchanged, so it is kept here and sent back as it came.
       `
     }
+  ],
+
+  methods: [
+    function toString() {
+      return `ChatMessage(${this.role},${this.content})`;
+    }
   ]
 });
 

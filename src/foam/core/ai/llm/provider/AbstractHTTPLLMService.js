@@ -108,6 +108,31 @@ foam.CLASS({
       public void done() {
         if ( progress_ != null ) progress_.written((int) ( chars_ / 4 ));
       }
+
+      /** What the gateway says the call waits on, from a ": status <text>" line. */
+      public void status(String status) {
+        if ( progress_ != null ) progress_.status(status);
+      }
+    }
+
+    /**
+     * The LLMProgress that send hands to readStream: it remembers the last count, so the
+     * idle watchdog can tell the listener that count again while nothing arrives. Without
+     * that, a call queued at a gateway that sends nothing never reaches the listener, and
+     * a user's Stop is not heard until the reply starts, up to readTimeout later.
+     */
+    public static class Heartbeat implements LLMProgress {
+      private final    LLMProgress progress_;
+      private volatile int         tokens_ = 0;
+
+      public Heartbeat(LLMProgress progress) { progress_ = progress; }
+
+      public void written(int tokens) { tokens_ = tokens; progress_.written(tokens); }
+
+      public void status(String status) { progress_.status(status); }
+
+      /** The last count again: nothing new arrived, but the call is still open. */
+      public void again() { progress_.written(tokens_); }
     }
 
     /**
@@ -115,6 +140,10 @@ foam.CLASS({
      * for idleMs. HttpClient's own timeout covers the wait for the reply to start, but none
      * covers a stream that stops half way: a reply that pauses for 10 minutes would hang
      * the call for good. A timer checks the gap and closes the body, which ends a blocked read.
+     *
+     * The same timer runs quiet, when given, after each second with no byte. A quiet that
+     * throws ends the call: the body is closed, and the blocked read throws that exception.
+     * It runs on the timer's one thread, so it must return quickly.
      */
     public static class IdleTimeoutInputStream extends java.io.FilterInputStream {
       private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -125,19 +154,39 @@ foam.CLASS({
 
       private final long               idleMs_;
       private final ScheduledFuture<?> check_;
+      private final Runnable           quiet_;
       private volatile long            last_ = System.currentTimeMillis();
+      private volatile long            lastQuiet_;
       private volatile boolean         timedOut_;
+      private volatile RuntimeException stopped_;
 
       public IdleTimeoutInputStream(InputStream in, long idleMs) {
+        this(in, idleMs, null);
+      }
+
+      public IdleTimeoutInputStream(InputStream in, long idleMs, Runnable quiet) {
         super(in);
         idleMs_ = idleMs;
+        quiet_  = quiet;
         long every = Math.max(10, Math.min(1000, idleMs / 4));
         check_ = TIMER.scheduleWithFixedDelay(this::check, every, every, TimeUnit.MILLISECONDS);
       }
 
       private void check() {
-        if ( System.currentTimeMillis() - last_ < idleMs_ ) return;
-        timedOut_ = true;
+        long now = System.currentTimeMillis();
+        if ( now - last_ >= idleMs_ ) {
+          timedOut_ = true;
+        } else if ( quiet_ != null && now - last_ >= 1000 && now - lastQuiet_ >= 1000 ) {
+          lastQuiet_ = now;
+          try {
+            quiet_.run();
+            return;
+          } catch (RuntimeException e) {
+            stopped_ = e;
+          }
+        } else {
+          return;
+        }
         check_.cancel(false);
         try { in.close(); } catch (IOException e) { /* the reader learns it from its read */ }
       }
@@ -152,9 +201,11 @@ foam.CLASS({
         try {
           n = in.read(b, off, len);
         } catch (IOException e) {
+          if ( stopped_ != null ) throw stopped_;
           if ( timedOut_ ) throw timeout();
           throw e;
         }
+        if ( n == -1 && stopped_ != null ) throw stopped_;
         if ( n == -1 && timedOut_ ) throw timeout();
         last_ = System.currentTimeMillis();
         return n;
@@ -172,10 +223,12 @@ foam.CLASS({
 
     /** The payload of the next "data:" line of a server-sent event stream; null at its
      *  end. An empty "data:" line or a ": keep-alive" comment is skipped, but still tells
-     *  the listener the call is alive. */
+     *  the listener the call is alive. A ": status queued ahead=2" comment, which a gateway
+     *  sends while the call waits, tells the listener the stage. */
     public static String nextData(BufferedReader in, Written written) throws IOException {
       for ( String line ; ( line = in.readLine() ) != null ; ) {
         written.alive();
+        if ( line.startsWith(": status ") ) written.status(line.substring(9).trim());
         if ( ! line.startsWith("data:") ) continue;
         String data = line.substring(5).trim();
         if ( ! data.isEmpty() ) return data;
@@ -401,9 +454,11 @@ foam.CLASS({
             HttpResponse<InputStream> resp = getHttpClient().send(request, HttpResponse.BodyHandlers.ofInputStream());
             int status = resp.statusCode();
             if ( status == 200 ) {
+              Heartbeat beat = progress == null ? null : new Heartbeat(progress);
               try ( BufferedReader in = new BufferedReader(new InputStreamReader(
-                      new IdleTimeoutInputStream(resp.body(), getReadTimeout()), StandardCharsets.UTF_8)) ) {
-                return (JSONObject) readStream(in, progress);
+                      new IdleTimeoutInputStream(resp.body(), getReadTimeout(), beat == null ? null : beat::again),
+                      StandardCharsets.UTF_8)) ) {
+                return (JSONObject) readStream(in, beat);
               }
             }
             // an error reply can stall too, e.g. a proxy that sends 502 and then nothing

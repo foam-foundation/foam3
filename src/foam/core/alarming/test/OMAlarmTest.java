@@ -224,8 +224,13 @@ public class OMAlarmTest
 
     for ( int i = 0; i < 10; i++ )
       omLogger.log(QUIET,OM_REQUEST);
-    evaluate(x, QUIET);
-    evaluate(x, QUIET);
+    // Both cycles read the same closed minute, so the config trips on each.
+    // A closeMinute before the second one could wait for the next minute and
+    // leave the requests outside the window, and the check would pass with
+    // nothing tripped.
+    closeMinute(x);
+    report(x, QUIET);
+    report(x, QUIET);
     Count records = (Count) ((DAO) x.get("eventRecordDAO")).where(EQ(EventRecord.EVENT, QUIET)).select(COUNT());
     test(((Long) records.getValue()) == 0, QUIET+" INFO config that trips puts no EventRecord "+records.getValue());
   }
@@ -248,11 +253,7 @@ public class OMAlarmTest
     closeMinute(x);
     omLogger.log(PARTIAL,OM_REQUEST);
     omLogger.log(PARTIAL,OM_RESPONSE);
-
-    MonitoringReport report = new MonitoringReport();
-    report.setName(PARTIAL);
-    ((DAO) x.get("monitoringReportDAO")).put(report);
-    Thread.sleep(1000);
+    report(x, PARTIAL);
     Alarm alarm = findAlarm(x, PARTIAL);
     test(alarm == null || ! alarm.getIsActive(), PARTIAL+" 6 timeouts last minute and 1 request this minute raise nothing "+alarm);
   }

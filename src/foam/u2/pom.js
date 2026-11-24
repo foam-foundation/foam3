@@ -65,6 +65,7 @@ foam.POM({
     { name: "test/ColorSchemeToggleTest",                         flags: "js&test|java&test" },
     { name: "test/MarkdownViewJSTest",                            flags: "js&test|java&test" },
     { name: "test/RelationshipPickerJSTest",                      flags: "js&test|java&test" },
+    { name: "test/AltViewSelectorJSTest",                         flags: "js&test|java&test" },
     { name: "ColorToken",                                         flags: "js|java" },
     { name: "theme/ColorSchemeToggle",                            flags: "web" },
     { name: "ColorTokenRefinement",                               flags: "genjava" },

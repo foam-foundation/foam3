@@ -153,7 +153,7 @@ foam.CLASS({
       padding-top: 12px;
     }
     /* TODO: scope this better so it doesn't affect nested AltViews also */
-    .foam-u2-view-AltView .property-selectedView {
+    .foam-u2-view-AltView .property-selectedViewLabel {
       margin-left: 32px;
     }
   `,

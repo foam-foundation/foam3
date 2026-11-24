@@ -96,9 +96,15 @@ public class OMAlarmTest
       omLogger.log(CONTROL,OM_REQUEST);
       omLogger.log(CONTROL,OM_RESPONSE);
 
-      evaluate(x, CONTROL);
-      evaluate(x, CONTROLCHECK);
-      evaluate(x, CONGESTION);
+      // All three are read from the same closed minute. A closeMinute per
+      // evaluation also moved the other keys' candlesticks, so when a later
+      // one waited for the next minute, those moved candlesticks were two
+      // minutes old and outside the window: a run started at 12:00:56 raised
+      // no ControlCheck or Congestion alarm.
+      closeMinute(x);
+      report(x, CONTROL);
+      report(x, CONTROLCHECK);
+      report(x, CONGESTION);
 
       alarmCount = (Count) alarmDAO.select(COUNT());
       test ( ((Long)alarmCount.getValue()) > 0, "alarms generated "+ alarmCount.getValue());
@@ -218,8 +224,13 @@ public class OMAlarmTest
 
     for ( int i = 0; i < 10; i++ )
       omLogger.log(QUIET,OM_REQUEST);
-    evaluate(x, QUIET);
-    evaluate(x, QUIET);
+    // Both cycles read the same closed minute, so the config trips on each.
+    // A closeMinute before the second one could wait for the next minute and
+    // leave the requests outside the window, and the check would pass with
+    // nothing tripped.
+    closeMinute(x);
+    report(x, QUIET);
+    report(x, QUIET);
     Count records = (Count) ((DAO) x.get("eventRecordDAO")).where(EQ(EventRecord.EVENT, QUIET)).select(COUNT());
     test(((Long) records.getValue()) == 0, QUIET+" INFO config that trips puts no EventRecord "+records.getValue());
   }
@@ -242,11 +253,7 @@ public class OMAlarmTest
     closeMinute(x);
     omLogger.log(PARTIAL,OM_REQUEST);
     omLogger.log(PARTIAL,OM_RESPONSE);
-
-    MonitoringReport report = new MonitoringReport();
-    report.setName(PARTIAL);
-    ((DAO) x.get("monitoringReportDAO")).put(report);
-    Thread.sleep(1000);
+    report(x, PARTIAL);
     Alarm alarm = findAlarm(x, PARTIAL);
     test(alarm == null || ! alarm.getIsActive(), PARTIAL+" 6 timeouts last minute and 1 request this minute raise nothing "+alarm);
   }
@@ -255,6 +262,12 @@ public class OMAlarmTest
   // logged in the current minute are moved into the previous one first.
   void evaluate(X x, String name) throws InterruptedException {
     closeMinute(x);
+    report(x, name);
+  }
+
+  // Asks AlarmAndMonitoring to evaluate name, and waits for it: it runs on
+  // another thread.
+  void report(X x, String name) throws InterruptedException {
     MonitoringReport report = new MonitoringReport();
     report.setName(name);
     ((DAO) x.get("monitoringReportDAO")).put(report);
@@ -262,12 +275,13 @@ public class OMAlarmTest
   }
 
   // Moves every candlestick of the current, partial minute back one minute,
-  // as if that minute had closed. Within 3 s of the next minute it waits for
+  // as if that minute had closed. Within 10 s of the next minute it waits for
   // it first, so the moved candlesticks are still the last complete minute
-  // when the report is evaluated.
+  // when the reports that follow are evaluated, up to three of them at 1 s
+  // each.
   void closeMinute(X x) throws InterruptedException {
     long ms = System.currentTimeMillis() % 60000;
-    if ( ms > 57000 ) Thread.sleep(60000 - ms + 100);
+    if ( ms > 50000 ) Thread.sleep(60000 - ms + 100);
     long minuteStart = System.currentTimeMillis() / 60000 * 60000;
     DAO dao = (DAO) x.get("localOm1MinuteDAO");
     List<Candlestick> current = (List) ((ArraySink) dao.where(GTE(Candlestick.CLOSE_TIME, new Date(minuteStart))).select(new ArraySink())).getArray();

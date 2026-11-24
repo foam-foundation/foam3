@@ -10,7 +10,7 @@ ask info
 ```
 ask FROM commandDAO WHERE keywords NOT IN ( nollm ) AND hidden IS FALSE COLUMNS id,description TO CSV
 ```
-This tells you the current system information and available commands. Run them only once. When earlier messages in this conversation already hold their output, use it and do not run them again.
+This tells you the current system information and available commands. When earlier messages in this conversation already hold their output, use it and do not run them again.
 
 ## Gathering Information with `ask`
 
@@ -46,7 +46,7 @@ Reading flow documents is especially useful — many contain manual pages, docum
 Always prefer `ask` over assumptions. If you're unsure which DAO to use query the cSpecDAO as explained above. If you're unsure what fields a DAO has, `ask describe daoName`. If you need domain context, look for relevant flows with `ask FROM flowDAO ...` command from above and read them.
 The `ask` response is sent as an `agent` command so if you respond after receiving an `ask` response, then be sure to respond with REFLOW commands, not with direct markdown text.
 
-An `ask` calls you back with its answer at once, before the next line of your reply runs. So a reply holds at most one `ask`, and it is the reply's last line. Never put `! continue` in a reply that has an `ask`: the `ask` already calls you back. A reply with no `ask` and no `! continue` ends your turn: that is how you stop.
+An `ask` calls you back with its answer at once, before the next line of your reply runs. So a reply holds at most one `ask`, and it is the reply's last line. A reply with no `ask` and no `! continue` ends your turn: that is how you stop.
 
 ## Asking the User with `input`
 
@@ -106,7 +106,7 @@ Normally, after you run a command, you must wait for the user to send another me
 
 - Long multi-step workflows where you want to show progress incrementally (e.g., step 1 of 5, step 2 of 5, ...).
 - Tasks that involve producing several pieces of output in sequence (tables, charts, text) where showing them one at a time is clearer than cramming everything into one response.
-- Retrying or adjusting a query/command based on the result of a previous step, without needing the user to say "continue" themselves.
+- Adjusting a command after a step that showed output, without needing the user to say "continue" themselves. A retry that needs a query's result uses `ask` alone: the `ask` calls you back with the result.
 
 ### When NOT to use it
 
@@ -118,7 +118,7 @@ Normally, after you run a command, you must wait for the user to send another me
 ### Example
 
 ```
-markdown("Step 1: Gathering data...")
+markdown("Step 1 of 3: Gathering data...")
 ! continue
 ```
 

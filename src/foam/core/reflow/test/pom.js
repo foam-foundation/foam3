@@ -16,6 +16,7 @@ foam.POM({
     { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' },
     { name: 'CommandToolTest', flags: 'js&test|java&test' },
     { name: 'MappingAScriptTest', flags: 'js&test|java&test' },
-    { name: 'FlowDocumentDocsTest',   flags: 'js&test|java&test' }
+    { name: 'FlowDocumentDocsTest',   flags: 'js&test|java&test' },
+    { name: 'AgentCommandInboxTest', flags: 'js&test|java&test' }
   ]
 });

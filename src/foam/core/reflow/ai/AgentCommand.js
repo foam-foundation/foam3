@@ -38,7 +38,12 @@ foam.CLASS({
     a line that fails sends its error, '! continue' sends 'continue'.
     The agent runs every line of a reply before it reads them, then
     sends them to the LLM as one request. It stops when a reply sends
-    it nothing.
+    it nothing, or after maxTurns LLM calls.
+
+    A new agent request made while an agent is still running joins that
+    agent's messages. So while the agent waits on an unanswered
+    input('Delete order 1234?', ['Yes', 'No']), a new '! check order 5'
+    is only sent after the question is answered.
 
     Because 'agent' is itself a command, agents can delegate
     to other agents: router → specialist, cheap triage → expensive.
@@ -82,6 +87,13 @@ foam.CLASS({
       name: 'dryRun',
       documentation: 'If true, show generated commands without executing.',
       value: true
+    },
+    {
+      class: 'Int',
+      name: 'maxTurns',
+      documentation: `Most LLM calls for one request. A model that answers every
+        reply with '! continue' would otherwise keep calling until the page closes.`,
+      value: 20
     }
   ],
 
@@ -99,9 +111,15 @@ foam.CLASS({
       // after the agent had drawn its result, and cost one more LLM call.
       if ( this.agentInbox ) {
         this.agentInbox.push(q);
-        setTimeout(() => this.block.del(), 100);
-        return;
+      } else {
+        await this.runTurns_(q);
       }
+
+      // -- 5. Delete this block, since it was just a prompt, not a block
+      setTimeout(() => this.block.del(), 100);
+    },
+
+    async function runTurns_(q) {
       var inbox = this.agentInbox = [ q ];
 
       try {
@@ -110,7 +128,11 @@ foam.CLASS({
 
         // One LLM call per turn, until a reply sends the agent nothing more:
         // no ask, no "! continue" and no line that failed.
-        while ( inbox.length ) {
+        for ( var turn = 1 ; inbox.length ; turn++ ) {
+          if ( turn > this.maxTurns ) {
+            throw new Error('Agent stopped after ' + this.maxTurns + ' LLM calls for one request.');
+          }
+
           // ── 2. Call LLMService ──
           var request = foam.ai.llm.CompletionRequest.create({
             prompt: inbox.splice(0).join('\n'),
@@ -165,9 +187,6 @@ foam.CLASS({
         // every later message for an agent that is no longer there to read it.
         this.agentInbox = undefined;
       }
-
-      // -- 5. Delete this block, since it was just a prompt, not a block
-      setTimeout(() => this.block.del(), 100);
     },
 
     async function buildSystemPrompt_() {

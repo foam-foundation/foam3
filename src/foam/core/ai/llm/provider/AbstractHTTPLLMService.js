@@ -48,10 +48,12 @@ foam.CLASS({
     'java.time.Duration',
     'java.util.LinkedHashMap',
     'java.util.Map',
+    'java.util.concurrent.ExecutorService',
     'java.util.concurrent.Executors',
     'java.util.concurrent.ScheduledExecutorService',
     'java.util.concurrent.ScheduledFuture',
     'java.util.concurrent.TimeUnit',
+    'java.util.concurrent.atomic.AtomicBoolean',
     'org.json.JSONArray',
     'org.json.JSONObject'
   ],
@@ -74,6 +76,7 @@ foam.CLASS({
      * One token is taken as four characters.
      */
     public static class Written {
+      private String            status_;
       private final LLMProgress progress_;
       private long chars_     = 0;
       private long last_      = 0;
@@ -109,9 +112,15 @@ foam.CLASS({
         if ( progress_ != null ) progress_.written((int) ( chars_ / 4 ));
       }
 
-      /** What the gateway says the call waits on, such as "queued ahead=2". */
+      /**
+       * What the gateway says the call waits on, such as "queued ahead=2". Only a change
+       * is passed on: a gateway may repeat the same line every few seconds, and each
+       * report may write to a DAO.
+       */
       public void status(String status) {
-        if ( progress_ != null ) progress_.status(status);
+        if ( progress_ == null || status.equals(status_) ) return;
+        status_ = status;
+        progress_.status(status);
       }
     }
 
@@ -122,17 +131,19 @@ foam.CLASS({
      * a user's Stop is not heard until the reply starts, up to readTimeout later.
      */
     public static class Heartbeat implements LLMProgress {
-      private final    LLMProgress progress_;
-      private volatile int         tokens_ = 0;
+      private final LLMProgress progress_;
+      private       int         tokens_ = 0;
 
       public Heartbeat(LLMProgress progress) { progress_ = progress; }
 
-      public void written(int tokens) { tokens_ = tokens; progress_.written(tokens); }
+      // one lock for the count and its report, so a heartbeat never reports an older
+      // count after the reader reported a newer one
+      public synchronized void written(int tokens) { tokens_ = tokens; progress_.written(tokens); }
 
       public void status(String status) { progress_.status(status); }
 
       /** The last count again: nothing new arrived, but the call is still open. */
-      public void again() { progress_.written(tokens_); }
+      public synchronized void again() { progress_.written(tokens_); }
     }
 
     /**
@@ -141,9 +152,10 @@ foam.CLASS({
      * covers a stream that stops half way: a reply that pauses for 10 minutes would hang
      * the call for good. A timer checks the gap and closes the body, which ends a blocked read.
      *
-     * The same timer runs quiet, when given, after each second with no byte. A quiet that
-     * throws ends the call: the body is closed, and the blocked read throws that exception.
-     * It runs on the timer's one thread, so it must return quickly.
+     * When given, quiet runs after each second with no byte (checked every second, so
+     * every one to two seconds). It runs on its own pool, not the timer's one thread, so a
+     * slow quiet delays no stream's timeout. A quiet that throws ends the call: the body
+     * is closed, and the blocked read throws that exception.
      */
     public static class IdleTimeoutInputStream extends java.io.FilterInputStream {
       private static final ScheduledExecutorService TIMER = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -152,23 +164,29 @@ foam.CLASS({
         return t;
       });
 
+      private static final ExecutorService BEATS = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "llm-heartbeat");
+        t.setDaemon(true);
+        return t;
+      });
+
+      private static final long QUIET_MS = 1000;
+
       private final long               idleMs_;
       private final ScheduledFuture<?> check_;
       private final Runnable           quiet_;
-      private volatile long            last_ = System.currentTimeMillis();
-      private volatile long            lastQuiet_;
-      private volatile boolean         timedOut_;
+      private final AtomicBoolean      beating_ = new AtomicBoolean();
+      private volatile long             last_ = System.currentTimeMillis();
+      private volatile long             lastQuiet_;
+      private volatile boolean          timedOut_;
+      private volatile boolean          closed_;
       private volatile RuntimeException stopped_;
-
-      public IdleTimeoutInputStream(InputStream in, long idleMs) {
-        this(in, idleMs, null);
-      }
 
       public IdleTimeoutInputStream(InputStream in, long idleMs, Runnable quiet) {
         super(in);
         idleMs_ = idleMs;
         quiet_  = quiet;
-        long every = Math.max(10, Math.min(1000, idleMs / 4));
+        long every = Math.max(10, Math.min(QUIET_MS, idleMs / 4));
         check_ = TIMER.scheduleWithFixedDelay(this::check, every, every, TimeUnit.MILLISECONDS);
       }
 
@@ -176,17 +194,29 @@ foam.CLASS({
         long now = System.currentTimeMillis();
         if ( now - last_ >= idleMs_ ) {
           timedOut_ = true;
-        } else if ( quiet_ != null && now - last_ >= 1000 && now - lastQuiet_ >= 1000 ) {
-          lastQuiet_ = now;
-          try {
-            quiet_.run();
-            return;
-          } catch (RuntimeException e) {
-            stopped_ = e;
-          }
-        } else {
+          end();
           return;
         }
+        if ( quiet_ == null || now - last_ < QUIET_MS || now - lastQuiet_ < QUIET_MS ) return;
+        // one heartbeat at a time: a slow one is not stacked up behind
+        if ( ! beating_.compareAndSet(false, true) ) return;
+        lastQuiet_ = now;
+        BEATS.execute(this::beat);
+      }
+
+      private void beat() {
+        try {
+          // a reply that ended while this waited for a thread is past its last report
+          if ( ! closed_ ) quiet_.run();
+        } catch (RuntimeException e) {
+          stopped_ = e;
+          end();
+        } finally {
+          beating_.set(false);
+        }
+      }
+
+      private void end() {
         check_.cancel(false);
         try { in.close(); } catch (IOException e) { /* the reader learns it from its read */ }
       }
@@ -216,6 +246,7 @@ foam.CLASS({
       }
 
       public void close() throws IOException {
+        closed_ = true;
         check_.cancel(false);
         in.close();
       }
@@ -467,7 +498,7 @@ foam.CLASS({
               }
             }
             // an error reply can stall too, e.g. a proxy that sends 502 and then nothing
-            String error = read(new IdleTimeoutInputStream(resp.body(), getReadTimeout()));
+            String error = read(new IdleTimeoutInputStream(resp.body(), getReadTimeout(), null));
             if ( ! retryable(status) || attempt >= getMaxRetries() ) {
               throw new StatusError(status, "HTTP error " + status + ": " + error);
             }

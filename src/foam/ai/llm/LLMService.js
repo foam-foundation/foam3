@@ -352,7 +352,7 @@ foam.INTERFACE({
     model, so a stop is heard during that wait too.
 
     While nothing arrives at all, as when a gateway queues the call, it is told the same
-    count again about once a second, so a stop is heard during that silence too.
+    count again every second or two, so a stop is heard during that silence too.
 
     Server-side callers only: the context does not cross the network, so a call made from
     the browser through the LLMService client gets no progress.

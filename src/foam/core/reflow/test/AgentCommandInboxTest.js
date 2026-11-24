@@ -23,8 +23,7 @@ foam.CLASS({
 
   documentation: `An agent sends the LLM one request per turn. The answer of an ask
     and the "continue" of "! continue" in the same reply reach the LLM together,
-    after the reply's last line. The inbox is cleared when a turn fails, and a
-    model that never stops is stopped after maxTurns calls.`,
+    after the reply's last line. The inbox is cleared when a turn fails.`,
 
   requires: [
     'foam.core.reflow.ai.AgentCommand',
@@ -38,11 +37,11 @@ foam.CLASS({
 
       // Runs "how many users are there" against a scripted LLM. reply(prompt)
       // gives the LLM's answer to each request; prompts holds every request sent.
-      var run = async function(reply, maxTurns) {
+      var run = async function(reply) {
         var host    = self.AgentCommandInboxTestHost.create({}, x);
         var prompts = [];
         var cx;
-        var agent   = () => self.AgentCommand.create({ dryRun: false, systemPrompt: 'test', maxTurns: maxTurns || 20 }, cx);
+        var agent   = () => self.AgentCommand.create({ dryRun: false, systemPrompt: 'test' }, cx);
 
         cx = host.__subContext__.createSubContext({
           block:      { del: function() {} },
@@ -93,13 +92,6 @@ foam.CLASS({
       r = await run(() => { throw new Error('boom'); });
       x.test(r.error && r.error.message == 'LLM error: boom', 'error says "LLM error: boom", got ' + ( r.error && r.error.message ));
       x.test(r.host.agentInbox === undefined, 'inbox cleared after a failed call');
-
-      // 3. A model that answers every reply with "! continue" stops at maxTurns.
-      r = await run(() => '! continue', 3);
-      x.test(r.prompts.length == 3, 'three LLM calls with maxTurns 3, got ' + r.prompts.length);
-      x.test(r.error && r.error.message == 'Agent stopped after 3 LLM calls for one request.',
-        'error names the limit, got ' + ( r.error && r.error.message ));
-      x.test(r.host.agentInbox === undefined, 'inbox cleared after the limit');
     }
   ]
 });

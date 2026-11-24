@@ -51,6 +51,6 @@ p({
 p({
   "class": "foam.core.reflow.test.AgentCommandInboxTest",
   "id": "AgentCommandInboxTest",
-  "description": "Agent sends one LLM request per turn: an ask's answer and continue together, inbox cleared on failure, stops at maxTurns",
+  "description": "Agent sends one LLM request per turn: an ask's answer and continue together, inbox cleared on failure",
   "language": 0
 })

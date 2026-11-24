@@ -38,7 +38,7 @@ foam.CLASS({
     a line that fails sends its error, '! continue' sends 'continue'.
     The agent runs every line of a reply before it reads them, then
     sends them to the LLM as one request. It stops when a reply sends
-    it nothing, or after maxTurns LLM calls.
+    it nothing.
 
     A new agent request made while an agent is still running joins that
     agent's messages. So while the agent waits on an unanswered
@@ -88,13 +88,6 @@ foam.CLASS({
       name: 'dryRun',
       documentation: 'If true, show generated commands without executing.',
       value: true
-    },
-    {
-      class: 'Int',
-      name: 'maxTurns',
-      documentation: `Most LLM calls for one request. A model that answers every
-        reply with '! continue' would otherwise keep calling until the page closes.`,
-      value: 20
     }
   ],
 
@@ -123,11 +116,7 @@ foam.CLASS({
 
         // One LLM call per turn, until a reply sends the agent nothing more:
         // no ask, no "! continue" and no line that failed.
-        for ( var turn = 1 ; inbox.length ; turn++ ) {
-          if ( turn > this.maxTurns ) {
-            throw new Error('Agent stopped after ' + this.maxTurns + ' LLM calls for one request.');
-          }
-
+        while ( inbox.length ) {
           // ── 2. Call LLMService ──
           var request = foam.ai.llm.CompletionRequest.create({
             prompt: inbox.splice(0).join('\n'),

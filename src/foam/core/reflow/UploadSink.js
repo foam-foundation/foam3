@@ -146,8 +146,9 @@ foam.CLASS({
     },
     {
       class: 'Boolean',
-      name: 'finishJobPut',
-      documentation: 'True once the finish job was put: the server then owns the outcome of the run.'
+      name: 'finishJobCompleted',
+      documentation: `True when the finish job ran to COMPLETED: the server then owns the outcome of
+        the run. A finish job that failed, or was never put, leaves the outcome to the caller.`
     },
     {
       name: 'agent_',
@@ -237,16 +238,15 @@ foam.CLASS({
     },
 
     async function firstError_() {
-      // A job that never ran says "Not run:" and still holds its rows; only the job that failed
-      // for real is read, which also keeps the rows off the wire.
-      var failed = await this.jobDAO
+      // The group runs in put order, so the failed job with the lowest number is the one that
+      // failed for real; the jobs behind it only say they were not run.
+      var failed = (await this.jobDAO
         .where(this.AND(
           this.EQ(this.Job.GROUP, this.runKey_),
-          this.EQ(this.Job.STATUS, this.JobStatus.FAILED),
-          this.NOT(this.STARTS_WITH(this.Job.EXCEPTION, 'Not run:'))))
-        .limit(1)
-        .select();
-      var job = failed.array[0];
+          this.EQ(this.Job.STATUS, this.JobStatus.FAILED)))
+        .select()).array;
+      var seq = j => Number(j.id.substring(j.id.lastIndexOf(':') + 1));
+      var job = failed.sort((a, b) => seq(a) - seq(b))[0];
       return new Error(job ? job.exception.split('\n')[0] : 'An upload batch failed.');
     },
 
@@ -282,9 +282,12 @@ foam.CLASS({
 
       var jobs = this.batches_;
       var job  = withFinishJob && this.finishJob && this.finishJob(this);
+
+      // A preview sends nothing: with no batch and no finish job there is nothing to wait for
+      // or clean up, and no jobDAO is needed.
+      if ( ! jobs && ! job ) return;
       if ( job ) {
         await this.putJob_(job);
-        this.finishJobPut = true;
         jobs++;
       }
 
@@ -295,6 +298,10 @@ foam.CLASS({
         await new Promise(r => this.setTimeout(r, 250));
       }
       if ( this.failed_ > 0 ) this.error_ = this.error_ || await this.firstError_();
+      if ( job ) {
+        var ended = await this.jobDAO.find(job.id);
+        this.finishJobCompleted = !! ended && ended.status === this.JobStatus.COMPLETED;
+      }
       try {
         await this.jobDAO.where(this.EQ(this.Job.GROUP, this.runKey_)).removeAll();
       } catch (e) {

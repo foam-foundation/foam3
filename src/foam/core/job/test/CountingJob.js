@@ -31,6 +31,11 @@ foam.CLASS({
       documentation: 'When true the Job throws after it has recorded its run.',
       class: 'Boolean',
       name: 'fails'
+    },
+    {
+      documentation: 'When true the write that marks the Job RUNNING throws, as a jobDAO that is down would.',
+      class: 'Boolean',
+      name: 'saveFails'
     }
   ],
 
@@ -46,6 +51,15 @@ foam.CLASS({
   `,
 
   methods: [
+    {
+      name: 'save',
+      args: 'foam.lang.X x',
+      javaCode: `
+        if ( getSaveFails() && getStatus() == foam.core.job.JobStatus.RUNNING )
+          throw new RuntimeException("CountingJob " + getTag() + " cannot be saved");
+        super.save(x);
+      `
+    },
     {
       name: 'execute',
       javaCode: `

@@ -26,7 +26,6 @@ foam.CLASS({
     it ends.`,
 
   javaImports: [
-    'foam.lang.FObject',
     'foam.lang.PropertyInfo'
   ],
 

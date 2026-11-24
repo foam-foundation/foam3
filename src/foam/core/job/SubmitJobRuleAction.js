@@ -31,10 +31,14 @@ foam.CLASS({
     so the put that triggered this rule returns without waiting on the work.`,
 
   javaImports: [
+    'foam.core.logger.Loggers',
     'foam.lang.Agency',
     'foam.lang.ContextAgent',
     'foam.lang.X',
-    'foam.util.SafetyUtil'
+    'foam.util.SafetyUtil',
+    'java.util.ArrayDeque',
+    'java.util.HashMap',
+    'java.util.Map'
   ],
 
   javaCode: `
@@ -47,14 +51,14 @@ foam.CLASS({
 
     /** The queued Jobs of one group, and which Job of it failed first, if any. */
     protected static class GroupQueue {
-      final java.util.ArrayDeque<Entry> pending = new java.util.ArrayDeque<>();
+      final ArrayDeque<Entry> pending = new ArrayDeque<>();
       boolean running;
       String  failedId;
     }
 
     // Static: RulerDAO builds a new action instance when its rules reload, and an instance map
     // would start empty, letting a second agent run a group that is already running.
-    protected static final java.util.Map<String, GroupQueue> groups_ = new java.util.HashMap<>();
+    protected static final Map<String, GroupQueue> groups_ = new HashMap<>();
   `,
 
   properties: [
@@ -96,7 +100,7 @@ foam.CLASS({
     {
       name: 'enqueue',
       documentation: 'Adds the Job to its group and starts the agent that drains the group, unless one is already running.',
-      args: 'foam.lang.Agency pool, X x, foam.core.job.Job job',
+      args: 'Agency pool, X x, Job job',
       javaCode: `
         String group = job.getGroup();
         synchronized ( groups_ ) {
@@ -132,14 +136,24 @@ foam.CLASS({
             failed = q.failedId;
           }
 
-          if ( failed != null && ! e.job.getRunAfterFailure() ) {
-            e.job.setStatus(JobStatus.FAILED);
-            e.job.setException("Not run: batch " + failed + " failed");
-            e.job.save(e.x);
-            continue;
-          }
+          // A throw from a save below would otherwise leave this agent dead with running still
+          // set, and the rest of the group queued for good. The Job counts as failed, so the
+          // Jobs behind it end FAILED.
+          try {
+            if ( failed != null && ! e.job.getRunAfterFailure() ) {
+              e.job.setStatus(JobStatus.FAILED);
+              e.job.setException("Not run: job " + failed + " of this group failed");
+              e.job.save(e.x);
+              continue;
+            }
 
-          new JobRunner.Builder(e.x).setJob(e.job).build().execute(e.x);
+            new JobRunner.Builder(e.x).setJob(e.job).build().execute(e.x);
+          } catch ( Throwable t ) {
+            Loggers.logger(e.x, this).error("job", e.job.getId(), t);
+            e.job.setStatus(JobStatus.FAILED);
+            e.job.setException(String.valueOf(t));
+            try { e.job.save(e.x); } catch ( Throwable ignore ) {}
+          }
 
           if ( e.job.getStatus() == JobStatus.FAILED ) {
             synchronized ( groups_ ) {

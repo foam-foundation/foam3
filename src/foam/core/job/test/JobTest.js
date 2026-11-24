@@ -53,6 +53,7 @@ foam.CLASS({
         testSameIdRunsOnce(jobDAO);
         testGroupRunsInOrderOneAtATime(jobDAO);
         testGroupFailureSkipsTheRest(jobDAO);
+        testGroupSurvivesAThrowingSave(jobDAO);
         testNoGroupRunsTogether(jobDAO);
         testResentQueuedJobRunsOnce(jobDAO);
       `
@@ -123,8 +124,8 @@ foam.CLASS({
         for ( int i = 2 ; i <= 3 ; i++ ) {
           Job skipped = awaitJob(jobDAO, group + ":" + i);
           test(skipped.getStatus() == JobStatus.FAILED, "Job " + i + " behind the failure ends FAILED, actual: " + skipped.getStatus());
-          test(("Not run: batch " + group + ":1 failed").equals(skipped.getException()),
-            "Job " + i + " says which batch failed, actual: " + skipped.getException());
+          test(("Not run: job " + group + ":1 of this group failed").equals(skipped.getException()),
+            "Job " + i + " says which job failed, actual: " + skipped.getException());
           test(CountingJob.RUNS.get(group + "-" + i) == null, "Job " + i + " never ran");
         }
 
@@ -135,6 +136,31 @@ foam.CLASS({
         Job late = awaitJob(jobDAO, group + ":5");
         test(late.getStatus() == JobStatus.FAILED && late.getException().startsWith("Not run:"),
           "a Job put after the failure is refused too, actual: " + late.getStatus() + " " + late.getException());
+      `
+    },
+    {
+      name: 'testGroupSurvivesAThrowingSave',
+      documentation: `The write that marks a Job RUNNING throws. The group's agent must not die with
+        the group still marked running: the Job ends FAILED and the Job put after it ends FAILED
+        without running, instead of staying SCHEDULED for good.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String group = "saving-" + UUID.randomUUID();
+        CountingJob first = new CountingJob();
+        first.setId(group + ":0");
+        first.setGroup(group);
+        first.setTag(group + "-0");
+        first.setOverlapKey(group);
+        first.setSaveFails(true);
+        jobDAO.put(first);
+        putGroupJob(jobDAO, group, 1, 0, false);
+
+        Job a = awaitJob(jobDAO, group + ":0");
+        Job b = awaitJob(jobDAO, group + ":1");
+        test(a.getStatus() == JobStatus.FAILED, "the Job whose save threw ends FAILED, actual: " + a.getStatus());
+        test(b.getStatus() == JobStatus.FAILED && b.getException().startsWith("Not run:"),
+          "the Job behind it ends FAILED without running, actual: " + b.getStatus() + " " + b.getException());
+        test(CountingJob.RUNS.get(group + "-1") == null, "the Job behind it never ran");
       `
     },
     {

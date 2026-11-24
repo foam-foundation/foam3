@@ -17,7 +17,7 @@ foam.POM({
     { name: "ShellJob",            flags: "js|java" },
     { name: "ScriptJob",           flags: "js|java" },
     { name: "test/SleepJob",       flags: "js&test|java&test" },
-    { name: "test/CountingJob",     flags: "js&test|java&test" },
+    { name: "test/CountingJob",    flags: "js&test|java&test" },
     { name: "test/JobTest",        flags: "js&test|java&test" }
   ]
 });

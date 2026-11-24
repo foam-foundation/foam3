@@ -58,7 +58,7 @@ foam.CLASS({
           var n   = Number(id.split(':')[1]);
           if ( fake.failedId && ! job.runAfterFailure ) {
             job.status    = Status.FAILED;
-            job.exception = 'Not run: batch ' + fake.failedId + ' failed';
+            job.exception = 'Not run: job ' + fake.failedId + ' of this group failed';
           } else if ( failIndexes.indexOf(n) !== -1 ) {
             fake.failedId = id;
             job.status    = Status.FAILED;
@@ -106,7 +106,7 @@ foam.CLASS({
       x.test(fake.order.join(' ') === [ 0, 1, 2, 3, 4 ].map(n => runKey + ':' + n).join(' '),
         'three batches, the tail and the finish job are put as runKey:n in order, actual: ' + fake.order.join(' '));
       x.test(fake.daoKeys.slice(0, 4).every(k => k === 'someDAO'), 'a batch job carries the target DAO name');
-      x.test(sink.finishJobPut, 'the sink says the finish job was put');
+      x.test(sink.finishJobCompleted, 'the sink says the finish job completed');
       x.test(await fake.size() === 0, 'the jobs of the run are removed when it ends, left: ' + await fake.size());
       var last = seen[seen.length - 1];
       x.test(last[0] === 100 && last[1] === 100, 'sent and processed both reach 100, actual: ' + last);
@@ -139,7 +139,7 @@ foam.CLASS({
       var s3 = this.makeSink(x, f3, false);
       await this.feed(s3, 10);
       await s3.eof();
-      x.test(f3.order.length === 1 && ! s3.finishJobPut, 'without a finish job only the batch is put, actual: ' + f3.order.length);
+      x.test(f3.order.length === 1 && ! s3.finishJobCompleted, 'without a finish job only the batch is put, actual: ' + f3.order.length);
       f3.stop();
 
       // The 21st put waits while 20 jobs are not completed.
@@ -169,7 +169,7 @@ foam.CLASS({
       } catch (e) { failure = e; }
       x.test(failure && failure.message === 'java.lang.RuntimeException: batch 1 failed',
         'the upload fails with the first line of the failed batch, actual: ' + (failure && failure.message));
-      x.test(s5.finishJobPut, 'the finish job is put after a failure too');
+      x.test(s5.finishJobCompleted, 'the finish job runs and completes after a failure too');
       x.test(f5.order[f5.order.length - 1] === s5.runKey_ + ':' + (f5.order.length - 1) && f5.order.length < 7,
         'the finish job comes last and no batch is put after the failure, actual: ' + f5.order.length);
       var again = null;

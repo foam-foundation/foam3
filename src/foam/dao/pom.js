@@ -202,6 +202,7 @@ foam.POM({
     { name: "test/JournalNestedFirstPropertyTest",                flags: "js&test|java&test" },
     { name: "test/OrDAOTest",                                     flags: "js&test|java&test" },
     { name: "test/MDAOCountTest",                                 flags: "js&test|java&test" },
+    { name: "test/IDBDAOBlobTest",                                flags: "js&test|java&test" },
     { name: "test/MDAOIndexDedupTest",                            flags: "js&test|java&test" },
     { name: "test/TTLSelectCachingDAOKeyTest",                    flags: "js&test|java&test" },
     { name: "FreezingDAO",                                        flags: "js|java" },

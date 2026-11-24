@@ -100,8 +100,22 @@ foam.CLASS({
       return foam.json.parse(json, this.of, this.__subContext__);
     },
 
+    // IndexedDB stores a Blob or a File as it is, but objectify copies only an
+    // object's own keys and a File has none, so a dropped file was stored as {}.
+    // Each Blob is put back into the copy from the same place in obj, as in
+    // { files: [ { file: <File report.csv> } ] }.
     function serialize(obj) {
-      return foam.json.Storage.objectify(obj);
+      return this.keepBlobs_(obj, foam.json.Storage.objectify(obj));
+    },
+
+    function keepBlobs_(src, out) {
+      if ( ! src || typeof src !== 'object' || ! out || typeof out !== 'object' ) return out;
+      for ( var key in out ) {
+        var v = src[key];
+        if ( v instanceof Blob ) out[key] = v;
+        else this.keepBlobs_(v, out[key]);
+      }
+      return out;
     },
 
     function serializeId(id) {

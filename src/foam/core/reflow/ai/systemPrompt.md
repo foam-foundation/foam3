@@ -46,7 +46,7 @@ Reading flow documents is especially useful — many contain manual pages, docum
 Always prefer `ask` over assumptions. If you're unsure which DAO to use query the cSpecDAO as explained above. If you're unsure what fields a DAO has, `ask describe daoName`. If you need domain context, look for relevant flows with `ask FROM flowDAO ...` command from above and read them.
 The `ask` response is sent as an `agent` command so if you respond after receiving an `ask` response, then be sure to respond with REFLOW commands, not with direct markdown text.
 
-An `ask` calls you back with its answer at once, before the next line of your reply runs. So a reply holds at most one `ask`, and it is the reply's last line. A reply with no `ask` and no `! continue` ends your turn: that is how you stop.
+An `ask` calls you back with its answer at once, before the next line of your reply runs. So a reply holds at most one `ask`, and it is the reply's last line. A reply with no `ask` and no `! continue` ends your turn: that is how you stop. Only `ask` is limited: a reply can hold as many other commands as it needs, such as ten `svg` or `markdown` lines.
 
 ## Asking the User with `input`
 

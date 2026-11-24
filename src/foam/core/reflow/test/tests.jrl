@@ -48,3 +48,14 @@ p({
   "class": "foam.core.reflow.test.FlowAuthorizationTest",
   "id": "FlowAuthorizationTest"
 })
+p({
+  "class": "foam.core.reflow.test.UploadAgentJobTest",
+  "id": "UploadAgentJobTest",
+  "description": "An upload batch runs as a Job: a resent submit adds no rows, a batch that cannot run fails instead of completing empty, and the job is authorized like the request it replaces"
+})
+p({
+  "class": "foam.core.reflow.test.UploadSinkJobTest",
+  "id": "UploadSinkJobTest",
+  "description": "UploadSink puts each batch as a job of its run group without waiting on it: at most 20 wait at once, the finish job goes last, a failed batch stops the upload",
+  "language": 0
+})

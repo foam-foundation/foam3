@@ -204,7 +204,7 @@ foam.CLASS({
       args: 'X x',
       javaCode: `
         if ( foam.util.SafetyUtil.isEmpty(getDaoKey()) )
-          throw new RuntimeException("This page or intake is older than the server. Reload and upload again.");
+          throw new RuntimeException("This page or client is older than the server. Reload and upload again.");
 
         CSpec  spec = (CSpec) ((DAO) x.get("cSpecDAO")).find(getDaoKey());
         Object svc  = x.get(getDaoKey());

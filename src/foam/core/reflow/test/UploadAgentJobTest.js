@@ -90,7 +90,7 @@ foam.CLASS({
     },
     {
       name: 'testNodeStyleAgent',
-      documentation: `The Node intake sends the rows themselves in data and no compressed text
+      documentation: `A Node client sends the rows themselves in data and no compressed text
         (UploadAgentNodeRefinement makes data non-transient). Rows set directly must be stored.`,
       args: 'X x',
       javaCode: `
@@ -117,7 +117,7 @@ foam.CLASS({
     },
     {
       name: 'testEmptyKeyFails',
-      documentation: 'A page or intake older than the server sends no daoKey.',
+      documentation: 'A page or client older than the server sends no daoKey.',
       args: 'X x',
       javaCode: `
         long before = count(x);

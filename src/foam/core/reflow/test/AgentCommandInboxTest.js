@@ -28,6 +28,7 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.ai.AgentCommand',
+    'foam.core.reflow.ai.AskCommand',
     'foam.core.reflow.test.AgentCommandInboxTestHost'
   ],
 
@@ -53,12 +54,19 @@ foam.CLASS({
               return { content: reply(req.prompt) };
             }
           },
-          // ask and "! continue" send the agent a message, as AskCommand and
-          // the ! command do: by running agent(...) inside the line.
+          // Stands in for Console.eval_. An ask line runs the real AskCommand,
+          // which sends its answer back through agent(...). "!" is the agent
+          // command itself, so "! continue" sends the agent "continue".
           eval_: async function(line) {
-            if ( line.startsWith('ask ') ) await agent().execute('answer of ' + line.slice(4));
-            if ( line === '! continue' )   await agent().execute('continue');
-            return { value: {} };
+            if ( line.startsWith('ask ') ) {
+              await self.AskCommand.create({}, cx).execute(line.slice(4));
+            } else if ( line.startsWith('agent(') ) {
+              await agent().execute(JSON.parse(line.slice(6, -1)));
+            } else if ( line === '! continue' ) {
+              await agent().execute('continue');
+            }
+            // The block the asked query made: AskCommand reads its answer.
+            return { value: {}, flowName: 'b1', answer: async () => '40 rows', del: function() {} };
           }
         });
 
@@ -77,7 +85,7 @@ foam.CLASS({
         'markdown("There are 40 users")');
       x.test(! r.error, 'no error');
       x.test(r.prompts.length == 2, 'two LLM calls, got ' + r.prompts.length);
-      x.test(r.prompts[1] == 'answer of FROM userDAO COLUMNS id TO CSV\ncontinue',
+      x.test(r.prompts[1] == '{"asked":"FROM userDAO COLUMNS id TO CSV","blockName":"b1","response":"40 rows"}\ncontinue',
         'second request holds the answer and "continue" together, got ' + JSON.stringify(r.prompts[1]));
       x.test(r.host.agentInbox === undefined, 'inbox cleared after the turn');
 

@@ -43,7 +43,8 @@ foam.CLASS({
     A new agent request made while an agent is still running joins that
     agent's messages. So while the agent waits on an unanswered
     input('Delete order 1234?', ['Yes', 'No']), a new '! check order 5'
-    is only sent after the question is answered.
+    is only sent after the question is answered. If that turn fails
+    instead, its error is shown and the waiting messages are dropped.
 
     Because 'agent' is itself a command, agents can delegate
     to other agents: router → specialist, cheap triage → expensive.
@@ -101,21 +102,15 @@ foam.CLASS({
     async function execute(q) {
       q = foam.String.isInstance(q) ? q : JSON.stringify(q);
 
-      // The agent takes one message at a time: it runs every line of its reply
-      // before it reads the next message. A message sent to it meanwhile (an
-      // ask's answer, a Syntax Error, the "continue" of "! continue") waits in
-      // the Console's agentInbox, and they all go to the LLM together once the
-      // last line has run. Sent to the LLM at once instead, the answer of
-      // "ask info" was replied to and acted on while the next line of the same
-      // reply, "ask FROM commandDAO ...", had not run yet. That line then ran
-      // after the agent had drawn its result, and cost one more LLM call.
+      // While an agent runs, a message for it (an ask's answer, a Syntax Error,
+      // the "continue" of "! continue") waits in the Console's agentInbox.
       if ( this.agentInbox ) {
         this.agentInbox.push(q);
       } else {
         await this.runTurns_(q);
       }
 
-      // -- 5. Delete this block, since it was just a prompt, not a block
+      // Delete this block, since it was just a prompt, not a block
       setTimeout(() => this.block.del(), 100);
     },
 

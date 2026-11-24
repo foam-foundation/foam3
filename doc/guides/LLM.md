@@ -210,8 +210,7 @@ What a 0.6B model cannot do: the first answer waits for the one-time download, a
 
 | Member | Purpose |
 |---|---|
-| `history` | Accumulated `ChatMessage[]` across all calls. A request joins it only with its reply, so a call that fails leaves no unanswered message behind |
-| `inbox` | Messages for the model that arrived while a caller was still acting on its last reply. A Reflow agent sets it to an array while it runs the commands of a reply; the answers of its `ask` lines gather there and go out together as the next request. Unset otherwise |
+| `history` | Accumulated `ChatMessage[]` across all calls |
 | `maxHistory` | Messages kept after a cut (default 50); the oldest go first, to stay within model context limits |
 | `maxOverflow` | Messages the history may grow past `maxHistory` before it is cut back to `maxHistory` in one step (default half of `maxHistory`). A model that caches the start of its prompt, as server APIs do, reuses it only while it stays the same, so cutting once every few turns keeps most calls cheap. Set 0 for a model that reruns the whole prompt every call, such as `TransformersLLMService`, so the history is cut every turn |
 | `clearHistory()` | Resets the conversation |

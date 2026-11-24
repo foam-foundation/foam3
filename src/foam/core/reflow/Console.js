@@ -872,6 +872,7 @@ foam.CLASS({
 
   exports: [
     'addToScope',
+    'agentInbox',
     'clearFlow',
     'copyChild',
     'createFlowChildName',
@@ -981,6 +982,12 @@ foam.CLASS({
         // conversation would be sent on the next request.
         return this.ConversationalLLMService.create({delegate: this.parentLLMService});
       }
+    },
+    {
+      name: 'agentInbox',
+      documentation: `Messages for the agent that arrive while it is still running the
+        commands of its last reply, such as the answers of its asks. They go to the
+        LLM together as its next request. Unset when no agent is running.`
     },
     {
       name: 'childType',

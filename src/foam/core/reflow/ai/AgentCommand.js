@@ -45,6 +45,7 @@ foam.CLASS({
   `,
 
   imports: [
+    'agentInbox',
     'block',
     'commandDAO',
     'flowDAO',
@@ -86,23 +87,22 @@ foam.CLASS({
 
   methods: [
     async function execute(q) {
-      var llm = this.llmService;
       q = foam.String.isInstance(q) ? q : JSON.stringify(q);
 
       // The agent takes one message at a time: it runs every line of its reply
       // before it reads the next message. A message sent to it meanwhile (an
       // ask's answer, a Syntax Error, the "continue" of "! continue") waits in
-      // the conversation's inbox, and they all go to the LLM together once the
+      // the Console's agentInbox, and they all go to the LLM together once the
       // last line has run. Sent to the LLM at once instead, the answer of
       // "ask info" was replied to and acted on while the next line of the same
       // reply, "ask FROM commandDAO ...", had not run yet. That line then ran
       // after the agent had drawn its result, and cost one more LLM call.
-      if ( llm.inbox ) {
-        llm.inbox.push(q);
+      if ( this.agentInbox ) {
+        this.agentInbox.push(q);
         setTimeout(() => this.block.del(), 100);
         return;
       }
-      llm.inbox = [ q ];
+      var inbox = this.agentInbox = [ q ];
 
       try {
         // ── 1. Build the system prompt with environment context ──
@@ -110,10 +110,10 @@ foam.CLASS({
 
         // One LLM call per turn, until a reply sends the agent nothing more:
         // no ask, no "! continue" and no line that failed.
-        while ( llm.inbox.length ) {
+        while ( inbox.length ) {
           // ── 2. Call LLMService ──
           var request = foam.ai.llm.CompletionRequest.create({
-            prompt: llm.inbox.splice(0).join('\n'),
+            prompt: inbox.splice(0).join('\n'),
             options: foam.ai.llm.LLMOptions.create({
               systemPrompt: systemPrompt,
               model:        this.model
@@ -122,7 +122,7 @@ foam.CLASS({
 
           var result;
           try {
-            result = await llm.complete(this.__subContext__, request);
+            result = await this.llmService.complete(this.__subContext__, request);
           } catch (e) {
             // An Error, not a string: Console.eval_ shows the message of what it
             // catches, and a string has none, so a failed call showed nothing.
@@ -163,7 +163,7 @@ foam.CLASS({
       } finally {
         // Also when a call or a line throws. Left set, the inbox would take
         // every later message for an agent that is no longer there to read it.
-        llm.inbox = undefined;
+        this.agentInbox = undefined;
       }
 
       // -- 5. Delete this block, since it was just a prompt, not a block

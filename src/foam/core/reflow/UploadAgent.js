@@ -244,8 +244,10 @@ foam.CLASS({
           setProcessed(data.length);
         } finally {
           // The Job stays in the jobDAO after it ends; do not keep thousands of rows with it.
+          // data is set to an empty array rather than cleared: a cleared data reruns its factory
+          // the next time the stored Job is read, which logs "No compressed data" once per batch.
           clearProperty("compressed");
-          clearProperty("data");
+          setData(new foam.lang.FObject[0]);
         }
       `
     }

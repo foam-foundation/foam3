@@ -134,6 +134,15 @@ foam.CLASS({
       await eofDone;
       f2.stop();
 
+      // A caller that sets the run key gets it as the group and the id prefix of every job.
+      var fk = this.fakeJobDAO([]);
+      var sk = this.makeSink(x, fk, true);
+      sk.runKey_ = '12:abc';
+      await this.feed(sk, 10);
+      await sk.eof();
+      x.test(fk.order.join(' ') === '12:abc:0 12:abc:1', 'the batch and finish job ids start with the given run key, actual: ' + fk.order.join(' '));
+      fk.stop();
+
       // No finish job: only batches.
       var f3 = this.fakeJobDAO([]);
       var s3 = this.makeSink(x, f3, false);

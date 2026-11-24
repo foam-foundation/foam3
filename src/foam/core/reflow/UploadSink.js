@@ -160,7 +160,10 @@ foam.CLASS({
       hidden: true,
       factory: function() { return foam.uuid.randomGUID(); },
       documentation: `Tells this run's batch jobs apart from every other run's. A batch job's id is runKey_:n,
-        so a resent submit of batch n lands on the job that already exists instead of making a second.`
+        so a resent submit of batch n lands on the job that already exists instead of making a second.
+        A caller can set it to start with its own record's id, such as "12:" plus a fresh uuid, so the
+        server can tell whose record a group of jobs belongs to when this client is gone. Each run needs
+        a new value: a failed group is refused further jobs for good.`
     },
     {
       class: 'Int',
@@ -179,6 +182,14 @@ foam.CLASS({
       name: 'failed_',
       hidden: true,
       documentation: 'Jobs of this run that are FAILED, as of the last count. Includes jobs that never ran.'
+    },
+    {
+      class: 'Int',
+      name: 'pollMs_',
+      value: 1000,
+      hidden: true,
+      documentation: `Wait before the next count of the group's jobs. A 2,000-row batch on a slow table can
+        take over a minute, so the wait doubles up to 5 s while no job ends, and drops back to 1 s when one does.`
     },
     {
       class: 'Boolean',
@@ -227,14 +238,23 @@ foam.CLASS({
     },
 
     async function countGroup_() {
+      // One request per count: how many jobs ended. The FAILED count is asked only when that
+      // number moved, which is once per batch, not on every poll.
       var group = this.jobDAO.where(this.EQ(this.Job.GROUP, this.runKey_));
-      var counts = await Promise.all([
-        group.where(this.EQ(this.Job.STATUS, this.JobStatus.COMPLETED)).select(this.COUNT()),
-        group.where(this.EQ(this.Job.STATUS, this.JobStatus.FAILED)).select(this.COUNT())
-      ]);
-      this.completed_ = counts[0].value;
-      this.failed_    = counts[1].value;
-      this.updateStatus();
+      var ended = (await group
+        .where(this.IN(this.Job.STATUS, [ this.JobStatus.COMPLETED, this.JobStatus.FAILED ]))
+        .select(this.COUNT())).value;
+      var changed = ended !== this.completed_ + this.failed_;
+      if ( changed ) {
+        this.failed_    = (await group.where(this.EQ(this.Job.STATUS, this.JobStatus.FAILED)).select(this.COUNT())).value;
+        this.completed_ = ended - this.failed_;
+        this.updateStatus();
+      }
+      this.pollMs_ = changed ? 1000 : Math.min(5000, this.pollMs_ * 2);
+    },
+
+    function pause_() {
+      return new Promise(r => this.setTimeout(r, this.pollMs_));
     },
 
     async function firstError_() {
@@ -268,7 +288,7 @@ foam.CLASS({
           throw this.error_;
         }
         if ( this.batches_ - this.completed_ < this.MAX_PENDING ) break;
-        await new Promise(r => this.setTimeout(r, 250));
+        await this.pause_();
       }
       agent.daoKey = this.daoKey;
       await this.putJob_(agent);
@@ -295,7 +315,7 @@ foam.CLASS({
       while ( true ) {
         await this.countGroup_();
         if ( this.completed_ + this.failed_ >= jobs ) break;
-        await new Promise(r => this.setTimeout(r, 250));
+        await this.pause_();
       }
       if ( this.failed_ > 0 ) this.error_ = this.error_ || await this.firstError_();
       if ( job ) {

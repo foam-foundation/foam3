@@ -368,9 +368,9 @@ foam.INTERFACE({
       documentation: `
         What a gateway says the call waits on before the reply starts, such as
         "queued ahead=2", "in_progress attempt=1" or "reasoning est_tokens=412" (the stage
-        words of OpenAI's Responses API). It comes from a ": status <text>" comment line in
-        the stream; a provider that sends none never calls it. A listener that throws ends
-        the call, as with written.
+        words of OpenAI's Responses API). The OpenAI provider reads it from a gateway's
+        ": status <text>" comment line; a provider or gateway that sends none never calls
+        it. A listener that throws ends the call, as with written.
       `,
       args: 'String status',
       javaCode: '/* a listener that only counts tokens has nothing to do with the stage */'

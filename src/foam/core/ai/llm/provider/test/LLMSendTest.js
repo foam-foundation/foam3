@@ -152,21 +152,32 @@ foam.CLASS({
             "stopped", "stop after text: the listener's exception reaches the caller");
           test(bodies.size() == 1, "stop after text: sent once, got " + bodies.size());
 
-          // a gateway that queues the call sends a status line, then nothing for a while: the
-          // listener hears the stage, and a stop during the silence ends the call within a second
+          // an OpenAI-compatible gateway that queues the call sends a status line, then nothing
+          // for a while: the listener hears the stage, and a stop during the silence ends the
+          // call within a second
           bodies.clear();
-          replies.add(new Object[] { 200, null, new String[] { ": status queued ahead=1\\n\\n", reply }, 5000 });
+          String openaiReply = sse("{'choices':[{'delta':{'content':'ok'}}]}", "[DONE]");
+          replies.add(new Object[] { 200, null, new String[] { ": status queued ahead=1\\n\\n", openaiReply }, 5000 });
           List<String> stages = Collections.synchronizedList(new ArrayList<>());
           long stopAt = System.currentTimeMillis() + 1500;
           start = System.currentTimeMillis();
-          expect(failure(claude, x.put("llmProgress", new LLMProgress() {
+          expect(failure(openai, x.put("llmProgress", new LLMProgress() {
               public void written(int tokens) { if ( System.currentTimeMillis() > stopAt ) throw new RuntimeException("stopped"); }
               public void status(String status) { stages.add(status); }
             }), chat(ChatRole.USER, "Hi")),
             "stopped", "stop while the gateway sends nothing: the listener's exception reaches the caller");
           long quiet = System.currentTimeMillis() - start;
           test(quiet < 3500 && bodies.size() == 1, "stop while the gateway sends nothing: ends within about a second of the stop, with no retry; took " + quiet + " ms");
-          expect(String.valueOf(stages), "[queued ahead=1]", "a ': status' line reaches the listener");
+          expect(String.valueOf(stages), "[queued ahead=1]", "chat completions: a ': status' line reaches the listener");
+
+          // the status line is an OpenAI-compatible gateway's: Claude reads it as a keep-alive only
+          stages.clear();
+          replies.add(new Object[] { 200, null, ": status queued ahead=1\\n\\n" + reply });
+          expect(claude.chat(x.put("llmProgress", new LLMProgress() {
+              public void written(int tokens) { }
+              public void status(String status) { stages.add(status); }
+            }), chat(ChatRole.USER, "Hi")).getContent(), expected, "claude: a reply after a ': status' line is read");
+          test(stages.isEmpty(), "claude: a ': status' line is not a stage, got " + stages);
 
           // requests go out as HTTP/1.1: HTTP/2's "Upgrade: h2c" breaks a uvicorn gateway
           expect(protocols.get(0), "HTTP/1.1", "requests are HTTP/1.1, with no Upgrade header");

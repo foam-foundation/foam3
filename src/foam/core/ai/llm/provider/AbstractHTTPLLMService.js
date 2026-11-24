@@ -109,7 +109,7 @@ foam.CLASS({
         if ( progress_ != null ) progress_.written((int) ( chars_ / 4 ));
       }
 
-      /** What the gateway says the call waits on, from a ": status <text>" line. */
+      /** What the gateway says the call waits on, such as "queued ahead=2". */
       public void status(String status) {
         if ( progress_ != null ) progress_.status(status);
       }
@@ -223,12 +223,17 @@ foam.CLASS({
 
     /** The payload of the next "data:" line of a server-sent event stream; null at its
      *  end. An empty "data:" line or a ": keep-alive" comment is skipped, but still tells
-     *  the listener the call is alive. A ": status queued ahead=2" comment, which a gateway
-     *  sends while the call waits, tells the listener the stage. */
+     *  the listener the call is alive. */
     public static String nextData(BufferedReader in, Written written) throws IOException {
+      return nextData(in, written, null);
+    }
+
+    /** nextData, handing the text of each comment line (": keep-alive" gives
+     *  "keep-alive") to comment, for a provider whose comments carry meaning. */
+    public static String nextData(BufferedReader in, Written written, java.util.function.Consumer<String> comment) throws IOException {
       for ( String line ; ( line = in.readLine() ) != null ; ) {
         written.alive();
-        if ( line.startsWith(": status ") ) written.status(line.substring(9).trim());
+        if ( comment != null && line.startsWith(":") ) comment.accept(line.substring(1).trim());
         if ( ! line.startsWith("data:") ) continue;
         String data = line.substring(5).trim();
         if ( ! data.isEmpty() ) return data;

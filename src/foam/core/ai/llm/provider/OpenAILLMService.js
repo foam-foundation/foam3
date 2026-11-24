@@ -269,7 +269,12 @@ foam.CLASS({
         Object     finish = null;
         JSONObject usage  = null;
         String     model  = null;
-        for ( String data ; ( data = nextData(in, written) ) != null ; ) {
+        // an OpenAI-compatible gateway may name the stage of a call that has no
+        // text yet in a comment, ": status queued ahead=2"; other comments are keep-alives
+        java.util.function.Consumer<String> comment = c -> {
+          if ( c.startsWith("status ") ) written.status(c.substring(7).trim());
+        };
+        for ( String data ; ( data = nextData(in, written, comment) ) != null ; ) {
           if ( "[DONE]".equals(data) ) {
             written.done();
             JSONArray toolCalls = new JSONArray();

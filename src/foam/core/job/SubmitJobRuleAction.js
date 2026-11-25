@@ -56,9 +56,10 @@ foam.CLASS({
       String  failedId;
     }
 
-    // Static: RulerDAO builds a new action instance when its rules reload, and an instance map
-    // would start empty, letting a second agent run a group that is already running.
-    protected static final Map<String, GroupQueue> groups_ = new HashMap<>();
+    // The groups of the one DAO this rule runs on. RulerDAO calls the same action object on
+    // every put to that DAO, so the map lives as long as the rule; another DAO that uses this
+    // action keeps its own groups, and a group "batch-1" on each never waits for the other.
+    protected final Map<String, GroupQueue> groups_ = new HashMap<>();
   `,
 
   properties: [

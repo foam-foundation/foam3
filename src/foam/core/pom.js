@@ -142,7 +142,7 @@ foam.POM({
     // { name: "boot/CSpecCitationView",                                                     flags: "js" },
     { name: "boot/DataManagement",                                                        flags: "web" },
     { name: "boot/DAOCSpecMenu",                                                          flags: "js|java" },
-    { name: "app/test/HealthLiveHeapTest",                                        flags: "js&test|java&test" },
+    { name: "app/test/HealthLiveHeapTest",                                                flags: "js&test|java&test" },
     { name: "boot/test/CSpecStatusTest",                                                  flags: "js&test|java&test" },
     { name: "session/GroupResetSessionRuleAction",                                        flags: "js|java" },
     { name: "session/LocalSetting",                                                       flags: "js|java" },

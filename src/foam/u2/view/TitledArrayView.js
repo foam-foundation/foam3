@@ -53,6 +53,7 @@ foam.CLASS({
         }
         <<item-row {
           display: flex;
+          align-content: center;
           align-items: center;
           gap: 10px;
         }
@@ -95,7 +96,7 @@ foam.CLASS({
                 .start(this.Cols)
                   .addClass(this.myClass('header-row'))
                   .enableClass('opened', this.collapsed$.map(c => !c))
-                  .start().style({alignContent: 'center'}).addClass(this.myClass('item-row'))
+                  .start().addClass(this.myClass('item-row'))
                     .start('span').addClass(this.myClass('item-index')).add(this.index$.map(i => i + 1)).end()
                     .start('span').addClass(this.myClass('item-name'), 'h600').add(
                       summaryType

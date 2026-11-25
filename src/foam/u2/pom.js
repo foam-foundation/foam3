@@ -56,6 +56,7 @@ foam.POM({
     { name: "test/ActionViewConfirmJSTest",                       flags: "js&test|java&test" },
     { name: "test/CSSSpacingTokensJSTest",                        flags: "js&test|java&test" },
     { name: "test/CSSRadiusTokensJSTest",                         flags: "js&test|java&test" },
+    { name: "test/FixedStylesJSTest",                             flags: "js&test|java&test" },
     { name: "test/CSSElevationTokensJSTest",                      flags: "js&test|java&test" },
     { name: "test/CSSZIndexTokensJSTest",                         flags: "js&test|java&test" },
     { name: "test/CSSMotionTokensJSTest",                         flags: "js&test|java&test" },

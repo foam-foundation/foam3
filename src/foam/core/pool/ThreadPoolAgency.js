@@ -100,6 +100,14 @@ foam.CLASS({
       class: 'Object',
       hidden: true,
       transient: true
+    },
+    {
+      documentation: `Milliseconds stop() waits for interrupted tasks to finish
+        before shutdown carries on. A task still running after this is halted
+        with the JVM, wherever it is.`,
+      name: 'shutdownTimeout',
+      class: 'Long',
+      value: 30000
     }
   ],
 
@@ -114,6 +122,29 @@ foam.CLASS({
     },
     {
       name: 'stop',
+      javaCode: `
+        shutdownPool();
+
+        // Pool threads are daemons, so the JVM halts them wherever they are
+        // as soon as shutdown ends, and shutdownNow() only interrupts them.
+        // A task that must undo partial work when interrupted, such as a cron
+        // rolling back what it half wrote, needs time to finish that.
+        try {
+          if ( ! getPool().awaitTermination(getShutdownTimeout(), TimeUnit.MILLISECONDS) ) {
+            Loggers.logger(getX(), this).warning(getPrefix(), "tasks still running after shutdownTimeout", getShutdownTimeout());
+          }
+        } catch (InterruptedException e) {
+          // Shutdown itself was interrupted: carry on without waiting.
+        }
+      `
+    },
+    {
+      name: 'shutdownPool',
+      documentation: `Interrupts running tasks and drops queued ones, without
+        waiting. reload() uses it alone: it runs inside the service factory's
+        lock, so a wait there would block every lookup of this pool.`,
+      type: 'Void',
+      visibility: 'protected',
       javaCode: `
         getPool().shutdownNow();
         synchronized ( queuedLock_ ) {
@@ -130,7 +161,7 @@ foam.CLASS({
     {
       name: 'reload',
       javaCode: `
-      stop();
+      shutdownPool();
       Loggers.logger(getX(), this).info(getPrefix(), "reload");
       initThreadPool();
       scheduleReporting();

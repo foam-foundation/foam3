@@ -12,6 +12,7 @@ foam.CLASS({
   javaImports: [
     'foam.core.alarming.Alarm',
     'foam.core.logger.Loggers',
+    'foam.core.pm.PM',
     'foam.dao.DAO',
     'foam.log.LogLevel',
     'foam.net.Port',
@@ -263,6 +264,7 @@ foam.CLASS({
   public Health(foam.lang.X x) {
     super();
     setX(x);
+    PM pm = PM.create(x, "Health", "create");
 
     AppConfig appConfig = (AppConfig) x.get("appConfig");
     setMode(appConfig.getMode());
@@ -340,6 +342,7 @@ foam.CLASS({
       // creation via the factory sets the status to the default.
       setStatus(old.getStatus());
     }
+    pm.log(x);
   }
   `,
   methods: [

@@ -63,6 +63,7 @@ Memory Total:    ${(health.memoryTotal / 1024 / 1024).toFixed(1)} MB
 Memory Free:     ${(health.memoryFree / 1024 / 1024).toFixed(1)} MB
 Memory Used:     ${(health.memoryUsed / 1024 / 1024).toFixed(1)} MB
 Memory Used %:   ${health.memoryUsedPercent.toFixed(1)}%
+Memory Live %:   ${health.memoryLiveEstimatePercent.toFixed(1)}% (estimate)
 Client Memory:   ${navigator.deviceMemory} GB
 Active Alarms:   ${health.alarms}
 `;

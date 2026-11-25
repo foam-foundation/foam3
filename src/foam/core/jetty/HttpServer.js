@@ -109,7 +109,8 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'headerCacheSize',
-      documentation: `Rows in the header cache Jetty keeps for each open HTTP/1.1 connection. Each row is 48 chars, so Jetty's own default of 1024 holds 98 KB of heap per connection. The default, 0, turns the cache off.`
+      documentation: `Nodes in the header cache Jetty keeps for each HTTP/1.1 connection that makes a second request. Each node is 48 chars, so 512 holds 49 KB of heap per connection, half of Jetty's own default of 1024. 0 turns the cache off.`,
+      value: 512
     },
     {
       class: 'Boolean',

@@ -110,7 +110,17 @@ foam.CLASS({
       class: 'String',
       name: 'cmd',
       visibility: 'RO',
-      displayWidth: 80
+      displayWidth: 80,
+      // A command is code, so every backslash in it is a real character. The
+      // default JSON escape keeps an existing \" as it is, so Save wrote
+      // markdown("a \"b\" c") back as markdown("a "b" c") and the block
+      // failed when the flow loaded. Escaping every backslash keeps the
+      // command as typed. The outputter escapes the result once more, which
+      // leaves it alone: the forced pass writes only whole \\, \" and \u00XX
+      // pairs, and the second pass keeps those as they are.
+      toJSON: function(value, outputter) {
+        return outputter.escape(value, true);
+      }
     },
     [ 'value', null ],
     {

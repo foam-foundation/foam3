@@ -49,6 +49,157 @@ foam.CLASS({
         testCompletedJob(jobDAO);
         testFailedJob(jobDAO);
         testRetention(x, jobDAO);
+        testResentPutAfterFinish(jobDAO);
+        testSameIdRunsOnce(jobDAO);
+        testGroupRunsInOrderOneAtATime(jobDAO);
+        testGroupFailureSkipsTheRest(jobDAO);
+        testGroupSurvivesAThrowingSave(jobDAO);
+        testNoGroupRunsTogether(jobDAO);
+        testResentQueuedJobRunsOnce(jobDAO);
+      `
+    },
+    {
+      name: 'putGroupJob',
+      documentation: 'Puts a CountingJob into the group, with the id group:n the way a batch sender names its Jobs.',
+      type: 'foam.core.job.test.CountingJob',
+      args: 'foam.dao.DAO jobDAO, String group, int n, int sleepMs, boolean fails',
+      javaCode: `
+        CountingJob job = new CountingJob();
+        job.setId(group + ":" + n);
+        job.setGroup(group);
+        job.setTag(group + "-" + n);
+        job.setOverlapKey(group);
+        job.setSleepMs(sleepMs);
+        job.setFails(fails);
+        return (CountingJob) jobDAO.put(job);
+      `
+    },
+    {
+      name: 'testGroupRunsInOrderOneAtATime',
+      documentation: `Jobs of one group run in the order they were put, never two at once, as the
+        rules of a rule group do. Each takes 60 ms, so a Job that started before its predecessor
+        ended would show as an overlap.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String group = "ordered-" + UUID.randomUUID();
+        for ( int i = 0 ; i < 6 ; i++ ) putGroupJob(jobDAO, group, i, 60, false);
+
+        Job last = awaitJob(jobDAO, group + ":5");
+        test(last.getStatus() == JobStatus.COMPLETED, "the last Job of the group completes, actual: " + last.getStatus());
+
+        java.util.List<String> ran = new java.util.ArrayList<>();
+        for ( String tag : CountingJob.ORDER ) if ( tag.startsWith(group) ) ran.add(tag);
+        java.util.List<String> expected = new java.util.ArrayList<>();
+        for ( int i = 0 ; i < 6 ; i++ ) expected.add(group + "-" + i);
+        test(expected.equals(ran), "the group runs in the order it was put, actual: " + ran);
+        test(! CountingJob.OVERLAPPED.contains(group), "no two Jobs of a group run at the same time");
+      `
+    },
+    {
+      name: 'testGroupFailureSkipsTheRest',
+      documentation: `After Job 1 fails, Jobs 2 and 3 end FAILED without running and say which batch
+        failed. Job 4 asks for runAfterFailure, as a Job that cleans up after the group does, so it runs.
+        A Job put into the group after the failure was seen is refused the same way.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String group = "failing-" + UUID.randomUUID();
+        for ( int i = 0 ; i < 4 ; i++ ) putGroupJob(jobDAO, group, i, 20, i == 1);
+
+        CountingJob cleanup = new CountingJob();
+        cleanup.setId(group + ":4");
+        cleanup.setGroup(group);
+        cleanup.setTag(group + "-4");
+        cleanup.setOverlapKey(group);
+        cleanup.setRunAfterFailure(true);
+        jobDAO.put(cleanup);
+
+        awaitJob(jobDAO, group + ":4");
+
+        test(awaitJob(jobDAO, group + ":0").getStatus() == JobStatus.COMPLETED, "the Job before the failure completes");
+        Job failed = awaitJob(jobDAO, group + ":1");
+        test(failed.getStatus() == JobStatus.FAILED, "the failing Job ends FAILED, actual: " + failed.getStatus());
+        test(failed.getException().contains("CountingJob " + group + "-1 fails"),
+          "the failing Job keeps its own error, actual: " + failed.getException());
+
+        for ( int i = 2 ; i <= 3 ; i++ ) {
+          Job skipped = awaitJob(jobDAO, group + ":" + i);
+          test(skipped.getStatus() == JobStatus.FAILED, "Job " + i + " behind the failure ends FAILED, actual: " + skipped.getStatus());
+          test(("Not run: job " + group + ":1 of this group failed").equals(skipped.getException()),
+            "Job " + i + " says which job failed, actual: " + skipped.getException());
+          test(CountingJob.RUNS.get(group + "-" + i) == null, "Job " + i + " never ran");
+        }
+
+        test(awaitJob(jobDAO, group + ":4").getStatus() == JobStatus.COMPLETED,
+          "a Job with runAfterFailure runs after the failure");
+
+        putGroupJob(jobDAO, group, 5, 0, false);
+        Job late = awaitJob(jobDAO, group + ":5");
+        test(late.getStatus() == JobStatus.FAILED && late.getException().startsWith("Not run:"),
+          "a Job put after the failure is refused too, actual: " + late.getStatus() + " " + late.getException());
+      `
+    },
+    {
+      name: 'testGroupSurvivesAThrowingSave',
+      documentation: `The write that marks a Job RUNNING throws. The group's agent must not die with
+        the group still marked running: the Job ends FAILED and the Job put after it ends FAILED
+        without running, instead of staying SCHEDULED for good.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String group = "saving-" + UUID.randomUUID();
+        CountingJob first = new CountingJob();
+        first.setId(group + ":0");
+        first.setGroup(group);
+        first.setTag(group + "-0");
+        first.setOverlapKey(group);
+        first.setSaveFails(true);
+        jobDAO.put(first);
+        putGroupJob(jobDAO, group, 1, 0, false);
+
+        Job a = awaitJob(jobDAO, group + ":0");
+        Job b = awaitJob(jobDAO, group + ":1");
+        test(a.getStatus() == JobStatus.FAILED, "the Job whose save threw ends FAILED, actual: " + a.getStatus());
+        test(b.getStatus() == JobStatus.FAILED && b.getException().startsWith("Not run:"),
+          "the Job behind it ends FAILED without running, actual: " + b.getStatus() + " " + b.getException());
+        test(CountingJob.RUNS.get(group + "-1") == null, "the Job behind it never ran");
+      `
+    },
+    {
+      name: 'testNoGroupRunsTogether',
+      documentation: `A Job with no group is unchanged: it goes straight to the thread pool, so
+        Jobs that take 400 ms each overlap.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String key = "ungrouped-" + UUID.randomUUID();
+        for ( int i = 0 ; i < 3 ; i++ ) {
+          CountingJob job = new CountingJob();
+          job.setTag(key + "-" + i);
+          job.setOverlapKey(key);
+          job.setSleepMs(400);
+          jobDAO.put(job);
+        }
+        long deadline = System.currentTimeMillis() + AWAIT_TIMEOUT;
+        while ( System.currentTimeMillis() < deadline && ( CountingJob.RUNS.get(key + "-2") == null || CountingJob.ACTIVE.get(key).get() > 0 ) ) {
+          try { Thread.sleep(25); } catch ( InterruptedException e ) { }
+        }
+        test(CountingJob.OVERLAPPED.contains(key), "Jobs without a group still run at the same time");
+      `
+    },
+    {
+      name: 'testResentQueuedJobRunsOnce',
+      documentation: `A batch put again while it waits behind a slow Job in its group is the same Job:
+        it runs once.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String group = "resent-" + UUID.randomUUID();
+        putGroupJob(jobDAO, group, 0, 300, false);
+        putGroupJob(jobDAO, group, 1, 0, false);
+        putGroupJob(jobDAO, group, 1, 0, false);
+        putGroupJob(jobDAO, group, 2, 0, false);
+
+        Job last = awaitJob(jobDAO, group + ":2");
+        test(last.getStatus() == JobStatus.COMPLETED, "the group completes, actual: " + last.getStatus());
+        awaitJob(jobDAO, group + ":1");
+        expect(CountingJob.RUNS.get(group + "-1").get(), 1, "a Job put twice while queued runs once");
       `
     },
     {
@@ -153,6 +304,70 @@ foam.CLASS({
           "a RUNNING job is never swept, however old");
         test(jobDAO.find(recent) != null,
           "a finished job inside the retention age is kept");
+      `
+    },
+    {
+      name: 'testResentPutAfterFinish',
+      documentation: `A submitter that never saw the first reply sends the same Job again,
+        with its id and status SCHEDULED. After the Job ended, that put must change nothing,
+        or a poller waiting for COMPLETED or FAILED would wait forever.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        SleepJob ok = new SleepJob();
+        ok.setSteps(1);
+        ok.setStepTime(1);
+        String okId = ((Job) jobDAO.put(ok)).getId();
+        awaitJob(jobDAO, okId);
+
+        SleepJob resentOk = new SleepJob();
+        resentOk.setId(okId);
+        resentOk.setSteps(1);
+        resentOk.setStepTime(1);
+        jobDAO.put(resentOk);
+        test(((Job) jobDAO.find(okId)).getStatus() == JobStatus.COMPLETED,
+          "a put of a COMPLETED job's id leaves it COMPLETED, actual: " + ((Job) jobDAO.find(okId)).getStatus());
+
+        SleepJob bad = new SleepJob();
+        bad.setSteps(1);
+        bad.setStepTime(1);
+        bad.setFailAtStep(0);
+        String badId = ((Job) jobDAO.put(bad)).getId();
+        awaitJob(jobDAO, badId);
+
+        SleepJob resentBad = new SleepJob();
+        resentBad.setId(badId);
+        resentBad.setSteps(1);
+        jobDAO.put(resentBad);
+        Job after = (Job) jobDAO.find(badId);
+        test(after.getStatus() == JobStatus.FAILED,
+          "a put of a FAILED job's id leaves it FAILED, actual: " + after.getStatus());
+        test(after.getException().contains("SleepJob failed at step 0"),
+          "the stored exception survives the resent put, actual: " + after.getException());
+      `
+    },
+    {
+      name: 'testSameIdRunsOnce',
+      documentation: `The same id put twice before the first reply is one Job: the second put is
+        an update, and only a create submits to the threadPool.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        String tag = "same-id-" + UUID.randomUUID();
+        String id  = "client-chosen-" + UUID.randomUUID();
+        for ( int i = 0 ; i < 2 ; i++ ) {
+          CountingJob job = new CountingJob();
+          job.setId(id);
+          job.setTag(tag);
+          jobDAO.put(job);
+        }
+        Job done = awaitJob(jobDAO, id);
+        test(done.getStatus() == JobStatus.COMPLETED, "the job with a client-chosen id completes, actual: " + done.getStatus());
+        test(id.equals(done.getId()), "the jobDAO keeps the client's id, actual: " + done.getId());
+
+        // A late second run would show up shortly after the first.
+        try {
+          Thread.sleep(300);
+        } catch ( InterruptedException e ) { }
+        expect(CountingJob.RUNS.get(tag).get(), 1, "two puts of one id run the job once");
       `
     },
     {

@@ -142,6 +142,7 @@ foam.POM({
     // { name: "boot/CSpecCitationView",                                                     flags: "js" },
     { name: "boot/DataManagement",                                                        flags: "web" },
     { name: "boot/DAOCSpecMenu",                                                          flags: "js|java" },
+    { name: "app/test/HealthLiveHeapTest",                                        flags: "js&test|java&test" },
     { name: "boot/test/CSpecStatusTest",                                                  flags: "js&test|java&test" },
     { name: "session/GroupResetSessionRuleAction",                                        flags: "js|java" },
     { name: "session/LocalSetting",                                                       flags: "js|java" },
@@ -649,6 +650,7 @@ foam.POM({
     { name: "analytics/test/tests",                                   flags: "test" },
     { name: "boot/test/bootscripts",                                  flags: "test" },
     { name: "boot/test/tests",                                        flags: "test" },
+    { name: "app/test/tests",                                         flags: "test" },
     { name: "fs/test/tests",                                          flags: "test" },
     { name: "fs/test/benchmarks",                                     flags: "test" },
     { name: "script/test/tests",                                      flags: "test" }

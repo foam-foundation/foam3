@@ -23,10 +23,14 @@ foam.POM({
     { name: "Mode",                                 flags: "js|java" },
     { name: "ShutdownWatcher",                      flags: "js|java" },
     { name: "SupportConfig",                        flags: "js|java" },
-    { name: "SupportMenu",                          flags: "js|java" }
+    { name: "SupportMenu",                          flags: "js|java" },
+    { name: "test/ShutdownWatcherTest",             flags: "js&test|java&test" }
   ],
   javaFiles: [
     { name: "HealthWebAgent" },
     { name: "VersionWebAgent" }
+  ],
+  journalFiles: [
+    { name: "test/tests",                           flags: "test" }
   ]
 });

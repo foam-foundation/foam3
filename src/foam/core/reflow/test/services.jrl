@@ -1,0 +1,13 @@
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "uploadJobTestDAO",
+  "serve": true,
+  "serviceScript": """
+    return new foam.dao.EasyDAO.Builder(x)
+      .setOf(foam.core.reflow.test.UploadTestRow.getOwnClassInfo())
+      .setGuid(true)
+      .setJournalType(foam.dao.JournalType.NO_JOURNAL)
+      .build();
+  """,
+  "client": """{"of":"foam.core.reflow.test.UploadTestRow"}"""
+})

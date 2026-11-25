@@ -88,6 +88,34 @@ p({
   """
 })
 
+// ── Ask AI over indexed records ──
+// ragService.ask answers from the chunks in vectorStoreDAO, searching only the records the
+// caller can read. The browser gets this service, never llmService. An app overrides the
+// CSpec to read its prompt from configuration.
+p({
+  "class": "foam.core.boot.CSpec",
+  "name": "ragService",
+  "lazy": true,
+  "serve": true,
+  "authenticate": true,
+  "boxClass": "foam.ai.llm.RAGServiceSkeleton",
+  "serviceScript": """
+    return new foam.core.ai.llm.ServerRAGService.Builder(x).build();
+  """,
+  "client": """
+    {
+      "class": "foam.ai.llm.ClientRAGService",
+      "delegate": {
+        "class": "foam.box.SessionClientBox",
+        "delegate": {
+          "class": "foam.box.HTTPBox",
+          "url": "service/ragService"
+        }
+      }
+    }
+  """
+})
+
 // ── Vector store DAO — persisted embedding index ──
 p({
   "class":"foam.core.boot.CSpec",

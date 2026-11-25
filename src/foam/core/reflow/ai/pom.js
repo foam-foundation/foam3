@@ -12,6 +12,12 @@ foam.POM({
     { name: 'AskCommand', flags: 'js|java' },
 
     // Block for proposing the execution of another command
-    { name: 'Propose', flags: 'js' }
+    { name: 'Propose', flags: 'js' },
+
+    // One execute_command tool that gives an AI agent the Reflow prompt
+    { name: 'CommandTool', flags: 'js' },
+
+    // One request in which the model may run scripts through CommandTool before it answers
+    { name: 'CommandChat', flags: 'js' }
   ]
 });

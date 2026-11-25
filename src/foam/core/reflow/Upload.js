@@ -629,6 +629,7 @@ foam.CLASS({
       // Create UploadSink with proper configuration
       var sink = this.UploadSink.create({
         dao: this.dao,
+        daoKey: this.daoKey,
         previewDAO: this.data,
         isRealUpload: real,
         bulkUpload: this.bulkUpload,

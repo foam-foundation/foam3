@@ -34,7 +34,10 @@ foam.CLASS({
       console.log(`AskCommand: ${reply}`);
       await this.eval_(`agent(${reply})`, true, true);
 
-      setTimeout(() => block.del(), 100);
+      // The ask block goes too, not only the block it asked. Kept, a saved
+      // flow would run "ask info" again on every load and send the answer
+      // to the agent as a new request.
+      setTimeout(() => { block.del(); this.block.del(); }, 100);
     }
   ]
 });

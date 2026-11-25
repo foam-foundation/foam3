@@ -50,3 +50,4 @@ p({"class":"foam.dao.test.BulkLoadCommandTest","id":"BulkLoadCommandTest","descr
 p({"class":"foam.dao.test.JournalGenerationsTest","id":"JournalGenerationsTest","description":"journal generations are derived from the filesystem: ordering, snapshots superseding, .tmp ignored"})
 p({"class":"foam.dao.test.EasyDAOPropertyIndexesTest","id":"EasyDAOPropertyIndexesTest","description":"an index a service script adds after build() is built in the replay bulk load"})
 p({"class":"foam.dao.test.TTLSelectCachingDAOKeyTest","id":"TTLSelectCachingDAOKeyTest","description":"a GroupBy subclass that inherits toString() gets its own cached select, and a repeated select still hits the cache", language: 0})
+p({"class":"foam.dao.test.IDBDAOBlobTest","id":"IDBDAOBlobTest","description":"a File stored in an IDBDAO comes back as the File, not {}", language: 0})

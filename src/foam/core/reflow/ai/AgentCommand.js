@@ -14,8 +14,8 @@
  *   3. LLMService returns a string of REFLOW commands, e.g.:
  *        dao query invoiceDAO where status = 'OVERDUE' to table
  *        chart bar --x daysOverdue --y amount --title "Overdue by Age" // TODO: fix
- *   4. PromptCommand parses each line and inserts them into the
- *      current flow document, where they execute in sequence.
+ *   4. AgentCommand inserts each line into the current flow
+ *      document, where they execute in sequence.
  *
  * The LLM is just another user of the environment.
  * Permissions, validation, journaling — all inherited.
@@ -42,8 +42,7 @@ foam.CLASS({
     'block',
     'commandDAO',
     'flowDAO',
-    'llmService',
-    'subject'
+    'llmService'
   ],
 
   implements: [
@@ -90,28 +89,25 @@ foam.CLASS({
         options: foam.ai.llm.LLMOptions.create({
           systemPrompt: systemPrompt,
           model:        this.model
-//          temperature:  0.2  // low temp for structured command output
         })
       });
 
       var result;
       try {
-        result = await this.llmService.complete(x, request);
-        // Use when offline. TODO: make a mock llmService for when offline
-        // result = { content: 'h1 done' };
+        result = await this.llmService.complete(this.__subContext__, request);
       } catch (e) {
         throw 'LLM error: ' + e;
-//        flow.insertError('LLM error: ' + e.message);
-        return;
       }
 
       // ── 3. Parse response into command lines ──
       var lines = this.parseCommandLines_(result.content);
 
-      if ( ! lines.length ) {
-        // LLM returned nothing parseable — show raw as markdown fallback
-        this.out.tag(this.Markdown, {markdown: result.content});
-        return;
+      // A reply with no command line, such as one made only of '# ...' lines,
+      // still reaches the user as a markdown block of its own. Drawn inside
+      // this block instead, it would keep the block, and a saved flow would
+      // send the same prompt again on every load.
+      if ( ! lines.length && result.content ) {
+        await this.eval_(`markdown(${JSON.stringify(result.content)})`, true, true);
       }
 
       // ── 4. Insert commands into the flow ──
@@ -123,10 +119,9 @@ foam.CLASS({
             // JSON.stringify escapes the quotes and newlines in the command
             // and error, so the agent(...) call is valid JavaScript for eval_.
             const reply = JSON.stringify({ message: 'Syntax Error', cmd: lines[i], error: block.value.error });
-            console.log("**** AgentCommand Error: " + reply);
             await this.eval_(`agent(${reply})`, true, true);
           } else {
-              // Run the agent's lines the way loading a saved flow runs its
+            // Run the agent's lines the way loading a saved flow runs its
             // blocks (Console.includeScript): wait on each block's onLoad. So
             // after input('Delete order 1234?', ['Yes', 'No']) the agent's
             // next line waits until the user has answered.
@@ -149,12 +144,9 @@ foam.CLASS({
           script.forEach(block => {
             if ( block?.value?.class == 'foam.core.reflow.Markdown' ) {
               parts.push(block.value.markdown);
-            } else {
             }
           });
         });
-
-        // console.log('sysPrompt: ', parts.join('\n'));
 
         this.systemPrompt = parts.join('\n');
       }
@@ -164,8 +156,6 @@ foam.CLASS({
 
     function parseCommandLines_(content) {
       if ( ! content ) return [];
-
-      console.log('*** AGENT RESPONSE: ', content);
 
       // Strip code fences if LLM wrapped them despite instructions
       content = content.replace(/^```[\w]*\n?/gm, '').replace(/^```$/gm, '');

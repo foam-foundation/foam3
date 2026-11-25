@@ -7,8 +7,9 @@
 foam.POM({
   name: 'vector',
   files: [
-    { name: 'MarkdownChunkerService',       flags: 'js|java' },
-    { name: 'RAGIndexer',                   flags: 'js|java' }
+    { name: 'MarkdownChunkerService',  flags: 'js|java' },
+    { name: 'RAGIndexer',              flags: 'js|java' },
+    { name: 'ReadableSourcePredicate', flags: 'java'    }
   ],
   javaFiles: [
     { name: 'MarkdownChunkParser'         },

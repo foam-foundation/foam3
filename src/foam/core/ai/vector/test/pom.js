@@ -7,7 +7,8 @@
 foam.POM({
   name: 'test',
   files: [
-    { name: 'RAGNote', flags: 'js&test|java&test' },
-    { name: 'RAGTest', flags: 'js&test|java&test' }
+    { name: 'RAGNote',        flags: 'js&test|java&test' },
+    { name: 'RAGTest',        flags: 'js&test|java&test' },
+    { name: 'RAGServiceTest', flags: 'js&test|java&test' }
   ]
 });

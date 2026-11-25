@@ -7,6 +7,7 @@ foam.POM({
 
   files: [
     { name: 'LoggingLLMService', flags: 'js|java' },
-    { name: 'PMLLMService',      flags: 'js|java' }
+    { name: 'PMLLMService',      flags: 'js|java' },
+    { name: 'ServerRAGService',  flags: 'js|java' }
   ]
 });

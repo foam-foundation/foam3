@@ -22,6 +22,7 @@ foam.CLASS({
       padding: 0 12px;
       width: -webkit-max-content;
       width: -moz-max-content;
+      width: max-content;
     }
     <<pill{
       border-radius: 11.2px;
@@ -68,7 +69,6 @@ foam.CLASS({
         this
           .enableClass(this.myClass('pill'), isPill)
           .addClass('enum-label', this.myClass())
-          .style({ width: 'max-content' })
           .style({
             'background-color': background,
             'color': color,

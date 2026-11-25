@@ -21,12 +21,30 @@ foam.CLASS({
     - Progress tracking
   `,
   
+  implements: [ 'foam.mlang.Expressions' ],
+
   requires: [
-    'foam.core.reflow.UploadAgent',
-    'foam.lang.CountingSemaphore'
+    'foam.core.job.Job',
+    'foam.core.job.JobStatus',
+    'foam.core.reflow.UploadAgent'
+  ],
+
+  constants: [
+    {
+      name: 'BATCH_SIZE',
+      value: 2000,
+      documentation: 'Rows in one batch job.'
+    },
+    {
+      name: 'MAX_PENDING',
+      value: 20,
+      documentation: `Most batch jobs of a run that may be put and not yet COMPLETED. At the limit the
+        sink waits for the server, so a slow server never holds more than 20 batches (40,000 rows) of this run.`
+    }
   ],
   
   imports: [
+    'jobDAO?',
     'setTimeout'
   ],
   
@@ -68,6 +86,12 @@ foam.CLASS({
       documentation: 'Target DAO for upload'
     },
     {
+      class: 'String',
+      name: 'daoKey',
+      documentation: `Name of the served DAO that dao stands for. A bulk batch runs on the server, which finds
+        the DAO by this name; the dao property only serves single puts and the reset command.`
+    },
+    {
       name: 'previewDAO',
       documentation: 'DAO for preview mode storage'
     },
@@ -101,7 +125,30 @@ foam.CLASS({
       class: 'Function',
       name: 'progressCallback',
       documentation: 'Callback for progress updates',
-      value: function(processing, progress) { }
+      value: function(processing, progress, sent, processed) { }
+    },
+    {
+      class: 'Int',
+      name: 'sent',
+      documentation: 'Percent of the batches put to the server.'
+    },
+    {
+      class: 'Int',
+      name: 'processed',
+      documentation: 'Percent of the batches the server has finished.'
+    },
+    {
+      name: 'finishJob',
+      documentation: `Optional function that returns a Job. When the last batch is put, the sink calls it and puts
+        the Job in the same group, so the server runs it after every batch has ended, even when one failed
+        or this client is gone by then. It sets runAfterFailure itself when it must run after a failure.
+        The sink sets its id and group.`
+    },
+    {
+      class: 'Boolean',
+      name: 'finishJobCompleted',
+      documentation: `True when the finish job ran to COMPLETED: the server then owns the outcome of
+        the run. A finish job that failed, or was never put, leaves the outcome to the caller.`
     },
     {
       name: 'agent_',
@@ -109,11 +156,51 @@ foam.CLASS({
       documentation: 'Current UploadAgent for batching'
     },
     {
-      name: 'semaphore_',
+      name: 'runKey_',
       hidden: true,
-      factory: function() {
-        return this.CountingSemaphore.create({limit: 4});
-      }
+      factory: function() { return foam.uuid.randomGUID(); },
+      documentation: `Tells this run's batch jobs apart from every other run's. A batch job's id is runKey_:n,
+        so a resent submit of batch n lands on the job that already exists instead of making a second.
+        A caller can set it to start with its own record's id, such as "12:" plus a fresh uuid, so the
+        server can tell whose record a group of jobs belongs to when this client is gone. Each run needs
+        a new value: a failed group is refused further jobs for good.`
+    },
+    {
+      class: 'Int',
+      name: 'batches_',
+      hidden: true,
+      documentation: 'Number of batches put so far, which is also the number of the next one.'
+    },
+    {
+      class: 'Int',
+      name: 'completed_',
+      hidden: true,
+      documentation: 'Jobs of this run the server has COMPLETED, as of the last count.'
+    },
+    {
+      class: 'Int',
+      name: 'failed_',
+      hidden: true,
+      documentation: 'Jobs of this run that are FAILED, as of the last count. Includes jobs that never ran.'
+    },
+    {
+      class: 'Int',
+      name: 'pollMs_',
+      value: 1000,
+      hidden: true,
+      documentation: `Wait before the next count of the group's jobs. A 2,000-row batch on a slow table can
+        take over a minute, so the wait doubles up to 5 s while no job ends, and drops back to 1 s when one does.`
+    },
+    {
+      class: 'Boolean',
+      name: 'finishing_',
+      hidden: true,
+      documentation: 'True once no more batches will be put, so the batch total is known.'
+    },
+    {
+      name: 'error_',
+      hidden: true,
+      documentation: 'First failure of a batch job. Once set, put() and eof() throw it.'
     },
     {
       class: 'String',
@@ -139,13 +226,119 @@ foam.CLASS({
         // If totalRows not set, estimate based on processing count
         this.progress = Math.min(99, Math.floor(this.processing / 100)); // Cap at 99% until eof
       }
+      // The batch total is a guess until the last batch is put: totalRows / BATCH_SIZE
+      // (a filter can make it smaller).
+      var total = this.finishing_ ? this.batches_ :
+        Math.max(this.batches_, Math.ceil(this.totalRows / this.BATCH_SIZE));
+      this.sent      = total ? Math.min(100, Math.floor(100 * this.batches_ / total)) : 0;
+      this.processed = total ? Math.min(100, Math.floor(100 * Math.min(this.completed_, this.batches_) / total)) : 0;
       if ( this.progressCallback ) {
-        this.progressCallback(this.processing, this.progress);
+        this.progressCallback(this.processing, this.progress, this.sent, this.processed);
       }
     },
-    
+
+    async function countGroup_() {
+      // One request per count: how many jobs ended. The FAILED count is asked only when that
+      // number moved, which is once per batch, not on every poll.
+      var group = this.jobDAO.where(this.EQ(this.Job.GROUP, this.runKey_));
+      var ended = (await group
+        .where(this.IN(this.Job.STATUS, [ this.JobStatus.COMPLETED, this.JobStatus.FAILED ]))
+        .select(this.COUNT())).value;
+      var changed = ended !== this.completed_ + this.failed_;
+      if ( changed ) {
+        this.failed_    = (await group.where(this.EQ(this.Job.STATUS, this.JobStatus.FAILED)).select(this.COUNT())).value;
+        this.completed_ = ended - this.failed_;
+        this.updateStatus();
+      }
+      this.pollMs_ = changed ? 1000 : Math.min(5000, this.pollMs_ * 2);
+    },
+
+    function pause_() {
+      return new Promise(r => this.setTimeout(r, this.pollMs_));
+    },
+
+    async function firstError_() {
+      // The group runs in put order, so the failed job with the lowest number is the one that
+      // failed for real; the jobs behind it only say they were not run.
+      var failed = (await this.jobDAO
+        .where(this.AND(
+          this.EQ(this.Job.GROUP, this.runKey_),
+          this.EQ(this.Job.STATUS, this.JobStatus.FAILED)))
+        .select()).array;
+      var seq = j => Number(j.id.substring(j.id.lastIndexOf(':') + 1));
+      var job = failed.sort((a, b) => seq(a) - seq(b))[0];
+      return new Error(job ? job.exception.split('\n')[0] : 'An upload batch failed.');
+    },
+
+    async function putJob_(job) {
+      if ( ! this.jobDAO ) throw new Error('Cannot upload: the server job service is not available.');
+      job.id    = this.runKey_ + ':' + this.batches_;
+      job.group = this.runKey_;
+      // The put answers when the job is queued, not when it has run, so a slow server
+      // cannot hold it past the box timeout; a resent put lands on the same id.
+      await this.jobDAO.put(job);
+    },
+
+    async function putBatch_(agent) {
+      // Hold at the limit, and stop at the first failure: later batches would only be skipped.
+      while ( true ) {
+        await this.countGroup_();
+        if ( this.failed_ > 0 ) {
+          await this.finish_(true);
+          throw this.error_;
+        }
+        if ( this.batches_ - this.completed_ < this.MAX_PENDING ) break;
+        await this.pause_();
+      }
+      agent.daoKey = this.daoKey;
+      await this.putJob_(agent);
+      this.batches_++;
+      this.updateStatus();
+    },
+
+    async function finish_(withFinishJob) {
+      if ( this.finishing_ ) return;
+      this.finishing_ = true;
+
+      var jobs = this.batches_;
+      var job  = withFinishJob && this.finishJob && this.finishJob(this);
+
+      // A preview sends nothing: with no batch and no finish job there is nothing to wait for
+      // or clean up, and no jobDAO is needed.
+      if ( ! jobs && ! job ) return;
+      if ( job ) {
+        await this.putJob_(job);
+        jobs++;
+      }
+
+      // Every job of the group ends: a failed job makes the ones behind it end FAILED too.
+      while ( true ) {
+        await this.countGroup_();
+        if ( this.completed_ + this.failed_ >= jobs ) break;
+        await this.pause_();
+      }
+      if ( this.failed_ > 0 ) this.error_ = this.error_ || await this.firstError_();
+      if ( job ) {
+        var ended = await this.jobDAO.find(job.id);
+        this.finishJobCompleted = !! ended && ended.status === this.JobStatus.COMPLETED;
+      }
+      try {
+        await this.jobDAO.where(this.EQ(this.Job.GROUP, this.runKey_)).removeAll();
+      } catch (e) {
+        console.warn('Could not remove upload jobs', e);
+      }
+    },
+
+    function settle() {
+      // For a run that stops without eof (a parse error): wait for the batches already put to
+      // end, so that nothing lands after the caller removes what was stored.
+      return this.batches_ ? this.finish_(false) : Promise.resolve();
+    },
+
     async function put(o) {
       var self = this;
+
+      if ( this.error_ ) throw this.error_;
 
       // Apply object adaptation callback
       try {
@@ -247,14 +440,10 @@ foam.CLASS({
             if ( ! this.agent_ ) this.agent_ = this.UploadAgent.create();
             this.agent_.data.push(o);
 
-            if ( this.matchedRows && this.matchedRows % 2000 === 0 ) {
+            if ( this.matchedRows && this.matchedRows % this.BATCH_SIZE === 0 ) {
               var oldAgent = this.agent_;
               this.agent_ = undefined;
-              await new Promise(r => self.setTimeout(r, 0));
-              // Limit concurrent batch uploads using semaphore
-              this.semaphore_.then(async () => {
-                await this.dao.cmd(oldAgent);
-              });
+              await this.putBatch_(oldAgent);
             }
           } else {
             await this.dao.put(o);
@@ -271,14 +460,14 @@ foam.CLASS({
     async function eof() {
       var self = this;
 
-      // Only send agent command if no validation errors
-      if ( this.agent_ && Object.keys(this.validationErrorMap).length === 0 ) {
-        await this.dao.cmd(this.agent_);
-      }
+      // Only send the last batch, and the finish job, if there are no validation errors
+      var valid = Object.keys(this.validationErrorMap).length === 0;
+      if ( this.agent_ && valid ) await this.putBatch_(this.agent_);
 
-      // Wait for all pending batch operations to complete
-      await this.semaphore_.drain();
+      // Wait for every job of the run to end
+      await this.finish_(valid);
       this.dao?.cmd(foam.dao.DAO.RESET_CMD);
+      if ( this.error_ ) throw this.error_;
 
       this.updateStatus();
       this.progress = 100;

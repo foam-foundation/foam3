@@ -31,6 +31,9 @@
     << h6{
       padding-bottom: 12px;
     }
+    <<content {
+      overflow: auto;
+    }
   `,
 
   properties: [
@@ -46,7 +49,7 @@
       .start()
         .addClass(this.myClass('container'))
         .start('h6').addClass('h600').add(this.title).end()
-        .start('div', null, this.content$).style({ 'overflow': 'auto' }).end()
+        .start('div', null, this.content$).addClass(this.myClass('content')).end()
       .end();
     }
   ]

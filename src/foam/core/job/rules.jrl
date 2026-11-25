@@ -15,3 +15,21 @@ p({
   "saveHistory": false,
   "lifecycleState": 1
 })
+
+p({
+  "class": "foam.core.ruler.Rule",
+  "id": "foam_core_job_KeepFinishedJob",
+  "name": "Keep a finished job finished",
+  "priority": 100,
+  "documentation": "A put that arrives after the Job has COMPLETED or FAILED (a resent submit) must not write SCHEDULED over the result, or a poller never sees the end.",
+  "ruleGroup": "default",
+  "daoKey": "jobDAO",
+  "operation": 1,
+  "after": false,
+  "action": {
+    "class": "foam.core.job.KeepFinishedJobRuleAction"
+  },
+  "enabled": true,
+  "saveHistory": false,
+  "lifecycleState": 1
+})

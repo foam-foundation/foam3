@@ -77,18 +77,22 @@ foam.CLASS({
     {
       name: 'put_',
       code: async function(x, obj) {
+        // no AI configured: nothing to index, so skip the lookup of the stored record
+        if ( ! this.configured_() ) return this.delegate.put_(x, obj);
         var old   = await this.delegate.find_(x, obj.id);
         var saved = await this.delegate.put_(x, obj);
-        if ( this.configured_() && ( ! old || old.toIndexText(x) !== saved.toIndexText(x) || this.embeddable_(x, old) !== this.embeddable_(x, saved) ) ) {
+        if ( ( ! old || old.toIndexText(x) !== saved.toIndexText(x) || this.embeddable_(x, old) !== this.embeddable_(x, saved) ) ) {
           this.index_(saved);
         }
         return saved;
       },
       javaCode: `
+        // no AI configured: nothing to index, so skip the lookup of the stored record
+        if ( ! configured_() ) return getDelegate().put_(x, obj);
         EmbeddingAware old   = (EmbeddingAware) getDelegate().find_(x, obj);
         FObject        saved = getDelegate().put_(x, obj);
         EmbeddingAware now   = (EmbeddingAware) saved;
-        if ( configured_() && ( old == null || ! SafetyUtil.equals(old.toIndexText(x), now.toIndexText(x)) || old.isEmbeddable(x) != now.isEmbeddable(x) ) ) {
+        if ( ( old == null || ! SafetyUtil.equals(old.toIndexText(x), now.toIndexText(x)) || old.isEmbeddable(x) != now.isEmbeddable(x) ) ) {
           index_(saved);
         }
         return saved;

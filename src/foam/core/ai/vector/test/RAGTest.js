@@ -16,10 +16,10 @@ foam.CLASS({
     loses its chunks, a remove clears them, a failing provider does not fail
     the put, a save made while the earlier save's embedding call is in flight
     ends with the chunks of the later text, and a context with no embedder or
-    chunk store saves and removes without error. The test replaces the "threadPool" of the context with an
-    agency that runs each job on the calling thread, so the background
-    embedding is finished when the put returns and the test checks the chunks
-    with no sleep.
+    chunk store saves and removes without error. The test replaces the
+    "threadPool" of the context with an agency that runs each job on the
+    calling thread, so the background embedding is finished when the put
+    returns and the test checks the chunks with no sleep.
   `,
 
   javaImports: [

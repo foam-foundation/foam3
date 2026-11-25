@@ -34,13 +34,13 @@ foam.CLASS({
   `,
 
   requires: [
+    { path: 'foam.ai.vector.EmbeddingAwareDAO', flags: ['js'] },
     'foam.box.HTTPBox',
     'foam.box.RetryBox',
     'foam.box.SessionClientBox',
     'foam.box.SocketBox',
     'foam.box.TimeoutBox',
     'foam.box.WebSocketBox',
-    { path: 'foam.ai.vector.EmbeddingAwareDAO', flags: ['js'] },
     'foam.dao.CachingDAO',
     'foam.dao.ClientDAO',
     'foam.dao.CompoundDAODecorator',
@@ -919,8 +919,8 @@ dao loading, which improves overall startup time.`,
       class: 'Boolean',
       documentation: `
         Adds EmbeddingAwareDAO when the model implements EmbeddingAware, so its
-        records are embedded for vector search. A DAO that talks to a server leaves
-        that to the server's own DAO.
+        records are embedded for vector search. A browser DAO that talks to a server
+        (daoType CLIENT) leaves that to the server's own DAO.
       `,
       expression: function(enableInterfaceDecorators, of, daoType) {
         return enableInterfaceDecorators && foam.ai.vector.EmbeddingAware.isSubClass(of) &&

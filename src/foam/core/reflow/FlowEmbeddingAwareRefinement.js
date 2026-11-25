@@ -21,6 +21,15 @@ foam.CLASS({
     the shipped seed until it is saved.
   `,
 
+  constants: [
+    {
+      // the keyword that puts a flow in the Knowledge Base, e.g. a doc with keywords [ "knowledge" ]
+      name: 'KNOWLEDGE_KEYWORD',
+      type: 'String',
+      value: 'knowledge'
+    }
+  ],
+
   javaImports: [
     'foam.core.reflow.ScriptParser',
     'foam.util.SafetyUtil',
@@ -65,8 +74,8 @@ foam.CLASS({
     {
       // The Knowledge Base lists the flows tagged "knowledge"; only those are searched
       name: 'isEmbeddable',
-      code: function(x) { return ( this.keywords || [] ).includes('knowledge'); },
-      javaCode: 'return getKeywords() != null && Arrays.asList(getKeywords()).contains("knowledge");'
+      code: function(x) { return ( this.keywords || [] ).includes(this.KNOWLEDGE_KEYWORD); },
+      javaCode: 'return getKeywords() != null && Arrays.asList(getKeywords()).contains(KNOWLEDGE_KEYWORD);'
     }
   ]
 });

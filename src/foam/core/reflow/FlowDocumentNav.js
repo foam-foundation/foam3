@@ -87,7 +87,7 @@ foam.CLASS({
       name: 'keyword',
       attribute: true,
       documentation: 'The keyword every flow of the series carries.',
-      value: 'knowledge'
+      factory: function() { return this.Flow.KNOWLEDGE_KEYWORD; }
     },
     {
       class: 'String',

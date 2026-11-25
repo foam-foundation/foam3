@@ -32,18 +32,18 @@ Each watcher watches its own directory:
 - **appName** is the `appConfig` name with spaces removed.
 - **watcher** is the class name without `Watcher`, in lower case: `shutdown` or `healthstatus`.
 
-For example, on a Linux host named `app1` running `paytic`:
+For example, on a Linux host named `app1` running `myapp`:
 
 ```
-/tmp/app1/paytic/shutdown
-/tmp/app1/paytic/healthstatus
+/tmp/app1/myapp/shutdown
+/tmp/app1/myapp/healthstatus
 ```
 
 The instance creates the directory itself, about 5 seconds after startup, and logs the path it
 is watching, on an INFO line from the watcher with the word `execute`:
 
 ```
-... ShutdownWatcher ... execute /tmp/app1/paytic/shutdown
+... ShutdownWatcher ... execute /tmp/app1/myapp/shutdown
 ```
 
 Look for that line in the log to find the exact path on any host.
@@ -53,7 +53,7 @@ Look for that line in the log to find the exact path on any host.
 ### Shut down
 
 ```
-touch /tmp/app1/paytic/shutdown/SHUTDOWN
+touch /tmp/app1/myapp/shutdown/SHUTDOWN
 ```
 
 The instance logs `Shutdown requested.` and then `Shutdown in 30 seconds`. After the delay it
@@ -67,7 +67,7 @@ instance exits at once.
 During the delay:
 
 ```
-touch /tmp/app1/paytic/shutdown/ABORT_SHUTDOWN
+touch /tmp/app1/myapp/shutdown/ABORT_SHUTDOWN
 ```
 
 The instance logs `Shutdown abort requested.` and `Shutdown aborted` at once, and keeps running.
@@ -107,8 +107,8 @@ is `UP` and **503** for any other status. The body is the status in lower case, 
 Touch a file named after the status:
 
 ```
-touch /tmp/app1/paytic/healthstatus/DRAIN
-touch /tmp/app1/paytic/healthstatus/UP
+touch /tmp/app1/myapp/healthstatus/DRAIN
+touch /tmp/app1/myapp/healthstatus/UP
 ```
 
 The instance logs the old and new status, saves the new status to `healthDAO`, and
@@ -163,8 +163,9 @@ p({
 - **Only a new file counts.** A watcher reacts to a file being created. It deletes the file once
   it has handled the request, ready for the next one.
 - **Files left while the instance is down are ignored.** A watcher sees only files created while
-  it is running. At startup ShutdownWatcher deletes any leftover `SHUTDOWN` or `ABORT_SHUTDOWN`,
-  so a new instance does not shut itself down and the next `touch` is seen.
+  it is running, so a leftover `SHUTDOWN` never fires. But `touch` on a file that already exists
+  creates nothing, so a leftover file would hide the next request. At startup ShutdownWatcher
+  deletes any leftover `SHUTDOWN` or `ABORT_SHUTDOWN` so the next `touch` is seen.
 - **Run `touch` as the instance's OS user.** The watcher deletes each file after handling it, and
   it cannot delete a file it has no permission on. Failed deletes are logged as warnings.
 - **Instances can share a directory.** Two instances of the same application on one host, with the

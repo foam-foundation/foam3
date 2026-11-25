@@ -35,6 +35,7 @@ foam.CLASS({
     'foam.lang.ContextAwareSupport',
     'foam.lang.Detachable',
     'foam.lang.FObject',
+    'foam.lang.X',
     'foam.log.LogLevel',
     'foam.mlang.MLang',
     'foam.mlang.sink.Min',
@@ -83,6 +84,16 @@ foam.CLASS({
       name: 'timer',
       class: 'Object',
       visibility: 'HIDDEN'
+    },
+    {
+      name: 'shutdownTimeout',
+      class: 'Long',
+      value: 30000,
+      documentation: `
+        Milliseconds stop() waits for interrupted crons to finish before
+        shutdown carries on. A cron still running after this is killed with
+        the JVM, wherever it is.
+      `
     }
   ],
 
@@ -107,6 +118,50 @@ foam.CLASS({
         Timer timer = (Timer) getTimer();
         if ( timer != null )
           timer.cancel();
+      }
+
+      // Cron threads are daemons, so the JVM kills them mid-run as soon as
+      // shutdown ends: a cron half way through an import never gets to
+      // revert it. Interrupt each running cron the way its Interrupt action
+      // does, a put with status INTERRUPTED that ScriptRunnerDAO turns into
+      // a cancel of its thread, then give them shutdownTimeout to clean up.
+      // Each pass interrupts again, for a cron the scheduler loop started
+      // after running_ went false.
+      X x = getX();
+      Logger logger = Loggers.logger(x, this);
+      DAO cronJobDAO = (DAO) x.get(getCronJobDAO());
+      long deadline = System.currentTimeMillis() + getShutdownTimeout();
+      while ( true ) {
+        cronJobDAO.where(MLang.EQ(Cron.STATUS, ScriptStatus.RUNNING)).select(new AbstractSink() {
+          @Override
+          public void put(Object obj, Detachable sub) {
+            Cron cron = (Cron) ((FObject) obj).fclone();
+            logger.info("stop", "interrupt", cron.getId());
+            cron.setStatus(ScriptStatus.INTERRUPTED);
+            cronJobDAO.put_(x, cron);
+          }
+        });
+
+        // A cron still queued in the thread pool has no threadStartTime: the
+        // interrupt cancelled it before it began, so nothing is left to wait for.
+        if ( cronJobDAO.find(MLang.AND(
+               MLang.IN(Cron.STATUS, new ScriptStatus[] {
+                 ScriptStatus.RUNNING,
+                 ScriptStatus.INTERRUPTED
+               }),
+               MLang.GT(Cron.THREAD_START_TIME, 0)
+             )) == null ) return;
+
+        if ( System.currentTimeMillis() >= deadline ) {
+          logger.warning("stop", "crons still running after shutdownTimeout", getShutdownTimeout());
+          return;
+        }
+
+        try {
+          Thread.sleep(500);
+        } catch (InterruptedException e) {
+          return;
+        }
       }
       `
     },

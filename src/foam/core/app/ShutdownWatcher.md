@@ -70,12 +70,11 @@ During the delay:
 touch /tmp/app1/paytic/shutdown/ABORT_SHUTDOWN
 ```
 
-The instance logs `Shutdown aborted` when the delay ends and keeps running.
+The instance logs `Shutdown abort requested.` and `Shutdown aborted` at once, and keeps running.
+The abort cancels only the shutdown that is waiting: a later `SHUTDOWN` works as normal.
 
-<hint category="warning">
-The abort lasts until the instance restarts. Any later `SHUTDOWN` on that instance is aborted
-too. Restart the instance another way, or touch `SHUTDOWN` only after a restart.
-</hint>
+A `SHUTDOWN` while one is already waiting is logged and ignored; the first one's delay still
+applies. An `ABORT_SHUTDOWN` with no shutdown waiting is logged and does nothing.
 
 ### Install
 
@@ -164,8 +163,8 @@ p({
 - **Only a new file counts.** A watcher reacts to a file being created. It deletes the file once
   it has handled the request, ready for the next one.
 - **Files left while the instance is down are ignored.** A watcher sees only files created while
-  it is running. At startup ShutdownWatcher deletes any leftover `SHUTDOWN`, so a new instance
-  does not shut itself down.
+  it is running. At startup ShutdownWatcher deletes any leftover `SHUTDOWN` or `ABORT_SHUTDOWN`,
+  so a new instance does not shut itself down and the next `touch` is seen.
 - **Run `touch` as the instance's OS user.** The watcher deletes each file after handling it, and
   it cannot delete a file it has no permission on. Failed deletes are logged as warnings.
 - **Instances can share a directory.** Two instances of the same application on one host, with the

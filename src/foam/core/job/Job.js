@@ -119,6 +119,22 @@ foam.CLASS({
       }
     },
     {
+      documentation: `Jobs submitted with the same non-empty group run one at a time, in
+        the order they were put (first in, first out), as the rules of one rule group do.
+        Jobs with no group run as soon as a thread is free. When a Job in a group fails,
+        the Jobs that were put after it do not run: they end FAILED with a message naming
+        the Job that failed, unless they set runAfterFailure. The queue is in memory.`,
+      class: 'String',
+      name: 'group'
+    },
+    {
+      documentation: `A Job in a group normally does not run once an earlier Job of its group
+        has failed. One that must, for example to record the outcome or clean up after
+        the others, sets this.`,
+      class: 'Boolean',
+      name: 'runAfterFailure'
+    },
+    {
       documentation: 'Wall-clock run time, set when the Job stops, whether it completed or failed.',
       class: 'Duration',
       name: 'executionTime',

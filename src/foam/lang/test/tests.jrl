@@ -4,3 +4,4 @@ p({"class":"foam.lang.test.StateMachineEnumJavaTest","id":"StateMachineEnumJavaT
 p({"class":"foam.lang.test.FSMDAOTest","id":"FSMDAOTest"})
 p({"class":"foam.lang.test.FSMDAOLifecycleTest","id":"FSMDAOLifecycleTest"})
 p({"class":"foam.lang.test.NamedPropertyInfoTest","id":"NamedPropertyInfoTest"})
+p({"class":"foam.lang.test.CountingSemaphoreTest","id":"CountingSemaphoreTest", "language": 0})

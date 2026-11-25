@@ -123,6 +123,12 @@ foam.CLASS({
         comes back with its thinking unchanged, so it is kept here and sent back as it came.
       `
     }
+  ],
+
+  methods: [
+    function toString() {
+      return `ChatMessage(${this.role},${this.content})`;
+    }
   ]
 });
 
@@ -345,6 +351,9 @@ foam.INTERFACE({
     with the same count, about once a second while the provider waits to retry a busy
     model, so a stop is heard during that wait too.
 
+    While nothing arrives at all, as when a gateway queues the call, it is told the same
+    count again every second or two, so a stop is heard during that silence too.
+
     Server-side callers only: the context does not cross the network, so a call made from
     the browser through the LLMService client gets no progress.
   `,
@@ -353,6 +362,18 @@ foam.INTERFACE({
     {
       name: 'written',
       args: 'int tokens'
+    },
+    {
+      name: 'status',
+      documentation: `
+        What a gateway says the call waits on before the reply starts, such as
+        "queued ahead=2", "in_progress attempt=1" or "reasoning est_tokens=412" (the stage
+        words of OpenAI's Responses API). The OpenAI provider reads it from a gateway's
+        ": status <text>" comment line; a provider or gateway that sends none never calls
+        it. A listener that throws ends the call, as with written.
+      `,
+      args: 'String status',
+      javaCode: '/* a listener that only counts tokens has nothing to do with the stage */'
     }
   ]
 });

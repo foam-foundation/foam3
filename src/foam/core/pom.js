@@ -238,6 +238,7 @@ foam.POM({
     { name: "cron/test/IntervalScheduleTest",                                             flags: "js&test|java&test" },
     { name: "cron/test/TimeOfDayScheduleTest",                                            flags: "js&test|java&test" },
     { name: "cron/test/OrScheduleTest",                                                   flags: "js&test|java&test" },
+    { name: "cron/test/CronSchedulerPoolStopTest",                                        flags: "js&test|java&test" },
     { name: "cron/ui/SchedulableSuccessWizardletView",                                    flags: "web" },
     { name: "cron/ScheduleSchedulableRuleAction",                                         flags: "js|java" },
     { name: "cron/UnscheduleSchedulableRuleAction",                                       flags: "js|java" },

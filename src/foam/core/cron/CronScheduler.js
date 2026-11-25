@@ -23,6 +23,7 @@ foam.CLASS({
     'foam.core.er.EventRecord',
     'foam.core.logger.Logger',
     'foam.core.logger.Loggers',
+    'foam.core.pool.ThreadPoolAgency',
     'foam.core.script.ScriptStatus',
     'foam.dao.AbstractDAO',
     'foam.dao.AbstractSink',
@@ -226,7 +227,12 @@ foam.CLASS({
         try {
           Thread.sleep(delay);
         } catch ( InterruptedException e ) {
-          // noop, do not kill cron scheduler since we now support cron timeout via interrupt
+          // Keep looping on an interrupt, since a cron timeout may interrupt
+          // this thread. Stop only when threadPool, the pool start() runs this
+          // loop on, has shut down: its stop() waits for every task, and this
+          // loop would otherwise hold shutdown for the whole shutdownTimeout.
+          Object pool = x.get("threadPool");
+          if ( pool instanceof ThreadPoolAgency && ((ThreadPoolAgency) pool).getPool().isShutdown() ) break;
         }
       }
     } catch (Throwable t) {

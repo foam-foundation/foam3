@@ -107,7 +107,7 @@ foam.CLASS({
         with the JVM, wherever it is.`,
       name: 'shutdownTimeout',
       class: 'Long',
-      value: 30000
+      value: 10000
     }
   ],
 

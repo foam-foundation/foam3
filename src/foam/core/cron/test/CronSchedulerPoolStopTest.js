@@ -11,9 +11,11 @@ foam.CLASS({
 
   documentation: `
     Proves the CronScheduler loop ends when threadPool, the pool it runs on,
-    stops. The loop ignores other interrupts, and ThreadPoolAgency.stop() waits
-    for every task, so a loop that kept going would hold shutdown for the whole
-    shutdownTimeout.
+    stops, and keeps running when the pool is only reloaded.
+
+    ThreadPoolAgency.stop() waits for every task, so a loop that kept going
+    would hold shutdown for the whole shutdownTimeout. reload() interrupts the
+    loop too, but the server carries on, so the loop must not end there.
   `,
 
   javaImports: [
@@ -21,8 +23,14 @@ foam.CLASS({
     'foam.core.cron.CronScheduler',
     'foam.core.cron.Schedulable',
     'foam.core.pool.ThreadPoolAgency',
+    'foam.dao.DAO',
     'foam.dao.MDAO',
-    'foam.lang.X'
+    'foam.dao.ProxyDAO',
+    'foam.dao.Sink',
+    'foam.lang.X',
+    'foam.mlang.order.Comparator',
+    'foam.mlang.predicate.Predicate',
+    'java.util.concurrent.atomic.AtomicLong'
   ],
 
   constants: [
@@ -37,6 +45,58 @@ foam.CLASS({
     {
       name: 'runTest',
       javaCode: `
+        stopEndsLoop(x);
+        reloadKeepsLoop(x);
+      `
+    },
+    {
+      name: 'stopEndsLoop',
+      args: 'Context x',
+      javaCode: `
+        ThreadPoolAgency agency = startAgency(x);
+        AtomicLong       passes = new AtomicLong();
+        startScheduler(x, agency, passes);
+
+        long start = System.currentTimeMillis();
+        agency.stop();
+        long elapsed = System.currentTimeMillis() - start;
+        test(elapsed < SHUTDOWN_TIMEOUT, "stop did not wait for the scheduler loop, elapsed " + elapsed + " ms");
+        test(! advances(passes), "scheduler loop ended when its pool stopped");
+      `
+    },
+    {
+      name: 'reloadKeepsLoop',
+      args: 'Context x',
+      javaCode: `
+        ThreadPoolAgency agency    = startAgency(x);
+        AtomicLong       passes    = new AtomicLong();
+        CronScheduler    scheduler = startScheduler(x, agency, passes);
+
+        agency.reload();
+        test(advances(passes), "scheduler loop kept running after its pool reloaded");
+
+        // The loop still runs on a thread of the pool reload() replaced, so
+        // stopping the new pool has nothing of it to wait for.
+        long start = System.currentTimeMillis();
+        agency.stop();
+        long elapsed = System.currentTimeMillis() - start;
+        test(elapsed < SHUTDOWN_TIMEOUT, "stop after a reload did not wait for the scheduler loop, elapsed " + elapsed + " ms");
+
+        // What the shutdown hook does next: the scheduler's own stop() ends the loop.
+        scheduler.stop();
+        try {
+          Thread.sleep(300);
+        } catch (InterruptedException e) {
+          return;
+        }
+        test(! advances(passes), "scheduler loop ended once the scheduler stopped");
+      `
+    },
+    {
+      name: 'startAgency',
+      args: 'Context x',
+      javaType: 'ThreadPoolAgency',
+      javaCode: `
         ThreadPoolAgency agency = new ThreadPoolAgency.Builder(x)
           .setPrefix("cron-stop-test")
           .setNumberOfThreads(1)
@@ -47,32 +107,64 @@ foam.CLASS({
         } catch (Exception e) {
           throw new RuntimeException(e);
         }
-
-        // Empty DAOs, so the loop finds nothing to schedule and only sleeps.
+        return agency;
+      `
+    },
+    {
+      // Runs the loop on agency as threadPool, over empty DAOs so it only
+      // sleeps, every 100 ms. Each pass selects from the cron DAO and bumps
+      // passes, and the method returns once the first pass is in.
+      name: 'startScheduler',
+      args: [
+        { name: 'x',      type: 'Context' },
+        { name: 'agency', javaType: 'ThreadPoolAgency' },
+        { name: 'passes', javaType: 'java.util.concurrent.atomic.AtomicLong' }
+      ],
+      javaType: 'CronScheduler',
+      javaCode: `
+        DAO cronDAO = new ProxyDAO(x, new MDAO(Cron.getOwnClassInfo())) {
+          @Override
+          public Sink select_(X x, Sink sink, long skip, long limit, Comparator order, Predicate predicate) {
+            passes.incrementAndGet();
+            return super.select_(x, sink, skip, limit, order, predicate);
+          }
+        };
         X cx = x
           .put("threadPool", agency)
-          .put("cronSchedulerPoolStopTestCronDAO", new MDAO(Cron.getOwnClassInfo()))
+          .put("cronSchedulerPoolStopTestCronDAO", cronDAO)
           .put("cronSchedulerPoolStopTestSchedulableDAO", new MDAO(Schedulable.getOwnClassInfo()));
         CronScheduler scheduler = new CronScheduler.Builder(cx)
           .setCronJobDAO("cronSchedulerPoolStopTestCronDAO")
           .setSchedulableDAO("cronSchedulerPoolStopTestSchedulableDAO")
+          .setCronDelay(100)
           .build();
         agency.submit(cx, scheduler, "CronScheduler");
 
         long deadline = System.currentTimeMillis() + 5000;
-        while ( agency.getExecuting() == 0 && System.currentTimeMillis() < deadline ) {
+        while ( passes.get() == 0 && System.currentTimeMillis() < deadline ) {
           try {
             Thread.sleep(50);
           } catch (InterruptedException e) {
             break;
           }
         }
-        expect(agency.getExecuting(), 1L, "scheduler loop is running on the pool");
-
-        long start = System.currentTimeMillis();
-        agency.stop();
-        long elapsed = System.currentTimeMillis() - start;
-        test(elapsed < SHUTDOWN_TIMEOUT, "scheduler loop ended when its pool stopped, elapsed " + elapsed + " ms");
+        test(passes.get() > 0, "scheduler loop is running on the pool");
+        return scheduler;
+      `
+    },
+    {
+      // True when the loop makes another pass within 1 s, ten times its delay.
+      name: 'advances',
+      args: [ { name: 'passes', javaType: 'java.util.concurrent.atomic.AtomicLong' } ],
+      javaType: 'boolean',
+      javaCode: `
+        long before = passes.get();
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          return false;
+        }
+        return passes.get() > before;
       `
     }
   ]

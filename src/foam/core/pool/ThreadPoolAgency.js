@@ -108,6 +108,15 @@ foam.CLASS({
       name: 'shutdownTimeout',
       class: 'Long',
       value: 10000
+    },
+    {
+      documentation: `True once stop() has begun. reload() also interrupts every
+        running task but then carries on with a new pool, so a task that must
+        end only on shutdown checks this rather than the interrupt.`,
+      name: 'stopping',
+      class: 'Boolean',
+      transient: true,
+      hidden: true
     }
   ],
 
@@ -123,6 +132,7 @@ foam.CLASS({
     {
       name: 'stop',
       javaCode: `
+        setStopping(true);
         shutdownPool();
 
         // Pool threads are daemons, so the JVM halts them wherever they are

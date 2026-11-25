@@ -59,3 +59,8 @@ p({
   "description": "UploadSink puts each batch as a job of its run group without waiting on it: at most 20 wait at once, the finish job goes last, a failed batch stops the upload",
   "language": 0
 })
+p({
+  "class": "foam.core.reflow.test.BlockCmdSaveTest",
+  "id": "BlockCmdSaveTest",
+  "language": 0
+})

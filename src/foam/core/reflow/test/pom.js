@@ -13,6 +13,7 @@ foam.POM({
     { name: 'FlowAuthorizationTest', flags: 'js&test|java&test' },
     { name: 'FlowHistoryRuleActionTest', flags: 'js&test|java&test' },
     { name: 'FlowScriptShapeTest', flags: 'js&test|java&test' },
+    { name: 'BlockCmdSaveTest', flags: 'js&test|java&test' },
     { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' },
     { name: 'CommandToolTest', flags: 'js&test|java&test' },
     { name: 'MappingAScriptTest', flags: 'js&test|java&test' },

@@ -359,7 +359,18 @@ foam.CLASS({
 
       // Scenario: emphasis wrapped over two lines of one paragraph keeps working.
       v = await render('Some **bold\nacross lines** here.\n');
-      x.test(q(v, 'strong') && q(v, 'strong').innerText.indexOf('across lines') != -1, 'bold across a soft line break still renders');
+      x.test(q(v, 'strong') && q(v, 'strong').innerText.replace(/\s+/g, ' ') == 'bold across lines', 'bold across a soft line break keeps the space, got ' + JSON.stringify(q(v, 'strong') && q(v, 'strong').innerText));
+      v.remove();
+
+      // Scenario: an underscore at the end of a word, inside italics, or next to an accented letter.
+      v = await render('Use snake_case_ here _x_.\n');
+      x.test(qa(v, 'em').length == 1 && q(v, 'em').innerText == 'x' && text(v).indexOf('snake_case_ here') != -1, 'a word ending in "_" opens no italics, got ' + JSON.stringify(text(v)));
+      v.remove();
+      v = await render('Then *load_file* runs.\n');
+      x.test(q(v, 'em') && q(v, 'em').innerText == 'load_file', 'an underscored name inside italics stays whole, got ' + JSON.stringify(q(v, 'em') && q(v, 'em').innerText));
+      v.remove();
+      v = await render('Columns date_échéance et montant_dû.\n');
+      x.test(! q(v, 'em') && text(v).indexOf('date_échéance et montant_dû') != -1, 'accented letters count as word letters, got ' + JSON.stringify(text(v)));
       v.remove();
     }
   ]

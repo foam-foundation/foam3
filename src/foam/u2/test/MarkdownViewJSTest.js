@@ -339,6 +339,28 @@ foam.CLASS({
       x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);
       v.remove();
       x.document.removeEventListener('click', guard);
+
+      // Scenario: names with underscores, as an AI agent writes file and column names.
+      // An underscore inside a word is part of the word, so nothing between two
+      // such names turns italic, and the list under them still renders.
+      v = await render('Read my_report_2026.csv with load_file:\n- first_name\n- amount\n');
+      x.test(! q(v, 'em'), 'an underscore inside a word starts no italics, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('my_report_2026.csv with load_file') != -1, 'the names keep their underscores');
+      x.test(qa(v, 'ul li').length == 2 && qa(v, 'ul li')[0].innerText.trim() == 'first_name', 'the list under them renders, got ' + qa(v, 'ul li').length + ' items');
+      v.remove();
+
+      // Scenario: an asterisk with no partner in a line, such as "5 * 3".
+      // Emphasis never reaches past the paragraph, so the list keeps its items
+      // and a word between underscores still turns italic.
+      v = await render('Costs 5 * 3 per row.\n- a *b* c\n- _d_\n');
+      x.test(qa(v, 'ul li').length == 2, 'a lone asterisk does not swallow the list, got ' + qa(v, 'ul li').length + ' items');
+      x.test(qa(v, 'ul li em').length == 2, 'italics inside the list items still render');
+      v.remove();
+
+      // Scenario: emphasis wrapped over two lines of one paragraph keeps working.
+      v = await render('Some **bold\nacross lines** here.\n');
+      x.test(q(v, 'strong') && q(v, 'strong').innerText.indexOf('across lines') != -1, 'bold across a soft line break still renders');
+      v.remove();
     }
   ]
 });

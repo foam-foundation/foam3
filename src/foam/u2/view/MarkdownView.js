@@ -340,15 +340,18 @@ foam.CLASS({
             '~~'
           ),
 
+          // Emphasis may wrap onto the next line of its paragraph, but never
+          // past it: "5 * 3" with no closing "*" used to run on and swallow the
+          // list below as italics.
           bold: seq1(1,
             alt('**', '__'),
-              str(repeat(not(alt('**', '__'), anyChar()), null, 1)),
+              str(repeat(alt(sym('softBreak'), not(alt('**', '__', '\n'), anyChar())), null, 1)),
             alt('**', '__')
           ),
 
           italic: seq1(1,
             alt('*', '_'),
-              str(repeat(not(alt('*', '_'), anyChar()), null, 1)),
+              str(repeat(alt(sym('softBreak'), not(alt('*', '_', '\n'), anyChar())), null, 1)),
             alt('*', '_')
           ),
 
@@ -358,7 +361,20 @@ foam.CLASS({
             '`'
           ),
 
-          text: str(repeat(not(alt(chars('*_`~[\n<'), '!['), anyChar()), null, 1))
+          // A name such as my_report_2026 or first_name is one word: an
+          // underscore between letters or digits starts no italics, as in
+          // CommonMark. Before, the text between two such names turned italic.
+          text: str(repeat(alt(
+            sym('underscoredWord'),
+            not(alt(chars('*_`~[\n<'), '!['), anyChar())
+          ), null, 1)),
+
+          underscoredWord: str(seq(
+            str(repeat(sym('wordChar'), null, 1)),
+            str(repeat(str(seq('_', str(repeat(sym('wordChar'), null, 1)))), null, 1))
+          )),
+
+          wordChar: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'))
         };
       },
 

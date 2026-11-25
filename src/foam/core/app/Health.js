@@ -224,9 +224,11 @@ foam.CLASS({
         left out. It is an estimate: the old generation part may still hold garbage.
         memoryUsed counts garbage the collector has not reclaimed yet, so a
         server can show 87.8 GB used while only about 70 GB is live.
-        A young generation pool counts what it held after its last collection.
-        An old generation pool (name contains "Old" or "Tenured") counts its
-        current use, since its last collection can predate data loaded since.
+        A young generation pool (name contains "Eden", "Survivor" or "Young")
+        counts what it held after its last collection. Every other heap pool
+        counts its current use, since its last collection can predate data
+        loaded since: the old generation, and the single heap pool of a
+        collector without generations (Shenandoah's "Shenandoah").
       `
     },
     {
@@ -310,8 +312,9 @@ foam.CLASS({
     for ( MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans() ) {
       if ( pool.getType() != MemoryType.HEAP ) continue;
       var afterGC = pool.getCollectionUsage();
-      boolean old = pool.getName().contains("Old") || pool.getName().contains("Tenured");
-      live += ( old || afterGC == null ) ? pool.getUsage().getUsed() : afterGC.getUsed();
+      String name = pool.getName();
+      boolean young = name.contains("Eden") || name.contains("Survivor") || name.contains("Young");
+      live += ( young && afterGC != null ) ? afterGC.getUsed() : pool.getUsage().getUsed();
     }
     setMemoryLiveEstimate(live);
 

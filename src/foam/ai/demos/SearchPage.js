@@ -185,7 +185,7 @@ foam.CLASS({
 
         self.statusMsg = 'Embedding query…';
         var qv   = await self.embedder.embed(x, q);
-        var cc   = self.CosineComparator.create({ queryVector: qv.vector });
+        var cc   = self.CosineComparator.create({ queryVector: qv.vector, embeddingModel: qv.embeddingModel });
         var sink = await self.vectorStoreDAO
           .where(self.EQ(self.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
           .orderBy(cc).limit(10).select(self.ArraySink.create());

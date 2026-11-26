@@ -52,7 +52,7 @@ FOAM's vector search support is built around three layered abstractions: a data 
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
 | `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
 | `embeddingModel` | String | The model that produced the vector (e.g. `'nomic-embed-text'`) |
-| `vector` | FloatArray | The embedding — a normalized `float[]` of fixed dimension |
+| `vector` | FloatArray | The embedding as floats; `VectorStoreDAO` stores it packed in `vectorData` (format in `vectorFormat`, float32 unless the store's `quantizer` is another) |
 | `score` | Float | Cosine similarity to the query vector, populated at search time. `storageTransient: true` — never journaled. |
 
 **Text-chunk mode** (the original pattern): set `text` and leave `daoKey` empty. `sourceId` identifies the source document and `kind` classifies it.
@@ -89,22 +89,24 @@ Before embedding, long documents are split into chunks. `MarkdownChunkParser` sp
 
 ### VectorStoreDAO and Search
 
-`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds a flat `float[]` index over any backing DAO. Internally it packs all stored vectors into one contiguous array in row-major order, which keeps the cosine scan CPU-cache friendly. The index rebuilds lazily whenever the underlying data changes.
+`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO. Vectors are normalised and packed by a `Quantizer` (float32 unless the store's `quantizer` is another, such as int8 at one byte per dimension), grouped by embedding model, and kept up to date row by row on `put` and `remove`.
 
 Search uses `foam.ai.vector.CosineComparator` as a standard `DAO.orderBy` comparator:
 
 ```javascript
 var sink = await vectorStoreDAO
-  .where(EQ(VectorEmbedding.EMBEDDING_MODEL, queryEmbedding.embeddingModel))
-  .orderBy(CosineComparator.create({ queryVector: queryEmbedding.vector }))
+  .orderBy(CosineComparator.create({
+    queryVector:    queryEmbedding.vector,
+    embeddingModel: queryEmbedding.embeddingModel   // scan only this model's vectors
+  }))
   .limit(10)
   .select();
 
-// Each result has .score populated (cosine similarity, 0–1)
+// Each result has .score populated (cosine similarity, -1 to 1)
 sink.array.forEach(e => console.log(e.score.toFixed(3), e.sourceId));
 ```
 
-The `.where()` guard ensures query and stored vectors share the same model. `VectorStoreDAO.select_` intercepts only when the caller uses `orderBy(CosineComparator)`; all other queries fall through to the delegate unchanged.
+`embeddingModel` keeps the search to vectors of the query's model; any `.where()` predicate is checked on each row before it is scored. `VectorStoreDAO.select_` intercepts only when the caller uses `orderBy(CosineComparator)`; all other queries fall through to the delegate unchanged.
 
 Each returned `VectorEmbedding` is a clone with its `score` property set to the cosine similarity against the query vector. Because `score` is `storageTransient`, it is never written back to the journal — it exists only in memory for the duration of the result.
 

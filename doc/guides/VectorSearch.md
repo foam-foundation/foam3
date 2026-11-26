@@ -1,5 +1,5 @@
-<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator ragService minScore daoKeys openIndexed createMenu -->
-<flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,EmbeddingService,knowledge"/>
+<!-- cspell:ignore spid vectorizing HNSW FAISS hnswlib pgvector Qdrant Milvus thresholded nomic journaled Ollama Xenova Chunker kNN BM25 IVF daoKey sourceId embeddingModel storageTransient CosineComparator vectorData vectorFormat VectorIndex Quantizer Int8Quantizer Fp16Quantizer Float32Quantizer ragService minScore daoKeys openIndexed createMenu blockBytes partitionProperty AllPartitions PartitionedDAO -->
+<flow name="VectorSearch" category="DOC/GUIDE" spid="foam" description="Covers vector search and similarity search in FOAM: embeddings, kNN, scoring, VectorEmbedding model, EmbeddingService interface, provider pattern, VectorStoreDAO, VectorIndex, Quantizer, and CosineComparator." keywords="vector,search,similarity,embedding,knn,cosine,rag,VectorStoreDAO,VectorIndex,EmbeddingService,knowledge"/>
 
 # Vector Search: From Content to Scored Results
 
@@ -80,14 +80,16 @@ FOAM's vector search support is built around three layered abstractions: a data 
 | `sourceId` | String | Where the chunk came from: doc path, class id, flow name, or DAO record primary key |
 | `kind` | String | Category of source (`'flow'`, `'class'`, `'property'`, etc.) |
 | `embeddingModel` | String | The model that produced the vector (e.g. `'nomic-embed-text'`) |
-| `vector` | FloatArray | The embedding — a normalized `float[]` of fixed dimension |
+| `vector` | FloatArray | The embedding as floats, as the embedding service returns it. `VectorStoreDAO` normalizes it, packs it with the configured Quantizer and drops the floats before the row is journaled. |
+| `vectorData` | String | The stored vector, base64: the `encode()` bytes of the Quantizer named by `vectorFormat`. For float32 that is about 5.5 KB at 1024 dims, for int8 about 1.4 KB. |
+| `vectorFormat` | String | `formatId` of the Quantizer that wrote `vectorData` (`int8`, `fp16`, `f32`, or a custom id). A row is always decoded by it; empty on a row that still holds floats. |
 | `score` | Float | Cosine similarity to the query vector, populated at search time. `storageTransient: true` — never journaled. |
 
 **Text-chunk mode** (the original pattern): set `text` and leave `daoKey` empty. `sourceId` identifies the source document and `kind` classifies it.
 
 **DAO-record mode**: set `daoKey` to the DAO's context key and `sourceId` to the record's primary key. `text` may be empty. `toSummary()` returns `"daoKey:sourceId"` in this mode and `"kind:sourceId"` otherwise. This lets any DAO — training samples, issues, users — be searched by semantic similarity without maintaining a separate text index.
 
-The `embeddingModel` field is important: vectors from different models live in incompatible spaces and cannot be compared. At query time, results are filtered to embeddings that share the query's model name, so the index can safely hold vectors from multiple models side by side.
+The `embeddingModel` field is important: vectors from different models live in incompatible spaces and cannot be compared. The index keeps each model's vectors (and each dimension count) in a separate group, and a search scans only the group that matches its query, so one store can hold vectors from several models side by side.
 
 ### EmbeddingService
 
@@ -117,29 +119,53 @@ Before embedding, long documents are split into chunks. `MarkdownChunkParser` sp
 
 ### VectorStoreDAO and Search
 
-`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds a flat `float[]` index over any backing DAO. Internally it packs all stored vectors into one contiguous array in row-major order, which keeps the cosine scan CPU-cache friendly. The index rebuilds lazily whenever the underlying data changes.
+`foam.ai.vector.VectorStoreDAO` is a `ProxyDAO` decorator that adds an in-memory `VectorIndex` over any backing DAO of `VectorEmbedding`s. Vectors are normalized to unit length once, then packed by a `Quantizer`, so a score is a cosine similarity whatever the precision; each Quantizer scores its own bytes directly (`dot`), so a search allocates nothing per row.
+
+Storage is configured with the store's `quantizer` (`Float32Quantizer`, the precision the embedding service returned, unless set; the framework does not pick a lossy format, each app or deployment does, for example `Int8Quantizer`, one byte per dimension plus a per-vector scale). `Float32Quantizer`, `Fp16Quantizer` and `Int8Quantizer` are built in (`Quantizers`), and a custom `Quantizer` is plugged in by setting it as the store's `quantizer`. Every row names its format in `vectorFormat`, so changing the configuration never misreads rows already journaled: they are decoded by their own format, re-encoded into the index's format on load, and rewritten in the configured format on their next put. Rows that still hold float vectors load too.
+
+A lossy format such as int8 trades a little ranking accuracy for memory; an app that needs the exact order keeps float32. The index loads from the delegate on the first search and is then updated row by row on `put` and `remove`, so those never trigger a rebuild; `removeAll` clears it and the next search reloads it. A put is rejected when its vector holds NaN or infinity, is all zeros, or has stored bytes that cannot be read (an unknown format, not base64, or not a whole number of dimensions); a query holding NaN or infinity is rejected too.
+
+The journal change is one-way. Rows written by this version hold only `vectorData`, and an older `VectorStoreDAO` cannot read them, so rolling back the code means re-embedding the affected rows from their source text.
 
 Search uses `foam.ai.vector.CosineComparator` as a standard `DAO.orderBy` comparator:
 
 ```javascript
 var sink = await vectorStoreDAO
-  .where(EQ(VectorEmbedding.EMBEDDING_MODEL, queryEmbedding.embeddingModel))
-  .orderBy(CosineComparator.create({ queryVector: queryEmbedding.vector }))
+  .where(EQ(VectorEmbedding.KIND, 'flow'))              // optional filter, checked before scoring
+  .orderBy(CosineComparator.create({
+    queryVector:    queryEmbedding.vector,
+    embeddingModel: queryEmbedding.embeddingModel       // scan only this model's vectors
+  }))
   .limit(10)
   .select();
 
-// Each result has .score populated (cosine similarity, 0–1)
+// Each result has .score populated (cosine similarity, -1 to 1)
 sink.array.forEach(e => console.log(e.score.toFixed(3), e.sourceId));
 ```
 
-The `.where()` guard ensures query and stored vectors share the same model. `VectorStoreDAO.select_` intercepts only when the caller uses `orderBy(CosineComparator)`; all other queries fall through to the delegate unchanged.
+The search is an exact, single-threaded scan of every row in the model's group (no approximate index). The `.where()` predicate is checked on each row before its score is computed, so a filter on a few documents scores only their rows and still returns a full result list. The predicate runs on every row in scope while writes wait, so keep it cheap and dependent on the row alone: resolve what a user may read before the search and pass it as an `IN` on the row's properties, or leave the check to the delegate, which `VectorStoreDAO` asks for each hit. Without `embeddingModel`, every group whose dimension count matches the query is scanned. `VectorStoreDAO.select_` intercepts only when the caller uses `orderBy(CosineComparator)`; all other queries fall through to the delegate unchanged.
 
-Each returned `VectorEmbedding` is a clone with its `score` property set to the cosine similarity against the query vector. Because `score` is `storageTransient`, it is never written back to the journal — it exists only in memory for the duration of the result.
+Each hit is read back through the delegate in the caller's context, so a row an authorizing decorator below `VectorStoreDAO` hides is never returned; the scan is repeated deeper until the page is full. Each returned `VectorEmbedding` is a clone with its `score` property set to the cosine similarity against the query vector. Because `score` is `storageTransient`, it is never written back to the journal, so it exists only in memory for the duration of the result.
 
 A minimum-score threshold is easy to apply after the fact:
 
 ```javascript
 var results = sink.array.filter(e => e.score >= 0.75);
+```
+
+#### Blocks and partitions
+
+The index keeps each group's vectors (one group per model and dimension count) in blocks of about 1 MiB (`blockBytes`), not in one array. A group can therefore grow past the size of a Java array, growing never copies the rows in earlier blocks, and a block that empties is released, so a group cut down by deletes gives its memory back. Each new block starts at 16 rows and doubles up to the block size, so a small group stays small.
+
+Partitioning is optional. A store without `partitionProperty` keeps one group per model, and a search names no partition. To partition a store, set `partitionProperty` to a property of the row, for example a tenant id, and the index keeps each value's vectors in their own group. A similarity search must then name its partition in the filter, the way a `PartitionedDAO` query must: `EQ` or `IN` on that property (also inside an `AND`), or `AllPartitions` on it to visit every partition (`AllPartitions` beside an `EQ` still visits every partition, and the `EQ` then filters rows). A search that names none is rejected with `UnsupportedOperationException` before the index loads, so a forgotten tenant filter becomes an error. An `IN` with no values finds nothing. `OR` and `NOT` of partition values name no partition and are rejected. A row is filed under the partition value the delegate stored. Only the named partitions are scanned, and an `IN` over several returns one ranking across them. Searches that do not order by `CosineComparator`, and puts and removes, never need a partition. `quantizer`, `blockBytes` and `partitionProperty` are read when the index is built, so set them before the first search. Partitioning does not reduce memory: every partition is loaded on the first search. It is also not an access check: the filter names which partition to scan, and nothing here decides who may read it. A caller that can write the filter can name any partition, or `AllPartitions`, so the service that builds the filter must do that on the server, from a partition the caller is allowed to read, and must never take the filter from a client.
+
+```java
+DAO store = new VectorStoreDAO.Builder(x)
+  .setDelegate(dao)
+  .setPartitionProperty(VectorEmbedding.KIND)   // optional: one partition per kind
+  .build();
+
+store.where(EQ(VectorEmbedding.KIND, "flow")).orderBy(cc).limit(10).select(sink);   // scans "flow" only
 ```
 
 ## Try It Live

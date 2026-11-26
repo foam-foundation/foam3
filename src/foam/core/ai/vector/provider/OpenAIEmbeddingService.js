@@ -52,6 +52,20 @@ foam.CLASS({
           throw new RuntimeException("Embedding credential not found: foam/llm/openai");
         return cred.getApiKeySecret(getX());
       `
+    },
+    {
+      class: 'Int',
+      name: 'connectTimeout',
+      value: 5000,
+      units: 'ms',
+      documentation: 'The longest wait to connect to the embedding endpoint.'
+    },
+    {
+      class: 'Int',
+      name: 'readTimeout',
+      value: 30000,
+      units: 'ms',
+      documentation: 'The longest wait for the embedding endpoint to reply to one request.'
     }
   ],
 

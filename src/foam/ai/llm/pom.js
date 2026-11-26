@@ -8,6 +8,7 @@ foam.POM({
   name: 'llm',
   files: [
     { name: 'LLMService',               flags: 'js|java' },
+    { name: 'NullLLMService',           flags: 'js|java' },
     { name: 'ConversationalLLMService', flags: 'js'      },
     { name: 'RAGService',               flags: 'js|java' },
     { name: 'RAGChat',                  flags: 'js'      },

@@ -28,13 +28,10 @@ foam.CLASS({
     'foam.ai.llm.LLMResponse',
     'foam.ai.llm.LLMService',
     'foam.dao.DAO',
-    'java.nio.charset.StandardCharsets',
-    'java.security.MessageDigest',
     'java.util.ArrayList',
     'java.util.Arrays',
     'java.util.Collections',
     'java.util.HashMap',
-    'java.util.HexFormat',
     'java.util.List',
     'java.util.Map',
     'org.json.JSONArray',
@@ -372,16 +369,15 @@ foam.CLASS({
             continue;
           }
 
-          String id = hash_(instruction + output);
-          if ( dao.find(id) != null ) continue;
-
           AlpacaSample sample = new AlpacaSample();
-          sample.setId(id);
           sample.setInstruction(instruction);
           sample.setInput(input);
           sample.setOutput(output);
           sample.setSourceFile(sourceId);
           sample.setCategory(category);
+
+          // id is AlpacaSample's javaFactory hash of instruction + output
+          if ( dao.find(sample.getId()) != null ) continue;
 
           dao.put(sample);
           count++;
@@ -420,20 +416,6 @@ foam.CLASS({
         for ( int i = 0; i + 1 < patterns.length; i += 2 )
           text = text.replace(patterns[i], patterns[i + 1]);
         return text;
-      `
-    },
-    {
-      name: 'hash_',
-      type: 'String',
-      args: 'String text',
-      javaCode: `
-        try {
-          MessageDigest md    = MessageDigest.getInstance("SHA-256");
-          byte[]        bytes = md.digest(text.getBytes(StandardCharsets.UTF_8));
-          return HexFormat.of().formatHex(bytes).substring(0, 16);
-        } catch ( Exception e ) {
-          throw new RuntimeException("SHA-256 unavailable", e);
-        }
       `
     },
   ]

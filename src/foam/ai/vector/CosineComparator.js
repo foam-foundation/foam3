@@ -13,17 +13,32 @@ foam.CLASS({
     'foam.ai.vector.VectorEmbedding'
   ],
 
+  documentation: `
+    Orders VectorEmbeddings by similarity to queryVector, most similar first.
+    VectorStoreDAO recognises it in orderBy and answers from its index; compare()
+    is used only when some other DAO sorts the rows itself.
+  `,
+
   properties: [
     {
       class: 'foam.lang.FloatArray',
       name: 'queryVector'
+    },
+    {
+      class: 'String',
+      name: 'embeddingModel',
+      documentation: `Model that produced queryVector. VectorStoreDAO then scans
+        only that model's vectors; vectors from different models are never
+        comparable. When empty, every model with the query's dimension count is
+        scanned and the caller's predicate decides.`
     }
   ],
 
   methods: [
     {
       // dot product against queryVector (cosine similarity for unit-normalized vectors).
-      // compare() calls this with offset=0, dim=v.length; VectorStoreDAO uses the offset directly.
+      // compare() is the only caller, with offset=0, dim=v.length; VectorIndex scores through
+      // its Quantizer instead.
       name: 'score',
       type: 'Float',
       args: 'float[] flat, int offset, int dim',
@@ -41,17 +56,19 @@ foam.CLASS({
     },
     {
       name: 'compare',
-      documentation: 'o1 and o2 must be VectorEmbedding instances. Args are typed Any to satisfy the Comparator interface.',
+      documentation: `o1 and o2 must be VectorEmbedding instances. Args are typed Any to satisfy the
+        Comparator interface. Rows are read through floats(), so a row that holds only its packed
+        vector sorts like one that holds floats.`,
       type: 'Integer',
       args: 'Any o1, Any o2',
       code: function(o1, o2) {
-        var v1 = o1.vector, v2 = o2.vector;
+        var v1 = o1.floats(), v2 = o2.floats();
         var s1 = this.score(v1, 0, v1.length), s2 = this.score(v2, 0, v2.length);
         return s2 > s1 ? 1 : s2 < s1 ? -1 : 0; // descending
       },
       javaCode: `
-        float[] v1 = ((VectorEmbedding) o1).getVector();
-        float[] v2 = ((VectorEmbedding) o2).getVector();
+        float[] v1 = ((VectorEmbedding) o1).floats();
+        float[] v2 = ((VectorEmbedding) o2).floats();
         float s1 = score(v1, 0, v1.length);
         float s2 = score(v2, 0, v2.length);
         return Float.compare(s2, s1); // descending

@@ -61,7 +61,11 @@ foam.CLASS({
         }
 
         List results = ((ArraySink) vectorDAO
-          .orderBy(new foam.ai.vector.CosineComparator.Builder(x).setQueryVector(candidate.getVector()).build())
+          .orderBy(new foam.ai.vector.CosineComparator.Builder(x)
+            .setQueryVector(candidate.getVector())
+            // Only this model's vectors are comparable; the store also holds other models' rows.
+            .setEmbeddingModel(candidate.getEmbeddingModel())
+            .build())
           .limit(1)
           .select(new ArraySink())).getArray();
 

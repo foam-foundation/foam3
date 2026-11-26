@@ -15,10 +15,10 @@ foam.CLASS({
     checks each chunk's record as the caller), and llmService answers from
     them. A question no readable record covers goes to the model without
     documents, or, with requireRetrievedContext, gets no answer and costs no model call.
-    The worst case of a search is one authorized find per record: the
-    predicate looks up each unreadable record ranked above the retrieval
-    limit once, so a caller who can read little of a large index pays for
-    the records it skips. A question whose vector has another length than
+    A search costs one authorized find per source record of the given DAOs
+    in the index: the predicate looks each record up once, however many
+    chunks it has, before any chunk is scored, so the cost grows with the
+    number of records and not with what the caller can read. A question whose vector has another length than
     the stored ones, e.g. after a switch of embedding model before the
     records are embedded again, finds no chunk and is answered "not answered".
   `,
@@ -158,7 +158,7 @@ Answer in the language named on the Answer in line, even when the documents or t
             MLang.IN(VectorEmbedding.DAO_KEY, keys),
             MLang.EQ(VectorEmbedding.EMBEDDING_MODEL, qv.getEmbeddingModel()),
             new ReadableSourcePredicate.Builder(x).build()))
-          .orderBy(new CosineComparator.Builder(x).setQueryVector(qv.getVector()).build())
+          .orderBy(new CosineComparator.Builder(x).setQueryVector(qv.getVector()).setEmbeddingModel(qv.getEmbeddingModel()).build())
           .limit(getRetrievalLimit())
           .select(new ArraySink())).getArray();
 

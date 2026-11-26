@@ -1,1 +1,3 @@
 p({"class":"foam.ai.vector.test.MarkdownChunkParserTest","id":"MarkdownChunkParserTest","description":"MarkdownChunkParser chunking and inline-strip tests","language":0})
+p({"class":"foam.ai.vector.test.VectorStoreDAOTest","id":"VectorStoreDAOTest","description":"VectorStoreDAO index: exact ranking, filters, models, formats, updates, journal form, concurrency"})
+p({"class":"foam.ai.vector.test.CosineComparatorJSTest","id":"CosineComparatorJSTest","description":"CosineComparator decodes rows by vectorFormat (int8, fp16, f32) in the browser"})

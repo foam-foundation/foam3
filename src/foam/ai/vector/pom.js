@@ -7,6 +7,8 @@
 foam.POM({
   name: 'vector',
   files: [
+    { name: 'EmbeddingAware',    flags: 'js|java' },
+    { name: 'EmbeddingAwareDAO', flags: 'js|java' },
     { name: 'VectorEmbedding',  flags: 'js|java' },
     { name: 'CosineComparator', flags: 'js|java' },
     { name: 'VectorStoreDAO',   flags: 'js|java' },

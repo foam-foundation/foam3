@@ -168,6 +168,9 @@ Compares FOAM and Web Components/Polymer (common Google origins, conceptual kins
 **[LLM](LLM.md)**
 Argues that LLM-generated code repeats the code-generator liability trap at larger scale, and explains how FOAM's declaration-over-code approach avoids this by generating behaviour at runtime rather than shipping generated implementation code that accumulates as a maintenance burden.
 
+**[Embeddings](Embeddings.md)**
+Make a model searchable by meaning: implement `EmbeddingAware`, let EasyDAO embed each saved record into `vectorStoreDAO` in the background, leave records out with `isEmbeddable`, and check the chunks appear.
+
 **[agentsnotprotocols](agentsnotprotocols.md)**
 Drawing on Bill Joy's 2000 essay, argues that shipping executable agents rather than wire-protocol specifications eliminates interoperability problems. Explains how FOAM/CORE realises this: the CSpec registry delivers client agents on demand instead of requiring REST API negotiation.
 

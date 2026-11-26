@@ -81,6 +81,7 @@ foam.POM({
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
+    { name: 'FlowEmbeddingAwareRefinement', flags: 'js|java' },
     { name: 'FlowOpenIndexedRefinement', flags: 'js' },
     { name: 'FlowHistoryRecord',       flags: 'js|java' },
     { name: 'FlowHistoryRuleAction',   flags: 'js|java' },

@@ -34,6 +34,7 @@ foam.CLASS({
   `,
 
   requires: [
+    { path: 'foam.ai.vector.EmbeddingAwareDAO', flags: ['js'] },
     'foam.box.HTTPBox',
     'foam.box.RetryBox',
     'foam.box.SessionClientBox',
@@ -252,6 +253,14 @@ foam.CLASS({
         if ( getFSMDAO() != null ) {
           ((ProxyDAO) getFSMDAO()).setDelegate(delegate);
           delegate = getFSMDAO();
+        }
+
+        // Inside the rules and the last-modified stamp, so a record is embedded as stored.
+        if ( getEmbeddingAware() ) {
+          delegate = new foam.ai.vector.EmbeddingAwareDAO.Builder(getX())
+            .setName(getName())
+            .setDelegate(delegate)
+            .build();
         }
 
         delegate = getOuterDAO(delegate);
@@ -906,6 +915,20 @@ dao loading, which improves overall startup time.`,
       javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.LifecycleAware.class);'
     },
     {
+      name: 'embeddingAware',
+      class: 'Boolean',
+      documentation: `
+        Adds EmbeddingAwareDAO when the model implements EmbeddingAware, so its
+        records are embedded for vector search. A browser DAO that talks to a server
+        (daoType CLIENT) leaves that to the server's own DAO.
+      `,
+      expression: function(enableInterfaceDecorators, of, daoType) {
+        return enableInterfaceDecorators && foam.ai.vector.EmbeddingAware.isSubClass(of) &&
+          ( this.ALIASES[daoType] || daoType ) !== this.ALIASES.CLIENT;
+      },
+      javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.ai.vector.EmbeddingAware.class);'
+    },
+    {
       name: 'createdAware',
       class: 'Boolean',
       javaFactory: 'return getEnableInterfaceDecorators() && getOf().isAssignableTo(foam.core.auth.CreatedAware.class);'
@@ -1289,6 +1312,10 @@ dao loading, which improves overall startup time.`,
         var args = {__proto__: params, delegate: dao, of: this.of};
         if ( this.seqProperty ) args.property = this.seqProperty;
         dao = this.GUIDDAO.create(args);
+      }
+
+      if ( this.embeddingAware ) {
+        dao = this.EmbeddingAwareDAO.create({ name: this.name, delegate: dao }, this.__subContext__);
       }
 
       var cls = this.of;

@@ -17,7 +17,7 @@ foam.CLASS({
 
   css: `
     << {
-      padding: 7px;
+      padding: 5px;
       borderRadius: 4px;
       border: 1px solid $borderDefault;
       color: $textDefault;

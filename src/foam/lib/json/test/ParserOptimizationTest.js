@@ -194,6 +194,13 @@ foam.CLASS({
           "{\\"class\\":\\"foam.core.auth.User\\",\\"id\\":7,\\"emailX\\":\\"zz\\",\\"email\\":\\"a@b.c\\"}");
         test(u != null && "a@b.c".equals(u.getEmail()),
           "KeyMatch: a longer unknown key does not match its known prefix");
+
+        // the browser sends short names, which are not always identifiers:
+        // "document-uri" must resolve and must not swallow the keys after it
+        foam.core.http.csp.CSPViolation v = (foam.core.http.csp.CSPViolation) p.parseString(
+          "{\\"class\\":\\"foam.core.http.csp.CSPViolation\\",\\"document-uri\\":\\"http://a/b\\",\\"blocked-uri\\":\\"http://c/\\",\\"ip\\":\\"1.2.3.4\\"}");
+        test(v != null && "http://a/b".equals(v.getDocumentURI()) && "http://c/".equals(v.getBlockedURI()) && "1.2.3.4".equals(v.getIp()),
+          "KeyMatch: quoted short names with non-identifier characters resolve");
       `
     },
     {

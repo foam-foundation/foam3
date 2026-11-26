@@ -113,11 +113,13 @@ public class ModelParserFactory {
       boolean quoted = str.charAt(p0) == '"';
       int start = quoted ? p0 + 1 : p0;
 
-      // one pass: find the key's end AND its String.hashCode-compatible hash
+      // one pass: find the key's end AND its String.hashCode-compatible hash.
+      // A quoted key runs to its closing quote, because short names are not
+      // always identifiers: CSPViolation's "document-uri" must still resolve.
       int i = start, h = 0;
       for ( ; i < len ; i++ ) {
         char c = str.charAt(i);
-        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
+        if ( quoted ? c == '"' : ! isKeyChar(c) ) break;
         h = h * 31 + c;
       }
       int keyLen = i - start;
@@ -141,6 +143,11 @@ public class ModelParserFactory {
       return null;
     }
 
+    /** Characters an unquoted key may contain. */
+    private static boolean isKeyChar(char c) {
+      return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$';
+    }
+
     /** The same scan and lookup over any PStream — only the error-reporting streams take this path. */
     private PStream parseGeneric(PStream ps, ParserContext x) {
       if ( ! ps.valid() ) return null;
@@ -152,7 +159,7 @@ public class ModelParserFactory {
       int n = 0, h = 0;
       while ( ps.valid() ) {
         char c = ps.head();
-        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
+        if ( quoted ? c == '"' : ! isKeyChar(c) ) break;
         if ( n == buf.length ) return null; // longer than any registered name
         buf[n++] = c;
         h = h * 31 + c;

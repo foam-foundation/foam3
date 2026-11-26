@@ -63,6 +63,21 @@ foam.CLASS({
       x.test(text(v).indexOf('**') == -1 && text(v).indexOf('](') == -1, 'no markdown syntax shows as text');
       v.remove();
 
+      // A bullet wrapped onto a second line, indented or not, is still one
+      // bullet: "compare the results" must not drop into a paragraph between them.
+      v = await render(
+        '- **Build the dataset** (lessons 0–5): credentials,\n  generating samples\n' +
+        '- **Train and measure**: fine-tune it,\ncompare the results\n\n' +
+        '1. first line\n   second line\n2. two\n    - nested\n');
+      var bullets = q(v, 'ul') ? q(v, 'ul').querySelectorAll(':scope > li') : [];
+      x.test(bullets.length == 2, 'wrapped bullets stay two bullets, got ' + bullets.length);
+      x.test(! q(v, '.mdParagraph'), 'no continuation line becomes a paragraph');
+      x.test(bullets[0] && bullets[0].innerText.indexOf('credentials, generating samples') != -1, 'an indented continuation joins its bullet with a space');
+      x.test(bullets[1] && bullets[1].innerText.indexOf('fine-tune it, compare the results') != -1, 'an unindented continuation joins its bullet');
+      x.test(qa(v, 'ol > li').length == 2 && qa(v, 'ol > li')[0].innerText.indexOf('first line second line') != -1, 'an ordered item continues on its next line');
+      x.test(q(v, 'ol li ul li') && q(v, 'ol li ul li').innerText.trim() == 'nested', 'a 4-space "- " line is still a nested list');
+      v.remove();
+
       v = await render('<hint category="warning">\nRead **this** first.\n</hint>\n');
       x.test(q(v, '.foam-u2-markdown-Hint strong'), 'a multi-line hint parses its markdown');
       v.remove();

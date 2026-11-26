@@ -215,16 +215,24 @@ foam.CLASS({
 
           unorderedList: repeat(seq(
             alt('- ', '* ', '+ '),
-            sym('inlineContent'),
+            sym('listItemText'),
             optional(sym('nestedContent'))
           ), '\n', 1),
 
           orderedList: repeat(seq(
             str(repeat(range('0', '9'), null, 1)),
             '. ',
-            sym('inlineContent'),
+            sym('listItemText'),
             optional(sym('nestedContent'))
           ), '\n', 1),
+
+          // A bullet wrapped at 80 columns is one bullet: its next line belongs
+          // to it whether indented ("  generating samples") or not, unless that
+          // line opens another block. A nested "    - item" opens a list, so it
+          // still goes to nestedContent.
+          listItemText: repeat(sym('inlineContent'), sym('listSoftBreak'), 1),
+
+          listSoftBreak: seq0('\n', repeat(' '), not(sym('blockLineStart'))),
 
           nestedContent: repeat(seq1(1, '\n    ', str(repeat(notChars('\n')))), null, 1),
 
@@ -574,6 +582,13 @@ foam.CLASS({
               // Wrapped lines rejoin with a space, not a line break.
               v.forEach((line, i) => { if ( i ) this.add(' '); line.call(this); });
             });
+          };
+        },
+
+        function listItemText(v) {
+          return function() {
+            // Wrapped lines rejoin with a space, not a line break.
+            v.forEach((line, i) => { if ( i ) this.add(' '); line.call(this); });
           };
         },
 

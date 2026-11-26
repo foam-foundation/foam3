@@ -201,6 +201,12 @@ foam.CLASS({
           "{\\"class\\":\\"foam.core.http.csp.CSPViolation\\",\\"document-uri\\":\\"http://a/b\\",\\"blocked-uri\\":\\"http://c/\\",\\"ip\\":\\"1.2.3.4\\"}");
         test(v != null && "http://a/b".equals(v.getDocumentURI()) && "http://c/".equals(v.getBlockedURI()) && "1.2.3.4".equals(v.getIp()),
           "KeyMatch: quoted short names with non-identifier characters resolve");
+
+        // the journal writes the same short names unquoted
+        v = (foam.core.http.csp.CSPViolation) p.parseString(
+          "{class:\\"foam.core.http.csp.CSPViolation\\",ip:\\"1.2.3.4\\",document-uri:\\"http://a/b\\",blocked-uri :\\"http://c/\\"}");
+        test(v != null && "http://a/b".equals(v.getDocumentURI()) && "http://c/".equals(v.getBlockedURI()) && "1.2.3.4".equals(v.getIp()),
+          "KeyMatch: unquoted short names with non-identifier characters resolve");
       `
     },
     {

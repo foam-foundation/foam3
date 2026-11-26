@@ -10,4 +10,11 @@ addValue(foam.audio.Speak.create({}, this), true);
 
 To add to just the document, you can do:
 
-this.out.tag(foam.audio.Speak)
+tag(foam.audio.Speak);
+log('Hello World!');
+out.add(block.flowName$, ',', block.cmd$); '';
+
+this.findFlowChildByName('error1').del();
+find('error1').del(); block.del();
+
+h1("H1");h2("H2");h3("H3");block.flowName = 'subsubBlock';block.shown = false;

@@ -20,7 +20,7 @@ p({
       })
       .build();
   """,
-  "client": "{\"of\":\"foam.core.test.Test\", \"ttlPurgeTime\": 0, \"ttlSelectPurgeTime\": 0}"
+  "client": """{"of":"foam.core.test.Test", "ttlPurgeTime": 0, "ttlSelectPurgeTime": 0}"""
 })
 
 p({
@@ -46,7 +46,7 @@ p({
       .setRuler(false)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.script.ScriptEvent\"}"
+  "client":"""{"of":"foam.core.script.ScriptEvent"}"""
 })
 
 p({
@@ -71,5 +71,5 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] { foam.core.test.TestRun.LAST_MODIFIED });
   """,
-  "client":"{\"of\":\"foam.core.test.TestRun\"}"
+  "client":"""{"of":"foam.core.test.TestRun"}"""
 })

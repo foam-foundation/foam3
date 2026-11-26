@@ -26,7 +26,7 @@ foam.CLASS({
 
   ids: [ 'runId', 'iteration' ],
 
-  tableColumns: [ 'iteration', 'trainLoss', 'valLoss', 'tokensPerSec', 'runId' ],
+  tableColumns: [ 'iteration', 'trainLoss', 'valLoss', 'tokensPerSec', 'nanDetected', 'runId' ],
 
   searchColumns: [ 'runId', 'iteration' ],
 
@@ -70,6 +70,14 @@ foam.CLASS({
       documentation: 'Token throughput. Useful for comparing efficiency across model sizes and batch sizes.',
       createVisibility: 'HIDDEN',
       updateVisibility: 'RO'
+    },
+    {
+      class: 'Boolean',
+      name: 'nanDetected',
+      documentation: 'True when mlx-lm reported nan for this iteration. Signals loss collapse — job will auto-stop after 3 consecutive.',
+      createVisibility: 'HIDDEN',
+      updateVisibility: 'RO',
+      value: false
     }
   ]
 });

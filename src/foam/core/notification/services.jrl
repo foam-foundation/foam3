@@ -58,7 +58,7 @@ p({
       })
       .build();
 """,
-  "client": "{\"of\":\"foam.core.notification.Notification\"}"
+  "client": """{"of":"foam.core.notification.Notification"}"""
 })
 
 p({
@@ -134,7 +134,7 @@ p({
       .build()
       .addPropertyIndex(new foam.lang.PropertyInfo[] {foam.core.notification.Notification.TEMPLATE});
     """,
-    "client":"{\"of\":\"foam.core.notification.Notification\"}"
+    "client":"""{"of":"foam.core.notification.Notification"}"""
 })
 
 p({
@@ -151,7 +151,7 @@ p({
       .setOf(foam.core.notification.NotificationLocaleTemplate.getOwnClassInfo())
       .build()
     """,
-    "client":"{\"of\":\"foam.core.notification.NotificationLocaleTemplate\"}"
+    "client":"""{"of":"foam.core.notification.NotificationLocaleTemplate"}"""
 })
 
 
@@ -186,7 +186,7 @@ p({
       .setEnableInterfaceDecorators(false)
       .build();
   """,
-  "client": "{\"of\":\"foam.core.notification.NotificationSetting\"}"
+  "client": """{"of":"foam.core.notification.NotificationSetting"}"""
 })
 
 p({
@@ -217,7 +217,7 @@ p({
       .setEnableInterfaceDecorators(false)
       .build();
     """,
-  "client": "{\"of\":\"foam.core.notification.NotificationSetting\"}"
+  "client": """{"of":"foam.core.notification.NotificationSetting"}"""
 })
 
 p({
@@ -234,7 +234,7 @@ p({
       .setFuid(true)
       .build();
     """,
-  "client": "{\"of\":\"foam.core.notification.broadcast.BroadcastNotification\"}"
+  "client": """{"of":"foam.core.notification.broadcast.BroadcastNotification"}"""
 })
 
 p({

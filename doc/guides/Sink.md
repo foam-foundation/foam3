@@ -37,9 +37,9 @@ This is analogous to Unix pipes, where data flows through processing stages to a
 | `SUM(prop)` | Sums a numeric property | `.value` |
 | `MAX(prop)` | Finds maximum value | `.value` |
 | `MIN(prop)` | Finds minimum value | `.value` |
-| `GROUP_BY(prop, sink)` | Groups results by property | `.groups` |
+| `GROUP_BY(prop, sink)` | Groups results by property; inner sink defaults to `COUNT()` | `.groupKeys`; `.groups[key]` is the inner sink, e.g. `.groups[key].value` |
 | `MAP(prop)` | Projects single property from each object | `.delegate.array` |
-| `UNIQUE(prop, sink)` | Filters distinct values | — |
+| `UNIQUE(prop, sink)` | Passes the first object per distinct value to `sink` | `.delegate`, e.g. `.delegate.array` |
 
 ### Usage Examples
 

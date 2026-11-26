@@ -107,6 +107,12 @@ foam.CLASS({
       value: 'V2'
     },
     {
+      class: 'Int',
+      name: 'headerCacheSize',
+      documentation: `Nodes in the header cache Jetty keeps for each HTTP/1.1 connection that makes a second request. Each node is 48 chars, so 512 holds 49 KB of heap per connection, half of Jetty's own default of 1024. 0 turns the cache off.`,
+      value: 512
+    },
+    {
       class: 'Boolean',
       name: 'enableMTLS',
       documentation: 'Enable mTLS on this server connection'
@@ -289,6 +295,7 @@ foam.CLASS({
           ForwardedRequestCustomizer forwarded = new ForwardedRequestCustomizer();
           config.addCustomizer(forwarded);
           config.setSendServerVersion(false);
+          config.setHeaderCacheSize(getHeaderCacheSize());
 
           ServerConnector connector = new ServerConnector(
             server,
@@ -542,6 +549,7 @@ foam.CLASS({
           ForwardedRequestCustomizer forwarded = new ForwardedRequestCustomizer();
           config.addCustomizer(forwarded);
           config.setSendServerVersion(false);
+          config.setHeaderCacheSize(getHeaderCacheSize());
 
           SecureRequestCustomizer src = new SecureRequestCustomizer();
           src.setSniHostCheck(!getDisableSNIHostCheck());

@@ -16,5 +16,5 @@ p({
 
     return dao;
   """,
-  "client": "{\"of\":\"foam.time.TimeZone\"}"
+  "client": """{"of":"foam.time.TimeZone"}"""
 })

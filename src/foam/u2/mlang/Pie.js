@@ -60,6 +60,11 @@ foam.CLASS({
   ],
 
   methods: [
+    // A DAO that caches selects (TTLSelectCachingDAO) keys them by the sink's
+    // toString(). GroupBy's names no class, so this Pie and a plain GroupBy
+    // on the same field would share a cached result; naming the class keeps
+    // them apart.
+    function toString() { return this.cls_.id + ':' + this.SUPER(); },
     function hsl(h, s, l) { return 'hsl(' + h + ',' + s + '%,' + l + '%)'; },
     function toE(_, x) { return x.E().add(this.graph_$); },
     function addToE(e) { e.add(this.graph_$); }

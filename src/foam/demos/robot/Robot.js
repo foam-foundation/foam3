@@ -111,10 +111,11 @@ foam.CLASS({
     // Make the holding Canvas larger than normal to give space for the
     // robot when it's animated outside of the regular rectangle.
     function toE(args, X) {
-      return this.Canvas.create({ cview: this }, X).attrs({
-        width:  this.slot(function(x, width,  scaleX) { return x + width*scaleX*2; }),
-        height: this.slot(function(y, height, scaleY) { return y + height*scaleY*1.6; })
-      });
+      return this.Canvas.create({
+        cview: this,
+        width$: this.slot(function(x, width,  scaleX) { return 100+ x + width*scaleX*2; }),
+        height$: this.slot(function(y, height, scaleY) { return 100+y + height*scaleY*1.6; })
+      }, X);
     }
   ]
 });

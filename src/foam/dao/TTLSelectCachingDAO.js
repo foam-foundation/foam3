@@ -81,7 +81,11 @@ foam.CLASS({
       if ( predicate && predicate.partialEval ) predicate = predicate.partialEval();
 
       var self = this;
-      var key  = [sink, skip, limit, order, predicate].toString();
+      // A sink subclass that inherits its parent's toString() prints the
+      // same text as the parent: a chart sink extending GroupBy prints the
+      // same groupBy(...) as a plain GroupBy on the same fields. Without the
+      // class id in the key, the chart gets the plain GroupBy's cached result.
+      var key  = sink.cls_.id + ':' + [sink, skip, limit, order, predicate].toString();
 
       var entry = this.cache[key];
 

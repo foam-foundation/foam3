@@ -10,8 +10,16 @@ foam.POM({
     { name: 'DAOPromptRunningTest', flags: 'js&test|java&test' },
     { name: 'ColumnParserTest', flags: 'js&test|java&test' },
     { name: 'DependencyScannerTest', flags: 'js&test|java&test' },
+    { name: 'FlowAuthorizationTest', flags: 'js&test|java&test' },
     { name: 'FlowHistoryRuleActionTest', flags: 'js&test|java&test' },
     { name: 'FlowScriptShapeTest', flags: 'js&test|java&test' },
-    { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' }
+    { name: 'BlockCmdSaveTest', flags: 'js&test|java&test' },
+    { name: 'MarkdownExampleTagTest', flags: 'js&test|java&test' },
+    { name: 'CommandToolTest', flags: 'js&test|java&test' },
+    { name: 'MappingAScriptTest', flags: 'js&test|java&test' },
+    { name: 'FlowDocumentDocsTest',   flags: 'js&test|java&test' },
+    { name: 'UploadTestRow',          flags: 'js&test|java&test' },
+    { name: 'UploadAgentJobTest',     flags: 'js&test|java&test' },
+    { name: 'UploadSinkJobTest',      flags: 'js&test|java&test' }
   ]
 });

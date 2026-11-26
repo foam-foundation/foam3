@@ -58,6 +58,10 @@ console.log(item.id.toString());
 // Output: {"orderId"="1001","productId"="5"}
 ```
 
+## A single-property key
+
+`ids` with one entry does not generate an ID class. `IDSupport` adds an `IDAlias` axiom named `id` that reads and writes the listed property (`src/foam/lang/IDSupport.js:202-203`, name at `:29`). So `ids: ['code']` makes `obj.id` return `obj.code`, but `ids: ['id']` beside a property named `id` declares two axioms named `id`, and the debug build rejects the class with `Axiom name conflict in <class> : id` (`src/foam/lang/debug.js:185-188`). A model whose key is a property called `id` needs no `ids` at all.
+
 ## Generated ID Class
 
 FOAM generates an ID class named `<ModelName>Id` with the following features:

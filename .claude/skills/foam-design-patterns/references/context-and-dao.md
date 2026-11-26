@@ -27,7 +27,7 @@ Do:    `getDelegate().find_(x, id)`; `getDelegate().select_(x, sink, skip, limit
 ### Inside a rule, `x` reads and `ruler.getX()` writes
 The ruler decorates `x` read-only; a write through it fails, and a write through `getX()` bypasses the ruler.
 Don't: `getX().get("fooDAO").put(obj)` in a `RuleAction`
-Do:    `((DAO) x.get("fooDAO")).find_(x, id)` to read; `((DAO) ruler.getX().get("fooDAO")).put_(ruler.getX(), obj)` to write; re-put the object's own DAO through `agency.submit(...)` then `ruler.stop()`
+Do:    `((DAO) x.get("fooDAO")).find_(x, id)` to read; `((DAO) ruler.getX().get("fooDAO")).put_(ruler.getX(), obj)` to write, or `agency.submit(...)`; to change the object being put, set fields on `obj`: a before rule's change is stored by the put, and `RulerDAO.put_` re-puts an after rule's change itself (`foam/core/ruler/RulerDAO.js:198-206`)
 Review asked: "use the argument x." / "replace getX() with ruler.getX() to get a non Readonly DAO."
 
 ### `XLocator.get()` only in property hooks, with the reason beside it
@@ -42,8 +42,8 @@ Do:    `imports: [ { name: 'userDAO', javaType: 'DAO', key: 'localUserDAO' } ]` 
 
 ### Existence is `find`, count is `COUNT()`
 A sink materializes rows to answer a yes/no question.
-Don't: `ArraySink s = new ArraySink(); dao.where(p).limit(1).select(s); return ! s.getArray().isEmpty();`
-Do:    `return dao.find(p) != null;` or `dao.select(COUNT())`
+Don't: `ArraySink s = new ArraySink(); dao.where(p).limit(1).select(s); return ! s.getArray().isEmpty();`; `limit(1).select(sink)` then `getArray().get(0)` for one row; `getArray().size()` for a count
+Do:    `return dao.find(p) != null;`; `dao.find(id)` or `dao.find(p)` for one row; `dao.select(COUNT())`
 Review asked: "Can be done with find() or if you don't care about the result then a COUNT()."
 
 ### Read the sink `select` returns
@@ -71,7 +71,7 @@ Review asked: "Is not just adding a TTL cache (supported by the EasyDAO config) 
 ### A decorator answers `cmd_` with `null`, never throws
 `cmd_` is a "does anyone handle this?" probe; a throw makes a retrying stack loop.
 Don't: `throw new UnsupportedOperationException()` in `cmd_`
-Do:    `return null;` for commands the decorator does not own; `return getDelegate().cmd_(x, obj);` otherwise
+Do:    handle the commands the decorator owns and `return getDelegate().cmd_(x, obj);` for the rest (`foam/dao/ProxyDAO.js:50-58`); only the leaf answers `null` (`foam/dao/AbstractDAO.js:540-541`)
 
 ### Never use `ctrl`; import the exported function or `requires:` the class
 `ctrl` exists for debugging and only in apps with the standard controller.

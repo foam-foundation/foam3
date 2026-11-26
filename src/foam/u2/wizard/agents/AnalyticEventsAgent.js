@@ -71,7 +71,7 @@ foam.CLASS({
       }
 
       // TODO: Temp fix for 3.20 iframe logging
-      window.analyticsAgent = this.analyticsAgent;
+      this.window.analyticsAgent = this.analyticsAgent;
 
       for ( const method of ['error' /*, 'warn' */] ) { // disabling logging console.warns for now
         const delegate = console[method].bind(console);

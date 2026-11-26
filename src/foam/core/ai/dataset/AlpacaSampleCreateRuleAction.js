@@ -35,6 +35,11 @@ foam.CLASS({
         AlpacaSample sample  = (AlpacaSample) obj;
         var          logger  = Loggers.logger(x, this);
 
+        sample.setCharCount(
+          sample.getInstruction().length() +
+          sample.getInput().length() +
+          sample.getOutput().length()
+        );
         sample.setStatus(AlpacaSampleStatus.NEW);
 
         EmbeddingService embedder  = (EmbeddingService) getX().get("embeddingService");

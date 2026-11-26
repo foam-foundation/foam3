@@ -27,5 +27,20 @@ foam.CLASS({
       name: 'baseURL',
       value: 'http://localhost:11434/v1/chat/completions'
     }
+  ],
+
+  methods: [
+    {
+      name: 'providerHeaders',
+      documentation: `
+        A local Ollama needs no key, so with no key set on the instance the call carries no
+        Authorization header and never looks up the OpenAI credential, which a server running
+        only Ollama does not have. A key set with setApiKey is still sent.
+      `,
+      javaCode: `
+        if ( ! apiKeyIsSet_ ) return new java.util.LinkedHashMap<String, String>();
+        return super.providerHeaders(x);
+      `
+    }
   ]
 });

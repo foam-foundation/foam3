@@ -9,7 +9,9 @@ foam.CLASS({
   name: 'EventRecordAlarmRuleAction',
   implements: [ 'foam.core.ruler.RuleAction' ],
 
-  documentation: `Generate or clear Alarm`,
+  documentation: `Generate or clear Alarm. A record at or above alarmSeverity
+raises it; only an INFO record clears it. Alarms are written to localAlarmDAO,
+whose journal is write-only and not replayed, so they are dropped on restart.`,
 
   javaImports: [
     'foam.core.alarming.Alarm',
@@ -41,15 +43,21 @@ foam.CLASS({
       DAO alarmDAO = (DAO) ruler.getX().get("localAlarmDAO");
       String name = er.alarmSummary();
       Alarm alarm = (Alarm) alarmDAO.find(EQ(Alarm.NAME, name));
-      if ( er.getSeverity().getOrdinal() >= LogLevel.WARN.getOrdinal() ) {
+      if ( er.getSeverity().getOrdinal() >= getAlarmSeverity().getOrdinal() ) {
+        // The alarm's eventRecord names the record that turned it on or
+        // raised its severity. A repeat of a failure already reported, such
+        // as a second ERROR while the alarm is still on, leaves it alone, so
+        // the notification rule can tell the two apart.
+        boolean raised = alarm == null || ! alarm.getIsActive() ||
+          er.getSeverity().getOrdinal() > alarm.getSeverity().getOrdinal();
         if ( alarm == null ) {
           alarm = new Alarm(name);
           alarm.setSeverity(er.getSeverity());
           alarm.setClusterable(er.getClusterable());
-          alarm.setEventRecord(er.getId());
         } else {
           alarm = (Alarm) alarm.fclone();
         }
+        if ( raised ) alarm.setEventRecord(er.getId());
         StringBuilder note = new StringBuilder();
         if ( ! SafetyUtil.equals(er.getMessage(), alarm.getNote()) ) {
           note.append(er.getMessage());
@@ -65,7 +73,6 @@ foam.CLASS({
         }
         if ( er.getSeverity().getOrdinal() > alarm.getSeverity().getOrdinal() ) {
           alarm.setSeverity(er.getSeverity());
-          alarm.setNote(note.toString());
         } else if ( ! SafetyUtil.isEmpty(alarm.getNote()) &&
                     ! SafetyUtil.isEmpty(note.toString()) &&
                     ! SafetyUtil.equals(note, alarm.getNote()) ) {
@@ -75,14 +82,22 @@ foam.CLASS({
           note.append("\\n");
           note.append(n);
         }
-        alarm.setNote(note.toString());
+        // A message the note already holds adds nothing; keep the note
+        if ( note.length() > 0 ) alarm.setNote(note.toString());
         alarm = (Alarm) alarmDAO.put(alarm);
         er.setAlarm(alarm.getId());
-      } else if ( alarm != null && alarm.getIsActive() ) {
+      } else if ( alarm != null && alarm.getIsActive() &&
+                  er.getSeverity() == LogLevel.INFO ) {
+        // Only an INFO record clears, as EventRecord.md describes. A WARN
+        // record below alarmSeverity neither raises nor clears.
         alarm = (Alarm) alarm.fclone();
         alarm.setIsActive(false);
         alarm.setNote(er.getMessage());
         alarm = (Alarm) alarmDAO.put(alarm);
+        // The notification rule sends the clear only for the record that
+        // cleared the alarm, the one that carries it, so a later INFO record
+        // with the same name, such as the next successful poll, sends nothing.
+        er.setAlarm(alarm.getId());
       }
       `
     }

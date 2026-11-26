@@ -13,10 +13,10 @@ import foam.lang.X;
 import foam.mlang.Expr;
 
 /**
- * Test fixture mirroring com.paytic.dao.partition.PADDAO (which lives in the
- * paytic tree and so can't be referenced from foam3): a two-level partitioned
- * DAO. Level 1 partitions by {@code outerProperty}; each partition's delegate is
- * a nested PartitionedDAO (depth + 1) partitioning by {@code innerProperty},
+ * Test fixture for a two-level partitioned DAO, the shape an application uses
+ * when it splits a large journal first by one property and then by another.
+ * Level 1 partitions by {@code outerProperty}; each partition's delegate is a
+ * nested PartitionedDAO (depth + 1) partitioning by {@code innerProperty},
  * whose own delegates are the leaf journals. Exercises that SingleToPartitionMigrator
  * routes through every level via put_ rather than computing the partition itself.
  */

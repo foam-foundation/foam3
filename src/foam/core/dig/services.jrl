@@ -21,7 +21,7 @@ p({
     .setJournalName("digs")
     .build();
   """,
-  "client":"{\"of\":\"foam.core.dig.DIG\",\"decorators\": [{\"class\":\"foam.core.fs.FileDAODecorator\"},{\"class\":\"foam.core.fs.FileArrayDAODecorator\"}]}"
+  "client":"""{"of":"foam.core.dig.DIG","decorators": [{"class":"foam.core.fs.FileDAODecorator"},{"class":"foam.core.fs.FileArrayDAODecorator"}]}"""
 })
 
 p({
@@ -68,5 +68,5 @@ p({
       .setPm(true)
       .build();
   """,
-  "client":"{\"of\":\"foam.core.dig.SUGAR\"}"
+  "client":"""{"of":"foam.core.dig.SUGAR"}"""
 })

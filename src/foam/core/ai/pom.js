@@ -5,8 +5,10 @@ foam.POM({
     { name: '../../ai/llm/pom' },
     { name: 'llm/pom' },
     { name: 'vector/pom' },
-    { name: 'dataset/pom' },
-    { name: 'training/pom' }
+    // ML training (datasets, training and eval runs) is opt-in: an app that
+    // wants it sets the ml flag, e.g. setFlags: { ml: true } in its POM.
+    { name: 'dataset/pom',  flags: 'ml' },
+    { name: 'training/pom', flags: 'ml' }
   ],
 
   javaFiles: [

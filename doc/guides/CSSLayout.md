@@ -29,9 +29,11 @@ A box scrolls only when its content is taller than **its own** height limit. A b
 
 1. The card has a definite height limit and `display: flex; flex-direction: column`.
 2. The header is an ordinary flex child.
-3. The list has `min-height: 0` and `overflow-y: auto`. A flex child's default `min-height: auto` refuses to shrink below its content, so without `min-height: 0` the list pushes the card taller instead of scrolling. `flex: 1` is optional: it makes a short list fill the card, but the scrolling comes from `min-height: 0` (`src/foam/u2/view/EditColumnsView.js:57-60` scrolls without it).
+3. The list has `overflow-y: auto`. A flex child's default `min-height: auto` refuses to shrink below its content, but the CSS flexbox spec sets that automatic minimum to `0` on a scroll container, so the list itself shrinks and scrolls without `min-height: 0`. `flex: 1` is optional: it makes a short list fill the card (`src/foam/u2/view/EditColumnsView.js:57-60` scrolls without it).
 
 Break any one and the card grows until a capped ancestor scrolls everything, header included.
+
+**`min-height: 0` belongs on the boxes in between.** When the list sits inside wrappers, every flex-child wrapper between the list and the capped card whose `overflow` is `visible` keeps `min-height: auto`, grows to fit the list, and pushes the card taller. Put `min-height: 0` on each of those wrappers; on the list it changes nothing.
 
 **When the limit must live on an outer wrapper.** `foam.u2.md.OverlayDropdown` sets `max-height` and `overflow-y: auto` on its own element (`src/foam/u2/md/OverlayDropdown.js:195-196`), so whatever you put inside it scrolls as one piece. The column picker keeps its search box pinned by making the dropdown a flex column and giving its own container and list `min-height: 0` (`src/foam/u2/view/EditColumnsView.js:44-59`):
 
@@ -42,6 +44,8 @@ Break any one and the card grows until a capped ancestor scrolls everything, hea
 ```
 
 **Why sticky is not the fix.** `position: sticky` sticks relative to the nearest ancestor that scrolls. Inside a box that grew to fit its content, nothing scrolls at that level, so the header has nothing to stick to.
+
+**Sticky table headers.** Sticky does work for a table's `th` cells when the table sits in a capped box with `overflow: auto`. Give the table `border-collapse: separate; border-spacing: 0`: with collapsed borders the source records jitter while sticky rows scroll (`src/foam/core/reflow/PivotTableView.js:36-40`). Draw the cell lines with an inset shadow, `box-shadow: inset -1px -1px 0 $borderLight` (`:48-53`), so each line is painted inside its own cell and travels with the stuck header.
 
 **A detail page that should fill the screen** is wrapped in the controller config's `viewBorder`, a plain div with no height by default. Use `foam.u2.borders.FillBorder`; its documentation explains the height chain (`src/foam/u2/borders/FillBorder.js:12-22`).
 

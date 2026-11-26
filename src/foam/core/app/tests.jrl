@@ -1,0 +1,1 @@
+p({"class":"foam.core.app.test.HealthLiveHeapTest","id":"HealthLiveHeapTest","description":"Health reports live heap estimate (garbage mostly excluded) as memoryLiveEstimate and memoryLiveEstimatePercent"})

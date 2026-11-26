@@ -35,6 +35,17 @@ foam.CLASS({
       name: 'writeView'
     },
     {
+      class: 'Boolean',
+      name: 'onKey',
+      documentation: `
+        Passed to the read and write views only when set. Unset, each view
+        keeps the onKey from its spec or its property: passing an unset
+        (undefined) value would clear it, and an amount view such as
+        foam.u2.CurrencyView would fall back to onKey true, updating on
+        every keystroke.
+      `
+    },
+    {
       name: 'realView',
       transient: true
     },
@@ -86,7 +97,7 @@ foam.CLASS({
                 ...this.args,
                 focused$: self.focused$,
                 data$: self.data$,
-                onKey: self.onKey,
+                ...( self.hasOwnProperty('onKey') ? { onKey: self.onKey } : {} ),
                 mode: mode
               }).call(callFromProperty);
           case self.DisplayMode.RO:
@@ -95,7 +106,7 @@ foam.CLASS({
               {
                 ...this.args,
                 data$: self.data$,
-                onKey: self.onKey,
+                ...( self.hasOwnProperty('onKey') ? { onKey: self.onKey } : {} ),
                 mode: mode
               }).call(callFromProperty);
           case self.DisplayMode.HIDDEN:

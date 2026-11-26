@@ -90,7 +90,7 @@ foam.CLASS({
       factory: function() {
         return this.EasyDAO.create({
           of: this.Flow,
-          daoType: 'MDAO'
+          daoType: 'IDB'
         });
       }
     },

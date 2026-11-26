@@ -9,11 +9,16 @@ foam.POM({
     { name: "ai/pom" },
     { name: "perf/pom" },
     { name: "function/pom" },
-    { name: "test/pom", flags: "test" }
+    { name: "test/pom", flags: "test" },
+    { name: "../../demos/pom", flags: "js" },
   ],
   files: [
+    /*
+    { name: '../../input/Gamepad', flags: 'js' },
+    { name: '../../animation/Animation', flags: 'js' },
     { name: '../../demos/spacewars/SpaceWar', flags: 'js' },
     { name: '../../demos/pong/Pong',      flags: 'js' },
+    */
     { name: '../../doc/DIGApiDoc',        flags: 'js' },
     { name: '../../doc/ModelDiagramView', flags: 'js' },
     { name: '../../u2/mlang/Table',    flags: 'js|java' },
@@ -71,9 +76,12 @@ foam.POM({
     { name: 'FlowableTree',            flags: 'js' },
     { name: 'FlowDocumentCitationView', flags: 'js' },
     { name: 'FlowDocumentRowView',     flags: 'js' },
+    { name: 'FlowDocumentGroupingList', flags: 'js' },
+    { name: 'FlowDocumentNav',         flags: 'js' },
     { name: 'FlowAccess',              flags: 'js|java' },
     { name: 'UserFlowAccess',          flags: 'js|java' },
     { name: 'Flow',                    flags: 'js|java' },
+    { name: 'FlowOpenIndexedRefinement', flags: 'js' },
     { name: 'FlowHistoryRecord',       flags: 'js|java' },
     { name: 'FlowHistoryRuleAction',   flags: 'js|java' },
     { name: 'FlowHistoryView',         flags: 'js' },

@@ -89,7 +89,7 @@ p({
   "serve":true,
   "lazyClient": false,
   "authenticate":false,
-  "client":"{ \"class\": \"foam.core.app.AppDownloadBadgeService\" }"
+  "client":"""{ "class": "foam.core.app.AppDownloadBadgeService" }"""
 })
 
 // p({

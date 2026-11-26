@@ -12,6 +12,8 @@
 //  ? how are Commands different than flows?
 // ???: Would it be better to have compose rather than mixing Flowable?
 // TODO: user-select: none; to avoid cut&paste when not appropriate
+// input multichoice on multiple lines
+// store response in 'ask' commands for easier debugging
 
 foam.CLASS({
   package: 'foam.core.reflow',
@@ -108,6 +110,7 @@ foam.CLASS({
               glyph: 'rightChevron',
               embedSVG: true
             }).addClass(this.myClass('chevron')).end()
+            .start('div', {}, this.data.titlePrefix$).end()
             .start('span').addClass(this.myClass('title'))
               .start({
                 class: 'foam.u2.TextField',
@@ -120,6 +123,7 @@ foam.CLASS({
               .end()
             .end()
             .start().add(fullVersion).end()
+            .start('div', {}, this.data.titleSuffix$).end()
           .end()
 
           .start().addClass(this.myClass('header-actions'))
@@ -825,6 +829,7 @@ foam.CLASS({
 
   requires: [
     'foam.ai.llm.ConversationalLLMService',
+    'foam.ai.llm.NullLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.DependencyScanner',
@@ -849,7 +854,7 @@ foam.CLASS({
     'commandDAO',
     'flowDAO',
     'isMenuOpen',
-    'llmService as parentLLMService',
+    'llmService? as parentLLMService',
     'notify',
     'params',
     'setTimeout',
@@ -893,6 +898,8 @@ foam.CLASS({
     'selectFromTree',
     'softSelected',
     'showPrompts',
+    'titlePrefix',
+    'titleSuffix',
     'isChildLocked',
     'value as flow'
   ],
@@ -969,7 +976,13 @@ foam.CLASS({
     {
       name: 'llmService',
       factory: function() {
-        return this.ConversationalLLMService.create({delegate: this.parentLLMService});
+        // TODO: It would be better if there was also a transient ConversationalLLMService on the server
+        // that could be used when combined with a UUID so that the whole conversation isn't sent with each
+        // request. If the session id isn't found then an exeception would be thrown and then the whole
+        // conversation would be sent on the next request.
+        return this.parentLLMService ?
+          this.ConversationalLLMService.create({delegate: this.parentLLMService}) :
+          this.NullLLMService.create() ;
       }
     },
     {
@@ -1126,6 +1139,23 @@ foam.CLASS({
       factory: function() { return this; }
     },
     'softSelected',
+    {
+      name: 'titlePrefix',
+      documentation: `
+        An empty view in the header, just left of the flow's name, for the
+        flow's own content to fill: a document can show where it sits there,
+        as in "Guides · 2 of 3 ›". The Console adds nothing to it. The header
+        sets it each time it is drawn, after switching to presentation mode
+        for example, so a view that fills it follows this property.
+      `
+    },
+    {
+      name: 'titleSuffix',
+      documentation: `
+        An empty view in the header, just after the flow's version, for the
+        flow's own content to fill. Set like titlePrefix.
+      `
+    },
     {
       name: 'value',
       // The Console's Flow Value, which is the Flow object it is saved as
@@ -1618,7 +1648,8 @@ foam.CLASS({
         addValue: block.addValue.bind(block),
         log: block.log.bind(block),
         out: block.out, start: block.out.start.bind(block.out),
-        tag: block.out.tag.bind(block.out)
+        tag: block.out.tag.bind(block.out),
+        find: this.findFlowChildByName.bind(this)
       };
 
       // TODO: move into Block

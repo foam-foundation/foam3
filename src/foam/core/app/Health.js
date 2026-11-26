@@ -12,6 +12,7 @@ foam.CLASS({
   javaImports: [
     'foam.core.alarming.Alarm',
     'foam.core.logger.Loggers',
+    'foam.core.pm.PM',
     'foam.dao.DAO',
     'foam.log.LogLevel',
     'foam.net.Port',
@@ -20,7 +21,10 @@ foam.CLASS({
     'static foam.mlang.MLang.EQ',
     'foam.mlang.sink.Count',
     'foam.util.SafetyUtil',
-    'java.lang.Runtime'
+    'java.lang.Runtime',
+    'java.lang.management.ManagementFactory',
+    'java.lang.management.MemoryPoolMXBean',
+    'java.lang.management.MemoryType'
   ],
 
   tableColumns: [
@@ -210,6 +214,43 @@ foam.CLASS({
       `
     },
     {
+      name: 'memoryLiveEstimate',
+      shortName: 'mle',
+      class: 'Long',
+      units: 'bytes',
+      visibility: 'RO',
+      documentation: `
+        Estimate of the heap holding live data, with most uncollected garbage
+        left out. It is an estimate: the old generation part may still hold garbage.
+        memoryUsed counts garbage the collector has not reclaimed yet, so a
+        server can show 87.8 GB used while only about 70 GB is live.
+        A young generation pool (name contains "Eden", "Survivor" or "Young")
+        counts what it held after its last collection. Every other heap pool
+        counts its current use, since its last collection can predate data
+        loaded since: the old generation, and the single heap pool of a
+        collector without generations (Shenandoah's "Shenandoah").
+      `
+    },
+    {
+      name: 'memoryLiveEstimatePercent',
+      label: 'Memory Live Estimate %',
+      class: 'Long',
+      storageTransient: true,
+      visibility: 'RO',
+      getter: function() {
+        if ( this.memoryMax && this.memoryMax > 0 ) {
+          return ( this.memoryLiveEstimate / this.memoryMax ) * 100.0;
+        }
+        return 0;
+      },
+      javaGetter: `
+      if ( getMemoryMax() > 0 ) {
+        return (long) ((getMemoryLiveEstimate() / (float) getMemoryMax()) * 100.0);
+      }
+      return 0L;
+      `
+    },
+    {
       name: 'alarms',
       shortName: 'al',
       class: 'Int',
@@ -225,6 +266,7 @@ foam.CLASS({
   public Health(foam.lang.X x) {
     super();
     setX(x);
+    PM pm = PM.create(x, "Health", "create");
 
     AppConfig appConfig = (AppConfig) x.get("appConfig");
     setMode(appConfig.getMode());
@@ -266,6 +308,16 @@ foam.CLASS({
     setMemoryTotal(runtime.totalMemory());
     setMemoryFree(runtime.freeMemory());
 
+    long live = 0;
+    for ( MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans() ) {
+      if ( pool.getType() != MemoryType.HEAP ) continue;
+      var afterGC = pool.getCollectionUsage();
+      String name = pool.getName();
+      boolean young = name.contains("Eden") || name.contains("Survivor") || name.contains("Young");
+      live += ( young && afterGC != null ) ? afterGC.getUsed() : pool.getUsage().getUsed();
+    }
+    setMemoryLiveEstimate(live);
+
     setAvailableProcessors(runtime.availableProcessors());
 
     setRuntime(
@@ -293,6 +345,7 @@ foam.CLASS({
       // creation via the factory sets the status to the default.
       setStatus(old.getStatus());
     }
+    pm.log(x);
   }
   `,
   methods: [

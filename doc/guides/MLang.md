@@ -89,6 +89,12 @@ E.MUL(1, 2, 3, 4, 5).f() === 120
 E.DIV(1, E.ADD(2, E.MUL(3, E.SUB(4, 5)))).f() === -1
 ```
 
+### Ordering by several properties
+
+Build a multi-key order in code with `THEN_BY(a, b)` (`src/foam/mlang/Expressions.js:170`), e.g. `dao.orderBy(M.THEN_BY(Employee.DEPARTMENT, M.DESC(Employee.CREATED_DATE)))`.
+
+Do not write a `ThenBy` as JSON inside a view config. A ViewSpec keeps its JSON unparsed (`src/foam/u2/ViewSpec.js:113-117`), so the view is later built with `create()`, and `ThenBy`'s `head` and `tail` adapt returns whatever it is given (`src/foam/mlang/order/ThenBy.js:20-41`). `"order": { "class": "foam.mlang.order.ThenBy", "head": {...}, "tail": {...} }` in a `menus.jrl` view therefore holds plain maps instead of comparators and does not sort. Give the view class an `order` factory that calls `this.THEN_BY(...)` instead.
+
 ### Query Parser Integration
 
 MLang integrates with FOAM's query parsers to convert strings to predicates:

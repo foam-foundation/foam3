@@ -10,6 +10,7 @@ Server code is reviewed for what it allocates, what it shares between threads, a
 | `Loggers.logger(x, this)`, comma tokens | any `+` inside a log call? |
 | Log or throw, never swallow; keep the cause | any `catch` that neither logs nor rethrows? |
 | `fclone()` before mutating a DAO result | any setter on the return of `find`/`select`/`put`? |
+| Imports from `foam.lang` and `foam.core`, listed in `javaImports` | any `foam.nanos.` import, or a fully qualified name inside `javaCode`? |
 
 ### An allocation on a per-row path draws a comment
 Garbage in a loop, a `put`, or a predicate `f()` multiplies by rows.
@@ -21,6 +22,13 @@ Review asked: "Rather than selecting into an ArraySink, you could just process d
 A `HashMap` or counter touched from two threads is a race; `notify()` wakes one arbitrary waiter.
 Don't: `static HashMap`; `count++` in a service; `notify()`; an unbounded queue
 Do:    `ConcurrentHashMap`/`AtomicLong`, or `synchronized: true` on the method axiom; `notifyAll()`; `new LinkedBlockingQueue<>(128)`
+
+### State a rule action keeps is an instance field, not static
+RulerDAO loads each Rule once and calls the same `action` object on every put to its DAO; a new one comes only when the rule row itself is put again.
+Don't: a `static` map in a `RuleAction`: every DAO whose rule uses the class shares it, so group "batch-1" on one DAO waits for "batch-1" on another
+Do:    an instance field, under one lock on it
+Cite: `foam/core/ruler/Rule.js:404`, `foam/core/ruler/UpdateRulesListSink.js:36-70`
+Review asked: "Does the RuleEngine create the RuleAction for each call or is it re-used? If reused then this could just be an instance variable" (PR #5948)
 
 ### A race that only costs a copy is priced before it is closed
 A concurrent collection already makes shared state safe; closing a race on top of it, one that can only leave an equal extra copy and never a wrong value, needs its cost measured first.
@@ -47,11 +55,19 @@ Do:    an `EventRecord` on failure or when debug is enabled; one WARN aggregatin
 DAO results are frozen; `null` checks miss whitespace; clearing needs the value and the isSet flag.
 Don't: `s != null && ! s.isEmpty()`; `obj.setX(v)` on a `find` result; `obj.setX(null)` to unset
 Do:    `! SafetyUtil.isEmpty(s)`; `obj = (T) obj.fclone(); obj.setX(v); dao.put_(x, obj)`; `obj.setX(0); obj.clearX();`
+In JS the result is not frozen, but a JS `MDAO` hands back the instance it stores (`src/foam/dao/MDAO.js:159-176`), so a setter changes the cached row with no `put` and no event: `obj.clone()` first.
 
 ### PM in try/finally; PM before a hand-rolled timer
 `PMDAO` already counts every DAO op; a `System.nanoTime()` accumulator disagrees with it.
 Don't: `long t0 = System.nanoTime(); ... total += System.nanoTime() - t0;`
 Do:    `PM pm = PM.create(x, this, "scan"); try { ... pm.log(x); } catch (Throwable t) { pm.error(x, t); throw t; }`
+
+### Imports come from `foam.lang` and `foam.core`, listed in `javaImports`
+FOAM3 has no `foam.nanos` package, so an import copied from older code does not compile. The usual
+moves: `FObject`, `X`, `PropertyInfo`, `Serializable` and `ValidationException` are in `foam.lang`;
+`Logger` is `foam.core.logger.Logger`; `LifecycleState` is `foam.core.auth.LifecycleState`.
+Don't: `foam.nanos.logger.Logger`; `foam.core.FObject`; `java.util.List` spelled out inside `javaCode`
+Do:    `javaImports: [ 'foam.core.logger.Logger', 'foam.lang.ValidationException', 'java.util.List' ]`, then the short name in `javaCode` and `javaPostSet`, same-package classes included
 
 ### String-form `args:` with primitives; `javaThrows` listed
 The array form is boilerplate; boxed types allocate per call; hidden throws surprise callers.

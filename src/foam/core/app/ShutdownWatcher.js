@@ -19,7 +19,10 @@ p({
   "serviceClass": "foam.core.app.ShutdownWatcher"
 })
 
-Use Runtime.getRuntime.addShutdownHook(Runnable) to register shtudown hook
+Touch SHUTDOWN in watchDir to exit after delay seconds; touch ABORT_SHUTDOWN
+during the delay to cancel it. See ShutdownWatcher.md.
+
+Use Runtime.getRuntime().addShutdownHook(Runnable) to register a shutdown hook
 `,
 
   javaImports: [
@@ -50,11 +53,12 @@ Use Runtime.getRuntime.addShutdownHook(Runnable) to register shtudown hook
       value: 30
     },
     {
-      documentation: 'set true to abort an in-progress shudown',
-      name: 'abort',
-      class: 'Boolean',
-      value: false,
-      visibility: 'HIDDEN'
+      documentation: 'The thread waiting out the delay before exit, or null. ABORT_SHUTDOWN interrupts it.',
+      name: 'pending',
+      class: 'Object',
+      javaType: 'Thread',
+      visibility: 'HIDDEN',
+      networkTransient: true
     }
   ],
 
@@ -80,32 +84,51 @@ Use Runtime.getRuntime.addShutdownHook(Runnable) to register shtudown hook
       `
     },
     {
-      documentation: 'Request shutdown',
+      documentation: 'Request or abort a shutdown. An abort cancels only the shutdown that is waiting.',
       name: 'handleRequest',
       javaCode: `
-      if ( ABORT_SHUTDOWN.equals(request) ) {
-        Loggers.logger(x, this).warning("Shutdown abort requested.");
-        setAbort(true);
-        return;
+      Logger logger = Loggers.logger(x, this);
+      synchronized ( this ) {
+        Thread  pending = getPending();
+        boolean waiting = pending != null && pending.isAlive();
+
+        if ( ABORT_SHUTDOWN.equals(request) ) {
+          if ( ! waiting ) {
+            logger.warning("Shutdown abort requested, no shutdown pending.");
+            return;
+          }
+          logger.warning("Shutdown abort requested.");
+          setPending(null);
+          pending.interrupt();
+          return;
+        }
+
+        if ( waiting ) {
+          logger.warning("Shutdown requested, already pending.");
+          return;
+        }
+
+        logger.warning("Shutdown requested.");
+        Thread t = new Thread(this);
+        t.setName(getClass().getSimpleName());
+        t.setDaemon(false);
+        setPending(t);
+        t.start();
       }
-
-      Loggers.logger(x, this).warning("Shutdown requested.");
-
-      Thread t = new Thread(this);
-      t.setName(getClass().getSimpleName());
-      t.setDaemon(false);
-      t.start();
       `
     },
     {
       name: 'preCleanup',
       javaCode: `
-      try {
-        Path existing = Paths.get(getWatchDir(), SHUTDOWN);
-        Files.deleteIfExists(existing);
-        existing.toFile().deleteOnExit();
-      } catch ( IOException e) {
-        Loggers.logger(x, this).warning("preCleanup", e);
+      // A file left from before startup is never seen as created, and blocks the next touch.
+      for ( String name : new String[] { SHUTDOWN, ABORT_SHUTDOWN } ) {
+        try {
+          Path existing = Paths.get(getWatchDir(), name);
+          Files.deleteIfExists(existing);
+          existing.toFile().deleteOnExit();
+        } catch ( IOException e) {
+          Loggers.logger(x, this).warning("preCleanup", e);
+        }
       }
       `
     },
@@ -125,16 +148,18 @@ Use Runtime.getRuntime.addShutdownHook(Runnable) to register shtudown hook
       }
       logger.warning("ShutdownWatcher", sb.toString());
       try {
-        Thread.currentThread().sleep(getDelay() * 1000);
-        if ( getAbort() ) {
-          logger.warning("ShutdownWatcher", "Shutdown aborted");
-        } else {
-          logger.warning("ShutdownWatcher", "Shutdown now");
-          System.exit(0);
+        Thread.sleep(getDelay() * 1000L);
+        synchronized ( this ) {
+          // An abort between waking and here clears pending without the interrupt landing in sleep.
+          if ( getPending() != Thread.currentThread() ) {
+            logger.warning("ShutdownWatcher", "Shutdown aborted");
+            return;
+          }
         }
+        logger.warning("ShutdownWatcher", "Shutdown now");
+        System.exit(0);
       } catch (InterruptedException e) {
-        // cancel shutdown
-        logger.warning("ShutdownWatcher", "Shutdown interrupted");
+        logger.warning("ShutdownWatcher", "Shutdown aborted");
       }
       `
     }

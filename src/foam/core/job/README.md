@@ -167,9 +167,9 @@ Reaching `jobDAO` from a browser needs the `service.jobDAO` permission granted t
 group, plus `job.create.<full class id>` for each Job class the user may submit; those grants
 are an application concern, not declared here.
 
-`com.paytic.flow.matcher.MatchAgent` is the worked example in this codebase: it extends `Job`,
-and names both of its DAOs by key so that it can run detached from the request that submitted
-it.
+`foam.core.job.ShellJob` is the worked example in this codebase: it extends `Job`, writes each
+line of its subprocess's output with `out()`, sets `progress` when a line reports it, and calls
+`save(x)` after each line so a polling client sees it.
 
 ### Concurrency
 

@@ -51,6 +51,7 @@ foam.POM({
     { name: "cron/RenewRuleHistoryCron" },
     { name: "test/DummyErroneousPredicate",                            flags: "test" },
     { name: "test/RulerDAOTest",                                       flags: "test" },
-    { name: "test/RulerCacheEvictionTest",                             flags: "test" }
+    { name: "test/RulerCacheEvictionTest",                             flags: "test" },
+    { name: "test/RuleEngineFinishedRequestTest",                      flags: "test" }
   ]
 });

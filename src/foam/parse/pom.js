@@ -40,6 +40,7 @@ foam.POM({
     { name: "lint/GrammarLint",                                   flags: "js&test|grammarlint" },
     { name: "test/FScriptParserTestUser",                         flags: "js&test|java&test" },
     { name: "test/FScriptParserTest",                             flags: "js&test|java&test" },
+    { name: "test/FScriptParserCacheTest",                        flags: "js&test|java&test" },
     { name: "test/QueryParserJSTest",                             flags: "js&test|java&test" },
     { name: "test/QueryParserUserTest",                           flags: "js&test|java&test" },
     { name: "test/SimpleQueryParserTest",                         flags: "js&test|java&test" },

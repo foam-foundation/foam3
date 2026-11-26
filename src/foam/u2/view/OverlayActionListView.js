@@ -118,6 +118,9 @@ foam.CLASS({
       gap: 4px;
       flex-direction: column;
     }
+    <<spinner {
+      padding: 1em;
+    }
     <<disabled button {
       color: $buttonSecondaryColor$disabled$foreground;
     }
@@ -258,7 +261,7 @@ foam.CLASS({
     async function initializeOverlay(x, y) {
       var self = this;
       this.overlayInitialized_ = true;
-      var spinner = this.E().style({ padding: '1em' }).tag(self.LoadingSpinner, { size: 24 });
+      var spinner = this.E().addClass(self.myClass('spinner')).tag(self.LoadingSpinner, { size: 24 });
       this.overlay_.add(spinner).addClass(self.myClass('dropdownContainer'));
       // Add the overlay to the controller so if the table is inside a container
       // with `overflow: hidden` then this overlay won't be cut off.

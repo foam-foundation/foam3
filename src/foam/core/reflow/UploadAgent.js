@@ -8,10 +8,20 @@ foam.CLASS({
   package: 'foam.core.reflow',
   name: 'UploadAgent',
 
-  implements: [ 'foam.lang.ContextAgent' ],
+  extends: 'foam.core.job.Job',
+
+  documentation: `One batch of rows of an upload, run as a Job on the server.
+
+    The browser used to send each batch through dao.cmd(), a request that the
+    gateway times out after 60 seconds and then retries. When the target table
+    was cold, loading it took longer than that, so the retried request stored
+    the same batch a second time. As a Job, the submit only stores the batch in
+    the jobDAO and returns, and a resent submit finds the same Job (the sender
+    gives it a fixed id) and runs nothing twice.`,
 
   javaImports: [
     'foam.dao.DAO',
+    'foam.core.boot.CSpec',
     'java.io.ByteArrayInputStream',
     'java.io.ByteArrayOutputStream',
     'java.util.zip.GZIPInputStream',
@@ -103,6 +113,13 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'processed'
+    },
+    {
+      class: 'String',
+      name: 'daoKey',
+      documentation: `Name of the served DAO the rows go to, the name its service is registered under,
+        such as 'fooDAO'. The sender fills it in. Empty means the page that sent the batch is older
+        than this server.`
     }
   ],
 
@@ -178,19 +195,60 @@ foam.CLASS({
     },
 
     {
+      name: 'resolveDAO',
+      type: 'foam.dao.DAO',
+      documentation: `Find the DAO the rows go to, and check that the user who submitted the batch may
+        reach it, exactly as the request that used to carry the batch would have been checked:
+        service.<daoKey>. Reads cSpecDAO directly, not AuthenticatedCSpecDAO, which would also demand
+        service.read.<daoKey>.`,
+      args: 'X x',
+      javaCode: `
+        if ( foam.util.SafetyUtil.isEmpty(getDaoKey()) )
+          throw new RuntimeException("This page or client is older than the server. Reload and upload again.");
+
+        CSpec  spec = (CSpec) ((DAO) x.get("cSpecDAO")).find(getDaoKey());
+        Object svc  = x.get(getDaoKey());
+        if ( spec != null && spec.getServe() && svc instanceof DAO ) {
+          spec.checkAuthorization(x);
+          return ((DAO) svc).inX(x);
+        }
+        DAO dao = resolveUnservedDAO(x);
+        if ( dao == null ) throw new RuntimeException("No served DAO named " + getDaoKey());
+        return dao;
+      `
+    },
+    {
+      name: 'resolveUnservedDAO',
+      type: 'foam.dao.DAO',
+      documentation: `Extension point for a DAO that is not a served CSpec, such as one created at runtime.
+        An application refines this to find it. Returns null when there is none, which is what the
+        default does.`,
+      args: 'X x',
+      javaCode: `
+        return null;
+      `
+    },
+    {
       name: 'execute',
       javaCode: `
-        DAO dao = ((DAO) x.get("AGENTDAO"));
-        foam.lang.FObject[] data = getData(); // This will trigger decompression via javaFactory
-        for ( int i = 0 ; i < data.length ; i++ ) {
-          var d = data[i];
-          dao.put(d);
+        try {
+          DAO dao = resolveDAO(x);
+          foam.lang.FObject[] data = getData(); // This will trigger decompression via javaFactory
+
+          // A batch whose payload is gone would otherwise complete with nothing stored.
+          if ( data.length == 0 ) throw new RuntimeException("UploadAgent received no rows");
+
+          for ( int i = 0 ; i < data.length ; i++ ) {
+            dao.put(data[i]);
+          }
+          setProcessed(data.length);
+        } finally {
+          // The Job stays in the jobDAO after it ends; do not keep thousands of rows with it.
+          // data is set to an empty array rather than cleared: a cleared data reruns its factory
+          // the next time the stored Job is read, which logs "No compressed data" once per batch.
+          clearProperty("compressed");
+          setData(new foam.lang.FObject[0]);
         }
-        // Clear compressed data to avoid sending back to client
-        clearProperty("compressed");
-        // Reset transient data property
-        clearProperty("data");
-        setProcessed(data.length);
       `
     }
   ]

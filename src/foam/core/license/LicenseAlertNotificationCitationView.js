@@ -1,19 +1,8 @@
 /**
-* PAYTIC CONFIDENTIAL
-*
-* [2026] Paytic Inc.
-* All Rights Reserved.
-*
-* NOTICE:  All information contained herein is, and remains
-* the property of Paytic Inc.
-* The intellectual and technical concepts contained
-* herein are proprietary to Paytic Inc
-* and may be covered by Canadian and Foreign Patents, patents
-* in process, and are protected by trade secret or copyright law.
-* Dissemination of this information or reproduction of this material
-* is strictly forbidden unless prior written permission is obtained
-* from Paytic Inc.
-*/
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
 
 foam.CLASS({
   package: 'foam.core.license',
@@ -57,8 +46,6 @@ foam.CLASS({
   package: 'foam.core.license',
   name: 'LicenseAlertNotificationMessageModal',
   extends: 'foam.core.notification.NotificationMessageModal',
-
-  requires: [ 'foam.u2.HTMLView' ],
 
   messages: [
     {
@@ -113,7 +100,7 @@ foam.CLASS({
         .start(this.Rows)
           .addClass(this.myClass('container'))
             .start().addClass('p-bold').add(this.MESSAGE_MSG).end()
-            .start(this.HTMLView, { data$: this.description$ }).addClass(this.myClass('message')).end()
+            .start().addClass(this.myClass('message')).add(this.description$).end()
         .end()
         .startContext({data: this})
           .start(this.GO_TO_LICENSE) // Link to the License

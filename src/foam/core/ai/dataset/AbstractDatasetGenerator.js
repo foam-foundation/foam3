@@ -28,13 +28,10 @@ foam.CLASS({
     'foam.ai.llm.LLMResponse',
     'foam.ai.llm.LLMService',
     'foam.dao.DAO',
-    'java.nio.charset.StandardCharsets',
-    'java.security.MessageDigest',
     'java.util.ArrayList',
     'java.util.Arrays',
     'java.util.Collections',
     'java.util.HashMap',
-    'java.util.HexFormat',
     'java.util.List',
     'java.util.Map',
     'org.json.JSONArray',
@@ -138,9 +135,21 @@ foam.CLASS({
         so no single large file (e.g. a JRL with hundreds of entries) dominates
         the dataset. The shuffle is applied before truncation so the sample is
         not always biased toward the top of the file.
+        Files matching any entry in noChunkCapPaths are exempt from this limit.
       `,
       value: 0
-    }
+    },
+    {
+      class: 'StringArray',
+      name: 'noChunkCapPaths',
+      documentation: `
+        Path substrings whose matching files are exempt from maxChunksPerFile.
+        Use this for high-value files where every entry matters, e.g. services.jrl
+        which contains unique CSpec patterns that should all be represented.
+      `,
+      factory:     function() { return []; },
+      javaFactory: `return new String[0];`
+    },
   ],
 
   methods: [
@@ -221,10 +230,16 @@ foam.CLASS({
 
         int maxChunks = getMaxChunksPerFile();
         if ( maxChunks > 0 && chunks.length > maxChunks ) {
-          List<String> cl = new ArrayList<>(Arrays.asList(chunks));
-          Collections.shuffle(cl);
-          chunks = cl.subList(0, maxChunks).toArray(new String[0]);
-          System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+          boolean exempt = false;
+          for ( String p : getNoChunkCapPaths() ) {
+            if ( item.contains(p) ) { exempt = true; break; }
+          }
+          if ( ! exempt ) {
+            List<String> cl = new ArrayList<>(Arrays.asList(chunks));
+            Collections.shuffle(cl);
+            chunks = cl.subList(0, maxChunks).toArray(new String[0]);
+            System.out.println("[DatasetGenerator] " + item + " — sampled " + maxChunks + "/" + cl.size() + " chunks");
+          }
         }
 
         LLMService llm = (LLMService) x.get("llmService");
@@ -267,6 +282,13 @@ foam.CLASS({
       javaCode: `throw new UnsupportedOperationException("override buildSystemPrompt()");`
     },
     {
+      documentation: 'Build the user prompt sent to the LLM. Override to enrich with retrieved context or other signals.',
+      name: 'buildPrompt_',
+      type: 'String',
+      args: 'Context x, String chunk, String item, String category',
+      javaCode: `return "[category: " + category + "\\nSource chunk from " + item + ":\\n\\n" + chunk;`
+    },
+    {
       name: 'callLLM_',
       type: 'String',
       args: 'Context x, String chunk, String item, String category, LLMService llm',
@@ -279,7 +301,7 @@ foam.CLASS({
 
         CompletionRequest req = new CompletionRequest();
         req.setOptions(opts);
-        req.setPrompt("[category: " + category + "]\\nSource chunk from " + item + ":\\n\\n" + chunk);
+        req.setPrompt(buildPrompt_(x, chunk, item, category));
 
         LLMResponse resp = llm.complete(x, req);
 
@@ -347,16 +369,15 @@ foam.CLASS({
             continue;
           }
 
-          String id = hash_(instruction + output);
-          if ( dao.find(id) != null ) continue;
-
           AlpacaSample sample = new AlpacaSample();
-          sample.setId(id);
           sample.setInstruction(instruction);
           sample.setInput(input);
           sample.setOutput(output);
           sample.setSourceFile(sourceId);
           sample.setCategory(category);
+
+          // id is AlpacaSample's javaFactory hash of instruction + output
+          if ( dao.find(sample.getId()) != null ) continue;
 
           dao.put(sample);
           count++;
@@ -395,20 +416,6 @@ foam.CLASS({
         for ( int i = 0; i + 1 < patterns.length; i += 2 )
           text = text.replace(patterns[i], patterns[i + 1]);
         return text;
-      `
-    },
-    {
-      name: 'hash_',
-      type: 'String',
-      args: 'String text',
-      javaCode: `
-        try {
-          MessageDigest md    = MessageDigest.getInstance("SHA-256");
-          byte[]        bytes = md.digest(text.getBytes(StandardCharsets.UTF_8));
-          return HexFormat.of().formatHex(bytes).substring(0, 16);
-        } catch ( Exception e ) {
-          throw new RuntimeException("SHA-256 unavailable", e);
-        }
       `
     },
   ]

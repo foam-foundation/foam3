@@ -31,8 +31,19 @@ foam.CLASS({
     {
       class: 'Int',
       name: 'maxHistory',
-      documentation: 'Max messages to retain. Older messages are trimmed in pairs.',
+      documentation: 'Messages kept after a cut; the oldest go first.',
       value: 50
+    },
+    {
+      class: 'Int',
+      name: 'maxOverflow',
+      documentation: `How many messages past maxHistory the history may grow before it is cut back
+        to maxHistory in one step. A model that caches the start of its prompt, as server APIs do,
+        reuses that start only while it stays the same, so cutting once every few turns keeps most
+        calls cheap. With maxHistory 6 and maxOverflow 6 the history grows to 12 messages, then
+        drops to the last 6. Set 0 for a model that reruns the whole prompt on every call: there
+        only a shorter prompt saves time, so the history is cut every turn.`,
+      expression: function(maxHistory) { return Math.floor(maxHistory / 2); }
     }
   ],
 
@@ -58,10 +69,9 @@ foam.CLASS({
         options:  request.options
       }));
 
-      this.history.push(this.ChatMessage.create({
-        role:    'ASSISTANT',
-        content: response.content
-      }));
+      // the turn keeps its tool calls and thinking, or the next request sends the
+      // results of calls the model never made, which the provider refuses
+      this.history.push(response.toMessage());
 
       this.trimHistory_();
       return response;
@@ -72,7 +82,7 @@ foam.CLASS({
     },
 
     function trimHistory_() {
-      if ( this.history.length > this.maxHistory ) {
+      if ( this.history.length > this.maxHistory + this.maxOverflow ) {
         this.history = this.history.slice(this.history.length - this.maxHistory);
       }
     }

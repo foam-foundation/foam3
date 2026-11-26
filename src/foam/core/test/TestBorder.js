@@ -73,13 +73,23 @@ foam.CLASS({
       visibility: 'HIDDEN'
     },
     {
+      documentation: 'Intended for remote automation - comma separated test suites to run, matched against Test.testSuite',
+      name: 'suites',
+      class: 'String',
+      memorable: true,
+      visibility: 'HIDDEN'
+    },
+    {
       name: 'dao',
       visibility: 'HIDDEN',
-      expression: function(testRunId, language, filter) {
+      expression: function(testRunId, language, filter, suites) {
         var d = this.data;
         d = d.where(this.EQ(foam.core.test.Test.ENABLED, true));
         if ( this.testRunId ) {
           d = d.where(this.EQ(foam.core.test.Test.LANGUAGE, this.language));
+          if ( this.suites ) {
+            d = d.where(this.IN(foam.core.test.Test.TEST_SUITE, this.suites.split(',')));
+          }
           if ( this.filter ) {
             d = d.where(this.IN(foam.core.test.Test.ID, this.filter.split(',')));
           }

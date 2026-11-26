@@ -67,11 +67,11 @@ obj.computedValue = undefined; // Expression becomes reactive again
 ```javascript
 // Auto-binds to data properties
 this.add(function(firstName, lastName) {
-  this.start('div').add(`Name: ${firstName} ${lastName}`).end();
+  this.start().add(`Name: ${firstName} ${lastName}`).end();
 });
 
 // For properties of the view itself, use this.dynamic() directly
-this.start('div')
+this.start()
   .add(this.dynamic(function(myProp, otherProp) {
     this.add(`Values: ${myProp} ${otherProp}`);
   }))

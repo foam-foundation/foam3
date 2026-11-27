@@ -23,7 +23,14 @@ foam.CLASS({
 
     A Job that is RUNNING is not guarded. A Job legitimately writes itself while
     running (SuspendableJob puts SUSPENDING), and its own runner saves again when
-    it ends.`,
+    it ends.
+
+    The resend can arrive while the runner saves COMPLETED. The RulerDAO reads the
+    old Job before any rule runs, so that old Job can still say RUNNING when the
+    stored one already says COMPLETED. The rule therefore sets requiresLock, which
+    holds the jobDAO's lock from here until the write, and checks the Job it reads
+    from the store under that lock, not oldObj. The runner's saves are updates too,
+    so they wait on the same lock.`,
 
   javaImports: [
     'foam.lang.PropertyInfo'
@@ -33,13 +40,14 @@ foam.CLASS({
     {
       name: 'applyAction',
       javaCode: `
-        Job old = (Job) oldObj;
         if ( ( (Job) obj ).getStatus() != JobStatus.SCHEDULED ) return;
-        if ( old.getStatus() != JobStatus.COMPLETED && old.getStatus() != JobStatus.FAILED ) return;
+        Job stored = (Job) ruler.getDelegate().find_(x, obj);
+        if ( stored == null ) return;
+        if ( stored.getStatus() != JobStatus.COMPLETED && stored.getStatus() != JobStatus.FAILED ) return;
 
         for ( Object o : obj.getClassInfo().getAxiomsByClass(PropertyInfo.class) ) {
           PropertyInfo p = (PropertyInfo) o;
-          if ( p.isSet(oldObj) ) p.set(obj, p.get(oldObj));
+          if ( p.isSet(stored) ) p.set(obj, p.get(stored));
           else                   p.clear(obj);
         }
       `

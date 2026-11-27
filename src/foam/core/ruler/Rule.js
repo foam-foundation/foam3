@@ -160,7 +160,7 @@ foam.CLASS({
       name: 'requiresLock',
       readPermissionRequired: true,
       writePermissionRequired: true,
-      documentation: `Defines if the rule needs to be executed under lock to prevent concurrent operations. Only works with the CREATE operation on before actions.`
+      documentation: `Defines if the rule needs to be executed under lock to prevent concurrent operations. Only works on before actions of a put, create or update: the RulerDAO holds the lock until the write is done.`
     },
     {
       class: 'Boolean',

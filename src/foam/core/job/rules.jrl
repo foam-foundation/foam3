@@ -26,6 +26,7 @@ p({
   "daoKey": "jobDAO",
   "operation": 1,
   "after": false,
+  "requiresLock": true,
   "action": {
     "class": "foam.core.job.KeepFinishedJobRuleAction"
   },

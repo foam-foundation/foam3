@@ -55,8 +55,15 @@ foam.CLASS({
 
     function visible(el) { return getComputedStyle(el).display !== 'none'; },
 
-    async function redraw() {
+    async function redraw(done) {
+      // A legend click redraws on the next animation frame, which a busy test
+      // browser can delay well past 30 ms. Wait until done() says the redraw
+      // has happened, for up to a second. Without done(), as when a click
+      // must change nothing, wait 30 ms and look.
       await new Promise(function(r) { setTimeout(r, 30); });
+      for ( var i = 0 ; done && ! done() && i < 50 ; i++ ) {
+        await new Promise(function(r) { setTimeout(r, 20); });
+      }
     },
 
     function fire(target, type, clientX, clientY) {
@@ -182,12 +189,12 @@ foam.CLASS({
       x.test(this.all(el, chart, 'grid').length === 0, 'Axes: showGridLines off draws no grid lines');
 
       items[0].click();
-      await this.redraw();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 1; }.bind(this));
       x.test(this.all(el, chart, 'bar').length === 1, 'Legend: clicking Cash hides its bar');
       items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
       x.test(items[0].classList.contains(this.legendClass('hidden')), 'Legend: a hidden entry is struck through');
       items[0].click();
-      await this.redraw();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 2; }.bind(this));
       x.test(this.all(el, chart, 'bar').length === 2, 'Legend: clicking it again brings the bar back');
       this.unmount(chart);
 
@@ -214,7 +221,7 @@ foam.CLASS({
 
       var legend = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
       legend[2].click();
-      await this.redraw();
+      await this.redraw(function() { return this.all(el, chart, 'slice').length === 2; }.bind(this));
       x.test(this.all(el, chart, 'slice').length === 2, 'Pie: clicking Plums in the legend hides its slice');
       x.test(chart.percent(0) === '50.0%', 'Pie: shares are of the visible slices, so Apples becomes 50.0%. Got ' + chart.percent(0));
 

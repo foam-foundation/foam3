@@ -17,6 +17,12 @@ foam.POM({
     { name: "IPAccessAddSink",
       flags: "java" },
     { name: "JettyThreadPoolConfig",
-      flags: "js|java" }
+      flags: "js|java" },
+    { name: "test/BindAddressTest",
+      flags: "java&test" }
+  ],
+  journalFiles: [
+    { name: "test/tests",
+      flags: "test" }
   ]
 })

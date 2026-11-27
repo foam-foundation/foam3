@@ -79,16 +79,15 @@ foam.CLASS({
           }
         }
       }
-      if ( ! SafetyUtil.isEmpty(file.getDataString()) ) {
-        return getDelegate().put_(x, obj);
-      }
-
+      // filesize is what the sender claimed, so it is reset to the size of the bytes received.
+      // A file sent as a base64 dataString counts too: getData() decodes it, so a record
+      // claiming 10 bytes with 2,100,000 bytes of data is stored as 2,100,000.
       Blob blob = file.getData();
-      if ( blob == null ) {
+      if ( blob != null && file.getFilesize() != blob.getSize() ) file.setFilesize(blob.getSize());
+
+      if ( ! SafetyUtil.isEmpty(file.getDataString()) || blob == null ) {
         return getDelegate().put_(x, obj);
       }
-
-      if ( file.getFilesize() != blob.getSize() ) file.setFilesize(blob.getSize());
       // save to data string
       if ( file.getFilesize() <= getMaxStringDataSize() ) {
         try {

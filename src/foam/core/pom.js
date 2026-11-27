@@ -103,6 +103,7 @@ foam.POM({
     { name: "fs/test/WatcherTest",                                                        flags: "js&test|java&test" },
     { name: "fs/test/SourceWatcherTest",                                                  flags: "js&test|java&test" },
     { name: "fs/test/SourceWatcherBenchmark",                                             flags: "js&test|java&test" },
+    { name: "fs/test/FileDataDAOTest",                                                    flags: "js&test|java&test" },
     { name: "fs/fileDropZone/FileDropZone",                                               flags: "web" },
     { name: "fs/fileDropZone/FilePreview",                                                flags: "web" },
     { name: "fs/fileDropZone/FileCard",                                                   flags: "web" },

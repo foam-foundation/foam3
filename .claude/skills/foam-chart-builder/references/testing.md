@@ -9,6 +9,8 @@ The chart tests are client tests (`JSTest`). They draw the chart into the page a
 
 Before a build, check each test file you changed parses: `node --check src/foam/u2/chart/test/ChartViewTest.js`. A test file that does not parse stops the test pom from loading; `build.sh` then runs no tests and still exits 0. A log with no `PASSED:` line is a failed run.
 
+A browser test cannot read Java-only keys such as `javaFactory` or `javaCode`; to check a field reaches Java, check `generateJava !== false`. "Access missing import: dao" lines for every chart agent in the log are not a failure. The log prints a capped number of lines; trust the `PASSED:` count.
+
 `CSSAuditTest` is a server test: `./build.sh -W9090 server-tests:CSSAuditTest`. Listed under `client-tests` it is skipped with "Test not run", and the run exits 1 although nothing failed.
 
 The `foam-test-builder` skill covers registering a test and reading results.

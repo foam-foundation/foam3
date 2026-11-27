@@ -60,11 +60,13 @@ foam.CLASS({
    - Add a class with `self.myClass('dot')`, so tests and CSS can find them.
    - Give the colour as an attribute: `.attrs({ fill: self.seriesColor(s.i, j) })`.
    - Build a path with `self.SVGPath.create().moveTo(...).lineTo(...).close()`; the result goes in `d`.
+   - **Text on a mark** picks dark or light with `foam.Color.getBestForeground(fill, dark, light)` (`color/colorlib.js:287`), the two colours read from text tokens so a theme switch follows. Fit text to the mark's width at the text's own top and bottom lines: on a tapered mark, the narrow end alone hides labels that fit.
 5. **Hover.** Use `.on('mousemove', evt => self.showTooltip(evt, title, rows, footer))` and `.on('mouseleave', self.hideTooltip)`. Each row is `{ color, label, value }`, written as "label: value", with the value passed through `formatValue`.
    - When `showTooltipSum` is on, the footer is `this.sumLine(values)`.
    - **Small or overlapping marks** need a bigger target, so the pointer always lands on something:
      - with categories, put one transparent hit shape per category on top, as `BarChart` does (`BarChart.js:159-177`);
      - with free points such as dots, give each mark a wide transparent stroke (`stroke: transparent; stroke-width: 8px`).
+     - never one transparent shape over the whole chart: it takes every pointer event, so a test or script that looks for the mark under the pointer never finds it. Put the handlers on the marks.
 6. **Click.** Declare a `Function` property with `value: null`, for example `onPointClick(datasetIndex, index, event)`, and call it only when it is set. Without `value: null` it defaults to an empty function (`lang/types.js:471-472`), so a `<<clickable` class bound to `onX$.map(f => !! f)` would show the pointer on a chart nobody can click (`BarChart.js:36-38`, `:64-72`, `:79`).
 
 Value ticks come from `LinearScale.nice()`, which rounds the step up to 1, 2 or 5 times a power of ten (`LinearScale.js:75`). So 0 to 100 asked for 4 steps gets a step of 50 (0, 50, 100), not 25. In a test, read the ticks the scale returns; do not work them out by hand.

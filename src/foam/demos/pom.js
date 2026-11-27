@@ -63,7 +63,6 @@ foam.POM({
 
     { name: 'cartesian/Cartesian',                   flags: 'js' },
 
-
     { name: 'clock/Clock',                           flags: 'js' },
 
     { name: 'counter/Counter',                       flags: 'js' },

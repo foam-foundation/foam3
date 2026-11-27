@@ -4,13 +4,13 @@
 
 1. **The view.** Add a property to the chart class, or to `Dataset` or `LineDataset` when it differs per series.
    - Give it `documentation` that says what it does in one example. Put the default in `value:`.
-   - Read it in `drawChart`. A redraw happens on its own when `labels`, `datasets`, `hidden_` or the size change (`ChartView.js:210-217`).
+   - Read it in `drawChart`. A redraw happens on its own when `labels`, `datasets`, `hidden_` or the size change (`ChartView.js:211-218`).
    - **An option that changes after the first draw:** the base view does not watch other properties. Read it inside a `dynamic` of your own, or have the dashboard rebuild the chart. A sink's `chart_` expression builds a new view whenever one of its parameters changes.
 2. **The dashboard form,** if a flow should set it. In the sink (`core/reflow/dashboard/DashboardSinks.js`):
    - Add a property with a `label`. Add `help` when the name does not say enough.
    - Add its name to one of the `sections` (`DashboardSinks.js:263-272` on the pie).
    - Add it as a parameter of the `chart_` expression and pass it to `create` (`DashboardSinks.js:343-398`).
-   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-289`).
+   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-338`).
 3. **A test.** Add a case to `ChartViewTest`, plus `DashboardChartRenderTest` when the form field was added (`references/testing.md`).
 
 ## Rename, move or drop an option
@@ -18,7 +18,7 @@
 A saved flow holds the agent class, and the props it had when it was saved. Old flows must keep loading.
 
 - **Never rename** a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. A flow saved with the old name fails to load.
-- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:531-582`):
+- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:580-631`):
   ```js
   { name: 'cutoutPercentage', hidden: true, transient: true,
     setter: function(v) { this.displaySink.cutoutPercentage = v; } }
@@ -34,7 +34,7 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
 | stacked lines | `LineChart.stack_`: every line gets a point at every x, its y the running total and `own` its value; bands are drawn top-first and opaque, each down to the axis, so the lower band covers the upper one |
 | line shape: tension, steps, fill, dots | `LineDataset` properties, then `LineChart.drawChart` |
 | pie slices, hole, start angle | `PieChart.drawChart` and `slicePath` (`PieChart.js:138-161`) |
-| tick count, tick spacing, label turning | constants in `CartesianChartView` (`CartesianChartView.js:24-105`) |
+| tick count, tick spacing, label turning | constants in `CartesianChartView` (`CartesianChartView.js:26-107`) |
 | tick labels for dates | `TimeUnit` and `TimeScale` |
 | how a kind of x axis behaves | its value in `XAxisType` (`XAxisType.js:52-90`) |
 | tooltip text | the chart's `show*Tooltip_` method, which builds rows for `showTooltip` |
@@ -47,6 +47,6 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
 This belongs to the sink, not the view.
 - The sink groups rows: `TopNGroupBy` for a bar or pie, `GridBy` for a stacked bar or multi-line.
 - `chart_` turns the groups into `labels` and `datasets`.
-- The sink totals with `buildTotal_()`, using the form's Sum or Count (`DashboardDAOAgents.js:251-260`).
+- The sink totals with `buildTotal_()`, using the form's Sum or Count (`DashboardDAOAgents.js:265-274`).
 
 A wrong total is fixed in the sink. A wrong picture of a right total is fixed in the view.

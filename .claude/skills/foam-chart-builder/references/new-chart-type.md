@@ -4,8 +4,8 @@ Follow `src/foam/u2/chart/PieChart.js`. It is the smallest complete chart: no ax
 
 ## 1. Pick the base
 
-- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:225`); write labels with `truncate(s, maxPx)` (`ChartView.js:292`).
-- **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:120-232`).
+- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:277`); write labels with `truncate(s, maxPx)` (`ChartView.js:293`).
+- **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:122-284`).
 - **An existing chart type** when the new one is a variant of it. A stacked bar is `BarChart` with `stacked: true`, not a new class.
 - **A subclass of a chart** when the new one adds to it: a bubble is a scatter whose dots have a size. Override small hook methods the parent calls (how to read a point, a dot's radius, the tooltip rows) instead of copying its `drawChart`; add those hooks to the parent if it has none. The parent's `css:` is expanded again under the subclass's own name, so `<<dot` becomes `.foam-u2-chart-BubbleChart-dot` (`u2/CSS.js:76-80`, one copy per `cls.id`), and `myClass()` returns the subclass's name, never the parent's (`u2/Element2.js:947-960`). A test passes the subclass view: `this.all(el, bubble, 'dot')`.
 
@@ -51,8 +51,9 @@ foam.CLASS({
 
 1. **Keep only the visible series:** `this.datasets.map((ds, i) => ({ ds, i })).filter(s => ! this.isHidden(s.i))` (`BarChart.js:79-84`). Keep `i`, the dataset index, for colours and the legend.
 2. **Work out the domain and build the scales.**
-   - **One category axis and one value axis** (bars, lines): call `layoutForValues(w, h, catLabels, horizontal, makeScale, listTicks)` (`CartesianChartView.js:151-167`). It sizes the value axis from the plot size and returns `{ area, scale }`.
-   - **Two value axes** (a scatter): `layoutForValues` sizes only one and cannot be reused. Call `layout(w, h, xLabels, yLabels)` (`CartesianChartView.js:120-148`) yourself, twice, copying its two-pass logic. The first pass uses `FIRST_LAYOUT_TICKS` steps on both axes. The second uses the tick counts that the first pass's plot size allows. x labels are wider than y labels, so give the x axis its own spacing constant: `VALUE_TICK_PX` (40) crowds them.
+   - **One category axis and one value axis** (bars, lines): call `layoutForValues(w, h, catLabels, horizontal, makeScale, listTicks)` (`CartesianChartView.js:153-169`). It sizes the value axis from the plot size and returns `{ area, scale }`.
+   - **Two value axes** (a scatter): `layoutForValues` sizes only one and cannot be reused. Call `layout(w, h, xLabels, yLabels)` (`CartesianChartView.js:122-150`) yourself, twice, copying its two-pass logic. The first pass uses `FIRST_LAYOUT_TICKS` steps on both axes. The second uses the tick counts that the first pass's plot size allows. x labels are wider than y labels, so give the x axis its own spacing constant: `VALUE_TICK_PX` (40) crowds them.
+   - **A second value axis on the right** (bars and a line with their own units): narrow the width passed to `layoutForValues` by that axis's room (its widest label, its title, the gaps), lay out once with a first guess at its ticks, size the axis from that plot's height, then lay out again. Draw the axis yourself at the plot's right edge. `ComboChart` does this (`ComboChart.js:128-140`, `:155-165`, `drawLineAxis_` at `:230`); its left title goes through the `yTitle_()` hook (`CartesianChartView.js:229-233`), so it can leave with the bars.
    - `layout()` returns `{ left, top, width, height, rotate, every, xMax, yMax, w, h }`, and `drawAxes` needs all of it.
    - A `LinearScale` needs `min`, `max` and `tickCount` before `nice()` and `ticks()` (`LinearScale.js:13-15`). It also needs `start` and `end`, the pixel ends, before `map()`. Point the scales at the plot area: `scale.start = area.top + area.height; scale.end = area.top` (`BarChart.js:116-122`).
 3. **Draw the axes:** `this.drawAxes(svg, area, xTicks, yTicks)`, with ticks as `[{ pos, label }]` in pixels (`BarChart.js:124-126`).
@@ -79,9 +80,9 @@ Value ticks come from `LinearScale.nice()`, which rounds the step up to 1, 2 or 
 ## 4. Legend
 
 - **Default:** one entry per dataset, and a click hides that dataset.
-- **One entry per value, as on a pie:** override `legendItems()` to return `[{ label, color, hidden }]`, and check `isHidden(j)` per value while drawing (`PieChart.js:112-123`). Colour each value with `valueColor(j)` (`ChartView.js:251`): override `seriesColor` to return it, as `PieChart` does (`PieChart.js:133-136`), so the legend and the marks agree.
+- **One entry per value, as on a pie:** override `legendItems()` to return `[{ label, color, hidden }]`, and check `isHidden(j)` per value while drawing (`PieChart.js:112-123`). Colour each value with `valueColor(j)` (`ChartView.js:252`): override `seriesColor` to return it, as `PieChart` does (`PieChart.js:133-136`), so the legend and the marks agree.
 - **A side legend needing a width:** override `styleLegend` (`PieChart.js:125-131`).
-- **A colour scale instead of entries,** as on a heatmap: return `[]` from `legendItems()` and draw the scale inside `styleLegend(legend, vertical)`, which runs on the legend element (`ChartView.js:200`, `:226-232`).
+- **A colour scale instead of entries,** as on a heatmap: return `[]` from `legendItems()` and draw the scale inside `styleLegend(legend, vertical)`, which runs on the legend element (`ChartView.js:201`, `:226-232`).
 - **Something on legend hover:** override the `onLegendHover(i, evt)` listener. It gets `-1` when the pointer leaves (`PieChart.js:203-210`).
 
 ## 5. Animation

@@ -5,14 +5,14 @@ Three pieces put a chart in a flow:
 2. An **agent** holds the sink's form and gives each run a fresh sink.
 3. A **row** in `agents.jrl` lists the agent in the picker.
 
-Copy the pie: `DashboardPieSink` (`core/reflow/dashboard/DashboardSinks.js:251-441`) and `DashboardPieChartDAOAgent` (`DashboardDAOAgents.js:509-597`).
+Copy the pie: `DashboardPieSink` (`core/reflow/dashboard/DashboardSinks.js:251-441`) and `DashboardPieChartDAOAgent` (`DashboardDAOAgents.js:517-605`).
 
 ## 1. The sink (DashboardSinks.js)
 
 - **`extends`:** the grouping sink whose result the chart draws.
   - `foam.mlang.sink.TopNGroupBy` gives one value per group, keeps the top N by value and folds the rest into "Others" (bar, pie).
   - `foam.mlang.sink.GroupBy` gives one value for every group, in key order: for a chart whose order is the key's, such as hours on a waterfall.
-  - `foam.core.reflow.GridBy` gives a value per row and column (stacked bar, multi-line). A chart keyed by two fields, such as a heatmap, copies `DashboardStackedBarSink` and its agent (`DashboardSinks.js:446`, `DashboardDAOAgents.js:408`).
+  - `foam.core.reflow.GridBy` gives a value per row and column (stacked bar, multi-line). A chart keyed by two fields, such as a heatmap, copies `DashboardStackedBarSink` and its agent (`DashboardSinks.js:446`, `DashboardDAOAgents.js:416`).
   - **Every raw value per group** (a box plot needs the numbers, not a total): a `GridBy` whose accumulator is a `foam.mlang.sink.Plot`. `Plot` keeps each value as a one-entry list `[ value ]` and has Java, so it runs on the server (`mlang/sink/Plot.js:9-35`).
   - A date field groups through the expressions in `foam/mlang/expr/DateTo*Expr.js`: hour (`DateToHHExpr`), day, week, month, quarter, year and day of year. There is no day of the week. The hour is zero-padded ("08"), so sorted keys are in hour order (`DateToHHExpr.js:33`).
 - **`mixins`:** `ChartDisplayMixin` adds the shared form fields: height, legend, tooltips and animation. `ColorMappingMixin` adds `colors`.
@@ -38,13 +38,13 @@ A grouping sink (`GroupBy`, `GridBy`) is `Serializable`, so the select runs it o
 
 ### A chart with one mark per row
 
-A chart with one mark per row (a scatter, a calendar) does no grouping. Copy `DashboardCalendarSink` and its agent `DashboardCalendarChartDAOAgent` instead (`DashboardSinks.js:1765-1892`, `DashboardDAOAgents.js:814-897`):
+A chart with one mark per row (a scatter, a calendar) does no grouping. Copy `DashboardCalendarSink` and its agent `DashboardCalendarChartDAOAgent` instead (`DashboardSinks.js:1765-1892`, `DashboardDAOAgents.js:822-905`):
 - **The sink extends `foam.dao.AbstractSink`.** Its `put(obj)` reads the fields with `.f(obj)` and keeps what it needs in a plain object or array.
 - **The rows it keeps are plain arrays or objects, marked `transient`.** A select can copy the sink and send it to the server as JSON and back. A JS `Map` or `Set` comes back as `{}`, and the next `put` fails with "this.series_.has is not a function", in a live flow only: a unit test that never sends the sink passes. `transient` keeps one run's points out of the saved flow. Calendar keeps `map_` as a plain object (`DashboardSinks.js:1821`). Test it with a JSON round trip: `foam.json.parseString(foam.json.stringify(agent.createSink()), x)`, then select into the copy.
 - **Its fields carry `generateJava: false`.** `DashboardSinks.js` is built for Java too, and this `put` has no Java (`DashboardSinks.js:1798-1800`).
 - **It creates the chart once** (`chart_` is a factory) and reads it in `addToE` after the select finishes, not from an expression. A factory that builds the datasets from the kept rows is enough: when a sink has both, the page calls `addToE` and never `toE` (`u2/Element2.js:1356-1362`).
 - **A shared switch the chart does not use:** `ChartDisplayMixin` adds switches such as `showTooltipSum`. A mixin's properties install after the class's own, so an override cannot hide them. Put them in a section that is never shown: `{ name: 'unused', isAvailable: function() { return false; }, properties: [...] }` (`DashboardSinks.js:1786-1790`).
-- **Its agent extends `AbstractSinkDAOAgent`,** as the line chart's does (`DashboardDAOAgents.js:604-605`). It needs no shim. The calendar's agent extends `GroupByDAOAgent` only because it existed before, so its inherited `prop` needs a shim with `validateObj: null` (`DashboardDAOAgents.js:837-839`).
+- **Its agent extends `AbstractSinkDAOAgent`,** as the line chart's does (`DashboardDAOAgents.js:612-613`). It needs no shim. The calendar's agent extends `GroupByDAOAgent` only because it existed before, so its inherited `prop` needs a shim with `validateObj: null` (`DashboardDAOAgents.js:845-847`).
 
 - **A sink for a chart subclass extends the parent's sink** and overrides the same kind of small hooks. A property redeclared with only the keys that change (`help`, `label`) keeps the parent's class and settings: FOAM clones the parent's property and copies the new keys over it (`lang/Property.js:351-357`, `:714-728`). Redeclared with another `class:`, it replaces the parent's whole. A `sections` entry with the parent's section name replaces that section, so list all of its properties again.
 
@@ -54,6 +54,7 @@ Every new sink gives a user what the existing charts already give. Unit tests pa
 - **No rows, no axes.** Show a message in place of the chart, `emptyValueMessage` on the form, as the pie does (`DashboardSinks.js:339`, `:402-439`). Empty axes from 0 to 1 tell the user nothing.
 - **Axis titles fall back to the field's label** (a chart with axes) when none is typed: "Amount", not a blank axis (`DashboardSinks.js:826`).
 - **A clickable chart gets an On Click Script** on the form, a `Code` property, turned into the chart's click handler (`DashboardSinks.js:490`, `:619-630`). Document its arguments in the property's `help`.
+- **A one-series chart names its series after its total,** with `totalName_(sink)`: the summed or averaged field's label, or "Count" (`DashboardDAOAgents.js:262`). Never a fixed word such as "Values": the legend and every tooltip row show it.
 - **A row with an empty category or series value is left out,** as the calendar does (`DashboardSinks.js:1837`), not drawn as a series called "undefined".
 - **A chart with no axes** (pie, gauge) skips the axis title fields and their fallback.
 - **A value axis takes numbers only.** Check `typeof v === 'number'`: `isFinite()` also passes a date, `''` and `true`, so a date field would plot as milliseconds since 1970.
@@ -63,11 +64,11 @@ Test each of these in `DashboardChartRenderTest`, over rows that have a missing 
 ## 2. The agent (DashboardDAOAgents.js)
 
 - **`extends`:** `foam.core.reflow.AbstractSinkDAOAgent` for a new chart. `GroupByDAOAgent` and `GridByDAOAgent` carry setter shims for flows saved before; a new agent has none to keep.
-- **`displaySink`:** an `FObjectProperty` of the sink, with `hidden: true` and `autoValidate: true`. Its factory creates an empty sink (`DashboardDAOAgents.js:520-528`). An empty required field turns Run off.
+- **`displaySink`:** an `FObjectProperty` of the sink, with `hidden: true` and `autoValidate: true`. Its factory creates an empty sink (`DashboardDAOAgents.js:528-536`). An empty required field turns Run off.
 - **Where it goes in the file:** after the sibling it copies, not at the end. Two branches that each add a chart at the end of `DashboardSinks.js` collide on merge; two that add after different siblings merge clean.
 - **Two numbers per group** (a bar and a line over one grouping): put a `foam.mlang.sink.Sequence` of both aggregates in the GroupBy's `arg2` and read `groups[k].args[0].value` and `args[1].value`. Its `toString` is `SEQ(a,b)` (`mlang/sink/Sequence.js:71`), so two blocks with different aggregates keep apart in the select cache.
 - **A mixin method cannot be overridden by the sink:** `ChartDisplayMixin`'s methods install after the class's own, so a sink's `buildTotal_` is replaced by the mixin's. Give the sink's version a new name and call that from `createSink()`.
-- **`createSink()`:** returns a new copy on every run, `this.displaySink.clone(this)`, then calls `buildTotal_()` (`DashboardDAOAgents.js:585-589`). The flow runs the same agent again when the query or the data changes, so a reused sink counts twice (`DashboardDAOAgents.js:387-393`). Call `buildTotal_()` when the chart shows a value per mark: with no aggregation picked it builds a Count (`DashboardDAOAgents.js:257-260`). A chart that plots row values as they are, such as a scatter, has no total and skips it.
+- **`createSink()`:** returns a new copy on every run, `this.displaySink.clone(this)`, then calls `buildTotal_()` (`DashboardDAOAgents.js:593-597`). The flow runs the same agent again when the query or the data changes, so a reused sink counts twice (`DashboardDAOAgents.js:395-401`). Call `buildTotal_()` when the chart shows a value per mark: with no aggregation picked it builds a Count (`DashboardDAOAgents.js:257-260`). A chart that plots row values as they are, such as a scatter, has no total and skips it.
 - **`addToE`:** shows the form with `ReactiveSectionedDetailView` over `displaySink$`.
 - **Shims:** only for names that flows saved before. A new chart has none, and its flows save the form as `displaySink: {...}`.
 

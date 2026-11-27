@@ -259,6 +259,14 @@ foam.CLASS({
       this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
     },
 
+    function totalName_(sink) {
+      // The name a one-series chart gives its values in the legend and the
+      // tooltip: the totalled field's label, "Load Time" for a sum or average
+      // of loadTime, or "Count" for a count, which has no field.
+      var p = sink && sink.arg1;
+      return ( p && ( p.label || ( p.delegate && p.delegate.label ) ) ) || foam.u2.chart.ChartView.COUNT_LABEL;
+    },
+
     function addChartDisplayToE(e) {
       var self = this;
       // Add chart display configuration fields to the UI

@@ -28,7 +28,7 @@ foam.CLASS({
 
     async function testBar(x) {
       var a = this.DashboardBarChartDAOAgent.create({
-        horizontal: true, barThickness: 15, xAxisLabel: 'X', yAxisLabel: 'Y',
+        horizontal: true, barThickness: 15, xAxisLabel: 'X', yAxisLabel: 'Y', datasetLabel: 'D',
         showGridLines: false, colors: ['$a','$b'], alignment: 'LEFT',
         maintainAspectRatio: true, height: 250, showLegend: false,
         legendPosition: 'BOTTOM', showTooltips: false, showTooltipSum: true,
@@ -38,6 +38,7 @@ foam.CLASS({
       x.test(a.displaySink && a.displaySink.horizontal === true, 'Bar.horizontal forwarded');
       x.test(a.displaySink && a.displaySink.barThickness === 15, 'Bar.barThickness forwarded');
       x.test(a.displaySink && a.displaySink.xAxisLabel === 'X', 'Bar.xAxisLabel forwarded');
+      x.test(a.displaySink && a.displaySink.datasetLabel === 'D', 'Bar.datasetLabel forwarded');
       x.test(a.displaySink && a.displaySink.yAxisLabel === 'Y', 'Bar.yAxisLabel forwarded');
       x.test(a.displaySink && a.displaySink.showGridLines === false, 'Bar.showGridLines forwarded');
       x.test(a.displaySink && foam.util.equals(a.displaySink.colors, ['$a','$b']), 'Bar.colors forwarded');

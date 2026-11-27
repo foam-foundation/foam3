@@ -68,6 +68,12 @@ foam.CLASS({
       // the pointer cursor on a chart nobody can click.
       value: null,
       documentation: 'Called with (datasetIndex, index, event) when a dot is clicked.'
+    },
+    {
+      class: 'Float',
+      name: 'fillOpacity',
+      value: 1,
+      documentation: 'How solid a dot is, from 0 to 1: at 0.6 two dots that overlap are both still visible.'
     }
   ],
 
@@ -77,6 +83,14 @@ foam.CLASS({
       this.enableClass(this.myClass('clickable'), this.onPointClick$.map(function(f) { return !! f; }));
     },
 
+    function pointOf_(p) {
+      // The numbers of one data entry as { x, y }, or null when it has no
+      // drawable point. A subclass adds fields here, as BubbleChart adds r.
+      if ( p == null || p.x == null || p.y == null ) return null;
+      var x = Number(p.x), y = Number(p.y);
+      return isFinite(x) && isFinite(y) ? { x: x, y: y } : null;
+    },
+
     function visibleSets_() {
       // Each visible dataset with its points as { x, y, j }, j being the
       // position in data. A point missing either number is not drawn.
@@ -84,10 +98,9 @@ foam.CLASS({
       return this.datasets
         .map(function(ds, i) {
           var pts = [];
-          ( ds.data || [] ).forEach(function(p, j) {
-            if ( p == null || p.x == null || p.y == null ) return;
-            var x = Number(p.x), y = Number(p.y);
-            if ( isFinite(x) && isFinite(y) ) pts.push({ x: x, y: y, j: j });
+          ( ds.data || [] ).forEach(function(d, j) {
+            var p = self.pointOf_(d);
+            if ( p ) { p.j = j; pts.push(p); }
           });
           return { ds: ds, i: i, pts: pts };
         })
@@ -120,21 +133,43 @@ foam.CLASS({
       var xScale = scale(xr, this.valueTickCount(first.width, this.X_TICK_PX));
       var yScale = scale(yr, this.valueTickCount(first.height, this.VALUE_TICK_PX));
       var a      = lay(xScale, yScale);
-      xScale.start = a.left;              xScale.end = a.left + a.width;
-      yScale.start = a.top + a.height;    yScale.end = a.top;
+      // Inset the scales by the mark's reach, so a mark at an extreme value
+      // stays inside the plot instead of covering a tick label.
+      var pad = this.markPadding_(sets);
+      xScale.start = a.left + pad;              xScale.end = a.left + a.width - pad;
+      yScale.start = a.top + a.height - pad;    yScale.end = a.top + pad;
 
       this.drawAxes(svg, a,
         xScale.ticks().map(function(t) { return { pos: xScale.map(t), label: xScale.format(t) }; }),
         yScale.ticks().map(function(t) { return { pos: yScale.map(t), label: yScale.format(t) }; }));
 
+      this.drawMarks_(svg, sets, xScale, yScale);
+    },
+
+    function markPadding_(sets) {
+      // How far, in pixels, a mark reaches beyond its point: the plot is
+      // inset by this much. A dot is small enough to sit on the axis; a
+      // subclass with larger marks returns their radius.
+      return 0;
+    },
+
+    function radiusFn_(sets) {
+      // A function giving the radius in pixels of one point; every dot is the same size.
+      var r = this.DOT_PX;
+      return function() { return r; };
+    },
+
+    function drawMarks_(svg, sets, xScale, yScale) {
+      var self   = this;
+      var radius = this.radiusFn_(sets);
       svg.start('g').addClass(this.myClass('dots'))
         .forEach(sets, function(s) {
           var color = self.seriesColor(s.i);
           this.forEach(s.pts, function(p) {
             this.start('circle').addClass(self.myClass('dot'))
               .attrs({
-                cx: xScale.map(p.x), cy: yScale.map(p.y), r: self.DOT_PX,
-                fill: color, 'stroke-width': 2 * self.HIT_SLACK_PX
+                cx: xScale.map(p.x), cy: yScale.map(p.y), r: radius(p),
+                fill: color, 'fill-opacity': self.fillOpacity, 'stroke-width': 2 * self.HIT_SLACK_PX
               })
               .on('mousemove', function(evt) { self.showPointTooltip_(evt, s, p, color); })
               .on('mouseleave', self.hideTooltip)
@@ -145,11 +180,16 @@ foam.CLASS({
       .end();
     },
 
-    function showPointTooltip_(evt, s, p, color) {
-      this.showTooltip(evt, s.ds.label || '', [
+    function pointRows_(p, color) {
+      // The tooltip rows of one point, as { color, label, value }.
+      return [
         { color: color, label: this.xAxisLabel || 'x', value: this.formatValue(p.x) },
         { color: color, label: this.yAxisLabel || 'y', value: this.formatValue(p.y) }
-      ]);
+      ];
+    },
+
+    function showPointTooltip_(evt, s, p, color) {
+      this.showTooltip(evt, s.ds.label || '', this.pointRows_(p, color));
     }
   ]
 });

@@ -34,6 +34,17 @@ foam.CLASS({
         }
         getData().add(args);
       `
+    },
+    {
+      name: 'toString',
+      documentation: `
+        Names the args so a cached select tells two Plots apart: a Plot of
+        "count" and a Plot of "total" must not share a cache key.
+      `,
+      code: function toString() {
+        return 'plot(' + this.args.map(a => a.toString()).join(',') + ')';
+      },
+      javaCode: 'return "plot(" + java.util.Arrays.toString(getArgs()) + ")";'
     }
   ]
 });

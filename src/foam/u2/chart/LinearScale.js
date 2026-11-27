@@ -58,6 +58,11 @@ foam.CLASS({
       class: 'Float',
       name: 'step',
       documentation: 'Distance between two ticks, set by nice().'
+    },
+    {
+      class: 'String',
+      name: 'suffix',
+      documentation: 'Written after every formatted value: "%" turns 40 into "40%".'
     }
   ],
 
@@ -105,7 +110,7 @@ foam.CLASS({
     },
 
     function format(v) {
-      return Number(v).toLocaleString(foam.locale, { maximumFractionDigits: this.decimals_() });
+      return Number(v).toLocaleString(foam.locale, { maximumFractionDigits: this.decimals_() }) + this.suffix;
     }
   ]
 });

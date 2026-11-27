@@ -461,7 +461,7 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xFunc', 'yFunc', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Stacked Bar Settings', order: 1, collapsable: true,
-      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
+      properties: ['barLayout', 'horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -493,6 +493,10 @@ foam.CLASS({
     },
     { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit',
       label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    {
+      class: 'Enum', of: 'foam.u2.chart.BarLayout', name: 'barLayout', label: 'Layout', value: 'STACKED',
+      help: 'Stacked piles the series into one bar, Grouped stands them side by side, 100% scales each bar to the full axis. A flow saved before this field draws Stacked.'
+    },
     { class: 'Boolean', name: 'horizontal', label: 'Horizontal Stacks', value: false },
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
@@ -509,7 +513,7 @@ foam.CLASS({
       name: 'chart_',
       hidden: true,
       transient: true,
-      expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
+      expression: function(cols, rows, colors, timeUnit, barLayout, horizontal, xAxisLabel, yAxisLabel,
                           showGridLines, showLegend, legendPosition, showTooltips, showTooltipSum,
                           animate, animationDuration, periodCount, onClickScript) {
 
@@ -632,7 +636,7 @@ foam.CLASS({
         return this.BarChart.create({
           labels:            labels,
           datasets:          datasets,
-          stacked:           true,
+          barLayout:         barLayout,
           horizontal:        horizontal,
           xAxisLabel:        xAxisLabel,
           yAxisLabel:        yAxisLabel,
@@ -803,7 +807,7 @@ foam.CLASS({
                          animationDuration, timeUnit, xPropForLabels, yPropForLabels,
                          toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
                          yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
-                         labels) {
+                         labels, stacked) {
       // A custom bound counts only once the user typed it: hasOwnProperty is
       // false while the field still shows its default.
       var custom = function(on, name, value) { return on && this.hasOwnProperty(name) ? value : undefined; }.bind(this);
@@ -811,6 +815,7 @@ foam.CLASS({
       return this.LineChart.create({
         labels:            labels || [],
         datasets:          datasets,
+        stacked:           !! stacked,
         xType:             xType,
         timeUnit:          timeUnit,
         // Only a raw Date field is stored as midnight UTC, so only it reads
@@ -1148,7 +1153,7 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xFunc', 'yFunc', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
+      properties: ['stacked', 'fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -1180,6 +1185,10 @@ foam.CLASS({
               choice: 'foam.core.reflow.CountDAOAgent',
               disabledTypes: [ 'structure', 'format', 'chart' ] }
     },
+    {
+      class: 'Boolean', name: 'stacked', label: 'Stacked',
+      help: 'Stack the lines on top of each other as filled bands, so the top edge is their total'
+    },
     // GridBy parent-class internals — wired programmatically by createSink()
     { name: 'acc', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value/line combination' },
     { name: 'rows', hidden: true },
@@ -1205,7 +1214,7 @@ foam.CLASS({
                         showTooltips, showTooltipSum, animate, animationDuration,
                         periodCount, toggleCustomXScale, toggleCustomYScale,
                         xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
-                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale, stacked) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1323,7 +1332,7 @@ foam.CLASS({
                               animationDuration, timeUnit, xFunc, yFunc,
                               toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
                               yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
-                              isTimeScale ? null : labels);
+                              isTimeScale ? null : labels, stacked);
       }
     }
 
@@ -1908,19 +1917,6 @@ foam.CLASS({
     row with no value there is left out too.
   `,
 
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
-  `,
-
   requires: [
     'foam.u2.chart.ScatterChart'
   ],
@@ -1943,8 +1939,7 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DEFAULT_SERIES', message: 'Points' },
-    { name: 'NO_DATA',        message: 'No data available' }
+    { name: 'DEFAULT_SERIES', message: 'Points' }
   ],
 
   properties: [
@@ -2010,7 +2005,7 @@ foam.CLASS({
             console.warn('Invalid onClickScript for DashboardScatterSink:', e);
           }
         }
-        return this.ScatterChart.create({
+        return this.createChart_({
           datasets:          datasets,
           // With no title typed in, an axis is titled with its field's label,
           // as the line chart does: "Amount", not a blank axis.
@@ -2026,7 +2021,385 @@ foam.CLASS({
             try {
               var p   = datasets[di].data[j];
               var box = evt.target.ownerSVGElement.getBoundingClientRect();
-              click(p.x, p.y, datasets[di].label,
+              click.apply(null, self.clickArgs_(p, datasets[di].label).concat(
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY));
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function pointOf_(obj) {
+      // The point a row draws as { x, y }, or null when the row has none.
+      // Only number values count: a date would plot as milliseconds since
+      // 1970 and yes/no as 0 or 1. NaN and Infinity are left to the chart,
+      // which drops them.
+      var x = this.xProp.f(obj), y = this.yProp.f(obj);
+      return typeof x === 'number' && typeof y === 'number' ? { x: x, y: y } : null;
+    },
+
+    function createChart_(args) {
+      return this.ScatterChart.create(args);
+    },
+
+    function clickArgs_(p, series) {
+      // The leading arguments of the On Click Script, before the chart and page position.
+      return [ p.x, p.y, series ];
+    },
+
+    function put(obj) {
+      var pt = this.pointOf_(obj);
+      if ( ! pt ) return;
+      var key = this.DEFAULT_SERIES;
+      if ( ! this.hasDefaultValue('seriesProp') ) {
+        // A row with no series value is left out, as the calendar chart does,
+        // rather than drawn as a series called "undefined".
+        var v = this.seriesProp.f(obj);
+        if ( v == null || v === '' ) return;
+        key = String(v);
+      }
+      var s = this.series_.find(function(e) { return e.label === key; });
+      if ( ! s ) this.series_.push(s = { label: key, data: [] });
+      s.data.push(pt);
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.series_.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBubbleSink',
+  extends: 'foam.core.reflow.dashboard.DashboardScatterSink',
+
+  documentation: `
+    One bubble per row: the X and Y properties place it and the Size property
+    sets its area, e.g. latency against payload size with the request count as
+    the size. A row whose X, Y or Size is not a number is left out. Series
+    works as on the scatter.
+  `,
+
+  requires: [
+    'foam.u2.chart.BubbleChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'sizeProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Bubble Chart Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'sizeLabel', 'showGridLines', 'onClickScript'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'sizeProp', label: 'Size Property', help: 'Numeric property that sets the area of the bubble', required: true, generateJava: false },
+    { class: 'String', name: 'sizeLabel', label: 'Size Label', help: 'What the tooltip calls the size. Left empty, it takes the Size Property\'s label.' },
+    {
+      name: 'onClickScript',
+      help: 'Function expression called when a bubble is clicked. Signature: (x, y, size, series, chartX, chartY, pageX, pageY) => void'
+    }
+  ],
+
+  methods: [
+    function pointOf_(obj) {
+      var pt = this.SUPER(obj);
+      var r  = this.sizeProp.f(obj);
+      if ( ! pt || typeof r !== 'number' ) return null;
+      pt.r = r;
+      return pt;
+    },
+
+    function createChart_(args) {
+      args.sizeLabel = this.sizeLabel || this.labelOf_(this.sizeProp);
+      return this.BubbleChart.create(args);
+    },
+
+    function clickArgs_(p, series) {
+      return [ p.x, p.y, p.r, series ];
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCandlestickSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One candle per row: the Time property places it, and the Open, High, Low
+    and Close properties are four numeric properties of the row, such as the
+    first, highest, lowest and last response time of each minute. A row whose
+    time is not a date, or whose open, high, low or close is not a number, is
+    left out. Colors takes two colours, rise then fall.
+  `,
+
+  requires: [
+    'foam.u2.chart.CandlestickChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['timeProp', 'openProp', 'highProp', 'lowProp', 'closeProp'] },
+    { name: 'chartSettings', title: 'Candlestick Chart Settings', order: 1, collapsable: true,
+      properties: ['timeUnit', 'xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The candlestick has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'timeProp',  label: 'Time Property',  help: 'Date or date-and-time property that places each candle along the x axis', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'openProp',  label: 'Open Property',  help: 'Numeric property: the value at the start of the step, where the box begins', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'highProp',  label: 'High Property',  help: 'Numeric property: the highest value of the step, the top of the line', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'lowProp',   label: 'Low Property',   help: 'Numeric property: the lowest value of the step, the bottom of the line', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'closeProp', label: 'Close Property', help: 'Numeric property: the value at the end of the step, where the box ends', required: true, generateJava: false },
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit', value: 'DAY',
+      label: 'Time Unit', help: 'Period the x-axis ticks mark; pick Minute for a candle a minute', generateJava: false },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a candle is clicked. Signature: (time, open, high, low, close, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no candles. Left empty, it says "No data available".'
+    },
+    {
+      class: 'Array',
+      name: 'candles_',
+      hidden: true,
+      // Candles collected by put(), in the order the rows arrive:
+      // [ { x: 1700000000000, open: 10, high: 14, low: 8, close: 13 } ]. Kept
+      // as plain objects, since the sink is copied and sent as JSON during a
+      // select. Transient, so the candles of one run are never saved into the flow.
+      transient: true
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every candle.
+      factory: function() {
+        var self = this;
+        var data = this.candles_.slice().sort(function(l, r) { return l.x - r.x; });
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardCandlestickSink:', e);
+          }
+        }
+        // Colors is a list: rise, then fall. One colour given leaves the fall to the theme.
+        var colors = ( this.colors || [] ).slice(0, 2).map(function(c) {
+          return c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined;
+        });
+        return this.CandlestickChart.create({
+          datasets:          [ { data: data, backgroundColor: colors.length ? colors : undefined } ],
+          timeUnit:          this.timeUnit,
+          // A Date is midnight UTC and reads in UTC; a DateTime reads in local time.
+          utc:               foam.lang.Date.isInstance(this.timeProp) && ! foam.lang.DateTime.isInstance(this.timeProp),
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.timeProp),
+          // The four values share one axis, so with no title typed it takes the Close field's label.
+          yAxisLabel:        this.yAxisLabel || this.labelOf_(this.closeProp),
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration,
+          onCandleClick: typeof click !== 'function' ? null : function(j, evt) {
+            try {
+              var c   = data[j];
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(c.x, c.open, c.high, c.low, c.close, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function put(obj) {
+      // Only a date and four numbers make a candle: a number would plot as
+      // that many seconds since 1970 and yes/no as 0 or 1. NaN and Infinity
+      // are left to the chart, which drops them.
+      var t = this.timeProp.f(obj);
+      var c = {
+        open:  this.openProp.f(obj),
+        high:  this.highProp.f(obj),
+        low:   this.lowProp.f(obj),
+        close: this.closeProp.f(obj)
+      };
+      if ( ! ( t instanceof Date ) ) return;
+      for ( var k in c ) if ( typeof c[k] !== 'number' ) return;
+      c.x = t.getTime();
+      this.candles_.push(c);
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.candles_.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRadarSink',
+  extends: 'foam.core.reflow.GridBy',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    A spoke per value of the Category property, aggregated with the form's
+    Count, Sum or Average: log messages counted per severity, say. Giving a
+    Series property draws one polygon per value of it, e.g. one per day; with
+    none, one polygon holds every row. A row with no value in either field is
+    left out.
+  `,
+
+  requires: [
+    'foam.u2.chart.RadarChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xFunc', 'yFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Radar Chart Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The radar keeps its shape whatever the card's size, but
+    // ChartDisplayMixin adds an aspect-ratio switch. A mixin's properties
+    // install after this class's own, so an override cannot hide it; this
+    // section, never shown, holds it instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['maintainAspectRatio'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One spoke per value of this property', required: true },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty',
+      name: 'yFunc', label: 'Series Property',
+      help: 'Optional: one polygon and legend entry per value of this property'
+    },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a polygon corner is clicked. Signature: (value, category, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // Hide GridBy parent-class internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips, showTooltipSum,
+                          animate, animationDuration, onClickScript) {
+        var self      = this;
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var keys = function(g) { return self.groupKeys_(g); };
+
+        // cols.groups holds the spokes and rows.groups the polygons; the
+        // value of a polygon on a spoke is rows.groups[series].groups[spoke].
+        var spokeKeys = keys(cols);
+        var labels    = spokeKeys.map(function(k) { return self.xFunc && self.xFunc.chartFormatter ? self.xFunc.chartFormatter(k) : k; });
+        var datasets  = keys(rows).map(function(seriesKey, i) {
+          var cells = rowGroups[seriesKey] && rowGroups[seriesKey].groups || {};
+          var ds = {
+            label: seriesKey.toString(),
+            data: spokeKeys.map(function(k) { return cells[k] && cells[k].value || 0; })
+          };
+          if ( colors && colors.length ) {
+            ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, category, series, chartX, chartY, pageX, pageY) for the
+        // clicked corner: its value, its spoke, its polygon, the point inside
+        // the chart and the point on the page.
+        var clickHandler = null;
+        if ( onClickScript ) {
+          try {
+            clickHandler = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardRadarSink:', e);
+          }
+        }
+
+        return this.RadarChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          showTooltipSum:    showTooltipSum,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onPointClick: typeof clickHandler !== 'function' ? null : function(di, j, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              clickHandler(datasets[di].data[j], labels[j], datasets[di].label,
                 evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
             } catch ( e ) {
               console.warn('Error executing onClickScript:', e);
@@ -2038,43 +2411,2130 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "month of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
+    function addToE(e) {
+      e.style({
+        width: '100%',
+        display: 'flex',
+        justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+        textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+      });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
 
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardHeatmapSink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One cell per pair of values: X Axis gives the columns (hour of day of a
+    date, say) and Y Axis the rows (a log severity), and each cell is coloured
+    by the Aggregation of the rows that fall in it: a Count, or a Sum or
+    Average of a numeric field. A pair with no rows is an empty cell, not a
+    zero. The first colour in Colors is the strong end of the colour scale.
+  `,
+
+  requires: [
+    'foam.u2.chart.HeatmapChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xFunc', 'yFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Heatmap Settings', order: 1, collapsable: true,
+      properties: ['showValues', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The heatmap has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'X Axis', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Y Axis', required: true },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    { class: 'Boolean', name: 'showValues', label: 'Show Values', help: 'Write each cell\'s value inside it when the text fits' },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a cell is clicked. Signature: (value, xLabel, yLabel, x, y, pageX, pageY) => void'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, xAxisLabel, yAxisLabel, showValues, showLegend,
+                          legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var self      = this;
+        var colKeys   = this.groupKeys_(cols);
+        var rowKeys   = this.groupKeys_(rows);
+
+        // A date field labels its cells as the bar charts do ("2024-03-01");
+        // anything else, a date expression such as the hour included, is
+        // labelled by its own key.
+        var text = function(f, key) { return f && f.chartFormatter ? f.chartFormatter(key) : key; };
+        var labels = colKeys.map(function(k) { return String(text(self.xFunc, k)); });
+
+        // One dataset per row. A pair with no rows has no group, and its
+        // value stays null: an empty cell, not a zero.
+        var datasets = rowKeys.map(function(rk, i) {
+          var sub = rowGroups[rk] && rowGroups[rk].groups || {};
+          var ds  = {
+            label: String(text(self.yFunc, rk)),
+            data:  colKeys.map(function(ck) { return sub[ck] ? sub[ck].value : null; })
+          };
+          // The first dataset's colour is the strong end of the scale.
+          if ( ! i && colors && colors.length ) ds.backgroundColor = foam.CSS.returnTokenValue(colors[0], self.cls_, self.__context__);
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, xLabel, yLabel, x, y, pageX, pageY) for the clicked cell:
+        // its value, its column and row names, the point inside the chart
+        // and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardHeatmapSink:', e);
+          }
+        }
+
+        return this.HeatmapChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          // With no title typed in, an axis is titled with its field's label,
+          // as the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.xFunc),
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.yFunc),
+          showValues:        showValues,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onCellClick: typeof click !== 'function' ? null : function(xi, yi, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(datasets[yi].data[xi], labels[xi], datasets[yi].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSunburstSink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Two rings. Inner Ring gives one slice per value of its field (a page,
+    say), as wide as the Aggregation of its rows. Outer Ring splits each
+    inner slice by the values of a second field (the hour of a date), inside
+    its parent's angle. A Count, or a Sum or Average of a numeric field, sizes
+    the slices. The inner slices take Colors in turn.
+  `,
+
+  requires: [
+    'foam.u2.chart.SunburstChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['yFunc', 'xFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Sunburst Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The sunburst has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    // GridBy groups rows by yFunc first and then by xFunc, so Inner Ring is
+    // yFunc and Outer Ring is xFunc.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Inner Ring', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Outer Ring', required: true },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a slice is clicked. Signature: (value, innerLabel, outerLabel, x, y, pageX, pageY) => void. outerLabel is empty for an inner slice, whose value is the total of its children.'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var self      = this;
+        var outerKeys = this.groupKeys_(cols);
+        var cell      = function(ik, ok) {
+          var sub = rowGroups[ik] && rowGroups[ik].groups || {};
+          return sub[ok] ? Number(sub[ok].value) || 0 : 0;
+        };
+        // An inner value whose rows all have an empty outer value has
+        // nothing to draw, so it gets no legend entry either.
+        var innerKeys = this.groupKeys_(rows).filter(function(ik) {
+          return outerKeys.some(function(ok) { return cell(ik, ok) > 0; });
+        });
+
+        // A date field labels its slices as the bar charts do ("2024-03-01");
+        // anything else, a date expression such as the hour included, is
+        // labelled by its own key.
+        var text = function(f, key) { return f && f.chartFormatter ? f.chartFormatter(key) : key; };
+        var labels = innerKeys.map(function(k) { return String(text(self.yFunc, k)); });
+
+        // One dataset per outer value: its data[j] is the slice inside inner
+        // value j. The first dataset carries one colour per inner value,
+        // indexed by position so a slice keeps its colour when a legend
+        // click hides another.
+        var datasets = outerKeys.map(function(ok, i) {
+          var ds = {
+            label: String(text(self.xFunc, ok)),
+            data:  innerKeys.map(function(ik) { return cell(ik, ok); })
+          };
+          if ( ! i && colors && colors.length ) {
+            ds.backgroundColor = innerKeys.map(function(ik, j) {
+              return foam.CSS.returnTokenValue(colors[j % colors.length], self.cls_, self.__context__);
+            });
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, innerLabel, outerLabel, x, y, pageX, pageY) for the clicked
+        // slice: its value, its names, the point inside the chart and the
+        // point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardSunburstSink:', e);
+          }
+        }
+
+        return this.SunburstChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onSliceClick: typeof click !== 'function' ? null : function(j, k, evt) {
+            try {
+              var box   = evt.target.ownerSVGElement.getBoundingClientRect();
+              var value = k < 0 ? datasets.reduce(function(sum, ds) { return sum + ds.data[j]; }, 0) : datasets[k].data[j];
+              click(value, labels[j], k < 0 ? '' : datasets[k].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardHistogramSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    The distribution of one numeric property of the rows, such as the size of
+    a payment: the chart cuts its range into bins and counts the rows in each.
+    A row whose value is not a number (a date, text or yes/no value) is left
+    out. Giving a Series property draws one set of bars and one legend entry
+    per value of it, e.g. one per request method, over the same bins; a row with
+    no value there is left out too.
+  `,
+
+  requires: [
+    'foam.u2.chart.HistogramChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['valueProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Histogram Settings', order: 1, collapsable: true,
+      properties: ['binCount', 'xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The histogram has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Values' },
+    { name: 'COUNT',          message: 'Count' }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'valueProp', label: 'Value Property', help: 'Numeric property whose distribution is drawn', required: true, generateJava: false },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      name: 'seriesProp', label: 'Series Property',
+      help: 'Optional: one set of bars and legend entry per value of this property'
+    },
+    {
+      class: 'Int',
+      name: 'binCount',
+      label: 'Number of Bins',
+      help: 'About how many bins; the edges are rounded to nice numbers, so the chart may draw a few more or fewer',
+      value: 10
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Left empty, it is the label of the Value Property' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Left empty, it says "Count"' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a bar is clicked. Signature: (binStart, binEnd, count, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no values. Left empty, it says "No data available".'
+    },
+    {
+      class: 'Array',
+      name: 'series_',
+      hidden: true,
+      // Values collected by put(), one entry per series in the order first seen:
+      // [ { label: 'GET', data: [ 12.5, 40 ] } ]. Kept as plain arrays, since
+      // the sink is copied and sent as JSON during a select, and a JS Map
+      // arrives as {} and then fails in put(). Transient, so the values of
+      // one run are never saved into the flow.
+      transient: true
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every value.
+      factory: function() {
+        var self = this;
+        var datasets = this.series_.map(function(e, i) {
+          var c = self.colors && self.colors.length ? self.colors[i % self.colors.length] : undefined;
+          return {
+            label: e.label,
+            data: e.data,
+            backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
+          };
+        });
+        // The form's On Click Script is a function expression, called with
+        // (binStart, binEnd, count, series, chartX, chartY, pageX, pageY) for
+        // the clicked bar: the bin's range, how many values it holds, the
+        // series name, the point inside the chart and the point on the page.
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardHistogramSink:', e);
+          }
+        }
+        var chart = this.HistogramChart.create({
+          datasets:          datasets,
+          binCount:          this.binCount,
+          // With no title typed in, the x axis takes its field's label, as
+          // the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.valueProp),
+          yAxisLabel:        this.yAxisLabel || this.COUNT,
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration,
+          onBinClick: typeof click !== 'function' ? null : function(di, j, evt) {
+            try {
+              var b   = chart.bins();
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(b.edges[j], b.edges[j + 1], b.counts[di][j], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
     function put(obj) {
-      // Only number values become points: a date would plot as milliseconds
-      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the
-      // chart, which drops them.
-      var x = this.xProp.f(obj), y = this.yProp.f(obj);
-      if ( typeof x !== 'number' || typeof y !== 'number' ) return;
-      var key = this.DEFAULT_SERIES;
+      // Only number values count: a date would be binned as milliseconds
+      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the chart.
+      var v = this.valueProp.f(obj);
+      if ( typeof v !== 'number' ) return;
+      var key = this.labelOf_(this.valueProp) || this.DEFAULT_SERIES;
       if ( ! this.hasDefaultValue('seriesProp') ) {
         // A row with no series value is left out, as the calendar chart does,
         // rather than drawn as a series called "undefined".
-        var v = this.seriesProp.f(obj);
-        if ( v == null || v === '' ) return;
-        key = String(v);
+        var s = this.seriesProp.f(obj);
+        if ( s == null || s === '' ) return;
+        key = String(s);
       }
-      var s = this.series_.find(function(e) { return e.label === key; });
-      if ( ! s ) this.series_.push(s = { label: key, data: [] });
-      s.data.push({ x: x, y: y });
+      var e = this.series_.find(function(e) { return e.label === key; });
+      if ( ! e ) this.series_.push(e = { label: key, data: [] });
+      e.data.push(v);
     },
 
     function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.series_.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardWaterfallSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and aggregates one
+    value per group (a Count, or a Sum or Average of a numeric field). Each
+    group is one step of a waterfall. By default a step is the group's value
+    itself: sales per month of 40, -15 and 25 give a rise, a fall and a rise.
+    With Change From Previous on, a step is the group's value minus the one
+    before it, so a value that is never negative, such as requests per hour,
+    still shows rises and falls: 40, 25 and 50 give +40, -15 and +25. The
+    first group has nothing before it, so it counts as a step up from zero.
+    The first three colours in Colors are the rise, fall and total bars.
+  `,
+
+  requires: [
+    'foam.u2.chart.WaterfallChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'changeFromPrevious'] },
+    { name: 'chartSettings', title: 'Waterfall Settings', order: 1, collapsable: true,
+      properties: ['showTotal', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The waterfall has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One step for each value of this property, in its order: the hour of a date, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Boolean',
+      name: 'changeFromPrevious',
+      label: 'Change From Previous',
+      help: 'Plot how each group differs from the one before it, not the group\'s own value'
+    },
+    { class: 'Boolean', name: 'showTotal', label: 'Show Total', value: true, help: 'Add a last bar with the end total' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a step is clicked. Signature: (change, label, total, x, y, pageX, pageY) => void, where total is the running total after the step'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, changeFromPrevious, showTotal, xAxisLabel, yAxisLabel,
+                          showGridLines, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var values = keys.map(function(k) { return Number(groups[k] && groups[k].value) || 0; });
+        // Each step is the group's value less the one before it; the first
+        // group counts from zero.
+        var steps  = changeFromPrevious ?
+          values.map(function(v, i) { return v - ( i ? values[i - 1] : 0 ); }) : values;
+
+        // The form's On Click Script is called with (change, label, total, x,
+        // y, pageX, pageY): the clicked step's change and name, the running
+        // total after it, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardWaterfallSink:', e);
+          }
+        }
+
+        var chart = this.WaterfallChart.create({
+          labels:            labels,
+          datasets:          [ {
+            data:            steps,
+            backgroundColor: colors && colors.length ?
+              colors.slice(0, 3).map(function(c) { return foam.CSS.returnTokenValue(c, self.cls_, self.__context__); }) : undefined
+          } ],
+          showTotal:         showTotal,
+          // With no title typed in, the x axis is titled with its field's label.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.arg1),
+          yAxisLabel:        yAxisLabel,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onStepClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box   = evt.target.ownerSVGElement.getBoundingClientRect();
+              var total = steps.slice(0, i + 1).reduce(function(a, v) { return a + v; }, 0);
+              // The total bar, one past the last step, has no step of its own.
+              var step  = i < steps.length ? steps[i] : total;
+              click(step, i < labels.length ? labels[i] : chart.TOTAL, total,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardFunnelSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and aggregates one
+    value per group (a Count, or a Sum or Average of a numeric field). Each
+    group is one step of a funnel, drawn as a band as wide as its value: the
+    visits to each page, say. The steps keep the order of the field, as a
+    funnel's order is the process order; Sort By Value puts the largest
+    first instead. A row with no value in Group By, and a group whose value
+    is negative, adds no step.
+  `,
+
+  requires: [
+    'foam.u2.chart.FunnelChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'sortByValue'] },
+    { name: 'chartSettings', title: 'Funnel Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The funnel has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One step for each value of this property, in its order: the hour of a date, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Boolean',
+      name: 'sortByValue',
+      label: 'Sort By Value',
+      help: 'Put the step with the largest value first, instead of keeping the order of Group By'
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a step is clicked. Signature: (value, label, x, y, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, sortByValue, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+        var vals = {};
+        keys.forEach(function(k) { vals[k] = Number(groups[k] && groups[k].value) || 0; });
+        // Largest first, and a tie keeps the field's order.
+        if ( sortByValue ) keys = keys.slice().sort(function(a, b) { return vals[b] - vals[a]; });
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var values = keys.map(function(k) { return vals[k]; });
+
+        // The form's On Click Script is called with (value, label, x, y,
+        // pageX, pageY): the clicked step's value and name, the point inside
+        // the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardFunnelSink:', e);
+          }
+        }
+
+        return this.FunnelChart.create({
+          labels:            labels,
+          datasets:          [ {
+            data:            values,
+            backgroundColor: colors && colors.length ?
+              colors.map(function(c) { return foam.CSS.returnTokenValue(c, self.cls_, self.__context__); }) : undefined
+          } ],
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onStepClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(values[i], labels[i], evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBoxPlotSink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    The spread of a number per category: one box per value of the Category
+    property, drawn from every Value property seen in it (the count of
+    requests, say, per event key). The box runs from the first to the third
+    quartile, with a line at the median, whiskers, and a dot for each outlier.
+    Giving a Series property draws one box per value of it in each category,
+    in its own colour. A row with no category, no series value (when a Series
+    property is set) or a value that is not a number is left out.
+  `,
+
+  requires: [
+    'foam.u2.chart.BoxPlotChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xFunc', 'valueProp', 'yFunc'] },
+    { name: 'chartSettings', title: 'Box Plot Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The box plot has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Values' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One box per value of this property', required: true },
+    {
+      class: 'foam.core.reflow.dashboard.ChartFieldProperty',
+      name: 'valueProp', label: 'Value Property', required: true,
+      help: 'Numeric property whose spread each box shows'
+    },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty',
+      name: 'yFunc', label: 'Series Property',
+      help: 'Optional: one box per value of this property in each category, in its own colour'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a box is clicked. Signature: (median, category, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no numbers. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, xAxisLabel, yAxisLabel, showGridLines, showLegend,
+                          legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var self      = this;
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var keys = function(g) { return self.groupKeys_(g); };
+
+        // cols.groups holds the categories and rows.groups the series; the
+        // numbers of one box are rows.groups[series].groups[category].data,
+        // a list of one-entry lists [ value ], as the Plot sink keeps them.
+        var valuesOf = function(seriesKey, catKey) {
+          var cell = rowGroups[seriesKey] && rowGroups[seriesKey].groups[catKey];
+          return cell && cell.data ? cell.data.map(function(d) { return d[0]; }).filter(function(v) { return typeof v === 'number'; }) : [];
+        };
+        var seriesKeys = keys(rows);
+        // A category with no number in any series has no box: it is left out.
+        var catKeys = keys(cols).filter(function(c) { return seriesKeys.some(function(s) { return valuesOf(s, c).length; }); });
+
+        var labels   = catKeys.map(function(k) { return String(self.xFunc && self.xFunc.chartFormatter ? self.xFunc.chartFormatter(k) : k); });
+        var datasets = seriesKeys.map(function(seriesKey, i) {
+          var ds = { label: String(seriesKey), data: catKeys.map(function(c) { return valuesOf(seriesKey, c); }) };
+          if ( colors && colors.length ) {
+            ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (median, category, series, chartX, chartY, pageX, pageY) for the
+        // clicked box: its median, its category and series names, the point
+        // inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardBoxPlotSink:', e);
+          }
+        }
+
+        var chart = this.BoxPlotChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          // With no title typed in, an axis is titled with its field's label,
+          // as the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.xFunc),
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.valueProp),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration
+        });
+        if ( typeof click === 'function' ) {
+          chart.onBoxClick = function(di, j, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(chart.stats_(datasets[di].data[j]).median, labels[j], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          };
+        }
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardTreemapSink',
+  extends: 'foam.mlang.sink.TopNGroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field and aggregates one value per group (a Count,
+    or a Sum or Average of a numeric field). Each group is one rectangle of a
+    treemap, its area in proportion to the group's value. With Top N set, the
+    biggest N groups get a rectangle each and the rest share one called
+    "Others": requests per page, with 40 pages and a Top N of 10, give ten
+    pages and an "Others".
+  `,
+
+  requires: [
+    'foam.u2.chart.TreemapChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel'] },
+    { name: 'chartSettings', title: 'Treemap Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The treemap has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One rectangle for each value of this property: the page of a request, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    { class: 'Int', name: 'topN', label: 'Top N', value: 10,
+      help: 'Keep the N biggest groups, each with its own rectangle (0 = every group). The rest can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Give the groups outside the top N one rectangle together',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'DESC keeps the biggest groups, ASC the smallest',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the merged "Others" rectangle',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a rectangle is clicked. Signature: (value, label, total, x, y, pageX, pageY) => void, where total is the sum of every rectangle'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // TopNGroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, groupKeys, colors, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self = this;
+        // With Top N set the server's order is kept in groupKeys, with
+        // "Others" last; otherwise the keys are sorted.
+        var keys = this.topN > 0 && groupKeys && groupKeys.length ?
+          groupKeys.filter(function(k) { return ! this.isEmptyKey_(k); }, this) :
+          this.groupKeys_(this);
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var data = keys.map(function(k) { return Number(groups[k] && groups[k].value) || 0; });
+        // A rectangle keeps its colour by its position, so hiding another one does not change it.
+        var backgroundColors = colors && colors.length ?
+          keys.map(function(k, i) {
+            return foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }) : undefined;
+
+        // The form's On Click Script is called with (value, label, total, x,
+        // y, pageX, pageY): the clicked rectangle's value and name, the sum of
+        // every rectangle, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardTreemapSink:', e);
+          }
+        }
+        var total = data.reduce(function(a, v) { return v > 0 ? a + v : a; }, 0);
+
+        return this.TreemapChart.create({
+          labels:            labels,
+          datasets:          [ { data: data, backgroundColor: backgroundColors } ],
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onRectClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(data[i], labels[i], total, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardPolarAreaSink',
+  extends: 'foam.mlang.sink.TopNGroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field and aggregates one value per group (a Count,
+    or a Sum or Average of a numeric field). Each group is one wedge of a
+    polar area chart: every wedge has the same angle and reaches out until its
+    area is in proportion to the group's value, e.g. log messages per severity.
+    The wedges keep the order of the field. With Top N set, the biggest N
+    groups get a wedge each and the rest share one called "Others".
+  `,
+
+  requires: [
+    'foam.u2.chart.PolarAreaChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'topN', 'includeOthers', 'sortOrder', 'othersLabel'] },
+    { name: 'chartSettings', title: 'Polar Area Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The polar area has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One wedge for each value of this property: the severity of a log message, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    { class: 'Int', name: 'topN', label: 'Top N', value: 0,
+      help: 'Keep the N biggest groups, each with its own wedge (0 = every group). The rest can be merged into "Others".' },
+    { class: 'Boolean', name: 'includeOthers', label: 'Include Others', value: true,
+      help: 'Give the groups outside the top N one wedge together',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'Enum', of: 'foam.mlang.sink.GroupBySortOrder', name: 'sortOrder', label: 'Sort Order', value: 'DESC',
+      help: 'DESC keeps the biggest groups, ASC the smallest',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    { class: 'String', name: 'othersLabel', label: 'Others Label', value: 'Others',
+      help: 'Label for the merged "Others" wedge',
+      visibility: function(topN) {
+        return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
+      } },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a wedge is clicked. Signature: (value, label, total, x, y, pageX, pageY) => void, where total is the sum of every wedge'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // TopNGroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupKeys', hidden: true },
+    { name: 'processArrayValuesIndividually', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, groupKeys, colors, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self = this;
+        // With Top N set the server's order is kept in groupKeys, with
+        // "Others" last; otherwise the keys are sorted.
+        var keys = this.topN > 0 && groupKeys && groupKeys.length ?
+          groupKeys.filter(function(k) { return ! this.isEmptyKey_(k); }, this) :
+          this.groupKeys_(this);
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var data = keys.map(function(k) { return Number(groups[k] && groups[k].value) || 0; });
+        // A wedge keeps its colour by its position, so hiding another one does not change it.
+        var backgroundColors = colors && colors.length ?
+          keys.map(function(k, i) {
+            return foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }) : undefined;
+
+        // The form's On Click Script is called with (value, label, total, x,
+        // y, pageX, pageY): the clicked wedge's value and name, the sum of
+        // every wedge, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardPolarAreaSink:', e);
+          }
+        }
+        var total = data.reduce(function(a, v) { return v > 0 ? a + v : a; }, 0);
+
+        return this.PolarAreaChart.create({
+          labels:            labels,
+          datasets:          [ { data: data, backgroundColor: backgroundColors } ],
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onWedgeClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(data[i], labels[i], total, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardTotalSink',
+  extends: 'foam.dao.AbstractSink',
+  implements: [ 'foam.lang.Serializable' ],
+
+  documentation: `
+    A sink that adds every row to one aggregate, its total: a Count, or the
+    Sum, Average, Min or Max of a field. A select runs it on the server, where
+    put runs in Java, and the total comes back with the result.
+  `,
+
+  constants: [
+    // The field the agent's buildTotal_() puts each run's aggregate in.
+    { name: 'TOTAL_SLOT', value: 'total' }
+  ],
+
+  properties: [
+    {
+      // The aggregate this run collects, wired by the agent's createSink().
+      class: 'foam.mlang.SinkProperty',
+      name: 'total',
+      externalTransient: true,
+      hidden: true,
+      javaFactory: 'return foam.mlang.MLang.COUNT();',
+      factory: function() { return foam.mlang.sink.Count.create(); }
+    }
+  ],
+
+  methods: [
+    {
+      name: 'put',
+      code: function put(obj, sub) { this.total.put(obj, sub); },
+      javaCode: 'getTotal().put(obj, sub);'
+    },
+
+    // A client DAO caches a select by the sink's text; naming the total keeps
+    // a Sum of one field apart from a Count or the Sum of another. A mixin's
+    // toString (ChartDisplayMixin's) wraps this one, so it sits in a parent.
+    function toString() { return String(this.total); }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardGaugeSink',
+  extends: 'foam.core.reflow.dashboard.DashboardTotalSink',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin'
+  ],
+
+  documentation: `
+    One number against a range, drawn as a half-circle dial: the Aggregation
+    (a Count, or the Sum, Average, Min or Max of a numeric field) over every
+    row, against Maximum. Today's request count against a target of 500 reads
+    as a dial filled to the share of 500 it reached. The range starts at 0.
+    Bands colour stretches of the dial, for example red up to 50, amber up to
+    80 and green up to 100. The aggregate is worked out on the server, where
+    this sink's put runs in Java.
+  `,
+
+  requires: [
+    'foam.u2.chart.GaugeChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: [ 'aggregation', 'maxValue', 'bands' ] },
+    { name: 'chartSettings', title: 'Gauge Settings', order: 1, collapsable: true,
+      properties: [ 'onClickScript' ] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: [ 'height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage' ] },
+    // The gauge has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: [ 'alignment', 'maintainAspectRatio', 'showTooltipSum' ] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Value' }
+  ],
+
+  properties: [
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Double',
+      name: 'maxValue',
+      label: 'Maximum',
+      value: 100,
+      help: 'The value at the right end of the dial: a target, say. A bigger result fills the whole dial.'
+    },
+    {
+      // Has Java: a select sends this sink to the server and the client
+      // draws the copy that comes back, so a field left out of the Java class
+      // is lost on the way and the dial shows no bands.
+      class: 'FObjectArray',
+      of: 'foam.u2.chart.GaugeBand',
+      name: 'bands',
+      label: 'Bands',
+      help: 'Coloured stretches of the dial, each ending at its Up To: red to 50, amber to 80, green to 100'
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when the dial is clicked. Signature: (value, x, y, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the dial when the aggregate is not a number, such as the Min of no rows. Left empty, it says "No data available".'
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(total, maxValue, bands, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self  = this;
+        var value = total && typeof total.value === 'number' && isFinite(total.value) ? total.value : null;
+
+        // The form's On Click Script is a function expression, called with
+        // (value, x, y, pageX, pageY): the dial's value, the point inside
+        // the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardGaugeSink:', e);
+          }
+        }
+
+        return this.GaugeChart.create({
+          // Named by the total's field, read from the total and not from
+          // aggregation: the server's copy of this sink has no aggregation.
+          // With no field to name it (a Count), the value is just "Value".
+          datasets:          [ { label: this.labelOf_(total && total.arg1) || this.DEFAULT_SERIES, data: [ value ] } ],
+          max:               maxValue,
+          bands:             bands,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onValueClick: typeof click !== 'function' ? null : function(evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(value, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      var v = this.total && this.total.value;
+      this.addChartOrEmpty_(e, typeof v === 'number' && isFinite(v), this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBulletSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and aggregates one
+    value per group (a Count, or a Sum or Average of a numeric field). Each
+    group is one row of a bullet chart: a thin bar for the value, over shaded
+    ranges such as poor up to 50, fair up to 80 and good up to 100, with a
+    tick at the Target, one number shared by every row. Sort By Value puts
+    the row with the largest value first instead of keeping the field's order.
+    A row with no value in Group By adds no row.
+  `,
+
+  requires: [
+    'foam.u2.chart.BulletChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'sortByValue'] },
+    { name: 'chartSettings', title: 'Bullet Settings', order: 1, collapsable: true,
+      properties: ['target', 'bands', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The bullet chart has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Value' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One row for each value of this property, in its order' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Boolean',
+      name: 'sortByValue',
+      label: 'Sort By Value',
+      help: 'Put the row with the largest value first, instead of keeping the order of Group By'
+    },
+    {
+      // Has Java: a select sends this sink to the server and the client
+      // draws the copy that comes back, so a field left out of the Java class
+      // is lost on the way and the chart shows no tick.
+      class: 'Double',
+      name: 'target',
+      label: 'Target',
+      help: 'Where the tick stands, the same for every row. Left at 0, no tick is drawn.'
+    },
+    {
+      // Has Java, for the same reason as target.
+      class: 'FObjectArray',
+      of: 'foam.u2.chart.GaugeBand',
+      name: 'bands',
+      label: 'Bands',
+      help: 'Shaded ranges behind each row, each ending at its Up To: poor to 50, fair to 80, good to 100. Left without a colour, they shade from light to dark.'
+    },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a row is clicked. Signature: (value, label, x, y, pageX, pageY) => void'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Under the value axis at the bottom. Left empty, it is the value\'s name' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Beside the rows. Left empty, it is the label of Group By' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, sortByValue, target, bands, xAxisLabel, yAxisLabel, showGridLines,
+                          showLegend, legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+        var vals = {};
+        keys.forEach(function(k) { vals[k] = Number(groups[k] && groups[k].value) || 0; });
+        // Largest first, and a tie keeps the field's order.
+        if ( sortByValue ) keys = keys.slice().sort(function(a, b) { return vals[b] - vals[a]; });
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var values = keys.map(function(k) { return vals[k]; });
+        // Named by the total's field, read from the group's own total and not
+        // from aggregation: the server's copy of this sink has no aggregation.
+        // With no field to name it (a Count), the value is just "Value".
+        var name = ( keys.length && this.labelOf_(groups[keys[0]].arg1) ) || this.DEFAULT_SERIES;
+
+        // The form's On Click Script is called with (value, label, x, y,
+        // pageX, pageY): the clicked row's value and name, the point inside
+        // the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardBulletSink:', e);
+          }
+        }
+
+        var args = {
+          labels:            labels,
+          datasets:          [ {
+            label:           name,
+            data:            values,
+            backgroundColor: colors && colors.length ? foam.CSS.returnTokenValue(colors[0], self.cls_, self.__context__) : undefined
+          } ],
+          bands:             bands,
+          // With no title typed in, the value axis takes the value's name and
+          // the rows' axis takes the label of the field they group by.
+          xAxisLabel:        xAxisLabel || name,
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.arg1),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onRowClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(values[i], labels[i], evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        };
+        // A target of 0 means none: the form's number starts at 0, and a tick
+        // at 0 would sit on every row's baseline.
+        if ( target ) args.target = target;
+        return this.BulletChart.create(args);
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSankeySink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One band per pair of values: Source gives the left column (the entry page
+    of a visit, say) and Target the right column (the next page), and each
+    band is as thick as the Aggregation of the rows that fall in the pair: a
+    Count, or a Sum or Average of a numeric field. A pair with no rows has no
+    band, and neither has one whose value is zero or negative. Each band
+    takes its source's colour from Colors, in order; a click on a band calls
+    the On Click Script.
+  `,
+
+  requires: [
+    'foam.u2.chart.SankeyChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['yFunc', 'xFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Sankey Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The sankey has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    // GridBy keys its columns by xFunc and its rows by yFunc: the targets are
+    // the columns and the sources are the rows.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Source', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Target', required: true },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a band is clicked. Signature: (value, sourceLabel, targetLabel, x, y, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var self      = this;
+        var colKeys   = this.groupKeys_(cols);
+        var rowKeys   = this.groupKeys_(rows);
+
+        // A date field labels its nodes as the bar charts do ("2024-03-01");
+        // anything else is labelled by its own key.
+        var text = function(f, key) { return f && f.chartFormatter ? f.chartFormatter(key) : key; };
+        var labels = colKeys.map(function(k) { return String(text(self.xFunc, k)); });
+
+        // One dataset per source. A pair with no rows has no group, and its
+        // value stays null: no band, not a band of zero.
+        var datasets = rowKeys.map(function(rk, i) {
+          var sub = rowGroups[rk] && rowGroups[rk].groups || {};
+          var ds  = {
+            label: String(text(self.yFunc, rk)),
+            data:  colKeys.map(function(ck) { return sub[ck] ? sub[ck].value : null; })
+          };
+          if ( colors && colors.length ) ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, sourceLabel, targetLabel, x, y, pageX, pageY) for the
+        // clicked band: its value, its source and target names, the point
+        // inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardSankeySink:', e);
+          }
+        }
+
+        return this.SankeyChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onFlowClick: typeof click !== 'function' ? null : function(si, ti, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(datasets[si].data[ti], datasets[si].label, labels[ti],
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardComboSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and computes two
+    values per group: the Bar Value, drawn as bars against the left axis,
+    and the Line Value, drawn as a line against the right axis. Visits per
+    hour as bars and the average load time per hour as a line, say. Each is
+    a Count, or a Sum, Average, Minimum or Maximum of a numeric field. Both
+    run in one pass over the rows: the group's total is a Sequence of the two
+    aggregates, one result each. A row with no value in Group By is left
+    out. The first colour in Colors is the bars', the second the line's.
+  `,
+
+  requires: [
+    'foam.core.reflow.CountDAOAgent',
+    'foam.mlang.sink.Sequence',
+    'foam.u2.chart.ComboChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'lineAggregation'] },
+    { name: 'chartSettings', title: 'Bar and Line Settings', order: 1, collapsable: true,
+      properties: ['smoothLine', 'barThickness', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'lineAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The two values have different units, so a tooltip sum means nothing;
+    // ChartDisplayMixin adds it, with alignment and aspect ratio. A mixin's
+    // properties install after this class's own, so an override cannot hide
+    // them; this section, never shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One bar and one point of the line for each value of this property, in its order: the hour of a date, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java, so the server's copy has no aggregation; the
+      // series names come from the totals in arg2 instead.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Bar Value',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'lineAggregation', label: 'Line Value',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    { class: 'Boolean', name: 'smoothLine', label: 'Smooth Line', help: 'Curve the line through its points instead of drawing straight segments' },
+    { class: 'Int', name: 'barThickness', label: 'Bar Thickness', help: 'Thickness of bars (0 = auto)' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a category is clicked. Signature: (label, barValue, lineValue, x, y, pageX, pageY) => void'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Bar Axis Label', help: 'Title of the left axis. Left empty it takes the Bar Value\'s field label.' },
+    { class: 'String', name: 'lineAxisLabel', label: 'Line Axis Label', help: 'Title of the right axis. Left empty it takes the Line Value\'s field label.' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, smoothLine, barThickness, showGridLines, onClickScript,
+                          xAxisLabel, yAxisLabel, lineAxisLabel, showLegend, legendPosition,
+                          showTooltips, animate, animationDuration) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        // The group's total is a Sequence: result 0 is the bars', 1 the line's.
+        var values = function(i) {
+          return keys.map(function(k) {
+            var v = groups[k] && groups[k].args && groups[k].args[i] && groups[k].args[i].value;
+            return typeof v === 'number' && isFinite(v) ? v : null;
+          });
+        };
+        var bars = values(0), line = values(1);
+
+        // A series is named after its total: "Count" for a sum of count, and
+        // "Max of Count" for the busiest minute, so the two never read alike.
+        var nameOf = function(i) {
+          return self.totalName_(self.arg2 && self.arg2.args && self.arg2.args[i]);
+        };
+        var barName = nameOf(0), lineName = nameOf(1);
+
+        var tokens = ( colors || [] ).slice(0, 2).map(function(c) {
+          return c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined;
+        });
+
+        // The form's On Click Script is called with (label, barValue,
+        // lineValue, x, y, pageX, pageY): the clicked category's name and its
+        // two values, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardComboSink:', e);
+          }
+        }
+
+        return this.ComboChart.create({
+          labels:            labels,
+          datasets:          [
+            { label: barName,  data: bars, backgroundColor: tokens[0] },
+            { label: lineName, data: line, borderColor: tokens[1], tension: smoothLine ? 0.4 : 0 }
+          ],
+          barThickness:      barThickness,
+          // With no title typed in, each axis takes its field's label.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.arg1),
+          yAxisLabel:        yAxisLabel || barName,
+          lineAxisLabel:     lineAxisLabel || lineName,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onCategoryClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(labels[i], bars[i], line[i], evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function buildTotals_() {
+      // Builds this run's group total from the two forms: a Sequence that
+      // runs the bars' aggregate and the line's on each row. With nothing
+      // picked a value is a Count, as the form shows.
       var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.series_.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      var make = function(agg) { return ( agg || self.CountDAOAgent.create({}, self) ).createSink(); };
+      this.arg2 = this.Sequence.create({ args: [ make(this.aggregation), make(this.lineAggregation) ] });
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRangeBarSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and draws one lane per
+    group with a bar from the group's lowest Start value to its highest End
+    value: the first and the last visit of each page, say, with the visit time
+    as both Start and End. Start and End are numbers or dates and times, and
+    the axis follows the Start property's type. Both run in one pass over the
+    rows: the group's total is a Sequence of a Minimum and a Maximum. A row
+    with no value in Group By is left out, and so is a group with no Start or
+    End value. The first colour in Colors is the bars'.
+  `,
+
+  requires: [
+    'foam.mlang.sink.Max',
+    'foam.mlang.sink.Min',
+    'foam.mlang.sink.Sequence',
+    'foam.u2.chart.RangeBarChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'startProp', 'endProp'] },
+    { name: 'chartSettings', title: 'Range Bar Settings', order: 1, collapsable: true,
+      properties: ['timeUnit', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The range bar has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'RANGE_TO', message: 'to' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One lane for each value of this property, in its order: the page of a visit, say' },
+    // JS only: they build the Minimum and Maximum in arg2 when the flow runs.
+    // The server's copy has no use for them; the chart reads arg2 instead.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'startProp', label: 'Start Property', required: true, generateJava: false,
+      help: 'Number or date property: a bar starts at the lowest value of its group. Pick the same property as End to span its first to its last value.' },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'endProp', label: 'End Property', required: true, generateJava: false,
+      help: 'Number or date property: a bar ends at the highest value of its group' },
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit', value: 'HOUR',
+      label: 'Time Unit', help: 'Period the axis ticks mark when Start is a date; a range too long for it moves up to the next unit that fits' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a lane is clicked. Signature: (label, start, end, x, y, pageX, pageY) => void, start and end being dates when Start is a date'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Title of the value axis. Left empty it takes the Start property\'s label.' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Title of the lanes. Left empty it takes the Group By property\'s label.' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, timeUnit, showGridLines, onClickScript, xAxisLabel, yAxisLabel,
+                          showLegend, legendPosition, showTooltips, animate, animationDuration) {
+        var self = this;
+
+        // The group's total is a Sequence: result 0 is the lowest start, 1
+        // the highest end. The properties come from it, because the server's
+        // copy of this sink has no Start or End field.
+        var startProp = this.arg2 && this.arg2.args && this.arg2.args[0] && this.arg2.args[0].arg1;
+        var endProp   = this.arg2 && this.arg2.args && this.arg2.args[1] && this.arg2.args[1].arg1;
+        var isTime    = foam.lang.Date.isInstance(startProp) || foam.lang.DateTime.isInstance(startProp);
+
+        // A date comes back as a Date or as text, a number as itself. Only a
+        // date on a time axis and a number on a number axis make a bar.
+        var read = function(v) {
+          if ( isTime ) {
+            var t = v == null ? NaN : new Date(v).getTime();
+            return isFinite(t) ? t : null;
+          }
+          return typeof v === 'number' && isFinite(v) ? v : null;
+        };
+        var range = function(k) {
+          var args = groups[k] && groups[k].args;
+          var s    = read(args && args[0] && args[0].value);
+          var e    = read(args && args[1] && args[1].value);
+          return s === null || e === null ? null : { start: s, end: e };
+        };
+        var keys   = this.groupKeys_(this).filter(function(k) { return range(k); });
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var data   = keys.map(range);
+
+        // One series, named after the field it spans: "Visit time", or
+        // "Opened to Closed" when Start and End are different fields.
+        var startName = this.labelOf_(startProp), endName = this.labelOf_(endProp);
+        var name = startName === endName ? startName : startName + ' ' + this.RANGE_TO + ' ' + endName;
+
+        // The form's On Click Script is called with (label, start, end, x,
+        // y, pageX, pageY): the lane's name, its range, the point inside the
+        // chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardRangeBarSink:', e);
+          }
+        }
+
+        return this.RangeBarChart.create({
+          labels:            labels,
+          datasets:          [ {
+            label:           name,
+            data:            data,
+            backgroundColor: colors && colors.length ? foam.CSS.returnTokenValue(colors[0], this.cls_, this.__context__) : undefined
+          } ],
+          xType:             isTime ? 'time' : 'linear',
+          timeUnit:          timeUnit,
+          // A Date is midnight UTC and reads in UTC; a DateTime reads in local time.
+          utc:               foam.lang.Date.isInstance(startProp) && ! foam.lang.DateTime.isInstance(startProp),
+          // With no title typed in, each axis takes its field's label.
+          xAxisLabel:        xAxisLabel || startName,
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.arg1),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onBarClick: typeof click !== 'function' ? null : function(di, i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              var d   = data[i];
+              click(labels[i], isTime ? new Date(d.start) : d.start, isTime ? new Date(d.end) : d.end,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function buildTotals_() {
+      // Builds this run's group total from the form: a Sequence that keeps
+      // the lowest Start and the highest End of each group in one pass. With
+      // the same field as both, the bar spans that field's minimum to maximum.
+      this.arg2 = this.Sequence.create({ args: [
+        this.Min.create({ arg1: this.startProp }),
+        this.Max.create({ arg1: this.endProp })
+      ] });
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
     }
   ]
 });

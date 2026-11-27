@@ -138,9 +138,23 @@ foam.CLASS({
   documentation: 'Mixin for common chart display options',
 
   requires: [
+    'foam.u2.chart.ChartView',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.MetricAlignment'
   ],
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
 
   properties: [
     {
@@ -264,15 +278,49 @@ foam.CLASS({
       // totalled field's label, "Load Time" for a sum of loadTime, or "Count"
       // for a count, which has no field. A max, min or average says which,
       // "Max of Load Time", so two totals of one field do not both read "Load Time".
-      var V    = foam.u2.chart.ChartView;
-      var p    = sink && sink.arg1;
-      var name = ( p && ( p.label || ( p.delegate && p.delegate.label ) ) ) || V.COUNT_LABEL;
+      var V    = this.ChartView;
+      var name = this.labelOf_(sink && sink.arg1) || V.COUNT_LABEL;
       var kind = sink && sink.cls_ && {
         'foam.mlang.sink.Max':     V.MAX_OF_LABEL,
         'foam.mlang.sink.Min':     V.MIN_OF_LABEL,
         'foam.mlang.sink.Average': V.AVERAGE_OF_LABEL
       }[sink.cls_.id];
       return kind ? kind + ' ' + name : name;
+    },
+
+    function isEmptyKey_(k) {
+      // A row with no value in a grouping field is grouped under the key
+      // "null", "undefined" or "": a chart leaves it out rather than draw a
+      // blank or "null" spoke, row or column.
+      return k === '' || k === 'null' || k === 'undefined';
+    },
+
+    function groupKeys_(g) {
+      // The keys of a grouping sink (a GroupBy, or the rows or cols of a
+      // GridBy) in the sink's order, without the empty ones.
+      return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(g && g.groups || {}) )
+        .filter(function(k) { return ! this.isEmptyKey_(k); }, this);
+    },
+
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "hour of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
+    function addChartOrEmpty_(e, hasData, message) {
+      // Fills the card with chart_ when hasData, else with message, or "No
+      // data available" when message is empty, in place of axes from 0 to 1.
+      var self = this;
+      e.start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+        .callIfElse(hasData,
+          function() { this.add(self.chart_); },
+          function() {
+            this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+              .add(message || self.ChartView.NO_DATA)
+            .end();
+          })
+      .end();
     },
 
     function addChartDisplayToE(e) {
@@ -941,6 +989,644 @@ foam.CLASS({
       // A new copy on every run: the flow runs this agent again when the
       // query or the data changes, and a reused sink would hold the old points too.
       return this.displaySink.clone(this);
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBubbleChartDAOAgent',
+  extends: 'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
+
+  documentation: 'The scatter\'s agent with the bubble sink as its form.',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardBubbleSink'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardBubbleSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardBubbleSink.create({}, this); }
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCandlestickChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardCandlestickSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardCandlestickSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardCandlestickSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would hold the old candles too.
+      return this.displaySink.clone(this);
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRadarChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardRadarSink',
+    'foam.core.reflow.ReactiveSectionedDetailView',
+    'foam.mlang.Constant'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardRadarSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardRadarSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      // With no Series Property every row goes into one polygon, grouped by
+      // a constant named after the total ("Count", or the summed field), so
+      // the grouping below needs no second code path.
+      if ( sink.hasDefaultValue('yFunc') ) sink.yFunc = this.Constant.create({ value: sink.totalName_(sink.aggregation && sink.aggregation.createSink()) });
+      // The form can read rows and cols before the fields are picked and
+      // save them grouped by nothing; the run copy rebuilds both.
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardHeatmapChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardHeatmapSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardHeatmapSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardHeatmapSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      // rows and cols are built when first read, which a form can do before
+      // the two fields are picked, so the copy drops them and rebuilds both.
+      var sink = this.displaySink.clone(this);
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSunburstChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardSunburstSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardSunburstSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardSunburstSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      // rows and cols are built when first read, which a form can do before
+      // the two fields are picked, so the copy drops them and rebuilds both.
+      var sink = this.displaySink.clone(this);
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardHistogramChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardHistogramSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardHistogramSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardHistogramSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would hold the old values too.
+      return this.displaySink.clone(this);
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardWaterfallChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardWaterfallSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardWaterfallSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardWaterfallSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardFunnelChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardFunnelSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardFunnelSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardFunnelSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBoxPlotChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardBoxPlotSink',
+    'foam.core.reflow.ReactiveSectionedDetailView',
+    'foam.mlang.Constant',
+    'foam.mlang.sink.Plot'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardBoxPlotSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardBoxPlotSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would collect twice.
+      var sink = this.displaySink.clone(this);
+      // With no Series Property every row goes into one series, grouped by
+      // a constant, so the grouping below needs no second code path.
+      if ( sink.hasDefaultValue('yFunc') ) sink.yFunc = this.Constant.create({ value: sink.labelOf_(sink.valueProp) || sink.DEFAULT_SERIES });
+      // Each box keeps the numbers it is drawn from, not a total, so the sink
+      // has no Aggregation. A Plot collects them in Java and in JS alike, so
+      // the server's select keeps them. buildTotal_ is not called: it would
+      // put a Count here, which keeps no numbers.
+      sink.acc = this.Plot.create({ args: [ sink.valueProp ] });
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardTreemapChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardTreemapSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardTreemapSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardTreemapSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardPolarAreaChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardPolarAreaSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardPolarAreaSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardPolarAreaSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardGaugeChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardGaugeSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardGaugeSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      // One value needs no legend, so the form starts with it off.
+      factory: function() { return this.DashboardGaugeSink.create({ showLegend: false }, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBulletChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardBulletSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardBulletSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      // The bands explain the shading, which a row shows already, so the
+      // form starts with the legend off.
+      factory: function() { return this.DashboardBulletSink.create({ showLegend: false }, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSankeyChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardSankeySink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardSankeySink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardSankeySink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      // rows and cols are built when first read, which a form can do before
+      // the two fields are picked, so the copy drops them and rebuilds both.
+      var sink = this.displaySink.clone(this);
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardComboChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardComboSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardComboSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardComboSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotals_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRangeBarChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardRangeBarSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardRangeBarSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardRangeBarSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotals_();
+      return sink;
     },
     function addSinkToE(e, s) { e.add(s); },
     function addToE(e) {

@@ -162,8 +162,15 @@ foam.CLASS({
       };
       var first = lay(valueScale(this.FIRST_LAYOUT_TICKS));
       var size  = horizontal ? first.width : first.height;
-      var scale = valueScale(Math.max(this.MIN_VALUE_TICKS, Math.min(this.MAX_VALUE_TICKS, Math.round(size / this.VALUE_TICK_PX))));
+      var scale = valueScale(this.valueTickCount(size, this.VALUE_TICK_PX));
       return { area: lay(scale), scale: scale };
+    },
+
+    function valueTickCount(size, spacing) {
+      // How many ticks a value axis of size pixels holds, one about every
+      // spacing pixels, kept between MIN_VALUE_TICKS and MAX_VALUE_TICKS:
+      // a 200-pixel axis at 40 pixels gets five.
+      return Math.max(this.MIN_VALUE_TICKS, Math.min(this.MAX_VALUE_TICKS, Math.round(size / spacing)));
     },
 
     function drawAxes(svg, a, xTicks, yTicks) {

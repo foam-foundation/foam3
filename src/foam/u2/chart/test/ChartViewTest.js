@@ -15,7 +15,8 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.LineChart',
-    'foam.u2.chart.PieChart'
+    'foam.u2.chart.PieChart',
+    'foam.u2.chart.ScatterChart'
   ],
 
   methods: [
@@ -29,6 +30,7 @@ foam.CLASS({
       await this.testLine(x);
       await this.testTimeLine(x);
       await this.testLinearLine(x);
+      await this.testScatter(x);
       await this.testTextWidthSpacing(x);
       this.testFormatValue(x);
     },
@@ -355,6 +357,56 @@ foam.CLASS({
       var top   = Math.min.apply(null, Array.from(el.querySelectorAll('circle')).map(function(c) { return Number(c.getAttribute('cy')); }));
       x.test(lines && getComputedStyle(lines).overflow === 'hidden' && top < Number(lines.getAttribute('y')),
         'Linear: points above a hand-set yMax fall outside the lines box, which hides them');
+      this.unmount(chart);
+    },
+
+    async function testScatter(x) {
+      var clicks = [];
+      var chart = this.ScatterChart.create({
+        datasets: [
+          { label: 'A', data: [ { x: 10, y: 100 }, { x: 20, y: 300 }, { x: 30, y: 200 } ], backgroundColor: '#ff0000' },
+          { label: 'B', data: [ { x: 1000, y: 50 } ] }
+        ],
+        xAxisLabel: 'Size',
+        yAxisLabel: 'Time',
+        onPointClick: function(di, i) { clicks.push([ di, i ]); }
+      }, x);
+      var el   = await this.mount(chart);
+      var dots = this.all(el, chart, 'dot');
+      x.test(dots.length === 4, 'Scatter: one dot per point. Got ' + dots.length);
+      var fills = dots.map(function(d) { return d.getAttribute('fill'); });
+      x.test(fills[0] === '#ff0000' && fills[1] === '#ff0000' && fills[3] && fills[3].indexOf('$') === -1 && fills[3] !== fills[0],
+        'Scatter: a dataset keeps its colour, and one with none gets a resolved theme colour. Got ' + fills.join());
+
+      // x 10, 20, 30 stand evenly apart; y 100, 300, 200: the first step up is twice the next step down.
+      var cx = dots.slice(0, 3).map(function(d) { return this.num(d, 'cx'); }, this);
+      var cy = dots.slice(0, 3).map(function(d) { return this.num(d, 'cy'); }, this);
+      x.test(Math.abs(( cx[1] - cx[0] ) - ( cx[2] - cx[1] )) < 0.5 && cx[1] > cx[0],
+        'Scatter: x positions follow the values 10, 20, 30. Got ' + cx.join());
+      x.test(Math.abs(( cy[0] - cy[1] ) + 2 * ( cy[1] - cy[2] )) < 0.5 && cy[1] < cy[2] && cy[2] < cy[0],
+        'Scatter: y positions follow the values 100, 300, 200, higher values higher up. Got ' + cy.join());
+      var titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(titles.indexOf('Size') !== -1 && titles.indexOf('Time') !== -1, 'Scatter: both axis titles are written. Got ' + titles.join());
+      var labels = function() { return this.all(el, chart, 'text').map(function(t) { return t.textContent; }); }.bind(this);
+      x.test(labels().indexOf('1,000') !== -1, 'Scatter: the x axis reaches 1,000 to hold dataset B. Got ' + labels().join());
+
+      this.fire(dots[0], 'mousemove', this.centreOf(dots[0]).x, this.centreOf(dots[0]).y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('A') === 0 && text.indexOf('Size: 10') !== -1 && text.indexOf('Time: 100') !== -1,
+        'Scatter: hovering a dot shows its series, x and y. Got ' + text);
+
+      this.fire(dots[1], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[0,1]]', 'Scatter: a click gives the dataset and the point\'s position. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Scatter: a chart with onPointClick shows a pointer');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'A,B', 'Scatter: the legend has one entry per dataset');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'dot').length === 3; }.bind(this));
+      x.test(this.all(el, chart, 'dot').length === 3, 'Scatter: clicking B in the legend hides its dot');
+      x.test(labels().indexOf('1,000') === -1, 'Scatter: with B hidden the x axis rescales to A. Got ' + labels().join());
+      var after = this.num(this.all(el, chart, 'dot')[0], 'cx');
+      x.test(after !== cx[0], 'Scatter: the remaining dots move to the new scale');
       this.unmount(chart);
     },
 

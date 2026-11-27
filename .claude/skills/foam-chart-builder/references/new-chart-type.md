@@ -4,8 +4,8 @@ Follow `src/foam/u2/chart/PieChart.js`. It is the smallest complete chart: no ax
 
 ## 1. Pick the base
 
-- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:225`); write labels with `truncate(s, maxPx)` (`ChartView.js:298`).
-- **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:120-232`).
+- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:232`); write labels with `truncate(s, maxPx)` (`ChartView.js:298`).
+- **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:120-239`).
 - **An existing chart type** when the new one is a variant of it. A stacked bar is `BarChart` with `stacked: true`, not a new class.
 - **A subclass of a chart** when the new one adds to it: a bubble is a scatter whose dots have a size. Override small hook methods the parent calls (how to read a point, a dot's radius, the tooltip rows) instead of copying its `drawChart`; add those hooks to the parent if it has none. The parent's `css:` is expanded again under the subclass's own name, so `<<dot` becomes `.foam-u2-chart-BubbleChart-dot` (`u2/CSS.js:76-80`, one copy per `cls.id`), and `myClass()` returns the subclass's name, never the parent's (`u2/Element2.js:947-960`). A test passes the subclass view: `this.all(el, bubble, 'dot')`. A chart that keeps the parent's marks but reads its data another way overrides the parent's data hook: a sunburst extends `PieChart` and overrides `values_()` (`PieChart.js:95`), and the inherited legend, percentages and colours follow.
 

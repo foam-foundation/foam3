@@ -1890,3 +1890,191 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardScatterSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One dot per row: the X and Y properties are two numeric properties of the
+    row, such as response time and size. A row whose X or Y is not a number
+    (a date, text or yes/no value) is left out. Giving a Series property draws
+    one colour and one legend entry per value of it, e.g. one per severity; a
+    row with no value there is left out too.
+  `,
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
+
+  requires: [
+    'foam.u2.chart.ScatterChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Scatter Chart Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The scatter has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Points' },
+    { name: 'NO_DATA',        message: 'No data available' }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xProp', label: 'X Property', help: 'Numeric property drawn along the x axis', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yProp', label: 'Y Property', help: 'Numeric property drawn along the y axis', required: true, generateJava: false },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      name: 'seriesProp', label: 'Series Property',
+      help: 'Optional: one colour and legend entry per value of this property'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a dot is clicked. Signature: (x, y, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no points. Left empty, it says "No data available".'
+    },
+    {
+      class: 'Array',
+      name: 'series_',
+      hidden: true,
+      // Points collected by put(), one entry per series in the order first seen:
+      // [ { label: 'GET', data: [ { x: 40, y: 56.2 } ] } ]. Kept as plain
+      // arrays, since the sink is copied and sent as JSON during a select, and a
+      // JS Map arrives as {} and then fails in put(). Transient, so the points
+      // of one run are never saved into the flow.
+      transient: true
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every point.
+      factory: function() {
+        var self = this;
+        var datasets = this.series_.map(function(e, i) {
+          var c = self.colors && self.colors.length ? self.colors[i % self.colors.length] : undefined;
+          return {
+            label: e.label,
+            data: e.data,
+            backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
+          };
+        });
+        // The form's On Click Script is a function expression, called with
+        // (x, y, series, chartX, chartY, pageX, pageY) for the clicked dot:
+        // its two values, its series name, the point inside the chart and
+        // the point on the page.
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardScatterSink:', e);
+          }
+        }
+        return this.ScatterChart.create({
+          datasets:          datasets,
+          // With no title typed in, an axis is titled with its field's label,
+          // as the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.xProp),
+          yAxisLabel:        this.yAxisLabel || this.labelOf_(this.yProp),
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration,
+          onPointClick: typeof click !== 'function' ? null : function(di, j, evt) {
+            try {
+              var p   = datasets[di].data[j];
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(p.x, p.y, datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "month of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
+    function put(obj) {
+      // Only number values become points: a date would plot as milliseconds
+      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the
+      // chart, which drops them.
+      var x = this.xProp.f(obj), y = this.yProp.f(obj);
+      if ( typeof x !== 'number' || typeof y !== 'number' ) return;
+      var key = this.DEFAULT_SERIES;
+      if ( ! this.hasDefaultValue('seriesProp') ) {
+        // A row with no series value is left out, as the calendar chart does,
+        // rather than drawn as a series called "undefined".
+        var v = this.seriesProp.f(obj);
+        if ( v == null || v === '' ) return;
+        key = String(v);
+      }
+      var s = this.series_.find(function(e) { return e.label === key; });
+      if ( ! s ) this.series_.push(s = { label: key, data: [] });
+      s.data.push({ x: x, y: y });
+    },
+
+    function addToE(e) {
+      var self = this;
+      e.style({ width: '100%' })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .callIfElse(this.series_.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
+        .end();
+    }
+  ]
+});

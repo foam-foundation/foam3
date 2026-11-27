@@ -9,6 +9,20 @@
 // run each chart over four rows and check that every form setting reaches
 // the view, so a setting that stops working shows up here, not on a client's
 // dashboard.
+
+// Rows for the scatter's edge cases: a missing series value and a date field.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'ScatterTestRow',
+  properties: [
+    { class: 'Int',    name: 'id' },
+    { class: 'String', name: 'kind' },
+    { class: 'Int',    name: 'size' },
+    { class: 'Float',  name: 'time' },
+    { class: 'Date',   name: 'when' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardChartRenderTest',
@@ -18,15 +32,18 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
     'foam.core.reflow.MaxDAOAgent',
+    'foam.core.reflow.dashboard.test.ScatterTestRow',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
     'foam.u2.chart.LineChart',
-    'foam.u2.chart.PieChart'
+    'foam.u2.chart.PieChart',
+    'foam.u2.chart.ScatterChart'
   ],
 
   methods: [
@@ -36,6 +53,8 @@ foam.CLASS({
       await this.testPie(x);
       await this.testStackedBar(x);
       await this.testLine(x);
+      await this.testScatter(x);
+      await this.testScatterEdges(x);
       this.testCacheKey(x);
     },
 
@@ -184,6 +203,81 @@ foam.CLASS({
       maxed.displaySink.aggregation = this.MaxDAOAgent.create({ prop: R.AMOUNT }, x);
       var mds = ( await this.rowsDAO(x).select(maxed.createSink()) ).chart_.datasets[0];
       x.test(mds.label === 'Max of ' + R.AMOUNT.label, 'Line: a max says so, so it reads apart from a sum of the same field. Got ' + mds.label);
+    },
+
+    async function testScatter(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardScatterChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = R.MONTH;
+      s.yProp      = R.AMOUNT;
+      s.seriesProp = R.YEAR;
+      s.xAxisLabel = 'Month';
+      s.colors     = [ '#ff0000' ];
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.ScatterChart.isInstance(chart), 'Scatter: draws a foam.u2.chart.ScatterChart. Got ' + ( chart && chart.cls_.id ));
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === '2025,2026', 'Scatter: Series Property gives one dataset per year. Got ' + labels);
+      var pts = chart.datasets[1].data.map(function(p) { return p.x + ':' + p.y; }).join();
+      x.test(pts === '1:30,2:40', 'Scatter: each row is one { x, y } point. Got ' + pts);
+      x.test(chart.datasets[1].backgroundColor === '#ff0000' && chart.xAxisLabel === 'Month', 'Scatter: Colors and X-Axis Label reach the chart');
+
+      // With no Series Property every row lands in one dataset.
+      s.clearProperty('seriesProp');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Scatter: with no Series Property all four rows are one dataset');
+
+      // A select can send the sink to the server as JSON and back. The copy
+      // must still collect points: it once kept them in a JS Map, which came
+      // back as {} and failed on the first put.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 4, 'Scatter: a sink sent as JSON and back still collects all four rows. Got ' + ( err || n ));
+    },
+
+    async function testScatterEdges(x) {
+      var T    = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, time: 1.5, when: new Date(Date.UTC(2026, 0, 1)) }),
+        T.create({ id: 2, kind: '',     size: 20, time: 2.5 }),
+        T.create({ id: 3, kind: 'POST', size: 30, time: 3.5 })
+      ] }, x);
+      var agent = this.DashboardScatterChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = T.SIZE;
+      s.yProp      = T.TIME;
+      s.seriesProp = T.KIND;
+      s.onClickScript = '(function(px, py, series, cx, cy, pageX, pageY) { globalThis.scatterClick_ = [ px, py, series, cx, cy, pageX, pageY ].join(); })';
+
+      var sink  = await rows.select(agent.createSink());
+      var chart = sink.chart_;
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === 'GET,POST', 'Scatter: a row with an empty Series value is left out, not drawn as "undefined". Got ' + labels);
+      x.test(chart.xAxisLabel === T.SIZE.label && chart.yAxisLabel === T.TIME.label,
+        'Scatter: with no axis titles typed, each axis takes its field\'s label. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onPointClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.scatterClick_ === '30,3.5,POST,30,30,130,280',
+        'Scatter: On Click Script gets x, y, series, the point in the chart and on the page. Got ' + globalThis.scatterClick_);
+      delete globalThis.scatterClick_;
+
+      // A date field is not a number: no point is drawn, and the sink shows
+      // its empty message instead of empty axes.
+      s.xProp = T.WHEN;
+      s.clearProperty('seriesProp');
+      sink = await rows.select(agent.createSink());
+      x.test(sink.series_.length === 0, 'Scatter: a date field makes no points. Got ' + sink.series_.length + ' series');
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Scatter: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
     }
   ]
 });

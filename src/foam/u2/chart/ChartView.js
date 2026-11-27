@@ -84,7 +84,7 @@ foam.CLASS({
     <<plot > svg { position: absolute; top: 0; left: 0; overflow: visible; }
 
     <<text       { fill: $textSecondary; font-size: 1.2rem; }
-    <<axis-title { fill: $textSecondary; font-size: 1.2rem; font-weight: 600; }
+    <<axis-title { fill: $textSecondary; font-size: 1.2rem; font-weight: $font-medium; }
     <<grid       { stroke: $borderLight; stroke-width: 1; shape-rendering: crispEdges; }
     <<axis       { stroke: $borderDefault; stroke-width: 1; shape-rendering: crispEdges; }
     <<guide      { stroke: $borderDefault; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
@@ -103,10 +103,10 @@ foam.CLASS({
       font-size: 1.2rem;
       white-space: nowrap;
     }
-    <<tooltip-title  { font-weight: 600; margin-bottom: 0.2rem; }
+    <<tooltip-title  { font-weight: $font-medium; margin-bottom: 0.2rem; }
     <<tooltip-row    { display: flex; align-items: center; gap: 0.6rem; line-height: 1.8rem; }
     <<tooltip-swatch { flex: none; width: 1rem; height: 1rem; border-radius: 0.2rem; }
-    <<tooltip-footer { margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid $borderLight; font-weight: 600; }
+    <<tooltip-footer { margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid $borderLight; font-weight: $font-medium; }
 
     /* The root carries the animation length inline; marks pick it up here. */
     <<animated * { animation-duration: inherit; }

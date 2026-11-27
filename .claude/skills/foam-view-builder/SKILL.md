@@ -346,7 +346,7 @@ view: function(_, X) {
 | `this.myClass()` inside dynamic() | `self.myClass()` (capture self first) |
 | `this.method()` inside event handler | `self.method()` |
 | Inline `style="..."` | CSS classes with the `<<` self-selector (`^` is the deprecated spelling) |
-| Hardcoded colors (`#04338D`, `red`) | FOAM semantic tokens (`$primary500`, `$textDestructive`) — theme/dark-mode aware (3.2) |
+| Hardcoded colors or font values (`#04338D`, `red`, `font-weight: 600`) | FOAM semantic tokens (`$primary500`, `$textDestructive`, `$font-medium`) from `src/foam/u2/CSSTokens.js` — theme/dark-mode aware (3.2). `CSSAuditTest` fails the build on either (`src/foam/core/theme/test/CSSAuditTest.js:432`) |
 | Raw color scale (`$blue500`) when semantic exists | Use semantic alias (`$primary500`) (3.2) |
 | Hand-rolled `font-size` / `font-weight` in custom CSS | Global typography class — `addClass('h300')`, `addClass('p-bold')`, `addClass('p-label')` (3.2.1) |
 | `font-weight: 600` / `font-size: 14px` literals | `$font-medium` / `$header-xxs` weight + size tokens (3.2) |

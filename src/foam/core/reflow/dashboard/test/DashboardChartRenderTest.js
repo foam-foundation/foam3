@@ -30,6 +30,7 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
@@ -40,6 +41,7 @@ foam.CLASS({
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.BubbleChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.ScatterChart'
@@ -54,6 +56,8 @@ foam.CLASS({
       await this.testLine(x);
       await this.testScatter(x);
       await this.testScatterEdges(x);
+      await this.testBubble(x);
+      await this.testBubbleEdges(x);
     },
 
     function rowsDAO(x) {
@@ -249,6 +253,81 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Scatter: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testBubble(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardBubbleChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = R.MONTH;
+      s.yProp      = R.AMOUNT;
+      s.sizeProp   = R.YEAR;
+      s.seriesProp = R.YEAR;
+      s.xAxisLabel = 'Month';
+      s.sizeLabel  = 'Year';
+      s.colors     = [ '#ff0000' ];
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.BubbleChart.isInstance(chart), 'Bubble: draws a foam.u2.chart.BubbleChart. Got ' + ( chart && chart.cls_.id ));
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === '2025,2026', 'Bubble: Series Property gives one dataset per year. Got ' + labels);
+      var pts = chart.datasets[1].data.map(function(p) { return p.x + ':' + p.y + ':' + p.r; }).join();
+      x.test(pts === '1:30:2026,2:40:2026', 'Bubble: each row is one { x, y, r } point. Got ' + pts);
+      x.test(chart.datasets[1].backgroundColor === '#ff0000' && chart.xAxisLabel === 'Month' && chart.sizeLabel === 'Year',
+        'Bubble: Colors, X-Axis Label and Size Label reach the chart');
+
+      s.clearProperty('seriesProp');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Bubble: with no Series Property all four rows are one dataset');
+
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 4 && copy.chart_.datasets[0].data[0].r === 2025, 'Bubble: a sink sent as JSON and back still collects all four rows with their size. Got ' + ( err || n ));
+    },
+
+    async function testBubbleEdges(x) {
+      var T    = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, time: 1.5, when: new Date(Date.UTC(2026, 0, 1)) }),
+        T.create({ id: 2, kind: '',     size: 20, time: 2.5 }),
+        T.create({ id: 3, kind: 'POST', size: 30, time: 3.5 })
+      ] }, x);
+      var agent = this.DashboardBubbleChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = T.SIZE;
+      s.yProp      = T.TIME;
+      s.sizeProp   = T.ID;
+      s.seriesProp = T.KIND;
+      s.onClickScript = '(function(px, py, r, series, cx, cy, pageX, pageY) { globalThis.bubbleClick_ = [ px, py, r, series, cx, cy, pageX, pageY ].join(); })';
+
+      var sink  = await rows.select(agent.createSink());
+      var chart = sink.chart_;
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === 'GET,POST', 'Bubble: a row with an empty Series value is left out. Got ' + labels);
+      x.test(chart.xAxisLabel === T.SIZE.label && chart.yAxisLabel === T.TIME.label && chart.sizeLabel === T.ID.label,
+        'Bubble: with no titles typed, each axis and the size take their field\'s label. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel + ', ' + chart.sizeLabel);
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onPointClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.bubbleClick_ === '30,3.5,3,POST,30,30,130,280',
+        'Bubble: On Click Script gets x, y, size, series, the point in the chart and on the page. Got ' + globalThis.bubbleClick_);
+      delete globalThis.bubbleClick_;
+
+      // A date Size Property is not a number: no bubble is drawn, and the
+      // sink shows its empty message instead of empty axes.
+      s.sizeProp = T.WHEN;
+      s.clearProperty('seriesProp');
+      sink = await rows.select(agent.createSink());
+      x.test(sink.series_.length === 0, 'Bubble: a date Size Property makes no points. Got ' + sink.series_.length + ' series');
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Bubble: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     }
   ]

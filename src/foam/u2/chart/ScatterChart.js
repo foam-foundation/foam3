@@ -77,6 +77,14 @@ foam.CLASS({
       this.enableClass(this.myClass('clickable'), this.onPointClick$.map(function(f) { return !! f; }));
     },
 
+    function pointOf_(p) {
+      // The numbers of one data entry as { x, y }, or null when it has no
+      // drawable point. A subclass adds fields here, as BubbleChart adds r.
+      if ( p == null || p.x == null || p.y == null ) return null;
+      var x = Number(p.x), y = Number(p.y);
+      return isFinite(x) && isFinite(y) ? { x: x, y: y } : null;
+    },
+
     function visibleSets_() {
       // Each visible dataset with its points as { x, y, j }, j being the
       // position in data. A point missing either number is not drawn.
@@ -84,10 +92,9 @@ foam.CLASS({
       return this.datasets
         .map(function(ds, i) {
           var pts = [];
-          ( ds.data || [] ).forEach(function(p, j) {
-            if ( p == null || p.x == null || p.y == null ) return;
-            var x = Number(p.x), y = Number(p.y);
-            if ( isFinite(x) && isFinite(y) ) pts.push({ x: x, y: y, j: j });
+          ( ds.data || [] ).forEach(function(d, j) {
+            var p = self.pointOf_(d);
+            if ( p ) { p.j = j; pts.push(p); }
           });
           return { ds: ds, i: i, pts: pts };
         })
@@ -127,15 +134,33 @@ foam.CLASS({
         xScale.ticks().map(function(t) { return { pos: xScale.map(t), label: xScale.format(t) }; }),
         yScale.ticks().map(function(t) { return { pos: yScale.map(t), label: yScale.format(t) }; }));
 
+      this.drawMarks_(svg, sets, xScale, yScale);
+    },
+
+    function radiusFn_(sets) {
+      // A function giving the radius in pixels of one point; every dot is the same size.
+      var r = this.DOT_PX;
+      return function() { return r; };
+    },
+
+    function markAttrs_() {
+      // Attributes added to every dot, for a subclass to style its marks.
+      return {};
+    },
+
+    function drawMarks_(svg, sets, xScale, yScale) {
+      var self   = this;
+      var radius = this.radiusFn_(sets);
+      var extra  = this.markAttrs_();
       svg.start('g').addClass(this.myClass('dots'))
         .forEach(sets, function(s) {
           var color = self.seriesColor(s.i);
           this.forEach(s.pts, function(p) {
             this.start('circle').addClass(self.myClass('dot'))
-              .attrs({
-                cx: xScale.map(p.x), cy: yScale.map(p.y), r: self.DOT_PX,
+              .attrs(Object.assign({
+                cx: xScale.map(p.x), cy: yScale.map(p.y), r: radius(p),
                 fill: color, 'stroke-width': 2 * self.HIT_SLACK_PX
-              })
+              }, extra))
               .on('mousemove', function(evt) { self.showPointTooltip_(evt, s, p, color); })
               .on('mouseleave', self.hideTooltip)
               .on('click', function(evt) { if ( self.onPointClick ) self.onPointClick(s.i, p.j, evt); })
@@ -145,11 +170,16 @@ foam.CLASS({
       .end();
     },
 
-    function showPointTooltip_(evt, s, p, color) {
-      this.showTooltip(evt, s.ds.label || '', [
+    function pointRows_(p, color) {
+      // The tooltip rows of one point, as { color, label, value }.
+      return [
         { color: color, label: this.xAxisLabel || 'x', value: this.formatValue(p.x) },
         { color: color, label: this.yAxisLabel || 'y', value: this.formatValue(p.y) }
-      ]);
+      ];
+    },
+
+    function showPointTooltip_(evt, s, p, color) {
+      this.showTooltip(evt, s.ds.label || '', this.pointRows_(p, color));
     }
   ]
 });

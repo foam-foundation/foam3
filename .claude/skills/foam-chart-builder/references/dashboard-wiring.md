@@ -66,7 +66,8 @@ Test each of these in `DashboardChartRenderTest`, over rows that have a missing 
 - **`displaySink`:** an `FObjectProperty` of the sink, with `hidden: true` and `autoValidate: true`. Its factory creates an empty sink (`DashboardDAOAgents.js:520-528`). An empty required field turns Run off.
 - **`createSink()`:** returns a new copy on every run, `this.displaySink.clone(this)`, then calls `buildTotal_()` (`DashboardDAOAgents.js:585-589`). The flow runs the same agent again when the query or the data changes, so a reused sink counts twice (`DashboardDAOAgents.js:387-393`). Call `buildTotal_()` when the chart shows a value per mark: with no aggregation picked it builds a Count (`DashboardDAOAgents.js:257-260`). A chart that plots row values as they are, such as a scatter, has no total and skips it.
 - **`addToE`:** shows the form with `ReactiveSectionedDetailView` over `displaySink$`.
-- **Shims:** only for names that flows saved before. A new chart has none, and its flows save the form as `displaySink: {...}`.
+- **Shims:** only for names that flows saved before. A new chart has none, and its flows save the form as `displaySink: {...}`. The line agent's copy list in `createSink` only carries settings across a switch between its single-line and multi-line sinks, so a field on one of the two needs no entry there.
+- **Renaming a grouping field on the form** (Source and Target on `yFunc` and `xFunc`): redeclare it as a `ChartFieldProperty` with only a new `label`.
 
 ## 3. The picker row (core/reflow/agents.jrl)
 

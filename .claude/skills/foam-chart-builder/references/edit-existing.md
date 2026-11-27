@@ -31,6 +31,7 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
 | To change | Edit |
 |---|---|
 | bar width, gap, stacking | `BarChart.drawChart` (`BarChart.js:128-157`) |
+| stacked lines | `LineChart.stack_`: every line gets a point at every x, its y the running total and `own` its value; bands are drawn top-first and opaque, each down to the axis, so the lower band covers the upper one |
 | line shape: tension, steps, fill, dots | `LineDataset` properties, then `LineChart.drawChart` |
 | pie slices, hole, start angle | `PieChart.drawChart` and `slicePath` (`PieChart.js:142-188`) |
 | tick count, tick spacing, label turning | constants in `CartesianChartView` (`CartesianChartView.js:24-105`) |

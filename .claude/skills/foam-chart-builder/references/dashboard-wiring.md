@@ -10,9 +10,11 @@ Copy the pie: `DashboardPieSink` (`core/reflow/dashboard/DashboardSinks.js:251-4
 ## 1. The sink (DashboardSinks.js)
 
 - **`extends`:** the grouping sink whose result the chart draws.
-  - `foam.mlang.sink.TopNGroupBy` gives one value per group (bar, pie).
+  - `foam.mlang.sink.TopNGroupBy` gives one value per group, keeps the top N by value and folds the rest into "Others" (bar, pie).
+  - `foam.mlang.sink.GroupBy` gives one value for every group, in key order: for a chart whose order is the key's, such as hours on a waterfall.
   - `foam.core.reflow.GridBy` gives a value per row and column (stacked bar, multi-line). A chart keyed by two fields, such as a heatmap, copies `DashboardStackedBarSink` and its agent (`DashboardSinks.js:446`, `DashboardDAOAgents.js:396`).
-  - A date field groups through the expressions in `foam/mlang/expr/DateTo*Expr.js`: hour (`DateToHHExpr`), day, week, month, quarter, year and day of year. There is no day of the week.
+  - **Every raw value per group** (a box plot needs the numbers, not a total): a `GridBy` whose accumulator is a `foam.mlang.sink.Plot`. `Plot` keeps each value as a one-entry list `[ value ]` and has Java, so it runs on the server (`mlang/sink/Plot.js:9-35`).
+  - A date field groups through the expressions in `foam/mlang/expr/DateTo*Expr.js`: hour (`DateToHHExpr`), day, week, month, quarter, year and day of year. There is no day of the week. The hour is zero-padded ("08"), so sorted keys are in hour order (`DateToHHExpr.js:33`).
 - **`mixins`:** `ChartDisplayMixin` adds the shared form fields: height, legend, tooltips and animation. `ColorMappingMixin` adds `colors`.
 - **`requires`:** the chart view, for example `foam.u2.chart.PieChart`.
 - **Form fields:**
@@ -72,7 +74,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": <next free id>, "label":"Scatter 
 ## 4. Text and the demo flow
 
 - **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM` has (`locales.jrl:988`).
-- **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line.
+- **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line. The file holds more than one flow, so find the ChartDemo row by its `"name":"ChartDemo"`, not the first `"script"`. Read and write the script in Python: `v = json.loads(json.loads('"' + raw + '"'))`, change `v`, then write back `json.dumps(json.dumps(v, separators=(',', ':'), ensure_ascii=False), ensure_ascii=False)[1:-1]`.
 - **Demo data must vary on a fresh server.** Every `om1MinuteDAO` row is a counter, so its `average` is always 1: a scatter of count against average draws a flat line. Check the two fields on a running server before you pick them.
 - **Count of rows can be the same everywhere.** `om1MinuteDAO` holds one row per key per minute, so counting its rows per hour gives the same number in every cell. Sum a value instead, such as `Candlestick.count`.
 - **A date expression needs a date field.** `LogMessage.created` is a `Long` (`core/logger/LogMessage.js:48-51`), so `DateToHHExpr` on it fails on the server with "java.lang.Long cannot be cast to java.util.Date". Use a `Date` or `DateTime` field, such as `Candlestick.closeTime` (`core/analytics/Candlestick.js:66-68`).

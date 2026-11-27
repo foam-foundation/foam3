@@ -19,6 +19,7 @@ foam.POM({
     { name: 'LinearScale',                      flags: 'web' },
     { name: 'BandScale',                        flags: 'web' },
     { name: 'TimeScale',                        flags: 'web' },
+    { name: 'ColorScale',                       flags: 'web' },
     { name: 'SVGPath',                          flags: 'web' },
     { name: 'Dataset',                          flags: 'web' },
     { name: 'LineDataset',                      flags: 'web' },
@@ -31,6 +32,7 @@ foam.POM({
     { name: 'PieChart',                         flags: 'web' },
     { name: 'ScatterChart',                     flags: 'web' },
     { name: 'BubbleChart',                      flags: 'web' },
-    { name: 'RadarChart',                       flags: 'web' }
+    { name: 'RadarChart',                       flags: 'web' },
+    { name: 'HeatmapChart',                     flags: 'web' }
   ]
 });

@@ -14,6 +14,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.BandScale',
+    'foam.u2.chart.ColorScale',
     'foam.u2.chart.LinearScale',
     'foam.u2.chart.SVGPath',
     'foam.u2.chart.TimeScale',
@@ -24,6 +25,7 @@ foam.CLASS({
     function runTest(x) {
       this.testLinearScale(x);
       this.testBandScale(x);
+      this.testColorScale(x);
       this.testTimeScale(x);
       this.testChartFormatter(x);
       this.testSVGPath(x);
@@ -66,6 +68,22 @@ foam.CLASS({
       x.test(b.step() === 100, 'Band: 4 categories on 400 px are 100 px apart');
       x.test(b.center(0) === 50 && b.center(3) === 350, 'Band: the first band is centred at 50, the last at 350');
       x.test(Math.abs(b.bandwidth() - 72) < 1e-9, 'Band: bars cover 72% of their band. Got ' + b.bandwidth());
+    },
+
+    function testColorScale(x) {
+      var s = this.ColorScale.create({ min: 0, max: 10, strong: '#0000ff', tint: '#ffffff', fade: 0.8 });
+      x.test(s.blend('#000000', '#ffffff', 0.5) === '#808080', 'Color: half way from black to white is #808080. Got ' + s.blend('#000000', '#ffffff', 0.5));
+      x.test(s.colorAt(10) === '#0000ff', 'Color: the highest value is the strong colour. Got ' + s.colorAt(10));
+      x.test(s.colorAt(0) === '#ccccff' && s.light() === '#ccccff', 'Color: the lowest value is the strong colour faded 80% toward white. Got ' + s.colorAt(0));
+      x.test(s.colorAt(5) === '#6666ff', 'Color: 5 is half way between the pale shade and the strong colour. Got ' + s.colorAt(5));
+      x.test(s.colorAt(99) === '#0000ff' && s.colorAt(-9) === '#ccccff', 'Color: a value outside min..max stays on the scale');
+      x.test(s.blend('rgb(0, 0, 0)', '#fff', 1) === '#ffffff', 'Color: rgb() and 3-digit hex colours parse');
+
+      s.min = 4; s.max = 4;
+      x.test(s.colorAt(4) === '#0000ff', 'Color: when every value is the same each cell is as strong as it gets. Got ' + s.colorAt(4));
+
+      x.test(s.isDark('#0000ff') && ! s.isDark('#ccccff'), 'Color: strong blue is dark and its pale shade is light');
+      x.test(s.isDark('#000000') && ! s.isDark('#ffffff'), 'Color: black is dark and white is light');
     },
 
     function testTimeScale(x) {

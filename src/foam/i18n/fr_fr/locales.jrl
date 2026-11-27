@@ -991,4 +991,5 @@ p({l:"fr",s:"foam.core.reflow.dashboard.DashboardScatterSink.NO_DATA",t:"Aucune 
 p({l:"fr",s:"foam.u2.chart.BubbleChart.SIZE",t:"Taille"})
 p({l:"fr",s:"foam.core.reflow.dashboard.DashboardRadarSink.DEFAULT_SERIES",t:"Valeurs"})
 p({l:"fr",s:"foam.core.reflow.dashboard.DashboardRadarSink.NO_DATA",t:"Aucune donnée disponible"})
+p({l:"fr",s:"foam.core.reflow.dashboard.DashboardHeatmapSink.NO_DATA",t:"Aucune donnée disponible"})
 p({l:"fr",s:"foam.u2.chart.TimeScale.WEEK_OF",t:"Semaine du"})

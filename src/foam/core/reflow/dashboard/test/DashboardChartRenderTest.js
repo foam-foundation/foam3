@@ -19,7 +19,8 @@ foam.CLASS({
     { class: 'String', name: 'kind' },
     { class: 'Int',    name: 'size' },
     { class: 'Float',  name: 'time' },
-    { class: 'Date',   name: 'when' }
+    { class: 'Date',   name: 'when' },
+    { class: 'DateTime', name: 'at' }
   ]
 });
 
@@ -44,6 +45,7 @@ foam.CLASS({
   requires: [
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
@@ -58,6 +60,7 @@ foam.CLASS({
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BubbleChart',
+    'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.RadarChart',
@@ -77,6 +80,8 @@ foam.CLASS({
       await this.testBubbleEdges(x);
       await this.testRadar(x);
       await this.testRadarEdges(x);
+      await this.testHeatmap(x);
+      await this.testHeatmapEdges(x);
     },
 
     function rowsDAO(x) {
@@ -456,6 +461,105 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Bubble: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testHeatmap(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardHeatmapChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      // A form reads rows and cols before the fields are picked. Reading them
+      // first here checks that picking the fields still rebuilds them.
+      s.rows; s.cols;
+      s.xFunc       = R.MONTH;
+      s.yFunc       = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#ff0000' ];
+      s.xAxisLabel  = 'Month';
+      s.showValues  = true;
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its first three arguments: the cell's value, its
+      // column name and its row name.
+      s.onClickScript = '(function(v, xl, yl, cx, cy, px, py) { globalThis.heatmapClick_ = [ v, xl, yl, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.HeatmapChart.isInstance(chart), 'Heatmap: draws a foam.u2.chart.HeatmapChart. Got ' + ( chart && chart.cls_.id ));
+      var y25 = '2025', y26 = '2026';
+      x.test(chart.labels.join() === '1,2', 'Heatmap: X Axis gives one column per month. Got ' + chart.labels.join());
+      x.test(chart.datasets.map(function(d) { return d.label; }).join() === y25 + ',' + y26, 'Heatmap: Y Axis gives one row per year. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      x.test(chart.datasets[0].data.join() === '10,20' && chart.datasets[1].data.join() === '30,40',
+        'Heatmap: each cell sums the amounts of its month and year. Got ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
+      x.test(chart.datasets[0].backgroundColor === '#ff0000', 'Heatmap: the first colour is the strong end of the scale. Got ' + chart.datasets[0].backgroundColor);
+      x.test(chart.xAxisLabel === 'Month' && chart.yAxisLabel === R.YEAR.label,
+        'Heatmap: a typed X-Axis Label is used, and with none typed the axis takes the field\'s label. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+      x.test(chart.showValues && chart.legendPosition === this.LegendPosition.RIGHT, 'Heatmap: Show Values and Legend Position reach the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onCellClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.heatmapClick_ === '20,2,' + y25 + ',30,30,130,280',
+        'Heatmap: On Click Script gets the value, column and row names, the point in the chart and on the page. Got ' + globalThis.heatmapClick_);
+      delete globalThis.heatmapClick_;
+
+      // With no aggregation picked the form shows Count, so each cell counts its rows.
+      s.clearProperty('aggregation');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '1,1', 'Heatmap: with no Aggregation each cell counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onCellClick, 'Heatmap: with no On Click Script the cells are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still fill the grid.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 2, 'Heatmap: a sink sent as JSON and back still fills the grid. Got ' + ( err || n ));
+    },
+
+    async function testHeatmapEdges(x) {
+      var T = this.ScatterTestRow;
+      var at = function(day, hour) { return new Date(2026, 0, day, hour, 30); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, when: at(1, 9),  at: at(1, 9) }),
+        T.create({ id: 2, kind: 'GET',  size: 20, when: at(1, 14), at: at(1, 14) }),
+        T.create({ id: 3, kind: 'POST', size: 10, when: at(2, 9),  at: at(2, 9) })
+      ] }, x);
+      var agent = this.DashboardHeatmapChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xFunc = T.SIZE;
+      s.yFunc = T.KIND;
+
+      var sink  = await rows.select(agent.createSink());
+      var chart = sink.chart_;
+      x.test(chart.datasets.map(function(d) { return d.label + ':' + d.data.join('|'); }).join() === 'GET:1|1,POST:1|',
+        'Heatmap: a pair with no rows is null, an empty cell and not a zero. Got ' + chart.datasets.map(function(d) { return d.label + ':' + d.data.join('|'); }).join());
+      x.test(chart.datasets[1].data[1] === null, 'Heatmap: the empty cell holds null');
+      x.test(chart.xAxisLabel === T.SIZE.label && chart.yAxisLabel === T.KIND.label,
+        'Heatmap: with no axis titles typed, each axis takes its field\'s label. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+
+      // The hour of a date, as the bar and line charts offer.
+      s.xFunc = foam.mlang.expr.DateToHHExpr.create({ arg1: T.AT, delegate: T.AT });
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '09,14', 'Heatmap: a date expression such as the hour gives the columns. Got ' + chart.labels.join());
+      x.test(chart.datasets.map(function(d) { return d.data.join('|'); }).join() === '1|1,1|', 'Heatmap: requests per hour for each kind. Got ' + chart.datasets.map(function(d) { return d.data.join('|'); }).join());
+
+      // A date field is labelled as the bar charts label it.
+      s.xFunc = T.WHEN;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.length === 2 && chart.labels.every(function(l) { return /^\d{4}-\d\d-\d\d$/.test(l); }),
+        'Heatmap: a date field gives one column per date value, labelled YYYY-MM-DD. Got ' + chart.labels.join());
+
+      // No rows: a message in place of empty axes.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      s.xFunc  = T.SIZE;
+      sink = await none.select(agent.createSink());
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Heatmap: with no rows the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     }
   ]

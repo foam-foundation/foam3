@@ -377,7 +377,7 @@ foam.CLASS({
       var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
       x.test(items.map(function(i) { return i.textContent; }).join() === 'A,B', 'Scatter: the legend has one entry per dataset');
       items[1].click();
-      await this.redraw();
+      await this.redraw(function() { return this.all(el, chart, 'dot').length === 3; }.bind(this));
       x.test(this.all(el, chart, 'dot').length === 3, 'Scatter: clicking B in the legend hides its dot');
       x.test(labels().indexOf('1,000') === -1, 'Scatter: with B hidden the x axis rescales to A. Got ' + labels().join());
       var after = this.num(this.all(el, chart, 'dot')[0], 'cx');

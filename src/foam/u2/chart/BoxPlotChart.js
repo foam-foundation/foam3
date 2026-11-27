@@ -133,12 +133,14 @@ foam.CLASS({
       var q1 = this.quantile_(sorted, 0.25), q3 = this.quantile_(sorted, 0.75);
       var reach = this.WHISKER_IQR * ( q3 - q1 );
       var inside = sorted.filter(function(v) { return v >= q1 - reach && v <= q3 + reach; });
+      // The whiskers never end inside the box: for 0, 0, 0, 100 the only
+      // value in reach below Q3 (25) is 0, so the upper whisker ends at Q3.
       return {
-        min:      inside[0],
+        min:      Math.min(inside[0], q1),
         q1:       q1,
         median:   this.quantile_(sorted, 0.5),
         q3:       q3,
-        max:      inside[inside.length - 1],
+        max:      Math.max(inside[inside.length - 1], q3),
         outliers: sorted.filter(function(v) { return v < q1 - reach || v > q3 + reach; })
       };
     },

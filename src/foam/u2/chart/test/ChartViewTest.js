@@ -20,7 +20,8 @@ foam.CLASS({
     'foam.u2.chart.PieChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
-    'foam.u2.chart.ScatterChart'
+    'foam.u2.chart.ScatterChart',
+    'foam.u2.chart.WaterfallChart'
   ],
 
   methods: [
@@ -43,6 +44,8 @@ foam.CLASS({
       await this.testHistogram(x);
       await this.testHistogramSeries(x);
       await this.testHistogramEdges(x);
+      await this.testWaterfall(x);
+      await this.testWaterfallEdges(x);
     },
 
     async function mount(view) {
@@ -777,6 +780,114 @@ foam.CLASS({
       el = await this.mount(chart);
       x.test(this.all(el, chart, 'cell').length === 26 && this.all(el, chart, 'cell-value').length === 0,
         'Heatmap: a value that does not fit its cell is left out. Got ' + this.all(el, chart, 'cell-value').length + ' values');
+      this.unmount(chart);
+    },
+
+    async function testWaterfall(x) {
+      var clicks = [];
+      // Running totals: 0 to 40, 40 to 25, 25 to 50, 50 to -30, then the total bar from 0 to -30.
+      var chart = this.WaterfallChart.create({
+        labels: [ 'Jan', 'Feb', 'Mar', 'Apr' ],
+        datasets: [ { label: 'Change', data: [ 40, -15, 25, -80 ] } ],
+        xAxisLabel: 'Month',
+        onStepClick: function(i) { clicks.push(i); }
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 5, 'Waterfall: one bar per step and a total bar. Got ' + bars.length);
+
+      var top = bars.map(function(b) { return this.num(b, 'y'); }, this);
+      var len = bars.map(function(b) { return this.num(b, 'height'); }, this);
+      var bottom = top.map(function(y, i) { return y + len[i]; });
+      var near = function(a, b) { return Math.abs(a - b) < 0.5; };
+      x.test(near(len[1] / len[0], 15 / 40) && near(len[2] / len[0], 25 / 40) && near(len[3] / len[0], 80 / 40) && near(len[4] / len[0], 30 / 40),
+        'Waterfall: bar heights follow the changes 40, 15, 25, 80 and the total 30. Got ' + len.join());
+      x.test(near(top[1], top[0]) && near(bottom[1], bottom[2]) && near(top[3], top[0] + len[0] - 50 / 40 * len[0]),
+        'Waterfall: each bar starts at the total before it (Feb hangs from the top of Jan, Mar rests on the end of Feb, Apr from 50). Got top ' + top.join());
+      x.test(near(top[4], bottom[0]), 'Waterfall: a total below zero hangs from the zero line. Got ' + top[4] + ' vs ' + bottom[0]);
+
+      var fills = bars.map(function(b) { return b.getAttribute('fill'); });
+      x.test(fills[0] === fills[2] && fills[1] === fills[3] && fills[0] !== fills[1] && fills[4] !== fills[0] && fills[4] !== fills[1] &&
+        fills.every(function(f) { return f && f.indexOf('$') === -1; }),
+        'Waterfall: rises share one resolved colour, falls another, the total a third. Got ' + fills.join());
+
+      var texts = this.all(el, chart, 'text').map(function(e) { return e.textContent; });
+      x.test(texts.indexOf('Total') !== -1 && texts.some(function(s) { return /^[-−]\d/.test(s); }),
+        'Waterfall: the total bar is labelled and the value axis reaches below zero. Got ' + texts.join());
+      x.test(this.all(el, chart, 'axis-title').map(function(e) { return e.textContent; }).indexOf('Month') !== -1, 'Waterfall: the x axis title is written');
+
+      // A line joins the end of each bar to the start of the next, at the same total.
+      var lines = this.all(el, chart, 'connector');
+      x.test(lines.length === 4 && near(this.num(lines[0], 'y1'), top[0]) && near(this.num(lines[1], 'y1'), bottom[1]) && near(this.num(lines[3], 'y1'), bottom[3]) &&
+        this.num(lines[0], 'x2') > this.num(lines[0], 'x1') && this.num(lines[0], 'x2') <= this.num(bars[1], 'x'),
+        'Waterfall: four connectors, each at the total between two bars and in the gap. Got ' + lines.map(function(l) { return l.getAttribute('y1'); }).join());
+
+      // Legend: rise, fall and total; a click hides nothing, as every bar rests on the ones before it.
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Rise,Fall,Total', 'Waterfall: the legend lists rise, fall and total. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[0].click();
+      await this.redraw();
+      x.test(this.all(el, chart, 'bar').length === 5 && ! items[0].classList.contains(this.legendClass('hidden')),
+        'Waterfall: clicking a legend entry hides no bars');
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 5, 'Waterfall: one hover column per bar. Got ' + hits.length);
+      var c = this.centreOf(hits[1]);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('Feb') === 0 && /Change: [-−]15/.test(tip.textContent) && tip.textContent.indexOf('Running total: 25') !== -1,
+        'Waterfall: hovering a step shows its name, its signed change and the running total. Got ' + tip.textContent);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Change: +40') !== -1 && tip.textContent.indexOf('Running total: 40') !== -1,
+        'Waterfall: a rise is shown with a plus sign. Got ' + tip.textContent);
+      this.fire(hits[4], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Total') === 0 && /Running total: [-−]30/.test(tip.textContent), 'Waterfall: the total bar shows the end total. Got ' + tip.textContent);
+
+      this.fire(hits[2], 'click', c.x, c.y);
+      this.fire(hits[4], 'click', c.x, c.y);
+      x.test(JSON.stringify(clicks) === '[2,4]', 'Waterfall: a click gives the step index, 4 for the total bar. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Waterfall: a chart with onStepClick shows a pointer');
+      this.unmount(chart);
+    },
+
+    async function testWaterfallEdges(x) {
+      // showTotal off: no total bar, no Total legend entry; a colour list sets rise, fall, total.
+      var chart = this.WaterfallChart.create({
+        labels: [ 'A', 'B' ],
+        datasets: [ { data: [ 10, -4 ], backgroundColor: [ '#00aa00', '#aa0000', '#0000aa' ] } ],
+        showTotal: false
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 2 && bars[0].getAttribute('fill') === '#00aa00' && bars[1].getAttribute('fill') === '#aa0000',
+        'Waterfall: showTotal off draws only the steps, in the rise and fall colours given. Got ' + bars.map(function(b) { return b.getAttribute('fill'); }).join());
+      x.test(Array.from(el.querySelectorAll('.' + this.legendClass('item'))).map(function(i) { return i.textContent; }).join() === 'Rise,Fall',
+        'Waterfall: showTotal off drops the Total legend entry');
+      x.test(this.all(el, chart, 'connector').length === 1, 'Waterfall: one connector between two steps and no total');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Waterfall: with no onStepClick the bars are not clickable');
+      this.unmount(chart);
+
+      // Only falls: the running total dips below zero, and the axis must still reach it.
+      chart = this.WaterfallChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ -10, -20 ] } ] }, x);
+      el    = await this.mount(chart);
+      bars  = this.all(el, chart, 'bar');
+      var svgH = el.querySelector('svg').getBoundingClientRect().height;
+      x.test(bars.length === 3 && bars.every(function(b) { return this.num(b, 'y') >= 0 && this.num(b, 'y') + this.num(b, 'height') <= svgH; }, this),
+        'Waterfall: running totals of -10, -30 stay inside the plot');
+      this.unmount(chart);
+
+      // A step of 0 draws no bar but can still be hovered; a value that is not a number counts as 0.
+      chart = this.WaterfallChart.create({ labels: [ 'A', 'B', 'C' ], datasets: [ { data: [ 5, 0, 'x' ] } ] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'bar').length === 2 && this.all(el, chart, 'hit').length === 4,
+        'Waterfall: 0 and a non-number draw no bar, and the total is still drawn. Got ' + this.all(el, chart, 'bar').length);
+      this.unmount(chart);
+
+      // No data: a message, no axes.
+      chart = this.WaterfallChart.create({ labels: [], datasets: [] }, x);
+      el    = await this.mount(chart);
+      x.test(el.textContent.indexOf(chart.NO_DATA) !== -1 && this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'axis').length === 0,
+        'Waterfall: with no data the chart says "' + chart.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(el.textContent));
       this.unmount(chart);
     },
 

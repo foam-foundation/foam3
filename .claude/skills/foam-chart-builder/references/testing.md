@@ -11,6 +11,10 @@ Before a build, check each test file you changed parses: `node --check src/foam/
 
 A browser test cannot read Java-only keys such as `javaFactory` or `javaCode`; to check a field reaches Java, check `generateJava !== false`. "Access missing import: dao" lines for every chart agent in the log are not a failure. The log prints a capped number of lines; trust the `PASSED:` count. A failure late in a long run can show as `FAILED: 1` with no message: run that case alone, with the earlier `await this.test…` calls in `runTest` commented out, to read it.
 
+A scripted edit that leaves `,,` in a `methods:` list passes `node --check` (it is an array hole), and the build prints "Class definition error" far up the log. After a run with a surprise count, grep the log for `Class definition error` and `TypeError`.
+
+The legend takes height from the plot, so a round chart's radius is not `min(w, h) / 2`. A test reads the radius from the drawn shape (a `circle`'s `r`), never works it out.
+
 The headless test window is about 200 × 400 px, so `document.elementFromPoint` returns `null` right of about x = 200. A hover or hit test uses a mark on the left of the chart, or scans that mark's own box.
 
 On a category x axis `XAxisType.CATEGORY.toX` returns the point's index (`XAxisType.js:57`), so an explicit `x` does not line points up across lines. A test of a line with a missing point uses `xType: 'linear'`.

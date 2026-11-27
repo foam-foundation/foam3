@@ -249,6 +249,15 @@ foam.CLASS({
       return c || this.defaultColor(i);
     },
 
+    function valueColor(j) {
+      // A chart with one colour per value (a pie slice, a funnel step) colours
+      // value j from the first dataset's colours in turn, then from the theme:
+      // three colours and five slices give colours 0, 1, 2, 0, 1.
+      var bg = this.datasets[0] && this.datasets[0].backgroundColor;
+      if ( Array.isArray(bg) && bg.length ) return bg[j % bg.length];
+      return this.defaultColor(j);
+    },
+
     function defaultColor(i) {
       return foam.CSS.returnTokenValue(this.DEFAULT_COLORS[i % this.DEFAULT_COLORS.length], this.cls_, this.__subContext__);
     },

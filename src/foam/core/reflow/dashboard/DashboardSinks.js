@@ -2010,7 +2010,7 @@ foam.CLASS({
             console.warn('Invalid onClickScript for DashboardScatterSink:', e);
           }
         }
-        return this.ScatterChart.create({
+        return this.createChart_({
           datasets:          datasets,
           // With no title typed in, an axis is titled with its field's label,
           // as the line chart does: "Amount", not a blank axis.
@@ -2026,8 +2026,8 @@ foam.CLASS({
             try {
               var p   = datasets[di].data[j];
               var box = evt.target.ownerSVGElement.getBoundingClientRect();
-              click(p.x, p.y, datasets[di].label,
-                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+              click.apply(null, self.clickArgs_(p, datasets[di].label).concat(
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY));
             } catch ( e ) {
               console.warn('Error executing onClickScript:', e);
             }
@@ -2044,12 +2044,27 @@ foam.CLASS({
       return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
     },
 
-    function put(obj) {
-      // Only number values become points: a date would plot as milliseconds
-      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the
-      // chart, which drops them.
+    function pointOf_(obj) {
+      // The point a row draws as { x, y }, or null when the row has none.
+      // Only number values count: a date would plot as milliseconds since
+      // 1970 and yes/no as 0 or 1. NaN and Infinity are left to the chart,
+      // which drops them.
       var x = this.xProp.f(obj), y = this.yProp.f(obj);
-      if ( typeof x !== 'number' || typeof y !== 'number' ) return;
+      return typeof x === 'number' && typeof y === 'number' ? { x: x, y: y } : null;
+    },
+
+    function createChart_(args) {
+      return this.ScatterChart.create(args);
+    },
+
+    function clickArgs_(p, series) {
+      // The leading arguments of the On Click Script, before the chart and page position.
+      return [ p.x, p.y, series ];
+    },
+
+    function put(obj) {
+      var pt = this.pointOf_(obj);
+      if ( ! pt ) return;
       var key = this.DEFAULT_SERIES;
       if ( ! this.hasDefaultValue('seriesProp') ) {
         // A row with no series value is left out, as the calendar chart does,
@@ -2060,7 +2075,7 @@ foam.CLASS({
       }
       var s = this.series_.find(function(e) { return e.label === key; });
       if ( ! s ) this.series_.push(s = { label: key, data: [] });
-      s.data.push({ x: x, y: y });
+      s.data.push(pt);
     },
 
     function addToE(e) {
@@ -2075,6 +2090,58 @@ foam.CLASS({
               .end();
             })
         .end();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBubbleSink',
+  extends: 'foam.core.reflow.dashboard.DashboardScatterSink',
+
+  documentation: `
+    One bubble per row: the X and Y properties place it and the Size property
+    sets its area, e.g. latency against payload size with the request count as
+    the size. A row whose X, Y or Size is not a number is left out. Series
+    works as on the scatter.
+  `,
+
+  requires: [
+    'foam.u2.chart.BubbleChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'sizeProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Bubble Chart Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'sizeLabel', 'showGridLines', 'onClickScript'] }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'sizeProp', label: 'Size Property', help: 'Numeric property that sets the area of the bubble', required: true, generateJava: false },
+    { class: 'String', name: 'sizeLabel', label: 'Size Label', help: 'What the tooltip calls the size. Left empty, it takes the Size Property\'s label.' },
+    {
+      name: 'onClickScript',
+      help: 'Function expression called when a bubble is clicked. Signature: (x, y, size, series, chartX, chartY, pageX, pageY) => void'
+    }
+  ],
+
+  methods: [
+    function pointOf_(obj) {
+      var pt = this.SUPER(obj);
+      var r  = this.sizeProp.f(obj);
+      if ( ! pt || typeof r !== 'number' ) return null;
+      pt.r = r;
+      return pt;
+    },
+
+    function createChart_(args) {
+      args.sizeLabel = this.sizeLabel || this.labelOf_(this.sizeProp);
+      return this.BubbleChart.create(args);
+    },
+
+    function clickArgs_(p, series) {
+      return [ p.x, p.y, p.r, series ];
     }
   ]
 });

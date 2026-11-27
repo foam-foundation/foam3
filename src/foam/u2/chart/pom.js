@@ -29,6 +29,7 @@ foam.POM({
     { name: 'XAxisType',                        flags: 'web' },
     { name: 'LineChart',                        flags: 'web' },
     { name: 'PieChart',                         flags: 'web' },
-    { name: 'ScatterChart',                     flags: 'web' }
+    { name: 'ScatterChart',                     flags: 'web' },
+    { name: 'BubbleChart',                      flags: 'web' }
   ]
 });

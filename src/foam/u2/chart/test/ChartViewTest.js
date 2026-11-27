@@ -16,6 +16,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
+    'foam.u2.chart.BubbleChart',
     'foam.u2.chart.ScatterChart'
   ],
 
@@ -31,6 +32,7 @@ foam.CLASS({
       await this.testTimeLine(x);
       await this.testLinearLine(x);
       await this.testScatter(x);
+      await this.testBubble(x);
     },
 
     async function mount(view) {
@@ -382,6 +384,68 @@ foam.CLASS({
       x.test(labels().indexOf('1,000') === -1, 'Scatter: with B hidden the x axis rescales to A. Got ' + labels().join());
       var after = this.num(this.all(el, chart, 'dot')[0], 'cx');
       x.test(after !== cx[0], 'Scatter: the remaining dots move to the new scale');
+      this.unmount(chart);
+    },
+
+    async function testBubble(x) {
+      var clicks = [];
+      var chart = this.BubbleChart.create({
+        datasets: [
+          { label: 'A', data: [ { x: 10, y: 100, r: 100 }, { x: 20, y: 300, r: 25 }, { x: 30, y: 200, r: 0 }, { x: 40, y: 50, r: -5 }, { x: 50, y: 50 } ], backgroundColor: '#ff0000' },
+          { label: 'B', data: [ { x: 1000, y: 50, r: 400 } ] }
+        ],
+        xAxisLabel: 'Size',
+        yAxisLabel: 'Time',
+        onPointClick: function(di, i) { clicks.push([ di, i ]); }
+      }, x);
+      var el   = await this.mount(chart);
+      var dots = this.all(el, chart, 'dot');
+      x.test(dots.length === 4, 'Bubble: one bubble per point with a size of 0 or more, none for r -5 or a missing r. Got ' + dots.length);
+
+      // Largest first within a dataset, so A draws 100, 25, 0 and then B draws 400.
+      var rs = dots.map(function(d) { return this.num(d, 'r'); }, this);
+      var most = chart.MAX_RADIUS_PX, least = chart.MIN_RADIUS_PX;
+      x.test(Math.abs(rs[3] - most) < 0.01, 'Bubble: the largest value (400) gets MAX_RADIUS_PX. Got ' + rs.join());
+      x.test(Math.abs(rs[0] - most * 0.5) < 0.01, 'Bubble: 100 is a quarter of 400, so a quarter of the area and half the radius. Got ' + rs.join());
+      x.test(Math.abs(rs[1] - Math.max(least, most * Math.sqrt(25 / 400))) < 0.01, 'Bubble: 25 is a sixteenth of the area of 400. Got ' + rs.join());
+      x.test(rs[2] === least, 'Bubble: a value of 0 gets MIN_RADIUS_PX. Got ' + rs.join());
+      x.test(dots.every(function(d) { return Number(d.getAttribute('fill-opacity')) < 1; }), 'Bubble: bubbles are see-through so overlaps show');
+      var fills = dots.map(function(d) { return d.getAttribute('fill'); });
+      x.test(fills[0] === '#ff0000' && fills[3].indexOf('$') === -1 && fills[3] !== fills[0], 'Bubble: one colour per dataset, resolved. Got ' + fills.join());
+
+      // Positions are the scatter's: y 100, 300 and 0-size point at y 200; higher value higher up.
+      var cy = dots.slice(0, 3).map(function(d) { return this.num(d, 'cy'); }, this);
+      x.test(cy[1] < cy[0] || cy[1] < cy[2], 'Bubble: y follows the value. Got ' + cy.join());
+      var titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(titles.indexOf('Size') !== -1 && titles.indexOf('Time') !== -1, 'Bubble: both axis titles are written. Got ' + titles.join());
+
+      var first = dots.filter(function(d) { return this.num(d, 'cx') < 100 && this.num(d, 'r') === rs[0]; }, this)[0] || dots[0];
+      this.fire(first, 'mousemove', this.centreOf(first).x, this.centreOf(first).y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('A') === 0 && text.indexOf('Size: 10') !== -1 && text.indexOf('Time: 100') !== -1 && text.indexOf('Size: 100') !== -1,
+        'Bubble: hovering shows series, x, y and size (default label "Size", x titled Size here too). Got ' + text);
+      chart.sizeLabel = 'Calls';
+      await this.redraw();
+      dots = this.all(el, chart, 'dot');
+      this.fire(dots[0], 'mousemove', this.centreOf(dots[0]).x, this.centreOf(dots[0]).y);
+      text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Calls: 100') !== -1, 'Bubble: sizeLabel names the size in the tooltip. Got ' + text);
+
+      this.fire(dots[1], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[0,1]]', 'Bubble: a click gives the dataset and the point\'s position in data (the 25 is index 1). Got ' + JSON.stringify(clicks));
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'A,B', 'Bubble: the legend has one entry per dataset');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'dot').length === 3; }.bind(this));
+      dots = this.all(el, chart, 'dot');
+      x.test(dots.length === 3, 'Bubble: clicking B in the legend hides its bubble. Got ' + dots.length);
+      x.test(Math.abs(this.num(dots[0], 'r') - most) < 0.01, 'Bubble: with B hidden, 100 is the largest and gets MAX_RADIUS_PX. Got ' + this.num(dots[0], 'r'));
+      this.unmount(chart);
+
+      chart = this.BubbleChart.create({ datasets: [ { label: 'A', data: [] } ] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'dot').length === 0 && !! el.querySelector('svg'), 'Bubble: with no points it draws no bubbles and still draws its axes');
       this.unmount(chart);
     },
 

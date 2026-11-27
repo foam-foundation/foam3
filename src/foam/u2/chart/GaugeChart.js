@@ -19,14 +19,16 @@ foam.CLASS({
     label under the dial still shows the real number. With no value (an empty
     data list, or one that is not a number) only the track is drawn.
 
-    bands colour stretches of the track, for example red to 50, amber to 80
-    and green to 100. The value arc then takes the colour of the band the
-    value is in, and a value past the last band's upTo counts as in the last
-    band. The legend is off by default, since there is one value; when it is
-    on it lists the bands, and a click on an entry hides nothing.
+    bands are drawn as a thin ring just outside the track, for example red to
+    50, amber to 80 and green to 100. The ring is always whole, so a value
+    that has passed a band does not hide it. The value arc stays on the track
+    and takes the colour of the band the value is in; a value past the last
+    band's upTo counts as in the last band. The legend is off by default,
+    since there is one value; when it is on it lists the bands, and a click on
+    an entry hides nothing.
 
-    Hovering the dial shows the value and the band it is in. Clicking it calls
-    onValueClick(event).
+    Hovering the dial shows the value and the band it is in; hovering a band
+    on the ring names that band. Clicking either calls onValueClick(event).
   `,
 
   requires: [
@@ -46,9 +48,14 @@ foam.CLASS({
       value: 0.25
     },
     {
-      name: 'BAND_OPACITY',
-      documentation: 'How strongly a band shows on the track; the value arc, drawn over it at full strength, stands out.',
-      value: 0.35
+      name: 'BAND_RING_PX',
+      documentation: 'Thickness of the ring of bands outside the track: 6 makes a 6 pixel ring.',
+      value: 6
+    },
+    {
+      name: 'BAND_GAP_PX',
+      documentation: 'Gap between the track and the ring of bands.',
+      value: 3
     },
     {
       name: 'TEXT_GAP_PX',
@@ -197,14 +204,20 @@ foam.CLASS({
       var fontPx  = this.fontPx();
       var valuePx = fontPx * this.VALUE_FONT_RATIO;
       var labelsH = valuePx + this.TEXT_GAP_PX;
-      var r       = Math.max(0, Math.min(w / 2 - this.EDGE_PX, h - 2 * this.EDGE_PX - labelsH));
+      var ranges  = this.bandRanges_();
+      // The ring of bands sits outside the track, inside the same plot, so
+      // the track is smaller by the ring and its gap.
+      var bandsPx = ranges.length ? this.BAND_RING_PX + this.BAND_GAP_PX : 0;
+      var outer   = Math.max(0, Math.min(w / 2 - this.EDGE_PX, h - 2 * this.EDGE_PX - labelsH));
+      var r       = outer - bandsPx;
       if ( r <= 0 ) return;
       var r0 = r * ( 1 - this.RING_RATIO );
       var cx = w / 2;
       // The dial and the labels under it are centred as one block.
-      var cy = Math.max(this.EDGE_PX, ( h - r - labelsH ) / 2) + r;
+      var cy = Math.max(this.EDGE_PX, ( h - outer - labelsH ) / 2) + outer;
       var span = this.max - this.min;
       var band = v === null ? null : this.bandOf_(v);
+      var bandIn = r + this.BAND_GAP_PX;
 
       svg.start('g').call(function() {
         var g = this;
@@ -212,12 +225,12 @@ foam.CLASS({
           .attrs({ d: self.ringPath_(cx, cy, r, r0, 0, 1) })
           .call(function() { self.addDialEvents_(this); })
         .end();
-        self.bandRanges_().forEach(function(range) {
+        ranges.forEach(function(range) {
           var f0 = self.fraction_(range.from), f1 = self.fraction_(range.to);
           if ( span <= 0 || f1 <= f0 ) return;
           g.start('path').addClass(self.myClass('band'))
-            .attrs({ d: self.ringPath_(cx, cy, r, r0, f0, f1), fill: range.color, 'fill-opacity': self.BAND_OPACITY })
-            .call(function() { self.addDialEvents_(this); })
+            .attrs({ d: self.ringPath_(cx, cy, bandIn + self.BAND_RING_PX, bandIn, f0, f1), fill: range.color })
+            .call(function() { self.addDialEvents_(this, range); })
           .end();
         });
         var f = v === null ? 0 : self.fraction_(v);
@@ -245,25 +258,28 @@ foam.CLASS({
       }).end();
     },
 
-    function addDialEvents_(path) {
-      // The hover and click go on each drawn stretch of the ring, not on a
-      // transparent shape laid over it: a pointer over the ring then lands on
-      // what is drawn there, as it does on a pie slice.
+    function addDialEvents_(path, range) {
+      // The hover and click go on each drawn mark, not on a transparent shape
+      // laid over it: a pointer over the dial then lands on what is drawn
+      // there, as it does on a pie slice. range is the band a mark of the
+      // band ring stands for; the track and the value arc have none.
       var self = this;
       path
-        .on('mousemove', function(evt) { self.showValueTooltip_(evt); })
+        .on('mousemove', function(evt) { self.showValueTooltip_(evt, range); })
         .on('mouseleave', this.hideTooltip)
         .on('click', function(evt) { if ( self.onValueClick ) self.onValueClick(evt); });
     },
 
-    function showValueTooltip_(evt) {
-      var v = this.value_();
-      if ( v === null ) return;
-      var ds   = this.datasets[0];
-      var band = this.bandOf_(v);
-      var rows = [ { color: band ? band.color : this.seriesColor(0, 0), label: ds.label || '', value: this.formatValue(v) } ];
+    function showValueTooltip_(evt, range) {
+      // Over the track or the value arc: the value and its band. Over a band
+      // on the ring: that band, after the value when there is one.
+      var v     = this.value_();
+      var rows  = [];
+      var inBand = v === null ? null : this.bandOf_(v);
+      if ( v !== null ) rows.push({ color: inBand ? inBand.color : this.seriesColor(0, 0), label: this.datasets[0].label || '', value: this.formatValue(v) });
+      var band = range || inBand;
       if ( band ) rows.push({ color: band.color, label: this.BAND, value: this.bandLabel_(band) });
-      this.showTooltip(evt, '', rows);
+      if ( rows.length ) this.showTooltip(evt, '', rows);
     }
   ]
 });

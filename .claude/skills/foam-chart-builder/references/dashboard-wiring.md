@@ -84,7 +84,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": <next free id>, "label":"Scatter 
 
 ## 4. Text and the demo flow
 
-- **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM` has (`locales.jrl:988`).
+- **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM_LABEL` has (`locales.jrl:988`).
 - **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line. The file holds more than one flow and each row spans several lines: ChartDemo's script is the first `"script":` line after `"name":"ChartDemo",`, not the first in the file. Read and write the script in Python: `v = json.loads(json.loads('"' + raw + '"'))`, change `v`, then write back `json.dumps(json.dumps(v, separators=(',', ':'), ensure_ascii=False), ensure_ascii=False)[1:-1]`.
 - **A saved block holds the agent's flat legacy fields** (`xProp`, `groupBy`, `aggregationSink`, read by setter shims) **or a `displaySink` object** with the sink's own fields. Write new blocks in the `displaySink` form.
 - **Demo data must vary on a fresh server.** Every `om1MinuteDAO` row is a counter, so its `average` is always 1: a scatter of count against average draws a flat line. Its `open`, `close`, `min` and `max` are 1 too; only `count` varies, so a chart that needs four varying values (open, high, low, close) cannot get them there. Check the fields on a running server before you pick them.

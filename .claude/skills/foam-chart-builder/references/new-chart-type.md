@@ -103,7 +103,7 @@ Put a keyframe on the marks' group under `<<animated`, inside `prefers-reduced-m
 - [ ] hidden series are skipped by `isHidden(i)`, and the indexes stay the dataset indexes
 - [ ] the tooltip rows use `formatValue`
 - [ ] no message shares a name with an inherited method (`IN`, `OUT`): it replaces the method, and the only sign is "Change of Axiom … type from Method to MessageAxiom" in the test log
-- [ ] no message shares a name with a constant FOAM makes: a property `target` makes the constant `TARGET`, and a message `TARGET` stops the class with "Class constant conflict"; a class that mixes in `foam.mlang.Expressions` already has `COUNT` and `SUM`
+- [ ] no message shares a name with a constant FOAM makes: a property `target` makes the constant `TARGET`, and a message `TARGET` stops the class with "Class constant conflict"; every u2 view implements `foam.mlang.Expressions` (`u2/Element2.js:485-486`), so `COUNT`, `SUM`, `MAX`, `MIN` and the other query helpers are methods on every chart: end a message name in `_LABEL` (`ChartView.SUM_LABEL`)
 - [ ] a property's "was it set" test in JS is `hasOwnProperty(name)` (`lang/FObject.js:449`); `isPropertySet` exists in Java only
 - [ ] shades that stand for no series (bands, a track behind a value) come from the grey tokens `$grey200` to `$grey600` (`u2/CSSTokens.js:73-77`), not hex
 - [ ] an x axis from `XAxisType` gets what its scale reads from the chart: `LINEAR` reads `isSet_` and `xMin`, `TIME` reads `TIME_TICK_PX` (`XAxisType.js:73`, `:86`), which only `LineChart` declares, so copy them

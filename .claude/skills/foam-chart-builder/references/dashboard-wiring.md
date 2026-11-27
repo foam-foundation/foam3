@@ -28,19 +28,20 @@ Copy the pie: `DashboardPieSink` (`core/reflow/dashboard/DashboardSinks.js:251-4
 ### A chart with one mark per row
 
 A chart with one mark per row (a scatter, a calendar) does no grouping. Copy `DashboardCalendarSink` and its agent `DashboardCalendarChartDAOAgent` instead (`DashboardSinks.js:1765-1892`, `DashboardDAOAgents.js:802-885`):
-- **The sink extends `foam.dao.AbstractSink`.** Its `put(obj)` reads the fields with `.f(obj)` and keeps what it needs in a plain object.
+- **The sink extends `foam.dao.AbstractSink`.** Its `put(obj)` reads the fields with `.f(obj)` and keeps what it needs in a plain object or array.
+- **The rows it keeps are plain arrays or objects, marked `transient`.** A select can copy the sink and send it to the server as JSON and back. A JS `Map` or `Set` comes back as `{}`, and the next `put` fails with "this.series_.has is not a function", in a live flow only: a unit test that never sends the sink passes. `transient` keeps one run's points out of the saved flow. Calendar keeps `map_` as a plain object (`DashboardSinks.js:1821`). Test it with a JSON round trip: `foam.json.parseString(foam.json.stringify(agent.createSink()), x)`, then select into the copy.
 - **Its fields carry `generateJava: false`.** `DashboardSinks.js` is built for Java too, and this `put` has no Java (`DashboardSinks.js:1798-1800`).
-- **It creates the chart once** (`chart_` is a factory) and fills it in `addToE` after the select finishes, not from an expression.
+- **It creates the chart once** (`chart_` is a factory) and reads it in `addToE` after the select finishes, not from an expression. A factory that builds the datasets from the kept rows is enough: when a sink has both, the page calls `addToE` and never `toE` (`u2/Element2.js:1356-1362`).
 - **A shared switch the chart does not use:** `ChartDisplayMixin` adds switches such as `showTooltipSum`. A mixin's properties install after the class's own, so an override cannot hide them. Put them in a section that is never shown: `{ name: 'unused', isAvailable: function() { return false; }, properties: [...] }` (`DashboardSinks.js:1786-1790`).
-- **Its agent extends `GroupByDAOAgent`,** the same as the calendar's. Its inherited `prop` becomes a shim with `validateObj: null`, so the form checks the field (`DashboardDAOAgents.js:825-827`).
+- **Its agent extends `AbstractSinkDAOAgent`,** as the line chart's does (`DashboardDAOAgents.js:592-593`). It needs no shim. The calendar's agent extends `GroupByDAOAgent` only because it existed before, so its inherited `prop` needs a shim with `validateObj: null` (`DashboardDAOAgents.js:825-827`).
 
 ## 2. The agent (DashboardDAOAgents.js)
 
 - **`extends`:** `foam.core.reflow.GroupByDAOAgent` (or `GridByDAOAgent`, or `AbstractSinkDAOAgent`), to match the sink.
 - **`displaySink`:** an `FObjectProperty` of the sink, with `hidden: true` and `autoValidate: true`. Its factory creates an empty sink (`DashboardDAOAgents.js:508-516`). An empty required field turns Run off.
-- **`createSink()`:** returns a new copy on every run, `this.displaySink.clone(this)`, then calls `buildTotal_()` (`DashboardDAOAgents.js:573-577`). The flow runs the same agent again when the query or the data changes, so a reused sink counts twice (`DashboardDAOAgents.js:375-381`). Call `buildTotal_()` even when the chart has no Sum or Count: with no aggregation it builds a Count (`DashboardDAOAgents.js:245-248`).
+- **`createSink()`:** returns a new copy on every run, `this.displaySink.clone(this)`, then calls `buildTotal_()` (`DashboardDAOAgents.js:573-577`). The flow runs the same agent again when the query or the data changes, so a reused sink counts twice (`DashboardDAOAgents.js:375-381`). Call `buildTotal_()` when the chart shows a value per mark: with no aggregation picked it builds a Count (`DashboardDAOAgents.js:245-248`). A chart that plots row values as they are, such as a scatter, has no total and skips it.
 - **`addToE`:** shows the form with `ReactiveSectionedDetailView` over `displaySink$`.
-- **Shims:** only for names that flows saved before. A new chart has none.
+- **Shims:** only for names that flows saved before. A new chart has none, and its flows save the form as `displaySink: {...}`.
 
 ## 3. The picker row (core/reflow/agents.jrl)
 
@@ -52,7 +53,13 @@ p({"class":"foam.core.reflow.SinkAgent", "id": <next free id>, "label":"Scatter 
 - **`permissionRequired: true`:** a user then needs `agent.read.<id>` to see the chart (`SinkAgent.js:55-66`). Grant it where the other chart agents are granted.
 - **`type: "chart"`:** files it with the other charts. The aggregation picker inside a chart form also hides `chart` types (`disabledTypes`, `DashboardSinks.js:299`).
 
-## 4. Pom
+## 4. Text and the demo flow
+
+- **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM` has (`locales.jrl:988`).
+- **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line.
+- **Demo data must vary on a fresh server.** Every `om1MinuteDAO` row is a counter, so its `average` is always 1: a scatter of count against average draws a flat line. Check the two fields on a running server before you pick them.
+
+## 5. Pom
 
 - `DashboardSinks` and `DashboardDAOAgents` are already listed (`core/reflow/dashboard/pom.js:14-15`).
 - A new sink or agent class in those files needs no pom change.

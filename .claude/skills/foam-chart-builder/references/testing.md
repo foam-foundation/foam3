@@ -7,7 +7,11 @@ The chart tests are client tests (`JSTest`). They draw the chart into the page a
 ./build.sh -W9090 client-tests:DashboardChartRenderTest,DashboardAgentShimTest   # after a dashboard change
 ```
 
+`CSSAuditTest` is a server test: `./build.sh -W9090 server-tests:CSSAuditTest`. Listed under `client-tests` it is skipped with "Test not run", and the run exits 1 although nothing failed.
+
 The `foam-test-builder` skill covers registering a test and reading results.
+
+Passing tests are not enough for a dashboard chart. A flow copies the sink and can send it as JSON, which a unit test does not do, so open the chart in a running flow too (`references/dashboard-wiring.md`, "A chart with one mark per row").
 
 ## Which test
 

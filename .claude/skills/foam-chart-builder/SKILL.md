@@ -52,6 +52,7 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 - **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:40-53`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:184-188`).
 - **Hidden series:** check `isHidden(i)` while drawing. Never splice `datasets`, because the legend index must stay the dataset index.
 - **Saved flows hold class and property names.** A flow stores the agent class and its props. Never rename a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. Keep an old name working with a setter shim on the agent (`DashboardDAOAgents.js:519-570`).
+- **A dashboard sink keeps its rows in plain arrays or objects, `transient`,** never a `Map` or `Set`: a select can send the sink as JSON and back, and a `Map` returns as `{}` (`references/dashboard-wiring.md`).
 - **A new file gets a pom row** in `src/foam/u2/chart/pom.js` with `flags: 'web'`, in dependency order: base before subclass.
 
 ## References

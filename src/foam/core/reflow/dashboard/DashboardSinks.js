@@ -2535,7 +2535,7 @@ foam.CLASS({
     a payment: the chart cuts its range into bins and counts the rows in each.
     A row whose value is not a number (a date, text or yes/no value) is left
     out. Giving a Series property draws one set of bars and one legend entry
-    per value of it, e.g. one per card scheme, over the same bins; a row with
+    per value of it, e.g. one per request method, over the same bins; a row with
     no value there is left out too.
   `,
 
@@ -2615,7 +2615,7 @@ foam.CLASS({
       name: 'series_',
       hidden: true,
       // Values collected by put(), one entry per series in the order first seen:
-      // [ { label: 'Visa', data: [ 12.5, 40 ] } ]. Kept as plain arrays, since
+      // [ { label: 'GET', data: [ 12.5, 40 ] } ]. Kept as plain arrays, since
       // the sink is copied and sent as JSON during a select, and a JS Map
       // arrives as {} and then fails in put(). Transient, so the values of
       // one run are never saved into the flow.

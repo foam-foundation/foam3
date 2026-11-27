@@ -187,10 +187,22 @@ The interface is the only contract — the backend is a configuration choice, no
 
 | Provider | Where it runs | Notes |
 |---|---|---|
-| `foam.ai.llm.provider.TransformersLLMService` | Browser (WebAssembly) | Loads a text-generation pipeline via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required. Defaults to `Xenova/Qwen1.5-0.5B-Chat`. |
+| `foam.ai.llm.provider.TransformersLLMService` | Browser, in a Web Worker, on WebGPU or WebAssembly | Loads a text-generation pipeline via [Transformers.js](https://huggingface.co/docs/transformers.js); no server required. Defaults to `onnx-community/Qwen3-0.6B-ONNX` (about 0.9 GB on a GPU), on Transformers.js 4.3.2. |
 | *(server-side providers)* | Java server | Implement `LLMService` to call OpenAI, Anthropic, Ollama, or any HTTP completion API |
 
 Swapping providers requires only a context configuration change — no changes to calling code.
+
+### Small models in the browser
+
+The RAG Chat demo answers with `onnx-community/Qwen3-0.6B-ONNX` (thinking off) and the closest few passages.
+
+- **Weights:** 4-bit on a GPU, 8-bit without one. 16-bit weights are too slow to use.
+- **Download:** the answer model is 0.6 to 0.9 GB, and the embedder is 23 to 90 MB.
+- **Embedding batches:** `TransformersEmbeddingService` embeds a few texts a call, because WebGPU can return NaN vectors for large batches. It runs a NaN text again on its own and throws if it is still NaN.
+- **No history:** each question goes to the model alone with its own 5 passages. Sending earlier questions again slows every answer and mixes topics.
+- **Another embedder:** set `model`, `pooling` and `queryPrefix` together. No code change is needed.
+
+What a 0.6B model cannot do: the first answer waits for the one-time download, answers stay short, and how-to answers can be thin. A question the documents do not cover gets "I don't know."
 
 ### ConversationalLLMService
 
@@ -199,8 +211,11 @@ Swapping providers requires only a context configuration change — no changes t
 | Member | Purpose |
 |---|---|
 | `history` | Accumulated `ChatMessage[]` across all calls |
-| `maxHistory` | Maximum messages to retain (default 50); older messages are trimmed to stay within model context limits |
+| `maxHistory` | Messages kept after a cut (default 50); the oldest go first, to stay within model context limits |
+| `maxOverflow` | Messages the history may grow past `maxHistory` before it is cut back to `maxHistory` in one step (default half of `maxHistory`). A model that caches the start of its prompt, as server APIs do, reuses it only while it stays the same, so cutting once every few turns keeps most calls cheap. Set 0 for a model that reruns the whole prompt every call, such as `TransformersLLMService`, so the history is cut every turn |
 | `clearHistory()` | Resets the conversation |
+
+A caller that adds text to each turn, such as retrieved passages, keeps the system prompt fixed and puts that text in the user message, so the start of the prompt does not change. With `maxOverflow` 0 the text can go in that call's system prompt instead, so the history keeps only the questions and answers; the RAG Chat demo does this for the browser model.
 
 When a caller passes `stateless: true` in `LLMOptions`, the decorator passes the request straight through to the delegate, bypassing both history injection and recording. This is the right choice for a caller that already sends its full conversation history on every request — without `stateless`, the decorator's own accumulated history would be prepended, sending each earlier message twice.
 
@@ -235,4 +250,6 @@ Providers that require an API key (Claude, OpenAI, DeepSeek) resolve it through 
 
 ## Try It Live
 
-Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the top matching chunks are retrieved and packed into the system context, and the local LLM generates a grounded answer — all in the browser, no server or API key required.
+Open the **SimilaritySearch** flow in REFLOW and navigate to the **RAG Chat** section. It wires `LLMService` and `VectorStoreDAO` together: the query is embedded, the 5 closest chunks are retrieved and placed before the question, and the local LLM generates a grounded answer — all in the browser, no server or API key required.
+
+That demo runs everything in the browser. On a server, `ragService` builds the prompt, searches only the records the asking user can read, and calls `llmService`; see [Vector Search](VectorSearch.md#answering-questions-on-the-server).

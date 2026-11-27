@@ -894,13 +894,14 @@ foam.CLASS({
 
     function notify(toastMessage, toastSubMessage, severity, transient=true, icon) {
       if ( transient ) {
-        this.add(this.NotificationMessage.create({
+        // From __subContext__, where a theme's registrations are: a requires looks in __context__ and misses them.
+        this.add(this.__subContext__.lookup('foam.u2.dialog.NotificationMessage').create({
           err: toastMessage.exception,
           message: toastMessage.exception ? '' : toastMessage,
           description: toastSubMessage,
           type: severity,
           icon: icon
-        }));
+        }, this.__subContext__));
       } else {
         var notification = this.Notification.create();
         notification.userId = this.subject && this.subject.realUser ?
@@ -922,12 +923,12 @@ foam.CLASS({
         let toastExpiration = new Date();
         toastExpiration.setHours(toastExpiration.getHours() + this.NOTIFICATION_TOAST_TTL);
         if ( obj.created < toastExpiration ) {
-          this.add(this.NotificationMessage.create({
+          this.add(this.__subContext__.lookup('foam.u2.dialog.NotificationMessage').create({
             message: obj.toastMessage,
             type: obj.severity,
             description: obj.toastSubMessage,
             icon: obj.icon
-          }));
+          }, this.__subContext__));
         }
         if ( ! obj.transient ) {
           var clonedNotification = obj.clone();

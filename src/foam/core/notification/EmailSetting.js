@@ -105,8 +105,12 @@ foam.CLASS({
           }
         }
 
+        // Locale templates write a line break in a body as the two characters "\\n", e.g.
+        // "deleted user Dana\\nusername: dana". The in-app modal turns them into a line break
+        // (NotificationMessageModal.js); an HTML email needs <br> or it prints "\\n" as text. The
+        // notification here is a clone, so the stored body keeps "\\n" for the modal.
         if ( ! SafetyUtil.isEmpty(notification.getBody()) ) {
-          notification.getEmailArgs().put("body", notification.getBody());
+          notification.getEmailArgs().put("body", notification.getBody().replace("\\\\n", "<br>"));
         }
 
         ((foam.core.om.OMLogger) x.get("OMLogger")).log("Notification:Email");

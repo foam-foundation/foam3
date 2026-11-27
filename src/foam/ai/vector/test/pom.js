@@ -7,6 +7,8 @@
 foam.POM({
   name: 'test',
   files: [
-    { name: 'MarkdownChunkParserTest', flags: 'js|java' }
+    { name: 'CosineComparatorJSTest',  flags: 'js|java' },
+    { name: 'MarkdownChunkParserTest', flags: 'js|java' },
+    { name: 'VectorStoreDAOTest',      flags: 'js|java' }
   ]
 });

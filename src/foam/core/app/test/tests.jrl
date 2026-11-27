@@ -1,0 +1,1 @@
+p({"class":"foam.core.app.test.ShutdownWatcherTest","id":"ShutdownWatcherTest","description":"ShutdownWatcher: ABORT_SHUTDOWN cancels only the waiting shutdown, a later SHUTDOWN still runs, a repeat SHUTDOWN is ignored, preCleanup removes leftover request files"})

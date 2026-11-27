@@ -5,6 +5,10 @@
  */
 foam.POM({
   name: "app",
+  projects: [
+    { name: 'test/pom',                             flags: "test"}
+  ],
+
   files: [
     { name: "AppBadgeView",                         flags: "web" },
     { name: "AppConfig",                            flags: "js|java" },
@@ -26,7 +30,7 @@ foam.POM({
     { name: "Mode",                                 flags: "js|java" },
     { name: "ShutdownWatcher",                      flags: "js|java" },
     { name: "SupportConfig",                        flags: "js|java" },
-    { name: "SupportMenu",                          flags: "js|java" }
+    { name: "SupportMenu",                          flags: "js|java" },
   ],
   javaFiles: [
     { name: "HealthWebAgent" },

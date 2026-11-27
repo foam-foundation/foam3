@@ -829,6 +829,7 @@ foam.CLASS({
 
   requires: [
     'foam.ai.llm.ConversationalLLMService',
+    'foam.ai.llm.NullLLMService',
     'foam.core.reflow.BadBlock',
     'foam.core.reflow.Block',
     'foam.core.reflow.DependencyScanner',
@@ -853,7 +854,7 @@ foam.CLASS({
     'commandDAO',
     'flowDAO',
     'isMenuOpen',
-    'llmService as parentLLMService',
+    'llmService? as parentLLMService',
     'notify',
     'params',
     'setTimeout',
@@ -979,7 +980,9 @@ foam.CLASS({
         // that could be used when combined with a UUID so that the whole conversation isn't sent with each
         // request. If the session id isn't found then an exeception would be thrown and then the whole
         // conversation would be sent on the next request.
-        return this.ConversationalLLMService.create({delegate: this.parentLLMService});
+        return this.parentLLMService ?
+          this.ConversationalLLMService.create({delegate: this.parentLLMService}) :
+          this.NullLLMService.create() ;
       }
     },
     {

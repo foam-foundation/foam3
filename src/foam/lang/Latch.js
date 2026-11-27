@@ -34,6 +34,10 @@ foam.CLASS({
 
     function then(resolve, reject) {
       return this.promise.then(resolve, reject);
+    },
+
+    function toString() {
+      return `Latch(${this.promise.valueOf()})`;
     }
   ]
 });

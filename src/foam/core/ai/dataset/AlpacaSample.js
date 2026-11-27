@@ -23,9 +23,16 @@ foam.CLASS({
 
   documentation: `
     One instruction-answer training pair in Alpaca format.
-    id is set to the first 16 hex chars of SHA-256(instruction + output),
-    which serves as a dedup key: dao.find(id) before every put().
+    id defaults to the first 16 hex chars of SHA-256(instruction + output),
+    computed on the server when the sample is first stored, and serves as a
+    dedup key: dao.find(id) before every put().
   `,
+
+  javaImports: [
+    'java.nio.charset.StandardCharsets',
+    'java.security.MessageDigest',
+    'java.util.HexFormat'
+  ],
 
   tableColumns: [ 'id', 'status', 'reviewed', 'relevance', 'charCount', 'category', 'sourceFile', 'instruction' ],
 
@@ -35,25 +42,33 @@ foam.CLASS({
     {
       class: 'String',
       name: 'id',
-      documentation: 'SHA-256(instruction + output), truncated to 16 hex chars.',
+      documentation: `
+        SHA-256(instruction + output), truncated to 16 hex chars. Java only:
+        a JS factory could run while the create form is still empty. Not
+        recomputed when the sample is edited, so the key stays stable.
+      `,
       createVisibility: 'HIDDEN',
-      updateVisibility: 'RO'
+      updateVisibility: 'RO',
+      javaFactory: 'return hash_(getInstruction() + getOutput());'
     },
     {
       class: 'String',
       name: 'instruction',
+      onKey: true,
       required: true,
       view: { class: 'foam.u2.tag.TextArea', rows: 3, cols: 80 }
     },
     {
       class: 'String',
       name: 'input',
+      onKey: true,
       documentation: 'Existing code context passed to the model. Empty for from-scratch tasks.',
       view: { class: 'foam.u2.tag.TextArea', rows: 6, cols: 80 }
     },
     {
       class: 'String',
       name: 'output',
+      onKey: true,
       required: true,
       view: { class: 'foam.u2.tag.TextArea', rows: 10, cols: 80 }
     },
@@ -104,6 +119,20 @@ foam.CLASS({
   methods: [
     function toSummary() {
       return this.instruction.substring(0, 80);
+    },
+    {
+      name: 'hash_',
+      type: 'String',
+      args: 'String text',
+      javaCode: `
+        try {
+          MessageDigest md    = MessageDigest.getInstance("SHA-256");
+          byte[]        bytes = md.digest(text.getBytes(StandardCharsets.UTF_8));
+          return HexFormat.of().formatHex(bytes).substring(0, 16);
+        } catch ( Exception e ) {
+          throw new RuntimeException("SHA-256 unavailable", e);
+        }
+      `
     }
   ]
 });

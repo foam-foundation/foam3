@@ -209,7 +209,13 @@ public class RuleEngine extends ContextAwareSupport {
   }
 
   protected void applyAsyncRule(Rule rule, FObject obj, FObject oldObj) {
-    asyncAgency_.submit(userX_, new ContextAgent() {
+    // An async rule runs after the web request that triggered it has been
+    // answered. Jetty 12 throws a NullPointerException on any read of a finished
+    // request (a header, the server name), so a rule action that looks up a
+    // theme, a locale or a session from its context would fail. The rule runs
+    // as the same user, just without the request.
+    final X asyncX = userX_.put(jakarta.servlet.http.HttpServletRequest.class, null);
+    asyncAgency_.submit(asyncX, new ContextAgent() {
         @Override
         public void execute(X x) {
           if ( stops_.get() ) return;
@@ -222,14 +228,14 @@ public class RuleEngine extends ContextAwareSupport {
           // isActive and permission as it was the rule at the time RuleEngine.execute()
           // is called that the rule engine honors and should commit to, not the
           // future version of the same rule.
-          var nu = rule.getOperation() != Operation.REMOVE ? reloadObject(obj) : obj;
+          var nu = rule.getOperation() != Operation.REMOVE ? reloadObject(asyncX, obj) : obj;
           if ( ! rule.ruleF(x, oldObj, nu) ) return;
 
           PM pm = PM.create(getX(), RulerDAO.getOwnClassInfo(), "ASYNC", rule.getDaoKey(), rule.getId());
           var before = rule.getOperation() != Operation.REMOVE ? nu.fclone() : obj;
           rule.asyncApply(x, nu, oldObj, RuleEngine.this, rule);
           if ( rule.getOperation() != Operation.REMOVE && ! before.equals(nu) ) {
-            getDelegate().put_(userX_, nu);
+            getDelegate().put_(asyncX, nu);
           }
           pm.log(getX());
         }
@@ -262,8 +268,8 @@ public class RuleEngine extends ContextAwareSupport {
     return true;
   }
 
-  private FObject reloadObject(FObject obj) {
-    var reloaded = getDelegate().find_(userX_, obj);
+  private FObject reloadObject(X x, FObject obj) {
+    var reloaded = getDelegate().find_(x, obj);
     if ( reloaded == null ) {
       return obj;
     }

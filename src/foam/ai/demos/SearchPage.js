@@ -149,8 +149,10 @@ foam.CLASS({
               self.EQ(self.VectorEmbedding.KIND,      'flow'),
               self.EQ(self.VectorEmbedding.SOURCE_ID, flow.name))).removeAll();
 
-            for ( var ci = 0; ci < chunks.length; ci++ ) {
-              var embedding = await self.embedder.embed(x, chunks[ci]);
+            // the chunks are documents: embedAll, since embed is for a search question
+            var embeddings = await self.embedder.embedAll(x, chunks);
+            for ( var ci = 0; ci < embeddings.length; ci++ ) {
+              var embedding = embeddings[ci];
               // daoKey and sourceId name the flow, so ragService can check the reader may open it;
               // the id names the DAO, the flow and the chunk, e.g. flowDAO:Getting Started:0
               embedding.id       = 'flowDAO:' + flow.name + ':' + ci;
@@ -183,7 +185,7 @@ foam.CLASS({
 
         self.statusMsg = 'Embedding query…';
         var qv   = await self.embedder.embed(x, q);
-        var cc   = self.CosineComparator.create({ queryVector: qv.vector });
+        var cc   = self.CosineComparator.create({ queryVector: qv.vector, embeddingModel: qv.embeddingModel });
         var sink = await self.vectorStoreDAO
           .where(self.EQ(self.VectorEmbedding.EMBEDDING_MODEL, qv.embeddingModel))
           .orderBy(cc).limit(10).select(self.ArraySink.create());

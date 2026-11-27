@@ -81,8 +81,8 @@ function escapeMultiline(str) {
     replace(/"+$/,    m => m.replace(/"/g, '\\"'));
 
   // The journal reader is line based: it opens a record on a line that is
-  // exactly p({ or r({ and closes it on a line that is exactly })
-  // (foam/dao/AbstractFileJournal.js:399-404). Markdown holding such a line --
+  // exactly p({, c({ or r({ and closes it on a line that is exactly })
+  // (foam/dao/AbstractF3FileJournal.js getEntry). Markdown holding such a line --
   // any JS code sample ending in }) -- would otherwise split its own record,
   // losing that document and turning the rest of its text into junk entries.
   // The reader compares the raw line, the parser unescapes it, so escaping a
@@ -91,7 +91,7 @@ function escapeMultiline(str) {
   // return (ASCIIEscapeParser.java:44), whereas ( and ) are not escape letters
   // and fall through to the literal-next-character rule.
   return str.split('\n').
-    map(l => ( l === '})' || l === 'p({' || l === 'r({' ) ?
+    map(l => ( l === '})' || l === 'p({' || l === 'c({' || l === 'r({' ) ?
       l.charAt(0) + '\\' + l.substring(1) : l).
     join('\n');
 }

@@ -476,19 +476,34 @@ public class PartitionedDAO
       predicate carries an AllPartitions naming this level's property,
       otherwise the single one an EQ routes to. */
   public String[] resolvePartitions(Predicate predicate) {
-    if ( hasAllPartitions(predicate, getPartitionProperty()) ) return getPartitions();
+    String[] parts = resolvePartitions(predicate, getPartitionProperty(),
+      "select() on " + getDirName());
+    return parts != null ? parts : getPartitions();
+  }
 
-    Object part = extractPredicateValue(predicate);
+  /** The partitions the predicate names for the level partitioned on prop:
+      null when it carries an AllPartitions for prop (every partition, which
+      only the caller can list), otherwise the value, or each distinct value of
+      an IN, that prop is matched against. Throws when the query names none;
+      subject says who is asking, for the message. Static so a DAO that routes
+      by the same terms without being a PartitionedDAO resolves them the same
+      way. */
+  public static String[] resolvePartitions(Predicate predicate, Expr prop, String subject) {
+    if ( hasAllPartitions(predicate, prop) ) return null;
+
+    Object part = extractPredicateValue(predicate, prop);
 
     if ( part == null ) {
-      String prop = ((PropertyInfo) getPartitionProperty()).getName();
+      String name = prop instanceof PropertyInfo
+        ? ((PropertyInfo) prop).getName()
+        : prop.toString();
       // Previously this fell through to getDelegate(String.valueOf(null)),
       // which loaded a partition literally named "null" -- an empty result
       // plus a stray journal file. A fully partitioned DAO requires the
       // selector in the query (see design.md), so say so.
       throw new UnsupportedOperationException(
-        "select() on " + getDirName() + " needs '" + prop +
-        "' in the query to pick a partition, or AllPartitions(" + prop +
+        subject + " needs '" + name +
+        "' in the query to pick a partition, or AllPartitions(" + name +
         ") to visit every partition.");
     }
 
@@ -572,6 +587,13 @@ public class PartitionedDAO
   }
 
   public Object extractPredicateValue(Predicate predicate) {
+    return extractPredicateValue(predicate, getPartitionProperty());
+  }
+
+  /** The value an EQ, or the values an IN, on prop gives, looking inside AND;
+      null when the predicate has no such term. Static so a DAO that routes by
+      the same terms without being a PartitionedDAO reads them the same way. */
+  public static Object extractPredicateValue(Predicate predicate, Expr prop) {
     if ( predicate == null ) {
       return null;
     }
@@ -580,7 +602,7 @@ public class PartitionedDAO
       Binary expr = (Binary) predicate;
 
       // Check if this binary predicate applies to our target property
-      if ( expr.getArg1() == getPartitionProperty() ) {
+      if ( expr.getArg1() == prop ) {
         if ( predicate.getClass() == Eq.class ) {
           return expr.getArg2().f(expr);
         }
@@ -604,7 +626,7 @@ public class PartitionedDAO
 
       // Process each argument in the AND predicate
       for ( Predicate arg : andPredicate.getArgs() ) {
-        Object value = extractPredicateValue(arg);
+        Object value = extractPredicateValue(arg, prop);
         if ( value != null ) {
           return value;
         }

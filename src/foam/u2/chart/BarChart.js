@@ -97,26 +97,12 @@ foam.CLASS({
       var n      = labels.length;
       var sets   = this.visibleSets_();
       var range  = this.valueRange_(sets, n);
-      var vScale = this.LinearScale.create({ min: range[0], max: range[1], tickCount: 5 }).nice();
+      var fit = this.layoutForValues(w, h, labels, this.horizontal,
+        function(n) { return self.LinearScale.create({ min: range[0], max: range[1], tickCount: n }).nice(); },
+        function(scale) { return scale.ticks(); });
+      var a      = fit.area;
+      var vScale = fit.scale;
       var vTicks = vScale.ticks();
-      var vLabels = vTicks.map(function(t) { return vScale.format(t); });
-
-      var a = this.horizontal ?
-        this.layout(w, h, vLabels, labels) :
-        this.layout(w, h, labels, vLabels);
-
-      // A taller axis holds more ticks: about one every 40 pixels.
-      vScale = this.LinearScale.create({
-        min: range[0], max: range[1],
-        tickCount: Math.max(2, Math.min(10, Math.round(( this.horizontal ? a.width : a.height ) / 40)))
-      }).nice();
-      vTicks = vScale.ticks();
-      // More steps can mean wider labels ("10,000" where there was "8,000"),
-      // so lay out again with the labels that get written.
-      vLabels = vTicks.map(function(t) { return vScale.format(t); });
-      a = this.horizontal ?
-        this.layout(w, h, vLabels, labels) :
-        this.layout(w, h, labels, vLabels);
 
       var band = this.BandScale.create({ count: n });
       if ( this.horizontal ) {
@@ -137,7 +123,6 @@ foam.CLASS({
       var groupW  = this.stacked || ! sets.length ? bw : bw / sets.length;
       if ( this.barThickness > 0 ) groupW = Math.min(groupW, this.barThickness);
       var groupsW = this.stacked ? groupW : groupW * sets.length;
-      var zero    = vScale.map(Math.max(vScale.min, Math.min(vScale.max, 0)));
 
       svg.start('g').call(function() {
         var g = this;
@@ -172,6 +157,7 @@ foam.CLASS({
           { x: x0, y: a.top, width: Math.abs(band.step()), height: a.height };
         this.start('rect').addClass(self.myClass('hit')).attrs(r)
           .on('mousemove', function(evt) { self.showBarTooltip_(evt, j); })
+          .on('mouseleave', self.hideTooltip)
           .on('click', function(evt) {
             if ( ! self.onBarClick ) return;
             var at  = self.pointerAt_(evt);

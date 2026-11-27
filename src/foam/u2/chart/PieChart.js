@@ -50,9 +50,13 @@ foam.CLASS({
     {
       class: 'Boolean',
       name: 'showPercentages',
-      documentation: 'Start each legend entry with its slice\'s share, e.g. "38.9% Jordan".'
+      documentation: 'Start each legend entry with its slice\'s share, e.g. "38.9% Apples".'
     },
     { class: 'Boolean', name: 'disableLegendClick' },
+    {
+      name: 'legendClickable',
+      expression: function(disableLegendClick) { return ! disableLegendClick; }
+    },
     {
       class: 'Int',
       name: 'legendMinWidthPercent',
@@ -96,8 +100,6 @@ foam.CLASS({
       });
     },
 
-    function isLegendClickable() { return ! this.disableLegendClick; },
-
     function styleLegend(legend, vertical) {
       if ( ! vertical ) return;
       legend.style({
@@ -133,6 +135,7 @@ foam.CLASS({
           g.start('path').addClass(self.myClass('slice'))
             .attrs({ d: self.slicePath(cx, cy, r, r0, a, a + sweep), fill: self.seriesColor(0, i) })
             .on('mousemove', function(evt) { self.showSliceTooltip_(evt, i); })
+            .on('mouseleave', self.hideTooltip)
           .end();
           a += sweep;
         });

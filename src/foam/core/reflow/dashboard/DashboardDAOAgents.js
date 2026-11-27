@@ -138,7 +138,7 @@ foam.CLASS({
   documentation: 'Mixin for common chart display options',
 
   requires: [
-    'foam.core.reflow.dashboard.LegendPosition',
+    'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.MetricAlignment'
   ],
 
@@ -184,7 +184,7 @@ foam.CLASS({
     },
     {
       class: 'Enum',
-      of: 'foam.core.reflow.dashboard.LegendPosition',
+      of: 'foam.u2.chart.LegendPosition',
       name: 'legendPosition',
       label: 'Legend Position',
       value: 'TOP',

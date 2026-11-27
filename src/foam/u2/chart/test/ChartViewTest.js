@@ -28,6 +28,7 @@ foam.CLASS({
       await this.testDonutAndPercentages(x);
       await this.testLine(x);
       await this.testTimeLine(x);
+      await this.testLinearLine(x);
     },
 
     async function mount(view) {
@@ -70,7 +71,7 @@ foam.CLASS({
     async function testBars(x) {
       var chart = this.BarChart.create({ data: {
         labels: [ 'Jan', 'Feb', 'Mar', 'Apr' ],
-        datasets: [ { label: 'Fees', data: [ 10, 20, 0, 40 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ]
+        datasets: [ { label: 'Sales', data: [ 10, 20, 0, 40 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ]
       } }, x);
       var el   = await this.mount(chart);
       var bars = this.all(el, chart, 'bar');
@@ -205,25 +206,25 @@ foam.CLASS({
 
     async function testPie(x) {
       var chart = this.PieChart.create({ data: {
-        labels: [ 'Jordan', 'Morocco', 'Egypt' ],
+        labels: [ 'Apples', 'Pears', 'Plums' ],
         datasets: [ { data: [ 1, 1, 2 ], backgroundColor: [ '#111111', '#222222', '#333333' ] } ]
       } }, x);
       var el     = await this.mount(chart);
       var slices = this.all(el, chart, 'slice');
       x.test(slices.length === 3, 'Pie: one slice per value');
       x.test(slices.map(function(s) { return s.getAttribute('fill'); }).join() === '#111111,#222222,#333333', 'Pie: each slice takes its own colour');
-      x.test(chart.percent(2) === '50.0%' && chart.percent(0) === '25.0%', 'Pie: Egypt is 50.0% and Jordan 25.0%');
+      x.test(chart.percent(2) === '50.0%' && chart.percent(0) === '25.0%', 'Pie: Plums is 50.0% and Apples 25.0%');
 
       var legend = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
       legend[2].click();
       await this.redraw();
-      x.test(this.all(el, chart, 'slice').length === 2, 'Pie: clicking Egypt in the legend hides its slice');
-      x.test(chart.percent(0) === '50.0%', 'Pie: shares are of the visible slices, so Jordan becomes 50.0%. Got ' + chart.percent(0));
+      x.test(this.all(el, chart, 'slice').length === 2, 'Pie: clicking Plums in the legend hides its slice');
+      x.test(chart.percent(0) === '50.0%', 'Pie: shares are of the visible slices, so Apples becomes 50.0%. Got ' + chart.percent(0));
 
       var c = this.centreOf(this.all(el, chart, 'slice')[0]);
       this.fire(this.all(el, chart, 'slice')[0], 'mousemove', c.x, c.y);
       var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
-      x.test(text.indexOf('Jordan: 1') !== -1, 'Pie: hovering a slice names it with its value. Got ' + text);
+      x.test(text.indexOf('Apples: 1') !== -1, 'Pie: hovering a slice names it with its value. Got ' + text);
       this.unmount(chart);
 
       chart = this.PieChart.create({ data: { labels: [ 'A', 'B' ], datasets: [ { data: [ 1, 2 ] } ] }, disableLegendClick: true }, x);
@@ -301,11 +302,26 @@ foam.CLASS({
       this.unmount(chart);
     },
 
+    async function testLinearLine(x) {
+      // A LINEAR axis places x by value: 1 to 9 is eight times as far as 0 to 1.
+      var chart = this.LineChart.create({ xType: 'linear', data: { datasets: [ { label: 'Sales', data: [
+        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] } }, x);
+      var el = await this.mount(chart);
+      x.test(chart.xType === foam.u2.chart.XAxisType.LINEAR, 'Linear: xType \'linear\' adapts to XAxisType.LINEAR');
+      var cx = Array.from(el.querySelectorAll('circle')).map(function(c) { return Number(c.getAttribute('cx')); });
+      x.test(cx.length === 4 && Math.abs(( cx[2] - cx[1] ) - 8 * ( cx[1] - cx[0] )) < 1,
+        'Linear: points sit by value, so 1 to 9 is eight times 0 to 1. Got ' + cx.join());
+      var texts = this.all(el, chart, 'text').map(function(t) { return t.textContent; });
+      x.test(texts.indexOf('10') !== -1, 'Linear: the axis ends on a tick labelled 10. Got ' + texts.join());
+      this.unmount(chart);
+    },
+
     async function testTimeLine(x) {
       var pts = [ [ 2024, 0, 15 ], [ 2024, 1, 10 ], [ 2024, 2, 1 ], [ 2024, 3, 20 ] ].map(function(d, i) {
         return { x: new Date(Date.UTC(d[0], d[1], d[2])), y: i + 1 };
       });
-      var chart = this.LineChart.create({ xType: 'time', timeUnit: 'month', data: { datasets: [ { label: 'Fees', data: pts } ] } }, x);
+      var chart = this.LineChart.create({ xType: 'time', timeUnit: 'month', utc: true, data: { datasets: [ { label: 'Sales', data: pts } ] } }, x);
+      x.test(chart.xType === foam.u2.chart.XAxisType.TIME, 'Time: xType \'time\' adapts to XAxisType.TIME');
       var el    = await this.mount(chart);
       var march = new Date(Date.UTC(2024, 2, 1)).toLocaleString(foam.locale, { timeZone: 'UTC', month: 'short', year: 'numeric' });
       var texts = this.all(el, chart, 'text').map(function(t) { return t.textContent; });

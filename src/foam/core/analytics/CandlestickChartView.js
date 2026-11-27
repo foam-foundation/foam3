@@ -24,7 +24,7 @@ foam.CLASS({
   ],
 
   css: `
-    <<chart { height: 600px; }
+    <<chart { height: 60rem; }
   `,
 
   imports: [

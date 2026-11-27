@@ -25,7 +25,7 @@ foam.CLASS({
     { class: 'Array', name: 'values' },
     { class: 'StringArray', name: 'colors' },
     { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
+    { class: 'Enum', name: 'legendPosition', of: 'foam.u2.chart.LegendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
     { class: 'Int', name: 'height', value: 300 },
     { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },

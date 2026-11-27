@@ -10,6 +10,8 @@ foam.POM({
     { name: 'test/pom', flags: 'test' }
   ],
   files: [
+    { name: 'TimeUnit',                         flags: 'js|java' },
+    { name: 'LegendPosition',                   flags: 'js|java' },
     { name: 'PropertyChartFormatterRefinement', flags: 'web' },
     { name: 'LinearScale',                      flags: 'web' },
     { name: 'BandScale',                        flags: 'web' },
@@ -18,6 +20,7 @@ foam.POM({
     { name: 'ChartView',                        flags: 'web' },
     { name: 'CartesianChartView',               flags: 'web' },
     { name: 'BarChart',                         flags: 'web' },
+    { name: 'XAxisType',                        flags: 'web' },
     { name: 'LineChart',                        flags: 'web' },
     { name: 'PieChart',                         flags: 'web' }
   ]

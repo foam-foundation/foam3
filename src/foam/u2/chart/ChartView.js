@@ -18,14 +18,14 @@ foam.CLASS({
     The data has the shape { labels: [...], datasets: [{ label, data,
     backgroundColor, ... }] }: labels name the categories, and each dataset
     is one series with one value per label. Colours arrive already resolved
-    (a theme token such as $primary400 turned into its hex value), so they
-    are written as SVG attributes and survive the PDF export, which copies
-    the page without its stylesheets. Text, grid and axis colours come from
-    CSS tokens, so they follow a light or dark theme switch.
+    (a theme token such as $primary400 turned into its hex value) and are
+    written as SVG attributes. Text, grid and axis colours come from CSS
+    tokens, so they follow a light or dark theme switch.
   `,
 
   requires: [
-    'foam.u2.chart.ChartLegend'
+    'foam.u2.chart.ChartLegend',
+    'foam.u2.chart.LegendPosition'
   ],
 
   constants: [
@@ -78,7 +78,7 @@ foam.CLASS({
       border: 1px solid $borderLight;
       border-radius: 0.4rem;
       background: $backgroundDefault;
-      box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.15);
+      box-shadow: $shadow-md;
       color: $textDefault;
       font-size: 1.2rem;
       white-space: nowrap;
@@ -92,6 +92,10 @@ foam.CLASS({
     <<animated * { animation-duration: inherit; }
   `,
 
+  messages: [
+    { name: 'SUM', message: 'Sum' }
+  ],
+
   properties: [
     {
       name: 'data',
@@ -100,10 +104,17 @@ foam.CLASS({
     },
     { class: 'Boolean', name: 'showLegend', value: true },
     {
-      class: 'String',
+      class: 'Enum',
+      of: 'foam.u2.chart.LegendPosition',
       name: 'legendPosition',
-      value: 'top',
-      documentation: 'Which side of the chart the legend sits on: top, right, bottom or left.'
+      value: 'TOP',
+      documentation: 'Which side of the chart the legend sits on. A name such as \'left\' adapts to its value.'
+    },
+    {
+      class: 'Boolean',
+      name: 'legendClickable',
+      value: true,
+      documentation: 'Whether clicking a legend entry hides and shows its series.'
     },
     { class: 'Boolean', name: 'showTooltips', value: true },
     {
@@ -142,7 +153,7 @@ foam.CLASS({
       var self = this;
       this
         .addClass()
-        .addClass(this.myClass('legend-' + this.legendPosition))
+        .addClass(this.myClass('legend-' + this.legendPosition.name.toLowerCase()))
         .callIf(this.animate, function() {
           this.addClass(self.myClass('animated')).style({ animationDuration: self.animationDuration + 'ms' });
           // Animate only the first draw: a resize or a legend click later
@@ -151,11 +162,11 @@ foam.CLASS({
         })
         .add(this.dynamic(function(showLegend, data, hidden_) {
           if ( ! showLegend ) return;
-          var vertical = self.legendPosition === 'left' || self.legendPosition === 'right';
+          var vertical = self.legendPosition.vertical;
           this.start(self.ChartLegend, {
             items:     self.legendItems(),
             vertical:  vertical,
-            clickable: self.isLegendClickable(),
+            clickable: self.legendClickable,
             onToggle:  self.toggleSeries,
             onHover:   self.onLegendHover
           })
@@ -187,18 +198,16 @@ foam.CLASS({
     },
 
     function styleLegend(legend, vertical) {
-      /* Hook for a chart type to size its legend, as PieChart does with min and max width. */
+      /* Hook for a chart type to size its legend, e.g. give a side legend a min and max width. */
     },
 
     function legendItems() {
-      // One entry per dataset; PieChart overrides this with one per slice.
+      // One entry per dataset. A chart with one entry per value overrides this.
       var self = this;
       return ( this.data.datasets || [] ).map(function(ds, i) {
         return { label: ds.label || '', color: self.seriesColor(i), hidden: !! self.hidden_[i] };
       });
     },
-
-    function isLegendClickable() { return true; },
 
     function isHidden(i) { return !! this.hidden_[i]; },
 
@@ -257,7 +266,7 @@ foam.CLASS({
 
     function sumLine(values) {
       var sum = values.reduce(function(a, v) { return a + ( Number(v) || 0 ); }, 0);
-      return 'Sum: ' + this.formatValue(sum);
+      return this.SUM + ': ' + this.formatValue(sum);
     },
 
     function showTooltip(evt, title, rows, opt_footer) {
@@ -307,7 +316,7 @@ foam.CLASS({
     },
 
     function onLegendHover(i, evt) {
-      /* PieChart shows a slice's value when its legend entry is hovered. */
+      /* Called with (index, event) while a legend entry is hovered, and index -1 when it is left. */
     }
   ]
 });

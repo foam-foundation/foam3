@@ -10,11 +10,10 @@ foam.CLASS({
   extends: 'foam.u2.chart.CartesianChartView',
 
   documentation: `
-    One line per dataset. Each dataset's data is a list of { x, y } points,
-    and the x axis is one of three kinds:
-      category  x is a label; points are spaced evenly in data.labels order
-      linear    x is a number, placed by value
-      time      x is a Date, placed by time, with ticks on each timeUnit
+    One line per dataset. Each dataset's data is a list of { x, y } points;
+    xType (an XAxisType) says how x is placed: CATEGORY spaces the points
+    evenly in data.labels order, LINEAR reads x as a number, and TIME reads
+    it as a Date with ticks on each timeUnit.
 
     Per dataset: borderColor (the line), backgroundColor (the area when fill
     is on), borderWidth, tension (0 draws straight segments, 0.4 smooth
@@ -26,7 +25,9 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.LinearScale',
-    'foam.u2.chart.TimeScale'
+    'foam.u2.chart.TimeScale',
+    'foam.u2.chart.TimeUnit',
+    'foam.u2.chart.XAxisType'
   ],
 
   css: `
@@ -45,16 +46,22 @@ foam.CLASS({
 
   properties: [
     {
-      class: 'String',
+      class: 'Enum',
+      of: 'foam.u2.chart.XAxisType',
       name: 'xType',
-      value: 'category',
-      documentation: 'How x values are placed: category, linear or time.'
+      documentation: 'How x values are placed. A name such as \'time\' adapts to its value.'
     },
     {
-      class: 'String',
+      class: 'Enum',
+      of: 'foam.u2.chart.TimeUnit',
       name: 'timeUnit',
-      value: 'day',
-      documentation: 'For a time axis: the TimeScale unit its ticks mark.'
+      value: 'DAY',
+      documentation: 'For a time axis: the period its ticks mark.'
+    },
+    {
+      class: 'Boolean',
+      name: 'utc',
+      documentation: 'For a time axis: read the dates in UTC, for dates stored as midnight UTC. Off, times read in the viewer\'s zone.'
     },
     { name: 'xMin', documentation: 'Left end of the x axis: a number, a Date, or for a category axis a label index. Unset means the data decides.' },
     { name: 'xMax' },
@@ -63,13 +70,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function xValue_(p, j) {
-      // A category point sits at its index; the others at their own x.
-      if ( this.xType === 'category' ) return j;
-      if ( this.xType === 'time' ) return new Date(p.x).getTime();
-      return Number(p.x);
-    },
-
     function points_(ds) {
       // Normalises data to [{ x, y }]; a bare number list is read against data.labels.
       return ( ds.data || [] ).map(function(p, j) {
@@ -92,63 +92,41 @@ foam.CLASS({
       var sets   = this.visibleSets_();
 
       // x domain
-      var xs = [];
-      sets.forEach(function(s) { s.pts.forEach(function(p, j) { if ( p.y != null ) xs.push(self.xValue_(p, j)); }); });
-      var xLo = xs.length ? Math.min.apply(null, xs) : 0;
-      var xHi = xs.length ? Math.max.apply(null, xs) : 1;
-      if ( this.xType === 'category' ) { xLo = 0; xHi = Math.max(0, labels.length - 1); }
-      if ( this.isSet_(this.xMin) ) xLo = this.xType === 'time' ? new Date(this.xMin).getTime() : Number(this.xMin);
-      if ( this.isSet_(this.xMax) ) xHi = this.xType === 'time' ? new Date(this.xMax).getTime() : Number(this.xMax);
+      var xType = this.xType;
+      var xs    = [];
+      sets.forEach(function(s) { s.pts.forEach(function(p, j) { if ( p.y != null ) xs.push(xType.toX(p, j)); }); });
+      var xr  = xType.range(xs, labels);
+      var xLo = this.isSet_(this.xMin) ? xType.parse(this.xMin) : xr[0];
+      var xHi = this.isSet_(this.xMax) ? xType.parse(this.xMax) : xr[1];
 
       // y domain
       var ys = [];
       sets.forEach(function(s) { s.pts.forEach(function(p, j) {
-        var x = self.xValue_(p, j);
+        var x = xType.toX(p, j);
         if ( p.y != null && x >= xLo && x <= xHi ) ys.push(Number(p.y));
       }); });
       var yLo = ys.length ? Math.min.apply(null, ys) : 0;
       var yHi = ys.length ? Math.max.apply(null, ys) : 1;
-      var yScale = this.LinearScale.create({ min: yLo, max: yHi }).nice();
-      var yLabels = yScale.ticks().map(function(t) { return yScale.format(t); });
 
-      // x ticks for layout
-      var xScale, xTickValues;
-      if ( this.xType === 'time' ) {
-        // About one tick per 60 pixels; a finer unit moves up to the next that fits.
-        xScale = this.TimeScale.create({ unit: this.timeUnit, min: xLo, max: xHi })
-          .fit(Math.max(2, Math.floor(w / 60))).nice();
-        xTickValues = xScale.ticks();
-      } else if ( this.xType === 'linear' ) {
-        // Round the ends only when the data chose them; hand-set ends stay put.
-        var niced = this.LinearScale.create({ min: xLo, max: xHi, tickCount: 6 }).nice();
-        xScale = this.isSet_(this.xMin) || this.isSet_(this.xMax) ?
-          this.LinearScale.create({ min: xLo, max: xHi, step: niced.step }) : niced;
-        xTickValues = this.ticksWithin_(xScale, xScale.min, xScale.max);
-      } else {
-        xScale = this.LinearScale.create({ min: xLo, max: xHi });
-        xTickValues = [];
-        for ( var j = Math.ceil(xLo) ; j <= xHi ; j++ ) xTickValues.push(j);
-      }
-      var xLabel = function(v) {
-        if ( self.xType === 'time' ) return xScale.format(v);
-        if ( self.xType === 'linear' ) return xScale.format(v);
-        return labels[v] === undefined ? '' : labels[v];
-      };
+      var xAxis       = xType.scale(this, xLo, xHi, w);
+      var xScale      = xAxis.scale;
+      var xTickValues = xAxis.ticks;
+      var xLabel      = function(v, long) { return xType.tickLabel(xScale, labels, v, long); };
 
-      var a = this.layout(w, h, xTickValues.map(xLabel), yLabels);
-
-      yScale = this.LinearScale.create({ min: yLo, max: yHi, tickCount: Math.max(2, Math.min(10, Math.round(a.height / 40))) }).nice();
-      if ( this.isSet_(this.yMin) || this.isSet_(this.yMax) ) {
-        var step = yScale.step;
-        if ( this.isSet_(this.yMin) ) yScale.min = Number(this.yMin);
-        if ( this.isSet_(this.yMax) ) yScale.max = Number(this.yMax);
-        yScale.step = step;
-      }
-      // The first layout measured the labels of a five-step axis. The real
-      // plot height can hold more steps with wider labels ("10,000" where
-      // there was "8,000"), so lay out again with the labels that get written.
+      var fit = this.layoutForValues(w, h, xTickValues.map(function(v) { return xLabel(v); }), false,
+        function(n) {
+          // Hand-set ends replace the rounded ones but keep their step.
+          var s = self.LinearScale.create({ min: yLo, max: yHi, tickCount: n }).nice();
+          var step = s.step;
+          if ( self.isSet_(self.yMin) ) s.min = Number(self.yMin);
+          if ( self.isSet_(self.yMax) ) s.max = Number(self.yMax);
+          s.step = step;
+          return s;
+        },
+        function(s) { return self.ticksWithin_(s, s.min, s.max); });
+      var a      = fit.area;
+      var yScale = fit.scale;
       var yTicks = this.ticksWithin_(yScale, yScale.min, yScale.max);
-      a = this.layout(w, h, xTickValues.map(xLabel), yTicks.map(function(t) { return yScale.format(t); }));
       yScale.start = a.top + a.height; yScale.end = a.top;
       xScale.start = a.left; xScale.end = a.left + a.width;
 
@@ -168,7 +146,7 @@ foam.CLASS({
             var px = [];
             s.pts.forEach(function(p, j) {
               if ( p.y == null ) return;
-              px.push({ x: xScale.map(self.xValue_(p, j)), y: yScale.map(Number(p.y)) });
+              px.push({ x: xScale.map(xType.toX(p, j)), y: yScale.map(Number(p.y)) });
             });
             if ( ! px.length ) return;
             var color = self.seriesColor(s.i);
@@ -251,7 +229,7 @@ foam.CLASS({
       var self = this;
       var seen = {}, stops = [];
       sets.forEach(function(s) { s.pts.forEach(function(p, j) {
-        var v = self.xValue_(p, j);
+        var v = self.xType.toX(p, j);
         if ( p.y == null || seen[v] ) return;
         seen[v] = true;
         stops.push(v);
@@ -275,7 +253,7 @@ foam.CLASS({
             marker.removeAllChildren();
             marker.start('line').addClass(self.myClass('guide')).attrs({ x1: gx, x2: gx, y1: a.top, y2: a.top + a.height }).end();
             sets.forEach(function(s) {
-              var j = s.pts.findIndex(function(p, k) { return p.y != null && self.xValue_(p, k) === v; });
+              var j = s.pts.findIndex(function(p, k) { return p.y != null && self.xType.toX(p, k) === v; });
               if ( j < 0 ) return;
               var y     = Number(s.pts[j].y);
               var color = self.seriesColor(s.i);
@@ -284,10 +262,10 @@ foam.CLASS({
               rows.push({ color: color, label: s.ds.label || '', value: self.formatValue(y) });
               values.push(y);
             });
-            var title = self.xType === 'time' ? xScale.format(v, true) : xLabel(v);
+            var title = xLabel(v, true);
             self.showTooltip(evt, title, rows, self.showTooltipSum && rows.length > 1 ? self.sumLine(values) : undefined);
           })
-          .on('mouseleave', function() { marker.removeAllChildren(); })
+          .on('mouseleave', function() { marker.removeAllChildren(); self.hideTooltip(); })
         .end();
     }
   ]

@@ -19,7 +19,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
-    'foam.core.reflow.dashboard.LegendPosition',
+    'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
@@ -68,7 +68,7 @@ foam.CLASS({
       x.test(foam.util.equals(ds.backgroundColor, [ '#ff0000', '#ff0000' ]), 'Bar: Colors reach the bars. Got ' + JSON.stringify(ds.backgroundColor));
       x.test(chart.horizontal && ! chart.stacked, 'Bar: Horizontal Bars turns the chart on its side');
       x.test(chart.xAxisLabel === 'Year', 'Bar: X-Axis Label is the axis title');
-      x.test(chart.legendPosition === 'right', 'Bar: Legend Position RIGHT becomes "right"');
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Bar: Legend Position RIGHT reaches the chart');
       x.test(chart.showTooltipSum, 'Bar: Show Tooltip Sum reaches the tooltip');
     },
 
@@ -93,7 +93,7 @@ foam.CLASS({
       x.test(chart.cutout === 50 && chart.showPercentages && chart.rotation === 90 && ! chart.clockwise,
         'Pie: Cutout, Show Percentages, Rotation and Clockwise reach the pie');
       x.test(chart.disableLegendClick, 'Pie: Disable Legend Click reaches the legend');
-      x.test(chart.legendPosition === 'left' && chart.legendMinWidthPercent === 20 && chart.legendMaxWidthPercent === 40,
+      x.test(chart.legendPosition === this.LegendPosition.LEFT && chart.legendMinWidthPercent === 20 && chart.legendMaxWidthPercent === 40,
         'Pie: the legend sits left between 20% and 40% wide');
       x.test(chart.percent(1) === '70.0%', 'Pie: 2026 is 70.0% of the total. Got ' + chart.percent(1));
     },
@@ -102,6 +102,8 @@ foam.CLASS({
       var R     = this.DashboardTestRow;
       var agent = this.DashboardStackedBarChartDAOAgent.create({}, x);
       var s     = agent.displaySink;
+      // A form reads rows and cols before the fields are picked. Reading them
+      // first here checks that picking the fields still rebuilds them.
       s.rows; s.cols;
       s.xFunc       = R.MONTH;
       s.yFunc       = R.YEAR;

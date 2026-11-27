@@ -74,6 +74,23 @@ foam.CLASS({
       };
     },
 
+    function layoutForValues(w, h, catLabels, horizontal, valueScale, valueTicks) {
+      // The value axis holds about one tick every 40 pixels, so its tick
+      // count depends on the plot size, and the plot size depends on how wide
+      // the value labels are. Lay out with five steps, size the axis from
+      // that plot, then lay out again with the labels that get written: a
+      // taller axis can say "10,000" where five steps said "8,000".
+      // valueScale(tickCount) builds the scale; valueTicks(scale) lists its ticks.
+      var self = this;
+      var lay  = function(scale) {
+        var v = valueTicks(scale).map(function(t) { return scale.format(t); });
+        return horizontal ? self.layout(w, h, v, catLabels) : self.layout(w, h, catLabels, v);
+      };
+      var first = lay(valueScale(5));
+      var scale = valueScale(Math.max(2, Math.min(10, Math.round(( horizontal ? first.width : first.height ) / 40))));
+      return { area: lay(scale), scale: scale };
+    },
+
     function drawAxes(svg, a, xTicks, yTicks) {
       // xTicks and yTicks are [{ pos, label }] with pos in pixels; a grid
       // line runs from each tick across the plot when showGridLines is on.

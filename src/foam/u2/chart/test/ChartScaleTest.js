@@ -15,7 +15,8 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BandScale',
     'foam.u2.chart.LinearScale',
-    'foam.u2.chart.TimeScale'
+    'foam.u2.chart.TimeScale',
+    'foam.u2.chart.TimeUnit'
   ],
 
   methods: [
@@ -53,7 +54,7 @@ foam.CLASS({
     },
 
     function testTimeScale(x) {
-      var t = this.TimeScale.create({ unit: 'month', min: Date.UTC(2024, 0, 15), max: Date.UTC(2024, 3, 2) });
+      var t = this.TimeScale.create({ unit: 'month', utc: true, min: Date.UTC(2024, 0, 15), max: Date.UTC(2024, 3, 2) });
       var ticks = t.ticks().map(function(v) { return new Date(v).toISOString().slice(0, 10); });
       x.test(ticks.join() === '2024-02-01,2024-03-01,2024-04-01', 'Time: month ticks fall on the 1st of each month in range. Got ' + ticks.join());
 
@@ -63,20 +64,29 @@ foam.CLASS({
       x.test(label.indexOf('2024') !== -1 && label === new Date(march).toLocaleString(foam.locale, { timeZone: 'UTC', month: 'short', year: 'numeric' }),
         'Time: midnight UTC on March 1 labels as March in every time zone. Got ' + label);
 
-      t = this.TimeScale.create({ unit: 'week' });
+      t = this.TimeScale.create({ unit: 'week', utc: true });
       x.test(t.startOf(Date.UTC(2024, 2, 3)).toISOString().slice(0, 10) === '2024-02-26',
         'Time: the week of Sunday 2024-03-03 starts on Monday 2024-02-26');
       x.test(t.format(Date.UTC(2024, 1, 26), true).indexOf('Week of ') === 0, 'Time: a week reads "Week of ..." in a tooltip');
 
-      t = this.TimeScale.create({ unit: 'quarter' });
+      // Without utc a moment reads in the viewer's zone, as on a clock: 13:05 local
+      // labels "13:05" and its month starts at local midnight, wherever the test runs.
+      t = this.TimeScale.create({ unit: 'minute' });
+      x.test(t.format(new Date(2024, 2, 17, 13, 5).getTime()) === '13:05', 'Time: 13:05 local time labels "13:05". Got ' + t.format(new Date(2024, 2, 17, 13, 5).getTime()));
+      t = this.TimeScale.create({ unit: 'month' });
+      x.test(t.startOf(new Date(2024, 2, 17, 1, 30)).getTime() === new Date(2024, 2, 1).getTime(), 'Time: March 17 local starts its month at local midnight on March 1');
+      t = this.TimeScale.create({ unit: 'day' });
+      x.test(t.next(new Date(2024, 2, 30)).getTime() === new Date(2024, 2, 31).getTime(), 'Time: the day after March 30 is March 31, even across a daylight-saving change');
+
+      t = this.TimeScale.create({ unit: 'quarter', utc: true });
       x.test(t.format(Date.UTC(2024, 4, 10)) === 'Q2 2024', 'Time: May 2024 is "Q2 2024". Got ' + t.format(Date.UTC(2024, 4, 10)));
 
       t = this.TimeScale.create({ unit: 'day', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 11, 31) }).fit(12);
-      x.test(t.unit === 'month', 'Time: a year on unit day with room for 12 ticks moves up to month. Got ' + t.unit);
+      x.test(t.unit === this.TimeUnit.MONTH, 'Time: a year on unit day with room for 12 ticks moves up to month. Got ' + t.unit);
       t = this.TimeScale.create({ unit: 'millisecond', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 3, 1) }).fit(10);
       x.test(t.ticks().length <= 10 && t.ticks().length >= 2, 'Time: a millisecond unit over three months draws a handful of ticks, not thousands. Got ' + t.ticks().length);
       t = this.TimeScale.create({ unit: 'month', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 1, 1) }).fit(50);
-      x.test(t.unit === 'month', 'Time: fit never moves to a finer unit than the one asked for');
+      x.test(t.unit === this.TimeUnit.MONTH, 'Time: fit never moves to a finer unit than the one asked for');
     },
 
     function testChartFormatter(x) {

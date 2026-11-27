@@ -25,6 +25,7 @@ foam.CLASS({
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
+    'foam.u2.chart.SunburstChart',
     'foam.u2.chart.PolarAreaChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
@@ -43,6 +44,8 @@ foam.CLASS({
       await this.testLegendAndOptions(x);
       await this.testPie(x);
       await this.testDonutAndPercentages(x);
+      await this.testSunburst(x);
+      await this.testSunburstEdges(x);
       await this.testLine(x);
       await this.testStackedLine(x);
       await this.testTimeLine(x);
@@ -397,6 +400,126 @@ foam.CLASS({
       x.test(( d.match(/A/g) || [] ).length === 2, 'Donut: a cutout slice has an outer and an inner arc');
       var lg = el.querySelector('.' + chart.myClass('legend'));
       x.test(lg.style.maxWidth === '30%', 'Legend: legendMaxWidthPercent caps a side legend at 30%. Got ' + lg.style.maxWidth);
+      this.unmount(chart);
+    },
+
+    function sunburstGeom(el, path) {
+      // Where a sunburst slice starts and ends, as a share of the full turn
+      // from straight up, and the radius of its outer arc. Read from its
+      // path: an inner wedge is "M cx,cy L x0,y0 A r,r 0 l s x1,y1 Z", an
+      // outer ring slice "M x0,y0 A r,r 0 l s x1,y1 L ... Z".
+      var svg = el.querySelector('svg');
+      var cx  = this.num(svg, 'width') / 2, cy = this.num(svg, 'height') / 2;
+      var n   = path.getAttribute('d').match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/g).map(Number);
+      var wedge = /^M[^A-Z]*L/.test(path.getAttribute('d'));
+      var p0 = wedge ? [ n[2], n[3] ] : [ n[0], n[1] ];
+      var p1 = wedge ? [ n[9], n[10] ] : [ n[7], n[8] ];
+      var turn = function(p) {
+        var a = Math.atan2(p[0] - cx, cy - p[1]) / ( 2 * Math.PI );
+        return a < 0 ? a + 1 : a;
+      };
+      var a1 = turn(p1);
+      return { a0: turn(p0), a1: a1 === 0 ? 1 : a1, r: wedge ? n[4] : n[2] };
+    },
+
+    async function testSunburst(x) {
+      // Home is 30 at hour 10 and 10 at hour 11 (40), About 10 and 20 (30): 70 in all.
+      var clicks = [];
+      var chart = this.SunburstChart.create({
+        labels: [ 'Home', 'About' ],
+        datasets: [
+          { label: '10', data: [ 30, 10 ], backgroundColor: [ '#ff0000', '#0000ff' ] },
+          { label: '11', data: [ 10, 20 ] }
+        ],
+        onSliceClick: function(j, k) { clicks.push(j + ':' + k); }
+      }, x);
+      var el    = await this.mount(chart);
+      var inner = this.all(el, chart, 'inner');
+      var outer = this.all(el, chart, 'outer');
+      x.test(inner.length === 2 && outer.length === 4, 'Sunburst: one inner slice per label and one outer slice per label and dataset. Got ' + inner.length + ' and ' + outer.length);
+
+      var gi = inner.map(function(p) { return this.sunburstGeom(el, p); }, this);
+      var go = outer.map(function(p) { return this.sunburstGeom(el, p); }, this);
+      var near = function(a, b) { return Math.abs(a - b) < 0.002; };
+      x.test(near(gi[0].a0, 0) && near(gi[0].a1, 40 / 70) && near(gi[1].a0, 40 / 70) && near(gi[1].a1, 1),
+        'Sunburst: the inner slices span 40 and 30 of the 70, Home first from straight up. Got ' + gi.map(function(g) { return g.a0.toFixed(3) + '-' + g.a1.toFixed(3); }).join());
+      x.test(near(go[0].a0, 0) && near(go[0].a1, 30 / 70) && near(go[1].a0, 30 / 70) && near(go[1].a1, 40 / 70) &&
+             near(go[2].a0, 40 / 70) && near(go[2].a1, 50 / 70) && near(go[3].a0, 50 / 70) && near(go[3].a1, 1),
+        'Sunburst: each outer slice spans its value, inside its parent\'s angle. Got ' + go.map(function(g) { return g.a0.toFixed(3) + '-' + g.a1.toFixed(3); }).join());
+      x.test(go[0].r > gi[0].r + 1 && Math.abs(go[0].r - go[3].r) < 0.01 && Math.abs(gi[0].r - gi[1].r) < 0.01,
+        'Sunburst: the outer ring lies outside the inner one. Got ' + gi[0].r + ' and ' + go[0].r);
+
+      x.test(inner.map(function(p) { return p.getAttribute('fill'); }).join() === '#ff0000,#0000ff',
+        'Sunburst: inner slices take the first dataset\'s colours by label. Got ' + inner.map(function(p) { return p.getAttribute('fill'); }).join());
+      var channels = function(c) { var p = foam.Color.parse(c); return [ Number(p.red), Number(p.green), Number(p.blue) ]; };
+      var lighter = outer.every(function(p, i) {
+        var o = channels(p.getAttribute('fill')), parent = channels(inner[i < 2 ? 0 : 1].getAttribute('fill'));
+        return p.getAttribute('fill').indexOf('$') === -1 && o.every(function(v, c) { return v >= parent[c]; }) && o.join() !== parent.join();
+      });
+      x.test(lighter, 'Sunburst: an outer slice is a lighter shade of its parent\'s colour. Got ' + outer.map(function(p) { return p.getAttribute('fill'); }).join());
+      x.test(outer[0].getAttribute('fill') !== outer[1].getAttribute('fill'), 'Sunburst: two outer slices in one parent differ in shade');
+
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      var c   = this.centreOf(outer[1]);
+      this.fire(outer[1], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Home / 11') !== -1 && tip.textContent.indexOf('Value: 10') !== -1 &&
+             tip.textContent.indexOf('Of parent: 25.0%') !== -1 && tip.textContent.indexOf('Of total: 14.3%') !== -1,
+        'Sunburst: an outer slice names its path with its value and its share of its parent and of the whole. Got ' + tip.textContent);
+      c = this.centreOf(inner[0]);
+      this.fire(inner[0], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Home') !== -1 && tip.textContent.indexOf('Value: 40') !== -1 &&
+             tip.textContent.indexOf('Of total: 57.1%') !== -1 && tip.textContent.indexOf('Of parent') === -1,
+        'Sunburst: an inner slice shows its total and its share of the whole only. Got ' + tip.textContent);
+
+      outer[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      inner[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      x.test(JSON.stringify(clicks) === '["0:1","1:-1"]', 'Sunburst: a click gives the label and dataset index, -1 for an inner slice. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Sunburst: a chart with onSliceClick shows a pointer');
+
+      // One legend entry per label; a click hides the slice and its children.
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Home,About', 'Sunburst: the legend lists one entry per label, not per dataset. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'inner').length === 1; }.bind(this));
+      inner = this.all(el, chart, 'inner');
+      outer = this.all(el, chart, 'outer');
+      x.test(inner.length === 1 && outer.length === 2, 'Sunburst: hiding Home takes its slice and both children. Got ' + inner.length + ' and ' + outer.length);
+      go = outer.map(function(p) { return this.sunburstGeom(el, p); }, this);
+      x.test(near(go[0].a0, 0) && near(go[0].a1, 1 / 3) && near(go[1].a0, 1 / 3) && near(go[1].a1, 1),
+        'Sunburst: About grows to the whole circle, its children 10 and 20 of its 30. Got ' + go.map(function(g) { return g.a0.toFixed(3) + '-' + g.a1.toFixed(3); }).join());
+      items[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'outer').length === 4; }.bind(this));
+      x.test(this.all(el, chart, 'inner').length === 2, 'Sunburst: showing Home again brings back its slice and children');
+      this.unmount(chart);
+    },
+
+    async function testSunburstEdges(x) {
+      // A label with nothing in it, a negative value and a text value draw nothing.
+      var chart = this.SunburstChart.create({
+        labels: [ 'Empty', 'Home', 'Odd' ],
+        datasets: [
+          { label: 'a', data: [ 0, 5, -3 ], backgroundColor: [ '#111111', '#222222', '#333333' ] },
+          { label: 'b', data: [ 0, 5, 'n/a' ] }
+        ]
+      }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'inner').length === 1 && this.all(el, chart, 'outer').length === 2,
+        'Sunburst: a label with only zero, negative or text values draws no slice. Got ' + this.all(el, chart, 'inner').length + ' and ' + this.all(el, chart, 'outer').length);
+      x.test(el.querySelectorAll('.' + this.legendClass('item')).length === 3, 'Sunburst: the legend keeps an entry for a label with no slice');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Sunburst: with no onSliceClick the slices are not clickable');
+      this.unmount(chart);
+
+      // A lone label fills the circle: each ring is one slice, and a full turn is drawn as two halves.
+      chart = this.SunburstChart.create({ labels: [ 'Only' ], datasets: [ { label: 'a', data: [ 4 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'inner').length === 1 && this.all(el, chart, 'outer').length === 1 &&
+             this.all(el, chart, 'inner')[0].getAttribute('d').indexOf('NaN') === -1,
+        'Sunburst: one label and one dataset draw one slice a ring, each a whole circle');
+      this.unmount(chart);
+
+      chart = this.SunburstChart.create({ labels: [], datasets: [] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'slice').length === 0, 'Sunburst: with no data nothing is drawn');
       this.unmount(chart);
     },
 

@@ -78,6 +78,7 @@ foam.CLASS({
       await this.testSankey(x);
       await this.testSankeyEdges(x);
       await this.testTextWidthSpacing(x);
+      this.testFormatValue(x);
     },
 
     async function mount(view) {
@@ -138,6 +139,15 @@ foam.CLASS({
     function centreOf(el) {
       var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    },
+
+    function testFormatValue(x) {
+      // A tooltip shows at most MAX_DECIMALS digits after the point, so an
+      // average such as 321.1333 does not print every digit it has.
+      var chart = this.BarChart.create({}, x);
+      var want  = (321.13).toLocaleString(foam.locale);
+      x.test(chart.formatValue(321.1333) === want, 'Format: 321.1333 shows as ' + want + '. Got ' + chart.formatValue(321.1333));
+      x.test(chart.formatValue(1200) === (1200).toLocaleString(foam.locale), 'Format: a whole number keeps no decimals. Got ' + chart.formatValue(1200));
     },
 
     async function testTextWidthSpacing(x) {

@@ -30,6 +30,11 @@ foam.CLASS({
 
   constants: [
     {
+      name: 'MAX_DECIMALS',
+      documentation: 'Most digits a tooltip shows after the point: an average of 321.1333 reads 321.13.',
+      value: 2
+    },
+    {
       name: 'DEFAULT_COLORS',
       documentation: 'Series colours when the caller sets none, as theme tokens.',
       value: [ '$primary400', '$orange400', '$green400', '$purple400', '$red400', '$blue400', '$grey400' ]
@@ -114,7 +119,8 @@ foam.CLASS({
 
   messages: [
     { name: 'SUM', message: 'Sum' },
-    { name: 'NO_DATA', message: 'No data available' }
+    { name: 'NO_DATA', message: 'No data available' },
+    { name: 'COUNT_LABEL', message: 'Count' }
   ],
 
   properties: [
@@ -303,7 +309,7 @@ foam.CLASS({
     },
 
     function formatValue(v) {
-      return v == null ? '' : Number(v).toLocaleString(foam.locale);
+      return v == null ? '' : Number(v).toLocaleString(foam.locale, { maximumFractionDigits: this.MAX_DECIMALS });
     },
 
     function sumLine(values) {

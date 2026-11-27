@@ -54,6 +54,7 @@ Every new sink gives a user what the existing charts already give. Unit tests pa
 - **No rows, no axes.** Show a message in place of the chart, `emptyValueMessage` on the form, as the pie does (`DashboardSinks.js:339`, `:402-439`). Empty axes from 0 to 1 tell the user nothing.
 - **Axis titles fall back to the field's label** (a chart with axes) when none is typed: "Amount", not a blank axis (`DashboardSinks.js:827`).
 - **A clickable chart gets an On Click Script** on the form, a `Code` property, turned into the chart's click handler (`DashboardSinks.js:490`, `:619-630`). Document its arguments in the property's `help`.
+- **A one-series chart names its series after its total,** with `totalName_(sink)`: the summed or averaged field's label, or "Count" (`DashboardDAOAgents.js:276`). Never a fixed word such as "Values": the legend and every tooltip row show it.
 - **A row with an empty category or series value is left out,** as the calendar does (`DashboardSinks.js:1842`), not drawn as a series called "undefined".
 - **A chart with no axes** (pie, gauge) skips the axis title fields and their fallback.
 - **A value axis takes numbers only.** Check `typeof v === 'number'`: `isFinite()` also passes a date, `''` and `true`, so a date field would plot as milliseconds since 1970.

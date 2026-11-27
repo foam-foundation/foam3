@@ -273,6 +273,13 @@ foam.CLASS({
       this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
     },
 
+    function totalName_(sink) {
+      // The name a one-series chart gives its values in the legend and the
+      // tooltip: the totalled field's label, "Load Time" for a sum or average
+      // of loadTime, or "Count" for a count, which has no field.
+      return this.labelOf_(sink && sink.arg1) || this.ChartView.COUNT_LABEL;
+    },
+
     function isEmptyKey_(k) {
       // A row with no value in a grouping field is grouped under the key
       // "null", "undefined" or "": a chart leaves it out rather than draw a
@@ -1074,8 +1081,9 @@ foam.CLASS({
       // query or the data changes, and a reused sink would count twice.
       var sink = this.displaySink.clone(this);
       // With no Series Property every row goes into one polygon, grouped by
-      // a constant, so the grouping below needs no second code path.
-      if ( sink.hasDefaultValue('yFunc') ) sink.yFunc = this.Constant.create({ value: sink.DEFAULT_SERIES });
+      // a constant named after the total ("Count", or the summed field), so
+      // the grouping below needs no second code path.
+      if ( sink.hasDefaultValue('yFunc') ) sink.yFunc = this.Constant.create({ value: sink.totalName_(sink.aggregation && sink.aggregation.createSink()) });
       // The form can read rows and cols before the fields are picked and
       // save them grouped by nothing; the run copy rebuilds both.
       sink.clearProperty('rows');

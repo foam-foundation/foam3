@@ -22,17 +22,17 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 | Path builder | `SVGPath.js` | `moveTo`, `lineTo`, `curveTo`, `arcTo`, `close` |
 | Dashboard | `core/reflow/dashboard/DashboardSinks.js`, `DashboardDAOAgents.js`, `core/reflow/agents.jrl` | form fields, data grouping, the `chart_` expression, the picker entry |
 
-`ChartView.render()` (`ChartView.js:179-221`) draws the legend, then a plot div with a ResizeObserver. Whenever `labels`, `datasets`, `hidden_` or the plot size changes, it rebuilds the `<svg>` and calls `drawChart`. So a chart type never subscribes to anything: it reads its properties inside `drawChart`.
+`ChartView.render()` (`ChartView.js:185-227`) draws the legend, then a plot div with a ResizeObserver. Whenever `labels`, `datasets`, `hidden_` or the plot size changes, it rebuilds the `<svg>` and calls `drawChart`. So a chart type never subscribes to anything: it reads its properties inside `drawChart`.
 
 ## What you are changing, and where
 
 | Change | Where | Hook or pattern |
 |---|---|---|
 | A new kind of chart | new class extending `ChartView`, or `CartesianChartView` when it has axes | `drawChart(svg, w, h)`; see `references/new-chart-type.md` |
-| What the legend lists | the chart class | override `legendItems()` (`ChartView.js:231-237`); `PieChart.js:112-123` lists one entry per slice |
-| A legend that explains colours, not series (rise and fall on a waterfall) | the chart class | set `legendClickable: false`, so a click hides nothing (`ChartView.js:142`, `PieChart.js:79`) |
+| What the legend lists | the chart class | override `legendItems()` (`ChartView.js:237-243`); `PieChart.js:112-123` lists one entry per slice |
+| A legend that explains colours, not series (rise and fall on a waterfall) | the chart class | set `legendClickable: false`, so a click hides nothing (`ChartView.js:148`, `PieChart.js:79`) |
 | Legend size on the side | the chart class | override `styleLegend(legend, vertical)` (`PieChart.js:125-131`) |
-| Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:305-346`) |
+| Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:311-353`) |
 | A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:64-72`, `value: null`, called at `:172-177`) |
 | A per-series drawing option | `Dataset`, or a subclass such as `LineDataset` | a property with its default in `value:` (`LineDataset.js:30-47`) |
 | A chart-wide option | a property on the chart class | read it in `drawChart` |
@@ -43,15 +43,15 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 
 ## Rules
 
-- **No magic numbers.** A number with a reason is a `constants:` entry. Its `documentation` gives the reason and one value (`PieChart.js:27-43`, `ChartView.js:31-57`). Plain math such as halving stays inline.
+- **No magic numbers.** A number with a reason is a `constants:` entry. Its `documentation` gives the reason and one value (`PieChart.js:27-43`, `ChartView.js:31-62`). Plain math such as halving stays inline.
 - **No hand-written path strings.** Build every `d` with `SVGPath` (`PieChart.js:154`).
-- **Options are model properties.** A default goes in `value:`, never in `ds.x === undefined ? 3 : ds.x`. `datasets` is an `FObjectArray`, so a caller's plain `{ label, data }` becomes a `Dataset` (`ChartView.js:127-132`).
+- **Options are model properties.** A default goes in `value:`, never in `ds.x === undefined ? 3 : ds.x`. `datasets` is an `FObjectArray`, so a caller's plain `{ label, data }` becomes a `Dataset` (`ChartView.js:133-138`).
 - **Kinds are enum values with Function properties,** not string compares. `XAxisType` has `toX`, `range`, `scale` and `tickLabel`; `LineChart` only calls them (`LineChart.js:161-166`).
-- **Mark colours go in SVG attributes, resolved.** Use `seriesColor(i, j)` or `defaultColor(i)`, which turns a token like `$primary400` into its value (`ChartView.js:241-263`). An attribute keeps the colour in a PDF or image export.
-- **Text, grid and axis colours come from CSS tokens** in the class's `css:` (`ChartView.js:86-90`), so they follow a light or dark theme. `CSSAuditTest` fails a hard-coded colour or font value in `css:` (`core/theme/test/CSSAuditTest.js:432-440`). Use tokens such as `$textSecondary` and `$font-medium`.
+- **Mark colours go in SVG attributes, resolved.** Use `seriesColor(i, j)` or `defaultColor(i)`, which turns a token like `$primary400` into its value (`ChartView.js:247-269`). An attribute keeps the colour in a PDF or image export.
+- **Text, grid and axis colours come from CSS tokens** in the class's `css:` (`ChartView.js:91-95`), so they follow a light or dark theme. `CSSAuditTest` fails a hard-coded colour or font value in `css:` (`core/theme/test/CSSAuditTest.js:432-440`). Use tokens such as `$textSecondary` and `$font-medium`.
 - **Dates on a time axis go through `TimeScale` and `TimeUnit`,** which can read dates in UTC (`LineChart.js:90-94`). Never group by `getMonth()`.
-- **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:40-53`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:185-189`).
-- **A chart redraws only when `labels`, `datasets`, `hidden_` or the plot size change** (`ChartView.js:211`). A chart-wide option set after the first draw shows only at the next data change, so the sink sets every option when it creates the chart.
+- **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:40-53`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:191-195`).
+- **A chart redraws only when `labels`, `datasets`, `hidden_` or the plot size change** (`ChartView.js:217`). A chart-wide option set after the first draw shows only at the next data change, so the sink sets every option when it creates the chart.
 - **Hidden series:** check `isHidden(i)` while drawing. Never splice `datasets`, because the legend index must stay the dataset index.
 - **Saved flows hold class and property names.** A flow stores the agent class and its props. Never rename a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. Keep an old name working with a setter shim on the agent (`DashboardDAOAgents.js:580-631`).
 - **A dashboard sink keeps its rows in plain arrays or objects, `transient`,** never a `Map` or `Set`: a select can send the sink as JSON and back, and a `Map` returns as `{}` (`references/dashboard-wiring.md`).

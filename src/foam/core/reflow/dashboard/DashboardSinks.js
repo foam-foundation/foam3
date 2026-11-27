@@ -207,7 +207,7 @@ foam.CLASS({
         return this.BarChart.create({
           labels: labels,
           datasets: [{
-            label: datasetLabel || 'Values',
+            label: datasetLabel || this.totalName_(this.arg2),
             data: data,
             backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
           }],
@@ -1080,7 +1080,7 @@ foam.CLASS({
 
       // Create single dataset
       var datasetConfig = {
-        label: (arg2 && arg2.label) || 'Values',
+        label: (arg2 && arg2.label) || this.totalName_(arg2),
         data: data,
         borderWidth: 2,
         fill: fill,
@@ -2308,10 +2308,6 @@ foam.CLASS({
 
   constants: [
     { name: 'TOTAL_SLOT', value: 'acc' }
-  ],
-
-  messages: [
-    { name: 'DEFAULT_SERIES', message: 'Values' }
   ],
 
   properties: [

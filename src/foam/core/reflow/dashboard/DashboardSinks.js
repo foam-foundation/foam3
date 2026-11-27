@@ -1946,10 +1946,15 @@ foam.CLASS({
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
     { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
     {
+      class: 'Array',
       name: 'series_',
       hidden: true,
-      documentation: 'The points collected by put(), as a Map from series name to its [ { x, y } ] list.',
-      factory: function() { return new Map(); }
+      // Points collected by put(), one entry per series in the order first seen:
+      // [ { label: 'GET', data: [ { x: 40, y: 56.2 } ] } ]. Kept as plain
+      // arrays, since the sink is copied and sent as JSON during a select, and a
+      // JS Map arrives as {} and then fails in put(). Transient, so the points
+      // of one run are never saved into the flow.
+      transient: true
     },
     {
       name: 'chart_',
@@ -1958,11 +1963,11 @@ foam.CLASS({
       // Read once, by addToE, after the select has collected every point.
       factory: function() {
         var self = this;
-        var datasets = Array.from(this.series_, function(e, i) {
+        var datasets = this.series_.map(function(e, i) {
           var c = self.colors && self.colors.length ? self.colors[i % self.colors.length] : undefined;
           return {
-            label: e[0],
-            data: e[1],
+            label: e.label,
+            data: e.data,
             backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
           };
         });
@@ -1986,8 +1991,9 @@ foam.CLASS({
       var x = this.xProp.f(obj), y = this.yProp.f(obj);
       if ( x == null || y == null || ! isFinite(x) || ! isFinite(y) ) return;
       var key = this.hasDefaultValue('seriesProp') ? this.DEFAULT_SERIES : String(this.seriesProp.f(obj));
-      if ( ! this.series_.has(key) ) this.series_.set(key, []);
-      this.series_.get(key).push({ x: Number(x), y: Number(y) });
+      var s = this.series_.find(function(e) { return e.label === key; });
+      if ( ! s ) this.series_.push(s = { label: key, data: [] });
+      s.data.push({ x: Number(x), y: Number(y) });
     },
 
     function addToE(e) {

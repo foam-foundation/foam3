@@ -183,6 +183,15 @@ foam.CLASS({
       s.clearProperty('seriesProp');
       chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Scatter: with no Series Property all four rows are one dataset');
+
+      // A select can send the sink to the server as JSON and back. The copy
+      // must still collect points: it once kept them in a JS Map, which came
+      // back as {} and failed on the first put.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 4, 'Scatter: a sink sent as JSON and back still collects all four rows. Got ' + ( err || n ));
     }
   ]
 });

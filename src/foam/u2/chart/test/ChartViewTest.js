@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.HeatmapChart',
+    'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.BubbleChart',
@@ -39,6 +40,9 @@ foam.CLASS({
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
+      await this.testHistogram(x);
+      await this.testHistogramSeries(x);
+      await this.testHistogramEdges(x);
     },
 
     async function mount(view) {
@@ -649,6 +653,102 @@ foam.CLASS({
       var fills = this.all(el, chart, 'cell').map(function(c) { return c.getAttribute('fill'); });
       x.test(fills[1].toLowerCase() === chart.defaultColor(0).toLowerCase(), 'Heatmap: with no colour set the highest value takes the first theme colour. Got ' + fills.join());
       x.test(! el.classList.contains(chart.myClass('clickable')), 'Heatmap: with no onCellClick the cells are not clickable');
+      this.unmount(chart);
+    },
+
+    async function testHistogram(x) {
+      var clicks = [];
+      var chart = this.HistogramChart.create({
+        datasets: [ { label: 'Latency', data: [ 3, 12, 14, 15, 28, 45, 87 ] } ],
+        onBinClick: function(di, j) { clicks.push([ di, j ]); }
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      var hits = this.all(el, chart, 'hit');
+      var text = function() { return this.all(el, chart, 'text').map(function(t) { return t.textContent; }); }.bind(this);
+
+      // 3 to 87 asked for 10 bins rounds to a step of 10: 0 to 90, nine bins, five of them not empty.
+      x.test(hits.length === 9, 'Histogram: 3 to 87 gives nine bins of width 10. Got ' + hits.length);
+      x.test(bars.length === 5, 'Histogram: one bar per non-empty bin. Got ' + bars.length);
+      x.test(text().indexOf('0') !== -1 && text().indexOf('90') !== -1 && text().indexOf('50') !== -1,
+        'Histogram: the x axis is labelled at the bin edges. Got ' + text().join());
+
+      var x0 = this.num(bars[0], 'x'), w0 = this.num(bars[0], 'width');
+      x.test(Math.abs(this.num(bars[1], 'x') - ( x0 + w0 )) < 0.01,
+        'Histogram: neighbouring bars touch. Got ' + x0 + '+' + w0 + ' then ' + this.num(bars[1], 'x'));
+      x.test(Math.abs(this.num(bars[1], 'height') - 3 * this.num(bars[0], 'height')) < 0.5,
+        'Histogram: bin 10 to 20 holds 3 values, three times bin 0 to 10. Got ' + this.num(bars[1], 'height') + ' and ' + this.num(bars[0], 'height'));
+      x.test(text().every(function(t) { return t.indexOf('.') === -1; }), 'Histogram: counts are whole. Got ' + text().join());
+      x.test(bars[0].getAttribute('fill').indexOf('$') === -1, 'Histogram: the bar colour is resolved');
+
+      var c = this.centreOf(hits[1]);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(tip.indexOf('10 – 20') !== -1 && tip.indexOf('Latency: 3') !== -1, 'Histogram: hover shows the bin range and its count. Got ' + tip);
+      this.fire(hits[1], 'click', c.x, c.y);
+      x.test(JSON.stringify(clicks) === '[[0,1]]', 'Histogram: a click gives the dataset and the bin. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Histogram: a chart with onBinClick shows a pointer');
+
+      this.unmount(chart);
+
+      chart = this.HistogramChart.create({ datasets: [ { label: 'Latency', data: [ 3, 12, 14, 15, 28, 45, 87 ] } ], binCount: 3 }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'hit').length === 2, 'Histogram: binCount 3 gives 2 bins of width 50. Got ' + this.all(el, chart, 'hit').length);
+      this.unmount(chart);
+    },
+
+    async function testHistogramSeries(x) {
+      var chart = this.HistogramChart.create({
+        datasets: [ { label: 'A', data: [ 3, 12, 14, 15, 28, 45, 87 ] }, { label: 'B', data: [ 95, 96, 99 ] } ]
+      }, x);
+      var el   = await this.mount(chart);
+      var text = function() { return this.all(el, chart, 'text').map(function(t) { return t.textContent; }); }.bind(this);
+      var bars = this.all(el, chart, 'bar');
+
+      x.test(this.all(el, chart, 'hit').length === 20, 'Histogram: two datasets share ten bins, a hover column each. Got ' + this.all(el, chart, 'hit').length);
+      x.test(bars.length === 6, 'Histogram: A has five non-empty bins and B one. Got ' + bars.length);
+      x.test(text().indexOf('100') !== -1, 'Histogram: the shared x axis reaches 100. Got ' + text().join());
+      var fills = bars.map(function(b) { return b.getAttribute('fill'); });
+      x.test(fills[0] !== fills[5], 'Histogram: each dataset has its own colour. Got ' + fills.join());
+      // Side by side: A's first bar and B's bar in bin 9 are half a bin wide.
+      var bin = this.num(this.all(el, chart, 'hit')[0], 'width') * 2;
+      x.test(Math.abs(this.num(bars[0], 'width') * 2 - bin) < 0.01, 'Histogram: with two datasets a bar is half a bin wide');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 5; }.bind(this));
+      x.test(this.all(el, chart, 'bar').length === 5, 'Histogram: hiding B leaves A\'s five bars');
+      x.test(this.all(el, chart, 'hit').length === 9 && text().indexOf('100') === -1 && text().indexOf('90') !== -1,
+        'Histogram: hiding B recomputes the bins from A alone. Got ' + this.all(el, chart, 'hit').length + ' bins, ' + text().join());
+      this.unmount(chart);
+    },
+
+    async function testHistogramEdges(x) {
+      var chart = this.HistogramChart.create({ datasets: [ { label: 'Same', data: [ 5, 5, 5 ] } ] }, x);
+      var el    = await this.mount(chart);
+      var text  = function() { return this.all(el, chart, 'text').map(function(t) { return t.textContent; }); }.bind(this);
+      x.test(this.all(el, chart, 'bar').length === 1 && this.all(el, chart, 'hit').length === 1,
+        'Histogram: equal values make one bin, one bar. Got ' + this.all(el, chart, 'bar').length + ' bars');
+      x.test(text().indexOf('5') !== -1 && text().indexOf('6') !== -1 && ! text().some(function(t) { return /NaN|Infinity/.test(t); }),
+        'Histogram: the single bin runs 5 to 6, with no NaN. Got ' + text().join());
+      this.unmount(chart);
+
+      chart = this.HistogramChart.create({ datasets: [ { label: 'None', data: [] } ] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'bar').length === 0 && ! text().some(function(t) { return /NaN|Infinity/.test(t); }),
+        'Histogram: no values draw empty axes, no bars, no NaN. Got ' + text().join());
+      this.unmount(chart);
+
+      chart = this.HistogramChart.create({ datasets: [ { label: 'Mixed', data: [ 1, 'x', null, NaN, 2, Infinity, 3 ] } ] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'bar').length >= 1 && ! text().some(function(t) { return /NaN|Infinity/.test(t); }),
+        'Histogram: text, null, NaN and Infinity are left out. Got ' + text().join());
+      this.unmount(chart);
+
+      chart = this.HistogramChart.create({ datasets: [ { label: 'Small', data: [ 0.1, 0.2, 0.3, 0.35 ] } ], binCount: 5 }, x);
+      el    = await this.mount(chart);
+      x.test(text().indexOf('0.35') !== -1 || text().indexOf('0.4') !== -1,
+        'Histogram: fractional edges keep their decimals. Got ' + text().join());
       this.unmount(chart);
     },
 

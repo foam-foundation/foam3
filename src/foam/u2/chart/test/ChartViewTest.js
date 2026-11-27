@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
+    'foam.u2.chart.PolarAreaChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
     'foam.u2.chart.SankeyChart',
@@ -48,6 +49,8 @@ foam.CLASS({
       await this.testCandlestickEdges(x);
       await this.testRadar(x);
       await this.testRadarEdges(x);
+      await this.testPolarArea(x);
+      await this.testPolarAreaEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
       await this.testHistogram(x);
@@ -798,6 +801,119 @@ foam.CLASS({
       el = await this.mount(chart);
       x.test(this.all(el, chart, 'polygon')[0].getAttribute('d').indexOf('NaN') === -1, 'Radar: a dataset of zeros draws without NaN');
       x.test(! el.classList.contains(chart.myClass('clickable')), 'Radar: with no onPointClick the corners are not clickable');
+      this.unmount(chart);
+    },
+
+    function wedgeGeom(wedge) {
+      // The numbers of a wedge's path "M cx,cy L x0,y0 A r,r 0 0 1 x1,y1 Z":
+      // the centre, the edge where the wedge starts, its radius and the edge
+      // where it ends.
+      var n = wedge.getAttribute('d').match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/g).map(Number);
+      return { cx: n[0], cy: n[1], x0: n[2], y0: n[3], r: n[4], x1: n[9], y1: n[10] };
+    },
+
+    async function testPolarArea(x) {
+      var clicks = [];
+      var chart = this.PolarAreaChart.create({
+        labels: [ 'A', 'B', 'C', 'D' ],
+        datasets: [ { data: [ 400, 100, 0, 25 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ],
+        onWedgeClick: function(i) { clicks.push(i); }
+      }, x);
+      var el     = await this.mount(chart);
+      var wedges = this.all(el, chart, 'wedge');
+      var g      = wedges.map(this.wedgeGeom);
+      x.test(wedges.length === 3, 'Polar: one wedge per label, and the 0 draws none. Got ' + wedges.length);
+
+      // The rim, the outer ring, is the largest value, 400, rounded up to a
+      // round number (it is one already). The legend takes some of the height.
+      var rings = this.all(el, chart, 'ring');
+      var rim   = this.num(rings[rings.length - 1], 'r');
+      x.test(rim > 100 && rim < 146, 'Polar: the rim fits the plot under the legend. Got ' + rim);
+      x.test(Math.abs(g[0].r - rim) < 0.5, 'Polar: the largest value reaches the rim. Got ' + g[0].r);
+      // Area grows with the radius squared: 100 is a quarter of 400's area, so half its radius.
+      x.test(Math.abs(g[1].r - rim / 2) < 0.5 && Math.abs(g[2].r - rim / 4) < 0.5,
+        'Polar: radius follows the square root of the value, so 100 is half and 25 a quarter of 400\'s radius. Got ' + g.map(function(w) { return w.r; }).join());
+      x.test(Math.abs(g[0].r * g[0].r / ( g[1].r * g[1].r ) - 4) < 0.05 && Math.abs(g[0].r * g[0].r / ( g[2].r * g[2].r ) - 16) < 0.2,
+        'Polar: areas are in proportion to the values 400, 100, 25');
+
+      // Four labels give four 90 degree wedges: A from straight up to straight right, B from there to straight down, D from left to up.
+      x.test(Math.abs(g[0].x0 - g[0].cx) < 0.5 && g[0].y0 < g[0].cy && g[0].x1 > g[0].cx && Math.abs(g[0].y1 - g[0].cy) < 0.5,
+        'Polar: the first wedge starts straight up and sweeps clockwise to straight right. Got ' + JSON.stringify(g[0]));
+      x.test(g[1].x0 > g[1].cx && Math.abs(g[1].x1 - g[1].cx) < 0.5 && g[1].y1 > g[1].cy,
+        'Polar: the second wedge follows, from straight right to straight down');
+      x.test(g[2].x0 < g[2].cx && Math.abs(g[2].y0 - g[2].cy) < 0.5 && Math.abs(g[2].x1 - g[2].cx) < 0.5 && g[2].y1 < g[2].cy,
+        'Polar: the fourth label\'s wedge, from straight left to straight up, is the last drawn (the third has a 0)');
+
+      x.test(wedges[0].getAttribute('fill') === '#ff0000' && wedges[1].getAttribute('fill') === '#00ff00' && wedges[2].getAttribute('fill') === '#00ff00',
+        'Polar: a colour list is used in turn by label position (C, the 0, keeps its turn, so D is green). Got ' + wedges.map(function(w) { return w.getAttribute('fill'); }).join());
+
+      var ringLabels = this.all(el, chart, 'ring-label').map(function(t) { return t.textContent; });
+      x.test(ringLabels.join() === '100,200,300,400' && rings.length === 4, 'Polar: rings at the round values 100 to 400, each labelled. Got ' + rings.length + ' rings, ' + ringLabels.join());
+      var ringR = rings.map(function(r) { return this.num(r, 'r'); }, this);
+      x.test(Math.abs(ringR[3] - rim) < 0.5 && Math.abs(ringR[0] - rim / 2) < 0.5,
+        'Polar: rings are spaced by the same square root, so 100 is at half the rim. Got ' + ringR.join());
+
+      // Hover a wedge: label, value and share of the 525 total.
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 4, 'Polar: one hover sector per label, the 0 too. Got ' + hits.length);
+      this.fire(hits[1], 'mousemove', this.centreOf(hits[1]).x, this.centreOf(hits[1]).y);
+      var tip  = el.querySelector('.' + chart.myClass('tooltip'));
+      var text = tip.textContent;
+      x.test(this.visible(tip) && text.indexOf('B') === 0 && text.indexOf('Value: 100') !== -1 && text.indexOf('Share of total: 19.0%') !== -1,
+        'Polar: hovering a wedge shows its label, value and share of the total. Got ' + text);
+      this.fire(hits[1], 'mouseleave', 0, 0);
+      x.test(! this.visible(tip), 'Polar: leaving a wedge hides the tooltip');
+
+      this.fire(hits[3], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[3]', 'Polar: a click gives the label\'s index. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Polar: a chart with onWedgeClick shows a pointer');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'A,B,C,D', 'Polar: the legend has one entry per label');
+      items[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'wedge').length === 2; }.bind(this));
+      wedges = this.all(el, chart, 'wedge');
+      g      = wedges.map(this.wedgeGeom);
+      x.test(wedges.length === 2 && this.all(el, chart, 'hit').length === 3, 'Polar: clicking A hides its wedge and its hover sector');
+      ringLabels = this.all(el, chart, 'ring-label').map(function(t) { return t.textContent; });
+      x.test(ringLabels.join() === '50,100', 'Polar: with A hidden the rings rescale to B\'s 100. Got ' + ringLabels.join());
+      x.test(Math.abs(g[0].r - rim) < 0.5 && Math.abs(g[1].r - rim / 2) < 0.5, 'Polar: B\'s 100 now reaches the rim and D\'s 25 is half of it. Got ' + g.map(function(w) { return w.r; }).join());
+      x.test(g[0].x0 > g[0].cx && Math.abs(g[0].y0 - g[0].cy) < 0.5, 'Polar: B keeps its slot, from straight right, so the others do not move');
+      this.fire(this.all(el, chart, 'hit')[0], 'mousemove', 0, 0);
+      x.test(tip.textContent.indexOf('B') === 0 && tip.textContent.indexOf('Share of total: 80.0%') !== -1,
+        'Polar: the share is of the wedges still shown (100 of 125). Got ' + tip.textContent);
+      this.unmount(chart);
+    },
+
+    async function testPolarAreaEdges(x) {
+      // Nothing to draw: no labels, no error.
+      var chart = this.PolarAreaChart.create({ labels: [], datasets: [ { data: [] } ] }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'wedge').length === 0, 'Polar: no labels draws no wedge');
+      this.unmount(chart);
+
+      // A negative and a missing value count as 0; the legend still lists them, shown.
+      chart = this.PolarAreaChart.create({ labels: [ 'A', 'B', 'C' ], datasets: [ { data: [ 10, -5, null ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'wedge').length === 1, 'Polar: a negative and a missing value draw no wedge. Got ' + this.all(el, chart, 'wedge').length);
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.length === 3 && ! items[1].classList.contains(this.legendClass('hidden')), 'Polar: a label with a 0 value stays in the legend, not greyed out');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Polar: with no onWedgeClick the wedges are not clickable');
+      this.unmount(chart);
+
+      // One label is a full circle, which one arc cannot draw.
+      chart = this.PolarAreaChart.create({ labels: [ 'A' ], datasets: [ { data: [ 5 ] } ] }, x);
+      el = await this.mount(chart);
+      var wedges = this.all(el, chart, 'wedge');
+      var d = wedges.length && wedges[0].getAttribute('d');
+      x.test(wedges.length === 1 && d.indexOf('NaN') === -1 && ( d.match(/A/g) || [] ).length === 2, 'Polar: a single label draws a full disc from two arcs. Got ' + d);
+      this.unmount(chart);
+
+      // All zeros have no range to scale: the rings still come out with real numbers.
+      chart = this.PolarAreaChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ 0, 0 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'wedge').length === 0 && this.all(el, chart, 'ring').every(function(r) { return isFinite(this.num(r, 'r')); }, this),
+        'Polar: all zeros draw no wedge and no NaN ring');
       this.unmount(chart);
     },
 

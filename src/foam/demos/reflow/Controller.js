@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// TODO: looks like there's a bug in cSpecDAO and flowDAO.where(IN)
+// TODO: looks like there's a bug in cSpecDAO and flowDAO.where(IN), keywords are missing in flowDAO
 foam.CLASS({
   package: 'foam.demos.reflow',
   name: 'Controller',
@@ -23,10 +23,12 @@ foam.CLASS({
   exports: [
     'as ctrl',
     'agentDAO',
+    'auth',
     'commandDAO',
     'cSpecDAO',
     'flowDAO',
     'isMenuOpen',
+    'pushMenu',
     'showNav',
     'toolbarControlDAO',
     'vectorStoreDAO',
@@ -77,6 +79,14 @@ foam.CLASS({
       }
     },
     {
+      name: 'auth',
+      factory: function() {
+        return {
+          check: async function() { return await true; }
+        };
+      }
+    },
+    {
       name: 'agentDAO',
       factory: function() {
         return this.EasyDAO.create({
@@ -122,6 +132,10 @@ foam.CLASS({
 
 
   methods: [
+    function pushMenu() {
+      debugger;
+    },
+
     function loadDAO(dao, file) {
       let self = this;
 
@@ -136,12 +150,14 @@ foam.CLASS({
     },
 
     async function loadData() {
+      // TODO: load all 3 in parallel
       await this.loadDAO(this.agentDAO,   'agents');
       await this.loadDAO(this.commandDAO, 'cmds');
       await this.loadDAO(this.flowDAO,    'flows');
     },
 
     async function render() {
+      globalThis.ctrl = this;
       // Install CSS
       foam.core.controller.AppStyles.create();
       foam.core.controller.Fonts.create();

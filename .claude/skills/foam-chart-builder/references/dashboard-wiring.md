@@ -35,6 +35,17 @@ A chart with one mark per row (a scatter, a calendar) does no grouping. Copy `Da
 - **A shared switch the chart does not use:** `ChartDisplayMixin` adds switches such as `showTooltipSum`. A mixin's properties install after the class's own, so an override cannot hide them. Put them in a section that is never shown: `{ name: 'unused', isAvailable: function() { return false; }, properties: [...] }` (`DashboardSinks.js:1786-1790`).
 - **Its agent extends `AbstractSinkDAOAgent`,** as the line chart's does (`DashboardDAOAgents.js:592-593`). It needs no shim. The calendar's agent extends `GroupByDAOAgent` only because it existed before, so its inherited `prop` needs a shim with `validateObj: null` (`DashboardDAOAgents.js:825-827`).
 
+### Match the sibling charts
+
+Every new sink gives a user what the existing charts already give. A review of the scatter found each of these missing, and its unit tests passed without them:
+- **No rows, no axes.** Show a message in place of the chart, `emptyValueMessage` on the form, as the pie does (`DashboardSinks.js:339`, `:402-439`). Empty axes from 0 to 1 tell the user nothing.
+- **Axis titles fall back to the field's label** when none is typed: "Amount", not a blank axis (`DashboardSinks.js:826`).
+- **A clickable chart gets an On Click Script** on the form, a `Code` property, turned into the chart's click handler (`DashboardSinks.js:490`, `:619-630`). Document its arguments in the property's `help`.
+- **A row with an empty category or series value is left out,** as the calendar does (`DashboardSinks.js:1837`), not drawn as a series called "undefined".
+- **A value axis takes numbers only.** Check `typeof v === 'number'`: `isFinite()` also passes a date, `''` and `true`, so a date field would plot as milliseconds since 1970.
+
+Test each of these in `DashboardChartRenderTest`, over rows that have a missing value and a date field.
+
 ## 2. The agent (DashboardDAOAgents.js)
 
 - **`extends`:** `foam.core.reflow.GroupByDAOAgent` (or `GridByDAOAgent`, or `AbstractSinkDAOAgent`), to match the sink.

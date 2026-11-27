@@ -34,6 +34,7 @@ foam.CLASS({
     <<line  { fill: none; stroke-linejoin: round; stroke-linecap: round; }
     <<area  { stroke: none; fill-opacity: 0.25; }
     <<overlay { fill: transparent; }
+    <<lines   { overflow: hidden; }
 
     @media (prefers-reduced-motion: no-preference) {
       <<animated <<series {
@@ -134,14 +135,19 @@ foam.CLASS({
         xTickValues.map(function(v) { return { pos: xScale.map(v), label: xLabel(v) }; }),
         yTicks.map(function(t) { return { pos: yScale.map(t), label: yScale.format(t) }; }));
 
-      var clipId = 'foam-u2-chart-clip-' + this.$UID;
-      var base   = yScale.map(Math.max(yScale.min, Math.min(yScale.max, 0)));
+      var base = yScale.map(Math.max(yScale.min, Math.min(yScale.max, 0)));
 
+      // A hand-set y range can put points outside the plot; a nested svg
+      // cuts the lines at its edges. Its viewBox matches its box, so the
+      // lines keep the outer chart's coordinates. It reaches 4 px past the
+      // plot so a point on the edge is not cut in half.
+      var pad = 4;
       svg
-        .start('defs').start('clipPath').attrs({ id: clipId })
-          .start('rect').attrs({ x: a.left - 4, y: a.top - 4, width: a.width + 8, height: a.height + 8 }).end()
-        .end().end()
-        .start('g').attrs({ 'clip-path': 'url(#' + clipId + ')' })
+        .start('svg').addClass(this.myClass('lines'))
+          .attrs({
+            x: a.left - pad, y: a.top - pad, width: a.width + 2 * pad, height: a.height + 2 * pad,
+            viewBox: [ a.left - pad, a.top - pad, a.width + 2 * pad, a.height + 2 * pad ].join(' ')
+          })
           .forEach(sets, function(s) {
             var px = [];
             s.pts.forEach(function(p, j) {

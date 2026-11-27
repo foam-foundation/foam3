@@ -314,6 +314,17 @@ foam.CLASS({
       var texts = this.all(el, chart, 'text').map(function(t) { return t.textContent; });
       x.test(texts.indexOf('10') !== -1, 'Linear: the axis ends on a tick labelled 10. Got ' + texts.join());
       this.unmount(chart);
+
+      // With a hand-set top of 2, the points at 3 and 4 lie above the plot;
+      // the lines sit in a nested svg that hides what falls outside it.
+      chart = this.LineChart.create({ xType: 'linear', yMax: 2, data: { datasets: [ { data: [
+        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] } }, x);
+      el = await this.mount(chart);
+      var lines = this.all(el, chart, 'lines')[0];
+      var top   = Math.min.apply(null, Array.from(el.querySelectorAll('circle')).map(function(c) { return Number(c.getAttribute('cy')); }));
+      x.test(lines && getComputedStyle(lines).overflow === 'hidden' && top < Number(lines.getAttribute('y')),
+        'Linear: points above a hand-set yMax fall outside the lines box, which hides them');
+      this.unmount(chart);
     },
 
     async function testTimeLine(x) {

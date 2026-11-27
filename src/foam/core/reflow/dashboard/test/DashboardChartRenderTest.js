@@ -82,6 +82,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardHistogramChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardPolarAreaChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardSankeyChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
@@ -109,6 +110,7 @@ foam.CLASS({
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
+    'foam.u2.chart.PolarAreaChart',
     'foam.u2.chart.RadarChart',
     'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
@@ -132,6 +134,8 @@ foam.CLASS({
       await this.testCandlestickEdges(x);
       await this.testRadar(x);
       await this.testRadarEdges(x);
+      await this.testPolarArea(x);
+      await this.testPolarAreaEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
       await this.testHistogram(x);
@@ -162,7 +166,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -1130,6 +1134,90 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Histogram: with no values the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testPolarArea(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardPolarAreaChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#ff0000', '#00ff00' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the wedge's value, its label, the sum of every wedge and the x of the click.
+      s.onClickScript = '(function(v, label, total, cx, cy, px, py) { globalThis.polarClick_ = [ v, label, total, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.PolarAreaChart.isInstance(chart), 'Polar: draws a foam.u2.chart.PolarAreaChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && chart.datasets[0].data.join() === '30,70',
+        'Polar: sums the amounts per year, in the field\'s order. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      x.test(foam.util.equals(chart.datasets[0].backgroundColor, [ '#ff0000', '#00ff00' ]),
+        'Polar: Colors reach the wedges. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Polar: Legend Position reaches the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onWedgeClick(0, evt);
+      x.test(globalThis.polarClick_ === '30,2025,100,30,30,130,280',
+        'Polar: On Click Script gets the value, label, total, and the point in the chart and on the page. Got ' + globalThis.polarClick_);
+      delete globalThis.polarClick_;
+
+      // Top N 1 keeps the biggest year and folds the other into "Others".
+      s.topN = 1;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '2026,Others' && chart.datasets[0].data.join() === '70,30',
+        'Polar: Top N 1 gives the biggest year and an Others wedge. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // With no aggregation picked the form shows Count, so each wedge counts its rows.
+      s.topN = 0;
+      s.clearProperty('aggregation');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2', 'Polar: with no Aggregation each wedge counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onWedgeClick, 'Polar: with no On Click Script the wedges are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still group.
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.topN = 1;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.topN === 1 && copy.chart_.labels.join() === '2026,Others',
+        'Polar: a sink sent as JSON and back still groups and keeps Top N. Got ' + ( err || copy.chart_.labels.join() ));
+    },
+
+    async function testPolarAreaEdges(x) {
+      var T = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10 }),
+        T.create({ id: 2, kind: 'POST', size: 4 }),
+        T.create({ id: 3, kind: '',     size: 30 }),
+        T.create({ id: 4, kind: 'GET',  size: 5 })
+      ] }, x);
+      var agent = this.DashboardPolarAreaChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = T.KIND;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // A row with no kind is left out, not drawn as a wedge called "".
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '15,4',
+        'Polar: a row with no value in Group By adds no wedge. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of an empty chart.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Polar: with no rows the chart says "' + sink.ChartView.NO_DATA + '". Got ' + JSON.stringify(text));
       el.remove();
     },
 

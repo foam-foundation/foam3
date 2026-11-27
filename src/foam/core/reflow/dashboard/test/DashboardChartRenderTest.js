@@ -23,6 +23,19 @@ foam.CLASS({
   ]
 });
 
+// Rows for the radar's edge cases: a row with no kind, and one with no day.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'RadarTestRow',
+  properties: [
+    { class: 'Int',    name: 'id' },
+    { class: 'String', name: 'kind' },
+    { class: 'String', name: 'day' },
+    { class: 'Int',    name: 'hits' },
+    { class: 'Float',  name: 'ms' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardChartRenderTest',
@@ -32,16 +45,20 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
+    'foam.core.reflow.dashboard.test.RadarTestRow',
     'foam.core.reflow.dashboard.test.ScatterTestRow',
+    'foam.core.reflow.AvgDAOAgent',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
+    'foam.u2.chart.RadarChart',
     'foam.u2.chart.ScatterChart'
   ],
 
@@ -54,6 +71,8 @@ foam.CLASS({
       await this.testLine(x);
       await this.testScatter(x);
       await this.testScatterEdges(x);
+      await this.testRadar(x);
+      await this.testRadarEdges(x);
     },
 
     function rowsDAO(x) {
@@ -175,6 +194,115 @@ foam.CLASS({
       x.test(ds.fill && ds.stepped && ds.pointRadius === 0, 'Line: Fill Area, Stepped Line and Show Points off reach the line');
       x.test(chart.yMin === 0 && chart.yMax === 100, 'Line: a custom y scale sets the axis to 0..100. Got ' + chart.yMin + '..' + chart.yMax);
       x.test(chart.xAxisLabel === R.MONTH.label, 'Line: with no X-Axis Label the axis is titled with the field\'s label');
+    },
+
+    function radarRows(x) {
+      var T = this.RadarTestRow;
+      return this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  day: 'Mon', hits: 10, ms: 100 }),
+        T.create({ id: 2, kind: 'GET',  day: 'Mon', hits: 30, ms: 300 }),
+        T.create({ id: 3, kind: 'POST', day: 'Mon', hits: 5,  ms: 50 }),
+        T.create({ id: 4, kind: 'GET',  day: 'Tue', hits: 20, ms: 200 }),
+        // No kind: it belongs to no spoke.
+        T.create({ id: 5, kind: '',     day: 'Tue', hits: 99, ms: 999 }),
+        // No day: it belongs to no polygon when a Series Property is picked.
+        T.create({ id: 6, kind: 'POST', day: '',    hits: 7,  ms: 150 })
+      ] }, x);
+    },
+
+    async function testRadar(x) {
+      var T     = this.RadarTestRow;
+      var agent = this.DashboardRadarChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xFunc       = T.KIND;
+      s.yFunc       = T.DAY;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.HITS }, x);
+      s.colors      = [ '#ff0000' ];
+      s.legendPosition = this.LegendPosition.LEFT;
+      s.showTooltipSum = true;
+      s.animate        = false;
+      // The script reports its first three arguments: the corner's value, its spoke and its polygon.
+      s.onClickScript = '(function(v, spoke, series, cx, cy, pageX, pageY) { globalThis.radarClick_ = [ v, spoke, series, cx, cy, pageX, pageY ].join(); })';
+
+      var chart = ( await this.radarRows(x).select(agent.createSink()) ).chart_;
+      x.test(this.RadarChart.isInstance(chart), 'Radar: draws a foam.u2.chart.RadarChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === 'GET,POST', 'Radar: one spoke per kind; the row with no kind is left out. Got ' + chart.labels.join());
+      var sets = chart.datasets.map(function(d) { return d.label + '=' + d.data.join(':'); }).join();
+      x.test(sets === 'Mon=40:5,Tue=20:0', 'Radar: Series Property gives one polygon per day with the Sum of hits per kind, and the row with no day is left out. Got ' + sets);
+      x.test(chart.datasets[0].backgroundColor === '#ff0000' && chart.datasets[1].backgroundColor === '#ff0000', 'Radar: Colors reach the polygons, in turn');
+      x.test(chart.legendPosition === this.LegendPosition.LEFT && chart.showTooltipSum && ! chart.animate, 'Radar: Legend Position, Tooltip Sum and Animation reach the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onPointClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.radarClick_ === '20,GET,Tue,30,30,130,280',
+        'Radar: On Click Script gets value, spoke, polygon, the point in the chart and on the page. Got ' + globalThis.radarClick_);
+      delete globalThis.radarClick_;
+
+      // With no Series Property every row lands in one polygon, and Count is the default total.
+      s.clearProperty('yFunc');
+      s.clearProperty('aggregation');
+      s.onClickScript = '';
+      chart = ( await this.radarRows(x).select(agent.createSink()) ).chart_;
+      sets = chart.datasets.map(function(d) { return d.label + '=' + d.data.join(':'); }).join();
+      x.test(sets === s.DEFAULT_SERIES + '=3:2', 'Radar: with no Series Property one polygon counts the rows per kind (the row with no day included). Got ' + sets);
+      x.test(! chart.onPointClick, 'Radar: with no On Click Script the corners are not clickable');
+
+      // An Average total is the mean per spoke, not a sum of per-row values.
+      s.aggregation = this.AvgDAOAgent.create({ prop: T.MS }, x);
+      chart = ( await this.radarRows(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '200,100', 'Radar: Average of ms per kind is 200 and 100. Got ' + chart.datasets[0].data.join());
+
+      // The agent's own form is untouched by a run: a second run does not count twice.
+      chart = ( await this.radarRows(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '200,100', 'Radar: a second run from the same agent gives the same values. Got ' + chart.datasets[0].data.join());
+
+      // A select can send the sink to the server as JSON and back. The copy
+      // must still collect every row.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.radarRows(x).select(copy); } catch ( e ) { err = e.message; }
+      var got = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.join() : '';
+      x.test(! err && got === '200,100', 'Radar: a sink sent as JSON and back still collects every row. Got ' + ( err || got ));
+    },
+
+    async function testRadarEdges(x) {
+      var T     = this.RadarTestRow;
+      var agent = this.DashboardRadarChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xFunc = T.KIND;
+
+      // A saved flow holds the form as displaySink: { ... } and nothing else.
+      var back = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(back.displaySink.xFunc && back.displaySink.xFunc.name === 'kind',
+        'Radar: a saved agent keeps the Category Property in its displaySink');
+
+      // No rows: no spokes, and a message in place of the chart.
+      var empty = foam.u2.Element.create({}, x);
+      var none  = await this.ArrayDAO.create({ of: T, array: [] }, x).select(agent.createSink());
+      x.test(none.chart_.labels.length === 0, 'Radar: with no rows there are no spokes');
+      empty.add(none);
+      empty.write();
+      var text = empty.element_.innerText || empty.element_.textContent;
+      x.test(text.indexOf(none.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
+        'Radar: with no rows the chart says "' + none.NO_DATA + '" and draws no spokes. Got ' + JSON.stringify(text));
+      empty.remove();
+
+      s.emptyValueMessage = 'Nothing yet';
+      none = await this.ArrayDAO.create({ of: T, array: [] }, x).select(agent.createSink());
+      empty = foam.u2.Element.create({}, x);
+      empty.add(none);
+      empty.write();
+      x.test(( empty.element_.innerText || empty.element_.textContent ).indexOf('Nothing yet') !== -1, 'Radar: Empty Message replaces the default text');
+      empty.remove();
+
+      // Rows only with a category and no series: the chart draws.
+      var drawn = await this.radarRows(x).select(agent.createSink());
+      var el    = foam.u2.Element.create({}, x);
+      el.add(drawn);
+      el.write();
+      x.test(!! el.element_.querySelector('.' + drawn.chart_.myClass()) && ! el.element_.querySelector('.' + drawn.cls_.id.replace(/\./g, '-') + '-empty'),
+        'Radar: with rows the chart is added in place of the message');
+      el.remove();
     },
 
     async function testScatter(x) {

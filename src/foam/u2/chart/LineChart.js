@@ -20,6 +20,12 @@ foam.CLASS({
     backgroundColor for the area when fill is on, then borderWidth,
     tension, stepped, pointRadius and pointHoverRadius.
 
+    With stacked on, the lines stack: each visible line is drawn on top of
+    the ones below it as a filled band, so the top edge is their total. A line
+    with no value at an x counts as 0 there, hiding a line in the legend
+    restacks the rest, and the y axis covers the total. The tooltip lists
+    each line's own value. Stack values that are not negative.
+
     Moving the pointer over the plot marks the nearest x with a dashed guide
     and shows every visible line's value there in one tooltip.
   `,
@@ -36,6 +42,7 @@ foam.CLASS({
   css: `
     <<line  { fill: none; stroke-linejoin: round; stroke-linecap: round; }
     <<area  { stroke: none; fill-opacity: 0.25; }
+    <<stackedArea { fill-opacity: 1; }
     <<overlay { fill: transparent; }
     <<lines   { overflow: hidden; }
 
@@ -86,6 +93,11 @@ foam.CLASS({
       name: 'utc',
       documentation: 'For a time axis: read the dates in UTC, for dates stored as midnight UTC. Off, times read in the viewer\'s zone.'
     },
+    {
+      class: 'Boolean',
+      name: 'stacked',
+      documentation: 'Stack the lines: each is drawn on the ones below it, as a filled band, and the top edge is the total.'
+    },
     { name: 'xMin', documentation: 'Left end of the x axis: a number, a Date, or for a category axis a label index. Unset means the data decides.' },
     { name: 'xMax' },
     { name: 'yMin', documentation: 'Bottom of the y axis; unset means the data decides.' },
@@ -107,17 +119,49 @@ foam.CLASS({
         .filter(function(s) { return ! self.isHidden(s.i); });
     },
 
+    function xOf_(p, j) {
+      // A stacked point carries its x position already (see stack_).
+      return p.xv !== undefined ? p.xv : this.xType.toX(p, j);
+    },
+
+    function stack_(sets) {
+      // Gives every visible line a point at every x any of them has, with y
+      // the running total up to and including that line, and own the line's
+      // value there (0 when it has none).
+      var self = this, seen = {}, stops = [], total = {};
+      sets.forEach(function(s) { s.pts.forEach(function(p, j) {
+        var v = self.xType.toX(p, j);
+        if ( p.y == null || seen[v] ) return;
+        seen[v] = true;
+        stops.push(v);
+      }); });
+      stops.sort(function(l, r) { return l - r; });
+      return sets.map(function(s) {
+        var own = {};
+        s.pts.forEach(function(p, j) { if ( p.y != null ) own[self.xType.toX(p, j)] = Number(p.y); });
+        return {
+          ds: s.ds, i: s.i,
+          pts: stops.map(function(v) {
+            var y = own[v] || 0;
+            total[v] = ( total[v] || 0 ) + y;
+            return { xv: v, y: total[v], own: y };
+          })
+        };
+      });
+    },
+
     function isSet_(v) { return v !== undefined && v !== null && v !== ''; },
 
     function drawChart(svg, w, h) {
       var self   = this;
       var labels = this.labels.map(String);
       var sets   = this.visibleSets_();
+      if ( this.stacked ) sets = this.stack_(sets);
 
       // x domain
       var xType = this.xType;
       var xs    = [];
-      sets.forEach(function(s) { s.pts.forEach(function(p, j) { if ( p.y != null ) xs.push(xType.toX(p, j)); }); });
+      sets.forEach(function(s) { s.pts.forEach(function(p, j) { if ( p.y != null ) xs.push(self.xOf_(p, j)); }); });
       var xr  = xType.range(xs, labels);
       var xLo = this.isSet_(this.xMin) ? xType.parse(this.xMin) : xr[0];
       var xHi = this.isSet_(this.xMax) ? xType.parse(this.xMax) : xr[1];
@@ -125,9 +169,10 @@ foam.CLASS({
       // y domain
       var ys = [];
       sets.forEach(function(s) { s.pts.forEach(function(p, j) {
-        var x = xType.toX(p, j);
+        var x = self.xOf_(p, j);
         if ( p.y != null && x >= xLo && x <= xHi ) ys.push(Number(p.y));
       }); });
+      if ( this.stacked ) ys.push(0);
       var yLo = ys.length ? Math.min.apply(null, ys) : 0;
       var yHi = ys.length ? Math.max.apply(null, ys) : 1;
 
@@ -169,17 +214,19 @@ foam.CLASS({
             x: a.left - pad, y: a.top - pad, width: a.width + 2 * pad, height: a.height + 2 * pad,
             viewBox: [ a.left - pad, a.top - pad, a.width + 2 * pad, a.height + 2 * pad ].join(' ')
           })
-          .forEach(sets, function(s) {
+          // Stacked bands overlap down to the axis, so the top one goes first
+          // and the ones below paint over it.
+          .forEach(self.stacked ? sets.slice().reverse() : sets, function(s) {
             var px = [];
             s.pts.forEach(function(p, j) {
               if ( p.y == null ) return;
-              px.push({ x: xScale.map(xType.toX(p, j)), y: yScale.map(Number(p.y)) });
+              px.push({ x: xScale.map(self.xOf_(p, j)), y: yScale.map(Number(p.y)) });
             });
             if ( ! px.length ) return;
             var color = self.seriesColor(s.i);
             this.start('g').addClass(self.myClass('series'))
-              .callIf(s.ds.fill, function() {
-                this.start('path').addClass(self.myClass('area'))
+              .callIf(s.ds.fill || self.stacked, function() {
+                this.start('path').addClass(self.myClass('area')).enableClass(self.myClass('stackedArea'), self.stacked)
                   .attrs({
                     d: self.path_(px, s.ds, a).lineTo(px[px.length - 1].x, base).lineTo(px[0].x, base).close(),
                     fill: self.fillColor_(s.ds, color)
@@ -247,7 +294,7 @@ foam.CLASS({
       var self = this;
       var seen = {}, stops = [];
       sets.forEach(function(s) { s.pts.forEach(function(p, j) {
-        var v = self.xType.toX(p, j);
+        var v = self.xOf_(p, j);
         if ( p.y == null || seen[v] ) return;
         seen[v] = true;
         stops.push(v);
@@ -271,14 +318,15 @@ foam.CLASS({
             marker.removeAllChildren();
             marker.start('line').addClass(self.myClass('guide')).attrs({ x1: gx, x2: gx, y1: a.top, y2: a.top + a.height }).end();
             sets.forEach(function(s) {
-              var j = s.pts.findIndex(function(p, k) { return p.y != null && self.xType.toX(p, k) === v; });
+              var j = s.pts.findIndex(function(p, k) { return p.y != null && self.xOf_(p, k) === v; });
               if ( j < 0 ) return;
               var y     = Number(s.pts[j].y);
+              var own   = s.pts[j].own !== undefined ? s.pts[j].own : y;
               var color = self.seriesColor(s.i);
               var r     = s.ds.pointHoverRadius;
               if ( r > 0 ) marker.start('circle').attrs({ cx: gx, cy: yScale.map(y), r: r, fill: color }).end();
-              rows.push({ color: color, label: s.ds.label || '', value: self.formatValue(y) });
-              values.push(y);
+              rows.push({ color: color, label: s.ds.label || '', value: self.formatValue(own) });
+              values.push(own);
             });
             var title = xLabel(v, true);
             self.showTooltip(evt, title, rows, self.showTooltipSum && rows.length > 1 ? self.sumLine(values) : undefined);

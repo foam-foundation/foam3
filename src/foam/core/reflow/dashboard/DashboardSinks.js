@@ -803,7 +803,7 @@ foam.CLASS({
                          animationDuration, timeUnit, xPropForLabels, yPropForLabels,
                          toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
                          yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
-                         labels) {
+                         labels, stacked) {
       // A custom bound counts only once the user typed it: hasOwnProperty is
       // false while the field still shows its default.
       var custom = function(on, name, value) { return on && this.hasOwnProperty(name) ? value : undefined; }.bind(this);
@@ -811,6 +811,7 @@ foam.CLASS({
       return this.LineChart.create({
         labels:            labels || [],
         datasets:          datasets,
+        stacked:           !! stacked,
         xType:             xType,
         timeUnit:          timeUnit,
         // Only a raw Date field is stored as midnight UTC, so only it reads
@@ -1148,7 +1149,7 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xFunc', 'yFunc', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Line Chart Settings', order: 1, collapsable: true,
-      properties: ['fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
+      properties: ['stacked', 'fill', 'tension', 'stepped', 'showPoints', 'pointRadius', 'showGridLines', 'timeUnit'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -1180,6 +1181,10 @@ foam.CLASS({
               choice: 'foam.core.reflow.CountDAOAgent',
               disabledTypes: [ 'structure', 'format', 'chart' ] }
     },
+    {
+      class: 'Boolean', name: 'stacked', label: 'Stacked',
+      help: 'Stack the lines on top of each other as filled bands, so the top edge is their total'
+    },
     // GridBy parent-class internals — wired programmatically by createSink()
     { name: 'acc', hidden: true, label: 'Aggregation Sink', help: 'Sink to aggregate y-values for each x-value/line combination' },
     { name: 'rows', hidden: true },
@@ -1205,7 +1210,7 @@ foam.CLASS({
                         showTooltips, showTooltipSum, animate, animationDuration,
                         periodCount, toggleCustomXScale, toggleCustomYScale,
                         xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
-                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
+                        xDateAxisMinScale, xDateAxisMaxScale, isTimeScale, stacked) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
@@ -1323,7 +1328,7 @@ foam.CLASS({
                               animationDuration, timeUnit, xFunc, yFunc,
                               toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
                               yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
-                              isTimeScale ? null : labels);
+                              isTimeScale ? null : labels, stacked);
       }
     }
 

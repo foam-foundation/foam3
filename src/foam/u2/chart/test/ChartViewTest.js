@@ -37,6 +37,7 @@ foam.CLASS({
       await this.testPie(x);
       await this.testDonutAndPercentages(x);
       await this.testLine(x);
+      await this.testStackedLine(x);
       await this.testTimeLine(x);
       await this.testLinearLine(x);
       await this.testScatter(x);
@@ -351,6 +352,56 @@ foam.CLASS({
       el = await this.mount(chart);
       var d = this.all(el, chart, 'line')[0].getAttribute('d');
       x.test(( d.match(/V/g) || [] ).length === 2 && ( d.match(/H/g) || [] ).length === 2, 'Line: stepped draws an upright and a flat segment per step. Got ' + d);
+      this.unmount(chart);
+    },
+
+    async function testStackedLine(x) {
+      // B has no value at x = 1; it counts as 0 there.
+      var pts = function(ys) { return ys.map(function(y, i) { return { x: i, y: y }; }); };
+      var chart = this.LineChart.create({
+        xType: 'linear', stacked: true, showTooltipSum: true,
+        datasets: [
+          { label: 'A', data: pts([ 1, 2, 3 ]), borderColor: '#010101' },
+          { label: 'B', data: [ { x: 0, y: 2 }, { x: 2, y: 4 } ], borderColor: '#020202' },
+          { label: 'C', data: pts([ 1, 1, 1 ]), borderColor: '#030303' }
+        ]
+      }, x);
+      var el = await this.mount(chart);
+      var self = this;
+      // The y pixel of each series' point at label index i, by stroke colour.
+      var ys = function(stroke, i) {
+        var g = self.all(el, chart, 'series').filter(function(s) { return s.querySelector('.' + chart.myClass('line')).getAttribute('stroke') === stroke; })[0];
+        return g ? self.num(g.querySelectorAll('circle')[i], 'cy') : NaN;
+      };
+      x.test(this.all(el, chart, 'area').length === 3, 'Stacked: every line is a filled band, even with fill unset');
+      // At a the totals are 1, 3 and 4: the gaps from the bottom up stand 1 : 2 : 1.
+      var a1 = ys('#010101', 0), a2 = ys('#020202', 0), a3 = ys('#030303', 0);
+      x.test(a1 > a2 && a2 > a3 && Math.abs(( a2 - a3 ) * 2 - ( a1 - a2 )) < 1,
+        'Stacked: B sits on A and C on B, in proportion to the values. Got ' + [ a1, a2, a3 ].join());
+      x.test(Math.abs(ys('#020202', 1) - ys('#010101', 1)) < 0.5 && ys('#030303', 1) < ys('#020202', 1),
+        'Stacked: a missing value counts as 0, so B adds nothing at x = 1');
+      var yLabels = this.all(el, chart, 'text').map(function(t) { return Number(t.textContent); }).filter(function(n) { return ! isNaN(n); });
+      x.test(Math.max.apply(null, yLabels) >= 8, 'Stacked: the y axis reaches the total at c (8). Got ' + yLabels.join());
+
+      var overlay = this.all(el, chart, 'overlay')[0];
+      var r = overlay.getBoundingClientRect();
+      this.fire(overlay, 'mousemove', r.left + r.width / 2, r.top + r.height / 2);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('A: 2') !== -1 && text.indexOf('B: 0') !== -1 && text.indexOf('C: 1') !== -1 && text.indexOf('Sum: 3') !== -1,
+        'Stacked: the tooltip lists each line\'s own value and their total. Got ' + text);
+
+      // Hiding B restacks: C now sits on A, so at a it stands at 1 + 1 = 2.
+      el.querySelectorAll('.' + this.legendClass('item'))[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'area').length === 2; }.bind(this));
+      var base = ys('#010101', 0), top = ys('#030303', 0);
+      var zero = a1 + ( a1 - a2 ) / 2;   // A is 1 and B 2, so one unit is ( a1 - a2 ) / 2 pixels
+      x.test(this.all(el, chart, 'area').length === 2 && top < base && Math.abs(( 2 * base - top ) - zero) < 1,
+        'Stacked: hiding B restacks C onto A');
+      this.unmount(chart);
+
+      chart = this.LineChart.create({ labels: [ 'a', 'b' ], datasets: [ { label: 'A', data: [ 1, 2 ] }, { label: 'B', data: [ 1, 1 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'area').length === 0, 'Stacked: off by default, lines draw with no area');
       this.unmount(chart);
     },
 

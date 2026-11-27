@@ -396,7 +396,10 @@ foam.CLASS({
           while ( job.getStatus() != JobStatus.COMPLETED && System.currentTimeMillis() < deadline ) {
             try {
               Thread.sleep(5);
-            } catch ( InterruptedException e ) { }
+            } catch ( InterruptedException e ) {
+              Thread.currentThread().interrupt();
+              break;
+            }
             job = (Job) jobDAO.find(id);
           }
           if ( job.getStatus() != JobStatus.COMPLETED ) {

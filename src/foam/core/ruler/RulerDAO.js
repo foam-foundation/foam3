@@ -245,13 +245,21 @@ return groups != null && ! groups.isEmpty();`
 var     ruleGroups = getRuleGroups().get(pred);
 var     sink       = getRulesList().get(pred);
 boolean locked     = false;
-for ( var rg : ruleGroups ) {
-  if ( rg.ruleF(x, oldObj, obj) ) {
-    var rules = ((ArraySink) sink.getGroups().get(rg.getId())).getArray();
-    if ( ! rules.isEmpty() ) {
-      locked |= new RuleEngine(x, getX(), getDelegate(), getLock()).execute(rules, obj, oldObj);
+try {
+  for ( var rg : ruleGroups ) {
+    if ( rg.ruleF(x, oldObj, obj) ) {
+      var rules = ((ArraySink) sink.getGroups().get(rg.getId())).getArray();
+      if ( ! rules.isEmpty() ) {
+        // Each rule group gets its own engine. Once one group holds the lock, the next
+        // gets none to take: the lock is not reentrant, so a second acquire would wait forever.
+        locked |= new RuleEngine(x, getX(), getDelegate(), locked ? null : getLock()).execute(rules, obj, oldObj);
+      }
     }
   }
+} catch (RuntimeException e) {
+  // A later group threw, so put_ never learns an earlier group took the lock.
+  if ( locked ) getLock().release();
+  throw e;
 }
 return locked;
 `

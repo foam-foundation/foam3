@@ -14,6 +14,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
@@ -46,6 +47,8 @@ foam.CLASS({
       await this.testHistogramEdges(x);
       await this.testWaterfall(x);
       await this.testWaterfallEdges(x);
+      await this.testBoxPlot(x);
+      await this.testBoxPlotEdges(x);
     },
 
     async function mount(view) {
@@ -908,6 +911,100 @@ foam.CLASS({
       var grid = this.all(el, chart, 'grid').length;
       x.test(grid < 40, 'Time: a millisecond unit over three months moves up to a coarser one, about one tick per 60 px. Got ' + grid + ' grid lines');
       this.unmount(chart);
+    },
+
+    async function testBoxPlot(x) {
+      var clicks = [];
+      // Eleven values. Linear interpolation puts Q1 at index 2.5 (between 3 and
+      // 4, so 3.5), the median at index 5 (6) and Q3 at index 7.5 (between 8
+      // and 9, so 8.5). The box is 5 tall, so a value counts as inside the
+      // whiskers up to 8.5 + 7.5 = 16: 10 is the top whisker and 30 an outlier.
+      var data = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30 ];
+      var chart = this.BoxPlotChart.create({
+        labels: [ 'A', 'B', 'C' ],
+        datasets: [ { label: 'Latency', data: [ data, [], [ 5 ] ], backgroundColor: '#ff0000' } ],
+        onBoxClick: function(di, i) { clicks.push([ di, i ]); }
+      }, x);
+      var st = chart.stats_(data);
+      x.test(st.min === 1 && st.q1 === 3.5 && st.median === 6 && st.q3 === 8.5 && st.max === 10 && st.outliers.join() === '30',
+        'BoxPlot: quartiles of 1..10 and 30 are 3.5, 6, 8.5, whiskers 1 to 10, outlier 30. Got ' + JSON.stringify(st));
+      x.test(chart.stats_([ 1, 2, 3, 4 ]).q1 === 1.75, 'BoxPlot: the first quartile of 1, 2, 3, 4 is 1.75 by linear interpolation');
+
+      var el    = await this.mount(chart);
+      var boxes = this.all(el, chart, 'box');
+      x.test(boxes.length === 2, 'BoxPlot: one box per category with numbers; empty B is skipped. Got ' + boxes.length);
+      x.test(boxes[0].getAttribute('fill') === '#ff0000', 'BoxPlot: the dataset colour fills the box');
+
+      var top = this.num(boxes[0], 'y'), hgt = this.num(boxes[0], 'height'), bottom = top + hgt;
+      var med = this.all(el, chart, 'median')[0];
+      x.test(Math.abs(( bottom - this.num(med, 'y1') ) / hgt - 0.5) < 0.01,
+        'BoxPlot: the median line sits halfway up this box (6 between 3.5 and 8.5). Got ' + ( bottom - this.num(med, 'y1') ) / hgt);
+      var dots = this.all(el, chart, 'outlier');
+      x.test(dots.length === 1, 'BoxPlot: one dot per outlier. Got ' + dots.length);
+      x.test(Math.abs(( bottom - this.num(dots[0], 'cy') ) / hgt - 5.3) < 0.02,
+        'BoxPlot: the outlier 30 stands 26.5 above Q1, 5.3 box heights. Got ' + ( bottom - this.num(dots[0], 'cy') ) / hgt);
+      x.test(this.num(boxes[1], 'height') === chart.MIN_BOX_PX, 'BoxPlot: a single value draws a flat box of the least height. Got ' + this.num(boxes[1], 'height'));
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 2, 'BoxPlot: one hover column per drawn box. Got ' + hits.length);
+      var c = this.centreOf(hits[0]);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      var want = [ 'A', 'Min: 1', 'Q1: 3.5', 'Median: 6', 'Q3: 8.5', 'Max: 10', 'Outliers: 1' ];
+      x.test(want.every(function(w) { return text.indexOf(w) !== -1; }), 'BoxPlot: the tooltip lists ' + want.join(', ') + '. Got ' + text);
+
+      this.fire(hits[1], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[0,2]]', 'BoxPlot: a click gives the dataset and the category position. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'BoxPlot: a chart with onBoxClick shows a pointer');
+      this.unmount(chart);
+
+      chart = this.BoxPlotChart.create({ labels: [ 'A' ], datasets: [ { data: [ [ 1, 2, 3 ] ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'BoxPlot: a chart without onBoxClick shows no pointer');
+      this.unmount(chart);
+    },
+
+    async function testBoxPlotEdges(x) {
+      // Two datasets side by side; hiding one rescales the axis.
+      var chart = this.BoxPlotChart.create({
+        labels: [ 'A', 'B' ],
+        datasets: [
+          { label: 'Low',  data: [ [ 1, 2, 3, 4, 5 ], [ 2, 3, 4 ] ] },
+          { label: 'High', data: [ [ 100, 110, 120 ], [ 90, 100 ] ] }
+        ]
+      }, x);
+      var el    = await this.mount(chart);
+      var boxes = this.all(el, chart, 'box');
+      x.test(boxes.length === 4, 'BoxPlot: two datasets draw two boxes per category. Got ' + boxes.length);
+      // Boxes come dataset by dataset: Low A, Low B, High A, High B.
+      var pair = [ boxes[0], boxes[2] ];
+      var xs = pair.map(function(b) { return this.num(b, 'x'); }, this);
+      var ws = pair.map(function(b) { return this.num(b, 'width'); }, this);
+      x.test(xs[1] > xs[0] + ws[0] && ws[0] === ws[1], 'BoxPlot: boxes of one category stand side by side, as wide as each other. Got x ' + xs.join() + ' width ' + ws.join());
+      var fills = pair.map(function(b) { return b.getAttribute('fill'); });
+      x.test(fills[0] !== fills[1] && fills[1].indexOf('$') === -1, 'BoxPlot: each dataset gets its own resolved colour. Got ' + fills.join());
+      var labels = function() { return this.all(el, chart, 'text').map(function(t) { return t.textContent; }); }.bind(this);
+      x.test(labels().indexOf('120') !== -1 || labels().indexOf('100') !== -1, 'BoxPlot: the value axis reaches High. Got ' + labels().join());
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Low,High', 'BoxPlot: the legend has one entry per dataset');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'box').length === 2; }.bind(this));
+      x.test(this.all(el, chart, 'box').length === 2, 'BoxPlot: clicking High in the legend hides its boxes');
+      x.test(labels().indexOf('100') === -1 && labels().indexOf('120') === -1, 'BoxPlot: with High hidden the axis rescales to Low. Got ' + labels().join());
+      var wide = this.num(this.all(el, chart, 'box')[0], 'width');
+      x.test(wide > ws[0], 'BoxPlot: the remaining box takes the whole slot. Got ' + wide + ' against ' + ws[0]);
+      this.unmount(chart);
+
+      // No numbers at all: no boxes, and no error.
+      chart = this.BoxPlotChart.create({ labels: [ 'A', 'B' ], datasets: [ { label: 'None', data: [ [], [ 'x', null ] ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'box').length === 0 && !! el.querySelector('svg'), 'BoxPlot: categories without numbers draw no box, only the axes');
+      this.unmount(chart);
+
+      // Equal values: a flat box with no outliers.
+      var st = this.BoxPlotChart.create({}, x).stats_([ 5, 5, 5, 5 ]);
+      x.test(st.min === 5 && st.q1 === 5 && st.q3 === 5 && st.max === 5 && ! st.outliers.length, 'BoxPlot: equal values give a flat box with no outliers. Got ' + JSON.stringify(st));
     }
   ]
 });

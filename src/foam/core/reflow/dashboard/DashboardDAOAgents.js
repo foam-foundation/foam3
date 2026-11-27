@@ -1119,3 +1119,55 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBoxPlotChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardBoxPlotSink',
+    'foam.core.reflow.ReactiveSectionedDetailView',
+    'foam.mlang.Constant',
+    'foam.mlang.sink.Plot'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardBoxPlotSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardBoxPlotSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would collect twice.
+      var sink = this.displaySink.clone(this);
+      // With no Series Property every row goes into one series, grouped by
+      // a constant, so the grouping below needs no second code path.
+      if ( sink.hasDefaultValue('yFunc') ) sink.yFunc = this.Constant.create({ value: sink.DEFAULT_SERIES });
+      // The form can read rows and cols before the fields are picked, which
+      // would keep a grouping by nothing; the run copy rebuilds both.
+      sink.clearProperty('rows');
+      sink.clearProperty('cols');
+      // Each box keeps the numbers it is drawn from, not a total, so the sink
+      // has no Aggregation. A Plot collects them in Java and in JS alike, so
+      // the server's select keeps them. buildTotal_ is not called: it would
+      // put a Count here, which keeps no numbers.
+      sink.acc = this.Plot.create({ args: [ sink.valueProp ] });
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});

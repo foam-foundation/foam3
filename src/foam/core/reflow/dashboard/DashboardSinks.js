@@ -2909,3 +2909,195 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBoxPlotSink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    The spread of a number per category: one box per value of the Category
+    property, drawn from every Value property seen in it (the count of
+    requests, say, per event key). The box runs from the first to the third
+    quartile, with a line at the median, whiskers, and a dot for each outlier.
+    Giving a Series property draws one box per value of it in each category,
+    in its own colour. A row with no category, no series value (when a Series
+    property is set) or a value that is not a number is left out.
+  `,
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
+
+  requires: [
+    'foam.u2.chart.BoxPlotChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xFunc', 'valueProp', 'yFunc'] },
+    { name: 'chartSettings', title: 'Box Plot Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The box plot has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Values' },
+    { name: 'NO_DATA',        message: 'No data available' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One box per value of this property', required: true },
+    {
+      class: 'foam.core.reflow.dashboard.ChartFieldProperty',
+      name: 'valueProp', label: 'Value Property', required: true,
+      help: 'Numeric property whose spread each box shows'
+    },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty',
+      name: 'yFunc', label: 'Series Property',
+      help: 'Optional: one box per value of this property in each category, in its own colour'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a box is clicked. Signature: (median, category, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no numbers. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, xAxisLabel, yAxisLabel, showGridLines, showLegend,
+                          legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var self      = this;
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var keys = function(g) {
+          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(g && g.groups || {}) ).filter(function(k) { return ! self.isEmptyKey_(k); });
+        };
+
+        // cols.groups holds the categories and rows.groups the series; the
+        // numbers of one box are rows.groups[series].groups[category].data,
+        // a list of one-entry lists [ value ], as the Plot sink keeps them.
+        var valuesOf = function(seriesKey, catKey) {
+          var cell = rowGroups[seriesKey] && rowGroups[seriesKey].groups[catKey];
+          return cell && cell.data ? cell.data.map(function(d) { return d[0]; }).filter(function(v) { return typeof v === 'number'; }) : [];
+        };
+        var seriesKeys = keys(rows);
+        // A category with no number in any series has no box: it is left out.
+        var catKeys = keys(cols).filter(function(c) { return seriesKeys.some(function(s) { return valuesOf(s, c).length; }); });
+
+        var labels   = catKeys.map(function(k) { return String(self.xFunc && self.xFunc.chartFormatter ? self.xFunc.chartFormatter(k) : k); });
+        var datasets = seriesKeys.map(function(seriesKey, i) {
+          var ds = { label: String(seriesKey), data: catKeys.map(function(c) { return valuesOf(seriesKey, c); }) };
+          if ( colors && colors.length ) {
+            ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (median, category, series, chartX, chartY, pageX, pageY) for the
+        // clicked box: its median, its category and series names, the point
+        // inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardBoxPlotSink:', e);
+          }
+        }
+
+        var chart = this.BoxPlotChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          // With no title typed in, an axis is titled with its field's label,
+          // as the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.xFunc),
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.valueProp),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration
+        });
+        if ( typeof click === 'function' ) {
+          chart.onBoxClick = function(di, j, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(chart.stats_(datasets[di].data[j]).median, labels[j], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          };
+        }
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "hour of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
+    function addToE(e) {
+      var self = this;
+      e.style({ width: '100%' })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .callIfElse(this.chart_.labels.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
+        .end();
+    }
+  ]
+});

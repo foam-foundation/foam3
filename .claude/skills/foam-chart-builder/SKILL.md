@@ -33,7 +33,7 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 | A legend that explains colours, not series (rise and fall on a waterfall) | the chart class | set `legendClickable: false`, so a click hides nothing (`ChartView.js:148`, `PieChart.js:79`) |
 | Legend size on the side | the chart class | override `styleLegend(legend, vertical)` (`PieChart.js:125-131`) |
 | Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:311-353`) |
-| A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:64-72`, `value: null`, called at `:172-177`) |
+| A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:81-89`, `value: null`, called at `:196-201`) |
 | A per-series drawing option | `Dataset`, or a subclass such as `LineDataset` | a property with its default in `value:` (`LineDataset.js:30-47`) |
 | A chart-wide option | a property on the chart class | read it in `drawChart` |
 | A new kind of axis, legend side or time step | the enum | a new value; the chart asks the value (`XAxisType.js:52-90`) |
@@ -50,7 +50,7 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 - **Mark colours go in SVG attributes, resolved.** Use `seriesColor(i, j)` or `defaultColor(i)`, which turns a token like `$primary400` into its value (`ChartView.js:247-269`). An attribute keeps the colour in a PDF or image export.
 - **Text, grid and axis colours come from CSS tokens** in the class's `css:` (`ChartView.js:91-95`), so they follow a light or dark theme. `CSSAuditTest` fails a hard-coded colour or font value in `css:` (`core/theme/test/CSSAuditTest.js:432-440`). Use tokens such as `$textSecondary` and `$font-medium`.
 - **Dates on a time axis go through `TimeScale` and `TimeUnit`,** which can read dates in UTC (`LineChart.js:90-94`). Never group by `getMonth()`.
-- **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:40-53`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:191-195`).
+- **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:42-55`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:191-195`).
 - **A chart redraws only when `labels`, `datasets`, `hidden_` or the plot size change** (`ChartView.js:217`). A chart-wide option set after the first draw shows only at the next data change, so the sink sets every option when it creates the chart.
 - **Hidden series:** check `isHidden(i)` while drawing. Never splice `datasets`, because the legend index must stay the dataset index.
 - **Saved flows hold class and property names.** A flow stores the agent class and its props. Never rename a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. Keep an old name working with a setter shim on the agent (`DashboardDAOAgents.js:587-638`).

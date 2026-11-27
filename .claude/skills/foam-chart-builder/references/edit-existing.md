@@ -25,18 +25,19 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
   ```
 - **Dropped:** keep the name as a shim that ignores the value, so old flows still parse. `DashboardAgentShimTest` covers the shims.
 - **Added to the sink only:** a new sink property with a `value:` needs no agent shim. A flow saved before has no value for it and loads with the default, which should draw as before.
-- **A switch turned into a choice** (a Boolean into an enum): keep the old name as a `transient` property with a `getter` that reads the new one and a `setter` that writes it, so callers and saved flows that set the old name still work.
+- **A switch turned into a choice** (a Boolean into an enum): keep the old name as a `transient` property with a `getter` that reads the new one and a `setter` that writes it, so callers and saved flows that set the old name still work. `BarChart.stacked` does this over `barLayout` (`BarChart.js:71-75`).
 - **A Chart.js-era name** that a sink still accepts maps onto the view property in `chart_`. Keep the sink name and map it, for example the sink's `cutoutPercentage` to the view's `cutout`.
 
 ## Change what is drawn
 
 | To change | Edit |
 |---|---|
-| bar width, gap, stacking | `BarChart.drawChart` (`BarChart.js:128-157`) |
+| bar width, gap, stacking | `BarChart.drawChart` (`BarChart.js:151-181`) |
 | line shape: tension, steps, fill, dots | `LineDataset` properties, then `LineChart.drawChart` |
 | stacked lines | `LineChart.stack_`: every line gets a point at every x, its y the running total and `own` its value; bands are drawn top-first and opaque, each down to the axis, so the lower band covers the upper one |
 | pie slices, hole, start angle | `PieChart.drawChart` and `slicePath` (`PieChart.js:138-161`) |
 | tick count, tick spacing, label turning | constants in `CartesianChartView` (`CartesianChartView.js:26-107`) |
+| value-axis text: a unit or a fixed range | `LinearScale.suffix` and `format` (`LinearScale.js:64-113`); `layoutForValues` measures labels through `scale.format`, so the suffix gets its room |
 | tick labels for dates | `TimeUnit` and `TimeScale` |
 | how a kind of x axis behaves | its value in `XAxisType` (`XAxisType.js:52-90`) |
 | tooltip text | the chart's `show*Tooltip_` method, which builds rows for `showTooltip` |

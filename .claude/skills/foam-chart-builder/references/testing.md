@@ -15,6 +15,8 @@ A scripted edit that leaves `,,` in a `methods:` list passes `node --check` (it 
 
 The legend takes height from the plot, so a round chart's radius is not `min(w, h) / 2`. A test reads the radius from the drawn shape (a `circle`'s `r`), never works it out.
 
+A slice's share can be read back from its path: the angle of an arc end is `atan2(x - cx, cy - y)`, as `sunburstGeom` does (`ChartViewTest.js:573-585`).
+
 A `Date` property moves every value to 12:00 UTC on its day (`lang/types.js:242-249`), so a test that reads a minimum or maximum of a `Date` field expects `Date.UTC(y, m, d, 12)`, not midnight.
 
 The headless test window is about 200 × 400 px, so `document.elementFromPoint` returns `null` right of about x = 200. A hover or hit test uses a mark on the left of the chart, or scans that mark's own box.
@@ -39,7 +41,7 @@ Passing tests are not enough for a dashboard chart. A flow copies the sink and c
 
 ## A ChartViewTest case
 
-Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:83-118`):
+Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:93-128`):
 - `mount(view)` turns animation off, gives the chart a 600 by 300 box and waits for the `<svg>`;
 - `all(el, view, 'dot')` finds marks by their `myClass` name;
 - `num(el, 'cx')` reads a numeric attribute;

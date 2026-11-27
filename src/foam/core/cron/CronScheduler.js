@@ -227,14 +227,16 @@ foam.CLASS({
         try {
           Thread.sleep(delay);
         } catch ( InterruptedException e ) {
-          // Keep looping on an interrupt, since a cron timeout or a reload of
-          // the pool may interrupt this thread. Stop only when threadPool, the
-          // pool start() runs this loop on, is stopping: its stop() waits for
-          // every task, and this loop would otherwise hold shutdown for the
-          // whole shutdownTimeout.
-          Object pool = x.get("threadPool");
-          if ( pool instanceof ThreadPoolAgency && ((ThreadPoolAgency) pool).getStopping() ) break;
+          // Keep looping: a cron timeout or a reload of the pool also interrupts this thread.
         }
+        // Stop when threadPool, the pool start() runs this loop on, is stopping:
+        // its stop() waits for every task, and this loop would otherwise hold
+        // shutdown for the whole shutdownTimeout. Checked after every sleep, not
+        // only on an interrupt: after a reload the loop runs on the replaced pool,
+        // which stop() waits for but does not interrupt again, so the loop ends
+        // within one cronDelay (5 s by default, under the 10 s shutdownTimeout).
+        Object pool = x.get("threadPool");
+        if ( pool instanceof ThreadPoolAgency && ((ThreadPoolAgency) pool).getStopping() ) break;
       }
     } catch (Throwable t) {
       try {

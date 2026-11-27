@@ -70,26 +70,20 @@ foam.CLASS({
       javaCode: `
         ThreadPoolAgency agency    = startAgency(x);
         AtomicLong       passes    = new AtomicLong();
-        CronScheduler    scheduler = startScheduler(x, agency, passes);
+        startScheduler(x, agency, passes);
 
         agency.reload();
         test(advances(passes), "scheduler loop kept running after its pool reloaded");
 
-        // The loop still runs on a thread of the pool reload() replaced, so
-        // stopping the new pool has nothing of it to wait for.
+        // The loop still runs on a thread of the pool reload() replaced. stop()
+        // waits for that pool too, so the loop must see stopping after its next
+        // sleep (100 ms here) and end.
         long start = System.currentTimeMillis();
         agency.stop();
         long elapsed = System.currentTimeMillis() - start;
         test(elapsed < SHUTDOWN_TIMEOUT, "stop after a reload did not wait for the scheduler loop, elapsed " + elapsed + " ms");
 
-        // What the shutdown hook does next: the scheduler's own stop() ends the loop.
-        scheduler.stop();
-        try {
-          Thread.sleep(300);
-        } catch (InterruptedException e) {
-          return;
-        }
-        test(! advances(passes), "scheduler loop ended once the scheduler stopped");
+        test(! advances(passes), "scheduler loop ended when its pool stopped after a reload");
       `
     },
     {
@@ -120,7 +114,6 @@ foam.CLASS({
         { name: 'agency', javaType: 'ThreadPoolAgency' },
         { name: 'passes', javaType: 'java.util.concurrent.atomic.AtomicLong' }
       ],
-      javaType: 'CronScheduler',
       javaCode: `
         DAO cronDAO = new ProxyDAO(x, new MDAO(Cron.getOwnClassInfo())) {
           @Override
@@ -149,7 +142,6 @@ foam.CLASS({
           }
         }
         test(passes.get() > 0, "scheduler loop is running on the pool");
-        return scheduler;
       `
     },
     {

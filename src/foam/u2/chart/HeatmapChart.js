@@ -47,8 +47,13 @@ foam.CLASS({
     },
     {
       name: 'TINT_COLOR',
-      documentation: 'Theme token the lowest value fades toward.',
-      value: '$white'
+      documentation: 'Theme token the lowest value fades toward: the page background, so the pale end is white in a light theme and dark in a dark one.',
+      value: '$backgroundDefault'
+    },
+    {
+      name: 'EMPTY_COLOR',
+      documentation: 'Theme token for a cell with no value: neutral, so it is never read as the lowest value.',
+      value: '$backgroundTertiary'
     },
     {
       name: 'LIGHT_TEXT_COLOR',
@@ -65,7 +70,6 @@ foam.CLASS({
   css: `
     <<cell { stroke: transparent; stroke-width: 1; }
     <<cell:hover { stroke: $textDefault; }
-    <<empty-cell { fill: $backgroundTertiary; }
     <<clickable <<cell { cursor: pointer; }
     <<cell-value { pointer-events: none; font-size: 1.1rem; }
 
@@ -92,6 +96,9 @@ foam.CLASS({
     {
       class: 'Function',
       name: 'onCellClick',
+      // A Function property defaults to an empty function, which would show
+      // the pointer cursor on a chart nobody can click.
+      value: null,
       documentation: 'Called with (xIndex, yIndex, event) when a cell with a value is clicked.'
     },
     {
@@ -173,6 +180,7 @@ foam.CLASS({
         ys.map(function(l, i) { return { pos: by.center(i), label: l }; }));
 
       var cs     = this.colorScale_();
+      var empty  = foam.CSS.returnTokenValue(this.EMPTY_COLOR, this.cls_, this.__subContext__);
       var light  = foam.CSS.returnTokenValue(this.LIGHT_TEXT_COLOR, this.cls_, this.__subContext__);
       var dark   = foam.CSS.returnTokenValue(this.DARK_TEXT_COLOR, this.cls_, this.__subContext__);
       var cw     = bx.bandwidth(), ch = by.bandwidth();
@@ -182,12 +190,11 @@ foam.CLASS({
         .forEach(ys, function(yl, i) {
           this.forEach(xs, function(xl, j) {
             var v    = self.value_(i, j);
-            var fill = v === null ? null : cs.colorAt(v);
+            var fill = v === null ? empty : cs.colorAt(v);
             var text = v === null ? '' : self.formatValue(v);
             this.start('rect').addClass(self.myClass('cell'))
               .enableClass(self.myClass('empty-cell'), v === null)
-              .attrs({ x: bx.center(j) - cw / 2, y: by.center(i) - ch / 2, width: cw, height: ch })
-              .callIf(fill, function() { this.attrs({ fill: fill }); })
+              .attrs({ x: bx.center(j) - cw / 2, y: by.center(i) - ch / 2, width: cw, height: ch, fill: fill })
               .callIf(v !== null, function() {
                 this
                   .on('mousemove', function(evt) {
@@ -202,7 +209,7 @@ foam.CLASS({
                 .attrs({
                   x: bx.center(j), y: by.center(i),
                   'text-anchor': 'middle', 'dominant-baseline': 'central',
-                  fill: cs.isDark(fill) ? light : dark
+                  fill: foam.Color.getBestForeground(fill, dark, light)
                 })
                 .add(text)
               .end();

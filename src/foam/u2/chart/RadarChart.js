@@ -116,6 +116,9 @@ foam.CLASS({
     {
       class: 'Function',
       name: 'onPointClick',
+      // A Function property defaults to an empty function, which would show
+      // the pointer cursor on a chart nobody can click.
+      value: null,
       documentation: 'Called with (datasetIndex, index, event) when a polygon corner is clicked.'
     }
   ],

@@ -13,37 +13,9 @@ foam.CLASS({
     gets a pale shade (the strong colour faded toward the tint) and the highest
     gets the strong colour itself: with min 0, max 100 and a blue strong
     colour, 50 is the blue half way between the pale shade and full blue.
-    Colours are resolved values such as '#0A4AC6' or 'rgb(10, 74, 198)', never
+    Colours are resolved values such as '#0A4AC6', 'rgb(10, 74, 198)' or 'hsl(220, 90%, 40%)', never
     theme tokens, so a PDF export keeps them. Pure maths, no DOM.
   `,
-
-  constants: [
-    {
-      name: 'DARK_LUMINANCE',
-      documentation: 'A colour whose luminance (0 black, 1 white) is below this is dark, and needs light text on it.',
-      value: 0.5
-    },
-    {
-      name: 'LUMA_RED',
-      documentation: 'Share of red in perceived brightness (Rec. 601): green counts most, blue least.',
-      value: 0.299
-    },
-    {
-      name: 'LUMA_GREEN',
-      documentation: 'Share of green in perceived brightness (Rec. 601).',
-      value: 0.587
-    },
-    {
-      name: 'LUMA_BLUE',
-      documentation: 'Share of blue in perceived brightness (Rec. 601).',
-      value: 0.114
-    },
-    {
-      name: 'MAX_CHANNEL',
-      documentation: 'Largest value of one red, green or blue channel.',
-      value: 255
-    }
-  ],
 
   properties: [
     { class: 'Float', name: 'min' },
@@ -67,27 +39,17 @@ foam.CLASS({
   ],
 
   methods: [
-    function parse_(c) {
-      // '#0A4AC6', '#0af' and 'rgb(10, 74, 198)' give [ 10, 74, 198 ]; any
-      // other text gives black, so a mistyped colour still draws.
-      var s = String(c || '').trim();
-      var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
-      if ( m ) {
-        var h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1];
-        return [ 0, 2, 4 ].map(function(i) { return parseInt(h.substr(i, 2), 16); });
-      }
-      m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(s);
-      return m ? [ Number(m[1]), Number(m[2]), Number(m[3]) ] : [ 0, 0, 0 ];
-    },
-
     function blend(a, b, t) {
-      // The colour t of the way from a to b: blend('#000000', '#ffffff', 0.5) is '#808080'.
-      var ca = this.parse_(a), cb = this.parse_(b);
-      var self = this, hex = function(i) {
-        var v = Math.round(ca[i] + ( cb[i] - ca[i] ) * t);
-        return ( '0' + Math.max(0, Math.min(self.MAX_CHANNEL, v)).toString(16) ).slice(-2);
+      // The colour t of the way from a to b: blend('#000000', '#ffffff', 0.5)
+      // is '#808080'. Any colour foam.Color.parse reads works: hex, rgb(),
+      // hsl() or a name.
+      var ca = foam.Color.parse(a), cb = foam.Color.parse(b);
+      var hex = function(k) {
+        var from = Number(ca[k]), to = Number(cb[k]);
+        var v = Math.round(from + ( to - from ) * t);
+        return ( '0' + Math.max(0, Math.min(255, v)).toString(16) ).slice(-2);
       };
-      return '#' + hex(0) + hex(1) + hex(2);
+      return '#' + hex('red') + hex('green') + hex('blue');
     },
 
     function light() {
@@ -103,12 +65,6 @@ foam.CLASS({
 
     function colorAt(v) {
       return this.blend(this.light(), this.strong, this.share(v));
-    },
-
-    function isDark(color) {
-      var c = this.parse_(color);
-      var l = ( c[0] * this.LUMA_RED + c[1] * this.LUMA_GREEN + c[2] * this.LUMA_BLUE ) / this.MAX_CHANNEL;
-      return l < this.DARK_LUMINANCE;
     }
   ]
 });

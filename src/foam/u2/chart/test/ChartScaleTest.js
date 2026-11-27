@@ -77,13 +77,11 @@ foam.CLASS({
       x.test(s.colorAt(0) === '#ccccff' && s.light() === '#ccccff', 'Color: the lowest value is the strong colour faded 80% toward white. Got ' + s.colorAt(0));
       x.test(s.colorAt(5) === '#6666ff', 'Color: 5 is half way between the pale shade and the strong colour. Got ' + s.colorAt(5));
       x.test(s.colorAt(99) === '#0000ff' && s.colorAt(-9) === '#ccccff', 'Color: a value outside min..max stays on the scale');
-      x.test(s.blend('rgb(0, 0, 0)', '#fff', 1) === '#ffffff', 'Color: rgb() and 3-digit hex colours parse');
+      x.test(s.blend('rgb(0, 0, 0)', 'white', 1) === '#ffffff', 'Color: rgb() and named colours parse');
+      x.test(s.blend('hsl(0, 100%, 50%)', '#ffffff', 0) === '#ff0000', 'Color: hsl() colours parse. Got ' + s.blend('hsl(0, 100%, 50%)', '#ffffff', 0));
 
       s.min = 4; s.max = 4;
       x.test(s.colorAt(4) === '#0000ff', 'Color: when every value is the same each cell is as strong as it gets. Got ' + s.colorAt(4));
-
-      x.test(s.isDark('#0000ff') && ! s.isDark('#ccccff'), 'Color: strong blue is dark and its pale shade is light');
-      x.test(s.isDark('#000000') && ! s.isDark('#ffffff'), 'Color: black is dark and white is light');
     },
 
     function testTimeScale(x) {

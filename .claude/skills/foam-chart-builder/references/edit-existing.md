@@ -24,6 +24,8 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
     setter: function(v) { this.displaySink.cutoutPercentage = v; } }
   ```
 - **Dropped:** keep the name as a shim that ignores the value, so old flows still parse. `DashboardAgentShimTest` covers the shims.
+- **Added to the sink only:** a new sink property with a `value:` needs no agent shim. A flow saved before has no value for it and loads with the default, which should draw as before.
+- **A switch turned into a choice** (a Boolean into an enum): keep the old name as a `transient` property with a `getter` that reads the new one and a `setter` that writes it, so callers and saved flows that set the old name still work.
 - **A Chart.js-era name** that a sink still accepts maps onto the view property in `chart_`. Keep the sink name and map it, for example the sink's `cutoutPercentage` to the view's `cutout`.
 
 ## Change what is drawn

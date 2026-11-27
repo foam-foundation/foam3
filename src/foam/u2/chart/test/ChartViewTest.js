@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
+    'foam.u2.chart.BulletChart',
     'foam.u2.chart.CandlestickChart',
     'foam.u2.chart.FunnelChart',
     'foam.u2.chart.GaugeChart',
@@ -65,6 +66,8 @@ foam.CLASS({
       await this.testGauge(x);
       await this.testGaugeBands(x);
       await this.testGaugeEdges(x);
+      await this.testBullet(x);
+      await this.testBulletEdges(x);
       await this.testSankey(x);
       await this.testSankeyEdges(x);
       await this.testTextWidthSpacing(x);
@@ -1352,6 +1355,123 @@ foam.CLASS({
 
     function texts(el, chart, name) {
       return this.all(el, chart, name).map(function(t) { return t.textContent; }).join();
+    },
+
+    async function testBullet(x) {
+      var clicks = [];
+      var chart = this.BulletChart.create({
+        labels: [ 'Mon', 'Tue', 'Wed' ],
+        datasets: [ { label: 'Requests', data: [ 70, 40, 90 ], backgroundColor: '#0000ff' } ],
+        target: 60,
+        bands: [ { upTo: 100 }, { upTo: 50 }, { upTo: 80 } ],
+        onRowClick: function(i, evt) { clicks.push(i + evt.type); }
+      }, x);
+      var el     = await this.mount(chart);
+      var ranges = this.all(el, chart, 'range');
+      var bars   = this.all(el, chart, 'value-bar');
+      var ticks  = this.all(el, chart, 'target');
+      x.test(ranges.length === 9 && bars.length === 3 && ticks.length === 3, 'Bullet: three ranges, a bar and a tick for each of three rows. Got ' + ranges.length + '/' + bars.length + '/' + ticks.length);
+
+      var w = function(e) { return Number(e.getAttribute('width')); };
+      var y = function(e) { return Number(e.getAttribute('y')); };
+      x.test(Math.abs(w(bars[0]) / w(bars[1]) - 70 / 40) < 0.01 && Math.abs(w(bars[2]) / w(bars[1]) - 90 / 40) < 0.01,
+        'Bullet: bar lengths follow the values 70, 40, 90. Got ' + bars.map(w).join());
+      x.test(y(bars[0]) < y(bars[1]) && y(bars[1]) < y(bars[2]), 'Bullet: rows run top to bottom in label order');
+      x.test(bars.every(function(b) { return b.getAttribute('fill') === '#0000ff'; }), 'Bullet: every bar takes the dataset colour');
+
+      // The first row's three ranges, in order of upTo whatever the order given.
+      var r0 = ranges.slice(0, 3);
+      var whole = w(r0[0]) + w(r0[1]) + w(r0[2]);
+      x.test(Math.abs(w(r0[0]) / whole - 0.5) < 0.01 && Math.abs(w(r0[1]) / whole - 0.3) < 0.01 && Math.abs(w(r0[2]) / whole - 0.2) < 0.01,
+        'Bullet: ranges cover 0-50, 50-80 and 80-100 of the axis. Got ' + r0.map(w).join());
+      x.test(this.num(r0[1], 'x') === this.num(r0[0], 'x') + w(r0[0]), 'Bullet: a range starts where the one before it ends');
+      var fills = r0.map(function(r) { return r.getAttribute('fill'); });
+      x.test(fills.every(function(f) { return f && f.indexOf('$') === -1; }) && new Set(fills).size === 3, 'Bullet: ranges with no colour take three resolved shades. Got ' + fills.join());
+      var lum = function(f) { var h = f.replace('#', ''); return parseInt(h.slice(0, 2), 16) + parseInt(h.slice(2, 4), 16) + parseInt(h.slice(4, 6), 16); };
+      x.test(lum(fills[0]) > lum(fills[1]) && lum(fills[1]) > lum(fills[2]), 'Bullet: shades run from light to dark. Got ' + fills.join());
+      x.test(w(bars[0]) > 0 && this.num(bars[0], 'height') < this.num(r0[0], 'height') && this.num(bars[0], 'height') > 0, 'Bullet: the bar is thinner than the ranges');
+
+      var tx = this.num(ticks[0], 'x1');
+      x.test(Math.abs(( tx - this.num(r0[0], 'x') ) / whole - 0.6) < 0.01, 'Bullet: the target tick stands at 60 of 100. Got ' + tx);
+      x.test(ticks.every(function(t) { return t.getAttribute('x1') === ticks[0].getAttribute('x1'); }), 'Bullet: the tick is at the same place on every row');
+      var tickH = this.num(ticks[0], 'y2') - this.num(ticks[0], 'y1');
+      x.test(tickH > this.num(bars[0], 'height') && tickH < this.num(r0[0], 'height'), 'Bullet: the tick is taller than the bar and shorter than the ranges. Got ' + tickH);
+      var axis = Array.from(el.querySelectorAll('.' + chart.myClass('text'))).map(function(t) { return t.textContent; });
+      x.test(axis.indexOf('100') !== -1 && axis.indexOf('Mon') !== -1, 'Bullet: the value axis reaches 100 and the rows are named. Got ' + axis.join());
+      x.test(! el.querySelector('.' + this.legendClass('item')), 'Bullet: no legend by default');
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 3, 'Bullet: one hover row per category. Got ' + hits.length);
+      var c = this.centreOf(hits[2]);
+      this.fire(hits[2], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('Wed') === 0 && tip.textContent.indexOf('Requests: 90') !== -1
+        && tip.textContent.indexOf(chart.TARGET_NAME + ': 60') !== -1 && tip.textContent.indexOf(chart.BAND + ': 80 – 100') !== -1,
+        'Bullet: hovering a row shows its value, the target and its band. Got ' + tip.textContent);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Requests: 40') !== -1 && tip.textContent.indexOf(chart.BAND + ': 0 – 50') !== -1, 'Bullet: 40 is in the first band. Got ' + tip.textContent);
+      this.fire(hits[1], 'click', c.x, c.y);
+      this.fire(hits[2], 'click', c.x, c.y);
+      x.test(JSON.stringify(clicks) === '["1click","2click"]', 'Bullet: a click gives the row index. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Bullet: a chart with onRowClick shows a pointer');
+      this.unmount(chart);
+
+      // Colours of their own, and the legend when asked for.
+      chart = this.BulletChart.create({
+        labels: [ 'A' ], datasets: [ { data: [ 60 ] } ], showLegend: true,
+        bands: [ { upTo: 50, color: '#ff0000' }, { upTo: 100, color: '#00ff00' } ]
+      }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'range').map(function(r) { return r.getAttribute('fill'); }).join() === '#ff0000,#00ff00', 'Bullet: a band with a colour keeps it');
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === '0 – 50,50 – 100', 'Bullet: the legend lists the bands. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[0].click();
+      await this.redraw();
+      x.test(this.all(el, chart, 'range').length === 2, 'Bullet: a legend click hides nothing');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Bullet: a chart without onRowClick shows no pointer');
+      this.unmount(chart);
+    },
+
+    async function testBulletEdges(x) {
+      // No target set: no tick. A value that is not a number: ranges but no bar.
+      var chart = this.BulletChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ 30, null ] } ], bands: [ { upTo: 50 } ] }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'target').length === 0, 'Bullet: with no target no tick is drawn');
+      x.test(this.all(el, chart, 'value-bar').length === 1 && this.all(el, chart, 'range').length === 2, 'Bullet: a missing value draws no bar but keeps its ranges');
+      var hits = this.all(el, chart, 'hit');
+      var c = this.centreOf(hits[1]);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('B') === 0 && tip.textContent.indexOf(chart.BAND) === -1, 'Bullet: a row with no value names no band. Got ' + tip.textContent);
+      this.unmount(chart);
+
+      // A value past the last band is in the last band; a target past the bands widens the axis.
+      chart = this.BulletChart.create({ labels: [ 'A' ], datasets: [ { data: [ 130 ] } ], target: 200, bands: [ { upTo: 50 }, { upTo: 100 } ] }, x);
+      el = await this.mount(chart);
+      var ranges = this.all(el, chart, 'range');
+      var bar    = this.all(el, chart, 'value-bar')[0];
+      var tick   = this.all(el, chart, 'target')[0];
+      var right  = this.num(ranges[1], 'x') + Number(ranges[1].getAttribute('width'));
+      x.test(this.num(bar, 'x') + Number(bar.getAttribute('width')) > right && this.num(tick, 'x1') > this.num(bar, 'x') + Number(bar.getAttribute('width')),
+        'Bullet: the axis reaches the target 200, past the value 130 and the last band');
+      x.test(chart.bandOf_(chart.bandRanges_(0), 130).to === 100, 'Bullet: a value past the bands is in the last one');
+      this.unmount(chart);
+
+      // A negative value draws left of zero, and a target of 0 is a real target when set.
+      chart = this.BulletChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ -20, 40 ] } ], target: 0 }, x);
+      el = await this.mount(chart);
+      var bars = this.all(el, chart, 'value-bar');
+      var zero = this.num(this.all(el, chart, 'target')[0], 'x1');
+      x.test(this.num(bars[0], 'x') < zero && Math.abs(this.num(bars[0], 'x') + Number(bars[0].getAttribute('width')) - zero) < 0.5 && Math.abs(this.num(bars[1], 'x') - zero) < 0.5,
+        'Bullet: -20 draws left of 0 and 40 right of it, both from the tick at 0');
+      x.test(this.all(el, chart, 'range').length === 0, 'Bullet: with no bands no range is drawn');
+      this.unmount(chart);
+
+      // No rows: no marks.
+      chart = this.BulletChart.create({ labels: [], datasets: [], target: 5 }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'value-bar').length === 0 && this.all(el, chart, 'target').length === 0, 'Bullet: no rows draw no marks');
+      this.unmount(chart);
     },
 
     async function testGauge(x) {

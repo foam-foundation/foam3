@@ -1379,6 +1379,47 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBulletChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardBulletSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardBulletSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      // The bands explain the shading, which a row shows already, so the
+      // form starts with the legend off.
+      factory: function() { return this.DashboardBulletSink.create({ showLegend: false }, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
   name: 'DashboardSankeyChartDAOAgent',
   extends: 'foam.core.reflow.AbstractSinkDAOAgent',
 

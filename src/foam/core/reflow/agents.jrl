@@ -43,3 +43,4 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 49, "label":"Funnel Chart", "valu
 p({"class":"foam.core.reflow.SinkAgent", "id": 50, "label":"Gauge", "value":"foam.core.reflow.dashboard.DashboardGaugeChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 51, "label":"Candlestick Chart", "value":"foam.core.reflow.dashboard.DashboardCandlestickChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 52, "label":"Sankey Diagram", "value":"foam.core.reflow.dashboard.DashboardSankeyChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
+p({"class":"foam.core.reflow.SinkAgent", "id": 54, "label":"Bullet Chart", "value":"foam.core.reflow.dashboard.DashboardBulletChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})

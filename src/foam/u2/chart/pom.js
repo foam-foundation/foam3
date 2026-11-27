@@ -43,6 +43,7 @@ foam.POM({
     { name: 'FunnelChart',                      flags: 'web' },
     { name: 'SankeyChart',                      flags: 'web' },
     { name: 'GaugeBand',                        flags: 'js|java' },
-    { name: 'GaugeChart',                       flags: 'web' }
+    { name: 'GaugeChart',                       flags: 'web' },
+    { name: 'BulletChart',                      flags: 'web' }
   ]
 });

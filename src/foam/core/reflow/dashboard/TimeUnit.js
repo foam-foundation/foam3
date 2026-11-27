@@ -8,89 +8,29 @@ foam.ENUM({
   package: 'foam.core.reflow.dashboard',
   name: 'TimeUnit',
 
-  documentation: 'Time units for Chart.js time scale configuration',
+  documentation: `
+    How far apart the ticks of a dashboard's date axis are, and how each one
+    reads: MONTH writes "Mar 2026" under each month, WEEK "Mar 2" on each
+    Monday. foam.u2.chart.TimeScale draws the axis from the unit.
+  `,
 
   properties: [
     {
       class: 'String',
-      name: 'chartJsUnit',
-      documentation: 'Chart.js time unit string'
-    },
-    {
-      class: 'String', 
-      name: 'displayFormat',
-      documentation: 'Format string for displaying dates on axis'
-    },
-    {
-      class: 'String',
-      name: 'tooltipFormat', 
-      documentation: 'Format string for tooltip display'
+      name: 'unit',
+      documentation: 'The foam.u2.chart.TimeScale unit this value stands for, e.g. "month".'
     }
   ],
 
   values: [
-    {
-      name: 'MILLISECOND',
-      label: 'Millisecond',
-      chartJsUnit: 'millisecond',
-      displayFormat: 'SSS [ms]',
-      tooltipFormat: 'MMM dd, yyyy HH:mm:ss.SSS'
-    },
-    {
-      name: 'SECOND',
-      label: 'Second', 
-      chartJsUnit: 'second',
-      displayFormat: 'HH:mm:ss',
-      tooltipFormat: 'MMM dd, yyyy HH:mm:ss'
-    },
-    {
-      name: 'MINUTE',
-      label: 'Minute',
-      chartJsUnit: 'minute', 
-      displayFormat: 'HH:mm',
-      tooltipFormat: 'MMM dd, yyyy HH:mm'
-    },
-    {
-      name: 'HOUR',
-      label: 'Hour',
-      chartJsUnit: 'hour',
-      displayFormat: 'MMM dd, HH:mm',
-      tooltipFormat: 'MMM dd, yyyy HH:mm'
-    },
-    {
-      name: 'DAY',
-      label: 'Day',
-      chartJsUnit: 'day',
-      displayFormat: 'MMM dd',
-      tooltipFormat: 'MMM dd, yyyy'
-    },
-    {
-      name: 'WEEK',
-      label: 'Week',
-      chartJsUnit: 'week', 
-      displayFormat: 'MMM dd',
-      tooltipFormat: 'Week of MMM dd, yyyy'
-    },
-    {
-      name: 'MONTH',
-      label: 'Month',
-      chartJsUnit: 'month',
-      displayFormat: 'MMM yyyy',
-      tooltipFormat: 'MMM yyyy'
-    },
-    {
-      name: 'QUARTER',
-      label: 'Quarter',
-      chartJsUnit: 'quarter',
-      displayFormat: '[Q]Q yyyy', 
-      tooltipFormat: '[Q]Q yyyy'
-    },
-    {
-      name: 'YEAR',
-      label: 'Year',
-      chartJsUnit: 'year',
-      displayFormat: 'yyyy',
-      tooltipFormat: 'yyyy'
-    }
+    { name: 'MILLISECOND', label: 'Millisecond', unit: 'millisecond' },
+    { name: 'SECOND', label: 'Second', unit: 'second' },
+    { name: 'MINUTE', label: 'Minute', unit: 'minute' },
+    { name: 'HOUR', label: 'Hour', unit: 'hour' },
+    { name: 'DAY', label: 'Day', unit: 'day' },
+    { name: 'WEEK', label: 'Week', unit: 'week' },
+    { name: 'MONTH', label: 'Month', unit: 'month' },
+    { name: 'QUARTER', label: 'Quarter', unit: 'quarter' },
+    { name: 'YEAR', label: 'Year', unit: 'year' }
   ]
 });

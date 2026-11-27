@@ -45,7 +45,8 @@ foam.POM({
     { name: "foam/dashboard/pom" },
     { name: "foam/comics/pom" },
     { name: "foam/dao/pom" },
-    { name: "foam/u2/pom" }
+    { name: "foam/u2/pom" },
+    { name: "foam/u2/chart/pom" }
   ],
 
   files: [

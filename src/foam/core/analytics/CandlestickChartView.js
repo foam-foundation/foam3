@@ -17,13 +17,15 @@ foam.CLASS({
   requires: [
     'foam.dao.ArrayDAO',
     'foam.dao.FilteredDAO',
-    'foam.graphics.Box',
-    'foam.graphics.Label',
     'foam.log.LogLevel',
     'foam.core.analytics.Candlestick',
     'foam.core.analytics.CandlestickUniqueKeyPredicate',
-    'org.chartjs.Line2'
+    'foam.u2.chart.LineChart'
   ],
+
+  css: `
+    <<chart { height: 600px; }
+  `,
 
   imports: [
     'notify'
@@ -195,21 +197,15 @@ foam.CLASS({
       }
     },
     {
-      name: 'canvas',
-      factory: function() {
-        return this.Box.create({
-          width: 1200,
-          height: 600
-        });
-      },
-      visibility: 'RO',
-      memorable: false
-    },
-    {
       name: 'chart',
       class: 'FObjectProperty',
-      of: 'foam.graphics.CView',
-      visibility: 'HIDDEN'
+      of: 'foam.u2.chart.LineChart',
+      visibility: 'HIDDEN',
+      // Candlesticks come per minute, hour or day; the time axis moves up
+      // from minutes to whatever unit fits the range it is given.
+      factory: function() {
+        return this.LineChart.create({ xType: 'time', timeUnit: 'minute', showLegend: false });
+      }
     }
   ],
 
@@ -223,27 +219,7 @@ foam.CLASS({
     async function render() {
       this.SUPER();
       
-      this.buildChartData().then(function(data) {
-        this.chart = this.Line2.create({
-          data: data,
-          options: {
-            legend: {
-              display: false,
-            },
-            tooltips: {
-              // see: https://github.com/chartjs/Chart.js/issues/3953
-              callbacks: {
-                label: function(tooltipItem, data) {
-                  var dataset = data.datasets[tooltipItem.datasetIndex];
-                  var index = tooltipItem.index;
-                  return dataset.labels[index] + ': ' + dataset.data[index];
-                }
-              }
-            }
-          }
-        });
-        this.canvas.add(this.chart);
-      }.bind(this));
+      this.rebuild();
 
       this.addClass(this.myClass());
       this
@@ -274,16 +250,13 @@ foam.CLASS({
 
       this.
         start('div', null, this.canvasContainer$).addClass(this.myClass('canvas-container')).
-        add(this.canvas).
+        start('div').addClass(this.myClass('chart')).add(this.chart).end().
         end();
     },
 
-    /**
-       Multi-line with seperate labels setup
-       see: https://github.com/chartjs/Chart.js/issues/3953
-     */
     async function buildChartData() {
-      var labels = new Map();
+      // One line per candlestick key, each point at its own close time, so
+      // keys whose candlesticks close at different times still line up.
       var datasets = new Map();
 
       if ( this.candlestickDAOKey &&
@@ -302,39 +275,27 @@ foam.CLASS({
         let arr = sink.array;
         for ( let i = 0; i < arr.length; i++ ) {
           let c = arr[i];
-          if ( i == 0 ) {
-            labels.set(c.closeValueTime.getTime(), c.closeValueTime);
-          }
           var dataset = datasets.get(c.key);
           if ( ! dataset ) {
             dataset = {
               label: c.key,
               data: [],
-              labels: [],
               fill: false,
               borderColor: 'hsl('+(359/(i+1))+',100%,50%)',
               tension: 0.1
             }
             datasets.set(c.key, dataset);
           }
-          var data = dataset['data'];
-          data.push(c.total);
-          var labels = dataset['labels'];
-          labels.push(c.closeValueTime);
+          dataset.data.push({ x: c.closeValueTime, y: c.total });
         }
       }
 
-      let config = {
-        labels: [...labels.values()].sort(),
-        datasets: [...datasets.values()]
-      };
-
-      return config;
+      return { datasets: [...datasets.values()] };
     },
 
     function rebuild() {
       this.buildChartData().then(function(data) {
-        if ( this.chart ) this.chart.data = data;
+        this.chart.data = data;
       }.bind(this));
     }
   ],

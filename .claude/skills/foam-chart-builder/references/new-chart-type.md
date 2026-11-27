@@ -101,4 +101,6 @@ Put a keyframe on the marks' group under `<<animated`, inside `prefers-reduced-m
 - [ ] colours come from `seriesColor` or `defaultColor`, and text colours from CSS tokens
 - [ ] hidden series are skipped by `isHidden(i)`, and the indexes stay the dataset indexes
 - [ ] the tooltip rows use `formatValue`
+- [ ] no message shares a name with an inherited method (`IN`, `OUT`): it replaces the method, and the only sign is "Change of Axiom … type from Method to MessageAxiom" in the test log
+- [ ] an x axis from `XAxisType` gets what its scale reads from the chart: `LINEAR` reads `isSet_` and `xMin`, `TIME` reads `TIME_TICK_PX` (`XAxisType.js:73`, `:86`), which only `LineChart` declares, so copy them
 - [ ] the class documentation says what one mark means, and gives one example

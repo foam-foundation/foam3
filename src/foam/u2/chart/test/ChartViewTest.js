@@ -171,6 +171,7 @@ foam.CLASS({
       c  = this.centreOf(this.all(el, chart, 'bar')[0]);
       this.fire(this.all(el, chart, 'hit')[0], 'mousemove', c.x, c.y);
       x.test(! this.visible(el.querySelector('.' + chart.myClass('tooltip'))), 'Tooltip: showTooltips off keeps it hidden');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Click: a chart without onBarClick shows no pointer');
       this.unmount(chart);
     },
 

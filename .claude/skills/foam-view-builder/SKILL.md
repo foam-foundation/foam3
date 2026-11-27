@@ -351,7 +351,7 @@ view: function(_, X) {
 | Hardcoded colors (`#04338D`, `red`) | FOAM semantic tokens (`$primary500`, `$textDestructive`) — theme/dark-mode aware (3.2) |
 | Raw color scale (`$blue500`) when semantic exists | Use semantic alias (`$primary500`) (3.2) |
 | Hand-rolled `font-size` / `font-weight` in custom CSS | Global typography class — `addClass('h300')`, `addClass('p-bold')`, `addClass('p-label')` (3.2.1) |
-| `font-weight: 600` / `font-size: 14px` literals | `$font-medium` / `$header-xxs` weight + size tokens (3.2) |
+| `font-weight: 600` / `font-size: 14px` literals | `$font-medium` / `$header-xxs` weight + size tokens (3.2). `CSSAuditTest`, a server test, fails CI on any colour or font literal in `css:` (`src/foam/core/theme/test/CSSAuditTest.js:432-440`) |
 | Redefining body font / `font-family` per view | Already on `body` via `$fontFamily` (Fonts.js) — don't redeclare |
 | `foam.lookup('known.Model')` | `requires: ['known.Model']` + `this.Model` |
 | `imports: ['ctrl']` for exported fn | `imports: ['pushMenu']` directly |

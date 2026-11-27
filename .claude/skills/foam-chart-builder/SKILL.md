@@ -32,7 +32,7 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 | What the legend lists | the chart class | override `legendItems()` (`ChartView.js:230-236`); `PieChart.js:112-123` lists one entry per slice |
 | Legend size on the side | the chart class | override `styleLegend(legend, vertical)` (`PieChart.js:125-131`) |
 | Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:298-331`) |
-| A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:64-68`, called at `:169-175`) |
+| A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:64-72`, `value: null`, called at `:172-177`) |
 | A per-series drawing option | `Dataset`, or a subclass such as `LineDataset` | a property with its default in `value:` (`LineDataset.js:30-47`) |
 | A chart-wide option | a property on the chart class | read it in `drawChart` |
 | A new kind of axis, legend side or time step | the enum | a new value; the chart asks the value (`XAxisType.js:52-90`) |

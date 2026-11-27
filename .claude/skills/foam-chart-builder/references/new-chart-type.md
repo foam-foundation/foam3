@@ -7,7 +7,7 @@ Follow `src/foam/u2/chart/PieChart.js`. It is the smallest complete chart: no ax
 - **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:225`); write labels with `truncate(s, maxPx)` (`ChartView.js:298`).
 - **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:120-232`).
 - **An existing chart type** when the new one is a variant of it. A stacked bar is `BarChart` with `stacked: true`, not a new class.
-- **A subclass of a chart** when the new one adds to it: a bubble is a scatter whose dots have a size. Override small hook methods the parent calls (how to read a point, a dot's radius, the tooltip rows) instead of copying its `drawChart`; add those hooks to the parent if it has none. The parent's `css:` is expanded again under the subclass's own name, so `<<dot` becomes `.foam-u2-chart-BubbleChart-dot` (`u2/CSS.js:76-80`, one copy per `cls.id`), and `myClass()` returns the subclass's name, never the parent's (`u2/Element2.js:947-960`). A test passes the subclass view: `this.all(el, bubble, 'dot')`.
+- **A subclass of a chart** when the new one adds to it: a bubble is a scatter whose dots have a size. Override small hook methods the parent calls (how to read a point, a dot's radius, the tooltip rows) instead of copying its `drawChart`; add those hooks to the parent if it has none. The parent's `css:` is expanded again under the subclass's own name, so `<<dot` becomes `.foam-u2-chart-BubbleChart-dot` (`u2/CSS.js:76-80`, one copy per `cls.id`), and `myClass()` returns the subclass's name, never the parent's (`u2/Element2.js:947-960`). A test passes the subclass view: `this.all(el, bubble, 'dot')`. A chart that keeps the parent's marks but reads its data another way overrides the parent's data hook: a sunburst extends `PieChart` and overrides `values_()` (`PieChart.js:95`), and the inherited legend, percentages and colours follow.
 
 Ask first whether a property on an existing chart does the job. A donut is `PieChart` with `cutout` set (`PieChart.js:62-66`).
 
@@ -90,7 +90,7 @@ Put a keyframe on the marks' group under `<<animated`, inside `prefers-reduced-m
 
 ## 6. Wire it in
 
-- **Pom row:** add `{ name: 'ScatterChart', flags: 'web' }` to `src/foam/u2/chart/pom.js`, after its base class.
+- **Pom row:** add `{ name: 'ScatterChart', flags: 'web' }` to `src/foam/u2/chart/pom.js`, after its base class. An enum that a dashboard sink holds travels to the server, so its row is `js|java`, as `TimeUnit` and `LegendPosition` are (`pom.js:16-17`); an enum only the view reads stays `web`.
 - **License header:** the same as the files next to it.
 - **Test:** add a case to `test/ChartViewTest.js` (`references/testing.md`).
 - **Dashboard:** to offer it in a flow, see `references/dashboard-wiring.md`.
@@ -103,8 +103,9 @@ Put a keyframe on the marks' group under `<<animated`, inside `prefers-reduced-m
 - [ ] hidden series are skipped by `isHidden(i)`, and the indexes stay the dataset indexes
 - [ ] the tooltip rows use `formatValue`
 - [ ] no message shares a name with an inherited method (`IN`, `OUT`): it replaces the method, and the only sign is "Change of Axiom … type from Method to MessageAxiom" in the test log
-- [ ] no message shares a name with a constant FOAM makes: a property `target` makes the constant `TARGET`, and a message `TARGET` stops the class with "Class constant conflict"; a class that mixes in `foam.mlang.Expressions` already has `COUNT` and `SUM`
+- [ ] no message shares a name with a constant FOAM makes: a property `target` makes the constant `TARGET`, and a message `TARGET` stops the class with "Class constant conflict"; every u2 view implements `foam.mlang.Expressions` (`u2/Element2.js:485-486`), so `COUNT`, `SUM`, `MAX`, `MIN` and the other query helpers are methods on every chart: end a message name in `_LABEL` (`ChartView.SUM_LABEL`); `DAYS`, `HOURS` and `MINUTES` are taken too (`mlang/Expressions.js:183-186`)
+- [ ] every new name is free on the class and its bases: a property `layout` on a bar chart hides `CartesianChartView.layout()`, and an enum property `stacked` makes the constant `STACKED`, which clashes with an enum value `STACKED`. Check with `Cls.getAxiomByName(name)` before using a name
 - [ ] a property's "was it set" test in JS is `hasOwnProperty(name)` (`lang/FObject.js:449`); `isPropertySet` exists in Java only
 - [ ] shades that stand for no series (bands, a track behind a value) come from the grey tokens `$grey200` to `$grey600` (`u2/CSSTokens.js:73-77`), not hex
-- [ ] an x axis from `XAxisType` gets what its scale reads from the chart: `LINEAR` reads `isSet_` and `xMin`, `TIME` reads `TIME_TICK_PX` (`XAxisType.js:73`, `:86`), which only `LineChart` declares, so copy them
+- [ ] an x axis from `XAxisType` gets what its scale reads from the chart: `LINEAR` reads `isSet_` and `xMin`, `TIME` reads `TIME_TICK_PX`, `timeUnit` and `utc`, and both create `chart.LinearScale` or `chart.TimeScale`, so list those in `requires` (`XAxisType.js:62-86`); only `LineChart` declares them, so copy them
 - [ ] the class documentation says what one mark means, and gives one example

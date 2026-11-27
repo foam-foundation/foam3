@@ -265,7 +265,7 @@ foam.CLASS({
           // the next line opens a different block.
           paragraph: repeat(sym('inlineContent'), sym('softBreak'), 1),
 
-          softBreak: seq0('\n', not(sym('blockLineStart'))),
+          softBreak: seq1(0, '\n', not(sym('blockLineStart'))),
 
           blockLineStart: alt(
             '\n', '#', '```', '> ', '- ', '* ', '+ ', '|', '---', '***', '___',
@@ -340,15 +340,18 @@ foam.CLASS({
             '~~'
           ),
 
+          // Emphasis may wrap onto the next line of its paragraph, but never
+          // past it, so the "*" of "5 * 3" with no partner leaves the list
+          // below as a list.
           bold: seq1(1,
             alt('**', '__'),
-              str(repeat(not(alt('**', '__'), anyChar()), null, 1)),
+              str(repeat(alt(sym('softBreak'), not(alt('**', '__', '\n'), anyChar())), null, 1)),
             alt('**', '__')
           ),
 
           italic: seq1(1,
             alt('*', '_'),
-              str(repeat(not(alt('*', '_'), anyChar()), null, 1)),
+              str(repeat(alt(sym('softBreak'), sym('word'), not(alt('*', '_', '\n'), anyChar())), null, 1)),
             alt('*', '_')
           ),
 
@@ -358,7 +361,23 @@ foam.CLASS({
             '`'
           ),
 
-          text: str(repeat(not(alt(chars('*_`~[\n<'), '!['), anyChar()), null, 1))
+          // A name such as my_report_2026, first_name or snake_case_ is one
+          // word: an underscore inside a word or at its end starts no italics,
+          // as CommonMark reads it.
+          text: str(repeat(alt(
+            str(seq(sym('word'), str(repeat('_')))),
+            not(alt(chars('*_`~[\n<'), '!['), anyChar())
+          ), null, 1)),
+
+          // Letters and digits with single underscores between them, matched
+          // as one run so a long word is read once
+          word: str(seq(
+            str(repeat(sym('wordChar'), null, 1)),
+            str(repeat(str(seq('_', str(repeat(sym('wordChar'), null, 1))))))
+          )),
+
+          // Accented Latin letters count, so date_échéance is one word too
+          wordChar: alt(range('a', 'z'), range('A', 'Z'), range('0', '9'), range('À', 'ɏ'))
         };
       },
 

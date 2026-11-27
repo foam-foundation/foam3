@@ -339,6 +339,39 @@ foam.CLASS({
       x.test(prevented === false, 'a "#" link that names no heading is left to the browser, defaultPrevented=' + prevented);
       v.remove();
       x.document.removeEventListener('click', guard);
+
+      // Scenario: names with underscores, as an AI agent writes file and column names.
+      // An underscore inside a word is part of the word, so nothing between two
+      // such names turns italic, and the list under them still renders.
+      v = await render('Read my_report_2026.csv with load_file:\n- first_name\n- amount\n');
+      x.test(! q(v, 'em'), 'an underscore inside a word starts no italics, got ' + JSON.stringify(text(v)));
+      x.test(text(v).indexOf('my_report_2026.csv with load_file') != -1, 'the names keep their underscores');
+      x.test(qa(v, 'ul li').length == 2 && qa(v, 'ul li')[0].innerText.trim() == 'first_name', 'the list under them renders, got ' + qa(v, 'ul li').length + ' items');
+      v.remove();
+
+      // Scenario: an asterisk with no partner in a line, such as "5 * 3".
+      // Emphasis never reaches past the paragraph, so the list keeps its items
+      // and a word between underscores still turns italic.
+      v = await render('Costs 5 * 3 per row.\n- a *b* c\n- _d_\n');
+      x.test(qa(v, 'ul li').length == 2, 'a lone asterisk does not swallow the list, got ' + qa(v, 'ul li').length + ' items');
+      x.test(qa(v, 'ul li em').length == 2, 'italics inside the list items still render');
+      v.remove();
+
+      // Scenario: emphasis wrapped over two lines of one paragraph keeps working.
+      v = await render('Some **bold\nacross lines** here.\n');
+      x.test(q(v, 'strong') && q(v, 'strong').innerText.replace(/\s+/g, ' ') == 'bold across lines', 'bold across a soft line break keeps the space, got ' + JSON.stringify(q(v, 'strong') && q(v, 'strong').innerText));
+      v.remove();
+
+      // Scenario: an underscore at the end of a word, inside italics, or next to an accented letter.
+      v = await render('Use snake_case_ here _x_.\n');
+      x.test(qa(v, 'em').length == 1 && q(v, 'em').innerText == 'x' && text(v).indexOf('snake_case_ here') != -1, 'a word ending in "_" opens no italics, got ' + JSON.stringify(text(v)));
+      v.remove();
+      v = await render('Then *load_file* runs.\n');
+      x.test(q(v, 'em') && q(v, 'em').innerText == 'load_file', 'an underscored name inside italics stays whole, got ' + JSON.stringify(q(v, 'em') && q(v, 'em').innerText));
+      v.remove();
+      v = await render('Columns date_échéance et montant_dû.\n');
+      x.test(! q(v, 'em') && text(v).indexOf('date_échéance et montant_dû') != -1, 'accented letters count as word letters, got ' + JSON.stringify(text(v)));
+      v.remove();
     }
   ]
 });

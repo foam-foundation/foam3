@@ -327,6 +327,8 @@ foam.CLASS({
       setter: function(v) { this.displaySink.horizontal = v; } },
     { name: 'barThickness', hidden: true, transient: true,
       setter: function(v) { this.displaySink.barThickness = v; } },
+    { name: 'datasetLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.datasetLabel = v; } },
     { name: 'xAxisLabel', hidden: true, transient: true,
       setter: function(v) { this.displaySink.xAxisLabel = v; } },
     { name: 'yAxisLabel', hidden: true, transient: true,

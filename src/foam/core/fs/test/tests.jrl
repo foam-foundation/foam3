@@ -1,2 +1,3 @@
 p({"class":"foam.core.fs.test.WatcherTest","id":"WatcherTest","description":"PollingWatcher: new file handled and left in place, rejected file ignored, stop() ends the loop, recursive relative paths, skipDirs and dot-directories, rescan picks up new files; Watcher: the WatchService path"})
 p({"class":"foam.core.fs.test.SourceWatcherTest","id":"SourceWatcherTest","description":"SourceWatcher reports a changed .js under core.webroot as a SourceChange, keeps the file, and stays off without core.webroot"})
+p({"class":"foam.core.fs.test.FileDataDAOTest","id":"FileDataDAOTest","description":"FileDataDAO stores the size of the bytes received: a base64 dataString is measured from the decoded string, a blob from the blob"})

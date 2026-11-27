@@ -461,7 +461,7 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xFunc', 'yFunc', 'aggregation', 'periodCount'] },
     { name: 'chartSettings', title: 'Stacked Bar Settings', order: 1, collapsable: true,
-      properties: ['horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
+      properties: ['barLayout', 'horizontal', 'timeUnit', 'showGridLines', 'onClickScript'] },
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
@@ -493,6 +493,10 @@ foam.CLASS({
     },
     { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit',
       label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
+    {
+      class: 'Enum', of: 'foam.u2.chart.BarLayout', name: 'barLayout', label: 'Layout', value: 'STACKED',
+      help: 'Stacked piles the series into one bar, Grouped stands them side by side, 100% scales each bar to the full axis. A flow saved before this field draws Stacked.'
+    },
     { class: 'Boolean', name: 'horizontal', label: 'Horizontal Stacks', value: false },
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
@@ -509,7 +513,7 @@ foam.CLASS({
       name: 'chart_',
       hidden: true,
       transient: true,
-      expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
+      expression: function(cols, rows, colors, timeUnit, barLayout, horizontal, xAxisLabel, yAxisLabel,
                           showGridLines, showLegend, legendPosition, showTooltips, showTooltipSum,
                           animate, animationDuration, periodCount, onClickScript) {
 
@@ -632,7 +636,7 @@ foam.CLASS({
         return this.BarChart.create({
           labels:            labels,
           datasets:          datasets,
-          stacked:           true,
+          barLayout:         barLayout,
           horizontal:        horizontal,
           xAxisLabel:        xAxisLabel,
           yAxisLabel:        yAxisLabel,

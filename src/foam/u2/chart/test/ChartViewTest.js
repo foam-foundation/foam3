@@ -14,6 +14,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.BarLayout',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BulletChart',
     'foam.u2.chart.CandlestickChart',
@@ -38,6 +39,7 @@ foam.CLASS({
       await this.testBars(x);
       await this.testStackedAndHorizontal(x);
       await this.testBarClickAndTooltip(x);
+      await this.testBarLayouts(x);
       await this.testLegendAndOptions(x);
       await this.testPie(x);
       await this.testDonutAndPercentages(x);
@@ -259,6 +261,51 @@ foam.CLASS({
       x.test(! this.visible(el.querySelector('.' + chart.myClass('tooltip'))), 'Tooltip: showTooltips off keeps it hidden');
       x.test(! el.classList.contains(chart.myClass('clickable')), 'Click: a chart without onBarClick shows no pointer');
       this.unmount(chart);
+    },
+
+    async function testBarLayouts(x) {
+      var datasets = [ { label: 'Home', data: [ 1200, 0 ] }, { label: 'Docs', data: [ 1800, 0 ] } ];
+      var chart = this.BarChart.create({ labels: [ 'Mon', 'Tue' ], datasets: datasets, barLayout: 'percent' }, x);
+      var el    = await this.mount(chart);
+      var bars  = this.all(el, chart, 'bar');
+      var axis  = Array.from(el.querySelectorAll('svg text')).map(function(t) { return t.textContent; });
+      x.test(chart.stacked && chart.barLayout === this.BarLayout.PERCENT, 'Percent: a name adapts to the layout, which stacks');
+      x.test(bars.length === 2, 'Percent: a category totalling 0 draws no bar. Got ' + bars.length);
+      x.test(Math.abs(this.num(bars[0], 'height') / this.num(bars[1], 'height') - 2 / 3) < 0.01,
+        'Percent: Home is 40% and Docs 60% of the bar, heights 2:3. Got ' + this.num(bars[0], 'height') + ' and ' + this.num(bars[1], 'height'));
+      var yAxis = this.all(el, chart, 'axis')[1];
+      x.test(Math.abs(this.num(bars[0], 'height') + this.num(bars[1], 'height') - ( this.num(yAxis, 'y2') - this.num(yAxis, 'y1') )) < 0.5,
+        'Percent: the bar fills the axis from 0% to 100%');
+      x.test(axis.indexOf('0%') !== -1 && axis.indexOf('100%') !== -1, 'Percent: the axis reads 0% to 100%. Got ' + axis.join());
+      this.fire(this.all(el, chart, 'hit')[0], 'mousemove', this.centreOf(bars[0]).x, this.centreOf(bars[0]).y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Home: 40% (1,200)') !== -1 && text.indexOf('Docs: 60% (1,800)') !== -1,
+        'Percent: the tooltip gives each share and its real value. Got ' + text);
+      this.fire(this.all(el, chart, 'hit')[1], 'mousemove', this.centreOf(bars[0]).x, this.centreOf(bars[0]).y);
+      text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Home: 0% (0)') !== -1 && text.indexOf('NaN') === -1 && text.indexOf('Infinity') === -1,
+        'Percent: an empty category reads 0% with no NaN. Got ' + text);
+      this.unmount(chart);
+
+      // Hiding a series rescales the rest to the full axis.
+      chart = this.BarChart.create({ labels: [ 'Mon' ], datasets: datasets, barLayout: 'percent' }, x);
+      el    = await this.mount(chart);
+      var before = this.num(this.all(el, chart, 'bar')[1], 'height');
+      el.querySelector('.' + this.legendClass('item')).click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 1; }.bind(this));
+      x.test(this.all(el, chart, 'bar').length === 1 && Math.abs(this.num(this.all(el, chart, 'bar')[0], 'height') - before / 0.6) < 1,
+        'Percent: with Home hidden, Docs fills the axis (100%, not 60%)');
+      this.unmount(chart);
+
+      chart = this.BarChart.create({ labels: [ 'Mon' ], datasets: datasets, barLayout: 'GROUPED' }, x);
+      el    = await this.mount(chart);
+      bars  = this.all(el, chart, 'bar');
+      x.test(! chart.stacked && this.num(bars[1], 'x') > this.num(bars[0], 'x'), 'Grouped: the layout names side by side bars');
+      x.test(Array.from(el.querySelectorAll('svg text')).every(function(t) { return t.textContent.indexOf('%') === -1; }), 'Grouped: the axis has no percent sign');
+      this.unmount(chart);
+
+      x.test(this.BarChart.create({ stacked: true }, x).barLayout === this.BarLayout.STACKED && ! this.BarChart.create({}, x).stacked,
+        'A chart made with stacked: true still stacks, and one with no layout stays grouped');
     },
 
     async function testLegendAndOptions(x) {

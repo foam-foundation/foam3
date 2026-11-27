@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
+    'foam.u2.chart.FunnelChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
@@ -47,6 +48,8 @@ foam.CLASS({
       await this.testHistogramEdges(x);
       await this.testWaterfall(x);
       await this.testWaterfallEdges(x);
+      await this.testFunnel(x);
+      await this.testFunnelEdges(x);
       await this.testBoxPlot(x);
       await this.testBoxPlotEdges(x);
     },
@@ -910,6 +913,107 @@ foam.CLASS({
       el    = await this.mount(chart);
       var grid = this.all(el, chart, 'grid').length;
       x.test(grid < 40, 'Time: a millisecond unit over three months moves up to a coarser one, about one tick per 60 px. Got ' + grid + ' grid lines');
+      this.unmount(chart);
+    },
+
+    function pathNumbers(el) {
+      // "M 1,2 L 3,4 Z" -> [ 1, 2, 3, 4 ]
+      return el.getAttribute('d').match(/-?\d+(\.\d+)?/g).map(Number);
+    },
+
+    async function testFunnel(x) {
+      var clicks = [];
+      var chart = this.FunnelChart.create({
+        labels: [ 'Home', 'Product', 'Basket', 'Checkout' ],
+        datasets: [ { data: [ 800, 600, 400, 200 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ],
+        onStepClick: function(i) { clicks.push(i); }
+      }, x);
+      var el    = await this.mount(chart);
+      var bands = this.all(el, chart, 'band');
+      x.test(bands.length === 4, 'Funnel: one band per step, the zero step too. Got ' + bands.length);
+      var d = bands.map(this.pathNumbers, this);
+      // d is [ x0, y0, x1, y1, x2, y2, x3, y3 ]: the top edge, then the bottom edge back.
+      var top = d.map(function(n) { return n[2] - n[0]; });
+      x.test(Math.abs(top[0] / top[2] - 2) < 0.02 && Math.abs(top[1] / top[2] - 1.5) < 0.02 && Math.abs(top[0] / top[3] - 4) < 0.02,
+        'Funnel: band widths follow the values 800, 600, 400, 200. Got ' + top.join());
+      x.test(d.every(function(n) { return Math.abs(( n[0] + n[2] ) / 2 - 300) < 0.5; }), 'Funnel: bands are centred in the 600 px plot');
+      x.test(Math.abs(( d[0][4] - d[0][6] ) - top[1]) < 0.5 && Math.abs(( d[1][4] - d[1][6] ) - top[2]) < 0.5,
+        'Funnel: the bottom of a band is as wide as the top of the next, so they join');
+      x.test(d[0][1] < d[1][1] && d[1][1] < d[2][1] && d[2][1] < d[3][1] && d[1][1] > d[0][5],
+        'Funnel: bands run top to bottom in label order with a gap between them');
+      x.test(bands[0].getAttribute('fill') === '#ff0000' && bands[1].getAttribute('fill') === '#00ff00' && bands[2].getAttribute('fill') === '#ff0000',
+        'Funnel: a colour list is used in turn. Got ' + bands.map(function(b) { return b.getAttribute('fill'); }).join());
+
+      var texts = this.all(el, chart, 'band-label').map(function(t) { return t.textContent; });
+      x.test(texts[0] === 'Home · 800 · 100%' && texts[1] === 'Product · 600 · 75%' && texts[2] === 'Basket · 400 · 50%',
+        'Funnel: a band is labelled with its step, value and share of the first step. Got ' + texts.join('|'));
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 4, 'Funnel: one hover row per band. Got ' + hits.length);
+      var c = this.centreOf(hits[2]);
+      this.fire(hits[2], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('Basket') === 0 && tip.textContent.indexOf('Value: 400') !== -1
+        && tip.textContent.indexOf('Of first step: 50%') !== -1 && tip.textContent.indexOf('Of previous step: 67%') !== -1,
+        'Funnel: hovering a step shows its value, its share of the first step and of the one before. Got ' + tip.textContent);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Of previous step') === -1, 'Funnel: the first step has no step before it. Got ' + tip.textContent);
+
+      this.fire(hits[1], 'click', c.x, c.y);
+      this.fire(hits[3], 'click', c.x, c.y);
+      x.test(JSON.stringify(clicks) === '[1,3]', 'Funnel: a click gives the step index. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Funnel: a chart with onStepClick shows a pointer');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Home,Product,Basket,Checkout', 'Funnel: the legend has one entry per step');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'band').length === 3; }.bind(this));
+      x.test(this.all(el, chart, 'band').length === 3, 'Funnel: clicking Product hides its band');
+      texts = this.all(el, chart, 'band-label').map(function(t) { return t.textContent; });
+      x.test(texts[1] === 'Basket · 400 · 50%', 'Funnel: the funnel redraws without the hidden step. Got ' + texts.join('|'));
+      items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      items[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'band').length === 2; }.bind(this));
+      texts = this.all(el, chart, 'band-label').map(function(t) { return t.textContent; });
+      x.test(texts[0] === 'Basket · 400 · 100%', 'Funnel: with Home and Product hidden the first visible step is 100%. Got ' + texts.join('|'));
+      this.unmount(chart);
+    },
+
+    async function testFunnelEdges(x) {
+      // A negative or missing value is left out; its legend entry shows as hidden.
+      var chart = this.FunnelChart.create({ labels: [ 'A', 'B', 'C' ], datasets: [ { data: [ 10, -5, null ] } ] }, x);
+      var el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'band').length === 1, 'Funnel: a negative and a missing value draw no band. Got ' + this.all(el, chart, 'band').length);
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.length === 3 && items[1].classList.contains(this.legendClass('hidden')), 'Funnel: a left-out step shows as hidden in the legend');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Funnel: with no onStepClick the bands are not clickable');
+      this.unmount(chart);
+
+      // A step of 0 is a thin band, not nothing, and the rest keep their proportions.
+      chart = this.FunnelChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ 800, 0 ] } ] }, x);
+      el    = await this.mount(chart);
+      var w = this.all(el, chart, 'band').map(function(b) { var n = this.pathNumbers(b); return n[2] - n[0]; }, this);
+      x.test(w.length === 2 && w[1] > 0 && w[1] < w[0] / 10, 'Funnel: a step of 0 is a thin band, not nothing. Got ' + w.join());
+      this.unmount(chart);
+
+      // Every step 0: no division by zero, thin bands.
+      chart = this.FunnelChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ 0, 0 ] } ] }, x);
+      el    = await this.mount(chart);
+      var d = this.all(el, chart, 'band').map(this.pathNumbers, this);
+      x.test(d.length === 2 && d.every(function(n) { return n.every(isFinite) && n[2] - n[0] > 0; }), 'Funnel: all-zero steps draw thin bands, no NaN');
+      this.unmount(chart);
+
+      // A step too narrow for its label loses the text, or ends it in an ellipsis; it never spills out.
+      chart = this.FunnelChart.create({ labels: [ 'Start', 'A step with a very long name' ], datasets: [ { data: [ 1000, 40 ] } ] }, x);
+      el    = await this.mount(chart);
+      var texts = this.all(el, chart, 'band-label').map(function(t) { return t.textContent; });
+      x.test(texts.length === 1 || texts[1].slice(-1) === '…', 'Funnel: a narrow band\'s label is trimmed. Got ' + texts.join('|'));
+      this.unmount(chart);
+
+      // No data: nothing drawn, nothing thrown.
+      chart = this.FunnelChart.create({ labels: [], datasets: [] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'band').length === 0, 'Funnel: no steps draw no bands');
       this.unmount(chart);
     },
 

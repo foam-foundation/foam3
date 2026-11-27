@@ -102,6 +102,7 @@ foam.CLASS({
       await this.testPie(x);
       await this.testStackedBar(x);
       await this.testLine(x);
+      await this.testStackedLine(x);
       await this.testScatter(x);
       await this.testScatterEdges(x);
       await this.testBubble(x);
@@ -298,6 +299,46 @@ foam.CLASS({
       x.test(ds.fill && ds.stepped && ds.pointRadius === 0, 'Line: Fill Area, Stepped Line and Show Points off reach the line');
       x.test(chart.yMin === 0 && chart.yMax === 100, 'Line: a custom y scale sets the axis to 0..100. Got ' + chart.yMin + '..' + chart.yMax);
       x.test(chart.xAxisLabel === R.MONTH.label, 'Line: with no X-Axis Label the axis is titled with the field\'s label');
+    },
+
+    async function testStackedLine(x) {
+      // One line per year over the months. 2026 has no row for month 2, so
+      // its line has no value there.
+      var R   = this.DashboardTestRow;
+      var dao = this.ArrayDAO.create({ of: R, array: [
+        R.create({ id: 1, year: 2025, month: 1, amount: 10 }),
+        R.create({ id: 2, year: 2025, month: 2, amount: 20 }),
+        R.create({ id: 3, year: 2026, month: 1, amount: 30 })
+      ] }, x);
+      var agent = this.DashboardLineChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.MONTH;
+      s.yFunc       = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+
+      var sink = await dao.select(agent.createSink());
+      x.test(sink.chart_.stacked === false, 'Stacked line: off unless the form switch is on, as every flow saved before it');
+
+      agent.displaySink.stacked = true;
+      var chart = ( await dao.select(agent.createSink()) ).chart_;
+      var sets  = chart.datasets.map(function(d) { return d.label + '=' + d.data.map(function(p) { return p.y; }).join(':'); }).join();
+      x.test(this.LineChart.isInstance(chart) && chart.stacked, 'Stacked line: the Stacked switch reaches the line chart. Got ' + ( chart && chart.cls_.id ));
+      x.test(sets === '2025=10:20,2026=30:0', 'Stacked line: each line keeps its own values, a missing one is 0. Got ' + sets);
+
+      // A saved flow keeps the switch; one saved before has none and loads off.
+      var back = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(back.displaySink.stacked === true, 'Stacked line: a saved flow keeps the Stacked switch');
+      agent.displaySink.clearProperty('stacked');
+      var old = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(old.displaySink.stacked === false, 'Stacked line: a flow saved without the switch loads and draws as before');
+      agent.displaySink.stacked = true;
+
+      // A select can send the sink to the server as JSON and back.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      copy.clearProperty('aggregation');
+      var err = '';
+      try { await dao.select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.chart_ && copy.chart_.stacked, 'Stacked line: a sink sent as JSON and back still stacks. Got ' + ( err || ( copy.chart_ && copy.chart_.stacked ) ));
     },
 
     function radarRows(x) {

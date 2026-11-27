@@ -27,6 +27,7 @@ foam.CLASS({
     'foam.u2.chart.PolarAreaChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
+    'foam.u2.chart.RangeBarChart',
     'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
     'foam.u2.chart.TreemapChart',
@@ -77,6 +78,10 @@ foam.CLASS({
       await this.testBulletEdges(x);
       await this.testSankey(x);
       await this.testSankeyEdges(x);
+      await this.testRangeBar(x);
+      await this.testRangeBarSeries(x);
+      await this.testRangeBarTime(x);
+      await this.testRangeBarEdges(x);
       await this.testTextWidthSpacing(x);
       this.testFormatValue(x);
     },
@@ -148,6 +153,168 @@ foam.CLASS({
       var want  = (321.13).toLocaleString(foam.locale);
       x.test(chart.formatValue(321.1333) === want, 'Format: 321.1333 shows as ' + want + '. Got ' + chart.formatValue(321.1333));
       x.test(chart.formatValue(1200) === (1200).toLocaleString(foam.locale), 'Format: a whole number keeps no decimals. Got ' + chart.formatValue(1200));
+    },
+
+    async function testRangeBar(x) {
+      var clicks = [];
+      var chart = this.RangeBarChart.create({
+        labels: [ 'A', 'B', 'C', 'D' ],
+        datasets: [ { label: 'Spans', backgroundColor: '#0000ff', data: [
+          { start: 10, end: 30 }, { start: 20, end: 80 }, { start: 50, end: 50 }, null
+        ] } ],
+        onBarClick: function(di, i, evt) { clicks.push(di + ':' + i + evt.type); }
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 3, 'RangeBar: a bar for each of three ranges and none for the empty lane. Got ' + bars.length);
+      var w  = function(e) { return Number(e.getAttribute('width')); };
+      var px = function(e) { return Number(e.getAttribute('x')); };
+      var y  = function(e) { return Number(e.getAttribute('y')); };
+      x.test(Math.abs(w(bars[1]) / w(bars[0]) - 60 / 20) < 0.01,
+        'RangeBar: lengths follow the ranges 10-30 and 20-80. Got ' + bars.map(w).join());
+      x.test(Math.abs(( px(bars[1]) - px(bars[0]) ) / w(bars[0]) - 10 / 20) < 0.01,
+        'RangeBar: a bar starts at its start value, so 20 is half a bar-length right of 10. Got ' + bars.map(px).join());
+      x.test(Math.abs(px(bars[2]) - ( px(bars[1]) + w(bars[1]) * 30 / 60 )) < 0.01 && w(bars[2]) === chart.MIN_BAR_PX,
+        'RangeBar: a range of one instant is a MIN_BAR_PX sliver at its value. Got ' + px(bars[2]) + '/' + w(bars[2]));
+      x.test(y(bars[0]) < y(bars[1]) && y(bars[1]) < y(bars[2]), 'RangeBar: lanes run top to bottom in label order');
+      x.test(bars.every(function(b) { return b.getAttribute('fill') === '#0000ff'; }), 'RangeBar: every bar takes the dataset colour');
+      var text = Array.from(el.querySelectorAll('.' + chart.myClass('text'))).map(function(t) { return t.textContent; });
+      x.test(text.indexOf('A') !== -1 && text.indexOf('D') !== -1 && text.some(function(t) { return Number(t) >= 80; }),
+        'RangeBar: the lanes are named and the axis reaches 80. Got ' + text.join());
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 4, 'RangeBar: one hover lane per label. Got ' + hits.length);
+      var c = this.centreOf(hits[1]);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('B') === 0 && tip.textContent.indexOf(chart.START + ': 20') !== -1
+        && tip.textContent.indexOf(chart.END + ': 80') !== -1 && tip.textContent.indexOf(chart.LENGTH + ': 60') !== -1,
+        'RangeBar: hovering a lane shows its label, start, end and length. Got ' + tip.textContent);
+      this.fire(hits[1], 'click', c.x, c.y);
+      this.fire(hits[3], 'click', c.x, this.centreOf(hits[3]).y);
+      x.test(JSON.stringify(clicks) === '["0:1click"]', 'RangeBar: a click gives the series and lane index, and an empty lane gives none. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'RangeBar: a chart with onBarClick shows a pointer');
+
+      // A legend click hides the series and its bars.
+      el.querySelector('.' + this.legendClass('item')).click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 0; }.bind(this));
+      x.test(this.all(el, chart, 'bar').length === 0, 'RangeBar: hiding the series removes its bars');
+      this.unmount(chart);
+
+      chart = this.RangeBarChart.create({ labels: [ 'A' ], datasets: [ { data: [ { start: 1, end: 2 } ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'RangeBar: a chart without onBarClick shows no pointer');
+      this.unmount(chart);
+    },
+
+    async function testRangeBarSeries(x) {
+      // Two series share a lane, one under the other, and each has its own row in the tooltip.
+      var chart = this.RangeBarChart.create({
+        labels: [ 'A', 'B' ],
+        datasets: [
+          { label: 'Plan',   backgroundColor: '#0000ff', data: [ { start: 0, end: 40 }, { start: 10, end: 20 } ] },
+          { label: 'Actual', backgroundColor: '#00ff00', data: [ { start: 5, end: 60 }, null ] }
+        ]
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 3, 'RangeBar series: three bars over two lanes. Got ' + bars.length);
+      var y = function(e) { return Number(e.getAttribute('y')); };
+      var h = function(e) { return Number(e.getAttribute('height')); };
+      x.test(y(bars[0]) < y(bars[1]) && Math.abs(y(bars[1]) - ( y(bars[0]) + h(bars[0]) )) < 0.01 && h(bars[0]) === h(bars[1]),
+        'RangeBar series: the second series stands under the first in the same lane. Got ' + bars.map(y).join());
+      x.test(bars[0].getAttribute('fill') === '#0000ff' && bars[1].getAttribute('fill') === '#00ff00', 'RangeBar series: each series has its own colour');
+      var hits = this.all(el, chart, 'hit');
+      var c = this.centreOf(hits[0]);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(tip.indexOf('Plan: 0 – 40 (40)') !== -1 && tip.indexOf('Actual: 5 – 60 (55)') !== -1,
+        'RangeBar series: the tooltip has a row per series with its range and length. Got ' + tip);
+      el.querySelector('.' + this.legendClass('item')).click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 1; }.bind(this));
+      x.test(this.all(el, chart, 'bar').length === 1 && this.all(el, chart, 'bar')[0].getAttribute('fill') === '#00ff00',
+        'RangeBar series: hiding Plan leaves Actual');
+      this.unmount(chart);
+    },
+
+    async function testRangeBarTime(x) {
+      // First and last visit of two pages: bars on a time axis, from dates, times and text.
+      var at   = function(hour, min) { return new Date(2026, 2, 1, hour, min); };
+      var HOUR = 3600000;
+      var chart = this.RangeBarChart.create({
+        labels: [ '/home', '/cart', '/help' ],
+        xType: 'time', timeUnit: 'HOUR',
+        datasets: [ { label: 'Visits', data: [
+          { start: at(9, 15), end: at(12, 40) },
+          { start: at(10, 0).getTime(), end: at(16, 0).getTime() },
+          { start: at(11, 0).toISOString(), end: at(12, 0).toISOString() }
+        ] } ]
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      var w    = function(e) { return Number(e.getAttribute('width')); };
+      x.test(bars.length === 3, 'RangeBar time: a bar for each of three pages. Got ' + bars.length);
+      x.test(Math.abs(w(bars[1]) / w(bars[2]) - 6) < 0.01 && Math.abs(w(bars[0]) / w(bars[2]) - 205 / 60) < 0.01,
+        'RangeBar time: lengths follow the time spans, whether given as a Date, milliseconds or text. Got ' + bars.map(w).join());
+      x.test(Number(bars[2].getAttribute('x')) > Number(bars[1].getAttribute('x')), 'RangeBar time: 11:00 stands right of 10:00');
+      var text = Array.from(el.querySelectorAll('.' + chart.myClass('text'))).map(function(t) { return t.textContent; });
+      x.test(text.some(function(t) { return /\d\d:\d\d/.test(t); }), 'RangeBar time: the axis is ticked in hours. Got ' + text.join());
+
+      var hits = this.all(el, chart, 'hit');
+      var c = this.centreOf(hits[0]);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(tip.indexOf('/home') === 0 && tip.indexOf('09:15:00') !== -1 && tip.indexOf('12:40:00') !== -1
+        && tip.indexOf(chart.LENGTH + ': 3' + chart.UNIT_HOUR + ' 25' + chart.UNIT_MINUTE) !== -1,
+        'RangeBar time: the tooltip gives both times and the length as 3h 25min. Got ' + tip);
+      x.test(chart.durationText_(2 * 86400000 + 5 * HOUR + 60000) === '2' + chart.UNIT_DAY + ' 5' + chart.UNIT_HOUR
+        && chart.durationText_(90000) === '1' + chart.UNIT_MINUTE + ' 30' + chart.UNIT_SECOND
+        && chart.durationText_(0) === '0 ' + chart.UNIT_MILLI,
+        'RangeBar time: a length keeps its two largest units');
+      this.unmount(chart);
+
+      // A hand-set end of the axis cuts the bars to the plot and drops those outside it.
+      chart = this.RangeBarChart.create({
+        labels: [ 'a', 'b', 'c' ], xType: 'time', timeUnit: 'HOUR', xMin: at(11, 0), xMax: at(13, 0),
+        datasets: [ { data: [ { start: at(9, 0), end: at(10, 0) }, { start: at(10, 0), end: at(12, 0) }, { start: at(12, 0), end: at(14, 0) } ] } ]
+      }, x);
+      el = await this.mount(chart);
+      bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 2 && Math.abs(w(bars[0]) - w(bars[1])) < 0.01,
+        'RangeBar time: a bar out of the axis is left out and the others are cut at its ends. Got ' + bars.map(w).join());
+      this.unmount(chart);
+    },
+
+    async function testRangeBarEdges(x) {
+      // An end before its start is read the other way round; a range that is not a
+      // range draws nothing; no rows draw no marks.
+      var chart = this.RangeBarChart.create({
+        labels: [ 'A', 'B', 'C', 'D' ],
+        datasets: [ { data: [ { start: 30, end: 10 }, { start: 10 }, { start: 'x', end: 5 }, { start: 10, end: 30 } ] } ]
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      var w    = function(e) { return Number(e.getAttribute('width')); };
+      x.test(bars.length === 2 && Math.abs(w(bars[0]) - w(bars[1])) < 0.01 && bars[0].getAttribute('x') === bars[1].getAttribute('x'),
+        'RangeBar edges: 30 to 10 draws as 10 to 30 and a range with no end or a text start draws nothing. Got ' + bars.length);
+      var hits = this.all(el, chart, 'hit');
+      var c = this.centreOf(hits[0]);
+      this.fire(hits[0], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(tip.indexOf(chart.START + ': 10') !== -1 && tip.indexOf(chart.END + ': 30') !== -1, 'RangeBar edges: the tooltip names the earlier value as the start. Got ' + tip);
+      this.unmount(chart);
+
+      chart = this.RangeBarChart.create({ labels: [], datasets: [] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'hit').length === 0, 'RangeBar edges: no rows draw no marks');
+      this.unmount(chart);
+
+      // Every range the same instant: the axis is widened, not collapsed.
+      chart = this.RangeBarChart.create({ labels: [ 'A' ], datasets: [ { data: [ { start: 5, end: 5 } ] } ] }, x);
+      el = await this.mount(chart);
+      bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 1 && isFinite(this.num(bars[0], 'x')), 'RangeBar edges: one flat range still draws. Got ' + bars.length);
+      this.unmount(chart);
     },
 
     async function testTextWidthSpacing(x) {

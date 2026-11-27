@@ -86,6 +86,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPolarAreaChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardRangeBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardSankeyChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
@@ -116,6 +117,7 @@ foam.CLASS({
     'foam.u2.chart.PieChart',
     'foam.u2.chart.PolarAreaChart',
     'foam.u2.chart.RadarChart',
+    'foam.u2.chart.RangeBarChart',
     'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
     'foam.u2.chart.TreemapChart',
@@ -148,6 +150,8 @@ foam.CLASS({
       await this.testWaterfallEdges(x);
       await this.testCombo(x);
       await this.testComboEdges(x);
+      await this.testRangeBar(x);
+      await this.testRangeBarEdges(x);
       await this.testFunnel(x);
       await this.testFunnelEdges(x);
       await this.testBoxPlot(x);
@@ -174,7 +178,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink', 'DashboardBulletSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink', 'DashboardBulletSink', 'DashboardRangeBarSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -753,6 +757,131 @@ foam.CLASS({
       x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Combo: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
+    },
+
+    async function testRangeBar(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardRangeBarChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1           = R.YEAR;
+      s.startProp      = R.AMOUNT;
+      s.endProp        = R.AMOUNT;
+      s.colors         = [ '#00aa00' ];
+      s.xAxisLabel     = 'Spend';
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the label, both ends and the x of the click.
+      s.onClickScript = '(function(label, start, end, cx, cy, px, py) { globalThis.rangeClick_ = [ label, start, end, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.RangeBarChart.isInstance(chart), 'RangeBar: draws a foam.u2.chart.RangeBarChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && JSON.stringify(chart.datasets[0].data) === '[{"start":10,"end":20},{"start":30,"end":40}]',
+        'RangeBar: with one field as both ends each bar spans its minimum to its maximum. Got ' + chart.labels.join() + ' / ' + JSON.stringify(chart.datasets[0].data));
+      x.test(chart.xType === chart.XAxisType.LINEAR, 'RangeBar: a number field gets a number axis. Got ' + chart.xType.name);
+      x.test(chart.datasets[0].backgroundColor === '#00aa00' && chart.datasets[0].label === R.AMOUNT.label,
+        'RangeBar: the colour reaches the chart and the series takes the field\'s label. Got ' + chart.datasets[0].backgroundColor + ', ' + chart.datasets[0].label);
+      x.test(chart.xAxisLabel === 'Spend' && chart.yAxisLabel === R.YEAR.label && chart.legendPosition === this.LegendPosition.RIGHT,
+        'RangeBar: X-Axis Label and Legend Position reach the chart, and the lane title falls back to the Group By label. Got ' + chart.yAxisLabel);
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onBarClick(0, 1, evt);
+      x.test(globalThis.rangeClick_ === '2026,30,40,30,30,130,280',
+        'RangeBar: On Click Script gets the label, both ends, and the point in the chart and on the page. Got ' + globalThis.rangeClick_);
+      delete globalThis.rangeClick_;
+
+      // Two fields: the bar runs from the lowest of one to the highest of the other.
+      s.startProp  = R.MONTH;
+      s.xAxisLabel = '';
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(JSON.stringify(chart.datasets[0].data) === '[{"start":1,"end":20},{"start":1,"end":40}]'
+        && chart.datasets[0].label === R.MONTH.label + ' ' + s.RANGE_TO + ' ' + R.AMOUNT.label,
+        'RangeBar: the lowest Start and the highest End, and the series named "Start to End". Got ' + JSON.stringify(chart.datasets[0].data) + ' / ' + chart.datasets[0].label);
+      x.test(chart.xAxisLabel === R.MONTH.label && ! chart.onBarClick,
+        'RangeBar: with no X-Axis Label the axis takes the Start label, and with no On Click Script a lane is not clickable. Got ' + chart.xAxisLabel);
+
+      // A select can send the sink to the server as JSON and back; the copy must still
+      // group with both aggregates. The server's copy has no Start or End field (their
+      // Java class lacks them), so the chart must read its fields from the totals in arg2.
+      s.startProp = R.AMOUNT;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      copy.clearProperty('startProp');
+      copy.clearProperty('endProp');
+      var err = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var got = err ? '' : JSON.stringify(copy.chart_.datasets[0].data) + ' / ' + copy.chart_.datasets[0].label;
+      x.test(! err && got === '[{"start":10,"end":20},{"start":30,"end":40}] / ' + R.AMOUNT.label,
+        'RangeBar: a sink sent as JSON and back still gets both ends per group, named after their field. Got ' + ( err || got ));
+
+      // Two ends are two keys: a cached select of one End must not answer for another.
+      var other = this.DashboardRangeBarChartDAOAgent.create({}, x);
+      other.displaySink.arg1      = R.YEAR;
+      other.displaySink.startProp = R.AMOUNT;
+      other.displaySink.endProp   = R.MONTH;
+      x.test(agent.createSink().toString() !== other.createSink().toString(),
+        'RangeBar: sinks that differ only in the End property have different cache keys. Got ' + other.createSink().toString());
+    },
+
+    async function testRangeBarEdges(x) {
+      var T  = this.ScatterTestRow;
+      var at = function(hour, min) { return new Date(2026, 0, 1, hour, min); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: '/home', size: 10, at: at(16, 5), when: new Date(Date.UTC(2026, 0, 3)) }),
+        T.create({ id: 2, kind: '/cart', size: 20, at: at(9, 30), when: new Date(Date.UTC(2026, 0, 1)) }),
+        T.create({ id: 3, kind: '/home', size: 30, at: at(9, 45), when: new Date(Date.UTC(2026, 0, 2, 12)) }),
+        T.create({ id: 4, kind: '',      size: 40, at: at(12, 0),  when: new Date(Date.UTC(2026, 0, 2, 12)) }),
+        T.create({ id: 5, kind: '/home', size: 50, at: at(13, 10), when: new Date(Date.UTC(2026, 0, 5, 12)) })
+      ] }, x);
+      var agent = this.DashboardRangeBarChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1      = T.KIND;
+      s.startProp = T.AT;
+      s.endProp   = T.AT;
+      s.timeUnit  = 'MINUTE';
+
+      // A date-and-time on both ends: each page's first to last visit, on a time axis in local time.
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '/cart,/home' && chart.datasets[0].data[0].start === at(9, 30).getTime()
+        && chart.datasets[0].data[1].start === at(9, 45).getTime() && chart.datasets[0].data[1].end === at(16, 5).getTime(),
+        'RangeBar: /home runs from its first visit, 09:45, to its last, 16:05, and a row with no page adds no lane. Got ' + chart.labels.join() + ' / ' + JSON.stringify(chart.datasets[0].data));
+      x.test(chart.xType === chart.XAxisType.TIME && chart.timeUnit === chart.TimeUnit.MINUTE && ! chart.utc,
+        'RangeBar: a date-and-time gets a time axis in local time, ticked as Time Unit says. Got ' + chart.xType.name + '/' + chart.timeUnit.name + '/' + chart.utc);
+
+      // A Date property holds noon UTC (it adapts every date to 12:00) and reads in UTC.
+      s.startProp = T.WHEN;
+      s.endProp   = T.WHEN;
+      s.timeUnit  = 'DAY';
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.utc && chart.datasets[0].data[1].start === Date.UTC(2026, 0, 2, 12) && chart.datasets[0].data[1].end === Date.UTC(2026, 0, 5, 12),
+        'RangeBar: a date reads in UTC. Got ' + JSON.stringify(chart.datasets[0].data));
+
+      // The click script gets dates, not milliseconds, on a time axis.
+      s.onClickScript = '(function(label, start, end) { globalThis.rangeClick_ = [ label, start instanceof Date, end.getTime() ].join(); })';
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      var box = { getBoundingClientRect: function() { return { left: 0, top: 0 }; } };
+      chart.onBarClick(0, 1, { target: { ownerSVGElement: box }, clientX: 1, clientY: 1, pageX: 1, pageY: 1 });
+      x.test(globalThis.rangeClick_ === '/home,true,' + Date.UTC(2026, 0, 5, 12), 'RangeBar: On Click Script gets Dates on a time axis. Got ' + globalThis.rangeClick_);
+      delete globalThis.rangeClick_;
+
+      // A text field is no range: the groups are left out and the card says so.
+      s.startProp = T.KIND;
+      s.endProp   = T.KIND;
+      var sink = await rows.select(agent.createSink());
+      x.test(sink.chart_.labels.length === 0, 'RangeBar: a text Start and End make no bar. Got ' + sink.chart_.labels.join());
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'RangeBar: with no bars the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+
+      // A number field gets a number axis.
+      s.startProp = T.SIZE;
+      s.endProp   = T.SIZE;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.xType === chart.XAxisType.LINEAR && chart.datasets[0].data[1].start === 10 && chart.datasets[0].data[1].end === 50,
+        'RangeBar: a number field gets a number axis. Got ' + JSON.stringify(chart.datasets[0].data));
     },
 
     async function testFunnel(x) {

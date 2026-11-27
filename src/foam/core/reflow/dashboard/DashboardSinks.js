@@ -1902,9 +1902,23 @@ foam.CLASS({
 
   documentation: `
     One dot per row: the X and Y properties are two numeric properties of the
-    row, such as response time and size. A row whose X or Y is not a number is
-    left out. Giving a Series property draws one colour and one legend entry
-    per value of it, e.g. one per severity.
+    row, such as response time and size. A row whose X or Y is not a number
+    (a date, text or yes/no value) is left out. Giving a Series property draws
+    one colour and one legend entry per value of it, e.g. one per severity; a
+    row with no value there is left out too.
+  `,
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
   `,
 
   requires: [
@@ -1915,9 +1929,9 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xProp', 'yProp', 'seriesProp'] },
     { name: 'chartSettings', title: 'Scatter Chart Settings', order: 1, collapsable: true,
-      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines'] },
+      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
     { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
-      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration'] },
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
     { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
       properties: ['colors'] },
     // The scatter has no alignment, aspect ratio or tooltip sum, but
@@ -1929,7 +1943,8 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DEFAULT_SERIES', message: 'Points' }
+    { name: 'DEFAULT_SERIES', message: 'Points' },
+    { name: 'NO_DATA',        message: 'No data available' }
   ],
 
   properties: [
@@ -1945,6 +1960,18 @@ foam.CLASS({
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
     { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a dot is clicked. Signature: (x, y, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no points. Left empty, it says "No data available".'
+    },
     {
       class: 'Array',
       name: 'series_',
@@ -1971,35 +1998,82 @@ foam.CLASS({
             backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
           };
         });
+        // The form's On Click Script is a function expression, called with
+        // (x, y, series, chartX, chartY, pageX, pageY) for the clicked dot:
+        // its two values, its series name, the point inside the chart and
+        // the point on the page.
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardScatterSink:', e);
+          }
+        }
         return this.ScatterChart.create({
           datasets:          datasets,
-          xAxisLabel:        this.xAxisLabel,
-          yAxisLabel:        this.yAxisLabel,
+          // With no title typed in, an axis is titled with its field's label,
+          // as the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.xProp),
+          yAxisLabel:        this.yAxisLabel || this.labelOf_(this.yProp),
           showGridLines:     this.showGridLines,
           showLegend:        this.showLegend,
           legendPosition:    this.legendPosition,
           showTooltips:      this.showTooltips,
           animate:           this.animate,
-          animationDuration: this.animationDuration
+          animationDuration: this.animationDuration,
+          onPointClick: typeof click !== 'function' ? null : function(di, j, evt) {
+            try {
+              var p   = datasets[di].data[j];
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(p.x, p.y, datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
         });
       }
     }
   ],
 
   methods: [
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "month of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
     function put(obj) {
+      // Only number values become points: a date would plot as milliseconds
+      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the
+      // chart, which drops them.
       var x = this.xProp.f(obj), y = this.yProp.f(obj);
-      if ( x == null || y == null || ! isFinite(x) || ! isFinite(y) ) return;
-      var key = this.hasDefaultValue('seriesProp') ? this.DEFAULT_SERIES : String(this.seriesProp.f(obj));
+      if ( typeof x !== 'number' || typeof y !== 'number' ) return;
+      var key = this.DEFAULT_SERIES;
+      if ( ! this.hasDefaultValue('seriesProp') ) {
+        // A row with no series value is left out, as the calendar chart does,
+        // rather than drawn as a series called "undefined".
+        var v = this.seriesProp.f(obj);
+        if ( v == null || v === '' ) return;
+        key = String(v);
+      }
       var s = this.series_.find(function(e) { return e.label === key; });
       if ( ! s ) this.series_.push(s = { label: key, data: [] });
-      s.data.push({ x: Number(x), y: Number(y) });
+      s.data.push({ x: x, y: y });
     },
 
     function addToE(e) {
+      var self = this;
       e.style({ width: '100%' })
         .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .add(this.chart_)
+          .callIfElse(this.series_.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
         .end();
     }
   ]

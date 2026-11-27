@@ -97,10 +97,6 @@ foam.CLASS({
       return values.reduce(function(r, v) { return [ Math.min(r[0], v), Math.max(r[1], v) ]; }, [ values[0], values[0] ]);
     },
 
-    function tickCount_(size, spacing) {
-      return Math.max(this.MIN_VALUE_TICKS, Math.min(this.MAX_VALUE_TICKS, Math.round(size / spacing)));
-    },
-
     function drawChart(svg, w, h) {
       var self = this;
       var sets = this.visibleSets_();
@@ -118,8 +114,8 @@ foam.CLASS({
       // Same two passes as layoutForValues, once per axis: the tick count
       // follows the plot size, and the plot size follows the label widths.
       var first  = lay(scale(xr, this.FIRST_LAYOUT_TICKS), scale(yr, this.FIRST_LAYOUT_TICKS));
-      var xScale = scale(xr, this.tickCount_(first.width, this.X_TICK_PX));
-      var yScale = scale(yr, this.tickCount_(first.height, this.VALUE_TICK_PX));
+      var xScale = scale(xr, this.valueTickCount(first.width, this.X_TICK_PX));
+      var yScale = scale(yr, this.valueTickCount(first.height, this.VALUE_TICK_PX));
       var a      = lay(xScale, yScale);
       xScale.start = a.left;              xScale.end = a.left + a.width;
       yScale.start = a.top + a.height;    yScale.end = a.top;

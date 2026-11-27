@@ -9,6 +9,20 @@
 // run each chart over four rows and check that every form setting reaches
 // the view, so a setting that stops working shows up here, not on a client's
 // dashboard.
+
+// Rows for the scatter's edge cases: a missing series value and a date field.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'ScatterTestRow',
+  properties: [
+    { class: 'Int',    name: 'id' },
+    { class: 'String', name: 'kind' },
+    { class: 'Int',    name: 'size' },
+    { class: 'Float',  name: 'time' },
+    { class: 'Date',   name: 'when' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardChartRenderTest',
@@ -22,6 +36,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
+    'foam.core.reflow.dashboard.test.ScatterTestRow',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
@@ -38,6 +53,7 @@ foam.CLASS({
       await this.testStackedBar(x);
       await this.testLine(x);
       await this.testScatter(x);
+      await this.testScatterEdges(x);
     },
 
     function rowsDAO(x) {
@@ -192,6 +208,48 @@ foam.CLASS({
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
       x.test(! err && n === 4, 'Scatter: a sink sent as JSON and back still collects all four rows. Got ' + ( err || n ));
+    },
+
+    async function testScatterEdges(x) {
+      var T    = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, time: 1.5, when: new Date(Date.UTC(2026, 0, 1)) }),
+        T.create({ id: 2, kind: '',     size: 20, time: 2.5 }),
+        T.create({ id: 3, kind: 'POST', size: 30, time: 3.5 })
+      ] }, x);
+      var agent = this.DashboardScatterChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = T.SIZE;
+      s.yProp      = T.TIME;
+      s.seriesProp = T.KIND;
+      s.onClickScript = '(function(px, py, series, cx, cy, pageX, pageY) { globalThis.scatterClick_ = [ px, py, series, cx, cy, pageX, pageY ].join(); })';
+
+      var sink  = await rows.select(agent.createSink());
+      var chart = sink.chart_;
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === 'GET,POST', 'Scatter: a row with an empty Series value is left out, not drawn as "undefined". Got ' + labels);
+      x.test(chart.xAxisLabel === T.SIZE.label && chart.yAxisLabel === T.TIME.label,
+        'Scatter: with no axis titles typed, each axis takes its field\'s label. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onPointClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.scatterClick_ === '30,3.5,POST,30,30,130,280',
+        'Scatter: On Click Script gets x, y, series, the point in the chart and on the page. Got ' + globalThis.scatterClick_);
+      delete globalThis.scatterClick_;
+
+      // A date field is not a number: no point is drawn, and the sink shows
+      // its empty message instead of empty axes.
+      s.xProp = T.WHEN;
+      s.clearProperty('seriesProp');
+      sink = await rows.select(agent.createSink());
+      x.test(sink.series_.length === 0, 'Scatter: a date field makes no points. Got ' + sink.series_.length + ' series');
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Scatter: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
     }
   ]
 });

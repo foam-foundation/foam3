@@ -21,6 +21,8 @@ foam.CLASS({
     one is written, so no two overlap.
   `,
 
+  requires: [ 'foam.u2.chart.SVGPath' ],
+
   constants: [
     {
       name: 'MAX_LABEL_PX',
@@ -127,7 +129,7 @@ foam.CLASS({
       var gap = this.LABEL_GAP_PX, edge = this.EDGE_PX;
 
       var yMax  = widest(yLabels, Math.min(this.MAX_LABEL_PX, w * this.MAX_Y_LABEL_SHARE));
-      var left  = Math.ceil(yMax) + gap + ( this.yAxisLabel ? fp + gap : 0 ) + edge;
+      var left  = Math.ceil(yMax) + gap + ( this.yTitle_() ? fp + gap : 0 ) + edge;
       var top   = Math.ceil(fp / 2) + edge;
       var width = Math.max(this.MIN_PLOT_PX, w - left - this.RIGHT_PAD_PX);
 
@@ -208,11 +210,11 @@ foam.CLASS({
             { x: t.pos, y: ty, 'text-anchor': 'end', 'dominant-baseline': 'middle', transform: self.rotate_(-45, t.pos, ty) } :
             { x: t.pos, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'hanging' });
         })
-        .callIf(this.yAxisLabel, function() {
+        .callIf(this.yTitle_(), function() {
           var cx = fp * self.Y_TITLE_X, cy = a.top + a.height / 2;
           this.start('text').addClass(self.myClass('axis-title'))
             .attrs({ x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle', transform: self.rotate_(-90, cx, cy) })
-            .add(self.yAxisLabel)
+            .add(self.yTitle_())
           .end();
         })
         .callIf(this.xAxisLabel, function() {
@@ -222,6 +224,49 @@ foam.CLASS({
           .end();
         })
       .end();
+    },
+
+    function yTitle_() {
+      // The title written beside the y axis. A chart whose left axis can go
+      // away (the combo chart with its bars hidden) overrides this to return ''.
+      return this.yAxisLabel;
+    },
+
+    function path_(px, ds, a) {
+      // The line through the pixel points px as an SVGPath, shaped by ds (a
+      // LineDataset): straight, stepped, or curved when its tension is set.
+      var path = this.SVGPath.create().moveTo(px[0].x, px[0].y);
+      if ( px.length === 1 ) return path;
+      if ( ds.stepped ) {
+        // Step before: the line rises at each point, then runs flat to the next.
+        px.slice(1).forEach(function(p) { path.verticalTo(p.y).horizontalTo(p.x); });
+        return path;
+      }
+      var t = ds.tension;
+      if ( ! t ) {
+        px.slice(1).forEach(function(p) { path.lineTo(p.x, p.y); });
+        return path;
+      }
+
+      // A smooth curve through every point: each point's two control points
+      // lie on the line through its neighbours, scaled by tension and by how
+      // far each neighbour is, then kept inside the plot so a curve never
+      // swings below the axis between two zero values.
+      var clamp = function(y) { return Math.max(a.top, Math.min(a.top + a.height, y)); };
+      var cps = px.map(function(p, i) {
+        var prev = px[i - 1] || p, next = px[i + 1] || p;
+        var d01 = Math.hypot(p.x - prev.x, p.y - prev.y), d12 = Math.hypot(next.x - p.x, next.y - p.y);
+        var sum = d01 + d12 || 1;
+        var fa  = t * d01 / sum, fb = t * d12 / sum;
+        return {
+          inX:  p.x - fa * ( next.x - prev.x ), inY:  clamp(p.y - fa * ( next.y - prev.y )),
+          outX: p.x + fb * ( next.x - prev.x ), outY: clamp(p.y + fb * ( next.y - prev.y ))
+        };
+      });
+      for ( var i = 1 ; i < px.length ; i++ ) {
+        path.curveTo(cps[i - 1].outX, cps[i - 1].outY, cps[i].inX, cps[i].inY, px[i].x, px[i].y);
+      }
+      return path;
     },
 
     function rotate_(degrees, x, y) {

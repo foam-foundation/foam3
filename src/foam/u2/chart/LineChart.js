@@ -33,7 +33,6 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.LineDataset',
     'foam.u2.chart.LinearScale',
-    'foam.u2.chart.SVGPath',
     'foam.u2.chart.TimeScale',
     'foam.u2.chart.TimeUnit',
     'foam.u2.chart.XAxisType'
@@ -251,42 +250,6 @@ foam.CLASS({
     function fillColor_(ds, color) {
       var bg = ds.backgroundColor;
       return bg && bg !== 'transparent' ? bg : color;
-    },
-
-    function path_(px, ds, a) {
-      // The line through the pixel points px, as an SVGPath.
-      var path = this.SVGPath.create().moveTo(px[0].x, px[0].y);
-      if ( px.length === 1 ) return path;
-      if ( ds.stepped ) {
-        // Step before: the line rises at each point, then runs flat to the next.
-        px.slice(1).forEach(function(p) { path.verticalTo(p.y).horizontalTo(p.x); });
-        return path;
-      }
-      var t = ds.tension;
-      if ( ! t ) {
-        px.slice(1).forEach(function(p) { path.lineTo(p.x, p.y); });
-        return path;
-      }
-
-      // A smooth curve through every point: each point's two control points
-      // lie on the line through its neighbours, scaled by tension and by how
-      // far each neighbour is, then kept inside the plot so a curve never
-      // swings below the axis between two zero values.
-      var clamp = function(y) { return Math.max(a.top, Math.min(a.top + a.height, y)); };
-      var cps = px.map(function(p, i) {
-        var prev = px[i - 1] || p, next = px[i + 1] || p;
-        var d01 = Math.hypot(p.x - prev.x, p.y - prev.y), d12 = Math.hypot(next.x - p.x, next.y - p.y);
-        var sum = d01 + d12 || 1;
-        var fa  = t * d01 / sum, fb = t * d12 / sum;
-        return {
-          inX:  p.x - fa * ( next.x - prev.x ), inY:  clamp(p.y - fa * ( next.y - prev.y )),
-          outX: p.x + fb * ( next.x - prev.x ), outY: clamp(p.y + fb * ( next.y - prev.y ))
-        };
-      });
-      for ( var i = 1 ; i < px.length ; i++ ) {
-        path.curveTo(cps[i - 1].outX, cps[i - 1].outY, cps[i].inX, cps[i].inY, px[i].x, px[i].y);
-      }
-      return path;
     },
 
     function drawHover_(svg, a, sets, xScale, yScale, xLabel) {

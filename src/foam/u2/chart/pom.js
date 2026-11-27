@@ -29,6 +29,7 @@ foam.POM({
     { name: 'BarChart',                         flags: 'web' },
     { name: 'XAxisType',                        flags: 'web' },
     { name: 'LineChart',                        flags: 'web' },
+    { name: 'ComboChart',                       flags: 'web' },
     { name: 'PieChart',                         flags: 'web' },
     { name: 'ScatterChart',                     flags: 'web' },
     { name: 'CandlestickChart',                 flags: 'web' },

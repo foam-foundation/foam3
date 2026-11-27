@@ -1419,3 +1419,42 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardComboChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardComboSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardComboSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      factory: function() { return this.DashboardComboSink.create({}, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotals_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});

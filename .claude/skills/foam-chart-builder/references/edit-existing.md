@@ -10,7 +10,7 @@
    - Add a property with a `label`. Add `help` when the name does not say enough.
    - Add its name to one of the `sections` (`DashboardSinks.js:263-272` on the pie).
    - Add it as a parameter of the `chart_` expression and pass it to `create` (`DashboardSinks.js:343-398`).
-   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-277`).
+   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-289`).
 3. **A test.** Add a case to `ChartViewTest`, plus `DashboardChartRenderTest` when the form field was added (`references/testing.md`).
 
 ## Rename, move or drop an option
@@ -18,7 +18,7 @@
 A saved flow holds the agent class, and the props it had when it was saved. Old flows must keep loading.
 
 - **Never rename** a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. A flow saved with the old name fails to load.
-- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:519-570`):
+- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:531-582`):
   ```js
   { name: 'cutoutPercentage', hidden: true, transient: true,
     setter: function(v) { this.displaySink.cutoutPercentage = v; } }
@@ -46,6 +46,6 @@ A saved flow holds the agent class, and the props it had when it was saved. Old 
 This belongs to the sink, not the view.
 - The sink groups rows: `TopNGroupBy` for a bar or pie, `GridBy` for a stacked bar or multi-line.
 - `chart_` turns the groups into `labels` and `datasets`.
-- The sink totals with `buildTotal_()`, using the form's Sum or Count (`DashboardDAOAgents.js:239-248`).
+- The sink totals with `buildTotal_()`, using the form's Sum or Count (`DashboardDAOAgents.js:251-260`).
 
 A wrong total is fixed in the sink. A wrong picture of a right total is fixed in the view.

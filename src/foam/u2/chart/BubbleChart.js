@@ -23,7 +23,7 @@ foam.CLASS({
 
     It extends ScatterChart and keeps its axes, legend, hover target, click
     and animation: BubbleChart only says what a point holds (pointOf_), how
-    big a mark is (radiusFn_), how it looks (markAttrs_) and what the tooltip
+    big a mark is (radiusFn_), how solid it is (fillOpacity) and what the tooltip
     lists (pointRows_). Larger bubbles are drawn first in each dataset, so a
     small one is never hidden under a large one.
 
@@ -42,11 +42,6 @@ foam.CLASS({
       name: 'MAX_RADIUS_PX',
       documentation: 'Radius of the bubble with the largest r, in pixels: big enough to show how much larger it is, small enough that ten of them fit a 300-pixel plot.',
       value: 30
-    },
-    {
-      name: 'FILL_OPACITY',
-      documentation: 'How solid a bubble is, from 0 to 1: at 0.6 two bubbles that overlap are both still visible.',
-      value: 0.6
     }
   ],
 
@@ -55,6 +50,11 @@ foam.CLASS({
   ],
 
   properties: [
+    {
+      name: 'fillOpacity',
+      value: 0.6,
+      documentation: 'Bubbles are see-through, so two that overlap are both still visible.'
+    },
     {
       class: 'String',
       name: 'sizeLabel',
@@ -93,10 +93,6 @@ foam.CLASS({
       // Room for the largest bubble, so one at the lowest x or y does not
       // cover the tick labels or spill into the legend.
       return this.MAX_RADIUS_PX;
-    },
-
-    function markAttrs_() {
-      return { 'fill-opacity': this.FILL_OPACITY };
     },
 
     function pointRows_(p, color) {

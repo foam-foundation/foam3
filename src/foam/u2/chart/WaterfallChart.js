@@ -69,8 +69,7 @@ foam.CLASS({
     { name: 'FALL',          message: 'Fall' },
     { name: 'TOTAL',         message: 'Total' },
     { name: 'CHANGE',        message: 'Change' },
-    { name: 'RUNNING_TOTAL', message: 'Running total' },
-    { name: 'NO_DATA',       message: 'No data available' }
+    { name: 'RUNNING_TOTAL', message: 'Running total' }
   ],
 
   properties: [
@@ -131,19 +130,13 @@ foam.CLASS({
       if ( ! this.labels.length ) return [];
       return this.WaterfallStepKind.VALUES
         .filter(function(k) { return k !== self.WaterfallStepKind.TOTAL || self.showTotal; })
-        .map(function(k) { return { label: k.title(self), color: self.kindColor_(k), hidden: false }; });
+        .map(function(k) { return { label: self[k.name], color: self.kindColor_(k), hidden: false }; });
     },
 
     function drawChart(svg, w, h) {
       var self  = this;
       var steps = this.steps_();
-      if ( ! steps.length ) {
-        svg.start('text').addClass(this.myClass('text'))
-          .attrs({ x: w / 2, y: h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'middle' })
-          .add(this.NO_DATA)
-        .end();
-        return;
-      }
+      if ( ! steps.length ) return;
 
       // Zero, and the level at both ends of every step, must fit on the axis.
       var lo = 0, hi = 0;

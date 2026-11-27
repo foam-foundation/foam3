@@ -1908,19 +1908,6 @@ foam.CLASS({
     row with no value there is left out too.
   `,
 
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
-  `,
-
   requires: [
     'foam.u2.chart.ScatterChart'
   ],
@@ -1943,8 +1930,7 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DEFAULT_SERIES', message: 'Points' },
-    { name: 'NO_DATA',        message: 'No data available' }
+    { name: 'DEFAULT_SERIES', message: 'Points' }
   ],
 
   properties: [
@@ -2038,12 +2024,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "month of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
-
     function pointOf_(obj) {
       // The point a row draws as { x, y }, or null when the row has none.
       // Only number values count: a date would plot as milliseconds since
@@ -2079,17 +2059,8 @@ foam.CLASS({
     },
 
     function addToE(e) {
-      var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.series_.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.series_.length, this.emptyValueMessage);
     }
   ]
 });
@@ -2189,22 +2160,8 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DEFAULT_SERIES', message: 'Values' },
-    { name: 'NO_DATA',        message: 'No data available' }
+    { name: 'DEFAULT_SERIES', message: 'Values' }
   ],
-
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
-  `,
 
   properties: [
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One spoke per value of this property', required: true },
@@ -2247,11 +2204,8 @@ foam.CLASS({
       expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips, showTooltipSum,
                           animate, animationDuration, onClickScript) {
         var self      = this;
-        var colGroups = cols && cols.groups ? cols.groups : {};
         var rowGroups = rows && rows.groups ? rows.groups : {};
-        var keys = function(g) {
-          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(g && g.groups || {}) ).filter(function(k) { return ! self.isEmptyKey_(k); });
-        };
+        var keys = function(g) { return self.groupKeys_(g); };
 
         // cols.groups holds the spokes and rows.groups the polygons; the
         // value of a polygon on a spoke is rows.groups[series].groups[spoke].
@@ -2307,22 +2261,13 @@ foam.CLASS({
 
   methods: [
     function addToE(e) {
-      var self = this;
       e.style({
-          width: '100%',
-          display: 'flex',
-          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
-          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
-        })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.chart_.labels.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+        width: '100%',
+        display: 'flex',
+        justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+        textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+      });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
     }
   ]
 });
@@ -2343,19 +2288,6 @@ foam.CLASS({
     by the Aggregation of the rows that fall in it: a Count, or a Sum or
     Average of a numeric field. A pair with no rows is an empty cell, not a
     zero. The first colour in Colors is the strong end of the colour scale.
-  `,
-
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
   `,
 
   requires: [
@@ -2383,10 +2315,6 @@ foam.CLASS({
 
   constants: [
     { name: 'TOTAL_SLOT', value: 'acc' }
-  ],
-
-  messages: [
-    { name: 'NO_DATA', message: 'No data available' }
   ],
 
   properties: [
@@ -2428,16 +2356,10 @@ foam.CLASS({
       transient: true,
       expression: function(cols, rows, colors, xAxisLabel, yAxisLabel, showValues, showLegend,
                           legendPosition, showTooltips, animate, animationDuration, onClickScript) {
-        var colGroups = cols && cols.groups ? cols.groups : {};
         var rowGroups = rows && rows.groups ? rows.groups : {};
         var self      = this;
-        // A row with no X or Y value is grouped under "null", "undefined" or
-        // "": it has no column or row to be drawn in.
-        var keysOf    = function(g, groups) {
-          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(groups) ).filter(function(k) { return ! self.isEmptyKey_(k); });
-        };
-        var colKeys   = keysOf(cols, colGroups);
-        var rowKeys   = keysOf(rows, rowGroups);
+        var colKeys   = this.groupKeys_(cols);
+        var rowKeys   = this.groupKeys_(rows);
 
         // A date field labels its cells as the bar charts do ("2024-03-01");
         // anything else, a date expression such as the hour included, is
@@ -2499,24 +2421,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "hour of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
-
     function addToE(e) {
-      var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.chart_.labels.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
     }
   ]
 });
@@ -2537,19 +2444,6 @@ foam.CLASS({
     out. Giving a Series property draws one set of bars and one legend entry
     per value of it, e.g. one per request method, over the same bins; a row with
     no value there is left out too.
-  `,
-
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
   `,
 
   requires: [
@@ -2575,8 +2469,7 @@ foam.CLASS({
 
   messages: [
     { name: 'DEFAULT_SERIES', message: 'Values' },
-    { name: 'COUNT',          message: 'Count' },
-    { name: 'NO_DATA',        message: 'No data available' }
+    { name: 'COUNT',          message: 'Count' }
   ],
 
   properties: [
@@ -2678,18 +2571,12 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "month of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
-
     function put(obj) {
       // Only number values count: a date would be binned as milliseconds
       // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the chart.
       var v = this.valueProp.f(obj);
       if ( typeof v !== 'number' ) return;
-      var key = this.DEFAULT_SERIES;
+      var key = this.labelOf_(this.valueProp) || this.DEFAULT_SERIES;
       if ( ! this.hasDefaultValue('seriesProp') ) {
         // A row with no series value is left out, as the calendar chart does,
         // rather than drawn as a series called "undefined".
@@ -2703,17 +2590,8 @@ foam.CLASS({
     },
 
     function addToE(e) {
-      var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.series_.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.series_.length, this.emptyValueMessage);
     }
   ]
 });
@@ -2740,19 +2618,6 @@ foam.CLASS({
     The first three colours in Colors are the rise, fall and total bars.
   `,
 
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
-  `,
-
   requires: [
     'foam.u2.chart.WaterfallChart'
   ],
@@ -2774,10 +2639,6 @@ foam.CLASS({
     // shown, holds them instead.
     { name: 'unused', isAvailable: function() { return false; },
       properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
-  ],
-
-  messages: [
-    { name: 'NO_DATA', message: 'No data available' }
   ],
 
   properties: [
@@ -2826,10 +2687,7 @@ foam.CLASS({
                           showGridLines, showLegend, legendPosition, showTooltips,
                           animate, animationDuration, onClickScript) {
         var self = this;
-        // A row with no value in the grouping field is grouped under "null",
-        // "undefined" or "": it has no step to be drawn in.
-        var keys = ( this.sortedKeys ? this.sortedKeys() : Object.keys(groups) )
-          .filter(function(k) { return ! self.isEmptyKey_(k); });
+        var keys = this.groupKeys_(this);
 
         var labels = keys.map(function(k) {
           return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
@@ -2888,24 +2746,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "hour of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
-
     function addToE(e) {
-      var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.chart_.labels.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
     }
   ]
 });
@@ -2930,19 +2773,6 @@ foam.CLASS({
     property is set) or a value that is not a number is left out.
   `,
 
-  css: `
-    <<empty {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 14px;
-      color: $textTertiary;
-      background-color: $grey200;
-    }
-  `,
-
   requires: [
     'foam.u2.chart.BoxPlotChart'
   ],
@@ -2965,8 +2795,7 @@ foam.CLASS({
   ],
 
   messages: [
-    { name: 'DEFAULT_SERIES', message: 'Values' },
-    { name: 'NO_DATA',        message: 'No data available' }
+    { name: 'DEFAULT_SERIES', message: 'Values' }
   ],
 
   properties: [
@@ -3012,9 +2841,7 @@ foam.CLASS({
                           legendPosition, showTooltips, animate, animationDuration, onClickScript) {
         var self      = this;
         var rowGroups = rows && rows.groups ? rows.groups : {};
-        var keys = function(g) {
-          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(g && g.groups || {}) ).filter(function(k) { return ! self.isEmptyKey_(k); });
-        };
+        var keys = function(g) { return self.groupKeys_(g); };
 
         // cols.groups holds the categories and rows.groups the series; the
         // numbers of one box are rows.groups[series].groups[category].data,
@@ -3080,24 +2907,9 @@ foam.CLASS({
   ],
 
   methods: [
-    function labelOf_(p) {
-      // A chart field holds a property, or an expression over one such as
-      // "hour of created"; either way the axis takes the property's label.
-      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
-    },
-
     function addToE(e) {
-      var self = this;
-      e.style({ width: '100%' })
-        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(this.chart_.labels.length,
-            function() { this.add(self.chart_); },
-            function() {
-              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
-                .add(self.emptyValueMessage || self.NO_DATA)
-              .end();
-            })
-        .end();
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
     }
   ]
 });

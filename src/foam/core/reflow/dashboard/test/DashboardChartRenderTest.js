@@ -347,8 +347,8 @@ foam.CLASS({
       empty.add(none);
       empty.write();
       var text = empty.element_.innerText || empty.element_.textContent;
-      x.test(text.indexOf(none.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
-        'Radar: with no rows the chart says "' + none.NO_DATA + '" and draws no spokes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(none.ChartView.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
+        'Radar: with no rows the chart says "' + none.ChartView.NO_DATA + '" and draws no spokes. Got ' + JSON.stringify(text));
       empty.remove();
 
       s.emptyValueMessage = 'Nothing yet';
@@ -398,11 +398,16 @@ foam.CLASS({
       var chart = ( await this.boxRows(x).select(agent.createSink()) ).chart_;
       x.test(this.BoxPlotChart.isInstance(chart), 'BoxPlot: draws a foam.u2.chart.BoxPlotChart. Got ' + ( chart && chart.cls_.id ));
       x.test(chart.labels.join() === 'GET,POST', 'BoxPlot: one category per kind, the row with no kind left out. Got ' + chart.labels.join());
-      x.test(chart.datasets.length === 1 && chart.datasets[0].label === 'Values',
-        'BoxPlot: with no Series Property all rows are one dataset. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      x.test(chart.datasets.length === 1 && chart.datasets[0].label === T.MS.label,
+        'BoxPlot: with no Series Property all rows are one dataset, named after the value property\'s label. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
       var get = chart.datasets[0].data[0].slice().sort(function(a, b) { return a - b; }).join();
       x.test(get === '7,10,12,14,16,100', 'BoxPlot: GET collects the six numbers of its rows. Got ' + get);
       x.test(chart.datasets[0].data[1].length === 2, 'BoxPlot: POST collects its two numbers');
+      // A cached select is keyed by the sink's text, so two Plots over different values must not print alike.
+      var plotA = foam.mlang.sink.Plot.create({ args: [ T.MS ] }).toString();
+      var plotB = foam.mlang.sink.Plot.create({ args: [ T.ID ] }).toString();
+      x.test(plotA !== plotB && plotA.indexOf('ms') !== -1,
+        'Plot: two Plots over different properties give different text. Got ' + plotA + ' and ' + plotB);
       x.test(chart.datasets[0].backgroundColor === '#ff0000' && chart.xAxisLabel === 'Endpoint', 'BoxPlot: Colors and X-Axis Label reach the chart');
       x.test(chart.yAxisLabel === T.MS.label, 'BoxPlot: with no Y-Axis Label the value axis takes its field\'s label. Got ' + chart.yAxisLabel);
 
@@ -438,7 +443,7 @@ foam.CLASS({
       var chart = ( await this.boxRows(x).select(agent.createSink()) ).chart_;
       var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
       chart.onBoxClick(0, 1, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
-      x.test(globalThis.boxClick_ === '21,POST,Values,30,30,130,280',
+      x.test(globalThis.boxClick_ === '21,POST,' + T.MS.label + ',30,30,130,280',
         'BoxPlot: On Click Script gets the median, category, series, the point in the chart and on the page. Got ' + globalThis.boxClick_);
       delete globalThis.boxClick_;
       s.clearProperty('onClickScript');
@@ -450,8 +455,8 @@ foam.CLASS({
       empty.add(none);
       empty.write();
       var text = empty.element_.innerText || empty.element_.textContent;
-      x.test(text.indexOf(none.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
-        'BoxPlot: with no rows the chart says "' + none.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(none.ChartView.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
+        'BoxPlot: with no rows the chart says "' + none.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       empty.remove();
 
       s.emptyValueMessage = 'Nothing yet';
@@ -550,8 +555,8 @@ foam.CLASS({
       el.add(sink);
       el.write();
       var text = el.element_.innerText || el.element_.textContent;
-      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
-        'Scatter: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Scatter: with no points the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     },
 
@@ -625,8 +630,8 @@ foam.CLASS({
       el.add(sink);
       el.write();
       var text = el.element_.innerText || el.element_.textContent;
-      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
-        'Bubble: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Bubble: with no points the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     },
 
@@ -660,6 +665,8 @@ foam.CLASS({
       s.clearProperty('seriesProp');
       chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Histogram: with no Series Property all four rows are one dataset');
+      x.test(chart.datasets[0].label === R.AMOUNT.label,
+        'Histogram: the one legend entry is named after the value property\'s label. Got ' + chart.datasets[0].label);
 
       // A select can send the sink to the server as JSON and back. The copy
       // must still collect values: a JS Map would come back as {}.
@@ -696,8 +703,8 @@ foam.CLASS({
       el.add(sink);
       el.write();
       var text = el.element_.innerText || el.element_.textContent;
-      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
-        'Histogram: with no values the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Histogram: with no values the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     },
 
@@ -812,8 +819,8 @@ foam.CLASS({
       el.add(sink);
       el.write();
       var text = el.element_.innerText || el.element_.textContent;
-      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
-        'Heatmap: with no rows the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Heatmap: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     },
 
@@ -915,8 +922,8 @@ foam.CLASS({
       el.add(sink);
       el.write();
       var text = el.element_.innerText || el.element_.textContent;
-      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
-        'Waterfall: with no rows the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Waterfall: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     }
   ]

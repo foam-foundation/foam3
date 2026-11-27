@@ -886,11 +886,11 @@ foam.CLASS({
         'Waterfall: 0 and a non-number draw no bar, and the total is still drawn. Got ' + this.all(el, chart, 'bar').length);
       this.unmount(chart);
 
-      // No data: a message, no axes.
+      // No data: nothing is drawn (the dashboard sink shows the message).
       chart = this.WaterfallChart.create({ labels: [], datasets: [] }, x);
       el    = await this.mount(chart);
-      x.test(el.textContent.indexOf(chart.NO_DATA) !== -1 && this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'axis').length === 0,
-        'Waterfall: with no data the chart says "' + chart.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(el.textContent));
+      x.test(this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'axis').length === 0,
+        'Waterfall: with no data the chart draws no bars and no axes. Got ' + JSON.stringify(el.textContent));
       this.unmount(chart);
     },
 
@@ -929,6 +929,9 @@ foam.CLASS({
       x.test(st.min === 1 && st.q1 === 3.5 && st.median === 6 && st.q3 === 8.5 && st.max === 10 && st.outliers.join() === '30',
         'BoxPlot: quartiles of 1..10 and 30 are 3.5, 6, 8.5, whiskers 1 to 10, outlier 30. Got ' + JSON.stringify(st));
       x.test(chart.stats_([ 1, 2, 3, 4 ]).q1 === 1.75, 'BoxPlot: the first quartile of 1, 2, 3, 4 is 1.75 by linear interpolation');
+      var skew = chart.stats_([ 0, 0, 0, 100 ]);
+      x.test(skew.q3 === 25 && skew.max === 25 && skew.min === 0 && skew.outliers.join() === '100',
+        'BoxPlot: with 0, 0, 0, 100 the upper whisker ends at Q3 (25), not below it; 100 is an outlier. Got ' + JSON.stringify(skew));
 
       var el    = await this.mount(chart);
       var boxes = this.all(el, chart, 'box');

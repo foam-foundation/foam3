@@ -68,6 +68,12 @@ foam.CLASS({
       // the pointer cursor on a chart nobody can click.
       value: null,
       documentation: 'Called with (datasetIndex, index, event) when a dot is clicked.'
+    },
+    {
+      class: 'Float',
+      name: 'fillOpacity',
+      value: 1,
+      documentation: 'How solid a dot is, from 0 to 1: at 0.6 two dots that overlap are both still visible.'
     }
   ],
 
@@ -153,24 +159,18 @@ foam.CLASS({
       return function() { return r; };
     },
 
-    function markAttrs_() {
-      // Attributes added to every dot, for a subclass to style its marks.
-      return {};
-    },
-
     function drawMarks_(svg, sets, xScale, yScale) {
       var self   = this;
       var radius = this.radiusFn_(sets);
-      var extra  = this.markAttrs_();
       svg.start('g').addClass(this.myClass('dots'))
         .forEach(sets, function(s) {
           var color = self.seriesColor(s.i);
           this.forEach(s.pts, function(p) {
             this.start('circle').addClass(self.myClass('dot'))
-              .attrs(Object.assign({
+              .attrs({
                 cx: xScale.map(p.x), cy: yScale.map(p.y), r: radius(p),
-                fill: color, 'stroke-width': 2 * self.HIT_SLACK_PX
-              }, extra))
+                fill: color, 'fill-opacity': self.fillOpacity, 'stroke-width': 2 * self.HIT_SLACK_PX
+              })
               .on('mousemove', function(evt) { self.showPointTooltip_(evt, s, p, color); })
               .on('mouseleave', self.hideTooltip)
               .on('click', function(evt) { if ( self.onPointClick ) self.onPointClick(s.i, p.j, evt); })

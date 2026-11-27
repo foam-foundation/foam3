@@ -20,17 +20,12 @@ foam.ENUM({
       class: 'String',
       name: 'color',
       documentation: 'Theme token for the bar when the dataset sets no colour of its own.'
-    },
-    {
-      class: 'Function',
-      name: 'title',
-      documentation: 'title(chart): the translated name shown in the legend and the tooltip.'
     }
   ],
 
   values: [
-    { name: 'RISE',  label: 'Rise',  color: '$green400',   title: function(c) { return c.RISE; } },
-    { name: 'FALL',  label: 'Fall',  color: '$red400',     title: function(c) { return c.FALL; } },
-    { name: 'TOTAL', label: 'Total', color: '$primary400', title: function(c) { return c.TOTAL; } }
+    { name: 'RISE',  label: 'Rise',  color: '$green400' },
+    { name: 'FALL',  label: 'Fall',  color: '$red400' },
+    { name: 'TOTAL', label: 'Total', color: '$primary400' }
   ]
 });

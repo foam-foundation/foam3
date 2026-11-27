@@ -113,7 +113,8 @@ foam.CLASS({
   `,
 
   messages: [
-    { name: 'SUM', message: 'Sum' }
+    { name: 'SUM', message: 'Sum' },
+    { name: 'NO_DATA', message: 'No data available' }
   ],
 
   properties: [

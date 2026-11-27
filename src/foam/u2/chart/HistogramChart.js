@@ -145,20 +145,20 @@ foam.CLASS({
       var b      = this.bins();
       var xScale = b.scale;
       var xLabel = b.edges.map(function(e) { return xScale.format(e); });
-      var lay    = function(yScale) {
-        return self.layout(w, h, xLabel, yScale.ticks().map(function(t) { return yScale.format(t); }));
-      };
 
       // The tick count follows the plot height, and the plot height follows
-      // the label widths: lay out once with a guess, size the axis, lay out again.
-      var first  = lay(this.countScale_(b.max, this.FIRST_LAYOUT_TICKS));
-      var yScale = this.countScale_(b.max, this.valueTickCount(first.height, this.VALUE_TICK_PX));
-      var a      = lay(yScale);
+      // the label widths: layoutForValues lays out with a guess, sizes the
+      // axis, then lays out again.
+      var fit    = this.layoutForValues(w, h, xLabel, false,
+        function(n) { return self.countScale_(b.max, n); },
+        function(scale) { return scale.ticks(); });
+      var a      = fit.area;
+      var yScale = fit.scale;
       xScale.start = a.left;               xScale.end = a.left + a.width;
       yScale.start = a.top + a.height;     yScale.end = a.top;
 
       this.drawAxes(svg, a,
-        b.edges.map(function(e) { return { pos: xScale.map(e), label: xScale.format(e) }; }),
+        b.edges.map(function(e, j) { return { pos: xScale.map(e), label: xLabel[j] }; }),
         yScale.ticks().map(function(t) { return { pos: yScale.map(t), label: yScale.format(t) }; }));
 
       var sets = this.datasets

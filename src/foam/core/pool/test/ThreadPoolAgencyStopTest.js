@@ -38,6 +38,42 @@ foam.CLASS({
       javaCode: `
         stopWaitsForCleanup(x);
         stopGivesUpAtTimeout(x);
+        stopWaitsForRetiredPool(x);
+      `
+    },
+    {
+      // reload() interrupts the running task and moves on to a new pool, so
+      // the task is cleaning up on a retired pool when stop() is called.
+      name: 'stopWaitsForRetiredPool',
+      args: 'Context x',
+      javaCode: `
+        ThreadPoolAgency agency = startAgency(x);
+        CountDownLatch started   = new CountDownLatch(1);
+        CountDownLatch cleaning  = new CountDownLatch(1);
+        AtomicBoolean  cleanedUp = new AtomicBoolean();
+
+        agency.submit(x, (_x) -> {
+          started.countDown();
+          try {
+            Thread.sleep(60000);
+          } catch (InterruptedException e) {
+            cleaning.countDown();
+            try {
+              Thread.sleep(300);
+            } catch (InterruptedException e2) {
+              return;
+            }
+            cleanedUp.set(true);
+          }
+        }, "retired");
+        test(awaitStart(started), "task is running");
+
+        agency.reload();
+        test(awaitStart(cleaning), "task was interrupted by reload and is cleaning up");
+        test(! cleanedUp.get(), "cleanup is still running when stop is called");
+
+        agency.stop();
+        test(cleanedUp.get(), "stop waited for the cleanup on the retired pool");
       `
     },
     {

@@ -43,6 +43,10 @@ foam.CLASS({
     protected Object             executedLock_  = new Object();
     protected ThreadGroup        threadGroup_   = null;
 
+    // Pools replaced by reload() whose interrupted tasks may still be
+    // finishing their cleanup. stop() waits on these as well as pool_.
+    protected java.util.Set<ExecutorService> retiredPools_ = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     protected class ContextAgentRunnable
       implements Runnable {
 
@@ -139,9 +143,16 @@ foam.CLASS({
         // as soon as shutdown ends, and shutdownNow() only interrupts them.
         // A task that must undo partial work when interrupted, such as a cron
         // rolling back what it half wrote, needs time to finish that.
+        // One deadline covers the current pool and every retired one.
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(getShutdownTimeout());
+        java.util.List<ExecutorService> pools = new java.util.ArrayList<>(retiredPools_);
+        pools.add(getPool());
         try {
-          if ( ! getPool().awaitTermination(getShutdownTimeout(), TimeUnit.MILLISECONDS) ) {
-            Loggers.logger(getX(), this).warning(getPrefix(), "tasks still running after shutdownTimeout", getShutdownTimeout());
+          for ( ExecutorService pool : pools ) {
+            if ( ! pool.awaitTermination(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS) ) {
+              Loggers.logger(getX(), this).warning(getPrefix(), "tasks still running after shutdownTimeout", getShutdownTimeout());
+              break;
+            }
           }
         } catch (InterruptedException e) {
           // Shutdown itself was interrupted: carry on without waiting.
@@ -172,6 +183,10 @@ foam.CLASS({
       name: 'reload',
       javaCode: `
       shutdownPool();
+      // The old pool's tasks were only interrupted: keep it so stop() can
+      // still wait for them. Drop retired pools that have finished.
+      retiredPools_.removeIf(ExecutorService::isTerminated);
+      retiredPools_.add(getPool());
       Loggers.logger(getX(), this).info(getPrefix(), "reload");
       initThreadPool();
       scheduleReporting();

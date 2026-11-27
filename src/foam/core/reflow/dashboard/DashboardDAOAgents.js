@@ -260,11 +260,19 @@ foam.CLASS({
     },
 
     function totalName_(sink) {
-      // The name a one-series chart gives its values in the legend and the
-      // tooltip: the totalled field's label, "Load Time" for a sum or average
-      // of loadTime, or "Count" for a count, which has no field.
-      var p = sink && sink.arg1;
-      return ( p && ( p.label || ( p.delegate && p.delegate.label ) ) ) || foam.u2.chart.ChartView.COUNT_LABEL;
+      // The name a chart gives a total in the legend and the tooltip: the
+      // totalled field's label, "Load Time" for a sum of loadTime, or "Count"
+      // for a count, which has no field. A max, min or average says which,
+      // "Max of Load Time", so two totals of one field do not both read "Load Time".
+      var V    = foam.u2.chart.ChartView;
+      var p    = sink && sink.arg1;
+      var name = ( p && ( p.label || ( p.delegate && p.delegate.label ) ) ) || V.COUNT_LABEL;
+      var kind = sink && sink.cls_ && {
+        'foam.mlang.sink.Max':     V.MAX_OF_LABEL,
+        'foam.mlang.sink.Min':     V.MIN_OF_LABEL,
+        'foam.mlang.sink.Average': V.AVERAGE_OF_LABEL
+      }[sink.cls_.id];
+      return kind ? kind + ' ' + name : name;
     },
 
     function addChartDisplayToE(e) {

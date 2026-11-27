@@ -39,7 +39,7 @@ Passing tests are not enough for a dashboard chart. A flow copies the sink and c
 
 ## A ChartViewTest case
 
-Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:35-70`):
+Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:37-72`):
 - `mount(view)` turns animation off, gives the chart a 600 by 300 box and waits for the `<svg>`;
 - `all(el, view, 'dot')` finds marks by their `myClass` name;
 - `num(el, 'cx')` reads a numeric attribute;

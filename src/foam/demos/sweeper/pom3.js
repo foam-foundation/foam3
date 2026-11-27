@@ -120,7 +120,6 @@ foam.POM({"name":"sweeper","version":3,"files":[
 {"name":"../../../foam/u2/FoamTagLoader","flags":"web"},
 // {"name":"../../../foam/lang/ContextAware","flags":"web"},
 //{"name":"../../../foam/lang/FObjectTest","flags":"web"},
-// {"name":"../../../org/chartjs/AbstractChartCView","flags":"web"},
 //{"name":"../../../foam/u2/layout/GridColumns","flags":"web"},
 //{"name":"../../../foam/layout/SectionAxiom","flags":"web"},
 // {"name":"../../../foam/lang/Unit","flags":"web"},

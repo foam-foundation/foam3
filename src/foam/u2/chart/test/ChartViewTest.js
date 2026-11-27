@@ -101,12 +101,14 @@ foam.CLASS({
       target.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: clientX, clientY: clientY }));
     },
 
-    function pointOn(el, view, name) {
+    function pointOn(el, view, name, index) {
       // A point the browser says is on a drawn mark called name, as a real
-      // pointer would land: { target, x, y }, or null when none is. A mark's
+      // pointer would land: { target, x, y }, or null when none is. A mark as
+      // thin as the gauge's band ring needs index: the scan then covers the
+      // index-th mark's own box, where the svg-wide grid steps over it. A mark's
       // box centre can be empty (a ring's is its hole), and a shape laid over
       // the mark would take the pointer, so ask the page what is there.
-      var r = el.querySelector('svg').getBoundingClientRect();
+      var r = ( index === undefined ? el.querySelector('svg') : this.all(el, view, name)[index] ).getBoundingClientRect();
       for ( var i = 0 ; i < 60 ; i++ ) for ( var j = 0 ; j < 60 ; j++ ) {
         var px = r.left + r.width * i / 60, py = r.top + r.height * j / 60;
         var t  = document.elementFromPoint(px, py);
@@ -1208,6 +1210,9 @@ foam.CLASS({
       var ends = [ 0, 1, 2 ].map(function(i) { return this.gaugeFraction(el, chart, 'band', i); }, this);
       x.test(Math.abs(ends[0] - 0.5) < 0.001 && Math.abs(ends[1] - 0.8) < 0.001 && Math.abs(ends[2] - 1) < 0.001,
         'Gauge: the segments end at 50, 80 and 100 of the way round. Got ' + ends.join());
+      var geo = this.gaugeGeometry(el, chart);
+      x.test(bands.every(function(b) { return b.getAttribute('d').indexOf('A' + (geo.r + chart.BAND_GAP_PX + chart.BAND_RING_PX) + ',') !== -1; }),
+        'Gauge: the bands form a ring just outside the track, ' + chart.BAND_GAP_PX + ' pixels off');
       x.test(this.all(el, chart, 'value-arc')[0].getAttribute('fill') === '#ffaa00', 'Gauge: 60 is in the amber band, so the arc is amber');
 
       var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
@@ -1221,6 +1226,35 @@ foam.CLASS({
       this.fire(on.target, 'mousemove', on.x, on.y);
       var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
       x.test(text.indexOf('Score: 60') !== -1 && text.indexOf(chart.BAND + ': 50 – 80') !== -1, 'Gauge: the tooltip gives the value and its band. Got ' + text);
+      // The ring is thin, so scan within one band's own box. The first band is
+      // the one on the left, which the narrow test page shows.
+      this.fire(on.target, 'mouseleave', 0, 0);
+      on = this.pointOn(el, chart, 'band', 0);
+      x.test(!! on, 'Gauge: a pointer over a band lands on the band');
+      if ( ! on ) return;
+      this.fire(on.target, 'mousemove', on.x, on.y);
+      text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf(chart.BAND + ': 0 – 50') !== -1, 'Gauge: hovering a band names it. Got ' + text);
+      this.unmount(chart);
+
+      // The ring shows every band whole, whatever the value: red is 0 to 5,000
+      // of 10,000 although 8,231 has passed it.
+      chart = this.GaugeChart.create({
+        max: 10000,
+        datasets: [ { data: [ 8231 ] } ],
+        bands: [ { upTo: 5000, color: '#ff0000' }, { upTo: 8000, color: '#ffaa00' }, { upTo: 10000, color: '#00ff00' } ]
+      }, x);
+      el = await this.mount(chart);
+      var starts = this.all(el, chart, 'band').map(function(b) {
+        var m = /^M([-\d.e]+),([-\d.e]+)/.exec(b.getAttribute('d'));
+        var g = this.gaugeGeometry(el, chart);
+        return 1 - Math.atan2(g.cy - Number(m[2]), Number(m[1]) - g.cx) / Math.PI;
+      }, this);
+      var stops = [ 0, 1, 2 ].map(function(i) { return this.gaugeFraction(el, chart, 'band', i); }, this);
+      x.test(Math.abs(starts[0]) < 0.001 && Math.abs(stops[0] - 0.5) < 0.001 && Math.abs(stops[1] - 0.8) < 0.001 && Math.abs(stops[2] - 1) < 0.001,
+        'Gauge: every band is drawn at its full angle, red 0 to 5,000 of 10,000, with the value at 8,231. Got ' + starts.join() + ' / ' + stops.join());
+      x.test(Math.abs(this.gaugeFraction(el, chart, 'value-arc') - 0.8231) < 0.001 && this.all(el, chart, 'value-arc')[0].getAttribute('fill') === '#00ff00',
+        'Gauge: the value arc stops at 8,231 in its band colour');
       this.unmount(chart);
 
       // Past the last band's end the value stays in the last band.

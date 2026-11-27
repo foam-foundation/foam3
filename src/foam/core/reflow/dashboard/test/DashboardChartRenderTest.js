@@ -59,6 +59,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardFunnelChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHistogramChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
@@ -79,6 +80,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
+    'foam.u2.chart.FunnelChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
@@ -108,6 +110,8 @@ foam.CLASS({
       await this.testHistogramEdges(x);
       await this.testWaterfall(x);
       await this.testWaterfallEdges(x);
+      await this.testFunnel(x);
+      await this.testFunnelEdges(x);
       await this.testBoxPlot(x);
       await this.testBoxPlotEdges(x);
       await this.testTreemap(x);
@@ -125,7 +129,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -388,6 +392,88 @@ foam.CLASS({
         // No day: it belongs to no series when a Series Property is picked.
         T.create({ id: 9,  kind: 'GET',  day: '',    ms: 7 })
       ] }, x);
+    },
+
+    async function testFunnel(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardFunnelChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#00aa00', '#aa0000', '#0000aa' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the step's value, its label and the x of the click.
+      s.onClickScript = '(function(v, label, cx, cy, px, py) { globalThis.funnelClick_ = [ v, label, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.FunnelChart.isInstance(chart), 'Funnel: draws a foam.u2.chart.FunnelChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && chart.datasets[0].data.join() === '30,70',
+        'Funnel: sums the amounts per year as the steps, in the field\'s order. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      x.test(foam.util.equals(chart.datasets[0].backgroundColor, [ '#00aa00', '#aa0000', '#0000aa' ]),
+        'Funnel: the colours reach the chart. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Funnel: Legend Position reaches the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onStepClick(1, evt);
+      x.test(globalThis.funnelClick_ === '70,2026,30,30,130,280',
+        'Funnel: On Click Script gets the value, label, and the point in the chart and on the page. Got ' + globalThis.funnelClick_);
+      delete globalThis.funnelClick_;
+
+      // Sort By Value: the largest step first.
+      s.sortByValue = true;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '2026,2025' && chart.datasets[0].data.join() === '70,30',
+        'Funnel: Sort By Value puts the largest step first. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // With no aggregation picked the form shows Count, so each step counts its rows.
+      s.clearProperty('aggregation');
+      s.sortByValue = false;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2', 'Funnel: with no Aggregation each step counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onStepClick, 'Funnel: with no On Click Script the bands are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still group and sort.
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.sortByValue = true;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.sortByValue && copy.chart_.labels.join() === '2026,2025',
+        'Funnel: a sink sent as JSON and back still groups and keeps its order. Got ' + ( err || copy.chart_.labels.join() ));
+    },
+
+    async function testFunnelEdges(x) {
+      var T = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10 }),
+        T.create({ id: 2, kind: 'POST', size: 4 }),
+        T.create({ id: 3, kind: '',     size: 30 }),
+        T.create({ id: 4, kind: 'GET',  size: 5 })
+      ] }, x);
+      var agent = this.DashboardFunnelChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // A row with no kind is left out, not drawn as a step called "".
+      s.arg1 = T.KIND;
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '15,4',
+        'Funnel: a row with no value in Group By adds no step. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of an empty chart.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Funnel: with no rows the chart says "' + sink.ChartView.NO_DATA + '". Got ' + JSON.stringify(text));
+      el.remove();
     },
 
     async function testBoxPlot(x) {

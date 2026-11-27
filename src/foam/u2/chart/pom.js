@@ -38,6 +38,7 @@ foam.POM({
     { name: 'WaterfallStepKind',                flags: 'web' },
     { name: 'WaterfallChart',                   flags: 'web' },
     { name: 'BoxPlotChart',                     flags: 'web' },
-    { name: 'TreemapChart',                     flags: 'web' }
+    { name: 'TreemapChart',                     flags: 'web' },
+    { name: 'FunnelChart',                      flags: 'web' }
   ]
 });

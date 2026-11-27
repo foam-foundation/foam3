@@ -4,7 +4,7 @@ Follow `src/foam/u2/chart/PieChart.js`. It is the smallest complete chart: no ax
 
 ## 1. Pick the base
 
-- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:225`); write labels with `truncate(s, maxPx)` (`ChartView.js:292`).
+- **`ChartView`** when the chart has no axes: a pie, a gauge or a treemap. You get the legend, size, tooltip and colours. You do not get `label_()`, the cut-to-fit text helper, which is on `CartesianChartView` only (`CartesianChartView.js:225`); write labels with `truncate(s, maxPx)` (`ChartView.js:298`).
 - **`CartesianChartView`** when values sit against an x and a y axis: a scatter, an area or a heatmap. You also get `layout()`, `layoutForValues()` and `drawAxes()` (`CartesianChartView.js:120-232`).
 - **An existing chart type** when the new one is a variant of it. A stacked bar is `BarChart` with `stacked: true`, not a new class.
 - **A subclass of a chart** when the new one adds to it: a bubble is a scatter whose dots have a size. Override small hook methods the parent calls (how to read a point, a dot's radius, the tooltip rows) instead of copying its `drawChart`; add those hooks to the parent if it has none. The parent's `css:` is expanded again under the subclass's own name, so `<<dot` becomes `.foam-u2-chart-BubbleChart-dot` (`u2/CSS.js:76-80`, one copy per `cls.id`), and `myClass()` returns the subclass's name, never the parent's (`u2/Element2.js:947-960`). A test passes the subclass view: `this.all(el, bubble, 'dot')`.
@@ -62,7 +62,7 @@ foam.CLASS({
    - Build a path with `self.SVGPath.create().moveTo(...).lineTo(...).close()`; the result goes in `d`.
    - **An arc of a full turn draws nothing:** its start and end are the same point. Split a sweep near a full turn in two, as `slicePath` does (`PieChart.js:164-169`). A whole ring with nothing cut from it is a `circle` element, not a path.
    - **Text on a mark** picks dark or light with `foam.Color.getBestForeground(fill, dark, light)` (`color/colorlib.js:287`), the two colours read from text tokens so a theme switch follows. Fit text to the mark's width at the text's own top and bottom lines: on a tapered mark, the narrow end alone hides labels that fit.
-5. **Hover.** Use `.on('mousemove', evt => self.showTooltip(evt, title, rows, footer))` and `.on('mouseleave', self.hideTooltip)`. Each row is `{ color, label, value }`, written as "label: value", with the value passed through `formatValue`.
+5. **Hover.** Use `.on('mousemove', evt => self.showTooltip(evt, title, rows, footer))` and `.on('mouseleave', self.hideTooltip)`. Each row is `{ color, label, value }`, written as "label: value", with the value passed through `formatValue`, which keeps at most `MAX_DECIMALS` (2) digits after the point (`ChartView.js:310`).
    - When `showTooltipSum` is on, the footer is `this.sumLine(values)`.
    - **Small or overlapping marks** need a bigger target, so the pointer always lands on something:
      - with categories, put one transparent hit shape per category on top, as `BarChart` does (`BarChart.js:159-177`);
@@ -79,9 +79,9 @@ Value ticks come from `LinearScale.nice()`, which rounds the step up to 1, 2 or 
 ## 4. Legend
 
 - **Default:** one entry per dataset, and a click hides that dataset.
-- **One entry per value, as on a pie:** override `legendItems()` to return `[{ label, color, hidden }]`, and check `isHidden(j)` per value while drawing (`PieChart.js:112-123`). Colour each value with `valueColor(j)` (`ChartView.js:251`): override `seriesColor` to return it, as `PieChart` does (`PieChart.js:133-136`), so the legend and the marks agree.
+- **One entry per value, as on a pie:** override `legendItems()` to return `[{ label, color, hidden }]`, and check `isHidden(j)` per value while drawing (`PieChart.js:112-123`). Colour each value with `valueColor(j)` (`ChartView.js:257`): override `seriesColor` to return it, as `PieChart` does (`PieChart.js:133-136`), so the legend and the marks agree.
 - **A side legend needing a width:** override `styleLegend` (`PieChart.js:125-131`).
-- **A colour scale instead of entries,** as on a heatmap: return `[]` from `legendItems()` and draw the scale inside `styleLegend(legend, vertical)`, which runs on the legend element (`ChartView.js:200`, `:226-232`).
+- **A colour scale instead of entries,** as on a heatmap: return `[]` from `legendItems()` and draw the scale inside `styleLegend(legend, vertical)`, which runs on the legend element (`ChartView.js:206`, `:226-232`).
 - **Something on legend hover:** override the `onLegendHover(i, evt)` listener. It gets `-1` when the pointer leaves (`PieChart.js:203-210`).
 
 ## 5. Animation

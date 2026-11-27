@@ -37,7 +37,7 @@ Passing tests are not enough for a dashboard chart. A flow copies the sink and c
 
 ## A ChartViewTest case
 
-Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:34-69`):
+Add an `async function testX(x)`, call it from `runTest`, and use the helpers already there (`ChartViewTest.js:35-70`):
 - `mount(view)` turns animation off, gives the chart a 600 by 300 box and waits for the `<svg>`;
 - `all(el, view, 'dot')` finds marks by their `myClass` name;
 - `num(el, 'cx')` reads a numeric attribute;
@@ -46,7 +46,7 @@ Add an `async function testX(x)`, call it from `runTest`, and use the helpers al
 - `redraw(done)` waits after a legend click until `done()` is true, for up to a second: pass the check you are about to make, such as `function() { return this.all(el, chart, 'bar').length === 1; }.bind(this)`;
 - `unmount(view)` cleans up.
 
-A chart draws its `<svg>` only once its ResizeObserver reports a size (`ChartView.js:210`, the redraw depends on `size_`). In `DashboardChartRenderTest`, a check right after the sink's `addToE` finds no `<svg>`: poll for it, as `mount` does.
+A chart draws its `<svg>` only once its ResizeObserver reports a size (`ChartView.js:216`, the redraw depends on `size_`). In `DashboardChartRenderTest`, a check right after the sink's `addToE` finds no `<svg>`: poll for it, as `mount` does.
 
 Assert what a user would see:
 - the count of marks;

@@ -1890,3 +1890,111 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardScatterSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One dot per row: the X and Y properties are two numeric properties of the
+    row, such as response time and size. A row whose X or Y is not a number is
+    left out. Giving a Series property draws one colour and one legend entry
+    per value of it, e.g. one per severity.
+  `,
+
+  requires: [
+    'foam.u2.chart.ScatterChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xProp', 'yProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Scatter Chart Settings', order: 1, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'showGridLines'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The scatter has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Points' }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xProp', label: 'X Property', help: 'Numeric property drawn along the x axis', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yProp', label: 'Y Property', help: 'Numeric property drawn along the y axis', required: true, generateJava: false },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      name: 'seriesProp', label: 'Series Property',
+      help: 'Optional: one colour and legend entry per value of this property'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      name: 'series_',
+      hidden: true,
+      documentation: 'The points collected by put(), as a Map from series name to its [ { x, y } ] list.',
+      factory: function() { return new Map(); }
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every point.
+      factory: function() {
+        var self = this;
+        var datasets = Array.from(this.series_, function(e, i) {
+          var c = self.colors && self.colors.length ? self.colors[i % self.colors.length] : undefined;
+          return {
+            label: e[0],
+            data: e[1],
+            backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
+          };
+        });
+        return this.ScatterChart.create({
+          datasets:          datasets,
+          xAxisLabel:        this.xAxisLabel,
+          yAxisLabel:        this.yAxisLabel,
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function put(obj) {
+      var x = this.xProp.f(obj), y = this.yProp.f(obj);
+      if ( x == null || y == null || ! isFinite(x) || ! isFinite(y) ) return;
+      var key = this.hasDefaultValue('seriesProp') ? this.DEFAULT_SERIES : String(this.seriesProp.f(obj));
+      if ( ! this.series_.has(key) ) this.series_.set(key, []);
+      this.series_.get(key).push({ x: Number(x), y: Number(y) });
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .add(this.chart_)
+        .end();
+    }
+  ]
+});

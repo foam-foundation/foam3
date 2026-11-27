@@ -18,6 +18,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
@@ -25,7 +26,8 @@ foam.CLASS({
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
     'foam.u2.chart.LineChart',
-    'foam.u2.chart.PieChart'
+    'foam.u2.chart.PieChart',
+    'foam.u2.chart.ScatterChart'
   ],
 
   methods: [
@@ -35,6 +37,7 @@ foam.CLASS({
       await this.testPie(x);
       await this.testStackedBar(x);
       await this.testLine(x);
+      await this.testScatter(x);
     },
 
     function rowsDAO(x) {
@@ -156,6 +159,30 @@ foam.CLASS({
       x.test(ds.fill && ds.stepped && ds.pointRadius === 0, 'Line: Fill Area, Stepped Line and Show Points off reach the line');
       x.test(chart.yMin === 0 && chart.yMax === 100, 'Line: a custom y scale sets the axis to 0..100. Got ' + chart.yMin + '..' + chart.yMax);
       x.test(chart.xAxisLabel === R.MONTH.label, 'Line: with no X-Axis Label the axis is titled with the field\'s label');
+    },
+
+    async function testScatter(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardScatterChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xProp      = R.MONTH;
+      s.yProp      = R.AMOUNT;
+      s.seriesProp = R.YEAR;
+      s.xAxisLabel = 'Month';
+      s.colors     = [ '#ff0000' ];
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.ScatterChart.isInstance(chart), 'Scatter: draws a foam.u2.chart.ScatterChart. Got ' + ( chart && chart.cls_.id ));
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === '2025,2026', 'Scatter: Series Property gives one dataset per year. Got ' + labels);
+      var pts = chart.datasets[1].data.map(function(p) { return p.x + ':' + p.y; }).join();
+      x.test(pts === '1:30,2:40', 'Scatter: each row is one { x, y } point. Got ' + pts);
+      x.test(chart.datasets[1].backgroundColor === '#ff0000' && chart.xAxisLabel === 'Month', 'Scatter: Colors and X-Axis Label reach the chart');
+
+      // With no Series Property every row lands in one dataset.
+      s.clearProperty('seriesProp');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Scatter: with no Series Property all four rows are one dataset');
     }
   ]
 });

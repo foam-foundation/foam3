@@ -2145,3 +2145,190 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRadarSink',
+  extends: 'foam.core.reflow.GridBy',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    A spoke per value of the Category property, aggregated with the form's
+    Count, Sum or Average: log messages counted per severity, say. Giving a
+    Series property draws one polygon per value of it, e.g. one per day; with
+    none, one polygon holds every row. A row with no value in either field is
+    left out.
+  `,
+
+  requires: [
+    'foam.u2.chart.RadarChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['xFunc', 'yFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Radar Chart Settings', order: 1, collapsable: true,
+      properties: ['onClickScript', 'emptyValueMessage'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The radar keeps its shape whatever the card's size, but
+    // ChartDisplayMixin adds an aspect-ratio switch. A mixin's properties
+    // install after this class's own, so an override cannot hide it; this
+    // section, never shown, holds it instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['maintainAspectRatio'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Values' },
+    { name: 'NO_DATA',        message: 'No data available' }
+  ],
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One spoke per value of this property', required: true },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      name: 'yFunc', label: 'Series Property',
+      help: 'Optional: one polygon and legend entry per value of this property'
+    },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a polygon corner is clicked. Signature: (value, category, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // Hide GridBy parent-class internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips, showTooltipSum,
+                          animate, animationDuration, onClickScript) {
+        var self      = this;
+        var colGroups = cols && cols.groups ? cols.groups : {};
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var keys = function(g) {
+          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(g && g.groups || {}) ).filter(function(k) { return ! self.isEmptyKey_(k); });
+        };
+
+        // cols.groups holds the spokes and rows.groups the polygons; the
+        // value of a polygon on a spoke is rows.groups[series].groups[spoke].
+        var spokeKeys = keys(cols);
+        var labels    = spokeKeys.map(function(k) { return self.xFunc && self.xFunc.chartFormatter ? self.xFunc.chartFormatter(k) : k; });
+        var datasets  = keys(rows).map(function(seriesKey, i) {
+          var cells = rowGroups[seriesKey] && rowGroups[seriesKey].groups || {};
+          var ds = {
+            label: seriesKey.toString(),
+            data: spokeKeys.map(function(k) { return cells[k] && cells[k].value || 0; })
+          };
+          if ( colors && colors.length ) {
+            ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, category, series, chartX, chartY, pageX, pageY) for the
+        // clicked corner: its value, its spoke, its polygon, the point inside
+        // the chart and the point on the page.
+        var clickHandler = null;
+        if ( onClickScript ) {
+          try {
+            clickHandler = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardRadarSink:', e);
+          }
+        }
+
+        return this.RadarChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          showTooltipSum:    showTooltipSum,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onPointClick: typeof clickHandler !== 'function' ? null : function(di, j, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              clickHandler(datasets[di].data[j], labels[j], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function isEmptyKey_(k) {
+      // A row with no value in the field is grouped under the key "null",
+      // "undefined" or "": it has no spoke or polygon to belong to.
+      return k === '' || k === 'null' || k === 'undefined';
+    },
+
+    function addToE(e) {
+      var self = this;
+      e.style({
+          width: '100%',
+          display: 'flex',
+          justifyContent: this.alignment$.map(function(a) { return a.alignmentStyle; }),
+          textAlign: this.alignment$.map(function(a) { return a.textAlign; })
+        })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .callIfElse(this.chart_.labels.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
+        .end();
+    }
+  ]
+});

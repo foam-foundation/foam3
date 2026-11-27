@@ -30,6 +30,7 @@ foam.POM({
     { name: 'LineChart',                        flags: 'web' },
     { name: 'PieChart',                         flags: 'web' },
     { name: 'ScatterChart',                     flags: 'web' },
-    { name: 'BubbleChart',                      flags: 'web' }
+    { name: 'BubbleChart',                      flags: 'web' },
+    { name: 'RadarChart',                       flags: 'web' }
   ]
 });

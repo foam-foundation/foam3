@@ -17,6 +17,7 @@ foam.CLASS({
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.BubbleChart',
+    'foam.u2.chart.RadarChart',
     'foam.u2.chart.ScatterChart'
   ],
 
@@ -33,6 +34,8 @@ foam.CLASS({
       await this.testLinearLine(x);
       await this.testScatter(x);
       await this.testBubble(x);
+      await this.testRadar(x);
+      await this.testRadarEdges(x);
     },
 
     async function mount(view) {
@@ -447,6 +450,110 @@ foam.CLASS({
       chart = this.BubbleChart.create({ datasets: [ { label: 'A', data: [] } ] }, x);
       el    = await this.mount(chart);
       x.test(this.all(el, chart, 'dot').length === 0 && !! el.querySelector('svg'), 'Bubble: with no points it draws no bubbles and still draws its axes');
+      this.unmount(chart);
+    },
+
+    async function testRadar(x) {
+      var clicks = [];
+      var chart = this.RadarChart.create({
+        labels: [ 'INFO', 'WARN', 'ERROR', 'DEBUG' ],
+        datasets: [
+          { label: 'Today', data: [ 100, 50, 25, 0 ], backgroundColor: '#ff0000' },
+          { label: 'Last week', data: [ 400, 100, 200, 300 ] }
+        ],
+        showTooltipSum: true,
+        onPointClick: function(di, i) { clicks.push([ di, i ]); }
+      }, x);
+      var el      = await this.mount(chart);
+      var spokes  = this.all(el, chart, 'spoke');
+      var dots    = this.all(el, chart, 'dot');
+      var polys   = this.all(el, chart, 'polygon');
+      var centre  = { x: this.num(spokes[0], 'x1'), y: this.num(spokes[0], 'y1') };
+      var dist    = function(d) { return Math.hypot(this.num(d, 'cx') - centre.x, this.num(d, 'cy') - centre.y); }.bind(this);
+      x.test(spokes.length === 4 && polys.length === 2 && dots.length === 8, 'Radar: four spokes, a polygon per dataset, a dot per value. Got ' + [ spokes.length, polys.length, dots.length ].join());
+
+      // Spoke 0 is straight up, and the rest follow clockwise.
+      var tips = spokes.map(function(s) { return { x: this.num(s, 'x2') - centre.x, y: this.num(s, 'y2') - centre.y }; }, this);
+      x.test(Math.abs(tips[0].x) < 0.5 && tips[0].y < 0 && tips[1].x > 0 && Math.abs(tips[1].y) < 0.5 && Math.abs(tips[2].x) < 0.5 && tips[2].y > 0 && tips[3].x < 0,
+        'Radar: spokes start at the top and run clockwise (top, right, bottom, left). Got ' + JSON.stringify(tips));
+
+      // The rim is the largest value, 400, so dots sit at value / 400 of the radius.
+      var rim = Math.hypot(tips[0].x, tips[0].y);
+      var d   = dots.map(dist);
+      x.test(Math.abs(d[0] - rim / 4) < 0.5 && Math.abs(d[1] - rim / 8) < 0.5 && Math.abs(d[2] - rim / 16) < 0.5,
+        'Radar: Today\'s corners are 100, 50 and 25 of 400 from the centre. Got ' + d.join() + ' with the rim at ' + rim);
+      x.test(d[3] < 0.5 && Math.abs(d[4] - rim) < 0.5, 'Radar: 0 is at the centre and the maximum on the rim. Got ' + d[3] + ' and ' + d[4]);
+      x.test(this.num(dots[0], 'cx') === centre.x && this.num(dots[0], 'cy') < centre.y, 'Radar: the first spoke\'s corner is straight above the centre');
+
+      x.test(polys[0].getAttribute('fill') === '#ff0000' && polys[0].getAttribute('stroke') === '#ff0000' && Number(polys[0].getAttribute('fill-opacity')) < 1,
+        'Radar: a polygon is its colour, translucent, with a solid outline of the same colour');
+      x.test(polys[1].getAttribute('fill') && polys[1].getAttribute('fill').indexOf('$') === -1 && polys[1].getAttribute('fill') !== '#ff0000',
+        'Radar: a dataset with no colour gets a resolved theme colour. Got ' + polys[1].getAttribute('fill'));
+      x.test(( polys[0].getAttribute('d').match(/L/g) || [] ).length === 3 && /Z$/.test(polys[0].getAttribute('d')), 'Radar: a polygon runs through four corners and closes');
+
+      var rings = this.all(el, chart, 'grid');
+      var ringLabels = this.all(el, chart, 'ring-label').map(function(t) { return t.textContent; });
+      x.test(rings.length === 4 && ringLabels.join() === '100,200,300,400', 'Radar: rings at the round values 100 to 400, each labelled. Got ' + rings.length + ' rings, ' + ringLabels.join());
+      var spokeLabels = this.all(el, chart, 'spoke-label').map(function(t) { return t.textContent; });
+      x.test(spokeLabels.join() === 'INFO,WARN,ERROR,DEBUG', 'Radar: each spoke is labelled outside the rim. Got ' + spokeLabels.join());
+      var lx = this.num(this.all(el, chart, 'spoke-label')[1], 'x');
+      x.test(lx > centre.x + rim, 'Radar: the right-hand label sits beyond the rim');
+
+      // Hover a corner: the label with every visible dataset's value.
+      this.fire(dots[1], 'mousemove', this.centreOf(dots[1]).x, this.centreOf(dots[1]).y);
+      var tip  = el.querySelector('.' + chart.myClass('tooltip'));
+      var text = tip.textContent;
+      x.test(this.visible(tip) && text.indexOf('WARN') === 0 && text.indexOf('Today: 50') !== -1 && text.indexOf('Last week: 100') !== -1 && text.indexOf('Sum: 150') !== -1,
+        'Radar: hovering a corner shows the label, both values and their sum. Got ' + text);
+      this.fire(dots[1], 'mouseleave', 0, 0);
+      x.test(! this.visible(tip), 'Radar: leaving a corner hides the tooltip');
+      // Hover the spoke band, away from any corner.
+      this.fire(this.all(el, chart, 'hit')[2], 'mousemove', 0, 0);
+      x.test(this.visible(tip) && tip.textContent.indexOf('ERROR') === 0 && tip.textContent.indexOf('Last week: 200') !== -1, 'Radar: hovering near a spoke shows its tooltip. Got ' + tip.textContent);
+
+      this.fire(dots[6], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[1,2]]', 'Radar: a click gives the dataset and the spoke. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Radar: a chart with onPointClick shows a pointer');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Today,Last week', 'Radar: the legend has one entry per dataset');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'polygon').length === 1; }.bind(this));
+      x.test(this.all(el, chart, 'polygon').length === 1 && this.all(el, chart, 'dot').length === 4, 'Radar: clicking Last week hides its polygon and dots');
+      ringLabels = this.all(el, chart, 'ring-label').map(function(t) { return t.textContent; });
+      x.test(ringLabels.join() === '50,100', 'Radar: with Last week hidden the rings rescale to Today\'s 100. Got ' + ringLabels.join());
+      d = this.all(el, chart, 'dot').map(dist);
+      x.test(Math.abs(d[0] - rim) < 0.5, 'Radar: Today\'s 100 now reaches the rim. Got ' + d[0] + ' against ' + rim);
+      this.unmount(chart);
+    },
+
+    async function testRadarEdges(x) {
+      // Nothing to draw: no labels, no error.
+      var chart = this.RadarChart.create({ labels: [], datasets: [ { label: 'A', data: [] } ] }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'polygon').length === 0 && this.all(el, chart, 'dot').length === 0, 'Radar: no labels draws no polygon');
+      this.unmount(chart);
+
+      // A short data array counts as 0 on the spokes it misses; a long label is cut short with the full text in a title.
+      var long = 'A very long category name that cannot fit beside the rim';
+      chart = this.RadarChart.create({ labels: [ long, 'B', 'C' ], datasets: [ { label: 'A', data: [ 5 ] } ] }, x);
+      el = await this.mount(chart);
+      var dots = this.all(el, chart, 'dot');
+      var polyD = this.all(el, chart, 'polygon')[0].getAttribute('d');
+      x.test(dots.length === 3 && polyD.indexOf('NaN') === -1, 'Radar: a short data array still gives a corner per spoke. Got ' + dots.length);
+      var label = this.all(el, chart, 'spoke-label')[0];
+      var cut = label.firstChild.textContent;
+      x.test(cut.indexOf('…') !== -1 && cut.length < long.length && label.querySelector('title').textContent === long,
+        'Radar: a long label ends in an ellipsis and keeps its full text in a title. Got ' + cut);
+      var box = el.querySelector('svg').getBoundingClientRect();
+      var lb  = label.getBoundingClientRect();
+      x.test(lb.left >= box.left - 1 && lb.right <= box.right + 1, 'Radar: the truncated label stays inside the chart');
+      this.unmount(chart);
+
+      // A dataset of zeros has no range to scale: the rings still come out with real numbers.
+      chart = this.RadarChart.create({ labels: [ 'A', 'B', 'C' ], datasets: [ { label: 'Z', data: [ 0, 0, 0 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'polygon')[0].getAttribute('d').indexOf('NaN') === -1, 'Radar: a dataset of zeros draws without NaN');
       this.unmount(chart);
     },
 

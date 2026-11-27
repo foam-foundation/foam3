@@ -82,6 +82,30 @@ foam.CLASS({
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
+      this.testServerFields(x);
+    },
+
+    function testServerFields(x) {
+      // A GridBy or GroupBy sink is Serializable, so a select runs it on the
+      // server, in Java, and its Java put reads the grouping properties below.
+      // A property with generateJava: false is missing from that Java class:
+      // the radar's series field once was, and the server grouped nothing
+      // while every test here, which runs in the browser, passed.
+      var grid = foam.core.reflow.GridBy, group = foam.mlang.sink.GroupBy;
+      var ids  = Object.keys(foam.USED).filter(function(id) {
+        return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
+      });
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink' ].forEach(function(n) {
+        x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
+      });
+      ids.forEach(function(id) {
+        var cls   = foam.lookup(id);
+        var names = grid.isSubClass(cls) ? [ 'xFunc', 'yFunc', 'acc' ] : group.isSubClass(cls) ? [ 'arg1', 'arg2' ] : [];
+        names.forEach(function(n) {
+          var p = cls.getAxiomByName(n);
+          x.test(p && p.generateJava !== false, 'Server fields: ' + id + '.' + n + ' is in the Java class, which the server groups with');
+        });
+      });
     },
 
     function rowsDAO(x) {
@@ -550,9 +574,26 @@ foam.CLASS({
       x.test(chart.labels.length === 2 && chart.labels.every(function(l) { return /^\d{4}-\d\d-\d\d$/.test(l); }),
         'Heatmap: a date field gives one column per date value, labelled YYYY-MM-DD. Got ' + chart.labels.join());
 
+      // A row with no value in X or Y is left out, not drawn as a "null" or
+      // blank column or row, and a date field with no value does not throw.
+      var gappy = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET', size: 10, when: at(1, 9) }),
+        T.create({ id: 2, kind: '',    size: 10, when: at(1, 9) }),
+        T.create({ id: 3, kind: 'GET', size: 10 })
+      ] }, x);
+      s.xFunc = T.WHEN;
+      s.yFunc = T.KIND;
+      var err = null;
+      try {
+        chart = ( await gappy.select(agent.createSink()) ).chart_;
+      } catch ( e ) { err = e; }
+      x.test(! err && chart.labels.length === 1 && chart.datasets.map(function(d) { return d.label; }).join() === 'GET',
+        'Heatmap: a row with no kind, and one with no date, add no row or column. Got ' + ( err || chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.label; }).join() ));
+
       // No rows: a message in place of empty axes.
       var none = this.ArrayDAO.create({ of: T, array: [] }, x);
       s.xFunc  = T.SIZE;
+      s.yFunc  = T.KIND;
       sink = await none.select(agent.createSink());
       var el = foam.u2.Element.create({}, x);
       el.add(sink);

@@ -2171,9 +2171,9 @@ foam.CLASS({
     { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
       properties: ['xFunc', 'yFunc', 'aggregation'] },
     { name: 'chartSettings', title: 'Radar Chart Settings', order: 1, collapsable: true,
-      properties: ['onClickScript', 'emptyValueMessage'] },
+      properties: ['onClickScript'] },
     { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
-      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration', 'emptyValueMessage'] },
     { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
       properties: ['colors'] },
     // The radar keeps its shape whatever the card's size, but
@@ -2306,12 +2306,6 @@ foam.CLASS({
   ],
 
   methods: [
-    function isEmptyKey_(k) {
-      // A row with no value in the field is grouped under the key "null",
-      // "undefined" or "": it has no spoke or polygon to belong to.
-      return k === '' || k === 'null' || k === 'undefined';
-    },
-
     function addToE(e) {
       var self = this;
       e.style({
@@ -2410,7 +2404,7 @@ foam.CLASS({
       class: 'Code',
       name: 'onClickScript',
       label: 'On Click Script',
-      help: 'Function expression called when a cell is clicked. Signature: (value, xLabel, yLabel, x, y, absX, absY) => void'
+      help: 'Function expression called when a cell is clicked. Signature: (value, xLabel, yLabel, x, y, pageX, pageY) => void'
     },
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
@@ -2436,9 +2430,14 @@ foam.CLASS({
                           legendPosition, showTooltips, animate, animationDuration, onClickScript) {
         var colGroups = cols && cols.groups ? cols.groups : {};
         var rowGroups = rows && rows.groups ? rows.groups : {};
-        var colKeys   = cols && cols.sortedKeys ? cols.sortedKeys() : Object.keys(colGroups);
-        var rowKeys   = rows && rows.sortedKeys ? rows.sortedKeys() : Object.keys(rowGroups);
         var self      = this;
+        // A row with no X or Y value is grouped under "null", "undefined" or
+        // "": it has no column or row to be drawn in.
+        var keysOf    = function(g, groups) {
+          return ( g && g.sortedKeys ? g.sortedKeys() : Object.keys(groups) ).filter(function(k) { return ! self.isEmptyKey_(k); });
+        };
+        var colKeys   = keysOf(cols, colGroups);
+        var rowKeys   = keysOf(rows, rowGroups);
 
         // A date field labels its cells as the bar charts do ("2024-03-01");
         // anything else, a date expression such as the hour included, is
@@ -2506,15 +2505,11 @@ foam.CLASS({
       return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
     },
 
-    function toE(_, x) {
-      return x.E().add(this.chart_$);
-    },
-
     function addToE(e) {
       var self = this;
       e.style({ width: '100%' })
         .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
-          .callIfElse(Object.keys(this.cols && this.cols.groups || {}).length,
+          .callIfElse(this.chart_.labels.length,
             function() { this.add(self.chart_); },
             function() {
               this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')

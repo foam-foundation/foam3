@@ -420,6 +420,15 @@ foam.CLASS({
       var fills = dots.map(function(d) { return d.getAttribute('fill'); });
       x.test(fills[0] === '#ff0000' && fills[3].indexOf('$') === -1 && fills[3] !== fills[0], 'Bubble: one colour per dataset, resolved. Got ' + fills.join());
 
+      // The plot is inset by the largest bubble, so one at the lowest x still
+      // lies right of where a scatter draws a dot at that x.
+      var sc = this.ScatterChart.create({ datasets: chart.datasets.map(function(d) { return { label: d.label, data: d.data }; }) }, x);
+      var scEl = await this.mount(sc);
+      var scLeft = Math.min.apply(null, this.all(scEl, sc, 'dot').map(function(d) { return this.num(d, 'cx'); }, this));
+      this.unmount(sc);
+      var bubLeft = Math.min.apply(null, dots.map(function(d) { return this.num(d, 'cx') - this.num(d, 'r'); }, this));
+      x.test(bubLeft >= scLeft - 0.01, 'Bubble: the largest bubble at the lowest x stays inside the plot. Bubble left ' + bubLeft + ', scatter dot ' + scLeft);
+
       // Positions are the scatter's: y 100, 300 and 0-size point at y 200; higher value higher up.
       var cy = dots.slice(0, 3).map(function(d) { return this.num(d, 'cy'); }, this);
       x.test(cy[1] < cy[0] || cy[1] < cy[2], 'Bubble: y follows the value. Got ' + cy.join());
@@ -557,6 +566,7 @@ foam.CLASS({
       chart = this.RadarChart.create({ labels: [ 'A', 'B', 'C' ], datasets: [ { label: 'Z', data: [ 0, 0, 0 ] } ] }, x);
       el = await this.mount(chart);
       x.test(this.all(el, chart, 'polygon')[0].getAttribute('d').indexOf('NaN') === -1, 'Radar: a dataset of zeros draws without NaN');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Radar: with no onPointClick the corners are not clickable');
       this.unmount(chart);
     },
 
@@ -591,15 +601,20 @@ foam.CLASS({
       x.test(cells[4].getAttribute('fill') === cells[2].getAttribute('fill'), 'Heatmap: two cells with the same value, 10, have the same colour');
 
       var empty = this.all(el, chart, 'empty-cell');
-      x.test(empty.length === 2 && empty[0] === cells[3] && empty[1] === cells[5] && ! cells[3].hasAttribute('fill'),
-        'Heatmap: a null and a missing value are empty cells with no fill of their own, while 0 is a coloured cell. Got ' + empty.length);
+      x.test(empty.length === 2 && empty[0] === cells[3] && empty[1] === cells[5] && cells[3].getAttribute('fill') && cells[3].getAttribute('fill').indexOf('$') === -1 && cells[3].getAttribute('fill') !== cells[0].getAttribute('fill'),
+        'Heatmap: a null and a missing value are empty cells in the neutral colour as a fill attribute, while 0 is a coloured cell. Got ' + empty.length);
 
       var texts = this.all(el, chart, 'cell-value');
       x.test(texts.map(function(t) { return t.textContent; }).join() === '0,5,10,10', 'Heatmap: Show Values writes the value in each cell that has one. Got ' + texts.map(function(t) { return t.textContent; }).join());
       var white = foam.CSS.returnTokenValue(chart.LIGHT_TEXT_COLOR, chart.cls_, chart.__subContext__);
       var black = foam.CSS.returnTokenValue(chart.DARK_TEXT_COLOR, chart.cls_, chart.__subContext__);
-      x.test(texts[0].getAttribute('fill') === black && texts[2].getAttribute('fill') === white,
-        'Heatmap: dark text on the pale cell, light text on the dark one. Got ' + texts[0].getAttribute('fill') + ', ' + texts[2].getAttribute('fill'));
+      // The pale end follows the theme (white in a light one, dark in a dark
+      // one), so each text is checked against its own cell: light text on the
+      // dark blue, and on every cell the colour foam.Color picks for contrast.
+      var withValue = [ cells[0], cells[1], cells[2], cells[4] ];
+      x.test(texts[2].getAttribute('fill') === white && texts.every(function(t, i) {
+        return t.getAttribute('fill') === foam.Color.getBestForeground(withValue[i].getAttribute('fill'), black, white);
+      }), 'Heatmap: each value is written in the text colour that reads best on its cell. Got ' + texts.map(function(t) { return t.getAttribute('fill'); }).join());
 
       var axisTitles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
       x.test(axisTitles.indexOf('Hour') !== -1 && axisTitles.indexOf('Level') !== -1, 'Heatmap: both axis titles are written. Got ' + axisTitles.join());
@@ -628,7 +643,7 @@ foam.CLASS({
       x.test(el.classList.contains(chart.myClass('clickable')), 'Heatmap: a chart with onCellClick shows a pointer');
       this.unmount(chart);
 
-      chart = this.HeatmapChart.create({ labels: [ 'A', 'B' ], datasets: [ { label: 'r', data: [ 1, 2 ] } ], onCellClick: null }, x);
+      chart = this.HeatmapChart.create({ labels: [ 'A', 'B' ], datasets: [ { label: 'r', data: [ 1, 2 ] } ] }, x);
       el    = await this.mount(chart);
       x.test(this.all(el, chart, 'cell-value').length === 0, 'Heatmap: values are not written unless Show Values is on');
       var fills = this.all(el, chart, 'cell').map(function(c) { return c.getAttribute('fill'); });

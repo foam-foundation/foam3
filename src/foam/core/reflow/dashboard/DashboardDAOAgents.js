@@ -247,6 +247,13 @@ foam.CLASS({
       this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
     },
 
+    function isEmptyKey_(k) {
+      // A row with no value in a grouping field is grouped under the key
+      // "null", "undefined" or "": a chart leaves it out rather than draw a
+      // blank or "null" spoke, row or column.
+      return k === '' || k === 'null' || k === 'undefined';
+    },
+
     function addChartDisplayToE(e) {
       var self = this;
       // Add chart display configuration fields to the UI
@@ -924,11 +931,12 @@ foam.CLASS({
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
   name: 'DashboardBubbleChartDAOAgent',
-  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+  extends: 'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
+
+  documentation: 'The scatter\'s agent with the bubble sink as its form.',
 
   requires: [
-    'foam.core.reflow.dashboard.DashboardBubbleSink',
-    'foam.core.reflow.ReactiveSectionedDetailView'
+    'foam.core.reflow.dashboard.DashboardBubbleSink'
   ],
 
   properties: [
@@ -940,20 +948,6 @@ foam.CLASS({
       // An empty field in the chart's form turns Run off.
       autoValidate: true,
       factory: function() { return this.DashboardBubbleSink.create({}, this); }
-    }
-  ],
-
-  methods: [
-    function createSink() {
-      // A new copy on every run: the flow runs this agent again when the
-      // query or the data changes, and a reused sink would hold the old points too.
-      return this.displaySink.clone(this);
-    },
-    function addSinkToE(e, s) { e.add(s); },
-    function addToE(e) {
-      e.startContext({})
-        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
-      .endContext();
     }
   ]
 });

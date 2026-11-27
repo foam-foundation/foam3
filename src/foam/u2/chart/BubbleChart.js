@@ -89,6 +89,12 @@ foam.CLASS({
       };
     },
 
+    function markPadding_() {
+      // Room for the largest bubble, so one at the lowest x or y does not
+      // cover the tick labels or spill into the legend.
+      return this.MAX_RADIUS_PX;
+    },
+
     function markAttrs_() {
       return { 'fill-opacity': this.FILL_OPACITY };
     },

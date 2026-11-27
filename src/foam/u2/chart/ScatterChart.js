@@ -127,14 +127,24 @@ foam.CLASS({
       var xScale = scale(xr, this.valueTickCount(first.width, this.X_TICK_PX));
       var yScale = scale(yr, this.valueTickCount(first.height, this.VALUE_TICK_PX));
       var a      = lay(xScale, yScale);
-      xScale.start = a.left;              xScale.end = a.left + a.width;
-      yScale.start = a.top + a.height;    yScale.end = a.top;
+      // Inset the scales by the mark's reach, so a mark at an extreme value
+      // stays inside the plot instead of covering a tick label.
+      var pad = this.markPadding_(sets);
+      xScale.start = a.left + pad;              xScale.end = a.left + a.width - pad;
+      yScale.start = a.top + a.height - pad;    yScale.end = a.top + pad;
 
       this.drawAxes(svg, a,
         xScale.ticks().map(function(t) { return { pos: xScale.map(t), label: xScale.format(t) }; }),
         yScale.ticks().map(function(t) { return { pos: yScale.map(t), label: yScale.format(t) }; }));
 
       this.drawMarks_(svg, sets, xScale, yScale);
+    },
+
+    function markPadding_(sets) {
+      // How far, in pixels, a mark reaches beyond its point: the plot is
+      // inset by this much. A dot is small enough to sit on the axis; a
+      // subclass with larger marks returns their radius.
+      return 0;
     },
 
     function radiusFn_(sets) {

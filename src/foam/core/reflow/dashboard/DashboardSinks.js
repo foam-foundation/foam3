@@ -3833,3 +3833,186 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardComboSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and computes two
+    values per group: the Bar Value, drawn as bars against the left axis,
+    and the Line Value, drawn as a line against the right axis. Visits per
+    hour as bars and the average load time per hour as a line, say. Each is
+    a Count, or a Sum, Average, Minimum or Maximum of a numeric field. Both
+    run in one pass over the rows: the group's total is a Sequence of the two
+    aggregates, one result each. A row with no value in Group By is left
+    out. The first colour in Colors is the bars', the second the line's.
+  `,
+
+  requires: [
+    'foam.core.reflow.CountDAOAgent',
+    'foam.mlang.sink.Sequence',
+    'foam.u2.chart.ComboChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'lineAggregation'] },
+    { name: 'chartSettings', title: 'Bar and Line Settings', order: 1, collapsable: true,
+      properties: ['smoothLine', 'barThickness', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel', 'lineAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The two values have different units, so a tooltip sum means nothing;
+    // ChartDisplayMixin adds it, with alignment and aspect ratio. A mixin's
+    // properties install after this class's own, so an override cannot hide
+    // them; this section, never shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Count' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One bar and one point of the line for each value of this property, in its order: the hour of a date, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java, so the server's copy has no aggregation; the
+      // series names come from the totals in arg2 instead.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Bar Value',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'lineAggregation', label: 'Line Value',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    { class: 'Boolean', name: 'smoothLine', label: 'Smooth Line', help: 'Curve the line through its points instead of drawing straight segments' },
+    { class: 'Int', name: 'barThickness', label: 'Bar Thickness', help: 'Thickness of bars (0 = auto)' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a category is clicked. Signature: (label, barValue, lineValue, x, y, pageX, pageY) => void'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Bar Axis Label', help: 'Title of the left axis. Left empty it takes the Bar Value\'s field label.' },
+    { class: 'String', name: 'lineAxisLabel', label: 'Line Axis Label', help: 'Title of the right axis. Left empty it takes the Line Value\'s field label.' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, smoothLine, barThickness, showGridLines, onClickScript,
+                          xAxisLabel, yAxisLabel, lineAxisLabel, showLegend, legendPosition,
+                          showTooltips, animate, animationDuration) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        // The group's total is a Sequence: result 0 is the bars', 1 the line's.
+        var values = function(i) {
+          return keys.map(function(k) {
+            var v = groups[k] && groups[k].args && groups[k].args[i] && groups[k].args[i].value;
+            return typeof v === 'number' && isFinite(v) ? v : null;
+          });
+        };
+        var bars = values(0), line = values(1);
+
+        // A series is named after its field; a Count has none.
+        var nameOf = function(i) {
+          return self.labelOf_(self.arg2 && self.arg2.args && self.arg2.args[i] && self.arg2.args[i].arg1) || self.DEFAULT_SERIES;
+        };
+        var barName = nameOf(0), lineName = nameOf(1);
+
+        var tokens = ( colors || [] ).slice(0, 2).map(function(c) {
+          return c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined;
+        });
+
+        // The form's On Click Script is called with (label, barValue,
+        // lineValue, x, y, pageX, pageY): the clicked category's name and its
+        // two values, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardComboSink:', e);
+          }
+        }
+
+        return this.ComboChart.create({
+          labels:            labels,
+          datasets:          [
+            { label: barName,  data: bars, backgroundColor: tokens[0] },
+            { label: lineName, data: line, borderColor: tokens[1], tension: smoothLine ? 0.4 : 0 }
+          ],
+          barThickness:      barThickness,
+          // With no title typed in, each axis takes its field's label.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.arg1),
+          yAxisLabel:        yAxisLabel || barName,
+          lineAxisLabel:     lineAxisLabel || lineName,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onCategoryClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(labels[i], bars[i], line[i], evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function buildTotals_() {
+      // Builds this run's group total from the two forms: a Sequence that
+      // runs the bars' aggregate and the line's on each row. With nothing
+      // picked a value is a Count, as the form shows.
+      var self = this;
+      var make = function(agg) { return ( agg || self.CountDAOAgent.create({}, self) ).createSink(); };
+      this.arg2 = this.Sequence.create({ args: [ make(this.aggregation), make(this.lineAggregation) ] });
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});

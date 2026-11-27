@@ -16,6 +16,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.CandlestickChart',
+    'foam.u2.chart.ComboChart',
     'foam.u2.chart.FunnelChart',
     'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
@@ -43,6 +44,9 @@ foam.CLASS({
       await this.testStackedLine(x);
       await this.testTimeLine(x);
       await this.testLinearLine(x);
+      await this.testCombo(x);
+      await this.testComboLegend(x);
+      await this.testComboEdges(x);
       await this.testScatter(x);
       await this.testBubble(x);
       await this.testCandlestick(x);
@@ -377,6 +381,153 @@ foam.CLASS({
       el = await this.mount(chart);
       var d = this.all(el, chart, 'line')[0].getAttribute('d');
       x.test(( d.match(/V/g) || [] ).length === 2 && ( d.match(/H/g) || [] ).length === 2, 'Line: stepped draws an upright and a flat segment per step. Got ' + d);
+      this.unmount(chart);
+    },
+
+    async function testCombo(x) {
+      var clicked = '';
+      var chart = this.ComboChart.create({
+        labels: [ 'a', 'b', 'c' ],
+        datasets: [
+          { label: 'Visits', data: [ 100, 300, 200 ] },
+          { label: 'Load time', data: [ 10, 40, 20 ], borderColor: '#123456' }
+        ],
+        yAxisLabel: 'Visits',
+        lineAxisLabel: 'ms',
+        onCategoryClick: function(i, evt) { clicked = i; }
+      }, x);
+      var el   = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      var dots = this.all(el, chart, 'dot');
+      var line = this.all(el, chart, 'line');
+      x.test(bars.length === 3 && dots.length === 3 && line.length === 1,
+        'Combo: one bar and one dot per label, one line. Got ' + bars.length + '/' + dots.length + '/' + line.length);
+      x.test(foam.u2.chart.LineDataset.isInstance(chart.datasets[0]) && chart.datasets[1].pointRadius === 3,
+        'Combo: a plain dataset becomes a LineDataset with its default dots');
+      var h = bars.map(function(b) { return this.num(b, 'height'); }, this);
+      x.test(Math.abs(h[1] / h[0] - 3) < 0.01 && Math.abs(h[2] / h[0] - 2) < 0.01, 'Combo: bar heights are in proportion to 100, 300, 200. Got ' + h.join());
+      x.test(line[0].getAttribute('stroke') === '#123456' && dots[0].getAttribute('fill') === '#123456', 'Combo: the line and its dots take borderColor');
+      x.test(! /C/.test(line[0].getAttribute('d')), 'Combo: with no tension the line is straight');
+
+      // The two values sit on their own scales: 300 on the left and 40 on the
+      // right each reach the same height, so the tallest bar's top and the
+      // highest dot are one pixel row.
+      x.test(Math.abs(this.num(bars[1], 'y') - this.num(dots[1], 'cy')) < 1,
+        'Combo: the tallest bar and the highest dot reach the same height on their own axes. Got ' + this.num(bars[1], 'y') + ' vs ' + this.num(dots[1], 'cy'));
+      x.test(this.num(dots[0], 'cy') > this.num(dots[2], 'cy') && this.num(dots[2], 'cy') > this.num(dots[1], 'cy'),
+        'Combo: the dots rise with 10, 20, 40');
+
+      var texts = this.all(el, chart, 'text');
+      var right = texts.filter(function(t) { return t.getAttribute('text-anchor') === 'start'; });
+      var left  = texts.filter(function(t) { return t.getAttribute('text-anchor') === 'end'; });
+      x.test(right.length >= 2 && left.length >= 2, 'Combo: both y axes have tick labels. Got right ' + right.length + ', left ' + left.length);
+      var barRight = Math.max.apply(null, bars.map(function(b) { return this.num(b, 'x') + this.num(b, 'width'); }, this));
+      x.test(right.every(function(t) { return this.num(t, 'x') > barRight; }, this), 'Combo: the right labels sit beyond the last bar');
+      var svgW = el.querySelector('svg').getBoundingClientRect().width;
+      x.test(right.every(function(t) { return t.getBoundingClientRect().right <= el.getBoundingClientRect().left + svgW + 0.5; }),
+        'Combo: the right labels stay inside the chart');
+      var titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(titles.indexOf('Visits') !== -1 && titles.indexOf('ms') !== -1, 'Combo: both axis titles are written. Got ' + titles.join());
+      x.test(this.all(el, chart, 'axis').length === 3, 'Combo: a bottom, a left and a right axis line');
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Visits,Load time', 'Combo: the legend has the bar value and the line value');
+
+      var hit = this.all(el, chart, 'hit');
+      x.test(hit.length === 3, 'Combo: one hover column per label');
+      var c = this.centreOf(hit[1]);
+      this.fire(hit[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(tip.indexOf('b') === 0 && tip.indexOf('Visits: 300') !== -1 && tip.indexOf('Load time: 40') !== -1,
+        'Combo: hovering a category lists both values. Got ' + tip);
+      hit[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      x.test(clicked === 2, 'Combo: clicking a category calls onCategoryClick with its index. Got ' + clicked);
+      this.unmount(chart);
+
+      chart = this.ComboChart.create({
+        labels: [ 'a', 'b' ], datasets: [ { data: [ 1, 2 ] }, { data: [ 1, 2 ], tension: 0.4 } ]
+      }, x);
+      el = await this.mount(chart);
+      x.test(/C/.test(this.all(el, chart, 'line')[0].getAttribute('d')), 'Combo: tension draws a curve');
+      x.test(el.classList.contains(chart.myClass('clickable')) === false, 'Combo: with no onCategoryClick the columns are not clickable');
+      this.unmount(chart);
+    },
+
+    async function testComboLegend(x) {
+      var chart = this.ComboChart.create({
+        labels: [ 'a', 'b', 'c' ],
+        datasets: [ { label: 'Visits', data: [ 100, 300, 200 ] }, { label: 'Load time', data: [ 10, 40, 20 ] } ],
+        yAxisLabel: 'Visits', lineAxisLabel: 'ms'
+      }, x);
+      var el    = await this.mount(chart);
+      var items = function() { return Array.from(el.querySelectorAll('.' + this.legendClass('item'))); }.bind(this);
+      var anchor = function(a) {
+        return this.all(el, chart, 'text').filter(function(t) { return t.getAttribute('text-anchor') === a; }).length;
+      }.bind(this);
+      var dotX = this.num(this.all(el, chart, 'dot')[0], 'cx');
+      var dotY = this.all(el, chart, 'dot').map(function(d) { return this.num(d, 'cy'); }, this);
+
+      // Hiding the bars takes their axis and title with them; the line stays.
+      items()[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 0; }.bind(this));
+      var titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'dot').length === 3, 'Combo legend: hiding Visits hides the bars and keeps the line');
+      x.test(anchor('end') === 0 && anchor('start') >= 2 && titles.join() === 'ms', 'Combo legend: the bars\' axis labels and title are gone, the line\'s stay. Got ' + titles.join() + ', left labels ' + anchor('end'));
+      x.test(this.num(this.all(el, chart, 'dot')[0], 'cx') < dotX, 'Combo legend: the plot widens into the room the left axis left. Got ' + dotX + ' then ' + this.num(this.all(el, chart, 'dot')[0], 'cx'));
+      x.test(this.all(el, chart, 'dot').every(function(d, i) { return Math.abs(this.num(d, 'cy') - dotY[i]) < 1; }, this), 'Combo legend: the line keeps its own scale');
+      x.test(items()[0].classList.contains(this.legendClass('hidden')), 'Combo legend: the hidden entry is struck through');
+
+      // Back, then hide the line: its axis and title go, the bars stay.
+      items()[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 3; }.bind(this));
+      items()[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'dot').length === 0; }.bind(this));
+      titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(this.all(el, chart, 'bar').length === 3 && this.all(el, chart, 'line').length === 0, 'Combo legend: hiding Load time hides the line and keeps the bars');
+      x.test(anchor('start') === 0 && anchor('end') >= 2 && titles.join() === 'Visits', 'Combo legend: the line\'s axis labels and title are gone. Got ' + titles.join());
+
+      // Both hidden: an empty plot, nothing thrown.
+      items()[0].click();
+      await this.redraw(function() { return this.all(el, chart, 'bar').length === 0; }.bind(this));
+      x.test(el.querySelector('svg') && this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'dot').length === 0, 'Combo legend: with both hidden nothing is drawn');
+      this.unmount(chart);
+    },
+
+    async function testComboEdges(x) {
+      // A missing line value leaves its point out; the bar for it is still drawn.
+      var chart = this.ComboChart.create({
+        labels: [ 'a', 'b', 'c' ], datasets: [ { data: [ 5, 0, 8 ] }, { data: [ 1, null, 3 ] } ]
+      }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'dot').length === 2 && this.all(el, chart, 'bar').length === 2,
+        'Combo: a missing line value draws no dot, and a zero bar draws no bar. Got ' + this.all(el, chart, 'dot').length + ' dots, ' + this.all(el, chart, 'bar').length + ' bars');
+      this.unmount(chart);
+
+      // A negative bar hangs below zero: the axis covers it.
+      chart = this.ComboChart.create({ labels: [ 'a', 'b' ], datasets: [ { data: [ -5, 10 ] }, { data: [ 1, 2 ] } ] }, x);
+      el = await this.mount(chart);
+      var bars = this.all(el, chart, 'bar');
+      x.test(bars.length === 2 && Math.abs(this.num(bars[0], 'y') - ( this.num(bars[1], 'y') + this.num(bars[1], 'height') )) < 0.5,
+        'Combo: a negative bar starts at the zero line, where the positive bar ends');
+      this.unmount(chart);
+
+      // A flat line (every value 5) still gets a range to draw on.
+      chart = this.ComboChart.create({ labels: [ 'a', 'b' ], datasets: [ { data: [ 1, 2 ] }, { data: [ 5, 5 ] } ] }, x);
+      el = await this.mount(chart);
+      var dots = this.all(el, chart, 'dot');
+      x.test(dots.length === 2 && isFinite(this.num(dots[0], 'cy')) && this.num(dots[0], 'cy') === this.num(dots[1], 'cy'), 'Combo: a flat line draws a level line');
+      this.unmount(chart);
+
+      // Nothing to draw: nothing drawn, nothing thrown.
+      chart = this.ComboChart.create({ labels: [], datasets: [] }, x);
+      el = await this.mount(chart);
+      x.test(el.querySelector('svg') && this.all(el, chart, 'bar').length === 0, 'Combo: with no data the chart draws its axes and no marks');
+      this.unmount(chart);
+
+      // Only the bars given: no line, no right axis.
+      chart = this.ComboChart.create({ labels: [ 'a' ], datasets: [ { data: [ 3 ] } ], lineAxisLabel: 'ms' }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'bar').length === 1 && this.all(el, chart, 'axis').length === 2 && this.all(el, chart, 'axis-title').length === 0,
+        'Combo: with no line dataset there is no right axis and no right title');
       this.unmount(chart);
     },
 

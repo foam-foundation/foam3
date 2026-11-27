@@ -76,6 +76,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardCandlestickChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardComboChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardFunnelChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardGaugeChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
@@ -104,6 +105,7 @@ foam.CLASS({
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.CandlestickChart',
+    'foam.u2.chart.ComboChart',
     'foam.u2.chart.FunnelChart',
     'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
@@ -142,6 +144,8 @@ foam.CLASS({
       await this.testHistogramEdges(x);
       await this.testWaterfall(x);
       await this.testWaterfallEdges(x);
+      await this.testCombo(x);
+      await this.testComboEdges(x);
       await this.testFunnel(x);
       await this.testFunnelEdges(x);
       await this.testBoxPlot(x);
@@ -166,7 +170,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -619,6 +623,118 @@ foam.CLASS({
         // No day: it belongs to no series when a Series Property is picked.
         T.create({ id: 9,  kind: 'GET',  day: '',    ms: 7 })
       ] }, x);
+    },
+
+    async function testCombo(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardComboChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1            = R.YEAR;
+      s.aggregation     = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.lineAggregation = this.AvgDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors          = [ '#00aa00', '#aa0000' ];
+      s.xAxisLabel      = 'Year';
+      s.lineAxisLabel   = 'Average amount';
+      s.smoothLine      = true;
+      s.barThickness    = 20;
+      s.legendPosition  = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the label, both values and the x of the click.
+      s.onClickScript = '(function(label, bar, line, cx, cy, px, py) { globalThis.comboClick_ = [ label, bar, line, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.ComboChart.isInstance(chart), 'Combo: draws a foam.u2.chart.ComboChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && chart.datasets[0].data.join() === '30,70' && chart.datasets[1].data.join() === '15,35',
+        'Combo: the bars sum the amounts per year and the line averages them. Got ' + chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
+      x.test(chart.datasets[0].backgroundColor === '#00aa00' && chart.datasets[1].borderColor === '#aa0000',
+        'Combo: the first colour is the bars\' and the second the line\'s. Got ' + chart.datasets[0].backgroundColor + ', ' + chart.datasets[1].borderColor);
+      x.test(chart.datasets[0].label === R.AMOUNT.label && chart.datasets[1].label === R.AMOUNT.label,
+        'Combo: with no names typed the legend entries take the fields\' labels. Got ' + chart.datasets[0].label + ', ' + chart.datasets[1].label);
+      x.test(chart.xAxisLabel === 'Year' && chart.lineAxisLabel === 'Average amount' && chart.yAxisLabel === R.AMOUNT.label,
+        'Combo: X-Axis Label and Line Axis Label reach the chart, and the left title falls back to the bar field\'s label. Got ' + chart.yAxisLabel);
+      x.test(chart.datasets[1].tension === 0.4 && chart.barThickness === 20 && chart.legendPosition === this.LegendPosition.RIGHT,
+        'Combo: Smooth Line, Bar Thickness and Legend Position reach the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onCategoryClick(1, evt);
+      x.test(globalThis.comboClick_ === '2026,70,35,30,30,130,280',
+        'Combo: On Click Script gets the label, both values, and the point in the chart and on the page. Got ' + globalThis.comboClick_);
+      delete globalThis.comboClick_;
+
+      // With nothing picked the form shows Count for each: bars and line both count the rows.
+      s.clearProperty('aggregation');
+      s.clearProperty('lineAggregation');
+      s.smoothLine = false;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2' && chart.datasets[1].data.join() === '2,2' && chart.datasets[0].label === 'Count',
+        'Combo: with no aggregations each value counts its rows and is called Count. Got ' + chart.datasets[0].data.join() + ' / ' + chart.datasets[0].label);
+      x.test(chart.datasets[1].tension === 0, 'Combo: Smooth Line off leaves the line straight');
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onCategoryClick, 'Combo: with no On Click Script the categories are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still
+      // group with both aggregates. The server's copy has no aggregation fields (their
+      // Java class lacks them), so the names must come from the totals in arg2.
+      s.aggregation     = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.lineAggregation = this.MaxDAOAgent.create({ prop: R.MONTH }, x);
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      copy.clearProperty('aggregation');
+      copy.clearProperty('lineAggregation');
+      var err = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var got = err ? '' : copy.chart_.datasets.map(function(d) { return d.label + ':' + d.data.join(); }).join(' / ');
+      x.test(! err && got === R.AMOUNT.label + ':30,70 / ' + R.MONTH.label + ':2,2',
+        'Combo: a sink sent as JSON and back still gets both values per group, named after their fields. Got ' + ( err || got ));
+
+      // Two aggregates are two keys: a cached select of the Sum must not answer for the Average.
+      var other = this.DashboardComboChartDAOAgent.create({}, x);
+      other.displaySink.arg1            = R.YEAR;
+      other.displaySink.aggregation     = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      other.displaySink.lineAggregation = this.AvgDAOAgent.create({ prop: R.MONTH }, x);
+      x.test(agent.createSink().toString() !== other.createSink().toString(),
+        'Combo: sinks that differ only in the line\'s aggregate have different cache keys. Got ' + other.createSink().toString());
+    },
+
+    async function testComboEdges(x) {
+      var T  = this.ScatterTestRow;
+      var at = function(hour) { return new Date(2026, 0, 1, hour, 30); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, at: at(16) }),
+        T.create({ id: 2, kind: 'POST', size: 10, at: at(9) }),
+        T.create({ id: 3, kind: 'GET',  size: 5,  at: at(14) }),
+        T.create({ id: 4, kind: '',     size: 30, at: at(9) }),
+        T.create({ id: 5, kind: 'GET',  size: 15, at: at(16) })
+      ] }, x);
+      var agent = this.DashboardComboChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation     = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+      s.lineAggregation = this.AvgDAOAgent.create({ prop: T.SIZE }, x);
+
+      // Hour of a date: the hours come in order, each with its total and its average.
+      s.arg1 = foam.mlang.expr.DateToHHExpr.create({ delegate: T.AT });
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '09,14,16' && chart.datasets[0].data.join() === '40,5,25' && chart.datasets[1].data.join() === '20,5,12.5',
+        'Combo: the hours come in order, each with its sum and its average. Got ' + chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
+      x.test(chart.xAxisLabel === T.AT.label, 'Combo: with no X-Axis Label the axis takes the field\'s label. Got ' + chart.xAxisLabel);
+
+      // A row with no kind is left out, not drawn as a category called "".
+      s.arg1 = T.KIND;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '30,10',
+        'Combo: a row with no value in Group By adds no category. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of empty axes.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Combo: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
     },
 
     async function testFunnel(x) {

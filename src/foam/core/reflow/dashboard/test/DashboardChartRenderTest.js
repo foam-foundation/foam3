@@ -60,6 +60,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardFunnelChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardGaugeChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHistogramChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
@@ -75,12 +76,15 @@ foam.CLASS({
     'foam.core.reflow.dashboard.test.RadarTestRow',
     'foam.core.reflow.dashboard.test.ScatterTestRow',
     'foam.core.reflow.AvgDAOAgent',
+    'foam.core.reflow.MaxDAOAgent',
+    'foam.core.reflow.MinDAOAgent',
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.FunnelChart',
+    'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
@@ -116,6 +120,8 @@ foam.CLASS({
       await this.testBoxPlotEdges(x);
       await this.testTreemap(x);
       await this.testTreemapEdges(x);
+      await this.testGauge(x);
+      await this.testGaugeEdges(x);
       this.testServerFields(x);
     },
 
@@ -129,7 +135,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -145,6 +151,9 @@ foam.CLASS({
         'Server fields: the Plot that collects a box\'s numbers is in the Java class');
       var vp = foam.core.reflow.dashboard.DashboardBoxPlotSink.getAxiomByName('valueProp');
       x.test(vp && vp.generateJava !== false, 'Server fields: DashboardBoxPlotSink.valueProp is in the Java class, which the server collects with');
+      // The gauge's put adds each row to its total, so the total needs Java.
+      var total = foam.core.reflow.dashboard.DashboardGaugeSink.getAxiomByName('total');
+      x.test(total && total.generateJava !== false, 'Server fields: DashboardGaugeSink.total is in the Java class, which the server totals with');
     },
 
     function rowsDAO(x) {
@@ -573,6 +582,103 @@ foam.CLASS({
       x.test(!! el.element_.querySelector('.' + drawn.chart_.myClass()) && ! el.element_.querySelector('.' + drawn.cls_.id.replace(/\./g, '-') + '-empty'),
         'BoxPlot: with rows the chart is added in place of the message');
       el.remove();
+    },
+
+    async function testGauge(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardGaugeChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation     = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.maxValue        = 200;
+      s.bands           = [ { upTo: 50, color: '#ff0000' }, { upTo: 100, color: '#00ff00' } ];
+      s.showLegend      = true;
+      s.legendPosition  = this.LegendPosition.BOTTOM;
+      s.showTooltips    = false;
+      s.animate         = false;
+      // The script reports its arguments: the value, then the point in the chart and on the page.
+      s.onClickScript   = '(function(value, cx, cy, pageX, pageY) { globalThis.gaugeClick_ = [ value, cx, cy, pageX, pageY ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.GaugeChart.isInstance(chart), 'Gauge: draws a foam.u2.chart.GaugeChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.datasets[0].data.join() === '100', 'Gauge: sums amount over every row: 100. Got ' + chart.datasets[0].data.join());
+      x.test(chart.datasets[0].label === R.AMOUNT.label, 'Gauge: the value is named after its field. Got ' + chart.datasets[0].label);
+      x.test(chart.max === 200 && chart.min === 0, 'Gauge: Maximum is the right end of the dial, which starts at 0');
+      x.test(chart.bands.length === 2 && chart.bands[1].upTo === 100 && chart.bands[1].color === '#00ff00', 'Gauge: Bands reach the chart as GaugeBands');
+      x.test(chart.showLegend && chart.legendPosition === this.LegendPosition.BOTTOM && ! chart.showTooltips && ! chart.animate,
+        'Gauge: Show Legend, Legend Position, Show Tooltips and Enable Animation reach the chart');
+      x.test(chart.legendItems().length === 2, 'Gauge: the legend lists the two bands');
+
+      // The sink's text is the key a client DAO caches the select under, so a total over another field must not print alike.
+      var other = this.DashboardGaugeChartDAOAgent.create({}, x);
+      other.displaySink.aggregation = this.SumDAOAgent.create({ prop: R.YEAR }, x);
+      var textA = agent.createSink().toString();
+      var textB = other.createSink().toString();
+      var textC = this.DashboardGaugeChartDAOAgent.create({}, x).createSink().toString();
+      x.test(textA !== textB && textA !== textC && textA.indexOf('amount') !== -1, 'Gauge: sinks over different totals give different text. Got ' + textA + ' | ' + textB + ' | ' + textC);
+
+      // A select can send the sink to the server as JSON and back; the total must survive the trip.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var got = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.join() : '';
+      x.test(! err && got === '100', 'Gauge: a sink sent as JSON and back still totals the rows. Got ' + ( err || got ));
+
+      // A saved flow holds the form as displaySink: { ... } and nothing else.
+      var back = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(back.displaySink.maxValue === 200 && back.displaySink.bands.length === 2 && back.displaySink.bands[0].upTo === 50,
+        'Gauge: a saved agent keeps Maximum and Bands in its displaySink');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onValueClick({ target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.gaugeClick_ === '100,30,30,130,280', 'Gauge: On Click Script gets the value, the point in the chart and on the page. Got ' + globalThis.gaugeClick_);
+      delete globalThis.gaugeClick_;
+
+      // With no aggregation picked the value is a Count, named "Value".
+      var counted = this.DashboardGaugeChartDAOAgent.create({}, x);
+      chart = ( await this.rowsDAO(x).select(counted.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '4' && chart.datasets[0].label === counted.displaySink.DEFAULT_SERIES,
+        'Gauge: with no aggregation the value is the count of rows, 4, named "Value". Got ' + chart.datasets[0].data.join() + ' ' + chart.datasets[0].label);
+    },
+
+    async function testGaugeEdges(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardGaugeChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation = this.MaxDAOAgent.create({ prop: R.AMOUNT }, x);
+      var sink = await this.rowsDAO(x).select(agent.createSink());
+      x.test(sink.chart_.datasets[0].data.join() === '40', 'Gauge: Max of amount is 40. Got ' + sink.chart_.datasets[0].data.join());
+
+      // A value that is not a number (the Min of no rows) draws no dial: the message shows in its place.
+      s.aggregation = this.MinDAOAgent.create({ prop: R.AMOUNT }, x);
+      var none  = await this.ArrayDAO.create({ of: R, array: [] }, x).select(agent.createSink());
+      var empty = foam.u2.Element.create({}, x);
+      empty.add(none);
+      empty.write();
+      var text = empty.element_.innerText || empty.element_.textContent;
+      x.test(none.chart_.datasets[0].data[0] === null && text.indexOf(none.ChartView.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
+        'Gauge: with no number the chart says "' + none.ChartView.NO_DATA + '" and draws no dial. Got ' + JSON.stringify(text) + ' ' + JSON.stringify(none.chart_.datasets[0].data));
+      empty.remove();
+
+      s.emptyValueMessage = 'Nothing yet';
+      none  = await this.ArrayDAO.create({ of: R, array: [] }, x).select(agent.createSink());
+      empty = foam.u2.Element.create({}, x);
+      empty.add(none);
+      empty.write();
+      x.test(( empty.element_.innerText || empty.element_.textContent ).indexOf('Nothing yet') !== -1, 'Gauge: Empty Message replaces the default text');
+      empty.remove();
+      s.clearProperty('emptyValueMessage');
+
+      // Rows: the chart is added in place of the message.
+      var drawn = await this.rowsDAO(x).select(agent.createSink());
+      var el    = foam.u2.Element.create({}, x);
+      el.add(drawn);
+      el.write();
+      x.test(!! el.element_.querySelector('.' + drawn.chart_.myClass()) && ! el.element_.querySelector('.' + drawn.cls_.id.replace(/\./g, '-') + '-empty'),
+        'Gauge: with a number the chart is added in place of the message');
+      el.remove();
+
+      // The legend is off by default: one value needs none.
+      x.test(! this.DashboardGaugeChartDAOAgent.create({}, x).displaySink.showLegend, 'Gauge: the legend is off by default');
     },
 
     async function testScatter(x) {

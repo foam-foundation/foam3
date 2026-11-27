@@ -26,7 +26,7 @@ Copy the pie: `DashboardPieSink` (`core/reflow/dashboard/DashboardSinks.js:251-4
 - **`addToE` and `toE`:** they place `chart_` in the page, with an empty-data message when there are no groups (`DashboardSinks.js:402-439`).
 - **Click handler:** a drill-down script from the form becomes a click handler in `chart_`. On the stacked bar, `onClickScript` is called with `(yValue, xValue, stackValue, x, y, pageX, pageY)` (`DashboardSinks.js:619-630`).
 
-A grouping sink (`GroupBy`, `GridBy`) is `Serializable`, so the select runs it on the server, in Java (`core/reflow/GridBy.js:14-17`, its `put` has `javaCode` at `:99-104`). A `put` overridden in JS never runs there. Leave out unwanted keys, such as an empty category, where the sink's result becomes the chart (`chart_`), or in the query.
+A grouping sink (`GroupBy`, `GridBy`) is `Serializable`, so the select runs it on the server, in Java (`core/reflow/GridBy.js:14-17`, its `put` has `javaCode` at `:99-104`). A `put` overridden in JS never runs there. Leave out unwanted keys, such as an empty category, where the sink's result becomes the chart (`chart_`), or in the query. The fields that `put` reads (`xFunc`, `yFunc` on a `GridBy`) need their Java: a field redeclared with `generateJava: false` is left out of the Java class, so the server groups by nothing and the chart says "No data" while every client test passes. `generateJava: false` is right only on form-only fields such as `aggregation` and on a sink that never runs on the server (`DashboardLineSink`'s `yFunc` is read only after the agent swaps in the multi-line sink).
 
 ### A chart with one mark per row
 
@@ -74,6 +74,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": <next free id>, "label":"Scatter 
 - **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM` has (`locales.jrl:988`).
 - **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line.
 - **Demo data must vary on a fresh server.** Every `om1MinuteDAO` row is a counter, so its `average` is always 1: a scatter of count against average draws a flat line. Check the two fields on a running server before you pick them.
+- **A date expression needs a date field.** `LogMessage.created` is a `Long` (`core/logger/LogMessage.js:48-51`), so `DateToHHExpr` on it fails on the server with "java.lang.Long cannot be cast to java.util.Date". Use a `Date` or `DateTime` field, such as `Candlestick.closeTime` (`core/analytics/Candlestick.js:66-68`).
 
 ## 5. Pom
 

@@ -67,7 +67,7 @@ Do:    `{ class: 'Double', name: 'netAmt', storageTransient: true, factory: ...,
 Review asked: "More efficient to be a factory on a transient field."
 
 ### `isSet` is false until the factory runs; an Enum is never `null`
-Enum properties default to ordinal 0, so a null check never fires; a factory-backed property reports unset until first read.
+An unset Enum property reads its first declared value (`VALUES[0]`, `src/foam/lang/Enum.js:451-452`), which need not be ordinal 0, so a null check never fires; a factory-backed property reports unset until first read.
 Don't: `if ( getStatus() == null )`; `if ( ! xIsSet_ ) /* treat as absent */` when `x` has a factory
 Do:    `if ( ! statusIsSet_ )`; read the value and let the factory run
 A hook that writes another property's field directly (`otherProp_ = val;` in a `javaPreSet`) also sets

@@ -15,6 +15,7 @@ foam.POM({
   files: [
     { name: 'TimeUnit',                         flags: 'js|java' },
     { name: 'LegendPosition',                   flags: 'js|java' },
+    { name: 'BarLayout',                        flags: 'js|java' },
     { name: 'PropertyChartFormatterRefinement', flags: 'web' },
     { name: 'LinearScale',                      flags: 'web' },
     { name: 'BandScale',                        flags: 'web' },

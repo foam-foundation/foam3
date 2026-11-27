@@ -11,7 +11,8 @@ foam.CLASS({
 
   documentation: `
     Bars, one per label and dataset. With several datasets the bars of one
-    label stand side by side, or on top of each other when stacked is on.
+    label stand side by side (GROUPED), on top of each other (STACKED), or
+    on top of each other scaled to fill the axis (PERCENT): see barLayout.
     horizontal turns the chart on its side, categories down the left.
 
     Hovering a category shows one tooltip for every dataset at that label,
@@ -21,6 +22,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.BandScale',
+    'foam.u2.chart.BarLayout',
     'foam.u2.chart.LinearScale'
   ],
 
@@ -55,7 +57,22 @@ foam.CLASS({
 
   properties: [
     { class: 'Boolean', name: 'horizontal' },
-    { class: 'Boolean', name: 'stacked' },
+    {
+      // Not named layout: CartesianChartView.layout() is the plot-area method.
+      class: 'Enum',
+      of: 'foam.u2.chart.BarLayout',
+      name: 'barLayout',
+      value: 'GROUPED',
+      documentation: 'How the series of a category are arranged. A name such as \'percent\' adapts to its value.'
+    },
+    {
+      // Kept so a chart made with stacked: true still stacks.
+      class: 'Boolean',
+      name: 'stacked',
+      transient: true,
+      getter: function() { return this.barLayout.piles; },
+      setter: function(v) { this.barLayout = v ? this.BarLayout.STACKED : this.BarLayout.GROUPED; }
+    },
     {
       class: 'Int',
       name: 'barThickness',
@@ -86,20 +103,26 @@ foam.CLASS({
         .filter(function(s) { return ! self.isHidden(s.i); });
     },
 
+    function total_(sets, j) {
+      // What a category adds up to: the visible series' values, signs ignored,
+      // so a negative value still takes its share of a PERCENT bar.
+      return sets.reduce(function(sum, s) { return sum + Math.abs(Number(s.ds.data[j]) || 0); }, 0);
+    },
+
     function valueRange_(sets, n) {
       // Stacked bars add up per label, positives up and negatives down.
       var lo = 0, hi = 0;
       for ( var j = 0 ; j < n ; j++ ) {
-        var pos = 0, neg = 0;
+        var pos = 0, neg = 0, total = this.total_(sets, j);
         sets.forEach(function(s) {
-          var v = Number(s.ds.data[j]) || 0;
-          if ( this.stacked ) { if ( v >= 0 ) pos += v; else neg += v; }
+          var v = this.barLayout.plotValue(Number(s.ds.data[j]) || 0, total);
+          if ( this.barLayout.piles ) { if ( v >= 0 ) pos += v; else neg += v; }
           else { pos = Math.max(pos, v); neg = Math.min(neg, v); }
         }, this);
         hi = Math.max(hi, pos);
         lo = Math.min(lo, neg);
       }
-      return [ lo, hi ];
+      return this.barLayout.range(lo, hi);
     },
 
     function drawChart(svg, w, h) {
@@ -109,7 +132,7 @@ foam.CLASS({
       var sets   = this.visibleSets_();
       var range  = this.valueRange_(sets, n);
       var fit = this.layoutForValues(w, h, labels, this.horizontal,
-        function(n) { return self.LinearScale.create({ min: range[0], max: range[1], tickCount: n }).nice(); },
+        function(n) { return self.LinearScale.create({ min: range[0], max: range[1], tickCount: n, suffix: self.barLayout.suffix }).nice(); },
         function(scale) { return scale.ticks(); });
       var a      = fit.area;
       var vScale = fit.scale;
@@ -131,22 +154,23 @@ foam.CLASS({
       // rects[j] lists the bars of label j as { di, lo, hi } in pixels along the value axis.
       var rects   = labels.map(function() { return []; });
       var bw      = band.bandwidth();
-      var groupW  = this.stacked || ! sets.length ? bw : bw / sets.length;
+      var stacked = this.barLayout.piles;
+      var groupW  = stacked || ! sets.length ? bw : bw / sets.length;
       if ( this.barThickness > 0 ) groupW = Math.min(groupW, this.barThickness);
-      var groupsW = this.stacked ? groupW : groupW * sets.length;
+      var groupsW = stacked ? groupW : groupW * sets.length;
 
       svg.start('g').call(function() {
         var g = this;
         for ( var j = 0 ; j < n ; j++ ) {
-          var pos = 0, neg = 0;
+          var pos = 0, neg = 0, total = self.total_(sets, j);
           var c0  = band.center(j) - groupsW / 2;
           sets.forEach(function(s, k) {
-            var v = Number(s.ds.data[j]) || 0;
+            var v = self.barLayout.plotValue(Number(s.ds.data[j]) || 0, total);
             var from = 0;
-            if ( self.stacked ) { from = v >= 0 ? pos : neg; if ( v >= 0 ) pos += v; else neg += v; }
+            if ( stacked ) { from = v >= 0 ? pos : neg; if ( v >= 0 ) pos += v; else neg += v; }
             var p0 = vScale.map(from), p1 = vScale.map(from + v);
             var lo = Math.min(p0, p1), len = Math.abs(p1 - p0);
-            var c  = self.stacked ? c0 : c0 + k * groupW;
+            var c  = stacked ? c0 : c0 + k * groupW;
             rects[j].push({ di: s.i, lo: lo, hi: lo + len });
             if ( ! len ) return;
             g.start('rect').addClass(self.myClass('bar'))
@@ -188,8 +212,13 @@ foam.CLASS({
     function showBarTooltip_(evt, j) {
       var self = this;
       var sets = this.visibleSets_();
+      var total = this.total_(sets, j);
       var rows = sets.map(function(s) {
-        return { color: self.seriesColor(s.i, j), label: s.ds.label || '', value: self.formatValue(s.ds.data[j]) };
+        return {
+          color: self.seriesColor(s.i, j),
+          label: s.ds.label || '',
+          value: self.barLayout.tooltipValue(s.ds.data[j], total, function(v) { return self.formatValue(v); })
+        };
       });
       var footer = this.showTooltipSum && sets.length ?
         this.sumLine(sets.map(function(s) { return s.ds.data[j]; })) : undefined;

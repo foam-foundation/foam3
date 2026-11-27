@@ -103,6 +103,7 @@ foam.CLASS({
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.BarLayout',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.BulletChart',
@@ -444,6 +445,20 @@ foam.CLASS({
       s.onClickScript = '';
       chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(! chart.onBarClick, 'StackedBar: with no On Click Script the bars are not clickable');
+
+      // Layout: a flow saved before the field has no value and must draw stacked.
+      x.test(s.barLayout === this.BarLayout.STACKED && chart.barLayout === this.BarLayout.STACKED,
+        'StackedBar: with no Layout set, the chart is Stacked, as before the field existed');
+      var old = foam.json.parseString('{"class":"foam.core.reflow.dashboard.DashboardStackedBarSink","height":300}', x);
+      x.test(old.barLayout === this.BarLayout.STACKED, 'StackedBar: a saved sink with no Layout loads as Stacked');
+      s.barLayout = this.BarLayout.PERCENT;
+      var round = foam.json.parseString(foam.json.stringify(s), x);
+      x.test(round.barLayout === this.BarLayout.PERCENT, 'StackedBar: Layout 100% survives the JSON round trip a select sends. Got ' + round.barLayout);
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.barLayout === this.BarLayout.PERCENT && chart.stacked, 'StackedBar: Layout 100% reaches the chart');
+      s.barLayout = this.BarLayout.GROUPED;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.barLayout === this.BarLayout.GROUPED && ! chart.stacked, 'StackedBar: Layout Grouped reaches the chart');
     },
 
     async function testLine(x) {

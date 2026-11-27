@@ -1808,7 +1808,7 @@ foam.CLASS({
         }
 
         // numeric ISO 3166-1 -> normalize to alpha-2 Country.code
-        if ( /^\\d{3}$/.test(v) ) {
+        if ( /^\d{3}$/.test(v) ) {
           var cn = isoNumProp ? await dao.find(prop.EQ(isoNumProp, v)) : null;
           return cn ? cn.code : v;
         }

@@ -12,9 +12,11 @@ foam.CLASS({
   documentation: `CurrencyCode and CountryCode normalize their value in an
     async initObject. A script that cloned a record and set a new currency
     right away lost it: one tick later initObject wrote the cloned value back,
-    and the put sent the old currency with no error.`,
+    and the put sent the old currency with no error. A numeric country code
+    such as '124' also never became its alpha-2 code 'CA'.`,
 
   requires: [
+    'foam.core.auth.Country',
     'foam.dao.MDAO',
     'foam.lang.Currency'
   ],
@@ -26,7 +28,9 @@ foam.CLASS({
         var dao = this.MDAO.create({ of: this.Currency });
         await dao.put(this.Currency.create({ id: 'CAD', numericCode: 124 }));
         await dao.put(this.Currency.create({ id: 'USD', numericCode: 840 }));
-        var ctx = x.createSubContext({ currencyDAO: dao });
+        var countries = this.MDAO.create({ of: this.Country });
+        await countries.put(this.Country.create({ code: 'CA', isoNumeric: '124' }));
+        var ctx = x.createSubContext({ countryDAO: countries, currencyDAO: dao });
 
         foam.CLASS({
           package: 'foam.lang.test',
@@ -50,10 +54,12 @@ foam.CLASS({
         x.test(edited.country === 'CA',
           'a country set right after clone() is kept, got: ' + edited.country);
 
-        var numeric = of.create({ currency: '124' }, ctx);
+        var numeric = of.create({ currency: '124', country: '124' }, ctx);
         await tick();
         x.test(numeric.currency === 'CAD',
           'a numeric currency code still normalizes on create, got: ' + numeric.currency);
+        x.test(numeric.country === 'CA',
+          'a numeric country code normalizes on create, got: ' + numeric.country);
       }
     }
   ]

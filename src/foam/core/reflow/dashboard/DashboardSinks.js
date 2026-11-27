@@ -2119,6 +2119,152 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
+  name: 'DashboardCandlestickSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One candle per row: the Time property places it, and the Open, High, Low
+    and Close properties are four numeric properties of the row, such as the
+    first, highest, lowest and last response time of each minute. A row whose
+    time is not a date, or whose open, high, low or close is not a number, is
+    left out. Colors takes two colours, rise then fall.
+  `,
+
+  requires: [
+    'foam.u2.chart.CandlestickChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['timeProp', 'openProp', 'highProp', 'lowProp', 'closeProp'] },
+    { name: 'chartSettings', title: 'Candlestick Chart Settings', order: 1, collapsable: true,
+      properties: ['timeUnit', 'xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The candlestick has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'timeProp',  label: 'Time Property',  help: 'Date or date-and-time property that places each candle along the x axis', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'openProp',  label: 'Open Property',  help: 'Numeric property: the value at the start of the step, where the box begins', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'highProp',  label: 'High Property',  help: 'Numeric property: the highest value of the step, the top of the line', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'lowProp',   label: 'Low Property',   help: 'Numeric property: the lowest value of the step, the bottom of the line', required: true, generateJava: false },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'closeProp', label: 'Close Property', help: 'Numeric property: the value at the end of the step, where the box ends', required: true, generateJava: false },
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit', value: 'DAY',
+      label: 'Time Unit', help: 'Period the x-axis ticks mark; pick Minute for a candle a minute', generateJava: false },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a candle is clicked. Signature: (time, open, high, low, close, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no candles. Left empty, it says "No data available".'
+    },
+    {
+      class: 'Array',
+      name: 'candles_',
+      hidden: true,
+      // Candles collected by put(), in the order the rows arrive:
+      // [ { x: 1700000000000, open: 10, high: 14, low: 8, close: 13 } ]. Kept
+      // as plain objects, since the sink is copied and sent as JSON during a
+      // select. Transient, so the candles of one run are never saved into the flow.
+      transient: true
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every candle.
+      factory: function() {
+        var self = this;
+        var data = this.candles_.slice().sort(function(l, r) { return l.x - r.x; });
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardCandlestickSink:', e);
+          }
+        }
+        // Colors is a list: rise, then fall. One colour given leaves the fall to the theme.
+        var colors = ( this.colors || [] ).slice(0, 2).map(function(c) {
+          return c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined;
+        });
+        return this.CandlestickChart.create({
+          datasets:          [ { data: data, backgroundColor: colors.length ? colors : undefined } ],
+          timeUnit:          this.timeUnit,
+          // A Date is midnight UTC and reads in UTC; a DateTime reads in local time.
+          utc:               foam.lang.Date.isInstance(this.timeProp) && ! foam.lang.DateTime.isInstance(this.timeProp),
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.timeProp),
+          // The four values share one axis, so with no title typed it takes the Close field's label.
+          yAxisLabel:        this.yAxisLabel || this.labelOf_(this.closeProp),
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration,
+          onCandleClick: typeof click !== 'function' ? null : function(j, evt) {
+            try {
+              var c   = data[j];
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(c.x, c.open, c.high, c.low, c.close, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function put(obj) {
+      // Only a date and four numbers make a candle: a number would plot as
+      // that many seconds since 1970 and yes/no as 0 or 1. NaN and Infinity
+      // are left to the chart, which drops them.
+      var t = this.timeProp.f(obj);
+      var c = {
+        open:  this.openProp.f(obj),
+        high:  this.highProp.f(obj),
+        low:   this.lowProp.f(obj),
+        close: this.closeProp.f(obj)
+      };
+      if ( ! ( t instanceof Date ) ) return;
+      for ( var k in c ) if ( typeof c[k] !== 'number' ) return;
+      c.x = t.getTime();
+      this.candles_.push(c);
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.candles_.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
   name: 'DashboardRadarSink',
   extends: 'foam.core.reflow.GridBy',
   mixins: [

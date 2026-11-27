@@ -50,6 +50,22 @@ foam.CLASS({
   ]
 });
 
+// Rows for the candlestick: four numbers per minute, a date and a date-and-time.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'CandleTestRow',
+  properties: [
+    { class: 'Int',      name: 'id' },
+    { class: 'String',   name: 'kind' },
+    { class: 'DateTime', name: 'at' },
+    { class: 'Date',     name: 'day' },
+    { class: 'Float',    name: 'first' },
+    { class: 'Float',    name: 'top' },
+    { class: 'Float',    name: 'bottom' },
+    { class: 'Float',    name: 'last' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardChartRenderTest',
@@ -59,6 +75,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardCandlestickChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardFunnelChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardGaugeChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
@@ -72,6 +89,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardWaterfallChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.BoxPlotTestRow',
+    'foam.core.reflow.dashboard.test.CandleTestRow',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
     'foam.core.reflow.dashboard.test.RadarTestRow',
     'foam.core.reflow.dashboard.test.ScatterTestRow',
@@ -83,6 +101,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
+    'foam.u2.chart.CandlestickChart',
     'foam.u2.chart.FunnelChart',
     'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
@@ -106,6 +125,8 @@ foam.CLASS({
       await this.testScatterEdges(x);
       await this.testBubble(x);
       await this.testBubbleEdges(x);
+      await this.testCandlestick(x);
+      await this.testCandlestickEdges(x);
       await this.testRadar(x);
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
@@ -135,7 +156,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -146,6 +167,10 @@ foam.CLASS({
           x.test(p && p.generateJava !== false, 'Server fields: ' + id + '.' + n + ' is in the Java class, which the server groups with');
         });
       });
+      // The candlestick keeps its candles in put(), which has no Java, so its sink must
+      // stay in the browser: a Serializable sink would run on the server with an empty put.
+      x.test(! foam.core.reflow.dashboard.DashboardCandlestickSink.getAxiomByName('implements_foam.lang.Serializable'),
+        'Server fields: DashboardCandlestickSink is not Serializable, so a select never sends it to the server');
       // The box plot's collector is a Plot, which has Java: the server keeps each box's numbers in it.
       x.test(foam.mlang.sink.Plot.getAxiomByName('data').generateJava !== false && foam.mlang.sink.Plot.getAxiomByName('args').generateJava !== false,
         'Server fields: the Plot that collects a box\'s numbers is in the Java class');
@@ -177,6 +202,110 @@ foam.CLASS({
       var bands = foam.core.reflow.dashboard.DashboardGaugeSink.getAxiomByName('bands');
       x.test(bands.generateJava !== false && foam.u2.chart.GaugeBand.getAxiomByName('upTo').generateJava !== false,
         'Server fields: the gauge\'s bands and the GaugeBand they hold are in the Java class');
+    },
+
+    function candleRows(x) {
+      var T = this.CandleTestRow;
+      var day = function(d) { return new Date(Date.UTC(2026, 2, d)); };
+      return this.ArrayDAO.create({ of: T, array: [
+        // Out of time order on purpose: the chart sorts them.
+        T.create({ id: 2, kind: 'b', at: new Date(2026, 2, 2, 10, 5), day: day(2), first: 13, top: 16, bottom: 7, last: 9 }),
+        T.create({ id: 1, kind: 'a', at: new Date(2026, 2, 2, 10, 4), day: day(1), first: 10, top: 14, bottom: 8, last: 13 }),
+        T.create({ id: 3, kind: 'c', at: new Date(2026, 2, 2, 10, 6), day: day(3), first: 9,  top: 12, bottom: 9, last: 11 })
+      ] }, x);
+    },
+
+    async function testCandlestick(x) {
+      var T     = this.CandleTestRow;
+      var rows  = this.candleRows(x);
+      var agent = this.DashboardCandlestickChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.timeProp  = T.AT;
+      s.openProp  = T.FIRST;
+      s.highProp  = T.TOP;
+      s.lowProp   = T.BOTTOM;
+      s.closeProp = T.LAST;
+      s.timeUnit  = 'MINUTE';
+      s.colors    = [ '#00aa00', '#aa0000' ];
+      s.onClickScript = '(function(t, o, h, l, c, cx, cy, pageX, pageY) { globalThis.candleClick_ = [ o, h, l, c, cx, cy, pageX, pageY ].join(); })';
+
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(this.CandlestickChart.isInstance(chart), 'Candlestick: draws a foam.u2.chart.CandlestickChart. Got ' + ( chart && chart.cls_.id ));
+      var d = chart.datasets[0].data;
+      x.test(d.length === 3 && d.map(function(c) { return c.open + '/' + c.high + '/' + c.low + '/' + c.close; }).join() === '10/14/8/13,13/16/7/9,9/12/9/11',
+        'Candlestick: each row is one candle of its four fields, in time order. Got ' + JSON.stringify(d));
+      x.test(d[0].x === new Date(2026, 2, 2, 10, 4).getTime(), 'Candlestick: the time is the row\'s time in milliseconds. Got ' + d[0].x);
+      x.test(JSON.stringify(chart.datasets[0].backgroundColor) === '["#00aa00","#aa0000"]' && chart.timeUnit === chart.TimeUnit.MINUTE,
+        'Candlestick: Colors (rise, fall) and Time Unit reach the chart. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.xAxisLabel === T.AT.label && chart.yAxisLabel === T.LAST.label && ! chart.utc,
+        'Candlestick: with no axis titles typed the axes take the Time and Close labels, and a date-and-time reads in local time. Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onCandleClick(1, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.candleClick_ === '13,16,7,9,30,30,130,280',
+        'Candlestick: On Click Script gets open, high, low, close, and the point in the chart and on the page. Got ' + globalThis.candleClick_);
+      delete globalThis.candleClick_;
+
+      // A Date field reads in UTC; no On Click Script leaves the candles not clickable; one colour leaves the fall to the theme.
+      s.timeProp = T.DAY;
+      s.clearProperty('onClickScript');
+      s.colors = [ '#00aa00' ];
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.utc && ! chart.onCandleClick, 'Candlestick: a Date reads in UTC, and with no On Click Script the candles are not clickable');
+      x.test(chart.kindColor_(true) === '#00aa00' && chart.kindColor_(false).indexOf('$') === -1 && chart.kindColor_(false) !== '#00aa00',
+        'Candlestick: one colour sets the rise and the fall keeps its resolved theme colour. Got ' + chart.kindColor_(false));
+
+      // A select can send the sink to the server as JSON and back; the copy must still collect candles.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await rows.select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.chart_.datasets[0].data.length === 3, 'Candlestick: a sink sent as JSON and back still collects all three candles. Got ' + ( err || copy.chart_.datasets[0].data.length ));
+    },
+
+    async function testCandlestickEdges(x) {
+      var T     = this.CandleTestRow;
+      var rows  = this.candleRows(x);
+      var agent = this.DashboardCandlestickChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.timeProp  = T.AT;
+      s.openProp  = T.FIRST;
+      s.highProp  = T.TOP;
+      s.lowProp   = T.BOTTOM;
+      s.closeProp = T.LAST;
+      s.xAxisLabel = 'Minute';
+      s.yAxisLabel = 'Latency';
+
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.xAxisLabel === 'Minute' && chart.yAxisLabel === 'Latency', 'Candlestick: typed axis titles win over the field labels');
+
+      // A text field is not a number and a number is not a date: no candle for either.
+      s.openProp = T.KIND;
+      var sink = await rows.select(agent.createSink());
+      x.test(sink.candles_.length === 0, 'Candlestick: a text field as Open makes no candles. Got ' + sink.candles_.length);
+      s.openProp = T.FIRST;
+      s.timeProp = T.FIRST;
+      sink = await rows.select(agent.createSink());
+      x.test(sink.candles_.length === 0, 'Candlestick: a number field as Time makes no candles. Got ' + sink.candles_.length);
+
+      // With no candles the chart says so and draws no axes.
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Candlestick: with no candles the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+
+      // A row with an empty field is left out: the unset Float is 0, so only a real
+      // value counts; a row whose time was never set has no date.
+      var T2 = this.CandleTestRow;
+      var some = this.ArrayDAO.create({ of: T2, array: [
+        T2.create({ id: 1, at: new Date(2026, 2, 2, 10, 4), first: 1, top: 2, bottom: 0, last: 1 }),
+        T2.create({ id: 2, first: 1, top: 2, bottom: 0, last: 1 })
+      ] }, x);
+      s.timeProp = T.AT;
+      sink = await some.select(agent.createSink());
+      x.test(sink.candles_.length === 1, 'Candlestick: a row with no time is left out. Got ' + sink.candles_.length);
     },
 
     function rowsDAO(x) {

@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
+    'foam.u2.chart.CandlestickChart',
     'foam.u2.chart.FunnelChart',
     'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
@@ -41,6 +42,8 @@ foam.CLASS({
       await this.testLinearLine(x);
       await this.testScatter(x);
       await this.testBubble(x);
+      await this.testCandlestick(x);
+      await this.testCandlestickEdges(x);
       await this.testRadar(x);
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
@@ -497,6 +500,129 @@ foam.CLASS({
       chart = this.BubbleChart.create({ datasets: [ { label: 'A', data: [] } ] }, x);
       el    = await this.mount(chart);
       x.test(this.all(el, chart, 'dot').length === 0 && !! el.querySelector('svg'), 'Bubble: with no points it draws no bubbles and still draws its axes');
+      this.unmount(chart);
+    },
+
+    async function testCandlestick(x) {
+      var clicks = [];
+      // Four days. Day 1 rises 10 to 13, day 2 falls 13 to 9, day 3 closes where it opened, day 4 has no close.
+      var chart = this.CandlestickChart.create({
+        datasets: [ { data: [
+          { x: '2024-03-01', open: 10, high: 14, low: 8,  close: 13 },
+          { x: '2024-03-02', open: 13, high: 16, low: 7,  close: 9 },
+          { x: '2024-03-03', open: 9,  high: 12, low: 9,  close: 9 },
+          { x: '2024-03-04', open: 9,  high: 10, low: 8 }
+        ] } ],
+        xAxisLabel: 'Day',
+        yAxisLabel: 'Price',
+        onCandleClick: function(i) { clicks.push(i); }
+      }, x);
+      var el      = await this.mount(chart);
+      var boxes   = this.all(el, chart, 'box');
+      var wicks   = this.all(el, chart, 'wick');
+      var near    = function(a, b) { return Math.abs(a - b) < 0.5; };
+      x.test(boxes.length === 3 && wicks.length === 3, 'Candlestick: one box and one line per candle, none for the one with no close. Got ' + boxes.length + ' and ' + wicks.length);
+
+      // Box height follows |close - open|: 3 on day 1, 4 on day 2.
+      var h = boxes.map(function(b) { return this.num(b, 'height'); }, this);
+      x.test(near(h[1] / h[0], 4 / 3), 'Candlestick: box heights are in proportion to |close - open|, 3 and 4. Got ' + h.join());
+      x.test(h[2] === chart.MIN_BOX_HEIGHT_PX, 'Candlestick: a candle that closed where it opened still shows as a thin bar. Got ' + h[2]);
+
+      // The line runs from the high to the low, so its length follows high - low: 6 on day 1, 9 on day 2.
+      var len = wicks.map(function(w) { return Math.abs(this.num(w, 'y2') - this.num(w, 'y1')); }, this);
+      x.test(near(len[1] / len[0], 9 / 6), 'Candlestick: line lengths follow high - low, 6 and 9. Got ' + len.join());
+      var top = function(w) { return Math.min(this.num(w, 'y1'), this.num(w, 'y2')); }.bind(this);
+      x.test(near(top(wicks[1]) - top(wicks[0]), -( 16 - 14 ) / 6 * len[0]), 'Candlestick: the second line starts 2 above the first, higher is higher up. Got ' + top(wicks[0]) + ', ' + top(wicks[1]));
+
+      // The box sits on the line, centred on it, and inside its length.
+      var cx = this.num(wicks[0], 'x1');
+      x.test(near(this.num(boxes[0], 'x') + this.num(boxes[0], 'width') / 2, cx) && this.num(boxes[0], 'y') >= top(wicks[0]) - 0.01,
+        'Candlestick: the box is centred on its line and starts below the high. Got x ' + this.num(boxes[0], 'x'));
+
+      // Days are an even step apart on the time axis.
+      var xs = wicks.map(function(w) { return this.num(w, 'x1'); }, this);
+      x.test(near(xs[1] - xs[0], xs[2] - xs[1]) && xs[1] > xs[0], 'Candlestick: candles stand an equal step apart, a day each. Got ' + xs.join());
+
+      var fills = boxes.map(function(b) { return b.getAttribute('fill'); });
+      x.test(fills[0] === fills[2] && fills[0] !== fills[1] && fills.every(function(f) { return f && f.indexOf('$') === -1; }),
+        'Candlestick: a rise and a flat candle share one resolved colour, a fall has another. Got ' + fills.join());
+      x.test(wicks[0].getAttribute('stroke') === fills[0] && wicks[1].getAttribute('stroke') === fills[1], 'Candlestick: a line takes its box\'s colour');
+
+      var titles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(titles.indexOf('Day') !== -1 && titles.indexOf('Price') !== -1, 'Candlestick: both axis titles are written. Got ' + titles.join());
+
+      // The y axis stretches to the lowest low and highest high instead of starting at zero.
+      var ticks = this.all(el, chart, 'text').map(function(t) { return t.textContent; });
+      x.test(ticks.indexOf('0') === -1, 'Candlestick: the value axis does not start at zero when the data sits at 7 to 16. Got ' + ticks.join());
+
+      // Legend: rise and fall, and a click hides nothing.
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Rise,Fall', 'Candlestick: the legend lists rise and fall. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[0].click();
+      await this.redraw();
+      x.test(this.all(el, chart, 'box').length === 3 && ! items[0].classList.contains(this.legendClass('hidden')), 'Candlestick: clicking a legend entry hides no candle');
+
+      var hits = this.all(el, chart, 'hit');
+      x.test(hits.length === 3, 'Candlestick: one hover column per candle. Got ' + hits.length);
+      var c = this.centreOf(hits[1]);
+      this.fire(hits[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && /Mar/.test(tip.textContent) && /Open: 13/.test(tip.textContent) && /High: 16/.test(tip.textContent) &&
+        /Low: 7/.test(tip.textContent) && /Close: 9/.test(tip.textContent),
+        'Candlestick: hovering a candle shows its time, open, high, low and close. Got ' + tip.textContent);
+
+      this.fire(hits[2], 'click', c.x, c.y);
+      x.test(JSON.stringify(clicks) === '[2]', 'Candlestick: a click gives the candle\'s position in the data. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Candlestick: a chart with onCandleClick shows a pointer');
+      this.unmount(chart);
+    },
+
+    async function testCandlestickEdges(x) {
+      // A colour list sets rise then fall; a value that is text, null or NaN, and an x that is not a date, leave the entry out.
+      var chart = this.CandlestickChart.create({
+        datasets: [ { backgroundColor: [ '#00aa00', '#aa0000' ], data: [
+          { x: 1700000000000, open: 1, high: 5, low: 0, close: 4 },
+          { x: 1700086400000, open: 4, high: 5, low: 1, close: 2 },
+          { x: 1700172800000, open: '3', high: 5, low: 1, close: 2 },
+          { x: 1700259200000, open: 3, high: null, low: 1, close: 2 },
+          { x: 1700345600000, open: 3, high: 5, low: NaN, close: 2 },
+          { x: 'not a date', open: 3, high: 5, low: 1, close: 2 },
+          { open: 3, high: 5, low: 1, close: 2 }
+        ] } ]
+      }, x);
+      var el    = await this.mount(chart);
+      var boxes = this.all(el, chart, 'box');
+      x.test(boxes.length === 2 && boxes[0].getAttribute('fill') === '#00aa00' && boxes[1].getAttribute('fill') === '#aa0000',
+        'Candlestick: entries with a missing or non-number value are left out, and the colour list sets rise then fall. Got ' + boxes.map(function(b) { return b.getAttribute('fill'); }).join());
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Candlestick: with no onCandleClick the candles are not clickable');
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.length === 2, 'Candlestick: the legend lists rise and fall. Got ' + items.length);
+      this.unmount(chart);
+
+      // One candle alone: it draws, and its box is no wider than BOX_MAX_PX.
+      chart = this.CandlestickChart.create({ datasets: [ { data: [ { x: 1700000000000, open: 5, high: 9, low: 4, close: 6 } ] } ] }, x);
+      el    = await this.mount(chart);
+      boxes = this.all(el, chart, 'box');
+      x.test(boxes.length === 1 && this.num(boxes[0], 'width') <= chart.BOX_MAX_PX && this.num(boxes[0], 'width') > 0,
+        'Candlestick: a single candle draws with a box of at most BOX_MAX_PX. Got ' + boxes.map(function(b) { return b.getAttribute('width'); }).join());
+      this.unmount(chart);
+
+      // Many candles: the boxes shrink to fit and never overlap.
+      var data = [];
+      for ( var i = 0 ; i < 200 ; i++ ) data.push({ x: 1700000000000 + i * 3600000, open: 10 + i % 7, high: 20, low: 5, close: 10 + i % 5 });
+      chart = this.CandlestickChart.create({ timeUnit: 'DAY', datasets: [ { data: data } ] }, x);
+      el    = await this.mount(chart);
+      boxes = this.all(el, chart, 'box');
+      var xs = boxes.map(function(b) { return this.num(b, 'x'); }, this);
+      var ok = boxes.length === 200 && xs.every(function(v, k) { return k === 0 || v + 0.01 >= xs[k - 1] + this.num(boxes[k - 1], 'width'); }, this);
+      x.test(ok, 'Candlestick: 200 candles keep their boxes apart. Got ' + boxes.length + ' boxes');
+      this.unmount(chart);
+
+      // No data: nothing is drawn and the legend has no entries (the dashboard sink shows the message).
+      chart = this.CandlestickChart.create({ datasets: [] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'box').length === 0 && el.querySelectorAll('.' + this.legendClass('item')).length === 0,
+        'Candlestick: with no data it draws no candles and no legend entries');
       this.unmount(chart);
     },
 

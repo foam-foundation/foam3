@@ -14,6 +14,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.ScatterChart'
@@ -31,6 +32,8 @@ foam.CLASS({
       await this.testTimeLine(x);
       await this.testLinearLine(x);
       await this.testScatter(x);
+      await this.testHeatmap(x);
+      await this.testHeatmapEdges(x);
     },
 
     async function mount(view) {
@@ -382,6 +385,111 @@ foam.CLASS({
       x.test(labels().indexOf('1,000') === -1, 'Scatter: with B hidden the x axis rescales to A. Got ' + labels().join());
       var after = this.num(this.all(el, chart, 'dot')[0], 'cx');
       x.test(after !== cx[0], 'Scatter: the remaining dots move to the new scale');
+      this.unmount(chart);
+    },
+
+    async function testHeatmap(x) {
+      var clicks = [];
+      var chart = this.HeatmapChart.create({
+        labels: [ 'A', 'B', 'C' ],
+        datasets: [
+          { label: 'r1', data: [ 0, 5, 10 ], backgroundColor: '#0000ff' },
+          { label: 'r2', data: [ null, 10, undefined ] }
+        ],
+        showValues: true,
+        xAxisLabel: 'Hour',
+        yAxisLabel: 'Level',
+        onCellClick: function(xi, yi) { clicks.push([ xi, yi ]); }
+      }, x);
+      var el    = await this.mount(chart);
+      var cells = this.all(el, chart, 'cell');
+      x.test(cells.length === 6, 'Heatmap: one cell per label and row. Got ' + cells.length);
+
+      // Draw order is row by row: r1-A, r1-B, r1-C, r2-A, r2-B, r2-C.
+      var px = cells.map(function(c) { return this.num(c, 'x'); }, this);
+      var py = cells.map(function(c) { return this.num(c, 'y'); }, this);
+      x.test(px[0] < px[1] && px[1] < px[2] && px[0] === px[3], 'Heatmap: columns follow the labels, left to right. Got ' + px.join());
+      x.test(py[0] === py[1] && py[3] > py[0] && py[3] === py[5], 'Heatmap: the first row is drawn above the second. Got ' + py.join());
+      x.test(cells.every(function(c) { return this.num(c, 'width') === this.num(cells[0], 'width') && this.num(c, 'height') === this.num(cells[0], 'height'); }, this),
+        'Heatmap: every cell is the same size');
+
+      var red = function(c) { return parseInt(c.getAttribute('fill').substr(1, 2), 16); };
+      x.test(cells[2].getAttribute('fill') === '#0000ff', 'Heatmap: the highest value, 10, is the dataset colour. Got ' + cells[2].getAttribute('fill'));
+      x.test(red(cells[0]) > red(cells[1]) && red(cells[1]) > red(cells[2]), 'Heatmap: cells get stronger with the value 0, 5, 10. Got ' + [ 0, 1, 2 ].map(function(i) { return cells[i].getAttribute('fill'); }).join());
+      x.test(cells[4].getAttribute('fill') === cells[2].getAttribute('fill'), 'Heatmap: two cells with the same value, 10, have the same colour');
+
+      var empty = this.all(el, chart, 'empty-cell');
+      x.test(empty.length === 2 && empty[0] === cells[3] && empty[1] === cells[5] && ! cells[3].hasAttribute('fill'),
+        'Heatmap: a null and a missing value are empty cells with no fill of their own, while 0 is a coloured cell. Got ' + empty.length);
+
+      var texts = this.all(el, chart, 'cell-value');
+      x.test(texts.map(function(t) { return t.textContent; }).join() === '0,5,10,10', 'Heatmap: Show Values writes the value in each cell that has one. Got ' + texts.map(function(t) { return t.textContent; }).join());
+      var white = foam.CSS.returnTokenValue(chart.LIGHT_TEXT_COLOR, chart.cls_, chart.__subContext__);
+      var black = foam.CSS.returnTokenValue(chart.DARK_TEXT_COLOR, chart.cls_, chart.__subContext__);
+      x.test(texts[0].getAttribute('fill') === black && texts[2].getAttribute('fill') === white,
+        'Heatmap: dark text on the pale cell, light text on the dark one. Got ' + texts[0].getAttribute('fill') + ', ' + texts[2].getAttribute('fill'));
+
+      var axisTitles = this.all(el, chart, 'axis-title').map(function(t) { return t.textContent; });
+      x.test(axisTitles.indexOf('Hour') !== -1 && axisTitles.indexOf('Level') !== -1, 'Heatmap: both axis titles are written. Got ' + axisTitles.join());
+      var labels = this.all(el, chart, 'text').map(function(t) { return t.textContent; });
+      x.test([ 'A', 'B', 'C', 'r1', 'r2' ].every(function(l) { return labels.indexOf(l) !== -1; }), 'Heatmap: column and row labels are written. Got ' + labels.join());
+      x.test(this.all(el, chart, 'grid').length === 0, 'Heatmap: no grid lines by default, the cells are the grid');
+
+      // Legend: a colour scale with the lowest and highest value, no per-series entries.
+      var scale = el.querySelector('.' + chart.myClass('scale'));
+      var ends  = scale ? Array.from(scale.querySelectorAll('span')).map(function(s) { return s.textContent; }) : [];
+      x.test(ends.join() === '0,10', 'Heatmap: the colour scale legend shows the lowest and highest value. Got ' + ends.join());
+      x.test(scale && scale.querySelector('.' + chart.myClass('scale-bar')).style.background.indexOf('gradient') !== -1, 'Heatmap: the scale is a gradient');
+      x.test(el.querySelectorAll('.' + this.legendClass('item')).length === 0, 'Heatmap: no per-series legend entries');
+
+      this.fire(cells[4], 'mousemove', this.centreOf(cells[4]).x, this.centreOf(cells[4]).y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('r2') !== -1 && tip.textContent.indexOf('B') !== -1 && tip.textContent.indexOf('10') !== -1,
+        'Heatmap: hovering a cell shows its row, column and value. Got ' + tip.textContent);
+      this.fire(cells[4], 'mouseleave', 0, 0);
+      x.test(! this.visible(tip), 'Heatmap: the tooltip goes when the pointer leaves the cell');
+
+      this.fire(cells[5], 'click', 0, 0);
+      x.test(clicks.length === 0, 'Heatmap: clicking an empty cell does nothing');
+      this.fire(cells[4], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[1,1]]', 'Heatmap: a click gives the column and row index. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Heatmap: a chart with onCellClick shows a pointer');
+      this.unmount(chart);
+
+      chart = this.HeatmapChart.create({ labels: [ 'A', 'B' ], datasets: [ { label: 'r', data: [ 1, 2 ] } ], onCellClick: null }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'cell-value').length === 0, 'Heatmap: values are not written unless Show Values is on');
+      var fills = this.all(el, chart, 'cell').map(function(c) { return c.getAttribute('fill'); });
+      x.test(fills[1].toLowerCase() === chart.defaultColor(0).toLowerCase(), 'Heatmap: with no colour set the highest value takes the first theme colour. Got ' + fills.join());
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Heatmap: with no onCellClick the cells are not clickable');
+      this.unmount(chart);
+    },
+
+    async function testHeatmapEdges(x) {
+      // Nothing but empty cells: neutral cells, and no colour scale to explain.
+      var chart = this.HeatmapChart.create({ labels: [ 'A', 'B' ], datasets: [ { label: 'r', data: [ null, null ] } ] }, x);
+      var el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'empty-cell').length === 2, 'Heatmap: with no values every cell is empty');
+      x.test(! el.querySelector('.' + chart.myClass('scale')), 'Heatmap: with no values there is no colour scale');
+      this.unmount(chart);
+
+      // A single value: its cell takes the strong colour, and a long label is cut short.
+      var long = 'Monthly Subscription Renewals by Region and Channel, Third Quarter, Annual Plan Only';
+      chart = this.HeatmapChart.create({ labels: [ 'A' ], datasets: [ { label: long, data: [ 7 ], backgroundColor: '#ff0000' } ] }, x);
+      el    = await this.mount(chart);
+      var cell = this.all(el, chart, 'cell')[0];
+      x.test(cell.getAttribute('fill') === '#ff0000', 'Heatmap: a lone value is drawn in the strong colour. Got ' + cell.getAttribute('fill'));
+      var t = this.all(el, chart, 'text').filter(function(e) { return e.textContent.indexOf('Monthly') === 0; })[0];
+      x.test(t && t.firstChild.textContent.slice(-1) === '…' && t.querySelector('title').textContent === long,
+        'Heatmap: a long row label ends in an ellipsis and keeps its full text as the hover title. Got ' + ( t && t.firstChild.textContent ));
+      this.unmount(chart);
+
+      // Values wider than their cell are not written.
+      chart = this.HeatmapChart.create({ labels: [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' ],
+        datasets: [ { label: 'r', data: Array.apply(null, Array(26)).map(function(_, i) { return 1000000 + i; }) } ], showValues: true }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'cell').length === 26 && this.all(el, chart, 'cell-value').length === 0,
+        'Heatmap: a value that does not fit its cell is left out. Got ' + this.all(el, chart, 'cell-value').length + ' values');
       this.unmount(chart);
     },
 

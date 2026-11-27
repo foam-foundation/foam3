@@ -74,6 +74,7 @@ p({"class":"foam.core.reflow.SinkAgent", "id": <next free id>, "label":"Scatter 
 - **Translations:** each new `messages:` entry gets a French row in `src/foam/i18n/fr_fr/locales.jrl`, as `ChartView.SUM` has (`locales.jrl:988`).
 - **The `ChartDemo` flow** in `core/reflow/dashboard/flows.jrl` shows every chart type. Its `"script"` is one JSON string holding the flow's compact JSON, with every quote escaped (`flows.jrl:12`). Add a block by editing that string; keep it on one line.
 - **Demo data must vary on a fresh server.** Every `om1MinuteDAO` row is a counter, so its `average` is always 1: a scatter of count against average draws a flat line. Check the two fields on a running server before you pick them.
+- **Count of rows can be the same everywhere.** `om1MinuteDAO` holds one row per key per minute, so counting its rows per hour gives the same number in every cell. Sum a value instead, such as `Candlestick.count`.
 - **A date expression needs a date field.** `LogMessage.created` is a `Long` (`core/logger/LogMessage.js:48-51`), so `DateToHHExpr` on it fails on the server with "java.lang.Long cannot be cast to java.util.Date". Use a `Date` or `DateTime` field, such as `Candlestick.closeTime` (`core/analytics/Candlestick.js:66-68`).
 
 ## 5. Pom

@@ -7,6 +7,8 @@ description: Use when building, designing, or modifying FOAM UI views. Triggers 
 
 Build correct, production-ready FOAM views following patterns established in the codebase.
 
+A chart (bar, line, pie, a dashboard chart) is a `foam.u2.chart` view: use `foam-chart-builder` for it.
+
 ## Critical Mental Model
 
 **FOAM views are declarative and reactive.** Properties drive the DOM. Use FOAM's slot/dynamic system for reactivity instead of manual DOM manipulation. Key principles:
@@ -349,7 +351,7 @@ view: function(_, X) {
 | Hardcoded colors or font values (`#04338D`, `red`, `font-weight: 600`) | FOAM semantic tokens (`$primary500`, `$textDestructive`, `$font-medium`) from `src/foam/u2/CSSTokens.js` — theme/dark-mode aware (3.2). `CSSAuditTest` fails the build on either (`src/foam/core/theme/test/CSSAuditTest.js:432`) |
 | Raw color scale (`$blue500`) when semantic exists | Use semantic alias (`$primary500`) (3.2) |
 | Hand-rolled `font-size` / `font-weight` in custom CSS | Global typography class — `addClass('h300')`, `addClass('p-bold')`, `addClass('p-label')` (3.2.1) |
-| `font-weight: 600` / `font-size: 14px` literals | `$font-medium` / `$header-xxs` weight + size tokens (3.2) |
+| `font-weight: 600` / `font-size: 14px` literals | `$font-medium` / `$header-xxs` weight + size tokens (3.2). `CSSAuditTest`, a server test, fails CI on any colour or font literal in `css:` (`src/foam/core/theme/test/CSSAuditTest.js:432-440`) |
 | Redefining body font / `font-family` per view | Already on `body` via `$fontFamily` (Fonts.js) — don't redeclare |
 | `foam.lookup('known.Model')` | `requires: ['known.Model']` + `this.Model` |
 | `imports: ['ctrl']` for exported fn | `imports: ['pushMenu']` directly |

@@ -1,6 +1,12 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 foam.CLASS({
-  package: 'org.chartjs',
-  name: 'CalendarDAOChartView',
+  package: 'foam.core.reflow.dashboard',
+  name: 'CalendarChartView',
   extends: 'foam.u2.Element',
   documentation: 'Dashboard calendar-table, fully props-driven and tokenized, like Pie/Bar.',
   css: `
@@ -19,7 +25,7 @@ foam.CLASS({
     { class: 'Array', name: 'values' },
     { class: 'StringArray', name: 'colors' },
     { class: 'Boolean', name: 'showLegend', value: true },
-    { class: 'Enum', name: 'legendPosition', of: 'foam.core.reflow.dashboard.LegendPosition', value: 'TOP' },
+    { class: 'Enum', name: 'legendPosition', of: 'foam.u2.chart.LegendPosition', value: 'TOP' },
     { class: 'Boolean', name: 'maintainAspectRatio', value: false },
     { class: 'Int', name: 'height', value: 300 },
     { class: 'Enum', name: 'alignment', of: 'foam.core.reflow.dashboard.MetricAlignment', value: 'CENTER' },

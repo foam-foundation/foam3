@@ -73,9 +73,8 @@ foam.CLASS({
   ],
 
   requires: [
-    'org.chartjs.Bar2',
-    'foam.u2.layout.ContainerWidth',
-    'foam.core.reflow.dashboard.LegendPosition'
+    'foam.u2.chart.BarChart',
+    'foam.u2.chart.TimeScale'
   ],
 
   sections: [
@@ -86,7 +85,7 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
     { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
       properties: ['colors'] }
   ],
@@ -130,7 +129,7 @@ foam.CLASS({
     { name: 'processArrayValuesIndividually', hidden: true },
     { name: 'groupLimit', hidden: true },
     // Bar-specific properties (display properties come from ChartDisplayMixin)
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit',
       label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
     { class: 'Boolean', name: 'horizontal', label: 'Horizontal Bars', value: false },
     { class: 'Int', name: 'barThickness', label: 'Bar Thickness', help: 'Thickness of bars (0 = auto)' },
@@ -138,9 +137,6 @@ foam.CLASS({
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
     { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
-    // Internal-only sizing props (hidden)
-    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Int', name: 'width', hidden: true, value: 400 },
     // Override ChartDisplayMixin's showLegend default (true) — bar charts default to no legend
     { class: 'Boolean', name: 'showLegend', label: 'Show Legend', value: false },
     {
@@ -148,12 +144,8 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(groups, colors, timeUnit, horizontal, barThickness, datasetLabel, xAxisLabel, yAxisLabel,
-                          showGridLines, responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, periodCount, width) {
-        // Don't create chart until we have a valid width
-        if ( ! width || width <= 0 ) {
-          return null;
-        }
+                          showGridLines, showLegend, legendPosition, showTooltips, showTooltipSum,
+                          animate, animationDuration, periodCount) {
 
         var labels = [];
         var data = [];
@@ -183,12 +175,17 @@ foam.CLASS({
           sortedKeys = this.fillTimeGapKeys(sortedKeys, groups, periodCount, this.arg1);
         }
 
+        // A raw Date or DateTime field labels each bar in the chosen time
+        // unit ("Mar 2024" for MONTH); anything else asks the field itself.
+        // A Date is midnight UTC and reads in UTC; a DateTime reads in local time.
+        var timeScale = foam.lang.Date.isInstance(this.arg1) ?
+          this.TimeScale.create({ unit: timeUnit, utc: ! foam.lang.DateTime.isInstance(this.arg1) }) : null;
+
         var index = 0;
         for ( var i = 0; i < sortedKeys.length; i++ ) {
           var key = sortedKeys[i];
-          // Use chartJsFormatter if available, otherwise use the key as-is
-          var label = this.arg1 && this.arg1.chartJsFormatter ?
-                      this.arg1.chartJsFormatter(key) : key;
+          var label = timeScale ? timeScale.format(key) :
+                      this.arg1 && this.arg1.chartFormatter ? this.arg1.chartFormatter(key) : key;
           labels.push(label);
 
           // Use value from groups if exists, otherwise use 0 for filled gaps
@@ -207,109 +204,25 @@ foam.CLASS({
         }
 
 
-        var chartData = {
+        return this.BarChart.create({
           labels: labels,
           datasets: [{
-            label: datasetLabel || 'Values',  // Use configurable label or default to 'Values'
+            label: datasetLabel || this.totalName_(this.arg2),
             data: data,
             backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
-            // Don't set barThickness if it's 0 or undefined, let Chart.js use defaults
-          }]
-        };
-
-        var chartJSOptions = {
-          responsive: responsive,
-          maintainAspectRatio: maintainAspectRatio,
-          indexAxis: horizontal ? 'y' : 'x',
-          plugins: {
-            legend: {
-              display: showLegend,
-              position: legendPosition ? legendPosition.toString().toLowerCase() : 'top',
-              labels: {
-                sort: function(a, b, data) {
-                  // Always put "Others" at the end
-                  // Chart.js legend items use 'text' property for the label
-                  var aLabel = (a.text || '').toLowerCase();
-                  var bLabel = (b.text || '').toLowerCase();
-                  var aIsOthers = aLabel.includes('others');
-                  var bIsOthers = bLabel.includes('others');
-
-                  if (aIsOthers && !bIsOthers) return 1;  // a goes after b
-                  if (!aIsOthers && bIsOthers) return -1; // a goes before b
-                  return 0; // maintain original order for non-Others items
-                }
-              }
-            },
-            tooltip: {
-              enabled: showTooltips,
-              callbacks: showTooltipSum ? {
-                footer: function(tooltipItems) {
-                  var sum = 0;
-                  tooltipItems.forEach(function(tooltipItem) {
-                    sum += tooltipItem.parsed.y || tooltipItem.parsed.x || 0;
-                  });
-                  return 'Sum: ' + sum.toLocaleString();
-                }
-              } : undefined
-            }
-          },
-          animation: animate ? {
-            duration: animationDuration
-          } : false,
-          scales: {
-            x: {
-              title: {
-                display: !!xAxisLabel,
-                text: xAxisLabel
-              },
-              grid: {
-                display: showGridLines
-              }
-            },
-            y: {
-              title: {
-                display: !!yAxisLabel,
-                text: yAxisLabel
-              },
-              grid: {
-                display: showGridLines
-              }
-            }
-          }
-        };
-
-        // Configure time scale if dealing with RAW date/time properties (not transformed)
-        // Only use Chart.js time scale for raw Date/DateTime properties, not for date transformation expressions
-        // Date transformation expressions already format the dates as strings (e.g., "2024/10")
-        var isRawDateProperty = this.arg1 && (foam.lang.Date.isInstance(this.arg1) || foam.lang.DateTime.isInstance(this.arg1));
-
-        if ( isRawDateProperty ) {
-          chartJSOptions.scales.x.type = 'time';
-          chartJSOptions.scales.x.time = {
-            unit: timeUnit.chartJsUnit || 'day',
-            displayFormats: {}
-          };
-
-          // Set display format for the selected time unit
-          if ( timeUnit.displayFormat ) {
-            chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
-          }
-
-          // Configure tooltip format
-          if ( timeUnit.tooltipFormat ) {
-            chartJSOptions.scales.x.time.tooltipFormat = timeUnit.tooltipFormat;
-          }
-        }
-
-        var barChart = this.Bar2.create({
-          data: chartData,
-          chartJSOptions: chartJSOptions,
-          width$: this.width$,
-          height$: this.height$
+          }],
+          horizontal:        horizontal,
+          barThickness:      barThickness,
+          xAxisLabel:        xAxisLabel,
+          yAxisLabel:        yAxisLabel,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          showTooltipSum:    showTooltipSum,
+          animate:           animate,
+          animationDuration: animationDuration
         });
-
-
-        return barChart;
       }
     }
   ],
@@ -319,8 +232,6 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) {
-      var self = this;
-
       e
         .style({
           width: '100%',
@@ -329,35 +240,9 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
-          .style({ 'min-height': this.height$, height: this.height$ })
+          .style({ width: '100%', 'min-height': this.height$, height: this.height$ })
           .add(this.chart_$)
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      // This prevents chart_ expression recalculation with zero/invalid widths
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
     }
   ]
 });
@@ -372,10 +257,7 @@ foam.CLASS({
   ],
 
   requires: [
-    'org.chartjs.Pie2',
-    'foam.u2.layout.ContainerWidth',
-    'foam.core.reflow.dashboard.LegendPosition',
-    'foam.u2.Tooltip'
+    'foam.u2.chart.PieChart'
   ],
 
   sections: [
@@ -384,7 +266,7 @@ foam.CLASS({
     { name: 'chartSettings', title: 'Pie Chart Settings', order: 1, collapsable: true,
       properties: ['showPercentages', 'cutoutPercentage', 'clockwise', 'rotation', 'disableLegendClick', 'emptyValueMessage'] },
     { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'legendMinWidthPercent', 'legendMaxWidthPercent', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'legendMinWidthPercent', 'legendMaxWidthPercent', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
     { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
       properties: ['colors'] }
   ],
@@ -451,28 +333,20 @@ foam.CLASS({
     { class: 'Boolean', name: 'disableLegendClick', label: 'Disable Legend Click',
       help: 'Prevent clicking legend items from toggling slice visibility' },
     { class: 'Int', name: 'legendMinWidthPercent', label: 'Legend Min Width (%)',
-      help: 'Forces the legend to be at least this percentage (0-100) of container width by padding the widest label with trailing non-breaking spaces. Short legends grow to match; longer labels are truncated with an ellipsis at this width (full text available in the hover tooltip) so a single long label can\'t push the legend wider than intended. 0 = no floor.' },
+      help: 'Keeps a left or right legend at least this percentage (0-100) of the chart\'s width, so short legends take the same room as long ones and pies stacked in a column line up. 0 = no floor.' },
     { class: 'Int', name: 'legendMaxWidthPercent', label: 'Legend Max Width (%)',
       help: 'Caps the legend at this percentage (0-100) of container width; labels wider than the cap are truncated with an ellipsis (full text available in the hover tooltip). 0 = no cap. Setting min = max gives an exact fixed-width legend — arcs line up perfectly across stacked pies.' },
     { class: 'String', name: 'emptyValueMessage', section: "displayOptions", value: 'No data available',
       help: 'Message to display when there is no data' },
-    // Internal-only props (hidden)
-    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Int', name: 'width', hidden: true, value: 400 },
     { class: 'Boolean', name: 'hasData', section: "displayOptions", value: false, hidden: true },
     {
       name: 'chart_',
       hidden: true,
       transient: true,
-      expression: function(groups,groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
-                          responsive, maintainAspectRatio, showLegend,
-                          legendPosition, showTooltips, showTooltipSum, animate, animationDuration, width, emptyValueMessage, disableLegendClick, legendMinWidthPercent, legendMaxWidthPercent) {
-        // Don't create chart until we have a valid width
-        if ( ! width || width <= 0 ) {
-          return null;
-        }
+      expression: function(groups, groupKeys, colors, showPercentages, cutoutPercentage, clockwise, rotation,
+                          showLegend, legendPosition, showTooltips, showTooltipSum, animate, animationDuration,
+                          disableLegendClick, legendMinWidthPercent, legendMaxWidthPercent) {
 
-        var self = this;
         var labels = [];
         var data = [];
         var backgroundColors = [];
@@ -482,8 +356,8 @@ foam.CLASS({
         var sortedKeys = this.topN > 0 ? (this.groupKeys || Object.keys(groups)) :
                         (this.sortedKeys ? this.sortedKeys() : Object.keys(groups));
 
-        // Index into `colors` by the key's original position so slice colors
-        // stay stable when Chart.js's built-in legend hides a slice.
+        // Index into `colors` by the key's original position so a slice
+        // keeps its colour when a legend click hides another slice.
         for ( var i = 0; i < sortedKeys.length; i++ ) {
           var key = sortedKeys[i];
           labels.push(key.toString());
@@ -500,239 +374,25 @@ foam.CLASS({
 
         this.hasData = data.length > 0;
 
-        var chartData = {
+        return this.PieChart.create({
           labels: labels,
           datasets: [{
             data: data,
             backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
-          }]
-        };
-
-        // Legend width is controlled entirely on the legend side — no
-        // `layout.padding` here, because padding stacks ON TOP of the
-        // legend area and would double-reserve space on right/left
-        // positions.
-        //
-        //   legendMaxWidthPercent — caps via Chart.js `legend.maxWidth` and
-        //     word-wraps long labels at the cap.
-        //   legendMinWidthPercent — forces legend ≥ this width by padding
-        //     the widest label with trailing NBSPs inside generateLabels
-        //     (Chart.js's legend has no native minWidth).
-        //
-        // When only min is set, it also acts as the wrap cap so an
-        // unboundedly long label can't push the legend wider than intended.
-        // Position side comes from the LegendPosition enum.
-        var legendPos = legendPosition || this.LegendPosition.TOP;
-        var legendMinPx = legendMinWidthPercent > 0 ? Math.round(width * legendMinWidthPercent / 100) : 0;
-        var legendMaxPx = legendMaxWidthPercent > 0 ? Math.round(width * legendMaxWidthPercent / 100) : 0;
-        var legendCapPx = legendMaxPx > 0 ? legendMaxPx : legendMinPx;
-
-        var legendOpts = {
-          display: showLegend,
-          position: legendPos.name.toLowerCase(),
-          onClick: disableLegendClick ? function() { /* no-op: prevent slice toggle */ } : undefined,
-          onHover: function(event, legendItem, legend) {
-            var chart = legend.chart;
-            var dataset = chart.data.datasets[0];
-            // Denominator and slice value both exclude hidden slices so
-            // hover stays consistent with the legend label (which shows
-            // `0.0%` on hidden items). If we divided the raw value by a
-            // hidden-exclusive denominator, the pct would blow up past
-            // 100% for the hidden item itself.
-            var isVisible = chart.getDataVisibility(legendItem.index);
-            var total = dataset.data.reduce(function(sum, val, idx) {
-              return chart.getDataVisibility(idx) ? sum + (val || 0) : sum;
-            }, 0);
-            var value = isVisible ? (dataset.data[legendItem.index] || 0) : 0;
-            var fullPct = total > 0 ? (value / total) * 100 : 0;
-            var label = chart.data.labels[legendItem.index] || '';
-            var native = event.native || event;
-
-            // The proxy target's el() returns a fake element whose
-            // getBoundingClientRect() tracks the cursor position, so
-            // Tooltip.setTooltip()'s flip logic works off the label
-            // location rather than the much-larger canvas bounding box.
-            if ( ! self.legendTooltip_ ) {
-              self.legendTooltip_ = self.Tooltip.create({
-                text: '',
-                target: {
-                  removeAttribute: function() {},
-                  on:              function() {},
-                  onDetach:        function() {},
-                  el: function() {
-                    return Promise.resolve({
-                      getBoundingClientRect: function() { return self.legendCursorRect_; }
-                    });
-                  }
-                }
-              });
-            } else {
-              self.legendTooltip_.close();
-            }
-
-            // Update cursor rect before setTooltip reads it via el()
-            self.legendCursorRect_ = {
-              top: native.clientY, left: native.clientX,
-              bottom: native.clientY, right: native.clientX,
-              width: 0, height: 0
-            };
-            self.legendTooltip_.text = foam.u2.Element.create({}, self)
-              .start().addClass('p-label').add(label, ':').end()
-              .start().addClass('p-legal')
-              .add(value.toLocaleString() + ' (' + fullPct + '%)')
-              .end();
-            self.legendTooltip_.setTooltip(native);
-          },
-          onLeave: function(event, legendItem, legend) {
-            if ( self.legendTooltip_ ) self.legendTooltip_.close();
-          }
-        };
-        if ( legendCapPx > 0 ) legendOpts.maxWidth = legendCapPx;
-
-        var options = {
-          responsive: responsive,
-          maintainAspectRatio: maintainAspectRatio,
-          cutout: cutoutPercentage + '%',
-          rotation: rotation,
-          circumference: clockwise ? 360 : -360,
-          layout: { padding: 0 },
-          plugins: {
-            legend: legendOpts,
-            tooltip: {
-              enabled: showTooltips,
-              callbacks: (function() {
-                var callbacks = {};
-
-                // Add percentage display to individual tooltip labels.
-                // Total excludes slices currently hidden via legend click,
-                // so the tooltip percentage stays consistent with the
-                // recomputed legend percentage. Pie/doughnut visibility
-                // lives in `chart._hiddenIndices` (exposed via
-                // `getDataVisibility`) — NOT `meta.data[i].hidden`, which
-                // is the bar/line controller's flag.
-                if ( showPercentages ) {
-                  callbacks.label = function(context) {
-                    var label   = context.label || '';
-                    var value   = context.parsed || 0;
-                    var chart   = context.chart;
-                    var dataset = chart.data.datasets[0];
-                    var total   = dataset.data.reduce(function(sum, val, idx) {
-                      return chart.getDataVisibility(idx) ? sum + (val || 0) : sum;
-                    }, 0);
-                    var percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                    
-                    if ( label ) {
-                      label += ': ';
-                    }
-                    label += value.toLocaleString() + ' (' + percentage + '%)';
-                    return label;
-                  };
-                }
-
-                // Add sum footer if requested
-                if ( showTooltipSum ) {
-                  callbacks.footer = function(tooltipItems) {
-                    var sum = 0;
-                    tooltipItems.forEach(function(tooltipItem) {
-                      sum += tooltipItem.parsed || 0;
-                    });
-                    return 'Sum: ' + sum.toLocaleString();
-                  };
-                }
-
-                return Object.keys(callbacks).length > 0 ? callbacks : undefined;
-              })()
-            },
-            datalabels: {
-              display: true,
-              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
-              font: {
-                weight: 'bold'
-              }
-            }
-          },
-          animation: animate ? {
-            duration: animationDuration,
-            animateRotate: true,
-            animateScale: true
-          } : false
-        };
-        
-        // generateLabels composes three optional label transforms:
-        //   1. percentage prefixing (showPercentages) — with '~' prefix
-        //      when the displayed value is rounded (e.g. 0.04 → ~0.0%),
-        //      so users know small slices survived rounding
-        //   2. single-line ellipsis truncation at the cap (legendCapPx —
-        //      from max, or min when max is unset, so a runaway label
-        //      can't push the legend wider). The hover tooltip still
-        //      surfaces the full label.
-        //   3. trailing-NBSP pad of the widest label up to legendMinPx so
-        //      short legends grow out to the reserved width (Chart.js has
-        //      no legend.minWidth; padding one item widens the whole legend
-        //      column since its width tracks the widest item)
-        var CanvasTextUtil = foam.core.reflow.dashboard.CanvasTextUtil;
-        if ( showPercentages || legendCapPx > 0 || legendMinPx > 0 ) {
-          options.plugins.legend.labels = {
-            generateLabels: function(chart) {
-              var dataset = chart.data.datasets[0];
-              var meta    = chart.getDatasetMeta(0);
-              // Pie/doughnut slice visibility lives in `chart._hiddenIndices`
-              // (read via `getDataVisibility`), not `meta.data[i].hidden`
-              // (which only the bar/line controllers update). Using
-              // getDataVisibility is what Chart.js's own default
-              // doughnut generateLabels does.
-              var isVisible = function(i) { return chart.getDataVisibility(i); };
-
-              // Recompute the denominator against visible slices only so
-              // the remaining items sum to 100% when the user toggles a
-              // slice off via the legend click.
-              var total = showPercentages
-                ? dataset.data.reduce(function(sum, val, idx) {
-                    return isVisible(idx) ? sum + (val || 0) : sum;
-                  }, 0)
-                : 0;
-
-              var fontStr = CanvasTextUtil.legendLabelFont(chart);
-              var chrome  = CanvasTextUtil.legendLabelChromePx(chart);
-              var textMaxPx = legendCapPx > 0 ? Math.max(30, legendCapPx - chrome) : 0;
-              var textMinPx = legendMinPx > 0 ? Math.max(30, legendMinPx - chrome) : 0;
-
-              var items = chart.data.labels.map(function(label, i) {
-                var text = label.toString();
-                if ( showPercentages ) {
-                  var sliceVal = isVisible(i) ? dataset.data[i] : 0;
-                  var rawPct   = total > 0 ? (sliceVal / total) * 100 : 0;
-                  var pct      = rawPct.toFixed(1);
-                  var isApprox = parseFloat(pct) !== rawPct;
-                  text = (isApprox ? '~' : '') + pct + '% ' + text;
-                }
-                if ( textMaxPx > 0 ) text = CanvasTextUtil.truncate(chart.ctx, text, fontStr, textMaxPx);
-
-                var style = meta && meta.controller
-                  ? meta.controller.getStyle(i)
-                  : { backgroundColor: dataset.backgroundColor[i] };
-
-                // Forward per-slice hidden state so Chart.js's legend
-                // renderer draws strikethrough on toggled-off items.
-                return {
-                  text: text,
-                  fillStyle: style.backgroundColor,
-                  fontColor: undefined,
-                  hidden: ! isVisible(i),
-                  index: i
-                };
-              });
-
-              return CanvasTextUtil.padWidestToMin(chart.ctx, items, fontStr, textMinPx);
-            }
-          };
-        }
-
-        return this.Pie2.create({
-          data: chartData,
-          chartJSOptions: options,
-          width$: this.width$,
-          height$: this.height$
+          }],
+          cutout:                cutoutPercentage,
+          rotation:              rotation,
+          clockwise:             clockwise,
+          showPercentages:       showPercentages,
+          disableLegendClick:    disableLegendClick,
+          legendMinWidthPercent: legendMinWidthPercent,
+          legendMaxWidthPercent: legendMaxWidthPercent,
+          showLegend:            showLegend,
+          legendPosition:        legendPosition,
+          showTooltips:          showTooltips,
+          showTooltipSum:        showTooltipSum,
+          animate:               animate,
+          animationDuration:     animationDuration
         });
       }
     }
@@ -776,31 +436,6 @@ foam.CLASS({
             }
           }))
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
     }
   ]
 });
@@ -817,12 +452,9 @@ foam.CLASS({
     'foam.core.reflow.dashboard.ColorMappingMixin'
   ],
 
-  imports: [ 'window' ],
-
   requires: [
-    'org.chartjs.StackedBar2',
-    'foam.u2.layout.ContainerWidth',
-    'foam.core.reflow.dashboard.LegendPosition'
+    'foam.u2.chart.BarChart',
+    'foam.u2.chart.TimeScale'
   ],
 
   sections: [
@@ -833,7 +465,7 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration'] },
     { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
       properties: ['colors'] }
   ],
@@ -859,15 +491,12 @@ foam.CLASS({
       label: 'On Click Script',
       help: 'Function expression invoked when a stack segment is clicked. Signature: (yValue, xValue, stackValue, x, y, absX, absY) => void'
     },
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit',
       label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
     { class: 'Boolean', name: 'horizontal', label: 'Horizontal Stacks', value: false },
     { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
     { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
     { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
-    // Internal-only sizing props (hidden)
-    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Int', name: 'width', hidden: true, value: 400 },
     // Hide GridBy parent-class internals wired programmatically by createSink()
     { name: 'acc', hidden: true },
     { name: 'rows', hidden: true },
@@ -881,14 +510,8 @@ foam.CLASS({
       hidden: true,
       transient: true,
       expression: function(cols, rows, colors, timeUnit, horizontal, xAxisLabel, yAxisLabel,
-                          showGridLines, responsive, maintainAspectRatio,
-                          showLegend, legendPosition, showTooltips, showTooltipSum, animate, animationDuration,
-                          periodCount, width) {
-        var self = this;
-        // Don't create chart until we have a valid width
-        if ( ! width || width <= 0 ) {
-          return null;
-        }
+                          showGridLines, showLegend, legendPosition, showTooltips, showTooltipSum,
+                          animate, animationDuration, periodCount, onClickScript) {
 
         var colGroups = cols && cols.groups ? cols.groups : {};
         var rowGroups = rows && rows.groups ? rows.groups : {};
@@ -930,11 +553,14 @@ foam.CLASS({
         }
 
         // Extract labels from sorted columns (x-axis categories)
+        // A raw Date or DateTime field labels each stack in the chosen time
+        // unit ("Mar 2024" for MONTH); anything else asks the field itself.
+        var timeScale = foam.lang.Date.isInstance(this.xFunc) ?
+          this.TimeScale.create({ unit: timeUnit, utc: ! foam.lang.DateTime.isInstance(this.xFunc) }) : null;
         for ( var i = 0; i < sortedColKeys.length; i++ ) {
           var col = sortedColKeys[i];
-          // Use chartJsFormatter if available on xFunc, otherwise use the key as-is
-          var label = this.xFunc && this.xFunc.chartJsFormatter ?
-                      this.xFunc.chartJsFormatter(col) : col;
+          var label = timeScale ? timeScale.format(col) :
+                      this.xFunc && this.xFunc.chartFormatter ? this.xFunc.chartFormatter(col) : col;
           labels.push(label);
         }
 
@@ -990,145 +616,42 @@ foam.CLASS({
         }
 
 
-        var chartJSOptions = {
-          responsive: responsive,
-          maintainAspectRatio: maintainAspectRatio,
-          indexAxis: horizontal ? 'y' : 'x',
-          plugins: {
-            legend: {
-              display: showLegend,
-              position: legendPosition ? legendPosition.toString().toLowerCase() : 'top'
-            },
-            tooltip: {
-              enabled: showTooltips,
-              mode: 'index',
-              intersect: false,
-              callbacks: showTooltipSum ? {
-                footer: function(tooltipItems) {
-                  var sum = 0;
-                  tooltipItems.forEach(function(tooltipItem) {
-                    sum += tooltipItem.parsed.y || 0;
-                  });
-                  return 'Sum: ' + sum.toLocaleString();
-                }
-              } : undefined
-            },
-            datalabels: {
-              display: true,
-              color: foam.CSS.returnTokenValue('$white', this.cls_, this.__context__),
-              font: {
-                weight: 'bold'
-              }
-            }
-          },
-          animation: animate ? {
-            duration: animationDuration
-          } : false,
-          scales: {
-            x: {
-              stacked: true,
-              title: {
-                display: !!xAxisLabel,
-                text: xAxisLabel
-              },
-              grid: {
-                display: showGridLines
-              }
-            },
-            y: {
-              stacked: true,
-              title: {
-                display: !!yAxisLabel,
-                text: yAxisLabel
-              },
-              grid: {
-                display: showGridLines
-              }
-            }
-          }
-        };
-
-        // Attach click handler if provided
+        // The form's On Click Script is a function expression, called with
+        // (yValue, xValue, stackValue, x, y, pageX, pageY) for the clicked
+        // segment: its value, its x label, its stack label, the point inside
+        // the chart and the point on the page.
+        var clickHandler = null;
         if ( this.onClickScript ) {
           try {
-            // Evaluate to a function if the user provided a function expression
-            var __rf_clickHandler = (function(script) {
-              try {
-                return eval(script);
-              } catch (e) {
-                console.warn('Invalid onClickScript for DashboardStackedBarSink:', e);
-                return null;
-              }
-            })(this.onClickScript);
+            clickHandler = eval(this.onClickScript);
+          } catch (e) {
+            console.warn('Invalid onClickScript for DashboardStackedBarSink:', e);
+          }
+        }
 
-            if ( typeof __rf_clickHandler === 'function' ) {
-              chartJSOptions.onClick = function(evt, activeEls, chart) {
-                try {
-                  // Prefer provided active elements, fallback to nearest
-                  var elements = activeEls && activeEls.length ? activeEls : chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-                  if ( ! elements || ! elements.length ) return;
-                  var el = elements[0];
-                  var di = el.datasetIndex;
-                  var i  = el.index;
-                  var datasets = chart.data && chart.data.datasets ? chart.data.datasets : [];
-                  var labels   = chart.data && chart.data.labels ? chart.data.labels : [];
-                  var yVal     = datasets[di] && datasets[di].data ? datasets[di].data[i] : undefined;
-                  if ( yVal && typeof yVal === 'object' && yVal !== null && 'y' in yVal ) yVal = yVal.y;
-                  var xVal     = labels[i];
-                  var stackVal = datasets[di] ? datasets[di].label : undefined;
-
-                  // Compute canvas-relative (x,y) and absolute page (absX, absY)
-                  var nativeEvt = evt && (evt.native || evt);
-                  var clientX = nativeEvt && nativeEvt.clientX;
-                  var clientY = nativeEvt && nativeEvt.clientY;
-                  var pageX   = nativeEvt && (nativeEvt.pageX !== undefined ? nativeEvt.pageX : (clientX != null ? clientX + self.window.scrollX : undefined));
-                  var pageY   = nativeEvt && (nativeEvt.pageY !== undefined ? nativeEvt.pageY : (clientY != null ? clientY + self.window.scrollY : undefined));
-                  var canvas  = chart && chart.canvas;
-                  var rect    = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
-                  var scaleX  = rect && rect.width  ? (canvas.width  / rect.width)  : 1;
-                  var scaleY  = rect && rect.height ? (canvas.height / rect.height) : 1;
-                  var x       = (clientX != null && rect) ? (clientX - rect.left) * scaleX : undefined;
-                  var y       = (clientY != null && rect) ? (clientY - rect.top)  * scaleY : undefined;
-
-                  __rf_clickHandler(yVal, xVal, stackVal, x, y, pageX, pageY);
-                } catch (e) {
-                  console.warn('Error executing onClickScript:', e);
-                }
-              };
+        return this.BarChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          stacked:           true,
+          horizontal:        horizontal,
+          xAxisLabel:        xAxisLabel,
+          yAxisLabel:        yAxisLabel,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          showTooltipSum:    showTooltipSum,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onBarClick: typeof clickHandler !== 'function' ? null : function(di, i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              clickHandler(datasets[di].data[i], labels[i], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch (e) {
+              console.warn('Error executing onClickScript:', e);
             }
-          } catch (_) { /* ignore */ }
-        }
-
-        // Configure time scale if dealing with date/time properties
-        // Check if xFunc is a date/time property
-        var isTimeScale = this.xFunc && (foam.lang.Date.isInstance(this.xFunc) || foam.lang.DateTime.isInstance(this.xFunc));
-
-        if ( isTimeScale && timeUnit ) {
-          chartJSOptions.scales.x.type = 'time';
-          chartJSOptions.scales.x.time = {
-            unit: timeUnit.chartJsUnit || 'day',
-            displayFormats: {}
-          };
-
-          // Set display format for the selected time unit
-          if ( timeUnit.displayFormat ) {
-            chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
           }
-
-          // Configure tooltip format
-          if ( timeUnit.tooltipFormat ) {
-            chartJSOptions.scales.x.time.tooltipFormat = timeUnit.tooltipFormat;
-          }
-        }
-
-        return this.StackedBar2.create({
-          data: {
-            labels: labels,
-            datasets: datasets
-          },
-          chartJSOptions: chartJSOptions,
-          width$: this.width$,
-          height$: this.height$
         });
       }
     }
@@ -1139,8 +662,6 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) {
-      var self = this;
-
       e
         .style({
           width: '100%',
@@ -1149,34 +670,9 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
-          .style({ 'min-height': this.height$, height: this.height$ })
+          .style({ width: '100%', 'min-height': this.height$, height: this.height$ })
           .add(this.chart_$)
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
     }
   ]
 });
@@ -1191,9 +687,7 @@ foam.CLASS({
   ],
 
   requires: [
-    'org.chartjs.Line2',
-    'foam.u2.layout.ContainerWidth',
-    'foam.core.reflow.dashboard.LegendPosition'
+    'foam.u2.chart.LineChart'
   ],
 
   messages: [
@@ -1204,7 +698,7 @@ foam.CLASS({
 
   properties: [
     // Line-specific rendering properties (display & colors come from mixins)
-    { class: 'Enum', of: 'foam.core.reflow.dashboard.TimeUnit', name: 'timeUnit',
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit',
       label: 'Time Unit', help: 'Time unit for X-axis when using date/time properties' },
     { class: 'StringArray', name: 'borderColors', label: 'Border Colors',
       help: 'Border colors for line elements. If not specified, colors will be used.' },
@@ -1300,109 +794,50 @@ foam.CLASS({
     { name: 'dataXNumMin_', hidden: true, transient: true },
     { name: 'dataXNumMax_', hidden: true, transient: true },
     { name: 'dataYNumMin_', hidden: true, transient: true },
-    { name: 'dataYNumMax_', hidden: true, transient: true },
-    // Internal-only sizing props (hidden)
-    { class: 'Boolean', name: 'responsive', hidden: true, value: true },
-    { class: 'Int', name: 'width', hidden: true, value: 400 }
+    { name: 'dataYNumMax_', hidden: true, transient: true }
   ],
 
   methods: [
-    function createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
-                               responsive, maintainAspectRatio, showLegend, legendPosition,
-                               showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                               xPropForLabels, yPropForLabels, toggleCustomXScale, toggleCustomYScale,
-                               xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
-                               xDateAxisMinScale,xDateAxisMaxScale, labels) {
-      var chartJSOptions = {
-        responsive: responsive,
-        maintainAspectRatio: maintainAspectRatio,
-        plugins: {
-          legend: {
-            display: showLegend && (datasets.length > 1 || showLegend),
-            position: (legendPosition || 'TOP').toString().toLowerCase()
-          },
-          tooltip: {
-            enabled: showTooltips,
-            mode: datasets.length > 1 ? 'index' : 'nearest',
-            intersect: false,
-            callbacks: showTooltipSum && datasets.length > 1 ? {
-              footer: function(tooltipItems) {
-                var sum = 0;
-                tooltipItems.forEach(function(tooltipItem) {
-                  sum += tooltipItem.parsed.y || 0;
-                });
-                return 'Sum: ' + sum.toLocaleString();
-              }
-            } : undefined
-          }
-        },
-        animation: animate ? {
-          duration: animationDuration
-        } : false,
-        scales: {
-          x: {
-            title: {
-              display: !!xAxisLabel || !!(xPropForLabels && xPropForLabels.label),
-              text: xAxisLabel || (xPropForLabels ? xPropForLabels.label : ''),
-            },
-            grid: {
-              display: showGridLines
-            },
-            ticks: {
-              autoSkip: autoSkip
-            }
-          },
-          y: {
-            title: {
-              display: !!yAxisLabel || !!(yPropForLabels && yPropForLabels.label),
-              text: yAxisLabel || (yPropForLabels ? yPropForLabels.label : '')
-            },
-            grid: {
-              display: showGridLines
-            },
-            min: toggleCustomYScale && this.hasOwnProperty('yAxisMinScale') ? yAxisMinScale : undefined,
-            max: toggleCustomYScale && this.hasOwnProperty('yAxisMaxScale') ? yAxisMaxScale : undefined
-          }
-        }
-      };
-
-      // Configure time scale if dealing with date/time properties
-      if ( isTimeScale && timeUnit ) {
-        chartJSOptions.scales.x.type = 'time';
-        chartJSOptions.scales.x.time = {
-          unit: timeUnit.chartJsUnit || 'day',
-          displayFormats: {}
-        };
-
-        if ( timeUnit.displayFormat ) {
-          chartJSOptions.scales.x.time.displayFormats[timeUnit.chartJsUnit || 'day'] = timeUnit.displayFormat;
-        }
-
-        if ( toggleCustomXScale ) {
-          if ( xDateAxisMinScale ) chartJSOptions.scales.x.min = xDateAxisMinScale;
-          if ( xDateAxisMaxScale ) chartJSOptions.scales.x.max = xDateAxisMaxScale;
-        }
-
-      } else {
-        chartJSOptions.scales.x.type = this.xScaleType_ || 'category';
-
-        if ( toggleCustomXScale ) {
-          if ( this.hasOwnProperty('xAxisMinScale') ) chartJSOptions.scales.x.min = xAxisMinScale;
-          if ( this.hasOwnProperty('xAxisMaxScale') ) chartJSOptions.scales.x.max = xAxisMaxScale;
-        }
-      }
-
-      return this.Line2.create({
-        data: { labels: labels || [], datasets: datasets },
-        options: chartJSOptions,
-        width$: this.width$,
-        height$: this.height$
+    function createChart(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
+                         showLegend, legendPosition, showTooltips, showTooltipSum, animate,
+                         animationDuration, timeUnit, xPropForLabels, yPropForLabels,
+                         toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
+                         yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
+                         labels) {
+      // A custom bound counts only once the user typed it: hasOwnProperty is
+      // false while the field still shows its default.
+      var custom = function(on, name, value) { return on && this.hasOwnProperty(name) ? value : undefined; }.bind(this);
+      var xType  = isTimeScale ? 'time' : ( this.xScaleType_ || 'category' );
+      return this.LineChart.create({
+        labels:            labels || [],
+        datasets:          datasets,
+        xType:             xType,
+        timeUnit:          timeUnit,
+        // Only a raw Date field is stored as midnight UTC, so only it reads
+        // in UTC. A DateTime is a moment, and a key such as '2026-W06' from a
+        // date expression is parsed to local midnight by DateKeys.parse: both
+        // read in local time.
+        utc:               foam.lang.Date.isInstance(xPropForLabels) && ! foam.lang.DateTime.isInstance(xPropForLabels),
+        xMin:              isTimeScale ? ( toggleCustomXScale ? xDateAxisMinScale : undefined ) : custom(toggleCustomXScale, 'xAxisMinScale', xAxisMinScale),
+        xMax:              isTimeScale ? ( toggleCustomXScale ? xDateAxisMaxScale : undefined ) : custom(toggleCustomXScale, 'xAxisMaxScale', xAxisMaxScale),
+        yMin:              custom(toggleCustomYScale, 'yAxisMinScale', yAxisMinScale),
+        yMax:              custom(toggleCustomYScale, 'yAxisMaxScale', yAxisMaxScale),
+        autoSkip:          autoSkip,
+        xAxisLabel:        xAxisLabel || ( xPropForLabels ? xPropForLabels.label : '' ),
+        yAxisLabel:        yAxisLabel || ( yPropForLabels ? yPropForLabels.label : '' ),
+        showGridLines:     showGridLines,
+        showLegend:        showLegend,
+        legendPosition:    legendPosition,
+        showTooltips:      showTooltips,
+        showTooltipSum:    showTooltipSum,
+        animate:           animate,
+        animationDuration: animationDuration
       });
     },
 
     function parseXValue(prop, xValue, isTimeScale) {
       if ( ! isTimeScale ) {
-        return ( prop && prop.chartJsFormatter ) ? prop.chartJsFormatter(xValue) : xValue;
+        return ( prop && prop.chartFormatter ) ? prop.chartFormatter(xValue) : xValue;
       }
       if ( xValue instanceof Date ) return xValue;
 
@@ -1439,8 +874,6 @@ foam.CLASS({
     },
 
     function addToE(e) {
-      var self = this;
-
       e
         .style({
           width: '100%',
@@ -1449,35 +882,13 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
-          .style({ 'min-height': this.height$, height: this.height$ })
+          .style({ width: '100%', 'min-height': this.height$, height: this.height$ })
           .add(this.chart_$)
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
     }
   ],
 
   listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
-    },
     {
       name: 'onDataRangeChange',
       isFramed: true,
@@ -1533,7 +944,7 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
                    'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
                    'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
       actions: ['resetXScale', 'resetYScale'] },
@@ -1581,9 +992,6 @@ foam.CLASS({
       visibility: function(topN) {
         return topN > 0 ? foam.u2.DisplayMode.RW : foam.u2.DisplayMode.HIDDEN;
       } },
-    // LineChartMixin internal/sizing props hidden from editor
-    { name: 'responsive', hidden: true },
-    { name: 'width', hidden: true },
     {
       name: 'isTimeScale',
       expression: function(arg1) {
@@ -1597,18 +1005,14 @@ foam.CLASS({
     transient: true,
     expression: function(groups, arg1, arg2, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
-                        responsive, maintainAspectRatio, showLegend, legendPosition,
+                        showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        periodCount, toggleCustomXScale, toggleCustomYScale,
                         xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
                         xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !arg1 || !arg2 ) return null;
 
-      // Don't create chart until we have a valid width
-      if ( ! width || width <= 0 ) {
-        return null;
-      }
 
       var data = [];
       var labels = [];
@@ -1622,7 +1026,7 @@ foam.CLASS({
         sortedKeys = this.fillTimeGapKeys(sortedKeys, groups, periodCount, arg1);
       }
 
-      // Process GroupBy results to Chart.js format
+      // One { x, y } point per group, in x order
       for ( var i = 0; i < sortedKeys.length; i++ ) {
         var xValue = sortedKeys[i];
         var aggregatedSink = groups[xValue];
@@ -1675,7 +1079,7 @@ foam.CLASS({
 
       // Create single dataset
       var datasetConfig = {
-        label: (arg2 && arg2.label) || 'Values',
+        label: (arg2 && arg2.label) || this.totalName_(arg2),
         data: data,
         borderWidth: 2,
         fill: fill,
@@ -1700,12 +1104,12 @@ foam.CLASS({
       var datasets = [datasetConfig];
 
       // Use the mixin method instead of duplicating chart options
-      return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
-                                   responsive, maintainAspectRatio, showLegend, legendPosition,
-                                   showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   arg1, arg2, toggleCustomXScale, toggleCustomYScale,
-                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
-                                   isTimeScale ? null : labels);
+      return this.createChart(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
+                              showLegend, legendPosition, showTooltips, showTooltipSum, animate,
+                              animationDuration, timeUnit, arg1, arg2,
+                              toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
+                              yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
+                              isTimeScale ? null : labels);
     }
 
   }
@@ -1716,8 +1120,6 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) {
-      var self = this;
-
       e
         .style({
           width: '100%',
@@ -1726,34 +1128,9 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
-          .style({ 'min-height': this.height$, height: this.height$ })
+          .style({ width: '100%', 'min-height': this.height$, height: this.height$ })
           .add(this.chart_$)
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
     }
   ]
 });
@@ -1775,7 +1152,7 @@ foam.CLASS({
     { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
       properties: ['xAxisLabel', 'yAxisLabel'] },
     { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
-      properties: ['alignment', 'maintainAspectRatio', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
+      properties: ['alignment', 'height', 'showLegend', 'legendPosition', 'showTooltips', 'showTooltipSum', 'animate', 'animationDuration',
                    'toggleCustomXScale', 'xAxisMinScale', 'xAxisMaxScale', 'xDateAxisMinScale', 'xDateAxisMaxScale',
                    'toggleCustomYScale', 'yAxisMinScale', 'yAxisMaxScale', 'autoSkip'],
       actions: ['resetXScale', 'resetYScale'] },
@@ -1811,9 +1188,6 @@ foam.CLASS({
     { name: 'y', hidden: true },
     { name: 'query', hidden: true },
     { name: 'selection', hidden: true },
-    // LineChartMixin internal/sizing props hidden from editor
-    { name: 'responsive', hidden: true },
-    { name: 'width', hidden: true },
     {
       name: 'isTimeScale',
       expression: function(xFunc) {
@@ -1827,18 +1201,14 @@ foam.CLASS({
     transient: true,
     expression: function(cols, rows, xFunc, yFunc, acc, timeUnit, colors, borderColors, xAxisLabel, yAxisLabel,
                         fill, tension, stepped, showPoints, pointRadius, showGridLines,
-                        responsive, maintainAspectRatio, showLegend, legendPosition,
+                        showLegend, legendPosition,
                         showTooltips, showTooltipSum, animate, animationDuration,
-                        periodCount, width, toggleCustomXScale, toggleCustomYScale,
+                        periodCount, toggleCustomXScale, toggleCustomYScale,
                         xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
                         xDateAxisMinScale, xDateAxisMaxScale, isTimeScale) {
 
       if ( !xFunc || !yFunc || !acc ) return null;
 
-      // Don't create chart until we have a valid width
-      if ( ! width || width <= 0 ) {
-        return null;
-      }
 
       var datasets = [];
       var colorIndex = 0;
@@ -1948,12 +1318,12 @@ foam.CLASS({
       this.dataYNumMax_ = maxY;
 
       // Use the mixin method instead of duplicating chart options
-      return this.createChartOptions(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
-                                   responsive, maintainAspectRatio, showLegend, legendPosition,
-                                   showTooltips, showTooltipSum, animate, animationDuration, timeUnit,
-                                   xFunc, yFunc, toggleCustomXScale, toggleCustomYScale,
-                                   xAxisMinScale, xAxisMaxScale, yAxisMinScale, yAxisMaxScale, autoSkip,
-                                   xDateAxisMinScale, xDateAxisMaxScale, isTimeScale ? null : labels);
+      return this.createChart(datasets, isTimeScale, xAxisLabel, yAxisLabel, showGridLines,
+                              showLegend, legendPosition, showTooltips, showTooltipSum, animate,
+                              animationDuration, timeUnit, xFunc, yFunc,
+                              toggleCustomXScale, toggleCustomYScale, xAxisMinScale, xAxisMaxScale,
+                              yAxisMinScale, yAxisMaxScale, autoSkip, xDateAxisMinScale, xDateAxisMaxScale,
+                              isTimeScale ? null : labels);
       }
     }
 
@@ -1964,8 +1334,6 @@ foam.CLASS({
       return x.E().add(this.chart_$);
     },
     function addToE(e) {
-      var self = this;
-
       e
         .style({
           width: '100%',
@@ -1974,34 +1342,9 @@ foam.CLASS({
           textAlign: this.alignment$.map(function(a) { return a.textAlign; })
         })
         .start('div')
-          .style({ 'min-height': this.height$, height: this.height$ })
+          .style({ width: '100%', 'min-height': this.height$, height: this.height$ })
           .add(this.chart_$)
         .end();
-
-      // ContainerWidth uses ResizeObserver for efficient size tracking
-      var cw = this.ContainerWidth.create();
-      cw.initContainer(e);
-
-      // Use mapFrom to filter width updates - only update when inlineSize > 0
-      self.onDetach(self.width$.mapFrom(cw.inlineSize$, function(inlineSize) {
-        return inlineSize > 0 ? inlineSize : self.width;
-      }));
-    }
-  ],
-
-  listeners: [
-    {
-      name: 'onWidthChange',
-      isMerged: 150,
-      on: ['this.propertyChange.width'],
-      code: function() {
-        // Handles width changes by recreating the chart entirely
-        // isMerged debounces rapid changes (e.g., window resize, panel resize)
-        if ( this.width > 0 ) {
-          // Clear the chart_ expression to force recalculation with new width
-          this.clearProperty('chart_');
-        }
-      }
     }
   ]
 });
@@ -2430,7 +1773,7 @@ foam.CLASS({
   documentation: 'Calendar sink with fully live dashboard properties (match Pie/Bar).',
   requires: [
     'foam.u2.layout.ContainerWidth',
-    'org.chartjs.CalendarDAOChartView'
+    'foam.core.reflow.dashboard.CalendarChartView'
   ],
 
   sections: [
@@ -2483,7 +1826,7 @@ foam.CLASS({
       transient: true,
       factory: function() {
         // Only create once, then drive via property slots
-        return this.CalendarDAOChartView.create({});
+        return this.CalendarChartView.create({});
       }
     }
   ],

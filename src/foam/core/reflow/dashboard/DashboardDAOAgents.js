@@ -138,7 +138,7 @@ foam.CLASS({
   documentation: 'Mixin for common chart display options',
 
   requires: [
-    'foam.core.reflow.dashboard.LegendPosition',
+    'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.MetricAlignment'
   ],
 
@@ -184,7 +184,7 @@ foam.CLASS({
     },
     {
       class: 'Enum',
-      of: 'foam.core.reflow.dashboard.LegendPosition',
+      of: 'foam.u2.chart.LegendPosition',
       name: 'legendPosition',
       label: 'Legend Position',
       value: 'TOP',
@@ -234,7 +234,19 @@ foam.CLASS({
     // toString(). Without this a chart sink keeps its parent's, so a Stacked
     // Bar on the same two fields as a plain GridBy view got the GridBy's
     // cached result back and drew a table. Naming the class keeps them apart.
-    function toString() { return this.cls_.id + ':' + this.SUPER(); },
+    // The display settings the form changed go in too: a pie with the legend
+    // on top and one with it on the left, on the same DAO and field, were
+    // one cache entry, so the second drew with the first's settings.
+    function toString() {
+      var self = this;
+      var set = this.cls_.getAxiomsByClass(foam.lang.Property).filter(function(p) {
+        return ! p.transient && self.hasOwnProperty(p.name);
+      }).map(function(p) {
+        var v = self[p.name];
+        return p.name + '=' + ( foam.lang.FObject.isInstance(v) || Array.isArray(v) ? foam.json.Compact.stringify(v) : String(v) );
+      });
+      return this.cls_.id + ':' + this.SUPER() + ( set.length ? ':' + set.join(',') : '' );
+    },
 
     // Builds this run's total from the form's Sum or Count into the field the
     // sink totals with (TOTAL_SLOT: arg2 by default, acc or valueSink). It is
@@ -245,6 +257,22 @@ foam.CLASS({
     function buildTotal_() {
       var agg = this.aggregation || foam.core.reflow.CountDAOAgent.create({}, this);
       this[this.TOTAL_SLOT || 'arg2'] = agg.createSink();
+    },
+
+    function totalName_(sink) {
+      // The name a chart gives a total in the legend and the tooltip: the
+      // totalled field's label, "Load Time" for a sum of loadTime, or "Count"
+      // for a count, which has no field. A max, min or average says which,
+      // "Max of Load Time", so two totals of one field do not both read "Load Time".
+      var V    = foam.u2.chart.ChartView;
+      var p    = sink && sink.arg1;
+      var name = ( p && ( p.label || ( p.delegate && p.delegate.label ) ) ) || V.COUNT_LABEL;
+      var kind = sink && sink.cls_ && {
+        'foam.mlang.sink.Max':     V.MAX_OF_LABEL,
+        'foam.mlang.sink.Min':     V.MIN_OF_LABEL,
+        'foam.mlang.sink.Average': V.AVERAGE_OF_LABEL
+      }[sink.cls_.id];
+      return kind ? kind + ' ' + name : name;
     },
 
     function addChartDisplayToE(e) {
@@ -327,6 +355,8 @@ foam.CLASS({
       setter: function(v) { this.displaySink.horizontal = v; } },
     { name: 'barThickness', hidden: true, transient: true,
       setter: function(v) { this.displaySink.barThickness = v; } },
+    { name: 'datasetLabel', hidden: true, transient: true,
+      setter: function(v) { this.displaySink.datasetLabel = v; } },
     { name: 'xAxisLabel', hidden: true, transient: true,
       setter: function(v) { this.displaySink.xAxisLabel = v; } },
     { name: 'yAxisLabel', hidden: true, transient: true,

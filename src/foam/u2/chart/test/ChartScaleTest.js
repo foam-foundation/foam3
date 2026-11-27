@@ -1,0 +1,129 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
+// The scales place every mark on a chart, so these tests pin down the
+// numbers a reader sees: the tick values on an axis, where a bar's band
+// starts, and which month a date falls in.
+foam.CLASS({
+  package: 'foam.u2.chart.test',
+  name: 'ChartScaleTest',
+  extends: 'foam.core.test.JSTest',
+
+  requires: [
+    'foam.u2.chart.BandScale',
+    'foam.u2.chart.LinearScale',
+    'foam.u2.chart.SVGPath',
+    'foam.u2.chart.TimeScale',
+    'foam.u2.chart.TimeUnit'
+  ],
+
+  methods: [
+    function runTest(x) {
+      this.testLinearScale(x);
+      this.testBandScale(x);
+      this.testTimeScale(x);
+      this.testChartFormatter(x);
+      this.testSVGPath(x);
+    },
+
+    function testLinearScale(x) {
+      var s = this.LinearScale.create({ min: 0, max: 97, tickCount: 5 }).nice();
+      x.test(s.step === 20 && s.max === 100, 'Linear: 0..97 in about 5 steps rounds to steps of 20 up to 100. Got step ' + s.step + ', max ' + s.max);
+      x.test(s.ticks().join() === '0,20,40,60,80,100', 'Linear: ticks are 0,20,...,100. Got ' + s.ticks().join());
+
+      s = this.LinearScale.create({ min: -30, max: 70, tickCount: 5 }).nice();
+      x.test(s.ticks().indexOf(0) !== -1, 'Linear: a range across zero has a tick at 0. Got ' + s.ticks().join());
+
+      s = this.LinearScale.create({ min: 0, max: 0 }).nice();
+      x.test(s.min === 0 && s.max === 1, 'Linear: all zeros still draws on 0..1. Got ' + s.min + '..' + s.max);
+
+      s = this.LinearScale.create({ min: 0, max: 0.2, tickCount: 4 }).nice();
+      x.test(s.ticks().join() === '0,0.05,0.1,0.15,0.2', 'Linear: small steps do not pile up float error. Got ' + s.ticks().join());
+      x.test(s.format(0.05) === ( 0.05 ).toLocaleString(foam.locale), 'Linear: a 0.05 step keeps two decimals. Got ' + s.format(0.05));
+
+      s = this.LinearScale.create({ min: 0.5, max: 9.5, step: 2 });
+      x.test(s.ticks().join() === '2,4,6,8', 'Linear: hand-set ends tick on the multiples of the step inside them. Got ' + s.ticks().join());
+
+      s = this.LinearScale.create({ min: 0, max: 1e6, step: 1 });
+      x.test(s.ticks().length === s.MAX_TICKS, 'Linear: a step far finer than the range stops at MAX_TICKS. Got ' + s.ticks().length);
+
+      s = this.LinearScale.create({ min: 0, max: 10, start: 300, end: 0 });
+      x.test(s.map(0) === 300 && s.map(10) === 0 && s.map(5) === 150, 'Linear: a vertical axis maps 0 to the bottom and 10 to the top');
+    },
+
+    function testSVGPath(x) {
+      var p = this.SVGPath.create().moveTo(0, 0).lineTo(10, 0).verticalTo(5).horizontalTo(0).close();
+      x.test(p.toString() === 'M0,0 L10,0 V5 H0 Z', 'SVGPath: each step adds its command. Got ' + p);
+      p = this.SVGPath.create().moveTo(0, 0).curveTo(1, 2, 3, 4, 5, 6).arcTo(5, true, false, 10, 0);
+      x.test(p.toString() === 'M0,0 C1,2 3,4 5,6 A5,5 0 1 0 10,0', 'SVGPath: a curve and an arc write their points and flags. Got ' + p);
+    },
+
+    function testBandScale(x) {
+      var b = this.BandScale.create({ count: 4, start: 0, end: 400 });
+      x.test(b.step() === 100, 'Band: 4 categories on 400 px are 100 px apart');
+      x.test(b.center(0) === 50 && b.center(3) === 350, 'Band: the first band is centred at 50, the last at 350');
+      x.test(Math.abs(b.bandwidth() - 72) < 1e-9, 'Band: bars cover 72% of their band. Got ' + b.bandwidth());
+    },
+
+    function testTimeScale(x) {
+      var t = this.TimeScale.create({ unit: 'month', utc: true, min: Date.UTC(2024, 0, 15), max: Date.UTC(2024, 3, 2) });
+      var ticks = t.ticks().map(function(v) { return new Date(v).toISOString().slice(0, 10); });
+      x.test(ticks.join() === '2024-02-01,2024-03-01,2024-04-01', 'Time: month ticks fall on the 1st of each month in range. Got ' + ticks.join());
+
+      // 2024-03-01T00:00Z is February 29 in the Americas; the label must still say March.
+      var march = Date.parse('2024-03-01T00:00:00Z');
+      var label = t.format(march);
+      x.test(label.indexOf('2024') !== -1 && label === new Date(march).toLocaleString(foam.locale, { timeZone: 'UTC', month: 'short', year: 'numeric' }),
+        'Time: midnight UTC on March 1 labels as March in every time zone. Got ' + label);
+
+      t = this.TimeScale.create({ unit: 'week', utc: true });
+      x.test(t.startOf(Date.UTC(2024, 2, 3)).toISOString().slice(0, 10) === '2024-02-26',
+        'Time: the week of Sunday 2024-03-03 starts on Monday 2024-02-26');
+      x.test(t.format(Date.UTC(2024, 1, 26), true).indexOf('Week of ') === 0, 'Time: a week reads "Week of ..." in a tooltip');
+
+      // Without utc a moment reads in the viewer's zone, as on a clock: 13:05 local
+      // labels "13:05" and its month starts at local midnight, wherever the test runs.
+      t = this.TimeScale.create({ unit: 'minute' });
+      x.test(t.format(new Date(2024, 2, 17, 13, 5).getTime()) === '13:05', 'Time: 13:05 local time labels "13:05". Got ' + t.format(new Date(2024, 2, 17, 13, 5).getTime()));
+      t = this.TimeScale.create({ unit: 'month' });
+      x.test(t.startOf(new Date(2024, 2, 17, 1, 30)).getTime() === new Date(2024, 2, 1).getTime(), 'Time: March 17 local starts its month at local midnight on March 1');
+      t = this.TimeScale.create({ unit: 'day' });
+      x.test(t.next(new Date(2024, 2, 30)).getTime() === new Date(2024, 2, 31).getTime(), 'Time: the day after March 30 is March 31, even across a daylight-saving change');
+
+      t = this.TimeScale.create({ unit: 'quarter', utc: true });
+      x.test(t.format(Date.UTC(2024, 4, 10)) === 'Q2 2024', 'Time: May 2024 is "Q2 2024". Got ' + t.format(Date.UTC(2024, 4, 10)));
+
+      t = this.TimeScale.create({ unit: 'day', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 11, 31) }).fit(12);
+      x.test(t.unit === this.TimeUnit.MONTH, 'Time: a year on unit day with room for 12 ticks moves up to month. Got ' + t.unit);
+      t = this.TimeScale.create({ unit: 'millisecond', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 3, 1) }).fit(10);
+      x.test(t.ticks().length <= 10 && t.ticks().length >= 2, 'Time: a millisecond unit over three months draws a handful of ticks, not thousands. Got ' + t.ticks().length);
+      t = this.TimeScale.create({ unit: 'month', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 1, 1) }).fit(50);
+      x.test(t.unit === this.TimeUnit.MONTH, 'Time: fit keeps the unit asked for while the range holds two of its ticks');
+
+      // A fresh server holds minutes of data, so short ranges need ticks too.
+      var hhmm = function(ts) { return ts.ticks().map(function(v) { return new Date(v).toISOString().slice(11, 16); }).join(); };
+      var lo   = Date.UTC(2026, 10, 27, 21, 31);
+      t = this.TimeScale.create({ unit: 'minute', utc: true, min: lo, max: lo + 3600000 }).fit(8);
+      x.test(t.unit === this.TimeUnit.MINUTE && t.every === 10 && hhmm(t) === '21:40,21:50,22:00,22:10,22:20,22:30',
+        'Time: an hour of data with room for 8 ticks gets one every 10 minutes, on round minutes. Got every ' + t.every + ': ' + hhmm(t));
+      t = this.TimeScale.create({ unit: 'hour', utc: true, min: lo, max: lo + 180000 }).fit(8);
+      x.test(t.unit === this.TimeUnit.MINUTE && hhmm(t) === '21:31,21:32,21:33,21:34',
+        'Time: three minutes of data on unit hour, which holds no hour tick, moves down to minutes. Got ' + t.unit + ': ' + hhmm(t));
+      t = this.TimeScale.create({ unit: 'hour', utc: true, min: lo, max: lo }).fit(8);
+      x.test(t.unit === this.TimeUnit.HOUR, 'Time: a range of one instant keeps its unit, for nice() to widen. Got ' + t.unit);
+      t = this.TimeScale.create({ unit: 'year', utc: true, min: Date.UTC(1900, 0, 1), max: Date.UTC(2024, 0, 1) }).fit(10);
+      x.test(t.ticks().map(function(v) { return new Date(v).getUTCFullYear(); }).join() === '1900,1925,1950,1975,2000',
+        'Time: 124 years with room for 10 ticks get one every 25 years. Got ' + t.ticks().map(function(v) { return new Date(v).getUTCFullYear(); }).join());
+    },
+
+    function testChartFormatter(x) {
+      var d = foam.lang.Date.create({ name: 'd' });
+      x.test(d.chartFormatter(new Date('2024-03-01T00:00:00Z')) === '2024-03-01', 'Label: a Date reads in UTC, so March 1 stays March 1');
+      var p = foam.lang.Property.create({ name: 'p' });
+      x.test(p.chartFormatter(1234.5) === ( 1234.5 ).toLocaleString(foam.locale), 'Label: a number reads in the locale, e.g. "1,234.5"');
+    }
+  ]
+});

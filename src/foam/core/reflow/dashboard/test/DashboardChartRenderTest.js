@@ -89,6 +89,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardSankeyChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardSunburstChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardTreemapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardWaterfallChartDAOAgent',
     'foam.u2.chart.LegendPosition',
@@ -118,6 +119,7 @@ foam.CLASS({
     'foam.u2.chart.RadarChart',
     'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
+    'foam.u2.chart.SunburstChart',
     'foam.u2.chart.TreemapChart',
     'foam.u2.chart.WaterfallChart'
   ],
@@ -127,6 +129,8 @@ foam.CLASS({
       x = x.createSubContext({ block: { value: {} } });
       await this.testBar(x);
       await this.testPie(x);
+      await this.testSunburst(x);
+      await this.testSunburstEdges(x);
       await this.testStackedBar(x);
       await this.testLine(x);
       await this.testStackedLine(x);
@@ -174,7 +178,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink', 'DashboardBulletSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink', 'DashboardBulletSink', 'DashboardSunburstSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -407,6 +411,106 @@ foam.CLASS({
       x.test(chart.legendPosition === this.LegendPosition.LEFT && chart.legendMinWidthPercent === 20 && chart.legendMaxWidthPercent === 40,
         'Pie: the legend sits left between 20% and 40% wide');
       x.test(chart.percent(1) === '70.0%', 'Pie: 2026 is 70.0% of the total. Got ' + chart.percent(1));
+    },
+
+    async function testSunburst(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardSunburstChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      // A form reads rows and cols before the fields are picked. Reading them
+      // first here checks that picking the fields still rebuilds them.
+      s.rows; s.cols;
+      s.yFunc       = R.YEAR;
+      s.xFunc       = R.MONTH;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#ff0000', '#00ff00' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the slice's value, its inner and
+      // outer names, and the point in the chart and on the page.
+      s.onClickScript = '(function(v, il, ol, cx, cy, px, py) { globalThis.sunburstClick_ = [ v, il, ol, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.SunburstChart.isInstance(chart), 'Sunburst: draws a foam.u2.chart.SunburstChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026', 'Sunburst: Inner Ring gives one inner slice per year. Got ' + chart.labels.join());
+      x.test(chart.datasets.map(function(d) { return d.label; }).join() === '1,2', 'Sunburst: Outer Ring gives one dataset per month. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      x.test(chart.datasets[0].data.join() === '10,30' && chart.datasets[1].data.join() === '20,40',
+        'Sunburst: each outer slice sums the amounts of its month in its year. Got ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
+      x.test(foam.util.equals(chart.datasets[0].backgroundColor, [ '#ff0000', '#00ff00' ]),
+        'Sunburst: Colors reach the inner slices by position. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Sunburst: Legend Position reaches the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onSliceClick(1, 0, evt);
+      x.test(globalThis.sunburstClick_ === '30,2026,1,30,30,130,280',
+        'Sunburst: On Click Script on an outer slice gets its value, both names, and the point in the chart and on the page. Got ' + globalThis.sunburstClick_);
+      chart.onSliceClick(0, -1, evt);
+      x.test(globalThis.sunburstClick_ === '30,2025,,30,30,130,280',
+        'Sunburst: on an inner slice it gets the total of its children and an empty outer name. Got ' + globalThis.sunburstClick_);
+      delete globalThis.sunburstClick_;
+
+      // With no aggregation picked the form shows Count, so each slice counts its rows.
+      s.clearProperty('aggregation');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '1,1', 'Sunburst: with no Aggregation each slice counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onSliceClick, 'Sunburst: with no On Click Script the slices are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still group both keys.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.chart_.labels.join() === '2025,2026' && copy.chart_.datasets.length === 2,
+        'Sunburst: a sink sent as JSON and back still groups by both fields. Got ' + ( err || copy.chart_.labels.join() ));
+    },
+
+    async function testSunburstEdges(x) {
+      var T = this.ScatterTestRow;
+      var at = function(day, hour) { return new Date(2026, 0, day, hour, 30); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, when: at(1, 9),  at: at(1, 9) }),
+        T.create({ id: 2, kind: 'GET',  size: 20, when: at(1, 14), at: at(1, 14) }),
+        T.create({ id: 3, kind: 'POST', size: 10, when: at(2, 9),  at: at(2, 9) }),
+        T.create({ id: 4, kind: '',     size: 99, when: at(2, 9),  at: at(2, 9) })
+      ] }, x);
+      var agent = this.DashboardSunburstChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.yFunc       = T.KIND;
+      s.xFunc       = foam.mlang.expr.DateToHHExpr.create({ arg1: T.AT, delegate: T.AT });
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // A pair with no rows is a 0, and the row with no kind adds no inner slice.
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets.map(function(d) { return d.label + ':' + d.data.join('|'); }).join() === '09:10|10,14:20|0',
+        'Sunburst: the hours of a date expression split each kind, a missing pair is 0, a row with no kind is left out. Got ' + chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.label + ':' + d.data.join('|'); }).join());
+
+      // An inner value whose rows have no outer value has nothing to draw, so it is no label.
+      var gappy = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, when: at(1, 9) }),
+        T.create({ id: 2, kind: 'ONLY', size: 10 })
+      ] }, x);
+      s.xFunc = T.WHEN;
+      var err = null;
+      try {
+        chart = ( await gappy.select(agent.createSink()) ).chart_;
+      } catch ( e ) { err = e; }
+      x.test(! err && chart.labels.join() === 'GET' && /^\d{4}-\d\d-\d\d$/.test(chart.datasets[0].label),
+        'Sunburst: a kind whose rows have no date adds no slice, and a date field labels its slices YYYY-MM-DD. Got ' + ( err || chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.label; }).join() ));
+
+      // No rows: a message in place of an empty circle.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Sunburst: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no rings. Got ' + JSON.stringify(text));
+      el.remove();
     },
 
     async function testStackedBar(x) {

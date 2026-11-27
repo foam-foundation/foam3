@@ -2577,6 +2577,167 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSunburstSink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Two rings. Inner Ring gives one slice per value of its field (a page,
+    say), as wide as the Aggregation of its rows. Outer Ring splits each
+    inner slice by the values of a second field (the hour of a date), inside
+    its parent's angle. A Count, or a Sum or Average of a numeric field, sizes
+    the slices. The inner slices take Colors in turn.
+  `,
+
+  requires: [
+    'foam.u2.chart.SunburstChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['yFunc', 'xFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Sunburst Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The sunburst has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    // GridBy groups rows by yFunc first and then by xFunc, so Inner Ring is
+    // yFunc and Outer Ring is xFunc.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Inner Ring', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Outer Ring', required: true },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a slice is clicked. Signature: (value, innerLabel, outerLabel, x, y, pageX, pageY) => void. outerLabel is empty for an inner slice, whose value is the total of its children.'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var self      = this;
+        var outerKeys = this.groupKeys_(cols);
+        var cell      = function(ik, ok) {
+          var sub = rowGroups[ik] && rowGroups[ik].groups || {};
+          return sub[ok] ? Number(sub[ok].value) || 0 : 0;
+        };
+        // An inner value whose rows all have an empty outer value has
+        // nothing to draw, so it gets no legend entry either.
+        var innerKeys = this.groupKeys_(rows).filter(function(ik) {
+          return outerKeys.some(function(ok) { return cell(ik, ok) > 0; });
+        });
+
+        // A date field labels its slices as the bar charts do ("2024-03-01");
+        // anything else, a date expression such as the hour included, is
+        // labelled by its own key.
+        var text = function(f, key) { return f && f.chartFormatter ? f.chartFormatter(key) : key; };
+        var labels = innerKeys.map(function(k) { return String(text(self.yFunc, k)); });
+
+        // One dataset per outer value: its data[j] is the slice inside inner
+        // value j. The first dataset carries one colour per inner value,
+        // indexed by position so a slice keeps its colour when a legend
+        // click hides another.
+        var datasets = outerKeys.map(function(ok, i) {
+          var ds = {
+            label: String(text(self.xFunc, ok)),
+            data:  innerKeys.map(function(ik) { return cell(ik, ok); })
+          };
+          if ( ! i && colors && colors.length ) {
+            ds.backgroundColor = innerKeys.map(function(ik, j) {
+              return foam.CSS.returnTokenValue(colors[j % colors.length], self.cls_, self.__context__);
+            });
+          }
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, innerLabel, outerLabel, x, y, pageX, pageY) for the clicked
+        // slice: its value, its names, the point inside the chart and the
+        // point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardSunburstSink:', e);
+          }
+        }
+
+        return this.SunburstChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onSliceClick: typeof click !== 'function' ? null : function(j, k, evt) {
+            try {
+              var box   = evt.target.ownerSVGElement.getBoundingClientRect();
+              var value = k < 0 ? datasets.reduce(function(sum, ds) { return sum + ds.data[j]; }, 0) : datasets[k].data[j];
+              click(value, labels[j], k < 0 ? '' : datasets[k].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
   name: 'DashboardHistogramSink',
   extends: 'foam.dao.AbstractSink',
   mixins: [

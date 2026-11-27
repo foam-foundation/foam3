@@ -66,6 +66,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardTreemapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardWaterfallChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.BoxPlotTestRow',
@@ -84,6 +85,7 @@ foam.CLASS({
     'foam.u2.chart.PieChart',
     'foam.u2.chart.RadarChart',
     'foam.u2.chart.ScatterChart',
+    'foam.u2.chart.TreemapChart',
     'foam.u2.chart.WaterfallChart'
   ],
 
@@ -108,6 +110,8 @@ foam.CLASS({
       await this.testWaterfallEdges(x);
       await this.testBoxPlot(x);
       await this.testBoxPlotEdges(x);
+      await this.testTreemap(x);
+      await this.testTreemapEdges(x);
       this.testServerFields(x);
     },
 
@@ -121,7 +125,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -821,6 +825,89 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Heatmap: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testTreemap(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardTreemapChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#ff0000', '#00ff00' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its first four arguments: the rectangle's value,
+      // its label, the sum of every rectangle and the x of the click.
+      s.onClickScript = '(function(v, label, total, cx, cy, px, py) { globalThis.treemapClick_ = [ v, label, total, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.TreemapChart.isInstance(chart), 'Treemap: draws a foam.u2.chart.TreemapChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2026,2025' && chart.datasets[0].data.join() === '70,30',
+        'Treemap: sums the amounts per year, biggest first. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      x.test(foam.util.equals(chart.datasets[0].backgroundColor, [ '#ff0000', '#00ff00' ]),
+        'Treemap: Colors reach the rectangles. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Treemap: Legend Position reaches the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onRectClick(1, evt);
+      x.test(globalThis.treemapClick_ === '30,2025,100,30,30,130,280',
+        'Treemap: On Click Script gets the value, label, total, and the point in the chart and on the page. Got ' + globalThis.treemapClick_);
+      delete globalThis.treemapClick_;
+
+      // Top N 1 keeps the biggest year and folds the other into "Others".
+      s.topN = 1;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '2026,Others' && chart.datasets[0].data.join() === '70,30',
+        'Treemap: Top N 1 gives the biggest year and an Others rectangle. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // With no aggregation picked the form shows Count, so each rectangle counts its rows.
+      s.topN = 0;
+      s.clearProperty('aggregation');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2', 'Treemap: with no Aggregation each rectangle counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onRectClick, 'Treemap: with no On Click Script the rectangles are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still group.
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.topN = 1;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.topN === 1 && copy.chart_.labels.join() === '2026,Others',
+        'Treemap: a sink sent as JSON and back still groups and keeps Top N. Got ' + ( err || copy.chart_.labels.join() ));
+    },
+
+    async function testTreemapEdges(x) {
+      var T = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10 }),
+        T.create({ id: 2, kind: 'POST', size: 10 }),
+        T.create({ id: 3, kind: 'GET',  size: 20 }),
+        T.create({ id: 4, kind: '',     size: 30 })
+      ] }, x);
+      var agent = this.DashboardTreemapChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = T.KIND;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // A row with no kind is left out, not drawn as a rectangle called "".
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '30,10',
+        'Treemap: a row with no value in Group By adds no rectangle. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of an empty plot.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Treemap: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws nothing. Got ' + JSON.stringify(text));
       el.remove();
     },
 

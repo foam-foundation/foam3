@@ -22,6 +22,7 @@ foam.CLASS({
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
     'foam.u2.chart.ScatterChart',
+    'foam.u2.chart.TreemapChart',
     'foam.u2.chart.WaterfallChart'
   ],
 
@@ -49,6 +50,9 @@ foam.CLASS({
       await this.testWaterfallEdges(x);
       await this.testBoxPlot(x);
       await this.testBoxPlotEdges(x);
+      await this.testTreemap(x);
+      await this.testTreemapLayout(x);
+      await this.testTreemapEdges(x);
     },
 
     async function mount(view) {
@@ -891,6 +895,102 @@ foam.CLASS({
       el    = await this.mount(chart);
       x.test(this.all(el, chart, 'bar').length === 0 && this.all(el, chart, 'axis').length === 0,
         'Waterfall: with no data the chart draws no bars and no axes. Got ' + JSON.stringify(el.textContent));
+      this.unmount(chart);
+    },
+
+    async function testTreemap(x) {
+      // Labels are not in value order, so the tests also show the biggest
+      // rectangle comes first whatever its index.
+      var chart = this.TreemapChart.create({ labels: [ 'Small', 'Big', 'Mid', 'Tiny' ],
+        datasets: [ { data: [ 15, 50, 30, 0.5 ], backgroundColor: [ '#111111', '#222222', '#333333', '#444444' ] } ] }, x);
+      var clicks = [];
+      chart.onRectClick = function(i) { clicks.push(i); };
+      var el    = await this.mount(chart);
+      var svg   = el.querySelector('svg');
+      var area  = this.num(svg, 'width') * this.num(svg, 'height');
+      var tiles = this.all(el, chart, 'tile');
+      var areas = tiles.map(function(t) { return this.num(t, 'width') * this.num(t, 'height'); }, this);
+      var total = 95.5;
+      x.test(tiles.length === 4, 'Treemap: one rectangle per positive value. Got ' + tiles.length);
+      x.test(tiles.map(function(t) { return t.getAttribute('fill'); }).join() === '#222222,#333333,#111111,#444444',
+        'Treemap: rectangles run biggest first (Big, Mid, Small, Tiny), each in its own colour. Got ' + tiles.map(function(t) { return t.getAttribute('fill'); }).join());
+      x.test([ 50, 30, 15, 0.5 ].every(function(v, k) { return Math.abs(areas[k] / area - v / total) < 0.001; }),
+        'Treemap: areas follow the values 50, 30, 15, 0.5. Got ' + areas.map(function(a) { return ( a / area * 100 ).toFixed(1) + '%'; }).join());
+      x.test(Math.abs(areas.reduce(function(a, b) { return a + b; }, 0) - area) < 1, 'Treemap: the rectangles fill the plot');
+      x.test(this.num(tiles[0], 'x') === 0 && this.num(tiles[0], 'y') === 0, 'Treemap: the biggest sits in the top left corner');
+
+      var labels = this.all(el, chart, 'tile-label').map(function(t) { return t.textContent; });
+      x.test(labels.indexOf('Big') !== -1 && labels.indexOf('Tiny') === -1,
+        'Treemap: a rectangle that fits shows its name and one too small shows none. Got ' + labels.join());
+      var values = this.all(el, chart, 'tile-value').map(function(t) { return t.textContent; });
+      x.test(values.indexOf('50') !== -1, 'Treemap: the value is written under the name. Got ' + values.join());
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Small,Big,Mid,Tiny', 'Treemap: the legend lists every label in order');
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'tile').length === 3; }.bind(this));
+      tiles = this.all(el, chart, 'tile');
+      areas = tiles.map(function(t) { return this.num(t, 'width') * this.num(t, 'height'); }, this);
+      x.test(tiles.length === 3 && Math.abs(areas[0] / area - 30 / 45.5) < 0.001,
+        'Treemap: hiding Big in the legend lays the rest out again, Mid now 30 of 45.5. Got ' + areas.map(function(a) { return ( a / area * 100 ).toFixed(1) + '%'; }).join());
+      x.test(chart.percent(2) === '65.9%', 'Treemap: shares are of the visible rectangles. Got ' + chart.percent(2));
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'tile').length === 4; }.bind(this));
+
+      tiles = this.all(el, chart, 'tile');
+      var c = this.centreOf(tiles[0]);
+      this.fire(tiles[0], 'mousemove', c.x, c.y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Big: 50 (52.4%)') !== -1, 'Treemap: hovering shows the name, value and share. Got ' + text);
+      tiles[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      tiles[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      x.test(JSON.stringify(clicks) === '[1,0]', 'Treemap: a click gives the label index, not the draw order. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Treemap: a chart with onRectClick shows a pointer');
+      this.unmount(chart);
+    },
+
+    async function testTreemapLayout(x) {
+      // Seven values in a 600 x 400 box: the squarified layout keeps every
+      // rectangle near a square (a plain one-direction slicing gives 6 by 1).
+      var chart = this.TreemapChart.create({}, x);
+      var r     = chart.squarify([ 6, 6, 4, 3, 2, 2, 1 ], 0, 0, 600, 400);
+      var area  = r.reduce(function(a, t) { return a + t.w * t.h; }, 0);
+      var worst = Math.max.apply(null, r.map(function(t) { return Math.max(t.w / t.h, t.h / t.w); }));
+      x.test(r.length === 7 && Math.abs(area - 240000) < 1, 'Treemap layout: seven rectangles covering the box. Got ' + r.length + ' / ' + area);
+      x.test(worst < 3, 'Treemap layout: no rectangle is longer than 3 times its width. Got ' + worst.toFixed(2));
+      x.test(r.every(function(t) { return t.x >= -1e-6 && t.y >= -1e-6 && t.x + t.w <= 600 + 1e-6 && t.y + t.h <= 400 + 1e-6; }), 'Treemap layout: every rectangle is inside the box');
+      var overlap = r.some(function(a, i) {
+        return r.some(function(b, j) {
+          return j > i && a.x < b.x + b.w - 1e-6 && b.x < a.x + a.w - 1e-6 && a.y < b.y + b.h - 1e-6 && b.y < a.y + a.h - 1e-6;
+        });
+      });
+      x.test(! overlap, 'Treemap layout: no two rectangles overlap');
+      x.test(r[0].x === 0 && r[0].y === 0 && r[0].i === 0, 'Treemap layout: the biggest starts at the top left');
+    },
+
+    async function testTreemapEdges(x) {
+      var chart = this.TreemapChart.create({ labels: [ 'A', 'B', 'C', 'D' ], datasets: [ { data: [ 10, 0, -5, 5 ], backgroundColor: [ '#000000', '#111111', '#222222', '#ffffff' ] } ] }, x);
+      var el    = await this.mount(chart);
+      var tiles = this.all(el, chart, 'tile');
+      x.test(tiles.length === 2, 'Treemap: a zero or negative value gets no rectangle. Got ' + tiles.length);
+      var fills = this.all(el, chart, 'tile-label').map(function(t) { return t.getAttribute('fill'); });
+      x.test(fills.length === 2 && fills[0] !== fills[1], 'Treemap: text on a dark rectangle and on a light one differ in colour. Got ' + fills.join());
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Treemap: with no onRectClick the rectangles are not clickable');
+      // No Legend entries are dropped for a zero value.
+      x.test(el.querySelectorAll('.' + this.legendClass('item')).length === 4, 'Treemap: the legend keeps an entry for a zero value');
+      this.unmount(chart);
+
+      chart = this.TreemapChart.create({ labels: [ 'Only' ], datasets: [ { data: [ 7 ] } ] }, x);
+      el = await this.mount(chart);
+      var svg = el.querySelector('svg');
+      tiles = this.all(el, chart, 'tile');
+      x.test(tiles.length === 1 && this.num(tiles[0], 'width') === this.num(svg, 'width') && this.num(tiles[0], 'height') === this.num(svg, 'height'),
+        'Treemap: a single value fills the plot');
+      this.unmount(chart);
+
+      chart = this.TreemapChart.create({ labels: [], datasets: [] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'tile').length === 0, 'Treemap: with no data nothing is drawn');
       this.unmount(chart);
     },
 

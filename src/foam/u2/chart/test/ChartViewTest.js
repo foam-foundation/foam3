@@ -23,6 +23,7 @@ foam.CLASS({
     'foam.u2.chart.PieChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.RadarChart',
+    'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
     'foam.u2.chart.TreemapChart',
     'foam.u2.chart.WaterfallChart'
@@ -60,6 +61,8 @@ foam.CLASS({
       await this.testGauge(x);
       await this.testGaugeBands(x);
       await this.testGaugeEdges(x);
+      await this.testSankey(x);
+      await this.testSankeyEdges(x);
     },
 
     async function mount(view) {
@@ -1353,6 +1356,161 @@ foam.CLASS({
       // Equal values: a flat box with no outliers.
       var st = this.BoxPlotChart.create({}, x).stats_([ 5, 5, 5, 5 ]);
       x.test(st.min === 5 && st.q1 === 5 && st.q3 === 5 && st.max === 5 && ! st.outliers.length, 'BoxPlot: equal values give a flat box with no outliers. Got ' + JSON.stringify(st));
+    },
+
+    function flowGeometry(band) {
+      // A band's path is M x,y C ... L x,y C ... Z: its height where it leaves
+      // the source and where it reaches the target, and where each starts.
+      var n = this.pathNumbers(band);
+      return { sourceY: n[1], sourceHeight: n[15] - n[1], targetY: n[7], targetHeight: n[9] - n[7] };
+    },
+
+    async function testSankey(x) {
+      var clicks = [];
+      var chart = this.SankeyChart.create({
+        labels: [ 'Cart', 'Search' ],
+        datasets: [
+          { label: 'Home',   data: [ 30, 70 ],   backgroundColor: '#ff0000' },
+          { label: 'Offers', data: [ 10, null ], backgroundColor: '#0000ff' }
+        ],
+        onFlowClick: function(s, t) { clicks.push([ s, t ]); }
+      }, x);
+      var el    = await this.mount(chart);
+      var flows = this.all(el, chart, 'flow');
+      var nodes = this.all(el, chart, 'node');
+      x.test(flows.length === 3, 'Sankey: one band for each pair with a value, none for the null. Got ' + flows.length);
+      x.test(nodes.length === 4, 'Sankey: two source nodes and two target nodes. Got ' + nodes.length);
+
+      // Draw order: Home to Cart, Home to Search, Offers to Cart; nodes are
+      // Home, Offers, then Cart, Search.
+      var g = flows.map(this.flowGeometry, this);
+      var unit = g[0].sourceHeight / 30;
+      x.test(unit > 0 && Math.abs(g[1].sourceHeight / 70 - unit) < 0.01 && Math.abs(g[2].sourceHeight / 10 - unit) < 0.01,
+        'Sankey: a band is as thick as its value, 30, 70, 10. Got ' + g.map(function(b) { return b.sourceHeight; }).join());
+      x.test(g.every(function(b) { return Math.abs(b.sourceHeight - b.targetHeight) < 0.01; }), 'Sankey: a band is as thick where it arrives as where it leaves');
+      var h = nodes.map(function(n) { return this.num(n, 'height'); }, this);
+      x.test(Math.abs(h[0] / unit - 100) < 0.01 && Math.abs(h[1] / unit - 10) < 0.01 && Math.abs(h[2] / unit - 40) < 0.01 && Math.abs(h[3] / unit - 70) < 0.01,
+        'Sankey: a node is as tall as its total, on the same scale in both columns (100, 10, 40, 70). Got ' + h.map(function(v) { return v / unit; }).join());
+      var y = nodes.map(function(n) { return this.num(n, 'y'); }, this);
+      x.test(Math.abs(y[1] - ( y[0] + h[0] ) - chart.NODE_GAP_PX) < 0.01 && Math.abs(y[3] - ( y[2] + h[2] ) - chart.NODE_GAP_PX) < 0.01,
+        'Sankey: nodes of a column are stacked with the documented gap. Got ' + ( y[1] - y[0] - h[0] ) + ' and ' + ( y[3] - y[2] - h[2] ));
+      x.test(this.num(nodes[0], 'x') < this.num(nodes[2], 'x') && this.num(nodes[0], 'x') === this.num(nodes[1], 'x') && this.num(nodes[2], 'x') === this.num(nodes[3], 'x'),
+        'Sankey: sources are the left column and targets the right');
+
+      // A band leaves its source in target order and reaches its target in source order.
+      x.test(g[0].sourceY < g[1].sourceY && Math.abs(g[1].sourceY - ( g[0].sourceY + g[0].sourceHeight )) < 0.01,
+        'Sankey: Home hands out its height in target order, Cart then Search');
+      x.test(g[0].targetY < g[2].targetY && Math.abs(g[2].targetY - ( g[0].targetY + g[0].targetHeight )) < 0.01,
+        'Sankey: Cart receives in source order, Home then Offers');
+      x.test(Math.abs(g[0].sourceY - y[0]) < 0.01 && Math.abs(g[2].targetY - ( y[2] + g[0].targetHeight )) < 0.01, 'Sankey: bands start at their node\'s edge');
+
+      x.test(flows[0].getAttribute('fill') === '#ff0000' && flows[2].getAttribute('fill') === '#0000ff', 'Sankey: a band takes its source\'s colour. Got ' + flows.map(function(f) { return f.getAttribute('fill'); }).join());
+      x.test(Number(flows[0].getAttribute('fill-opacity')) === chart.bandOpacity && chart.bandOpacity > 0 && chart.bandOpacity < 1, 'Sankey: bands are semi-transparent by default. Got ' + flows[0].getAttribute('fill-opacity'));
+      x.test(nodes[0].getAttribute('fill') === '#ff0000' && nodes[1].getAttribute('fill') === '#0000ff' && nodes[2].getAttribute('fill') === nodes[3].getAttribute('fill') && nodes[2].getAttribute('fill').indexOf('$') === -1,
+        'Sankey: source nodes take their colour, target nodes share a resolved neutral colour. Got ' + nodes.map(function(n) { return n.getAttribute('fill'); }).join());
+
+      var labels = this.all(el, chart, 'node-label');
+      x.test(labels.map(function(t) { return t.textContent; }).join() === 'Home,Offers,Cart,Search', 'Sankey: names are written beside the nodes. Got ' + this.texts(el, chart, 'node-label'));
+      x.test(labels[0].getAttribute('text-anchor') === 'end' && labels[2].getAttribute('text-anchor') === 'start' && this.num(labels[0], 'x') < this.num(nodes[0], 'x') && this.num(labels[2], 'x') > this.num(nodes[2], 'x') + this.num(nodes[2], 'width'),
+        'Sankey: source names sit left of the left column and target names right of the right column');
+
+      // Hover.
+      var c = this.centreOf(flows[1]);
+      this.fire(flows[1], 'mousemove', c.x, c.y);
+      var tip = el.querySelector('.' + chart.myClass('tooltip'));
+      x.test(this.visible(tip) && tip.textContent.indexOf('Home → Search: 70') !== -1, 'Sankey: hovering a band shows "source → target: value". Got ' + tip.textContent);
+      c = this.centreOf(nodes[2]);
+      this.fire(nodes[2], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Cart') === 0 && tip.textContent.indexOf('In: 40') !== -1 && tip.textContent.indexOf('Out: 0') !== -1,
+        'Sankey: hovering a target shows its total in and out. Got ' + tip.textContent);
+      c = this.centreOf(nodes[0]);
+      this.fire(nodes[0], 'mousemove', c.x, c.y);
+      x.test(tip.textContent.indexOf('Home') === 0 && tip.textContent.indexOf('Out: 100') !== -1 && tip.textContent.indexOf('In: 0') !== -1,
+        'Sankey: hovering a source shows its total in and out. Got ' + tip.textContent);
+      this.fire(nodes[0], 'mouseleave', 0, 0);
+      x.test(! this.visible(tip), 'Sankey: the tooltip goes when the pointer leaves');
+
+      // Click.
+      this.fire(flows[1], 'click', 0, 0);
+      this.fire(flows[2], 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '[[0,1],[1,0]]', 'Sankey: a click gives the source and target index. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Sankey: a chart with onFlowClick shows a pointer');
+
+      // Legend: one entry per source; a click hides that source and the layout is worked out again.
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === 'Home,Offers', 'Sankey: the legend has one entry per source. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'flow').length === 2; }.bind(this));
+      flows = this.all(el, chart, 'flow');
+      nodes = this.all(el, chart, 'node');
+      x.test(flows.length === 2 && nodes.length === 3, 'Sankey: hiding Offers removes its band and its node. Got ' + flows.length + ' bands, ' + nodes.length + ' nodes');
+      h = nodes.map(function(n) { return this.num(n, 'height'); }, this);
+      x.test(Math.abs(h[1] / h[2] - 30 / 70) < 0.001 && h[0] > h[1], 'Sankey: Cart drops to 30 and the nodes are laid out again, 30 against 70. Got ' + h.join());
+      items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      items[1].click();
+      await this.redraw(function() { return this.all(el, chart, 'flow').length === 3; }.bind(this));
+      x.test(this.all(el, chart, 'flow').length === 3, 'Sankey: a second click shows Offers again');
+      this.unmount(chart);
+
+      // bandOpacity is an option, and without a click handler nothing shows a pointer.
+      chart = this.SankeyChart.create({ labels: [ 'A' ], datasets: [ { label: 'S', data: [ 5 ] } ], bandOpacity: 0.8 }, x);
+      el    = await this.mount(chart);
+      x.test(Number(this.all(el, chart, 'flow')[0].getAttribute('fill-opacity')) === 0.8, 'Sankey: bandOpacity sets the opacity of the bands');
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Sankey: with no onFlowClick the bands are not clickable');
+      x.test(this.all(el, chart, 'flow')[0].getAttribute('fill').toLowerCase() === chart.defaultColor(0).toLowerCase(), 'Sankey: with no colour set a source takes the first theme colour');
+      this.unmount(chart);
+    },
+
+    async function testSankeyEdges(x) {
+      // A zero, a negative number, text and a missing value are no band.
+      var chart = this.SankeyChart.create({ labels: [ 'A', 'B', 'C', 'D', 'E' ], datasets: [ { label: 'S', data: [ 0, -4, 'x', undefined, 3 ] } ] }, x);
+      var el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'flow').length === 1 && this.all(el, chart, 'node').length === 2,
+        'Sankey: zero, negative, text and missing values draw no band and no node. Got ' + this.all(el, chart, 'flow').length + ' bands, ' + this.all(el, chart, 'node').length + ' nodes');
+      this.unmount(chart);
+
+      // A source with no band shows hidden in the legend and draws no node.
+      chart = this.SankeyChart.create({ labels: [ 'A' ], datasets: [ { label: 'Full', data: [ 5 ] }, { label: 'Empty', data: [ null ] } ] }, x);
+      el    = await this.mount(chart);
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.length === 2 && items[1].classList.contains(this.legendClass('hidden')) && this.all(el, chart, 'node').length === 2,
+        'Sankey: a source with no value is hidden in the legend and has no node');
+      this.unmount(chart);
+
+      // Nothing to draw: nothing drawn, nothing thrown.
+      chart = this.SankeyChart.create({ labels: [ 'A' ], datasets: [ { label: 'S', data: [ null ] } ] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'flow').length === 0 && this.all(el, chart, 'node').length === 0, 'Sankey: with no values nothing is drawn');
+      this.unmount(chart);
+      chart = this.SankeyChart.create({ labels: [], datasets: [] }, x);
+      el    = await this.mount(chart);
+      x.test(this.all(el, chart, 'flow').length === 0, 'Sankey: with no sources nothing is drawn');
+      this.unmount(chart);
+
+      // Long names are cut short, so the bands keep their room; the full name is in the tooltip.
+      var long = 'A very long entry page name that would take half of the chart';
+      chart = this.SankeyChart.create({ labels: [ long ], datasets: [ { label: long, data: [ 5 ] } ] }, x);
+      el    = await this.mount(chart);
+      var texts = this.all(el, chart, 'node-label');
+      x.test(texts.length === 2 && texts.every(function(t) { return t.textContent.slice(-1) === '…'; }), 'Sankey: long names end in an ellipsis. Got ' + this.texts(el, chart, 'node-label'));
+      var n = this.all(el, chart, 'node');
+      x.test(this.num(n[1], 'x') - ( this.num(n[0], 'x') + this.num(n[0], 'width') ) > 600 / 3, 'Sankey: the bands keep at least a third of the width');
+      var c = this.centreOf(n[0]);
+      this.fire(n[0], 'mousemove', c.x, c.y);
+      x.test(el.querySelector('.' + chart.myClass('tooltip')).textContent.indexOf(long) === 0, 'Sankey: the tooltip names the node in full');
+      this.unmount(chart);
+
+      // Many nodes: the gap shrinks so each keeps a height and the column fits the plot.
+      var data = [], labels = [];
+      for ( var i = 0 ; i < 40 ; i++ ) { labels.push('T' + i); data.push(1); }
+      chart = this.SankeyChart.create({ labels: labels, datasets: [ { label: 'S', data: data } ] }, x);
+      el    = await this.mount(chart);
+      n = this.all(el, chart, 'node');
+      var targets = n.slice(1);
+      var top = this.num(targets[0], 'y'), last = targets[targets.length - 1];
+      x.test(targets.length === 40 && targets.every(function(t) { return this.num(t, 'height') > 1; }, this) && top >= 0 && this.num(last, 'y') + this.num(last, 'height') <= el.querySelector('svg').getBoundingClientRect().height + 0.5,
+        'Sankey: 40 targets still fit the plot with a height each');
+      this.unmount(chart);
     }
   ]
 });

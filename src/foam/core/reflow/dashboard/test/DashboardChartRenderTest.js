@@ -66,6 +66,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardSankeyChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardTreemapChartDAOAgent',
@@ -90,6 +91,7 @@ foam.CLASS({
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.RadarChart',
+    'foam.u2.chart.SankeyChart',
     'foam.u2.chart.ScatterChart',
     'foam.u2.chart.TreemapChart',
     'foam.u2.chart.WaterfallChart'
@@ -122,6 +124,8 @@ foam.CLASS({
       await this.testTreemapEdges(x);
       await this.testGauge(x);
       await this.testGaugeEdges(x);
+      await this.testSankey(x);
+      await this.testSankeyEdges(x);
       this.testServerFields(x);
     },
 
@@ -135,7 +139,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -1059,6 +1063,107 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Heatmap: with no rows the chart says "' + sink.ChartView.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testSankey(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardSankeyChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      // A form reads rows and cols before the fields are picked. Reading them
+      // first here checks that picking the fields still rebuilds them.
+      s.rows; s.cols;
+      s.yFunc       = R.YEAR;
+      s.xFunc       = R.MONTH;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#ff0000', '#00ff00' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the band's value, its source and
+      // target names, the point in the chart and the point on the page.
+      s.onClickScript = '(function(v, src, tgt, cx, cy, px, py) { globalThis.sankeyClick_ = [ v, src, tgt, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.SankeyChart.isInstance(chart), 'Sankey: draws a foam.u2.chart.SankeyChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '1,2', 'Sankey: Target gives one node per month. Got ' + chart.labels.join());
+      x.test(chart.datasets.map(function(d) { return d.label; }).join() === '2025,2026', 'Sankey: Source gives one node per year. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      x.test(chart.datasets[0].data.join() === '10,20' && chart.datasets[1].data.join() === '30,40',
+        'Sankey: each band sums the amounts of its year and month. Got ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
+      x.test(chart.datasets[0].backgroundColor === '#ff0000' && chart.datasets[1].backgroundColor === '#00ff00',
+        'Sankey: Colors colour the sources in turn. Got ' + chart.datasets.map(function(d) { return d.backgroundColor; }).join());
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT, 'Sankey: Legend Position reaches the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onFlowClick(1, 0, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.sankeyClick_ === '30,2026,1,30,30,130,280',
+        'Sankey: On Click Script gets the value, source and target names, the point in the chart and on the page. Got ' + globalThis.sankeyClick_);
+      delete globalThis.sankeyClick_;
+
+      // With no aggregation picked the form shows Count, so each band counts its rows.
+      s.clearProperty('aggregation');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '1,1', 'Sankey: with no Aggregation each band counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onFlowClick, 'Sankey: with no On Click Script the bands are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still fill the chart.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 2, 'Sankey: a sink sent as JSON and back still fills the chart. Got ' + ( err || n ));
+    },
+
+    async function testSankeyEdges(x) {
+      var T = this.ScatterTestRow;
+      var at = function(day, hour) { return new Date(2026, 0, day, hour, 30); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, when: at(1, 9) }),
+        T.create({ id: 2, kind: 'GET',  size: 20, when: at(1, 14) }),
+        T.create({ id: 3, kind: 'POST', size: 10, when: at(2, 9) })
+      ] }, x);
+      var agent = this.DashboardSankeyChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.yFunc = T.KIND;
+      s.xFunc = T.SIZE;
+
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      var shape = function(c) { return c.datasets.map(function(d) { return d.label + ':' + d.data.join('|'); }).join(); };
+      x.test(shape(chart) === 'GET:1|1,POST:1|', 'Sankey: a pair with no rows is null, no band and not a zero. Got ' + shape(chart));
+      x.test(chart.datasets[1].data[1] === null, 'Sankey: the missing pair holds null');
+
+      // A date field is labelled as the bar charts label it.
+      s.xFunc = T.WHEN;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.length === 2 && chart.labels.every(function(l) { return /^\d{4}-\d\d-\d\d$/.test(l); }),
+        'Sankey: a date field gives one target per date, labelled YYYY-MM-DD. Got ' + chart.labels.join());
+
+      // A row with no value in Source or Target is left out, not drawn as a "null" or blank node.
+      var gappy = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET', size: 10, when: at(1, 9) }),
+        T.create({ id: 2, kind: '',    size: 10, when: at(1, 9) }),
+        T.create({ id: 3, kind: 'GET', size: 10 })
+      ] }, x);
+      var err = null;
+      try {
+        chart = ( await gappy.select(agent.createSink()) ).chart_;
+      } catch ( e ) { err = e; }
+      x.test(! err && chart.labels.length === 1 && chart.datasets.map(function(d) { return d.label; }).join() === 'GET',
+        'Sankey: a row with no kind, and one with no date, add no node. Got ' + ( err || chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.label; }).join() ));
+
+      // No rows: a message in place of an empty chart.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      s.xFunc  = T.SIZE;
+      var sink = await none.select(agent.createSink());
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Sankey: with no rows the chart says "' + sink.ChartView.NO_DATA + '". Got ' + JSON.stringify(text));
       el.remove();
     },
 

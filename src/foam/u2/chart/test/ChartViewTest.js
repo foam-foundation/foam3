@@ -101,6 +101,20 @@ foam.CLASS({
       target.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: clientX, clientY: clientY }));
     },
 
+    function pointOn(el, view, name) {
+      // A point the browser says is on a drawn mark called name, as a real
+      // pointer would land: { target, x, y }, or null when none is. A mark's
+      // box centre can be empty (a ring's is its hole), and a shape laid over
+      // the mark would take the pointer, so ask the page what is there.
+      var r = el.querySelector('svg').getBoundingClientRect();
+      for ( var i = 0 ; i < 60 ; i++ ) for ( var j = 0 ; j < 60 ; j++ ) {
+        var px = r.left + r.width * i / 60, py = r.top + r.height * j / 60;
+        var t  = document.elementFromPoint(px, py);
+        if ( t && t.classList.contains(view.myClass(name)) ) return { target: t, x: px, y: py };
+      }
+      return null;
+    },
+
     function centreOf(el) {
       var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -1163,12 +1177,12 @@ foam.CLASS({
         'Gauge: 0 and 200 label the ends and 150 sits under the dial. Got ' + this.texts(el, chart, 'min') + ' ' + this.texts(el, chart, 'max') + ' ' + this.texts(el, chart, 'value'));
       x.test(! el.querySelector('.' + this.legendClass('item')) && chart.legendItems().length === 0, 'Gauge: no legend without bands');
 
-      var hit = this.all(el, chart, 'hit')[0];
-      var c   = this.centreOf(hit);
-      this.fire(hit, 'mousemove', c.x, c.y);
+      var on = this.pointOn(el, chart, 'value-arc');
+      x.test(!! on, 'Gauge: a pointer over the value arc lands on the arc');
+      this.fire(on.target, 'mousemove', on.x, on.y);
       var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
       x.test(text.indexOf('Visits: 150') !== -1 && text.indexOf(chart.BAND) === -1, 'Gauge: the tooltip gives the value and, with no bands, no band. Got ' + text);
-      this.fire(hit, 'click', 0, 0);
+      this.fire(on.target, 'click', 0, 0);
       x.test(JSON.stringify(clicks) === '["click"]', 'Gauge: a click calls onValueClick with the event. Got ' + JSON.stringify(clicks));
       x.test(el.classList.contains(chart.myClass('clickable')), 'Gauge: a chart with onValueClick shows a pointer');
       this.unmount(chart);
@@ -1203,9 +1217,8 @@ foam.CLASS({
       await this.redraw();
       x.test(this.all(el, chart, 'band').length === 3 && ! items[0].classList.contains(this.legendClass('hidden')), 'Gauge: a legend click hides nothing');
 
-      var hit = this.all(el, chart, 'hit')[0];
-      var c   = this.centreOf(hit);
-      this.fire(hit, 'mousemove', c.x, c.y);
+      var on = this.pointOn(el, chart, 'value-arc');
+      this.fire(on.target, 'mousemove', on.x, on.y);
       var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
       x.test(text.indexOf('Score: 60') !== -1 && text.indexOf(chart.BAND + ': 50 – 80') !== -1, 'Gauge: the tooltip gives the value and its band. Got ' + text);
       this.unmount(chart);
@@ -1231,9 +1244,8 @@ foam.CLASS({
       // No value: only the track.
       chart = this.GaugeChart.create({ datasets: [ { data: [ null ] } ] }, x);
       el = await this.mount(chart);
-      var hit = this.all(el, chart, 'hit')[0];
-      var c   = this.centreOf(hit);
-      this.fire(hit, 'mousemove', c.x, c.y);
+      var on = this.pointOn(el, chart, 'track');
+      this.fire(on.target, 'mousemove', on.x, on.y);
       x.test(this.all(el, chart, 'track').length === 1 && this.all(el, chart, 'value-arc').length === 0 && this.all(el, chart, 'value').length === 0,
         'Gauge: with no value only the track is drawn');
       x.test(! chart.tooltip_.element_ || getComputedStyle(chart.tooltip_.element_).display === 'none', 'Gauge: with no value there is no tooltip');

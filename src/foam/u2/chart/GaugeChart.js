@@ -64,8 +64,7 @@ foam.CLASS({
 
   css: `
     <<track { fill: $borderLight; }
-    <<hit { fill: transparent; }
-    <<clickable <<hit { cursor: pointer; }
+    <<clickable <<track, <<clickable <<band, <<clickable <<value-arc { cursor: pointer; }
     <<value { fill: $textDefault; font-weight: $font-medium; }
 
     @media (prefers-reduced-motion: no-preference) {
@@ -211,26 +210,23 @@ foam.CLASS({
         var g = this;
         g.start('path').addClass(self.myClass('track'))
           .attrs({ d: self.ringPath_(cx, cy, r, r0, 0, 1) })
+          .call(function() { self.addDialEvents_(this); })
         .end();
         self.bandRanges_().forEach(function(range) {
           var f0 = self.fraction_(range.from), f1 = self.fraction_(range.to);
           if ( span <= 0 || f1 <= f0 ) return;
           g.start('path').addClass(self.myClass('band'))
             .attrs({ d: self.ringPath_(cx, cy, r, r0, f0, f1), fill: range.color, 'fill-opacity': self.BAND_OPACITY })
+            .call(function() { self.addDialEvents_(this); })
           .end();
         });
         var f = v === null ? 0 : self.fraction_(v);
         if ( f > 0 ) {
           g.start('path').addClass(self.myClass('value-arc'))
             .attrs({ d: self.ringPath_(cx, cy, r, r0, 0, f), fill: band ? band.color : self.seriesColor(0, 0) })
+            .call(function() { self.addDialEvents_(this); })
           .end();
         }
-        g.start('path').addClass(self.myClass('hit'))
-          .attrs({ d: self.ringPath_(cx, cy, r, r0, 0, 1) })
-          .on('mousemove', function(evt) { self.showValueTooltip_(evt); })
-          .on('mouseleave', self.hideTooltip)
-          .on('click', function(evt) { if ( self.onValueClick ) self.onValueClick(evt); })
-        .end();
 
         var ringMid = ( r + r0 ) / 2;
         var endY    = cy + self.TEXT_GAP_PX + fontPx;
@@ -247,6 +243,17 @@ foam.CLASS({
           .end();
         }
       }).end();
+    },
+
+    function addDialEvents_(path) {
+      // The hover and click go on each drawn stretch of the ring, not on a
+      // transparent shape laid over it: a pointer over the ring then lands on
+      // what is drawn there, as it does on a pie slice.
+      var self = this;
+      path
+        .on('mousemove', function(evt) { self.showValueTooltip_(evt); })
+        .on('mouseleave', this.hideTooltip)
+        .on('click', function(evt) { if ( self.onValueClick ) self.onValueClick(evt); });
     },
 
     function showValueTooltip_(evt) {

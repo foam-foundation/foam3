@@ -208,7 +208,9 @@ foam.CLASS({
         })
         .forEach(rings, function(t) {
           this.start('text').addClass(self.myClass('text')).addClass(self.myClass('ring-label'))
-            .attrs({ x: cx + self.RING_LABEL_NUDGE_PX, y: cy - scale.map(t), 'text-anchor': 'start', 'dominant-baseline': 'auto' })
+            // Hang each value just inside its ring: above the line, the outer
+            // ring's value would run into the top spoke's label.
+            .attrs({ x: cx + self.RING_LABEL_NUDGE_PX, y: cy - scale.map(t), 'text-anchor': 'start', 'dominant-baseline': 'hanging' })
             .add(scale.format(t))
           .end();
         })

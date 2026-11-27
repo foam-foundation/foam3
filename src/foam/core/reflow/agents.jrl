@@ -47,3 +47,4 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 53, "label":"Polar Area Chart", "
 p({"class":"foam.core.reflow.SinkAgent", "id": 54, "label":"Bullet Chart", "value":"foam.core.reflow.dashboard.DashboardBulletChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 55, "label":"Bar and Line Chart", "value":"foam.core.reflow.dashboard.DashboardComboChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 56, "label":"Sunburst Chart", "value":"foam.core.reflow.dashboard.DashboardSunburstChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
+p({"class":"foam.core.reflow.SinkAgent", "id": 57, "label":"Range Bar Chart", "value":"foam.core.reflow.dashboard.DashboardRangeBarChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})

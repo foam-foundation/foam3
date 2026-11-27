@@ -4355,3 +4355,189 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardRangeBarSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and draws one lane per
+    group with a bar from the group's lowest Start value to its highest End
+    value: the first and the last visit of each page, say, with the visit time
+    as both Start and End. Start and End are numbers or dates and times, and
+    the axis follows the Start property's type. Both run in one pass over the
+    rows: the group's total is a Sequence of a Minimum and a Maximum. A row
+    with no value in Group By is left out, and so is a group with no Start or
+    End value. The first colour in Colors is the bars'.
+  `,
+
+  requires: [
+    'foam.mlang.sink.Max',
+    'foam.mlang.sink.Min',
+    'foam.mlang.sink.Sequence',
+    'foam.u2.chart.RangeBarChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'startProp', 'endProp'] },
+    { name: 'chartSettings', title: 'Range Bar Settings', order: 1, collapsable: true,
+      properties: ['timeUnit', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The range bar has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'RANGE_TO', message: 'to' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One lane for each value of this property, in its order: the page of a visit, say' },
+    // JS only: they build the Minimum and Maximum in arg2 when the flow runs.
+    // The server's copy has no use for them; the chart reads arg2 instead.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'startProp', label: 'Start Property', required: true, generateJava: false,
+      help: 'Number or date property: a bar starts at the lowest value of its group. Pick the same property as End to span its first to its last value.' },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'endProp', label: 'End Property', required: true, generateJava: false,
+      help: 'Number or date property: a bar ends at the highest value of its group' },
+    { class: 'Enum', of: 'foam.u2.chart.TimeUnit', name: 'timeUnit', value: 'HOUR',
+      label: 'Time Unit', help: 'Period the axis ticks mark when Start is a date; a range too long for it moves up to the next unit that fits' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a lane is clicked. Signature: (label, start, end, x, y, pageX, pageY) => void, start and end being dates when Start is a date'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Title of the value axis. Left empty it takes the Start property\'s label.' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Title of the lanes. Left empty it takes the Group By property\'s label.' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, timeUnit, showGridLines, onClickScript, xAxisLabel, yAxisLabel,
+                          showLegend, legendPosition, showTooltips, animate, animationDuration) {
+        var self = this;
+
+        // The group's total is a Sequence: result 0 is the lowest start, 1
+        // the highest end. The properties come from it, because the server's
+        // copy of this sink has no Start or End field.
+        var startProp = this.arg2 && this.arg2.args && this.arg2.args[0] && this.arg2.args[0].arg1;
+        var endProp   = this.arg2 && this.arg2.args && this.arg2.args[1] && this.arg2.args[1].arg1;
+        var isTime    = foam.lang.Date.isInstance(startProp) || foam.lang.DateTime.isInstance(startProp);
+
+        // A date comes back as a Date or as text, a number as itself. Only a
+        // date on a time axis and a number on a number axis make a bar.
+        var read = function(v) {
+          if ( isTime ) {
+            var t = v == null ? NaN : new Date(v).getTime();
+            return isFinite(t) ? t : null;
+          }
+          return typeof v === 'number' && isFinite(v) ? v : null;
+        };
+        var range = function(k) {
+          var args = groups[k] && groups[k].args;
+          var s    = read(args && args[0] && args[0].value);
+          var e    = read(args && args[1] && args[1].value);
+          return s === null || e === null ? null : { start: s, end: e };
+        };
+        var keys   = this.groupKeys_(this).filter(function(k) { return range(k); });
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var data   = keys.map(range);
+
+        // One series, named after the field it spans: "Visit time", or
+        // "Opened to Closed" when Start and End are different fields.
+        var startName = this.labelOf_(startProp), endName = this.labelOf_(endProp);
+        var name = startName === endName ? startName : startName + ' ' + this.RANGE_TO + ' ' + endName;
+
+        // The form's On Click Script is called with (label, start, end, x,
+        // y, pageX, pageY): the lane's name, its range, the point inside the
+        // chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardRangeBarSink:', e);
+          }
+        }
+
+        return this.RangeBarChart.create({
+          labels:            labels,
+          datasets:          [ {
+            label:           name,
+            data:            data,
+            backgroundColor: colors && colors.length ? foam.CSS.returnTokenValue(colors[0], this.cls_, this.__context__) : undefined
+          } ],
+          xType:             isTime ? 'time' : 'linear',
+          timeUnit:          timeUnit,
+          // A Date is midnight UTC and reads in UTC; a DateTime reads in local time.
+          utc:               foam.lang.Date.isInstance(startProp) && ! foam.lang.DateTime.isInstance(startProp),
+          // With no title typed in, each axis takes its field's label.
+          xAxisLabel:        xAxisLabel || startName,
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.arg1),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onBarClick: typeof click !== 'function' ? null : function(di, i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              var d   = data[i];
+              click(labels[i], isTime ? new Date(d.start) : d.start, isTime ? new Date(d.end) : d.end,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function buildTotals_() {
+      // Builds this run's group total from the form: a Sequence that keeps
+      // the lowest Start and the highest End of each group in one pass. With
+      // the same field as both, the bar spans that field's minimum to maximum.
+      this.arg2 = this.Sequence.create({ args: [
+        this.Min.create({ arg1: this.startProp }),
+        this.Max.create({ arg1: this.endProp })
+      ] });
+    },
+
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});

@@ -37,6 +37,19 @@ foam.CLASS({
   ]
 });
 
+// Rows for the box plot: a row with no kind, one with no day, and a date field.
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard.test',
+  name: 'BoxPlotTestRow',
+  properties: [
+    { class: 'Int',    name: 'id' },
+    { class: 'String', name: 'kind' },
+    { class: 'String', name: 'day' },
+    { class: 'Float',  name: 'ms' },
+    { class: 'Date',   name: 'when' }
+  ]
+});
+
 foam.CLASS({
   package: 'foam.core.reflow.dashboard.test',
   name: 'DashboardChartRenderTest',
@@ -44,6 +57,7 @@ foam.CLASS({
 
   requires: [
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
@@ -52,6 +66,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
     'foam.u2.chart.LegendPosition',
+    'foam.core.reflow.dashboard.test.BoxPlotTestRow',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
     'foam.core.reflow.dashboard.test.RadarTestRow',
     'foam.core.reflow.dashboard.test.ScatterTestRow',
@@ -59,6 +74,7 @@ foam.CLASS({
     'foam.core.reflow.SumDAOAgent',
     'foam.dao.ArrayDAO',
     'foam.u2.chart.BarChart',
+    'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.LineChart',
@@ -82,6 +98,8 @@ foam.CLASS({
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
+      await this.testBoxPlot(x);
+      await this.testBoxPlotEdges(x);
       this.testServerFields(x);
     },
 
@@ -95,7 +113,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardBoxPlotSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -106,6 +124,11 @@ foam.CLASS({
           x.test(p && p.generateJava !== false, 'Server fields: ' + id + '.' + n + ' is in the Java class, which the server groups with');
         });
       });
+      // The box plot's collector is a Plot, which has Java: the server keeps each box's numbers in it.
+      x.test(foam.mlang.sink.Plot.getAxiomByName('data').generateJava !== false && foam.mlang.sink.Plot.getAxiomByName('args').generateJava !== false,
+        'Server fields: the Plot that collects a box\'s numbers is in the Java class');
+      var vp = foam.core.reflow.dashboard.DashboardBoxPlotSink.getAxiomByName('valueProp');
+      x.test(vp && vp.generateJava !== false, 'Server fields: DashboardBoxPlotSink.valueProp is in the Java class, which the server collects with');
     },
 
     function rowsDAO(x) {
@@ -335,6 +358,117 @@ foam.CLASS({
       el.write();
       x.test(!! el.element_.querySelector('.' + drawn.chart_.myClass()) && ! el.element_.querySelector('.' + drawn.cls_.id.replace(/\./g, '-') + '-empty'),
         'Radar: with rows the chart is added in place of the message');
+      el.remove();
+    },
+
+    function boxRows(x) {
+      var T = this.BoxPlotTestRow;
+      return this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1,  kind: 'GET',  day: 'Mon', ms: 10 }),
+        T.create({ id: 2,  kind: 'GET',  day: 'Mon', ms: 12 }),
+        T.create({ id: 3,  kind: 'GET',  day: 'Tue', ms: 14 }),
+        T.create({ id: 4,  kind: 'GET',  day: 'Tue', ms: 16 }),
+        T.create({ id: 5,  kind: 'GET',  day: 'Mon', ms: 100 }),
+        T.create({ id: 6,  kind: 'POST', day: 'Mon', ms: 20 }),
+        T.create({ id: 7,  kind: 'POST', day: 'Tue', ms: 22 }),
+        // No kind: it belongs to no box.
+        T.create({ id: 8,  kind: '',     day: 'Mon', ms: 999 }),
+        // No day: it belongs to no series when a Series Property is picked.
+        T.create({ id: 9,  kind: 'GET',  day: '',    ms: 7 })
+      ] }, x);
+    },
+
+    async function testBoxPlot(x) {
+      var T     = this.BoxPlotTestRow;
+      var agent = this.DashboardBoxPlotChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xFunc      = T.KIND;
+      s.valueProp  = T.MS;
+      s.xAxisLabel = 'Endpoint';
+      s.colors     = [ '#ff0000' ];
+
+      var chart = ( await this.boxRows(x).select(agent.createSink()) ).chart_;
+      x.test(this.BoxPlotChart.isInstance(chart), 'BoxPlot: draws a foam.u2.chart.BoxPlotChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === 'GET,POST', 'BoxPlot: one category per kind, the row with no kind left out. Got ' + chart.labels.join());
+      x.test(chart.datasets.length === 1 && chart.datasets[0].label === 'Values',
+        'BoxPlot: with no Series Property all rows are one dataset. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      var get = chart.datasets[0].data[0].slice().sort(function(a, b) { return a - b; }).join();
+      x.test(get === '7,10,12,14,16,100', 'BoxPlot: GET collects the six numbers of its rows. Got ' + get);
+      x.test(chart.datasets[0].data[1].length === 2, 'BoxPlot: POST collects its two numbers');
+      x.test(chart.datasets[0].backgroundColor === '#ff0000' && chart.xAxisLabel === 'Endpoint', 'BoxPlot: Colors and X-Axis Label reach the chart');
+      x.test(chart.yAxisLabel === T.MS.label, 'BoxPlot: with no Y-Axis Label the value axis takes its field\'s label. Got ' + chart.yAxisLabel);
+
+      // A Series Property gives one dataset per day; a row with no day is left out.
+      s.yFunc = T.DAY;
+      chart = ( await this.boxRows(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets.map(function(d) { return d.label; }).join() === 'Mon,Tue', 'BoxPlot: Series Property gives one dataset per day. Got ' + chart.datasets.map(function(d) { return d.label; }).join());
+      x.test(chart.datasets[1].data.map(function(d) { return d.join(); }).join(';') === '14,16;22', 'BoxPlot: Tue holds 14 and 16 for GET, 22 for POST. Got ' + chart.datasets[1].data.map(function(d) { return d.join(); }).join(';'));
+      s.clearProperty('yFunc');
+
+      // A select can send the sink to the server as JSON and back. The copy
+      // must keep every number of every box through the trip.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.boxRows(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.map(function(d) { return d.length; }).join() : '';
+      x.test(! err && n === '6,2', 'BoxPlot: a sink sent as JSON and back still collects the numbers of each box. Got ' + ( err || n ));
+    },
+
+    async function testBoxPlotEdges(x) {
+      var T     = this.BoxPlotTestRow;
+      var agent = this.DashboardBoxPlotChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.xFunc     = T.KIND;
+      s.valueProp = T.MS;
+
+      // A saved flow holds the form as displaySink: { ... } and nothing else.
+      var back = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(back.displaySink.xFunc && back.displaySink.xFunc.name === 'kind' && back.displaySink.valueProp.name === 'ms',
+        'BoxPlot: a saved agent keeps the Category and Value Properties in its displaySink');
+
+      s.onClickScript = '(function(median, cat, series, cx, cy, pageX, pageY) { globalThis.boxClick_ = [ median, cat, series, cx, cy, pageX, pageY ].join(); })';
+      var chart = ( await this.boxRows(x).select(agent.createSink()) ).chart_;
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onBoxClick(0, 1, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.boxClick_ === '21,POST,Values,30,30,130,280',
+        'BoxPlot: On Click Script gets the median, category, series, the point in the chart and on the page. Got ' + globalThis.boxClick_);
+      delete globalThis.boxClick_;
+      s.clearProperty('onClickScript');
+
+      // No rows: no categories, and a message in place of the chart.
+      var empty = foam.u2.Element.create({}, x);
+      var none  = await this.ArrayDAO.create({ of: T, array: [] }, x).select(agent.createSink());
+      x.test(none.chart_.labels.length === 0, 'BoxPlot: with no rows there are no categories');
+      empty.add(none);
+      empty.write();
+      var text = empty.element_.innerText || empty.element_.textContent;
+      x.test(text.indexOf(none.NO_DATA) !== -1 && ! empty.element_.querySelector('svg'),
+        'BoxPlot: with no rows the chart says "' + none.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      empty.remove();
+
+      s.emptyValueMessage = 'Nothing yet';
+      none  = await this.ArrayDAO.create({ of: T, array: [] }, x).select(agent.createSink());
+      empty = foam.u2.Element.create({}, x);
+      empty.add(none);
+      empty.write();
+      x.test(( empty.element_.innerText || empty.element_.textContent ).indexOf('Nothing yet') !== -1, 'BoxPlot: Empty Message replaces the default text');
+      empty.remove();
+      s.clearProperty('emptyValueMessage');
+
+      // A date is not a number: no box is drawn, and the message shows.
+      s.valueProp = T.WHEN;
+      var rows = this.ArrayDAO.create({ of: T, array: [ T.create({ id: 1, kind: 'GET', when: new Date(Date.UTC(2026, 0, 1)) }) ] }, x);
+      var sink = await rows.select(agent.createSink());
+      x.test(sink.chart_.labels.length === 0, 'BoxPlot: a date value makes no box. Got ' + sink.chart_.labels.join());
+      s.valueProp = T.MS;
+
+      // Rows with a category: the chart is added in place of the message.
+      var drawn = await this.boxRows(x).select(agent.createSink());
+      var el    = foam.u2.Element.create({}, x);
+      el.add(drawn);
+      el.write();
+      x.test(!! el.element_.querySelector('.' + drawn.chart_.myClass()) && ! el.element_.querySelector('.' + drawn.cls_.id.replace(/\./g, '-') + '-empty'),
+        'BoxPlot: with rows the chart is added in place of the message');
       el.remove();
     },
 

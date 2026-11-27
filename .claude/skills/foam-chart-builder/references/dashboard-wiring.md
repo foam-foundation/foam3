@@ -42,7 +42,7 @@ A chart with one mark per row (a scatter, a calendar) does no grouping. Copy `Da
 
 ### Match the sibling charts
 
-Every new sink gives a user what the existing charts already give. A review of the scatter found each of these missing, and its unit tests passed without them:
+Every new sink gives a user what the existing charts already give. Unit tests pass without any of these, so check each one:
 - **No rows, no axes.** Show a message in place of the chart, `emptyValueMessage` on the form, as the pie does (`DashboardSinks.js:339`, `:402-439`). Empty axes from 0 to 1 tell the user nothing.
 - **Axis titles fall back to the field's label** (a chart with axes) when none is typed: "Amount", not a blank axis (`DashboardSinks.js:826`).
 - **A clickable chart gets an On Click Script** on the form, a `Code` property, turned into the chart's click handler (`DashboardSinks.js:490`, `:619-630`). Document its arguments in the property's `help`.

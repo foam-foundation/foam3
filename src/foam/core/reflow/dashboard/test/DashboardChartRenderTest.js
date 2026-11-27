@@ -832,8 +832,8 @@ foam.CLASS({
       var err = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var got = err ? '' : copy.chart_.datasets.map(function(d) { return d.label + ':' + d.data.join(); }).join(' / ');
-      x.test(! err && got === R.AMOUNT.label + ':30,70 / ' + R.MONTH.label + ':2,2',
-        'Combo: a sink sent as JSON and back still gets both values per group, named after their fields. Got ' + ( err || got ));
+      x.test(! err && got === R.AMOUNT.label + ':30,70 / Max of ' + R.MONTH.label + ':2,2',
+        'Combo: a sink sent as JSON and back still gets both values per group, named after their totals. Got ' + ( err || got ));
 
       // Two aggregates are two keys: a cached select of the Sum must not answer for the Average.
       var other = this.DashboardComboChartDAOAgent.create({}, x);

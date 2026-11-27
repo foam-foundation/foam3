@@ -2209,7 +2209,7 @@ foam.CLASS({
   properties: [
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Category Property', help: 'One spoke per value of this property', required: true },
     {
-      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty',
       name: 'yFunc', label: 'Series Property',
       help: 'Optional: one polygon and legend entry per value of this property'
     },

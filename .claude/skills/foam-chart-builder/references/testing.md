@@ -31,8 +31,10 @@ Add an `async function testX(x)`, call it from `runTest`, and use the helpers al
 - `num(el, 'cx')` reads a numeric attribute;
 - `fire(target, 'mousemove', x, y)` and `centreOf(el)` drive the pointer;
 - `legendClass(name)` gives a `ChartLegend` class name, such as `item`, to find the entry to click;
-- `redraw()` waits for a redraw after a legend click;
+- `redraw(done)` waits after a legend click until `done()` is true, for up to a second: pass the check you are about to make, such as `function() { return this.all(el, chart, 'bar').length === 1; }.bind(this)`;
 - `unmount(view)` cleans up.
+
+A chart draws its `<svg>` only once its ResizeObserver reports a size (`ChartView.js:210`, the redraw depends on `size_`). In `DashboardChartRenderTest`, a check right after the sink's `addToE` finds no `<svg>`: poll for it, as `mount` does.
 
 Assert what a user would see:
 - the count of marks;
@@ -58,7 +60,7 @@ Add the new class to `requires`, and call the new case from `runTest`.
 
 ## The manual check
 
-Build a demo server, open the Reflow `PieLegendTest` flow (`core/reflow/dashboard/flows.jrl`) and check:
+A test build stops when its tests end, so it is no server to look at. Start one from the same checkout with `./build.sh -W<port>` on a free port; a second app running at the same time also needs its own deployment name (`./build.sh -h`). Open the Reflow `PieLegendTest` flow (`core/reflow/dashboard/flows.jrl`) and check:
 - the legend sides;
 - long labels;
 - hiding a slice;

@@ -139,12 +139,8 @@ foam.CLASS({
     },
 
     function seriesColor(i, opt_index) {
-      // Steps take the dataset's colours in turn, then the theme defaults.
-      var ds = this.datasets[0];
-      var bg = ds && ds.backgroundColor;
-      var j  = opt_index || 0;
-      if ( Array.isArray(bg) && bg.length ) return bg[j % bg.length];
-      return this.defaultColor(j);
+      // A funnel has one dataset, so each step takes its own colour.
+      return this.valueColor(opt_index || 0);
     },
 
     function drawChart(svg, w, h) {

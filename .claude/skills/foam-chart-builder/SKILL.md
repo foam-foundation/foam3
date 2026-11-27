@@ -54,6 +54,8 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 - **Saved flows hold class and property names.** A flow stores the agent class and its props. Never rename a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. Keep an old name working with a setter shim on the agent (`DashboardDAOAgents.js:519-570`).
 - **A dashboard sink keeps its rows in plain arrays or objects, `transient`,** never a `Map` or `Set`: a select can send the sink as JSON and back, and a `Map` returns as `{}` (`references/dashboard-wiring.md`).
 - **A dashboard chart is done when it draws in a running flow.** Unit tests run every sink in the browser; a flow sends it as JSON and a grouping sink runs in Java on the server. So a sink can pass every test and still fail in a flow: a JS `Map` in its state, a grouping field without Java, a date expression on a number field.
+- **Look at the drawn card, not only the numbers.** No test sees text inside the plot running into an axis or spoke label, or every cell showing the same value. Take a picture of the card in the flow and read it.
+- **Review a dashboard sink on the server side too.** For each field its `put` reads, check the Java class has it, or run the flow. A review of the diff alone passes a field that `generateJava: false` left out of Java.
 - **A new dashboard chart matches its siblings:** a no-data message, axis titles from the field labels, an On Click Script, rows with an empty series left out, numbers only on a value axis (`references/dashboard-wiring.md`, "Match the sibling charts").
 - **A new file gets a pom row** in `src/foam/u2/chart/pom.js` with `flags: 'web'`, in dependency order: base before subclass.
 

@@ -7,6 +7,8 @@ description: Use when building, designing, or modifying FOAM UI views. Triggers 
 
 Build correct, production-ready FOAM views following patterns established in the codebase.
 
+A chart (bar, line, pie, a dashboard chart) is a `foam.u2.chart` view: use `foam-chart-builder` for it.
+
 ## Critical Mental Model
 
 **FOAM views are declarative and reactive.** Properties drive the DOM. Use FOAM's slot/dynamic system for reactivity instead of manual DOM manipulation. Key principles:

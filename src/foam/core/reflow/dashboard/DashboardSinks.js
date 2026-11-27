@@ -3689,6 +3689,184 @@ foam.CLASS({
 
 foam.CLASS({
   package: 'foam.core.reflow.dashboard',
+  name: 'DashboardBulletSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and aggregates one
+    value per group (a Count, or a Sum or Average of a numeric field). Each
+    group is one row of a bullet chart: a thin bar for the value, over shaded
+    ranges such as poor up to 50, fair up to 80 and good up to 100, with a
+    tick at the Target, one number shared by every row. Sort By Value puts
+    the row with the largest value first instead of keeping the field's order.
+    A row with no value in Group By adds no row.
+  `,
+
+  requires: [
+    'foam.u2.chart.BulletChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'sortByValue'] },
+    { name: 'chartSettings', title: 'Bullet Settings', order: 1, collapsable: true,
+      properties: ['target', 'bands', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The bullet chart has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Value' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One row for each value of this property, in its order' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Boolean',
+      name: 'sortByValue',
+      label: 'Sort By Value',
+      help: 'Put the row with the largest value first, instead of keeping the order of Group By'
+    },
+    {
+      // Has Java: a select sends this sink to the server and the client
+      // draws the copy that comes back, so a field left out of the Java class
+      // is lost on the way and the chart shows no tick.
+      class: 'Double',
+      name: 'target',
+      label: 'Target',
+      help: 'Where the tick stands, the same for every row. Left at 0, no tick is drawn.'
+    },
+    {
+      // Has Java, for the same reason as target.
+      class: 'FObjectArray',
+      of: 'foam.u2.chart.GaugeBand',
+      name: 'bands',
+      label: 'Bands',
+      help: 'Shaded ranges behind each row, each ending at its Up To: poor to 50, fair to 80, good to 100. Left without a colour, they shade from light to dark.'
+    },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a row is clicked. Signature: (value, label, x, y, pageX, pageY) => void'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Under the value axis at the bottom. Left empty, it is the value\'s name' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Beside the rows. Left empty, it is the label of Group By' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, sortByValue, target, bands, xAxisLabel, yAxisLabel, showGridLines,
+                          showLegend, legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var self = this;
+        var keys = this.groupKeys_(this);
+        var vals = {};
+        keys.forEach(function(k) { vals[k] = Number(groups[k] && groups[k].value) || 0; });
+        // Largest first, and a tie keeps the field's order.
+        if ( sortByValue ) keys = keys.slice().sort(function(a, b) { return vals[b] - vals[a]; });
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var values = keys.map(function(k) { return vals[k]; });
+        // Named by the total's field, read from the group's own total and not
+        // from aggregation: the server's copy of this sink has no aggregation.
+        // With no field to name it (a Count), the value is just "Value".
+        var name = ( keys.length && this.labelOf_(groups[keys[0]].arg1) ) || this.DEFAULT_SERIES;
+
+        // The form's On Click Script is called with (value, label, x, y,
+        // pageX, pageY): the clicked row's value and name, the point inside
+        // the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardBulletSink:', e);
+          }
+        }
+
+        var args = {
+          labels:            labels,
+          datasets:          [ {
+            label:           name,
+            data:            values,
+            backgroundColor: colors && colors.length ? foam.CSS.returnTokenValue(colors[0], self.cls_, self.__context__) : undefined
+          } ],
+          bands:             bands,
+          // With no title typed in, the value axis takes the value's name and
+          // the rows' axis takes the label of the field they group by.
+          xAxisLabel:        xAxisLabel || name,
+          yAxisLabel:        yAxisLabel || this.labelOf_(this.arg1),
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onRowClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(values[i], labels[i], evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        };
+        // A target of 0 means none: the form's number starts at 0, and a tick
+        // at 0 would sit on every row's baseline.
+        if ( target ) args.target = target;
+        return this.BulletChart.create(args);
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
   name: 'DashboardSankeySink',
   extends: 'foam.core.reflow.GridBy',
 

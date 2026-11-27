@@ -75,6 +75,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardBulletChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardCandlestickChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardComboChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardFunnelChartDAOAgent',
@@ -104,6 +105,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
     'foam.u2.chart.BubbleChart',
+    'foam.u2.chart.BulletChart',
     'foam.u2.chart.CandlestickChart',
     'foam.u2.chart.ComboChart',
     'foam.u2.chart.FunnelChart',
@@ -154,6 +156,8 @@ foam.CLASS({
       await this.testTreemapEdges(x);
       await this.testGauge(x);
       await this.testGaugeEdges(x);
+      await this.testBullet(x);
+      await this.testBulletEdges(x);
       await this.testSankey(x);
       await this.testSankeyEdges(x);
       this.testServerFields(x);
@@ -170,7 +174,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardPolarAreaSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink', 'DashboardBoxPlotSink', 'DashboardCandlestickSink', 'DashboardTreemapSink', 'DashboardFunnelSink', 'DashboardGaugeSink', 'DashboardSankeySink', 'DashboardComboSink', 'DashboardBulletSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -216,6 +220,14 @@ foam.CLASS({
       var bands = foam.core.reflow.dashboard.DashboardGaugeSink.getAxiomByName('bands');
       x.test(bands.generateJava !== false && foam.u2.chart.GaugeBand.getAxiomByName('upTo').generateJava !== false,
         'Server fields: the gauge\'s bands and the GaugeBand they hold are in the Java class');
+      // The bullet reads its target and bands from the server's copy too, and
+      // its Group By and sort come back on a GroupBy that has them.
+      var bullet = foam.core.reflow.dashboard.DashboardBulletSink;
+      [ 'target', 'bands', 'sortByValue', 'xAxisLabel', 'yAxisLabel' ].forEach(function(n) {
+        var p = bullet.getAxiomByName(n);
+        x.test(p && p.generateJava !== false, 'Server fields: DashboardBulletSink.' + n + ' is in the Java class, so it comes back from the server');
+      });
+      x.test(serializable.indexOf('foam.core.reflow.dashboard.DashboardBulletSink') !== -1, 'Server fields: DashboardBulletSink is sent to the server, so its fields above must have Java');
     },
 
     function candleRows(x) {
@@ -1022,6 +1034,108 @@ foam.CLASS({
 
       // The legend is off by default: one value needs none.
       x.test(! this.DashboardGaugeChartDAOAgent.create({}, x).displaySink.showLegend, 'Gauge: the legend is off by default');
+    },
+
+    async function testBullet(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardBulletChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.target      = 50;
+      s.bands       = [ { upTo: 40, color: '#ff0000' }, { upTo: 100, color: '#00ff00' } ];
+      s.colors      = [ '#0000aa', '#aa0000' ];
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its arguments: the row's value, its label and the x of the click.
+      s.onClickScript = '(function(v, label, cx, cy, px, py) { globalThis.bulletClick_ = [ v, label, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.BulletChart.isInstance(chart), 'Bullet: draws a foam.u2.chart.BulletChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && chart.datasets[0].data.join() === '30,70',
+        'Bullet: sums the amounts per year as the rows, in the field\'s order. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      x.test(chart.datasets[0].label === R.AMOUNT.label, 'Bullet: the value is named after its field. Got ' + chart.datasets[0].label);
+      x.test(chart.target === 50 && chart.hasOwnProperty('target'), 'Bullet: Target reaches the chart');
+      x.test(chart.bands.length === 2 && chart.bands[1].upTo === 100 && chart.bands[1].color === '#00ff00', 'Bullet: Bands reach the chart as GaugeBands');
+      x.test(chart.datasets[0].backgroundColor === '#0000aa', 'Bullet: the first colour is the bar colour. Got ' + chart.datasets[0].backgroundColor);
+      x.test(chart.legendPosition === this.LegendPosition.RIGHT && ! chart.showLegend, 'Bullet: Legend Position reaches the chart, and the legend starts off');
+      x.test(chart.xAxisLabel === R.AMOUNT.label && chart.yAxisLabel === R.YEAR.label,
+        'Bullet: axis titles fall back to the value\'s name and the Group By label. Got ' + chart.xAxisLabel + ' / ' + chart.yAxisLabel);
+      s.xAxisLabel = 'Total'; s.yAxisLabel = 'Year';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.xAxisLabel === 'Total' && chart.yAxisLabel === 'Year', 'Bullet: typed axis titles win');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onRowClick(1, evt);
+      x.test(globalThis.bulletClick_ === '70,2026,30,30,130,280',
+        'Bullet: On Click Script gets the value, label, and the point in the chart and on the page. Got ' + globalThis.bulletClick_);
+      delete globalThis.bulletClick_;
+
+      // Sort By Value: the largest row first.
+      s.sortByValue = true;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '2026,2025' && chart.datasets[0].data.join() === '70,30',
+        'Bullet: Sort By Value puts the largest row first. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // With no aggregation picked the form shows Count, named "Value" since a count has no field.
+      s.clearProperty('aggregation');
+      s.sortByValue = false;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2' && chart.datasets[0].label === s.DEFAULT_SERIES,
+        'Bullet: with no Aggregation each row counts its rows, named "Value". Got ' + chart.datasets[0].data.join() + ' ' + chart.datasets[0].label);
+
+      s.onClickScript = '';
+      s.target = 0;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onRowClick && ! chart.hasOwnProperty('target'), 'Bullet: with no On Click Script the rows are not clickable, and a Target of 0 draws no tick');
+
+      // A select can send the sink to the server as JSON and back; the copy must keep the target and bands.
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.target      = 50;
+      s.sortByValue = true;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the group's total.
+      copy.clearProperty('aggregation');
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.chart_.labels.join() === '2026,2025' && copy.chart_.target === 50 && copy.chart_.bands.length === 2,
+        'Bullet: a sink sent as JSON and back still groups, sorts and keeps its target and bands. Got ' + ( err || copy.chart_.labels.join() ));
+      x.test(copy.chart_.datasets[0].label === R.AMOUNT.label, 'Bullet: the value is still named after its field, which the group\'s total holds. Got ' + copy.chart_.datasets[0].label);
+
+      // A saved agent keeps its settings in displaySink.
+      var saved = foam.json.parseString(foam.json.stringify(agent), x);
+      x.test(saved.displaySink.target === 50 && saved.displaySink.bands.length === 2, 'Bullet: a saved agent keeps Target and Bands in its displaySink');
+      x.test(! this.DashboardBulletChartDAOAgent.create({}, x).displaySink.showLegend, 'Bullet: the legend is off by default');
+    },
+
+    async function testBulletEdges(x) {
+      var T = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10 }),
+        T.create({ id: 2, kind: 'POST', size: 4 }),
+        T.create({ id: 3, kind: '',     size: 30 }),
+        T.create({ id: 4, kind: 'GET',  size: 5 })
+      ] }, x);
+      var agent = this.DashboardBulletChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // A row with no kind is left out, not drawn as a row called "".
+      s.arg1 = T.KIND;
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '15,4',
+        'Bullet: a row with no value in Group By adds no row. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of an empty chart.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.ChartView.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Bullet: with no rows the chart says "' + sink.ChartView.NO_DATA + '". Got ' + JSON.stringify(text));
+      el.remove();
     },
 
     async function testScatter(x) {

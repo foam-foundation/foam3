@@ -1630,6 +1630,9 @@ foam.CLASS({
         // the already-set value when the query resolves.
         if ( ! value ) return;
         let c = await this.normalize(value, this, obj);
+        // A value set while the lookup ran wins: after clone(), a caller's
+        // obj.currency = 'CAD' was written back to the cloned 'USD'.
+        if ( c === value || this.f(obj) !== value ) return;
         this.set(obj, c);
       }
     },
@@ -1774,6 +1777,9 @@ foam.CLASS({
         // the already-set value when the query resolves.
         if ( ! value ) return;
         let c = await this.normalize(value, this, obj);
+        // A value set while the lookup ran wins: after clone(), a caller's
+        // obj.country = 'CA' was written back to the cloned 'US'.
+        if ( c === value || this.f(obj) !== value ) return;
         this.set(obj, c);
       }
     },
@@ -1802,7 +1808,7 @@ foam.CLASS({
         }
 
         // numeric ISO 3166-1 -> normalize to alpha-2 Country.code
-        if ( /^\\d{3}$/.test(v) ) {
+        if ( /^\d{3}$/.test(v) ) {
           var cn = isoNumProp ? await dao.find(prop.EQ(isoNumProp, v)) : null;
           return cn ? cn.code : v;
         }

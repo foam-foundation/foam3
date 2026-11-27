@@ -34,7 +34,7 @@ To hand a value to another block, use a `function` block. Its `return` value is 
 - The `script` command sets `autoRun` to true when it is given code on the command line, and false for an empty block (`cmd/cmds.jrl:138-145`).
 - With `autoRun` false the script does nothing on load. The person presses the block's Run action, or a button runs it.
 - A `button` runs its `script` on click inside `with ( self.scope )` as an async function (`cmd/Button.js:50-60`). Put work that is expensive or reads a large table behind a button, since a flow runs every time it is opened.
-- A server job script holds `running` while its job is in flight and disables Run (`AbstractJobScript.js:25-60`).
+- A server job script holds `running` while its job is in flight and disables Run (`AbstractJobScript.js:25-60`, `:64`).
 
 ## `preLoadScript`
 
@@ -46,7 +46,7 @@ To hand a value to another block, use a `function` block. Its `return` value is 
 - An error in it is not caught by the Console. The first sign is a block that cannot find a class, and one line in the browser console.
 - It runs every time the flow loads in the same tab. A `foam.CLASS` that registers an id already registered asserts (`lang/Context.js:144-154`), so guard it: `if ( ! foam.maybeLookup('my.pkg.Thing') ) foam.CLASS({ ... });` (`lang/Context.js:71-75`). A guard keeps the old class until the page is reloaded, so reload after editing the class.
 - A message and a property that give the same constant name stop the whole class. `RUNNING` and `running` both become `RUNNING`, and `installConstant` throws `Class constant conflict` (`lang/FObject.js:186-197`). Name messages `RUNNING_MSG`.
-- Do not confuse it with the `preLoad` command. That is a hidden command the Console evaluates once when it renders; it deletes its own block and stamps `globalThis.preLoadTime` (`cmd/cmds.jrl:150-155`, `Console.js:1513`).
+- Do not confuse it with the `preLoad` command. That is a hidden command the Console evaluates once when it renders; it deletes its own block and stamps `globalThis.preLoadTime` (`cmd/cmds.jrl:229-235`, `Console.js:1513`).
 
 ## Formulas in `reactions_`
 

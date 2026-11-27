@@ -29,7 +29,7 @@ For chart agents use the notes in `foam-chart-builder` ("testing").
 
 | You changed | Add or extend | How |
 |---|---|---|
-| a command | a `JSTest` that calls its `execute` with a stand-in context | `CommandToolTest` builds a fake `eval_` that records scripts and returns the block it would make |
+| a command | a `JSTest` that calls its `execute` with a stand-in context | A command takes `addValue`, `block`, `log`, `out` and `eval_` from the context (`cmd/Command.js:21`), so the test passes stubs for the ones `execute` calls, for example an `addValue` that records the value. `CommandToolTest` builds a fake `eval_` that records scripts and returns the block it would make. A `Command` row with a `script` has no class to test; check it in a flow |
 | a `DAOPrompt` option or an agent | a `JSTest` over an `MDAO` of a small model | `DAOPromptRunningTest` makes `DAOPrompt.create({ dao: dao, autoRun: true }, vx)` with `vx = x.createSubContext({ block: {}, scope: {}, eval_: () => {} })` and a probe agent (`DAOPromptRunningTest.js:33-60`) |
 | a sink that runs on the server | a server `Test` with `javaCode` that puts rows into an `MDAO` and selects with the sink, plus a `JSTest` for the browser side | one test per side; `foam-test-builder` |
 | a saved-flow shape or a serializer | a test that builds the JSON, parses it and compares | `FlowScriptShapeTest`, `BlockCmdSaveTest` |

@@ -1,6 +1,6 @@
 # DAOPrompt
 
-`DAOPrompt` (`DAOPrompt.js`) is the value of a `dao`, `FROM` or `daofilter`-style block. It holds a DAO, the filter that narrows it and the agent (`select`) that draws or aggregates it. Its view, `DAOPromptView`, runs the agent again whenever `version` changes (`DAOPrompt.js:19-67`).
+`DAOPrompt` (`DAOPrompt.js`) is the value of a `dao` or `FROM` block. `daofilter` makes a `DAOFilterPrompt`, a separate class that does not extend `DAOPrompt` (`cmd/DAOFilter.js:23`, `DAOFilterPrompt.js:50-52`). It holds a DAO, the filter that narrows it and the agent (`select`) that draws or aggregates it. Its view, `DAOPromptView`, runs the agent again whenever `version` changes (`DAOPrompt.js:19-67`).
 
 Paths are under `src/foam/core/reflow/`.
 
@@ -19,9 +19,9 @@ dao  ->  where  ->  aql  ->  order  =  filteredDAO   (exported as sinkUnlimitedD
 
 | Option | Type | What it does | Trap |
 |---|---|---|---|
-| `dao` | DAO or name | the data. A string such as `logMessageDAO`, `logMessage` or `logMessages` is resolved against the flow scope, then the context (`DAOResolverMixin.js:15-80`) | transient: a saved block does not store it, the saved `cmd` rebuilds it (`DAOPrompt.js:198-217`) |
+| `dao` | DAO or name | the data. A string such as `logMessageDAO`, `logMessage` or `logMessages` is resolved by `resolveDAOFromKey` (`DAOResolverMixin.js:15-80`). A name that ends in `s` tries the flow scope first (`:58-59`). Any other name tries `<name>DAO` in the context before the scope (`:71-72`) | transient: a saved block does not store it, the saved `cmd` rebuilds it (`DAOPrompt.js:198-217`) |
 | `where` | String | a query string parsed by `QueryParser` in the browser (`:268-273`) | setting it hides the `aql` field in the editor but `aql` still applies (`:371`, `:269-280`); a string that does not parse shows no error (`:272`) |
-| `aql` | String | a query string parsed by `SimpleQueryParser`: `count > 10 AND key = login` (`:275-280`) | a string that does not parse is skipped, so a typo returns every row (`:277-279`); `FROM x WHERE ...` fills `aql`, not `where` (`parser/FromParser.js` `STARTAction`) |
+| `aql` | String | a query string parsed by `SimpleQueryParser`: `count > 10 AND key = login` (`:275-280`) | a string that does not parse is skipped, so a typo at the start returns every row (`:277-279`); the parser does not require the whole string to match (`parse/SimpleQueryParser.js:92`), so a typo later is dropped with the rest of the query and the part before it still filters; `FROM x WHERE ...` fills `aql`, not `where` (`parser/FromParser.js` `STARTAction`) |
 | `order` | String | comma list of property names, `-` before a name for descending: `-timestamp,id` (`:282-305`); spaces are removed (`:389`) | a name that is not a property is dropped without a message (`:295-300`) |
 | `limit` | Int | at most this many rows reach every agent but the table. Default 100, 0 means no limit (`:351-356`, `:246`) | a count or sum block over a large table shows 100 unless `limit: 0` |
 | `skip` | Int | rows to skip before `limit` (`:331-350`, `:247`) | applies to the same agents as `limit` |
@@ -31,15 +31,15 @@ dao  ->  where  ->  aql  ->  order  =  filteredDAO   (exported as sinkUnlimitedD
 | `filters`, `predicate` | hidden | state of the filter bar in the browse view (`FlowBrowserView.js:121-128`) | `filteredDAO_` never reads them (`:262`), so setting `predicate` does not change the block's rows |
 | `label` | String | the block title (`:186-197`) | defaults to the model's plural |
 
-`daoKey`, `rowCount`, `executionTime`, `version`, `running`, `hasError` and `value` are state, not options (`:198-204`, `:456-462`). `value` holds the agent's result, which is what another block reads as `blockName.value` is the prompt and `blockName.value.value` is the result.
+`daoKey`, `rowCount`, `executionTime`, `version`, `running`, `hasError` and `value` are state, not options (`:198-204`, `:456-462`). `value` holds the agent's result. Another block reads the prompt as `blockName` and the agent's result as `blockName.value` (`Console.js:1616-1618`).
 
 ## Running it
 
 - **`run()`** adds 1 to `version` and sets `running` (`:576-579`). The view re-selects on `data` or `version` (`:37-44`).
-- **What re-runs on its own.** A change of `where` re-runs the view after 500 ms (`DAOPromptView` at `:37` and `:86-93`). A change of `aql` or `order` re-runs only when `autoRun` is true (`:639-653`). A change in the DAO's rows re-runs after 100 ms (`:531`, `:626-637`). A table needs none of this, because it follows `filteredDAO` itself.
+- **What re-runs on its own.** A change of `where` re-runs the view after 500 ms (`DAOPromptView` at `:37` and `:86-93`). A change of `skip` or `version` re-runs it at once (`:38-39`). A change of `aql` or `order` re-runs only when `autoRun` is true (`:639-653`). A change in the DAO's rows re-runs after 100 ms (`:531`, `:626-637`). A table needs none of this, because it follows `filteredDAO` itself.
 - **Any other change needs `run()`**, and so does an `aql` or `order` change on a block without `autoRun`. After `agent.prop = 'x'` in code, call `run()` (`Reflow.md`, "Call `run()` after changing an agent in code").
 - **`waitForRun()`** replaces the ready latch, runs, and returns a promise that settles after the select (`:557-561`). `onLoad()` returns the latch, so a saved flow waits for each prompt's first select before the next block loads (`:540-542`).
-- **A table does not re-select.** `TableDAOAgent` keeps its table and moves it back into the block (`TableDAOAgent.js:72-79`). It listens to the DAO itself.
+- **A table rebuilds on every run.** `TableDAOAgent.execute` drops its cached table each time it runs (`TableDAOAgent.js:58-63`). Only a show or hide of the block reuses the cached table (`:60-61`, `:76-79`). The table listens to the DAO itself.
 
 ## Reading a prompt from another block
 

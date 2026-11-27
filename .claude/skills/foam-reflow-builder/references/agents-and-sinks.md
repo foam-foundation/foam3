@@ -45,10 +45,21 @@ A row in `agents.jrl` has these fields (`SinkAgent.js:18-44`):
 | `label` | the text in the picker |
 | `value` | the agent's class id; the picker creates it with `foam.lookup(value)` (`SinkView.js:78-89`) |
 | `sink` | true when the agent can be the inner operation of another agent |
-| `type` | `format`, `structure`, `calculation` or `chart`. Any other value never shows: the four sections are fixed in code (`SinkView.js:59`) |
+| `type` | `format`, `structure`, `calculation` or `chart`. Any other value never shows: the four sections are fixed in code (`SinkView.js:59`). How to choose is below |
 | `permissionRequired` | true to hide the row from users without `agent.read.<id>` (`SinkAgent.js:56-66`) |
 
-Rows use the ids 1 to 15, 17 to 22, 24 to 34 and 40 (`agents.jrl`). Take the next unused id and never reuse a removed one: a grant for `agent.read.<id>` outlives the row, so the new agent would inherit it.
+Rows use the ids 1 to 15, 17 to 22, 24 to 34 and 40 (`agents.jrl`). Take the highest id in use plus 1. A gap such as 16 or 23 may be a removed id whose grant still exists, and a grant for `agent.read.<id>` outlives the row, so a new agent on a gap would inherit it. Never reuse a removed id.
+
+**Choosing a `type`.** The picker shows one section per value, headed by the value (`SinkView.js:59-64`). The existing rows set the meaning:
+
+| `type` | What the agent gives the user | Rows in `agents.jrl` |
+|---|---|---|
+| `format` | the rows as text or a table | CSV, JSON, XML, Table, Download (`:1-4`, `:30`) |
+| `structure` | the rows grouped, laid out or filtered | GroupBy, GridBy, Pivot, Row, Column, SET, Filtered, Labeled (`:5-7`, `:12-13`, `:21`, `:31-32`) |
+| `calculation` | one number from the rows | COUNT, SUM, AVG, MIN, MAX, Duplicate (`:18-20`, `:22-24`) |
+| `chart` | a chart | Bar, Stacked Bar, Pie, Line, Calendar, Metric (`:25-29`, `:33`) |
+
+A `Pivot` fills its cells with `calculation` and `chart` agents only: it passes `disabledTypes: [ 'structure', 'format' ]` (`PivotDAOAgent.js:47`). So a value computed per group is `calculation`, and an agent that arranges rows is `structure`.
 
 `agentDAO` is an authorized `EasyDAO` on the journal `agents`, so a user who cannot read a gated row does not see it in the picker (`services.jrl:79-100`).
 
@@ -58,10 +69,11 @@ Rows use the ids 1 to 15, 17 to 22, 24 to 34 and 40 (`agents.jrl`). Take the nex
 
 | Runs on the server, returns only the answer | Runs in the browser after the rows arrive |
 |---|---|
-| `ArraySink`, `Count`, `Sum`, `Min`, `Max`, `Average` (`AbstractUnarySink`), `GroupBy`, `TopNGroupBy`, `Sequence`, `FilteredSink`, `Set`, `Unique`, `Projection`, `GridBy` | any sink without `implements: ['foam.lang.Serializable']`, such as every `Dashboard*Sink` except `DashboardMetricSink` (`DashboardSinks.js:2013`) |
+| `ArraySink`, `Count`, `Sum`, `Min`, `Max`, `Average` (`AbstractUnarySink`), `GroupBy`, `TopNGroupBy`, `Sequence`, `FilteredSink`, `Set`, `Unique`, `Projection`, `GridBy` | any sink that neither extends one of these nor declares `implements: ['foam.lang.Serializable']`, such as `DashboardCalendarSink` (`DashboardSinks.js:2424-2425`) |
 
 Rules that follow:
 
+- `Serializable` is inherited. `DashboardBarSink` and `DashboardPieSink` extend `TopNGroupBy`, `DashboardLineSink` extends `GroupBy`, and the stacked and multi-line sinks extend `core/reflow/GridBy`, so all of them run `put` in Java on the server (`DashboardSinks.js:67-68`, `:1521-1522`, `:811-812`). `DashboardMetricSink` extends `AbstractSink` and declares it itself (`:2011-2013`). `DashboardCalendarSink` extends `AbstractSink` without it, so it runs in the browser (`:2424-2425`).
 - A Serializable sink needs a Java side. `FilteredSink` has `code` and `javaCode` for `put`; `GridBy` has them too (`mlang/sink/FilteredSink.js:37-72`, `GridBy.js:96-110`). A sink with only `code` that claims `Serializable` fails on the server.
 - A sink tree is only as server-side as its weakest member. A `FilteredSink` around a row sink still pulls rows. Check every sink in the tree.
 - `FilteredSink` takes `predicate` and `delegate` (`FilteredSink.js:15-26`). Created with other property names it has no predicate and `put` skips the filter, so it counts every row (`:40`).
@@ -78,7 +90,7 @@ A sink that builds expensive members lazily must rebuild them when its inputs ch
 
 ## Recipe: add an agent
 
-1. **Grep** `agents.jrl` and the `*DAOAgent.js` files. A `GroupByDAOAgent` with a different inner sink often does the job with no new class.
+1. **Grep** `agents.jrl` and the `*DAOAgent.js` files. A `GroupByDAOAgent` with a different inner sink often does the job with no new class. "Distinct values with counts" is a `GroupByDAOAgent` on the property with a `CountDAOAgent` as its `sink` (`GroupByDAOAgent.js:132-157`). `GroupBy.addToE` already draws it as a table of key and count through `foam.mlang.sink.GroupByView` (`mlang/sink/GroupBy.js:225-227`, `mlang/sink/GroupByView.js:56-70`). The `Set` sink behind `SetDAOAgent` collects values only and has no counts (`mlang/sink/Set.js:25-40`).
 2. **Pick the base.** A value computed from the rows: `AbstractSinkDAOAgent`. A column list: `AbstractColumnAwareDAOAgent`. A custom view: `AbstractDAOAgent`.
 3. **Write the class** in `foam.core.reflow` with these members:
    - properties for the form, each with a `label`, a `validateObj` for required ones and a `view` that lists the DAO's properties through the context (`view: function(_, X) { return { class: 'foam.core.reflow.PropertyChoiceView', forCls: X.data.of }; }`, as in `SetDAOAgent.js:14-21`);

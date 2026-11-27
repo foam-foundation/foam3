@@ -39,7 +39,7 @@ A `ServiceProviderAware` row carries a `spid`. On a create with no `spid`, `Serv
 ## Sections and properties with their own permission
 
 - `Flow.scriptSection` (`preLoadScript` and `script`) has `permissionRequired: true`, so the person needs `flow.section.scriptsection` to see or edit the raw script in the Flow detail view (`Flow.js:61-67`).
-- `spid` and `childLock` have `readPermissionRequired` and `writePermissionRequired` (`Flow.js:170-177`, `:263-269`). `childLock` stops blocks being added or removed (`Console.js:238-240`, `:313`).
+- `spid` and `childLock` have `readPermissionRequired` and `writePermissionRequired` (`Flow.js:170-177`, `:263-269`). `childLock` stops blocks being added, moved or removed (`Console.js:238-239`, `:2114-2118`, `:2190`, `Block.js:241`).
 - `limitedEditPermission` names the permission that turns on the limited-edit controls for one flow; a block opts in with `allowLimitedEdit` (`Flow.js:95-100`, `Console.js:384-402`, `Block.js:135-139`).
 
 ## Commands and agents
@@ -49,9 +49,9 @@ A `ServiceProviderAware` row carries a `spid`. On a create with no `spid`, `Serv
 Two effects follow.
 
 - The Console builds its scope from the select (`Console.js:1453-1464`). A command the person may not read is not defined, and typing it gives `x is not defined`, not a permission error.
-- A saved flow that uses a gated command or agent loads for a person without the grant as a `BadBlock` for that block, and the rest of the flow loads (`Console.js:1376-1381`).
+- A saved flow that uses a gated command loads for a person without the grant as a `BadBlock` for that block, and the rest of the flow loads (`Console.js:1352-1360`, `:1669-1686`). A gated agent only leaves the picker: `agent.read` filters `agentDAO`, and a saved agent class still loads and runs (`SinkAgent.js:60-64`, `SinkView.js:56`, `:93`, `parser/SinkParser.js:28`).
 
-A flow shared with people who lack a grant therefore needs the grant given to them or the block removed. Server scripts (`shell`, `beanshell`, `jshell`) are gated this way and have catalogue rows in `cmd/permissions.jrl`.
+A flow shared with people who lack a command grant therefore needs the grant given to them or the block removed. Server scripts (`shell`, `beanshell`, `jshell`) are gated this way and have catalogue rows in `cmd/permissions.jrl`.
 
 ## Knowledge Base pages
 

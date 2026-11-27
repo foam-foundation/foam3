@@ -14,7 +14,7 @@ The design is an AI agent that is one more user of the Console: it types Reflow 
 | waiting | each line's block is awaited through `onLoad`, so a later line waits for an `input` to be answered | `AgentCommand.js:124-129` |
 | the prompt block | deleted after the run; it was a request, not content | `AgentCommand.js:133-134` |
 | `propose` | a block with accept and reject. Accept runs the command through `eval_` and answers with the made block's answer; reject answers that it did not run | `Propose.js:110-127` |
-| system prompt | every flow whose name starts with `systemPrompt`, ordered by name, joined; only blocks whose value is a `Markdown` are used, any other block is dropped silently; the result is cached on the command | `AgentCommand.js:137-155` |
+| system prompt | every flow whose name starts with `systemPrompt`, ordered by name, joined; only blocks whose value is a `Markdown` are used, any other block is dropped silently; the text is built again on every call: each call runs on a clone of the command (`Console.js:1461`), so the `systemPrompt` it sets is lost and the flows are read again | `AgentCommand.js:137-155` |
 | tool calling | `CommandTool` offers the model one tool, `execute_command`, whose only input is a script; `prefix`, `predicate`, `maxResult` and `commandX` limit it | `CommandTool.js:20-130` |
 
 `predicate` on `CommandTool` matters when the agent reads text it did not write: set, each script must be one call of a matching command with JSON data as its argument (`CommandTool.js:22-24`, `:52-56`, `:99-100`).

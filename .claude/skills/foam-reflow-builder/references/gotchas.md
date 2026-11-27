@@ -7,8 +7,8 @@ Each entry starts with what you see. Paths are under `src/foam/core/reflow/` unl
 ### A count, sum or group block stops at 100
 **Cause.** `DAOPrompt.limit` defaults to 100 and is applied whenever it is not 0 (`DAOPrompt.js:244-248`, `:351-356`). Every agent but the table selects from the limited DAO (`AbstractDAOAgent.js:23`); the table reads the unlimited one (`TableDAOAgent.js:86-89`). **Fix.** Set `"limit": 0` on every block that aggregates.
 
-### A typo in `aql` shows every row
-**Cause.** The parsed predicate is applied only when it is truthy, and a failed parse gives nothing (`DAOPrompt.js:275-280`). No error is shown. A bad `where` string shows no error either (`:272`). **Fix.** Check the string in the editor's autocomplete, or compare `rowCount` with an expected number.
+### A typo in `aql` shows every row, or drops the end of the query
+**Cause.** The parsed predicate is applied only when it is truthy, and a failed parse gives nothing (`DAOPrompt.js:275-280`). The parser does not require the whole string to match, so a typo at the start matches every row, and a typo later silently drops the rest: `count > 10 AND kye = x` filters on `count > 10` alone (`parse/SimpleQueryParser.js:92`; `QueryParser` is the same, `parse/QueryParser.js:101`). No error is shown. A bad `where` string shows no error either (`:272`). **Fix.** Check the string in the editor's autocomplete, or compare `rowCount` with an expected number.
 
 ### `where` is set but the `aql` field disappeared
 **Cause.** A non-empty `where` sets `enableAQL_` to false, which hides the `aql` field (`DAOPrompt.js:371`, `:381`, `:322`). Both strings still apply, `where` first (`:268-280`). `FromParser` fills `aql`, so `FROM x WHERE ...` and a `where` string can both be active on one block (`parser/FromParser.js`). **Fix.** Use one of them per block, and prefer `aql`.
@@ -16,8 +16,11 @@ Each entry starts with what you see. Paths are under `src/foam/core/reflow/` unl
 ### A `FilteredDAOAgent` ignores `aql` once `where` is set
 **Cause.** Unlike `DAOPrompt`, it uses `aql` only while `enableAQL_` is true and `where` only when it is false (`FilteredDAOAgent.js:66-79`). **Fix.** Fill one field.
 
+### A `FilteredDAOAgent` with a predicate throws `ReferenceError: dao is not defined`
+**Cause.** `createSink` assigns `dao = dao.where(predicate)` and no variable `dao` exists in that method (`FilteredDAOAgent.js:82`), so any `where` or `aql` that parses throws when the agent runs. An agent with no predicate runs.
+
 ### The block shows the old answer after a script changed it
-**Cause.** The view re-selects on `data`, `version` or a new `where`; a change to `aql` or `order` re-selects only with `autoRun`; any other property never does (`DAOPrompt.js:37-44`, `:576-579`, `:639-653`). **Fix.** Call `block.run()` after the change.
+**Cause.** The view re-selects on `data`, `version`, `skip` or a new `where`; a change to `aql` or `order` re-selects only with `autoRun`; any other property never does (`DAOPrompt.js:37-44`, `:576-579`, `:639-653`). **Fix.** Call `block.run()` after the change.
 
 ### A block of a busy DAO redraws all the time
 **Cause.** The prompt listens to its DAO and re-selects 100 ms after any put or remove (`DAOPrompt.js:531`, `:626-637`). A count over a log DAO re-selects as lines arrive. **Fix.** Filter to rows that change rarely, or read the DAO once in a script block behind a button.
@@ -48,14 +51,14 @@ Each entry starts with what you see. Paths are under `src/foam/core/reflow/` unl
 ### A command added to `cmds.jrl` is not found
 **Cause.** Commands are read once, when the Console renders (`Console.js:1453-1464`). **Fix.** Reload after changing `cmds.jrl`.
 
-### A gated block loads as an error for some people
-**Cause.** The command or agent is not in their scope without `command.read.<id>` or `agent.read.<id>` (`cmd/Command.js:83-89`, `SinkAgent.js:60-66`); the block becomes a `BadBlock` and the rest of the flow loads (`Console.js:1376-1381`). **Fix.** Grant it, or leave the gated block out of flows others open.
+### A gated command loads as an error for some people
+**Cause.** The command or agent is not in their scope without `command.read.<id>` or `agent.read.<id>` (`cmd/Command.js:83-89`, `SinkAgent.js:60-66`); the block becomes a `BadBlock` and the rest of the flow loads (`Console.js:1352-1360`, `:1669-1686`). A gated agent differs: `agent.read` only filters `agentDAO`, whose readers are the picker, `SinkParser` and `AllDAOAgent` (`SinkView.js:56`, `:93`, `parser/SinkParser.js:28`), so a saved flow still runs it. **Fix.** Grant the command, or leave the gated command out of flows others open.
 
 ### A flow that works on a fresh block fails after Save and reload
-**Cause.** A saved block is "run `cmd`, then copy these properties". A property not saved (`transient`), a class not registered at load, or an agent saved as an object whose class is missing fails only on reload (`Console.js:1349-1381`, `Block.js:270-278`). **Fix.** Always save, reload and reopen before calling a change done (`testing.md`).
+**Cause.** A saved block is "run `cmd`, then copy these properties". A property not saved (`transient`), a class not registered at load, or an agent saved as an object whose class is missing fails only on reload (`Console.js:1349-1381`); `Block` saves only the fields `Block.outputJSON` lists (`Block.js:270-278`). **Fix.** Always save, reload and reopen before calling a change done (`testing.md`).
 
 ### Derived values keep growing the saved flow
-**Cause.** A property computed from others is saved with the block and in the undo history unless it is `transient` (`Block.js:270-278`). **Fix.** `transient: true`.
+**Cause.** A property computed from others on a value or an agent is saved with the block and in the undo history unless it is `transient`; the saved script skips transient properties (`Console.js:1907`). `Block` saves only the fields it lists, so a new `Block` property is never saved (`Block.js:270-278`). **Fix.** `transient: true`.
 
 ### Hiding a block by assigning `shown` edits the flow
 **Cause.** `shown` is saved (`Block.js:132-134`, `:270-278`) and autosave stores whatever the last run left (`Console.js:2322-2352`). **Fix.** Put a formula in `reactions_`: `{ "shown": "other.rowCount > 0" }` (`ReactiveDetailView.js:91-140`).
@@ -95,7 +98,7 @@ Each entry starts with what you see. Paths are under `src/foam/core/reflow/` unl
 **Cause.** A sink built from fields before they are picked groups by nothing. `GridBy` clears its stored `rows` and `cols` whenever `xFunc`, `yFunc` or `acc` change so they rebuild (`GridBy.js:83-95`); a sink with its own stored factories needs the same. **Fix.** Clear derived properties on input change, or compute them in `createSink()`.
 
 ### The new agent is missing from the picker
-**Causes, in order of frequency.** The `agents.jrl` row has a `type` other than `format`, `structure`, `calculation` or `chart` (`SinkView.js:59`); the row is `sink: false` and you are looking in a group-by's "Operation" field (`SinkView.js:58`); `permissionRequired` is true and the person has no `agent.read.<id>` (`SinkAgent.js:60-66`); the class is not in `pom.js`. **Fix.** Walk the list.
+**Causes, in order of frequency.** The `agents.jrl` row has a `type` other than `format`, `structure`, `calculation` or `chart` (`SinkView.js:59`); the row is `sink: false` and you are looking in a group-by's "Operation" field (`SinkView.js:58`); `permissionRequired` is true and the person has no `agent.read.<id>` (`SinkAgent.js:60-66`); the class is not in `pom.js`. **Fix.** Walk the list. `type` is the section the row sits in; `agents-and-sinks.md` says how to choose it.
 
 ### A new agent id shows an old grant
 **Cause.** The id is the permission name `agent.read.<id>` (`SinkAgent.js:62`). Grants outlive rows. **Fix.** Never reuse an id.

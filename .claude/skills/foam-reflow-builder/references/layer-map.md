@@ -40,7 +40,7 @@ A flow is also a `Flowable`, so a block may hold `flowChildren` and a layout blo
 1. The `route` property (the flow name in the URL) runs `load("name")` (`Console.js:1009-1027`), or offers the autosaved copy first (below).
 2. `Load.execute` finds the flow in `flowDAO`, calls its `preLoadScript` without awaiting it, then `copyFrom(loaded)` (`cmd/Load.js:20-41`).
 3. The change of `script` fires `onScriptChange`, subscribed at `Console.js:1473`. It clears the flow, then `includeScript` evaluates each block's `cmd`, copies the saved properties in, awaits the value's `onLoad`, and recurses into `flowChildren` (`Console.js:2280-2306`, `:1304-1400`).
-4. An error in one block's `onLoad` turns that block into a `BadBlock` and the loop goes on (`Console.js:1376-1381`). `loadComplete` is published only when the whole load succeeds (`Console.js:2306`).
+4. An error in one block's `onLoad` turns that block into a `BadBlock` and the loop goes on (`Console.js:1376-1382`). `loadComplete` is published after `includeScript` returns, so BadBlocks do not stop it; it fires unless `includeScript` itself throws (`Console.js:2291`, `:2306`).
 
 `onLoad` is how a value holds up the next block: `DAOPrompt.onLoad` returns a latch that resolves after its first select (`DAOPrompt.js:540-542`), and `AbstractScript.onLoad` runs the script when `autoRun` is true (`AbstractScript.js:51-53`).
 

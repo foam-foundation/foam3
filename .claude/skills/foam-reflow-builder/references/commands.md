@@ -33,7 +33,7 @@ Ids are from `cmd/cmds.jrl`, `ai/cmds.jrl`, `float/cmds.jrl` and `man/cmds.jrl`.
 | code | `shell`, `beanshell`, `jshell` | a script that runs on the server as a job; gated |
 | code | `button`, `buttons`, `input` | actions and prompts; `input` waits to be answered while a saved flow loads (`cmd/Input.js:7-20`) |
 | flow | `flows`, `load <flow>`, `save <flow>`, `include <flow>`, `layout`, `clear`, `history`, `info`, `login` | flow management |
-| flow | `preLoad`, `postLoad` | hidden hooks the Console runs itself (`Console.js:1513`) |
+| flow | `preLoad` | a hidden hook the Console runs once when it renders (`Console.js:1513`). Nothing evaluates a `postLoad` command |
 | help | `help`, `helpFn`, `helpMQL`, `man`, `example` | documentation |
 | test | `testresults`, `test` | FLOAT test blocks (`float/cmds.jrl`) |
 | perf | `perf`, `loadPerf <flow>` | load profiling; `loadPerf` gated |
@@ -85,11 +85,11 @@ A command may define `answer()` to return text for an LLM instead of its drawing
    ```js
    p({"class":"foam.core.reflow.cmd.RowCount", "id": "rowCount", "icon": "database", keywords: ["count"]})
    ```
-   A `.jrl` beside a loaded `pom.js` needs no pom entry. `linkable: false` keeps it out of the clickable Components list and the help links, for commands that need arguments (`cmd/Command.js:30`, `Help.js:36-41`, `DynamicReflowComponents.js:74`). `hidden: true` removes it from help and autocomplete (`Help.js:31`, `parser/CommandParser.js:39`).
-4. **Add the class to `pom.js`** as `{ name: 'cmd/RowCount', flags: 'js|java' }` (`pom.js:129-157`). The row replays on the server, which needs the Java class; a view-only class such as `cmd/DAORowView` is `js`.
+   A `.jrl` needs no pom entry: it loads because a `services.jrl` names its `journalName`, and `cmd/services.jrl:12` names `cmds`, so `cmds.jrl` loads (`doc/guides/Journals.md:46`, `:58`). `linkable: false` keeps it out of the clickable Components list and the help links, for commands that need arguments (`cmd/Command.js:30`, `Help.js:36-41`, `DynamicReflowComponents.js:74`). `hidden: true` removes it from help and autocomplete (`Help.js:31`, `parser/CommandParser.js:39`).
+4. **Add the class to `pom.js`**, only when you wrote a class. A `Command` row with a `script` has no class and needs no entry. Use `{ name: 'cmd/RowCount', flags: 'js|java' }` (`pom.js:129-157`), as above. The row replays on the server, which needs the Java class; a view-only class such as `cmd/DAORowView` is `js`.
 5. **Permissions.** To gate it, set `permissionRequired: true` on the row. A user then needs `command.read.rowCount`: `authorizeOnRead` checks that string, and the select that builds the scope drops the row without it (`cmd/Command.js:83-89`, `core/auth/AuthorizationDAO.js:91-94`). Add `p({ "class": "foam.core.auth.Permission", "id": "command.read.rowCount" })` to `cmd/permissions.jrl` so the permission picker lists it, then grant it in a group or module (`access.md`). Not every gated command has a catalogue row (`FROM`, `api` and the `ai` commands do not), and the check works without one.
-6. **Test it** (`testing.md`). Run the command through a stand-in `eval_` as `CommandToolTest` does, or put a `JSTest` over the class.
-7. **Run it in a flow.** Reload the page, type the word, save the flow, reload and confirm the block comes back. A block that fails to reload becomes a `BadBlock` (`Console.js:1376-1381`).
+6. **Test it** (`testing.md`). A `script` row has no class to test; check it in a flow. For a class, a `JSTest` calls `execute`, and a command that calls `addValue` needs a stub, because `addValue` comes from the context (`cmd/Command.js:21`).
+7. **Run it in a flow.** Reload the page, type the word, save the flow, reload and confirm the block comes back. A block whose command fails to run on reload becomes a `BadBlock` (`Console.js:1352-1360`).
 
 ## Traps
 

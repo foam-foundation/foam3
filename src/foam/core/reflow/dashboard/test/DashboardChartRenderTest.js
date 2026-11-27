@@ -46,6 +46,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardBarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardBubbleChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardHeatmapChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardHistogramChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardLineChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardPieChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
@@ -61,6 +62,7 @@ foam.CLASS({
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BubbleChart',
     'foam.u2.chart.HeatmapChart',
+    'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.RadarChart',
@@ -82,6 +84,8 @@ foam.CLASS({
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
+      await this.testHistogram(x);
+      await this.testHistogramEdges(x);
       this.testServerFields(x);
     },
 
@@ -485,6 +489,77 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Bubble: with no points the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testHistogram(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardHistogramChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.valueProp  = R.AMOUNT;
+      s.seriesProp = R.YEAR;
+      s.binCount   = 6;
+      s.colors     = [ '#ff0000' ];
+      s.onClickScript = '(function(lo, hi, n, series, cx, cy, pageX, pageY) { globalThis.histogramClick_ = [ lo, hi, n, series, cx, cy, pageX, pageY ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.HistogramChart.isInstance(chart), 'Histogram: draws a foam.u2.chart.HistogramChart. Got ' + ( chart && chart.cls_.id ));
+      var labels = chart.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === '2025,2026', 'Histogram: Series Property gives one dataset per year. Got ' + labels);
+      x.test(chart.datasets[1].data.join() === '30,40', 'Histogram: each row adds its value. Got ' + chart.datasets[1].data.join());
+      x.test(chart.datasets[1].backgroundColor === '#ff0000' && chart.binCount === 6, 'Histogram: Colors and Number of Bins reach the chart');
+      x.test(chart.xAxisLabel === R.AMOUNT.label && chart.yAxisLabel === 'Count',
+        'Histogram: with no axis titles typed, x is the field\'s label and y is "Count". Got ' + chart.xAxisLabel + ', ' + chart.yAxisLabel);
+
+      // 10 to 40 in 6 bins is a step of 5; 2026's 30 is the only value in 30 to 35.
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      chart.onBinClick(1, 4, { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 });
+      x.test(globalThis.histogramClick_ === '30,35,1,2026,30,30,130,280',
+        'Histogram: On Click Script gets the bin range, its count, the series, the point in the chart and on the page. Got ' + globalThis.histogramClick_);
+      delete globalThis.histogramClick_;
+
+      // With no Series Property every row lands in one dataset.
+      s.clearProperty('seriesProp');
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Histogram: with no Series Property all four rows are one dataset');
+
+      // A select can send the sink to the server as JSON and back. The copy
+      // must still collect values: a JS Map would come back as {}.
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
+      x.test(! err && n === 4, 'Histogram: a sink sent as JSON and back still collects all four rows. Got ' + ( err || n ));
+    },
+
+    async function testHistogramEdges(x) {
+      var T    = this.ScatterTestRow;
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, when: new Date(Date.UTC(2026, 0, 1)) }),
+        T.create({ id: 2, kind: '',     size: 20 }),
+        T.create({ id: 3, kind: 'POST', size: 30 })
+      ] }, x);
+      var agent = this.DashboardHistogramChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.valueProp  = T.SIZE;
+      s.seriesProp = T.KIND;
+
+      var sink   = await rows.select(agent.createSink());
+      var labels = sink.chart_.datasets.map(function(d) { return d.label; }).join();
+      x.test(labels === 'GET,POST', 'Histogram: a row with an empty Series value is left out, not drawn as "undefined". Got ' + labels);
+
+      // A date field is not a number: no value is kept, and the sink shows
+      // its empty message instead of empty axes.
+      s.valueProp = T.WHEN;
+      s.clearProperty('seriesProp');
+      sink = await rows.select(agent.createSink());
+      x.test(sink.series_.length === 0, 'Histogram: a date field makes no values. Got ' + sink.series_.length + ' series');
+      var el = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Histogram: with no values the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     },
 

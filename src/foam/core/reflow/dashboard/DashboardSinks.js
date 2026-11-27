@@ -2520,3 +2520,200 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardHistogramSink',
+  extends: 'foam.dao.AbstractSink',
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    The distribution of one numeric property of the rows, such as the size of
+    a payment: the chart cuts its range into bins and counts the rows in each.
+    A row whose value is not a number (a date, text or yes/no value) is left
+    out. Giving a Series property draws one set of bars and one legend entry
+    per value of it, e.g. one per request method, over the same bins; a row with
+    no value there is left out too.
+  `,
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
+
+  requires: [
+    'foam.u2.chart.HistogramChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['valueProp', 'seriesProp'] },
+    { name: 'chartSettings', title: 'Histogram Settings', order: 1, collapsable: true,
+      properties: ['binCount', 'xAxisLabel', 'yAxisLabel', 'showGridLines', 'onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The histogram has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Values' },
+    { name: 'COUNT',          message: 'Count' },
+    { name: 'NO_DATA',        message: 'No data available' }
+  ],
+
+  properties: [
+    // generateJava: false: this sink's put() has no Java code, and its Java
+    // class never had these fields.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'valueProp', label: 'Value Property', help: 'Numeric property whose distribution is drawn', required: true, generateJava: false },
+    {
+      class: 'foam.core.reflow.dashboard.ChartChoiceFieldProperty', generateJava: false,
+      name: 'seriesProp', label: 'Series Property',
+      help: 'Optional: one set of bars and legend entry per value of this property'
+    },
+    {
+      class: 'Int',
+      name: 'binCount',
+      label: 'Number of Bins',
+      help: 'About how many bins; the edges are rounded to nice numbers, so the chart may draw a few more or fewer',
+      value: 10
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label', help: 'Left empty, it is the label of the Value Property' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label', help: 'Left empty, it says "Count"' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a bar is clicked. Signature: (binStart, binEnd, count, series, chartX, chartY, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no values. Left empty, it says "No data available".'
+    },
+    {
+      class: 'Array',
+      name: 'series_',
+      hidden: true,
+      // Values collected by put(), one entry per series in the order first seen:
+      // [ { label: 'GET', data: [ 12.5, 40 ] } ]. Kept as plain arrays, since
+      // the sink is copied and sent as JSON during a select, and a JS Map
+      // arrives as {} and then fails in put(). Transient, so the values of
+      // one run are never saved into the flow.
+      transient: true
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      // Read once, by addToE, after the select has collected every value.
+      factory: function() {
+        var self = this;
+        var datasets = this.series_.map(function(e, i) {
+          var c = self.colors && self.colors.length ? self.colors[i % self.colors.length] : undefined;
+          return {
+            label: e.label,
+            data: e.data,
+            backgroundColor: c ? foam.CSS.returnTokenValue(c, self.cls_, self.__context__) : undefined
+          };
+        });
+        // The form's On Click Script is a function expression, called with
+        // (binStart, binEnd, count, series, chartX, chartY, pageX, pageY) for
+        // the clicked bar: the bin's range, how many values it holds, the
+        // series name, the point inside the chart and the point on the page.
+        var click = null;
+        if ( this.onClickScript ) {
+          try {
+            click = eval(this.onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardHistogramSink:', e);
+          }
+        }
+        var chart = this.HistogramChart.create({
+          datasets:          datasets,
+          binCount:          this.binCount,
+          // With no title typed in, the x axis takes its field's label, as
+          // the line chart does: "Amount", not a blank axis.
+          xAxisLabel:        this.xAxisLabel || this.labelOf_(this.valueProp),
+          yAxisLabel:        this.yAxisLabel || this.COUNT,
+          showGridLines:     this.showGridLines,
+          showLegend:        this.showLegend,
+          legendPosition:    this.legendPosition,
+          showTooltips:      this.showTooltips,
+          animate:           this.animate,
+          animationDuration: this.animationDuration,
+          onBinClick: typeof click !== 'function' ? null : function(di, j, evt) {
+            try {
+              var b   = chart.bins();
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(b.edges[j], b.edges[j + 1], b.counts[di][j], datasets[di].label,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "month of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
+    function put(obj) {
+      // Only number values count: a date would be binned as milliseconds
+      // since 1970 and yes/no as 0 or 1. NaN and Infinity are left to the chart.
+      var v = this.valueProp.f(obj);
+      if ( typeof v !== 'number' ) return;
+      var key = this.DEFAULT_SERIES;
+      if ( ! this.hasDefaultValue('seriesProp') ) {
+        // A row with no series value is left out, as the calendar chart does,
+        // rather than drawn as a series called "undefined".
+        var s = this.seriesProp.f(obj);
+        if ( s == null || s === '' ) return;
+        key = String(s);
+      }
+      var e = this.series_.find(function(e) { return e.label === key; });
+      if ( ! e ) this.series_.push(e = { label: key, data: [] });
+      e.data.push(v);
+    },
+
+    function addToE(e) {
+      var self = this;
+      e.style({ width: '100%' })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .callIfElse(this.series_.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
+        .end();
+    }
+  ]
+});

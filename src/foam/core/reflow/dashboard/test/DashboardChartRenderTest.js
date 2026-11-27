@@ -62,8 +62,8 @@ foam.CLASS({
 
       var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(this.BarChart.isInstance(chart), 'Bar: draws a foam.u2.chart.BarChart. Got ' + ( chart && chart.cls_.id ));
-      var ds = chart.data.datasets[0];
-      x.test(chart.data.labels.length === 2 && ds.data.join() === '30,70', 'Bar: sums amount per year: 30 and 70. Got ' + ds.data.join());
+      var ds = chart.datasets[0];
+      x.test(chart.labels.length === 2 && ds.data.join() === '30,70', 'Bar: sums amount per year: 30 and 70. Got ' + ds.data.join());
       x.test(ds.label === 'Amount', 'Bar: Dataset Label names the legend entry');
       x.test(foam.util.equals(ds.backgroundColor, [ '#ff0000', '#ff0000' ]), 'Bar: Colors reach the bars. Got ' + JSON.stringify(ds.backgroundColor));
       x.test(chart.horizontal && ! chart.stacked, 'Bar: Horizontal Bars turns the chart on its side');
@@ -89,7 +89,7 @@ foam.CLASS({
 
       var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(this.PieChart.isInstance(chart), 'Pie: draws a foam.u2.chart.PieChart. Got ' + ( chart && chart.cls_.id ));
-      x.test(chart.data.datasets[0].data.join() === '30,70', 'Pie: one slice per year, 30 and 70');
+      x.test(chart.datasets[0].data.join() === '30,70', 'Pie: one slice per year, 30 and 70');
       x.test(chart.cutout === 50 && chart.showPercentages && chart.rotation === 90 && ! chart.clockwise,
         'Pie: Cutout, Show Percentages, Rotation and Clockwise reach the pie');
       x.test(chart.disableLegendClick, 'Pie: Disable Legend Click reaches the legend');
@@ -114,11 +114,11 @@ foam.CLASS({
 
       var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(this.BarChart.isInstance(chart) && chart.stacked, 'StackedBar: draws a stacked foam.u2.chart.BarChart');
-      x.test(chart.data.datasets.length === 2 && chart.data.labels.length === 2, 'StackedBar: two months, one stack per year');
+      x.test(chart.datasets.length === 2 && chart.labels.length === 2, 'StackedBar: two months, one stack per year');
 
       // Find the 2026 stack and the February column, then click that segment.
-      var di = chart.data.datasets.findIndex(function(d) { return String(d.label) === '2026'; });
-      var i  = chart.data.labels.findIndex(function(l) { return String(l) === '2'; });
+      var di = chart.datasets.findIndex(function(d) { return String(d.label) === '2026'; });
+      var i  = chart.labels.findIndex(function(l) { return String(l) === '2'; });
       var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       var hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       svg.appendChild(hit);
@@ -150,7 +150,7 @@ foam.CLASS({
 
       var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
       x.test(this.LineChart.isInstance(chart), 'Line: draws a foam.u2.chart.LineChart. Got ' + ( chart && chart.cls_.id ));
-      var ds = chart.data.datasets[0];
+      var ds = chart.datasets[0];
       var ys = ds.data.map(function(p) { return p.y; }).join();
       x.test(ys === '40,60', 'Line: sums amount per month, 40 and 60. Got ' + ys);
       x.test(ds.fill && ds.stepped && ds.pointRadius === 0, 'Line: Fill Area, Stepped Line and Show Points off reach the line');

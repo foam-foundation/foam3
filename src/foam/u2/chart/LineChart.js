@@ -10,21 +10,24 @@ foam.CLASS({
   extends: 'foam.u2.chart.CartesianChartView',
 
   documentation: `
-    One line per dataset. Each dataset's data is a list of { x, y } points;
+    One line per dataset (a LineDataset). Each dataset's data is a list of
+    { x, y } points;
     xType (an XAxisType) says how x is placed: CATEGORY spaces the points
     evenly in data.labels order, LINEAR reads x as a number, and TIME reads
     it as a Date with ticks on each timeUnit.
 
-    Per dataset: borderColor (the line), backgroundColor (the area when fill
-    is on), borderWidth, tension (0 draws straight segments, 0.4 smooth
-    curves), stepped, pointRadius and pointHoverRadius.
+    Each LineDataset sets how its line is drawn: borderColor for the line,
+    backgroundColor for the area when fill is on, then borderWidth,
+    tension, stepped, pointRadius and pointHoverRadius.
 
     Moving the pointer over the plot marks the nearest x with a dashed guide
     and shows every visible line's value there in one tooltip.
   `,
 
   requires: [
+    'foam.u2.chart.LineDataset',
     'foam.u2.chart.LinearScale',
+    'foam.u2.chart.SVGPath',
     'foam.u2.chart.TimeScale',
     'foam.u2.chart.TimeUnit',
     'foam.u2.chart.XAxisType'
@@ -45,7 +48,26 @@ foam.CLASS({
     @keyframes foam-u2-chart-LineChart-fade { from { opacity: 0; transform: translateY(6px); } }
   `,
 
+  constants: [
+    {
+      name: 'TIME_TICK_PX',
+      documentation: 'About how far apart time ticks are, so a date label fits between two: a 600-pixel axis gets ten.',
+      value: 60
+    },
+    {
+      name: 'POINT_PAD_PX',
+      documentation: 'How far past the plot the lines may draw, so a dot on the edge is not cut in half.',
+      value: 4
+    }
+  ],
+
   properties: [
+    {
+      class: 'FObjectArray',
+      of: 'foam.u2.chart.LineDataset',
+      name: 'datasets',
+      documentation: 'The lines. A plain object such as { label, data, fill: true } adapts to a LineDataset.'
+    },
     {
       class: 'Enum',
       of: 'foam.u2.chart.XAxisType',
@@ -80,7 +102,7 @@ foam.CLASS({
 
     function visibleSets_() {
       var self = this;
-      return ( this.data.datasets || [] )
+      return this.datasets
         .map(function(ds, i) { return { ds: ds, i: i, pts: self.points_(ds) }; })
         .filter(function(s) { return ! self.isHidden(s.i); });
     },
@@ -89,7 +111,7 @@ foam.CLASS({
 
     function drawChart(svg, w, h) {
       var self   = this;
-      var labels = ( this.data.labels || [] ).map(String);
+      var labels = this.labels.map(String);
       var sets   = this.visibleSets_();
 
       // x domain
@@ -124,10 +146,10 @@ foam.CLASS({
           s.step = step;
           return s;
         },
-        function(s) { return self.ticksWithin_(s, s.min, s.max); });
+        function(s) { return s.ticks(); });
       var a      = fit.area;
       var yScale = fit.scale;
-      var yTicks = this.ticksWithin_(yScale, yScale.min, yScale.max);
+      var yTicks = yScale.ticks();
       yScale.start = a.top + a.height; yScale.end = a.top;
       xScale.start = a.left; xScale.end = a.left + a.width;
 
@@ -139,9 +161,8 @@ foam.CLASS({
 
       // A hand-set y range can put points outside the plot; a nested svg
       // cuts the lines at its edges. Its viewBox matches its box, so the
-      // lines keep the outer chart's coordinates. It reaches 4 px past the
-      // plot so a point on the edge is not cut in half.
-      var pad = 4;
+      // lines keep the outer chart's coordinates.
+      var pad = this.POINT_PAD_PX;
       svg
         .start('svg').addClass(this.myClass('lines'))
           .attrs({
@@ -156,21 +177,21 @@ foam.CLASS({
             });
             if ( ! px.length ) return;
             var color = self.seriesColor(s.i);
-            var line  = self.path_(px, s.ds, a);
             this.start('g').addClass(self.myClass('series'))
               .callIf(s.ds.fill, function() {
                 this.start('path').addClass(self.myClass('area'))
-                  .attrs({ d: line + ' L' + px[px.length - 1].x + ',' + base + ' L' + px[0].x + ',' + base + ' Z',
-                           fill: self.fillColor_(s.ds, color) })
+                  .attrs({
+                    d: self.path_(px, s.ds, a).lineTo(px[px.length - 1].x, base).lineTo(px[0].x, base).close(),
+                    fill: self.fillColor_(s.ds, color)
+                  })
                 .end();
               })
               .start('path').addClass(self.myClass('line'))
-                .attrs({ d: line, stroke: color, 'stroke-width': s.ds.borderWidth || 2 })
+                .attrs({ d: self.path_(px, s.ds, a), stroke: color, 'stroke-width': s.ds.borderWidth })
               .end()
-              .callIf(( s.ds.pointRadius === undefined ? 3 : s.ds.pointRadius ) > 0, function() {
-                var r = s.ds.pointRadius === undefined ? 3 : s.ds.pointRadius;
+              .callIf(s.ds.pointRadius > 0, function() {
                 this.forEach(px, function(p) {
-                  this.start('circle').attrs({ cx: p.x, cy: p.y, r: r, fill: color }).end();
+                  this.start('circle').attrs({ cx: p.x, cy: p.y, r: s.ds.pointRadius, fill: color }).end();
                 });
               })
             .end();
@@ -180,33 +201,25 @@ foam.CLASS({
       this.drawHover_(svg, a, sets, xScale, yScale, xLabel);
     },
 
-    function ticksWithin_(scale, lo, hi) {
-      // Round ticks inside [lo, hi] for a scale whose ends were set by hand.
-      var step = scale.step;
-      if ( ! step ) return [ lo, hi ];
-      var d = Math.max(0, - Math.floor(Math.log10(step)));
-      var ret = [];
-      for ( var t = Math.ceil(lo / step - 1e-9) * step ; t <= hi + step * 1e-9 && ret.length < 200 ; t += step ) {
-        ret.push(Number(t.toFixed(d)));
-      }
-      return ret;
-    },
-
     function fillColor_(ds, color) {
       var bg = ds.backgroundColor;
       return bg && bg !== 'transparent' ? bg : color;
     },
 
     function path_(px, ds, a) {
-      if ( px.length === 1 ) return 'M' + px[0].x + ',' + px[0].y;
+      // The line through the pixel points px, as an SVGPath.
+      var path = this.SVGPath.create().moveTo(px[0].x, px[0].y);
+      if ( px.length === 1 ) return path;
       if ( ds.stepped ) {
         // Step before: the line rises at each point, then runs flat to the next.
-        return px.map(function(p, i) {
-          return i ? 'V' + p.y + ' H' + p.x : 'M' + p.x + ',' + p.y;
-        }).join(' ');
+        px.slice(1).forEach(function(p) { path.verticalTo(p.y).horizontalTo(p.x); });
+        return path;
       }
-      var t = Number(ds.tension) || 0;
-      if ( ! t ) return px.map(function(p, i) { return ( i ? 'L' : 'M' ) + p.x + ',' + p.y; }).join(' ');
+      var t = ds.tension;
+      if ( ! t ) {
+        px.slice(1).forEach(function(p) { path.lineTo(p.x, p.y); });
+        return path;
+      }
 
       // A smooth curve through every point: each point's two control points
       // lie on the line through its neighbours, scaled by tension and by how
@@ -223,11 +236,10 @@ foam.CLASS({
           outX: p.x + fb * ( next.x - prev.x ), outY: clamp(p.y + fb * ( next.y - prev.y ))
         };
       });
-      var d = 'M' + px[0].x + ',' + px[0].y;
       for ( var i = 1 ; i < px.length ; i++ ) {
-        d += ' C' + cps[i - 1].outX + ',' + cps[i - 1].outY + ' ' + cps[i].inX + ',' + cps[i].inY + ' ' + px[i].x + ',' + px[i].y;
+        path.curveTo(cps[i - 1].outX, cps[i - 1].outY, cps[i].inX, cps[i].inY, px[i].x, px[i].y);
       }
-      return d;
+      return path;
     },
 
     function drawHover_(svg, a, sets, xScale, yScale, xLabel) {
@@ -263,7 +275,7 @@ foam.CLASS({
               if ( j < 0 ) return;
               var y     = Number(s.pts[j].y);
               var color = self.seriesColor(s.i);
-              var r     = s.ds.pointHoverRadius === undefined ? 4 : s.ds.pointHoverRadius;
+              var r     = s.ds.pointHoverRadius;
               if ( r > 0 ) marker.start('circle').attrs({ cx: gx, cy: yScale.map(y), r: r, fill: color }).end();
               rows.push({ color: color, label: s.ds.label || '', value: self.formatValue(y) });
               values.push(y);

@@ -15,9 +15,8 @@ foam.CLASS({
     which each chart type implements. It redraws when the data changes, when
     the parent resizes and when a legend click hides a series.
 
-    The data has the shape { labels: [...], datasets: [{ label, data,
-    backgroundColor, ... }] }: labels name the categories, and each dataset
-    is one series with one value per label. Colours arrive already resolved
+    labels name the categories, and each of datasets (a Dataset) is one
+    series with one value per label. Colours arrive already resolved
     (a theme token such as $primary400 turned into its hex value) and are
     written as SVG attributes. Text, grid and axis colours come from CSS
     tokens, so they follow a light or dark theme switch.
@@ -25,6 +24,7 @@ foam.CLASS({
 
   requires: [
     'foam.u2.chart.ChartLegend',
+    'foam.u2.chart.Dataset',
     'foam.u2.chart.LegendPosition'
   ],
 
@@ -33,6 +33,26 @@ foam.CLASS({
       name: 'DEFAULT_COLORS',
       documentation: 'Series colours when the caller sets none, as theme tokens.',
       value: [ '$primary400', '$orange400', '$green400', '$purple400', '$red400', '$blue400', '$grey400' ]
+    },
+    {
+      name: 'TOOLTIP_OFFSET_PX',
+      documentation: 'How far the tooltip sits from the pointer, right and below, so it never covers what is hovered.',
+      value: 14
+    },
+    {
+      name: 'MIN_PLOT_PX',
+      documentation: 'Smallest plot, either way, worth drawing; a chart in a collapsed card draws nothing until it opens.',
+      value: 20
+    },
+    {
+      name: 'DEFAULT_FONT_PX',
+      documentation: 'Label font size before the chart is on the page and its CSS can be read.',
+      value: 12
+    },
+    {
+      name: 'ANIMATION_END_MS',
+      documentation: 'Wait past animationDuration before dropping the animation, so the last frame is not cut.',
+      value: 100
     }
   ],
 
@@ -98,9 +118,15 @@ foam.CLASS({
 
   properties: [
     {
-      name: 'data',
-      documentation: 'The chart data: { labels: [...], datasets: [{ label, data, backgroundColor, ... }] }.',
-      factory: function() { return { labels: [], datasets: [] }; }
+      class: 'Array',
+      name: 'labels',
+      documentation: 'The category names, in order: one per bar, slice or category point.'
+    },
+    {
+      class: 'FObjectArray',
+      of: 'foam.u2.chart.Dataset',
+      name: 'datasets',
+      documentation: 'The series. A plain object such as { label, data } adapts to a Dataset.'
     },
     { class: 'Boolean', name: 'showLegend', value: true },
     {
@@ -158,9 +184,9 @@ foam.CLASS({
           this.addClass(self.myClass('animated')).style({ animationDuration: self.animationDuration + 'ms' });
           // Animate only the first draw: a resize or a legend click later
           // redraws the marks, and growing them in again would flicker.
-          setTimeout(function() { self.removeClass(self.myClass('animated')); }, self.animationDuration + 100);
+          setTimeout(function() { self.removeClass(self.myClass('animated')); }, self.animationDuration + self.ANIMATION_END_MS);
         })
-        .add(this.dynamic(function(showLegend, data, hidden_) {
+        .add(this.dynamic(function(showLegend, labels, datasets, hidden_) {
           if ( ! showLegend ) return;
           var vertical = self.legendPosition.vertical;
           this.start(self.ChartLegend, {
@@ -181,8 +207,8 @@ foam.CLASS({
             var w = Math.floor(r.width), h = Math.floor(r.height);
             if ( ! self.size_ || self.size_.w !== w || self.size_.h !== h ) self.size_ = { w: w, h: h };
           })
-          .add(this.dynamic(function(data, hidden_, size_) {
-            if ( ! size_ || size_.w < 20 || size_.h < 20 ) return;
+          .add(this.dynamic(function(labels, datasets, hidden_, size_) {
+            if ( ! size_ || size_.w < self.MIN_PLOT_PX || size_.h < self.MIN_PLOT_PX ) return;
             this.start('svg')
               .attrs({ width: size_.w, height: size_.h, role: 'img' })
               .on('mouseleave', self.hideTooltip)
@@ -204,7 +230,7 @@ foam.CLASS({
     function legendItems() {
       // One entry per dataset. A chart with one entry per value overrides this.
       var self = this;
-      return ( this.data.datasets || [] ).map(function(ds, i) {
+      return this.datasets.map(function(ds, i) {
         return { label: ds.label || '', color: self.seriesColor(i), hidden: !! self.hidden_[i] };
       });
     },
@@ -214,7 +240,7 @@ foam.CLASS({
     function seriesColor(i, opt_index) {
       // A dataset's colour: its backgroundColor, a per-value array of them
       // (opt_index picks one), or a default from the theme.
-      var ds = ( this.data.datasets || [] )[i] || {};
+      var ds = this.datasets[i] || this.Dataset.create();
       var c  = ds.borderColor || ds.backgroundColor;
       if ( Array.isArray(ds.backgroundColor) && ds.backgroundColor.length ) {
         c = ds.backgroundColor[( opt_index || 0 ) % ds.backgroundColor.length];
@@ -233,13 +259,13 @@ foam.CLASS({
         this.measureCtx_ = this.document.createElement('canvas').getContext('2d');
       }
       var cs = this.computedStyle_();
-      this.measureCtx_.font = ( cs ? cs.fontSize + ' ' + cs.fontFamily : '12px sans-serif' );
+      this.measureCtx_.font = cs ? cs.fontSize + ' ' + cs.fontFamily : this.DEFAULT_FONT_PX + 'px sans-serif';
       return this.measureCtx_.measureText(String(s)).width;
     },
 
     function fontPx() {
       var cs = this.computedStyle_();
-      return cs ? parseFloat(cs.fontSize) || 12 : 12;
+      return cs && parseFloat(cs.fontSize) || this.DEFAULT_FONT_PX;
     },
 
     function computedStyle_() {
@@ -294,12 +320,13 @@ foam.CLASS({
       tip.show();
 
       var box = this.element_.getBoundingClientRect();
-      var x   = evt.clientX - box.left + 14;
-      var y   = evt.clientY - box.top + 14;
+      var gap = this.TOOLTIP_OFFSET_PX;
+      var x   = evt.clientX - box.left + gap;
+      var y   = evt.clientY - box.top + gap;
       var tw  = tip.element_.offsetWidth;
       var th  = tip.element_.offsetHeight;
-      if ( x + tw > box.width ) x = Math.max(0, evt.clientX - box.left - tw - 14);
-      if ( y + th > box.height ) y = Math.max(0, evt.clientY - box.top - th - 14);
+      if ( x + tw > box.width ) x = Math.max(0, evt.clientX - box.left - tw - gap);
+      if ( y + th > box.height ) y = Math.max(0, evt.clientY - box.top - th - gap);
       tip.style({ left: x + 'px', top: y + 'px' });
     }
   ],

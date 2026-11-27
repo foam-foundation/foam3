@@ -290,12 +290,12 @@ foam.CLASS({
         }
       }
 
-      return { datasets: [...datasets.values()] };
+      return [...datasets.values()];
     },
 
     function rebuild() {
-      this.buildChartData().then(function(data) {
-        this.chart.data = data;
+      this.buildChartData().then(function(datasets) {
+        this.chart.datasets = datasets;
       }.bind(this));
     }
   ],

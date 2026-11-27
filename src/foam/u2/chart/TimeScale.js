@@ -93,9 +93,9 @@ foam.CLASS({
       var ret = [];
       var d   = this.startOf(this.min);
       if ( d.getTime() < this.min ) d = this.next(d);
-      // 2,000 ticks is far more than any axis can show; the cap stops a
-      // millisecond unit over a year-long range from building millions.
-      for ( var i = 0 ; i < 2000 && d.getTime() <= this.max ; i++ ) {
+      // The cap stops a millisecond unit over a year-long range from
+      // building millions of ticks.
+      for ( var i = 0 ; i < this.MAX_TICKS && d.getTime() <= this.max ; i++ ) {
         ret.push(d.getTime());
         d = this.next(d);
       }

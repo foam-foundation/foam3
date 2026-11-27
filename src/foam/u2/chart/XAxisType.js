@@ -72,7 +72,7 @@ foam.ENUM({
         var niced = chart.LinearScale.create({ min: lo, max: hi, tickCount: 6 }).nice();
         var scale = chart.isSet_(chart.xMin) || chart.isSet_(chart.xMax) ?
           chart.LinearScale.create({ min: lo, max: hi, step: niced.step }) : niced;
-        return { scale: scale, ticks: chart.ticksWithin_(scale, scale.min, scale.max) };
+        return { scale: scale, ticks: scale.ticks() };
       }
     },
     {
@@ -81,9 +81,9 @@ foam.ENUM({
       toX: function(p) { return new Date(p.x).getTime(); },
       parse: function(v) { return new Date(v).getTime(); },
       scale: function(chart, lo, hi, w) {
-        // About one tick per 60 pixels; a finer unit moves up to the next that fits.
+        // A unit too fine for the width moves up to the next that fits.
         var scale = chart.TimeScale.create({ unit: chart.timeUnit, utc: chart.utc, min: lo, max: hi })
-          .fit(Math.max(2, Math.floor(w / 60))).nice();
+          .fit(Math.max(chart.MIN_VALUE_TICKS, Math.floor(w / chart.TIME_TICK_PX))).nice();
         return { scale: scale, ticks: scale.ticks() };
       }
     }

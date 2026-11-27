@@ -69,10 +69,8 @@ foam.CLASS({
     },
 
     async function testBars(x) {
-      var chart = this.BarChart.create({ data: {
-        labels: [ 'Jan', 'Feb', 'Mar', 'Apr' ],
-        datasets: [ { label: 'Sales', data: [ 10, 20, 0, 40 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ]
-      } }, x);
+      var chart = this.BarChart.create({ labels: [ 'Jan', 'Feb', 'Mar', 'Apr' ],
+        datasets: [ { label: 'Sales', data: [ 10, 20, 0, 40 ], backgroundColor: [ '#ff0000', '#00ff00' ] } ] }, x);
       var el   = await this.mount(chart);
       var bars = this.all(el, chart, 'bar');
 
@@ -88,7 +86,7 @@ foam.CLASS({
 
       // No colours given: each dataset takes a theme colour, resolved to a
       // real value so a PDF export keeps it.
-      chart = this.BarChart.create({ data: { labels: [ 'A' ], datasets: [ { data: [ 1 ] }, { data: [ 2 ] } ] } }, x);
+      chart = this.BarChart.create({ labels: [ 'A' ], datasets: [ { data: [ 1 ] }, { data: [ 2 ] } ] }, x);
       el = await this.mount(chart);
       var fills = this.all(el, chart, 'bar').map(function(b) { return b.getAttribute('fill'); });
       x.test(fills.length === 2 && fills[0] && fills[0].indexOf('$') === -1 && fills[0] !== fills[1],
@@ -98,8 +96,9 @@ foam.CLASS({
     },
 
     async function testStackedAndHorizontal(x) {
-      var data = { labels: [ 'A', 'B' ], datasets: [ { label: 'Cash', data: [ 1, 2 ] }, { label: 'Card', data: [ 3, 4 ] } ] };
-      var chart = this.BarChart.create({ data: data, stacked: true }, x);
+      var labels   = [ 'A', 'B' ];
+      var datasets = [ { label: 'Cash', data: [ 1, 2 ] }, { label: 'Card', data: [ 3, 4 ] } ];
+      var chart = this.BarChart.create({ labels: labels, datasets: datasets, stacked: true }, x);
       var el    = await this.mount(chart);
       var bars  = this.all(el, chart, 'bar');
       x.test(bars.length === 4, 'Stacked: one segment per value');
@@ -109,14 +108,14 @@ foam.CLASS({
         'Stacked: Card sits directly on top of Cash');
       this.unmount(chart);
 
-      chart = this.BarChart.create({ data: data }, x);
+      chart = this.BarChart.create({ labels: labels, datasets: datasets }, x);
       el    = await this.mount(chart);
       bars  = this.all(el, chart, 'bar');
       x.test(this.num(bars[1], 'x') > this.num(bars[0], 'x') && Math.abs(this.num(bars[0], 'y') + this.num(bars[0], 'height') - this.num(bars[1], 'y') - this.num(bars[1], 'height')) < 0.5,
         'Grouped: without stacking the two datasets stand side by side');
       this.unmount(chart);
 
-      chart = this.BarChart.create({ data: data, horizontal: true, barThickness: 8 }, x);
+      chart = this.BarChart.create({ labels: labels, datasets: datasets, horizontal: true, barThickness: 8 }, x);
       el    = await this.mount(chart);
       bars  = this.all(el, chart, 'bar');
       x.test(el.classList.contains(chart.myClass('horizontal')), 'Horizontal: the chart carries the horizontal class');
@@ -128,7 +127,7 @@ foam.CLASS({
     async function testBarClickAndTooltip(x) {
       var clicks = [];
       var chart = this.BarChart.create({
-        data: { labels: [ 'A', 'B' ], datasets: [ { label: 'Cash', data: [ 1, 2 ] }, { label: 'Card', data: [ 3, 4 ] } ] },
+        labels: [ 'A', 'B' ], datasets: [ { label: 'Cash', data: [ 1, 2 ] }, { label: 'Card', data: [ 3, 4 ] } ],
         stacked: true,
         showTooltipSum: true,
         onBarClick: function(di, i) { clicks.push([ di, i ]); }
@@ -158,7 +157,7 @@ foam.CLASS({
       x.test(! this.visible(tip), 'Tooltip: leaving the chart hides it');
       this.unmount(chart);
 
-      chart = this.BarChart.create({ data: { labels: [ 'A' ], datasets: [ { data: [ 1 ] } ] }, showTooltips: false }, x);
+      chart = this.BarChart.create({ labels: [ 'A' ], datasets: [ { data: [ 1 ] } ], showTooltips: false }, x);
       el = await this.mount(chart);
       c  = this.centreOf(this.all(el, chart, 'bar')[0]);
       this.fire(this.all(el, chart, 'hit')[0], 'mousemove', c.x, c.y);
@@ -168,7 +167,7 @@ foam.CLASS({
 
     async function testLegendAndOptions(x) {
       var chart = this.BarChart.create({
-        data: { labels: [ 'A' ], datasets: [ { label: 'Cash', data: [ 1 ] }, { label: 'Card', data: [ 3 ] } ] },
+        labels: [ 'A' ], datasets: [ { label: 'Cash', data: [ 1 ] }, { label: 'Card', data: [ 3 ] } ],
         legendPosition: 'right',
         xAxisLabel: 'Month',
         yAxisLabel: 'Amount',
@@ -192,7 +191,7 @@ foam.CLASS({
       x.test(this.all(el, chart, 'bar').length === 2, 'Legend: clicking it again brings the bar back');
       this.unmount(chart);
 
-      chart = this.BarChart.create({ data: { labels: [ 'A' ], datasets: [ { label: 'Cash', data: [ 1 ] } ] }, showLegend: false }, x);
+      chart = this.BarChart.create({ labels: [ 'A' ], datasets: [ { label: 'Cash', data: [ 1 ] } ], showLegend: false }, x);
       el = await this.mount(chart);
       x.test(! el.querySelector('.' + chart.myClass('legend')), 'Legend: showLegend off draws none');
       x.test(this.all(el, chart, 'grid').length > 0, 'Axes: grid lines are on by default');
@@ -205,10 +204,8 @@ foam.CLASS({
     },
 
     async function testPie(x) {
-      var chart = this.PieChart.create({ data: {
-        labels: [ 'Apples', 'Pears', 'Plums' ],
-        datasets: [ { data: [ 1, 1, 2 ], backgroundColor: [ '#111111', '#222222', '#333333' ] } ]
-      } }, x);
+      var chart = this.PieChart.create({ labels: [ 'Apples', 'Pears', 'Plums' ],
+        datasets: [ { data: [ 1, 1, 2 ], backgroundColor: [ '#111111', '#222222', '#333333' ] } ] }, x);
       var el     = await this.mount(chart);
       var slices = this.all(el, chart, 'slice');
       x.test(slices.length === 3, 'Pie: one slice per value');
@@ -227,14 +224,14 @@ foam.CLASS({
       x.test(text.indexOf('Apples: 1') !== -1, 'Pie: hovering a slice names it with its value. Got ' + text);
       this.unmount(chart);
 
-      chart = this.PieChart.create({ data: { labels: [ 'A', 'B' ], datasets: [ { data: [ 1, 2 ] } ] }, disableLegendClick: true }, x);
+      chart = this.PieChart.create({ labels: [ 'A', 'B' ], datasets: [ { data: [ 1, 2 ] } ], disableLegendClick: true }, x);
       el = await this.mount(chart);
       el.querySelector('.' + this.legendClass('item')).click();
       await this.redraw();
       x.test(this.all(el, chart, 'slice').length === 2, 'Pie: with disableLegendClick a legend click hides nothing');
       this.unmount(chart);
 
-      chart = this.PieChart.create({ data: { labels: [ 'All' ], datasets: [ { data: [ 5 ] } ] } }, x);
+      chart = this.PieChart.create({ labels: [ 'All' ], datasets: [ { data: [ 5 ] } ] }, x);
       el = await this.mount(chart);
       var d = this.all(el, chart, 'slice')[0].getAttribute('d');
       x.test(( d.match(/M/g) || [] ).length === 2, 'Pie: one slice of 100% is drawn as two half arcs, since one arc cannot close a circle');
@@ -243,7 +240,7 @@ foam.CLASS({
 
     async function testDonutAndPercentages(x) {
       var chart = this.PieChart.create({
-        data: { labels: [ 'Tiny', 'Big' ], datasets: [ { data: [ 1, 99999 ] } ] },
+        labels: [ 'Tiny', 'Big' ], datasets: [ { data: [ 1, 99999 ] } ],
         cutout: 50,
         showPercentages: true,
         legendPosition: 'left',
@@ -262,10 +259,10 @@ foam.CLASS({
 
     async function testLine(x) {
       var chart = this.LineChart.create({
-        data: { labels: [ 'a', 'b', 'c' ], datasets: [
+        labels: [ 'a', 'b', 'c' ], datasets: [
           { label: 'Cash', data: [ 1, 3, 2 ], fill: true, borderColor: '#123456' },
           { label: 'Card', data: [ 2, 2, 2 ], pointRadius: 0 }
-        ] },
+        ],
         showTooltipSum: true,
         yMin: 0,
         yMax: 10
@@ -275,6 +272,8 @@ foam.CLASS({
       var series = this.all(el, chart, 'series');
       x.test(lines.length === 2, 'Line: one path per dataset');
       x.test(lines[0].getAttribute('stroke') === '#123456', 'Line: borderColor sets the stroke');
+      x.test(foam.u2.chart.LineDataset.isInstance(chart.datasets[0]) && chart.datasets[0].pointRadius === 3 && chart.datasets[1].pointRadius === 0,
+        'Line: a plain dataset becomes a LineDataset; unset pointRadius is 3, a given 0 stays 0');
       x.test(this.all(el, chart, 'area').length === 1, 'Line: fill draws an area under Cash only');
       x.test(series[0].querySelectorAll('circle').length === 3 && series[1].querySelectorAll('circle').length === 0,
         'Line: points show by default; pointRadius 0 hides them');
@@ -290,12 +289,12 @@ foam.CLASS({
       x.test(this.all(el, chart, 'guide').length === 1, 'Line: a guide line marks the hovered x');
       this.unmount(chart);
 
-      chart = this.LineChart.create({ data: { labels: [ 'a', 'b', 'c' ], datasets: [ { data: [ 1, 3, 2 ], tension: 0.4 } ] } }, x);
+      chart = this.LineChart.create({ labels: [ 'a', 'b', 'c' ], datasets: [ { data: [ 1, 3, 2 ], tension: 0.4 } ] }, x);
       el = await this.mount(chart);
       x.test(/C/.test(this.all(el, chart, 'line')[0].getAttribute('d')), 'Line: tension draws curves');
       this.unmount(chart);
 
-      chart = this.LineChart.create({ data: { labels: [ 'a', 'b', 'c' ], datasets: [ { data: [ 1, 3, 2 ], stepped: true } ] } }, x);
+      chart = this.LineChart.create({ labels: [ 'a', 'b', 'c' ], datasets: [ { data: [ 1, 3, 2 ], stepped: true } ] }, x);
       el = await this.mount(chart);
       var d = this.all(el, chart, 'line')[0].getAttribute('d');
       x.test(( d.match(/V/g) || [] ).length === 2 && ( d.match(/H/g) || [] ).length === 2, 'Line: stepped draws an upright and a flat segment per step. Got ' + d);
@@ -304,8 +303,8 @@ foam.CLASS({
 
     async function testLinearLine(x) {
       // A LINEAR axis places x by value: 1 to 9 is eight times as far as 0 to 1.
-      var chart = this.LineChart.create({ xType: 'linear', data: { datasets: [ { label: 'Sales', data: [
-        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] } }, x);
+      var chart = this.LineChart.create({ xType: 'linear', datasets: [ { label: 'Sales', data: [
+        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] }, x);
       var el = await this.mount(chart);
       x.test(chart.xType === foam.u2.chart.XAxisType.LINEAR, 'Linear: xType \'linear\' adapts to XAxisType.LINEAR');
       var cx = Array.from(el.querySelectorAll('circle')).map(function(c) { return Number(c.getAttribute('cx')); });
@@ -317,8 +316,8 @@ foam.CLASS({
 
       // With a hand-set top of 2, the points at 3 and 4 lie above the plot;
       // the lines sit in a nested svg that hides what falls outside it.
-      chart = this.LineChart.create({ xType: 'linear', yMax: 2, data: { datasets: [ { data: [
-        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] } }, x);
+      chart = this.LineChart.create({ xType: 'linear', yMax: 2, datasets: [ { data: [
+        { x: 0, y: 1 }, { x: 1, y: 2 }, { x: 9, y: 3 }, { x: 10, y: 4 } ] } ] }, x);
       el = await this.mount(chart);
       var lines = this.all(el, chart, 'lines')[0];
       var top   = Math.min.apply(null, Array.from(el.querySelectorAll('circle')).map(function(c) { return Number(c.getAttribute('cy')); }));
@@ -331,7 +330,7 @@ foam.CLASS({
       var pts = [ [ 2024, 0, 15 ], [ 2024, 1, 10 ], [ 2024, 2, 1 ], [ 2024, 3, 20 ] ].map(function(d, i) {
         return { x: new Date(Date.UTC(d[0], d[1], d[2])), y: i + 1 };
       });
-      var chart = this.LineChart.create({ xType: 'time', timeUnit: 'month', utc: true, data: { datasets: [ { label: 'Sales', data: pts } ] } }, x);
+      var chart = this.LineChart.create({ xType: 'time', timeUnit: 'month', utc: true, datasets: [ { label: 'Sales', data: pts } ] }, x);
       x.test(chart.xType === foam.u2.chart.XAxisType.TIME, 'Time: xType \'time\' adapts to XAxisType.TIME');
       var el    = await this.mount(chart);
       var march = new Date(Date.UTC(2024, 2, 1)).toLocaleString(foam.locale, { timeZone: 'UTC', month: 'short', year: 'numeric' });
@@ -339,7 +338,7 @@ foam.CLASS({
       x.test(texts.indexOf(march) !== -1, 'Time: a month axis labels March 2024 as "' + march + '". Got ' + texts.join());
       this.unmount(chart);
 
-      chart = this.LineChart.create({ xType: 'time', timeUnit: 'millisecond', data: { datasets: [ { data: pts } ] } }, x);
+      chart = this.LineChart.create({ xType: 'time', timeUnit: 'millisecond', datasets: [ { data: pts } ] }, x);
       el    = await this.mount(chart);
       var grid = this.all(el, chart, 'grid').length;
       x.test(grid < 40, 'Time: a millisecond unit over three months moves up to a coarser one, about one tick per 60 px. Got ' + grid + ' grid lines');

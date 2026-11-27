@@ -205,14 +205,12 @@ foam.CLASS({
 
 
         return this.BarChart.create({
-          data: {
-            labels: labels,
-            datasets: [{
-              label: datasetLabel || 'Values',
-              data: data,
-              backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
-            }]
-          },
+          labels: labels,
+          datasets: [{
+            label: datasetLabel || 'Values',
+            data: data,
+            backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
+          }],
           horizontal:        horizontal,
           barThickness:      barThickness,
           xAxisLabel:        xAxisLabel,
@@ -377,13 +375,11 @@ foam.CLASS({
         this.hasData = data.length > 0;
 
         return this.PieChart.create({
-          data: {
-            labels: labels,
-            datasets: [{
-              data: data,
-              backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
-            }]
-          },
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: backgroundColors.length > 0 ? backgroundColors : undefined
+          }],
           cutout:                cutoutPercentage,
           rotation:              rotation,
           clockwise:             clockwise,
@@ -634,7 +630,8 @@ foam.CLASS({
         }
 
         return this.BarChart.create({
-          data: { labels: labels, datasets: datasets },
+          labels:            labels,
+          datasets:          datasets,
           stacked:           true,
           horizontal:        horizontal,
           xAxisLabel:        xAxisLabel,
@@ -812,7 +809,8 @@ foam.CLASS({
       var custom = function(on, name, value) { return on && this.hasOwnProperty(name) ? value : undefined; }.bind(this);
       var xType  = isTimeScale ? 'time' : ( this.xScaleType_ || 'category' );
       return this.LineChart.create({
-        data:              { labels: labels || [], datasets: datasets },
+        labels:            labels || [],
+        datasets:          datasets,
         xType:             xType,
         timeUnit:          timeUnit,
         // Only a raw Date field is stored as midnight UTC, so only it reads

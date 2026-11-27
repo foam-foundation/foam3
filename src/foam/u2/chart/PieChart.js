@@ -20,6 +20,28 @@ foam.CLASS({
     "0.0%", so a tiny slice is not mistaken for an empty one.
   `,
 
+  requires: [
+    'foam.u2.chart.SVGPath'
+  ],
+
+  constants: [
+    {
+      name: 'EDGE_PX',
+      documentation: 'Gap between the circle and the edge of the chart, so the slice outline is not cut off.',
+      value: 4
+    },
+    {
+      name: 'MAX_CUTOUT',
+      documentation: 'Largest hole, as a percentage of the radius: at 100 the ring would have no width.',
+      value: 95
+    },
+    {
+      name: 'FULL_CIRCLE_SLACK',
+      documentation: 'A slice within this many radians of a full turn is drawn as a full circle; floating-point sums of the slices land just short of 2 pi.',
+      value: 1e-6
+    }
+  ],
+
   css: `
     <<slice { stroke: $backgroundDefault; stroke-width: 1; }
     <<slice:hover { filter: brightness(0.92); }
@@ -71,8 +93,8 @@ foam.CLASS({
 
   methods: [
     function values_() {
-      var ds = ( this.data.datasets || [] )[0] || {};
-      return ( ds.data || [] ).map(function(v) { return Number(v) || 0; });
+      var ds = this.datasets[0];
+      return ( ds ? ds.data : [] ).map(function(v) { return Number(v) || 0; });
     },
 
     function total_() {
@@ -89,7 +111,7 @@ foam.CLASS({
 
     function legendItems() {
       var self   = this;
-      var labels = this.data.labels || [];
+      var labels = this.labels;
       return this.values_().map(function(v, i) {
         var label = String(labels[i] === undefined ? '' : labels[i]);
         return {
@@ -110,8 +132,8 @@ foam.CLASS({
 
     function seriesColor(i, opt_index) {
       // Slices take the dataset's colours in turn, then the theme defaults.
-      var ds = ( this.data.datasets || [] )[0] || {};
-      var bg = ds.backgroundColor;
+      var ds = this.datasets[0];
+      var bg = ds && ds.backgroundColor;
       var j  = opt_index || 0;
       if ( Array.isArray(bg) && bg.length ) return bg[j % bg.length];
       return this.defaultColor(j);
@@ -121,8 +143,8 @@ foam.CLASS({
       var self   = this;
       var values = this.values_();
       var total  = this.total_();
-      var r      = Math.max(0, Math.min(w, h) / 2 - 4);
-      var r0     = r * Math.max(0, Math.min(95, this.cutout)) / 100;
+      var r      = Math.max(0, Math.min(w, h) / 2 - this.EDGE_PX);
+      var r0     = r * Math.max(0, Math.min(this.MAX_CUTOUT, this.cutout)) / 100;
       var cx = w / 2, cy = h / 2;
       var dir = this.clockwise ? 1 : -1;
       var a   = this.rotation * Math.PI / 180;
@@ -133,7 +155,7 @@ foam.CLASS({
           if ( self.isHidden(i) || v <= 0 || total <= 0 ) return;
           var sweep = v / total * 2 * Math.PI * dir;
           g.start('path').addClass(self.myClass('slice'))
-            .attrs({ d: self.slicePath(cx, cy, r, r0, a, a + sweep), fill: self.seriesColor(0, i) })
+            .attrs({ d: self.slicePath(self.SVGPath.create(), cx, cy, r, r0, a, a + sweep), fill: self.seriesColor(0, i) })
             .on('mousemove', function(evt) { self.showSliceTooltip_(evt, i); })
             .on('mouseleave', self.hideTooltip)
           .end();
@@ -142,27 +164,31 @@ foam.CLASS({
       }).end();
     },
 
-    function slicePath(cx, cy, r, r0, a0, a1) {
-      // Angles run clockwise from twelve o'clock, so a0 = 0 points straight up.
-      var pt = function(rad, ang) { return [ cx + rad * Math.sin(ang), cy - rad * Math.cos(ang) ]; };
-      // A full circle cannot be one arc: its start and end are the same point.
-      if ( Math.abs(a1 - a0) >= 2 * Math.PI - 1e-6 ) {
+    function slicePath(path, cx, cy, r, r0, a0, a1) {
+      // Adds the slice from angle a0 to a1 to path and returns it. Angles run
+      // clockwise from twelve o'clock, so a0 = 0 points straight up; r0 is
+      // the radius of the donut hole, 0 for a pie.
+      var pt = function(rad, ang) { return { x: cx + rad * Math.sin(ang), y: cy - rad * Math.cos(ang) }; };
+      // A full circle cannot be one arc, since its start and end are the same
+      // point, so it is drawn as two halves.
+      if ( Math.abs(a1 - a0) >= 2 * Math.PI - this.FULL_CIRCLE_SLACK ) {
         var mid = a0 + ( a1 - a0 ) / 2;
-        return this.slicePath(cx, cy, r, r0, a0, mid) + ' ' + this.slicePath(cx, cy, r, r0, mid, a1);
+        return this.slicePath(this.slicePath(path, cx, cy, r, r0, a0, mid), cx, cy, r, r0, mid, a1);
       }
-      var large = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
-      var sweep = a1 > a0 ? 1 : 0;
+      var large     = Math.abs(a1 - a0) > Math.PI;
+      var clockwise = a1 > a0;
       var p0 = pt(r, a0), p1 = pt(r, a1);
       if ( ! r0 ) {
-        return 'M' + cx + ',' + cy + ' L' + p0 + ' A' + r + ',' + r + ' 0 ' + large + ' ' + sweep + ' ' + p1 + ' Z';
+        return path.moveTo(cx, cy).lineTo(p0.x, p0.y).arcTo(r, large, clockwise, p1.x, p1.y).close();
       }
-      var q1 = pt(r0, a1), q0 = pt(r0, a0);
-      return 'M' + p0 + ' A' + r + ',' + r + ' 0 ' + large + ' ' + sweep + ' ' + p1 +
-             ' L' + q1 + ' A' + r0 + ',' + r0 + ' 0 ' + large + ' ' + ( 1 - sweep ) + ' ' + q0 + ' Z';
+      // A donut slice: out along the outer arc, back along the hole's edge.
+      var q0 = pt(r0, a0), q1 = pt(r0, a1);
+      return path.moveTo(p0.x, p0.y).arcTo(r, large, clockwise, p1.x, p1.y)
+        .lineTo(q1.x, q1.y).arcTo(r0, large, ! clockwise, q0.x, q0.y).close();
     },
 
     function sliceRow_(i) {
-      var labels = this.data.labels || [];
+      var labels = this.labels;
       var v      = this.values_()[i];
       return {
         color: this.seriesColor(0, i),

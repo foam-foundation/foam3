@@ -24,6 +24,14 @@ foam.CLASS({
     'foam.u2.chart.LinearScale'
   ],
 
+  constants: [
+    {
+      name: 'HIT_SLACK_PX',
+      documentation: 'How far outside a bar a click still counts as on it, so a one-pixel bar can be clicked.',
+      value: 1
+    }
+  ],
+
   css: `
     <<hit { fill: transparent; }
     <<hit:hover { fill: $borderLight; fill-opacity: 0.35; }
@@ -70,7 +78,7 @@ foam.CLASS({
 
     function visibleSets_() {
       var self = this;
-      return ( this.data.datasets || [] )
+      return this.datasets
         .map(function(ds, i) { return { ds: ds, i: i }; })
         .filter(function(s) { return ! self.isHidden(s.i); });
     },
@@ -93,7 +101,7 @@ foam.CLASS({
 
     function drawChart(svg, w, h) {
       var self   = this;
-      var labels = ( this.data.labels || [] ).map(String);
+      var labels = this.labels.map(String);
       var n      = labels.length;
       var sets   = this.visibleSets_();
       var range  = this.valueRange_(sets, n);
@@ -162,7 +170,7 @@ foam.CLASS({
             if ( ! self.onBarClick ) return;
             var at  = self.pointerAt_(evt);
             var p   = self.horizontal ? at.x : at.y;
-            var hit = rects[j].find(function(b) { return p >= b.lo - 1 && p <= b.hi + 1; });
+            var hit = rects[j].find(function(b) { return p >= b.lo - self.HIT_SLACK_PX && p <= b.hi + self.HIT_SLACK_PX; });
             if ( hit ) self.onBarClick(hit.di, j, evt);
           })
         .end();
@@ -182,7 +190,7 @@ foam.CLASS({
       });
       var footer = this.showTooltipSum && sets.length ?
         this.sumLine(sets.map(function(s) { return s.ds.data[j]; })) : undefined;
-      this.showTooltip(evt, ( this.data.labels || [] )[j], rows, footer);
+      this.showTooltip(evt, this.labels[j], rows, footer);
     }
   ]
 });

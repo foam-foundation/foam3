@@ -26,6 +26,81 @@ foam.CLASS({
       name: 'MAX_LABEL_PX',
       documentation: 'Longest a tick label may be before it ends in an ellipsis; the full text stays in its hover title.',
       value: 140
+    },
+    {
+      name: 'MAX_Y_LABEL_SHARE',
+      documentation: 'Most of the chart\'s width the y labels may take, so a narrow chart keeps room to plot.',
+      value: 0.3
+    },
+    {
+      name: 'MAX_X_LABEL_SHARE',
+      documentation: 'Most of the chart\'s height turned x labels may take, so the plot keeps most of it.',
+      value: 0.4
+    },
+    {
+      name: 'MIN_TURNED_LABEL_PX',
+      documentation: 'Shortest a turned x label is cut to, however little height is left.',
+      value: 30
+    },
+    {
+      name: 'TURNED_LABEL_SPACING',
+      documentation: 'How far apart turned labels sit along the axis, in line heights: closer and they overlap.',
+      value: 1.6
+    },
+    {
+      name: 'LABEL_GAP_PX',
+      documentation: 'Space between a tick label and its axis, and between the y labels and the y title.',
+      value: 8
+    },
+    {
+      name: 'TITLE_GAP_PX',
+      documentation: 'Space between the x labels and the x title.',
+      value: 10
+    },
+    {
+      name: 'TICK_DROP_PX',
+      documentation: 'How far below the x axis its labels start.',
+      value: 6
+    },
+    {
+      name: 'EDGE_PX',
+      documentation: 'Margin between the outermost text and the edge of the chart.',
+      value: 2
+    },
+    {
+      name: 'RIGHT_PAD_PX',
+      documentation: 'Room right of the plot for the last x label, which is centred on its tick.',
+      value: 12
+    },
+    {
+      name: 'VALUE_TICK_PX',
+      documentation: 'About how far apart value ticks are: a 200-pixel axis gets five.',
+      value: 40
+    },
+    {
+      name: 'MIN_VALUE_TICKS',
+      documentation: 'Fewest steps a value axis has, so even a short one shows a scale.',
+      value: 2
+    },
+    {
+      name: 'MAX_VALUE_TICKS',
+      documentation: 'Most steps a value axis has, so a tall one stays readable.',
+      value: 10
+    },
+    {
+      name: 'FIRST_LAYOUT_TICKS',
+      documentation: 'Steps assumed for the first layout, before the plot size is known.',
+      value: 5
+    },
+    {
+      name: 'TURNED_LABEL_NUDGE',
+      documentation: 'How far a turned label moves down, in line heights, so its end meets its tick.',
+      value: 0.3
+    },
+    {
+      name: 'Y_TITLE_X',
+      documentation: 'Where the turned y title sits from the left edge, in line heights.',
+      value: 0.9
     }
   ],
 
@@ -49,27 +124,26 @@ foam.CLASS({
         return Math.min(cap, labels.reduce(function(m, l) { return Math.max(m, self.textWidth(l)); }, 0));
       };
 
-      var yMax  = widest(yLabels, Math.min(this.MAX_LABEL_PX, w * 0.3));
-      var left  = Math.ceil(yMax) + 8 + ( this.yAxisLabel ? fp + 8 : 0 ) + 2;
-      var right = 12;
-      var top   = Math.ceil(fp / 2) + 2;
-      var width = Math.max(10, w - left - right);
+      var gap = this.LABEL_GAP_PX, edge = this.EDGE_PX;
+
+      var yMax  = widest(yLabels, Math.min(this.MAX_LABEL_PX, w * this.MAX_Y_LABEL_SHARE));
+      var left  = Math.ceil(yMax) + gap + ( this.yAxisLabel ? fp + gap : 0 ) + edge;
+      var top   = Math.ceil(fp / 2) + edge;
+      var width = Math.max(this.MIN_PLOT_PX, w - left - this.RIGHT_PAD_PX);
 
       var per    = width / Math.max(1, xLabels.length);
       var xMax   = widest(xLabels, this.MAX_LABEL_PX);
-      var rotate = xMax + 8 > per;
-      // Rotated labels stack about one and a half line heights apart.
-      var every  = rotate && this.autoSkip ? Math.max(1, Math.ceil(fp * 1.6 / per)) : 1;
-      var titleH = this.xAxisLabel ? fp + 10 : 0;
-      // A rotated label's drop is its length times sin 45; keep the labels
-      // to at most 40% of the chart so the bars keep most of the height.
-      if ( rotate ) xMax = Math.min(xMax, Math.max(30, ( h * 0.4 - titleH ) / Math.SQRT1_2 - fp));
-      var labelH = rotate ? Math.ceil(( xMax + fp ) * Math.SQRT1_2) + 6 : fp + 8;
-      var bottom = labelH + titleH + 2;
+      var rotate = xMax + gap > per;
+      var every  = rotate && this.autoSkip ? Math.max(1, Math.ceil(fp * this.TURNED_LABEL_SPACING / per)) : 1;
+      var titleH = this.xAxisLabel ? fp + this.TITLE_GAP_PX : 0;
+      // A label turned 45 degrees drops its length times sin 45.
+      if ( rotate ) xMax = Math.min(xMax, Math.max(this.MIN_TURNED_LABEL_PX, ( h * this.MAX_X_LABEL_SHARE - titleH ) / Math.SQRT1_2 - fp));
+      var labelH = rotate ? Math.ceil(( xMax + fp ) * Math.SQRT1_2) + this.TICK_DROP_PX : fp + gap;
+      var bottom = labelH + titleH + edge;
 
       return {
         w: w, h: h, left: left, top: top, width: width,
-        height: Math.max(10, h - top - bottom),
+        height: Math.max(this.MIN_PLOT_PX, h - top - bottom),
         rotate: rotate, every: every, xMax: xMax, yMax: yMax
       };
     },
@@ -86,8 +160,9 @@ foam.CLASS({
         var v = valueTicks(scale).map(function(t) { return scale.format(t); });
         return horizontal ? self.layout(w, h, v, catLabels) : self.layout(w, h, catLabels, v);
       };
-      var first = lay(valueScale(5));
-      var scale = valueScale(Math.max(2, Math.min(10, Math.round(( horizontal ? first.width : first.height ) / 40))));
+      var first = lay(valueScale(this.FIRST_LAYOUT_TICKS));
+      var size  = horizontal ? first.width : first.height;
+      var scale = valueScale(Math.max(this.MIN_VALUE_TICKS, Math.min(this.MAX_VALUE_TICKS, Math.round(size / this.VALUE_TICK_PX))));
       return { area: lay(scale), scale: scale };
     },
 
@@ -115,32 +190,36 @@ foam.CLASS({
         .start('line').addClass(this.myClass('axis')).attrs({ x1: a.left, x2: a.left, y1: a.top, y2: bottom }).end()
         .forEach(yTicks, function(t) {
           self.label_(this, t.label, a.yMax, {
-            x: a.left - 8, y: t.pos, 'text-anchor': 'end', 'dominant-baseline': 'middle'
+            x: a.left - self.LABEL_GAP_PX, y: t.pos, 'text-anchor': 'end', 'dominant-baseline': 'middle'
           });
         })
         .forEach(xTicks, function(t, i) {
           if ( i % a.every ) return;
-          var y = bottom + 6;
+          var y = bottom + self.TICK_DROP_PX;
+          var ty = y + fp * self.TURNED_LABEL_NUDGE;
           self.label_(this, t.label, a.xMax, a.rotate ?
-            { x: t.pos, y: y + fp * 0.3, 'text-anchor': 'end', 'dominant-baseline': 'middle',
-              transform: 'rotate(-45 ' + t.pos + ' ' + ( y + fp * 0.3 ) + ')' } :
+            { x: t.pos, y: ty, 'text-anchor': 'end', 'dominant-baseline': 'middle', transform: self.rotate_(-45, t.pos, ty) } :
             { x: t.pos, y: y, 'text-anchor': 'middle', 'dominant-baseline': 'hanging' });
         })
         .callIf(this.yAxisLabel, function() {
-          var cy = a.top + a.height / 2;
+          var cx = fp * self.Y_TITLE_X, cy = a.top + a.height / 2;
           this.start('text').addClass(self.myClass('axis-title'))
-            .attrs({ x: fp * 0.9, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-                     transform: 'rotate(-90 ' + ( fp * 0.9 ) + ' ' + cy + ')' })
+            .attrs({ x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'middle', transform: self.rotate_(-90, cx, cy) })
             .add(self.yAxisLabel)
           .end();
         })
         .callIf(this.xAxisLabel, function() {
           this.start('text').addClass(self.myClass('axis-title'))
-            .attrs({ x: a.left + a.width / 2, y: a.h - 2, 'text-anchor': 'middle' })
+            .attrs({ x: a.left + a.width / 2, y: a.h - self.EDGE_PX, 'text-anchor': 'middle' })
             .add(self.xAxisLabel)
           .end();
         })
       .end();
+    },
+
+    function rotate_(degrees, x, y) {
+      // An SVG transform that turns an element about (x, y); negative turns anticlockwise.
+      return 'rotate(' + degrees + ' ' + x + ' ' + y + ')';
     },
 
     function label_(parent, text, maxPx, attrs) {

@@ -15,6 +15,25 @@ foam.CLASS({
     number. Call nice() once min, max and tickCount are set.
   `,
 
+  constants: [
+    {
+      name: 'EPSILON',
+      documentation: `Slack for floating-point division: 0.2 / 0.05 is 4.000000000000001,
+        and without slack an axis from 0 to 0.2 in steps of 0.05 gets an extra, empty step.`,
+      value: 1e-9
+    },
+    {
+      name: 'MAX_TICKS',
+      documentation: 'Most ticks ticks() returns, so a hand-set range far wider than its step cannot build thousands.',
+      value: 200
+    },
+    {
+      name: 'FLAT_SPREAD',
+      documentation: 'A flat series (every value 5) is drawn this share above and below its value: from 2.5 to 7.5.',
+      value: 0.5
+    }
+  ],
+
   properties: [
     { class: 'Float', name: 'min' },
     { class: 'Float', name: 'max', value: 1 },
@@ -48,17 +67,15 @@ foam.CLASS({
       // A flat series (every value 5) still needs a range to draw on.
       if ( min === max ) {
         if ( min === 0 ) max = 1;
-        else { min -= Math.abs(min) * 0.5; max += Math.abs(max) * 0.5; }
+        else { min -= Math.abs(min) * this.FLAT_SPREAD; max += Math.abs(max) * this.FLAT_SPREAD; }
       }
       var raw  = ( max - min ) / Math.max(1, this.tickCount);
       var mag  = Math.pow(10, Math.floor(Math.log10(raw)));
       var norm = raw / mag;
       var step = ( norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10 ) * mag;
       this.step = step;
-      // 0.2 / 0.05 is 4.000000000000001 in floating point; without the
-      // tolerance the axis would get an extra, empty step up to 0.25.
-      this.min  = Math.floor(min / step + 1e-9) * step;
-      this.max  = Math.ceil(max / step - 1e-9) * step;
+      this.min  = Math.floor(min / step + this.EPSILON) * step;
+      this.max  = Math.ceil(max / step - this.EPSILON) * step;
       return this;
     },
 
@@ -70,11 +87,14 @@ foam.CLASS({
     },
 
     function ticks() {
+      // Every multiple of step from min to max. Ends set by hand need not be
+      // multiples: min 3, max 10 and step 2 give ticks at 4, 6, 8 and 10.
       if ( ! this.step ) return [ this.min, this.max ];
-      var d = this.decimals_();
-      var n = Math.round(( this.max - this.min ) / this.step);
-      var ret = [];
-      for ( var i = 0 ; i <= n ; i++ ) ret.push(Number(( this.min + i * this.step ).toFixed(d)));
+      var d     = this.decimals_();
+      var first = Math.ceil(this.min / this.step - this.EPSILON);
+      var last  = Math.floor(this.max / this.step + this.EPSILON);
+      var ret   = [];
+      for ( var i = first ; i <= last && ret.length < this.MAX_TICKS ; i++ ) ret.push(Number(( i * this.step ).toFixed(d)));
       return ret;
     },
 

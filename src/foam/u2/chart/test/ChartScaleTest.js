@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BandScale',
     'foam.u2.chart.LinearScale',
+    'foam.u2.chart.SVGPath',
     'foam.u2.chart.TimeScale',
     'foam.u2.chart.TimeUnit'
   ],
@@ -25,6 +26,7 @@ foam.CLASS({
       this.testBandScale(x);
       this.testTimeScale(x);
       this.testChartFormatter(x);
+      this.testSVGPath(x);
     },
 
     function testLinearScale(x) {
@@ -42,8 +44,21 @@ foam.CLASS({
       x.test(s.ticks().join() === '0,0.05,0.1,0.15,0.2', 'Linear: small steps do not pile up float error. Got ' + s.ticks().join());
       x.test(s.format(0.05) === ( 0.05 ).toLocaleString(foam.locale), 'Linear: a 0.05 step keeps two decimals. Got ' + s.format(0.05));
 
+      s = this.LinearScale.create({ min: 0.5, max: 9.5, step: 2 });
+      x.test(s.ticks().join() === '2,4,6,8', 'Linear: hand-set ends tick on the multiples of the step inside them. Got ' + s.ticks().join());
+
+      s = this.LinearScale.create({ min: 0, max: 1e6, step: 1 });
+      x.test(s.ticks().length === s.MAX_TICKS, 'Linear: a step far finer than the range stops at MAX_TICKS. Got ' + s.ticks().length);
+
       s = this.LinearScale.create({ min: 0, max: 10, start: 300, end: 0 });
       x.test(s.map(0) === 300 && s.map(10) === 0 && s.map(5) === 150, 'Linear: a vertical axis maps 0 to the bottom and 10 to the top');
+    },
+
+    function testSVGPath(x) {
+      var p = this.SVGPath.create().moveTo(0, 0).lineTo(10, 0).verticalTo(5).horizontalTo(0).close();
+      x.test(p.toString() === 'M0,0 L10,0 V5 H0 Z', 'SVGPath: each step adds its command. Got ' + p);
+      p = this.SVGPath.create().moveTo(0, 0).curveTo(1, 2, 3, 4, 5, 6).arcTo(5, true, false, 10, 0);
+      x.test(p.toString() === 'M0,0 C1,2 3,4 5,6 A5,5 0 1 0 10,0', 'SVGPath: a curve and an arc write their points and flags. Got ' + p);
     },
 
     function testBandScale(x) {

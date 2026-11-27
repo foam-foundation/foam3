@@ -39,6 +39,20 @@ foam.ENUM({
       value: function(scale, p, t) { return new Date(t + this.ms); }
     },
     {
+      class: 'Array',
+      name: 'steps',
+      generateJava: false,
+      documentation: 'The tick spacings this unit offers, in units, smallest first: MINUTE offers a tick every 1, 2, 5, 10, 15 or 30 minutes.',
+      factory: function() { return [ 1 ]; }
+    },
+    {
+      class: 'Function',
+      name: 'index',
+      generateJava: false,
+      documentation: 'index(scale, parts, time): the number a step divides to keep a tick. MINUTE gives the minute of the hour, so every 15 keeps :00, :15, :30, :45.',
+      value: function(scale, p, t) { return Math.floor(t / this.ms); }
+    },
+    {
       class: 'Function',
       name: 'format',
       generateJava: false,
@@ -49,21 +63,25 @@ foam.ENUM({
 
   values: [
     {
-      name: 'MILLISECOND', label: 'Millisecond', ms: 1,
+      name: 'MILLISECOND', label: 'Millisecond', ms: 1, steps: [ 1, 2, 5, 10, 20, 50, 100, 200, 500 ],
       format: function(scale, p, f) {
         return f({ hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', fractionalSecondDigits: 3 });
       }
     },
-    { name: 'SECOND', label: 'Second', ms: 1000 },
+    { name: 'SECOND', label: 'Second', ms: 1000, steps: [ 1, 2, 5, 10, 15, 30 ] },
     {
-      name: 'MINUTE', label: 'Minute', ms: 60000,
+      name: 'MINUTE', label: 'Minute', ms: 60000, steps: [ 1, 2, 5, 10, 15, 30 ],
+      // The minute on the clock, not since 1970: a zone 45 minutes off UTC
+      // still gets its ticks at :00 and :15.
+      index: function(scale, p) { return p.mi; },
       format: function(scale, p, f, long) {
         return f(long ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } :
                         { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
       }
     },
     {
-      name: 'HOUR', label: 'Hour', ms: 3600000,
+      name: 'HOUR', label: 'Hour', ms: 3600000, steps: [ 1, 2, 3, 6, 12 ],
+      index: function(scale, p) { return p.h; },
       // From the fields, not by rounding: in a zone half an hour off UTC an
       // hour starts at :30 UTC.
       startOf: function(scale, p) { return scale.date_(p.y, p.m, p.d, p.h); },
@@ -89,19 +107,22 @@ foam.ENUM({
       }
     },
     {
-      name: 'MONTH', label: 'Month', ms: 2630016000,
+      name: 'MONTH', label: 'Month', ms: 2630016000, steps: [ 1, 2 ],
+      index: function(scale, p) { return p.m; },
       startOf: function(scale, p) { return scale.date_(p.y, p.m, 1); },
       next:    function(scale, p) { return scale.date_(p.y, p.m + 1, 1); },
       format:  function(scale, p, f) { return f({ month: 'short', year: 'numeric' }); }
     },
     {
-      name: 'QUARTER', label: 'Quarter', ms: 7890048000,
+      name: 'QUARTER', label: 'Quarter', ms: 7890048000, steps: [ 1, 2 ],
+      index: function(scale, p) { return Math.floor(p.m / 3); },
       startOf: function(scale, p) { return scale.date_(p.y, Math.floor(p.m / 3) * 3, 1); },
       next:    function(scale, p) { return scale.date_(p.y, Math.floor(p.m / 3) * 3 + 3, 1); },
       format:  function(scale, p) { return 'Q' + ( Math.floor(p.m / 3) + 1 ) + ' ' + p.y; }
     },
     {
-      name: 'YEAR', label: 'Year', ms: 31556952000,
+      name: 'YEAR', label: 'Year', ms: 31556952000, steps: [ 1, 2, 5, 10, 25, 50, 100 ],
+      index: function(scale, p) { return p.y; },
       startOf: function(scale, p) { return scale.date_(p.y, 0, 1); },
       next:    function(scale, p) { return scale.date_(p.y + 1, 0, 1); },
       format:  function(scale, p) { return String(p.y); }

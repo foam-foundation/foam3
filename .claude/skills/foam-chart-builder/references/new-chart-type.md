@@ -69,6 +69,10 @@ foam.CLASS({
 
 Value ticks come from `LinearScale.nice()`, which rounds the step up to 1, 2 or 5 times a power of ten (`LinearScale.js:75`). So 0 to 100 asked for 4 steps gets a step of 50 (0, 50, 100), not 25. In a test, read the ticks the scale returns; do not work them out by hand.
 
+- **A count axis with small counts** gets a step under 1: 0 to 2 asked for 5 steps gets a step of 0.5, and the axis reads 0.5 and 1.5. Ask for at most `max` steps, so the step stays a whole number.
+- **A flat range** (every value 5) is widened by `FLAT_SPREAD` on both sides (`LinearScale.js:65-71`), so the axis does not start at 0.
+- **A scale with its own step** needs no `nice()`: set `min`, `max` and `step`, and `ticks()` uses that step as given (`LinearScale.js:89-99`).
+
 ## 4. Legend
 
 - **Default:** one entry per dataset, and a click hides that dataset.

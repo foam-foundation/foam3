@@ -7,6 +7,8 @@ The chart tests are client tests (`JSTest`). They draw the chart into the page a
 ./build.sh -W9090 client-tests:DashboardChartRenderTest,DashboardAgentShimTest   # after a dashboard change
 ```
 
+Before a build, check each test file you changed parses: `node --check src/foam/u2/chart/test/ChartViewTest.js`. A test file that does not parse stops the test pom from loading; `build.sh` then runs no tests and still exits 0. A log with no `PASSED:` line is a failed run.
+
 `CSSAuditTest` is a server test: `./build.sh -W9090 server-tests:CSSAuditTest`. Listed under `client-tests` it is skipped with "Test not run", and the run exits 1 although nothing failed.
 
 The `foam-test-builder` skill covers registering a test and reading results.

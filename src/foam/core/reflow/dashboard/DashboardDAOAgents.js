@@ -248,7 +248,19 @@ foam.CLASS({
     // toString(). Without this a chart sink keeps its parent's, so a Stacked
     // Bar on the same two fields as a plain GridBy view got the GridBy's
     // cached result back and drew a table. Naming the class keeps them apart.
-    function toString() { return this.cls_.id + ':' + this.SUPER(); },
+    // The display settings the form changed go in too: a pie with the legend
+    // on top and one with it on the left, on the same DAO and field, were
+    // one cache entry, so the second drew with the first's settings.
+    function toString() {
+      var self = this;
+      var set = this.cls_.getAxiomsByClass(foam.lang.Property).filter(function(p) {
+        return ! p.transient && self.hasOwnProperty(p.name);
+      }).map(function(p) {
+        var v = self[p.name];
+        return p.name + '=' + ( foam.lang.FObject.isInstance(v) || Array.isArray(v) ? foam.json.Compact.stringify(v) : String(v) );
+      });
+      return this.cls_.id + ':' + this.SUPER() + ( set.length ? ':' + set.join(',') : '' );
+    },
 
     // Builds this run's total from the form's Sum or Count into the field the
     // sink totals with (TOTAL_SLOT: arg2 by default, acc or valueSink). It is

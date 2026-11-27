@@ -261,7 +261,13 @@ foam.CLASS({
       }
       var cs = this.computedStyle_();
       this.measureCtx_.font = cs ? cs.fontSize + ' ' + cs.fontFamily : this.DEFAULT_FONT_PX + 'px sans-serif';
-      return this.measureCtx_.measureText(String(s)).width;
+      // A canvas measure leaves out the page's letter-spacing, which a theme
+      // can set (0.196px a character in one): a 17-character label then
+      // measured 102px but drew 106px wide and ran past the chart's edge.
+      // getComputedStyle gives letter-spacing in px, or "normal" for none.
+      s = String(s);
+      var spacing = cs ? parseFloat(cs.letterSpacing) || 0 : 0;
+      return this.measureCtx_.measureText(s).width + spacing * s.length;
     },
 
     function fontPx() {

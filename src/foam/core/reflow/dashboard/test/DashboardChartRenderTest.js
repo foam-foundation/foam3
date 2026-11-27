@@ -149,6 +149,7 @@ foam.CLASS({
       await this.testSankey(x);
       await this.testSankeyEdges(x);
       this.testServerFields(x);
+      this.testCacheKey(x);
     },
 
     function testServerFields(x) {
@@ -321,6 +322,20 @@ foam.CLASS({
         R.create({ id: 3, year: 2026, month: 1, amount: 30 }),
         R.create({ id: 4, year: 2026, month: 2, amount: 40 })
       ] }, x);
+    },
+
+    function testCacheKey(x) {
+      // A DAO that caches selects keys them by the sink's toString(), so two
+      // charts on one query with different display settings need two keys.
+      var R   = this.DashboardTestRow;
+      var top = this.DashboardPieChartDAOAgent.create({}, x).displaySink;
+      var lft = this.DashboardPieChartDAOAgent.create({}, x).displaySink;
+      top.arg1 = R.YEAR; lft.arg1 = R.YEAR;
+      top.legendPosition = this.LegendPosition.TOP;
+      lft.legendPosition = this.LegendPosition.LEFT;
+      x.test(top.toString() !== lft.toString(), 'Cache key: a pie with the legend on top and one with it on the left differ. Got ' + top.toString());
+      lft.legendPosition = this.LegendPosition.TOP;
+      x.test(top.toString() === lft.toString(), 'Cache key: the same settings give the same key, so the cache still hits');
     },
 
     async function testBar(x) {

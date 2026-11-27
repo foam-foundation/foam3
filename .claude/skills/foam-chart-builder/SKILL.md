@@ -32,7 +32,7 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 | What the legend lists | the chart class | override `legendItems()` (`ChartView.js:230-236`); `PieChart.js:112-123` lists one entry per slice |
 | A legend that explains colours, not series (rise and fall on a waterfall) | the chart class | set `legendClickable: false`, so a click hides nothing (`ChartView.js:141`, `PieChart.js:79`) |
 | Legend size on the side | the chart class | override `styleLegend(legend, vertical)` (`PieChart.js:125-131`) |
-| Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:298-331`) |
+| Tooltip content | the chart class | build `rows` of `{ color, label, value }` and call `showTooltip(evt, title, rows, footer)` (`ChartView.js:304-345`) |
 | A click on a mark | a `Function` property on the chart | `BarChart.onBarClick(datasetIndex, index, event)` (`BarChart.js:64-72`, `value: null`, called at `:172-177`) |
 | A per-series drawing option | `Dataset`, or a subclass such as `LineDataset` | a property with its default in `value:` (`LineDataset.js:30-47`) |
 | A chart-wide option | a property on the chart class | read it in `drawChart` |
@@ -44,10 +44,10 @@ Invoke `foam-design-patterns` and `foam-view-builder` first. This skill adds wha
 ## Rules
 
 - **No magic numbers.** A number with a reason is a `constants:` entry. Its `documentation` gives the reason and one value (`PieChart.js:27-43`, `ChartView.js:31-57`). Plain math such as halving stays inline.
-- **No hand-written path strings.** Build every `d` with `SVGPath` (`PieChart.js:158`).
+- **No hand-written path strings.** Build every `d` with `SVGPath` (`PieChart.js:154`).
 - **Options are model properties.** A default goes in `value:`, never in `ds.x === undefined ? 3 : ds.x`. `datasets` is an `FObjectArray`, so a caller's plain `{ label, data }` becomes a `Dataset` (`ChartView.js:126-131`).
 - **Kinds are enum values with Function properties,** not string compares. `XAxisType` has `toX`, `range`, `scale` and `tickLabel`; `LineChart` only calls them (`LineChart.js:118-123`).
-- **Mark colours go in SVG attributes, resolved.** Use `seriesColor(i, j)` or `defaultColor(i)`, which turns a token like `$primary400` into its value (`ChartView.js:240-253`). An attribute keeps the colour in a PDF or image export.
+- **Mark colours go in SVG attributes, resolved.** Use `seriesColor(i, j)` or `defaultColor(i)`, which turns a token like `$primary400` into its value (`ChartView.js:240-262`). An attribute keeps the colour in a PDF or image export.
 - **Text, grid and axis colours come from CSS tokens** in the class's `css:` (`ChartView.js:86-90`), so they follow a light or dark theme. `CSSAuditTest` fails a hard-coded colour or font value in `css:` (`core/theme/test/CSSAuditTest.js:432-440`). Use tokens such as `$textSecondary` and `$font-medium`.
 - **Dates on a time axis go through `TimeScale` and `TimeUnit`,** which can read dates in UTC (`LineChart.js:85-89`). Never group by `getMonth()`.
 - **Animate in CSS only.** Use the `<<animated` class, inside `@media (prefers-reduced-motion: no-preference)` (`BarChart.js:40-53`). `ChartView` drops the class after the first draw, so a resize or a legend click does not replay it (`ChartView.js:184-188`).

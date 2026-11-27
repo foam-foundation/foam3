@@ -155,8 +155,30 @@
 
 This tutorial will guide you through creating of a new project using FOAM. FOAM stands for "Feature-Oriented Active Modeller", and it is a framework converting high-level software specifications, called "models", into useful executable software components, called "features". FOAM is cross-language and cross-platform, meaning that it can be used as JS, Java and Swift, and for both client and server software.
 
-The tutorial will cover the initial setup and an application creation by creating a cooking recipe database. The tutorial assumes that you 
-already have <code>Java</code>, <code>Node.js</code> and <code>Maven</code> installed in your environment. If you need to install these, helpful tips can be found in the [FOAM installation instructions][foam-install]. This tutorial also assumes that if you are using a Windows device, you are using WSL.
+🎬 **New to FOAM?** [Watch this video](https://www.youtube.com/watch?v=-XnI5lV3JUY) for an explanation of what FOAM is and how it works:
+
+[![Watch the video that explains FOAM](https://img.youtube.com/vi/-XnI5lV3JUY/hqdefault.jpg)](https://www.youtube.com/watch?v=-XnI5lV3JUY)
+
+🍳 **What you'll build:** a cooking recipe database, from the initial setup to a working application.
+
+> [!WARNING]
+> **On Windows, use WSL for everything.** FOAM's build tools are bash scripts and
+> don't run in PowerShell or the Command Prompt. Install
+> [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (`wsl --install`),
+> open its terminal, and run every command in this tutorial there, including
+> `git clone`. Cloning from Windows can give the scripts Windows line endings,
+> which bash can't run. FOAM itself isn't tied to Unix; only its build tools are,
+> for now.
+
+> 🧰 **Before you start**, make sure these are installed:
+>
+> | Tool | What FOAM uses it for |
+> |---|---|
+> | <code>Java</code> | Compiles the Java code generated from your models, and runs the application server |
+> | <code>Node.js</code> | Runs FOAM's build tools (<code>build.sh</code>) |
+> | <code>Maven</code> | Downloads the Java libraries the build needs |
+>
+> On Windows, install them inside WSL. Need to install something? See the [FOAM installation instructions][foam-install].
 
 > 💡 **Important:** Note that you do not need to build FOAM in isolation for the tutorial. We will do this step when we add FOAM as a git sub-module to our project.
 
@@ -698,6 +720,7 @@ sorts of destinations. A few you'll commonly encounter:
 | <code>foam.core.menu.SubMenu</code> | A group of child menu items, i.e. an expandable parent entry |
 | <code>foam.core.menu.LinkMenu</code> | An external URL in a new tab |
 | <code>foam.core.menu.DocumentMenu</code> | An embedded document (e.g. help or terms content) |
+| <code>foam.core.menu.FlowMenu</code> | A flow, such as a Markdown page, shown as a page without REFLOW's editing tools |
 | <code>foam.core.menu.ScriptMenu</code> | Runs a script when selected |
 | <code>foam.core.menu.PredicatedMenu</code> | *Another* handler, chosen at runtime — see below |
 

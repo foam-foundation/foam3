@@ -3534,3 +3534,150 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardSankeySink',
+  extends: 'foam.core.reflow.GridBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    One band per pair of values: Source gives the left column (the entry page
+    of a visit, say) and Target the right column (the next page), and each
+    band is as thick as the Aggregation of the rows that fall in the pair: a
+    Count, or a Sum or Average of a numeric field. A pair with no rows has no
+    band, and neither has one whose value is zero or negative. Each band
+    takes its source's colour from Colors, in order; a click on a band calls
+    the On Click Script.
+  `,
+
+  requires: [
+    'foam.u2.chart.SankeyChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['yFunc', 'xFunc', 'aggregation'] },
+    { name: 'chartSettings', title: 'Sankey Settings', order: 1, collapsable: true,
+      properties: ['onClickScript'] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 3, collapsable: true,
+      properties: ['colors'] },
+    // The sankey has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  constants: [
+    { name: 'TOTAL_SLOT', value: 'acc' }
+  ],
+
+  properties: [
+    // GridBy keys its columns by xFunc and its rows by yFunc: the targets are
+    // the columns and the sources are the rows.
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'yFunc', label: 'Source', required: true },
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'xFunc', label: 'Target', required: true },
+    {
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a band is clicked. Signature: (value, sourceLabel, targetLabel, x, y, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GridBy internals wired programmatically by createSink()
+    { name: 'acc', hidden: true },
+    { name: 'rows', hidden: true },
+    { name: 'cols', hidden: true },
+    { name: 'x', hidden: true },
+    { name: 'y', hidden: true },
+    { name: 'query', hidden: true },
+    { name: 'selection', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(cols, rows, colors, showLegend, legendPosition, showTooltips, animate, animationDuration, onClickScript) {
+        var rowGroups = rows && rows.groups ? rows.groups : {};
+        var self      = this;
+        var colKeys   = this.groupKeys_(cols);
+        var rowKeys   = this.groupKeys_(rows);
+
+        // A date field labels its nodes as the bar charts do ("2024-03-01");
+        // anything else is labelled by its own key.
+        var text = function(f, key) { return f && f.chartFormatter ? f.chartFormatter(key) : key; };
+        var labels = colKeys.map(function(k) { return String(text(self.xFunc, k)); });
+
+        // One dataset per source. A pair with no rows has no group, and its
+        // value stays null: no band, not a band of zero.
+        var datasets = rowKeys.map(function(rk, i) {
+          var sub = rowGroups[rk] && rowGroups[rk].groups || {};
+          var ds  = {
+            label: String(text(self.yFunc, rk)),
+            data:  colKeys.map(function(ck) { return sub[ck] ? sub[ck].value : null; })
+          };
+          if ( colors && colors.length ) ds.backgroundColor = foam.CSS.returnTokenValue(colors[i % colors.length], self.cls_, self.__context__);
+          return ds;
+        });
+
+        // The form's On Click Script is a function expression, called with
+        // (value, sourceLabel, targetLabel, x, y, pageX, pageY) for the
+        // clicked band: its value, its source and target names, the point
+        // inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardSankeySink:', e);
+          }
+        }
+
+        return this.SankeyChart.create({
+          labels:            labels,
+          datasets:          datasets,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onFlowClick: typeof click !== 'function' ? null : function(si, ti, evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(datasets[si].data[ti], datasets[si].label, labels[ti],
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      this.addChartOrEmpty_(e, this.chart_.labels.length, this.emptyValueMessage);
+    }
+  ]
+});

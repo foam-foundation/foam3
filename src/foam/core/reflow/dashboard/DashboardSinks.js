@@ -2520,3 +2520,195 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardWaterfallSink',
+  extends: 'foam.mlang.sink.GroupBy',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin',
+    'foam.core.reflow.dashboard.ColorMappingMixin'
+  ],
+
+  documentation: `
+    Groups the rows by one field, in the field's order, and aggregates one
+    value per group (a Count, or a Sum or Average of a numeric field). Each
+    group is one step of a waterfall. By default a step is the group's value
+    itself: sales per month of 40, -15 and 25 give a rise, a fall and a rise.
+    With Change From Previous on, a step is the group's value minus the one
+    before it, so a value that is never negative, such as requests per hour,
+    still shows rises and falls: 40, 25 and 50 give +40, -15 and +25. The
+    first group has nothing before it, so it counts as a step up from zero.
+    The first three colours in Colors are the rise, fall and total bars.
+  `,
+
+  css: `
+    <<empty {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 14px;
+      color: $textTertiary;
+      background-color: $grey200;
+    }
+  `,
+
+  requires: [
+    'foam.u2.chart.WaterfallChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: ['arg1', 'aggregation', 'changeFromPrevious'] },
+    { name: 'chartSettings', title: 'Waterfall Settings', order: 1, collapsable: true,
+      properties: ['showTotal', 'showGridLines', 'onClickScript'] },
+    { name: 'axisLabels', title: 'Axis Labels', order: 2, collapsable: true,
+      properties: ['xAxisLabel', 'yAxisLabel'] },
+    { name: 'displayOptions', title: 'Display', order: 3, collapsable: true,
+      properties: ['height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage'] },
+    { name: 'colorConfig', title: 'Colors', order: 4, collapsable: true,
+      properties: ['colors'] },
+    // The waterfall has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
+  ],
+
+  messages: [
+    { name: 'NO_DATA', message: 'No data available' }
+  ],
+
+  properties: [
+    { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
+      help: 'One step for each value of this property, in its order: the hour of a date, say' },
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Boolean',
+      name: 'changeFromPrevious',
+      label: 'Change From Previous',
+      help: 'Plot how each group differs from the one before it, not the group\'s own value'
+    },
+    { class: 'Boolean', name: 'showTotal', label: 'Show Total', value: true, help: 'Add a last bar with the end total' },
+    { class: 'Boolean', name: 'showGridLines', label: 'Show Grid Lines', value: true },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when a step is clicked. Signature: (change, label, total, x, y, pageX, pageY) => void, where total is the running total after the step'
+    },
+    { class: 'String', name: 'xAxisLabel', label: 'X-Axis Label' },
+    { class: 'String', name: 'yAxisLabel', label: 'Y-Axis Label' },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the chart when the query finds no rows. Left empty, it says "No data available".'
+    },
+    // GroupBy internals wired programmatically by createSink()
+    { name: 'arg2', hidden: true },
+    { name: 'groupLimit', hidden: true },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(groups, colors, changeFromPrevious, showTotal, xAxisLabel, yAxisLabel,
+                          showGridLines, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self = this;
+        // A row with no value in the grouping field is grouped under "null",
+        // "undefined" or "": it has no step to be drawn in.
+        var keys = ( this.sortedKeys ? this.sortedKeys() : Object.keys(groups) )
+          .filter(function(k) { return ! self.isEmptyKey_(k); });
+
+        var labels = keys.map(function(k) {
+          return String(self.arg1 && self.arg1.chartFormatter ? self.arg1.chartFormatter(k) : k);
+        });
+        var values = keys.map(function(k) { return Number(groups[k] && groups[k].value) || 0; });
+        // Each step is the group's value less the one before it; the first
+        // group counts from zero.
+        var steps  = changeFromPrevious ?
+          values.map(function(v, i) { return v - ( i ? values[i - 1] : 0 ); }) : values;
+
+        // The form's On Click Script is called with (change, label, total, x,
+        // y, pageX, pageY): the clicked step's change and name, the running
+        // total after it, the point inside the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardWaterfallSink:', e);
+          }
+        }
+
+        var chart = this.WaterfallChart.create({
+          labels:            labels,
+          datasets:          [ {
+            data:            steps,
+            backgroundColor: colors && colors.length ?
+              colors.slice(0, 3).map(function(c) { return foam.CSS.returnTokenValue(c, self.cls_, self.__context__); }) : undefined
+          } ],
+          showTotal:         showTotal,
+          // With no title typed in, the x axis is titled with its field's label.
+          xAxisLabel:        xAxisLabel || this.labelOf_(this.arg1),
+          yAxisLabel:        yAxisLabel,
+          showGridLines:     showGridLines,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onStepClick: typeof click !== 'function' ? null : function(i, evt) {
+            try {
+              var box   = evt.target.ownerSVGElement.getBoundingClientRect();
+              var total = steps.slice(0, i + 1).reduce(function(a, v) { return a + v; }, 0);
+              // The total bar, one past the last step, has no step of its own.
+              var step  = i < steps.length ? steps[i] : total;
+              click(step, i < labels.length ? labels[i] : chart.TOTAL, total,
+                evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+        return chart;
+      }
+    }
+  ],
+
+  methods: [
+    function labelOf_(p) {
+      // A chart field holds a property, or an expression over one such as
+      // "hour of created"; either way the axis takes the property's label.
+      return p ? ( p.label || ( p.delegate && p.delegate.label ) || '' ) : '';
+    },
+
+    function addToE(e) {
+      var self = this;
+      e.style({ width: '100%' })
+        .start().style({ width: '100%', 'min-height': this.height$, height: this.height$ })
+          .callIfElse(this.chart_.labels.length,
+            function() { this.add(self.chart_); },
+            function() {
+              this.start().addClass(self.cls_.id.replace(/\./g, '-') + '-empty')
+                .add(self.emptyValueMessage || self.NO_DATA)
+              .end();
+            })
+        .end();
+    }
+  ]
+});

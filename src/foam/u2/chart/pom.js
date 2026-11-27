@@ -33,6 +33,8 @@ foam.POM({
     { name: 'ScatterChart',                     flags: 'web' },
     { name: 'BubbleChart',                      flags: 'web' },
     { name: 'RadarChart',                       flags: 'web' },
-    { name: 'HeatmapChart',                     flags: 'web' }
+    { name: 'HeatmapChart',                     flags: 'web' },
+    { name: 'WaterfallStepKind',                flags: 'web' },
+    { name: 'WaterfallChart',                   flags: 'web' }
   ]
 });

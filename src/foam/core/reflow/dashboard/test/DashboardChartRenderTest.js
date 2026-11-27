@@ -51,6 +51,7 @@ foam.CLASS({
     'foam.core.reflow.dashboard.DashboardRadarChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardScatterChartDAOAgent',
     'foam.core.reflow.dashboard.DashboardStackedBarChartDAOAgent',
+    'foam.core.reflow.dashboard.DashboardWaterfallChartDAOAgent',
     'foam.u2.chart.LegendPosition',
     'foam.core.reflow.dashboard.test.DashboardTestRow',
     'foam.core.reflow.dashboard.test.RadarTestRow',
@@ -64,7 +65,8 @@ foam.CLASS({
     'foam.u2.chart.LineChart',
     'foam.u2.chart.PieChart',
     'foam.u2.chart.RadarChart',
-    'foam.u2.chart.ScatterChart'
+    'foam.u2.chart.ScatterChart',
+    'foam.u2.chart.WaterfallChart'
   ],
 
   methods: [
@@ -82,6 +84,8 @@ foam.CLASS({
       await this.testRadarEdges(x);
       await this.testHeatmap(x);
       await this.testHeatmapEdges(x);
+      await this.testWaterfall(x);
+      await this.testWaterfallEdges(x);
       this.testServerFields(x);
     },
 
@@ -95,7 +99,7 @@ foam.CLASS({
       var ids  = Object.keys(foam.USED).filter(function(id) {
         return /^foam\.core\.reflow\.dashboard\.Dashboard\w+Sink$/.test(id);
       });
-      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink' ].forEach(function(n) {
+      [ 'DashboardRadarSink', 'DashboardHeatmapSink', 'DashboardStackedBarSink', 'DashboardWaterfallSink' ].forEach(function(n) {
         x.test(ids.indexOf('foam.core.reflow.dashboard.' + n) !== -1, 'Server fields: ' + n + ' is checked');
       });
       ids.forEach(function(id) {
@@ -601,6 +605,109 @@ foam.CLASS({
       var text = el.element_.innerText || el.element_.textContent;
       x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
         'Heatmap: with no rows the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
+      el.remove();
+    },
+
+    async function testWaterfall(x) {
+      var R     = this.DashboardTestRow;
+      var agent = this.DashboardWaterfallChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.arg1        = R.YEAR;
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.colors      = [ '#00aa00', '#aa0000', '#0000aa' ];
+      s.xAxisLabel  = 'Year';
+      s.legendPosition = this.LegendPosition.RIGHT;
+      // The script reports its first four arguments: the step's change, its
+      // label, the running total after it and the x of the click.
+      s.onClickScript = '(function(v, label, total, cx, cy, px, py) { globalThis.waterfallClick_ = [ v, label, total, cx, cy, px, py ].join(); })';
+
+      var chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(this.WaterfallChart.isInstance(chart), 'Waterfall: draws a foam.u2.chart.WaterfallChart. Got ' + ( chart && chart.cls_.id ));
+      x.test(chart.labels.join() === '2025,2026' && chart.datasets[0].data.join() === '30,70',
+        'Waterfall: sums the amounts per year as the steps, in year order. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      x.test(foam.util.equals(chart.datasets[0].backgroundColor, [ '#00aa00', '#aa0000', '#0000aa' ]),
+        'Waterfall: the first three colours are the rise, fall and total colours. Got ' + JSON.stringify(chart.datasets[0].backgroundColor));
+      x.test(chart.xAxisLabel === 'Year' && chart.showTotal && chart.legendPosition === this.LegendPosition.RIGHT,
+        'Waterfall: X-Axis Label, Show Total and Legend Position reach the chart');
+
+      var box = { getBoundingClientRect: function() { return { left: 100, top: 50 }; } };
+      var evt = { target: { ownerSVGElement: box }, clientX: 130, clientY: 80, pageX: 130, pageY: 280 };
+      chart.onStepClick(1, evt);
+      x.test(globalThis.waterfallClick_ === '70,2026,100,30,30,130,280',
+        'Waterfall: On Click Script gets the change, label, running total, and the point in the chart and on the page. Got ' + globalThis.waterfallClick_);
+      chart.onStepClick(2, evt);
+      x.test(globalThis.waterfallClick_ === '100,' + chart.TOTAL + ',100,30,30,130,280',
+        'Waterfall: a click on the total bar gets the end total. Got ' + globalThis.waterfallClick_);
+      delete globalThis.waterfallClick_;
+
+      // Change From Previous: the first group counts from zero, then each group less the one before.
+      s.changeFromPrevious = true;
+      s.showTotal          = false;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '30,40' && ! chart.showTotal,
+        'Waterfall: Change From Previous plots 30 then 70 - 30 = 40, and Show Total reaches the chart. Got ' + chart.datasets[0].data.join());
+
+      // With no aggregation picked the form shows Count, so each step counts rows.
+      s.clearProperty('aggregation');
+      s.changeFromPrevious = false;
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '2,2', 'Waterfall: with no Aggregation each step counts its rows. Got ' + chart.datasets[0].data.join());
+
+      s.onClickScript = '';
+      chart = ( await this.rowsDAO(x).select(agent.createSink()) ).chart_;
+      x.test(! chart.onStepClick, 'Waterfall: with no On Click Script the bars are not clickable');
+
+      // A select can send the sink to the server as JSON and back; the copy must still group.
+      s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
+      s.changeFromPrevious = true;
+      var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      var err  = '';
+      try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
+      x.test(! err && copy.changeFromPrevious && copy.chart_.datasets[0].data.join() === '30,40',
+        'Waterfall: a sink sent as JSON and back still groups and keeps its mode. Got ' + ( err || copy.chart_.datasets[0].data.join() ));
+    },
+
+    async function testWaterfallEdges(x) {
+      var T  = this.ScatterTestRow;
+      var at = function(hour) { return new Date(2026, 0, 1, hour, 30); };
+      var rows = this.ArrayDAO.create({ of: T, array: [
+        T.create({ id: 1, kind: 'GET',  size: 10, at: at(16) }),
+        T.create({ id: 2, kind: 'POST', size: 10, at: at(9) }),
+        T.create({ id: 3, kind: 'GET',  size: 5,  at: at(14) }),
+        T.create({ id: 4, kind: '',     size: 30, at: at(9) }),
+        T.create({ id: 5, kind: 'GET',  size: 15, at: at(16) })
+      ] }, x);
+      var agent = this.DashboardWaterfallChartDAOAgent.create({}, x);
+      var s     = agent.displaySink;
+      s.aggregation = this.SumDAOAgent.create({ prop: T.SIZE }, x);
+
+      // Hour of a date: requests that never go negative still show rises and falls.
+      s.arg1 = foam.mlang.expr.DateToHHExpr.create({ delegate: T.AT });
+      var chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === '09,14,16' && chart.datasets[0].data.join() === '40,5,25',
+        'Waterfall: the hours come in order, each summing its sizes. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+      s.changeFromPrevious = true;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.datasets[0].data.join() === '40,-35,20',
+        'Waterfall: Change From Previous turns 40, 5, 25 into +40, a fall of 35 and a rise of 20. Got ' + chart.datasets[0].data.join());
+      x.test(chart.xAxisLabel === T.AT.label, 'Waterfall: with no X-Axis Label the axis takes the field\'s label. Got ' + chart.xAxisLabel);
+
+      // A row with no kind is left out, not drawn as a step called "".
+      s.arg1 = T.KIND;
+      s.changeFromPrevious = false;
+      chart = ( await rows.select(agent.createSink()) ).chart_;
+      x.test(chart.labels.join() === 'GET,POST' && chart.datasets[0].data.join() === '30,10',
+        'Waterfall: a row with no value in Group By adds no step. Got ' + chart.labels.join() + ' / ' + chart.datasets[0].data.join());
+
+      // No rows: a message in place of empty axes.
+      var none = this.ArrayDAO.create({ of: T, array: [] }, x);
+      var sink = await none.select(agent.createSink());
+      var el   = foam.u2.Element.create({}, x);
+      el.add(sink);
+      el.write();
+      var text = el.element_.innerText || el.element_.textContent;
+      x.test(text.indexOf(sink.NO_DATA) !== -1 && ! el.element_.querySelector('svg'),
+        'Waterfall: with no rows the chart says "' + sink.NO_DATA + '" and draws no axes. Got ' + JSON.stringify(text));
       el.remove();
     }
   ]

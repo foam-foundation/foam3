@@ -63,11 +63,6 @@ foam.POM({
 
     { name: 'cartesian/Cartesian',                   flags: 'js' },
 
-    { name: 'chartjs/Benchmark',                     flags: 'js' },
-    { name: 'chartjs/ConfigurableChartView',         flags: 'js' },
-    { name: 'chartjs/Pie',                           flags: 'js' },
-    { name: 'chartjs/Stock',                         flags: 'js' },
-
     { name: 'clock/Clock',                           flags: 'js' },
 
     { name: 'counter/Counter',                       flags: 'js' },

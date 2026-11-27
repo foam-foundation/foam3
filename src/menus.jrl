@@ -193,8 +193,6 @@ p({
   "parent":"settings"
 })
 
-// hidden
-p({"class":"foam.core.menu.Menu","id":"dashboard-demo","handler":{"class":"foam.core.menu.ViewMenu","view":{"class":"foam.core.dashboard.Demo"}},"parent":"hidden"})
 p({
   "class":"foam.core.menu.Menu",
   "id":"notifications",

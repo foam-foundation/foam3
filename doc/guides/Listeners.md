@@ -332,30 +332,23 @@ obj.detach();
 
 ## Full Example
 
-A chart component that redraws when its data changes, throttled to one repaint per animation frame:
+A bar graph that redraws when its values change, throttled to one repaint per animation frame:
 
 ```javascript
 foam.CLASS({
-  name: 'PieChart',
+  name: 'BarGraph',
   extends: 'foam.graphics.CView',
 
   properties: [
-    'chart',
-    {
-      name: 'data',
-      factory: function() {
-        return { labels: [], datasets: [] };
-      }
-    }
+    { class: 'Array', name: 'values' }
   ],
 
   methods: [
     function paintSelf(x) {
-      if ( ! this.chart ) {
-        this.chart = new Chart(x, { type: 'pie', data: this.data });
-        this.update();
-      }
-      this.chart.render();
+      var w = this.width / Math.max(1, this.values.length);
+      this.values.forEach(function(v, i) {
+        x.fillRect(i * w, this.height - v, w - 2, v);
+      }, this);
     }
   ],
 
@@ -363,21 +356,17 @@ foam.CLASS({
     {
       name: 'update',
       isFramed: true,
-      on: [ 'this.propertyChange.data' ],
-      code: function() {
-        if ( ! this.chart ) return;
-        this.chart.data = this.data;
-        this.chart.update();
-      }
+      on: [ 'this.propertyChange.values' ],
+      code: function() { this.invalidate(); }
     }
   ]
 });
 ```
 
 What happens here:
-- `on: ['this.propertyChange.data']` — auto-subscribes `update` to data changes
-- `isFramed: true` — batches rapid data changes into one repaint per frame
-- Pre-bound `this` — `this.chart` always refers to the PieChart instance
+- `on: ['this.propertyChange.values']` — auto-subscribes `update` to value changes
+- `isFramed: true` — batches rapid value changes into one repaint per frame
+- Pre-bound `this` — `this.invalidate()` always refers to the BarGraph instance
 - Detach safety — if the chart is removed, pending frame callbacks do nothing
 
 ---

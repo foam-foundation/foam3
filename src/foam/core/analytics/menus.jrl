@@ -22,20 +22,6 @@ p({
   },
   parent:"analytics"
 })
-// p({
-//   class: "foam.core.menu.Menu",
-//   id: "demo.chart",
-//   label: "Demo Charting",
-//   keywords: ["analytics","candlestick","chart","performance"],
-//   "handler": {
-//     "class": "foam.core.menu.ViewMenu",
-//     "view": {
-//       "class": "foam.core.analytics.DemoChartView"
-//     }
-//   },
-//   "parent":"analytics"
-// })
-
 p({
   class:"foam.core.menu.Menu",
   id:"analyticEvents",

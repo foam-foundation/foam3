@@ -9,7 +9,7 @@ foam.CLASS({
   name: 'DatasetCM',
   extends: 'foam.core.cm.CM',
   documentation: `
-    Provide supports to adapt ChartJS data type.
+    Holds chart-shaped results: x-axis labels and one series of values per key.
   `,
 
   javaImports: [

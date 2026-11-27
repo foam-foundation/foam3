@@ -4219,10 +4219,6 @@ foam.CLASS({
       properties: ['alignment', 'maintainAspectRatio', 'showTooltipSum'] }
   ],
 
-  messages: [
-    { name: 'DEFAULT_SERIES', message: 'Count' }
-  ],
-
   properties: [
     { class: 'foam.core.reflow.dashboard.ChartFieldProperty', name: 'arg1', label: 'Group By', required: true,
       help: 'One bar and one point of the line for each value of this property, in its order: the hour of a date, say' },
@@ -4287,9 +4283,10 @@ foam.CLASS({
         };
         var bars = values(0), line = values(1);
 
-        // A series is named after its field; a Count has none.
+        // A series is named after its total: "Count" for a sum of count, and
+        // "Max of Count" for the busiest minute, so the two never read alike.
         var nameOf = function(i) {
-          return self.labelOf_(self.arg2 && self.arg2.args && self.arg2.args[i] && self.arg2.args[i].arg1) || self.DEFAULT_SERIES;
+          return self.totalName_(self.arg2 && self.arg2.args && self.arg2.args[i]);
         };
         var barName = nameOf(0), lineName = nameOf(1);
 

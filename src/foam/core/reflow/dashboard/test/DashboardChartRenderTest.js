@@ -788,8 +788,8 @@ foam.CLASS({
         'Combo: the bars sum the amounts per year and the line averages them. Got ' + chart.labels.join() + ' / ' + chart.datasets.map(function(d) { return d.data.join(); }).join(' / '));
       x.test(chart.datasets[0].backgroundColor === '#00aa00' && chart.datasets[1].borderColor === '#aa0000',
         'Combo: the first colour is the bars\' and the second the line\'s. Got ' + chart.datasets[0].backgroundColor + ', ' + chart.datasets[1].borderColor);
-      x.test(chart.datasets[0].label === R.AMOUNT.label && chart.datasets[1].label === R.AMOUNT.label,
-        'Combo: with no names typed the legend entries take the fields\' labels. Got ' + chart.datasets[0].label + ', ' + chart.datasets[1].label);
+      x.test(chart.datasets[0].label === R.AMOUNT.label && chart.datasets[1].label === 'Average of ' + R.AMOUNT.label,
+        'Combo: with no names typed the legend names each total, so a sum and an average of one field read apart. Got ' + chart.datasets[0].label + ', ' + chart.datasets[1].label);
       x.test(chart.xAxisLabel === 'Year' && chart.lineAxisLabel === 'Average amount' && chart.yAxisLabel === R.AMOUNT.label,
         'Combo: X-Axis Label and Line Axis Label reach the chart, and the left title falls back to the bar field\'s label. Got ' + chart.yAxisLabel);
       x.test(chart.datasets[1].tension === 0.4 && chart.barThickness === 20 && chart.legendPosition === this.LegendPosition.RIGHT,

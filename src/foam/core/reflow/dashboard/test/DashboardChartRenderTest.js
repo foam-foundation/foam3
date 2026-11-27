@@ -171,6 +171,12 @@ foam.CLASS({
       x.test(ds.fill && ds.stepped && ds.pointRadius === 0, 'Line: Fill Area, Stepped Line and Show Points off reach the line');
       x.test(chart.yMin === 0 && chart.yMax === 100, 'Line: a custom y scale sets the axis to 0..100. Got ' + chart.yMin + '..' + chart.yMax);
       x.test(chart.xAxisLabel === R.MONTH.label, 'Line: with no X-Axis Label the axis is titled with the field\'s label');
+      x.test(ds.label === R.AMOUNT.label, 'Line: the series is named after the summed field. Got ' + ds.label);
+
+      var counted = this.DashboardLineChartDAOAgent.create({}, x);
+      counted.displaySink.arg1 = R.MONTH;
+      var cds = ( await this.rowsDAO(x).select(counted.createSink()) ).chart_.datasets[0];
+      x.test(cds.label === 'Count', 'Line: a count with no field is named Count, not Values. Got ' + cds.label);
     }
   ]
 });

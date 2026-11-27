@@ -154,6 +154,29 @@ foam.CLASS({
       // The gauge's put adds each row to its total, so the total needs Java.
       var total = foam.core.reflow.dashboard.DashboardGaugeSink.getAxiomByName('total');
       x.test(total && total.generateJava !== false, 'Server fields: DashboardGaugeSink.total is in the Java class, which the server totals with');
+
+      // A select sends a Serializable sink to the server and the client draws
+      // the copy that comes back. A field the chart reads (a parameter of
+      // chart_) and that has no Java is gone from that copy: the gauge's bands
+      // once were, and the dial drew a grey track in a live flow while the
+      // tests here, which never leave the browser, passed.
+      var serializable = ids.filter(function(id) {
+        return !! foam.lookup(id).getAxiomByName('implements_foam.lang.Serializable');
+      });
+      x.test(serializable.indexOf('foam.core.reflow.dashboard.DashboardGaugeSink') !== -1 && serializable.indexOf('foam.core.reflow.dashboard.DashboardPieSink') !== -1,
+        'Server fields: the sinks a select sends to the server are found. Got ' + serializable.length);
+      serializable.forEach(function(id) {
+        var cls   = foam.lookup(id);
+        var chart = cls.getAxiomByName('chart_');
+        if ( ! chart || ! chart.expression ) return;
+        foam.Function.argNames(chart.expression).forEach(function(n) {
+          var p = cls.getAxiomByName(n);
+          x.test(p && p.generateJava !== false, 'Server fields: ' + id + '.' + n + ' is read by the chart, so it is in the Java class and comes back from the server');
+        });
+      });
+      var bands = foam.core.reflow.dashboard.DashboardGaugeSink.getAxiomByName('bands');
+      x.test(bands.generateJava !== false && foam.u2.chart.GaugeBand.getAxiomByName('upTo').generateJava !== false,
+        'Server fields: the gauge\'s bands and the GaugeBand they hold are in the Java class');
     },
 
     function rowsDAO(x) {
@@ -340,6 +363,8 @@ foam.CLASS({
       // A select can send the sink to the server as JSON and back. The copy
       // must still collect every row.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.radarRows(x).select(copy); } catch ( e ) { err = e.message; }
       var got = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.join() : '';
@@ -449,6 +474,8 @@ foam.CLASS({
       s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
       s.sortByValue = true;
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       x.test(! err && copy.sortByValue && copy.chart_.labels.join() === '2026,2025',
@@ -520,6 +547,8 @@ foam.CLASS({
       // A select can send the sink to the server as JSON and back. The copy
       // must keep every number of every box through the trip.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.boxRows(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.map(function(d) { return d.length; }).join() : '';
@@ -618,10 +647,15 @@ foam.CLASS({
 
       // A select can send the sink to the server as JSON and back; the total must survive the trip.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var got = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.join() : '';
       x.test(! err && got === '100', 'Gauge: a sink sent as JSON and back still totals the rows. Got ' + ( err || got ));
+      x.test(copy.bands.length === 2 && copy.bands[0].upTo === 50 && copy.bands[1].color === '#00ff00' && copy.chart_.bands.length === 2,
+        'Gauge: a sink sent as JSON and back still has its bands. Got ' + copy.bands.length);
+      x.test(copy.chart_.datasets[0].label === R.AMOUNT.label, 'Gauge: the value is still named after its field, which the total holds. Got ' + copy.chart_.datasets[0].label);
 
       // A saved flow holds the form as displaySink: { ... } and nothing else.
       var back = foam.json.parseString(foam.json.stringify(agent), x);
@@ -708,6 +742,8 @@ foam.CLASS({
       // must still collect points: it once kept them in a JS Map, which came
       // back as {} and failed on the first put.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
@@ -782,6 +818,8 @@ foam.CLASS({
       x.test(chart.datasets.length === 1 && chart.datasets[0].data.length === 4, 'Bubble: with no Series Property all four rows are one dataset');
 
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
@@ -867,6 +905,8 @@ foam.CLASS({
       // A select can send the sink to the server as JSON and back. The copy
       // must still collect values: a JS Map would come back as {}.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
@@ -951,6 +991,8 @@ foam.CLASS({
 
       // A select can send the sink to the server as JSON and back; the copy must still fill the grid.
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       var n = copy.chart_ && copy.chart_.datasets.length ? copy.chart_.datasets[0].data.length : 0;
@@ -1067,6 +1109,8 @@ foam.CLASS({
       s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
       s.topN = 1;
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       x.test(! err && copy.topN === 1 && copy.chart_.labels.join() === '2026,Others',
@@ -1156,6 +1200,8 @@ foam.CLASS({
       s.aggregation = this.SumDAOAgent.create({ prop: R.AMOUNT }, x);
       s.changeFromPrevious = true;
       var copy = foam.json.parseString(foam.json.stringify(agent.createSink()), x);
+      // The server's copy has no aggregation (its Java class lacks the field), so the value's name must come from the total.
+      copy.clearProperty('aggregation');
       var err  = '';
       try { await this.rowsDAO(x).select(copy); } catch ( e ) { err = e.message; }
       x.test(! err && copy.changeFromPrevious && copy.chart_.datasets[0].data.join() === '30,40',

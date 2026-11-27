@@ -3308,8 +3308,10 @@ foam.CLASS({
       help: 'The value at the right end of the dial: a target, say. A bigger result fills the whole dial.'
     },
     {
-      // JS only: the server's put reads total, never the bands.
-      class: 'FObjectArray', generateJava: false,
+      // Has Java: a select sends this sink to the server and the client
+      // draws the copy that comes back, so a field left out of the Java class
+      // is lost on the way and the dial shows no bands.
+      class: 'FObjectArray',
       of: 'foam.u2.chart.GaugeBand',
       name: 'bands',
       label: 'Bands',
@@ -3349,8 +3351,10 @@ foam.CLASS({
         }
 
         return this.GaugeChart.create({
+          // Named by the total's field, read from the total and not from
+          // aggregation: the server's copy of this sink has no aggregation.
           // With no field to name it (a Count), the value is just "Value".
-          datasets:          [ { label: this.labelOf_(this.aggregation && this.aggregation.prop) || this.DEFAULT_SERIES, data: [ value ] } ],
+          datasets:          [ { label: this.labelOf_(total && total.arg1) || this.DEFAULT_SERIES, data: [ value ] } ],
           max:               maxValue,
           bands:             bands,
           showLegend:        showLegend,

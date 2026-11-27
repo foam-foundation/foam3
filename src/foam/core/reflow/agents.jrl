@@ -38,3 +38,4 @@ p({"class":"foam.core.reflow.SinkAgent", "id": 44, "label":"Heatmap", "value":"f
 p({"class":"foam.core.reflow.SinkAgent", "id": 45, "label":"Histogram", "value":"foam.core.reflow.dashboard.DashboardHistogramChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 46, "label":"Waterfall Chart", "value":"foam.core.reflow.dashboard.DashboardWaterfallChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
 p({"class":"foam.core.reflow.SinkAgent", "id": 47, "label":"Box Plot", "value":"foam.core.reflow.dashboard.DashboardBoxPlotChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})
+p({"class":"foam.core.reflow.SinkAgent", "id": 50, "label":"Gauge", "value":"foam.core.reflow.dashboard.DashboardGaugeChartDAOAgent", "sink":true, "type":"chart", permissionRequired: true})

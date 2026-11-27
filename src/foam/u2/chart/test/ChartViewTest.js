@@ -15,6 +15,7 @@ foam.CLASS({
   requires: [
     'foam.u2.chart.BarChart',
     'foam.u2.chart.BoxPlotChart',
+    'foam.u2.chart.GaugeChart',
     'foam.u2.chart.HeatmapChart',
     'foam.u2.chart.HistogramChart',
     'foam.u2.chart.LineChart',
@@ -49,6 +50,9 @@ foam.CLASS({
       await this.testWaterfallEdges(x);
       await this.testBoxPlot(x);
       await this.testBoxPlotEdges(x);
+      await this.testGauge(x);
+      await this.testGaugeBands(x);
+      await this.testGaugeEdges(x);
     },
 
     async function mount(view) {
@@ -910,6 +914,131 @@ foam.CLASS({
       el    = await this.mount(chart);
       var grid = this.all(el, chart, 'grid').length;
       x.test(grid < 40, 'Time: a millisecond unit over three months moves up to a coarser one, about one tick per 60 px. Got ' + grid + ' grid lines');
+      this.unmount(chart);
+    },
+
+    function gaugeGeometry(el, chart) {
+      // The dial's centre and radius, read from its track: the track's outer
+      // arc runs from the left end of the dial to the right end.
+      var d = this.all(el, chart, 'track')[0].getAttribute('d');
+      var m = /^M([-\d.e]+),([-\d.e]+) A([-\d.e]+),/.exec(d);
+      var left = Number(m[1]), r = Number(m[3]);
+      return { cx: left + r, cy: Number(m[2]), r: r };
+    },
+
+    function gaugeFraction(el, chart, name, index) {
+      // How far round the dial (0 left, 1 right) the outer edge of the
+      // index-th mark called name ends, read from its path.
+      var geo = this.gaugeGeometry(el, chart);
+      var d   = this.all(el, chart, name)[index || 0].getAttribute('d');
+      var m   = /A[-\d.e]+,[-\d.e]+ 0 0 1 ([-\d.e]+),([-\d.e]+)/.exec(d);
+      var ang = Math.atan2(geo.cy - Number(m[2]), Number(m[1]) - geo.cx);
+      return 1 - ang / Math.PI;
+    },
+
+    function texts(el, chart, name) {
+      return this.all(el, chart, name).map(function(t) { return t.textContent; }).join();
+    },
+
+    async function testGauge(x) {
+      var clicks = [];
+      var chart = this.GaugeChart.create({
+        max: 200,
+        datasets: [ { label: 'Visits', data: [ 150 ], backgroundColor: '#ff0000' } ],
+        onValueClick: function(evt) { clicks.push(evt.type); }
+      }, x);
+      var el = await this.mount(chart);
+      x.test(this.all(el, chart, 'track').length === 1 && this.all(el, chart, 'band').length === 0, 'Gauge: one track and no bands without bands');
+      var geo = this.gaugeGeometry(el, chart);
+      x.test(geo.r > 100 && geo.r <= 296, 'Gauge: the dial fills the 600 by 300 box, a 300 pixel half circle at most. Got radius ' + geo.r);
+      x.test(Math.abs(geo.cx - 300) < 1, 'Gauge: the dial is centred. Got ' + geo.cx);
+      var f = this.gaugeFraction(el, chart, 'value-arc');
+      x.test(Math.abs(f - 0.75) < 0.001, 'Gauge: 150 on a 0 to 200 dial fills three quarters. Got ' + f);
+      x.test(this.all(el, chart, 'value-arc')[0].getAttribute('fill') === '#ff0000', 'Gauge: with no bands the arc takes the dataset colour');
+      x.test(this.texts(el, chart, 'min') === '0' && this.texts(el, chart, 'max') === '200' && this.texts(el, chart, 'value') === '150',
+        'Gauge: 0 and 200 label the ends and 150 sits under the dial. Got ' + this.texts(el, chart, 'min') + ' ' + this.texts(el, chart, 'max') + ' ' + this.texts(el, chart, 'value'));
+      x.test(! el.querySelector('.' + this.legendClass('item')) && chart.legendItems().length === 0, 'Gauge: no legend without bands');
+
+      var hit = this.all(el, chart, 'hit')[0];
+      var c   = this.centreOf(hit);
+      this.fire(hit, 'mousemove', c.x, c.y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Visits: 150') !== -1 && text.indexOf(chart.BAND) === -1, 'Gauge: the tooltip gives the value and, with no bands, no band. Got ' + text);
+      this.fire(hit, 'click', 0, 0);
+      x.test(JSON.stringify(clicks) === '["click"]', 'Gauge: a click calls onValueClick with the event. Got ' + JSON.stringify(clicks));
+      x.test(el.classList.contains(chart.myClass('clickable')), 'Gauge: a chart with onValueClick shows a pointer');
+      this.unmount(chart);
+
+      chart = this.GaugeChart.create({ datasets: [ { data: [ 1 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(! el.classList.contains(chart.myClass('clickable')), 'Gauge: a chart without onValueClick shows no pointer');
+      this.unmount(chart);
+    },
+
+    async function testGaugeBands(x) {
+      var chart = this.GaugeChart.create({
+        datasets: [ { label: 'Score', data: [ 60 ] } ],
+        // Out of order on purpose: the dial takes them in order of upTo.
+        bands: [ { upTo: 100, color: '#00ff00' }, { upTo: 50, color: '#ff0000' }, { upTo: 80, color: '#ffaa00' } ],
+        showLegend: true
+      }, x);
+      var el    = await this.mount(chart);
+      var bands = this.all(el, chart, 'band');
+      x.test(bands.length === 3, 'Gauge: one segment per band. Got ' + bands.length);
+      x.test(bands.map(function(b) { return b.getAttribute('fill'); }).join() === '#ff0000,#ffaa00,#00ff00',
+        'Gauge: segments run red, amber, green. Got ' + bands.map(function(b) { return b.getAttribute('fill'); }).join());
+      var ends = [ 0, 1, 2 ].map(function(i) { return this.gaugeFraction(el, chart, 'band', i); }, this);
+      x.test(Math.abs(ends[0] - 0.5) < 0.001 && Math.abs(ends[1] - 0.8) < 0.001 && Math.abs(ends[2] - 1) < 0.001,
+        'Gauge: the segments end at 50, 80 and 100 of the way round. Got ' + ends.join());
+      x.test(this.all(el, chart, 'value-arc')[0].getAttribute('fill') === '#ffaa00', 'Gauge: 60 is in the amber band, so the arc is amber');
+
+      var items = Array.from(el.querySelectorAll('.' + this.legendClass('item')));
+      x.test(items.map(function(i) { return i.textContent; }).join() === '0 – 50,50 – 80,80 – 100',
+        'Gauge: the legend lists the bands. Got ' + items.map(function(i) { return i.textContent; }).join());
+      items[0].click();
+      await this.redraw();
+      x.test(this.all(el, chart, 'band').length === 3 && ! items[0].classList.contains(this.legendClass('hidden')), 'Gauge: a legend click hides nothing');
+
+      var hit = this.all(el, chart, 'hit')[0];
+      var c   = this.centreOf(hit);
+      this.fire(hit, 'mousemove', c.x, c.y);
+      var text = el.querySelector('.' + chart.myClass('tooltip')).textContent;
+      x.test(text.indexOf('Score: 60') !== -1 && text.indexOf(chart.BAND + ': 50 – 80') !== -1, 'Gauge: the tooltip gives the value and its band. Got ' + text);
+      this.unmount(chart);
+
+      // Past the last band's end the value stays in the last band.
+      chart = this.GaugeChart.create({ datasets: [ { data: [ 130 ] } ], bands: [ { upTo: 50, color: '#ff0000' }, { upTo: 100, color: '#00ff00' } ] }, x);
+      x.test(chart.bandOf_(130).color === '#00ff00' && chart.bandOf_(-5).color === '#ff0000', 'Gauge: a value past the bands is in the last, one before the dial in the first');
+    },
+
+    async function testGaugeEdges(x) {
+      // A value past either end: the arc stops at the end of the dial, and the label keeps the real number.
+      var chart = this.GaugeChart.create({ datasets: [ { data: [ 500 ] } ] }, x);
+      var el = await this.mount(chart);
+      x.test(Math.abs(this.gaugeFraction(el, chart, 'value-arc') - 1) < 0.001, 'Gauge: 500 on a 0 to 100 dial fills the whole dial');
+      x.test(this.texts(el, chart, 'value') === '500', 'Gauge: the label shows the real 500. Got ' + this.texts(el, chart, 'value'));
+      this.unmount(chart);
+
+      chart = this.GaugeChart.create({ min: 10, datasets: [ { data: [ -5 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'value-arc').length === 0 && this.texts(el, chart, 'value') === '-5', 'Gauge: a value below min draws no arc, and the label shows -5');
+      this.unmount(chart);
+
+      // No value: only the track.
+      chart = this.GaugeChart.create({ datasets: [ { data: [ null ] } ] }, x);
+      el = await this.mount(chart);
+      var hit = this.all(el, chart, 'hit')[0];
+      var c   = this.centreOf(hit);
+      this.fire(hit, 'mousemove', c.x, c.y);
+      x.test(this.all(el, chart, 'track').length === 1 && this.all(el, chart, 'value-arc').length === 0 && this.all(el, chart, 'value').length === 0,
+        'Gauge: with no value only the track is drawn');
+      x.test(! chart.tooltip_.element_ || getComputedStyle(chart.tooltip_.element_).display === 'none', 'Gauge: with no value there is no tooltip');
+      this.unmount(chart);
+
+      // max not above min: no division by zero.
+      chart = this.GaugeChart.create({ min: 5, max: 5, datasets: [ { data: [ 5 ] } ] }, x);
+      el = await this.mount(chart);
+      x.test(this.all(el, chart, 'value-arc').length === 0 && !! el.querySelector('svg'), 'Gauge: an empty range draws the track and no arc');
       this.unmount(chart);
     },
 

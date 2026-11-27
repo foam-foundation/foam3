@@ -1209,3 +1209,43 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardGaugeChartDAOAgent',
+  extends: 'foam.core.reflow.AbstractSinkDAOAgent',
+
+  requires: [
+    'foam.core.reflow.dashboard.DashboardGaugeSink',
+    'foam.core.reflow.ReactiveSectionedDetailView'
+  ],
+
+  properties: [
+    {
+      class: 'FObjectProperty',
+      of: 'foam.core.reflow.dashboard.DashboardGaugeSink',
+      name: 'displaySink',
+      hidden: true,
+      // An empty field in the chart's form turns Run off.
+      autoValidate: true,
+      // One value needs no legend, so the form starts with it off.
+      factory: function() { return this.DashboardGaugeSink.create({ showLegend: false }, this); }
+    }
+  ],
+
+  methods: [
+    function createSink() {
+      // A new copy on every run: the flow runs this agent again when the
+      // query or the data changes, and a reused sink would count twice.
+      var sink = this.displaySink.clone(this);
+      sink.buildTotal_();
+      return sink;
+    },
+    function addSinkToE(e, s) { e.add(s); },
+    function addToE(e) {
+      e.startContext({})
+        .tag(this.ReactiveSectionedDetailView, { data$: this.displaySink$, showTitle: true })
+      .endContext();
+    }
+  ]
+});

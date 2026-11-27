@@ -2913,3 +2913,179 @@ foam.CLASS({
     }
   ]
 });
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardTotalSink',
+  extends: 'foam.dao.AbstractSink',
+  implements: [ 'foam.lang.Serializable' ],
+
+  documentation: `
+    A sink that adds every row to one aggregate, its total: a Count, or the
+    Sum, Average, Min or Max of a field. A select runs it on the server, where
+    put runs in Java, and the total comes back with the result.
+  `,
+
+  constants: [
+    // The field the agent's buildTotal_() puts each run's aggregate in.
+    { name: 'TOTAL_SLOT', value: 'total' }
+  ],
+
+  properties: [
+    {
+      // The aggregate this run collects, wired by the agent's createSink().
+      class: 'foam.mlang.SinkProperty',
+      name: 'total',
+      externalTransient: true,
+      hidden: true,
+      javaFactory: 'return foam.mlang.MLang.COUNT();',
+      factory: function() { return foam.mlang.sink.Count.create(); }
+    }
+  ],
+
+  methods: [
+    {
+      name: 'put',
+      code: function put(obj, sub) { this.total.put(obj, sub); },
+      javaCode: 'getTotal().put(obj, sub);'
+    },
+
+    // A client DAO caches a select by the sink's text; naming the total keeps
+    // a Sum of one field apart from a Count or the Sum of another. A mixin's
+    // toString (ChartDisplayMixin's) wraps this one, so it sits in a parent.
+    function toString() { return String(this.total); }
+  ]
+});
+
+foam.CLASS({
+  package: 'foam.core.reflow.dashboard',
+  name: 'DashboardGaugeSink',
+  extends: 'foam.core.reflow.dashboard.DashboardTotalSink',
+
+  mixins: [
+    'foam.core.reflow.dashboard.ChartDisplayMixin'
+  ],
+
+  documentation: `
+    One number against a range, drawn as a half-circle dial: the Aggregation
+    (a Count, or the Sum, Average, Min or Max of a numeric field) over every
+    row, against Maximum. Today's request count against a target of 500 reads
+    as a dial filled to the share of 500 it reached. The range starts at 0.
+    Bands colour stretches of the dial, for example red up to 50, amber up to
+    80 and green up to 100. The aggregate is worked out on the server, where
+    this sink's put runs in Java.
+  `,
+
+  requires: [
+    'foam.u2.chart.GaugeChart'
+  ],
+
+  sections: [
+    { name: 'dataConfig', title: 'Data Configuration', order: 0, collapsable: true,
+      properties: [ 'aggregation', 'maxValue', 'bands' ] },
+    { name: 'chartSettings', title: 'Gauge Settings', order: 1, collapsable: true,
+      properties: [ 'onClickScript' ] },
+    { name: 'displayOptions', title: 'Display', order: 2, collapsable: true,
+      properties: [ 'height', 'showLegend', 'legendPosition', 'showTooltips', 'animate', 'animationDuration', 'emptyValueMessage' ] },
+    // The gauge has no alignment, aspect ratio or tooltip sum, but
+    // ChartDisplayMixin adds them. A mixin's properties install after this
+    // class's own, so an override cannot hide them; this section, never
+    // shown, holds them instead.
+    { name: 'unused', isAvailable: function() { return false; },
+      properties: [ 'alignment', 'maintainAspectRatio', 'showTooltipSum' ] }
+  ],
+
+  messages: [
+    { name: 'DEFAULT_SERIES', message: 'Value' }
+  ],
+
+  properties: [
+    {
+      // An FObjectProperty, so copying the sink into a flow's context also
+      // moves the Sum or Count agent there. JS only: the DAO agents it holds
+      // do not exist in Java.
+      class: 'FObjectProperty', generateJava: false, autoValidate: true,
+      name: 'aggregation', label: 'Aggregation',
+      view: { class: 'foam.core.reflow.SinkView',
+              choice: 'foam.core.reflow.CountDAOAgent',
+              disabledTypes: [ 'structure', 'format', 'chart' ] }
+    },
+    {
+      class: 'Double',
+      name: 'maxValue',
+      label: 'Maximum',
+      value: 100,
+      help: 'The value at the right end of the dial: a target, say. A bigger result fills the whole dial.'
+    },
+    {
+      // JS only: the server's put reads total, never the bands.
+      class: 'FObjectArray', generateJava: false,
+      of: 'foam.u2.chart.GaugeBand',
+      name: 'bands',
+      label: 'Bands',
+      help: 'Coloured stretches of the dial, each ending at its Up To: red to 50, amber to 80, green to 100'
+    },
+    {
+      class: 'Code',
+      name: 'onClickScript',
+      label: 'On Click Script',
+      help: 'Function expression called when the dial is clicked. Signature: (value, x, y, pageX, pageY) => void'
+    },
+    {
+      class: 'String',
+      name: 'emptyValueMessage',
+      label: 'Empty Message',
+      help: 'Shown in place of the dial when the aggregate is not a number, such as the Min of no rows. Left empty, it says "No data available".'
+    },
+    {
+      name: 'chart_',
+      hidden: true,
+      transient: true,
+      expression: function(total, maxValue, bands, showLegend, legendPosition, showTooltips,
+                          animate, animationDuration, onClickScript) {
+        var self  = this;
+        var value = total && typeof total.value === 'number' && isFinite(total.value) ? total.value : null;
+
+        // The form's On Click Script is a function expression, called with
+        // (value, x, y, pageX, pageY): the dial's value, the point inside
+        // the chart and the point on the page.
+        var click = null;
+        if ( onClickScript ) {
+          try {
+            click = eval(onClickScript);
+          } catch ( e ) {
+            console.warn('Invalid onClickScript for DashboardGaugeSink:', e);
+          }
+        }
+
+        return this.GaugeChart.create({
+          // With no field to name it (a Count), the value is just "Value".
+          datasets:          [ { label: this.labelOf_(this.aggregation && this.aggregation.prop) || this.DEFAULT_SERIES, data: [ value ] } ],
+          max:               maxValue,
+          bands:             bands,
+          showLegend:        showLegend,
+          legendPosition:    legendPosition,
+          showTooltips:      showTooltips,
+          animate:           animate,
+          animationDuration: animationDuration,
+          onValueClick: typeof click !== 'function' ? null : function(evt) {
+            try {
+              var box = evt.target.ownerSVGElement.getBoundingClientRect();
+              click(value, evt.clientX - box.left, evt.clientY - box.top, evt.pageX, evt.pageY);
+            } catch ( e ) {
+              console.warn('Error executing onClickScript:', e);
+            }
+          }
+        });
+      }
+    }
+  ],
+
+  methods: [
+    function addToE(e) {
+      e.style({ width: '100%' });
+      var v = this.total && this.total.value;
+      this.addChartOrEmpty_(e, typeof v === 'number' && isFinite(v), this.emptyValueMessage);
+    }
+  ]
+});

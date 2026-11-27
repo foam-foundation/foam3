@@ -147,22 +147,6 @@ Every demo below is live. Each one pauses its timers and animations while it is 
 <!--
 ## Charts
 
-### Chart.js Benchmark
-
-<foam class="org.chartjs.demos.Benchmark" pauseoffscreen></foam>
-
-### Chart.js Pie
-
-<foam class="org.chartjs.demos.Pie" pauseoffscreen></foam>
-
-### Chart.js Stock
-
-<foam class="org.chartjs.demos.Stock" pauseoffscreen></foam>
-
-### Configurable Chart
-
-<foam class="org.chartjs.demos.ConfigurableChartView" pauseoffscreen></foam>
-
 ### Graph View
 
 <foam class="foam.demos.graphview.GraphViewTest" pauseoffscreen></foam>

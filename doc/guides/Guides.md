@@ -172,7 +172,7 @@ Argues that LLM-generated code repeats the code-generator liability trap at larg
 Drawing on Bill Joy's 2000 essay, argues that shipping executable agents rather than wire-protocol specifications eliminates interoperability problems. Explains how FOAM/CORE realises this: the CSpec registry delivers client agents on demand instead of requiring REST API negotiation.
 
 **[Reflow](Reflow.md)**
-Overview of Reflow, FOAM's Jupyter-style interactive console: the Console controller, Flow documents, Block execution units, the command system (dao/upload/save/load/flows), reactive properties via `reactions_`, data visualisation via DAO agents and Chart.js, and hierarchical scope management.
+Overview of Reflow, FOAM's Jupyter-style interactive console: the Console controller, Flow documents, Block execution units, the command system (dao/upload/save/load/flows), reactive properties via `reactions_`, data visualisation via DAO agents and SVG charts (`foam.u2.chart`), and hierarchical scope management.
 
 **[ExportingFlows](ExportingFlows.md)**
 Step-by-step instructions for exporting a Reflow flow from the running app: open the flow DAO in Console, filter by name, open the Download link (JSON or journal format), copy it, and replace the entry in the `.jrl` source file.

@@ -17,7 +17,6 @@ foam.CLASS({
   ],
   requires: [
     'foam.dashboard.model.Count',
-    'foam.dashboard.model.GroupBy',
     'foam.dashboard.model.Table',
     'foam.dashboard.model.VisualizationSize'
   ],

@@ -48,7 +48,6 @@ The policy is built from `foam.core.http.csp.CSPDirective` rows in `src/cspdirec
 The FOAM client has no third-party runtime dependencies. A few optional libraries are loaded from a CDN, and only when the component that needs them is used (via `JsLib`):
 
 - Ace Editor 1.9.6 for code editing (`src/io/c9/ace/Editor.js`).
-- Chart.js 4.4.2 and its date-fns adapter for dashboards and charts (`src/org/chartjs/Lib.js`).
 - html2pdf 0.9.3 for PDF export from the Reflow console (`src/foam/core/reflow/Console.js`).
 
 Each external script URL must also be allowed by the `script-src` directive, so a new library cannot be loaded without a reviewed change to `cspdirectives.jrl`.

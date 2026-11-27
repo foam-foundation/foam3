@@ -185,7 +185,7 @@ Warning: May be removed in famour of just using JSLib axioms in your models.
 Ex.:
 ```
 axioms: [
-  foam.u2.JsLib.create({src: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js'})
+  foam.u2.JsLib.create({src: 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.9.6/ace.js'})
 ]
 ```
 The advantage of using the JsLib axiom is that it defers the loading of the library until

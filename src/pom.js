@@ -41,7 +41,6 @@ foam.POM({
     { name: "foam/doc/pom" },
     { name: "foam/lib/pom" },
     { name: "foam/flow/pom" },
-    { name: "org/chartjs/pom" },
     { name: "foam/dashboard/pom" },
     { name: "foam/comics/pom" },
     { name: "foam/dao/pom" },

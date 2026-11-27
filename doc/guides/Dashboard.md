@@ -1,4 +1,4 @@
-<flow name="Dashboard" category="DOC/GUIDE" spid="foam" description="Quick-start guide for building FOAM3 dashboards: DashboardView, widget menus, CardWrapper/DAOTable/count widgets." keywords="dashboard,widgets,chart.js,daotable,knowledge"/>
+<flow name="Dashboard" category="DOC/GUIDE" spid="foam" description="Quick-start guide for building FOAM3 dashboards: DashboardView, widget menus, CardWrapper/DAOTable/count widgets." keywords="dashboard,widgets,chart,daotable,knowledge"/>
 
 # FOAM3 Dashboard Quick Start Guide
 

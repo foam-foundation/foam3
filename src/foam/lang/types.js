@@ -1630,6 +1630,9 @@ foam.CLASS({
         // the already-set value when the query resolves.
         if ( ! value ) return;
         let c = await this.normalize(value, this, obj);
+        // A value set while the lookup ran wins: after clone(), a caller's
+        // obj.currency = 'CAD' was written back to the cloned 'USD'.
+        if ( c === value || this.f(obj) !== value ) return;
         this.set(obj, c);
       }
     },
@@ -1774,6 +1777,9 @@ foam.CLASS({
         // the already-set value when the query resolves.
         if ( ! value ) return;
         let c = await this.normalize(value, this, obj);
+        // A value set while the lookup ran wins: after clone(), a caller's
+        // obj.currency = 'CAD' was written back to the cloned 'USD'.
+        if ( c === value || this.f(obj) !== value ) return;
         this.set(obj, c);
       }
     },

@@ -11,6 +11,7 @@ foam.POM({
 
     { name: 'LegendPosition',          flags: 'js|java' },
     { name: 'CanvasTextUtil',          flags: 'js' },
+    { name: 'CalendarChartView',       flags: 'web' },
     { name: 'ChartFieldProperty',      flags: 'js|java' },
     { name: 'DashboardSinks',          flags: 'js|java' },
     { name: 'DashboardDAOAgents',      flags: 'js' },

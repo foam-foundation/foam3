@@ -1,0 +1,2 @@
+p({"class":"foam.u2.chart.test.ChartScaleTest","id":"ChartScaleTest","description":"Ticks, bands, UTC time ticks and chart labels of foam.u2.chart"})
+p({"class":"foam.u2.chart.test.ChartViewTest","id":"ChartViewTest","description":"Bar, pie and line charts: marks, colours, legend, tooltips, clicks and options"})

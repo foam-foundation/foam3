@@ -1,6 +1,12 @@
+/**
+ * @license
+ * Copyright 2026 The FOAM Authors. All Rights Reserved.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ */
+
 foam.CLASS({
-  package: 'org.chartjs',
-  name: 'CalendarDAOChartView',
+  package: 'foam.core.reflow.dashboard',
+  name: 'CalendarChartView',
   extends: 'foam.u2.Element',
   documentation: 'Dashboard calendar-table, fully props-driven and tokenized, like Pie/Bar.',
   css: `

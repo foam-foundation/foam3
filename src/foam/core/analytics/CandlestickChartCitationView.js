@@ -23,31 +23,11 @@ foam.CLASS({
     async function render() {
       var self = this;
 
-      this.buildChartData().then(function(data) {
-        this.chart = this.Line2.create({
-          data: data,
-          options: {
-            legend: {
-              display: false,
-            },
-            tooltips: {
-              // see: https://github.com/chartjs/Chart.js/issues/3953
-              callbacks: {
-                label: function(tooltipItem, data) {
-                  var dataset = data.datasets[tooltipItem.datasetIndex];
-                  var index = tooltipItem.index;
-                  return dataset.labels[index] + ': ' + dataset.data[index];
-                }
-              }
-            }
-          }
-        });
-        this.canvas.add(this.chart);
-      }.bind(this));
+      this.rebuild();
 
       this.
         start('div', null, this.canvasContainer$).addClass(this.myClass('canvas-container')).
-        add(this.canvas).
+        start('div').addClass(this.myClass('chart')).add(this.chart).end().
         end();
     }
   ]

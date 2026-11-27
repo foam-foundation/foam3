@@ -27,7 +27,6 @@ foam.POM({
     { name: "Line",                                               flags: "web" },
     { name: "Line2",                                              flags: "web" },
     { name: "Bar2",                                               flags: "web" },
-    { name: "CalendarDAOChartView",                               flags: "web" },
     { name: "StackedBar2",                                        flags: "web" },
     { name: "Pie2",                                               flags: "web" },
     { name: "Donut2",                                             flags: "web" },

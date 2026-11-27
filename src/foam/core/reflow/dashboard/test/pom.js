@@ -4,6 +4,7 @@ foam.POM({
     { name: 'DashboardAgentShimTest',     flags: 'js&test|java&test' },
     { name: 'DashboardAgentJsonTest',     flags: 'js&test|java&test' },
     { name: 'DashboardAgentBaselineTest', flags: 'js&test|java&test' },
-    { name: 'DashboardChartFieldTest',    flags: 'js&test|java&test' }
+    { name: 'DashboardChartFieldTest',    flags: 'js&test|java&test' },
+    { name: 'DashboardChartRenderTest',   flags: 'js&test|java&test' }
   ]
 });

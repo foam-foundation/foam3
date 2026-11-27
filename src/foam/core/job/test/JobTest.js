@@ -51,6 +51,7 @@ foam.CLASS({
         testRetention(x, jobDAO);
         testResentPutAfterFinish(jobDAO);
         testSameIdRunsOnce(jobDAO);
+        testResentPutRacingTheEnd(jobDAO);
         testGroupRunsInOrderOneAtATime(jobDAO);
         testGroupFailureSkipsTheRest(jobDAO);
         testGroupSurvivesAThrowingSave(jobDAO);
@@ -368,6 +369,45 @@ foam.CLASS({
           Thread.sleep(300);
         } catch ( InterruptedException e ) { }
         expect(CountingJob.RUNS.get(tag).get(), 1, "two puts of one id run the job once");
+      `
+    },
+    {
+      name: 'testResentPutRacingTheEnd',
+      documentation: `A resent put that arrives while the Job is ending must not undo the end.
+        The resend reads the stored Job as RUNNING, the runner then saves COMPLETED, and the
+        resend's write of SCHEDULED would land on top: nothing runs the Job again, so a poller
+        waits forever. The window is a few microseconds, so each round resends 20 times while
+        a Job that does no work ends, and every round must end COMPLETED.`,
+      args: 'foam.dao.DAO jobDAO',
+      javaCode: `
+        int stuck = 0;
+        String last = "none";
+        for ( int round = 0 ; round < 200 ; round++ ) {
+          String id = "race-" + UUID.randomUUID();
+          for ( int i = 0 ; i < 21 ; i++ ) {
+            CountingJob job = new CountingJob();
+            job.setId(id);
+            job.setTag(id);
+            jobDAO.put(job);
+          }
+
+          long deadline = System.currentTimeMillis() + 2000;
+          Job job = (Job) jobDAO.find(id);
+          while ( job.getStatus() != JobStatus.COMPLETED && System.currentTimeMillis() < deadline ) {
+            try {
+              Thread.sleep(5);
+            } catch ( InterruptedException e ) {
+              Thread.currentThread().interrupt();
+              break;
+            }
+            job = (Job) jobDAO.find(id);
+          }
+          if ( job.getStatus() != JobStatus.COMPLETED ) {
+            stuck++;
+            last = job.getStatus().getName();
+          }
+        }
+        expect(stuck, 0, "every round ends COMPLETED; a stuck round last read " + last);
       `
     },
     {

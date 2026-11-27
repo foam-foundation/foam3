@@ -80,11 +80,11 @@ public class RuleEngine extends ContextAwareSupport {
         if ( ! checkPermission(rule, obj)  ) continue;
         if ( ! rule.ruleF(userX_, oldObj, obj) ) continue;
 
+        // Uninterruptible: an interrupted acquire() would leave locked true with no permit
+        // held, and the release after the write would then add a second permit.
         if ( ! locked && lock_ != null && rule.getRequiresLock() ) {
+          lock_.acquireUninterruptibly();
           locked = true;
-          try {
-            lock_.acquire();
-          } catch (InterruptedException e) {}
         }
 
         applyRule(rule, obj, oldObj, agency);
@@ -107,6 +107,9 @@ public class RuleEngine extends ContextAwareSupport {
     try {
       compoundAgency.execute(x_);
     } catch (Exception e) {
+      // The caller never learns it holds the lock when this throws, so release it here.
+      if ( locked ) lock_.release();
+
       // Allow network exceptions to pass through
       // TODO: use foam.lang.Exception when interface properties
       //       are supported in Java generation

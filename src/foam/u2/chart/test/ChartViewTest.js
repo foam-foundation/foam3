@@ -31,6 +31,7 @@ foam.CLASS({
       await this.testTimeLine(x);
       await this.testLinearLine(x);
       await this.testScatter(x);
+      await this.testTextWidthSpacing(x);
     },
 
     async function mount(view) {
@@ -75,6 +76,19 @@ foam.CLASS({
     function centreOf(el) {
       var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    },
+
+    async function testTextWidthSpacing(x) {
+      // Labels are placed from textWidth, so it must count the page's
+      // letter-spacing, or a long label runs past the chart's edge.
+      var chart = this.BarChart.create({ labels: [ 'A' ], datasets: [ { data: [ 1 ] } ] }, x);
+      var el = await this.mount(chart);
+      el.style.letterSpacing = '0px';
+      var plain = chart.textWidth('abcdef');
+      el.style.letterSpacing = '2px';
+      var spaced = chart.textWidth('abcdef');
+      x.test(Math.abs(spaced - plain - 12) < 0.5, 'Text width: 2px letter-spacing adds 2px for each of 6 characters. Got ' + ( spaced - plain ));
+      this.unmount(chart);
     },
 
     async function testBars(x) {

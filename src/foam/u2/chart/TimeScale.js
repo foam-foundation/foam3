@@ -41,6 +41,16 @@ foam.CLASS({
       class: 'Boolean',
       name: 'utc',
       documentation: 'Read dates in UTC instead of the viewer\'s time zone; on for dates stored as midnight UTC.'
+    },
+    {
+      class: 'Int',
+      name: 'every',
+      value: 1,
+      documentation: `
+        How many units apart the ticks are. With unit MINUTE and every 10 an
+        hour of data gets 21:40, 21:50, 22:00 instead of one tick per minute,
+        or one tick per hour. fit() picks it from the unit's steps.
+      `
     }
   ],
 
@@ -53,6 +63,7 @@ foam.CLASS({
         m:   u ? t.getUTCMonth()    : t.getMonth(),
         d:   u ? t.getUTCDate()     : t.getDate(),
         h:   u ? t.getUTCHours()    : t.getHours(),
+        mi:  u ? t.getUTCMinutes()  : t.getMinutes(),
         day: u ? t.getUTCDay()      : t.getDay()
       };
     },
@@ -74,12 +85,32 @@ foam.CLASS({
     },
 
     function fit(maxTicks) {
-      // A unit too fine for the range moves up until its ticks fit: a year
-      // of data on DAY with room for 12 ticks gets MONTH.
+      // Picks the unit and the step whose ticks fit: a year of data on DAY
+      // with room for 12 ticks gets MONTH, and an hour of data on MINUTE with
+      // room for 8 gets a tick every 10 minutes.
       var units = this.TimeUnit.VALUES;
+      var span  = this.max - this.min;
       var i     = units.indexOf(this.unit);
-      while ( i < units.length - 1 && ( this.max - this.min ) / units[i].ms > maxTicks ) i++;
-      this.unit = units[i];
+      // A range shorter than its unit can hold no tick at all: three minutes
+      // of data on HOUR from 21:31 to 21:34. Move to a finer unit until the
+      // range holds two. A range of one instant keeps its unit; nice() widens it.
+      this.every = 1;
+      while ( i > 0 && span > 0 && span < units[i].ms ) {
+        this.unit = units[i];
+        if ( this.ticks().length >= 2 ) break;
+        i--;
+      }
+      for ( ; i < units.length ; i++ ) {
+        var steps = units[i].steps;
+        for ( var j = 0 ; j < steps.length ; j++ ) {
+          var last = i === units.length - 1 && j === steps.length - 1;
+          if ( last || span / ( units[i].ms * steps[j] ) <= maxTicks ) {
+            this.unit  = units[i];
+            this.every = steps[j];
+            return this;
+          }
+        }
+      }
       return this;
     },
 
@@ -93,10 +124,12 @@ foam.CLASS({
       var ret = [];
       var d   = this.startOf(this.min);
       if ( d.getTime() < this.min ) d = this.next(d);
+      // Every unit start is visited and only those on a multiple of every
+      // are kept, so ticks land on round times: minute 40, 50, 0, never 43.
       // The cap stops a millisecond unit over a year-long range from
       // building millions of ticks.
-      for ( var i = 0 ; i < this.MAX_TICKS && d.getTime() <= this.max ; i++ ) {
-        ret.push(d.getTime());
+      for ( var i = 0 ; i < this.MAX_TICKS * this.every && d.getTime() <= this.max ; i++ ) {
+        if ( this.unit.index(this, this.parts_(d), d.getTime()) % this.every === 0 ) ret.push(d.getTime());
         d = this.next(d);
       }
       return ret;

@@ -4,13 +4,13 @@
 
 1. **The view.** Add a property to the chart class, or to `Dataset` or `LineDataset` when it differs per series.
    - Give it `documentation` that says what it does in one example. Put the default in `value:`.
-   - Read it in `drawChart`. A redraw happens on its own when `labels`, `datasets`, `hidden_` or the size change (`ChartView.js:217-224`).
+   - Read it in `drawChart`. A redraw happens on its own when `labels`, `datasets`, `hidden_` or the size change (`ChartView.js:220-227`).
    - **An option that changes after the first draw:** the base view does not watch other properties. Read it inside a `dynamic` of your own, or have the dashboard rebuild the chart. A sink's `chart_` expression builds a new view whenever one of its parameters changes.
 2. **The dashboard form,** if a flow should set it. In the sink (`core/reflow/dashboard/DashboardSinks.js`):
    - Add a property with a `label`. Add `help` when the name does not say enough.
    - Add its name to one of the `sections` (`DashboardSinks.js:263-272` on the pie).
    - Add it as a parameter of the `chart_` expression and pass it to `create` (`DashboardSinks.js:343-398`).
-   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-345`).
+   - A field shared by every chart (legend, tooltips, height, animation) goes in `ChartDisplayMixin` instead (`DashboardDAOAgents.js:134-353`).
 3. **A test.** Add a case to `ChartViewTest`, plus `DashboardChartRenderTest` when the form field was added (`references/testing.md`).
 
 ## Rename, move or drop an option
@@ -18,7 +18,7 @@
 A saved flow holds the agent class, and the props it had when it was saved. Old flows must keep loading.
 
 - **Never rename** a `Dashboard*ChartDAOAgent`, a `Dashboard*Sink` or a saved property. A flow saved with the old name fails to load.
-- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:587-638`):
+- **Moved to the sink form:** keep the old name on the agent as a hidden, transient, setter-only shim that forwards the value (`DashboardDAOAgents.js:595-646`):
   ```js
   { name: 'cutoutPercentage', hidden: true, transient: true,
     setter: function(v) { this.displaySink.cutoutPercentage = v; } }

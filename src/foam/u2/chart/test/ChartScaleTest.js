@@ -117,7 +117,22 @@ foam.CLASS({
       t = this.TimeScale.create({ unit: 'millisecond', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 3, 1) }).fit(10);
       x.test(t.ticks().length <= 10 && t.ticks().length >= 2, 'Time: a millisecond unit over three months draws a handful of ticks, not thousands. Got ' + t.ticks().length);
       t = this.TimeScale.create({ unit: 'month', min: Date.UTC(2024, 0, 1), max: Date.UTC(2024, 1, 1) }).fit(50);
-      x.test(t.unit === this.TimeUnit.MONTH, 'Time: fit never moves to a finer unit than the one asked for');
+      x.test(t.unit === this.TimeUnit.MONTH, 'Time: fit keeps the unit asked for while the range holds two of its ticks');
+
+      // A fresh server holds minutes of data, so short ranges need ticks too.
+      var hhmm = function(ts) { return ts.ticks().map(function(v) { return new Date(v).toISOString().slice(11, 16); }).join(); };
+      var lo   = Date.UTC(2026, 10, 27, 21, 31);
+      t = this.TimeScale.create({ unit: 'minute', utc: true, min: lo, max: lo + 3600000 }).fit(8);
+      x.test(t.unit === this.TimeUnit.MINUTE && t.every === 10 && hhmm(t) === '21:40,21:50,22:00,22:10,22:20,22:30',
+        'Time: an hour of data with room for 8 ticks gets one every 10 minutes, on round minutes. Got every ' + t.every + ': ' + hhmm(t));
+      t = this.TimeScale.create({ unit: 'hour', utc: true, min: lo, max: lo + 180000 }).fit(8);
+      x.test(t.unit === this.TimeUnit.MINUTE && hhmm(t) === '21:31,21:32,21:33,21:34',
+        'Time: three minutes of data on unit hour, which holds no hour tick, moves down to minutes. Got ' + t.unit + ': ' + hhmm(t));
+      t = this.TimeScale.create({ unit: 'hour', utc: true, min: lo, max: lo }).fit(8);
+      x.test(t.unit === this.TimeUnit.HOUR, 'Time: a range of one instant keeps its unit, for nice() to widen. Got ' + t.unit);
+      t = this.TimeScale.create({ unit: 'year', utc: true, min: Date.UTC(1900, 0, 1), max: Date.UTC(2024, 0, 1) }).fit(10);
+      x.test(t.ticks().map(function(v) { return new Date(v).getUTCFullYear(); }).join() === '1900,1925,1950,1975,2000',
+        'Time: 124 years with room for 10 ticks get one every 25 years. Got ' + t.ticks().map(function(v) { return new Date(v).getUTCFullYear(); }).join());
     },
 
     function testChartFormatter(x) {

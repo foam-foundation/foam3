@@ -120,7 +120,10 @@ foam.CLASS({
   messages: [
     { name: 'SUM_LABEL', message: 'Sum' },
     { name: 'NO_DATA', message: 'No data available' },
-    { name: 'COUNT_LABEL', message: 'Count' }
+    { name: 'COUNT_LABEL', message: 'Count' },
+    { name: 'MAX_OF_LABEL', message: 'Max of' },
+    { name: 'MIN_OF_LABEL', message: 'Min of' },
+    { name: 'AVERAGE_OF_LABEL', message: 'Average of' }
   ],
 
   properties: [

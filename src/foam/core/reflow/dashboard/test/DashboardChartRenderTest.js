@@ -596,6 +596,12 @@ foam.CLASS({
       counted.displaySink.arg1 = R.MONTH;
       var cds = ( await this.rowsDAO(x).select(counted.createSink()) ).chart_.datasets[0];
       x.test(cds.label === 'Count', 'Line: a count with no field is named Count, not Values. Got ' + cds.label);
+
+      var maxed = this.DashboardLineChartDAOAgent.create({}, x);
+      maxed.displaySink.arg1        = R.MONTH;
+      maxed.displaySink.aggregation = this.MaxDAOAgent.create({ prop: R.AMOUNT }, x);
+      var mds = ( await this.rowsDAO(x).select(maxed.createSink()) ).chart_.datasets[0];
+      x.test(mds.label === 'Max of ' + R.AMOUNT.label, 'Line: a max says so, so it reads apart from a sum of the same field. Got ' + mds.label);
     },
 
     async function testStackedLine(x) {

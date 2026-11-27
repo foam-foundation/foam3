@@ -15,6 +15,8 @@ A scripted edit that leaves `,,` in a `methods:` list passes `node --check` (it 
 
 The legend takes height from the plot, so a round chart's radius is not `min(w, h) / 2`. A test reads the radius from the drawn shape (a `circle`'s `r`), never works it out.
 
+A `Date` property moves every value to 12:00 UTC on its day (`lang/types.js:242-249`), so a test that reads a minimum or maximum of a `Date` field expects `Date.UTC(y, m, d, 12)`, not midnight.
+
 The headless test window is about 200 × 400 px, so `document.elementFromPoint` returns `null` right of about x = 200. A hover or hit test uses a mark on the left of the chart, or scans that mark's own box.
 
 On a category x axis `XAxisType.CATEGORY.toX` returns the point's index (`XAxisType.js:57`), so an explicit `x` does not line points up across lines. A test of a line with a missing point uses `xType: 'linear'`.

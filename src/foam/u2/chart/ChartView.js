@@ -118,7 +118,7 @@ foam.CLASS({
   `,
 
   messages: [
-    { name: 'SUM', message: 'Sum' },
+    { name: 'SUM_LABEL', message: 'Sum' },
     { name: 'NO_DATA', message: 'No data available' },
     { name: 'COUNT_LABEL', message: 'Count' }
   ],
@@ -314,7 +314,7 @@ foam.CLASS({
 
     function sumLine(values) {
       var sum = values.reduce(function(a, v) { return a + ( Number(v) || 0 ); }, 0);
-      return this.SUM + ': ' + this.formatValue(sum);
+      return this.SUM_LABEL + ': ' + this.formatValue(sum);
     },
 
     function showTooltip(evt, title, rows, opt_footer) {

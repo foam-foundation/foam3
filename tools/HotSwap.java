@@ -6,9 +6,11 @@
 
 // Sends changed classes into a running JVM over JDWP (JDI). Started by tools/JavaTooling.js
 // with the server's own JVM, as a single source file:
-//   java HotSwap.java <debugPort> <classesDir> <manifest>
+//   java HotSwap.java <debugPort> <classesDir> <manifest> <startedAtMillis>
 // The manifest lists class files (relative to classesDir), one per line: the ones the build wrote.
 // Exit 0 swapped or nothing to do, 2 the JVM refused, 3 could not attach. Any other exit is a failure of this helper.
+// It prints one result line, with the time since startedAtMillis (the whole --swap run, build included). A line that says
+// "restart needed (why)" is last: the next step and the reason.
 import com.sun.jdi.*;
 import com.sun.jdi.connect.*;
 import java.nio.file.*;
@@ -19,6 +21,7 @@ public class HotSwap {
   public static void main(String[] a) throws Exception {
     int port = Integer.parseInt(a[0]);
     Path root = Paths.get(a[1]);
+    long started = Long.parseLong(a[3]);
     List<String> files = Files.readAllLines(Paths.get(a[2])).stream().filter(s -> ! s.isBlank()).collect(Collectors.toList());
 
     VirtualMachine vm;
@@ -37,7 +40,7 @@ public class HotSwap {
 
     try {
       if ( ! vm.canRedefineClasses() ) {
-        System.out.println("this JVM cannot redefine classes: start the server with --hot-swap on a JetBrains Runtime");
+        System.out.println("restart needed (this JVM cannot redefine classes): start the server with --hot-swap on a JetBrains Runtime");
         System.exit(2);
       }
       Map<ReferenceType, byte[]> swap = new LinkedHashMap<>();
@@ -57,7 +60,7 @@ public class HotSwap {
         }
       }
       if ( swap.isEmpty() ) {
-        System.out.println("nothing to swap: " + files.size() + " listed classes, none loaded in the server (" + gone + " no longer exist)");
+        System.out.println("nothing to swap: none of the " + files.size() + " changed classes is loaded in the server yet (" + seconds(started) + ")");
         return;
       }
       try {
@@ -65,7 +68,7 @@ public class HotSwap {
       } catch ( UnsupportedOperationException | LinkageError | InternalException | ClassNotPreparedException e ) {
         // For example a changed class hierarchy or schema, or classes built for a newer Java than the server runs.
         String hint = String.valueOf(e).contains("Error: 113") ? " (JDWP 113: the classes may be built for a newer Java than the server runs, see --java-release)" : "";
-        System.out.println("the JVM refused the swap, restart the server: " + e + hint);
+        System.out.println("restart needed (the JVM refused the swap: " + e + hint + ")");
         System.exit(2);
       }
       List<String> changed = new ArrayList<>();
@@ -73,14 +76,18 @@ public class HotSwap {
         Set<String> now = members(t), was = before.get(t);
         if ( ! now.equals(was) ) changed.add(t.name());
       }
-      System.out.println("swapped " + swap.size() + " classes (" + notLoaded + " changed ones not loaded yet" + ( gone > 0 ? ", " + gone + " listed ones no longer exist" : "" ) + ")");
-      if ( ! changed.isEmpty() ) {
-        System.out.println("WARNING: these classes got or lost fields or methods: " + String.join(", ", changed));
-        System.out.println("Static initializers do not run again, so FOAM class info and property constants may be stale. Restart the server after a model property change.");
-      }
+      String also = ( notLoaded > 0 ? ", " + notLoaded + " not loaded yet" : "" ) + ( gone > 0 ? ", " + gone + " no longer exist" : "" );
+      System.out.println("swapped " + swap.size() + " classes" + also + ( also.isEmpty() ? "" : "," ) + " in " + seconds(started));
+      // Static initializers do not run again, so FOAM class info and property constants are stale: the swap is no use alone.
+      if ( ! changed.isEmpty() ) System.out.println("restart needed (new or removed fields or methods in " + String.join(", ", changed) + "): the code is built but not live; restart the server");
     } finally {
       vm.dispose();
     }
+  }
+
+  // Time since the --swap run started, as "4.1 s".
+  static String seconds(long started) {
+    return String.format(Locale.ROOT, "%.1f s", ( System.currentTimeMillis() - started ) / 1000.0);
   }
 
   // The fields and methods a class declares, as name+signature.

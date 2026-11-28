@@ -21,11 +21,12 @@ const child_ = require('child_process');
 const SWAPPED = 0, BUILD_FAILED = 1, REFUSED = 2, NO_ATTACH = 3, HELPER_FAILED = 4, TIMED_OUT = 5;
 
 // The one table of them. help: the words of the --swap help text. words: the short sentence a tool
-// that runs the build (foamctl) says for the code. The helper's own text, when it has one, is what the build prints.
+// that runs the build (foamctl) says for the code. The helper's own text, when it has one, is what the build prints:
+// one result line with the count and the time, and for a refusal "restart needed (why)".
 const OUTCOMES = [
   { code: SWAPPED,       help: 'swapped or nothing to do',   words: 'swapped, or nothing had changed' },
   { code: BUILD_FAILED,  help: 'build failed',               words: 'the build failed (nothing was swapped)' },
-  { code: REFUSED,       help: 'the JVM refused (restart)',  words: 'the JVM refused the swap, or a restart is needed: down, then up' },
+  { code: REFUSED,       help: 'restart needed',             words: 'restart needed (the swap was refused, see why above): down, then up' },
   { code: NO_ATTACH,     help: 'cannot attach',              words: 'cannot attach to the debug port' },
   { code: HELPER_FAILED, help: 'helper failed',              words: 'the swap helper failed' },
   { code: TIMED_OUT,     help: 'timed out',                  words: 'the swap timed out' }
@@ -110,6 +111,11 @@ const swapIsStale = buildDir => fs_.existsSync(path_.join(buildDir, SWAP_STALE))
 // A swap went through: its classes are no longer pending.
 const swapClearPending = buildDir => fs_.rmSync(path_.join(buildDir, SWAP_MANIFEST), { force: true });
 
+const secondsSince = start => ( ( Date.now() - start ) / 1000 ).toFixed(1) + ' s';
+
+// The time a --swap run starts at: the helper tells how long the whole run took, build included.
+let swapStartedAt = Date.now();
+
 const firstLine = text => String(text).trim().split('\n')[0];
 
 function runJava(file, args) {
@@ -119,11 +125,11 @@ function runJava(file, args) {
 
 // Sends the classes named in manifest (class file paths relative to classesDir, one per line) into the
 // JVM on the debug port. Answers { code, message }. spawn is child_process.spawnSync; tests hand in their own.
-function swapClasses({ java, port, classesDir, manifest, spawn = child_.spawnSync }) {
+function swapClasses({ java, port, classesDir, manifest, startedAt = Date.now(), spawn = child_.spawnSync }) {
   // The debug agent is not wanted in the helper: it would take the server's port.
   const env = Object.assign({}, process.env);
   delete env.JAVA_TOOL_OPTIONS;
-  const r = spawn(java, [ SWAP_HELPER, String(port), classesDir, manifest ], { timeout: SWAP_TIMEOUT_MS, env, encoding: 'utf8' });
+  const r = spawn(java, [ SWAP_HELPER, String(port), classesDir, manifest, String(startedAt) ], { timeout: SWAP_TIMEOUT_MS, env, encoding: 'utf8' });
   return swapAnswer(r);
 }
 
@@ -247,6 +253,7 @@ foam.POM({
     }],
 
     all: ['all', 'Execute tasks for a \'Standard Java\' build.', ['pomEnvs', 'refuseHotSwapPackaging'], function() {
+      swapStartedAt = Date.now();
       if ( ! ( TAR || BUILD_ONLY ) ) {
         this.execute('stopCORE');
       }
@@ -661,17 +668,17 @@ foam.POM({
 
     hotSwap: ['hot-swap', 'Send the classes the --swap builds changed and the server has not got yet into the CORE running with --hot-swap.', [], function() {
       if ( swapIsStale(BUILD_DIR) ) {
-        console.log('a build without --swap changed classes after the server started: restart the server (a swap cannot know which)');
+        console.log('restart needed (a build without --swap changed classes): the swap cannot know which, so the server must restart');
         process.exit(REFUSED);
       }
       var names = readSwapManifest(`${BUILD_DIR}/${SWAP_MANIFEST}`);
       if ( ! names.length ) {
-        this.info('Hot swap: no changed classes waiting.');
+        console.log(`nothing to swap: no class changed (${secondsSince(swapStartedAt)})`);
         return;
       }
       var jvm = serverJvm({ hotSwap: true, javaHome: SERVER_JAVA_HOME, debugPort: DEBUG_PORT, platform: process.platform });
       if ( jvm.error ) this.error(jvm.error);
-      var r = swapClasses({ java: jvm.java, port: DEBUG_PORT, classesDir: `${BUILD_DIR}/classes`, manifest: `${BUILD_DIR}/${SWAP_MANIFEST}` });
+      var r = swapClasses({ java: jvm.java, port: DEBUG_PORT, classesDir: `${BUILD_DIR}/classes`, manifest: `${BUILD_DIR}/${SWAP_MANIFEST}`, startedAt: swapStartedAt });
       if ( r.message ) console.log(r.message);
       // The classes stay listed until a swap went through: a refused or failed one is tried again by the next --swap.
       if ( r.code ) process.exit(r.code);

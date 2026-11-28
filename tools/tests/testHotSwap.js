@@ -75,8 +75,8 @@ function answers() {
   var nojdi = hs.swapAnswer(r(1, '', { stderr: 'HotSwap.java:8: error: package com.sun.jdi does not exist' }));
   test(nojdi.code === 4 && /needs the JDK modules jdk\.compiler and jdk\.jdi.*jbrsdk/.test(nojdi.message), 'a JVM without jdk.jdi or jdk.compiler is named plainly');
   var seen;
-  hs.swapClasses({ java: 'j', port: 8005, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = { f: f, args: args, o: o }; return r(0, 'ok'); } });
-  test(seen.args.slice(1).join(' ') === '8005 c m' && seen.args[0].endsWith('HotSwap.java'), 'the helper gets port, classes folder and manifest');
+  hs.swapClasses({ java: 'j', port: 8005, classesDir: 'c', manifest: 'm', startedAt: 1234, spawn: (f, args, o) => { seen = { f: f, args: args, o: o }; return r(0, 'ok'); } });
+  test(seen.args.slice(1).join(' ') === '8005 c m 1234' && seen.args[0].endsWith('HotSwap.java'), 'the helper gets port, classes folder, manifest and the start time');
   process.env.JAVA_TOOL_OPTIONS = '-agentlib:jdwp=x';
   hs.swapClasses({ java: 'j', port: 1, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = o; return r(0, ''); } });
   test(seen.env.JAVA_TOOL_OPTIONS === undefined, 'the helper does not inherit the server debug agent');
@@ -103,6 +103,7 @@ function run(task, globals) {
     DEBUG_PORT: 8005, BUILD_ONLY: false, BUILD_DIR: BUILD, JAVA_MAIN_CLASS: 'my.Main', JAVA_MAIN_ARGS: 'x', JAVA: '/usr/bin/java',
     HOT_SWAP: false, SERVER_JAVA_HOME: '', JAVA_RELEASE: '21', CORE_PIDFILE: '/dev/null' }, globals);
   var ran = { commands: [], errors: [], spawned: [], exits: l.exits, logs: [] };
+  l.ctx.console = Object.assign(Object.create(console), { log: (...m) => ran.logs.push(m.join(' ').split('\n')[0]) });
   var self = {
     execSync: c => { ran.commands.push(c); return ''; },
     spawn: (f, a, o) => { ran.spawned.push({ file: f, args: a, env: o.env }); return { pid: 1 }; },
@@ -173,10 +174,12 @@ function pendingFlow() {
   fs_.writeFileSync(path_.join(dir, 'swap-manifest'), 'A.class\n');
   var r = run('hotSwap', { BUILD_DIR: dir, HOT_SWAP: true, SERVER_JAVA_HOME: '' });
   test(r.exits[0] === 2 && fs_.existsSync(path_.join(dir, 'swap-manifest')), 'after a build without --swap the swap asks for a restart (exit 2) and keeps the list');
+  test(r.logs.some(l => /^restart needed \(a build without --swap changed classes\)/.test(l)), 'the stale refusal says restart needed and why: ' + r.logs.join(' | '));
   fs_.rmSync(path_.join(dir, 'swap-stale'));
   fs_.writeFileSync(path_.join(dir, 'swap-manifest'), '');
   var none = run('hotSwap', { BUILD_DIR: dir, HOT_SWAP: true });
   test(none.exits.length === 0 && none.errors.length === 0, 'an empty list is nothing to do');
+  test(none.logs.some(l => /^nothing to swap: no class changed \(\d+\.\d s\)$/.test(l)), 'an empty list says so, with the time: ' + none.logs.join(' | '));
   fs_.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -224,7 +227,7 @@ function smoke() {
     child_.execFileSync(javac, ['-d', classes, path_.join(dir, 'Main.java')]);
     fs_.writeFileSync(manifest, 'Main.class\n');
     var r = hs.swapClasses({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
-    test(r.code === 0 && /swapped 1 classes/.test(r.message), 'swap answers: ' + r.message);
+    test(r.code === 0 && /^swapped 1 classes in \d+\.\d s$/.test(r.message), 'swap answers with count and time: ' + r.message);
     sleep(600);
     var lines = fs_.readFileSync(out, 'utf8').trim().split('\n');
     test(lines[lines.length - 1] === 'value=2' && lines.indexOf('value=1') !== -1, 'the same running process now prints the new value');
@@ -233,7 +236,8 @@ function smoke() {
     fs_.writeFileSync(path_.join(dir, 'Main.java'), src(2).replace('static int value', 'static int extra = 5; static int value'));
     child_.execFileSync(javac, ['-d', classes, path_.join(dir, 'Main.java')]);
     var f = hs.swapClasses({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
-    test(f.code === 0 && /WARNING.*Main/.test(f.message) && /Restart the server/.test(f.message), 'a field added is swapped with a restart warning: ' + f.message.split('\n')[1]);
+    var fl = f.message.split('\n');
+    test(f.code === 0 && /^swapped 1 classes in /.test(fl[0]) && /^restart needed \(.* in Main\): the code is built but not live; restart the server$/.test(fl[fl.length - 1]), 'a field added is swapped, and the last line says restart needed: ' + fl[fl.length - 1]);
 
     // classes built for a newer Java than the server runs: the JVM refuses them. (A JetBrains Runtime
     // swaps even a changed superclass in some cases, so a class file version is the sure refusal.)
@@ -245,6 +249,7 @@ function smoke() {
       var task = { BUILD_DIR: dir, HOT_SWAP: true, SERVER_JAVA_HOME: jbr, DEBUG_PORT: port };
       // the task reads BUILD_DIR/classes
       var refused = run('hotSwap', task);
+      test(/^restart needed \(the JVM refused the swap: /.test(refused.logs[refused.logs.length - 1] || ''), 'a refusal says restart needed and the JVM reason: ' + ( refused.logs[refused.logs.length - 1] || '' ).slice(0, 90));
       test(refused.exits[0] === 2 && fs_.readFileSync(path_.join(dir, 'swap-manifest'), 'utf8') === 'Main.class\n', 'a refused swap exits 2 and the class stays on the pending list');
       // fixed: the next swap sends it, and clears the list
       fs_.writeFileSync(path_.join(dir, 'Main.java'), src(4));

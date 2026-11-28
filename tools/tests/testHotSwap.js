@@ -86,6 +86,8 @@ function answers() {
 // ---- the wiring: run the tooling files' own task functions, stacked like the build, with recorded commands
 
 var BUILD = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-build-'));
+// A home with no ~/jbr, so a run never picks up the JetBrains Runtime of the machine running the tests.
+var NO_HOME = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-home-'));
 
 // Loads JavaTooling.js, then (unless javaOnly) HotSwapTooling.js, into one context, as the build loads its
 // tooling: shared globals, each file a module. Answers { poms, ctx, exits, hs } (hs: HotSwapTooling's exports).
@@ -111,14 +113,14 @@ var RUNS = [ 'pomEnvs', 'javacParameters', 'serverJvmArgs', 'testSetup', 'genJav
 // Runs one task, or a line of tasks, with these globals, like the build: for each tooling file that has the task,
 // in load order, its dependencies, then its body (build.js runs same-named tasks of every tooling file, in order),
 // and each task once per line. Answers what it ran; order lists tasks and pmake calls as they happened.
-function run(tasks, globals, javaOnly) {
+function run(tasks, globals, javaOnly, stubs) {
   var l = load(javaOnly);
   var swapGlobals = javaOnly ? {} : { HOT_SWAP: false, SWAP: false };
   Object.assign(l.ctx, { JAVA_OPTS: '', HOST_NAME: 'localhost', APP_NAME: 'a', WEBROOT: 'w', TIMEZONE: 'GMT', DEBUG: false, SUSPEND: false,
     DEBUG_PORT: 8005, BUILD_ONLY: false, BUILD_DIR: BUILD, JAVA_MAIN_CLASS: 'my.Main', JAVA_MAIN_ARGS: 'x', JAVA: '/usr/bin/java',
     SERVER_JAVA_HOME: '', JAVA_RELEASE: '21', CORE_PIDFILE: '/dev/null', FLAGS: 'js,java', TAR: false, JAR: false, RESTART: false,
     CLEAN: false, CLEAN_ALL: false, BACKUP_RUNTIME_JOURNALS: false, DELETE_RUNTIME_JOURNALS: false, APP_ROOT: '/opt',
-    SERVER_JVM_ARGS: [], JAVA_MAKER_ARGS: '', JAVAC_PARAMETERS: '', JAR_INCLUDES: '', VERBOSE: false, POMS: '', FAST_JAVA: 'off', TESTS: '', BENCHMARKS: '' }, swapGlobals, globals);
+    SERVER_JVM_ARGS: [], JAVA_MAKER_ARGS: '', HOME_DIR: NO_HOME, JAVAC_PARAMETERS: '', JAR_INCLUDES: '', VERBOSE: false, POMS: '', FAST_JAVA: 'off', TESTS: '', BENCHMARKS: '' }, swapGlobals, globals);
   var ran = { commands: [], errors: [], spawned: [], exits: l.exits, logs: [], executed: [], order: [] };
   l.ctx.console = Object.assign(Object.create(console), { log: (...m) => ran.logs.push(m.join(' ').split('\n')[0]) });
   var line = [].concat(tasks);
@@ -144,10 +146,12 @@ function run(tasks, globals, javaOnly) {
     comma: (a, b) => a ? a + ',' + b : b, execute: exec, flag: () => l.ctx.FLAGS,
     error: m => { ran.errors.push(m); throw new Error('stop'); }
   };
+  Object.assign(self, stubs);
   // A crash means the run went on into work the harness does not stub: a test sees it as an error, not as a refusal.
   try { line.forEach(exec); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) ran.errors.push('crashed: ' + e.message); }
   ran.opts = l.ctx.JAVA_OPTS;
   ran.makerArgs = l.ctx.JAVA_MAKER_ARGS;
+  ran.serverJavaHome = l.ctx.SERVER_JAVA_HOME;
   return ran;
 }
 
@@ -187,8 +191,10 @@ function wiring() {
     test(sp && sp.file === "'" + JBR21.SERVER_JAVA_HOME + "/bin/java'" && sp.args.indexOf('-XX:+AllowEnhancedClassRedefinition') !== -1 && sp.args.indexOf('my.Main') > sp.args.indexOf('-cp'), 'start-core-async --hot-swap: same java and arguments');
     test(sp && ! /jdwp|AllowEnhanced/.test(sp.env.JAVA_TOOL_OPTIONS), 'start-core-async: the env has neither');
 
-    var tooOld = run('startCORE', Object.assign({}, JBR21, { JAVA_RELEASE: '24' }));
-    test(tooOld.errors.length === 1 && /version 65/.test(tooOld.errors[0]) && tooOld.commands.length === 0, 'a release the JVM cannot run stops the start with a message');
+    // One release past what this JetBrains Runtime runs.
+    var have = jbrClassVersion(JBR21.SERVER_JAVA_HOME);
+    var tooOld = run('startCORE', Object.assign({}, JBR21, { JAVA_RELEASE: String(have - 44 + 1) }));
+    test(tooOld.errors.length === 1 && new RegExp('version ' + have).test(tooOld.errors[0]) && tooOld.commands.length === 0, 'a release the JVM cannot run stops the start with a message');
 
     test(fs_.existsSync(path_.join(BUILD, 'swap-live')), 'a hot swap start writes the swap-live baseline');
     fs_.writeFileSync(path_.join(BUILD, 'swap-stale'), '');
@@ -235,6 +241,28 @@ function wiring() {
   });
 }
 
+// ---- getting a JetBrains Runtime
+
+function gettingJbr() {
+  console.log('getting a JetBrains Runtime');
+  var home = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-jbr-'));
+  var jbr = hs.JBR_DIR(home);
+  test(hs.findJbr(jbr) === null, 'no ~/jbr: none found');
+  [ 'jbrsdk-21.0.11-osx-aarch64-b1163.125', 'jbrsdk-25.0.5.1-osx-aarch64-b508.47' ].forEach(n => {
+    fs_.mkdirSync(path_.join(jbr, n, 'Contents', 'Home', 'bin'), { recursive: true });
+    fs_.writeFileSync(path_.join(jbr, n, 'Contents', 'Home', 'bin', 'java'), '');
+  });
+  var newest = path_.join(jbr, 'jbrsdk-25.0.5.1-osx-aarch64-b508.47', 'Contents', 'Home');
+  test(hs.findJbr(jbr) === newest, 'the mac layout (<name>/Contents/Home) is found, the newest first');
+
+  var picked = run('pomEnvs', { HOT_SWAP: true, HOME_DIR: home });
+  test(picked.errors.length === 0 && picked.serverJavaHome === newest, '--hot-swap without --server-java-home runs on the JetBrains Runtime in ~/jbr');
+  test(run('pomEnvs', { HOT_SWAP: true, HOME_DIR: home, SERVER_JAVA_HOME: '/my/jdk' }).serverJavaHome === '/my/jdk', '--server-java-home wins over ~/jbr');
+  test(run('pomEnvs', { HOT_SWAP: false, HOME_DIR: home }).serverJavaHome === '', 'without --hot-swap, ~/jbr is not used');
+
+  [ home ].forEach(d => fs_.rmSync(d, { recursive: true, force: true }));
+}
+
 function pendingFlow() {
   console.log('pending list and stale mark');
   var dir = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-pend-'));
@@ -263,6 +291,12 @@ function jbrHome() {
     return null;
   };
   return look(start, 3);
+}
+
+// The class file version this JetBrains Runtime runs (65 for Java 21).
+function jbrClassVersion(home) {
+  var out = child_.spawnSync(path_.join(home, 'bin', 'java'), [ '-XshowSettings:properties', '-version' ], { encoding: 'utf8' });
+  return Number(/java\.class\.version = (\d+)/.exec(out.stderr + out.stdout)[1]);
 }
 
 function sleep(ms) { child_.spawnSync('sleep', [String(ms / 1000)]); }
@@ -310,9 +344,10 @@ function smoke() {
     // classes built for a newer Java than the server runs: the JVM refuses them. (A JetBrains Runtime
     // swaps even a changed superclass in some cases, so a class file version is the sure refusal.)
     var newer = process.env.HOTSWAP_NEWER_JAVAC || '/Library/Java/JavaVirtualMachines/jdk-24.jdk/Contents/Home/bin/javac';
-    if ( fs_.existsSync(newer) ) {
+    var newerRelease = fs_.existsSync(newer) ? Number(/javac (\d+)/.exec(child_.execFileSync(newer, [ '-version' ], { encoding: 'utf8' }))[1]) : 0;
+    if ( newerRelease + 44 > jbrClassVersion(jbr) ) {
       fs_.writeFileSync(path_.join(dir, 'Main.java'), src(3));
-      child_.execFileSync(newer, ['--release', '24', '-d', classes, path_.join(dir, 'Main.java')]);
+      child_.execFileSync(newer, ['--release', String(newerRelease), '-d', classes, path_.join(dir, 'Main.java')]);
       fs_.writeFileSync(path_.join(dir, 'swap-manifest'), 'Main.class\n');
       var task = { BUILD_DIR: dir, HOT_SWAP: true, SERVER_JAVA_HOME: jbr, DEBUG_PORT: port };
       // the task reads BUILD_DIR/classes
@@ -327,7 +362,7 @@ function smoke() {
       var out2 = fs_.readFileSync(out, 'utf8').trim().split('\n');
       test(again.exits.length === 0 && ! fs_.existsSync(path_.join(dir, 'swap-manifest')) && out2[out2.length - 1] === 'value=4', 'the next swap sends it and clears the list: server prints ' + out2[out2.length - 1]);
     } else {
-      console.log('  skip refusal: no newer javac (set HOTSWAP_NEWER_JAVAC)');
+      console.log('  skip refusal: no javac newer than this JetBrains Runtime (set HOTSWAP_NEWER_JAVAC)');
     }
   } finally {
     server.kill('SIGKILL');
@@ -343,8 +378,9 @@ function main() {
   answers();
   wiring();
   pendingFlow();
+  gettingJbr();
   smoke();
-  fs_.rmSync(BUILD, { recursive: true, force: true });
+  [ BUILD, NO_HOME ].forEach(d => fs_.rmSync(d, { recursive: true, force: true }));
   console.log('\n' + passes + ' passed, ' + failures + ' failed');
   process.exitCode = failures ? 1 : 0;
 }

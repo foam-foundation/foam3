@@ -74,7 +74,7 @@ function serverJvm({ hotSwap, javaHome, debugPort, suspend, platform, release, r
 function checkJvm({ java, release, run = runJava }) {
   const r = run(java, [ SWAP_FLAG, '-XshowSettings:properties', '-version' ]);
   if ( r.status !== 0 ) {
-    return { ok: false, message: `${java} does not accept ${SWAP_FLAG} (it needs a JetBrains Runtime). Its answer: ${firstLine(r.output)}` };
+    return { ok: false, message: `${java} does not accept ${SWAP_FLAG} (it needs a JetBrains Runtime). Its answer: ${firstLine(r.output)}. ${GET_JBR}` };
   }
   const m = /java\.class\.version = (\d+)/.exec(r.output);
   if ( ! m ) return { ok: false, message: `cannot read the class file version of ${java}` };
@@ -153,7 +153,27 @@ function readSwapManifest(file) {
   try { return fs_.readFileSync(file, 'utf8').split('\n').filter(Boolean); } catch (e) { return []; }
 }
 
-module.exports = { startServerJvm, hotSwapRefusal, swapIsStale, swapClearPending, SWAP_LIVE, SWAP_STALE, SWAP_MANIFEST, serverJvm, checkJvm, swapClasses, swapAnswer, readSwapManifest, classVersion, jdwp, SWAP_FLAG, OUTCOMES, outcomeWords, exitCodeHelp, SWAPPED, BUILD_FAILED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };
+// ---- getting a JetBrains Runtime
+
+// Where --hot-swap looks for it when --server-java-home is not given.
+const JBR_DIR = home => path_.join(home, 'jbr');
+const GET_JBR = 'Get one: download a jbrsdk build for this machine from https://github.com/JetBrains/JetBrainsRuntime/releases and unpack it into ~/jbr (doc/guides/Build.md, "Options and Tasks of interest", --hot-swap).';
+
+// The folder with bin/java under dir, up to depth levels down (the mac download is <name>/Contents/Home);
+// the newest name first. null when there is none.
+function findJbr(dir, depth = 3) {
+  if ( fs_.existsSync(path_.join(dir, 'bin', 'java')) ) return dir;
+  if ( depth === 0 ) return null;
+  var names;
+  try { names = fs_.readdirSync(dir).sort().reverse(); } catch (e) { return null; }
+  for ( var n of names ) {
+    var found = findJbr(path_.join(dir, n), depth - 1);
+    if ( found ) return found;
+  }
+  return null;
+}
+
+module.exports = { findJbr, JBR_DIR, startServerJvm, hotSwapRefusal, swapIsStale, swapClearPending, SWAP_LIVE, SWAP_STALE, SWAP_MANIFEST, serverJvm, checkJvm, swapClasses, swapAnswer, readSwapManifest, classVersion, jdwp, SWAP_FLAG, OUTCOMES, outcomeWords, exitCodeHelp, SWAPPED, BUILD_FAILED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };
 
 // The runs --hot-swap does not apply to stop at the first hook each one passes before its work. Every hook
 // checks, because a task runs once per build: on a line of several tasks, an earlier task may have run pomEnvs
@@ -175,7 +195,10 @@ foam.POM({
   },
 
   tasks: {
-    pomEnvs:   ['pom-envs',   'Stop --hot-swap on a jar or tar build (-a, -k).', [], refusePackaging],
+    pomEnvs:   ['pom-envs',   'Stop --hot-swap on a jar or tar build (-a, -k). Without --server-java-home, run on the JetBrains Runtime in ~/jbr.', [], function() {
+      refusePackaging.call(this);
+      if ( HOT_SWAP && ! SERVER_JAVA_HOME ) SERVER_JAVA_HOME = findJbr(JBR_DIR(HOME_DIR)) || '';
+    }],
     // Test and benchmark runs both clean their deployment before they build.
     cleanTest: ['clean-test', 'Stop --hot-swap on a test or benchmark run.',     [], refuseTests],
 
@@ -216,8 +239,8 @@ foam.POM({
 
     usage: ['usage', 'Hot swap usage examples', [], function() {
       this.log('\nJava hot swap (-T+HotSwap):');
-      this.log('  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap --server-java-home:$HOME/jbr -D8305  ;  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap --server-java-home:$HOME/jbr -D8305 --swap');
-      this.log('    Run on a JetBrains Runtime with a loopback debug port, then (second line, other terminal) build the changed Java and send it into the running server without a restart.');
+      this.log('  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap -D8305  ;  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap -D8305 --swap');
+      this.log('    Run on the JetBrains Runtime in ~/jbr (or --server-java-home) with a loopback debug port, then (second line, other terminal) build the changed Java and send it into the running server without a restart.');
     }]
   }
 });

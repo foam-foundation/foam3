@@ -110,7 +110,7 @@ function run(task, globals) {
   };
   // Like the build: the task's function dependencies (the --hot-swap refusals are one), then its body.
   var t = l.pom.tasks[task];
-  try { t[2].filter(d => typeof d === 'function').forEach(d => d.call(self)); t[3].call(self); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) throw e; }
+  try { t[2].filter(d => typeof d === 'function' || /^refuse/.test(d)).forEach(d => ( typeof d === 'function' ? d : l.pom.tasks[d][3] ).call(self)); t[3].call(self); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) throw e; }
   ran.opts = l.ctx.JAVA_OPTS;
   return ran;
 }

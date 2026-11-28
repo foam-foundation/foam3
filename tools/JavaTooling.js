@@ -4,11 +4,6 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// A task dependency: stops a run that --hot-swap does not apply to. kind: see HotSwapTooling.refusal.
-const refuseHotSwap = (kind, applies = () => true) => function() {
-  if ( HOT_SWAP && applies() ) this.error(require('./HotSwapTooling').refusal(kind));
-};
-
 // What start-core and start-core-async do before they start the JVM. this is the task's. Answers the
 // JVM to start ({ java, args }), or null when the build only builds. With --hot-swap the JVM is checked
 // and gets the swap flag and the debug agent. Only these two tasks do this.
@@ -97,7 +92,18 @@ foam.POM({
   },
 
   tasks: {
-    all: ['all', 'Execute tasks for a \'Standard Java\' build.', ['pomEnvs', refuseHotSwap('jar and tar builds', () => TAR || JAR)], function() {
+    // Dependencies of the tasks --hot-swap does not apply to (see HotSwapTooling.refusal).
+    refuseHotSwapPackaging: ['refuse-hot-swap-packaging', 'Stop --hot-swap with --tar or --jar.', [], function() {
+      if ( HOT_SWAP && ( TAR || JAR ) ) this.error(require('./HotSwapTooling').refusal('jar and tar builds'));
+    }],
+    refuseHotSwapJar: ['refuse-hot-swap-jar', 'Stop --hot-swap on a jar or tar build.', [], function() {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('jar and tar builds'));
+    }],
+    refuseHotSwapTests: ['refuse-hot-swap-tests', 'Stop --hot-swap on a test or benchmark run.', [], function() {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('test and benchmark runs'));
+    }],
+
+    all: ['all', 'Execute tasks for a \'Standard Java\' build.', ['pomEnvs', 'refuseHotSwapPackaging'], function() {
       if ( ! ( TAR || BUILD_ONLY ) ) {
         this.execute('stopCORE');
       }
@@ -134,13 +140,13 @@ foam.POM({
       }
     }],
 
-    buildJar: ['build-jar', 'Build binary JAR file.', [refuseHotSwap('jar and tar builds'), ()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
+    buildJar: ['build-jar', 'Build binary JAR file.', ['refuseHotSwapJar', ()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
-    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [refuseHotSwap('jar and tar builds'), ()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+    buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', ['refuseHotSwapJar', ()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
       // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
@@ -432,7 +438,7 @@ foam.POM({
     }],
 
     // TODO: not tested
-    javaBenchmarks: ['java-benchmarks', 'Run all or specified benchmarks. ex: javaBenchmarks[:Benchmark1,Benchmark2]', [refuseHotSwap('test and benchmark runs') /*'stopCORE'*/], function(args) {
+    javaBenchmarks: ['java-benchmarks', 'Run all or specified benchmarks. ex: javaBenchmarks[:Benchmark1,Benchmark2]', ['refuseHotSwapTests' /*'stopCORE'*/], function(args) {
       BENCHMARKS=args;
       APP_NAME = 'benchmark';
       APP_ROOT = ! APP_ROOT || APP_ROOT == '/opt' ? '/tmp' : APP_ROOT;
@@ -479,7 +485,7 @@ foam.POM({
       this.execute('runTests');
     }],
 
-    runTests: ['run-tests', 'Run all or specified test cases. Runs both Server and Client side tests. ex: runTests[:Test1,Test2]', [refuseHotSwap('test and benchmark runs')], function(args) {
+    runTests: ['run-tests', 'Run all or specified test cases. Runs both Server and Client side tests. ex: runTests[:Test1,Test2]', ['refuseHotSwapTests'], function(args) {
       if ( ! TESTS && args ) TESTS=args;
       this.execute('testSetup');
       this.execute('pomEnvs');

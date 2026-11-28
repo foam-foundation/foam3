@@ -28,6 +28,8 @@ foam.CLASS({
     'selection',
     'startExpanded',
     'translationService?',
+    'treeHiddenIds',
+    'treeOpenIds',
     'rowConfig'
   ],
 
@@ -170,12 +172,22 @@ foam.CLASS({
       }
     },
     {
+      class: 'Boolean',
+      name: 'openedBySearch_',
+      documentation: `True while this row is open only because a search opened
+        it (a match is below it). When the search no longer needs it, the row
+        closes again; a click on it makes the state the person's own.`
+    },
+    {
       class: 'Function',
       name: 'formatter'
     },
     {
       class: 'Boolean',
-      name: 'hasChildren'
+      name: 'hasChildren',
+      expression: function(subMenus, treeHiddenIds) {
+        return subMenus.some(c => ! treeHiddenIds?.[c.id]);
+      }
     },
     {
       class: 'Boolean',
@@ -247,13 +259,15 @@ foam.CLASS({
 
       var cb = () => {
         this.data[self.relationship.forwardName].select().then(function( val ) {
-          self.hasChildren = val.array.length > 0;
-          self.subMenus    = val.array;
+          self.subMenus = val.array;
         });
       }
 
       this.onDetach(this.data[self.relationship.forwardName].listen({ put: cb }));
       cb();
+
+      this.onDetach(this.treeOpenIds$.sub(this.followSearch));
+      this.followSearch();
 
       var labelString = this.data.label;
       if ( this.translationService ) {
@@ -274,8 +288,9 @@ foam.CLASS({
       // Regular menu item rendering
       this.
         addClass(this.myClass()).
-        show(this.slot(function( showTreeRow, hasChildren, showThisRootOnSearch, updateThisRoot ) {
+        show(this.slot(function( showTreeRow, hasChildren, showThisRootOnSearch, updateThisRoot, treeHiddenIds ) {
           if ( ! showTreeRow ) return false;
+          if ( treeHiddenIds?.[self.data.id] ) return false;
           if ( ! self.query ) return true;
           var isThisItemRelatedToSearch = false;
           if ( ! updateThisRoot ) {
@@ -378,6 +393,19 @@ foam.CLASS({
       this.dblclick && this.dblclick(this.data);
     },
 
+    function followSearch() {
+      // A search opens the rows above its matches; once it no longer needs a
+      // row open, the row goes back to how it was before the search.
+      var aboveAMatch = !! this.treeOpenIds?.[this.data.id];
+      if ( aboveAMatch && ! this.expanded ) {
+        this.openedBySearch_ = true;
+        this.expanded        = true;
+      } else if ( ! aboveAMatch && this.openedBySearch_ ) {
+        this.openedBySearch_ = false;
+        this.expanded        = false;
+      }
+    },
+
     function onDragStart(e) {
       e.dataTransfer.setData('application/x-foam-obj-id', this.data.id);
       e.stopPropagation();
@@ -444,8 +472,9 @@ foam.CLASS({
       name: 'toggleExpanded',
       label: '',
       code: function() {
-        this.expanded  = ! this.expanded;
-        this.selection = this.data;
+        this.openedBySearch_ = false;
+        this.expanded        = ! this.expanded;
+        this.selection       = this.data;
       }
     }
   ]
@@ -459,6 +488,7 @@ foam.CLASS({
 
   requires: [
     'foam.mlang.ExpressionsSingleton',
+    'foam.mlang.predicate.True',
     'foam.u2.view.TreeViewRow'
   ],
 
@@ -470,8 +500,10 @@ foam.CLASS({
     'collapsed',
     'draggable',
     'onObjDrop',
+    'openIds_ as treeOpenIds',
     'rowConfig',
     'selection',
+    'hiddenIds_ as treeHiddenIds',
     'startExpanded'
   ],
 
@@ -487,6 +519,33 @@ foam.CLASS({
     {
       class: 'foam.dao.DAOProperty',
       name: 'data'
+    },
+    {
+      class: 'foam.mlang.predicate.PredicateProperty',
+      name: 'searchPredicate',
+      documentation: `A search. The tree shows the rows it accepts with the rows
+        above them, and opens those, as MUI X and AG Grid do for a filtered
+        tree. Rows inside an accepted row show too, closed. Every row the tree can draw is judged, wherever the relationship
+        found it: Data Management builds its DAO menus itself, so they are in
+        no DAO the caller holds. data stays the whole tree. Unset or TRUE:
+        every row shows.`
+    },
+    {
+      name: 'hiddenIds_',
+      documentation: `With a searchPredicate: the ids of rows that do not pass it,
+        have no row below them that does, and sit inside no row that does.
+        Null hides nothing.`,
+      value: null
+    },
+    {
+      name: 'openIds_',
+      documentation: 'With a searchPredicate: the ids of rows with a match below them; they open.',
+      value: null
+    },
+    {
+      class: 'Int',
+      name: 'hiddenIdsRun_',
+      documentation: 'Counts updateHiddenIds runs, so a slow run for an old search does not overwrite a newer one.'
     },
     {
       name: 'relationship'
@@ -539,6 +598,10 @@ foam.CLASS({
       var self = this;
       var isFirstSet = false;
 
+      this.onDetach(this.searchPredicate$.sub(this.updateHiddenIds));
+      this.onDetach(this.data$proxy.on.sub(this.updateHiddenIds));
+      this.updateHiddenIds();
+
       this.addClass().
         select(dao, function( obj ) {
           if ( ! isFirstSet && ! self.selection ) {
@@ -560,6 +623,55 @@ foam.CLASS({
 
     function onObjDrop(obj, target) {
       // Template Method
+    }
+  ],
+
+  listeners: [
+    {
+      name: 'updateHiddenIds',
+      documentation: `Walks the tree from its top rows through the relationship,
+        as the rows draw it: a row shows if searchPredicate accepts it, a row
+        below it is accepted, or it is inside an accepted row; a row with an
+        accepted row below it opens.`,
+      isMerged: true,
+      delay: 50,
+      code: async function() {
+        var run    = ++this.hiddenIdsRun_;
+        // A list screen with no search passes AND(TRUE, TRUE): simplify first.
+        var search = this.searchPredicate?.partialEval();
+        if ( ! search || this.True.isInstance(search) ) {
+          this.hiddenIds_ = null;
+          this.openIds_   = null;
+          return;
+        }
+
+        var of      = this.__context__.lookup(this.relationship.sourceModel);
+        var forward = this.relationship.forwardName;
+        var hidden  = {};
+        var open    = {};
+        var seen    = {};
+        // Answers whether obj or a row below it passes the search. Rows inside
+        // a passing row show too, as AG Grid does, but open only for a pass
+        // below them: searching a folder's name shows the folder, closed, with
+        // its contents one click away.
+        var judge = async (obj, insideMatch) => {
+          if ( seen[obj.id] ) return false;
+          seen[obj.id] = true;
+          var passes   = search.f(obj);
+          var children = (await obj[forward].select()).array;
+          var below    = (await Promise.all(children.map(c => judge(c, insideMatch || passes)))).some(b => b);
+          if ( below ) open[obj.id] = true;
+          if ( ! ( below || passes || insideMatch ) ) hidden[obj.id] = true;
+          return below || passes;
+        };
+        var top = await this.data.where(
+          this.EQ(of.getAxiomByName(this.relationship.inverseName), this.defaultRoot)).select();
+        await Promise.all(top.array.map(o => judge(o, false)));
+
+        if ( run !== this.hiddenIdsRun_ ) return;
+        this.hiddenIds_ = hidden;
+        this.openIds_   = open;
+      }
     }
   ]
 });

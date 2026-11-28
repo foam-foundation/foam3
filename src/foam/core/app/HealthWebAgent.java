@@ -34,6 +34,19 @@ public class HealthWebAgent
     Health health = (Health) x.get("Health");
     health.setHeartbeatTime(System.currentTimeMillis());
 
+    // Report the effective heartbeat delivery mode (BROADCAST / LOOPBACK /
+    // DIRECT). The "Health" context value is a factory that builds a fresh
+    // Health per request (HealthFactory), so it cannot be stamped once at
+    // startup; set it here from the running service. This is distinct from
+    // Health.mode, which the constructor sets to the application runtime Mode
+    // (DEVELOPMENT / PRODUCTION / ...). Lets an operator confirm the mode in
+    // effect -- e.g. DIRECT on a no-multicast network like AWS -- from the
+    // endpoint rather than the startup log.
+    Object heartbeatService = x.get("healthHeartbeatService");
+    if ( heartbeatService instanceof HealthHeartbeatService ) {
+      health.setHeartbeatMode(((HealthHeartbeatService) heartbeatService).getMode());
+    }
+
     Health lastHealth = (Health) ((DAO) x.get("healthDAO")).find(health);
 
     if ( lastHealth != null ) {

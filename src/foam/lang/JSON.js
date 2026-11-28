@@ -887,8 +887,8 @@ foam.LIB({
                 var prop = pMap[key];
                 if ( prop ) {
                   var js = prop.fromJSON(json[key], opt_ctx, prop, this);
-                  if ( js == null && json[key] != 'null' ) {
-                    console.warn('Unable to parse property "' + key + '"', 'in', json);
+                  if ( js == null ) {
+                    if ( json[key] != null ) console.warn('Unable to parse property "' + key + '"', 'in', json);
                   } else {
                     simpleArgs[prop.name] = js;
                   }
@@ -905,8 +905,8 @@ foam.LIB({
                 var prop = pMap[key];
                 if ( prop ) {
                   var js = prop.fromJSON(json[key], o.__subContext__, prop, this);
-                  if ( js == null && json[key] != 'null' ) {
-                    console.warn('Unable to parse property "' + key + '"', 'in', json);
+                  if ( js == null ) {
+                    if ( json[key] != null ) console.warn('Unable to parse property "' + key + '"', 'in', json);
                   } else {
                     o[prop.name] = js;
                   }

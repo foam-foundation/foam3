@@ -39,6 +39,13 @@ How apps pick them up: `foam3/.claude/skills/README.md`.
 ./build.sh -l
 ```
 
+**Java hot swap.** Change Java and see it in the running server without a restart (JetBrains Runtime needed). It is not in the default tooling: add `-T+HotSwap`. Get the JetBrains Runtime once: unpack a `jbrsdk` build from https://github.com/JetBrains/JetBrainsRuntime/releases into `~/jbr`, which `--hot-swap` then uses, start with `--hot-swap`, then run the same line with `--swap`. Guide: [Build](Build.md), "Options and Tasks of interest".
+
+```bash
+./build.sh -T+HotSwap --hot-swap              # start
+./build.sh -T+HotSwap --hot-swap --swap       # after a Java edit
+```
+
 **Debugging.** Chrome DevTools for the browser side, and a Java debugger on port 8000 for the server. Guide: [Debugging](Debugging.md). To count how many instances of a class were created, or which classes were used at all, see [DebuggingCountAndUsed](DebuggingCountAndUsed.md).
 
 ```bash

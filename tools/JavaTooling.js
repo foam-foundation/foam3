@@ -4,6 +4,34 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
+const path_ = require('path');
+
+const javaBin = javaHome => javaHome ? path_.join(javaHome, 'bin', 'java') : 'java';
+
+// A path in one word for /bin/bash.
+const shellQuote = text => "'" + String(text).replace(/'/g, "'\\''") + "'";
+
+// What start-core and start-core-async do before they start the JVM. this is the task's. Answers the
+// JVM to start ({ java, args }), or null when the build only builds. args are SERVER_JVM_ARGS, which
+// other tooling fills in its serverJvmArgs task (HotSwapTooling). Only these two tasks do this.
+function prepareServerJvm() {
+  if ( HOST_NAME !== 'localhost' ) {
+    JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
+  }
+  JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
+  JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
+  JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
+
+  // A debug agent already among the server's own arguments (HotSwapTooling puts one there) wins over -d.
+  if ( DEBUG && ! SERVER_JVM_ARGS.some(a => a.startsWith('-agentlib:jdwp')) )
+    JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
+
+  this.showSummary();
+  if ( BUILD_ONLY ) return null;
+
+  return { java: javaBin(SERVER_JAVA_HOME), args: SERVER_JVM_ARGS };
+}
+
 foam.POM({
   name: 'java',
 
@@ -19,11 +47,13 @@ foam.POM({
     JAR_OUT:           ['Binary JAR full path',() => `${JAR_LIB_DIR}/${JAR_NAME}`],
     JAR_RES_OUT:       ['Resources JAR full path',() => `${JAR_LIB_DIR}/${JAR_RES_NAME}`],
     JAVA:              ['Java executable', ''],
+    JAVA_MAKER_ARGS:   ['More arguments for the Java, Maven and Javac makers of gen-java. Other tooling adds to it in its javacParameters task (HotSwapTooling: -swapManifest).', ''],
     JAVA_MANIFEST:     ['Generated JAVA_MANIFEST', ''],
     JAVA_TOOL_OPTIONS: ['Internal configuration for JVM with the JAVA_OPTS',() => JAVA_OPTS],
     JOURNAL_HOME:      ['Application journals directory',() => `${APP_HOME}/journals`],
     JOURNAL_OUT:       ['Build journals directory',() => `${PROJECT_HOME}/${BUILD_DIR}/journals`],
     LOG_HOME:          ['Application logs directory',() => APP_NAME ? `${APP_HOME}/logs`: 'APP_HOME/logs'],
+    SERVER_JVM_ARGS:   ['More JVM arguments for start-core and start-core-async. Other tooling adds to it in its serverJvmArgs task (HotSwapTooling: the swap flag and a debug agent).', []],
     SAF_HOME:          ['Application sf (store and forward) directory',() => `${APP_HOME}/saf`],
     WEBROOT:           ['Webroot for non-jar builds, defaults to PROJECT_HOME', () => PROJECT_HOME],
   },
@@ -51,6 +81,7 @@ foam.POM({
     javaMainArgs: ['', 'java-main-args', 'JAVA_MAIN_ARGS', 'Comma separated key[:value] arguments passed to the Java \'main\' class', '', function(arg) { JAVA_MAIN_ARGS = this.comma(JAVA_MAIN_ARGS, arg); } ],
     restart: [ 'r', 'restart', 'RESTART', 'Restart CORE Server using last build.', false, function(arg) { RESTART = arg ? this.bool(arg) : true; } ],
     runArgs: ['', 'run-args', 'RUN_ARGS', 'Arguments which will be passed to run.sh to when starting CORE server from JAR','', arg => RUN_ARGS = arg ],
+    serverJavaHome: ['', 'server-java-home', 'SERVER_JAVA_HOME', "JDK folder (with bin/java) that runs CORE (start-core, start-core-async), and the swap helper of HotSwapTooling. Default: the java on the path. The build itself still uses the java on the path.", '', arg => SERVER_JAVA_HOME = arg ],
     suspend: [ 's', 'suspend', 'SUSPEND', 'Start JDPA debugging in suspend state.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; SUSPEND = arg ? this.bool(arg) : true; } ],
     systemProperty: [ '', 'system-property', 'SYSTEM_PROPERTY', 'Specify a Java System property (minus the - prefix). Supports a comma seperated list. Each property will be prefixed with -. ex: --system-property:Dfoam.test.headed=true,Xmx12g. Provided as it is not possible to set \' -Dproperty\'values with --java-opts', '', function(arg) { SYSTEM_PROPERTY = this.comma(SYSTEM_PROPERTY, arg); } ],
     tar: [ 'k', 'tar', 'TAR', 'Package up a deployment tarball for remote application installation', false, function(arg) { TAR = arg ? this.bool(arg) : true; } ],
@@ -339,7 +370,7 @@ foam.POM({
       var makers = VERBOSE ? 'Verbose,' : '';
       // NOTE: Java and Javac Maker must be run together as they share data through X
       makers += 'Java,Maven,Javac';
-      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
+      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'${JAVA_MAKER_ARGS}`)();
     }],
 
     deployBin: ['deploy-bin', 'Copy bash files to deployment', [], function() {
@@ -477,46 +508,29 @@ foam.POM({
       }
     }],
 
-    startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs'], function() {
+    serverJvmArgs: ['server-jvm-args', 'Choose the JVM arguments of start-core and start-core-async (SERVER_JVM_ARGS). Other tooling adds a task of the same name, which the build runs after this one: see HotSwapTooling.', [], function() {
+    }],
 
-      if ( HOST_NAME !== 'localhost' ) {
-        JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
-      }
-      JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
-      JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
+    startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs', 'serverJvmArgs'], function() {
 
-      if ( DEBUG )
-        JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
-
-      this.showSummary();
-      if ( BUILD_ONLY ) return;
+      var jvm = prepareServerJvm.call(this);
+      if ( ! jvm ) return;
 
       // this.info(`Starting CORE ${APP_NAME}`);
       // Acquires environment variables via JAVA_TOOL_OPTIONS (JAVA_OPTS)
       // build/classes precedes build/lib/* so freshly compiled classes always win
       // over any stale jar sitting in build/lib (e.g. an app/test package left by a
       // prior run) — otherwise the jar shadows the recompiled classes silently.
-      this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
+      this.execSync(`"${jvm.java}" ${jvm.args.join(' ')} -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
     }],
 
-    startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs','java'], function() {
+    startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs', 'java', 'serverJvmArgs'], function() {
 
-      if ( HOST_NAME !== 'localhost' ) {
-        JAVA_OPTS += ` -Dhostname=${HOST_NAME}`;
-      }
-      JAVA_OPTS += ` -Dapp.name=${APP_NAME}`;
-      JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
-      JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
-
-      if ( DEBUG )
-        JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
-
-      this.showSummary();
-      if ( BUILD_ONLY ) return;
+      var jvm = prepareServerJvm.call(this);
+      if ( ! jvm ) return;
 
       // this.info(`Starting CORE ${APP_NAME}`);
-      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
+      var proc = this.spawn(SERVER_JAVA_HOME ? shellQuote(jvm.java) : JAVA, ['-server'].concat(jvm.args, ['-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS]), {
         stdio: 'inherit',
         shell: '/bin/bash',
         detached: true,

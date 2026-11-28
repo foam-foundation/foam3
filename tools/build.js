@@ -383,6 +383,7 @@ function moreUsage(arg) {
     log('  RAMDisk - create RAM disk to use as the build directory. use: -TRAMDisk');
     log('  RemoteInstall - configure remote host and install Java application. use: -TStandard,RemoteInstall,Java ...');
     log('  setup/Project - create a new FOAM project. use: -T+setup/Project ...');
+    log('  HotSwap - Java hot swap for local runs on a JetBrains Runtime (--hot-swap, --swap). use: -T+HotSwap ...');
     log('');
     info('See --usage for examples, and documentation https://github.com/foam-foundation/foam3/blob/development/doc/guides/Build.md');
   }

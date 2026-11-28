@@ -387,12 +387,14 @@ function findSimilarOptions(options, o) {
 function processToolingArgs(options) {
   const args = process.argv.slice(2);
   for ( var i = 0 ; i < args.length ; i++ ) {
-    var arg = args[0];
+    var arg = args[i];
     if ( arg.startsWith('--') ) {
-      var a = arg.substring(2);
+      // --tooling-poms:+HotSwap: the name before the first ':', the value after it.
+      var colon = arg.indexOf(':');
+      var a = colon === -1 ? arg.substring(2) : arg.substring(2, colon);
       var option = findOption(options, a);
       if ( option && option.f ) {
-        option.f.bind(this, arg.substring(j+1))();
+        option.f.bind(this, colon === -1 ? '' : arg.substring(colon + 1))();
         if ( option.key === 'toolingPoms' ) {
           break;
         }

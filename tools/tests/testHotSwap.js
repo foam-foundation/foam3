@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Tests for Java hot swap (the helpers and wiring in tools/JavaTooling.js, and HotSwap.java).
+// Tests for Java hot swap (the helpers and wiring in tools/HotSwapTooling.js, its hooks in tools/JavaTooling.js, and HotSwap.java).
 // Runs in node. The smoke test at the end needs a JetBrains Runtime: set HOTSWAP_JBR to its folder
 // (or have ~/jbr); without one it says so and skips. HOTSWAP_SMOKE=off skips it on purpose.
 //
@@ -17,8 +17,8 @@ var path_  = require('path');
 var vm_    = require('vm');
 var child_ = require('child_process');
 
-// JavaTooling.js is a foam.POM file, so load() runs it with the build's globals stubbed; its helpers are its module.exports.
-var hs = load().ctx.module.exports;
+// HotSwapTooling.js is a foam.POM file, so load() runs it with the build's globals stubbed; its helpers are its module.exports.
+var hs = load().hs;
 
 var passes = 0, failures = 0;
 
@@ -83,88 +83,156 @@ function answers() {
   delete process.env.JAVA_TOOL_OPTIONS;
 }
 
-// ---- the wiring: run JavaTooling.js's own task functions with recorded commands
+// ---- the wiring: run the tooling files' own task functions, stacked like the build, with recorded commands
 
 var BUILD = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-build-'));
 
-function load() {
-  var pom;
-  var exits = [];
-  var ctx = { TIMESTAMP: 't', module: { exports: {} }, __dirname: path_.join(__dirname, '..'), foam: { POM: p => { pom = p; } }, require: require('module').createRequire(path_.join(__dirname, '..', 'JavaTooling.js')), process: Object.assign(Object.create(process), { exit: c => { exits.push(c); throw new Error('exit'); } }), console: console };
+// Loads JavaTooling.js, then (unless javaOnly) HotSwapTooling.js, into one context, as the build loads its
+// tooling: shared globals, each file a module. Answers { poms, ctx, exits, hs } (hs: HotSwapTooling's exports).
+function load(javaOnly) {
+  var poms = [], exits = [], hs;
+  var ctx = { TIMESTAMP: 't', foam: { POM: p => poms.push(p) }, process: Object.assign(Object.create(process), { exit: c => { exits.push(c); throw new Error('exit'); } }), console: console };
   vm_.createContext(ctx);
-  vm_.runInContext(fs_.readFileSync(path_.join(__dirname, '../JavaTooling.js'), 'utf8'), ctx);
-  return { pom: pom, ctx: ctx, exits: exits };
+  ( javaOnly ? [ 'JavaTooling.js' ] : [ 'JavaTooling.js', 'HotSwapTooling.js' ] ).forEach(name => {
+    var file = path_.join(__dirname, '..', name);
+    var module = { exports: {} };
+    // Like node's require: the file's own top-level names stay in its own function scope.
+    var wrapped = vm_.runInContext('(function(module, require, __dirname) {' + fs_.readFileSync(file, 'utf8') + '\n})', ctx);
+    wrapped(module, require('module').createRequire(file), path_.join(__dirname, '..'));
+    hs = module.exports;
+  });
+  return { poms: poms, ctx: ctx, exits: exits, hs: hs };
 }
 
-// Runs a task with these globals; answers what it ran.
-function run(task, globals) {
-  var l = load();
+// The tasks the harness runs in full when a task depends on or executes them. Of the build's other tasks only
+// the hooks of the tooling files after JavaTooling run (HotSwapTooling's); JavaTooling's own work is recorded.
+var RUNS = [ 'pomEnvs', 'javacParameters', 'serverJvmArgs', 'testSetup', 'genJava', 'hotSwap' ];
+
+// Runs one task, or a line of tasks, with these globals, like the build: for each tooling file that has the task,
+// in load order, its dependencies, then its body (build.js runs same-named tasks of every tooling file, in order),
+// and each task once per line. Answers what it ran; order lists tasks and pmake calls as they happened.
+function run(tasks, globals, javaOnly) {
+  var l = load(javaOnly);
+  var swapGlobals = javaOnly ? {} : { HOT_SWAP: false, SWAP: false };
   Object.assign(l.ctx, { JAVA_OPTS: '', HOST_NAME: 'localhost', APP_NAME: 'a', WEBROOT: 'w', TIMEZONE: 'GMT', DEBUG: false, SUSPEND: false,
     DEBUG_PORT: 8005, BUILD_ONLY: false, BUILD_DIR: BUILD, JAVA_MAIN_CLASS: 'my.Main', JAVA_MAIN_ARGS: 'x', JAVA: '/usr/bin/java',
-    HOT_SWAP: false, SERVER_JAVA_HOME: '', JAVA_RELEASE: '21', CORE_PIDFILE: '/dev/null' }, globals);
-  var ran = { commands: [], errors: [], spawned: [], exits: l.exits, logs: [] };
+    SERVER_JAVA_HOME: '', JAVA_RELEASE: '21', CORE_PIDFILE: '/dev/null', FLAGS: 'js,java', TAR: false, JAR: false, RESTART: false,
+    CLEAN: false, CLEAN_ALL: false, BACKUP_RUNTIME_JOURNALS: false, DELETE_RUNTIME_JOURNALS: false, APP_ROOT: '/opt',
+    SERVER_JVM_ARGS: [], JAVA_MAKER_ARGS: '', JAVAC_PARAMETERS: '', JAR_INCLUDES: '', VERBOSE: false, POMS: '', FAST_JAVA: 'off', TESTS: '', BENCHMARKS: '' }, swapGlobals, globals);
+  var ran = { commands: [], errors: [], spawned: [], exits: l.exits, logs: [], executed: [], order: [] };
   l.ctx.console = Object.assign(Object.create(console), { log: (...m) => ran.logs.push(m.join(' ').split('\n')[0]) });
+  var line = [].concat(tasks);
+  var fired = {};
+  var exec = name => {
+    ran.executed.push(name);
+    ran.order.push(name);
+    if ( fired[name] ) return;
+    fired[name] = true;
+    var full = RUNS.includes(name) || line.includes(name);
+    l.poms.forEach((p, i) => {
+      if ( ! full && i === 0 ) return;
+      var t = p.tasks[name];
+      if ( ! t ) return;
+      t[2].forEach(d => typeof d === 'function' ? d.call(self) : exec(d));
+      t[3].call(self);
+    });
+  };
   var self = {
     execSync: c => { ran.commands.push(c); return ''; },
     spawn: (f, a, o) => { ran.spawned.push({ file: f, args: a, env: o.env }); return { pid: 1 }; },
-    writeFileSync: () => {}, showSummary: () => {}, info: () => {},
+    writeFileSync: () => {}, showSummary: () => {}, info: () => {}, addJournal: () => {}, pmake: { bind: (t, args) => () => ran.order.push('pmake ' + args) },
+    comma: (a, b) => a ? a + ',' + b : b, execute: exec, flag: () => l.ctx.FLAGS,
     error: m => { ran.errors.push(m); throw new Error('stop'); }
   };
-  // Like the build: the task's function dependencies (the --hot-swap refusals are one), then its body.
-  var t = l.pom.tasks[task];
-  try { t[2].filter(d => typeof d === 'function' || /^refuse/.test(d)).forEach(d => ( typeof d === 'function' ? d : l.pom.tasks[d][3] ).call(self)); t[3].call(self); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) throw e; }
+  // A crash means the run went on into work the harness does not stub: a test sees it as an error, not as a refusal.
+  try { line.forEach(exec); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) ran.errors.push('crashed: ' + e.message); }
   ran.opts = l.ctx.JAVA_OPTS;
+  ran.makerArgs = l.ctx.JAVA_MAKER_ARGS;
   return ran;
 }
 
 var JBR21 = { HOT_SWAP: true, SERVER_JAVA_HOME: jbrHome() || '/nowhere' };
 
 function wiring() {
-  console.log('wiring in JavaTooling.js');
+  console.log('wiring: JavaTooling.js alone, and with HotSwapTooling.js (-T+HotSwap)');
+  // Without -T+HotSwap the globals HOT_SWAP and SWAP do not exist: JavaTooling must never name them.
+  var alone = run('startCORE', {}, true);
+  test(alone.errors.length === 0 && alone.commands.length === 1 && ! /jdwp|AllowEnhanced/.test(alone.commands[0]), 'JavaTooling alone starts CORE with no hot swap globals defined');
+  var aloneAll = run('all', { BUILD_ONLY: true }, true);
+  test(aloneAll.errors.length === 0 && aloneAll.executed.indexOf('genJava') !== -1, 'JavaTooling alone builds (all) with no hot swap globals defined');
+  var aloneDbg = run('startCORE', { DEBUG: true }, true);
+  test(/jdwp=.*address=127\.0\.0\.1:8005/.test(aloneDbg.opts), 'JavaTooling alone: start-core --debug works as before (agent in JAVA_OPTS)');
+  var src = fs_.readFileSync(path_.join(__dirname, '..', 'JavaTooling.js'), 'utf8');
+  test(! /HOT_SWAP|\bSWAP\b|AllowEnhancedClassRedefinition|swap-manifest/.test(src), 'JavaTooling.js names no hot swap setting');
+
   var plain = run('startCORE', {});
   test(plain.commands.length === 1 && /^"java"  -cp/.test(plain.commands[0]) && ! /jdwp|AllowEnhanced/.test(plain.commands[0] + plain.opts), 'start-core without --hot-swap: no swap flag, no debug agent');
   var dbg = run('startCORE', { DEBUG: true });
   test(/jdwp=.*address=127\.0\.0\.1:8005/.test(dbg.opts), 'start-core --debug works as before (agent in JAVA_OPTS)');
+  test(run('javacParameters', { SWAP: true, HOT_SWAP: true }).makerArgs === ' -swapManifest=' + BUILD + '/swap-manifest', '--swap asks JavacMaker for the swap manifest');
+  test(run('javacParameters', {}).makerArgs === '', 'without --swap, JavacMaker gets no swap manifest');
 
-  if ( ! jbrHome() ) { console.log('  skip the --hot-swap command lines: no JetBrains Runtime'); return; }
-  var hot = run('startCORE', JBR21);
-  var cmd = hot.commands[0] || '';
-  test(cmd.indexOf('"' + JBR21.SERVER_JAVA_HOME + '/bin/java"') === 0, 'start-core --hot-swap runs the chosen java: ' + cmd.slice(0, 60));
-  test(/ -XX:\+AllowEnhancedClassRedefinition /.test(cmd) && /-agentlib:jdwp=.*address=127\.0\.0\.1:8005 /.test(cmd), 'the flag and the loopback agent are on the server command line');
-  test(! /jdwp|AllowEnhanced/.test(hot.opts), 'neither goes into JAVA_TOOL_OPTIONS, so child JVMs do not get them');
+  if ( ! jbrHome() ) { console.log('  skip the --hot-swap command lines: no JetBrains Runtime'); }
+  else {
+    var hot = run('startCORE', JBR21);
+    var cmd = hot.commands[0] || '';
+    test(cmd.indexOf('"' + JBR21.SERVER_JAVA_HOME + '/bin/java"') === 0, 'start-core --hot-swap runs the chosen java: ' + cmd.slice(0, 60));
+    test(/ -XX:\+AllowEnhancedClassRedefinition /.test(cmd) && /-agentlib:jdwp=.*address=127\.0\.0\.1:8005 /.test(cmd), 'the flag and the loopback agent are on the server command line');
+    test(! /jdwp|AllowEnhanced/.test(hot.opts), 'neither goes into JAVA_TOOL_OPTIONS, so child JVMs do not get them');
+    var hotDbg = run('startCORE', Object.assign({ DEBUG: true }, JBR21));
+    test(( hotDbg.commands[0] || '' ).split('-agentlib:jdwp').length === 2 && ! /jdwp/.test(hotDbg.opts), 'with -D and --hot-swap there is one debug agent, on the command line');
 
-  var asyncRun = run('startCOREAsync', JBR21);
-  var sp = asyncRun.spawned[0];
-  test(sp && sp.file === "'" + JBR21.SERVER_JAVA_HOME + "/bin/java'" && sp.args.indexOf('-XX:+AllowEnhancedClassRedefinition') !== -1 && sp.args.indexOf('my.Main') > sp.args.indexOf('-cp'), 'start-core-async --hot-swap: same java and arguments');
-  test(sp && ! /jdwp|AllowEnhanced/.test(sp.env.JAVA_TOOL_OPTIONS), 'start-core-async: the env has neither');
+    var asyncRun = run('startCOREAsync', JBR21);
+    var sp = asyncRun.spawned[0];
+    test(sp && sp.file === "'" + JBR21.SERVER_JAVA_HOME + "/bin/java'" && sp.args.indexOf('-XX:+AllowEnhancedClassRedefinition') !== -1 && sp.args.indexOf('my.Main') > sp.args.indexOf('-cp'), 'start-core-async --hot-swap: same java and arguments');
+    test(sp && ! /jdwp|AllowEnhanced/.test(sp.env.JAVA_TOOL_OPTIONS), 'start-core-async: the env has neither');
 
-  var tooOld = run('startCORE', Object.assign({}, JBR21, { JAVA_RELEASE: '24' }));
-  test(tooOld.errors.length === 1 && /version 65/.test(tooOld.errors[0]) && tooOld.commands.length === 0, 'a release the JVM cannot run stops the start with a message');
+    var tooOld = run('startCORE', Object.assign({}, JBR21, { JAVA_RELEASE: '24' }));
+    test(tooOld.errors.length === 1 && /version 65/.test(tooOld.errors[0]) && tooOld.commands.length === 0, 'a release the JVM cannot run stops the start with a message');
 
-  test(fs_.existsSync(path_.join(BUILD, 'swap-live')), 'a hot swap start writes the swap-live baseline');
-  fs_.writeFileSync(path_.join(BUILD, 'swap-stale'), '');
-  fs_.writeFileSync(path_.join(BUILD, 'swap-manifest'), 'A.class\n');
-  run('startCORE', JBR21);
-  test(! fs_.existsSync(path_.join(BUILD, 'swap-stale')) && ! fs_.existsSync(path_.join(BUILD, 'swap-manifest')), 'a start clears the stale mark and the pending list');
-  var susp = run('startCORE', Object.assign({ SUSPEND: true }, JBR21));
-  test(/suspend=y/.test(susp.commands[0]), 'start-core --hot-swap -s: the server waits for the debugger');
-  var quoted = run('startCOREAsync', Object.assign({}, JBR21, { SERVER_JAVA_HOME: JBR21.SERVER_JAVA_HOME + '/../x y' }));
-  test(quoted.spawned.length === 0 || /^'.* .*'$/.test(quoted.spawned[0].file), 'a java home with a space is quoted for bash');
+    test(fs_.existsSync(path_.join(BUILD, 'swap-live')), 'a hot swap start writes the swap-live baseline');
+    fs_.writeFileSync(path_.join(BUILD, 'swap-stale'), '');
+    fs_.writeFileSync(path_.join(BUILD, 'swap-manifest'), 'A.class\n');
+    run('startCORE', JBR21);
+    test(! fs_.existsSync(path_.join(BUILD, 'swap-stale')) && ! fs_.existsSync(path_.join(BUILD, 'swap-manifest')), 'a start clears the stale mark and the pending list');
+    var susp = run('startCORE', Object.assign({ SUSPEND: true }, JBR21));
+    test(/suspend=y/.test(susp.commands[0]), 'start-core --hot-swap -s: the server waits for the debugger');
+    var quoted = run('startCOREAsync', Object.assign({}, JBR21, { SERVER_JAVA_HOME: JBR21.SERVER_JAVA_HOME + '/../x y' }));
+    test(quoted.spawned.length === 0 || /^'.* .*'$/.test(quoted.spawned[0].file), 'a java home with a space is quoted for bash');
+  }
 
-  // --hot-swap with runs it does not apply to: refused in words
-  ['all', 'buildJar', 'buildResourcesJar', 'runTests', 'javaBenchmarks'].forEach(t => {
-    var g = { HOT_SWAP: true, TAR: false, JAR: true, SERVER_JAVA_HOME: '' };
-    var rr = run(t, g);
-    test(rr.errors.length === 1 && /does not apply to/.test(rr.errors[0]), t + ' with --hot-swap is refused: ' + ( rr.errors[0] || '(not refused)' ).slice(0, 70));
+  // --hot-swap with runs it does not apply to: refused in words, before any build work
+  var work = [ 'genJava', 'buildJar', 'buildResourcesJar', 'startCORE', 'startCORETest', 'stopCORE' ];
+  [ [ 'all', { JAR: true } ], [ 'all', { TAR: true } ], [ 'buildJar', {} ], [ 'buildResourcesJar', {} ], [ 'runTests', {} ], [ 'javaBenchmarks', {} ] ].forEach(([ t, g ]) => {
+    var rr = run(t, Object.assign({ HOT_SWAP: true }, g));
+    var did = rr.executed.slice(1).filter(n => work.includes(n));
+    test(rr.errors.length === 1 && /does not apply to/.test(rr.errors[0]) && ! did.length, t + ( g.TAR ? ' --tar' : g.JAR ? ' --jar' : '' ) + ' with --hot-swap is refused before any work: ' + ( rr.errors[0] || '(not refused)' ).slice(0, 60) + ( did.length ? ' (ran ' + did + ')' : '' ));
   });
+
+  // A line of tasks runs each once: a pomEnvs that ran before a later task set JAR, or before a test run, does not let it through.
+  var late = run([ 'pomEnvs', 'buildJar' ], { HOT_SWAP: true, SWAP: true });
+  test(late.errors.length === 1 && /jar and tar/.test(late.errors[0]) && ! late.order.some(o => /^pmake /.test(o)) && late.executed.indexOf('hotSwap') === -1, 'pomEnvs then buildJar: refused before javac, nothing swapped: ' + ( late.errors[0] || '(not refused)' ).slice(0, 50));
+  var lateTests = run([ 'pomEnvs', 'runTests' ], { HOT_SWAP: true });
+  test(lateTests.errors.length === 1 && /test and benchmark/.test(lateTests.errors[0]) && lateTests.executed.indexOf('buildJar') === -1, 'pomEnvs then runTests: refused before the build');
+  // A source run of test-flagged code is a start-core run, not a test run.
+  var flagged = run('startCORE', Object.assign({ FLAGS: 'js,java,test' }, JBR21));
+  test(flagged.errors.length === 0, 'start-core with --flags:test and --hot-swap is not refused: ' + ( flagged.errors[0] || 'ok' ).slice(0, 60));
+
+  // --swap: the manifest is asked for before javac, and the swap runs after it.
+  var dir = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-order-'));
+  var swapAll = run('all', { SWAP: true, HOT_SWAP: true, BUILD_ONLY: true, BUILD_DIR: dir });
+  var at = re => swapAll.order.findIndex(o => re.test(o));
+  test(at(/^javacParameters$/) !== -1 && at(/^javacParameters$/) < at(/^pmake .*-swapManifest=/) && at(/^pmake .*-swapManifest=/) < at(/^hotSwap$/), '--swap: javacParameters, then javac with -swapManifest, then hotSwap: ' + swapAll.order.filter(o => /javacParameters|pmake|hotSwap/.test(o)).map(o => o.slice(0, 20)).join(' > '));
+  test(swapAll.logs.some(o => /^nothing to swap/.test(o)), '--swap with nothing changed says so after the build');
+  var noSwap = run('all', { HOT_SWAP: true, BUILD_ONLY: true, BUILD_DIR: dir });
+  test(noSwap.executed.indexOf('hotSwap') === -1 && ! noSwap.order.some(o => /-swapManifest/.test(o)), 'a build without --swap neither stages nor swaps');
+  fs_.rmSync(dir, { recursive: true, force: true });
 
   var l = load();
   ['startCORETest', 'startCOREJar', 'startCOREJarAsync'].forEach(t => {
-    var src = l.pom.tasks[t][3].toString();
-    test(! /HOT_SWAP|startServerJvm|AllowEnhancedClassRedefinition|SERVER_JAVA_HOME/.test(src), t + ' never gets hot swap');
+    var body = l.poms[0].tasks[t][3].toString();
+    test(! /SERVER_JVM_ARGS|SERVER_JAVA_HOME|serverJvmArgs/.test(body + l.poms[0].tasks[t][2]), t + ' never gets hot swap');
   });
-  var withFlag = run('startCORETest', Object.assign({ LOG_LEVEL: '', TESTS: '', TEST_SIDE: '', TEST_SUITES: '', TEST_HEADED: false, JAR_OUT: 'j', JAR_RES_OUT: 'r' }, JBR21));
-  test(withFlag.commands.length === 1 && ! /AllowEnhanced|jdwp/.test(withFlag.commands[0]), 'start-core-test with --hot-swap set still has no swap flag');
 }
 
 function pendingFlow() {

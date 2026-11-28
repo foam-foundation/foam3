@@ -1,1 +1,2 @@
 p({class:"foam.core.pool.test.ThrottledAgencyTest", id: "ThrottledAgencyTest"})
+p({"class":"foam.core.pool.test.ThreadPoolAgencyStopTest","id":"ThreadPoolAgencyStopTest","description":"Proves ThreadPoolAgency.stop() waits for interrupted tasks up to shutdownTimeout and never runs queued ones"})

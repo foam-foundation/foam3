@@ -174,7 +174,9 @@ Editing a CSpec's `service`, `serviceClass`, or `serviceScript` at runtime calls
 Work outward from the data; each step rules out one silent failure.
 
 1. **Does the DAO exist in the context?** Look it up by key. If not, the CSpec did not load: check
-   the POM claims the directory (§3) and the journal sits beside a `pom.js`.
+   the POM claims the directory (§3) and the journal sits beside a `pom.js`. To see what actually
+   loaded, in what order, and which override won (and where each came from), read
+   `build/journal/services.0` — the `verify-pom-ordering` skill has the method.
 2. **Does it appear in a served-DAO picker?** If not, the name does not end in `DAO` (§1).
 3. **Does the menu render for an ordinary user?** If not, the grant is missing (§4). Check as a real
    role, never as `admin`.

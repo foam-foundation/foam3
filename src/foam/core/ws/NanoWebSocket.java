@@ -33,6 +33,8 @@ public class NanoWebSocket
   protected Session           session_ = null;
   protected COREServiceRouter router_  = null;
   protected Logger            logger_  = null;
+  // This connection's listeners: the client can stop one, and all stop when the socket closes.
+  protected foam.dao.RemoteListeners listeners_ = null;
 
   public NanoWebSocket(X x) {
     setX(x);
@@ -54,13 +56,15 @@ public class NanoWebSocket
 
   @OnWebSocketOpen
   public void onWebSocketOpen(Session session) {
-    session_ = session;
+    session_   = session;
+    listeners_ = new foam.dao.RemoteListeners.Builder(getX()).build();
     getLogger().info("WebSocket session connected.");
   }
 
   @OnWebSocketClose
   public void onWebSocketClose(int code, String reason) {
     session_ = null;
+    if ( listeners_ != null ) listeners_.stopAll();
     getLogger().info("WebSocket session closed.");
   }
 
@@ -111,7 +115,7 @@ public class NanoWebSocket
         });
 
         // put return box into context
-        X context = getX().put("returnBox", returnBox);
+        X context = getX().put("returnBox", returnBox).put("remoteListeners", listeners_);
 
         // parse incoming message
         FObject request = context.create(JSONParser.class).parseString(message);

@@ -9,3 +9,4 @@ p({"class":"foam.core.test.Test","id":"FixedSizeDAOTest","code":"of = foam.core.
 p({ class: 'foam.dao.CopyOnWriteDAOJavaTest', id: 'foam.dao.CopyOnWriteDAOJavaTest' })
 p({"class":"foam.dao.FilteredDAOListenTest","id":"FilteredDAOListenTest","description":"FilteredDAO scopes listen through predicateIn"})
 p({"class":"foam.dao.ProxyDAOListenContextTest","id":"ProxyDAOListenContextTest","description":"ProxyDAO passes the caller's context to its delegate's listen_"})
+p({"class":"foam.dao.StopRemoteListenerTest","id":"StopRemoteListenerTest","description":"A remote client can stop its listener on the server"})

@@ -31,7 +31,20 @@ foam.CLASS({
     'foam.lang.X',
     'static foam.mlang.MLang.EQ',
     'static foam.mlang.MLang.NEQ',
-    'java.util.Timer'
+    'foam.box.socket.SslContextFactory',
+    'foam.lib.json.JSONParser',
+    'foam.net.Port',
+    'java.io.BufferedReader',
+    'java.io.InputStreamReader',
+    'java.nio.charset.StandardCharsets',
+    'java.net.InetSocketAddress',
+    'java.net.URL',
+    'java.util.List',
+    'java.util.Timer',
+    'javax.net.ssl.HostnameVerifier',
+    'javax.net.ssl.HttpsURLConnection',
+    'javax.net.ssl.SSLContext',
+    'javax.net.ssl.SSLSession'
   ],
 
   properties: [
@@ -110,6 +123,15 @@ foam.CLASS({
       name: 'execute',
       javaCode: `
       final Logger logger = Loggers.logger(x, this);
+
+      HealthHeartbeatService service = (HealthHeartbeatService) x.get("healthHeartbeatService");
+      if ( service != null && service.getMode() == HeartbeatMode.DIRECT ) {
+        // DIRECT has no UDP heartbeat to listen for; actively poll each peer's
+        // /service/health over HTTPS to populate healthDAO instead.
+        pollPeers(x, service);
+        return;
+      }
+
       HealthSupport healthSupport = (HealthSupport) x.get("healthSupport");
       Health self = healthSupport.getLocalHealth(x);
       ((DAO) x.get("healthDAO"))
@@ -168,6 +190,102 @@ foam.CLASS({
           public void reset(Detachable sub) {}
         }
       );
+      `
+    },
+    {
+      documentation: `DIRECT-mode health gathering. foam-saf getPeers() supplies
+        the enabled SAF peers as host:heartbeatPort; poll each peer's HTTPS
+        /service/health instead of waiting for a UDP heartbeat (which DIRECT
+        cannot deliver in a many-to-one topology: the monitor has no peers to
+        unicast to, and a sender never hears itself). A 200 returns the peer's
+        own Health (?format=json), stored with a fresh heartbeatTime so the SAF
+        forward gate (SAFManager) sees the destination UP. Also refresh this
+        instance's own Health row, which DIRECT's lack of self-loopback would
+        otherwise leave missing ("Health not found, creating default"). The poll
+        reuses the SAF self-signed cert via sslContextFactory; it trusts that
+        cert like SAF's sockets do but skips HTTP hostname verification, which
+        those sockets also do not perform.`,
+      name: 'pollPeers',
+      args: 'X x, foam.core.app.HealthHeartbeatService service',
+      javaCode: `
+      Logger logger = Loggers.logger(x, this);
+      DAO healthDAO = (DAO) x.get("healthDAO");
+
+      // Refresh self so getLocalHealth finds a current row under DIRECT.
+      Health self = (Health) ((Health) x.get("Health")).fclone();
+      self.setHeartbeatTime(System.currentTimeMillis());
+      self.setHeartbeatSchedule(getTimerInterval());
+      healthDAO.put_(x, self);
+
+      SslContextFactory sslFactory = (SslContextFactory) x.get("sslContextFactory");
+      int webPort = Port.get(x, "http");
+
+      List peers = service.getPeers(x);
+      for ( int i = 0 ; i < peers.size() ; i++ ) {
+        String host = ((InetSocketAddress) peers.get(i)).getHostString();
+        String spec = "https://" + host + ":" + webPort + "/service/health?format=json";
+        long sendTime = System.currentTimeMillis();
+        try {
+          URL url = new URL(spec);
+          HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
+          if ( sslFactory != null ) {
+            SSLContext ctx = sslFactory.getSSLContext(x);
+            conn.setSSLSocketFactory(ctx.getSocketFactory());
+          }
+          conn.setHostnameVerifier(new HostnameVerifier() {
+            public boolean verify(String h, SSLSession s) { return true; }
+          });
+          conn.setRequestMethod("GET");
+          conn.setConnectTimeout(3000);
+          conn.setReadTimeout(5000);
+
+          int code = conn.getResponseCode();
+          long recvTime = System.currentTimeMillis();
+          if ( code == 200 ) {
+            StringBuilder sb = new StringBuilder();
+            try ( BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8)) ) {
+              for ( String line ; ( line = r.readLine() ) != null ; ) sb.append(line).append('\\n');
+            }
+            Health health = (Health) x.create(JSONParser.class).parseString(sb.toString(), Health.class);
+            if ( health == null ) {
+              logger.warning("poll", "parse failed", host);
+              markPeerDown(x, host);
+              continue;
+            }
+            health.setAddress(host);
+            health.setHeartbeatTime(recvTime);
+            health.setHeartbeatSchedule(getTimerInterval());
+            health.setPropogationTime(recvTime - sendTime);
+            healthDAO.put_(x, health);
+          } else {
+            logger.warning("poll", host, "status", code);
+            markPeerDown(x, host);
+          }
+        } catch ( Throwable t ) {
+          logger.warning("poll", host, "failed", t.getMessage());
+          markPeerDown(x, host);
+        }
+      }
+      `
+    },
+    {
+      documentation: `Mark a peer down when its poll fails. Uses the last stored
+        row for that address, which carries the peer's real Health id; if the
+        peer has never answered there is no row, and none is synthesised -- the
+        SAF forward gate already treats a missing destination health as not-UP,
+        so nothing forwards, which is the right outcome for a monitor never
+        seen.`,
+      name: 'markPeerDown',
+      args: 'X x, String address',
+      javaCode: `
+      DAO healthDAO = (DAO) x.get("healthDAO");
+      Health health = (Health) healthDAO.find(EQ(Health.ADDRESS, address));
+      if ( health == null ) return;
+      if ( health.getStatus() == getUnhealthyStatus() ) return;
+      health = (Health) health.fclone();
+      health.setStatus(getUnhealthyStatus());
+      health.setUpTime(0L);
+      healthDAO.put_(x, health);
       `
     }
   ]

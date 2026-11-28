@@ -113,6 +113,15 @@ foam.CLASS({
         Loggers.logger(getX(), this).info("broadcaster", "start", getMulticastAddress(), getSendPort(), getPort(), "disabled on localhost");
         return;
       }
+      if ( getMode() == HeartbeatMode.DIRECT ) {
+        // DIRECT does not use the UDP heartbeat. Unicast-to-peers cannot reach
+        // a monitor that has no peers, and a sender never hears its own packet,
+        // so health would never populate. In DIRECT, HealthHeartbeatMonitor
+        // polls each peer's /service/health over HTTPS instead. Leave the UDP
+        // sender and listener stopped.
+        Loggers.logger(getX(), this).info("broadcaster", "start", getMode().getName(), "UDP heartbeat disabled for DIRECT; HealthHeartbeatMonitor polls /service/health");
+        return;
+      }
       Loggers.logger(getX(), this).info("broadcaster", "start", getMode().getName(), getMulticastAddress(), getSendPort(), getPort());
       Agency agency = (Agency) getX().get("threadPool");
       agency.submit(getX(), this, this.getClass().getSimpleName());
@@ -162,6 +171,29 @@ foam.CLASS({
         Loggers.logger(x, this).info("broadcaster", "stop", "sent DOWN", getMode().getName());
       } catch ( Throwable t ) {
         Loggers.logger(getX(), this).warning("broadcaster", "stop", t.getMessage());
+      }
+      `
+    },
+    {
+      documentation: `Re-evaluate the mode after a config change. DIRECT keeps the
+        UDP heartbeat disabled (start() returns early); any other mode (re)starts
+        the sender timer and listener. Caveat: the listener loop blocks on
+        receive with no interrupt, so a listener already running from a prior
+        non-DIRECT start is not torn down here -- a redundant submit just fails
+        to bind and exits, and a switch INTO DIRECT stops the sender but leaves
+        the now-idle listener until the next restart. The clean transition is
+        OUT of DIRECT, which starts polling-free UDP heartbeating again.`,
+      name: 'reload',
+      javaCode: `
+      Timer timer = (Timer) getTimer();
+      if ( timer != null ) {
+        timer.cancel();
+        clearTimer();
+      }
+      try {
+        start();
+      } catch ( Exception e ) {
+        Loggers.logger(getX(), this).warning("reload", e.getMessage());
       }
       `
     },

@@ -11,6 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   implements: [
+    'foam.core.menu.MenuSearch',
     'foam.mlang.Expressions'
   ],
 
@@ -46,17 +47,6 @@ foam.CLASS({
         onKey: true
       },
       value: ''
-    },
-    {
-      class: 'foam.mlang.predicate.PredicateProperty',
-      name: 'menuSearchPredicate_',
-      documentation: 'The search box as a test on each menu row, as in VerticalMenu.',
-      expression: function(menuSearch) {
-        var text = menuSearch.trim();
-        return text ?
-          this.OR(this.CONTAINS_IC(this.Menu.LABEL, text), this.CONTAINS_IC(this.Menu.KEYWORDS, text)) :
-          this.TRUE;
-      }
     },
     {
       name: 'profileImg',

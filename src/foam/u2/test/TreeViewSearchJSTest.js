@@ -15,7 +15,8 @@ foam.CLASS({
     Management's DAO menus) are judged too; a new search replaces the shown
     rows; clearing it shows every row and closes the rows the search opened;
     without a search every row shows; a tree that starts closed starts closed
-    at every level. VerticalMenu's search box finds a menu by label or keyword.`,
+    at every level. VerticalMenu's search box finds a menu by label or keyword, and
+    MDSideNavigation's by the same rule.`,
 
   requires: [
     'foam.core.menu.Menu',
@@ -23,6 +24,7 @@ foam.CLASS({
     'foam.core.menu.VerticalMenu',
     'foam.dao.ArrayDAO',
     'foam.mlang.ExpressionsSingleton',
+    'foam.u2.layout.MDSideNavigation',
     'foam.u2.view.TreeView'
   ],
 
@@ -140,6 +142,14 @@ foam.CLASS({
       x.test(! nav.menuSearchPredicate_.f(smtp), 'the side menu search skips a menu that holds the text nowhere');
       nav.menuSearch = '  ';
       x.test(E.TRUE.cls_.isInstance(nav.menuSearchPredicate_), 'blank text is no search');
+
+      // The Material side menu takes the same rule from MenuSearch.
+      var md = this.MDSideNavigation.create({}, mx.createSubContext({
+        auth: null, currentMenu: null, isMenuOpen: false, pushMenu: () => {},
+        subject: { user: null }, theme: { navigationRootMenu: '' }
+      }));
+      md.menuSearch = 'SMTP';
+      x.test(md.menuSearchPredicate_.f(smtp), 'the Material side menu finds a menu by keyword too');
     }
   ]
 });

@@ -71,7 +71,7 @@ public class ModelParserFactory {
     // size makes '& mask_' equal 'mod size' in one instruction.
     private String[]  keys_    = new String[8];
     private Parser[]  parsers_ = new Parser[8];
-    private int       count_, mask_ = 7, maxKeyLen_;
+    private int       count_, mask_ = 7;
 
     void add(String name, Parser valueParser) {
       // Lookups stay one-probe only while most slots are empty, so the table
@@ -79,7 +79,6 @@ public class ModelParserFactory {
       if ( ( count_ + 1 ) * 4 > keys_.length ) grow();
       insert(name, valueParser);
       count_++;
-      if ( name.length() > maxKeyLen_ ) maxKeyLen_ = name.length();
     }
 
     private void grow() {
@@ -113,19 +112,23 @@ public class ModelParserFactory {
       boolean quoted = str.charAt(p0) == '"';
       int start = quoted ? p0 + 1 : p0;
 
-      // one pass: find the key's end AND its String.hashCode-compatible hash
-      int i = start, h = 0;
-      for ( ; i < len ; i++ ) {
-        char c = str.charAt(i);
-        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
-        h = h * 31 + c;
-      }
+      // Short names are not always identifiers, and the journal writes them
+      // unquoted: CSPViolation's document-uri:"http://a/b". So a quoted key
+      // runs to its closing quote and an unquoted one to the ':' after it,
+      // less any whitespace before that ':'.
+      int i = start;
+      while ( i < len && ! endsKey(str.charAt(i), quoted) ) i++;
       int keyLen = i - start;
+      if ( ! quoted ) while ( keyLen > 0 && str.charAt(start + keyLen - 1) <= ' ' ) keyLen--;
       if ( keyLen == 0 ) return null;
       if ( quoted ) {
-        if ( i >= len || str.charAt(i) != '"' ) return null;
+        if ( i >= len ) return null;
         i++;
       }
+
+      // String.hashCode-compatible hash of the key's span
+      int h = 0;
+      for ( int k = 0 ; k < keyLen ; k++ ) h = h * 31 + str.charAt(start + k);
 
       // Probe from the hashed slot, stepping right exactly as insert() did.
       // An empty slot ends the search: the key is not a property. Two integer
@@ -141,6 +144,11 @@ public class ModelParserFactory {
       return null;
     }
 
+    /** Where a key ends: its closing quote, or for an unquoted key the ':' after it. */
+    private static boolean endsKey(char c, boolean quoted) {
+      return quoted ? c == '"' : c == ':' || c == ',' || c == '}' || c == '"';
+    }
+
     /** The same scan and lookup over any PStream — only the error-reporting streams take this path. */
     private PStream parseGeneric(PStream ps, ParserContext x) {
       if ( ! ps.valid() ) return null;
@@ -148,28 +156,22 @@ public class ModelParserFactory {
       boolean quoted = ps.head() == '"';
       if ( quoted ) ps = ps.tail();
 
-      char[] buf = new char[maxKeyLen_];
-      int n = 0, h = 0;
-      while ( ps.valid() ) {
-        char c = ps.head();
-        if ( ! ( c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '$' ) ) break;
-        if ( n == buf.length ) return null; // longer than any registered name
-        buf[n++] = c;
-        h = h * 31 + c;
+      StringBuilder sb = new StringBuilder();
+      while ( ps.valid() && ! endsKey(ps.head(), quoted) ) {
+        sb.append(ps.head());
         ps = ps.tail();
       }
-      if ( n == 0 ) return null;
       if ( quoted ) {
-        if ( ! ps.valid() || ps.head() != '"' ) return null;
+        if ( ! ps.valid() ) return null;
         ps = ps.tail();
+      } else {
+        while ( sb.length() > 0 && sb.charAt(sb.length() - 1) <= ' ' ) sb.setLength(sb.length() - 1);
       }
+      if ( sb.length() == 0 ) return null;
 
-      for ( int slot = h & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
-        String k = keys_[slot];
-        if ( k.length() != n || k.hashCode() != h ) continue;
-        int j = 0;
-        while ( j < n && k.charAt(j) == buf[j] ) j++;
-        if ( j == n ) return parsers_[slot].parse(ps, x);
+      String key = sb.toString();
+      for ( int slot = key.hashCode() & mask_ ; keys_[slot] != null ; slot = ( slot + 1 ) & mask_ ) {
+        if ( keys_[slot].equals(key) ) return parsers_[slot].parse(ps, x);
       }
       return null;
     }

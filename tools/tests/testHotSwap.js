@@ -220,9 +220,10 @@ function wiring() {
   test(late.errors.length === 1 && /jar and tar/.test(late.errors[0]) && ! late.order.some(o => /^pmake /.test(o)) && late.executed.indexOf('hotSwap') === -1, 'pomEnvs then buildJar: refused before javac, nothing swapped: ' + ( late.errors[0] || '(not refused)' ).slice(0, 50));
   var lateTests = run([ 'pomEnvs', 'runTests' ], { HOT_SWAP: true });
   test(lateTests.errors.length === 1 && /test and benchmark/.test(lateTests.errors[0]) && lateTests.executed.indexOf('buildJar') === -1, 'pomEnvs then runTests: refused before the build');
-  // A source run of test-flagged code is a start-core run, not a test run.
+  // A source run of test-flagged code is a start-core run, not a test run. Only the refusal is checked: without a
+  // JetBrains Runtime here the start still stops, at the JVM check.
   var flagged = run('startCORE', Object.assign({ FLAGS: 'js,java,test' }, JBR21));
-  test(flagged.errors.length === 0, 'start-core with --flags:test and --hot-swap is not refused: ' + ( flagged.errors[0] || 'ok' ).slice(0, 60));
+  test(! flagged.errors.some(e => /does not apply to/.test(e)), 'start-core with --flags:test and --hot-swap is not refused as a test run: ' + ( flagged.errors[0] || 'ok' ).slice(0, 60));
 
   // --swap: the manifest is asked for before javac, and the swap runs after it.
   var dir = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-order-'));

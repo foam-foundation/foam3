@@ -23,6 +23,13 @@ A `HashMap` or counter touched from two threads is a race; `notify()` wakes one 
 Don't: `static HashMap`; `count++` in a service; `notify()`; an unbounded queue
 Do:    `ConcurrentHashMap`/`AtomicLong`, or `synchronized: true` on the method axiom; `notifyAll()`; `new LinkedBlockingQueue<>(128)`
 
+### State a rule action keeps is an instance field, not static
+RulerDAO loads each Rule once and calls the same `action` object on every put to its DAO; a new one comes only when the rule row itself is put again.
+Don't: a `static` map in a `RuleAction`: every DAO whose rule uses the class shares it, so group "batch-1" on one DAO waits for "batch-1" on another
+Do:    an instance field, under one lock on it
+Cite: `foam/core/ruler/Rule.js:404`, `foam/core/ruler/UpdateRulesListSink.js:36-70`
+Review asked: "Does the RuleEngine create the RuleAction for each call or is it re-used? If reused then this could just be an instance variable" (PR #5948)
+
 ### A race that only costs a copy is priced before it is closed
 A concurrent collection already makes shared state safe; closing a race on top of it, one that can only leave an equal extra copy and never a wrong value, needs its cost measured first.
 Don't: `map.compute(k, (key, v) -> { out[0] = ...; return ...; })` with a one-slot array to carry the result out, added because two threads could arrive at the same instant

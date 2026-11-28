@@ -41,6 +41,7 @@ foam.CLASS({
     }
     <<.expanded {
       background: none;
+      height: auto;
       padding: 0;
     }
   `,
@@ -119,8 +120,6 @@ foam.CLASS({
         .enableClass('expanded', this.size != 0 )
         .attrs({ role: 'combobox' })
         .attrSlot().linkFrom(this.data$);
-
-      if ( this.size ) this.style({height: 'auto'});
 
       this.add(this.dynamic(function(choices, placeholder, header, data, disabledData) {
         if ( header ) {

@@ -21,3 +21,4 @@ p({"class":"foam.u2.test.MarkdownViewJSTest","id":"MarkdownViewJSTest","descript
 p({"class":"foam.u2.test.SafeHTMLViewJSTest","id":"SafeHTMLViewJSTest"})
 p({"class":"foam.u2.test.ActionViewConfirmJSTest","id":"ActionViewConfirmJSTest","description":"ActionView: between the two clicks a button reads Confirm alone and keeps its width; before and after it reads as its own label","language":0})
 p({"class":"foam.u2.test.RelationshipPickerJSTest","id":"RelationshipPickerJSTest","description":"*:* picker in a v3 detail view: going back keeps a view on screen, a link change refreshes the list","language":0})
+p({"class":"foam.u2.test.FixedStylesJSTest","id":"FixedStylesJSTest","description":"Styles that never change come from a view's CSS, not from an inline style","language":0})

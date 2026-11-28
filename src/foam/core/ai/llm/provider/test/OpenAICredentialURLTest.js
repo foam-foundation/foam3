@@ -14,12 +14,14 @@ foam.CLASS({
     local servers that record each request's path: a url sends them to that
     OpenAI-compatible endpoint, a changed url takes effect on the next call, no url keeps
     OpenAI's endpoint, and a baseURL set on the instance or declared by a subclass (Ollama,
-    DeepSeek) still wins.
+    DeepSeek) still wins. A key set on the instance with setApiKey is sent as given and
+    needs no credential row, and a local Ollama needs no key at all.
   `,
 
   javaImports: [
     'com.sun.net.httpserver.HttpServer',
     'foam.ai.llm.*',
+    'foam.core.ai.llm.provider.ClaudeLLMService',
     'foam.core.ai.llm.provider.DeepSeekLLMService',
     'foam.core.ai.llm.provider.OllamaLLMService',
     'foam.core.ai.llm.provider.OpenAILLMService',
@@ -122,6 +124,32 @@ foam.CLASS({
           expect(openai.requestURL(), "https://api.openai.com/v1/chat/completions", "no credential: OpenAI's endpoint");
           expect(embeddings.getEndpoint(), "https://api.openai.com/v1/embeddings", "embeddings, no credential: OpenAI's endpoint");
           expect(ollama.requestURL(), "http://localhost:11434/v1/chat/completions", "ollama, no credential: its own endpoint, no error");
+
+          // a local Ollama with no key and no credential row still gets a reply, sent with no Authorization header
+          OllamaLLMService keyless = new OllamaLLMService();
+          keyless.setX(tx);
+          keyless.setBaseURL(urlA + "/ollama");
+          expect(keyless.chat(tx, chat("Hi")).getContent(), "ok", "ollama, no key: the reply is read with no credential row");
+          test(auths.get(auths.size() - 1) == null, "ollama, no key: no Authorization header is sent, got " + auths.get(auths.size() - 1));
+
+          // a baseURL and key set in code need no credential row, and the key set is the one sent
+          OpenAILLMService coded = new OpenAILLMService();
+          coded.setX(tx);
+          coded.setBaseURL(urlA + "/coded");
+          coded.setApiKey("coded-key");
+          expect(coded.chat(tx, chat("Hi")).getContent(), "ok", "key set in code: the reply is read with no credential row");
+          expect(auths.get(auths.size() - 1), "Bearer coded-key", "key set in code: that key is sent");
+
+          OpenAIEmbeddingServiceImpl codedEmbeddings = new OpenAIEmbeddingServiceImpl(tx);
+          codedEmbeddings.setEndpoint(urlA + "/coded/v1/embeddings");
+          codedEmbeddings.setApiKey("coded-key");
+          codedEmbeddings.embed(tx, "hello");
+          expect(auths.get(auths.size() - 1), "Bearer coded-key", "embeddings, key set in code: that key is sent");
+
+          ClaudeLLMService claude = new ClaudeLLMService();
+          claude.setX(tx);
+          claude.setApiKey("coded-key");
+          expect(claude.getApiKey(), "coded-key", "claude, key set in code: returned with no credential row");
         } finally {
           a.stop(0);
           b.stop(0);

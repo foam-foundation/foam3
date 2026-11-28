@@ -315,6 +315,11 @@ foam.CLASS({
       <<copy-button { opacity: 0.4; }
       <<propHolder:hover <<copy-button, <<copy-button:hover, <<copy-button:focus-visible { opacity: 1; }
     }
+
+    <<help {
+      flex-basis: 100%;
+      width: 100%;
+    }
   `,
 
   methods: [
@@ -410,7 +415,7 @@ foam.CLASS({
         callIf(prop.help, function() {
           this
             .start(self.ExpandableBorder, { expanded$: self.helpEnabled$, title: self.HELP })
-              .style({ 'flex-basis': '100%', width: '100%' })
+              .addClass(self.myClass('help'))
               .start().addClass('p').add(prop.help).end()
             .end();
         });

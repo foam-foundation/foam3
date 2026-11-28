@@ -39,8 +39,13 @@ foam.CLASS({
       class: 'String',
       name: 'apiKey',
       hidden: true,
-      documentation: 'Read from the credential on every call, as the endpoint is, so a key and url changed together are used together on the next call.',
+      documentation: `
+        A key set on the instance, as in setApiKey("sk-..."), is sent as given. Otherwise the
+        key is read from the credential on every call, as the endpoint is, so a key and url
+        changed together are used together on the next call.
+      `,
       javaGetter: `
+        if ( apiKeyIsSet_ ) return apiKey_;
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find("foam/llm/openai");
         if ( cred == null )

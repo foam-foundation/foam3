@@ -462,15 +462,16 @@ foam.CLASS({
       name: 'searchPredicate',
       documentation: `A search. The tree shows the rows it accepts with the rows
         above them, and opens those, as MUI X and AG Grid do for a filtered
-        tree. Every row the tree can draw is judged, wherever the relationship
+        tree. Rows inside an accepted row show too, closed. Every row the tree can draw is judged, wherever the relationship
         found it: Data Management builds its DAO menus itself, so they are in
         no DAO the caller holds. data stays the whole tree. Unset or TRUE:
         every row shows.`
     },
     {
       name: 'hiddenIds_',
-      documentation: `With a searchPredicate: the ids of rows that neither pass it nor
-        have a row below them that does. Null hides nothing.`,
+      documentation: `With a searchPredicate: the ids of rows that do not pass it,
+        have no row below them that does, and sit inside no row that does.
+        Null hides nothing.`,
       value: null
     },
     {
@@ -564,8 +565,9 @@ foam.CLASS({
     {
       name: 'updateHiddenIds',
       documentation: `Walks the tree from its top rows through the relationship,
-        as the rows draw it: a row shows if searchPredicate accepts it or a row
-        below it shows; a row with a shown row below it opens.`,
+        as the rows draw it: a row shows if searchPredicate accepts it, a row
+        below it is accepted, or it is inside an accepted row; a row with an
+        accepted row below it opens.`,
       isMerged: true,
       delay: 50,
       code: async function() {
@@ -583,20 +585,23 @@ foam.CLASS({
         var hidden  = {};
         var open    = {};
         var seen    = {};
-        // Answers whether obj or a row below it passes the search.
-        var judge = async obj => {
+        // Answers whether obj or a row below it passes the search. Rows inside
+        // a passing row show too, as AG Grid does, but open only for a pass
+        // below them: searching a folder's name shows the folder, closed, with
+        // its contents one click away.
+        var judge = async (obj, insideMatch) => {
           if ( seen[obj.id] ) return false;
           seen[obj.id] = true;
+          var passes   = search.f(obj);
           var children = (await obj[forward].select()).array;
-          var below    = (await Promise.all(children.map(judge))).some(b => b);
+          var below    = (await Promise.all(children.map(c => judge(c, insideMatch || passes)))).some(b => b);
           if ( below ) open[obj.id] = true;
-          var shown = below || search.f(obj);
-          if ( ! shown ) hidden[obj.id] = true;
-          return shown;
+          if ( ! ( below || passes || insideMatch ) ) hidden[obj.id] = true;
+          return below || passes;
         };
         var top = await this.data.where(
           this.EQ(of.getAxiomByName(this.relationship.inverseName), this.defaultRoot)).select();
-        await Promise.all(top.array.map(judge));
+        await Promise.all(top.array.map(o => judge(o, false)));
 
         if ( run !== this.hiddenIdsRun_ ) return;
         this.hiddenIds_ = hidden;

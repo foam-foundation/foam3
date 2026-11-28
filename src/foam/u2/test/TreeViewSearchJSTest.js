@@ -10,8 +10,7 @@ foam.CLASS({
   extends: 'foam.core.test.JSTest',
 
   documentation: `A TreeView given a searchPredicate shows the rows it accepts with
-    their ancestors, ancestors open; a match's hidden children leave it no
-    open/close arrow; rows the relationship builds from another source (Data
+    their ancestors, ancestors open; a match keeps its own children, closed; rows the relationship builds from another source (Data
     Management's DAO menus) are judged too; a new search replaces the shown
     rows; clearing it shows every row and closes the rows the search opened;
     without a search every row shows; a tree that starts closed starts closed
@@ -84,13 +83,19 @@ foam.CLASS({
       x.test(row(root, 'admin')?.getAttribute('aria-expanded') === 'true',
         'a parent of a match opens, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
 
-      // A new search replaces the shown rows; a matched row whose children are
-      // all hidden draws no open/close arrow.
+      // A new search replaces the shown rows. A matched row keeps its own
+      // children, as AG Grid does: it shows closed, and one click opens it.
       tree.searchPredicate = E.EQ(M.LABEL, 'Admin');
       x.test(await waitShown(root, [ 'admin' ]),
         'a new search replaces the shown rows, got ' + JSON.stringify(shownIds(root)));
-      x.test(! row(root, 'admin')?.hasAttribute('aria-expanded'),
-        'a match whose children are all hidden has no open/close state, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
+      for ( var i = 0 ; i < 30 && row(root, 'admin')?.getAttribute('aria-expanded') !== 'false' ; i++ ) await settle();
+      x.test(row(root, 'admin')?.getAttribute('aria-expanded') === 'false',
+        'a match with no match below it shows closed, with an arrow, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
+      row(root, 'admin').click();
+      x.test(await waitShown(root, [ 'admin', 'admin.data', 'admin.users', 'admin.stores' ]),
+        'opening a match shows its own children, closed, got ' + JSON.stringify(shownIds(root)));
+      // Closed again by hand, so the checks below start from a closed tree.
+      row(root, 'admin').click();
 
       // A row from another source is judged by the search like any other.
       tree.searchPredicate = E.CONTAINS_IC(M.LABEL, 'report');

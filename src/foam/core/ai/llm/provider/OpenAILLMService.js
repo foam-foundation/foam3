@@ -42,8 +42,13 @@ foam.CLASS({
     {
       class: 'String',
       name: 'apiKey',
-      documentation: 'Read from the credential on every call, so a key rotated in the vault is used on the next one.',
+      documentation: `
+        A key set on the instance, as in setApiKey("sk-..."), is sent as given. Otherwise the
+        key is read from the credential on every call, so a key rotated in the vault is used
+        on the next one.
+      `,
       javaGetter: `
+        if ( apiKeyIsSet_ ) return apiKey_;
         foam.core.auth.APIKeyCredential cred = (foam.core.auth.APIKeyCredential)
           ((foam.dao.DAO) getX().get("credentialDAO")).find(getCredentialId());
         if ( cred == null ) throw new RuntimeException("LLM credential not found: " + getCredentialId());
@@ -264,7 +269,12 @@ foam.CLASS({
         Object     finish = null;
         JSONObject usage  = null;
         String     model  = null;
-        for ( String data ; ( data = nextData(in, written) ) != null ; ) {
+        // an OpenAI-compatible gateway may name the stage of a call that has no
+        // text yet in a comment, ": status queued ahead=2"; other comments are keep-alives
+        java.util.function.Consumer<String> comment = c -> {
+          if ( c.startsWith("status ") ) written.status(c.substring(7).trim());
+        };
+        for ( String data ; ( data = nextData(in, written, comment) ) != null ; ) {
           if ( "[DONE]".equals(data) ) {
             written.done();
             JSONArray toolCalls = new JSONArray();

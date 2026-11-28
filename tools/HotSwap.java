@@ -4,7 +4,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Sends changed classes into a running JVM over JDWP (JDI). Started by tools/HotSwapTooling.js
+// Sends changed classes into a running JVM over JDWP (JDI). Started by tools/JavaTooling.js
 // with the server's own JVM, as a single source file:
 //   java HotSwap.java <debugPort> <classesDir> <manifest>
 // The manifest lists class files (relative to classesDir), one per line: the ones the build wrote.

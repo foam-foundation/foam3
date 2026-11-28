@@ -5,7 +5,7 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-// Tests for Java hot swap (tools/HotSwapTooling.js, HotSwap.java and the wiring in JavaTooling.js).
+// Tests for Java hot swap (the helpers and wiring in tools/JavaTooling.js, and HotSwap.java).
 // Runs in node. The smoke test at the end needs a JetBrains Runtime: set HOTSWAP_JBR to its folder
 // (or have ~/jbr); without one it says so and skips. HOTSWAP_SMOKE=off skips it on purpose.
 //
@@ -17,7 +17,8 @@ var path_  = require('path');
 var vm_    = require('vm');
 var child_ = require('child_process');
 
-var hs = require('../HotSwapTooling');
+// JavaTooling.js is a foam.POM file, so load() runs it with the build's globals stubbed; its helpers are its module.exports.
+var hs = load().ctx.module.exports;
 
 var passes = 0, failures = 0;
 
@@ -64,20 +65,20 @@ function jvmCheck() {
 function answers() {
   console.log('swap answers');
   var r = (status, out, extra) => Object.assign({ status: status, stdout: out, stderr: '' }, extra || {});
-  test(hs.answer(r(0, 'swapped 1 classes')).code === 0, 'exit 0 is a swap');
-  test(hs.answer(r(2, 'the JVM refused')).code === 2, 'exit 2 is a refusal');
-  test(hs.answer(r(3, 'cannot attach')).code === 3, 'exit 3 is no attach');
-  var helper = hs.answer(r(1, '', { stderr: 'HotSwap.java:3: error: boom' }));
+  test(hs.swapAnswer(r(0, 'swapped 1 classes')).code === 0, 'exit 0 is a swap');
+  test(hs.swapAnswer(r(2, 'the JVM refused')).code === 2, 'exit 2 is a refusal');
+  test(hs.swapAnswer(r(3, 'cannot attach')).code === 3, 'exit 3 is no attach');
+  var helper = hs.swapAnswer(r(1, '', { stderr: 'HotSwap.java:3: error: boom' }));
   test(helper.code === 4 && /helper failed/.test(helper.message) && /boom/.test(helper.message), 'any other exit is a helper failure and shows its error');
-  var late = hs.answer(r(null, '', { error: Object.assign(new Error('x'), { code: 'ETIMEDOUT' }) }));
+  var late = hs.swapAnswer(r(null, '', { error: Object.assign(new Error('x'), { code: 'ETIMEDOUT' }) }));
   test(late.code === 5 && /more than 120 s/.test(late.message), 'a timeout is its own answer');
-  var nojdi = hs.answer(r(1, '', { stderr: 'HotSwap.java:8: error: package com.sun.jdi does not exist' }));
+  var nojdi = hs.swapAnswer(r(1, '', { stderr: 'HotSwap.java:8: error: package com.sun.jdi does not exist' }));
   test(nojdi.code === 4 && /needs the JDK modules jdk\.compiler and jdk\.jdi.*jbrsdk/.test(nojdi.message), 'a JVM without jdk.jdi or jdk.compiler is named plainly');
   var seen;
-  hs.swap({ java: 'j', port: 8005, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = { f: f, args: args, o: o }; return r(0, 'ok'); } });
+  hs.swapClasses({ java: 'j', port: 8005, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = { f: f, args: args, o: o }; return r(0, 'ok'); } });
   test(seen.args.slice(1).join(' ') === '8005 c m' && seen.args[0].endsWith('HotSwap.java'), 'the helper gets port, classes folder and manifest');
   process.env.JAVA_TOOL_OPTIONS = '-agentlib:jdwp=x';
-  hs.swap({ java: 'j', port: 1, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = o; return r(0, ''); } });
+  hs.swapClasses({ java: 'j', port: 1, classesDir: 'c', manifest: 'm', spawn: (f, args, o) => { seen = o; return r(0, ''); } });
   test(seen.env.JAVA_TOOL_OPTIONS === undefined, 'the helper does not inherit the server debug agent');
   delete process.env.JAVA_TOOL_OPTIONS;
 }
@@ -89,7 +90,7 @@ var BUILD = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-build-'));
 function load() {
   var pom;
   var exits = [];
-  var ctx = { TIMESTAMP: 't', foam: { POM: p => { pom = p; } }, require: require('module').createRequire(path_.join(__dirname, '..', 'JavaTooling.js')), process: Object.assign(Object.create(process), { exit: c => { exits.push(c); throw new Error('exit'); } }), console: console };
+  var ctx = { TIMESTAMP: 't', module: { exports: {} }, __dirname: path_.join(__dirname, '..'), foam: { POM: p => { pom = p; } }, require: require('module').createRequire(path_.join(__dirname, '..', 'JavaTooling.js')), process: Object.assign(Object.create(process), { exit: c => { exits.push(c); throw new Error('exit'); } }), console: console };
   vm_.createContext(ctx);
   vm_.runInContext(fs_.readFileSync(path_.join(__dirname, '../JavaTooling.js'), 'utf8'), ctx);
   return { pom: pom, ctx: ctx, exits: exits };
@@ -159,7 +160,7 @@ function wiring() {
   var l = load();
   ['startCORETest', 'startCOREJar', 'startCOREJarAsync'].forEach(t => {
     var src = l.pom.tasks[t][3].toString();
-    test(! /HOT_SWAP|HotSwapTooling|AllowEnhancedClassRedefinition|SERVER_JAVA_HOME/.test(src), t + ' never gets hot swap');
+    test(! /HOT_SWAP|startServerJvm|AllowEnhancedClassRedefinition|SERVER_JAVA_HOME/.test(src), t + ' never gets hot swap');
   });
   var withFlag = run('startCORETest', Object.assign({ LOG_LEVEL: '', TESTS: '', TEST_SIDE: '', TEST_SUITES: '', TEST_HEADED: false, JAR_OUT: 'j', JAR_RES_OUT: 'r' }, JBR21));
   test(withFlag.commands.length === 1 && ! /AllowEnhanced|jdwp/.test(withFlag.commands[0]), 'start-core-test with --hot-swap set still has no swap flag');
@@ -222,7 +223,7 @@ function smoke() {
     fs_.writeFileSync(path_.join(dir, 'Main.java'), src(2));
     child_.execFileSync(javac, ['-d', classes, path_.join(dir, 'Main.java')]);
     fs_.writeFileSync(manifest, 'Main.class\n');
-    var r = hs.swap({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
+    var r = hs.swapClasses({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
     test(r.code === 0 && /swapped 1 classes/.test(r.message), 'swap answers: ' + r.message);
     sleep(600);
     var lines = fs_.readFileSync(out, 'utf8').trim().split('\n');
@@ -231,7 +232,7 @@ function smoke() {
     // a field added: the swap works, and says static initializers did not run
     fs_.writeFileSync(path_.join(dir, 'Main.java'), src(2).replace('static int value', 'static int extra = 5; static int value'));
     child_.execFileSync(javac, ['-d', classes, path_.join(dir, 'Main.java')]);
-    var f = hs.swap({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
+    var f = hs.swapClasses({ java: jvm.java, port: port, classesDir: classes, manifest: manifest });
     test(f.code === 0 && /WARNING.*Main/.test(f.message) && /Restart the server/.test(f.message), 'a field added is swapped with a restart warning: ' + f.message.split('\n')[1]);
 
     // classes built for a newer Java than the server runs: the JVM refuses them. (A JetBrains Runtime
@@ -257,7 +258,7 @@ function smoke() {
     }
   } finally {
     server.kill('SIGKILL');
-    var gone = hs.swap({ java: jvm.java, port: port, classesDir: classes, manifest: path_.join(dir, 'manifest') });
+    var gone = hs.swapClasses({ java: jvm.java, port: port, classesDir: classes, manifest: path_.join(dir, 'manifest') });
     test(gone.code === 3 && /cannot attach/.test(gone.message) && /another debugger may be attached/.test(gone.message), 'after the server stops: cannot attach, in words');
     fs_.rmSync(dir, { recursive: true, force: true });
   }

@@ -35,6 +35,7 @@ foam.CLASS({
 
   requires: [
     'foam.box.HTTPBox',
+    'foam.box.KeepAliveBox',
     'foam.box.RetryBox',
     'foam.box.SessionClientBox',
     'foam.box.SocketBox',
@@ -814,7 +815,11 @@ dao loading, which improves overall startup time.`,
         var box = this.TimeoutBox.create({
           timeout: this.requestTimeout,
           delegate: this.remoteListenerSupport ?
-            this.WebSocketBox.create({uri: this.serviceName}) :
+            // A listener can leave the socket quiet for a long time, and the
+            // server closes a quiet socket, so ping it.
+            this.KeepAliveBox.create({
+              delegate: this.WebSocketBox.create({uri: this.serviceName})
+            }) :
             this.HTTPBox.create({url: this.serviceName})
         });
 

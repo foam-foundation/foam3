@@ -26,7 +26,8 @@ foam.CLASS({
     'foam.box.KeepAlivePing',
     'foam.box.KeepAlivePong',
     'foam.box.RetryBox',
-    'foam.box.TimeoutBox'
+    'foam.box.TimeoutBox',
+    'foam.net.NetworkException'
   ],
 
   documentation: `Implements a TCP style keepalive ping.`,
@@ -41,7 +42,10 @@ foam.CLASS({
       class: 'Int',
       name: 'time',
       units: 'ms',
-      value: 30000
+      documentation: `How long the connection may stay quiet before a ping.
+        Keep it under the server's idle timeout: Jetty closes a quiet
+        WebSocket after 30 s.`,
+      value: 15000
     },
     {
       class: 'Int',
@@ -67,21 +71,24 @@ foam.CLASS({
 
   methods: [
     function send(envelope) {
-      var self = this;
-      
-      this.delegate.send(foam.box.Envelope.create({
+      var replyBox = envelope.replyBox;
+
+      if ( ! replyBox ) {
+        this.delegate.send(envelope);
+        return;
+      }
+
+      this.delegate.send(this.Envelope.create({
         message: envelope.message,
         replyBox: {
-          delegate: envelope.replyBox,
-          send: (envelope) => {
-            // If the response was not an error, start the keep-alive timer
-            
-            // TODO: A parent class would is some sort of isRemoteError would be good here
-            if ( ! foam.net.NotConnectedException.isInstance(envelope.message) &&
-                 ! foam.net.ConnectionFailedException.isInstance(envelope.message) ) {
-              self.resetIdle();
-              this.delegate.send(envelope);
+          send: (reply) => {
+            // A reply means the connection works: ping again after 'time'
+            // of quiet. A network error means it does not, so stop pinging
+            // until the next call gets through.
+            if ( ! this.NetworkException.isInstance(reply.message) ) {
+              this.resetIdle();
             }
+            replyBox.send(reply);
           }
         }
       }));

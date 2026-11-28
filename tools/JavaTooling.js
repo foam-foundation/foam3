@@ -34,10 +34,11 @@ foam.POM({
     bootScriptAux: ['', 'boot-script-aux', 'BOOT_SCRIPT_AUX', 'Additional boot script to execute after the main bootScript. This bootscript is how Test cases are run. TODO: elaborate.  bootScriptAux:testRunnerScript','', arg => BOOT_SCRIPT_AUX = arg ],
     buildOnly: [ 'o', 'build-only', 'BUILD_ONLY', "Only execute java generation and java compilation build steps, don't start CORE server.", false, function(arg) { BUILD_ONLY = arg ? this.bool(arg) : true; } ],
     debug: [ 'd', 'debug', 'DEBUG', 'Launch JVM with JDPA debugging enabled. Default port 8000.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; } ],
-    debugPort: [ 'D', 'debug-port', 'DEBUG_PORT', 'Port JVM will listen on for debuggers (JDPA) connections.',8000, function(arg) { DEBUG_PORT = arg; DEBUG = true; }],
+    debugPort: [ 'D', 'debug-port', 'DEBUG_PORT', 'Port JVM will listen on for debuggers (JDPA) connections. A second server started with --hot-swap needs its own port: the default 8000 is taken by the first.',8000, function(arg) { DEBUG_PORT = arg; DEBUG = true; }],
     backupRuntimeJournalsDirSuffix: [ 'S', 'backup-runtime-journals-dir-suffix', 'BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX', 'Backup runtime journals directory suffix. Defaults to a timestamp.', TIMESTAMP, function(arg) { BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX = arg ? arg : TIMESTAMP; BACKUP_RUNTIME_JOURNALS = true; }],
     backupRuntimeJournals: [ 'b', 'backup-runtime-journals', 'BACKUP_RUNTIME_JOURNALS', 'Backup runtime journals. By default journals are copied to journals_\'timestamp\'. The timestamp suffix can be overridden by provide an argument to this options. Also see \'backupRuntimeJournalsDirSuffix\'.  See option \'-N\' for naming and retaining journal sets.', false, function(arg) { BACKUP_RUNTIME_JOURNALS = true; BACKUP_RUNTIME_JOURNALS_DIR_SUFFIX = arg ? arg : TIMESTAMP; }],
     deleteRuntimeJournals: [ 'j', 'delete-runtime-journals', 'DELETE_RUNTIME_JOURNALS', 'Delete runtime journals. See option \'-N\' for naming and retaining journal sets.', false, function(arg) { DELETE_RUNTIME_JOURNALS = true; AUTO_CONFIRM = arg ? this.bool(arg) : AUTO_CONFIRM; }],
+    hotSwap: ['', 'hot-swap', 'HOT_SWAP', "Start CORE so that --swap can send changed Java classes into it without a restart: the JVM gets -XX:+AllowEnhancedClassRedefinition (a JetBrains Runtime; choose it with --server-java-home) and a JDWP debug port on 127.0.0.1 (--debug-port, default 8000). Local source runs only (start-core, start-core-async). Any process on this machine can attach to that port: there is no login. Not on Windows. See doc/guides/Build.md.", false, function(arg) { HOT_SWAP = arg ? this.bool(arg) : true; } ],
     javacParameters: ['', 'javac-parameters', 'JAVAC_PARAMETERS', 'Parameters passed to Java Compiler','-proc:none', arg => JAVAC_PARAMETERS = arg ],
     javaRelease: ['', 'java-release', 'JAVA_RELEASE', 'Java target version. Can also be set in root pom. ex: java: \'11\'', '21', args => JAVA_RELEASE = args],
     journals: [ 'J', 'journals', 'JOURNALS', 'Comma seperated list of additional journal directories, relative to deployment/ from the root project.', '', function(args) { JOURNALS = this.comma(JOURNALS, args); } ],
@@ -51,6 +52,8 @@ foam.POM({
     javaMainArgs: ['', 'java-main-args', 'JAVA_MAIN_ARGS', 'Comma separated key[:value] arguments passed to the Java \'main\' class', '', function(arg) { JAVA_MAIN_ARGS = this.comma(JAVA_MAIN_ARGS, arg); } ],
     restart: [ 'r', 'restart', 'RESTART', 'Restart CORE Server using last build.', false, function(arg) { RESTART = arg ? this.bool(arg) : true; } ],
     runArgs: ['', 'run-args', 'RUN_ARGS', 'Arguments which will be passed to run.sh to when starting CORE server from JAR','', arg => RUN_ARGS = arg ],
+    serverJavaHome: ['', 'server-java-home', 'SERVER_JAVA_HOME', "JDK folder (with bin/java) that runs CORE (start-core, start-core-async) and the swap helper. Default: the java on the path. The build itself still uses the java on the path.", '', arg => SERVER_JAVA_HOME = arg ],
+    swap: ['', 'swap', 'SWAP', "Build the changed Java classes, then send them into the CORE that is running with --hot-swap on the same --debug-port, without a restart. Implies --hot-swap and --build-only. Exit code: 0 swapped or nothing to do, 1 build failed, 2 the JVM refused (restart), 3 cannot attach, 4 helper failed, 5 timed out. See doc/guides/Build.md.", false, function(arg) { SWAP = arg ? this.bool(arg) : true; if ( SWAP ) { HOT_SWAP = true; BUILD_ONLY = true; } } ],
     suspend: [ 's', 'suspend', 'SUSPEND', 'Start JDPA debugging in suspend state.', false, function(arg) { DEBUG = arg ? this.bool(arg) : true; SUSPEND = arg ? this.bool(arg) : true; } ],
     systemProperty: [ '', 'system-property', 'SYSTEM_PROPERTY', 'Specify a Java System property (minus the - prefix). Supports a comma seperated list. Each property will be prefixed with -. ex: --system-property:Dfoam.test.headed=true,Xmx12g. Provided as it is not possible to set \' -Dproperty\'values with --java-opts', '', function(arg) { SYSTEM_PROPERTY = this.comma(SYSTEM_PROPERTY, arg); } ],
     tar: [ 'k', 'tar', 'TAR', 'Package up a deployment tarball for remote application installation', false, function(arg) { TAR = arg ? this.bool(arg) : true; } ],
@@ -67,6 +70,7 @@ foam.POM({
 
   tasks: {
     all: ['all', 'Execute tasks for a \'Standard Java\' build.', ['pomEnvs'], function() {
+      if ( HOT_SWAP && ( TAR || JAR ) ) this.error(require('./HotSwapTooling').refusal('jar and tar builds'));
       if ( ! ( TAR || BUILD_ONLY ) ) {
         this.execute('stopCORE');
       }
@@ -92,6 +96,8 @@ foam.POM({
           this.execute('genJava');
         }
       }
+      if ( SWAP ) this.execute('hotSwap');
+
       if ( ! ( TAR || BUILD_ONLY ) ) {
         if ( JAR ) {
           this.execute('startCOREJar');
@@ -102,12 +108,14 @@ foam.POM({
     }],
 
     buildJar: ['build-jar', 'Build binary JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'genJS', 'genJava', 'copy', 'versions', 'genJavaManifest', 'jarFOAM' ], function() {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('jar and tar builds'));
       // Build binary JAR (compiled .class files only)
       this.info(`Building binary JAR: ${JAR_NAME}`);
       this.execSync(`jar cfm ${BUILD_DIR}/lib/${JAR_NAME} ${BUILD_DIR}/MANIFEST.MF ${JAR_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
     }],
 
     buildResourcesJar: ['build-resources-jar', 'Build resources JAR file.', [()=>JAR=true, 'pomEnvs', 'setupDirs', 'copy', 'genJournals', 'genDocuments', 'genImages'], function() {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('jar and tar builds'));
       // Build resources JAR (journals, documents, images)
       this.info(`Building resources JAR: ${JAR_RES_NAME}`);
       this.execSync(`jar cf ${BUILD_DIR}/lib/${JAR_RES_NAME} ${JAR_RES_INCLUDES}`, { stdio: VERBOSE ? 'inherit' : 'ignore' });
@@ -339,7 +347,7 @@ foam.POM({
       var makers = VERBOSE ? 'Verbose,' : '';
       // NOTE: Java and Javac Maker must be run together as they share data through X
       makers += 'Java,Maven,Javac';
-      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'`)();
+      this.pmake.bind(this, `-makers=${makers} -flags=${this.flag()} -pom=${POMS} -builddir=${BUILD_DIR} -d=${BUILD_DIR}/classes -outdir=${BUILD_DIR}/src/java -libdir=${BUILD_DIR}/lib -javacParams=\'${JAVAC_PARAMETERS}\'${SWAP ? ` -swapManifest=${BUILD_DIR}/swap-manifest` : ''}`)();
     }],
 
     deployBin: ['deploy-bin', 'Copy bash files to deployment', [], function() {
@@ -400,6 +408,7 @@ foam.POM({
 
     // TODO: not tested
     javaBenchmarks: ['java-benchmarks', 'Run all or specified benchmarks. ex: javaBenchmarks[:Benchmark1,Benchmark2]', [/*'stopCORE'*/], function(args) {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('test and benchmark runs'));
       BENCHMARKS=args;
       APP_NAME = 'benchmark';
       APP_ROOT = ! APP_ROOT || APP_ROOT == '/opt' ? '/tmp' : APP_ROOT;
@@ -447,6 +456,7 @@ foam.POM({
     }],
 
     runTests: ['run-tests', 'Run all or specified test cases. Runs both Server and Client side tests. ex: runTests[:Test1,Test2]', [], function(args) {
+      if ( HOT_SWAP ) this.error(require('./HotSwapTooling').refusal('test and benchmark runs'));
       if ( ! TESTS && args ) TESTS=args;
       this.execute('testSetup');
       this.execute('pomEnvs');
@@ -477,6 +487,26 @@ foam.POM({
       }
     }],
 
+    hotSwap: ['hot-swap', 'Send the classes the --swap builds changed and the server has not got yet into the CORE running with --hot-swap.', [], function() {
+      var hs = require('./HotSwapTooling');
+      if ( hs.isStale(BUILD_DIR) ) {
+        console.log('a build without --swap changed classes after the server started: restart the server (a swap cannot know which)');
+        process.exit(hs.REFUSED);
+      }
+      var names = hs.readManifest(`${BUILD_DIR}/${hs.MANIFEST}`);
+      if ( ! names.length ) {
+        this.info('Hot swap: no changed classes waiting.');
+        return;
+      }
+      var jvm = hs.serverJvm({ hotSwap: true, javaHome: SERVER_JAVA_HOME, debugPort: DEBUG_PORT, platform: process.platform });
+      if ( jvm.error ) this.error(jvm.error);
+      var r = hs.swap({ java: jvm.java, port: DEBUG_PORT, classesDir: `${BUILD_DIR}/classes`, manifest: `${BUILD_DIR}/${hs.MANIFEST}` });
+      if ( r.message ) console.log(r.message);
+      // The classes stay listed until a swap went through: a refused or failed one is tried again by the next --swap.
+      if ( r.code ) process.exit(r.code);
+      hs.clearPending(BUILD_DIR);
+    }],
+
     startCORE: ['start-core', 'Start CORE server (CLASSPATH).', ['setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs'], function() {
 
       if ( HOST_NAME !== 'localhost' ) {
@@ -486,18 +516,23 @@ foam.POM({
       JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
-      if ( DEBUG )
+      // --hot-swap puts its debug agent on the server's own command line, below.
+      if ( DEBUG && ! HOT_SWAP )
         JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
 
       this.showSummary();
       if ( BUILD_ONLY ) return;
+
+      // The JVM: with --hot-swap it is checked here, and gets the swap flag and the debug agent. Only these two tasks do this.
+      var jvm = require('./HotSwapTooling').startServerJvm({ hotSwap: HOT_SWAP, javaHome: SERVER_JAVA_HOME, debugPort: DEBUG_PORT, suspend: SUSPEND, platform: process.platform, release: JAVA_RELEASE, buildDir: BUILD_DIR });
+      if ( jvm.error ) this.error(jvm.error);
 
       // this.info(`Starting CORE ${APP_NAME}`);
       // Acquires environment variables via JAVA_TOOL_OPTIONS (JAVA_OPTS)
       // build/classes precedes build/lib/* so freshly compiled classes always win
       // over any stale jar sitting in build/lib (e.g. an app/test package left by a
       // prior run) — otherwise the jar shadows the recompiled classes silently.
-      this.execSync(`java -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
+      this.execSync(`"${jvm.java}" ${jvm.args.join(' ')} -cp "${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*" ${JAVA_MAIN_CLASS} "${JAVA_MAIN_ARGS}"`, { stdio: 'inherit' });
     }],
 
     startCOREAsync: ['start-core-async', 'Start CORE server (CLASSPATH) as an asynchronous/detached child process. When re-run the previous process will be terminated.', ['stopCORE', 'setupDirs', 'deployJournals', 'deployDocuments', 'deployLib', 'buildJavaOpts', 'buildJavaMainArgs','java'], function() {
@@ -509,14 +544,19 @@ foam.POM({
       JAVA_OPTS += ` -Dcore.webroot=${WEBROOT}`;
       JAVA_OPTS += ` -Duser.timezone=${TIMEZONE}`;
 
-      if ( DEBUG )
+      // --hot-swap puts its debug agent on the server's own command line, below.
+      if ( DEBUG && ! HOT_SWAP )
         JAVA_OPTS += ` -agentlib:jdwp=transport=dt_socket,server=y,suspend=${SUSPEND ? 'y' : 'n'},address=127.0.0.1:${DEBUG_PORT}`;
 
       this.showSummary();
       if ( BUILD_ONLY ) return;
 
+      // The JVM: with --hot-swap it is checked here, and gets the swap flag and the debug agent. Only these two tasks do this.
+      var jvm = require('./HotSwapTooling').startServerJvm({ hotSwap: HOT_SWAP, javaHome: SERVER_JAVA_HOME, debugPort: DEBUG_PORT, suspend: SUSPEND, platform: process.platform, release: JAVA_RELEASE, buildDir: BUILD_DIR });
+      if ( jvm.error ) this.error(jvm.error);
+
       // this.info(`Starting CORE ${APP_NAME}`);
-      var proc = this.spawn(JAVA, ['-server', '-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS], {
+      var proc = this.spawn(SERVER_JAVA_HOME ? require('./HotSwapTooling').shellQuote(jvm.java) : JAVA, ['-server'].concat(jvm.args, ['-cp', `${BUILD_DIR}/classes:${BUILD_DIR}/lib/\*`, JAVA_MAIN_CLASS, JAVA_MAIN_ARGS]), {
         stdio: 'inherit',
         shell: '/bin/bash',
         detached: true,
@@ -648,6 +688,8 @@ foam.POM({
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
       this.log('  ./build.sh -EAPP_NAME:demo,WEB_PORT:8300,JAR:true,JOURNALS:https');
       this.log('    Build into a unique path \'demo\', launch from JAR, start HTTPS web server on port \'8300\'.');
+      this.log('  ./build.sh -Ndemo -W8300 --hot-swap --server-java-home:$HOME/jbr -D8305  ;  ./build.sh -Ndemo -W8300 --hot-swap --server-java-home:$HOME/jbr -D8305 --swap');
+      this.log('    Run on a JetBrains Runtime with a loopback debug port, then (second line, other terminal) build the changed Java and send it into the running server without a restart.');
       this.log('  ./build.sh -j');
       this.log('    Build and delete runtime journals, with confirmation.');
       this.log('  ./build.sh -jy');

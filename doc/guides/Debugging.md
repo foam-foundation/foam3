@@ -111,6 +111,8 @@ To use a different port:
 ./build.sh -D9005
 ```
 
+`--hot-swap` uses this same debug port (127.0.0.1 only) to send changed Java classes into the running server; a debugger and a swap cannot attach at the same moment. See [Build](Build.md).
+
 ### Understanding Source File Locations
 
 FOAM3 has two kinds of Java source files:

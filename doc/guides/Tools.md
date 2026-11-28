@@ -39,6 +39,13 @@ How apps pick them up: `foam3/.claude/skills/README.md`.
 ./build.sh -l
 ```
 
+**Java hot swap.** Change Java and see it in the running server without a restart (JetBrains Runtime needed). Start with `--hot-swap --server-java-home:<JBR folder>`, then run the same line with `--swap`. Guide: [Build](Build.md), "Options and Tasks of interest".
+
+```bash
+./build.sh --hot-swap --server-java-home:$HOME/jbr   # start
+./build.sh --hot-swap --server-java-home:$HOME/jbr --swap   # after a Java edit
+```
+
 **Debugging.** Chrome DevTools for the browser side, and a Java debugger on port 8000 for the server. Guide: [Debugging](Debugging.md). To count how many instances of a class were created, or which classes were used at all, see [DebuggingCountAndUsed](DebuggingCountAndUsed.md).
 
 ```bash

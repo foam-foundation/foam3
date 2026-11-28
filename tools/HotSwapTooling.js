@@ -19,7 +19,20 @@ const path_  = require('path');
 const child_ = require('child_process');
 
 // Exit codes of a swap, also the build's exit code.
-const SWAPPED = 0, REFUSED = 2, NO_ATTACH = 3, HELPER_FAILED = 4, TIMED_OUT = 5;
+const SWAPPED = 0, BUILD_FAILED = 1, REFUSED = 2, NO_ATTACH = 3, HELPER_FAILED = 4, TIMED_OUT = 5;
+
+// The one table of them. help: the words of the --swap help text. words: the short sentence a tool
+// that runs the build (foamctl) says for the code. The helper's own text, when it has one, is what the build prints.
+const OUTCOMES = [
+  { code: SWAPPED,       help: 'swapped or nothing to do',   words: 'swapped, or nothing had changed' },
+  { code: BUILD_FAILED,  help: 'build failed',               words: 'the build failed (nothing was swapped)' },
+  { code: REFUSED,       help: 'the JVM refused (restart)',  words: 'the JVM refused the swap, or a restart is needed: down, then up' },
+  { code: NO_ATTACH,     help: 'cannot attach',              words: 'cannot attach to the debug port' },
+  { code: HELPER_FAILED, help: 'helper failed',              words: 'the swap helper failed' },
+  { code: TIMED_OUT,     help: 'timed out',                  words: 'the swap timed out' }
+];
+const outcomeWords = code => ( OUTCOMES.find(o => o.code === code) || {} ).words;
+const exitCodeHelp = () => OUTCOMES.map(o => `${o.code} ${o.help}`).join(', ');
 
 const SWAP_FLAG = '-XX:+AllowEnhancedClassRedefinition';
 const HELPER    = path_.join(__dirname, 'HotSwap.java');
@@ -120,12 +133,11 @@ function answer(r) {
   const text = ( String(r.stdout || '') + String(r.stderr || '') ).trim();
   if ( r.error && r.error.code === 'ETIMEDOUT' ) return { code: TIMED_OUT, message: `the swap took more than ${TIMEOUT_MS / 1000} s and was stopped` };
   if ( r.error ) return { code: HELPER_FAILED, message: `the swap helper could not start: ${r.error.message}` };
-  if ( r.status !== SWAPPED && r.status !== REFUSED && r.status !== NO_ATTACH && /package com\.sun\.jdi|module jdk\.(jdi|compiler)|jdk\.compiler/.test(text) ) {
+  const helperSpeaks = [ SWAPPED, REFUSED, NO_ATTACH ].includes(r.status);
+  if ( ! helperSpeaks && /package com\.sun\.jdi|module jdk\.(jdi|compiler)|jdk\.compiler/.test(text) ) {
     return { code: HELPER_FAILED, message: `the swap helper needs the JDK modules jdk.compiler and jdk.jdi, and this JVM lacks them: use a JetBrains Runtime SDK (jbrsdk), not a JRE.\n${text}` };
   }
-  if ( r.status === SWAPPED )   return { code: SWAPPED, message: text };
-  if ( r.status === REFUSED )   return { code: REFUSED, message: text };
-  if ( r.status === NO_ATTACH ) return { code: NO_ATTACH, message: text };
+  if ( helperSpeaks ) return { code: r.status, message: text };
   return { code: HELPER_FAILED, message: `the swap helper failed (exit ${r.status}):\n${text}` };
 }
 
@@ -134,4 +146,4 @@ function readManifest(file) {
   try { return fs_.readFileSync(file, 'utf8').split('\n').filter(Boolean); } catch (e) { return []; }
 }
 
-module.exports = { startServerJvm, refusal, shellQuote, isStale, clearPending, LIVE, STALE, MANIFEST, serverJvm, checkJvm, swap, answer, readManifest, classVersion, jdwp, SWAP_FLAG, SWAPPED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };
+module.exports = { startServerJvm, refusal, shellQuote, isStale, clearPending, LIVE, STALE, MANIFEST, serverJvm, checkJvm, swap, answer, readManifest, classVersion, jdwp, SWAP_FLAG, OUTCOMES, outcomeWords, exitCodeHelp, SWAPPED, BUILD_FAILED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };

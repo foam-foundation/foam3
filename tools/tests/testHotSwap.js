@@ -108,7 +108,9 @@ function run(task, globals) {
     writeFileSync: () => {}, showSummary: () => {}, info: () => {},
     error: m => { ran.errors.push(m); throw new Error('stop'); }
   };
-  try { l.pom.tasks[task][3].call(self); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) throw e; }
+  // Like the build: the task's function dependencies (the --hot-swap refusals are one), then its body.
+  var t = l.pom.tasks[task];
+  try { t[2].filter(d => typeof d === 'function').forEach(d => d.call(self)); t[3].call(self); } catch (e) { if ( e.message !== 'stop' && e.message !== 'exit' ) throw e; }
   ran.opts = l.ctx.JAVA_OPTS;
   return ran;
 }

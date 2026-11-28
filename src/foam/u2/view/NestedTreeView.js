@@ -153,7 +153,6 @@ foam.CLASS({
                   relationship: self.relationship,
                   expanded:     self.startExpanded,
                   formatter:    self.formatter,
-                  query:        self.query,
                   onClickAddOn: self.back,
                   level:        1
                 })
@@ -172,7 +171,6 @@ foam.CLASS({
               relationship: self.relationship,
               expanded:     self.startExpanded,
               formatter:    self.formatter,
-              query:        self.query,
               onClickAddOn: drillsIn ? self.onClickAddOn1 : self.onClickAddOn,
               // A drill-in row replaces the list on click, so it is not a
               // disclosure and TreeViewRow leaves aria-expanded off it.

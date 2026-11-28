@@ -13,13 +13,17 @@ foam.CLASS({
     their ancestors, ancestors open; a match keeps its own children, closed; rows the relationship builds from another source (Data
     Management's DAO menus) are judged too; a new search replaces the shown
     rows; clearing it shows every row and closes the rows the search opened;
-    without a search every row shows.`,
+    without a search every row shows; a tree that starts closed starts closed
+    at every level. VerticalMenu's search box finds a menu by label or keyword, and
+    MDSideNavigation's by the same rule.`,
 
   requires: [
     'foam.core.menu.Menu',
     'foam.core.menu.PseudoMenu',
+    'foam.core.menu.VerticalMenu',
     'foam.dao.ArrayDAO',
     'foam.mlang.ExpressionsSingleton',
+    'foam.u2.layout.MDSideNavigation',
     'foam.u2.view.TreeView'
   ],
 
@@ -88,10 +92,8 @@ foam.CLASS({
       x.test(row(root, 'admin')?.getAttribute('aria-expanded') === 'false',
         'a match with no match below it shows closed, with an arrow, got ' + row(root, 'admin')?.getAttribute('aria-expanded'));
       row(root, 'admin').click();
-      var children = [ 'admin.data', 'admin.users', 'admin.stores' ];
-      for ( var i = 0 ; i < 30 && ! children.every(c => shownIds(root).includes(c)) ; i++ ) await settle();
-      x.test(children.every(c => shownIds(root).includes(c)),
-        'opening a match shows its own children, got ' + JSON.stringify(shownIds(root)));
+      x.test(await waitShown(root, [ 'admin', 'admin.data', 'admin.users', 'admin.stores' ]),
+        'opening a match shows its own children, closed, got ' + JSON.stringify(shownIds(root)));
       // Closed again by hand, so the checks below start from a closed tree.
       row(root, 'admin').click();
 
@@ -119,6 +121,40 @@ foam.CLASS({
         'without a search every row shows, got ' + JSON.stringify(shownIds(plain.el_())));
       plain.remove();
 
+      // A tree that starts closed (the side menus) starts closed at every
+      // level: opening a top row shows its children closed.
+      var closed = await mount(this.TreeView.create({
+        data: menuDAO, relationship: rel, startExpanded: false, formatter: fmt
+      }, mx));
+      row(closed.el_(), 'admin')?.click();
+      x.test(await waitShown(closed.el_(), [ 'admin', 'admin.data', 'admin.users', 'admin.stores', 'help' ]),
+        'opening a top row shows its children, got ' + JSON.stringify(shownIds(closed.el_())));
+      x.test(row(closed.el_(), 'admin.data')?.getAttribute('aria-expanded') === 'false',
+        'a child row starts closed too, got ' + row(closed.el_(), 'admin.data')?.getAttribute('aria-expanded'));
+      closed.remove();
+
+      // VerticalMenu's search box finds a menu by label or by keyword.
+      var nav = this.VerticalMenu.create({}, mx.createSubContext({
+        currentMenu: null, loginSuccess: true, pushMenu: () => {},
+        theme: { showNavSearch: true, navigationRootMenu: '' }
+      }));
+      var smtp = this.Menu.create({ id: 'mail', label: 'Email Service', keywords: [ 'smtp' ] }, mx);
+      nav.menuSearch = 'SMTP';
+      x.test(nav.menuSearchPredicate_.f(smtp), 'the side menu search finds a menu by keyword, case ignored');
+      nav.menuSearch = 'email';
+      x.test(nav.menuSearchPredicate_.f(smtp), 'the side menu search finds a menu by label, case ignored');
+      nav.menuSearch = 'agents';
+      x.test(! nav.menuSearchPredicate_.f(smtp), 'the side menu search skips a menu that holds the text nowhere');
+      nav.menuSearch = '  ';
+      x.test(E.TRUE.cls_.isInstance(nav.menuSearchPredicate_), 'blank text is no search');
+
+      // The Material side menu takes the same rule from MenuSearch.
+      var md = this.MDSideNavigation.create({}, mx.createSubContext({
+        auth: null, currentMenu: null, isMenuOpen: false, pushMenu: () => {},
+        subject: { user: null }, theme: { navigationRootMenu: '' }
+      }));
+      md.menuSearch = 'SMTP';
+      x.test(md.menuSearchPredicate_.f(smtp), 'the Material side menu finds a menu by keyword too');
     }
   ]
 });

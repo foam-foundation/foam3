@@ -11,6 +11,7 @@ foam.CLASS({
   extends: 'foam.u2.View',
 
   implements: [
+    'foam.core.menu.MenuSearch',
     'foam.mlang.Expressions'
   ],
 
@@ -88,8 +89,8 @@ foam.CLASS({
               class: 'foam.u2.view.TreeView',
               data: self.dao_,
               relationship: foam.core.menu.MenuMenuChildrenRelationship,
-              startExpanded: true,
-              query: self.menuSearch$,
+              startExpanded: false,
+              searchPredicate$: self.menuSearchPredicate_$,
               onClickAddOn: function(data) { self.openMenu(data); },
               selection$: self.currentMenu$,
               formatter: function(data) { this.add(data.label); },

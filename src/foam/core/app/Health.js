@@ -100,6 +100,18 @@ foam.CLASS({
       visibility: 'RO',
     },
     {
+      // The heartbeat delivery mode (BROADCAST / LOOPBACK / DIRECT), stamped by
+      // HealthHeartbeatService.start(). Distinct from 'mode' above, which is the
+      // application runtime Mode (DEVELOPMENT / PRODUCTION / ...). Surfaced on
+      // /service/health so an operator can confirm the mode in effect -- e.g.
+      // DIRECT on a no-multicast network like AWS -- without reading the logs.
+      name: 'heartbeatMode',
+      shortName: 'hm',
+      class: 'Enum',
+      of: 'foam.core.app.HeartbeatMode',
+      visibility: 'RO',
+    },
+    {
       // NOTE: bootTime must be present in tableColumns for upTime to reported correctly in tableView
       name: 'bootTime',
       shortName: 'bt',

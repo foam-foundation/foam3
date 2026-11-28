@@ -244,8 +244,24 @@ function wiring() {
 
 // ---- getting a JetBrains Runtime
 
+// Lines from a real release's notes (jbr-release-25.0.5.1b508.47): the plain SDK must win over the JBR alone,
+// fastdebug, FreeType, JCEF and debug-symbol builds.
+var NOTES = [
+  '| osx-aarch64 | **JBR (vanilla, bundled by default)** | [jbr-25.0.5.1-osx-aarch64-b508.47.tar.gz](https://cache-redirector.jetbrains.com/intellij-jbr/jbr-25.0.5.1-osx-aarch64-b508.47.tar.gz) | [checksum](https://cache-redirector.jetbrains.com/intellij-jbr/jbr-25.0.5.1-osx-aarch64-b508.47.tar.gz.checksum) |',
+  '| osx-aarch64 | JBRSDK debug symbols | [x](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-osx-aarch64-b508.47_diz.tar.gz) |',
+  '| osx-aarch64 | JBRSDK (fastdebug) | [x](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-osx-aarch64-fastdebug-b508.47.tar.gz) |',
+  '| osx-aarch64 | JBRSDK with JCEF | [x](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk_jcef-25.0.5.1-osx-aarch64-b508.47.tar.gz) |',
+  '| osx-aarch64 | JBRSDK | [jbrsdk-25.0.5.1-osx-aarch64-b508.47.tar.gz](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-osx-aarch64-b508.47.tar.gz) | [checksum](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-osx-aarch64-b508.47.tar.gz.checksum) |',
+  '| linux-x64 | JBRSDK | [jbrsdk-25.0.5.1-linux-x64-b508.47.tar.gz](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-linux-x64-b508.47.tar.gz) | [checksum](https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk-25.0.5.1-linux-x64-b508.47.tar.gz.checksum) |'
+].join('\n');
+
 function gettingJbr() {
   console.log('getting a JetBrains Runtime');
+  var base = 'https://cache-redirector.jetbrains.com/intellij-jbr/';
+  test(hs.jbrSdkUrl(NOTES, 'darwin', 'arm64') === base + 'jbrsdk-25.0.5.1-osx-aarch64-b508.47.tar.gz', 'mac arm: the plain SDK link, not the JBR, fastdebug, JCEF or symbols');
+  test(hs.jbrSdkUrl(NOTES, 'linux', 'x64') === base + 'jbrsdk-25.0.5.1-linux-x64-b508.47.tar.gz', 'linux x64: its own link');
+  test(hs.jbrSdkUrl(NOTES, 'linux', 'arm64') === null && hs.jbrSdkUrl(NOTES, 'win32', 'x64') === null, 'no link for this machine: null (a message, not a wrong download)');
+
   var home = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-jbr-'));
   var jbr = hs.JBR_DIR(home);
   test(hs.findJbr(jbr) === null, 'no ~/jbr: none found');
@@ -261,7 +277,33 @@ function gettingJbr() {
   test(run('pomEnvs', { HOT_SWAP: true, HOME_DIR: home, SERVER_JAVA_HOME: '/my/jdk' }).serverJavaHome === '/my/jdk', '--server-java-home wins over ~/jbr');
   test(run('pomEnvs', { HOT_SWAP: false, HOME_DIR: home }).serverJavaHome === '', 'without --hot-swap, ~/jbr is not used');
 
-  [ home ].forEach(d => fs_.rmSync(d, { recursive: true, force: true }));
+  test(run('installJbr', { HOME_DIR: home }).logs.some(l => /already in .*b508\.47/.test(l)), 'installJbr with one in ~/jbr: nothing to do');
+
+  // installJbr with the network faked: the release notes, the download, the checksum.
+  var empty = fs_.mkdtempSync(path_.join(os_.tmpdir(), 'hotswap-jbr-'));
+  var install = (checksumOf) => {
+    var cmds = [];
+    var r = run('installJbr', { HOME_DIR: empty }, false, { execSync: c => {
+      cmds.push(c);
+      if ( /api\.github\.com/.test(c) ) return JSON.stringify({ body: NOTES });
+      var out = /-o '([^']+)'/.exec(c);
+      if ( out ) { fs_.writeFileSync(out[1], 'the download'); return ''; }
+      if ( /\.checksum'$/.test(c) ) return checksumOf(path_.join(hs.JBR_DIR(empty), 'jbrsdk-' + ( process.platform === 'darwin' ? '25.0.5.1-osx-aarch64' : '25.0.5.1-linux-x64' ) + '-b508.47.tar.gz')) + '  name.tar.gz\n';
+      return '';
+    } });
+    r.cmds = cmds;
+    return r;
+  };
+  var machine = hs.jbrSdkUrl(NOTES, process.platform, process.arch);
+  if ( ! machine ) { console.log('  skip the install flow: the sample notes have no link for this machine'); }
+  else {
+    var bad = install(() => 'f'.repeat(128));
+    test(bad.errors.length === 1 && /does not match its SHA-512/.test(bad.errors[0]) && ! bad.cmds.some(c => /^tar /.test(c)) && fs_.readdirSync(hs.JBR_DIR(empty)).length === 0, 'a download with the wrong SHA-512 is deleted, never unpacked');
+    var good = install(f => hs.sha512(f));
+    test(good.errors.length === 0 && good.cmds.some(c => /^tar -xzf '.*jbrsdk-.*\.tar\.gz' -C '.*\/jbr'$/.test(c)) && fs_.readdirSync(hs.JBR_DIR(empty)).length === 0, 'a download with the right SHA-512 is unpacked into ~/jbr and the archive removed');
+    test(good.cmds[1] === "curl -fL --progress-bar -o '" + path_.join(hs.JBR_DIR(empty), path_.basename(machine)) + "' '" + machine + "'", 'it downloads the SDK for this machine');
+  }
+  [ home, empty ].forEach(d => fs_.rmSync(d, { recursive: true, force: true }));
 }
 
 function pendingFlow() {

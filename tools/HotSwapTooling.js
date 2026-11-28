@@ -20,7 +20,8 @@
 
 const fs_    = require('fs');
 const path_  = require('path');
-const child_ = require('child_process');
+const child_  = require('child_process');
+const crypto_ = require('crypto');
 
 // Exit codes of a swap, also the build's exit code.
 const SWAPPED = 0, BUILD_FAILED = 1, REFUSED = 2, NO_ATTACH = 3, HELPER_FAILED = 4, TIMED_OUT = 5;
@@ -155,9 +156,10 @@ function readSwapManifest(file) {
 
 // ---- getting a JetBrains Runtime
 
-// Where --hot-swap looks for it when --server-java-home is not given.
+// Where installJbr puts it, and where --hot-swap looks when --server-java-home is not given.
 const JBR_DIR = home => path_.join(home, 'jbr');
-const GET_JBR = 'Get one: download a jbrsdk build for this machine from https://github.com/JetBrains/JetBrainsRuntime/releases and unpack it into ~/jbr (doc/guides/Build.md, "Options and Tasks of interest", --hot-swap).';
+const GET_JBR = 'Get one into ~/jbr with: ./build.sh -T+HotSwap installJbr (or see doc/guides/Build.md, "Options and Tasks of interest", --hot-swap).';
+const JBR_RELEASES = 'https://api.github.com/repos/JetBrains/JetBrainsRuntime/releases/latest';
 
 // The folder with bin/java under dir, up to depth levels down (the mac download is <name>/Contents/Home);
 // the newest name first. null when there is none.
@@ -173,7 +175,19 @@ function findJbr(dir, depth = 3) {
   return null;
 }
 
-module.exports = { findJbr, JBR_DIR, startServerJvm, hotSwapRefusal, swapIsStale, swapClearPending, SWAP_LIVE, SWAP_STALE, SWAP_MANIFEST, serverJvm, checkJvm, swapClasses, swapAnswer, readSwapManifest, classVersion, jdwp, SWAP_FLAG, OUTCOMES, outcomeWords, exitCodeHelp, SWAPPED, BUILD_FAILED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };
+// The download link of the plain JBR SDK for this machine, read from a release's notes (a table of links). The SDK,
+// not the JBR alone: the swap helper needs its jdk.jdi and jdk.compiler modules. null when the notes have none.
+function jbrSdkUrl(notes, platform, arch) {
+  var os = { darwin: 'osx', linux: 'linux' }[platform], cpu = { arm64: 'aarch64', x64: 'x64' }[arch];
+  if ( ! os || ! cpu ) return null;
+  var m = new RegExp(`https://cache-redirector\\.jetbrains\\.com/intellij-jbr/jbrsdk-[0-9.]+-${os}-${cpu}-b[0-9.]+\\.tar\\.gz(?=\\))`).exec(notes);
+  return m ? m[0] : null;
+}
+
+// The SHA-512 of a file, as the .checksum file next to each download states it.
+const sha512 = file => crypto_.createHash('sha512').update(fs_.readFileSync(file)).digest('hex');
+
+module.exports = { findJbr, jbrSdkUrl, sha512, JBR_DIR, startServerJvm, hotSwapRefusal, swapIsStale, swapClearPending, SWAP_LIVE, SWAP_STALE, SWAP_MANIFEST, serverJvm, checkJvm, swapClasses, swapAnswer, readSwapManifest, classVersion, jdwp, SWAP_FLAG, OUTCOMES, outcomeWords, exitCodeHelp, SWAPPED, BUILD_FAILED, REFUSED, NO_ATTACH, HELPER_FAILED, TIMED_OUT };
 
 // The runs --hot-swap does not apply to stop at the first hook each one passes before its work. Every hook
 // checks, because a task runs once per build: on a line of several tasks, an earlier task may have run pomEnvs
@@ -237,8 +251,27 @@ foam.POM({
       swapClearPending(BUILD_DIR);
     }],
 
+    installJbr: ['install-jbr', 'Download the JetBrains Runtime SDK that hot swap needs (the newest release, from JetBrains\' GitHub releases) into ~/jbr, checked against its SHA-512. Nothing to do when ~/jbr has one.', [], function() {
+      var dir  = JBR_DIR(HOME_DIR);
+      var have = findJbr(dir);
+      if ( have ) { console.log(`a JetBrains Runtime is already in ${have}: nothing to do`); return; }
+      var url = jbrSdkUrl(JSON.parse(this.execSync(`curl -fsSL ${JBR_RELEASES}`).toString()).body || '', process.platform, process.arch);
+      if ( ! url ) this.error(`the newest JetBrains Runtime release has no SDK for ${process.platform} ${process.arch}: download a jbrsdk build from https://github.com/JetBrains/JetBrainsRuntime/releases and unpack it into ${dir}`);
+      fs_.mkdirSync(dir, { recursive: true });
+      var file = path_.join(dir, path_.basename(url));
+      console.log(`downloading ${url}`);
+      this.execSync(`curl -fL --progress-bar -o '${file}' '${url}'`, { stdio: 'inherit' });
+      var want = this.execSync(`curl -fsSL '${url}.checksum'`).toString().trim().split(/\s+/)[0];
+      if ( sha512(file) !== want ) { fs_.rmSync(file, { force: true }); this.error(`the download of ${url} does not match its SHA-512: deleted, try again`); }
+      this.execSync(`tar -xzf '${file}' -C '${dir}'`);
+      fs_.rmSync(file, { force: true });
+      console.log(`installed the JetBrains Runtime in ${findJbr(dir)}. --hot-swap uses it when --server-java-home is not given.`);
+    }],
+
     usage: ['usage', 'Hot swap usage examples', [], function() {
       this.log('\nJava hot swap (-T+HotSwap):');
+      this.log('  ./build.sh -T+HotSwap installJbr');
+      this.log('    Download the JetBrains Runtime hot swap needs into ~/jbr (once).');
       this.log('  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap -D8305  ;  ./build.sh -T+HotSwap -Ndemo -W8300 --hot-swap -D8305 --swap');
       this.log('    Run on the JetBrains Runtime in ~/jbr (or --server-java-home) with a loopback debug port, then (second line, other terminal) build the changed Java and send it into the running server without a restart.');
     }]

@@ -39,9 +39,10 @@ How apps pick them up: `foam3/.claude/skills/README.md`.
 ./build.sh -l
 ```
 
-**Java hot swap.** Change Java and see it in the running server without a restart (JetBrains Runtime needed). It is not in the default tooling: add `-T+HotSwap`. Get the JetBrains Runtime once: unpack a `jbrsdk` build from https://github.com/JetBrains/JetBrainsRuntime/releases into `~/jbr`, which `--hot-swap` then uses, start with `--hot-swap`, then run the same line with `--swap`. Guide: [Build](Build.md), "Options and Tasks of interest".
+**Java hot swap.** Change Java and see it in the running server without a restart (JetBrains Runtime needed). It is not in the default tooling: add `-T+HotSwap`. Get the JetBrains Runtime once with `installJbr` (into `~/jbr`, which `--hot-swap` then uses), start with `--hot-swap`, then run the same line with `--swap`. Guide: [Build](Build.md), "Options and Tasks of interest".
 
 ```bash
+./build.sh -T+HotSwap installJbr              # once: download the JetBrains Runtime into ~/jbr
 ./build.sh -T+HotSwap --hot-swap              # start
 ./build.sh -T+HotSwap --hot-swap --swap       # after a Java edit
 ```
